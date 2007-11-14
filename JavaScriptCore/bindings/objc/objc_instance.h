@@ -22,14 +22,12 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _BINDINGS_OBJC_INSTANCE_H_
-#define _BINDINGS_OBJC_INSTANCE_H_
 
-#include <CoreFoundation/CoreFoundation.h>
+#ifndef BINDINGS_OBJC_INSTANCE_H_
+#define BINDINGS_OBJC_INSTANCE_H_
 
-#include <objc_class.h>
-#include <objc_runtime.h>
-#include <objc_utility.h>
+#include <JavaScriptCore/objc_class.h>
+#include <JavaScriptCore/objc_utility.h>
 
 namespace KJS {
 
@@ -37,50 +35,45 @@ namespace Bindings {
 
 class ObjcClass;
 
-class ObjcInstance : public Instance
-{
+class ObjcInstance : public Instance {
 public:
-    ObjcInstance (ObjectStructPtr instance);
+    ObjcInstance(ObjectStructPtr instance, PassRefPtr<RootObject>);
         
-    ~ObjcInstance ();
+    ~ObjcInstance();
     
     virtual Class *getClass() const;
-    
-    ObjcInstance (const ObjcInstance &other);
-
-    ObjcInstance &operator=(const ObjcInstance &other);
     
     virtual void begin();
     virtual void end();
     
-    virtual Value valueOf() const;
-    virtual Value defaultValue (Type hint) const;
+    virtual JSValue *valueOf() const;
+    virtual JSValue *defaultValue(JSType hint) const;
 
-    virtual Value invokeMethod (ExecState *exec, const MethodList &method, const List &args);
-    virtual Value invokeDefaultMethod (ExecState *exec, const List &args);
-
-    virtual void setValueOfField (ExecState *exec, const Field *aField, const Value &aValue) const;
-    virtual bool supportsSetValueOfUndefinedField ();
-    virtual void setValueOfUndefinedField (ExecState *exec, const Identifier &property, const Value &aValue);
+    virtual bool implementsCall() const;
     
-    virtual Value ObjcInstance::getValueOfField (ExecState *exec, const Field *aField) const;
-    virtual Value getValueOfUndefinedField (ExecState *exec, const Identifier &property, Type hint) const;
+    virtual JSValue *invokeMethod(ExecState *exec, const MethodList &method, const List &args);
+    virtual JSValue *invokeDefaultMethod(ExecState *exec, const List &args);
 
-    ObjectStructPtr getObject() const { return _instance; }
+    virtual bool supportsSetValueOfUndefinedField();
+    virtual void setValueOfUndefinedField(ExecState *exec, const Identifier &property, JSValue *aValue);
     
-    Value stringValue() const;
-    Value numberValue() const;
-    Value booleanValue() const;
+    virtual JSValue *getValueOfUndefinedField(ExecState *exec, const Identifier &property, JSType hint) const;
+
+    ObjectStructPtr getObject() const { return _instance.get(); }
+    
+    JSValue *stringValue() const;
+    JSValue *numberValue() const;
+    JSValue *booleanValue() const;
     
 private:
-    ObjectStructPtr _instance;
+    RetainPtr<ObjectStructPtr> _instance;
     mutable ObjcClass *_class;
     ObjectStructPtr _pool;
-    long _beginCount;
+    int _beginCount;
 };
 
 } // namespace Bindings
 
 } // namespace KJS
 
-#endif
+#endif // BINDINGS_OBJC_INSTANCE_H_

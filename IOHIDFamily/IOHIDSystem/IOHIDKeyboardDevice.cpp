@@ -372,11 +372,11 @@ static unsigned char hid_adb_2_usb_keymap[] =
 	0xe6,	// 3d
 	0xe4,	// 3e
 	0x00,	// 3f
-	0x00,	// 40
+	0x6c,	// 40
 	0x63,	// 41
 	0x00,	// 42
 	0x55,	// 43
-	0x00,	// 44
+	0x6d,	// 44
 	0x57,	// 45
 	0x00,	// 46
 	0x53,	// 47
@@ -387,8 +387,8 @@ static unsigned char hid_adb_2_usb_keymap[] =
 	0x58,	// 4c
 	0x00,	// 4d
 	0x56,	// 4e
-	0x00,	// 4f
-	0x00,	// 50
+	0x6d,	// 4f
+	0x6e,	// 50
 	0x67,	// 51
 	0x62,	// 52
 	0x59,	// 53
@@ -398,7 +398,7 @@ static unsigned char hid_adb_2_usb_keymap[] =
 	0x5d,	// 57
 	0x5e,	// 58
 	0x5f,	// 59
-	0x00,	// 5a
+	0x6f,	// 5a
 	0x60,	// 5b
 	0x61,	// 5c
 	0x89,	// 5d

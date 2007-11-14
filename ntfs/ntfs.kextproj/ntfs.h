@@ -75,6 +75,7 @@ typedef u_int16_t wchar;
 #define	NTFS_BOOTINO		7
 #define	NTFS_BADCLUSINO		8
 #define	NTFS_UPCASEINO		10
+#define	NTFS_EXTENDINO		11
 #define NTFS_MAXFILENAME	255
 
 struct fixuphdr {

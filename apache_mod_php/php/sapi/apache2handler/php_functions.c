@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_functions.c,v 1.1.2.12.2.4 2006/01/02 22:22:07 iliaa Exp $ */
+/* $Id: php_functions.c,v 1.1.2.12.2.6 2007/03/05 22:00:12 stas Exp $ */
 
 #include "php.h"
 #include "ext/standard/php_smart_str.h"
@@ -397,11 +397,11 @@ PHP_MINFO_FUNCTION(apache)
 		php_info_print_table_row(2, "Server Administrator", serv->server_admin);
 	}
 	
-	sprintf(tmp, "%s:%u", serv->server_hostname, serv->port);
+	snprintf(tmp, sizeof(tmp), "%s:%u", serv->server_hostname, serv->port);
 	php_info_print_table_row(2, "Hostname:Port", tmp);
 	
 #if !defined(WIN32) && !defined(WINNT)
-	sprintf(tmp, "%s(%d)/%d", unixd_config.user_name, unixd_config.user_id, unixd_config.group_id);
+	snprintf(tmp, sizeof(tmp), "%s(%d)/%d", unixd_config.user_name, unixd_config.user_id, unixd_config.group_id);
 	php_info_print_table_row(2, "User/Group", tmp);
 #endif
 

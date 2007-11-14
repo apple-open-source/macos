@@ -14,31 +14,47 @@
  *
  *  You should have received a copy of the GNU Library General Public License
  *  along with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA 02111-1307, USA.
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
  *
  */
 
 #ifndef KJS_SCOPE_CHAIN_H
 #define KJS_SCOPE_CHAIN_H
 
-#include "fast_malloc.h"
+#include <assert.h>
 
 namespace KJS {
 
-    class ObjectImp;
+    class JSObject;
     class ExecState;
     
     class ScopeChainNode {
     public:
-        ScopeChainNode(ScopeChainNode *n, ObjectImp *o)
+        ScopeChainNode(ScopeChainNode *n, JSObject *o)
             : next(n), object(o), refCount(1) { }
 
-        KJS_FAST_ALLOCATED;
-
         ScopeChainNode *next;
-        ObjectImp *object;
+        JSObject *object;
         int refCount;
+    };
+
+    class ScopeChainIterator {
+    public:
+        ScopeChainIterator(ScopeChainNode *node) : m_node(node) {}
+
+        JSObject * const & operator*() const { return m_node->object; }
+        JSObject * const * operator->() const { return &(operator*()); }
+    
+        ScopeChainIterator& operator++() { m_node = m_node->next; return *this; }
+
+        // postfix ++ intentionally omitted
+
+        bool operator==(const ScopeChainIterator& other) const { return m_node == other.m_node; }
+        bool operator!=(const ScopeChainIterator& other) const { return m_node != other.m_node; }
+
+    private:
+        ScopeChainNode *m_node;
     };
 
     class ScopeChain {
@@ -51,16 +67,23 @@ namespace KJS {
         ScopeChain &operator=(const ScopeChain &);
 
         bool isEmpty() const { return !_node; }
-        ObjectImp *top() const { return _node->object; }
+        JSObject *top() const { return _node->object; }
 
-	ObjectImp *bottom() const;
+        JSObject *bottom() const;
+
+        ScopeChainIterator begin() const { return ScopeChainIterator(_node); }
+        ScopeChainIterator end() const { return ScopeChainIterator(0); }
 
         void clear() { deref(); _node = 0; }
-        void push(ObjectImp *);
+        void push(JSObject *);
         void push(const ScopeChain &);
         void pop();
         
         void mark();
+
+#ifndef NDEBUG        
+        void print();
+#endif
         
     private:
         ScopeChainNode *_node;
@@ -71,6 +94,53 @@ namespace KJS {
         void release();
     };
 
-}; // namespace KJS
+inline void ScopeChain::ref() const
+{
+    for (ScopeChainNode *n = _node; n; n = n->next) {
+        if (n->refCount++ != 0)
+            break;
+    }
+}
+
+inline ScopeChain &ScopeChain::operator=(const ScopeChain &c)
+{
+    c.ref();
+    deref();
+    _node = c._node;
+    return *this;
+}
+
+inline JSObject *ScopeChain::bottom() const
+{
+    ScopeChainNode *last = 0;
+    for (ScopeChainNode *n = _node; n; n = n->next)
+        last = n;
+    if (!last)
+        return 0;
+    return last->object;
+}
+
+inline void ScopeChain::push(JSObject *o)
+{
+    assert(o);
+    _node = new ScopeChainNode(_node, o);
+}
+
+inline void ScopeChain::pop()
+{
+    ScopeChainNode *oldNode = _node;
+    assert(oldNode);
+    ScopeChainNode *newNode = oldNode->next;
+    _node = newNode;
+    
+    if (--oldNode->refCount != 0) {
+        if (newNode)
+            ++newNode->refCount;
+    } else {
+        delete oldNode;
+    }
+}
+
+} // namespace KJS
 
 #endif // KJS_SCOPE_CHAIN_H

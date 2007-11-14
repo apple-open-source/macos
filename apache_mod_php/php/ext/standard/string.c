@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.333.2.52.2.6 2006/08/10 17:27:12 iliaa Exp $ */
+/* $Id: string.c,v 1.333.2.52.2.11 2007/03/26 10:28:28 tony2001 Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -2220,11 +2220,8 @@ PHP_FUNCTION(addcslashes)
 		RETURN_STRINGL(Z_STRVAL_PP(str), Z_STRLEN_PP(str), 1);
 	}
 
-	RETURN_STRING(php_addcslashes(Z_STRVAL_PP(str), 
-	                              Z_STRLEN_PP(str), 
-	                              &Z_STRLEN_P(return_value), 0, 
-	                              Z_STRVAL_PP(what),
-	                              Z_STRLEN_PP(what) TSRMLS_CC), 0);
+	Z_STRVAL_P(return_value) = php_addcslashes(Z_STRVAL_PP(str), Z_STRLEN_PP(str), &Z_STRLEN_P(return_value), 0, Z_STRVAL_PP(what), Z_STRLEN_PP(what) TSRMLS_CC);
+	RETURN_STRINGL(Z_STRVAL_P(return_value), Z_STRLEN_P(return_value), 0);
 }
 /* }}} */
 
@@ -2531,7 +2528,7 @@ PHPAPI int php_char_to_str(char *str, uint len, char from, char *to, int to_len,
 	}
 	
 	Z_STRLEN_P(result) = len + (char_count * (to_len - 1));
-	Z_STRVAL_P(result) = target = emalloc(Z_STRLEN_P(result) + 1);
+	Z_STRVAL_P(result) = target = safe_emalloc(char_count, to_len, len + 1);
 	Z_TYPE_P(result) = IS_STRING;
 	
 	for (source = str; source < source_end; source++) {
@@ -3224,7 +3221,13 @@ PHP_FUNCTION(parse_str)
 int php_tag_find(char *tag, int len, char *set) {
 	char c, *n, *t;
 	int state=0, done=0;
-	char *norm = emalloc(len+1);
+	char *norm;
+
+	if (len <= 0) {
+		return 0;
+	}
+	
+	norm = emalloc(len+1);
 
 	n = norm;
 	t = tag;
@@ -3234,9 +3237,6 @@ int php_tag_find(char *tag, int len, char *set) {
 	   and turn any <a whatever...> into just <a> and any </tag>
 	   into <tag>
 	*/
-	if (!len) {
-		return 0;
-	}
 	while (!done) {
 		switch (c) {
 			case '<':

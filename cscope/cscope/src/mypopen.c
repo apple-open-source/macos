@@ -48,7 +48,11 @@
 # define CLOSE_ON_EXEC 1
 #endif
 
-static char const rcsid[] = "$Id: mypopen.c,v 1.4 2004/07/09 21:34:45 nicolai Exp $";
+#ifdef HAVE_IO_H
+# include <io.h>		/* for setmode() */
+#endif
+
+static char const rcsid[] = "$Id: mypopen.c,v 1.14 2006/04/21 10:40:29 broeker Exp $";
 
 static pid_t popen_pid[20];
 static RETSIGTYPE (*tstat)(int);
@@ -56,69 +60,69 @@ static RETSIGTYPE (*tstat)(int);
 int
 myopen(char *path, int flag, int mode)
 {
-	/* opens a file descriptor and then sets close-on-exec for the file */
-	int fd;
+    /* opens a file descriptor and then sets close-on-exec for the file */
+    int fd;
 
-	/* 20020103: if file is not explicitly in Binary mode, make
-	 * sure we override silly Cygwin behaviour of automatic binary
-	 * mode for files in "binary mounted" paths */
+    /* 20020103: if file is not explicitly in Binary mode, make
+     * sure we override silly Cygwin behaviour of automatic binary
+     * mode for files in "binary mounted" paths */
 #if O_BINARY != O_TEXT
-	if (! (flag | O_BINARY))
-		flag |= O_TEXT;
+    if (! (flag | O_BINARY))
+	flag |= O_TEXT;
 #endif
-	if(mode)
-		fd = open(path, flag, mode);
-	else
-		fd = open(path, flag);
+    if(mode)
+	fd = open(path, flag, mode);
+    else
+	fd = open(path, flag);
 
 #ifdef __DJGPP__		/* FIXME: test feature, not platform */
-	/* HBB 20010312: DOS GCC doesn't have FD_CLOEXEC (yet), so it 
-	 * always fails this call. Have to skip that step */
-	if(fd != -1)
-		return(fd);
+    /* HBB 20010312: DOS GCC doesn't have FD_CLOEXEC (yet), so it 
+     * always fails this call. Have to skip that step */
+    if(fd != -1)
+	return(fd);
 #endif
-	if(fd != -1 && (fcntl(fd, F_SETFD, CLOSE_ON_EXEC) != -1))
-		return(fd);
+    if(fd != -1 && (fcntl(fd, F_SETFD, CLOSE_ON_EXEC) != -1))
+	return(fd);
 
-	else
+    else
 	{
-		/* Ensure that if the fcntl fails and fd is valid, then
-		   the file is closed properly. In general this should
-		   not happen. */
-		if (fd != -1)
+	    /* Ensure that if the fcntl fails and fd is valid, then
+	       the file is closed properly. In general this should
+	       not happen. */
+	    if (fd != -1)
 		{
-			close (fd);
+		    close (fd);
 		}
 
-		return(-1);
+	    return(-1);
 	}
 }
 
 FILE *
 myfopen(char *path, char *mode)
 {
-	/* opens a file pointer and then sets close-on-exec for the file */
-	FILE *fp;
+    /* opens a file pointer and then sets close-on-exec for the file */
+    FILE *fp;
 
-	fp = fopen(path, mode);
+    fp = fopen(path, mode);
 
 #ifdef SETMODE
-	if (fp && ! strchr(mode, 'b')) {
-		SETMODE(fileno(fp), O_TEXT);
-	}
+    if (fp && ! strchr(mode, 'b')) {
+	SETMODE(fileno(fp), O_TEXT);
+    }
 #endif /* SETMODE */
 	
 #ifdef __DJGPP__ /* FIXME: test feature, not platform */
-	/* HBB 20010312: DOS GCC doesn't have FD_CLOEXEC (yet), so it 
-	 * always fails this call. Have to skip that step */
-	if(fp)
+    /* HBB 20010312: DOS GCC doesn't have FD_CLOEXEC (yet), so it 
+     * always fails this call. Have to skip that step */
+    if(fp)
 #else
 	if(fp && (fcntl(fileno(fp), F_SETFD, CLOSE_ON_EXEC) != -1))
 #endif
-		return(fp);
+	    return(fp);
 
 	else
-		return(NULL);
+	    return(NULL);
 }
 
 FILE *
@@ -148,15 +152,15 @@ mypopen(char *cmd, char *mode)
 				(void) close(poptr - popen_pid);
 		}
 		stdio = tst(0, 1);
-		(void) close(myside);
-		(void) close(stdio);
+		close(myside);
+		close(stdio);
 #if V9
-		(void) dup2(yourside, stdio);
+		dup2(yourside, stdio);
 #else
-		(void) fcntl(yourside, F_DUPFD, stdio);
+		fcntl(yourside, F_DUPFD, stdio);
 #endif
-		(void) close(yourside);
-		(void) execlp(shell, mybasename(shell), "-c", cmd, 0);
+		close(yourside);
+		execlp(shell, mybasename(shell), "-c", cmd, (void *)0);
 		_exit(1);
 	} else if (pid > 0)
 		tstat = signal(SIGTSTP, SIG_DFL);
@@ -176,7 +180,7 @@ mypclose(FILE *ptr)
 	int f;
 	pid_t r;
 	int status;
-	RETSIGTYPE (*hstat)(int), (*istat)(int), (*qstat)(int);
+	sighandler_t hstat, istat, qstat;
 
 #ifdef __DJGPP__ 
 	/* HBB 20010705: This system has its own pclose(), which we

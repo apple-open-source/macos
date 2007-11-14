@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp.c,v 1.7.2.1 2006/12/19 23:10:10 gelphman Exp $"
+ * "$Id: ipp.c,v 1.7.2.2 2007/06/06 19:45:19 gelphman Exp $"
  *
  *   IPP backend for the Common UNIX Printing System (CUPS).
  *
@@ -93,6 +93,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
      char *argv[])	/* I - Command-line arguments */
 {
   int		i;		/* Looping var */
+  int		send_options;	/* Send job options? */
   int		num_options;	/* Number of printer options */
   cups_option_t	*options;	/* Printer options */
   char		method[255],	/* Method in URI */
@@ -266,9 +267,15 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 
     close(fd);
     filename = tmpfilename;
+	
+    send_options = 0;
   }
   else
+  {
     filename = argv[6];
+	
+    send_options = strncasecmp(content_type, "application/vnd.cups-", 21) != 0;
+  }
 
  /*
   * See if there are any options...
@@ -761,6 +768,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 	content_type = "application/postscript";
 	copies           = 1;
 	copies_remaining = 1;
+    send_options = 0;
       }
     }
 #endif /* __APPLE__ */
@@ -776,7 +784,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 	                            num_options, &options);
     }
 
-    if (copies_sup)
+    if (copies_sup && send_options)
     {
      /*
       * Only send options if the destination printer supports the copies
@@ -1390,5 +1398,5 @@ sigterm_handler(int sig)		/* I - Signal */
 
 
 /*
- * End of "$Id: ipp.c,v 1.7.2.1 2006/12/19 23:10:10 gelphman Exp $".
+ * End of "$Id: ipp.c,v 1.7.2.2 2007/06/06 19:45:19 gelphman Exp $".
  */

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -1491,7 +1491,7 @@ PHP_FUNCTION(ncurses_instr)
 	str = (char *)emalloc(COLS + 1);
 	retval = instr(str);
 
-	ZVAL_STRING(*param, str, strlen(str));
+	ZVAL_STRING(*param, str, 1);
 	efree(str);
 
 	RETURN_LONG(retval);

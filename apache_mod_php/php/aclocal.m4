@@ -1,4 +1,4 @@
-dnl $Id: acinclude.m4,v 1.218.2.50.2.6 2005/12/19 22:29:11 sniper Exp $ -*- autoconf -*-
+dnl $Id: acinclude.m4,v 1.218.2.50.2.11 2007/03/25 10:22:37 sniper Exp $ -*- autoconf -*-
 dnl
 dnl This file contains local autoconf functions.
 
@@ -13,7 +13,7 @@ AC_DEFUN([PHP_ADD_MAKEFILE_FRAGMENT],[
   ifelse($1,,src=$ext_srcdir/Makefile.frag,src=$1)
   ifelse($2,,ac_srcdir=$ext_srcdir,ac_srcdir=$2)
   ifelse($3,,ac_builddir=$ext_builddir,ac_builddir=$3)
-  sed -e "s#\$(srcdir)#$ac_srcdir#g" -e "s#\$(builddir)#$ac_builddir#g" $src  >> Makefile.fragments
+  test -f "$src" && sed -e "s#\$(srcdir)#$ac_srcdir#g" -e "s#\$(builddir)#$ac_builddir#g" $src  >> Makefile.fragments
 ])
 
 AC_DEFUN([PHP_PROG_RE2C],[
@@ -561,18 +561,37 @@ AC_DEFUN([PHP_CONFIG_NICE],[
 
 EOF
 
-  for var in CFLAGS CXXFLAGS CPPFLAGS LDFLAGS LIBS CC CXX; do
+  for var in CFLAGS CXXFLAGS CPPFLAGS LDFLAGS EXTRA_LDFLAGS_PROGRAM LIBS CC CXX; do
     eval val=\$$var
     if test -n "$val"; then
       echo "$var='$val' \\" >> $1
     fi
   done
 
-  for arg in [$]0 "[$]@"; do
-    echo "'[$]arg' \\" >> $1
+  echo "'[$]0' \\" >> $1
+  if test `expr -- [$]0 : "'.*"` = 0; then
+    CONFIGURE_COMMAND="$CONFIGURE_COMMAND '[$]0'"
+  else 
+    CONFIGURE_COMMAND="$CONFIGURE_COMMAND [$]0"
+  fi
+  for arg in $ac_configure_args; do
+     if test `expr -- $arg : "'.*"` = 0; then
+        if test `expr -- $arg : "--.*"` = 0; then
+          break;
+        fi
+        echo "'[$]arg' \\" >> $1
+        CONFIGURE_COMMAND="$CONFIGURE_COMMAND '[$]arg'"
+     else
+        if test `expr -- $arg : "'--.*"` = 0; then
+          break;
+        fi
+        echo "[$]arg \\" >> $1
+        CONFIGURE_COMMAND="$CONFIGURE_COMMAND [$]arg"
+     fi
   done
   echo '"[$]@"' >> $1
   chmod +x $1
+  PHP_SUBST_OLD(CONFIGURE_COMMAND)
 ])
 
 AC_DEFUN([PHP_TIME_R_TYPE],[

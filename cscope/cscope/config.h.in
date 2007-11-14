@@ -16,11 +16,17 @@
 /* Define to 1 if you have the `fixkeypad' function. */
 #undef HAVE_FIXKEYPAD
 
+/* Define to 1 if you have the <floss.h> header file. */
+#undef HAVE_FLOSS_H
+
 /* Define to 1 if you have the `getcwd' function. */
 #undef HAVE_GETCWD
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the <io.h> header file. */
+#undef HAVE_IO_H
 
 /* Define to 1 if you have the `regex' library (-lregex). */
 #undef HAVE_LIBREGEX
@@ -52,6 +58,12 @@
 
 /* Define to 1 if you have the `setmode' function. */
 #undef HAVE_SETMODE
+
+/* Define to 1 if you have the <signal.h> header file. */
+#undef HAVE_SIGNAL_H
+
+/* Define if we have sigsetjmp(). */
+#undef HAVE_SIGSETJMP
 
 /* Define to 1 if you have the `snprintf' function. */
 #undef HAVE_SNPRINTF

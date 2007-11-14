@@ -282,6 +282,12 @@ setup(dev)
 		return (-1);
 	}
 	maxfsblock = sblock.fs_size;
+	if (sblock.fs_ipg != 0 &&
+			+ (unsigned)sblock.fs_ncg > INT_MAX / (unsigned)sblock.fs_ipg) {
+		printf("NCG * IPG OVERFLOWS\n");
+		goto badsb;
+	}
+		
 	maxino = sblock.fs_ncg * sblock.fs_ipg;
 	/*
 	 * Check and potentially fix certain fields in the super block.
@@ -417,6 +423,12 @@ setup(dev)
 		    (unsigned)(maxino + 1));
 		goto badsb;
 	}
+	
+	if ((size_t)(maxino + 1) > SIZE_T_MAX / sizeof(short)) {
+		printf("integer overflow detected allocating for lncntp\n");
+		goto badsb;
+	}
+
 	typemap = calloc((unsigned)(maxino + 1), sizeof(char));
 	if (typemap == NULL) {
 		printf("cannot alloc %u bytes for typemap\n",
@@ -432,6 +444,12 @@ setup(dev)
 	numdirs = sblock.fs_cstotal.cs_ndir;
 	inplast = 0;
 	listmax = numdirs + 10;
+	if (((size_t)numdirs > SIZE_T_MAX / sizeof(struct inoinfo *)) ||
+			((size_t)listmax > SIZE_T_MAX / sizeof(struct inoinfo *))) {
+		printf("integer overflow detected allocating for inphead\n");
+		goto badsb;
+	}
+
 	inpsort = (struct inoinfo **)calloc((unsigned)listmax,
 	    sizeof(struct inoinfo *));
 	inphead = (struct inoinfo **)calloc((unsigned)numdirs,

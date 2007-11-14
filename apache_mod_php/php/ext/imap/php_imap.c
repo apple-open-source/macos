@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -26,7 +26,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.142.2.44.2.6 2006/08/11 15:07:00 iliaa Exp $ */
+/* $Id: php_imap.c,v 1.142.2.44.2.12 2007/03/22 00:08:55 edink Exp $ */
 
 #define IMAP41
 
@@ -61,6 +61,9 @@ MAILSTREAM DEFAULTPROTO;
 #define CRLF_LEN sizeof("\015\012") - 1
 #define PHP_EXPUNGE 32768
 #define PHP_IMAP_ADDRESS_SIZE_BUF 10
+#ifndef SENDBUFLEN
+#define SENDBUFLEN 16385
+#endif
 
 static void _php_make_header_object(zval *myzvalue, ENVELOPE *en TSRMLS_DC);
 static void _php_imap_add_body(zval *arg, BODY *body TSRMLS_DC);
@@ -71,7 +74,11 @@ static int _php_imap_address_size(ADDRESS *addresslist);
 void rfc822_date(char *date);
 char *cpystr(const char *str);
 char *cpytxt(SIZEDTEXT *dst, char *text, unsigned long size);
+#ifndef HAVE_NEW_MIME2TEXT
 long utf8_mime2text(SIZEDTEXT *src, SIZEDTEXT *dst);
+#else
+long utf8_mime2text (SIZEDTEXT *src, SIZEDTEXT *dst, long flags);
+#endif
 unsigned long find_rightmost_bit(unsigned long *valptr);
 void fs_give(void **block);
 void *fs_get(size_t size);
@@ -431,10 +438,10 @@ PHP_MINIT_FUNCTION(imap)
 #if HAVE_IMAP_KRB && defined(HAVE_IMAP_AUTH_GSS)
 	auth_link(&auth_gss);		/* link in the gss authenticator */
 #endif
+#endif
 
 #ifdef HAVE_IMAP_SSL
 	ssl_onceonlyinit ();
-#endif
 #endif
 
 	/* lets allow NIL */
@@ -2061,7 +2068,11 @@ PHP_FUNCTION(imap_utf8)
 	dest.size = 0;
 
 	cpytxt(&src, Z_STRVAL_PP(str), Z_STRLEN_PP(str));
+#ifndef HAVE_NEW_MIME2TEXT
 	utf8_mime2text(&src, &dest);
+#else
+	utf8_mime2text(&src, &dest, U8T_CANONICAL);
+#endif
 	RETURN_STRINGL(dest.data, strlen(dest.data), 1);
 }
 /* }}} */
@@ -2801,7 +2812,7 @@ PHP_FUNCTION(imap_mail_compose)
 	BODY *bod=NULL, *topbod=NULL;
 	PART *mypart=NULL, *part;
 	PARAMETER *param, *disp_param = NULL, *custom_headers_param = NULL, *tmp_param = NULL;
-	char tmp[8 * MAILTMPLEN], *mystring=NULL, *t=NULL, *tempstring=NULL;
+	char tmp[SENDBUFLEN + 1], *mystring=NULL, *t=NULL, *tempstring=NULL;
 	int toppart = 0;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &envelope, &body) == FAILURE) {
@@ -3102,8 +3113,8 @@ PHP_FUNCTION(imap_mail_compose)
 		goto done;
 	}
 
-	rfc822_encode_body_7bit(env, topbod); 
-	rfc822_header (tmp, env, topbod);
+	rfc822_encode_body_7bit(env, topbod);
+	rfc822_header(tmp, env, topbod);
 
 	/* add custom envelope headers */
 	if (custom_headers_param) {
@@ -3152,43 +3163,42 @@ PHP_FUNCTION(imap_mail_compose)
 		/* yucky default */
 			if (!cookie) {
 				cookie = "-";  
+			} else if (strlen(cookie) > (sizeof(tmp) - 2 - 2)) {  /* validate cookie length -- + CRLF */
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "The boudary should be no longer then 4kb");
+				RETVAL_FALSE;
+				goto done;	
 			}
 
 		/* for each part */
 			do {
 				t=tmp;
 			/* build cookie */
-				sprintf (t, "--%s%s", cookie, CRLF);
+				sprintf(t, "--%s%s", cookie, CRLF);
 
 			/* append mini-header */
 				rfc822_write_body_header(&t, &part->body);
 
 			/* write terminating blank line */
-				strcat (t, CRLF);
+				strcat(t, CRLF);
 
 			/* output cookie, mini-header, and contents */
-				tempstring=emalloc(strlen(mystring)+strlen(tmp)+1);
-				sprintf(tempstring, "%s%s", mystring, tmp);
+				spprintf(&tempstring, 0, "%s%s", mystring, tmp);
 				efree(mystring);
 				mystring=tempstring;
 
 				bod=&part->body;
 
-				tempstring=emalloc(strlen(bod->contents.text.data)+strlen(CRLF)+strlen(mystring)+1);
-				sprintf(tempstring, "%s%s%s", mystring, bod->contents.text.data, CRLF);
+				spprintf(&tempstring, 0, "%s%s%s", mystring, bod->contents.text.data, CRLF);
 				efree(mystring);
 				mystring=tempstring;
 			} while ((part = part->next)); /* until done */
 
 			/* output trailing cookie */
-			sprintf(tmp, "--%s--", cookie);
-			tempstring=emalloc(strlen(tmp)+strlen(CRLF)+strlen(mystring)+1);
-			sprintf(tempstring, "%s%s%s", mystring, tmp, CRLF);
+			spprintf(&tempstring, 0, "%s--%s--%s", mystring, tmp, CRLF);
 			efree(mystring);
 			mystring=tempstring;
 	} else if (bod) {
-			tempstring = emalloc(strlen(bod->contents.text.data)+strlen(CRLF)+strlen(mystring)+1);
-			sprintf(tempstring, "%s%s%s", mystring, bod->contents.text.data, CRLF);
+			spprintf(&tempstring, 0, "%s%s%s", mystring, bod->contents.text.data, CRLF);
 			efree(mystring);
 			mystring=tempstring;
 	} else {

@@ -1,0 +1,136 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>Server Configuration Reference - Connectors Overview</title><meta value="Ian Darwin" name="author"><meta value="ian779@darwinsys.com" name="email"><meta value="Jean-Frederic Clere" name="author"><meta value="jfrederic.clere@fujitsu-siemens.com" name="email"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="0" width="100%" border="0"><!--PAGE HEADER--><tr><td><!--PROJECT LOGO--><a href="http://jakarta.apache.org/tomcat/"><img border="0" alt="
+    The Tomcat Servlet/JSP Container
+  " align="right" src="../images/tomcat.gif"></a></td><td><font face="arial,helvetica,sanserif"><h1>Apache Tomcat 4</h1></font></td><td><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="../images/asf-logo.gif"></a></td></tr></table><table cellspacing="4" width="100%" border="0"><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--LEFT SIDE NAVIGATION--><td nowrap="true" valign="top" width="20%"><p><strong>Links</strong></p><ul><li><a href="../index.html">Docs Home</a></li><li><a href="index.html">Config Ref. Home</a></li></ul><p><strong>Top Level Elements</strong></p><ul><li><a href="server.html">Server</a></li><li><a href="service.html">Service</a></li></ul><p><strong>Current Connectors</strong></p><ul><li><a href="connectors.html">Overview</a></li><li><a href="coyote.html">Coyote HTTP/1.1</a></li><li><a href="coyotejk.html">Coyote JK</a></li><li><a href="jk.html">JK</a></li><li><a href="http://httpd.apache.org/docs-2.1/mod/mod_proxy_ajp.html">mod_proxy_ajp</a></li></ul><p><strong>Deprecated Connectors</strong></p><ul><li><a href="connectors.html">Overview</a></li><li><a href="http11.html">HTTP/1.1</a></li><li><a href="ajp13.html">AJP/1.3</a></li><li><a href="webapp.html">Webapp</a></li><li><a href="jk2.html">JK2</a></li></ul><p><strong>Containers</strong></p><ul><li><a href="context.html">Context</a></li><li><a href="engine.html">Engine</a></li><li><a href="host.html">Host</a></li></ul><p><strong>Nested Components</strong></p><ul><li><a href="defaultcontext.html">Default Context</a></li><li><a href="globalresources.html">Global Resources</a></li><li><a href="loader.html">Loader</a></li><li><a href="logger.html">Logger</a></li><li><a href="manager.html">Manager</a></li><li><a href="realm.html">Realm</a></li><li><a href="resources.html">Resources</a></li><li><a href="valve.html">Valve</a></li></ul></td><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td nowrap="true" valign="top" align="left"><h1>Connectors Overview</h1></td><td nowrap="true" valign="top" align="right"><small><a href="printer/connectors.html"><img alt="Printer Friendly Version" border="0" src="../images/printer.gif"><br>print-friendly<br>version
+                    </a></small></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+There are two different types of connectors. Connectors that allow browsers to
+connect directly to the Tomcat and connectors that do it through a Web Server.
+</p>
+<p>
+The connectors allowing direct connections are distributed as jar files with
+the Tomcat binary releases.
+</p>
+<p>
+The connectors used with a Web Server are made of 2 components. One written
+in Java and the other written in C. The Java part is included, as a jar file
+,
+
+with the Tomcat binary releases. The C part is released separately and may be
+obtained from the
+<a href="http://tomcat.apache.org/download-connectors.cgi">
+Tomcat Connectors Downloads</a>.
+</p>
+<p>
+The total number of different operating systems and web servers is sufficiently
+large that it is not practical to provide binaries downloads for every
+combination. Binaries are provided for most of the popular combinations and if
+the one you need is not available do not hesitate to ask for it on the
+tomcat-user mailing list but please be patient and accept you may have to build
+it yourself with the help of the mailing list.
+</p>
+<p>
+The source code for the Tomcat Connectors is available from the SVN repository
+(<a href="http://tomcat.apache.org/svn.html">Tomcat SVN structure</a>) or as a
+bundle (that includes both the Java and the C components) from the
+<a href="http://tomcat.apache.org/download-connectors.cgi">
+Tomcat Connectors Downloads</a>.
+
+
+</p>
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Tomcat connectors"><strong>Tomcat connectors</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The following table lists most of the existing Tomcat connectors.
+</p>
+
+<table border="1">
+<tr><th colspan="4">HTTP Connectors for Tomcat 4.x</th></tr>
+<tr><th>Client</th><th>Protocol</th><th>Tomcat className</th><th>Notes</th></tr>
+
+<tr><td>Modern browser</td><td>HTTP/1.1</td>
+	<td>org.apache.coyote.tomcat4.CoyoteConnector</td>
+	<td>Current practice<br>See <a href="coyote.html"> Coyote HTTP/1.1</a>
+        </td>
+</tr>
+
+<tr><td>Modern browser</td><td>HTTP/1.1</td>
+	<td>org.apache.catalina.connector.http.HttpConnector</td>
+	<td>Deprecated<br>See <a href="http11.html"> HTTP/1.1</a></td>
+</tr>
+
+<tr><td>Ancient browser</td><td>HTTP/1.0</td>
+	<td>org.apache.catalina.connector.http10.HttpConnector</td>
+	<td>Deprecated<br>See <a href="http11.html"> HTTP/1.1</a></td>
+</tr>
+
+
+<tr><th colspan="4">Web Server Connectors</th></tr>
+
+<tr><th>Web Server Side</th><th>Protocol</th><th>Tomcat Side</th><th>Notes</th></tr>
+
+<tr>
+	<td>JK</td><td>AJP/1.3</td>
+	<td>CoyoteConnector with JkCoyoteHandler</td>
+	<td>Current<br>mod_jk supports load balancing.
+        Enabled by default in 4.1; works in 4.0. See <a href="jk.html">JK</a>
+        and <a href="coyotejk.html">Coyote JK</a>.
+        </td>
+</tr>
+
+<tr>
+	<td>mod_proxy with AJP enabled</td><td>AJP/1.3</td>
+	<td>CoyoteConnector with JkCoyoteHandler</td>
+	<td>Current<br>Available for Apache httpd 2.x and included by default with
+        2.2. See <a href="http://httpd.apache.org/docs-2.1/mod/mod_proxy_ajp.html">
+        mod_proxy_ajp</a> and <a href="coyotejk.html">Coyote JK</a>
+        </td>
+</tr>
+
+<tr>
+	<td>mod_jserv</td><td>AJP/1.2</td>
+	<td>Ajp11</td>
+	<td>Obsolete<br>Read more at 
+        <a href="http://java.apache.org/jserv/index.html"> JServ</a></td>
+</tr>
+
+<tr>
+	<td>JK2</td><td>AJP/1.3</td>
+	<td>CoyoteConnector with JkCoyoteHandler</td>
+	<td>Deprecated<br>Enabled by default in 4.1.
+	mod_jk2 supports in-process JVM and load balancing.
+        See <a href="jk2.html">JK2</a>
+        </td>
+</tr>
+
+<tr>
+	<td>JK or JK2</td><td>AJP/1.3</td>
+	<td>org.apache.ajp.tomcat4.Ajp13Connector</td>
+	<td>Deprecated<br>
+        See <a href="ajp13.html">AJP/1.3</a>
+        </td>
+</tr>
+
+<tr>
+	<td>mod_webapp</td><td>WARP/1.0</td>
+	<td>WarpConnector</td>
+	<td>Deprecated<br>Not for Win32; no in-process nor load balancing; 
+        works in 4.x.
+        Uses <a href="http://apr.apache.org/">APR</a>.
+        Supported Apache-2.0 and Apache-1.3).
+        See <a href="webapp.html">Webapp</a>
+        </td>
+</tr>
+</table>
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Why a Tomcat connector with a native Web Server?"><strong>Why a Tomcat connector with a native Web Server?</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+A Web Server can host different applications written using PERL, PHP, C or 
+any other language. If one application is written in Java using the Servlet 
+API a connector is need to route the requests from the Web Server to the
+Servlet Engine. In the case a Web Server specific connector is needed.
+Most of the Web Servers allow to load dynamic extentions (DLL). Some of these
+extentions are available in the binary builds of connectors.
+</p>
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

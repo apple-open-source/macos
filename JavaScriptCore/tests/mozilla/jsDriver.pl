@@ -553,7 +553,7 @@ sub get_engine_command {
     }  elsif ($opt_engine_type =~ /^ep(opt|debug)$/) {
         &dd ("getting epimetheus engine command.");
         $retval = &get_ep_engine_command;
-    } elsif ($opt_engine_type ="kjs") {
+    } elsif ($opt_engine_type eq "kjs") {
         &dd ("getting kjs engine command.");
         $retval = &get_kjs_engine_command;
         
@@ -636,7 +636,15 @@ sub get_xpc_engine_command {
 # get the shell command used to run kjs
 #
 sub get_kjs_engine_command {
-    return $ENV{"SYMROOTS"} . "/testkjs";
+    my $retval;
+    
+    if ($opt_shell_path) {
+        $retval = $opt_shell_path;
+    } else {
+        die "Please specify a full path to the kjs testing engine";
+    }
+    
+    return $retval;
 }
 
 #
@@ -1164,6 +1172,23 @@ sub xp_path {
     }
 }
 
+sub numericcmp($$)
+{
+    my ($aa, $bb) = @_;
+
+    my @a = split /(\d+)/, $aa;
+    my @b = split /(\d+)/, $bb;
+
+    while (@a && @b) {
+	my $a = shift @a;
+	my $b = shift @b;
+        return $a <=> $b if $a =~ /^\d/ && $b =~ /^\d/ && $a != $b;
+        return $a cmp $b if $a ne $b;
+    }
+    
+    return @a <=> @b;
+}
+
 #
 # given a directory, return an array of all subdirectories
 #
@@ -1181,7 +1206,7 @@ sub get_subdirs {
         }
     }
     opendir (DIR, $dir) || die ("couldn't open directory $dir: $!");
-    my @testdir_contents = readdir(DIR);
+    my @testdir_contents = sort numericcmp readdir(DIR);
     closedir(DIR);
     
     foreach (@testdir_contents) {
@@ -1202,7 +1227,7 @@ sub get_js_files {
     
     opendir (TEST_SUBDIR, $test_subdir) || die ("couldn't open directory " .
                                                 "$test_subdir: $!");
-    @subdir_files = readdir(TEST_SUBDIR);
+    @subdir_files = sort numericcmp readdir(TEST_SUBDIR);
     closedir( TEST_SUBDIR );
     
     foreach (@subdir_files) {

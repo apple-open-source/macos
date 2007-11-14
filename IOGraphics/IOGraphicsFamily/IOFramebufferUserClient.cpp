@@ -300,6 +300,7 @@ IOReturn IOFramebufferSharedUserClient::clientMemoryForType( UInt32 type,
             break;
 
         case kIOFBVRAMMemory:
+           if (kIOReturnSuccess == clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser))
             mem = owner->getVRAMRange();
             break;
     }

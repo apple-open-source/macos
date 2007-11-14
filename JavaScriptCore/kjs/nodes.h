@@ -3,7 +3,7 @@
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -17,479 +17,676 @@
  *
  *  You should have received a copy of the GNU Library General Public License
  *  along with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA 02111-1307, USA.
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
  *
  */
 
-#ifndef _NODES_H_
-#define _NODES_H_
+#ifndef NODES_H_
+#define NODES_H_
 
-#include "fast_malloc.h"
-#include "shared_ptr.h"
-
+#include "Parser.h"
 #include "internal.h"
-//#include "debugger.h"
-#ifndef NDEBUG
-#ifndef __osf__
-#include <list>
+#include <wtf/ListRefPtr.h>
+#include <wtf/Vector.h>
+
+#if PLATFORM(X86) && COMPILER(GCC)
+#define KJS_FAST_CALL __attribute__((regparm(3)))
+#else
+#define KJS_FAST_CALL
 #endif
+
+#if COMPILER(GCC)
+#define KJS_NO_INLINE __attribute__((noinline))
+#else
+#define KJS_NO_INLINE
 #endif
 
 namespace KJS {
 
   class ProgramNode;
-  class PropertyNode;
-  class PropertyValueNode;
-  class Reference;
+  class PropertyNameNode;
+  class PropertyListNode;
   class RegExp;
   class SourceElementsNode;
   class SourceStream;
 
   enum Operator { OpEqual,
-		  OpEqEq,
-		  OpNotEq,
-		  OpStrEq,
-		  OpStrNEq,
-		  OpPlusEq,
-		  OpMinusEq,
-		  OpMultEq,
-		  OpDivEq,
+                  OpEqEq,
+                  OpNotEq,
+                  OpStrEq,
+                  OpStrNEq,
+                  OpPlusEq,
+                  OpMinusEq,
+                  OpMultEq,
+                  OpDivEq,
                   OpPlusPlus,
-		  OpMinusMinus,
-		  OpLess,
-		  OpLessEq,
-		  OpGreater,
-		  OpGreaterEq,
-		  OpAndEq,
-		  OpXOrEq,
-		  OpOrEq,
-		  OpModEq,
+                  OpMinusMinus,
+                  OpLess,
+                  OpLessEq,
+                  OpGreater,
+                  OpGreaterEq,
+                  OpAndEq,
+                  OpXOrEq,
+                  OpOrEq,
+                  OpModEq,
                   OpAnd,
                   OpOr,
-		  OpBitAnd,
-		  OpBitXOr,
-		  OpBitOr,
-		  OpLShift,
-		  OpRShift,
-		  OpURShift,
-		  OpIn,
-		  OpInstanceOf
+                  OpBitAnd,
+                  OpBitXOr,
+                  OpBitOr,
+                  OpLShift,
+                  OpRShift,
+                  OpURShift,
+                  OpIn,
+                  OpInstanceOf
   };
 
   class Node {
   public:
-    Node();
+    Node() KJS_FAST_CALL;
     virtual ~Node();
 
-    KJS_FAST_ALLOCATED;
+    virtual JSValue *evaluate(ExecState *exec) KJS_FAST_CALL = 0;
+    UString toString() const KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL = 0;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL {}
+    int lineNo() const KJS_FAST_CALL { return m_line; }
 
-    virtual Value evaluate(ExecState *exec) = 0;
-    virtual Reference evaluateReference(ExecState *exec);
-    UString toString() const;
-    virtual void streamTo(SourceStream &s) const = 0;
-    virtual void processVarDecls(ExecState */*exec*/) {}
-    int lineNo() const { return line; }
+    void ref() KJS_FAST_CALL;
+    void deref() KJS_FAST_CALL;
+    unsigned refcount() KJS_FAST_CALL;
+    static void clearNewNodes() KJS_FAST_CALL;
 
-  public:
-    // reference counting mechanism
-    void ref() { ++m_refcount; }
-    void deref() { --m_refcount; if (!m_refcount) delete this; }
+    virtual Node *nodeInsideAllParens() KJS_FAST_CALL;
+
+    virtual bool isLocation() const KJS_FAST_CALL { return false; }
+    virtual bool isResolveNode() const KJS_FAST_CALL { return false; }
+    virtual bool isBracketAccessorNode() const KJS_FAST_CALL { return false; }
+    virtual bool isDotAccessorNode() const KJS_FAST_CALL { return false; }
+    virtual bool isGroupNode() const KJS_FAST_CALL { return false; }
+
+    virtual void breakCycle() KJS_FAST_CALL { }
 
   protected:
-    Value throwError(ExecState *exec, ErrorType e, const char *msg);
-    Value throwError(ExecState *exec, ErrorType e, const char *msg, Value v, Node *expr);
-    Value throwError(ExecState *exec, ErrorType e, const char *msg, Identifier label);
-    void setExceptionDetailsIfNeeded(ExecState *);
-    int line;
-    UString sourceURL;
-    unsigned int m_refcount;
-    virtual int sourceId() const { return -1; }
+    Completion createErrorCompletion(ExecState *, ErrorType, const char *msg) KJS_FAST_CALL;
+    Completion createErrorCompletion(ExecState *, ErrorType, const char *msg, const Identifier &) KJS_FAST_CALL;
+
+    JSValue *throwError(ExecState *, ErrorType, const char *msg) KJS_FAST_CALL;
+    JSValue* throwError(ExecState *, ErrorType, const char* msg, const char*) KJS_FAST_CALL;
+    JSValue *throwError(ExecState *, ErrorType, const char *msg, JSValue *, Node *) KJS_FAST_CALL;
+    JSValue *throwError(ExecState *, ErrorType, const char *msg, const Identifier &) KJS_FAST_CALL;
+    JSValue *throwError(ExecState *, ErrorType, const char *msg, JSValue *, const Identifier &) KJS_FAST_CALL;
+    JSValue *throwError(ExecState *, ErrorType, const char *msg, JSValue *, Node *, Node *) KJS_FAST_CALL;
+    JSValue *throwError(ExecState *, ErrorType, const char *msg, JSValue *, Node *, const Identifier &) KJS_FAST_CALL;
+
+    JSValue *throwUndefinedVariableError(ExecState *, const Identifier &) KJS_FAST_CALL;
+
+    void handleException(ExecState*) KJS_FAST_CALL;
+    void handleException(ExecState*, JSValue*) KJS_FAST_CALL;
+
+    int m_line;
   private:
     // disallow assignment
-    Node& operator=(const Node&);
-    Node(const Node &other);
+    Node& operator=(const Node&) KJS_FAST_CALL;
+    Node(const Node &other) KJS_FAST_CALL;
   };
 
   class StatementNode : public Node {
   public:
-    StatementNode();
-    void setLoc(int line0, int line1, int sourceId);
-    int firstLine() const { return l0; }
-    int lastLine() const { return l1; }
-    int sourceId() const { return sid; }
-    bool hitStatement(ExecState *exec);
-    bool abortStatement(ExecState *exec);
-    virtual Completion execute(ExecState *exec) = 0;
-    void pushLabel(const Identifier &id) { ls.push(id); }
-    virtual void processFuncDecl(ExecState *exec);
+    StatementNode() KJS_FAST_CALL;
+    void setLoc(int line0, int line1) KJS_FAST_CALL;
+    int firstLine() const KJS_FAST_CALL { return lineNo(); }
+    int lastLine() const KJS_FAST_CALL { return m_lastLine; }
+    bool hitStatement(ExecState*) KJS_FAST_CALL;
+    virtual Completion execute(ExecState *exec) KJS_FAST_CALL = 0;
+    void pushLabel(const Identifier &id) KJS_FAST_CALL { ls.push(id); }
+    virtual void processFuncDecl(ExecState*) KJS_FAST_CALL;
   protected:
     LabelStack ls;
   private:
-    Value evaluate(ExecState */*exec*/) { return Undefined(); }
-    int l0, l1;
-    int sid;
-    bool breakPoint;
+    JSValue *evaluate(ExecState*) KJS_FAST_CALL { return jsUndefined(); }
+    int m_lastLine;
   };
 
   class NullNode : public Node {
   public:
-    NullNode() {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    NullNode() KJS_FAST_CALL {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   };
 
   class BooleanNode : public Node {
   public:
-    BooleanNode(bool v) : value(v) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    BooleanNode(bool v) KJS_FAST_CALL : value(v) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
     bool value;
   };
 
   class NumberNode : public Node {
   public:
-    NumberNode(double v) : value(v) { }
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    NumberNode(double v) KJS_FAST_CALL : value(v) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
     double value;
   };
 
   class StringNode : public Node {
   public:
-    StringNode(const UString *v) { value = *v; }
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    StringNode(const UString *v) KJS_FAST_CALL { value = *v; }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
     UString value;
   };
 
   class RegExpNode : public Node {
   public:
-    RegExpNode(const UString &p, const UString &f)
+    RegExpNode(const UString &p, const UString &f) KJS_FAST_CALL 
       : pattern(p), flags(f) { }
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
     UString pattern, flags;
   };
 
   class ThisNode : public Node {
   public:
-    ThisNode() {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ThisNode() KJS_FAST_CALL {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   };
 
   class ResolveNode : public Node {
   public:
-    ResolveNode(const Identifier &s) : ident(s) { }
-    Value evaluate(ExecState *exec);
-    virtual Reference evaluateReference(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ResolveNode(const Identifier &s) KJS_FAST_CALL : ident(s) { }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+
+    virtual bool isLocation() const KJS_FAST_CALL { return true; }
+    virtual bool isResolveNode() const KJS_FAST_CALL { return true; }
+    const Identifier& identifier() const KJS_FAST_CALL { return ident; }
+
   private:
     Identifier ident;
   };
 
   class GroupNode : public Node {
   public:
-    GroupNode(Node *g) : group(g) { }
-    virtual Value evaluate(ExecState *exec);
-    virtual Reference evaluateReference(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const { group->streamTo(s); }
+    GroupNode(Node *g) KJS_FAST_CALL : group(g) { }
+    virtual JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual Node *nodeInsideAllParens() KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+    virtual bool isGroupNode() const KJS_FAST_CALL { return true; }
   private:
-    kxmlcore::SharedPtr<Node> group;
+    RefPtr<Node> group;
   };
 
   class ElementNode : public Node {
   public:
     // list pointer is tail of a circular list, cracked in the ArrayNode ctor
-    ElementNode(int e, Node *n) : list(this), elision(e), node(n) { }
-    ElementNode(ElementNode *l, int e, Node *n)
-      : list(l->list), elision(e), node(n) { l->list = this; }
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ElementNode(int e, Node *n) KJS_FAST_CALL : next(this), elision(e), node(n) { Parser::noteNodeCycle(this); }
+    ElementNode(ElementNode *l, int e, Node *n) KJS_FAST_CALL
+      : next(l->next), elision(e), node(n) { l->next = this; }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+    PassRefPtr<ElementNode> releaseNext() KJS_FAST_CALL { return next.release(); }
+    virtual void breakCycle() KJS_FAST_CALL;
   private:
     friend class ArrayNode;
-    kxmlcore::SharedPtr<ElementNode> list;
+    ListRefPtr<ElementNode> next;
     int elision;
-    kxmlcore::SharedPtr<Node> node;
+    RefPtr<Node> node;
   };
 
   class ArrayNode : public Node {
   public:
-    ArrayNode(int e) : element(0), elision(e), opt(true) { }
-    ArrayNode(ElementNode *ele)
-      : element(ele->list), elision(0), opt(false) { ele->list = 0; }
-    ArrayNode(int eli, ElementNode *ele)
-      : element(ele->list), elision(eli), opt(true) { ele->list = 0; }
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ArrayNode(int e) KJS_FAST_CALL : elision(e), opt(true) { }
+    ArrayNode(ElementNode *ele) KJS_FAST_CALL
+      : element(ele->next.release()), elision(0), opt(false) { Parser::removeNodeCycle(element.get()); }
+    ArrayNode(int eli, ElementNode *ele) KJS_FAST_CALL
+      : element(ele->next.release()), elision(eli), opt(true) { Parser::removeNodeCycle(element.get()); }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<ElementNode> element;
+    RefPtr<ElementNode> element;
     int elision;
     bool opt;
   };
 
-  class PropertyValueNode : public Node {
+  class PropertyNameNode : public Node {
   public:
-    // list pointer is tail of a circular list, cracked in the ObjectLiteralNode ctor
-    PropertyValueNode(PropertyNode *n, Node *a)
-      : name(n), assign(a), list(this) { }
-    PropertyValueNode(PropertyNode *n, Node *a, PropertyValueNode *l)
-      : name(n), assign(a), list(l->list) { l->list = this; }
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
-  private:
-    friend class ObjectLiteralNode;
-    kxmlcore::SharedPtr<PropertyNode> name;
-    kxmlcore::SharedPtr<Node> assign;
-    kxmlcore::SharedPtr<PropertyValueNode> list;
-  };
-
-  class ObjectLiteralNode : public Node {
-  public:
-    ObjectLiteralNode() : list(0) { }
-    ObjectLiteralNode(PropertyValueNode *l) : list(l->list) { l->list = 0; }
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
-  private:
-    kxmlcore::SharedPtr<PropertyValueNode> list;
-  };
-
-  class PropertyNode : public Node {
-  public:
-    PropertyNode(double d) : numeric(d) { }
-    PropertyNode(const Identifier &s) : str(s) { }
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    PropertyNameNode(double d) KJS_FAST_CALL : numeric(d) { }
+    PropertyNameNode(const Identifier &s) KJS_FAST_CALL : str(s) { }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
     double numeric;
     Identifier str;
   };
-
-  class AccessorNode1 : public Node {
+  
+  class PropertyNode : public Node {
   public:
-    AccessorNode1(Node *e1, Node *e2) : expr1(e1), expr2(e2) {}
-    Value evaluate(ExecState *exec);
-    virtual Reference evaluateReference(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    enum Type { Constant, Getter, Setter };
+    PropertyNode(PropertyNameNode *n, Node *a, Type t) KJS_FAST_CALL
+      : name(n), assign(a), type(t) { }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+    friend class PropertyListNode;
   private:
-    kxmlcore::SharedPtr<Node> expr1;
-    kxmlcore::SharedPtr<Node> expr2;
+    RefPtr<PropertyNameNode> name;
+    RefPtr<Node> assign;
+    Type type;
+  };
+  
+  class PropertyListNode : public Node {
+  public:
+    // list pointer is tail of a circular list, cracked in the ObjectLiteralNode ctor
+    PropertyListNode(PropertyNode *n) KJS_FAST_CALL
+      : node(n), next(this) { Parser::noteNodeCycle(this); }
+    PropertyListNode(PropertyNode *n, PropertyListNode *l) KJS_FAST_CALL
+      : node(n), next(l->next) { l->next = this; }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+    PassRefPtr<PropertyListNode> releaseNext() KJS_FAST_CALL { return next.release(); }
+    virtual void breakCycle() KJS_FAST_CALL;
+  private:
+    friend class ObjectLiteralNode;
+    RefPtr<PropertyNode> node;
+    ListRefPtr<PropertyListNode> next;
   };
 
-  class AccessorNode2 : public Node {
+  class ObjectLiteralNode : public Node {
   public:
-    AccessorNode2(Node *e, const Identifier &s) : expr(e), ident(s) { }
-    Value evaluate(ExecState *exec);
-    virtual Reference evaluateReference(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ObjectLiteralNode() KJS_FAST_CALL { }
+    ObjectLiteralNode(PropertyListNode *l) KJS_FAST_CALL : list(l->next.release()) { Parser::removeNodeCycle(list.get()); }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
+    RefPtr<PropertyListNode> list;
+  };
+
+  class BracketAccessorNode : public Node {
+  public:
+    BracketAccessorNode(Node *e1, Node *e2) KJS_FAST_CALL : expr1(e1), expr2(e2) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+
+    virtual bool isLocation() const KJS_FAST_CALL { return true; }
+    virtual bool isBracketAccessorNode() const KJS_FAST_CALL { return true; }
+    Node *base() KJS_FAST_CALL { return expr1.get(); }
+    Node *subscript() KJS_FAST_CALL { return expr2.get(); }
+
+  private:
+    RefPtr<Node> expr1;
+    RefPtr<Node> expr2;
+  };
+
+  class DotAccessorNode : public Node {
+  public:
+    DotAccessorNode(Node *e, const Identifier &s) KJS_FAST_CALL : expr(e), ident(s) { }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+
+    virtual bool isLocation() const KJS_FAST_CALL { return true; }
+    virtual bool isDotAccessorNode() const KJS_FAST_CALL { return true; }
+    Node *base() const KJS_FAST_CALL { return expr.get(); }
+    const Identifier& identifier() const KJS_FAST_CALL { return ident; }
+
+  private:
+    RefPtr<Node> expr;
     Identifier ident;
   };
 
   class ArgumentListNode : public Node {
   public:
     // list pointer is tail of a circular list, cracked in the ArgumentsNode ctor
-    ArgumentListNode(Node *e) : list(this), expr(e) { }
-    ArgumentListNode(ArgumentListNode *l, Node *e)
-      : list(l->list), expr(e) { l->list = this; }
-    Value evaluate(ExecState *exec);
-    List evaluateList(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ArgumentListNode(Node *e) KJS_FAST_CALL : next(this), expr(e) { Parser::noteNodeCycle(this); }
+    ArgumentListNode(ArgumentListNode *l, Node *e) KJS_FAST_CALL 
+      : next(l->next), expr(e) { l->next = this; }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    List evaluateList(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+    PassRefPtr<ArgumentListNode> releaseNext() KJS_FAST_CALL { return next.release(); }
+    virtual void breakCycle() KJS_FAST_CALL;
   private:
     friend class ArgumentsNode;
-    kxmlcore::SharedPtr<ArgumentListNode> list;
-    kxmlcore::SharedPtr<Node> expr;
+    ListRefPtr<ArgumentListNode> next;
+    RefPtr<Node> expr;
   };
 
   class ArgumentsNode : public Node {
   public:
-    ArgumentsNode() : list(0) { }
-    ArgumentsNode(ArgumentListNode *l)
-      : list(l->list) { l->list = 0; }
-    Value evaluate(ExecState *exec);
-    List evaluateList(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ArgumentsNode() KJS_FAST_CALL { }
+    ArgumentsNode(ArgumentListNode *l) KJS_FAST_CALL
+      : list(l->next.release()) { Parser::removeNodeCycle(list.get()); }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    List evaluateList(ExecState *exec) KJS_FAST_CALL { return list ? list->evaluateList(exec) : List(); }
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<ArgumentListNode> list;
+    RefPtr<ArgumentListNode> list;
   };
 
   class NewExprNode : public Node {
   public:
-    NewExprNode(Node *e) : expr(e), args(0) {}
-    NewExprNode(Node *e, ArgumentsNode *a) : expr(e), args(a) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    NewExprNode(Node *e) KJS_FAST_CALL : expr(e) {}
+    NewExprNode(Node *e, ArgumentsNode *a) KJS_FAST_CALL : expr(e), args(a) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
-    kxmlcore::SharedPtr<ArgumentsNode> args;
+    RefPtr<Node> expr;
+    RefPtr<ArgumentsNode> args;
   };
 
-  class FunctionCallNode : public Node {
+  class FunctionCallValueNode : public Node {
   public:
-    FunctionCallNode(Node *e, ArgumentsNode *a) : expr(e), args(a) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    FunctionCallValueNode(Node *e, ArgumentsNode *a) KJS_FAST_CALL : expr(e), args(a) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
-    kxmlcore::SharedPtr<ArgumentsNode> args;
+    RefPtr<Node> expr;
+    RefPtr<ArgumentsNode> args;
   };
 
-  class PostfixNode : public Node {
+  class FunctionCallResolveNode : public Node {
   public:
-    PostfixNode(Node *e, Operator o) : expr(e), oper(o) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    FunctionCallResolveNode(const Identifier& i, ArgumentsNode *a) KJS_FAST_CALL : ident(i), args(a) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
-    Operator oper;
+    Identifier ident;
+    RefPtr<ArgumentsNode> args;
   };
 
-  class DeleteNode : public Node {
+  class FunctionCallBracketNode : public Node {
   public:
-    DeleteNode(Node *e) : expr(e) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    FunctionCallBracketNode(Node *b, Node *s, ArgumentsNode *a) KJS_FAST_CALL : base(b), subscript(s), args(a) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  protected:
+    RefPtr<Node> base;
+    RefPtr<Node> subscript;
+    RefPtr<ArgumentsNode> args;
+  };
+
+  class FunctionCallParenBracketNode : public FunctionCallBracketNode {
+  public:
+    FunctionCallParenBracketNode(Node *b, Node *s, ArgumentsNode *a) KJS_FAST_CALL : FunctionCallBracketNode(b, s, a) {}
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  };
+
+  class FunctionCallDotNode : public Node {
+  public:
+    FunctionCallDotNode(Node *b, const Identifier &i, ArgumentsNode *a) KJS_FAST_CALL : base(b), ident(i), args(a) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  protected:
+    RefPtr<Node> base;
+    Identifier ident;
+    RefPtr<ArgumentsNode> args;
+  };
+
+  class FunctionCallParenDotNode : public FunctionCallDotNode {
+  public:
+    FunctionCallParenDotNode(Node *b, const Identifier &i, ArgumentsNode *a) KJS_FAST_CALL : FunctionCallDotNode(b, i, a) {}
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  };
+
+  class PostfixResolveNode : public Node {
+  public:
+    PostfixResolveNode(const Identifier& i, Operator o) KJS_FAST_CALL : m_ident(i), m_oper(o) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    Node *expr;
+    Identifier m_ident;
+    Operator m_oper;
+  };
+
+  class PostfixBracketNode : public Node {
+  public:
+    PostfixBracketNode(Node *b, Node *s, Operator o) KJS_FAST_CALL : m_base(b), m_subscript(s), m_oper(o) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    RefPtr<Node> m_base;
+    RefPtr<Node> m_subscript;
+    Operator m_oper;
+  };
+
+  class PostfixDotNode : public Node {
+  public:
+    PostfixDotNode(Node *b, const Identifier& i, Operator o) KJS_FAST_CALL : m_base(b), m_ident(i), m_oper(o) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    RefPtr<Node> m_base;
+    Identifier m_ident;
+    Operator m_oper;
+  };
+
+  class PostfixErrorNode : public Node {
+  public:
+    PostfixErrorNode(Node* e, Operator o) KJS_FAST_CALL : m_expr(e), m_oper(o) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    RefPtr<Node> m_expr;
+    Operator m_oper;
+  };
+
+  class DeleteResolveNode : public Node {
+  public:
+    DeleteResolveNode(const Identifier& i) KJS_FAST_CALL : m_ident(i) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    Identifier m_ident;
+  };
+
+  class DeleteBracketNode : public Node {
+  public:
+    DeleteBracketNode(Node *base, Node *subscript) KJS_FAST_CALL : m_base(base), m_subscript(subscript) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    RefPtr<Node> m_base;
+    RefPtr<Node> m_subscript;
+  };
+
+  class DeleteDotNode : public Node {
+  public:
+    DeleteDotNode(Node *base, const Identifier& i) KJS_FAST_CALL : m_base(base), m_ident(i) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    RefPtr<Node> m_base;
+    Identifier m_ident;
+  };
+
+  class DeleteValueNode : public Node {
+  public:
+    DeleteValueNode(Node *e) KJS_FAST_CALL : m_expr(e) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    RefPtr<Node> m_expr;
   };
 
   class VoidNode : public Node {
   public:
-    VoidNode(Node *e) : expr(e) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    VoidNode(Node *e) KJS_FAST_CALL : expr(e) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
+    RefPtr<Node> expr;
   };
 
-  class TypeOfNode : public Node {
+  class TypeOfResolveNode : public Node {
   public:
-    TypeOfNode(Node *e) : expr(e) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    TypeOfResolveNode(const Identifier& i) KJS_FAST_CALL : m_ident(i) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    Node *expr;
+    Identifier m_ident;
   };
 
-  class PrefixNode : public Node {
+  class TypeOfValueNode : public Node {
   public:
-    PrefixNode(Operator o, Node *e) : oper(o), expr(e) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    TypeOfValueNode(Node *e) KJS_FAST_CALL : m_expr(e) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    Operator oper;
-    kxmlcore::SharedPtr<Node> expr;
+    RefPtr<Node> m_expr;
+  };
+
+  class PrefixResolveNode : public Node {
+  public:
+    PrefixResolveNode(const Identifier& i, Operator o) KJS_FAST_CALL : m_ident(i), m_oper(o) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    Identifier m_ident;
+    Operator m_oper;
+  };
+
+  class PrefixBracketNode : public Node {
+  public:
+    PrefixBracketNode(Node *b, Node *s, Operator o) KJS_FAST_CALL : m_base(b), m_subscript(s), m_oper(o) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    RefPtr<Node> m_base;
+    RefPtr<Node> m_subscript;
+    Operator m_oper;
+  };
+
+  class PrefixDotNode : public Node {
+  public:
+    PrefixDotNode(Node *b, const Identifier& i, Operator o) KJS_FAST_CALL : m_base(b), m_ident(i), m_oper(o) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    RefPtr<Node> m_base;
+    Identifier m_ident;
+    Operator m_oper;
+  };
+
+  class PrefixErrorNode : public Node {
+  public:
+    PrefixErrorNode(Node* e, Operator o) KJS_FAST_CALL : m_expr(e), m_oper(o) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    RefPtr<Node> m_expr;
+    Operator m_oper;
   };
 
   class UnaryPlusNode : public Node {
   public:
-    UnaryPlusNode(Node *e) : expr(e) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    UnaryPlusNode(Node *e) KJS_FAST_CALL : expr(e) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
+    RefPtr<Node> expr;
   };
 
   class NegateNode : public Node {
   public:
-    NegateNode(Node *e) : expr(e) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    NegateNode(Node *e) KJS_FAST_CALL : expr(e) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
+    RefPtr<Node> expr;
   };
 
   class BitwiseNotNode : public Node {
   public:
-    BitwiseNotNode(Node *e) : expr(e) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    BitwiseNotNode(Node *e) KJS_FAST_CALL : expr(e) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
+    RefPtr<Node> expr;
   };
 
   class LogicalNotNode : public Node {
   public:
-    LogicalNotNode(Node *e) : expr(e) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    LogicalNotNode(Node *e) KJS_FAST_CALL : expr(e) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
+    RefPtr<Node> expr;
   };
 
   class MultNode : public Node {
   public:
-    MultNode(Node *t1, Node *t2, char op) : term1(t1), term2(t2), oper(op) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    MultNode(Node *t1, Node *t2, char op) KJS_FAST_CALL : term1(t1), term2(t2), oper(op) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> term1;
-    kxmlcore::SharedPtr<Node> term2;
+    RefPtr<Node> term1;
+    RefPtr<Node> term2;
     char oper;
   };
 
   class AddNode : public Node {
   public:
-    AddNode(Node *t1, Node *t2, char op) : term1(t1), term2(t2), oper(op) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    AddNode(Node *t1, Node *t2, char op) KJS_FAST_CALL : term1(t1), term2(t2), oper(op) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> term1;
-    kxmlcore::SharedPtr<Node> term2;
+    RefPtr<Node> term1;
+    RefPtr<Node> term2;
     char oper;
   };
 
   class ShiftNode : public Node {
   public:
-    ShiftNode(Node *t1, Operator o, Node *t2)
+    ShiftNode(Node *t1, Operator o, Node *t2) KJS_FAST_CALL
       : term1(t1), term2(t2), oper(o) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> term1;
-    kxmlcore::SharedPtr<Node> term2;
+    RefPtr<Node> term1;
+    RefPtr<Node> term2;
     Operator oper;
   };
 
   class RelationalNode : public Node {
   public:
-    RelationalNode(Node *e1, Operator o, Node *e2) :
+    RelationalNode(Node *e1, Operator o, Node *e2) KJS_FAST_CALL :
       expr1(e1), expr2(e2), oper(o) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr1;
-    kxmlcore::SharedPtr<Node> expr2;
+    RefPtr<Node> expr1;
+    RefPtr<Node> expr2;
     Operator oper;
   };
 
   class EqualNode : public Node {
   public:
-    EqualNode(Node *e1, Operator o, Node *e2)
+    EqualNode(Node *e1, Operator o, Node *e2) KJS_FAST_CALL
       : expr1(e1), expr2(e2), oper(o) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr1;
-    kxmlcore::SharedPtr<Node> expr2;
+    RefPtr<Node> expr1;
+    RefPtr<Node> expr2;
     Operator oper;
   };
 
   class BitOperNode : public Node {
   public:
-    BitOperNode(Node *e1, Operator o, Node *e2) :
+    BitOperNode(Node *e1, Operator o, Node *e2) KJS_FAST_CALL :
       expr1(e1), expr2(e2), oper(o) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr1;
-    kxmlcore::SharedPtr<Node> expr2;
+    RefPtr<Node> expr1;
+    RefPtr<Node> expr2;
     Operator oper;
   };
 
@@ -498,13 +695,13 @@ namespace KJS {
    */
   class BinaryLogicalNode : public Node {
   public:
-    BinaryLogicalNode(Node *e1, Operator o, Node *e2) :
+    BinaryLogicalNode(Node *e1, Operator o, Node *e2) KJS_FAST_CALL :
       expr1(e1), expr2(e2), oper(o) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr1;
-    kxmlcore::SharedPtr<Node> expr2;
+    RefPtr<Node> expr1;
+    RefPtr<Node> expr2;
     Operator oper;
   };
 
@@ -513,419 +710,457 @@ namespace KJS {
    */
   class ConditionalNode : public Node {
   public:
-    ConditionalNode(Node *l, Node *e1, Node *e2) :
+    ConditionalNode(Node *l, Node *e1, Node *e2) KJS_FAST_CALL :
       logical(l), expr1(e1), expr2(e2) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> logical;
-    kxmlcore::SharedPtr<Node> expr1;
-    kxmlcore::SharedPtr<Node> expr2;
+    RefPtr<Node> logical;
+    RefPtr<Node> expr1;
+    RefPtr<Node> expr2;
   };
 
-  class AssignNode : public Node {
+  class AssignResolveNode : public Node {
   public:
-    AssignNode(Node *l, Operator o, Node *e) : left(l), oper(o), expr(e) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
-  private:
-    kxmlcore::SharedPtr<Node> left;
-    Operator oper;
-    kxmlcore::SharedPtr<Node> expr;
+    AssignResolveNode(const Identifier &ident, Operator oper, Node *right) KJS_FAST_CALL
+      : m_ident(ident), m_oper(oper), m_right(right) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  protected:
+    Identifier m_ident;
+    Operator m_oper;
+    RefPtr<Node> m_right;
+  };
+
+  class AssignBracketNode : public Node {
+  public:
+    AssignBracketNode(Node *base, Node *subscript, Operator oper, Node *right) KJS_FAST_CALL
+      : m_base(base), m_subscript(subscript), m_oper(oper), m_right(right) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  protected:
+    RefPtr<Node> m_base;
+    RefPtr<Node> m_subscript;
+    Operator m_oper;
+    RefPtr<Node> m_right;
+  };
+
+  class AssignDotNode : public Node {
+  public:
+    AssignDotNode(Node *base, const Identifier& ident, Operator oper, Node *right) KJS_FAST_CALL
+      : m_base(base), m_ident(ident), m_oper(oper), m_right(right) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  protected:
+    RefPtr<Node> m_base;
+    Identifier m_ident;
+    Operator m_oper;
+    RefPtr<Node> m_right;
+  };
+
+  class AssignErrorNode : public Node {
+  public:
+    AssignErrorNode(Node* left, Operator oper, Node* right) KJS_FAST_CALL
+      : m_left(left), m_oper(oper), m_right(right) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  protected:
+    RefPtr<Node> m_left;
+    Operator m_oper;
+    RefPtr<Node> m_right;
   };
 
   class CommaNode : public Node {
   public:
-    CommaNode(Node *e1, Node *e2) : expr1(e1), expr2(e2) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    CommaNode(Node *e1, Node *e2) KJS_FAST_CALL : expr1(e1), expr2(e2) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr1;
-    kxmlcore::SharedPtr<Node> expr2;
-  };
-
-  class StatListNode : public StatementNode {
-  public:
-    // list pointer is tail of a circular list, cracked in the CaseClauseNode ctor
-    StatListNode(StatementNode *s);
-    StatListNode(StatListNode *l, StatementNode *s);
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
-  private:
-    friend class CaseClauseNode;
-    kxmlcore::SharedPtr<StatementNode> statement;
-    kxmlcore::SharedPtr<StatListNode> list;
+    RefPtr<Node> expr1;
+    RefPtr<Node> expr2;
   };
 
   class AssignExprNode : public Node {
   public:
-    AssignExprNode(Node *e) : expr(e) {}
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    AssignExprNode(Node *e) KJS_FAST_CALL : expr(e) {}
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
+    RefPtr<Node> expr;
   };
 
-  class VarDeclNode : public Node {
+  class VarDeclNode: public Node {
   public:
-    VarDeclNode(const Identifier &id, AssignExprNode *in);
-    Value evaluate(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    enum Type { Variable, Constant };
+    VarDeclNode(const Identifier &id, AssignExprNode *in, Type t) KJS_FAST_CALL;
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
+    JSValue* handleSlowCase(ExecState*, const ScopeChain&, JSValue*) KJS_FAST_CALL KJS_NO_INLINE;
+    Type varType;
     Identifier ident;
-    kxmlcore::SharedPtr<AssignExprNode> init;
+    RefPtr<AssignExprNode> init;
   };
 
   class VarDeclListNode : public Node {
   public:
     // list pointer is tail of a circular list, cracked in the ForNode/VarStatementNode ctor
-    VarDeclListNode(VarDeclNode *v) : list(this), var(v) {}
-    VarDeclListNode(VarDeclListNode *l, VarDeclNode *v)
-      : list(l->list), var(v) { l->list = this; }
-    Value evaluate(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    VarDeclListNode(VarDeclNode *v) KJS_FAST_CALL : next(this), var(v) { Parser::noteNodeCycle(this); }
+    VarDeclListNode(VarDeclListNode *l, VarDeclNode *v) KJS_FAST_CALL
+      : next(l->next), var(v) { l->next = this; }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+    PassRefPtr<VarDeclListNode> releaseNext() KJS_FAST_CALL { return next.release(); }
+    virtual void breakCycle() KJS_FAST_CALL;
   private:
     friend class ForNode;
     friend class VarStatementNode;
-    kxmlcore::SharedPtr<VarDeclListNode> list;
-    kxmlcore::SharedPtr<VarDeclNode> var;
+    ListRefPtr<VarDeclListNode> next;
+    RefPtr<VarDeclNode> var;
   };
 
   class VarStatementNode : public StatementNode {
   public:
-    VarStatementNode(VarDeclListNode *l)
-      : list(l->list) { l->list = 0; }
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    VarStatementNode(VarDeclListNode *l) KJS_FAST_CALL : next(l->next.release()) { Parser::removeNodeCycle(next.get()); }
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<VarDeclListNode> list;
+    RefPtr<VarDeclListNode> next;
   };
 
   class BlockNode : public StatementNode {
   public:
-    BlockNode(SourceElementsNode *s);
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    BlockNode(SourceElementsNode *s) KJS_FAST_CALL;
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   protected:
-    kxmlcore::SharedPtr<SourceElementsNode> source;
+    RefPtr<SourceElementsNode> source;
   };
 
   class EmptyStatementNode : public StatementNode {
   public:
-    EmptyStatementNode() { } // debug
-    virtual Completion execute(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    EmptyStatementNode() KJS_FAST_CALL { } // debug
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   };
 
   class ExprStatementNode : public StatementNode {
   public:
-    ExprStatementNode(Node *e) : expr(e) { }
-    virtual Completion execute(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ExprStatementNode(Node *e) KJS_FAST_CALL : expr(e) { }
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
+    RefPtr<Node> expr;
   };
 
   class IfNode : public StatementNode {
   public:
-    IfNode(Node *e, StatementNode *s1, StatementNode *s2)
+    IfNode(Node *e, StatementNode *s1, StatementNode *s2) KJS_FAST_CALL
       : expr(e), statement1(s1), statement2(s2) {}
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
-    kxmlcore::SharedPtr<StatementNode> statement1;
-    kxmlcore::SharedPtr<StatementNode> statement2;
+    RefPtr<Node> expr;
+    RefPtr<StatementNode> statement1;
+    RefPtr<StatementNode> statement2;
   };
 
   class DoWhileNode : public StatementNode {
   public:
-    DoWhileNode(StatementNode *s, Node *e) : statement(s), expr(e) {}
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    DoWhileNode(StatementNode *s, Node *e) KJS_FAST_CALL : statement(s), expr(e) {}
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<StatementNode> statement;
-    kxmlcore::SharedPtr<Node> expr;
+    RefPtr<StatementNode> statement;
+    RefPtr<Node> expr;
   };
 
   class WhileNode : public StatementNode {
   public:
-    WhileNode(Node *e, StatementNode *s) : expr(e), statement(s) {}
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    WhileNode(Node *e, StatementNode *s) KJS_FAST_CALL : expr(e), statement(s) {}
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
-    kxmlcore::SharedPtr<StatementNode> statement;
+    RefPtr<Node> expr;
+    RefPtr<StatementNode> statement;
   };
 
   class ForNode : public StatementNode {
   public:
-    ForNode(Node *e1, Node *e2, Node *e3, StatementNode *s) :
+    ForNode(Node *e1, Node *e2, Node *e3, StatementNode *s) KJS_FAST_CALL :
       expr1(e1), expr2(e2), expr3(e3), statement(s) {}
-    ForNode(VarDeclListNode *e1, Node *e2, Node *e3, StatementNode *s) :
-      expr1(e1->list), expr2(e2), expr3(e3), statement(s) { e1->list = 0; }
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ForNode(VarDeclListNode *e1, Node *e2, Node *e3, StatementNode *s) KJS_FAST_CALL :
+      expr1(e1->next.release()), expr2(e2), expr3(e3), statement(s) { Parser::removeNodeCycle(expr1.get()); }
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr1;
-    kxmlcore::SharedPtr<Node> expr2;
-    kxmlcore::SharedPtr<Node> expr3;
-    kxmlcore::SharedPtr<StatementNode> statement;
+    RefPtr<Node> expr1;
+    RefPtr<Node> expr2;
+    RefPtr<Node> expr3;
+    RefPtr<StatementNode> statement;
   };
 
   class ForInNode : public StatementNode {
   public:
-    ForInNode(Node *l, Node *e, StatementNode *s);
-    ForInNode(const Identifier &i, AssignExprNode *in, Node *e, StatementNode *s);
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ForInNode(Node *l, Node *e, StatementNode *s) KJS_FAST_CALL;
+    ForInNode(const Identifier &i, AssignExprNode *in, Node *e, StatementNode *s) KJS_FAST_CALL;
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
     Identifier ident;
-    kxmlcore::SharedPtr<AssignExprNode> init;
-    kxmlcore::SharedPtr<Node> lexpr;
-    kxmlcore::SharedPtr<Node> expr;
-    kxmlcore::SharedPtr<VarDeclNode> varDecl;
-    kxmlcore::SharedPtr<StatementNode> statement;
+    RefPtr<AssignExprNode> init;
+    RefPtr<Node> lexpr;
+    RefPtr<Node> expr;
+    RefPtr<VarDeclNode> varDecl;
+    RefPtr<StatementNode> statement;
   };
 
   class ContinueNode : public StatementNode {
   public:
-    ContinueNode() { }
-    ContinueNode(const Identifier &i) : ident(i) { }
-    virtual Completion execute(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ContinueNode() KJS_FAST_CALL { }
+    ContinueNode(const Identifier &i) KJS_FAST_CALL : ident(i) { }
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
     Identifier ident;
   };
 
   class BreakNode : public StatementNode {
   public:
-    BreakNode() { }
-    BreakNode(const Identifier &i) : ident(i) { }
-    virtual Completion execute(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    BreakNode() KJS_FAST_CALL { }
+    BreakNode(const Identifier &i) KJS_FAST_CALL : ident(i) { }
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
     Identifier ident;
   };
 
   class ReturnNode : public StatementNode {
   public:
-    ReturnNode(Node *v) : value(v) {}
-    virtual Completion execute(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ReturnNode(Node *v) KJS_FAST_CALL : value(v) {}
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> value;
+    RefPtr<Node> value;
   };
 
   class WithNode : public StatementNode {
   public:
-    WithNode(Node *e, StatementNode *s) : expr(e), statement(s) {}
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    WithNode(Node *e, StatementNode *s) KJS_FAST_CALL : expr(e), statement(s) {}
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
-    kxmlcore::SharedPtr<StatementNode> statement;
-  };
-
-  class CaseClauseNode : public Node {
-  public:
-    CaseClauseNode(Node *e) : expr(e), list(0) { }
-    CaseClauseNode(Node *e, StatListNode *l)
-      : expr(e), list(l->list) { l->list = 0; }
-    Value evaluate(ExecState *exec);
-    Completion evalStatements(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
-  private:
-    kxmlcore::SharedPtr<Node> expr;
-    kxmlcore::SharedPtr<StatListNode> list;
-  };
-
-  class ClauseListNode : public Node {
-  public:
-    // list pointer is tail of a circular list, cracked in the CaseBlockNode ctor
-    ClauseListNode(CaseClauseNode *c) : cl(c), nx(this) { }
-    ClauseListNode(ClauseListNode *n, CaseClauseNode *c)
-      : cl(c), nx(n->nx) { n->nx = this; }
-    Value evaluate(ExecState *exec);
-    CaseClauseNode *clause() const { return cl.get(); }
-    ClauseListNode *next() const { return nx.get(); }
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
-  private:
-    friend class CaseBlockNode;
-    kxmlcore::SharedPtr<CaseClauseNode> cl;
-    kxmlcore::SharedPtr<ClauseListNode> nx;
-  };
-
-  class CaseBlockNode : public Node {
-  public:
-    CaseBlockNode(ClauseListNode *l1, CaseClauseNode *d, ClauseListNode *l2);
-    Value evaluate(ExecState *exec);
-    Completion evalBlock(ExecState *exec, const Value& input);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
-  private:
-    kxmlcore::SharedPtr<ClauseListNode> list1;
-    kxmlcore::SharedPtr<CaseClauseNode> def;
-    kxmlcore::SharedPtr<ClauseListNode> list2;
-  };
-
-  class SwitchNode : public StatementNode {
-  public:
-    SwitchNode(Node *e, CaseBlockNode *b) : expr(e), block(b) { }
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
-  private:
-    kxmlcore::SharedPtr<Node> expr;
-    kxmlcore::SharedPtr<CaseBlockNode> block;
+    RefPtr<Node> expr;
+    RefPtr<StatementNode> statement;
   };
 
   class LabelNode : public StatementNode {
   public:
-    LabelNode(const Identifier &l, StatementNode *s) : label(l), statement(s) { }
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    LabelNode(const Identifier &l, StatementNode *s) KJS_FAST_CALL : label(l), statement(s) { }
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
     Identifier label;
-    kxmlcore::SharedPtr<StatementNode> statement;
+    RefPtr<StatementNode> statement;
   };
 
   class ThrowNode : public StatementNode {
   public:
-    ThrowNode(Node *e) : expr(e) {}
-    virtual Completion execute(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    ThrowNode(Node *e) KJS_FAST_CALL : expr(e) {}
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<Node> expr;
-  };
-
-  class CatchNode : public StatementNode {
-  public:
-    CatchNode(const Identifier &i, StatementNode *b) : ident(i), block(b) {}
-    virtual Completion execute(ExecState *exec);
-    Completion execute(ExecState *exec, const Value &arg);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
-  private:
-    Identifier ident;
-    kxmlcore::SharedPtr<StatementNode> block;
-  };
-
-  class FinallyNode : public StatementNode {
-  public:
-    FinallyNode(StatementNode *b) : block(b) {}
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
-  private:
-    kxmlcore::SharedPtr<StatementNode> block;
+    RefPtr<Node> expr;
   };
 
   class TryNode : public StatementNode {
   public:
-    TryNode(StatementNode *b, CatchNode *c)
-      : block(b), _catch(c), _final(0) {}
-    TryNode(StatementNode *b, FinallyNode *f)
-      : block(b), _catch(0), _final(f) {}
-    TryNode(StatementNode *b, CatchNode *c, FinallyNode *f)
-      : block(b), _catch(c), _final(f) {}
-    virtual Completion execute(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    TryNode(StatementNode *b, const Identifier &e, StatementNode *c, StatementNode *f) KJS_FAST_CALL
+      : tryBlock(b), exceptionIdent(e), catchBlock(c), finallyBlock(f) { }
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<StatementNode> block;
-    kxmlcore::SharedPtr<CatchNode> _catch;
-    kxmlcore::SharedPtr<FinallyNode> _final;
+    RefPtr<StatementNode> tryBlock;
+    Identifier exceptionIdent;
+    RefPtr<StatementNode> catchBlock;
+    RefPtr<StatementNode> finallyBlock;
   };
 
   class ParameterNode : public Node {
   public:
     // list pointer is tail of a circular list, cracked in the FuncDeclNode/FuncExprNode ctor
-    ParameterNode(const Identifier &i) : id(i), next(this) { }
-    ParameterNode(ParameterNode *list, const Identifier &i)
-      : id(i), next(list->next) { list->next = this; }
-    Value evaluate(ExecState *exec);
-    Identifier ident() { return id; }
-    ParameterNode *nextParam() { return next.get(); }
-    virtual void streamTo(SourceStream &s) const;
+    ParameterNode(const Identifier &i) KJS_FAST_CALL : id(i), next(this) { Parser::noteNodeCycle(this); }
+    ParameterNode(ParameterNode *next, const Identifier &i) KJS_FAST_CALL
+      : id(i), next(next->next) { next->next = this; }
+    JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+    Identifier ident() KJS_FAST_CALL { return id; }
+    ParameterNode *nextParam() KJS_FAST_CALL { return next.get(); }
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+    PassRefPtr<ParameterNode> releaseNext() KJS_FAST_CALL { return next.release(); }
+    virtual void breakCycle() KJS_FAST_CALL;
   private:
     friend class FuncDeclNode;
     friend class FuncExprNode;
     Identifier id;
-    kxmlcore::SharedPtr<ParameterNode> next;
+    ListRefPtr<ParameterNode> next;
+  };
+
+  class Parameter {
+  public:
+    Parameter() KJS_FAST_CALL { }
+    Parameter(const Identifier& n) KJS_FAST_CALL : name(n) { }
+    Identifier name;
   };
 
   // inherited by ProgramNode
   class FunctionBodyNode : public BlockNode {
   public:
-    FunctionBodyNode(SourceElementsNode *s);
-    void processFuncDecl(ExecState *exec);
-  };
+    FunctionBodyNode(SourceElementsNode *) KJS_FAST_CALL;
+    virtual void processFuncDecl(ExecState*) KJS_FAST_CALL;
+    int sourceId() KJS_FAST_CALL { return m_sourceId; }
+    const UString& sourceURL() KJS_FAST_CALL { return m_sourceURL; }
 
-  class FuncDeclNode : public StatementNode {
-  public:
-    FuncDeclNode(const Identifier &i, FunctionBodyNode *b)
-      : ident(i), param(0), body(b) { }
-    FuncDeclNode(const Identifier &i, ParameterNode *p, FunctionBodyNode *b)
-      : ident(i), param(p->next), body(b) { p->next = 0; }
-    Completion execute(ExecState */*exec*/)
-      { /* empty */ return Completion(); }
-    void processFuncDecl(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    void addParam(const Identifier& ident) KJS_FAST_CALL;
+    size_t numParams() const KJS_FAST_CALL { return m_parameters.size(); }
+    Identifier paramName(size_t pos) const KJS_FAST_CALL { return m_parameters[pos].name; }
+    UString paramString() const KJS_FAST_CALL;
+    Vector<Parameter>& parameters() KJS_FAST_CALL { return m_parameters; }
   private:
-    Identifier ident;
-    kxmlcore::SharedPtr<ParameterNode> param;
-    kxmlcore::SharedPtr<FunctionBodyNode> body;
+    UString m_sourceURL;
+    int m_sourceId;
+    Vector<Parameter> m_parameters;
   };
 
   class FuncExprNode : public Node {
   public:
-    FuncExprNode(FunctionBodyNode *b) : param(0), body(b) { }
-    FuncExprNode(ParameterNode *p, FunctionBodyNode *b)
-      : param(p->next), body(b) { p->next = 0; }
-    Value evaluate(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    FuncExprNode(const Identifier &i, FunctionBodyNode *b, ParameterNode *p = 0) KJS_FAST_CALL 
+      : ident(i), param(p ? p->next.release() : 0), body(b) { if (p) { Parser::removeNodeCycle(param.get()); } addParams(); }
+    virtual JSValue *evaluate(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
   private:
-    kxmlcore::SharedPtr<ParameterNode> param;
-    kxmlcore::SharedPtr<FunctionBodyNode> body;
+    void addParams() KJS_FAST_CALL;
+    // Used for streamTo
+    friend class PropertyNode;
+    Identifier ident;
+    RefPtr<ParameterNode> param;
+    RefPtr<FunctionBodyNode> body;
+  };
+
+  class FuncDeclNode : public StatementNode {
+  public:
+    FuncDeclNode(const Identifier &i, FunctionBodyNode *b) KJS_FAST_CALL
+      : ident(i), body(b) { addParams(); }
+    FuncDeclNode(const Identifier &i, ParameterNode *p, FunctionBodyNode *b) KJS_FAST_CALL
+      : ident(i), param(p->next.release()), body(b) { Parser::removeNodeCycle(param.get()); addParams(); }
+    virtual Completion execute(ExecState*) KJS_FAST_CALL;
+    virtual void processFuncDecl(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+    void addParams() KJS_FAST_CALL;
+    Identifier ident;
+    RefPtr<ParameterNode> param;
+    RefPtr<FunctionBodyNode> body;
   };
 
   // A linked list of source element nodes
   class SourceElementsNode : public StatementNode {
   public:
+    static int count;
     // list pointer is tail of a circular list, cracked in the BlockNode (or subclass) ctor
-    SourceElementsNode(StatementNode *s1);
-    SourceElementsNode(SourceElementsNode *s1, StatementNode *s2);
-
-    Completion execute(ExecState *exec);
-    void processFuncDecl(ExecState *exec);
-    virtual void processVarDecls(ExecState *exec);
-    virtual void streamTo(SourceStream &s) const;
+    SourceElementsNode(StatementNode*) KJS_FAST_CALL;
+    SourceElementsNode(SourceElementsNode *s1, StatementNode *s2) KJS_FAST_CALL;
+    
+    Completion execute(ExecState*) KJS_FAST_CALL;
+    void processFuncDecl(ExecState*) KJS_FAST_CALL;
+    virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+    virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+    PassRefPtr<SourceElementsNode> releaseNext() KJS_FAST_CALL { return next.release(); }
+    virtual void breakCycle() KJS_FAST_CALL;
   private:
     friend class BlockNode;
-    kxmlcore::SharedPtr<StatementNode> element; // 'this' element
-    kxmlcore::SharedPtr<SourceElementsNode> elements; // pointer to next
+    friend class CaseClauseNode;
+    RefPtr<StatementNode> node;
+    ListRefPtr<SourceElementsNode> next;
   };
 
+  class CaseClauseNode : public Node {
+  public:
+      CaseClauseNode(Node *e) KJS_FAST_CALL : expr(e) { }
+      CaseClauseNode(Node *e, SourceElementsNode *s) KJS_FAST_CALL
+      : expr(e), source(s->next.release()) { Parser::removeNodeCycle(source.get()); }
+      JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+      Completion evalStatements(ExecState*) KJS_FAST_CALL;
+      void processFuncDecl(ExecState*) KJS_FAST_CALL;
+      virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+      virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+      RefPtr<Node> expr;
+      RefPtr<SourceElementsNode> source;
+  };
+  
+  class ClauseListNode : public Node {
+  public:
+      // list pointer is tail of a circular list, cracked in the CaseBlockNode ctor
+      ClauseListNode(CaseClauseNode *c) KJS_FAST_CALL : clause(c), next(this) { Parser::noteNodeCycle(this); }
+      ClauseListNode(ClauseListNode *n, CaseClauseNode *c) KJS_FAST_CALL
+      : clause(c), next(n->next) { n->next = this; }
+      JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+      CaseClauseNode *getClause() const KJS_FAST_CALL { return clause.get(); }
+      ClauseListNode *getNext() const KJS_FAST_CALL { return next.get(); }
+      virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+      void processFuncDecl(ExecState*) KJS_FAST_CALL;
+      virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+      PassRefPtr<ClauseListNode> releaseNext() KJS_FAST_CALL { return next.release(); }
+      virtual void breakCycle() KJS_FAST_CALL;
+  private:
+      friend class CaseBlockNode;
+      RefPtr<CaseClauseNode> clause;
+      ListRefPtr<ClauseListNode> next;
+  };
+  
+  class CaseBlockNode : public Node {
+  public:
+      CaseBlockNode(ClauseListNode *l1, CaseClauseNode *d, ClauseListNode *l2) KJS_FAST_CALL;
+      JSValue* evaluate(ExecState*) KJS_FAST_CALL;
+      Completion evalBlock(ExecState *exec, JSValue *input) KJS_FAST_CALL;
+      virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+      void processFuncDecl(ExecState*) KJS_FAST_CALL;
+      virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+      RefPtr<ClauseListNode> list1;
+      RefPtr<CaseClauseNode> def;
+      RefPtr<ClauseListNode> list2;
+  };
+  
+  class SwitchNode : public StatementNode {
+  public:
+      SwitchNode(Node *e, CaseBlockNode *b) KJS_FAST_CALL : expr(e), block(b) { }
+      virtual Completion execute(ExecState*) KJS_FAST_CALL;
+      virtual void processVarDecls(ExecState*) KJS_FAST_CALL;
+      virtual void processFuncDecl(ExecState*) KJS_FAST_CALL;
+      virtual void streamTo(SourceStream&) const KJS_FAST_CALL;
+  private:
+      RefPtr<Node> expr;
+      RefPtr<CaseBlockNode> block;
+  };
+  
   class ProgramNode : public FunctionBodyNode {
   public:
-    ProgramNode(SourceElementsNode *s);
+    ProgramNode(SourceElementsNode *s) KJS_FAST_CALL;
   };
 
-}; // namespace
+} // namespace
 
 #endif

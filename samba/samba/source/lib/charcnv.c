@@ -1367,5 +1367,5 @@ size_t next_mb_char_size(const char *s)
 	/* We're hosed - we don't know how big this is... */
 	DEBUG(10,("next_mb_char_size: unknown size at string %s\n", s));
 	conv_silent = False;
-	return 1;
+	return (size_t)-1;
 }

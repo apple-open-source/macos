@@ -1,0 +1,2558 @@
+                      Apache Tomcat Version 4.1
+                      =========================
+                            Release Notes
+                            =============
+
+$Id: RELEASE-NOTES-4.1.txt 522110 2007-03-24 21:50:03Z markt $
+
+
+============
+INTRODUCTION:
+============
+
+
+This document describes the changes that have been made in the current
+development version of Apache Tomcat, relative to the Tomcat 4.0 release.
+The release notes for all prior releases of Tomcat 4.1 are also included, for
+your reference.
+
+Bug reports should be entered at the bug reporting system for
+Jakarta projects at:
+
+        http://issues.apache.org/bugzilla/
+
+Please report bugs and feature requests under product name "Tomcat 4".
+
+
+
+============
+NEW FEATURES:
+============
+
+
+--------------------
+General New Features:
+--------------------
+
+[4.1.1] Administration Webapp:
+        Complete development of the initial version of the administration web
+        application.
+
+[4.1.5] Administration Webapp:
+        Add support for manipulating JNDI resources of web applications.
+
+[4.1.6] Administration Webapp:
+        Add support for JavaMail resources.
+
+[4.1.6] Tyrex resources:
+        Upgrade to Tyrex 1.0.
+
+[4.1.10] Commons components:
+         Upgrade to stable releases.
+
+[4.1.11] Administration Webapp:
+         Add support for DefaultContext.
+
+[4.1.11] Documentation:
+         New JK and JK 2 documentation.
+
+[4.1.15] i18n:
+         Complete French language translation.
+
+[4.1.19] Documentation:
+         Added printer friendly versions of the documents.
+
+[4.1.19] Administration Webapp:
+         Complete the accessibility requirements to pass section 508.
+
+[4.1.28] Connectors:
+         The Coyote connector (HTTP/1.1 and AJP/1.3) has been upgraded to
+         Coyote 1.1, which is the one used by Tomcat 5.0.x. Please refer to the
+         Tomcat 5.0 changelog for the list of changes.
+
+[4.1.29] DBCP:
+         Upgrade to DBCP 1.1.
+
+[4.1.31] License
+         Upgrade to Apache License 2.0
+
+[4.1.31] JAF
+         Upgrade to JAF 1.0.2
+
+[4.1.31] JavaMail
+         Upgrade to 1.3.1
+
+[4.1.31] JTA
+         Upgrade to 1.0.1b
+
+[4.1.32] Commons Beanutils
+         Upgrade to 1.7.0
+
+[4.1.32] Commons Collections
+         Upgrade to 3.1
+
+[4.1.32] Commons Digester
+         Upgrade to 1.7
+
+[4.1.32] Commons Logging
+         Upgrade to 1.0.4
+
+[4.1.32] Jakarta RegExp
+         Upgrade to 1.4
+
+[4.1.32] Xerces
+         Upgrade to 2.8.0
+
+[4.1.32] Commons Daemon
+         Upgrade to 1.0.1
+
+[4.1.32] Commons DBCP
+         Upgrade to 1.2.1
+
+[4.1.32] Commons Pool
+         Upgrade to 1.3
+
+[4.1.32] JUnit
+         Upgrade to 3.8.1
+
+[4.1.32] Commons Java Mail
+         Upgrade to 1.3.3_01
+
+[4.1.32] Tyrex Data Source
+         Upgrade to 1.0.3
+
+[4.1.32] Building
+         Now compiles on Java 5
+
+[4.1.32] NIS
+         Upgrade to 2.14
+
+[4.1.32] Struts
+         Upgrade to 1.2.9
+
+[4.1.32] Building
+         Re-structure source distribution so build scripts work without
+         modification
+
+[4.1.32] Service
+         Replace JavaService with commons-deamon
+
+[4.1.32] Commons FileUpload
+         Upgrade to 1.1.1 (requires commons-io)
+
+[4.1.32] Commons IO
+         Add version 1.2
+
+[4.1.32] JUnit
+         Upgrade to 3.8.2
+
+[4.1.32] Pure TLS
+         Upgrade to 0.9b5
+
+[4.1.33] Commons Collections
+         Upgrade to 3.2
+
+[4.1.33] Commons BeanUtils
+         Revert to 1.6.1
+
+[4.1.34] Commons BeanUtils
+         Return to 1.7.0
+
+[4.1.34] Commons Logging
+         Upgrade to 1.1
+
+[4.1.35] Commons Digetster
+         Upgrade to 1.8
+
+[4.1.35] Commons IO
+         Upgrade to 1.2
+
+[4.1.35] Commons Modeler
+         Upgrade to 2.0
+
+[4.1.35] Xerces
+         Upgrade to 2.9.0
+
+[4.1.35] MX4J
+         Upgrade to 3.0.2
+
+[4.1.35] Java Transaction API
+         Upgrade to 1.1
+
+[4.1.35] NSIS
+         Upgrade to 2.23
+
+[4.1.35] JDK
+         JDK 1.3+ is now required
+
+[4.1.35] PureTLS
+         Upgrade to 0.9b5
+
+
+---------------------
+Catalina New Features:
+---------------------
+
+[4.1.3]  Catalina:
+         Implement custom logger which can be used to capture System.out and
+         System.err to a buffer for later use.
+
+[4.1.3]  SSIServlet:
+         Complete rewrite of the SSI functionality (WARNING: servlet class name
+         has changed).
+
+[4.1.3]  CoyoteConnector:
+         Add PureTLS support.
+
+[4.1.4]  Embedded:
+         Add support for Coyote HTTP/1.1 and Coyote JK 2.
+
+[4.1.4]  DefaultContext:
+         Refactoring of DefaultContext to support dynamic configuration (naming
+         resources and other misc properties).
+
+[4.1.4]  MBeanUtils:
+         Allow specifying custom MBean descriptor files.
+
+[4.1.5]  ServerLifecycleListener:
+         Generate MBeans for the JNDI resources of the contexts.
+
+[4.1.8]  BootstrapService:
+         Allow passing parameters to the BootstrapService.
+
+[4.1.15] JNDIRealm:
+         Add support for SSL with the JNDIRealm.
+
+[4.1.16] AuthenticatorBase:
+         Add a configuration option to disable setting the headers which 
+         prevent proxies from caching protected pages.  Using this option may
+         open security holes in your application, so it should only be used
+         if you are certain about what you are doing.
+
+[4.1.16] JNDIRealm:
+         Allow configuring how JNDI should handle referrals returned 
+         by the server.
+
+[4.1.16] AccessLogValve:
+         Allow disabling log file rotation, and add new patterns.
+
+[4.1.17] DataSourceRealm:
+         A new Realm implementation which can use a JNDI named JDBC
+         DataSource has been added.
+
+[4.1.19] JNDIRealm:
+         Added support for using an alternateURL if a socket connection
+         can not be made to the provider at the connectionURL.
+
+[4.1.19] CoyoteConnector:
+         Add HTTP/1.1 GZIP compression support.
+
+[4.1.20] StandardWrapper, ManagerBase:
+         Added JavaBean fields to expose statistics through JMX.
+
+[4.1.20] GlobalResourcesLifecycleListener:
+         Allow the listener to be associated with a Service.
+
+[4.1.25] ExtendedAccessLogValve:
+         An implementation of the W3c Extended Log File Format. See
+         http://www.w3.org/TR/WD-logfile.html for more information
+         about the format. 
+
+[4.1.29] DefaultContext:
+         Added support for nesting a Context Listener and a Webapp Loader 
+         within a DefaultContext.
+
+[4.1.31] #18273
+         CGI Servlet
+         Add support for optionally passing the shell environment
+         variables to the CGI script
+
+[4.1.32] #31201
+         Default Servlet
+         New option to set file encoding for static resources
+
+[4.1.32] #28305
+         Startup scripts
+         Provide greater control over redirection of stdout and stderr
+
+
+-------------------
+Jasper New Features:
+-------------------
+
+[4.1.1] JspServlet, Options:
+        Add new "reloading" flag allowing to disable the JSP reloading checks,
+        to allow better performance on production servers.
+
+[4.1.1] JspServlet:
+        Refactor the JSP modification checking as a background thread.
+
+[4.1.3] Compiler:
+        Ant 1.5 based compiler.
+
+[4.1.4] Compiler:
+        Extensive code cleanup.
+
+[4.1.4] JspC:
+        Extensive refactoring of JspC.
+
+[4.1.4] Options:
+        Add new "compiler" option, which contains the Ant name of the Java 
+        compiler to be used. Please refer to the list in the Ant documentation
+        for more details.
+
+[4.1.4] Generator:
+        Fix the limitation on the number of tags which can be used within a
+        single page, which was cause by the 64K bytecode limit for a sigle 
+        method. Now Jasper generates separate methods for tag bodies when lots
+        of tags are used.
+
+[4.1.4] Generator:
+        Add tag instance reuse for performance improvement.
+
+[4.1.4] Generator:
+        Add tag BodyContent reuse.
+
+[4.1.6] TldLocationsCache:
+        Add TLD caching.
+
+[4.1.6] Options:
+        Add new "enablePooling" flag, which allows disabling tag reuse.
+
+[4.1.8] JspCompilationContext:
+        Use _ instead of $ to generate file and class names for jsp servlets.
+
+[4.1.19] Compiler:
+         Added new "fork" option. This tells Ant to fork the JSP page javac
+         compile so that it is run in a different JVM from the one Tomcat
+         is running in. Please refer to the Jasper-HOWTO for more information.
+
+
+==========================
+BUG FIXES AND IMPROVEMENTS:
+==========================
+
+
+------------------
+Generic Bug Fixes:
+------------------
+
+[4.1.2] Administration Webapp:
+        Fix problems with limiting the length of the driverClassName field, as
+        well as set default values, and add missing JNDI name field.
+
+[4.1.2] Administration Webapp:
+        Fix many problems defining a SSL connector through the administration
+        webapp.
+
+[4.1.2] Administration Webapp:
+        Many cosmetic fixes.
+
+[4.1.3] Administration Webapp:
+        Fix creation of new connectors through the admin webapp.
+
+[4.1.6] Administration webapp:
+        Context resources administration fixes and improvements.
+
+[4.1.6] Compression filter:
+        Fix compliance problems.
+
+[4.1.6] Administration Webapp:
+        Tweak validation code for the context parameters.
+
+[4.1.8] Build:
+        Tomcat is now built with JDK 1.4.
+
+[4.1.9] Administration Webapp:
+        Specify charset in JSP pages.
+
+[4.1.11] Administration Webapp:
+         Fix adding a context with the administration webapp.
+
+[4.1.12] Administration Webapp:
+         Complete support for DefaultContext.
+
+[4.1.15] Administration Webapp:
+         Fix edition and creation of resource links.
+
+[4.1.17] Default configuration:
+         Connector performance tweaks.
+
+[4.1.19] Manager and HTML Manager web applications
+         Fix bugs 5551, 7826, 8969, 13983, 5629, and 13205
+         Updated documentation and added some minor new features.
+         See the Manager App HOW-TO and HTML Manager App HOW-TO
+         documentation for more information.
+
+[4.1.19] Administration Webapp:
+         Add a check for empty validation query before setting it.
+
+[4.1.20] Startup scripts:
+         Fix classloading failures on JDK 1.4 related to commons-logging, 
+         which were caused by JARs being set as endorsed and added to the
+         system classloader.
+
+[4.1.20] Xerces:
+         Upgrade to Xerces 2.3.0.
+
+[4.1.20] Administration Webapp:
+         Additional accessibility improvements.
+
+[4.1.20] Administration Webapp:
+         Fix to prevent localhost from being deleted.
+
+[4.1.20] Administration Webapp:
+         Fix the beahavior of valve creation, where atributes weren't saved.
+
+[4.1.21] Administration Webapp:
+         Add filtering to prevent the administrator from removing himself 
+         access.
+
+[4.1.21] Administration Webapp:
+         Remove groups and roles tables on user and group page.
+
+[4.1.23] #17744
+         Administration Webapp:
+         Remove "/admin" part of URLs to make them relative.
+
+[4.1.23] #15982
+         Administration Webapp:
+         Don't set JDBCRealm digest when it's an empty string.
+
+[4.1.23] Startup scripts:
+         Fix bugs in the Unix startup scripts.
+
+[4.1.27] Administration Webapp:
+         Fix typo in the default context action declaraion.
+
+[4.1.28] Modeler:
+         Update to commons-modeler 1.1.
+
+[4.1.28] Xerces:
+         Update to Xerces 2.5.0.
+
+[4.1.28] Regexp:
+         Update to regexp 1.3.
+
+[4.1.28] Scripts:
+         Use -Dsun.io.useCanonCaches=false as an extra system property for
+         Windows scripts, so that the canonical paths returned are case exact.
+
+[4.1.28] Docs:
+         Minor docs updates.
+
+[4.1.30] Administration Webapp:
+         Add new connector attributes to the admin webapp.
+
+[4.1.30] Docs:
+         Docs updates.
+
+[4.1.31] Administration Wepapp:
+         Add support for new clientAuth values
+
+[4.1.31] Docs:
+         Correctly document default value for useBodyEncodingForURI
+
+[4.1.31] #14193
+         Startup and Admin webapp
+         Exceptions on startup and errors in admin webapp when default
+         context is
+ defined with loader and/or manager.
+
+[4.1.31] #22268
+         Admin webapp
+         User password was truncated to 32 characters
+
+[4.1.31] Admin webapp
+         Fixed validation for various forms
+
+[4.1.31] #24085
+         Admin webapp
+         The group and role list disappear when using "Create New User" if
+         "save" clicked without filling in form.
+
+[4.1.31] #13805
+         Classloader docs
+         Update docs to show that the shared directory is relative to
+         CATALINA_BASE not CATALINA_HOME.
+
+[4.1.31] #bug 13772
+         Classloader docs
+         Add a link to the security manager how-to.
+
+[4.1.31] #20770
+         Admin webapp
+         workDir attribute now retain in context
+
+[4.1.31] #16507
+         Documentation
+         Update valve docs to provide pointer to the Jakarta Regexp docs
+
+[4.1.31] #20709
+         Windows installer
+         Use same setting for 'Djava.endorsed.dirs' when starting via menu
+         as for service and batch file.
+
+[4.1.31] #20091
+         web.xml
+         Correct grammer and typo in comments
+
+[4.1.31] #18383
+         Admin webapp
+         Set path to "" rather than "/" for a new root context.
+
+[4.1.31] #19521
+         Docs
+         Add warning to RequestDumperValve docs to make users aware of
+         possible side effects.
+
+[4.1.31] Windows installer
+         Update to use NSIS version 2. Only uses new features where
+         required to get installer task to complete. Some minor changes
+         in behaviour but otherwise remains consistent with previous
+         behaviour.
+
+[4.1.31] #14199
+         Examples webapp
+         Correct XMLnamespace declaration
+
+[4.1.31] #20885
+         Docs
+         Align the description of the reload target in application
+         developer guide with the
+ description of reload from the manager
+         documentation.
+
+[4.1.31] #19869
+         BUILDING.txt
+         Update to reflect 4.1 branch, missing libraries, updated
+         libraries and add steps to build installer and release
+         distributions
+
+[4.1.31] #23203
+         RUNNING.txt
+         JDK should be renamed to J2SE SDK. Add note about using SDK
+         rather than JRE.
+
+[4.1.31] #23520
+         RUNNING.txt
+         Add shared to list of directories relative to CATALINA_BASE.
+
+[4.1.31] Build script
+         Modify build scripts so build.properties.sample becomes a
+         default that can be overridden by a build.properties file.
+
+[4.1.31] #23880
+         Docs
+         Correct ant path in Jasper how-to
+
+[4.1.31] #18433
+         Docs
+         Clarify relationship between autodeploy and livedeploy
+
+[4.1.31] #6218
+         Examples webapp
+         Provide support for renaming the examples context without
+         breaking the examples
+
+[4.1.31] #12516
+         Docs
+         Clarify that the cached Principal is not retained across
+         session serialisation
+
+[4.1.32] #6582
+         Examples webapp
+         Align sample source code with actual code for reqparams example
+
+[4.1.32] Examples webapp
+         Fix possible XSS issues
+
+[4.1.32] Manager webapp
+         Fix XSS issues
+
+[4.1.32] #28867
+         Docs
+         Correct manager how-to to show correct way to reference ROOT webapp
+
+[4.1.32] #28830
+         Manager webapp
+         Fix deploy and undeploy
+
+[4.1.32] #33085
+         Admin webapp
+         Expose privileged attribute of context elements
+
+[4.1.32] Docs
+         Clarify global resources documentation
+
+[4.1.32] #23277
+         Windows installer
+         Make clear that the WebDAV servlet is one of the examples
+
+[4.1.32] #26558
+         Scripts
+         Improve error message when there is a problem with JAVA_HOME
+
+[4.1.32] Docs
+         Add warnings re use of deprecated connector and allowLinking
+
+[4.1.32] #28178, #34033
+         Admin webapp
+         Correctly handle users/groups with = in the name
+
+[4.1.32] #33768
+         Docs
+         Update docs to make clear JK2 is deprecated
+
+[4.1.32] #13240
+         Docs
+         Note that CGI Servlet requires JDK 1.3+
+
+[4.1.32] Docs
+         Clarify connector docs for linking web servers and Tomcat and seperate
+         out the deprecated connectors
+
+[4.1.32] Admin webapp
+         Improve error message when a resource is missing an attribute
+
+[4.1.32] Docs
+         Document alternateURL attribute for JNDi realm
+
+[4.1.32] Admin webapp
+         Align package name with directory structure for
+         SetCharacterEncodingFilter
+
+[4.1.32] Docs
+         Fix typo in Global Naming Resources documentation
+
+[4.1.32] Docs
+         Update Oracle JBDI DataSource examples
+
+[4.1.32] Examples webapp
+         Correct XSS issues
+
+[4.1.32] Docs
+         Clarify thay Verisign has different CAs for commercial and trial
+         certificates
+
+[4.1.33] #40171
+         Windows Installer
+         Fix various issues with silent installation
+
+[4.1.35] Admin webapp
+         Fix APR connector configuration by removing unsupported
+         attributes socketBuffer and threadPriority
+
+[4.1.35] service.bat
+         Add tools.jar to classpath so JSPs will compile
+
+[4.1.36] mx4j
+         Update build process so correct mx4j jar is used
+
+
+------------------
+Catalina Bug Fixes:
+------------------
+
+[4.1.1] #8611
+        Summary: Sealed .jar files in WEB-INF/lib always fail to load 
+                 second class
+        WebappClassLoader:
+        The classloader will now generate codebases URL for classes loaded from
+        JAR file which point to the JAR, intead of using a nested jar: URL.
+        This change will affect security manager policy files.
+
+[4.1.2] ErrorReportValve:
+        Made it so the valve will only generate status reports for status codes
+        over 300.
+
+[4.1.2] DbcpDataSourceFactory:
+        maxIdle attribute couldn't be set.
+
+[4.1.2] Facades:
+        Fixed a problem where the facades would still keep a pointer to the 
+        facaded objects after the end of the processing of the request.
+
+[4.1.3] #7578
+        Summary: Signed jars loses their certificates when in /WEB-INF/lib
+        WebappClassLoader:
+        Fix the timing of the call to JarEntry.getCertificates(), so that the
+        certificates are set correctly.
+
+[4.1.3] WebappClassLoader:
+        Modify the filters to have a matched class be delegated first, instead
+        of refusing to load it altogether. Also add filters for javax.*, Xerces
+        and Xalan.
+
+[4.1.3] Endpoint:
+        Add support for a two phase connector initialization in Coyote, so that
+        Tomcat can be used as nobody on Unix.
+
+[4.1.3] Http11Protocol:
+        i18n.
+
+[4.1.3] StandardServerMBean:
+        Encode special characters when writing configuration file.
+
+[4.1.3] ContextConfig:
+        Fix NPE when the Embedded class is used.
+
+[4.1.3] DBCP:
+        Use the JNDI factory provided by the commons-dbcp project.
+
+[4.1.3] StandardHost:
+        Modify mapping error uri to provide the source uri.
+
+[4.1.3] NamingContextListener:
+        Fix a bug where the listener was registered on all lifecycle events.
+
+[4.1.3] #7656
+        Summary: Webapplications deployed using PUT don't survive 
+        a tomcat restart
+        StandardServer:
+        Move the save to XML functionality out of the JMX code, and make the
+        ManagerServlet use it after a deploy, so that the deployed application
+        is persistent.
+
+[4.1.3] #9353
+        Transfer-Encoding: chunked (on Request fails)
+        ChunkedInputFilter:
+        In rare cases, the data read could be corrupted.
+
+[4.1.3] ManagerServlet:
+        Handle resources nested in subcontexts.
+
+[4.1.3] NamingResources:
+        Prevent naming resources overriding.
+
+[4.1.4] HostConfig:
+        Do web.xml tracking on all contexts.
+
+[4.1.4] NamingResources:
+        Fix entries removal.
+
+[4.1.4] ContextBindings:
+        JNDI environment is now available to webapp created classloaders, as
+        long as the webapp classloader is in its parent hierarchy.
+
+[4.1.4] ManagerServlet:
+        Save configuration when undeploying.
+
+[4.1.4] #9629
+        Fix ServletContext.getResourcePaths to match spec
+        ApplicationContext:
+        getResourcePaths now returns null for non existing paths.
+
+[4.1.4] #9676
+        org.apache.coyote.tomcat4.CoyoteServerSocketFactory doesn't recognize 
+        keystoreType attribute
+        Http11Protocol:
+        Add missing setKeytype method.
+
+[4.1.4] #5446
+        Can't change webapp class loader
+        WebappLoader:
+        Use introspection to instantiate the class loader.
+
+[4.1.5] #9715
+        'Out of Memory' error with static html pages
+        ProxyDirContext:
+        Use a LRU based cache instead of a simple hashtable.
+
+[4.1.4] #9722
+        java.lang.ClassCastException: 
+        org.apache.catalina.connector.HttpRequestFacade
+        ApplicationDispatcher:
+        The check to unwrap must also handle facades.
+
+[4.1.5] #9700
+        JNDIRealm authentication incorrectly succeeds with blank password
+        JNDIRealm:
+        The security exploit has been fixed.
+
+[4.1.5] HTMLManagerServlet:
+        Many improvements and small feature additions.
+
+[4.1.5] #8935
+        Deadlock with reload in manager
+        StandardWrapper:
+        The deallocation of a wrapper will not timeout after 500 ms.
+
+[4.1.5] #8013
+        DefaultServlet Throws NumberFormatException
+        DefaultServlet:
+        Use getDateHeader instead of instance local date parsers to solve
+        thread safety issues.
+
+[4.1.6] WebappClassLoader:
+        Fix a rare thread safety issue.
+
+[4.1.6] #9944
+        JAASRealm not configurable
+        JAASRealm:
+        Fix configuration of the appName and userClassNames attributes.
+
+[4.1.6] StandardSession:
+        Fix session recycling.
+
+[4.1.6] #9318
+        Summary: HttpSession getMaxInactiveInterval() throws 
+        IllegalStateException
+        StandardSession:
+        Don't throw ISE.
+
+[4.1.6] ContextConfig:
+        Don't remove JNDI resources when stopping a web application.
+
+[4.1.6] StandardWrapper:
+        Capture System.out and System.err during load-on-startup.
+
+[4.1.6] ApplicationContext:
+        Fix major memory leak in the request dispatcher. Also improves 
+        performance.
+
+[4.1.6] ApplicationHttpResponse:
+        Disallow using setLocale from an included servlet.
+
+[4.1.6] StandardContext:
+        Reset application context when stopping.
+
+[4.1.8] BootstrapService:
+        Prevent NPE when DaemonContext is not well initialised.
+
+[4.1.8] StandardServer:
+        Make sure the global resources are correctly initialized even if there
+        is no GlobalNamingResources element in server.xml.
+
+[4.1.8] MBean-descriptors:
+        Add PersistentManager MBean info to mbeans-descripor.xml so it doesn't
+        complain in case if you have PersistentManager.
+
+[4.1.8] #10967
+        Summary: Java Deadlock in WebappClassLoader
+        WebappClassLoader:
+        Make ResourceEntry a separate class.
+
+[4.1.8] StandardSession:
+        Set manager to null before recycling.
+
+[4.1.9] StandardClassLoader:
+        Avoid potential security exception by not calling getParent.
+
+[4.1.9] #11307
+        Summary: Deadlock in ClassLoader
+        WebappClassLoader:
+        Fix deadlock condition by modifying the synced block.
+
+[4.1.9] StandardHostDeployer:
+        Fire event when undeploying.
+
+[4.1.10] AuthenticatorBase:
+         Remove double URI decoding.
+
+[4.1.10] StandardHost:
+         Refactor log capture.
+
+[4.1.10] StandardServer:
+         Output server.xml in UTF8.
+
+[4.1.10] WebappClassLoader:
+         Fix problem where external repositories would always be ignored.
+
+[4.1.10] WebappClassLoader:
+         Generate properly encoded URLs.
+
+[4.1.10] #12041
+         Summary: CGIServlet can block on input
+         CGIServlet:
+         Fix possible deadlock when reading CGI script output.
+
+[4.1.10] ErrorDispatcherValve:
+         Unwrap root cause error.
+
+[4.1.10] Documentation:
+         Fixes and small additons to the DBCP documentation.
+
+[4.1.10] StandardContext:
+         Add new "swallowOutput" flag, to allow configuring logger redirection.
+
+[4.1.11] catalina.policy:
+         Modify the file to reflect the new URLs to be used for codebase
+         declarations.
+
+[4.1.11] StandardContext:
+         Change the timing of the directory context allocation (now done 
+         during start which is more consistent with the lifecycle of other
+         components).
+
+[4.1.11] #12041
+         CGIServlet:
+         Better fix for bugzilla 12041 running an extra thread to deal 
+         with STDERR.
+
+[4.1.11] CGIServlet:
+         Fix for CGI scripts run from a POST operation never get any 
+         posted data.
+
+[4.1.11] DefaultServlet:
+         Assume text file when MIME type is unknown for including purposes.
+
+[4.1.11] ManagerServlet:
+         Allow manager to do operations on the root webapp.
+
+[4.1.11] BootstrapService:
+         Allow parameters to BootstrapService for jni/mod_jk2.
+
+[4.1.11] FileDirContext:
+         Add an option to allow symlinking (allowLinking).
+
+[4.1.11] FileDirContext:
+         Make the case sensitivity check based on the value of the 
+         "caseSensitive" flag rather than on the path separator. Most Unix OSes
+         can set that to false.
+
+[4.1.12] SSLAuthenticator:
+         Add back client authentication support.
+
+[4.1.12] SECURITY:
+         Disable InvokerServlet in the default webapp configuration, 
+         and restrict the servlets it can invoke.
+
+[4.1.12] #12286
+         JDBCStore:
+         Fix NPE on shutdown.
+
+[4.1.13] StandardContext:
+         Major refactoring of the resources lifecycle handling, which is now 
+         similar to the one of the other components.
+
+[4.1.13] #12985
+         StandardWrapper:
+         Fix load on startup bug for JSPs.
+
+[4.1.13] StandardWrapper:
+         Add log swallowing support.
+
+[4.1.13] InvokerServlet:
+         SECURITY: Check the classname of the invoked servlet.
+
+[4.1.13] #13513
+         StandardManager:
+         Add disabling persistence with a blank String.
+
+[4.1.13] Catalina:
+         SECURITY: Add security manager protection on Coyote components.
+
+[4.1.13] ErrorReportValve:
+         Performance optimization: don't generate a status report for status 
+         codes < 400.
+
+[4.1.13] ProxyDirContext:
+         Cache non existing resources list to provide a major speedup for 
+         welcome files processing.
+
+[4.1.13] ProxyDirContext:
+         Avoid object creation when reproting a not found resource.
+
+[4.1.13] ProxyDirContext:
+         Peformance fix: allow directory caching.
+
+[4.1.14] Catalina:
+         Fix security manager package protection configuration.
+
+[4.1.14] ContextConfig:
+         Fix TLD processing.
+
+[4.1.15] #13583
+         ApplicationContext:
+         Add path normalization.
+
+[4.1.15] FileDirContext:
+         allowLinking will also disable case sensitivity checks (which are
+         relatively similar).
+
+[4.1.15] #13364
+         StandardDefaultContext:
+         Properly refresh naming entries defined in the DefaultContext after a
+         reload.
+
+[4.1.16] server.xml
+         Disable timeout for JK2 connector.
+
+[4.1.16] MBeanUtils:
+         Relax restrictions on valve MBeans creation.
+
+[4.1.16] #14781
+         CGIServlet:
+         Remove dependency on JDK 1.4.
+
+[4.1.16] FileStore:
+         Check for the existence of the session store file.
+
+[4.1.16] SSI:
+         Conditional SSI enhancement, better emulation of Apache SSI,
+         fix expression parser's handling of literals.
+
+[4.1.17] #15086
+         StandardWrapper:
+         Use the swallowOutput flag when unloading.
+
+[4.1.17] #15077
+         StandardWrapper:
+         Mark servlets as unavailable when the wrapper is stopped.
+
+[4.1.17] CGIServlet, SSIServlet:
+         Fix for SSI "normal" configuration which invokes a CGI script.
+
+[4.1.17] #15239
+         NamingResourcesMBean:
+         Fix resource link creation.
+
+[4.1.18] CoyoteWriter, CoyoteResponse:
+         SECURITY: Fix writer reuse after an IOException occurred.
+
+[4.1.19] #15544
+         DataSourceRealm:
+         Fixed the Realm-HOWTO docs for the DataSourceRealm.
+
+[4.1.19] #10383
+         Ajp13:
+         Fix hanging Ajp13Processor and web server request when invalid 
+         Cookie sent. An HTTP status code 400 - Bad Request is now returned.
+
+[4.1.19] ApplicationFilterConfig:
+         Wrap filter initialization with swallow output.
+
+[4.1.19] #15819
+         StandardServer:
+         Don't write out listeners for StandardDefaultContext.
+
+[4.1.19] #15762
+         StandardServer:
+         Filter special characters in DataSource URL.
+
+[4.1.19] #15890
+         DefaultServlet:
+         Invalid date headers should be ignored.
+
+[4.1.19] ManagerBase:
+         Add code to guarantee uniqueness of a session ID (even though the
+         probability that this event occurs is negligible, some people feel
+         more comfortable with that code enabled).
+
+[4.1.19] RequestFilterValve:
+         Catch null pointer property to match on, deny by default if found.
+
+[4.1.19] #15378
+         ProxyDirContext:
+         Fix cache invalidation problem when creating subcontexts or modifying
+         attributes.
+
+[4.1.20] #16316
+         DataSourceRealm:
+         Removed code which validates the realm can connect to the db from
+         the realm start in case the JNDI named DataSource has not been
+         initialized yet.
+
+[4.1.20] #16106
+         StandardServer:
+         Fix a problem where some valves would be incorrectly written 
+         to server.xml.
+
+[4.1.20] StandardSession:
+         Don't recycle sessions, as the performance gain is minimal.
+
+[4.1.20] CookieTools:
+         Add spaces after ; in cookies. This avoids problems with IE on Mac.
+
+[4.1.20] Manager:
+         Add missing security mapping for deploy (this bug was introduced 
+         in 4.1.19).
+
+[4.1.20] ManagerBase, StandardSession:
+         Correct problems related to the persistence of sessions.
+
+[4.1.20] ApplicationContext:
+         Add a workaround to allow retrieving contexts from the root context.
+
+[4.1.21] ErrorDispatcherValve
+         Aborted requests by remote clients are now detected so that a one
+         line entry is logged instead of a complete stack trace and the
+         request is terminated instead of trying to invoke an error page.
+
+[4.1.21] MbeanUtils:
+         Add JSR 77 servlet registration.
+
+[4.1.22] JDBCStore:
+         Optimize keys() method SQL WHERE clause.
+         Implement a new db field so that the session can be localized to
+         the Engine, Host, and Context (Web Application).
+
+[4.1.22] #17591
+         JDBCStore
+         Synchronize methods which use db so that use of db connection is
+         thread safe.
+
+[4.1.22] #17587 
+         Session Manager StoreBase
+         Fix a NPE bug when the background thread expires sessions.
+
+[4.1.22] #17775
+         WebappClassLoader
+         Grant web applications a FilePermission to read the web application
+         context directory in addition to its contents.
+
+[4.1.23] #17900
+         JDBCStore
+         Fix bug where first session in result set was skipped.
+
+[4.1.25] #9851
+         Improve Digest Authentication compatibility
+
+[4.1.25] #20380
+         AccessLogValve incorrectly calculates timezone.
+
+[4.1.25] #16374
+         AccessLogValve Date in file name configurable.
+
+[4.1.25] #16400
+         AccessLogValve Allow logging to be conditional.
+
+[4.1.25] AccessLogValve Add %D, %T for time to serve request.
+
+[4.1.25] StandardContext:
+         Fix listener shutdown order for JNDI access.
+
+[4.1.25] StandardContext:
+         Return facaded context.
+
+[4.1.25] StandardWrapper:
+         Fix SingleThreadModel NPE after a reload.
+
+[4.1.25] WebappClassLoader:
+         Display more debugging when a CL stopped error occurs.
+
+[4.1.25] StandardSession:
+         Clone enumerated list to allow mutating.
+
+[4.1.27] AuthenticatorBase:
+         Don't set the no-caching headers on protected POSTed pages, so that
+         the browser's "back" button works as expected.
+
+[4.1.27] AccessLogValve:
+         Add leading + to timezone offset.
+
+[4.1.27] ExtendedAccessLogValve:
+         If bytes are requested, then print bytes not the date.
+
+[4.1.28] StandardContext:
+         Fix reloading regression.
+
+[4.1.28] StandardHostValve:
+         Reset context classloader after invoking the servlet.
+
+[4.1.28] StandardWrapperValve:
+         Fix infinite recursion when logging in certain cases.
+
+[4.1.28] JNDIRealm:
+         Many bugfixes (18698, 11678, 19864, 20518, 14817, 22236), and allow 
+         multiple user patterns.
+
+[4.1.28] CGI Servlet:
+         Bugfixes (22857, 22858).
+
+[4.1.28] WebDAV Servlet:
+         Fix bad handling of the destinationPath URL.
+
+[4.1.28] SecurityClassLoad:
+         Preload a few additional classes from Coyote.
+
+[4.1.28] MemoryUser:
+         XML-escape the values when writing out the tomcat-users.xml file.
+
+[4.1.29] StandardDefaultContext:
+         Fix support for defining ResourceLink.
+
+[4.1.30] AuthenticatorBase:
+         Port updates from TC 5, including SingleSignOn fixes.
+
+[4.1.30] StandardContext:
+         If session timeout is zero or less, session should not timeout 
+         (10656).
+
+[4.1.30] StandardHostDeployer:
+         Fix deployment to root webapp.
+
+[4.1.30] Various JDBC and JNDI realms fixes.
+
+[4.1.30] Various CGI servlet fixes.
+
+[4.1.30] DefaultServlet:
+         URL encode redirects.
+
+[4.1.30] WebDAV servlet:
+         Port fixes.
+
+[4.1.30] PersistentManagerBase:
+         Improve session expiration robustness.
+
+[4.1.30] StandardSession:
+         valueBound() must be called before the object is made available
+         via getAttribute().
+
+[4.1.30] StandardReportValve:
+         Stack traces are now escaped to ensure correct display.
+
+[4.1.30] ExtendedAccessLogValve:
+         Port patch.
+
+[4.1.31] #15463, Duplicates #18609, #20083, #20667
+         StandardSession:
+         Fix idle session timeout bug.
+
+[4.1.31] JDBCStore:
+         Optimize use of database session persistence to improve scaling
+         and performance.
+
+[4.1.31] #14246
+         Startup scripts
+         Make clear in error message that JDK is required
+
+[4.1.31] #26988
+         CGI Servlet
+         Remove unnecessary line feeds from stdin stream.
+
+[4.1.31] #27090
+         CGI Servlet
+         Make parameter encoding configurable. Default remains as is.
+
+[4.1.31] #10469
+         WebappClassloader
+         Fix inconsistent encoding of URLs
+
+[4.1.31] #26487
+         JNDIRealm
+         RFC 2254 done on whole string instead of just DN
+
+[4.1.31] UserDatabaseRealm
+         Provide an implementation for getName() and getPassword() which
+         are required if using CLIENT-CERT authentication
+
+[4.1.31] #27190
+         Webdav Servlet
+         Returns correct status in response to MOVE request
+
+[4.1.31] #27100
+         Webdav Servlet
+         Remove lock obsfucation functionality as it breaks a number of
+         webdav clients and does not appear to be covered by the webdav
+         spec.
+
+[4.1.31] #16323
+         Webdav Servlet
+         Lock token must be returned after lock creation.
+
+[4.1.31] #26906
+         Webdav Servlet
+         The destination path needs to be normalised after the protocol
+         and host has been removed (if present).
+
+[4.1.31] #14283
+         Sessions
+         Catch and log exceptions in listeners
+
+[4.1.31] #15572
+         Startup
+         Ensure the catalina.useNaming property is set before executing
+         the digester so the -nonaming command line option has an effect.
+
+[4.1.31] #17712
+         Startup
+         Use correct escaping (replace single ' with double '') in
+         French translations
+
+[4.1.31] #17859
+         Startup
+         Provide cygwin friendly JAVA_ENDORSED_DIRS property
+
+[4.1.31] #17848
+         Default web.xml
+         Add mappings for the XHTML media type
+
+[4.1.31] #18005
+         Sssions
+         Provide a better error message if session expires during login
+         process
+
+[4.1.31] #13833
+         StandardContext
+         Start() should throw an exception if it fails.
+
+[4.1.31] #14228
+         StandardContext
+         Load on startup servlets should be loaded after AFTER_START_EVENT
+         (where environment entries are created).
+
+[4.1.31] #18079
+         StandardContext
+         Cached attribute of resources now has an effect
+
+[4.1.31] #18369
+         JDBCStore
+         Prevent npe in StoreBase if a sql exception occurs
+
+[4.1.31] #18479
+         Session
+         Non-serializable sessions attributes are be removed so
+         valueUnbound is called
+
+[4.1.31] #18626
+         Startup
+         Make clear which file digester failed to parse
+
+[4.1.31] #19852
+         Context config
+         Don't remove application parameters on stop (only the parameters
+         specified in web.xml would get added back)
+
+[4.1.31] #17690
+         Context config
+         Display more helpful error message if docBase is invalid
+
+[4.1.31] #18294
+         Tests
+         Add spaces to expected cookie values to enable tests to pass.
+         Whitespace is allowed between tokens
+
+[4.1.31] Tests
+         Change 'asset()' to 'assertTrue()' to fix build problem on 1.4 JDK
+
+[4.1.31] #9851
+         Digest authentication
+         Fix failures with Mozilla and other issues re RFC2617
+
+[4.1.31] ApplicationContext
+         Fix getContext("/") so current context is returned if called
+         whilst in the root context
+
+[4.1.31] #19801
+         ApplicationDispatcher
+         Request dispatcher does not set empty javax.servlet.include request
+         attributes on nested includes.
+
+[4.1.31] #18141
+         CGI servlet
+         Support parameters with multiple values in CGI servlet.
+
+[4.1.31] #19545
+         CGI servlet
+         CONTENT_LENGTH was recalculated after script had been executed
+           and hence had no effect
+         Parameters were being sent to the script twice
+
+[4.1.31] #20786
+         Manger servlet
+         Session output not formatted correctly for session inactive for
+         <10 minutes.
+
+[4.1.31] JDBCStore
+         Fix requirement for a great deal of unnecessary db queries to
+         manage the persisted data. This could severly impact its ability
+         to scale to large numbers of sessions.
+
+[4.1.31] Sessions
+         Improve session timeout handling
+
+[4.1.31] #13924
+         Error dispatcher
+         The spec states if an error page declaration doesn't match the
+         original exception and the exception is an instance of
+         ServletException then the exception should be unwrapped and a
+         second pass made of the error page declarations.
+
+[4.1.31] #22176
+         Basic authenticator
+         Allow username and/or password to start and/or end in a space.
+         This is required by section 2 of RFC2617.
+
+[4.1.31] #21790
+         Various servlets, valves and docs
+         Modify noshade references to align with XHTML reference guide
+
+[4.1.31] #16877
+         Startup
+         Null pointer exception on startup if context specifies
+         Path=... rather than path=...
+
+[4.1.31] #26174
+         ApplicationContext
+         NoClassDefFoundError when calling getNamedDispatcher with
+         security manager
+
+[4.1.31] #25528
+         WebappClassloader
+         Poor performance with RMI
+
+[4.1.31] #23572
+         JNDI realm
+         The alternateURL should be used in more cases than just a
+         naming excetion (eg network error)
+
+[4.1.31] CGI Servlet
+         Correctly handle binary responses (eg images)
+
+[4.1.31] #22300
+         Startup
+         Ensure digester uses right classloder when digester jar is in
+         common/lib as well.
+
+[4.1.31] #18650
+         Startup
+         Provide a better message in the log if the temp directory is
+         missing.
+
+[4.1.31] #12056
+         Startup
+         Test for execute rather than read permissions in scripts since
+         execute is what we need. Add missing JDK not JRE warning.
+
+[4.1.31] #26375
+         Security
+         Fix package sealing test for partially sealed jars
+
+[4.1.31] #27293
+         Default servlet
+         If-Unmodified-Since now takes account of HTTP header not
+         including milliseconds
+
+[4.1.31] #26021
+         Service
+         When running as a service, swallowOuput had no effect
+
+[4.1.31] #13097
+         Embedded
+         Incorrect form of address used in Embedded
+
+[4.1.31] #27572
+         Valves
+         Fix typo in French translation
+
+[4.1.31] #12089
+         Startup
+         CATALINA_HOME ignored and reset by catalina.sh
+
+[4.1.31] #22563
+         Digest authenticator
+         Remove quotes from nc token in digest header if present
+
+[4.1.31] #29956
+         Single Sign on
+         Incorrect handling of negative timeout in
+         SingleSignOn.sessionEvent()
+
+[4.1.31] #19701
+         Session persistence
+         Fix serialization of array of custom class
+
+[4.1.31] #20758
+         StandardContext
+         Fix sources of memory leaks associated with deploy/undeploy
+
+[4.1.32] Revert #27090
+         CGIServlet
+         Reverted as it introduced at JDK 1.4 dependency
+
+[4.1.32] #31273
+         JNDIRealm
+         Added support for derefAliases
+
+[4.1.32] #31886
+         JDBCStore
+         Prevent ConcurrentModificationExceptions causing Tomcat to hang
+
+[4.1.32] #31711
+         Utils
+         Correct use of clone flag in Enumerator. It was having the inverse of
+         the expected effect
+
+[4.1.32] #21818
+         Standard Context
+         allowLinking, caseSensitive, cached and cacheTTL settings retained
+         across web application reload
+
+[4.1.32] #32023
+         CGI Servlet
+         Fix uploading of large files
+
+[4.1.32] Default Servlet
+         Ensure mime boundaries start with a new line
+
+[4.1.32] #19767
+         Realms
+         Add suport for DIGEST authentication to JDBC and Datasource realms
+
+[4.1.32] #32429
+         CGI Servlet
+         Set stderr line count correctly
+
+[4.1.32] #32431
+         CGI Servlet
+         Fixed typo
+
+[4.1.32] #32340
+         CGI Servlet
+         Fix class cast exceptions
+
+[4.1.32] WebDAV servlet
+         Add support for arbitary mapping (eg /webdav/*)
+
+[4.1.32] #32453
+         ContainerBase
+         Ensure cross-context calls to getContext during initialisation do not
+         return null
+
+[4.1.32] #32559, #33463
+         Standard Context
+         Make reload and stop/start more similar
+
+[4.1.32] #32779
+         Standard Host Deployer
+         Fix NPE on undeploy of app deployed with a context.xml file
+
+[4.1.32] #31198
+         Realms
+         Support non-ASCII user names and passwords with FORM and DIGEST
+         authentication
+
+[4.1.32] #28849
+         Various
+         Update French translations
+
+[4.1.32] #28222
+         Core
+         Fix request.getRequestURL() so it complies with SRV.8.4
+
+[4.1.32] #25508
+         Standard Context
+         Fix JNDI when multiple engines exist with the same name
+
+[4.1.32] #33357
+         DataSource Realm
+         Fix connection leaks and make more efficient
+
+[4.1.32] #10982
+         Naming
+         Include o.a.naming.resources.jndi.Handler in naming-resources.jar
+
+[4.1.32] #27128
+         FORM authenticator
+         Request parameters restored after auth when cache=false
+
+[4.1.32] #22041
+         Sessions
+         Correctly handle dynamic proxies as session objects
+
+[4.1.32] #20380
+         Access Log Valve
+         Timezone should include DST
+
+[4.1.32] #10385
+         SSI servlet
+         Improve support for non-platform default encodings
+
+[4.1.32] #22013
+         Core
+         Fix RequestDispatcher.forward() handling of relative paths
+
+[4.1.32] #22617
+         Basic Authenticator
+         Fix handling of unauthenticated users when integrated with an EJB
+         container
+
+[4.1.32] Default Servlet
+         Correctly handle symbolic links
+
+[4.1.32] #25835
+         Request Filter Valve
+         Make regular expression usage thread safe
+
+[4.1.32] #13274
+         JAAS realm
+         Various fixes to get this realm to a state where it actually works
+
+[4.1.32] #35769
+         Naming
+         Fix implementation of composeName(Name, Name)
+
+[4.1.32] #10026
+         Webapp classloader
+         Fix struts JAR locking issue (fixes other locking issues too)
+
+[4.1.32] #37150
+         Turn off directory listing by default
+
+[4.1.32] CGI Servlet
+         Align default settings in web.xml with default settings in servlet
+
+[4.1.32] #17970
+         Web applications with multi-level contexts no longer deploy twice
+
+[4.1.32] #13040
+         getContext() now allows retrieval of an external context that is a
+         sub-context of the current context
+
+[4.1.32] #38012
+         Allow CGI scripts to issue re-directs. More generally, allows scripts
+         to set response headers. Add support for the CGI specific status
+         header
+
+[4.1.32] #37854
+         Correct Extension-List validation in MANIFEST.MF files which was too
+         strict
+
+[4.1.32] #15570
+         Magic role "*" was incorrectly interpreted as all authenticated users
+         rather than as all roles defined in web.xml
+
+[4.1.32] #16185
+         Enable the DataSourceRealm to use a DataSource defined at the context
+         level
+
+[4.1.32] #23950
+         Context.listBindings() now returns Objects rather than References
+
+[4.1.32] CGI Servlet
+         Add environment variable support for Windows Server 2003
+
+[4.1.32] Server mbean
+         Expose serverInfo attribute via jmx
+
+[4.1.32] JNDI Realm
+         Add support for CLIENT-CERT authentication
+
+[4.1.32] CGI Servlet
+         Add REQUEST_URI to environment
+
+[4.1.32] #38814
+         CGI Servlet
+         CGIServlet applies wrong charset
+
+[4.1.32] #33636
+         Deployment
+         ExpandWar doesn't set the lastModified attribute
+
+[4.1.32] Deployment
+         Expanded WARs are now deleted when the webapp is removed
+
+[4.1.32] #28845
+         Deployment
+         Fix possible race condition between HostConfig and Manager/HTMLManager
+         when uploading a WAR for deployment
+
+[4.1.32] #38795
+         StandardContext
+         Ensure thread's context classloader is always correctly reset after
+         an exception
+
+[4.1.32] #39769
+         StandardWrapper
+         Ensure correct context classloader when calling destroy()
+
+[4.1.33] #40252
+         Commons Logging
+         Revert to Commons BeanUtils 1.6.1 since 1.7.0 introduced an issue
+         that prevented web applications from loading if the Commons Logging
+         library was present in the web application.
+
+[4.1.34] #40252
+         Commons Logging
+         Return to BeanUtils 1.7.0 since Commons Logging 1.1 resolves the issue
+
+
+----------------
+Coyote Bug Fixes:
+----------------
+
+[4.1.13] #12998
+         CoyoteAdapter:
+         Fix compatibility problem with AJP.
+
+[4.1.13] #13162
+         CoyoteAdapter:
+         Decode the URI as a URI, not as a query-string.
+
+[4.1.13] #13658
+         CoyoteAdapter:
+         Arrange to have the SSL attributes in the CoyoteRequest so that they 
+         show up for getAttributeNames.
+
+[4.1.13] CoyoteConnector:
+         Allow disabling proxyName with an empty string.
+
+[4.1.13] CoyoteInputStream:
+         Implement available().
+
+[4.1.13] CoyoteResponse:
+         Fix sendRedirect URL generation.
+
+[4.1.13] HTTP/1.1 Constants:
+         Increase max HTTP header buffer size to 48K.
+
+[4.1.13] HTTP/1.1 Http11Processor:
+         Performance: Save on B2C for host name handling.
+
+[4.1.13] HTTP/1.1 Http11Processor:
+         Performance: Use bytes comparisons to check the "connection" header
+         values.
+
+[4.1.13] HTTP/1.1 InternalOutputBuffer:
+         Performance: improve header generation.
+
+[4.1.13] #13270
+         JK2 ChannelSocket:
+         TCP no delay was not implemented.
+
+[4.1.13] JK2 HandlerRequest:
+         Fix tomcatAuthentication support.
+
+[4.1.13] #11657
+         JK2 JkMain:
+         Initialize https URLs if only JK connector is used.
+
+[4.1.13] Fix broken JSSE/SSL-support and include support for Cert-Auth with
+         JSSE 1.1.x.
+
+[4.1.15] JK2 JkCoyoteHander:
+         Fix problem where the same buffer was used for output and input.
+
+[4.1.15] Tomcat 4 Adapter:
+         Closing the output stream or writer in the Tomcat 4 adapter will now
+         finish the response.
+
+[4.1.15] HTTP/1.1 InternalOutputBuffer:
+         Fix possible loop scenarios which could happen if an invalid 0 length
+         read was made.
+
+[4.1.15] Coyote Response:
+         Improve special header handling to allow protocol handler to enforce
+         the protocol.
+
+[4.1.15] #14281
+         Tomcat 4 Adapter OutputBuffer:
+         Properly compute the total size of the content written.
+
+[4.1.16] Tomcat 4 Adapter:
+         Performance: Delayed evaluation of the remote host address.
+
+[4.1.16] HTTP/1.1 Http11Processor:
+         Performance: Allow disabling upload timeout.
+
+[4.1.16] #14658
+         Tomcat 4 Adapter CoyoteWriter:
+         Performance: Full reimplementation of PrintWriter, fixing syncing as
+         well as performance problems which occurred when a client abruplty
+         disconnected.
+
+[4.1.16] HTTP/1.1 Http11Processor:
+         Performance: Save on GC for commonly used Strings for protocol and
+         method name.
+
+[4.1.16] HTTP/1.1 InternalOutputBuffer:
+         Fix for an ArrayOutOfBound exception which could occur when 
+         IOException (usually caused by a client disconnect) was raised
+         during a commit.
+
+[4.1.16] JK2 ChannelSocket:
+         Handle timeout exceptions.
+
+[4.1.16] JK2 ChannelSocket:
+         Allow disabling channel socket for JNI, as well as binding a specific
+         adress.
+
+[4.1.16] JK2 HandlerRequest:
+         Fix null getRemoteHost.
+
+[4.1.16] JK2 HandlerRequest, JKCoyoteHandler:
+         Lazy extraction of ssl certs to speed up jk/ajp13 when under SSL.
+
+[4.1.17] ActionCode:
+         Allow ActionCode to be used in a switch.
+
+[4.1.17] Response:
+         Fix Locale initilization to the default locale (en-us).
+
+[4.1.17] #15201
+         Tomcat 4 Adapter:
+         Fix SSL attributes retrival with JK 2.
+
+[4.1.17] Tomcat 4 Adapter CoyoteResponse:
+         encodeURL does not encode session with empty URL (rfc2396).
+
+[4.1.17] HTTP/1.1 Http11Processor:
+         Fix incorrect setting of the socket timeout when the connection is
+         first established.
+
+[4.1.17] HTTP/1.1 Http11Processor:
+         Performance: Optimize soTimeout management when the upload timeout is
+         disabled.
+
+[4.1.17] PoolTcpEndpoint:
+         Reduce synchornization by not using connection object pooling. Also
+         minimize the amount of time during which no thread is listening on 
+         the server socket.
+
+[4.1.17] ThreadPool:
+         Reduce synchronization by using an array of threads instead of 
+         a Vector.
+
+[4.1.17] #15258
+         JK 2 ChannelSocket:
+         Bind all addresses by default.
+
+[4.1.18] #15456
+         JK 2 CoyoteHandler:
+         Fix NPE occurring in SSL mode.
+
+[4.1.19] ActionCode:
+         Fix incorrect number which could cause bad matching.
+
+[4.1.19] HTTP/1.1 Http11Processor:
+         Fix case sensitivity matching of some special header values, which 
+         could prevent HTTP/1.0 keep alive with some clients.
+
+[4.1.19] PoolTcpEndpoint:
+         Fix incorrect handling when an exception occurs during a SSL 
+         handshake.
+
+[4.1.19] PoolTcpEndpoint:
+         More robust socket restart code for the case where an exception occurs
+         during an accept.
+
+[4.1.19] ThreadPool:
+         Remove thread from active thread list when it ends.
+
+[4.1.20] CoyoteConnector:
+         Allow setting socket linger.
+
+[4.1.21] Cookies:
+         Fix to return values instead of the names.
+
+[4.1.23] CoyoteAdapter:
+         Reject decoded URIs which don't start with '/'.
+
+[4.1.24] Cookies:
+         Add handling for bad cookies.
+
+[4.1.24] #16508
+         CoyoteResponse:
+         Fix value of the committed flag after the response is finished.
+
+[4.1.25] Shell scripts:
+         Add support for OS/400.
+
+[4.1.25] JkHandler:
+         Fix decoding of SSL CLIENT-CERTs passed from Apache/IIS/iPlanet.
+
+[4.1.25] mod_jk:
+         Fix potential path-traversal problem in mappings.
+
+[4.1.25] JSSE SSL:
+         Re-factor to remove dependencies on Sun classes when using a 1.4.x 
+         JVM. It should now be possible to set up a SSL Connector 
+         with any vendors 1.4.x JVM, without having to install 
+         Sun's JSSE 1.0.x.
+
+[4.1.25] PureTLS SSL:
+         Fix problems with getting the CLIENT-CERT.
+
+[4.1.25] CoyoteConnector:
+         Disable server socket timeout by default, to minimize the amount of 
+         generated garbage, especially in SSL mode.
+
+[4.1.25] #21219
+         Http11Processor:
+         Drop the client connection (nicely, if possible, rudely if not) in the
+         event of a serious protocol error.
+
+[4.1.25] CoyoteRequestFacade:
+         Fix double facading of the request object.
+
+[4.1.25] HandlerRequest:
+         Fix incorrect recycling of SSL certificates in JK 2.
+
+[4.1.25] Http11Processor:
+         Catch exceptions which could occur in prepareRequest.
+
+[4.1.26] Http11Processor:
+         Fix regression where connection is always dropped at the end of 
+         processing.
+
+[4.1.27] CoyoteAdapter:
+         Fix "//" URL normalization code.
+
+[4.1.27] JSSESocketFactory:
+         Fix dependency on Sun VMs, so that IBM VM users can use the integrated
+         JSSE.
+
+[4.1.27] #21984
+         HandlerReqest:
+         Fix potential Dos condition when given a mal-formed URI.
+
+[4.1.30] Upgrade to Connectors from Tomcat 5.0.18.
+
+[4.1.31] #21566
+         server-noexamples.xml
+         Use coyote connectors
+
+[4.1.31] #21184
+         http connector
+         Rename LocalString_fr.properties to LocalStrings_fr.properties
+
+[4.1.31] Upgrade to Connectors from Tomcat 5.0.28
+
+[4.1.32] Upgrade to Connectors from Tomcat 5.5.x branch
+
+[4.1.32] Update TC4 CoyoteConnector to
+           - enable the full range of protocol config options
+           - enable the use of future protocol config options
+           - deprecate use of the Factory element in server.xml
+
+[4.1.33] JK Connector
+         Connectors configured for AJP always used HTTP
+
+[4.1.35] CoyoteConnector
+         Ensure Accept-Language headers conform to RFC 2616 and ignore them
+         if they do not.
+
+[4.1.35] CoyoteConnector
+         Return 400 (bad request) if a request contains multiple content-length
+         headers.
+
+[4.1.35] CoyoteConnector
+         No longer accept '\' and '%5c' as path delimiters by default.
+
+
+----------------
+Jasper Bug Fixes:
+----------------
+
+[4.1.1] #8290
+        Summary: Problem in the code generated by jasper 2
+        Generator:
+        This workaround for a JDK bug (BugParade Id: 4414162) introduces 
+        a massive performance improvement when using pages containing 
+        lots of tags.
+
+[4.1.2] Generator:
+        Fixes various problems introduced by the patch which removes 
+        the try/catch tag nesting.
+
+[4.1.2] #8994
+        Summary: JSPs don't recompile
+        JspServletWrapper:
+        Fix JSP recompilation when the new "development" flag is set to "true".
+
+[4.1.3] #5793
+        Summary: Variable element in tld with TagExtraInfo class
+        TagLibraryInfoImpl:
+        Fix spec compliance problem.
+
+[4.1.3] PagaDataImpl:
+        Fix bug where only one validator could be used on a page.
+
+[4.1.3] #8565
+        Summary: MyEntityResolver doesn't allow including user-defined entities
+
+[4.1.3] Generator:
+        Use an array instead of a collection to simulate the try/catch nesting.
+
+[4.1.3] Generator:
+        Fix spec compliance bug where a tag could define scripting variables in
+        both the TLD and the TagExtraInfo class.
+
+[4.1.5] Generator, PageContextImpl:
+        Fix tag BodyContent reuse.
+
+[4.1.5] Generator:
+        Code cleanup, removing the need for a state object.
+
+[4.1.5] Generator:
+        Fix bug when specifying a redirect which already included part of a 
+        quesry string.
+
+[4.1.5] Compiler:
+        Clean up Ant error message generation.
+
+[4.1.5] #8926
+        Summary: Duplicate variable definition in generated Java source, 
+        related to custom tag scripting variable
+        Generator:
+        Fix variable declaration locations.
+
+[4.1.6] Compiler:
+        Further refactoring of the compiler.
+
+[4.1.6] #10048
+        Summary: JSP forward removes ALL response wrappers
+        PageContextImpl:
+        Only unwrap Jasper added response wrapper.
+
+[4.1.6] #10035
+        Summary: <jsp:params> in <jsp:plugin> rejected
+        Parser:
+        <jsp:params> elements are now allowed.
+
+[4.1.6] #9996
+        Summary: <@%include> breaks when the included page contains non-ascii 
+        encoding
+        Validator:
+        Fix charset handling.
+
+[4.1.6] Generator:
+        Many fixes to nested tags and scripting variables handling.
+
+[4.1.6] Generator:
+        Add synchronization of the scripting variables.
+
+[4.1.8] #10896
+        Summary: Parsing ContentType error
+        ParserController:
+        Fix parsing.
+
+[4.1.8] #10713
+        Summary: Backslashes quoting quotes in attributes does not work
+        Parser:
+        Fix parsing.
+
+[4.1.8] #10711
+        Summary: Relative filenames with ../ do not work for JSP-includes
+        JspCompilationContext:
+        Add back path normalization code.
+
+[4.1.8] #10670
+        Summary: Problem in JSP compilation
+        Generator:
+        Fix compilation problem.
+
+[4.1.8] #10766
+        Summary: <%@ page extends %> causes ClassCastException
+        JspServletWrapper:
+        Fix regression caused by the included JSP modification tracking.
+
+[4.1.9] #11463
+        Summary: PageContextImpl.removeAttribute do not work correctly without
+        session object
+        PageContextImpl:
+        Add check for the existence of the session.
+
+[4.1.9] Validator:
+        Fix bug in setting the default content-type.
+
+[4.1.9] #10949
+        Summary: Jasper2 compile error with struts logic tag & jsp:include
+        Generator:
+        Fix generated response type to HttpServletResponse.
+
+[4.1.9] #10629
+        Summary: include directive fails when referencing Parent Path within 
+        a WAR
+        JspCompilationContext:
+        Canonicalize URIs used for getResource and getResourceAsStream.
+
+[4.1.10] #11891
+         Summary: JspC does not work for webapps
+         JspC:
+         Fix -webapp option.
+
+[4.1.10] Compiler, Generator:
+         Added step to determine which scripting variables must be declared.
+
+[4.1.10] #11942
+         Summary: reassignment of variables to pagecontext attributes in body 
+         loop
+
+[4.1.10] #11552
+         Summary: Iteration tags do not resynchronize scripting variables after
+         doAfterBody()
+
+[4.1.10] #12128
+         Summary: JSP Comment end symbol not recognized in some cases
+
+[4.1.11] Compiler:
+         Update to work with Jikes with all features.
+
+[4.1.11] #12387
+         Compiler:
+         Work around limitations of the Ant path tokenization by using files.
+
+[4.1.11] Generator:
+         For the conversion of the value used in includes and others 
+         to a String, as was done in previous Tomcat releases.
+
+[4.1.11] Generator:
+         Added synchronization of NESTED and AT_BEGIN variables after call to
+         doStartTag() of tag handlers implementing IterationTag, but not
+         BodyTag.
+
+[4.1.11] #12432
+         Generator:
+         Can't compile JSP with nested custom tags that have VariableInfo.
+
+[4.1.11] JspServletWrapper:
+         Fix Jasper when "development" option is set to "false".
+
+[4.1.12] JspRuntimeContext:
+         Add permission to allow reading the work directory.
+
+[4.1.13] #13144
+         Generator:
+         Ending comment eats up line following.
+
+[4.1.13] #13536
+         Generator:
+         Bad <jsp:param> value in plugin if the value is an expression.
+
+[4.1.13] JspRuntimeContext:
+         Make sure the CodeSource for JSP pages is created consistently 
+         the same.
+
+[4.1.13] #13206
+         JspRuntimeLibrary:
+         Invalid java bean property error message could be reported better.
+
+[4.1.13] #13843
+         JspServlet:
+         Fix locking on Windows of big JSP files.
+
+[4.1.14] Compiler:
+         Add global synchronization on the javac invocation.
+
+[4.1.15] Jspc:
+         Rename "--compile" option to "-compile" (it was undocumented).
+
+[4.1.15] #14195
+         ErrorDispatcher:
+         Fix NPE.
+
+[4.1.15] #14197
+         Generator:
+         Allow jspDestroy to be overriden.
+
+[4.1.15] PageContextImpl:
+         Avoid flushing after processing the page.
+
+[4.1.16] #14577
+         Generator:
+         Declarations should geneate a '\n' at end.
+
+[4.1.16] #14699
+         Generator:
+         Scripting variables declared AT_END do not work when tag
+         implements TryCatchFinally.
+
+[4.1.17] Compiler:
+         Make exception reports more detailed.
+
+[4.1.19] #15531
+         Background Thread Recompile:
+         Fixed a thread synchronization bug which could cause the thread which
+         does background JSP recompiles (development=false) to die.
+
+[4.1.19] #14200
+         TldLocationCache:
+         TLDs under WEB-INF are not scanned for URI mappings.
+
+[4.1.19] JspWriterImpl:
+         Remove custom flushing, which caused client disconnects to log
+         stack traces with Jasper.
+
+[4.1.19] #15105
+         PageContextImpl:
+         pushBody()/popBody() error on tomcat 4.1.X.
+
+[4.1.20] #15845
+         Fixed JSP page compiles so that objects created for performing
+         the JSP page compiles which are not reused are dereferenced so
+         they are eligible for GC. This should reduce the memory footprint
+         and improve GC performance.
+
+[4.1.20] JspC:
+         Port fixes to JspC from HEAD, including support for packaged JSPs, and
+         fixes to webapp precompilation.
+
+[4.1.20] Compiler:
+         Dereference objects used during compilation, in order to allow 
+         garbage collection.
+
+[4.1.20] Compiler:
+         Fixed a NPE caused by nulling errorDispatcher.
+
+[4.1.20] #16181
+         Generator:
+         JspWriter not restored properly when exception thrown 
+         in a tag's body content.
+
+[4.1.20] #16200
+         Generator:
+         Fix isThreadSafe functionality.
+
+[4.1.20] #16449
+         JspServletWrapper:
+         Fix race condition in the reloading check by using an object local
+         boolean.
+
+[4.1.21] #16449
+         JspServletWrapper:
+         Fix recompilation logic.
+
+[4.1.21] Compiler:
+         An ant Project uses the current directory as its base directory 
+         by default. The base directory doesn't matter but ant always checks 
+         it. This can cause problems when using the SecurityManager 
+         with a strict policy. The Compiler now explicitely sets the ant 
+         Project base dir to catalina.home.
+
+[4.1.21] Generator:
+         Added support for <jsp:fallback> to XML syntax.
+
+[4.1.21] #17049
+         Generator:
+         Invalid code generated when nesting tags.
+
+[4.1.22] TagLibraryInfoImpl:
+         Fix precompilation when JARs contain TLDs.
+
+[4.1.22] JspC:
+         Add package name mangling for Java keywords.
+
+[4.1.22] JspC:
+         Add documentation.
+
+[4.1.22] #17775
+         JspRuntimeContext
+         Grant web applications JSP pages a FilePermission to read 
+         the web application context directory in addition to its contents.
+
+[4.1.23] Compiler:
+         Avoid NPE when using JSPC using the built-in compiler.
+
+[4.1.24] JspC:
+         Set the thread context class loader to the specified classpath.
+
+[4.1.25] #18314
+         PageDataImpl:
+         Multiple declarations of same taglib cause exception during 
+         validation.
+
+[4.1.25] #18496
+         Parser:
+         Special characters not escaped in "Unterminated ... tag" 
+         error message.
+
+[4.1.31] #13960, #13961
+         Correct javadoc comments to prevent warnings during compile
+
+[4.1.31] #14359
+         Remove the last traces of the largefile option which is no longer
+         supported.
+
+[4.1.31] #19361
+         Generator
+         Nested tags with scripting variables generates invalid code
+
+[4.1.31] #16830
+         Generator
+         bodyContent content not reset when a tag is reused.
+
+[4.1.31] #18180
+         Runtime
+         jsp:getProperty should return "null" rather than "" for null objects
+
+[4.1.31] #13499
+         Runtime
+         If page output is unbuffered, illegal state exception is no longer
+         thrown on forward if and only if nothing has been written to the
+         page. The ise will still be thrown on forward if there has been any
+         unbuffered output (JSP.5.5)
+
+[4.1.31] #15754
+         Runtime
+         PageContext.setAttribute() should throw a NPE if name or object are
+         null
+
+[4.1.31] #16113
+         Servlet wrapper
+         removing then replacing a jsp page continues to give a 404
+
+[4.1.31] #19049
+         Runtime
+         Clarify error message when nesting exceptions
+
+[4.1.31] #19238
+         Servlet wrapper
+         Don't wrap a ServletException in a JasperException. A custom
+         exception in a JSP will be be wrapped in a ServletException.
+         If this is further wrapped in a JasperException Tomcat can't get at
+         the original exception and error page mappings in web.xml are not
+         applied.
+
+[4.1.31] Compiler
+         Ensure spaces in tomcat install path (if any) are decoded before
+         passing to javac. This was causing the admin app to fail when
+         deployed in uncompiled form to a tomcat instance with a space in
+         it's path.
+
+[4.1.31] #20953
+         Compiler
+         Fix NPE when running in standalone mode and no useful error message.
+
+[4.1.31] #18778
+         Compiler
+         Implement mapped file
+
+[4.1.31] #27253
+         Build script
+         Copy ant-launcher.jar if necessary for ant 1.6+
+
+[4.1.31] #26025
+         Compiler
+         Fix FD leak
+
+[4.1.31] #30306
+         Loader
+         Fix issue where security manager was null
+
+[4.1.31] #29570
+         Compiler
+         Fix occasional failure due to temp dir not being set for Ant task.
+
+[4.1.31] #26400
+         JspC
+         Fix package name generation
+
+[4.1.32] #19778
+         Compiler
+         Ensure JSPs in XMl form using UTF-8 encoding (or any other encoding)
+         are handled correctly
+
+[4.1.32] #31550
+         Compiler
+         Jasper now compilies JSP when tag attribute ends in \\\\
+
+[4.1.32] #25899
+         Compiler
+         Encoding for included page is now correctly determined when the included
+         page contains a page import directive.
+
+[4.1.32] #29335
+         Resources
+         Resource names in resource files did not agree with names used in code
+
+[4.1.32] #27806
+         Compiler
+         JspC creates blank files on failure and does not alwats re-attempt java
+         generation
+
+[4.1.32] #33368
+         Runtime
+         Fix leak in swallowOutput
+
+[4.1.32] #25095
+         Compiler
+         Tags generated by <jsp:plugin> are not well-formed
+
+[4.1.32] #22867
+         Compiler
+         Tag handlers can't be inner/nested classes
+
+[4.1.32] #22293
+         JspC
+         JspC class name doesn't match Jasper
+
+[4.1.32] #18477
+         JspC
+         JspC unable to precompile linked jsp files
+
+[4.1.32] #25597
+         JspC
+         Fix ArrayIndexOutOfBounds excpetion
+
+[4.1.32] #22802
+         Compiler
+         Tag handlers can't be inner/nested classes
+
+[4.1.32] #21440
+         Runtime
+         <jsp:include> whose target performs a 'forward' does not behave as
+         expected
+
+
+============================
+KNOWN ISSUES IN THIS RELEASE:
+============================
+
+* Tomcat 4.1 and JNI Based Applications
+* Tomcat 4.1 Standard APIs Available
+* Tomcat 4.1 and XML Parsers
+* Web application reloading and static fields in shared libraries
+* Enabling SSI and CGI Support
+* Security manager URLs
+* Symlinking static resources
+* Enabling invoker servlet
+
+
+-------------------------------------
+Tomcat 4.1 and JNI Based Applications:
+-------------------------------------
+
+Applications that require native libraries must ensure that the libraries have
+been loaded prior to use.  Typically, this is done with a call like:
+
+  static {
+    System.loadLibrary("path-to-library-file");
+  }
+
+in some class.  However, the application must also ensure that the library is
+not loaded more than once.  If the above code were placed in a class inside
+the web application (i.e. under /WEB-INF/classes or /WEB-INF/lib), and the
+application were reloaded, the loadLibrary() call would be attempted a second
+time.
+
+To avoid this problem, place classes that load native libraries outside of the
+web application, and ensure that the loadLibrary() call is executed only once
+during the lifetime of a particular JVM.
+
+
+----------------------------------
+Tomcat 4.1 Standard APIs Available:
+----------------------------------
+
+A standard installation of Tomcat 4 makes all of the following APIs available
+for use by web applications (by placing them in "common/lib" or "shared/lib"):
+* activation.jar (JavaBeans Activation Framework 1.0.2)
+* ant.jar (Apache Ant 1.7.0)
+* commons-collections.jar (Commons Collections 3.2)
+* commons-dbcp.jar (Commons DBCP 1.2.1)
+* commons-logging-api.jar (Commons Logging 1.1)
+* commons-pool.jar (Commons Pool 1.3)
+* jasper-compiler.jar (Jasper 2 Compiler)
+* jasper-runtime.jar (Jasper 2 Runtime)
+* jdbc2_0-stdext.jar (JDBC 2.0 Optional Package, javax.sql.*)
+* jndi.jar (JNDI 1.2 base API classes)
+* jta.jar (Java Transacation API 1.1)
+* mail.jar (JavaMail 1.3.3)
+* naming-common.jar (JNDI Context implementation)
+* naming-factory.jar (JNDI object factories)
+* naming-resources.jar (JNDI DirContext implementations)
+* servlet.jar (Servlet 2.3 and JSP 1.2 APIs)
+
+You can make additional APIs available to all of your web applications by
+putting unpacked classes into a "classes" directory (not created by default),
+or by placing them in JAR files in the "lib" directory.
+
+Tomcat 4.1 also makes available Xerces 2.9.0 to web applications.
+
+
+--------------------------
+Tomcat 4.1 and XML Parsers:
+--------------------------
+
+As described above, Tomcat 4.1 makes an XML parser (and many other standard
+APIs) available to web applications.  This parser is also used internally
+to parse web.xml files and the server.xml configuration file.  If you wish,
+you may replace the "xercesImpl.jar" file in "common/endorsed" with another 
+XML parser, as long as it is compatible with the JAXP 1.1 APIs.
+
+
+---------------------------------------------------------------
+Web application reloading and static fields in shared libraries:
+---------------------------------------------------------------
+
+Some shared libraries (many are part of the JDK) keep references to objects
+instantiated by the web application. To avoid class loading related problems
+(ClassCastExceptions, messages indicating that the classloader 
+is stopped, ...), the shared libraries state should be reinitialized.
+
+Something which could help is to avoid putting classes which would be 
+referenced by a shared static field in the web application classloader, 
+and put them in the shared classloader instead (the JARs should be put in the 
+"lib" folder, and classes should be put in the "classes" folder).
+
+
+----------------------------
+Enabling SSI and CGI Support:
+----------------------------
+
+Having CGI and SSI available to web applications created security problems when
+using a security manager (as a malicious web application could use them to 
+sidestep the security manager access control). In Tomcat 4.1, they have been
+disabled by default, as our goal is to provide a fully secure default 
+configuration. However, CGI and SSI remain available.
+
+On Windows:
+* rename the file %CATALINA_HOME%\server\lib\servlets-cgi.renametojar to
+  %CATALINA_HOME%\server\lib\servlets-cgi.jar.
+* rename the file %CATALINA_HOME%\server\lib\servlets-ssi.renametojar to
+  %CATALINA_HOME%\server\lib\servlets-ssi.jar.
+* in %CATALINA_HOME%\conf\web.xml, uncomment the servlet declarations as well
+  as the associated servlet mappings. Alternately, these servlet declarations
+  and mappings can be added to your web application deployment descriptor.
+
+On Unix:
+* rename the file $CATALINA_HOME/server/lib/servlets-cgi.renametojar to
+  $CATALINA_HOME/server/lib/servlets-cgi.jar.
+* rename the file $CATALINA_HOME/server/lib/servlets-ssi.renametojar to
+  $CATALINA_HOME/server/lib/servlets-ssi.jar.
+* in $CATALINA_HOME/conf/web.xml, uncomment the servlet declarations as well
+  as the associated servlet mappings. Alternately, these servlet declarations
+  and mappings can be added to your web application deployment descriptor.
+
+
+---------------------
+Security manager URLs:
+---------------------
+
+The URLs to be used in the policy file to grant permissions to JARs located
+inside the web application repositories have changed in Tomcat 4.1.
+
+In Tomcat 4.0, codeBase URLs for JARs loaded from web application 
+repositories were:
+jar:file:${catalina.home}/webapps/examples/WEB-INF/lib/driver.jar!/-
+
+In Tomcat 4.1, they should be:
+file:${catalina.home}/webapps/examples/WEB-INF/lib/driver.jar
+
+
+---------------------------
+Symlinking static resources:
+---------------------------
+
+Unix symlinks will not work when used in a web application to link resources 
+located outside the web application root directory.
+
+This behavior is optional, and the "allowLinking" flag may be used to disable
+the check.
+
+
+------------------------
+Enabling invoker servlet:
+------------------------
+
+Starting with Tomcat 4.1.12, the invoker servlet is no longer available by 
+default in all webapp. Enabling it for all webapps is possible by editing
+$CATALINA_HOME/conf/web.xml to uncomment the "/servlet/*" servlet-mapping
+definition.
+
+Using the invoker servlet in a production environment is not recommended and
+is unsupported.
+
+
+-----------------------------
+Using the JSP Compiler (JSPC):
+-----------------------------
+
+Using the command line script is not recommended when using JSPC. Instead, 
+using Ant is supported and encouraged. Please see the Jasper documentation
+in the Tomcat documentation bundle for more instructions as well as 
+a build script.
+

@@ -169,37 +169,41 @@
  *	the result overflows to +-Infinity or underflows to 0.
  */
 
-#include <config.h>
-#ifdef WORDS_BIGENDIAN
+#include "config.h"
+#include "dtoa.h"
+
+#if COMPILER(MSVC)
+#pragma warning(disable: 4244)
+#pragma warning(disable: 4245)
+#pragma warning(disable: 4554)
+#endif
+
+#if PLATFORM(BIG_ENDIAN)
 #define IEEE_MC68k
 #else
 #define IEEE_8087
 #endif
 #define INFNAN_CHECK
-#include "dtoa.h"
-#define strtod kjs_strtod
-#define dtoa kjs_dtoa
-#define freedtoa kjs_freedtoa
 
 
 
 #ifndef Long
-#define Long long
+#define Long int
 #endif
 #ifndef ULong
 typedef unsigned Long ULong;
 #endif
 
 #ifdef DEBUG
-#include "stdio.h"
+#include <stdio.h>
 #define Bug(x) {fprintf(stderr, "%s\n", x); exit(1);}
 #endif
 
-#include "stdlib.h"
-#include "string.h"
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef USE_LOCALE
-#include "locale.h"
+#include <locale.h>
 #endif
 
 #ifdef MALLOC
@@ -229,7 +233,7 @@ static double private_mem[PRIVATE_mem], *pmem_next = private_mem;
 #define IEEE_Arith
 #endif
 
-#include "errno.h"
+#include <errno.h>
 
 #ifdef Bad_float_h
 
@@ -261,22 +265,26 @@ static double private_mem[PRIVATE_mem], *pmem_next = private_mem;
 #endif
 
 #else /* ifndef Bad_float_h */
-#include "float.h"
+#include <float.h>
 #endif /* Bad_float_h */
 
 #ifndef __MATH_H__
-#include "math.h"
+#include <math.h>
 #endif
+
+#define strtod kjs_strtod
+#define dtoa kjs_dtoa
+#define freedtoa kjs_freedtoa
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifndef CONST
+#ifndef CONST_
 #ifdef KR_headers
-#define CONST /* blank */
+#define CONST_ /* blank */
 #else
-#define CONST const
+#define CONST_ const
 #endif
 #endif
 
@@ -525,7 +533,7 @@ Balloc
 #else
 		len = (sizeof(Bigint) + (x-1)*sizeof(ULong) + sizeof(double) - 1)
 			/sizeof(double);
-		if (pmem_next - private_mem + len <= PRIVATE_mem) {
+		if (pmem_next - private_mem + len <= (unsigned)PRIVATE_mem) {
 			rv = (Bigint*)pmem_next;
 			pmem_next += len;
 			}
@@ -587,7 +595,7 @@ multadd
 #ifdef ULLong
 		y = *x * (ULLong)m + carry;
 		carry = y >> 32;
-		*x++ = y & FFFFFFFF;
+		*x++ = (ULong)y & FFFFFFFF;
 #else
 #ifdef Pack_32
 		xi = *x;
@@ -610,7 +618,7 @@ multadd
 			Bfree(b);
 			b = b1;
 			}
-		b->x[wds++] = carry;
+		b->x[wds++] = (ULong)carry;
 		b->wds = wds;
 		}
 	return b;
@@ -619,9 +627,9 @@ multadd
  static Bigint *
 s2b
 #ifdef KR_headers
-	(s, nd0, nd, y9) CONST char *s; int nd0, nd; ULong y9;
+	(s, nd0, nd, y9) CONST_ char *s; int nd0, nd; ULong y9;
 #else
-	(CONST char *s, int nd0, int nd, ULong y9)
+	(CONST_ char *s, int nd0, int nd, ULong y9)
 #endif
 {
 	Bigint *b;
@@ -801,10 +809,10 @@ mult
 			do {
 				z = *x++ * (ULLong)y + *xc + carry;
 				carry = z >> 32;
-				*xc++ = z & FFFFFFFF;
+				*xc++ = (ULong)z & FFFFFFFF;
 				}
 				while(x < xae);
-			*xc = carry;
+			*xc = (ULong)carry;
 			}
 		}
 #else
@@ -1064,13 +1072,13 @@ diff
 	do {
 		y = (ULLong)*xa++ - *xb++ - borrow;
 		borrow = y >> 32 & (ULong)1;
-		*xc++ = y & FFFFFFFF;
+		*xc++ = (ULong)y & FFFFFFFF;
 		}
 		while(xb < xbe);
 	while(xa < xae) {
 		y = *xa++ - borrow;
 		borrow = y >> 32 & (ULong)1;
-		*xc++ = y & FFFFFFFF;
+		*xc++ = (ULong)y & FFFFFFFF;
 		}
 #else
 #ifdef Pack_32
@@ -1400,7 +1408,7 @@ ratio
 	return dval(da) / dval(db);
 	}
 
- static CONST double
+ static CONST_ double
 tens[] = {
 		1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9,
 		1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19,
@@ -1410,10 +1418,10 @@ tens[] = {
 #endif
 		};
 
- static CONST double
+ static CONST_ double
 #ifdef IEEE_Arith
 bigtens[] = { 1e16, 1e32, 1e64, 1e128, 1e256 };
-static CONST double tinytens[] = { 1e-16, 1e-32, 1e-64, 1e-128,
+static CONST_ double tinytens[] = { 1e-16, 1e-32, 1e-64, 1e-128,
 #ifdef Avoid_Underflow
 		9007199254740992.*9007199254740992.e-256
 		/* = 2^106 * 1e-53 */
@@ -1428,11 +1436,11 @@ static CONST double tinytens[] = { 1e-16, 1e-32, 1e-64, 1e-128,
 #else
 #ifdef IBM
 bigtens[] = { 1e16, 1e32, 1e64 };
-static CONST double tinytens[] = { 1e-16, 1e-32, 1e-64 };
+static CONST_ double tinytens[] = { 1e-16, 1e-32, 1e-64 };
 #define n_bigtens 3
 #else
 bigtens[] = { 1e16, 1e32 };
-static CONST double tinytens[] = { 1e-16, 1e-32 };
+static CONST_ double tinytens[] = { 1e-16, 1e-32 };
 #define n_bigtens 2
 #endif
 #endif
@@ -1456,11 +1464,11 @@ match
 #ifdef KR_headers
 	(sp, t) char **sp, *t;
 #else
-	(CONST char **sp, CONST char *t)
+	(CONST_ char **sp, CONST_ char *t)
 #endif
 {
 	int c, d;
-	CONST char *s = *sp;
+	CONST_ char *s = *sp;
 
 	while((d = *t++)) {
 		if ((c = *++s) >= 'A' && c <= 'Z')
@@ -1476,20 +1484,20 @@ match
  static void
 hexnan
 #ifdef KR_headers
-	(rvp, sp) double *rvp; CONST char **sp;
+	(rvp, sp) double *rvp; CONST_ char **sp;
 #else
-	(double *rvp, CONST char **sp)
+	(double *rvp, CONST_ char **sp)
 #endif
 {
 	ULong c, x[2];
-	CONST char *s;
+	CONST_ char *s;
 	int havedig, udx0, xshift;
 
 	x[0] = x[1] = 0;
 	havedig = xshift = 0;
 	udx0 = 1;
 	s = *sp;
-	while((c = *(CONST unsigned char*)++s)) {
+	while((c = *(CONST_ unsigned char*)++s)) {
 		if (c >= '0' && c <= '9')
 			c -= '0';
 		else if (c >= 'a' && c <= 'f')
@@ -1530,9 +1538,9 @@ hexnan
  double
 strtod
 #ifdef KR_headers
-	(s00, se) CONST char *s00; char **se;
+	(s00, se) CONST_ char *s00; char **se;
 #else
-	(CONST char *s00, char **se)
+	(CONST_ char *s00, char **se)
 #endif
 {
 #ifdef Avoid_Underflow
@@ -1540,7 +1548,7 @@ strtod
 #endif
 	int bb2, bb5, bbe, bd2, bd5, bbbits, bs2, c, dsign,
 		 e, e1, esign, i, j, k, nd, nd0, nf, nz, nz0, sign;
-	CONST char *s, *s0, *s1;
+	CONST_ char *s, *s0, *s1;
 	double aadj, aadj1, adj, rv, rv0;
 	Long L;
 	ULong y, z;
@@ -1552,7 +1560,7 @@ strtod
 	int rounding;
 #endif
 #ifdef USE_LOCALE
-	CONST char *s2;
+	CONST_ char *s2;
 #endif
 
 	sign = nz0 = nz = 0;
@@ -2461,7 +2469,7 @@ quorem
 			carry = ys >> 32;
 			y = *bx - (ys & FFFFFFFF) - borrow;
 			borrow = y >> 32 & (ULong)1;
-			*bx++ = y & FFFFFFFF;
+			*bx++ = (ULong)y & FFFFFFFF;
 #else
 #ifdef Pack_32
 			si = *sx++;
@@ -2502,7 +2510,7 @@ quorem
 			carry = ys >> 32;
 			y = *bx - (ys & FFFFFFFF) - borrow;
 			borrow = y >> 32 & (ULong)1;
-			*bx++ = y & FFFFFFFF;
+			*bx++ = (ULong)y & FFFFFFFF;
 #else
 #ifdef Pack_32
 			si = *sx++;
@@ -2566,7 +2574,7 @@ rv_alloc(int i)
 #ifdef KR_headers
 nrv_alloc(s, rve, n) char *s, **rve; int n;
 #else
-nrv_alloc(CONST char *s, char **rve, int n)
+nrv_alloc(CONST_ char *s, char **rve, int n)
 #endif
 {
 	char *rv, *t;

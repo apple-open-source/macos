@@ -16,17 +16,15 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include "config.h"
 #include "debugger.h"
-#include "value.h"
-#include "object.h"
-#include "types.h"
-#include "interpreter.h"
-#include "internal.h"
 #include "ustring.h"
+
+#include "internal.h"
 
 using namespace KJS;
 
@@ -57,22 +55,19 @@ Debugger::~Debugger()
   delete rep;
 }
 
-void Debugger::attach(Interpreter *interp)
+void Debugger::attach(Interpreter* interp)
 {
-  Debugger *other = interp->imp()->debugger();
+  Debugger *other = interp->debugger();
   if (other == this)
     return;
   if (other)
     other->detach(interp);
-  interp->imp()->setDebugger(this);
+  interp->setDebugger(this);
   rep->interps = new AttachedInterpreter(interp, rep->interps);
 }
 
-void Debugger::detach(Interpreter *interp)
+void Debugger::detach(Interpreter* interp)
 {
-  if (interp && interp->imp()->debugger() == this)
-    interp->imp()->setDebugger(0);
-
   // iterate the addresses where AttachedInterpreter pointers are stored
   // so we can unlink items from the list
   AttachedInterpreter **p = &rep->interps;
@@ -80,44 +75,58 @@ void Debugger::detach(Interpreter *interp)
   while ((q = *p)) {
     if (!interp || q->interp == interp) {
       *p = q->next;
+      q->interp->setDebugger(0);
       delete q;
-    } else {
+    } else
       p = &q->next;
-    }
   }
+
+  if (interp)
+    latestExceptions.remove(interp);
+  else
+    latestExceptions.clear();
 }
 
-bool Debugger::sourceParsed(ExecState */*exec*/, int /*sourceId*/, const UString &/*sourceURL*/, 
-                           const UString &/*source*/, int /*errorLine*/)
+bool Debugger::hasHandledException(ExecState *exec, JSValue *exception)
+{
+    if (latestExceptions.get(exec->dynamicInterpreter()).get() == exception)
+        return true;
+
+    latestExceptions.set(exec->dynamicInterpreter(), exception);
+    return false;
+}
+
+bool Debugger::sourceParsed(ExecState*, int /*sourceId*/, const UString &/*sourceURL*/, 
+                           const UString &/*source*/, int /*startingLineNumber*/, int /*errorLine*/, const UString & /*errorMsg*/)
 {
   return true;
 }
 
-bool Debugger::sourceUnused(ExecState */*exec*/, int /*sourceId*/)
+bool Debugger::sourceUnused(ExecState*, int /*sourceId*/)
 {
   return true;
 }
 
-bool Debugger::exception(ExecState */*exec*/, int /*sourceId*/, int /*lineno*/,
-                         Object &/*exceptionObj*/)
+bool Debugger::exception(ExecState*, int /*sourceId*/, int /*lineno*/,
+                         JSValue* /*exception */)
 {
   return true;
 }
 
-bool Debugger::atStatement(ExecState */*exec*/, int /*sourceId*/, int /*firstLine*/,
+bool Debugger::atStatement(ExecState*, int /*sourceId*/, int /*firstLine*/,
                            int /*lastLine*/)
 {
   return true;
 }
 
-bool Debugger::callEvent(ExecState */*exec*/, int /*sourceId*/, int /*lineno*/,
-                         Object &/*function*/, const List &/*args*/)
+bool Debugger::callEvent(ExecState*, int /*sourceId*/, int /*lineno*/,
+                         JSObject* /*function*/, const List &/*args*/)
 {
   return true;
 }
 
-bool Debugger::returnEvent(ExecState */*exec*/, int /*sourceId*/, int /*lineno*/,
-                           Object &/*function*/)
+bool Debugger::returnEvent(ExecState*, int /*sourceId*/, int /*lineno*/,
+                           JSObject* /*function*/)
 {
   return true;
 }

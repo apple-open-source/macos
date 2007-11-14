@@ -774,7 +774,7 @@ void IOHIKeyboard::setNumLockFeedback(bool /* val */)
 
 UInt32 IOHIKeyboard::maxKeyCodes()
 {
-    return( 0x80);
+    return( NX_NUMKEYCODES );
 }
 
 bool IOHIKeyboard:: doesKeyLock ( unsigned key)

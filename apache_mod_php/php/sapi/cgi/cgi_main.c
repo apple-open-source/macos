@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: cgi_main.c,v 1.190.2.68.2.5 2006/02/22 15:11:53 dmitry Exp $ */
+/* $Id: cgi_main.c,v 1.190.2.68.2.8 2007/02/16 11:47:20 dmitry Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -351,18 +351,14 @@ static int sapi_cgi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 
 static int sapi_cgi_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
-	uint read_bytes=0, tmp_read_bytes;
-#if PHP_FASTCGI
-	char *pos = buffer;
-#endif
+	int read_bytes=0, tmp_read_bytes;
 
 	count_bytes = MIN(count_bytes, (uint)SG(request_info).content_length-SG(read_post_bytes));
 	while (read_bytes < count_bytes) {
 #if PHP_FASTCGI
 		if (!FCGX_IsCGI()) {
 			FCGX_Request *request = (FCGX_Request *)SG(server_context);
-			tmp_read_bytes = FCGX_GetStr( pos, count_bytes-read_bytes, request->in );
-			pos += tmp_read_bytes;
+			tmp_read_bytes = FCGX_GetStr(buffer+read_bytes, count_bytes-read_bytes, request->in );
 		} else {
 			tmp_read_bytes = read(0, buffer+read_bytes, count_bytes-read_bytes);
 		}
@@ -811,7 +807,7 @@ static void init_request_info(TSRMLS_D)
 							int l = strlen(env_document_root);
 							int path_translated_len = 0;
 							char *path_translated = NULL;
-							if (env_document_root[l-1]=='/') {
+							if (l && env_document_root[l-1]=='/') {
 								--l;
 							}
 
@@ -1436,9 +1432,9 @@ consult the installation file that came with this distribution, or visit \n\
 							SG(request_info).no_headers = 1;
 						}
 #if ZEND_DEBUG
-						php_printf("PHP %s (%s) (built: %s %s) (DEBUG)\nCopyright (c) 1997-2006 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
+						php_printf("PHP %s (%s) (built: %s %s) (DEBUG)\nCopyright (c) 1997-2007 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 #else
-						php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2006 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
+						php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2007 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__, get_zend_version());
 #endif
 						php_end_ob_buffers(1 TSRMLS_CC);
 						exit(0);

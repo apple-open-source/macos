@@ -216,7 +216,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_kext_start;
 				MODULE_STOP = ntfs_kext_stop;
-				MODULE_VERSION = 1.2.1;
+				MODULE_VERSION = 1.2.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -241,7 +241,7 @@
 	<key>CFBundleExecutable</key>
 	<string>ntfs</string>
 	<key>CFBundleGetInfoString</key>
-	<string>NTFS 1.2.1</string>
+	<string>NTFS 1.2.2</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -253,11 +253,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kpi.bsd</key>
@@ -769,11 +769,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>EBD0A0A2-B9E5-4433-87C0-68B6B72699C7</key>

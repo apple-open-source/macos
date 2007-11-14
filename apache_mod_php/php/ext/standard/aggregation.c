@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: aggregation.c,v 1.11.4.7.4.1 2006/01/01 13:46:57 sniper Exp $ */
+/* $Id: aggregation.c,v 1.11.4.7.4.3 2007/01/01 09:46:47 sebastian Exp $ */
 
 #include "php.h"
 #include "basic_functions.h"
@@ -146,7 +146,7 @@ static void aggregate_methods(zend_class_entry *ce, zend_class_entry *from_ce, i
 		 */
 		zend_hash_internal_pointer_reset(Z_ARRVAL_P(list_hash));
 		while (zend_hash_get_current_key_ex(Z_ARRVAL_P(list_hash), &func_name, &func_name_len, &num_key, 0, NULL) == HASH_KEY_IS_STRING) {
-			if (!strncmp(func_name, from_ce->name, MIN(func_name_len-1, from_ce->name_length)) ||
+			if (!strncmp(func_name, from_ce->name, MAX(func_name_len-1, from_ce->name_length)) ||
 				func_name[0] == '_' ||
 				zend_hash_find(&from_ce->function_table, func_name, func_name_len, (void**)&function) == FAILURE) {
 				zend_hash_move_forward(Z_ARRVAL_P(list_hash));

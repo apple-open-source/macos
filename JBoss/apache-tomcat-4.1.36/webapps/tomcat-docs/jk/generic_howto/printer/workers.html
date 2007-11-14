@@ -1,0 +1,426 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Apache Tomcat Connector - Generic HowTo - Workers HowTo</title><meta value="Henri Gomez" name="author"><meta value="hgomez@apache.org" name="email"><meta value="Gal Shachor" name="author"><meta value="shachor@il.ibm.com" name="email"><meta value="Mladen Tur" name="author"><meta value="mturk@apache.org" name="email"><link rel="stylesheet" type="text/css" href="../../style.css"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--TOMCAT LOGO--><a href="http://tomcat.apache.org/"><img border="0" alt="Apache Tomcat" align="left" src="../../images/tomcat.gif"></a><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="http://www.apache.org/images/asf-logo.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td valign="top" align="left"><h1>The Apache Tomcat Connector - Generic HowTo</h1><h2>Workers HowTo</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+A Tomcat worker is a Tomcat instance that is waiting to execute servlets on behalf of some web server. 
+For example, we can have a web server such as Apache forwarding servlet requests to a 
+Tomcat process (the worker) running behind it.
+</p>
+<p>
+The scenario described above is a very simple one; 
+in fact one can configure multiple Tomcat workers to serve servlets on 
+behalf of a certain web server. 
+The reasons for such configuration can be:
+</p>
+<ul>
+<li>
+We want different contexts to be served by different Tomcat workers to provide a 
+development environment where all the developers share the same web server but own a Tomcat worker of their own.
+</li>
+<li>
+We want different virtual hosts served by different Tomcat processes to provide a 
+clear separation between sites belonging to different companies.
+</li>
+<li>
+We want to provide load balancing, meaning run multiple Tomcat workers each on a 
+machine of its own and distribute the requests between them.
+</li>
+</ul>
+
+<p>
+There are probably more reasons for having multiple workers but I guess that this list is enough...
+Tomcat workers are defined in a properties file dubbed workers.properties and this tutorial 
+explains how to work with it.
+</p>
+
+<p>
+This document was originally part of <b>Tomcat: A Minimalistic User's Guide</b> written by Gal Shachor, 
+but has been split off for organizational reasons. 
+</p>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Defining Workers"><strong>Defining Workers</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Defining workers to the Tomcat web server plugin can be done using a properties file 
+(a sample file named workers.properties is available in the conf/ directory).
+</p>
+
+<p>
+the file contains entries of the following form:
+</p>
+
+<p>
+<b>worker.list</b>=&lt;a comma separated list of worker names&gt;
+</p>
+
+<div class="example"><pre>
+  # the list of workers
+  worker.list= worker1, worker2
+</pre></div>
+
+<p>
+When starting up, the web server plugin will instantiate the workers whose name appears in the 
+<b>worker.list</b> property, these are also the workers to whom you can map requests. The directive can be used multiple times.
+</p>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Workers Type"><strong>Workers Type</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Each named worker should also have a few entries to provide additional information on his behalf.
+This information includes the worker's type and other related worker information. 
+Currently the following worker types that exists are (JK 1.2.5):
+</p>
+
+<table>
+  <tr><th>Type</th><th>Description</th></tr>
+  <tr><td>ajp12</td><td>This worker knows how to forward requests to out-of-process Tomcat workers using the ajpv12 protocol.</td></tr>
+  <tr><td>ajp13</td><td>This worker knows how to forward requests to out-of-process Tomcat workers using the ajpv13 protocol.</td></tr>
+  <tr><td>jni</td><td>This worker knows how to forward requests to in-process Tomcat workers using JNI.</td></tr>
+  <tr><td>lb</td><td>This is a load-balancing worker; it knows how to provide round-robin based sticky load balancing with a certain level of fault-tolerance.</td></tr>
+  <tr><td>status</td><td>This is a status worker for managing load balancers.</td></tr>
+</table>
+
+<p>
+Defining workers of a certain type should be done with the following property format:
+</p>
+
+<p>
+<b>worker</b>.<b>worker name</b>.<b>type</b>=&lt;worker type&gt;
+Where worker name is the name assigned to the worker and the worker type is one of the four types defined 
+in the table (a worker name may only contain any space the characters [a-zA-Z0-9\-_]).
+</p>
+
+<div class="example"><pre>
+  # Defines a worker named "local" that uses the ajpv12 protocol to forward requests to a Tomcat process.
+  worker.local.type=ajp12
+  # Defines a worker named "remote" that uses the ajpv13 protocol to forward requests to a Tomcat process.
+  worker.remote.type=ajp13
+  # Defines a worker named "fast" that uses JNI to forward requests to a Tomcat process.
+  worker.fast.type=jni
+  # Defines a worker named "loadbalancer" that loadbalances several Tomcat processes transparently.
+  worker.loadbalancer.type=lb
+</pre></div>
+
+</blockquote></td></tr></table>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Setting Worker Properties"><strong>Setting Worker Properties</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+After defining the workers you can also specify properties for them. 
+Properties can be specified in the following manner:
+</p>
+
+<p>
+worker.&lt;worker name&gt;.&lt;property&gt;=&lt;property value&gt;
+</p>
+
+Each worker has a set of properties that you can set as specified in the following subsections:
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="ajp12 Worker properties"><strong>ajp12 Worker properties</strong></a></font></td></tr><tr><td><blockquote>
+<p><p><font color="#ff0000">
+The <b>ajp12</b> has been <b>deprecated</b> with Tomcat 3.3.x and you should use instead 
+<b>ajp13</b> which is the only ajp protocol known by Tomcat 4.x and 5 and 5.5 and Tomcat 6.
+</font></p></p> 
+<p>
+The ajp12 typed workers forward requests to out-of-process Tomcat workers 
+using the ajpv12 protocol over TCP/IP sockets.
+</p>
+
+<p>
+the ajp12 worker properties are :
+</p>
+
+<p>
+<b>host</b> property sets the host where the Tomcat worker is listening for ajp12 requests.
+</p>
+
+<p>
+<b>port</b> property sets the port where the Tomcat worker is listening for ajp12 requests
+</p>
+
+<p>
+<b>lbfactor</b>property is used when working with a load balancer worker, this is the load-balancing factor for the worker.
+We'll see more on this in the <a href="../../generic_howto/loadbalancers.html">lb worker</a> section.
+</p>
+
+<div class="example"><pre>
+  # worker "worker1" will talk to Tomcat listening on machine www.x.com at port 8007 using 2 lb factor
+  worker.worker1.host=www.x.com
+  worker.worker1.port=8007
+  worker.worker1.lbfactor=2
+</pre></div>
+
+<p>
+Notes: In the ajpv12 protocol, connections are created, used and then closed at each request.
+The default port for ajp12 is 8007
+</p>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="ajp13 Worker properties"><strong>ajp13 Worker properties</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The ajp13 typed workers forward requests to out-of-process Tomcat workers using the ajpv13 protocol over TCP/IP sockets.
+The main difference between ajpv12 and ajpv13 are that:
+<ul>
+<li>
+ajpv13 is a more binary protocol and it tries to compress some of the request data by coding 
+frequently used strings as small integers.
+</li>
+<li>
+ajpv13 reuses open sockets and leaves them open for future requests (remember when you've got a Firewall between your 
+web server and Tomcat).
+</li>
+<li>
+ajpv13 has special treatment for SSL information so that the container can implement 
+SSL related methods such as isSecure().
+</li>
+</ul>
+
+</p>
+
+<p>
+You should note that Ajp13 is now the only out-process protocol supported by Tomcat 4.0.x, 4.1.x, 5.0.x, 5.5.x and 6.
+</p>
+
+
+<div class="example"><pre>
+  # worker "worker2" will talk to Tomcat listening on machine www2.x.com at port 8009 using 3 lb factor
+  worker.worker2.host=www2.x.com
+  worker.worker2.port=8009
+  worker.worker2.lbfactor=3
+  # worker "worker2" uses connections, which will stay no more than 10mn in the connection pool
+  worker.worker2.connection_pool_timeout=600
+  # worker "worker2" ask operating system to send KEEP-ALIVE signal on the connection
+  worker.worker2.socket_keepalive=1
+  # mount can be used as an alternative to the JkMount directive
+  worker.worker2.mount=/contexta /contexta/* /contextb /contextb/*
+</pre></div>
+
+<p>
+Notes: In the ajpv13 protocol, the default port is 8009
+</p>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="lb Worker properties"><strong>lb Worker properties</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The load-balancing worker does not really communicate with Tomcat workers.
+Instead it is responsible for the management of several "real" workers. 
+This management includes:
+</p>
+
+<ul>
+<li>
+Instantiating the workers in the web server.
+</li>
+<li>
+Using the worker's load-balancing factor, perform weighed-round-robin load balancing where 
+high lbfactor means stronger machine (that is going to handle more requests)
+</li>
+<li>
+Keeping requests belonging to the same session executing on the same Tomcat worker.
+</li>
+<li>
+Identifying failed Tomcat workers, suspending requests to them and instead falling-back on 
+other workers managed by the lb worker.
+</li>
+</ul>
+
+<p>
+The overall result is that workers managed by the same lb worker are load-balanced (based on their lbfactor and current user session) and also fall-backed so a single Tomcat process death will not "kill" the entire site.
+The following table specifies some properties that the lb worker can accept:
+<ul>
+<li><b>balance_workers</b> is a comma separated list of workers that the load balancer need to manage. 
+These workers should not appear in the worker.list property. This directive can be used multiple times for the same load balancer.</li>
+<li><b>sticky_session</b> specifies whether requests with SESSION ID's should be routed back to the same
+Tomcat worker. Set sticky_session to False when Tomcat is using a Session Manager which
+can persist session data across multiple instances of Tomcat. By default sticky_session is set to True.</li>
+</ul>
+</p>
+
+<div class="example"><pre>
+  # The worker balance1 while use "real" workers worker1 and worker2
+  worker.balance1.balance_workers=worker1, worker2
+</pre></div>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Status Worker properties"><strong>Status Worker properties</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The status worker does not communicate with Tomcat.
+Instead it is responsible for the load balancer management. 
+</p>
+<div class="example"><pre>
+  # Add the status worker to the worker list
+  worker.list=jkstatus
+  # Define a 'jkstatus' worker using status
+  worker.jkstatus.type=status
+</pre></div>
+<p>Next thing is to mount the requests to the jkstatus worker. For Apache
+web servers use the:</p>
+<div class="example"><pre>
+  # Add the jkstatus mount point
+  JkMount /jkmanager/* jkstatus 
+</pre></div>
+<p>To obtain a higher level of security use the:</p>
+<div class="example"><pre>
+  # Enable the JK manager access from localhost only
+ &lt;Location /jkmanager/&gt;
+    JkMount jkstatus
+    Order deny,allow
+    Deny from all
+    Allow from 127.0.0.1
+ &lt;/Location&gt;
+</pre></div>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Property file macros"><strong>Property file macros</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+You can define "macros" in the property files. 
+These macros let you define properties and later on use them while 
+constructing other properties and it's very usefull when you want to
+change your Java Home, Tomcat Home or OS path separator
+</p>
+
+<div class="example"><pre>
+  # property example, don't hardcode path separator
+  ps=\
+  workers.tomcat_home=d:\tomcat
+  workers.java_home=d:\sdk\jdk1.2.2
+  # Using macros we'll have : worker.inprocess.class_path=d:\tomcat\classes
+  worker.inprocess.class_path=$(workers.tomcat_home)$(ps)classes
+  # Using macros we'll have : worker.inprocess.class_path=d:\sdk\jdk1.2.2\lib\tools.jar
+  worker.inprocess.class_path=$(workers.java_home)$(ps)lib$(ps)tools.jar
+</pre></div>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Hierarchical property configuration"><strong>Hierarchical property configuration</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Workers can reference configurations of other workers.
+If worker "x" references worker "y", then it inherits all
+configuration parameters from "y", except for the ones
+that have explicitely been set for "x".
+</p>
+
+<div class="example"><pre>
+  # worker toe defines some default settings
+  worker.toe.type=ajp13
+  worker.toe.socket_keepalive=true
+  worker.toe.connect_timeout=10000
+  worker.toe.recovery_options=7
+  # workers tic and tac inherit those values
+  worker.tic.reference=worker.toe
+  worker.tac.reference=worker.toe
+</pre></div>
+
+<p>
+Please note, that the reference contains
+the full prefix to the referenced configuration attributes,
+not only the name of the referenced worker.
+</p>
+
+<p>
+References can be nested. Be careful to avoid loops!
+</p>
+
+<p>
+References are especially useful, when configuring load balancers.
+Try to understand the following two stage references:
+</p>
+
+<div class="example"><pre>
+  # We only use one load balancer
+  worker.list=lb
+  # Let's define some defaults
+  worker.basic.port=8009
+  worker.basic.type=ajp13
+  worker.basic.socket_keepalive=true
+  worker.basic.connect_timeout=10000
+  worker.basic.recovery_options=7
+  # And we use them in two groups
+  worker.lb1.domain=dom1
+  worker.lb1.distance=0
+  worker.lb1.reference=worker.basic
+  worker.lb2.domain=dom2
+  worker.lb2.distance=1
+  worker.lb2.reference=worker.basic
+  # Now we configure the load balancer
+  worker.lb.type=lb
+  worker.lb.method=B
+  worker.lb.balanced_workers=w11,w12,w21,w22
+  worker.w11.host=myhost11
+  worker.w11.reference=worker.lb1
+  worker.w12.host=myhost12
+  worker.w12.reference=worker.lb1
+  worker.w21.host=myhost21
+  worker.w21.reference=worker.lb2
+  worker.w22.host=myhost22
+  worker.w22.reference=worker.lb2
+</pre></div>
+
+</blockquote></td></tr></table>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="A sample worker.properties"><strong>A sample worker.properties</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Since coping with worker.properties on your own is not an easy thing to do, 
+a sample worker.properties file is bundled along JK. 
+</p>
+
+<p>
+You could also find here a sample workers.properties defining :
+</p>
+
+<ul>
+<li>
+An ajp12 worker that used the host localhost and the port 8007
+</li>
+<li>
+An ajp13 worker that used the host localhost and the port 8008
+</li>
+<li>
+A jni worker
+</li>
+<li>
+A lb worker that load balance the ajp12 and ajp13 workers
+</li>
+</ul>
+
+<div class="example"><pre>
+  # Define some properties
+  workers.apache_log=/var/log/httpd/
+  workers.tomcat_home=/var/tomcat3
+  workers.java_home=/opt/IBMJava2-131/
+  ps=/
+  # Define 4 workers, 3 real workers using ajp12, ajp13, jni, the last one being a loadbalancing worker 
+  worker.list=worker1, worker2, worker3, worker4
+  # Set properties for worker1 (ajp12)
+  worker.worker1.type=ajp12
+  worker.worker1.host=locahost
+  worker.worker1.port=8007
+  worker.worker1.lbfactor=1
+  # Set properties for worker2 (ajp13)
+  worker.worker2.type=ajp13
+  worker.worker2.host=locahost
+  worker.worker2.port=8009
+  worker.worker2.lbfactor=1
+  worker.worker2.connection_pool_timeout=600
+  worker.worker2.socket_keepalive=1
+  worker.worker2.socket_timeout=60
+  # Set properties for worker3 (jni)
+  worker.worker3.type=jni
+  # Set worker3 bridge type, here Tomcat 3.3
+  worker.worker3.bridge=tomcat33
+  # Set worker3 classpath
+  worker.worker3.class_path=$(workers.tomcat_home)$(ps)classes
+  worker.worker3.class_path=$(workers.tomcat_home)$(ps)lib$(ps)tomcat.jar
+  # Set worker3 tomcat command line
+  worker.worker3.cmd_line=-home
+  worker.worker3.cmd_line=$(workers.tomcat_home)
+  # Set worker3 Tomcat/JVM settings
+  worker.worker3.jvm_lib=$(workers.java_home)$(ps)jre$(ps)bin$(ps)classic$(ps)libjvm.so
+  worker.worker3.stdout=$(workers.apache_log)$(ps)inprocess.stdout
+  worker.worker3.stderr=$(workers.apache_log)$(ps)inprocess.stderr
+  worker.worker3.sysprops=tomcat.home=$(workers.tomcat_home)
+  # Set properties for worker4 (lb) which use worker1 and worker2
+  worker.worker4.balance_workers=worker1,worker2
+</pre></div>
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

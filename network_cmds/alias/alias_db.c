@@ -169,6 +169,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <syslog.h>
 
 #include <sys/queue.h>
 #include <sys/socket.h>
@@ -596,6 +597,7 @@ FindLinkIn(struct in_addr, struct in_addr, u_short, u_short, int, int);
 #define GET_NEW_PORT_MAX_ATTEMPTS       20
 
 #define GET_ALIAS_PORT                  -1
+#define GET_ALIAS_EPHEMERAL_PORT        -2
 #define GET_ALIAS_ID        GET_ALIAS_PORT
 
 #define FIND_EVEN_ALIAS_BASE             1
@@ -606,12 +608,54 @@ FindLinkIn(struct in_addr, struct in_addr, u_short, u_short, int, int);
    unused triplets: (dest addr, dest port, alias port). */
 
 static int
+GetEphemeralPort(struct alias_link *link)
+{
+	int i;
+	
+	/* Port number search */
+	for (i=0; i < GET_NEW_PORT_MAX_ATTEMPTS; i++)
+	{
+		struct sockaddr_in sock_addr;
+		socklen_t salen;
+		u_short port_net;
+		struct alias_link *search_result;
+	
+		if (GetSocket(0, &link->sockfd, link->link_type) == 0)
+			return -1;
+		salen = sizeof(struct sockaddr_in);
+		if (getsockname(link->sockfd, (struct sockaddr *)&sock_addr, &salen) == -1)
+			return -1;
+		port_net = sock_addr.sin_port;
+	
+		search_result = FindLinkIn(link->dst_addr, link->alias_addr,
+								   link->dst_port, port_net,
+								   link->link_type, 0);
+	
+		if (search_result == NULL) {
+			link->alias_port = port_net;
+			return(0);
+		}
+		close(link->sockfd);
+		link->sockfd = -1;
+	}
+	#ifdef DEBUG
+	fprintf(stderr, "PacketAlias/GetEphemeralPort(): ");
+	fprintf(stderr, "could not find free port\n");
+	#endif
+	
+	return(-1);
+}
+
+static int
 GetNewPort(struct alias_link *link, int alias_port_param)
 {
     int i;
     int max_trials;
     u_short port_sys;
     u_short port_net;
+
+	if (alias_port_param == GET_ALIAS_EPHEMERAL_PORT)
+		return GetEphemeralPort(link);
 
 /*
    Description of alias_port_param for GetNewPort().  When
@@ -1957,16 +2001,18 @@ FindAliasPortOut(struct in_addr src_addr, struct in_addr dst_addr, u_short src_p
         link_type = LINK_TCP;
         break;
     default:
-        return NULL;
+        return 0;
         break;
     }
 
 #ifdef DEBUG
 	{
-		int icount;
+		int icount = 0;
 		
-		printf("PORTMAP::srcaddr = 0x%x.%d, dstaddr = 0x%x.%d link_type = %d, lifetime = %d\n", 
-			src_addr.s_addr, src_port, dst_addr.s_addr, pub_port, link_type, lifetime);
+		printf("FindAliasPortOut:: srcaddr= %s:%u, ", 
+			inet_ntoa(src_addr), ntohs(src_port));
+		printf("dstadd= %s:%u link_type= %d, lifetime= %d\n", 
+			inet_ntoa(dst_addr), ntohs(pub_port), link_type, lifetime);
 			
 		for (i=0; i<LINK_TABLE_OUT_SIZE; i++)
 		{
@@ -1974,11 +2020,19 @@ FindAliasPortOut(struct in_addr src_addr, struct in_addr dst_addr, u_short src_p
 			while (link != NULL)
 			{
 				struct alias_link *link_next;
-
-				printf("PORTMAP:: linksrcaddr = 0x%x.%d, linkdstaddr = 0x%x.%d, aliasaddr=0x%x.%d, linktype = %d\n", 
-					link->src_addr.s_addr,link->src_port,link->dst_addr.s_addr,link->dst_port, link->alias_addr.s_addr,link->alias_port, 
-					link->link_type);
-
+				char src_str[32], dst_str[32], alias_str[32];
+	
+				snprintf(src_str, sizeof(src_str), "%s:%u",
+					inet_ntoa(link->src_addr), ntohs(link->src_port));
+				snprintf(dst_str, sizeof(dst_str), "%s:%u",
+					inet_ntoa(link->dst_addr), ntohs(link->dst_port));
+				snprintf(alias_str, sizeof(alias_str), "%s:%u",
+					inet_ntoa(link->alias_addr), ntohs(link->alias_port));
+	
+				printf(" linkTableOut[%d:%d] src= %s dst= %s alias= %s flags= 0x%x linktype= %d ts= %d exp= %d fd= %d",
+					i, icount, src_str, dst_str, alias_str, 
+					link->flags, link->link_type, link->timestamp, link->expire_time, link->sockfd);
+	
 				link_next = LIST_NEXT(link, list_out);
 				icount++;
 				link = link_next;
@@ -2004,20 +2058,22 @@ FindAliasPortOut(struct in_addr src_addr, struct in_addr dst_addr, u_short src_p
 	{   
         struct in_addr alias_addr;
 #ifdef DEBUG
-		printf("PORTMAP:: cannot find mapping, adding mapping private port =%d, public port = %d\n",src_port, pub_port);	
+		printf("PORTMAP:: cannot find mapping, adding mapping private port =%d, public port = %d\n",
+			src_port, pub_port);	
 #endif
 		/* address/port in not in list, create new mapping */
 		
         alias_addr = FindAliasAddress(src_addr);
 		/* create new mapping */
-		if ( !pub_port )
-			pub_port = GET_ALIAS_PORT;
         link = AddLink(src_addr, dst_addr, alias_addr,
-                       src_port, 0, pub_port,
+                       src_port, 0, GET_ALIAS_EPHEMERAL_PORT,
                        link_type);
-		if ( link != NULL )
+		if ( link != NULL ) {
 			/* link was create, set new lifetime */
 			SetExpire(link, lifetime);
+			/* Prevent link deletion when incoming connection arrive */
+			link->flags |= LINK_CONE;
+		}
 	}
 	if ( link )
 	{
@@ -3000,4 +3056,37 @@ PacketAliasSetFWBase(unsigned int base, unsigned int num) {
     fireWallBaseNum = base;
     fireWallNumNums = num;
 #endif
+}
+
+void
+DumpInfo(void)
+{
+	int i, icount = 0;
+	struct alias_link *link;
+	
+	for (i=0; i<LINK_TABLE_OUT_SIZE; i++)
+	{
+		link = LIST_FIRST(&linkTableOut[i]);
+		while (link != NULL)
+		{
+			struct alias_link *link_next;
+			char src_str[32], dst_str[32], alias_str[32];
+
+			snprintf(src_str, sizeof(src_str), "%s:%u",
+				inet_ntoa(link->src_addr), ntohs(link->src_port));
+			snprintf(dst_str, sizeof(dst_str), "%s:%u",
+				inet_ntoa(link->dst_addr), ntohs(link->dst_port));
+			snprintf(alias_str, sizeof(alias_str), "%s:%u",
+				inet_ntoa(link->alias_addr), ntohs(link->alias_port));
+
+			syslog(LOG_ERR, " linkTableOut[%d:%d] src= %s dst= %s alias= %s flags= 0x%x linktype= %d ts= %d exp= %d fd= %d",
+				i, icount, src_str, dst_str, alias_str, 
+				link->flags, link->link_type, link->timestamp, link->expire_time, link->sockfd);
+
+			link_next = LIST_NEXT(link, list_out);
+			icount++;
+			link = link_next;
+		}
+	}
+	
 }

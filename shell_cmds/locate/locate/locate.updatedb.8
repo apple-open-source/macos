@@ -1,5 +1,3 @@
-.\"	$OpenBSD: locate.updatedb.8,v 1.3 1997/01/04 01:36:01 millert Exp $
-.\"
 .\" Copyright (c) 1996
 .\"	Mike Pritchard <mpp@FreeBSD.org>.  All rights reserved.
 .\"
@@ -30,46 +28,32 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
+.\" $FreeBSD: src/usr.bin/locate/locate/locate.updatedb.8,v 1.12 2005/01/18 13:43:50 ru Exp $
+.\"
 .Dd February 11, 1996
 .Dt LOCATE.UPDATEDB 8
-.Os BSD 4.4
+.Os
 .Sh NAME
 .Nm locate.updatedb
 .Nd update locate database
 .Sh SYNOPSIS
 .Nm /usr/libexec/locate.updatedb
-.Op Fl --tmpdir=dir
-.Op Fl --fcodes=dbfile
-.Op Fl --searchpaths='dir1 dir2...'
-.Op Fl --prunepaths='dir1 dir2...'
-.Op Fl --filesystems='type1 type2...'
 .Sh DESCRIPTION
-.Nm Locate.updatedb
-updates the database used by
+The
+.Nm
+utility updates the database used by
 .Xr locate 1 .
 It is typically run once a week by the
-.Pa /etc/weekly
+.Pa /etc/periodic/weekly/310.locate
 script.
 .Pp
 The contents of the newly built database can be controlled by the
 .Pa /etc/locate.rc
-file as well as the command line arguments.
-.Sh OPTIONS
-.Bl -tag -width --filesystems
-The available options are as follows:
-.It Fl --tmpdir
-Sets the directory temporary files are stored in.
-.It Fl --fcodes
-Use the named file as the find codes database.  If the file
-name ``-'' is given, the database will be sent to standard output.
-.It Fl --searchpaths
-Sets the list of directories to be put in the database.
-.It Fl --prunepaths
-Sets the list of parent directories that should not be go in
-the database.
-.It Fl --filesystems
-A list of filesystem types to be traversed by
-.Xr find 1 .
+file.
+.Sh ENVIRONMENT
+.Bl -tag -width /var/db/locate.database -compact
+.It Pa LOCATE_CONFIG
+path to the configuration file
 .El
 .Sh FILES
 .Bl -tag -width /var/db/locate.database -compact
@@ -79,7 +63,8 @@ the default database
 the configuration file
 .El
 .Sh SEE ALSO
-.Xr locate 1
+.Xr locate 1 ,
+.Xr periodic 8
 .Rs
 .%A Woods, James A.
 .%D 1983

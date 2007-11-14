@@ -45,8 +45,8 @@ Extra_Install_Flags   = SWATDIR="$(DSTROOT)$(SHAREDIR)/swat"			\
 			LOCKDIR="$(DSTROOT)$(VARDIR)/samba"			\
 			CONFIGDIR="$(DSTROOT)/private/etc"
 			
-Environment += EXTRA_BIN_PROGS="bin/smbget@EXEEXT@" \
-EXTRA_ALL_TARGETS="bin/smbtorture@EXEEXT@ bin/msgtest@EXEEXT@ bin/masktest@EXEEXT@ bin/locktest@EXEEXT@ bin/locktest2@EXEEXT@ bin/vfstest@EXEEXT@"
+Environment += EXTRA_BIN_PROGS="bin/smbget" \
+EXTRA_ALL_TARGETS="bin/smbtorture bin/msgtest bin/masktest bin/locktest bin/locktest2 bin/vfstest"
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
@@ -98,8 +98,6 @@ install-config:
 
 install-logdir:
 	$(INSTALL) -d -m 755 $(DSTROOT)/private/var/log/samba
-	$(INSTALL) -d -m 777 $(DSTROOT)/private/var/spool/samba
-
 
 install-strip:
 	for F in $(DSTROOT)/usr/{s,}bin/*; do	\

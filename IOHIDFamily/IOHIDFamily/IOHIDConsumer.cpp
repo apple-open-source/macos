@@ -159,7 +159,7 @@ void IOHIDConsumer::dispatchConsumerEvent(
                 break;
         }
     }	
-    else if (usagePage == kHIDPage_AppleVendor)
+    else if (usagePage == kHIDPage_AppleVendorTopCase)
     {
         switch (usage)
         {

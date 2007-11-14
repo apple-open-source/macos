@@ -586,19 +586,7 @@ static Boolean __DARequestMount( DARequestRef request )
 
             arguments = DARequestGetArgument3( request );
 
-            if ( arguments )
-            {
-                if ( DAMountContainsArgument( arguments, CFSTR( "-u" ) ) == FALSE )
-                {
-                    status = kDAReturnBusy;
-                }
-
-                if ( DAMountContainsArgument( arguments, kDAFileSystemMountArgumentUpdate ) == FALSE )
-                {
-                    status = kDAReturnBusy;
-                }
-            }
-            else
+            if ( arguments == NULL || DAMountContainsArgument( arguments, kDAFileSystemMountArgumentUpdate ) == FALSE )
             {
                 status = kDAReturnBusy;
             }
@@ -795,6 +783,8 @@ static void __DARequestMountCallback( int status, CFURLRef mountpoint, void * co
          * We were able to mount the volume.
          */
 
+        CFStringRef arguments;
+
         DADiskSetBypath( disk, mountpoint );
 
         DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
@@ -803,7 +793,12 @@ static void __DARequestMountCallback( int status, CFURLRef mountpoint, void * co
 
         DADiskLog( disk );
 
-        DADiskDescriptionChangedCallback( disk, kDADiskDescriptionVolumePathKey );
+        arguments = DARequestGetArgument3( request );
+
+        if ( arguments == NULL || DAMountContainsArgument( arguments, kDAFileSystemMountArgumentUpdate ) == FALSE )
+        {
+            DADiskDescriptionChangedCallback( disk, kDADiskDescriptionVolumePathKey );
+        }
     }
 
     DARequestDispatchCallback( request, status ? unix_err( status ) : status );

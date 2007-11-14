@@ -139,7 +139,7 @@
 			buildPhases = (
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 30663;
+				CURRENT_PROJECT_VERSION = 32290;
 				PRODUCT_NAME = security_certificates;
 			};
 			buildToolPath = /usr/bin/make;
@@ -790,7 +790,7 @@
 				C2F9CFAA07BB049D000111FE,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 30663;
+				CURRENT_PROJECT_VERSION = 32290;
 				PRODUCT_NAME = "copy certs";
 			};
 			dependencies = (
@@ -1024,6 +1024,16 @@
 		};
 		4CFDFC4E06309AFB00519F96 = {
 			children = (
+				521304B50C32C58B00B00B6B,
+				521304950C31EA6900B00B6B,
+				521304960C31EA6900B00B6B,
+				521304980C31EA6900B00B6B,
+				5213049A0C31EA6900B00B6B,
+				5213049B0C31EA6900B00B6B,
+				5213049C0C31EA6900B00B6B,
+				5213049D0C31EA6900B00B6B,
+				5213049E0C31EA6900B00B6B,
+				5213049F0C31EA6900B00B6B,
 				52DDD29F0B5BF48C00C0898B,
 				52636F470B38CF2C00713460,
 				52636F480B38CF2C00713460,
@@ -1544,6 +1554,16 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Keychains/Anchors";
 			dstSubfolderSpec = 0;
 			files = (
+				521304B60C32C58B00B00B6B,
+				521304A00C31EA6900B00B6B,
+				521304A10C31EA6900B00B6B,
+				521304A30C31EA6900B00B6B,
+				521304A50C31EA6900B00B6B,
+				521304A60C31EA6900B00B6B,
+				521304A70C31EA6900B00B6B,
+				521304A80C31EA6900B00B6B,
+				521304A90C31EA6900B00B6B,
+				521304AA0C31EA6900B00B6B,
 				52DDD2A00B5BF48C00C0898B,
 				52636F490B38CF2C00713460,
 				52636F4A0B38CF2C00713460,
@@ -1806,6 +1826,137 @@
 //522
 //523
 //524
+		521304950C31EA6900B00B6B = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = "A-Trust-Qual-02a.crt";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		521304960C31EA6900B00B6B = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = DigiCertAssuredIDRootCA.crt;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		521304980C31EA6900B00B6B = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = "GlobalSignRootCA-R2-2021.cer";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		5213049A0C31EA6900B00B6B = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = qvrca2.crt;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		5213049B0C31EA6900B00B6B = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = qvrca3.crt;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		5213049C0C31EA6900B00B6B = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = SCRoot1ca.cer;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		5213049D0C31EA6900B00B6B = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = "startcom-ca.der";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		5213049E0C31EA6900B00B6B = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = swisssign.der;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		5213049F0C31EA6900B00B6B = {
+			isa = PBXFileReference;
+			lastKnownFileType = file;
+			path = "WISeKey-owgrgaca.cer";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		521304A00C31EA6900B00B6B = {
+			fileRef = 521304950C31EA6900B00B6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		521304A10C31EA6900B00B6B = {
+			fileRef = 521304960C31EA6900B00B6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		521304A30C31EA6900B00B6B = {
+			fileRef = 521304980C31EA6900B00B6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		521304A50C31EA6900B00B6B = {
+			fileRef = 5213049A0C31EA6900B00B6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		521304A60C31EA6900B00B6B = {
+			fileRef = 5213049B0C31EA6900B00B6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		521304A70C31EA6900B00B6B = {
+			fileRef = 5213049C0C31EA6900B00B6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		521304A80C31EA6900B00B6B = {
+			fileRef = 5213049D0C31EA6900B00B6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		521304A90C31EA6900B00B6B = {
+			fileRef = 5213049E0C31EA6900B00B6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		521304AA0C31EA6900B00B6B = {
+			fileRef = 5213049F0C31EA6900B00B6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		521304B50C32C58B00B00B6B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "netlockQA-01-minositett.cer";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		521304B60C32C58B00B00B6B = {
+			fileRef = 521304B50C32C58B00B00B6B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		5239FF650A0C15D3002CAC44 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;

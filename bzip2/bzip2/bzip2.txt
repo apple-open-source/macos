@@ -1,6 +1,6 @@
 
 NAME
-       bzip2, bunzip2 - a block-sorting file compressor, v1.0.2
+       bzip2, bunzip2 - a block-sorting file compressor, v1.0.4
        bzcat - decompresses files to stdout
        bzip2recover - recovers data from damaged bzip2 files
 
@@ -17,20 +17,20 @@ DESCRIPTION
        sorting text compression algorithm,  and  Huffman  coding.
        Compression  is  generally  considerably  better than that
        achieved by more conventional LZ77/LZ78-based compressors,
-       and  approaches  the performance of the PPM family of sta­
+       and  approaches  the performance of the PPM family of sta-
        tistical compressors.
 
        The command-line options are deliberately very similar  to
        those of GNU gzip, but they are not identical.
 
-       bzip2  expects  a list of file names to accompany the com­
+       bzip2  expects  a list of file names to accompany the com-
        mand-line flags.  Each file is replaced  by  a  compressed
        version  of  itself,  with  the  name "original_name.bz2".
-       Each compressed file has the same modification date,  per­
-       missions, and, when possible, ownership as the correspond­
+       Each compressed file has the same modification date,  per-
+       missions, and, when possible, ownership as the correspond-
        ing original, so that these properties  can  be  correctly
        restored  at  decompression  time.   File name handling is
-       naive in the sense that there is no mechanism for preserv­
+       naive in the sense that there is no mechanism for preserv-
        ing  original file names, permissions, ownerships or dates
        in filesystems which lack these concepts, or have  serious
        file name length restrictions, such as MS-DOS.
@@ -61,23 +61,23 @@ DESCRIPTION
        guess the name of the original file, and uses the original
        name with .out appended.
 
-       As  with compression, supplying no filenames causes decom­
+       As  with compression, supplying no filenames causes decom-
        pression from standard input to standard output.
 
-       bunzip2 will correctly decompress a file which is the con­
+       bunzip2 will correctly decompress a file which is the con-
        catenation of two or more compressed files.  The result is
        the concatenation of the corresponding uncompressed files.
        Integrity testing (-t) of concatenated compressed files is
        also supported.
 
        You can also compress or decompress files to the  standard
-       output  by giving the -c flag.  Multiple files may be com­
+       output  by giving the -c flag.  Multiple files may be com-
        pressed and decompressed like this.  The resulting outputs
        are  fed  sequentially to stdout.  Compression of multiple
-       files in this manner generates a stream containing  multi­
+       files in this manner generates a stream containing  multi-
        ple compressed file representations.  Such a stream can be
        decompressed correctly only  by  bzip2  version  0.9.0  or
-       later.   Earlier  versions of bzip2 will stop after decom­
+       later.   Earlier  versions of bzip2 will stop after decom-
        pressing the first file in the stream.
 
        bzcat (or bzip2 -dc) decompresses all specified  files  to
@@ -98,7 +98,7 @@ DESCRIPTION
 
        As a self-check for your  protection,  bzip2  uses  32-bit
        CRCs  to make sure that the decompressed version of a file
-       is identical to the original.  This guards against corrup­
+       is identical to the original.  This guards against corrup-
        tion  of  the compressed data, and against undetected bugs
        in bzip2 (hopefully very unlikely).  The chances  of  data
        corruption  going  undetected  is  microscopic,  about one
@@ -171,7 +171,7 @@ OPTIONS
 
        -v --verbose
               Verbose mode -- show the compression ratio for each
-              file  processed.   Further  -v's  increase the ver­
+              file  processed.   Further  -v's  increase the ver-
               bosity level, spewing out lots of information which
               is primarily of interest for diagnostic purposes.
 
@@ -184,19 +184,19 @@ OPTIONS
               compressing.   Has  no  effect  when decompressing.
               See MEMORY MANAGEMENT below.  The --fast and --best
               aliases  are  primarily for GNU gzip compatibility.
-              In particular, --fast doesn't make things  signifi­
+              In particular, --fast doesn't make things  signifi-
               cantly  faster.   And  --best  merely  selects  the
               default behaviour.
 
        --     Treats all subsequent arguments as file names, even
-              if they start with a dash.  This is so you can han­
+              if they start with a dash.  This is so you can han-
               dle files with names beginning  with  a  dash,  for
               example: bzip2 -- -myfilename.
 
        --repetitive-fast --repetitive-best
               These  flags  are  redundant  in versions 0.9.5 and
               above.  They provided some coarse control over  the
-              behaviour  of the sorting algorithm in earlier ver­
+              behaviour  of the sorting algorithm in earlier ver-
               sions, which was sometimes useful.  0.9.5 and above
               have  an  improved  algorithm  which  renders these
               flags irrelevant.
@@ -207,7 +207,7 @@ MEMORY MANAGEMENT
        affects  both  the  compression  ratio  achieved,  and the
        amount of memory needed for compression and decompression.
        The  flags  -1  through  -9  specify  the block size to be
-       100,000 bytes through 900,000 bytes (the default)  respec­
+       100,000 bytes through 900,000 bytes (the default)  respec-
        tively.   At  decompression  time, the block size used for
        compression is read from  the  header  of  the  compressed
        file, and bunzip2 then allocates itself just enough memory
@@ -235,13 +235,13 @@ MEMORY MANAGEMENT
        bunzip2 will require about 3700 kbytes to decompress.   To
        support decompression of any file on a 4 megabyte machine,
        bunzip2 has an option to  decompress  using  approximately
-       half this amount of memory, about 2300 kbytes.  Decompres­
+       half this amount of memory, about 2300 kbytes.  Decompres-
        sion speed is also halved, so you should use  this  option
        only where necessary.  The relevant flag is -s.
 
-       In general, try and use the largest block size memory con­
+       In general, try and use the largest block size memory con-
        straints  allow,  since  that  maximises  the  compression
-       achieved.   Compression and decompression speed are virtu­
+       achieved.   Compression and decompression speed are virtu-
        ally unaffected by block size.
 
        Another significant point applies to files which fit in  a
@@ -257,11 +257,11 @@ MEMORY MANAGEMENT
 
        Here  is a table which summarises the maximum memory usage
        for different block sizes.  Also  recorded  is  the  total
-       compressed  size for 14 files of the Calgary Text Compres­
+       compressed  size for 14 files of the Calgary Text Compres-
        sion Corpus totalling 3,141,622 bytes.  This column  gives
        some  feel  for  how  compression  varies with block size.
        These figures tend to understate the advantage  of  larger
-       block  sizes  for  larger files, since the Corpus is domi­
+       block  sizes  for  larger files, since the Corpus is domi-
        nated by smaller files.
 
                   Compress   Decompress   Decompress   Corpus
@@ -280,7 +280,7 @@ MEMORY MANAGEMENT
 
 RECOVERING DATA FROM DAMAGED FILES
        bzip2 compresses files in blocks, usually 900kbytes  long.
-       Each block is handled independently.  If a media or trans­
+       Each block is handled independently.  If a media or trans-
        mission error causes a multi-block  .bz2  file  to  become
        damaged,  it  may  be  possible  to  recover data from the
        undamaged blocks in the file.
@@ -297,19 +297,19 @@ RECOVERING DATA FROM DAMAGED FILES
        the integrity of the resulting files, and decompress those
        which are undamaged.
 
-       bzip2recover takes a single argument, the name of the dam­
+       bzip2recover takes a single argument, the name of the dam-
        aged    file,    and    writes    a    number   of   files
        "rec00001file.bz2",  "rec00002file.bz2",  etc,  containing
        the   extracted   blocks.   The   output   filenames   are
-       designed  so  that the use of wildcards in subsequent pro­
-       cessing  -- for example, "bzip2 -dc  rec*file.bz2 > recov­
+       designed  so  that the use of wildcards in subsequent pro-
+       cessing  -- for example, "bzip2 -dc  rec*file.bz2 > recov-
        ered_data" -- processes the files in the correct order.
 
        bzip2recover should be of most use dealing with large .bz2
        files,  as  these will contain many blocks.  It is clearly
        futile to use it on damaged single-block  files,  since  a
-       damaged  block  cannot  be recovered.  If you wish to min­
-       imise any potential data loss through media  or  transmis­
+       damaged  block  cannot  be recovered.  If you wish to min-
+       imise any potential data loss through media  or  transmis-
        sion errors, you might consider compressing with a smaller
        block size.
 
@@ -323,19 +323,19 @@ PERFORMANCE NOTES
        better  than previous versions in this respect.  The ratio
        between worst-case and average-case compression time is in
        the  region  of  10:1.  For previous versions, this figure
-       was more like 100:1.  You can use the -vvvv option to mon­
+       was more like 100:1.  You can use the -vvvv option to mon-
        itor progress in great detail, if you want.
 
        Decompression speed is unaffected by these phenomena.
 
        bzip2  usually  allocates  several  megabytes of memory to
-       operate in, and then charges all over it in a fairly  ran­
-       dom  fashion.   This means that performance, both for com­
+       operate in, and then charges all over it in a fairly  ran-
+       dom  fashion.   This means that performance, both for com-
        pressing and decompressing, is largely determined  by  the
        speed  at  which  your  machine  can service cache misses.
        Because of this, small changes to the code to  reduce  the
        miss  rate  have  been observed to give disproportionately
-       large performance improvements.  I imagine bzip2 will per­
+       large performance improvements.  I imagine bzip2 will per-
        form best on machines with very large caches.
 
 
@@ -345,46 +345,47 @@ CAVEATS
        but  the  details  of  what  the problem is sometimes seem
        rather misleading.
 
-       This manual page pertains to version 1.0.2 of bzip2.  Com­
+       This manual page pertains to version 1.0.4 of bzip2.  Com-
        pressed  data created by this version is entirely forwards
        and  backwards  compatible  with   the   previous   public
-       releases,  versions 0.1pl2, 0.9.0, 0.9.5, 1.0.0 and 1.0.1,
-       but with the following exception: 0.9.0 and above can cor­
-       rectly  decompress multiple concatenated compressed files.
-       0.1pl2 cannot do this; it will  stop  after  decompressing
-       just the first file in the stream.
+       releases,  versions  0.1pl2,  0.9.0,  0.9.5, 1.0.0, 1.0.1,
+       1.0.2 and 1.0.3, but with the  following  exception: 0.9.0
+       and above can  correctly decompress  multiple concatenated
+       compressed files.  0.1pl2  cannot do this;  it  will  stop
+       after  decompressing just the first file in the stream.
 
-       bzip2recover  versions  prior  to  this  one,  1.0.2, used
-       32-bit integers to represent bit positions  in  compressed
-       files,  so  it could not handle compressed files more than
-       512 megabytes long.  Version 1.0.2 and above  uses  64-bit
-       ints  on  some platforms which support them (GNU supported
-       targets,  and  Windows).   To  establish  whether  or  not
-       bzip2recover  was  built  with  such  a limitation, run it
-       without arguments.  In any event you can build yourself an
-       unlimited version if you can recompile it with MaybeUInt64
-       set to be an unsigned 64-bit integer.
+       bzip2recover  versions prior to 1.0.2 used 32-bit integers
+       to represent bit positions in compressed  files,  so  they
+       could  not handle compressed files more than 512 megabytes
+       long.  Versions 1.0.2 and above use 64-bit  ints  on  some
+       platforms  which  support them (GNU supported targets, and
+       Windows).  To establish whether or  not  bzip2recover  was
+       built  with  such  a limitation, run it without arguments.
+       In any event you can build yourself an  unlimited  version
+       if  you  can  recompile  it  with MaybeUInt64 set to be an
+       unsigned 64-bit integer.
 
 
 AUTHOR
-       Julian Seward, jseward@acm.org.
+       Julian Seward, jsewardbzip.org.
 
-       http://sources.redhat.com/bzip2
+       http://www.bzip.org
 
-       The ideas embodied in bzip2 are due to (at least) the fol­
+       The ideas embodied in bzip2 are due to (at least) the fol-
        lowing  people: Michael Burrows and David Wheeler (for the
        block sorting transformation), David Wheeler  (again,  for
-       the Huffman coder), Peter Fenwick (for the structured cod­
+       the Huffman coder), Peter Fenwick (for the structured cod-
        ing model in the original bzip, and many refinements), and
        Alistair  Moffat,  Radford  Neal  and  Ian Witten (for the
        arithmetic  coder  in  the  original  bzip).   I  am  much
-       indebted for their help, support and advice.  See the man­
+       indebted for their help, support and advice.  See the man-
        ual in the source distribution for pointers to sources  of
        documentation.  Christian von Roques encouraged me to look
-       for faster sorting algorithms, so as to speed up  compres­
+       for faster sorting algorithms, so as to speed up  compres-
        sion.  Bela Lubkin encouraged me to improve the worst-case
-       compression performance.  The bz* scripts are derived from
-       those  of GNU gzip.  Many people sent patches, helped with
-       portability problems, lent machines, gave advice and  were
-       generally helpful.
+       compression performance.  Donna Robinson XMLised the docu-
+       mentation.   The bz* scripts are derived from those of GNU
+       gzip.  Many people sent patches, helped  with  portability
+       problems,  lent  machines,  gave advice and were generally
+       helpful.
 

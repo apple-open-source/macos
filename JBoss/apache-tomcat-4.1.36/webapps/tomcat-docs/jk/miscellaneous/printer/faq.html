@@ -1,0 +1,278 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Apache Tomcat Connector - Miscellaneous Documentation - FAQ</title><meta value="Henri Gomez" name="author"><meta value="hgomez@apache.org" name="email"><link rel="stylesheet" type="text/css" href="../../style.css"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--TOMCAT LOGO--><a href="http://tomcat.apache.org/"><img border="0" alt="Apache Tomcat" align="left" src="../../images/tomcat.gif"></a><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="http://www.apache.org/images/asf-logo.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td valign="top" align="left"><h1>The Apache Tomcat Connector - Miscellaneous Documentation</h1><h2>FAQ</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="General"><strong>General</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+General Informations and FAQ about JK
+</p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Where can I get help/support for JK ?"><strong>Where can I get help/support for JK ?</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The primary mechanism for support is through the JK 
+documentation included in the doc directory.
+Documentation is also available on the Apache Tomcat web site devoted to the
+<a href="http://tomcat.apache.org/connectors-doc/">
+Apache Tomcat Connectors Project</a>
+For additional help, the best resource is the Tomcat Users Discussion list.  
+You should start by searching
+<a href="http://mail-archives.apache.org/mod_mbox/tomcat-users/">
+the mail list archive</a>
+before you post questions to the list.  
+If you are unable to locate the answer to your question in the archive, 
+you can post questions about JK to the user list for assistance.  
+Make sure that you include the version of your Webserver, 
+that you are using as well as the platform you are running on
+and go 
+<a href="http://tomcat.apache.org/lists.html">
+here</a>
+to determine how to subscribe to tomcat mailing list.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="I can't find JK anywhere. Where is it?"><strong>I can't find JK anywhere. Where is it?</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Now that JK moved to the <b>tomcat-connectors</b> repository, 
+the source and the binaries for JK can be downloaded from a mirror at the
+<a href="http://tomcat.apache.org/download-connectors.cgi">
+Tomcat Connectors (mod_jk, mod_jk2) Downloads</a> page.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="What's the difference between JK and mod_jk ?"><strong>What's the difference between JK and mod_jk ?</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+<b>JK</b> is a project covering web-servers to Tomcat connectors,
+whereas <b>mod_jk</b> is the <a href="../../webserver_howto/apache.html">Apache module</a> developed in JK.
+</p>
+
+<p>
+<a href="../../webserver_howto/iis.html">IIS webserver</a>support is implemented on JK, using a redirector
+called <b>isapi redirector</b>.
+</p>
+
+<p>
+<a href="../../webserver_howto/nes.html">Netscape/SunONE/Sun webserver</a>webserver support is implemented on JK, using a redirector
+called <b>nsapi redirector</b>.
+</p>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Where can I get more information ?"><strong>Where can I get more information ?</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+For <b>JK 1.2.x</b>, you should read :
+</p>
+
+<ul>
+
+<li>
+<a href="../../generic_howto/quick.html">For the impatient</a>
+</li>
+
+<li>
+<a href="../../webserver_howto/apache.html">Apache and JK</a>
+</li>
+
+<li>
+<a href="../../webserver_howto/iis.html">IIS and JK</a>
+</li>
+
+<li>
+<a href="../../webserver_howto/nes.html">Netscape/SunONE/Sun and JK</a>
+</li>
+
+<li>
+<a href="../../generic_howto/workers.html">Workers configuration</a>
+</li>
+</ul>
+
+<p> 
+For more detailed information, have a look at the Reference Guide.
+You could also try searching the mailing list archives for "JK" or look at the source.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Which protocol should I use? Ajp12 or Ajp13?"><strong>Which protocol should I use? Ajp12 or Ajp13?</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+<a href="../../ajp/ajpv13a.html">Ajp13</a> is a newer protocol, it's faster, and it works better with SSL. 
+You almost certainly want to use it now that <strong>ajp12 is deprecated</strong>.
+</p>
+<p> 
+Also ajp13 is supported by all Apache Tomcat including 3.2.x , 3.3.x, 4.0.x, 4.1.x, 5.0.x, 5.5.x
+and the new tomcat 6. 
+</p>
+
+<p>
+Others Servlet engines like <b>jetty</b> have support for Ajp13.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="I've got a firewall between my web server and Tomcat which drops ajp13 connections after some time"><strong>I've got a firewall between my web server and Tomcat which drops ajp13 connections after some time</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Ajp13 uses persistant connections where the traffic could be null if there is no request to be sent to Tomcat. 
+Firewalls use to drop inactive connections and will make your web server and Tomcat think the connection is valid. 
+</p>
+<p>
+Starting with JK 1.2.0, a <b>socket_keepalive</b> property as been added to ajp13 settings, and you should take a look at 
+it in <a href="../../generic_howto/workers.html">Workers HowTo</a> and
+<a href="../../reference/workers.html">workers.properties reference</a>.
+If nothing else helps, you can try <b>JkOptions +DisableReuse</b>, but this will have strong performance implications.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Under heavy load, I've got many threads in Tomcat even if my Apache Web Server handles much of the load"><strong>Under heavy load, I've got many threads in Tomcat even if my Apache Web Server handles much of the load</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Under heavy load, Apache Web Server creates many children to handle the load,
+which will in turn create many connections 
+to Tomcat to forward the requests they should handle. 
+Apache Web Server will normally kill the children/threads when the load decreases.
+But if the load is still there and even if only Apache handles the requests,
+ie static contents, the children are kept and with them all the ajp13 connections, 
+even if they are no more used. 
+</p>
+<p>
+To close connections after some time of inactivity you can use <b>connection_pool_timeout</b>,
+for more informations refer to <a href="../../reference/workers.html">workers.properties reference</a>.
+</p>
+</blockquote></td></tr></table>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Apache"><strong>Apache</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Informations and FAQ about mod_jk and Apache Web Servers. 
+</p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Whenever I restart Tomcat, Apache locks up!"><strong>Whenever I restart Tomcat, Apache locks up!</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The Ajp13 protocol keeps an open socket between Tomcat and Apache.
+Release of mod_jk present in J-T-C handles the network failure. 
+But with very ancient releases of mod_jk, you may have to restart Apache as well.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Why do there exist two files mod_jk.so (-eapi ad -noeapi) in download directories for Apache 1.3?"><strong>Why do there exist two files mod_jk.so (-eapi ad -noeapi) in download directories for Apache 1.3?</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Many versions of Apache use a modified API, known at Extended API, developed for use with the
+<a href="http://www.modssl.org">mod_ssl module</a>. Starting with Apache 2.0 there is no more difference.
+</p>
+
+<p>
+For example, Apache 1.3 present in certains recent Linux distributions include the
+<b>mod_ssl</b> module.
+</p>
+
+<p>
+So if you got such 'Extended Apache', you need to use <b>mod_jk.so-eapi</b>.
+</p>
+
+<p> 
+You should use <b>mod_jk.so-noeapi</b> only for 'Standard Apache' (ie without mod_ssl).
+</p>
+
+<p>
+It's wise to avoid using EAPI modules on STD API Apache or to use standard API modules on EAPI Apache. 
+Allways be sure to have the <b>mod_jk.so</b> witch match your version of Apache
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="What's that message about 'garbled DSO ?'"><strong>What's that message about 'garbled DSO ?'</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+It's related to Apache EAPI, the message <b class="code">'mod_jk.so is garbled - perhaps this is not an Apache module DSO ?'</b> 
+just told you, that your're trying to install a mod_jk.so DSO module that was compiled on an Apache using EAPI, 
+like apache-mod_ssl or apache from Redhat distro 6.2/7.0 but your system use the standard apache with normal API.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="And the message about 'module might crash under EAPI!"><strong>And the message about 'module might crash under EAPI!</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Also related to EAPI, the message <b class="code">'[warn] Loaded DSO /usr/lib/apache/mod_jk.so uses plain Apache 1.3 API, 
+this module might crash under EAPI! (please recompile it with -DEAPI)'</b>, the mod_jk.so was compiled under normal 
+Apache with standard API and you try to install the module on an Apache using EAPI.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="APXS is getting an error during the build of mod_jk, like rc=0 or rc=255.  I tried all of the steps in the build section, what do I do now ?"><strong>APXS is getting an error during the build of mod_jk, like rc=0 or rc=255.  I tried all of the steps in the build section, what do I do now ?</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+APXS is a Perl script that is created when you build the Apache web server from source.  
+Chances are that if you are getting these errors and you obtained Apache as a binary distribution, 
+that APXS is not configured correctly for your system.  
+Your best bet is to get the Apache source from http://httpd.apache.org and build it yourself.  
+Use the following for a basic build (read the Apache docs for other options):
+<p class="screen"><div align="left"><table bgcolor="#000000" cellpadding="2" cellspacing="0" border="1" width="80%"><tr><td align="left" bgcolor="#000000"><code><nobr><em class="screen">[user@host] ~ $ </em><b class="screen">cd /usr/local/src</b></nobr></code><br><code><nobr><em class="screen">[user@host] ~ $ </em><b class="screen">gzip -dc apache_1.3.19.tar.gz|tar xvf -</b></nobr></code><br><code><nobr><em class="screen">[user@host] ~ $ </em><b class="screen">cd apache_1.3.19</b></nobr></code><br><code><nobr><em class="screen">[user@host] ~ $ </em><b class="screen">./configure --prefix=/usr/local/apache \</b></nobr></code><br><code><nobr><em class="screen">[user@host] ~ $ </em><b class="screen">            --enable-module=most \</b></nobr></code><br><code><nobr><em class="screen">[user@host] ~ $ </em><b class="screen">            --enable-shared=max</b></nobr></code><br><code><nobr><em class="screen">[user@host] ~ $ </em><b class="screen">make</b></nobr></code><br><code><nobr><em class="screen">[user@host] ~ $ </em><b class="screen">make install</b></nobr></code><br></td></tr></table></div></p>
+</p>
+<p>
+Note: The above steps assume that you downloaded the Apache source and placed it in your /usr/local/src directory.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Apache 2.0 complains about incorrect module version"><strong>Apache 2.0 complains about incorrect module version</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Since Apache 2.0 API still change often, the Apache 2.0 teams decide to put in headers of compiled modules the 
+Apache 2.0 version used to compile the module. This check is called Magic Module Number bump.
+</p>
+<p>
+At start time Apache 2.0 check that version in modules headers and stop if it detect that a module was compiled 
+for another Apache 2.0 version. As such you should allways use modules compiled for the same Apache 2.0 version. 
+This check may be removed if the future.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Does it work for Apache 2.2?"><strong>Does it work for Apache 2.2?</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+mod_jk works well with Apache 2.2. You need a binary module compiled for version 2.2 of the Apache web server.
+A binary compiled for version 2.0 will not work.
+</p>
+<p>
+Important parts of the functionality of mod_jk have been reimplemented as Apache httpd modules mod_proxy_ajp
+and mod_proxy_balancer. These are part of the standard distributoin of Apache 2.2. The new modules do not contain
+all features of mod_jk, but you get them automatically with every Apache 2.2.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="JNI doesn't work with Apache 1.3"><strong>JNI doesn't work with Apache 1.3</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+JNI support requires a multi-threaded environment which is not the general case for Apache 1.3. 
+You should verify if Apache 1.3 has been build with thread support and if not you could add the 
+the pthreads library to your <b>httpd.conf</b> file. 
+</p>
+
+<div class="example"><pre>
+  # Add pthread to Apache in httpd.conf
+  LoadModule "/usr/lib/libpthreads.so"
+</pre></div>
+
+<p>
+Also keep in mind that JNI is suited for multi-threaded servers and you should consider upgrading 
+to Apache 2.x to support JNI.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="JNI report that JVM couldn't be started under Linux"><strong>JNI report that JVM couldn't be started under Linux</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Under Linux, you should set some environment variables BEFORE launching your Apache server :
+</p>
+
+<p class="screen"><div align="left"><table bgcolor="#000000" cellpadding="2" cellspacing="0" border="1" width="80%"><tr><td align="left" bgcolor="#000000"><code class="screen"><nobr>export LD_LIBRARY_PATH=$jre/bin:$jre/bin/classic:$LD_LIBRARY_PATH</nobr></code><br></td></tr></table></div></p>
+
+<p>
+Also some Linux distributions have enabled a GLIBC feature called 'floating stacks' which may not works with kernel 
+less than 2.4.10 on SMP machines. You should disable floating stacks by exporting an environment variable :
+</p>
+
+<p class="screen"><div align="left"><table bgcolor="#000000" cellpadding="2" cellspacing="0" border="1" width="80%"><tr><td align="left" bgcolor="#000000"><code class="screen"><nobr>export LD_ASSUME_KERNEL=2.2.5</nobr></code><br></td></tr></table></div></p>
+
+<p>
+You could have to update your service scripts, ie <b>/etc/rc.d/init.d/httpd</b>, to set these env vars 
+before your httpd server starts.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Mixed errors when building via configure"><strong>Mixed errors when building via configure</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+configure assume you have some GNU tools already installed and configured for your system, and ad minima <b>libtool</b>.
+</p>
+<p>
+Also some systems may have mixed cc and gcc setup which may make you puzzled when trying to link an Apache built with native
+c compiler with a jk/jk2 build with gcc.
+</p>
+<p>
+In case the make processing doesn't work as expected, you should use a GNU make <b>gmake</b>.
+</p>
+</blockquote></td></tr></table>
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

@@ -16,31 +16,30 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <string.h>
 
 #include "lookup.h"
+#include <wtf/Assertions.h>
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
-using namespace KJS;
+namespace KJS {
 
 static inline bool keysMatch(const UChar *c, unsigned len, const char *s)
 {
-  for (unsigned i = 0; i != len; i++, c++, s++)
+  const char* end = s + len;
+  for (; s != end; c++, s++)
     if (c->uc != (unsigned char)*s)
       return false;
   return *s == 0;
 }
 
-const HashEntry* Lookup::findEntry( const struct HashTable *table,
-                              const UChar *c, unsigned int len )
+static inline const HashEntry* findEntry(const struct HashTable *table, unsigned int hash,
+                                         const UChar *c, unsigned int len )
 {
 #ifndef NDEBUG
   if (table->type != 2) {
@@ -48,9 +47,11 @@ const HashEntry* Lookup::findEntry( const struct HashTable *table,
     return 0;
   }
 #endif
+  ASSERT(table->hashSize != 0);
+    
+  hash %= table->hashSize;
 
-  int h = hash(c, len) % table->hashSize;
-  const HashEntry *e = &table->entries[h];
+  const HashEntry *e = &table->entries[hash];
 
   // empty bucket ?
   if (!e->s)
@@ -60,23 +61,24 @@ const HashEntry* Lookup::findEntry( const struct HashTable *table,
     // compare strings
     if (keysMatch(c, len, e->s))
       return e;
+
     // try next bucket
     e = e->next;
   } while (e);
-
   return 0;
 }
 
-const HashEntry* Lookup::findEntry( const struct HashTable *table,
-                                const Identifier &s )
+const HashEntry* Lookup::findEntry(const struct HashTable *table,
+                                   const Identifier &s )
 {
-  return findEntry( table, s.data(), s.size() );
+  const HashEntry* entry = KJS::findEntry(table, s.ustring().rep()->hash(), s.data(), s.size());
+  return entry;
 }
 
 int Lookup::find(const struct HashTable *table,
-		 const UChar *c, unsigned int len)
+                 const UChar *c, unsigned int len)
 {
-  const HashEntry *entry = findEntry( table, c, len );
+  const HashEntry *entry = KJS::findEntry(table, UString::Rep::computeHash(c, len), c, len);
   if (entry)
     return entry->value;
   return -1;
@@ -84,29 +86,11 @@ int Lookup::find(const struct HashTable *table,
 
 int Lookup::find(const struct HashTable *table, const Identifier &s)
 {
-  return find(table, s.data(), s.size());
+  const HashEntry *entry = KJS::findEntry(table, s.ustring().rep()->hash(), s.data(), s.size());
+  if (entry)
+    return entry->value;
+  return -1;
 }
 
-unsigned int Lookup::hash(const UChar *c, unsigned int len)
-{
-  unsigned int val = 0;
-  // ignoring higher byte
-  for (unsigned int i = 0; i < len; i++, c++)
-    val += c->low();
-
-  return val;
 }
 
-unsigned int Lookup::hash(const Identifier &key)
-{
-  return hash(key.data(), key.size());
-}
-
-unsigned int Lookup::hash(const char *s)
-{
-  unsigned int val = 0;
-  while (*s)
-    val += *s++;
-
-  return val;
-}

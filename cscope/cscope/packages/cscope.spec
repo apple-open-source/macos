@@ -1,42 +1,44 @@
 Summary: cscope is an interactive, screen-oriented tool that allows the user to browse through C source files for specified elements of code.
 Name: cscope
-Version: 15.5
+Version: 15.6
 Release: 1
-Copyright: BSD
+Epoch: 1
+License: BSD
 Group: Development/Tools
-Source: cscope-15.5.tar.gz
-Buildroot: /tmp/%{name}-%{version}
+Source: cscope-15.6.tar.gz
+URL: http://cscope.sourceforge.net
+Buildroot: %{_tmppath}/%{name}-root
 
 %description
 cscope is an interactive, screen-oriented tool that allows the user to browse through C source files for specified elements of code.
 
 %prep
-%setup
+%setup -q
 
 %build
-./configure
+%configure
 make
 
 %install
-rm -rf $RPM_BUILD_ROOT
-mkdir -p $RPM_BUILD_ROOT/usr/bin
-mkdir -p $RPM_BUILD_ROOT/usr/man/man1
-
-install -s -m 755 src/cscope $RPM_BUILD_ROOT/usr/bin/cscope
-install -m 755 doc/cscope.1 $RPM_BUILD_ROOT/usr/man/man1/cscope.1
+rm -rf %{buildroot}
+%makeinstall
 
 %clean
-rm -rf $RPM_BUILD_ROOT
+rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root)
 %doc TODO COPYING ChangeLog AUTHORS README NEWS INSTALL
-
-/usr/bin/cscope
-/usr/man/man1/cscope.1
+%{_bindir}/*
+%{_mandir}/man1/*
 
 %changelog
-* Mon Jul 2 2001 Cscope development team
+* Sun Oct 01 2006 Hans-Bernhard Broeker <broeker@users.sourceforge.net>
+- Changed version number to 15.6
+* Sun Mar 21 2004 Adam Monsen <adamm@wazamatta.com>
+- updated packages/cscope.spec to use more RPM macros and shell globs.
+  Should be more generic/robust/up-to-date/etc.
+* Mon Jul 2 2001 Cscope development team <cscope-devel@lists.sourceforge.net>
 - Version 15.3 release
 - New flex scanner
 - XEmacs support improvements
@@ -45,13 +47,13 @@ rm -rf $RPM_BUILD_ROOT
 - MSDOS support
 - More editing keys
 - Webcscope added to contrib
-* Wed Nov 20 2000 Cscope development team
+* Wed Nov 20 2000 Cscope development team <cscope-devel@lists.sourceforge.net>
 - Version 15.1 release
 - New menu and line matching interface
 - Support for up to 62 (up from 9) matching lines on screen
 - Numerous fixes
 - Updated documentation
-* Tue May 15 2000 Cscope development team
+* Tue May 15 2000 Cscope development team  <cscope-devel@lists.sourceforge.net>
 - Version 15.0bl2 (build 2) pre-alpha release
 - Fixes and enhancements
 - Updated documentation

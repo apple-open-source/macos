@@ -331,6 +331,10 @@ SOURCE=.\libgd\gd_png.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\libgd\gd_security.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\libgd\gd_ss.c
 
 !IF  "$(CFG)" == "gd - Win32 Release_TS GD2"

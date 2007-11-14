@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |          Ben Mansell <ben@zeus.com> (Zeus Support)                   |
    +----------------------------------------------------------------------+
  */
-/* $Id: php4isapi.c,v 1.92.2.13.2.1 2006/01/01 13:47:01 sniper Exp $ */
+/* $Id: php4isapi.c,v 1.92.2.13.2.3 2007/03/05 22:04:54 stas Exp $ */
 
 #ifdef PHP_WIN32
 # include <windows.h>
@@ -385,24 +385,24 @@ static void sapi_isapi_register_zeus_ssl_variables(LPEXTENSION_CONTROL_BLOCK lpE
 	 */
 	strcpy( static_cons_buf, "/C=" );
 	if( lpECB->GetServerVariable( lpECB->ConnID, "SSL_CLIENT_C", static_variable_buf, &variable_len ) && static_variable_buf[0] ) {
-		strcat( static_cons_buf, static_variable_buf );
+		strlcat( static_cons_buf, static_variable_buf, ISAPI_SERVER_VAR_BUF_SIZE );
 	}
-	strcat( static_cons_buf, "/ST=" );
+	strlcat( static_cons_buf, "/ST=", ISAPI_SERVER_VAR_BUF_SIZE );
 	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
 	if( lpECB->GetServerVariable( lpECB->ConnID, "SSL_CLIENT_ST", static_variable_buf, &variable_len ) && static_variable_buf[0] ) {
-		strcat( static_cons_buf, static_variable_buf );
+		strlcat( static_cons_buf, static_variable_buf, ISAPI_SERVER_VAR_BUF_SIZE );
 	}
 	php_register_variable( "SSL_CLIENT_DN", static_cons_buf, track_vars_array TSRMLS_CC );
 	
 	strcpy( static_cons_buf, "/C=" );
 	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
 	if( lpECB->GetServerVariable( lpECB->ConnID, "SSL_CLIENT_I_C", static_variable_buf, &variable_len ) && static_variable_buf[0] ) {
-		strcat( static_cons_buf, static_variable_buf );
+		strlcat( static_cons_buf, static_variable_buf, ISAPI_SERVER_VAR_BUF_SIZE );
 	}
-	strcat( static_cons_buf, "/ST=" );
+	strlcat( static_cons_buf, "/ST=", ISAPI_SERVER_VAR_BUF_SIZE );
 	variable_len = ISAPI_SERVER_VAR_BUF_SIZE;
 	if( lpECB->GetServerVariable( lpECB->ConnID, "SSL_CLIENT_I_ST", static_variable_buf, &variable_len ) && static_variable_buf[0] ) {
-		strcat( static_cons_buf, static_variable_buf );
+		strlcat( static_cons_buf, static_variable_buf, ISAPI_SERVER_VAR_BUF_SIZE );
 	}
 	php_register_variable( "SSL_CLIENT_I_DN", static_cons_buf, track_vars_array TSRMLS_CC );	
 }

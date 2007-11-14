@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: wddx.c,v 1.96.2.6.2.7 2006/05/26 01:55:26 iliaa Exp $ */
+/* $Id: wddx.c,v 1.96.2.6.2.10 2007/01/09 15:21:08 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -289,7 +289,7 @@ PS_SERIALIZER_DECODE_FUNC(wddx)
 
 			switch (hash_type) {
 				case HASH_KEY_IS_LONG:
-					sprintf(tmp, "%ld", idx);
+					key_length = sprintf(tmp, "%ld", idx) + 1;
 					key = tmp;
 					/* fallthru */
 				case HASH_KEY_IS_STRING:
@@ -432,7 +432,7 @@ static void php_wddx_serialize_number(wddx_packet *packet, zval *var)
 	tmp = *var;
 	zval_copy_ctor(&tmp);
 	convert_to_string(&tmp);
-	snprintf(tmp_buf, Z_STRLEN(tmp), WDDX_NUMBER, Z_STRVAL(tmp));
+	snprintf(tmp_buf, sizeof(tmp_buf), WDDX_NUMBER, Z_STRVAL(tmp));
 	zval_dtor(&tmp);
 
 	php_wddx_add_chunk(packet, tmp_buf);	
@@ -630,8 +630,8 @@ void php_wddx_serialize_var(wddx_packet *packet, zval *var, char *name, int name
 
 	if (name) {
 		name_esc = php_escape_html_entities(name, name_len, &name_esc_len, 0, ENT_QUOTES, NULL TSRMLS_CC);
-		tmp_buf = emalloc(name_esc_len + 1);
-		snprintf(tmp_buf, name_esc_len, WDDX_VAR_S, name_esc);
+		tmp_buf = emalloc(name_esc_len + sizeof(WDDX_VAR_S));
+		snprintf(tmp_buf, name_esc_len + sizeof(WDDX_VAR_S), WDDX_VAR_S, name_esc);
 		php_wddx_add_chunk(packet, tmp_buf);
 		efree(tmp_buf);
 		efree(name_esc);

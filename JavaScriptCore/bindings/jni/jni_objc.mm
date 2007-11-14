@@ -22,6 +22,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
+#include "config.h"
 #import <Foundation/Foundation.h>
 #import <JavaScriptCore/jni_utility.h>
 #import <JavaScriptCore/objc_utility.h>
@@ -39,28 +40,33 @@ using namespace KJS::Bindings;
        exceptionDescription:(NSString **)exceptionString;
 @end
 
-@interface NSObject (WebPrivate)
-- (NSURL *)_webViewURL;
-@end
-
-bool KJS::Bindings::dispatchJNICall (const void *targetAppletView, jobject obj, bool isStatic, JNIType returnType, jmethodID methodID, jvalue *args, jvalue &result, const char *callingURL, Value &exceptionDescription)
+bool KJS::Bindings::dispatchJNICall (const void *targetAppletView, jobject obj, bool isStatic, JNIType returnType, jmethodID methodID, jvalue *args, jvalue &result, const char*, JSValue *&exceptionDescription)
 {
     id view = (id)targetAppletView;
+    
+    // As array_type is not known by the Mac JVM, change it to a compatible type.
+    if (returnType == array_type)
+        returnType = object_type;
     
     if ([view respondsToSelector:@selector(webPlugInCallJava:isStatic:returnType:method:arguments:callingURL:exceptionDescription:)]) {
         NSString *_exceptionDescription = 0;
 
-	// Always just pass the URL of the page that contains the applet.  The
-	// execution restrictions implemented in WebCore will guarantee
-	// that only appropriate JavaScript can reference the applet.
-	NSURL *_callingURL = [view _webViewURL];
-        result = [view webPlugInCallJava:obj isStatic:isStatic returnType:returnType method:methodID arguments:args callingURL:_callingURL exceptionDescription:&_exceptionDescription];
+        // Passing nil as the calling URL will cause the Java plugin to use the URL
+        // of the page that contains the applet. The execution restrictions 
+        // implemented in WebCore will guarantee that only appropriate JavaScript
+        // can reference the applet.
+        {
+           JSLock::DropAllLocks dropAllLocks;
+            result = [view webPlugInCallJava:obj isStatic:isStatic returnType:returnType method:methodID arguments:args callingURL:nil exceptionDescription:&_exceptionDescription];
+        }
+
         if (_exceptionDescription != 0) {
             exceptionDescription = convertNSStringToString(_exceptionDescription);
         }
         return true;
     }
     else if ([view respondsToSelector:@selector(webPlugInCallJava:method:returnType:arguments:)]) {
+       JSLock::DropAllLocks dropAllLocks;
         result = [view webPlugInCallJava:obj method:methodID returnType:returnType arguments:args];
         return true;
     }

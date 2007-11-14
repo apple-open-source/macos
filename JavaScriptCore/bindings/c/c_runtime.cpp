@@ -23,50 +23,74 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include <JavaScriptCore/internal.h>
+#include "config.h"
 
-#include <c_instance.h>
-#include <c_runtime.h>
-#include <c_utility.h>
+#if !PLATFORM(DARWIN) || !defined(__LP64__)
 
-#include <runtime_array.h>
-#include <runtime_object.h>
+#include "c_runtime.h"
 
-using namespace KJS;
-using namespace KJS::Bindings;
+#include "c_instance.h"
+#include "c_utility.h"
+#include "npruntime_impl.h"
+
+namespace KJS {
+namespace Bindings {
 
 // ---------------------- CMethod ----------------------
 
-
+const char* CMethod::name() const
+{
+    PrivateIdentifier *i = (PrivateIdentifier *)_methodIdentifier;
+    return i->isString ? i->value.string : 0;
+}
 
 // ---------------------- CField ----------------------
 
-Value CField::valueFromInstance(KJS::ExecState *exec, const Instance *inst) const
+const char* CField::name() const
 {
-    const CInstance *instance = static_cast<const CInstance*>(inst);
-    NPObject *obj = instance->getObject();
-    Value aValue;
-    NPVariant property;
-    VOID_TO_NPVARIANT(property);
-    if (obj->_class->getProperty) {
-        obj->_class->getProperty (obj, _fieldIdentifier, &property);
-        aValue = convertNPVariantToValue (exec, &property);
-    }
-    else {
-        aValue = Undefined();
-    }
-    return aValue;
+    PrivateIdentifier *i = (PrivateIdentifier *)_fieldIdentifier;
+    return i->isString ? i->value.string : 0;
 }
 
-void CField::setValueToInstance(KJS::ExecState *exec, const Instance *inst, const KJS::Value &aValue) const
+JSValue* CField::valueFromInstance(ExecState* exec, const Instance* inst) const
 {
-    const CInstance *instance = static_cast<const CInstance*>(inst);
-    NPObject *obj = instance->getObject();
+    const CInstance* instance = static_cast<const CInstance*>(inst);
+    NPObject* obj = instance->getObject();
+    if (obj->_class->getProperty) {
+        NPVariant property;
+        VOID_TO_NPVARIANT(property);
+
+        bool result;
+        {
+           JSLock::DropAllLocks dropAllLocks;
+            result = obj->_class->getProperty(obj, _fieldIdentifier, &property);
+        }
+        if (result) {
+            JSValue* result = convertNPVariantToValue(exec, &property, instance->rootObject());
+            _NPN_ReleaseVariantValue(&property);
+            return result;
+        }
+    }
+    return jsUndefined();
+}
+
+void CField::setValueToInstance(ExecState *exec, const Instance *inst, JSValue *aValue) const
+{
+    const CInstance* instance = static_cast<const CInstance*>(inst);
+    NPObject* obj = instance->getObject();
     if (obj->_class->setProperty) {
         NPVariant variant;
-        convertValueToNPVariant (exec, aValue, &variant);
-        obj->_class->setProperty (obj, _fieldIdentifier, &variant);
+        convertValueToNPVariant(exec, aValue, &variant);
+
+        {
+           JSLock::DropAllLocks dropAllLocks;
+            obj->_class->setProperty(obj, _fieldIdentifier, &variant);
+        }
+
+        _NPN_ReleaseVariantValue(&variant);
     }
 }
 
-// ---------------------- CArray ----------------------
+} }
+
+#endif

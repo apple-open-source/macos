@@ -42,6 +42,8 @@
 #include "vp.h"
 #include "version.h"	/* FILEVERSION and FIXVERSION */
 #include "scanner.h" 
+#include "alloc.h"
+
 #include <stdlib.h>	/* atoi */
 #if defined(USE_NCURSES) && !defined(RENAMED_NCURSES)
 #include <ncurses.h>
@@ -50,10 +52,11 @@
 #endif
 #include <sys/types.h>	/* needed by stat.h */
 #include <sys/stat.h>	/* stat */
+#include <signal.h>
 
 /* defaults for unset environment variables */
 #define	EDITOR	"vi"
-#define HOME	"/"     /* no $HOME --> use root directory */
+#define HOME	"/"	/* no $HOME --> use root directory */
 #define	SHELL	"sh"
 #define LINEFLAG "+%s"	/* default: used by vi and emacs */
 #define TMPDIR	"/tmp"
@@ -61,7 +64,7 @@
 #define DFLT_INCDIR "/usr/include"
 #endif
 
-static char const rcsid[] = "$Id: main.c,v 1.4 2004/07/09 21:34:45 nicolai Exp $";
+static char const rcsid[] = "$Id: main.c,v 1.41 2006/08/20 15:00:34 broeker Exp $";
 
 /* note: these digraph character frequencies were calculated from possible 
    printable digraphs in the cross-reference for the C compiler */
@@ -82,7 +85,7 @@ int	dispcomponents = 1;	/* file path components to display */
 BOOL	displayversion;		/* display the C Compilation System version */
 #endif
 BOOL	editallprompt = YES;	/* prompt between editing files */
-int	fileargc;		/* file argument count */
+unsigned int fileargc;		/* file argument count */
 char	**fileargv;		/* file argument values */
 int	fileversion;		/* cross-reference file version */
 BOOL	incurses = NO;		/* in curses */
@@ -96,14 +99,12 @@ char	*namefile;		/* file of file names */
 BOOL	ogs;			/* display OGS book and subsystem names */
 char	*prependpath;		/* prepend path to file names */
 FILE	*refsfound;		/* references found file */
-#if 0 /* HBB 20010705: flag no longer used */
-BOOL	select_large = NO;	/* enable more than 9 select lines */
-#endif
 char	temp1[PATHLEN + 1];	/* temporary file name */
 char	temp2[PATHLEN + 1];	/* temporary file name */
+char	tempdirpv[PATHLEN + 1];	/* private temp directory */
 long	totalterms;		/* total inverted index terms */
 BOOL	trun_syms;		/* truncate symbols to 8 characters */
-char	tempstring[8192];	/* use this as a buffer, instead of 'yytext', 
+char	tempstring[TEMPSTRING_LEN + 1]; /* use this as a buffer, instead of 'yytext', 
 				 * which had better be left alone */
 char	*tmpdir;		/* temporary directory */
 
@@ -120,606 +121,648 @@ static	void	usage(void);
 void	fixkeypad();
 #endif
 
+#if defined(KEY_RESIZE) && !defined(__DJGPP__)
+void 
+sigwinch_handler(int sig, siginfo_t *info, void *unused)
+{
+    (void) sig;
+    (void) info;
+    (void) unused;
+    ungetch(KEY_RESIZE);
+}
+#endif
+
 int
 main(int argc, char **argv)
 {
-	FILE	*names;			/* name file pointer */
-	int	oldnum;			/* number in old cross-ref */
-	char	path[PATHLEN + 1];	/* file path */
-	FILE	*oldrefs;	/* old cross-reference file */
-	char	*s;
-	int	c, i;
-	pid_t	pid;
-	struct stat	stat_buf;
+    FILE *names;			/* name file pointer */
+    int	oldnum;			/* number in old cross-ref */
+    char path[PATHLEN + 1];	/* file path */
+    FILE *oldrefs;	/* old cross-reference file */
+    char *s;
+    int c;
+    unsigned int i;
+    pid_t pid;
+    struct stat	stat_buf;
+#if defined(KEY_RESIZE) && !defined(__DJGPP__)
+    struct sigaction winch_action;
+#endif
+    mode_t orig_umask;
 	
-	yyin = stdin;
-	yyout = stdout;
-	/* save the command name for messages */
-	argv0 = argv[0];
-	
-	/* set the options */
-	while (--argc > 0 && (*++argv)[0] == '-') {
-		/* HBB 20030814: add GNU-style --help and --version
-		 * options */
-	  	if (strequal(argv[0], "--help")
-		    || strequal(argv[0], "-h")) {
-			longusage();
-			myexit(0);
-		}
-		if (strequal(argv[0], "--version")
-		    || strequal(argv[0], "-V")) {
+    yyin = stdin;
+    yyout = stdout;
+    /* save the command name for messages */
+    argv0 = argv[0];
+#if defined(KEY_RESIZE) && !defined(__DJGPP__)
+    winch_action.sa_sigaction = sigwinch_handler;
+    sigemptyset(&winch_action.sa_mask);
+    winch_action.sa_flags = SA_SIGINFO;
+    sigaction(SIGWINCH,&winch_action,NULL);
+#endif
+    /* set the options */
+    while (--argc > 0 && (*++argv)[0] == '-') {
+	/* HBB 20030814: add GNU-style --help and --version options */
+	if (strequal(argv[0], "--help")
+	    || strequal(argv[0], "-h")) {
+	    longusage();
+	    myexit(0);
+	}
+	if (strequal(argv[0], "--version")
+	    || strequal(argv[0], "-V")) {
 #if CCS
-			displayversion = YES;
+	    displayversion = YES;
 #else
-			fprintf(stderr, "%s: version %d%s\n", argv0,
-				FILEVERSION, FIXVERSION);
-			myexit(0);
+	    fprintf(stderr, "%s: version %d%s\n", argv0,
+		    FILEVERSION, FIXVERSION);
+	    myexit(0);
 #endif
-		}
+	}
 
-		for (s = argv[0] + 1; *s != '\0'; s++) {
+	for (s = argv[0] + 1; *s != '\0'; s++) {
 			
-			/* look for an input field number */
-			if (isdigit((unsigned char)*s)) {
-				field = *s - '0';
-				if (field > 8) {
-					field = 8;
-				}
-				if (*++s == '\0' && --argc > 0) {
-					s = *++argv;
-				}
-				if (strlen(s) > PATLEN) {
-					(void) fprintf(stderr, "cscope: pattern too long, cannot be > %d characters\n", PATLEN);
-					myexit(1);
-				}
-				(void) strcpy(pattern, s);
-				goto nextarg;
-			}
-			switch (*s) {
-			case '-':	/* end of options */
-				--argc;
-				++argv;
-				goto lastarg;
-			case 'b':	/* only build the cross-reference */
-				buildonly = YES;
-				linemode  = YES;
-				break;
-			case 'c':	/* ASCII characters only in crossref */
-				compress = NO;
-				break;
-			case 'C':	/* turn on caseless mode for symbol searches */
-				caseless = YES;
-				egrepcaseless(caseless);	/* simulate egrep -i flag */
-				break;
-			case 'd':	/* consider crossref up-to-date */
-				isuptodate = YES;
-				break;
-			case 'e':	/* suppress ^E prompt between files */
-				editallprompt = NO;
-				break;
-			case 'k':	/* ignore DFLT_INCDIR */
-				kernelmode = YES;
-				break;
-			case 'L':
-				onesearch = YES;
-				/* FALLTHROUGH */
-			case 'l':
-				linemode = YES;
-				break;
-			case 'v':
-				verbosemode = YES;
-				break;
-			case 'o':	/* display OGS book and subsystem names */
-				ogs = YES;
-				break;
-			case 'q':	/* quick search */
-				invertedindex = YES;
-				break;
-			case 'T':	/* truncate symbols to 8 characters */
-				trun_syms = YES;
-				break;
-			case 'u':	/* unconditionally build the cross-reference */
-				unconditional = YES;
-				break;
-			case 'U':	/* assume some files have changed */
-				fileschanged = YES;
-				break;
-			case 'R':
-				recurse_dir = YES;
-				break;
-			case 'f':	/* alternate cross-reference file */
-			case 'F':	/* symbol reference lines file */
-			case 'i':	/* file containing file names */
-			case 'I':	/* #include file directory */
-			case 'p':	/* file path components to display */
-			case 'P':	/* prepend path to file names */
-			case 's':	/* additional source file directory */
-			case 'S':
-				c = *s;
-				if (*++s == '\0' && --argc > 0) {
-					s = *++argv;
-				}
-				if (*s == '\0') {
-					(void) fprintf(stderr, "%s: -%c option: missing or empty value\n", 
-						argv0, c);
-					goto usage;
-				}
-				switch (c) {
-				case 'f':	/* alternate cross-reference file */
-					reffile = s;
-					(void) strcpy(path, s);
-#ifdef SHORT_NAMES_ONLY 
-					/* System V has a 14 character limit */
-					s = mybasename(path);
-					if (strlen(s) > 11) {
-						s[11] = '\0';
-					}
-#endif
-					s = path + strlen(path);
-					(void) strcpy(s, ".in");
-					invname = stralloc(path);
-					(void) strcpy(s, ".po");
-					invpost = stralloc(path);
-					break;
-				case 'F':	/* symbol reference lines file */
-					reflines = s;
-					break;
-				case 'i':	/* file containing file names */
-					namefile = s;
-					break;
-				case 'I':	/* #include file directory */
-					includedir(s);
-					break;
-				case 'p':	/* file path components to display */
-					if (*s < '0' || *s > '9' ) {
-						(void) fprintf(stderr, "%s: -p option: missing or invalid numeric value\n", 
-							argv0);
-						goto usage;
-					}
-					dispcomponents = atoi(s);
-					break;
-				case 'P':	/* prepend path to file names */
-					prependpath = s;
-					break;
-				case 's':	/* additional source directory */
-				case 'S':
-					sourcedir(s);
-					break;
-				}
-				goto nextarg;
-#if 0 /* HBB 20010705: unused, now! */
-			case 't':	/* enable more than 9 select lines */
-				select_large = YES;
-				break;
-#endif
-			default:
-				(void) fprintf(stderr, "%s: unknown option: -%c\n", argv0, 
-					*s);
-			usage:
-				(void) usage();
-				(void) fprintf(stderr, "Try the -h option for more information.\n");
-				myexit(1);
-			}
+	    /* look for an input field number */
+	    if (isdigit((unsigned char) *s)) {
+		field = *s - '0';
+		if (field > 8) {
+		    field = 8;
 		}
-nextarg:	;
-	}
-lastarg:
-	/* read the environment */
-	editor = mygetenv("EDITOR", EDITOR);
-	editor = mygetenv("VIEWER", editor);		/* use viewer if set */
-	editor = mygetenv("CSCOPE_EDITOR", editor);	/* has last word */
-	home = mygetenv("HOME", HOME);
-	shell = mygetenv("SHELL", SHELL);
-	lineflag = mygetenv("CSCOPE_LINEFLAG", LINEFLAG);
-	lineflagafterfile = getenv("CSCOPE_LINEFLAG_AFTER_FILE")?1:0;
-	tmpdir = mygetenv("TMPDIR", TMPDIR);
-
-	/* XXX remove if/when clearerr() in dir.c does the right thing. */
-	if (namefile && strcmp(namefile, "-") == 0 && !buildonly)
-	{
-	    fprintf (stderr, "cscope: Must use -b if file list comes from stdin\n");
-	    myexit(1);
-	}
-
-	/* make sure that tmpdir exists */
-	if (lstat (tmpdir, &stat_buf))
-	{
-		fprintf (stderr, "cscope: Temporary directory %s does not exist or cannot be accessed\n", tmpdir);
-		fprintf (stderr, "cscope: Please create the directory or set the environment variable\ncscope: TMPDIR to a valid directory\n");
+		if (*++s == '\0' && --argc > 0) {
+		    s = *++argv;
+		}
+		if (strlen(s) > PATLEN) {
+		    postfatal("\
+cscope: pattern too long, cannot be > %d characters\n", PATLEN);
+		    /* NOTREACHED */
+		}
+		strcpy(Pattern, s);
+		goto nextarg;
+	    }
+	    switch (*s) {
+	    case '-':	/* end of options */
+		--argc;
+		++argv;
+		goto lastarg;
+	    case 'b':	/* only build the cross-reference */
+		buildonly = YES;
+		linemode  = YES;
+		break;
+	    case 'c':	/* ASCII characters only in crossref */
+		compress = NO;
+		break;
+	    case 'C':	/* turn on caseless mode for symbol searches */
+		caseless = YES;
+		egrepcaseless(caseless); /* simulate egrep -i flag */
+		break;
+	    case 'd':	/* consider crossref up-to-date */
+		isuptodate = YES;
+		break;
+	    case 'e':	/* suppress ^E prompt between files */
+		editallprompt = NO;
+		break;
+	    case 'k':	/* ignore DFLT_INCDIR */
+		kernelmode = YES;
+		break;
+	    case 'L':
+		onesearch = YES;
+		/* FALLTHROUGH */
+	    case 'l':
+		linemode = YES;
+		break;
+	    case 'v':
+		verbosemode = YES;
+		break;
+	    case 'o':	/* display OGS book and subsystem names */
+		ogs = YES;
+		break;
+	    case 'q':	/* quick search */
+		invertedindex = YES;
+		break;
+	    case 'T':	/* truncate symbols to 8 characters */
+		trun_syms = YES;
+		break;
+	    case 'u':	/* unconditionally build the cross-reference */
+		unconditional = YES;
+		break;
+	    case 'U':	/* assume some files have changed */
+		fileschanged = YES;
+		break;
+	    case 'R':
+		recurse_dir = YES;
+		break;
+	    case 'f':	/* alternate cross-reference file */
+	    case 'F':	/* symbol reference lines file */
+	    case 'i':	/* file containing file names */
+	    case 'I':	/* #include file directory */
+	    case 'p':	/* file path components to display */
+	    case 'P':	/* prepend path to file names */
+	    case 's':	/* additional source file directory */
+	    case 'S':
+		c = *s;
+		if (*++s == '\0' && --argc > 0) {
+		    s = *++argv;
+		}
+		if (*s == '\0') {
+		    fprintf(stderr, "%s: -%c option: missing or empty value\n", 
+			    argv0, c);
+		    goto usage;
+		}
+		switch (c) {
+		case 'f':	/* alternate cross-reference file */
+		    reffile = s;
+		    if (strlen(reffile) > sizeof(path) - 1) {
+			  postfatal("\
+cscope: reffile too long, cannot be > %d characters\n", sizeof(path) - 1);
+			  /* NOTREACHED */
+		    }
+		    strcpy(path, s);
+#ifdef SHORT_NAMES_ONLY
+		    /* System V has a 14 character limit */
+		    s = mybasename(path);
+		    if (strlen(s) > 11) {
+			s[11] = '\0';
+		    }
+#endif
+		    s = path + strlen(path);
+		    strcpy(s, ".in");
+		    invname = my_strdup(path);
+		    strcpy(s, ".po");
+		    invpost = my_strdup(path);
+		    break;
+		case 'F':	/* symbol reference lines file */
+		    reflines = s;
+		    break;
+		case 'i':	/* file containing file names */
+		    namefile = s;
+		    break;
+		case 'I':	/* #include file directory */
+		    includedir(s);
+		    break;
+		case 'p':	/* file path components to display */
+		    if (*s < '0' || *s > '9' ) {
+			fprintf(stderr, "\
+%s: -p option: missing or invalid numeric value\n", 
+				argv0);
+			goto usage;
+		    }
+		    dispcomponents = atoi(s);
+		    break;
+		case 'P':	/* prepend path to file names */
+		    prependpath = s;
+		    break;
+		case 's':	/* additional source directory */
+		case 'S':
+		    sourcedir(s);
+		    break;
+		}
+		goto nextarg;
+	    default:
+		fprintf(stderr, "%s: unknown option: -%c\n", argv0, 
+			*s);
+	    usage:
+		usage();
+		fprintf(stderr, "Try the -h option for more information.\n");
 		myexit(1);
-	}
+	    } /* switch(option letter) */
+	} /* for(option) */
+    nextarg:	
+	;
+    } /* while(argv) */
 
-	/* create the temporary file names */
-	pid = getpid();
-	(void) sprintf(temp1, "%s/cscope%d.1", tmpdir, pid);
-	(void) sprintf(temp2, "%s/cscope%d.2", tmpdir, pid);
+ lastarg:
+    /* read the environment */
+    editor = mygetenv("EDITOR", EDITOR);
+    editor = mygetenv("VIEWER", editor); /* use viewer if set */
+    editor = mygetenv("CSCOPE_EDITOR", editor);	/* has last word */
+    home = mygetenv("HOME", HOME);
+    shell = mygetenv("SHELL", SHELL);
+    lineflag = mygetenv("CSCOPE_LINEFLAG", LINEFLAG);
+    lineflagafterfile = getenv("CSCOPE_LINEFLAG_AFTER_FILE") ? 1 : 0;
+    tmpdir = mygetenv("TMPDIR", TMPDIR);
 
-	/* if running in the foreground */
-	if (signal(SIGINT, SIG_IGN) != SIG_IGN) {
-		/* cleanup on the interrupt and quit signals */
-		(void) signal(SIGINT, myexit);
-		(void) signal(SIGQUIT, myexit);
-	}
-	/* cleanup on the hangup signal */
-	(void) signal(SIGHUP, myexit);
-
-	/* if the database path is relative and it can't be created */
-	if (reffile[0] != '/' && access(".", WRITE) != 0) {
-
-		/* put it in the home directory if the database may not be
-		 * up-to-date or doesn't exist in the relative directory,
-		 * so a database in the current directory will be
-		 * used instead of failing to open a non-existant database in
-		 * the home directory
-		 */
-		(void) sprintf(path, "%s/%s", home, reffile);
-		if (isuptodate == NO || access(path, READ) == 0) {
-			reffile = stralloc(path);
-			(void) sprintf(path, "%s/%s", home, invname);
-			invname = stralloc(path);
-			(void) sprintf(path, "%s/%s", home, invpost);
-			invpost = stralloc(path);
-		}
-	}
-
-	if (linemode == NO)
-	{
-		(void) signal(SIGINT, SIG_IGN);	/* ignore interrupts */
-		(void) signal(SIGPIPE, SIG_IGN);/* | command can cause pipe signal */
-
-		/* initialize the curses display package */
-		(void) initscr();	/* initialize the screen */
-		entercurses();
-#if TERMINFO
-		(void) keypad(stdscr, TRUE);	/* enable the keypad */
-#ifdef HAVE_FIXKEYPAD
-		fixkeypad();	/* fix for getch() intermittently returning garbage */
-#endif
-#endif
-#if UNIXPC
-		standend();	/* turn off reverse video */
-#endif
-		dispinit();	/* initialize display parameters */
-		setfield();	/* set the initial cursor position */
-		postmsg("");	/* clear any build progress message */
-		display();	/* display the version number and input fields */
-	}
-
-
-	/* if the cross-reference is to be considered up-to-date */
-	if (isuptodate == YES) {
-		if ((oldrefs = vpfopen(reffile, "rb")) == NULL) {
-			posterr("cscope: cannot open file %s\n", reffile);
-			myexit(1);
-		}
-		/* get the crossref file version but skip the current directory */
-		if (fscanf(oldrefs, "cscope %d %*s", &fileversion) != 1) {
-			posterr("cscope: cannot read file version from file %s\n", reffile);
-			myexit(1);
-		}
-		if (fileversion >= 8) {
-
-			/* override these command line options */
-			compress = YES;
-			invertedindex = NO;
-
-			/* see if there are options in the database */
-			for (;;) {
-				(void) getc(oldrefs);	/* skip the blank */
-				if ((c = getc(oldrefs)) != '-') {
-					(void) ungetc(c, oldrefs);
-					break;
-				}
-				switch (c = getc(oldrefs)) {
-				case 'c':	/* ASCII characters only */
-					compress = NO;
-					break;
-				case 'q':	/* quick search */
-					invertedindex = YES;
-					(void) fscanf(oldrefs, "%ld", &totalterms);
-					break;
-				case 'T':	/* truncate symbols to 8 characters */
-					dbtruncated = YES;
-					trun_syms = YES;
-					break;
-				}
-			}
-			initcompress();
-			seek_to_trailer(oldrefs);
-		}
-		/* skip the source and include directory lists */
-		skiplist(oldrefs);
-		skiplist(oldrefs);
-
-		/* get the number of source files */
-		if (fscanf(oldrefs, "%d", &nsrcfiles) != 1) {
-			posterr("cscope: cannot read source file size from file %s\n", reffile);
-			myexit(1);
-		}
-		/* get the source file list */
-		srcfiles = mymalloc(nsrcfiles * sizeof(char *));
-		if (fileversion >= 9) {
-
-			/* allocate the string space */
-			if (fscanf(oldrefs, "%d", &oldnum) != 1) {
-				posterr("cscope: cannot read string space size from file %s\n", reffile);
-				myexit(1);
-			}
-			s = (char *)mymalloc((unsigned) oldnum);
-			(void) getc(oldrefs);	/* skip the newline */
-			
-			/* read the strings */
-			if (fread(s, oldnum, 1, oldrefs) != 1) {
-				posterr("cscope: cannot read source file names from file %s\n", reffile);
-				myexit(1);
-			}
-			/* change newlines to nulls */
-			for (i = 0; i < nsrcfiles; ++i) {
-				srcfiles[i] = s;
-				for (++s; *s != '\n'; ++s) {
-					;
-				}
-				*s = '\0';
-				++s;
-			}
-			/* if there is a file of source file names */
-			if ((namefile != NULL && (names = vpfopen(namefile, "r")) != NULL)
-			    || (names = vpfopen(NAMEFILE, "r")) != NULL) {
-	
-				/* read any -p option from it */
-				while (fscanf(names, "%s", path) == 1 && *path == '-') {
-					i = path[1];
-					s = path + 2;		/* for "-Ipath" */
-					if (*s == '\0') {	/* if "-I path" */
-						(void) fscanf(names, "%s", path);
-						s = path;
-					}
-					switch (i) {
-					case 'p':	/* file path components to display */
-					    if (*s < '0' || *s > '9') {
-						posterr("cscope: -p option in file %s: missing or invalid numeric value\n", 								namefile);
-
-					    }
-					    dispcomponents = atoi(s);
-					}
-				}
-				(void) fclose(names);
-			}
-		}
-		else {
-			for (i = 0; i < nsrcfiles; ++i) {
-				if (fscanf(oldrefs, "%s", path) != 1) {
- 					posterr("cscope: cannot read source file name from file %s\n", reffile);
-					myexit(1);
-				}
-				srcfiles[i] = stralloc(path);
-			}
-		}
-		(void) fclose(oldrefs);
-	}
-	else {
-		/* save the file arguments */
-		fileargc = argc;
-		fileargv = argv;
-	
-		/* get source directories from the environment */
-		if ((s = getenv("SOURCEDIRS")) != NULL) {
-			sourcedir(s);
-		}
-		/* make the source file list */
-		srcfiles = mymalloc(msrcfiles * sizeof(char *));
-		makefilelist();
-		if (nsrcfiles == 0) {
-			posterr( "cscope: no source files found\n");
-			myexit(1);
-		}
-		/* get include directories from the environment */
-		if ((s = getenv("INCLUDEDIRS")) != NULL) {
-			includedir(s);
-		}
-		/* add /usr/include to the #include directory list,
-		   but not in kernelmode... kernels tend not to use it. */
-		if (kernelmode == NO) {
-			includedir(DFLT_INCDIR);
-		}
-
-		/* initialize the C keyword table */
-		initsymtab();
-
-		/* Tell build.c about the filenames to create: */
-		setup_build_filenames(reffile);
-
-		/* build the cross-reference */
-		initcompress();
-		if (linemode == NO || verbosemode == YES)    /* display if verbose as well */
-                    postmsg("Building cross-reference...");
-		build();
-		if (linemode == NO )
-                    postmsg("");	/* clear any build progress message */
-		if (buildonly == YES) {
-			myexit(0);
-		}
-	}
-	opendatabase();
-
-	/* if using the line oriented user interface so cscope can be a 
-	   subprocess to emacs or samuel */
-	if (linemode == YES) {
-		if (*pattern != '\0') {		/* do any optional search */
-			if (search() == YES) {
-				while ((c = getc(refsfound)) != EOF) {
-					(void) putchar(c);
-				}
-			}
-		}
-		if (onesearch == YES) {
-			myexit(0);
-		}
-		for (;;) {
-			char buf[PATLEN + 2];
-			
-			(void) printf(">> ");
-			(void) fflush(stdout);
-			if (fgets(buf, sizeof(buf), stdin) == NULL) {
-				myexit(0);
-			}
-			/* remove any trailing newline character */
-			if (*(s = buf + strlen(buf) - 1) == '\n') {
-				*s = '\0';
-			}
-			switch (*buf) {
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':	/* samuel only */
-				field = *buf - '0';
-				(void) strcpy(pattern, buf + 1);
-				(void) search();
-				(void) printf("cscope: %d lines\n", totallines);
-				while ((c = getc(refsfound)) != EOF) {
-					(void) putchar(c);
-				}
-				break;
-
-			case 'c':	/* toggle caseless mode */
-			case ctrl('C'):
-				if (caseless == NO) {
-					caseless = YES;
-				}
-				else {
-					caseless = NO;
-				}
-				egrepcaseless(caseless);
-				break;
-
-			case 'r':	/* rebuild database cscope style */
-			case ctrl('R'):
-				freefilelist();
-				makefilelist();
-				/* FALLTHROUGH */
-
-			case 'R':	/* rebuild database samuel style */
-				rebuild();
-				(void) putchar('\n');
-				break;
-
-			case 'C':	/* clear file names */
-				freefilelist();
-				(void) putchar('\n');
-				break;
-
-			case 'F':	/* add a file name */
-				(void) strcpy(path, buf + 1);
-				if (infilelist(path) == NO &&
-				    (s = inviewpath(path)) != NULL) {
-					addsrcfile(s);
-				}
-				(void) putchar('\n');
-				break;
-
-			case 'q':	/* quit */
-			case ctrl('D'):
-			case ctrl('Z'):
-				myexit(0);
-
-			default:
-				(void) fprintf(stderr, "cscope: unknown command '%s'\n", buf);
-				break;
-			}
-		}
-		/* NOTREACHED */
-	}
-	/* pause before clearing the screen if there have been error messages */
-	if (errorsfound == YES) {
-		errorsfound = NO;
-		askforreturn();
-	}
-	/* do any optional search */
-	if (*pattern != '\0') {
-		atfield();		/* move to the input field */
-		(void) command(ctrl('Y'));	/* search */
-	}
-	/* read any symbol reference lines file */
-	else if (reflines != NULL) {
-		(void) readrefs(reflines);
-	}
-	display();		/* update the display */
-	for (;;) {
-		if (!selecting)
-			atfield();	/* move to the input field */
-
-		/* exit if the quit command is entered */
-		if ((c = mygetch()) == EOF || c == ctrl('D') || c == ctrl('Z')) {
-			break;
-		}
-		/* execute the commmand, updating the display if necessary */
-		if (command(c) == YES) {
-			display();
-		}
-
-		if (selecting)
-		{
-			move(displine[curdispline], 0);
-			refresh();
-		}
-	}
-	/* cleanup and exit */
-	myexit(0);
+    /* XXX remove if/when clearerr() in dir.c does the right thing. */
+    if (namefile && strcmp(namefile, "-") == 0 && !buildonly) {
+	postfatal("cscope: Must use -b if file list comes from stdin\n");
 	/* NOTREACHED */
-	return 0;		/* avoid warning... */
+    }
+
+    /* make sure that tmpdir exists */
+    if (lstat (tmpdir, &stat_buf)) {
+	fprintf (stderr, "\
+cscope: Temporary directory %s does not exist or cannot be accessed\n", 
+		 tmpdir);
+	fprintf (stderr, "\
+cscope: Please create the directory or set the environment variable\n\
+cscope: TMPDIR to a valid directory\n");
+	myexit(1);
+    }
+
+    /* create the temporary file names */
+    orig_umask = umask(S_IRWXG|S_IRWXO);
+    pid = getpid();
+    sprintf(tempdirpv, "%s/cscope.%d", tmpdir, pid);
+    if(mkdir(tempdirpv,S_IRWXU)) {
+	fprintf(stderr, "\
+cscope: Could not create private temp dir %s\n",
+		tempdirpv);
+	myexit(1);
+    }
+    umask(orig_umask);
+
+    sprintf(temp1, "%s/cscope.1", tempdirpv);
+    sprintf(temp2, "%s/cscope.2", tempdirpv);
+
+    /* if running in the foreground */
+    if (signal(SIGINT, SIG_IGN) != SIG_IGN) {
+	/* cleanup on the interrupt and quit signals */
+	signal(SIGINT, myexit);
+	signal(SIGQUIT, myexit);
+    }
+    /* cleanup on the hangup signal */
+    signal(SIGHUP, myexit);
+
+    /* if the database path is relative and it can't be created */
+    if (reffile[0] != '/' && access(".", WRITE) != 0) {
+
+	/* put it in the home directory if the database may not be
+	 * up-to-date or doesn't exist in the relative directory,
+	 * so a database in the current directory will be
+	 * used instead of failing to open a non-existant database in
+	 * the home directory
+	 */
+	sprintf(path, "%s/%s", home, reffile);
+	if (isuptodate == NO || access(path, READ) == 0) {
+	    reffile = my_strdup(path);
+	    sprintf(path, "%s/%s", home, invname);
+	    invname = my_strdup(path);
+	    sprintf(path, "%s/%s", home, invpost);
+	    invpost = my_strdup(path);
+	}
+    }
+
+    if (linemode == NO) {
+	signal(SIGINT, SIG_IGN);	/* ignore interrupts */
+	signal(SIGPIPE, SIG_IGN);/* | command can cause pipe signal */
+
+	/* initialize the curses display package */
+	initscr();	/* initialize the screen */
+	entercurses();
+#if TERMINFO
+	keypad(stdscr, TRUE);	/* enable the keypad */
+# ifdef HAVE_FIXKEYPAD
+	fixkeypad();	/* fix for getch() intermittently returning garbage */
+# endif
+#endif /* TERMINFO */
+#if UNIXPC
+	standend();	/* turn off reverse video */
+#endif
+	dispinit();	/* initialize display parameters */
+	setfield();	/* set the initial cursor position */
+	clearmsg();	/* clear any build progress message */
+	display();	/* display the version number and input fields */
+    }
+
+
+    /* if the cross-reference is to be considered up-to-date */
+    if (isuptodate == YES) {
+	if ((oldrefs = vpfopen(reffile, "rb")) == NULL) {
+	    postfatal("cscope: cannot open file %s\n", reffile);
+	    /* NOTREACHED */
+	}
+	/* get the crossref file version but skip the current directory */
+	if (fscanf(oldrefs, "cscope %d %*s", &fileversion) != 1) {
+	    postfatal("cscope: cannot read file version from file %s\n", 
+		      reffile);
+	    /* NOTREACHED */
+	}
+	if (fileversion >= 8) {
+
+	    /* override these command line options */
+	    compress = YES;
+	    invertedindex = NO;
+
+	    /* see if there are options in the database */
+	    for (;;) {
+		getc(oldrefs);	/* skip the blank */
+		if ((c = getc(oldrefs)) != '-') {
+		    ungetc(c, oldrefs);
+		    break;
+		}
+		switch (c = getc(oldrefs)) {
+		case 'c':	/* ASCII characters only */
+		    compress = NO;
+		    break;
+		case 'q':	/* quick search */
+		    invertedindex = YES;
+		    fscanf(oldrefs, "%ld", &totalterms);
+		    break;
+		case 'T':	/* truncate symbols to 8 characters */
+		    dbtruncated = YES;
+		    trun_syms = YES;
+		    break;
+		}
+	    }
+	    initcompress();
+	    seek_to_trailer(oldrefs);
+	}
+	/* skip the source and include directory lists */
+	skiplist(oldrefs);
+	skiplist(oldrefs);
+
+	/* get the number of source files */
+	if (fscanf(oldrefs, "%lu", &nsrcfiles) != 1) {
+	    postfatal("\
+cscope: cannot read source file size from file %s\n", reffile);
+	    /* NOTREACHED */
+	}
+	/* get the source file list */
+	srcfiles = mymalloc(nsrcfiles * sizeof(char *));
+	if (fileversion >= 9) {
+
+	    /* allocate the string space */
+	    if (fscanf(oldrefs, "%d", &oldnum) != 1) {
+		postfatal("\
+cscope: cannot read string space size from file %s\n", reffile);
+		/* NOTREACHED */
+	    }
+	    s = mymalloc(oldnum);
+	    getc(oldrefs);	/* skip the newline */
+			
+	    /* read the strings */
+	    if (fread(s, oldnum, 1, oldrefs) != 1) {
+		postfatal("\
+cscope: cannot read source file names from file %s\n", reffile);
+		/* NOTREACHED */
+	    }
+	    /* change newlines to nulls */
+	    for (i = 0; i < nsrcfiles; ++i) {
+		srcfiles[i] = s;
+		for (++s; *s != '\n'; ++s) {
+		    ;
+		}
+		*s = '\0';
+		++s;
+	    }
+	    /* if there is a file of source file names */
+	    if ((namefile != NULL && (names = vpfopen(namefile, "r")) != NULL)
+		|| (names = vpfopen(NAMEFILE, "r")) != NULL) {
+	
+		/* read any -p option from it */
+		while (fgets(path, sizeof(path), names) != NULL && *path == '-') {
+		    i = path[1];
+		    s = path + 2;		/* for "-Ipath" */
+		    if (*s == '\0') {	/* if "-I path" */
+			fgets(path, sizeof(path), names);
+			s = path;
+		    }
+		    switch (i) {
+		    case 'p':	/* file path components to display */
+			if (*s < '0' || *s > '9') {
+			    posterr("cscope: -p option in file %s: missing or invalid numeric value\n", 								namefile);
+
+			}
+			dispcomponents = atoi(s);
+		    }
+		}
+		fclose(names);
+	    }
+	} else {
+	    for (i = 0; i < nsrcfiles; ++i) {
+		if (!fgets(path, sizeof(path), oldrefs) ) {
+		    postfatal("\
+cscope: cannot read source file name from file %s\n", 
+			      reffile);
+		    /* NOTREACHED */
+		}
+		srcfiles[i] = my_strdup(path);
+	    }
+	}
+	fclose(oldrefs);
+    } else {
+	/* save the file arguments */
+	fileargc = argc;
+	fileargv = argv;
+	
+	/* get source directories from the environment */
+	if ((s = getenv("SOURCEDIRS")) != NULL) {
+	    sourcedir(s);
+	}
+	/* make the source file list */
+	srcfiles = mymalloc(msrcfiles * sizeof(char *));
+	makefilelist();
+	if (nsrcfiles == 0) {
+	    postfatal("cscope: no source files found\n");
+	    /* NOTREACHED */
+	}
+	/* get include directories from the environment */
+	if ((s = getenv("INCLUDEDIRS")) != NULL) {
+	    includedir(s);
+	}
+	/* add /usr/include to the #include directory list,
+	   but not in kernelmode... kernels tend not to use it. */
+	if (kernelmode == NO) {
+	    includedir(DFLT_INCDIR);
+	}
+
+	/* initialize the C keyword table */
+	initsymtab();
+
+	/* Tell build.c about the filenames to create: */
+	setup_build_filenames(reffile);
+
+	/* build the cross-reference */
+	initcompress();
+	if (linemode == NO || verbosemode == YES)    /* display if verbose as well */
+	    postmsg("Building cross-reference...");    		    
+	build();
+	if (linemode == NO )
+	    clearmsg();	/* clear any build progress message */
+	if (buildonly == YES) {
+	    myexit(0);
+	}
+    }
+    opendatabase();
+
+    /* if using the line oriented user interface so cscope can be a 
+       subprocess to emacs or samuel */
+    if (linemode == YES) {
+	if (*Pattern != '\0') {		/* do any optional search */
+	    if (search() == YES) {
+		/* print the total number of lines in
+		 * verbose mode */
+		if (verbosemode == YES)
+		    printf("cscope: %d lines\n",
+			   totallines);
+
+		while ((c = getc(refsfound)) != EOF)
+		    putchar(c);
+	    }
+	}
+	if (onesearch == YES)
+	    myexit(0);
+		
+	for (;;) {
+	    char buf[PATLEN + 2];
+			
+	    printf(">> ");
+	    fflush(stdout);
+	    if (fgets(buf, sizeof(buf), stdin) == NULL) {
+		myexit(0);
+	    }
+	    /* remove any trailing newline character */
+	    if (*(s = buf + strlen(buf) - 1) == '\n') {
+		*s = '\0';
+	    }
+	    switch (*buf) {
+	    case '0':
+	    case '1':
+	    case '2':
+	    case '3':
+	    case '4':
+	    case '5':
+	    case '6':
+	    case '7':
+	    case '8':
+	    case '9':	/* samuel only */
+		field = *buf - '0';
+		strcpy(Pattern, buf + 1);
+		search();
+		printf("cscope: %d lines\n", totallines);
+		while ((c = getc(refsfound)) != EOF) {
+		    putchar(c);
+		}
+		break;
+
+	    case 'c':	/* toggle caseless mode */
+	    case ctrl('C'):
+		if (caseless == NO) {
+		    caseless = YES;
+		} else {
+		    caseless = NO;
+		}
+		egrepcaseless(caseless);
+		break;
+
+	    case 'r':	/* rebuild database cscope style */
+	    case ctrl('R'):
+		freefilelist();
+		makefilelist();
+		/* FALLTHROUGH */
+
+	    case 'R':	/* rebuild database samuel style */
+		rebuild();
+		putchar('\n');
+		break;
+
+	    case 'C':	/* clear file names */
+		freefilelist();
+		putchar('\n');
+		break;
+
+	    case 'F':	/* add a file name */
+		strcpy(path, buf + 1);
+		if (infilelist(path) == NO &&
+		    (s = inviewpath(path)) != NULL) {
+		    addsrcfile(s);
+		}
+		putchar('\n');
+		break;
+
+	    case 'q':	/* quit */
+	    case ctrl('D'):
+	    case ctrl('Z'):
+		myexit(0);
+
+	    default:
+		fprintf(stderr, "cscope: unknown command '%s'\n", buf);
+		break;
+	    }
+	}
+	/* NOTREACHED */
+    }
+    /* pause before clearing the screen if there have been error messages */
+    if (errorsfound == YES) {
+	errorsfound = NO;
+	askforreturn();
+    }
+    /* do any optional search */
+    if (*Pattern != '\0') {
+	atfield();		/* move to the input field */
+	command(ctrl('Y'));	/* search */
+    } else if (reflines != NULL) {
+	/* read any symbol reference lines file */
+	readrefs(reflines);
+    }
+    display();		/* update the display */
+
+    for (;;) {
+	if (!selecting)
+	    atfield();	/* move to the input field */
+
+	/* exit if the quit command is entered */
+	if ((c = mygetch()) == EOF || c == ctrl('D') || c == ctrl('Z')) {
+	    break;
+	}
+	/* execute the commmand, updating the display if necessary */
+	if (command(c) == YES) {
+	    display();
+	}
+
+	if (selecting) {
+	    move(displine[curdispline], 0);
+	    refresh();
+	}
+    }
+    /* cleanup and exit */
+    myexit(0);
+    /* NOTREACHED */
+    return 0;		/* avoid warning... */
 }
 
 void
 cannotopen(char *file)
 {
-	posterr("Cannot open file %s", file);
+    posterr("Cannot open file %s", file);
 }
 
+/* FIXME MTE - should use postfatal here */
 void
 cannotwrite(char *file)
 {
 #if HAVE_SNPRINTF
-	char	msg[MSGLEN + 1];
+    char	msg[MSGLEN + 1];
 
-	(void) snprintf(msg, sizeof(msg),
-            "Removed file %s because write failed", file);
+    snprintf(msg, sizeof(msg), "Removed file %s because write failed", file);
 #else
-	char *msg = mymalloc(50+strlen(file));
+    char *msg = mymalloc(50 + strlen(file));
 
-	(void) sprintf(msg, "Removed file %s because write failed", file);
+    sprintf(msg, "Removed file %s because write failed", file);
 #endif
 
-	myperror(msg);	/* display the reason */
+    myperror(msg);	/* display the reason */
 
 #if !HAVE_SNPRINTF
-	free(msg);
+    free(msg);
 #endif
 
-	(void) unlink(file);
-	myexit(1);	/* calls exit(2), which closes files */
+    unlink(file);
+    myexit(1);	/* calls exit(2), which closes files */
 }
 
-/* set up the digraph character tables for text compression */
 
+/* set up the digraph character tables for text compression */
 static void
 initcompress(void)
 {
-	int	i;
+    int	i;
 	
-	if (compress == YES) {
-		for (i = 0; i < 16; ++i) {
-			dicode1[(unsigned char) (dichar1[i])] = i * 8 + 1;
-		}
-		for (i = 0; i < 8; ++i) {
-			dicode2[(unsigned char) (dichar2[i])] = i + 1;
-		}
+    if (compress == YES) {
+	for (i = 0; i < 16; ++i) {
+	    dicode1[(unsigned char) (dichar1[i])] = i * 8 + 1;
 	}
+	for (i = 0; i < 8; ++i) {
+	    dicode2[(unsigned char) (dichar2[i])] = i + 1;
+	}
+    }
 }
 
 /* skip the list in the cross-reference file */
@@ -727,97 +770,105 @@ initcompress(void)
 static void
 skiplist(FILE *oldrefs)
 {
-	int	i;
+    int	i;
 	
-	if (fscanf(oldrefs, "%d", &i) != 1) {
-		posterr("cscope: cannot read list size from file %s\n", reffile);
-		myexit(1);
+    if (fscanf(oldrefs, "%d", &i) != 1) {
+	postfatal("cscope: cannot read list size from file %s\n", reffile);
+	/* NOTREACHED */
+    }
+    while (--i >= 0) {
+	if (fscanf(oldrefs, "%*s") != 0) {
+	    postfatal("cscope: cannot read list name from file %s\n", reffile);
+	    /* NOTREACHED */
 	}
-	while (--i >= 0) {
-		if (fscanf(oldrefs, "%*s") != 0) {
-			posterr("cscope: cannot read list name from file %s\n", reffile);
-			myexit(1);
-		}
-	}
+    }
 }
 
-/* enter curses mode */
 
+/* enter curses mode */
 void
 entercurses(void)
 {
-	incurses = YES;
+    incurses = YES;
 #ifndef __MSDOS__ /* HBB 20010313 */
-	(void) nonl();		/* don't translate an output \n to \n\r */
+    nonl();		    /* don't translate an output \n to \n\r */
 #endif
-	(void) cbreak();	/* single character input */
-	(void) noecho();	/* don't echo input characters */
-	(void) clear();		/* clear the screen */
-	mouseinit();		/* initialize any mouse interface */
-	drawscrollbar(topline, nextline);
+    cbreak();			/* single character input */
+    noecho();			/* don't echo input characters */
+    clear();			/* clear the screen */
+    mouseinit();		/* initialize any mouse interface */
+    drawscrollbar(topline, nextline);
 }
 
-/* exit curses mode */
 
+/* exit curses mode */
 void
 exitcurses(void)
 {
 	/* clear the bottom line */
-	(void) move(LINES - 1, 0);
-	(void) clrtoeol();
-	(void) refresh();
+	move(LINES - 1, 0);
+	clrtoeol();
+	refresh();
 
 	/* exit curses and restore the terminal modes */
-	(void) endwin();
+	endwin();
 	incurses = NO;
 
 	/* restore the mouse */
 	mousecleanup();
-	(void) fflush(stdout);
+	fflush(stdout);
 }
 
-/* normal usage message */
 
+/* normal usage message */
 static void
 usage(void)
 {
-	(void) fprintf(stderr, "Usage: cscope [-bcCdehklLqRTuUvV] [-f file] [-F file] [-i file] [-I dir] [-s dir]\n");
-	(void) fprintf(stderr, "              [-p number] [-P path] [-[0-8] pattern] [source files]\n");
+	fprintf(stderr, "Usage: cscope [-bcCdehklLqRTuUvV] [-f file] [-F file] [-i file] [-I dir] [-s dir]\n");
+	fprintf(stderr, "              [-p number] [-P path] [-[0-8] pattern] [source files]\n");
 }
 
-/* long usage message */
 
+/* long usage message */
 static void
 longusage(void)
 {
-	(void) usage();
-	(void) fprintf(stderr, "\n");
-	(void) fprintf(stderr, "-b            Build the cross-reference only.\n");
-	(void) fprintf(stderr, "-C            Ignore letter case when searching.\n");
-	(void) fprintf(stderr, "-c            Use only ASCII characters in the cross-ref file (don't compress).\n");
-	(void) fprintf(stderr, "-d            Do not update the cross-reference.\n");
-	(void) fprintf(stderr, "-e            Suppress the <Ctrl>-e command prompt between files.\n");
-	(void) fprintf(stderr, "-F symfile    Read symbol reference lines from symfile.\n");
-	(void) fprintf(stderr, "-f reffile    Use reffile as cross-ref file name instead of %s.\n", REFFILE);
-	(void) fprintf(stderr, "-h            This help screen.\n");
-	(void) fprintf(stderr, "-I incdir     Look in incdir for any #include files.\n");
-	(void) fprintf(stderr, "-i namefile   Browse through files listed in namefile, instead of %s\n", NAMEFILE);
-	(void) fprintf(stderr, "-k            Kernel Mode - don't use %s for #include files.\n", DFLT_INCDIR);
-	(void) fprintf(stderr, "-L            Do a single search with line-oriented output.\n");
-	(void) fprintf(stderr, "-l            Line-oriented interface.\n");
-	(void) fprintf(stderr, "-num pattern  Go to input field num (counting from 0) and find pattern.\n");
-	(void) fprintf(stderr, "-P path       Prepend path to relative file names in pre-built cross-ref file.\n");
-	(void) fprintf(stderr, "-p n          Display the last n file path components.\n");
-	(void) fprintf(stderr, "-q            Build an inverted index for quick symbol searching.\n");
-	(void) fprintf(stderr, "-R            Recurse directories for files.\n");
-	(void) fprintf(stderr, "-s dir        Look in dir for additional source  files.\n");
-	(void) fprintf(stderr, "-T            Use only the first eight characters to match against C symbols.\n");
-	(void) fprintf(stderr, "-U            Check file time stamps.\n");
-	(void) fprintf(stderr, "-u            Unconditionally build the cross-reference file.\n");
-	(void) fprintf(stderr, "-v            Be more verbose in line mode.\n");
-	(void) fprintf(stderr, "-V            Print the version number.\n");
-	(void) fprintf(stderr, "\n");
-	(void) fprintf(stderr, "Please see the manpage for more information.\n");
+	usage();
+	fprintf(stderr, "\
+\n\
+-b            Build the cross-reference only.\n\
+-C            Ignore letter case when searching.\n\
+-c            Use only ASCII characters in the cross-ref file (don't compress).\n\
+-d            Do not update the cross-reference.\n\
+-e            Suppress the <Ctrl>-e command prompt between files.\n\
+-F symfile    Read symbol reference lines from symfile.\n\
+-f reffile    Use reffile as cross-ref file name instead of %s.\n",
+		REFFILE);
+	fprintf(stderr, "\
+-h            This help screen.\n\
+-I incdir     Look in incdir for any #include files.\n\
+-i namefile   Browse through files listed in namefile, instead of %s\n",
+		NAMEFILE);
+	fprintf(stderr, "\
+-k            Kernel Mode - don't use %s for #include files.\n",
+		DFLT_INCDIR);
+	fputs("\
+-L            Do a single search with line-oriented output.\n\
+-l            Line-oriented interface.\n\
+-num pattern  Go to input field num (counting from 0) and find pattern.\n\
+-P path       Prepend path to relative file names in pre-built cross-ref file.\n\
+-p n          Display the last n file path components.\n\
+-q            Build an inverted index for quick symbol searching.\n\
+-R            Recurse directories for files.\n\
+-s dir        Look in dir for additional source  files.\n\
+-T            Use only the first eight characters to match against C symbols.\n\
+-U            Check file time stamps.\n\
+-u            Unconditionally build the cross-reference file.\n\
+-v            Be more verbose in line mode.\n\
+-V            Print the version number.\n\
+\n\
+Please see the manpage for more information.\n",
+	      stderr);
 }
 
 /* cleanup and exit */
@@ -832,8 +883,9 @@ myexit(int sig)
 	
 	/* remove any temporary files */
 	if (temp1[0] != '\0') {
-		(void) unlink(temp1);
-		(void) unlink(temp2);
+		unlink(temp1);
+		unlink(temp2);
+		rmdir(tempdirpv);		
 	}
 	/* restore the terminal to its original mode */
 	if (incurses == YES) {
@@ -841,7 +893,7 @@ myexit(int sig)
 	}
 	/* dump core for debugging on the quit signal */
 	if (sig == SIGQUIT) {
-		(void) abort();
+		abort();
 	}
 	/* HBB 20000421: be nice: free allocated data */
 	freefilelist();

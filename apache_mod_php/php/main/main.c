@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.512.2.63.2.11 2006/05/18 22:36:14 tony2001 Exp $ */
+/* $Id: main.c,v 1.512.2.63.2.14 2007/01/01 09:46:50 sebastian Exp $ */
 
 /* {{{ includes
  */
@@ -132,8 +132,13 @@ static int short_track_vars_names_length[] = {
  */
 static PHP_INI_MH(OnSetPrecision)
 {
-	EG(precision) = atoi(new_value);
-	return SUCCESS;
+	int i = atoi(new_value);
+	if (i >= 0) {
+		EG(precision) = i;
+		return SUCCESS;
+	} else {
+		return FAILURE;
+}
 }
 /* }}} */
 
@@ -312,7 +317,7 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("y2k_compliance",		"1",		PHP_INI_ALL,		OnUpdateBool,			y2k_compliance,			php_core_globals,	core_globals)
 
 	STD_PHP_INI_ENTRY("unserialize_callback_func",	NULL,	PHP_INI_ALL,		OnUpdateString,			unserialize_callback_func,	php_core_globals,	core_globals)
-	STD_PHP_INI_ENTRY("serialize_precision",	"100",	PHP_INI_ALL,		OnUpdateInt,			serialize_precision,	php_core_globals,	core_globals)
+	STD_PHP_INI_ENTRY("serialize_precision",	"100",	PHP_INI_ALL,		OnUpdateLongGEZero,			serialize_precision,	php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("arg_separator.output",	"&",		PHP_INI_ALL,		OnUpdateStringUnempty,	arg_separator.output,	php_core_globals,	core_globals)
 	STD_PHP_INI_ENTRY("arg_separator.input",	"&",		PHP_INI_SYSTEM|PHP_INI_PERDIR,	OnUpdateStringUnempty,	arg_separator.input,	php_core_globals,	core_globals)
 
@@ -819,7 +824,7 @@ static void php_message_handler_for_zend(long message, void *data)
 
 				if ((EG(error_reporting)&E_WARNING) && PG(report_memleaks)) {
 #if ZEND_DEBUG
-					char memory_leak_buf[512];
+					char memory_leak_buf[1024];
 
 					if (message==ZMSG_MEMORY_LEAK_DETECTED) {
 						zend_mem_header *t = (zend_mem_header *) data;
@@ -830,7 +835,7 @@ static void php_message_handler_for_zend(long message, void *data)
 							char relay_buf[512];
 
 							snprintf(relay_buf, 512, "%s(%d) : Actual location (location was relayed)\n", t->orig_filename, t->orig_lineno);
-							strcat(memory_leak_buf, relay_buf);
+							strlcat(memory_leak_buf, relay_buf, sizeof(memory_leak_buf));
 						}
 					} else {
 						unsigned long leak_count = (unsigned long) data;

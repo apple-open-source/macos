@@ -49,11 +49,11 @@
 #include <curses.h>
 #endif
 
-static char const rcsid[] = "$Id: exec.c,v 1.2 2004/07/09 21:34:44 nicolai Exp $";
+static char const rcsid[] = "$Id: exec.c,v 1.10 2006/04/21 10:45:48 broeker Exp $";
 
-static	RETSIGTYPE	(*oldsigquit)(int); /* old value of quit signal */
-static	RETSIGTYPE	(*oldsighup)(int); /* old value of hangup signal */
-static	RETSIGTYPE	(*oldsigstp)(int); /* old value of SIGTSTP */
+static	sighandler_t oldsigquit; /* old value of quit signal */
+static	sighandler_t oldsighup; /* old value of hangup signal */
+static	sighandler_t oldsigtstp; /* old value of SIGTSTP */
 
 #ifndef __MSDOS__ /* none of these is needed, there */
 static	int	join(pid_t p);
@@ -77,7 +77,7 @@ execute(char *a, ...)	/* note: "exec" is already defined on u370 */
 	/* fork and exec the program or shell script */
 	endwin();	/* restore the terminal modes */
 	mousecleanup();
-	(void) fflush(stdout);
+	fflush(stdout);
 	va_start(ap, a);
 	for (p = 0; (argv[p] = va_arg(ap, char *)) != 0; p++)
 		;
@@ -87,7 +87,7 @@ execute(char *a, ...)	/* note: "exec" is already defined on u370 */
         exitcode = spawnvp(P_WAIT, a, argv);
 #else
 	if ((p = myfork()) == 0) {
-		(void) myexecvp(a, argv);	/* child */
+		myexecvp(a, argv);	/* child */
 	}
 	else {
 		exitcode = join(p);	/* parent */
@@ -108,27 +108,26 @@ execute(char *a, ...)	/* note: "exec" is already defined on u370 */
 	return(exitcode);
 }
 
-#ifndef __MSDOS__ /* None of the following functions is used, there */
+#ifndef __MSDOS__ /* None of the following functions is used there */
 
 /* myexecvp is an interface to the execvp system call to
  * modify argv[0] to reference the last component of its path-name.
  */
-
 static int
 myexecvp(char *a, char **args)
 {
-	char	msg[MSGLEN + 1];
+    char    msg[MSGLEN + 1];
 	
-	/* modify argv[0] to reference the last component of its path name */
-	args[0] = mybasename(args[0]);
+    /* modify argv[0] to reference the last component of its path name */
+    args[0] = mybasename(args[0]);
 
-	/* execute the program or shell script */
-	(void) execvp(a, args);	/* returns only on failure */
-	(void) sprintf(msg, "\nCannot exec %s", a);
-	perror(msg);		/* display the reason */
-	askforreturn();		/* wait until the user sees the message */
-	myexit(1);		/* exit the child */
-	/* NOTREACHED */
+    /* execute the program or shell script */
+    execvp(a, args);	/* returns only on failure */
+    sprintf(msg, "\nCannot exec %s", a);
+    perror(msg);		/* display the reason */
+    askforreturn();		/* wait until the user sees the message */
+    myexit(1);		/* exit the child */
+    /* NOTREACHED */
 }
 
 /* myfork acts like fork but also handles signals */
@@ -145,16 +144,16 @@ myfork(void)
 		oldsigquit = signal(SIGQUIT, SIG_IGN);
 		oldsighup = signal(SIGHUP, SIG_IGN);
 #ifdef SIGTSTP		
-		oldsigstp = signal(SIGTSTP, SIG_DFL);
+		oldsigtstp = signal(SIGTSTP, SIG_DFL);
 #endif		
 	}
 	/* so they can be used to stop the child */
 	else if (p == 0) {
-		(void) signal(SIGINT, SIG_DFL);
-		(void) signal(SIGQUIT, SIG_DFL);
-		(void) signal(SIGHUP, SIG_DFL);
+		signal(SIGINT, SIG_DFL);
+		signal(SIGQUIT, SIG_DFL);
+		signal(SIGHUP, SIG_DFL);
 #ifdef SIGTSTP
-		(void) signal(SIGTSTP, SIG_DFL);
+		signal(SIGTSTP, SIG_DFL);
 #endif			
 	}
 	/* check for fork failure */
@@ -178,10 +177,10 @@ join(pid_t p)
 	} while (p != -1 && w != p);
 
 	/* restore signal handling */
-	(void) signal(SIGQUIT, oldsigquit);
-	(void) signal(SIGHUP, oldsighup);
+	signal(SIGQUIT, oldsigquit);
+	signal(SIGHUP, oldsighup);
 #ifdef SIGTSTP
-	(void) signal(SIGTSTP, oldsigstp);
+	signal(SIGTSTP, oldsigtstp);
 #endif	
 
 	/* return the child's exit code */

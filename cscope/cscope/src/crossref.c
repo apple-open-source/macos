@@ -40,11 +40,12 @@
 
 #include "build.h"
 #include "scanner.h"
+#include "alloc.h"
 
 #include <stdlib.h>
 #include <sys/stat.h>
 
-static char const rcsid[] = "$Id: crossref.c,v 1.2 2004/07/09 21:34:44 nicolai Exp $";
+static char const rcsid[] = "$Id: crossref.c,v 1.14 2006/07/23 20:59:20 broeker Exp $";
 
 
 /* convert long to a string */
@@ -68,18 +69,19 @@ long	lineoffset;		/* source line database offset */
 long	npostings;		/* number of postings */
 int	nsrcoffset;             /* number of file name database offsets */
 long	*srcoffset;             /* source file name database offsets */
-int	symbols;		/* number of symbols */
+unsigned long symbols;		/* number of symbols */
 
 static	char	*filename;	/* file name for warning messages */
 static	long	fcnoffset;	/* function name database offset */
 static	long	macrooffset;	/* macro name database offset */
-static	int	msymbols = SYMBOLINC;	/* maximum number of symbols */
+static	unsigned long msymbols = SYMBOLINC; /* maximum number of symbols */
+
 struct	symbol {	/* symbol data */
-	int	type;		/* type */
-	int	first;		/* index of first character in text */
-	int	last;		/* index of last+1 character in text */
-	int	length;		/* symbol length */
-	int	fcn_level;	/* function level of the symbol */
+    int	type;		/* type */
+    unsigned int first;		/* index of first character in text */
+    unsigned int last;		/* index of last+1 character in text */
+    unsigned int length;	/* symbol length */
+    unsigned int fcn_level;	/* function level of the symbol */
 };
 static struct symbol *symbol;
 
@@ -89,104 +91,104 @@ static	void	savesymbol(int token, int num);
 void
 crossref(char *srcfile)
 {
-	int	i;
-	int	length;		/* symbol length */
-	int	entry_no;		/* function level of the symbol */
-	int	token;			/* current token */
-	struct stat st;
+    unsigned int i;
+    unsigned int length;	/* symbol length */
+    unsigned int entry_no;	/* function level of the symbol */
+    int token;                  /* current token */
+    struct stat st;
 
-	if (! ((stat(srcfile, &st) == 0)
-	       && S_ISREG(st.st_mode))) {
-		cannotopen(srcfile);
-		errorsfound = YES;
-		return;
-	}
+    if (! ((stat(srcfile, &st) == 0)
+	   && S_ISREG(st.st_mode))) {
+	cannotopen(srcfile);
+	errorsfound = YES;
+	return;
+    }
 	
-	entry_no = 0;
-	/* open the source file */
-	if ((yyin = myfopen(srcfile, "r")) == NULL) {
-		cannotopen(srcfile);
-		errorsfound = YES;
-		return;
-	}
-	filename = srcfile;	/* save the file name for warning messages */
-	putfilename(srcfile);	/* output the file name */
-	dbputc('\n');
-	dbputc('\n');
+    entry_no = 0;
+    /* open the source file */
+    if ((yyin = myfopen(srcfile, "r")) == NULL) {
+	cannotopen(srcfile);
+	errorsfound = YES;
+	return;
+    }
+    filename = srcfile;	/* save the file name for warning messages */
+    putfilename(srcfile);	/* output the file name */
+    dbputc('\n');
+    dbputc('\n');
 
-	/* read the source file */
-	initscanner(srcfile);
-	fcnoffset = macrooffset = 0;
-	symbols = 0;
-	if (symbol == NULL) {
-		symbol = mymalloc(msymbols * sizeof(struct symbol));
-	}
-	for (;;) {
+    /* read the source file */
+    initscanner(srcfile);
+    fcnoffset = macrooffset = 0;
+    symbols = 0;
+    if (symbol == NULL) {
+	symbol = mymalloc(msymbols * sizeof(struct symbol));
+    }
+    for (;;) {
 		
-		/* get the next token */
-		switch (token = yylex()) {
-		default:
-			/* if requested, truncate C symbols */
-			length = last - first;
-			if (trun_syms == YES && length > 8 &&
-			    token != INCLUDE && token != NEWFILE) {
-				length = 8;
-				last = first + 8;
-			}
-			/* see if the token has a symbol */
-			if (length == 0) {
-				savesymbol(token, entry_no);
-				break;
-			}
-			/* update entry_no if see function entry */
-			if (token == FCNDEF) {
-				entry_no++;
-			}
-			/* see if the symbol is already in the list */
-			for (i = 0; i < symbols; ++i) {
-				if (length == symbol[i].length
-				    && strncmp(my_yytext + first,
-					       my_yytext + symbol[i].first,
-					       length) == 0 
-				    && entry_no == symbol[i].fcn_level
-				    && token == symbol[i].type
-				    ) {	/* could be a::a() */
-					break;
-				}
-			}
-			if (i == symbols) {	/* if not already in list */
-				savesymbol(token, entry_no);
-			}
-			break;
+	/* get the next token */
+	switch (token = yylex()) {
+	default:
+	    /* if requested, truncate C symbols */
+	    length = last - first;
+	    if (trun_syms == YES && length > 8 &&
+		token != INCLUDE && token != NEWFILE) {
+		length = 8;
+		last = first + 8;
+	    }
+	    /* see if the token has a symbol */
+	    if (length == 0) {
+		savesymbol(token, entry_no);
+		break;
+	    }
+	    /* update entry_no if see function entry */
+	    if (token == FCNDEF) {
+		entry_no++;
+	    }
+	    /* see if the symbol is already in the list */
+	    for (i = 0; i < symbols; ++i) {
+		if (length == symbol[i].length
+		    && strncmp(my_yytext + first,
+			       my_yytext + symbol[i].first,
+			       length) == 0 
+		    && entry_no == symbol[i].fcn_level
+		    && token == symbol[i].type
+		    ) {	/* could be a::a() */
+		    break;
+		}
+	    }
+	    if (i == symbols) {	/* if not already in list */
+		savesymbol(token, entry_no);
+	    }
+	    break;
 
-		case NEWLINE:	/* end of line containing symbols */
-			entry_no = 0;	/* reset entry_no for each line */
+	case NEWLINE:	/* end of line containing symbols */
+	    entry_no = 0;	/* reset entry_no for each line */
 #ifdef USING_LEX
-			--yyleng; 	/* remove the newline */
+	    --yyleng; 	/* remove the newline */
 #endif
-			putcrossref();	/* output the symbols and source line */
-			lineno = myylineno;	/* save the symbol line number */
+	    putcrossref();	/* output the symbols and source line */
+	    lineno = myylineno;	/* save the symbol line number */
 #ifndef USING_LEX
-			/* HBB 20010425: replaced yyleng-- by this chunk: */
-			if (my_yytext)
-				*my_yytext = '\0';
-			my_yyleng = 0;
+	    /* HBB 20010425: replaced yyleng-- by this chunk: */
+	    if (my_yytext)
+		*my_yytext = '\0';
+	    my_yyleng = 0;
 #endif
-			break;
+	    break;
 			
-		case LEXEOF:	/* end of file; last line may not have \n */
+	case LEXEOF:	/* end of file; last line may not have \n */
 			
 			/* if there were symbols, output them and the source line */
-			if (symbols > 0) {
-				putcrossref();
-			}
-			(void) fclose(yyin);	/* close the source file */
+	    if (symbols > 0) {
+		putcrossref();
+	    }
+	    (void) fclose(yyin);	/* close the source file */
 
-			/* output the leading tab expected by the next call */
-			dbputc('\t');
-			return;
-		}
+	    /* output the leading tab expected by the next call */
+	    dbputc('\t');
+	    return;
 	}
+    }
 }
 
 /* save the symbol in the list */
@@ -194,19 +196,18 @@ crossref(char *srcfile)
 static void
 savesymbol(int token, int num)
 {
-	/* make sure there is room for the symbol */
-	if (symbols == msymbols) {
-		msymbols += SYMBOLINC;
-		symbol = myrealloc(symbol,
-		    msymbols * sizeof(struct symbol));
-	}
-	/* save the symbol */
-	symbol[symbols].type = token;
-	symbol[symbols].first = first;
-	symbol[symbols].last = last;
-	symbol[symbols].length = last - first;
-	symbol[symbols].fcn_level = num;
-	++symbols;
+    /* make sure there is room for the symbol */
+    if (symbols == msymbols) {
+	msymbols += SYMBOLINC;
+	symbol = myrealloc(symbol, msymbols * sizeof(struct symbol));
+    }
+    /* save the symbol */
+    symbol[symbols].type = token;
+    symbol[symbols].first = first;
+    symbol[symbols].last = last;
+    symbol[symbols].length = last - first;
+    symbol[symbols].fcn_level = num;
+    ++symbols;
 }
 
 /* output the file name */
@@ -233,146 +234,140 @@ putfilename(char *srcfile)
 static void
 putcrossref(void)
 {
-	int	i, j;
-	unsigned char c;
-	BOOL	blank;		/* blank indicator */
-	int	symput = 0;	/* symbols output */
-	int	type;
+    unsigned int i, j;
+    unsigned char c;
+    BOOL    blank;          /* blank indicator */
+    unsigned int symput = 0;     /* symbols output */
+    int     type;
 
-	/* output the source line */
-	lineoffset = dboffset;
-	dboffset += fprintf(newrefs, "%d ", lineno);
+    /* output the source line */
+    lineoffset = dboffset;
+    dboffset += fprintf(newrefs, "%d ", lineno);
 #ifdef PRINTF_RETVAL_BROKEN
-	dboffset = ftell(newrefs); /* fprintf doesn't return chars written */
+    dboffset = ftell(newrefs); /* fprintf doesn't return chars written */
 #endif
 
-	/* HBB 20010425: added this line: */
-	my_yytext[my_yyleng] = '\0';
+    /* HBB 20010425: added this line: */
+    my_yytext[my_yyleng] = '\0';
 
-	blank = NO;
-	for (i = 0; i < my_yyleng; ++i) {
+    blank = NO;
+    for (i = 0; i < my_yyleng; ++i) {
 		
-		/* change a tab to a blank and compress blanks */
-		if ((c = my_yytext[i]) == ' ' || c == '\t') {
-			blank = YES;
-		}
-		/* look for the start of a symbol */
-		else if (symput < symbols && i == symbol[symput].first) {
+	/* change a tab to a blank and compress blanks */
+	if ((c = my_yytext[i]) == ' ' || c == '\t') {
+	    blank = YES;
+	} else if (symput < symbols && i == symbol[symput].first) {
+	    /* look for the start of a symbol */
 
-			/* check for compressed blanks */
-			if (blank == YES) {
-				blank = NO;
-				dbputc(' ');
-			}
-			dbputc('\n');	/* symbols start on a new line */
+	    /* check for compressed blanks */
+	    if (blank == YES) {
+		blank = NO;
+		dbputc(' ');
+	    }
+	    dbputc('\n');	/* symbols start on a new line */
 			
-			/* output any symbol type */
-			if ((type = symbol[symput].type) != IDENT) {
-				dbputc('\t');
-				dbputc(type);
-			}
-			else {
-				type = ' ';
-			}
-			/* output the symbol */
-			j = symbol[symput].last;
-			c = my_yytext[j];
-			my_yytext[j] = '\0';
-			if (invertedindex == YES) {
-				putposting(my_yytext + i, type);
-			}
-			writestring(my_yytext + i);
-			dbputc('\n');
-			my_yytext[j] = c;
-			i = j - 1;
-			++symput;
-		}
-		else {
-                       /* HBB: try to save some time by early-out handling of 
-                        * non-compressed mode */
-			if (compress == NO) {
-				if (blank == YES) {
-					dbputc(' ');
-					blank = NO;
-				}
-				j = i + strcspn(my_yytext+i, "\t ");
-				if (symput < symbols
-				    && j >= symbol[symput].first)
-					j = symbol[symput].first;
-				c = my_yytext[j];
-				my_yytext[j] = '\0';
-				writestring(my_yytext + i);
-				my_yytext[j] = c;
-				i = j - 1;
-				/* finished this 'i', continue with the blank */
-				continue;
-			}
-
-			/* check for compressed blanks */
-			if (blank == YES) {
-				if (dicode2[c]) {
-					c = DICODE_COMPRESS(' ', c);
-				}
-				else {
-					dbputc(' ');
-				}
-			}
-			/* compress digraphs */
-			else if (IS_A_DICODE(c, my_yytext[i + 1])
-				 && symput < symbols
-				 && i + 1 != symbol[symput].first
-				 ) {
-				c = DICODE_COMPRESS(c, my_yytext[i + 1]);
-				++i;
-			}
-			dbputc((int) c);
-			blank = NO;
-			
-			/* skip compressed characters */
-			if (c < ' ') {
-				++i;
-				
-				/* skip blanks before a preprocesor keyword */
-				/* note: don't use isspace() because \f and \v
-				   are used for keywords */
-				while ((j = my_yytext[i]) == ' ' || j == '\t') {
-					++i;
-				}
-				/* skip the rest of the keyword */
-				while (isalpha((unsigned char)my_yytext[i])) {
-					++i;
-				}
-				/* skip space after certain keywords */
-				if (keyword[c].delim != '\0') {
-					while ((j = my_yytext[i]) == ' ' || j == '\t') {
-						++i;
-					}
-				}
-				/* skip a '(' after certain keywords */
-				if (keyword[c].delim == '('
-				    && my_yytext[i] == '(') {
-					++i;
-				}
-				--i;	/* compensate for ++i in for() */
-			} /* if compressed char */
-		} /* else: not a symbol */
-	} /* for(i) */
-
-	/* ignore trailing blanks */
-	dbputc('\n');
-	dbputc('\n');
-
-	/* output any #define end marker */
-	/* note: must not be part of #define so putsource() doesn't discard it
-	   so findcalledbysub() can find it and return */
-	if (symput < symbols && symbol[symput].type == DEFINEEND) {
+	    /* output any symbol type */
+	    if ((type = symbol[symput].type) != IDENT) {
 		dbputc('\t');
-		dbputc(DEFINEEND);
-		dbputc('\n');
-		dbputc('\n');	/* mark beginning of next source line */
-		macrooffset = 0;
-	}
-	symbols = 0;
+		dbputc(type);
+	    } else {
+		type = ' ';
+	    }
+	    /* output the symbol */
+	    j = symbol[symput].last;
+	    c = my_yytext[j];
+	    my_yytext[j] = '\0';
+	    if (invertedindex == YES) {
+		putposting(my_yytext + i, type);
+	    }
+	    writestring(my_yytext + i);
+	    dbputc('\n');
+	    my_yytext[j] = c;
+	    i = j - 1;
+	    ++symput;
+	} else {
+	    /* HBB: try to save some time by early-out handling of 
+	     * non-compressed mode */
+	    if (compress == NO) {
+		if (blank == YES) {
+		    dbputc(' ');
+		    blank = NO;
+		}
+		j = i + strcspn(my_yytext+i, "\t ");
+		if (symput < symbols
+		    && j >= symbol[symput].first)
+		    j = symbol[symput].first;
+		c = my_yytext[j];
+		my_yytext[j] = '\0';
+		writestring(my_yytext + i);
+		my_yytext[j] = c;
+		i = j - 1;
+		/* finished this 'i', continue with the blank */
+		continue;
+	    }
+
+	    /* check for compressed blanks */
+	    if (blank == YES) {
+		if (dicode2[c]) {
+		    c = DICODE_COMPRESS(' ', c);
+		} else {
+		    dbputc(' ');
+		}
+	    } else if (IS_A_DICODE(c, my_yytext[i + 1])
+		       && symput < symbols
+		       && i + 1 != symbol[symput].first) {
+		/* compress digraphs */
+		c = DICODE_COMPRESS(c, my_yytext[i + 1]);
+		++i;
+	    }
+	    dbputc((int) c);
+	    blank = NO;
+			
+	    /* skip compressed characters */
+	    if (c < ' ') {
+		++i;
+				
+		/* skip blanks before a preprocesor keyword */
+		/* note: don't use isspace() because \f and \v
+		   are used for keywords */
+		while ((j = my_yytext[i]) == ' ' || j == '\t') {
+		    ++i;
+		}
+		/* skip the rest of the keyword */
+		while (isalpha((unsigned char)my_yytext[i])) {
+		    ++i;
+		}
+		/* skip space after certain keywords */
+		if (keyword[c].delim != '\0') {
+		    while ((j = my_yytext[i]) == ' ' || j == '\t') {
+			++i;
+		    }
+		}
+		/* skip a '(' after certain keywords */
+		if (keyword[c].delim == '('
+		    && my_yytext[i] == '(') {
+		    ++i;
+		}
+		--i;	/* compensate for ++i in for() */
+	    } /* if compressed char */
+	} /* else: not a symbol */
+    } /* for(i) */
+
+    /* ignore trailing blanks */
+    dbputc('\n');
+    dbputc('\n');
+
+    /* output any #define end marker */
+    /* note: must not be part of #define so putsource() doesn't discard it
+       so findcalledbysub() can find it and return */
+    if (symput < symbols && symbol[symput].type == DEFINEEND) {
+	dbputc('\t');
+	dbputc(DEFINEEND);
+	dbputc('\n');
+	dbputc('\n');	/* mark beginning of next source line */
+	macrooffset = 0;
+    }
+    symbols = 0;
 }
 
 /* HBB 20000421: new function, for avoiding memory leaks */

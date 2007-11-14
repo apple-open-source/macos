@@ -1,21 +1,48 @@
-//
-// JSValueWrapper.cpp
-//
+/*
+ * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer. 
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution. 
+ * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ *     its contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission. 
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include "config.h"
 #include "JSValueWrapper.h"
+#include <JavaScriptCore/PropertyNameArray.h>
 #include <pthread.h>
 
-JSValueWrapper::JSValueWrapper(const Value& inValue)
+JSValueWrapper::JSValueWrapper(JSValue *inValue)
     : fValue(inValue)
-{ 
+{
 }
 
 JSValueWrapper::~JSValueWrapper()
-{ 
+{
 }
 
-Value& JSValueWrapper::GetValue() 
-{ 
-	return fValue; 
+JSValue *JSValueWrapper::GetValue()
+{
+    return fValue;
 }
 
 /*
@@ -36,14 +63,14 @@ Value& JSValueWrapper::GetValue()
 pthread_key_t interpreterKey;
 pthread_once_t interpreterKeyOnce = PTHREAD_ONCE_INIT;
 
-static void destroyInterpreter(void* data) 
+static void derefInterpreter(void* data) 
 {
-    delete static_cast<Interpreter*>(data);
+    static_cast<Interpreter*>(data)->deref();
 }
 
 static void initializeInterpreterKey()
 {
-    pthread_key_create(&interpreterKey, destroyInterpreter);
+    pthread_key_create(&interpreterKey, derefInterpreter);
 }
 
 static ExecState* getThreadGlobalExecState()
@@ -52,6 +79,7 @@ static ExecState* getThreadGlobalExecState()
     Interpreter* interpreter = static_cast<Interpreter*>(pthread_getspecific(interpreterKey));
     if (!interpreter) {
         interpreter = new Interpreter();
+        interpreter->ref();
         pthread_setspecific(interpreterKey, interpreter);
     }
 
@@ -64,173 +92,149 @@ static ExecState* getThreadGlobalExecState()
 
 void JSValueWrapper::GetJSObectCallBacks(JSObjectCallBacks& callBacks)
 {
-	callBacks.dispose = (JSObjectDisposeProcPtr)JSValueWrapper::JSObjectDispose;
-	callBacks.equal = (JSObjectEqualProcPtr)NULL;
-	callBacks.copyPropertyNames = (JSObjectCopyPropertyNamesProcPtr)JSValueWrapper::JSObjectCopyPropertyNames;
-	callBacks.copyCFValue = (JSObjectCopyCFValueProcPtr)JSValueWrapper::JSObjectCopyCFValue;
-	callBacks.copyProperty = (JSObjectCopyPropertyProcPtr)JSValueWrapper::JSObjectCopyProperty;
-	callBacks.setProperty = (JSObjectSetPropertyProcPtr)JSValueWrapper::JSObjectSetProperty;
-	callBacks.callFunction = (JSObjectCallFunctionProcPtr)JSValueWrapper::JSObjectCallFunction;
+    callBacks.dispose = (JSObjectDisposeProcPtr)JSValueWrapper::JSObjectDispose;
+    callBacks.equal = (JSObjectEqualProcPtr)0;
+    callBacks.copyPropertyNames = (JSObjectCopyPropertyNamesProcPtr)JSValueWrapper::JSObjectCopyPropertyNames;
+    callBacks.copyCFValue = (JSObjectCopyCFValueProcPtr)JSValueWrapper::JSObjectCopyCFValue;
+    callBacks.copyProperty = (JSObjectCopyPropertyProcPtr)JSValueWrapper::JSObjectCopyProperty;
+    callBacks.setProperty = (JSObjectSetPropertyProcPtr)JSValueWrapper::JSObjectSetProperty;
+    callBacks.callFunction = (JSObjectCallFunctionProcPtr)JSValueWrapper::JSObjectCallFunction;
 }
-			
-void JSValueWrapper::JSObjectDispose(void* data)
+
+void JSValueWrapper::JSObjectDispose(void *data)
 {
-	JSValueWrapper* ptr = (JSValueWrapper*)data;
-	delete ptr;
+    JSValueWrapper* ptr = (JSValueWrapper*)data;
+    delete ptr;
 }
-	
 
-CFArrayRef JSValueWrapper::JSObjectCopyPropertyNames(void* data)
+
+CFArrayRef JSValueWrapper::JSObjectCopyPropertyNames(void *data)
 {
-    InterpreterLock lock;
+    JSLock lock;
 
-	CFMutableArrayRef result = NULL;
-	JSValueWrapper* ptr = (JSValueWrapper*)data;
-	if (ptr)
-	{
+    CFMutableArrayRef result = 0;
+    JSValueWrapper* ptr = (JSValueWrapper*)data;
+    if (ptr)
+    {
         ExecState* exec = getThreadGlobalExecState();
-#if JAG_PINK_OR_LATER
-		Object object = ptr->GetValue().toObject(exec);
-		ReferenceList list = object.propList(exec, false);
-		ReferenceListIterator iterator = list.begin();
-#else
-		Object object = ptr->GetValue().imp()->toObject(exec);
-                List list = object.propList(exec, false);
-		ListIterator iterator = list.begin();
-#endif
+        JSObject *object = ptr->GetValue()->toObject(exec);
+        PropertyNameArray propNames;
+        object->getPropertyNames(exec, propNames);
+        PropertyNameArrayIterator iterator = propNames.begin();
 
+        while (iterator != propNames.end()) {
+            Identifier name = *iterator;
+            CFStringRef nameStr = IdentifierToCFString(name);
 
-		while (iterator != list.end()) {
-#if JAG_PINK_OR_LATER
-			Identifier name = iterator->getPropertyName(exec);
-			CFStringRef nameStr = IdentifierToCFString(name);
-#else
-			UString name = iterator->getPropertyName(exec);
-			CFStringRef nameStr = UStringToCFString(name);
-#endif
-			if (!result)
-			{
-				result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-			}
-			if (result && nameStr)
-			{
-				CFArrayAppendValue(result, nameStr);
-			}
-			ReleaseCFType(nameStr);
-			iterator++;
-		}
+            if (!result)
+            {
+                result = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+            }
+            if (result && nameStr)
+            {
+                CFArrayAppendValue(result, nameStr);
+            }
+            ReleaseCFType(nameStr);
+            iterator++;
+        }
 
-	}
-	return result;
+    }
+    return result;
 }
 
 
-JSObjectRef JSValueWrapper::JSObjectCopyProperty(void* data, CFStringRef propertyName)
+JSObjectRef JSValueWrapper::JSObjectCopyProperty(void *data, CFStringRef propertyName)
 {
-    InterpreterLock lock;
+    JSLock lock;
 
-	JSObjectRef result = NULL;
-	JSValueWrapper* ptr = (JSValueWrapper*)data;
-	if (ptr)
-	{
-		ExecState* exec = getThreadGlobalExecState();
-#if JAG_PINK_OR_LATER
-		Value propValue = ptr->GetValue().toObject(exec).get(exec, CFStringToIdentifier(propertyName));
-#else
-		Value propValue = ptr->GetValue().imp()->toObject(exec).get(exec, CFStringToUString(propertyName));
-#endif
-		JSValueWrapper* wrapperValue = new JSValueWrapper(propValue);
+    JSObjectRef result = 0;
+    JSValueWrapper* ptr = (JSValueWrapper*)data;
+    if (ptr)
+    {
+        ExecState* exec = getThreadGlobalExecState();
+        JSValue *propValue = ptr->GetValue()->toObject(exec)->get(exec, CFStringToIdentifier(propertyName));
+        JSValueWrapper* wrapperValue = new JSValueWrapper(propValue);
 
-		JSObjectCallBacks callBacks;
-		GetJSObectCallBacks(callBacks);
-		result = JSObjectCreateInternal(wrapperValue, &callBacks, JSValueWrapper::JSObjectMark, kJSUserObjectDataTypeJSValueWrapper);
+        JSObjectCallBacks callBacks;
+        GetJSObectCallBacks(callBacks);
+        result = JSObjectCreateInternal(wrapperValue, &callBacks, JSValueWrapper::JSObjectMark, kJSUserObjectDataTypeJSValueWrapper);
 
-		if (!result)
-		{
-			delete wrapperValue;
-		}
-	}
-	return result;
+        if (!result)
+        {
+            delete wrapperValue;
+        }
+    }
+    return result;
 }
 
-void JSValueWrapper::JSObjectSetProperty(void* data, CFStringRef propertyName, JSObjectRef jsValue)
+void JSValueWrapper::JSObjectSetProperty(void *data, CFStringRef propertyName, JSObjectRef jsValue)
 {
-    InterpreterLock lock;
+    JSLock lock;
 
-	JSValueWrapper* ptr = (JSValueWrapper*)data;
-	if (ptr)
-	{
-		ExecState* exec = getThreadGlobalExecState();	
-		Value value = JSObjectKJSValue((JSUserObject*)jsValue);
-#if JAG_PINK_OR_LATER
-		Object objValue = ptr->GetValue().toObject(exec);
-		objValue.put(exec, CFStringToIdentifier(propertyName), value);
-#else
-		Object objValue = ptr->GetValue().imp()->toObject(exec);
-		objValue.put(exec, CFStringToUString(propertyName), value);
-#endif
-	}
+    JSValueWrapper* ptr = (JSValueWrapper*)data;
+    if (ptr)
+    {
+        ExecState* exec = getThreadGlobalExecState();
+        JSValue *value = JSObjectKJSValue((JSUserObject*)jsValue);
+        JSObject *objValue = ptr->GetValue()->toObject(exec);
+        objValue->put(exec, CFStringToIdentifier(propertyName), value);
+    }
 }
 
-JSObjectRef JSValueWrapper::JSObjectCallFunction(void* data, JSObjectRef thisObj, CFArrayRef args)
+JSObjectRef JSValueWrapper::JSObjectCallFunction(void *data, JSObjectRef thisObj, CFArrayRef args)
 {
-    InterpreterLock lock;
+    JSLock lock;
 
-	JSObjectRef result = NULL;
-	JSValueWrapper* ptr = (JSValueWrapper*)data;
-	if (ptr)
-	{
-		ExecState* exec = getThreadGlobalExecState();	
-	
-		Value value = JSObjectKJSValue((JSUserObject*)thisObj);
-#if JAG_PINK_OR_LATER
-		Object ksjThisObj = value.toObject(exec);
-		Object objValue = ptr->GetValue().toObject(exec);
-#else
-		Object ksjThisObj = value.imp()->toObject(exec);
-		Object objValue = ptr->GetValue().imp()->toObject(exec);
-#endif
+    JSObjectRef result = 0;
+    JSValueWrapper* ptr = (JSValueWrapper*)data;
+    if (ptr)
+    {
+        ExecState* exec = getThreadGlobalExecState();
 
-		List listArgs;
-		CFIndex argCount = args ? CFArrayGetCount(args) : 0;
-		for (CFIndex i = 0; i < argCount; i++)
-		{
-			JSObjectRef jsArg = (JSObjectRef)CFArrayGetValueAtIndex(args, i);
-			Value kgsArg = JSObjectKJSValue((JSUserObject*)jsArg);
-			listArgs.append(kgsArg);
-		}
+        JSValue *value = JSObjectKJSValue((JSUserObject*)thisObj);
+        JSObject *ksjThisObj = value->toObject(exec);
+        JSObject *objValue = ptr->GetValue()->toObject(exec);
 
-		Value resultValue = objValue.call(exec, ksjThisObj, listArgs);
-		JSValueWrapper* wrapperValue = new JSValueWrapper(resultValue);
-		JSObjectCallBacks callBacks;
-		GetJSObectCallBacks(callBacks);
-		result = JSObjectCreate(wrapperValue, &callBacks);
-		if (!result)
-		{
-			delete wrapperValue;
-		}
-	}
-	return result;
+        List listArgs;
+        CFIndex argCount = args ? CFArrayGetCount(args) : 0;
+        for (CFIndex i = 0; i < argCount; i++)
+        {
+            JSObjectRef jsArg = (JSObjectRef)CFArrayGetValueAtIndex(args, i);
+            JSValue *kgsArg = JSObjectKJSValue((JSUserObject*)jsArg);
+            listArgs.append(kgsArg);
+        }
+
+        JSValue *resultValue = objValue->call(exec, ksjThisObj, listArgs);
+        JSValueWrapper* wrapperValue = new JSValueWrapper(resultValue);
+        JSObjectCallBacks callBacks;
+        GetJSObectCallBacks(callBacks);
+        result = JSObjectCreate(wrapperValue, &callBacks);
+        if (!result)
+        {
+            delete wrapperValue;
+        }
+    }
+    return result;
 }
 
-CFTypeRef JSValueWrapper::JSObjectCopyCFValue(void* data)
+CFTypeRef JSValueWrapper::JSObjectCopyCFValue(void *data)
 {
-    InterpreterLock lock;
+    JSLock lock;
 
-	CFTypeRef result = NULL;
-	JSValueWrapper* ptr = (JSValueWrapper*)data;
-	if (ptr)
-	{
-		result = KJSValueToCFType(ptr->fValue, getThreadGlobalExecState());
-	}
-	return result;
+    CFTypeRef result = 0;
+    JSValueWrapper* ptr = (JSValueWrapper*)data;
+    if (ptr)
+    {
+        result = KJSValueToCFType(ptr->GetValue(), getThreadGlobalExecState());
+    }
+    return result;
 }
 
-void JSValueWrapper::JSObjectMark(void* data)
+void JSValueWrapper::JSObjectMark(void *data)
 {
-	JSValueWrapper* ptr = (JSValueWrapper*)data;
-	if (ptr)
-	{
-		ptr->fValue.imp()->mark();
-	}
+    JSValueWrapper* ptr = (JSValueWrapper*)data;
+    if (ptr)
+    {
+        ptr->fValue->mark();
+    }
 }

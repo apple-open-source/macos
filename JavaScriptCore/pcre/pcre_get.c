@@ -44,6 +44,7 @@ for these functions came from Scott Wimer. */
 
 
 #include "pcre_internal.h"
+#include <wtf/UnusedParam.h>
 
 
 /*************************************************
@@ -64,7 +65,7 @@ Returns:      the number of the named parentheses, or a negative number
 int
 pcre_get_stringnumber(const pcre *code, const pcre_char *stringname)
 {
-// FIXME: This doesn't work for UTF-16 because the name table has 8-bit characters in it!
+/* FIXME: This doesn't work for UTF-16 because the name table has 8-bit characters in it! */
 #if !PCRE_UTF16
 int rc;
 int entrysize;
@@ -89,6 +90,9 @@ while (top > bot)
   if (c == 0) return (entry[0] << 8) + entry[1];
   if (c > 0) bot = mid + 1; else top = mid;
   }
+#else
+ UNUSED_PARAM(code);
+ UNUSED_PARAM(stringname);
 #endif
 
 return PCRE_ERROR_NOSUBSTRING;
@@ -204,13 +208,14 @@ pcre_get_substring_list(const pcre_char *subject, int *ovector, int stringcount,
   const pcre_char ***listptr)
 {
 int i;
-int size = sizeof(char *);
+int size = (int)sizeof(char *);
 int double_count = stringcount * 2;
 pcre_char **stringlist;
 pcre_char *p;
 
-for (i = 0; i < double_count; i += 2)
-  size += sizeof(pcre_char *) + (ovector[i+1] - ovector[i] + 1) * sizeof(pcre_char);
+for (i = 0; i < double_count; i += 2) {
+  size += INT_CAST(sizeof(pcre_char *) + (ovector[i+1] - ovector[i] + 1) * sizeof(pcre_char));
+}
 
 stringlist = (pcre_char **)(pcre_malloc)(size);
 if (stringlist == NULL) return PCRE_ERROR_NOMEMORY;

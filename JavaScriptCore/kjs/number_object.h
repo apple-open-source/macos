@@ -15,21 +15,21 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
-#ifndef _NUMBER_OBJECT_H_
-#define _NUMBER_OBJECT_H_
+#ifndef NUMBER_OBJECT_H_
+#define NUMBER_OBJECT_H_
 
-#include "internal.h"
 #include "function_object.h"
+#include "JSWrapperObject.h"
 
 namespace KJS {
 
-  class NumberInstanceImp : public ObjectImp {
+  class NumberInstance : public JSWrapperObject {
   public:
-    NumberInstanceImp(ObjectImp *proto);
+    NumberInstance(JSObject *proto);
 
     virtual const ClassInfo *classInfo() const { return &info; }
     static const ClassInfo info;
@@ -41,11 +41,11 @@ namespace KJS {
    * The initial value of Number.prototype (and thus all objects created
    * with the Number constructor
    */
-  class NumberPrototypeImp : public NumberInstanceImp {
+  class NumberPrototype : public NumberInstance {
   public:
-    NumberPrototypeImp(ExecState *exec,
-                       ObjectPrototypeImp *objProto,
-                       FunctionPrototypeImp *funcProto);
+    NumberPrototype(ExecState *exec,
+                       ObjectPrototype *objProto,
+                       FunctionPrototype *funcProto);
   };
 
   /**
@@ -54,13 +54,11 @@ namespace KJS {
    * Class to implement all methods that are properties of the
    * Number.prototype object
    */
-  class NumberProtoFuncImp : public InternalFunctionImp {
+  class NumberProtoFunc : public InternalFunctionImp {
   public:
-    NumberProtoFuncImp(ExecState *exec, FunctionPrototypeImp *funcProto,
-                       int i, int len);
+    NumberProtoFunc(ExecState*, FunctionPrototype*, int i, int len, const Identifier&);
 
-    virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
 
     enum { ToString, ToLocaleString, ValueOf, ToFixed, ToExponential, ToPrecision };
   private:
@@ -75,25 +73,25 @@ namespace KJS {
   class NumberObjectImp : public InternalFunctionImp {
   public:
     NumberObjectImp(ExecState *exec,
-                    FunctionPrototypeImp *funcProto,
-                    NumberPrototypeImp *numberProto);
+                    FunctionPrototype *funcProto,
+                    NumberPrototype *numberProto);
 
     virtual bool implementsConstruct() const;
-    virtual Object construct(ExecState *exec, const List &args);
+    virtual JSObject *construct(ExecState *exec, const List &args);
 
-    virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
 
-    Value get(ExecState *exec, const Identifier &p) const;
-    Value getValueProperty(ExecState *exec, int token) const;
+    bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
+    JSValue *getValueProperty(ExecState *exec, int token) const;
+
     virtual const ClassInfo *classInfo() const { return &info; }
     static const ClassInfo info;
     enum { NaNValue, NegInfinity, PosInfinity, MaxValue, MinValue };
 
     Completion execute(const List &);
-    Object construct(const List &);
+    JSObject *construct(const List &);
   };
 
-}; // namespace
+} // namespace
 
 #endif

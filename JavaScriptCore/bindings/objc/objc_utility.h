@@ -22,14 +22,14 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _BINDINGS_OBJC_UTILITY_H_
-#define _BINDINGS_OBJC_UTILITY_H_
+
+#ifndef KJS_BINDINGS_OBJC_UTILITY_H
+#define KJS_BINDINGS_OBJC_UTILITY_H
 
 #include <CoreFoundation/CoreFoundation.h>
 
-#include <value.h>
-
-#include <objc_header.h>
+#include "object.h"
+#include "objc_header.h"
 
 #ifdef __OBJC__
 @class NSString;
@@ -37,11 +37,8 @@
 class NSString;
 #endif
 
-namespace KJS
-{
-
-namespace Bindings 
-{
+namespace KJS {
+namespace Bindings {
 
 typedef union {
     ObjectStructPtr objectValue;
@@ -50,6 +47,7 @@ typedef union {
     short shortValue;
     int intValue;
     long longValue;
+    long long longLongValue;
     float floatValue;
     double doubleValue;
 } ObjcValue;
@@ -58,9 +56,15 @@ typedef enum {
     ObjcVoidType,
     ObjcObjectType,
     ObjcCharType,
+    ObjcUnsignedCharType,
     ObjcShortType,
+    ObjcUnsignedShortType,
     ObjcIntType,
+    ObjcUnsignedIntType,
     ObjcLongType,
+    ObjcUnsignedLongType,
+    ObjcLongLongType,
+    ObjcUnsignedLongLongType,
     ObjcFloatType,
     ObjcDoubleType,
     ObjcInvalidType
@@ -68,17 +72,16 @@ typedef enum {
 
 class RootObject;
 
-ObjcValue convertValueToObjcValue (KJS::ExecState *exec, const KJS::Value &value, ObjcValueType type);
-Value convertNSStringToString(NSString *nsstring);
-Value convertObjcValueToValue (KJS::ExecState *exec, void *buffer, ObjcValueType type);
-ObjcValueType objcValueTypeForType (const char *type);
+ObjcValue convertValueToObjcValue(ExecState *exec, JSValue *value, ObjcValueType type);
+JSValue *convertNSStringToString(NSString *nsstring);
+JSValue *convertObjcValueToValue(ExecState *exec, void *buffer, ObjcValueType type, RootObject*);
+ObjcValueType objcValueTypeForType(const char *type);
 
 bool convertJSMethodNameToObjc(const char *JSName, char *buffer, size_t bufferSize);
 
-void *createObjcInstanceForValue (const Object &value, const RootObject *origin, const RootObject *current);
+JSObject *throwError(ExecState *, ErrorType, NSString *message);
 
 } // namespace Bindings
-
 } // namespace KJS
 
 #endif

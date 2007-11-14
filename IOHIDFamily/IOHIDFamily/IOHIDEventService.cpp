@@ -466,7 +466,7 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
                             break;
                     }
                     break;
-                case kHIDPage_AppleVendor:
+                case kHIDPage_AppleVendorTopCase:
                     if ((getVendorID() == kIOUSBVendorIDAppleComputer) && 
                         (usage == kHIDUsage_AppleVendor_KeyboardFn))
                     {
@@ -1043,8 +1043,9 @@ void IOHIDEventService::dispatchKeyboardEvent(
 	if ((( usagePage == kHIDPage_KeyboardOrKeypad ) &&
         (usage != kHIDUsage_KeyboardLockingNumLock)) ||
         ((getVendorID() == kIOUSBVendorIDAppleComputer) && 
-        (usagePage == kHIDPage_AppleVendor) && 
-        (usage == kHIDUsage_AppleVendor_KeyboardFn)))
+        ((usagePage == kHIDPage_AppleVendorKeyboard) ||
+        ((usagePage == kHIDPage_AppleVendorTopCase) && 
+        (usage == kHIDUsage_AppleVendor_KeyboardFn)))))
     {
         if ( !_keyboardNub )
             _keyboardNub = newKeyboardShim();

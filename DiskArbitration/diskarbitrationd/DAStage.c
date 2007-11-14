@@ -793,6 +793,11 @@ static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef 
 
                             DADiskSetFileSystem( disk, filesystem );
 
+                            if ( CFDictionaryGetValue( candidate, CFSTR( "autodiskmount" ) ) == kCFBooleanFalse )
+                            {
+                                DADiskSetOptions( disk, kDADiskOptionMountAutomatic | kDADiskOptionMountAutomaticNoDefer, FALSE );
+                            }
+
                             CFArrayRemoveValueAtIndex( candidates, 0 );
 
                             DALogDebug( "  probed disk, id = %@, with %@, ongoing.", disk, kind );

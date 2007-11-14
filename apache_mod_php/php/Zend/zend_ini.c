@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_ini.c,v 1.23.2.7.2.1 2005/09/02 21:09:03 sniper Exp $ */
+/* $Id: zend_ini.c,v 1.23.2.7.2.4 2006/12/27 19:57:05 tony2001 Exp $ */
 
 #include "zend.h"
 #include "zend_qsort.h"
@@ -256,8 +256,8 @@ ZEND_API int zend_restore_ini_entry(char *name, uint name_length, int stage)
 	zend_ini_entry *ini_entry;
 	TSRMLS_FETCH();
 
-	if (zend_hash_find(EG(ini_directives), name, name_length, (void **) &ini_entry)==FAILURE) {
-		return FAILURE;
+	if (zend_hash_find(EG(ini_directives), name, name_length, (void **) &ini_entry)==FAILURE ||
+	    (stage == ZEND_INI_STAGE_RUNTIME && (ini_entry->modifyable & ZEND_INI_USER) == 0)) {		return FAILURE;
 	}
 
 	zend_restore_ini_entry_cb(ini_entry, stage TSRMLS_CC);
@@ -536,6 +536,28 @@ ZEND_API ZEND_INI_MH(OnUpdateStringUnempty)
 	p = (char **) (base+(size_t) mh_arg1);
 
 	*p = new_value;
+	return SUCCESS;
+}
+
+ZEND_API ZEND_INI_MH(OnUpdateLongGEZero)
+{
+	long *p, tmp;
+#ifndef ZTS
+	char *base = (char *) mh_arg2;
+#else
+	char *base;
+
+	base = (char *) ts_resource(*((int *) mh_arg2));
+#endif
+
+	tmp = zend_atoi(new_value, new_value_length);
+	if (tmp < 0) {
+		return FAILURE;
+	}
+
+	p = (long *) (base+(size_t) mh_arg1);
+	*p = tmp;
+
 	return SUCCESS;
 }
 

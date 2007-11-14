@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: getopt.c,v 1.3.4.3.6.1 2006/01/01 13:47:01 sniper Exp $ */
+/* $Id: getopt.c,v 1.3.4.3.6.4 2007/03/22 21:35:56 johannes Exp $ */
 
 #include <stdio.h>
 #include <string.h>
@@ -79,29 +79,34 @@ int php_getopt(int argc, char* const *argv, const opt_struct opts[], char **opta
 	}
 	if ((argv[*optind][0] == '-') && (argv[*optind][1] == '-')) {
 		/* '--' indicates end of args if not followed by a known long option name */
+		if (argv[*optind][2] == '\0') {
+			(*optind)++;
+			return(EOF);
+		}
+
 		while (1) {
 			opts_idx++;
 			if (opts[opts_idx].opt_char == '-') {
 				(*optind)++;
-				return(EOF);
+				return(php_opt_error(argc, argv, *optind-1, optchr, OPTERRARG, show_err));
 			} else if (opts[opts_idx].opt_name && !strcmp(&argv[*optind][2], opts[opts_idx].opt_name)) {
 				break;
 			}
 		}
 		optchr = 0;
-		dash = 1;
-		arg_start = 2 + strlen(opts[opts_idx].opt_name);
-	}
-	if (!dash) {
-		dash = 1;
-		optchr = 1;
-	}
-
-	/* Check if the guy tries to do a -: kind of flag */
-	if (argv[*optind][optchr] == ':') {
 		dash = 0;
-		(*optind)++;
-		return (php_opt_error(argc, argv, *optind-1, optchr, OPTERRCOLON, show_err));
+		arg_start = 2 + strlen(opts[opts_idx].opt_name);
+	} else {
+		if (!dash) {
+			dash = 1;
+			optchr = 1;
+		}
+		/* Check if the guy tries to do a -: kind of flag */
+		if (argv[*optind][optchr] == ':') {
+			dash = 0;
+			(*optind)++;
+			return (php_opt_error(argc, argv, *optind-1, optchr, OPTERRCOLON, show_err));
+		}
 	}
 	if (opts_idx < 0) {
 		while (1) {

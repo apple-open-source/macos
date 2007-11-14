@@ -48,7 +48,7 @@
 */
 #define MAXHELP	50	/* maximum number of help strings */
 
-static char const rcsid[] = "$Id: help.c,v 1.5 2004/07/09 21:34:44 nicolai Exp $";
+static char const rcsid[] = "$Id: help.c,v 1.6 2005/04/29 18:44:31 broeker Exp $";
 
 void
 help(void)
@@ -65,8 +65,7 @@ help(void)
 			*tp++ = "If the search is successful, you can edit the file containing a displayed line\n";
 			*tp++ = "by pointing with the mouse and clicking button 1.\n";
 			*tp++ = "\nYou can either use the button 2 menu or these single-character commands:\n\n";
-		}
-		else {
+		} else {
 			*tp++ = "Press the RETURN key repeatedly to move to the desired input field, type the\n";
 			*tp++ = "pattern to search for, and then press the RETURN key.  For the first 4 and\n";
 			*tp++ = "last 2 input fields, the pattern can be a regcomp(3) regular expression.\n";
@@ -90,7 +89,7 @@ help(void)
 			*tp++ = "^N\t\tMove to the next input field.\n";
 			*tp++ = "^P\t\tMove to the previous input field.\n";
 		}
-		*tp++ = "^Y\t\tSearch with the last pattern typed.\n";
+		*tp++ = "^Y / ^A\t\tSearch with the last pattern typed.\n";
 		*tp++ = "^B\t\tRecall previous input field and search pattern.\n";
 		*tp++ = "^F\t\tRecall next input field and search pattern.\n";
 		if(caseless)
@@ -104,8 +103,8 @@ help(void)
 		*tp++ = "^D\t\tExit cscope.\n";
 		*tp++ = "\nNote: If the first character of the pattern you want to search for matches\n";
 		*tp++ = "a command, type a \\ character first.\n";
-	}
-	else {
+		*tp++ = "Note: Some ctrl keys may be occupied by your terminal configuration.\n";
+	} else {
 		if (mouse) {
 			*tp++ = "Point with the mouse and click button 1 to mark or unmark the line to be\n";
 			*tp++ = "changed.  You can also use the button 2 menu or these single-character\n";

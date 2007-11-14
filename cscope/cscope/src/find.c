@@ -39,6 +39,8 @@
 
 #include "build.h"
 #include "scanner.h"		/* for token definitions */
+
+#include <assert.h>
 #if defined(USE_NCURSES) && !defined(RENAMED_NCURSES)
 #include <ncurses.h>
 #else
@@ -46,7 +48,7 @@
 #endif
 #include <regex.h>
 
-static char const rcsid[] = "$Id: find.c,v 1.2 2004/07/09 21:34:44 nicolai Exp $";
+static char const rcsid[] = "$Id: find.c,v 1.20 2006/08/20 19:15:54 broeker Exp $";
 
 /* most of these functions have been optimized so their innermost loops have
  * only one test for the desired character by putting the char and 
@@ -92,6 +94,7 @@ findsymbol(char *pattern)
 	char	symbol[PATLEN + 1];	/* symbol name */
 	char	*cp;
 	char	*s;
+	size_t	s_len = 0;
 	char firstchar;		/* first character of a potential symbol */
 	BOOL fcndef = NO;
 
@@ -109,11 +112,11 @@ findsymbol(char *pattern)
 		return NULL;
 	}
 
-	(void) scanpast('\t');			/* find the end of the header */
-	skiprefchar();			/* skip the file marker */
-	putstring(file);		/* save the file name */
-	(void) strcpy(function, global);/* set the dummy global function name */
-	(void) strcpy(macro, global);/* set the dummy global macro name */
+	(void) scanpast('\t');	/* find the end of the header */
+	skiprefchar();		/* skip the file marker */
+	fetch_string_from_dbase(file, sizeof(file));
+	strcpy(function, global); /* set the dummy global function name */
+	strcpy(macro, global);	/* set the dummy global macro name */
 	
 	/* find the next symbol */
 	/* note: this code was expanded in-line for speed */
@@ -125,11 +128,11 @@ findsymbol(char *pattern)
 			while (*cp != '\n') {
 				++cp;
 			}
-		} while (*(cp + 1) == '\0' && (cp = readblock()) != NULL);
+		} while (*(cp + 1) == '\0' && (cp = read_block()) != NULL);
 
 		/* skip the found character */
 		if (cp != NULL && *(++cp + 1) == '\0') {
-			cp = readblock();
+			cp = read_block();
 		}
 		if (cp == NULL) {
 			break;
@@ -143,7 +146,7 @@ findsymbol(char *pattern)
 
 				/* save the name */
 				skiprefchar();
-				putstring(file);
+				fetch_string_from_dbase(file, sizeof(file));
 			
 				/* check for the end of the symbols */
 				if (*file == '\0') {
@@ -158,15 +161,17 @@ findsymbol(char *pattern)
 				
 			case FCNDEF:		/* function name */
 				fcndef = YES;
-				s = function;
+				s = function; 
+				s_len = sizeof(function);
 				break;
 
 			case DEFINE:		/* macro name */
 				if (fileversion >= 10) {
 					s = macro;
-				}
-				else {	
+					s_len = sizeof(macro);
+				} else {	
 					s = symbol;
+					s_len = sizeof(symbol);
 				}
 				break;
 
@@ -179,10 +184,11 @@ findsymbol(char *pattern)
 			
 			default:		/* other symbol */
 				s = symbol;
+				s_len = sizeof(symbol);
 			}
 			/* save the name */
 			skiprefchar();
-			putstring(s);
+			fetch_string_from_dbase(s, s_len);
 
 			/* see if this is a regular expression pattern */
 			if (isregexp_valid == YES) { 
@@ -220,7 +226,7 @@ findsymbol(char *pattern)
 			
 			if (isalpha((unsigned char)firstchar) || firstchar == '_') {
 				blockp = cp;
-				putstring(symbol);
+				fetch_string_from_dbase(symbol, sizeof(symbol));
 				if (caseless == YES) {
 					s = lcasify(symbol);	/* point to lower case version */
 				}
@@ -301,7 +307,7 @@ finddef(char *pattern)
 			
 		case NEWFILE:
 			skiprefchar();	/* save file name */
-			putstring(file);
+			fetch_string_from_dbase(file, sizeof(file));
 			if (*file == '\0') {	/* if end of symbols */
 				return NULL;
 			}
@@ -345,7 +351,7 @@ findallfcns(char *dummy)
 			
 		case NEWFILE:
 			skiprefchar();	/* save file name */
-			putstring(file);
+			fetch_string_from_dbase(file, sizeof(file));
 			if (*file == '\0') {	/* if end of symbols */
 				return NULL;
 			}
@@ -359,7 +365,7 @@ findallfcns(char *dummy)
 		case FCNDEF:
 		case CLASSDEF:
 			skiprefchar();	/* save function name */
-			putstring(function);
+			fetch_string_from_dbase(function, sizeof(function));
 
 			/* output the file, function and source line */
 			putref(0, file, function);
@@ -402,7 +408,7 @@ findcalling(char *pattern)
 			
 		case NEWFILE:		/* save file name */
 			skiprefchar();
-			putstring(file);
+			fetch_string_from_dbase(file, sizeof(file));
 			if (*file == '\0') {	/* if end of symbols */
 				return NULL;
 			}
@@ -413,7 +419,7 @@ findcalling(char *pattern)
 		case DEFINE:		/* could be a macro */
 			if (fileversion >= 10) {
 				skiprefchar();
-				putstring(macro);
+				fetch_string_from_dbase(macro, sizeof(macro));
 			}
 			break;
 
@@ -423,7 +429,7 @@ findcalling(char *pattern)
 
 		case FCNDEF:		/* save calling function name */
 			skiprefchar();
-			putstring(function);
+			fetch_string_from_dbase(function, sizeof(function));
 			for (i = 0; i < morefuns; i++)
 				if ( !strcmp(tmpfunc[i], function) )
 					break;
@@ -489,22 +495,23 @@ findstring(char *pattern)
 char *
 findregexp(char *egreppat)
 {
-	int	i;
-	char	*egreperror;
+    unsigned int i;
+    char *egreperror;
 
-	/* compile the pattern */
-	if ((egreperror = egrepinit(egreppat)) == NULL) {
+    /* compile the pattern */
+    if ((egreperror = egrepinit(egreppat)) == NULL) {
 
-		/* search the files */
-		for (i = 0; i < nsrcfiles; ++i) {
-			char *file = filepath(srcfiles[i]);
-			progress("Search", searchcount, nsrcfiles);
-			if (egrep(file, refsfound, "%s <unknown> %ld ") < 0) {
-				posterr ("Cannot open file %s", file);
-			}
-		}
+	/* search the files */
+	for (i = 0; i < nsrcfiles; ++i) {
+	    char *file = filepath(srcfiles[i]);
+
+	    progress("Search", searchcount, nsrcfiles);
+	    if (egrep(file, refsfound, "%s <unknown> %ld ") < 0) {
+		posterr ("Cannot open file %s", file);
+	    }
 	}
-	return(egreperror);
+    }
+    return(egreperror);
 }
 
 /* find matching file names */
@@ -512,25 +519,25 @@ findregexp(char *egreppat)
 char *
 findfile(char *dummy)
 {
-	int	i;
+    unsigned int i;
 	
-	(void) dummy;		/* unused argument */
+    (void) dummy;		/* unused argument */
 
-	for (i = 0; i < nsrcfiles; ++i) {
-		char *s;
-		if (caseless == YES) {
-			s = lcasify(srcfiles[i]);
-		}
-		else {
-			s = srcfiles[i];
-		}
-		if (regexec (&regexp, s, (size_t)0, NULL, 0) == 0) {
-			(void) fprintf(refsfound, "%s <unknown> 1 <unknown>\n", 
-				srcfiles[i]);
-		}
+    for (i = 0; i < nsrcfiles; ++i) {
+	char *s;
+
+	if (caseless == YES) {
+	    s = lcasify(srcfiles[i]);
+	} else {
+	    s = srcfiles[i];
 	}
+	if (regexec (&regexp, s, (size_t)0, NULL, 0) == 0) {
+	    (void) fprintf(refsfound, "%s <unknown> 1 <unknown>\n", 
+			   srcfiles[i]);
+	}
+    }
 
-	return NULL;
+    return NULL;
 }
 
 /* find files #including this file */
@@ -558,7 +565,7 @@ findinclude(char *pattern)
 			
 		case NEWFILE:		/* save file name */
 			skiprefchar();
-			putstring(file);
+			fetch_string_from_dbase(file, sizeof(file));
 			if (*file == '\0') {	/* if end of symbols */
 				return NULL;
 			}
@@ -709,7 +716,7 @@ match(void)
 
 	/* see if this is a regular expression pattern */
 	if (isregexp_valid == YES) {
-		putstring(string);
+		fetch_string_from_dbase(string, sizeof(string));
 		if (*string == '\0') {
 			return(NO);
 		}
@@ -737,7 +744,7 @@ matchrest(void)
 			++blockp;
 			++i;
 		}
-	} while (*(blockp + 1) == '\0' && readblock() != NULL);
+	} while (*(blockp + 1) == '\0' && read_block() != NULL);
 	
 	if (*blockp == '\n' && cpattern[i] == '\0') {
 		return(YES);
@@ -791,8 +798,8 @@ putsource(int seemore, FILE *output)
 	blockp = cp;
 	if (*blockp != '\n' || getrefchar() != '\n' || 
 	    (!isdigit(getrefchar()) && fileversion >= 12)) {
-		postmsg("Internal error: cannot get source line from database");
-		myexit(1);
+		postfatal("Internal error: cannot get source line from database");
+		/* NOTREACHED */
 	}
 	/* until a double newline is found */
 	do {
@@ -852,39 +859,43 @@ putline(FILE *output)
 			}
 			++cp;
 		}
-	} while (*(cp + 1) == '\0' && (cp = readblock()) != NULL);
+	} while (*(cp + 1) == '\0' && (cp = read_block()) != NULL);
 	blockp = cp;
 }
 
-/* put the rest of the cross-reference line into the string */
 
+/* put the rest of the cross-reference line into the string */
 void
-putstring(char *s)
+fetch_string_from_dbase(char *s, size_t length)
 {
 	char	*cp;
-	unsigned c;
-	
+	unsigned int c;
+
+	assert(length > sizeof (char *));
+
 	setmark('\n');
 	cp = blockp;
 	do {
-		while ((c = (unsigned)(*cp)) != '\n') {
-			if (c > '\177') {
-				c &= 0177;
+		while (length > 1 && (c = (unsigned int)(*cp)) != '\n') {
+			if (c >= 0x80 && length > 2) {
+				c &= 0x7f;
 				*s++ = dichar1[c / 8];
 				*s++ = dichar2[c & 7];
-			}
-			else {
+				length -= 2;
+			} else {
 				*s++ = c;
+				length--;
 			}
 			++cp;
 		}
-	} while (*(cp + 1) == '\0' && (cp = readblock()) != NULL);
+	} while (length > 0 && cp[1] == '\0' && (cp = read_block()) != NULL);
 	blockp = cp;
 	*s = '\0';
 }
-/* scan past the next occurence of this character in the cross-reference */
 
-char	*
+
+/* scan past the next occurence of this character in the cross-reference */
+char *
 scanpast(char c)
 {
 	char *cp;
@@ -895,7 +906,7 @@ scanpast(char c)
 		while (*cp != c) {
 			++cp;
 		}
-	} while (*(cp + 1) == '\0' && (cp = readblock()) != NULL);
+	} while (*(cp + 1) == '\0' && (cp = read_block()) != NULL);
 	blockp = cp;
 	if (cp != NULL) {
 		skiprefchar();	/* skip the found character */
@@ -904,9 +915,9 @@ scanpast(char c)
 }
 
 /* read a block of the cross-reference */
-
-char	*
-readblock(void)
+/* HBB 20040430: renamed from readblock(), to avoid name clash on QNX */
+char *
+read_block(void)
 {
 	/* read the next block */
 	blocklen = read(symrefs, block, BUFSIZ);
@@ -978,7 +989,7 @@ findcalledby(char *pattern)
 			
 		case NEWFILE:
 			skiprefchar();	/* save file name */
-			putstring(file);
+			fetch_string_from_dbase(file, sizeof(file));
 			if (*file == '\0') {	/* if end of symbols */
 				return(&found_caller);
 			}
@@ -1113,7 +1124,8 @@ putpostingref(POSTING *p, char *pat)
 		if (p->type == FCNDEF) { /* need to find the function name */
 			if (dbseek(p->lineoffset) != -1) {
 				scanpast(FCNDEF);
-				putstring(function);
+				fetch_string_from_dbase(function,
+							sizeof(function));
 			}
 		}
 		else if (p->type != FCNCALL) {
@@ -1122,7 +1134,7 @@ putpostingref(POSTING *p, char *pat)
 	}
 	else if (p->fcnoffset != lastfcnoffset) {
 		if (dbseek(p->fcnoffset) != -1) {
-			putstring(function);
+			fetch_string_from_dbase(function, sizeof(function));
 			lastfcnoffset = p->fcnoffset;
 		}
 	}
@@ -1148,7 +1160,7 @@ dbseek(long offset)
 			(void) sleep(3);
 			return(rc);
 		}
-		(void) readblock();
+		(void) read_block();
 		blocknumber = n;
 	}
 	blockp = block + offset % BUFSIZ;

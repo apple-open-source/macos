@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_interbase.h,v 1.28.2.8.4.1 2006/01/01 13:46:53 sniper Exp $ */
+/* $Id: php_interbase.h,v 1.28.2.8.4.2 2007/01/01 09:46:43 sebastian Exp $ */
 
 #ifndef PHP_INTERBASE_H
 #define PHP_INTERBASE_H

@@ -229,6 +229,7 @@ var             PST_DIFF = TZ_DIFF - TZ_PST;  // offset of tester's timezone fro
 var	TIME_1970	 = 0;
 var	TIME_2000	 = 946684800000;
 var	TIME_1900	 = -2208988800000;
+var     TIME_YEAR_0      = -62167219200000;
 
 
 /*
@@ -496,8 +497,8 @@ function UTC( t	) {
 function DaylightSavingTA( t ) {
 	t =	t -	LocalTZA();
 
-	var	dst_start =	GetFirstSundayInApril(t) + 2*msPerHour;
-	var	dst_end	  =	GetLastSundayInOctober(t)+ 2*msPerHour;
+	var	dst_start = GetSecondSundayInMarch(t) + 2*msPerHour;
+	var	dst_end	  = GetFirstSundayInNovember(t)+ 2*msPerHour;
 
 	if ( t >= dst_start	&& t < dst_end ) {
 		return msPerHour;
@@ -512,34 +513,69 @@ function DaylightSavingTA( t ) {
 
 	return UTC(dst_start  +	LocalTZA());
 }
-function GetFirstSundayInApril(	t )	{
-	var	year = YearFromTime(t);
-	var	leap = InLeapYear(t);
 
-	var	april =	TimeFromYear(year) + TimeInMonth(0,	leap) +	TimeInMonth(1,leap)	+
-	TimeInMonth(2,leap);
+function GetFirstSundayInApril( t ) {
+    var year = YearFromTime(t);
+    var leap = InLeapYear(t);
 
-	for	( var first_sunday = april;	WeekDay(first_sunday) >	0;
-		first_sunday +=	msPerDay )
-	{
-		;
-	}
+    var april = TimeFromYear(year) + TimeInMonth(0, leap) + TimeInMonth(1,leap) +
+    TimeInMonth(2,leap);
 
-	return first_sunday;
+    for ( var first_sunday = april; WeekDay(first_sunday) > 0;
+        first_sunday += msPerDay )
+    {
+        ;
+    }
+
+    return first_sunday;
 }
 function GetLastSundayInOctober( t ) {
+    var year = YearFromTime(t);
+    var leap = InLeapYear(t);
+
+    for ( var oct = TimeFromYear(year), m = 0; m < 9; m++ ) {
+        oct += TimeInMonth(m, leap);
+    }
+    for ( var last_sunday = oct + 30*msPerDay; WeekDay(last_sunday) > 0;
+        last_sunday -= msPerDay )
+    {
+        ;
+    }
+    return last_sunday;
+}
+
+// Added these two functions because DST rules changed for the US.
+function GetSecondSundayInMarch( t ) {
 	var	year = YearFromTime(t);
 	var	leap = InLeapYear(t);
 
-	for	( var oct =	TimeFromYear(year),	m =	0; m < 9; m++ )	{
-		oct	+= TimeInMonth(m, leap);
+	var	march =	TimeFromYear(year) + TimeInMonth(0, leap) + TimeInMonth(1,leap);
+
+	var sundayCount = 0;
+	var flag = true;
+	for ( var second_sunday = march; flag; second_sunday += msPerDay )
+	{
+		if (WeekDay(second_sunday) == 0) {
+			if(++sundayCount == 2)
+				flag = false;
+		}
 	}
-	for	( var last_sunday =	oct	+ 30*msPerDay; WeekDay(last_sunday)	> 0;
-		last_sunday	-= msPerDay	)
+
+	return second_sunday;
+}
+function GetFirstSundayInNovember( t ) {
+	var year = YearFromTime(t);
+	var leap = InLeapYear(t);
+
+	for ( var nov = TimeFromYear(year), m =	0; m < 10; m++ ) {
+		nov += TimeInMonth(m, leap);
+	}
+	for ( var first_sunday = nov; WeekDay(first_sunday) > 0;
+		first_sunday += msPerDay	)
 	{
 		;
 	}
-	return last_sunday;
+	return first_sunday;
 }
 function LocalTime(	t )	{
 	return ( t + LocalTZA()	+ DaylightSavingTA(t) );

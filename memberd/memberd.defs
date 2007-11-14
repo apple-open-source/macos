@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,8 +28,8 @@ serverprefix Server;
 #include <mach/std_types.defs>
 import "memberd_defines.h";
 
-type kauth_identity_extlookup = struct [50] of integer_t;
-type guid_t = struct [4] of uint32_t;
+type kauth_identity_extlookup = struct [200] of uint8_t;
+type guid_t = struct [16] of uint8_t;
 
 type StatBlock = struct [16] of uint32_t;
 

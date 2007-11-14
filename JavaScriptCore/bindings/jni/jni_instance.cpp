@@ -22,12 +22,14 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#include <jni_class.h>
-#include <jni_instance.h>
-#include <jni_runtime.h>
-#include <jni_utility.h>
-#include <runtime_object.h>
-#include <runtime_root.h>
+#include "config.h"
+
+#include "jni_class.h"
+#include "jni_instance.h"
+#include "jni_runtime.h"
+#include "jni_utility.h"
+#include "runtime_object.h"
+#include "runtime_root.h"
 
 #ifdef NDEBUG
 #define JS_LOG(formatAndArgs...) ((void)0)
@@ -37,16 +39,16 @@
     fprintf(stderr, formatAndArgs); \
 }
 #endif
-
+ 
 using namespace KJS::Bindings;
 using namespace KJS;
 
-JavaInstance::JavaInstance (jobject instance, const RootObject *r) 
+JavaInstance::JavaInstance (jobject instance, PassRefPtr<RootObject> rootObject)
+    : Instance(rootObject)
 {
     _instance = new JObjectWrapper (instance);
     _class = 0;
-    setExecutionContext (r);
-};
+}
 
 JavaInstance::~JavaInstance () 
 {
@@ -72,48 +74,46 @@ Class *JavaInstance::getClass() const
     return _class;
 }
 
-KJS::Value JavaInstance::stringValue() const
+JSValue *JavaInstance::stringValue() const
 {
+    JSLock lock;
+    
     jstring stringValue = (jstring)callJNIObjectMethod (_instance->_instance, "toString", "()Ljava/lang/String;");
     JNIEnv *env = getJNIEnv();
-    const UChar *c = (const UChar *)getUCharactersFromJStringInEnv (env, stringValue);
-    UString u(c, (int)env->GetStringLength(stringValue));
-    String v(u);
-    releaseUCharactersForJStringInEnv (env, stringValue, (const jchar *)c);
-    return v;
+    const jchar *c = getUCharactersFromJStringInEnv(env, stringValue);
+    UString u((const UChar *)c, (int)env->GetStringLength(stringValue));
+    releaseUCharactersForJStringInEnv(env, stringValue, c);
+    return jsString(u);
 }
 
-KJS::Value JavaInstance::numberValue() const
+JSValue *JavaInstance::numberValue() const
 {
     jdouble doubleValue = callJNIDoubleMethod (_instance->_instance, "doubleValue", "()D");
-    KJS::Number v(doubleValue);
-    return v;
+    return jsNumber(doubleValue);
 }
 
-KJS::Value JavaInstance::booleanValue() const
+JSValue *JavaInstance::booleanValue() const
 {
     jboolean booleanValue = callJNIBooleanMethod (_instance->_instance, "booleanValue", "()Z");
-    KJS::Boolean v(booleanValue);
-    return v;
+    return jsBoolean(booleanValue);
 }
 
-Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList &methodList, const List &args)
+JSValue *JavaInstance::invokeMethod (ExecState *exec, const MethodList &methodList, const List &args)
 {
     int i, count = args.size();
     jvalue *jArgs;
-    Value resultValue;
+    JSValue *resultValue;
     Method *method = 0;
-    unsigned int numMethods = methodList.length();
+    size_t numMethods = methodList.size();
     
     // Try to find a good match for the overloaded method.  The 
     // fundamental problem is that JavaScript doesn have the
     // notion of method overloading and Java does.  We could 
     // get a bit more sophisticated and attempt to does some
     // type checking as we as checking the number of parameters.
-    unsigned int methodIndex;
     Method *aMethod;
-    for (methodIndex = 0; methodIndex < numMethods; methodIndex++) {
-        aMethod = methodList.methodAt (methodIndex);
+    for (size_t methodIndex = 0; methodIndex < numMethods; methodIndex++) {
+        aMethod = methodList[methodIndex];
         if (aMethod->numParameters() == count) {
             method = aMethod;
             break;
@@ -121,7 +121,7 @@ Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList &method
     }
     if (method == 0) {
         JS_LOG ("unable to find an appropiate method\n");
-        return Undefined();
+        return jsUndefined();
     }
     
     const JavaMethod *jMethod = static_cast<const JavaMethod*>(method);
@@ -134,31 +134,30 @@ Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList &method
         jArgs = 0;
         
     for (i = 0; i < count; i++) {
-        JavaParameter *aParameter = static_cast<JavaParameter *>(jMethod->parameterAt(i));
+        JavaParameter* aParameter = jMethod->parameterAt(i);
         jArgs[i] = convertValueToJValue (exec, args.at(i), aParameter->getJNIType(), aParameter->type());
-	JS_LOG("arg[%d] = %s\n", i, args.at(i).toString(exec).ascii());
+        JS_LOG("arg[%d] = %s\n", i, args.at(i)->toString(exec).ascii());
     }
         
-
     jvalue result;
 
     // Try to use the JNI abstraction first, otherwise fall back to
     // nornmal JNI.  The JNI dispatch abstraction allows the Java plugin
     // to dispatch the call on the appropriate internal VM thread.
-    const RootObject *execContext = executionContext();
+    RootObject* rootObject = this->rootObject();
+    if (!rootObject)
+        return jsUndefined();
+
     bool handled = false;
-    if (execContext && execContext->nativeHandle()) {
+    if (rootObject->nativeHandle()) {
         jobject obj = _instance->_instance;
-        Value exceptionDescription;
+        JSValue *exceptionDescription = NULL;
         const char *callingURL = 0;  // FIXME, need to propagate calling URL to Java
-        handled = dispatchJNICall (execContext->nativeHandle(), obj, jMethod->isStatic(), jMethod->JNIReturnType(), jMethod->methodID(obj), jArgs, result, callingURL, exceptionDescription);
-        if (!exceptionDescription.isNull()) {
-            Object error = Error::create(exec, GeneralError, exceptionDescription.toString(exec).UTF8String().c_str());
-            
-            exec->setException(error);
-            
+        handled = dispatchJNICall(rootObject->nativeHandle(), obj, jMethod->isStatic(), jMethod->JNIReturnType(), jMethod->methodID(obj), jArgs, result, callingURL, exceptionDescription);
+        if (exceptionDescription) {
+            throwError(exec, GeneralError, exceptionDescription->toString(exec));
             free (jArgs);
-            return Undefined();
+            return jsUndefined();
         }
     }
     
@@ -226,7 +225,7 @@ Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList &method
         
     switch (jMethod->JNIReturnType()){
         case void_type: {
-            resultValue = Undefined();
+            resultValue = jsUndefined();
         }
         break;
         
@@ -234,61 +233,61 @@ Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList &method
             if (result.l != 0) {
                 const char *arrayType = jMethod->returnType();
                 if (arrayType[0] == '[') {
-                    resultValue = JavaArray::convertJObjectToArray (exec, result.l, arrayType, executionContext());
+                    resultValue = JavaArray::convertJObjectToArray(exec, result.l, arrayType, rootObject);
                 }
                 else {
-                    resultValue = Instance::createRuntimeObject(Instance::JavaLanguage, result.l, executionContext());
+                    resultValue = Instance::createRuntimeObject(Instance::JavaLanguage, result.l, rootObject);
                 }
             }
             else {
-                resultValue = Undefined();
+                resultValue = jsUndefined();
             }
         }
         break;
         
         case boolean_type: {
-            resultValue = KJS::Boolean(result.z);
+            resultValue = jsBoolean(result.z);
         }
         break;
         
         case byte_type: {
-            resultValue = Number(result.b);
+            resultValue = jsNumber(result.b);
         }
         break;
         
         case char_type: {
-            resultValue = Number(result.c);
+            resultValue = jsNumber(result.c);
         }
         break;
         
         case short_type: {
-            resultValue = Number(result.s);
+            resultValue = jsNumber(result.s);
         }
         break;
         
         case int_type: {
-            resultValue = Number(result.i);
+            resultValue = jsNumber(result.i);
         }
         break;
         
         case long_type: {
-            resultValue = Number((long int)result.j);
+            resultValue = jsNumber(result.j);
         }
         break;
         
         case float_type: {
-            resultValue = Number(result.f);
+            resultValue = jsNumber(result.f);
         }
         break;
         
         case double_type: {
-            resultValue = Number(result.d);
+            resultValue = jsNumber(result.d);
         }
         break;
 
         case invalid_type:
         default: {
-            resultValue = Undefined();
+            resultValue = jsUndefined();
         }
         break;
     }
@@ -298,13 +297,7 @@ Value JavaInstance::invokeMethod (KJS::ExecState *exec, const MethodList &method
     return resultValue;
 }
 
-KJS::Value JavaInstance::invokeDefaultMethod (KJS::ExecState *exec, const KJS::List &args)
-{
-    return Undefined();
-}
-
-
-KJS::Value JavaInstance::defaultValue (KJS::Type hint) const
+JSValue *JavaInstance::defaultValue (JSType hint) const
 {
     if (hint == StringType) {
         return stringValue();
@@ -331,10 +324,10 @@ KJS::Value JavaInstance::defaultValue (KJS::Type hint) const
     return valueOf();
 }
 
-KJS::Value JavaInstance::valueOf() const 
+JSValue *JavaInstance::valueOf() const 
 {
     return stringValue();
-};
+}
 
 JObjectWrapper::JObjectWrapper(jobject instance)
 : _refCount(0)
@@ -347,14 +340,14 @@ JObjectWrapper::JObjectWrapper(jobject instance)
         
     _instance = _env->NewGlobalRef (instance);
     
-	JS_LOG ("new global ref %p for %p\n", _instance, instance);
-	
+    JS_LOG ("new global ref %p for %p\n", _instance, instance);
+
     if  (_instance == NULL) {
         fprintf (stderr, "%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
     }
 }
 
 JObjectWrapper::~JObjectWrapper() {
-	JS_LOG ("deleting global ref %p\n", _instance);
-	_env->DeleteGlobalRef (_instance);
+    JS_LOG ("deleting global ref %p\n", _instance);
+    _env->DeleteGlobalRef (_instance);
 }

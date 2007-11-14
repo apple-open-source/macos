@@ -15,27 +15,18 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <assert.h>
-
-#include "value.h"
-#include "object.h"
-#include "types.h"
-#include "interpreter.h"
-#include "operations.h"
+#include "config.h"
 #include "math_object.h"
-
 #include "math_object.lut.h"
+#include "wtf/MathExtras.h"
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif  /*  M_PI  */
+#include "operations.h"
+#include <math.h>
+#include <time.h>
 
 using namespace KJS;
 
@@ -75,18 +66,19 @@ const ClassInfo MathObjectImp::info = { "Math", 0, &mathTable, 0 };
 */
 
 MathObjectImp::MathObjectImp(ExecState * /*exec*/,
-                             ObjectPrototypeImp *objProto)
-  : ObjectImp(objProto)
+                             ObjectPrototype *objProto)
+  : JSObject(objProto)
 {
 }
 
 // ECMA 15.8
-Value MathObjectImp::get(ExecState *exec, const Identifier &propertyName) const
+
+bool MathObjectImp::getOwnPropertySlot(ExecState *exec, const Identifier& propertyName, PropertySlot &slot)
 {
-  return lookupGet<MathFuncImp, MathObjectImp, ObjectImp>( exec, propertyName, &mathTable, this );
+  return getStaticPropertySlot<MathFuncImp, MathObjectImp, JSObject>(exec, &mathTable, this, propertyName, slot);
 }
 
-Value MathObjectImp::getValueProperty(ExecState *, int token) const
+JSValue *MathObjectImp::getValueProperty(ExecState *, int token) const
 {
   double d = -42; // ;)
   switch (token) {
@@ -106,7 +98,7 @@ Value MathObjectImp::getValueProperty(ExecState *, int token) const
     d = 1.0/log(10.0);
     break;
   case Pi:
-    d = M_PI;
+    d = piDouble;
     break;
   case Sqrt1_2:
     d = sqrt(0.5);
@@ -115,33 +107,27 @@ Value MathObjectImp::getValueProperty(ExecState *, int token) const
     d = sqrt(2.0);
     break;
   default:
-    fprintf( stderr, "Internal error in MathObjectImp: unhandled token %d\n", token );
-    break;
+    assert(0);
   }
 
-  return Number(d);
+  return jsNumber(d);
 }
 
 // ------------------------------ MathObjectImp --------------------------------
 
-MathFuncImp::MathFuncImp(ExecState *exec, int i, int l)
-  : InternalFunctionImp(
-    static_cast<FunctionPrototypeImp*>(exec->lexicalInterpreter()->builtinFunctionPrototype().imp())
-    ), id(i)
+static bool didInitRandom;
+
+MathFuncImp::MathFuncImp(ExecState* exec, int i, int l, const Identifier& name)
+  : InternalFunctionImp(static_cast<FunctionPrototype*>(exec->lexicalInterpreter()->builtinFunctionPrototype()), name)
+  , id(i)
 {
-  Value protect(this);
-  putDirect(lengthPropertyName, l, DontDelete|ReadOnly|DontEnum);
+  putDirect(exec->propertyNames().length, l, DontDelete|ReadOnly|DontEnum);
 }
 
-bool MathFuncImp::implementsCall() const
+JSValue *MathFuncImp::callAsFunction(ExecState *exec, JSObject* /*thisObj*/, const List &args)
 {
-  return true;
-}
-
-Value MathFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
-{
-  double arg = args[0].toNumber(exec);
-  double arg2 = args[1].toNumber(exec);
+  double arg = args[0]->toNumber(exec);
+  double arg2 = args[1]->toNumber(exec);
   double result;
 
   switch (id) {
@@ -149,37 +135,37 @@ Value MathFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
     result = ( arg < 0 || arg == -0) ? (-arg) : arg;
     break;
   case MathObjectImp::ACos:
-    result = ::acos(arg);
+    result = acos(arg);
     break;
   case MathObjectImp::ASin:
-    result = ::asin(arg);
+    result = asin(arg);
     break;
   case MathObjectImp::ATan:
-    result = ::atan(arg);
+    result = atan(arg);
     break;
   case MathObjectImp::ATan2:
-    result = ::atan2(arg, arg2);
+    result = atan2(arg, arg2);
     break;
   case MathObjectImp::Ceil:
-    result = ::ceil(arg);
+    result = ceil(arg);
     break;
   case MathObjectImp::Cos:
-    result = ::cos(arg);
+    result = cos(arg);
     break;
   case MathObjectImp::Exp:
-    result = ::exp(arg);
+    result = exp(arg);
     break;
   case MathObjectImp::Floor:
-    result = ::floor(arg);
+    result = floor(arg);
     break;
   case MathObjectImp::Log:
-    result = ::log(arg);
+    result = log(arg);
     break;
   case MathObjectImp::Max: {
     unsigned int argsCount = args.size();
     result = -Inf;
     for ( unsigned int k = 0 ; k < argsCount ; ++k ) {
-      double val = args[k].toNumber(exec);
+      double val = args[k]->toNumber(exec);
       if ( isNaN( val ) )
       {
         result = NaN;
@@ -194,7 +180,7 @@ Value MathFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
     unsigned int argsCount = args.size();
     result = +Inf;
     for ( unsigned int k = 0 ; k < argsCount ; ++k ) {
-      double val = args[k].toNumber(exec);
+      double val = args[k]->toNumber(exec);
       if ( isNaN( val ) )
       {
         result = NaN;
@@ -207,49 +193,38 @@ Value MathFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
   }
   case MathObjectImp::Pow:
     // ECMA 15.8.2.1.13 (::pow takes care of most of the critera)
-    if (KJS::isNaN(arg2))
+    if (isNaN(arg2))
       result = NaN;
-#if !APPLE_CHANGES
-    else if (arg2 == 0)
+    else if (isNaN(arg) && arg2 != 0)
+      result = NaN;
+    else if (fabs(arg) == 1 && isInf(arg2))
+      result = NaN;
+    else if (arg2 == 0 && arg != 0)
       result = 1;
-#endif
-    else if (KJS::isNaN(arg) && arg2 != 0)
-      result = NaN;
-#if !APPLE_CHANGES
-    else if (::fabs(arg) > 1 && KJS::isPosInf(arg2))
-      result = Inf;
-    else if (::fabs(arg) > 1 && KJS::isNegInf(arg2))
-      result = +0;
-#endif
-    else if (::fabs(arg) == 1 && KJS::isInf(arg2))
-      result = NaN;
-#if !APPLE_CHANGES
-    else if (::fabs(arg) < 1 && KJS::isPosInf(arg2))
-      result = +0;
-    else if (::fabs(arg) < 1 && KJS::isNegInf(arg2))
-      result = Inf;
-#endif
     else
       result = ::pow(arg, arg2);
     break;
   case MathObjectImp::Random:
-    result = ::rand();
-    result = result / RAND_MAX;
-    break;
+      if (!didInitRandom) {
+          wtf_random_init();
+          didInitRandom = true;
+      }
+      result = wtf_random();
+      break;
   case MathObjectImp::Round:
     if (signbit(arg) && arg >= -0.5)
         result = -0.0;
     else
-        result = ::floor(arg + 0.5);
+        result = floor(arg + 0.5);
     break;
   case MathObjectImp::Sin:
-    result = ::sin(arg);
+    result = sin(arg);
     break;
   case MathObjectImp::Sqrt:
-    result = ::sqrt(arg);
+    result = sqrt(arg);
     break;
   case MathObjectImp::Tan:
-    result = ::tan(arg);
+    result = tan(arg);
     break;
 
   default:
@@ -257,5 +232,5 @@ Value MathFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
     assert(0);
   }
 
-  return Number(result);
+  return jsNumber(result);
 }

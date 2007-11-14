@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |         Hartmut Holzgraefe <hartmut@six.de>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: zlib_fopen_wrapper.c,v 1.33.2.7.2.1 2006/01/01 13:46:59 sniper Exp $ */
+/* $Id: zlib_fopen_wrapper.c,v 1.33.2.7.2.2 2007/01/01 09:46:50 sebastian Exp $ */
 #define IS_EXT_MODULE
 #define _GNU_SOURCE
 

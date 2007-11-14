@@ -22,79 +22,40 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _BINDINGS_OBJC_CLASS_H_
-#define _BINDINGS_OBJC_CLASS_H_
 
-#include <CoreFoundation/CoreFoundation.h>
+#ifndef KJS_BINDINGS_OBJC_CLASS_H
+#define KJS_BINDINGS_OBJC_CLASS_H
 
-
-#include <runtime.h>
-#include <objc_header.h>
-#include <objc_runtime.h>
+#include <JavaScriptCore/objc_runtime.h>
 
 namespace KJS {
-
 namespace Bindings {
 
-class ObjcClass : public KJS::Bindings::Class
+class ObjcClass : public Class
 {
-    // Use the public static factory methods to get instances of JavaClass.
-    
 protected:
-    void _commonInit (ClassStructPtr aClass);
-    void _commonCopy(const ObjcClass &other);
-    void _commonDelete();
-    
-    ObjcClass (ClassStructPtr aClass);
+    ObjcClass (ClassStructPtr aClass); // Use classForIsA to create an ObjcClass.
     
 public:
     // Return the cached ObjC of the specified name.
-    //static ObjcClass *classForName (const char *name);
-    static ObjcClass *classForIsA (ClassStructPtr aClass);
-            
-    ~ObjcClass () {
-        _commonDelete();
-    }
+    static ObjcClass *classForIsA(ClassStructPtr);
     
-    ObjcClass (const ObjcClass &other) : Class() {
-        _commonCopy (other);
-    };
-
-    ObjcClass &operator=(const ObjcClass &other)
-    {
-        if (this == &other)
-            return *this;
-            
-        _commonDelete();
-        _commonCopy (other);
-        
-        return *this;
-    }
-
     virtual const char *name() const;
     
-    virtual MethodList methodsNamed(const char *name, Instance *instance) const;
-    
-    virtual Field *fieldNamed(const char *name, Instance *instance) const;
+    virtual MethodList methodsNamed(const Identifier&, Instance *instance) const;
+    virtual Field *fieldNamed(const Identifier&, Instance *instance) const;
 
-    virtual Value fallbackObject(ExecState *exec, Instance *instance, const Identifier &propertyName);
-    
-    virtual Constructor *constructorAt(long i) const {
-        return 0;
-    };
-    
-    virtual long numConstructors() const { return 0; };
+    virtual JSValue *fallbackObject(ExecState *exec, Instance *instance, const Identifier &propertyName);
     
     ClassStructPtr isa() { return _isa; }
     
 private:
     ClassStructPtr _isa;
-    CFDictionaryRef _methods;
-    CFDictionaryRef _fields;
+    RetainPtr<CFMutableDictionaryRef> _methods;
+    RetainPtr<CFMutableDictionaryRef> _fields;
 };
 
 } // namespace Bindings
-
 } // namespace KJS
 
 #endif

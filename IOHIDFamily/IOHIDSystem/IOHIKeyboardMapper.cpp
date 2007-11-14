@@ -264,9 +264,10 @@ bool IOHIKeyboardMapper::init( IOHIKeyboard * delegate,
 
         // If keys are defined, check the device type to determine 
         // if we should support F12 eject.
-        if ((_delegate->interfaceID() == NX_EVS_DEVICE_INTERFACE_ADB) &&
-            (((_delegate->deviceType() >= 0xc3) && (_delegate->deviceType() <= 0xc9)) ||
-            ((_delegate->deviceType() >= 0x00) && (_delegate->deviceType() <= 0x1e))))
+         if ((_delegate->interfaceID() == NX_EVS_DEVICE_INTERFACE_ADB) &&
+             (((_delegate->deviceType() >= 0xc3) && (_delegate->deviceType() <= 0xc9)) ||
+              ((_delegate->deviceType() >= 0x28) && (_delegate->deviceType() <= 0x2a)) ||
+              ((_delegate->deviceType() >= 0x00) && (_delegate->deviceType() <= 0x1e))))
         {
         
             IORegistryEntry *   devicetreeRegEntry = IORegistryEntry::fromPath("/", gIODTPlane);

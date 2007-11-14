@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Authors: Wez Furlong <wez@thebrainroom.com                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: sysvmsg.c,v 1.4.2.5.2.3 2006/05/19 10:28:54 tony2001 Exp $ */
+/* $Id: sysvmsg.c,v 1.4.2.5.2.5 2007/01/01 09:46:49 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -120,7 +120,7 @@ PHP_MINFO_FUNCTION(sysvmsg)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "sysvmsg support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.4.2.5.2.3 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.4.2.5.2.5 $");
 	php_info_print_table_end();
 }
 /* }}} */
@@ -272,6 +272,11 @@ PHP_FUNCTION(msg_receive)
 				&out_message, &do_unserialize, &flags, &zerrcode) == FAILURE)
 		return;
 
+	if (maxsize <= 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "maximum size of the message has to be greater then zero");
+		return;
+	}
+
 	if (flags != 0) {
 		if (flags & PHP_MSG_EXCEPT) {
 #ifndef MSG_EXCEPT
@@ -289,7 +294,7 @@ PHP_FUNCTION(msg_receive)
 	
 	ZEND_FETCH_RESOURCE(mq, sysvmsg_queue_t *, &queue, -1, "sysvmsg queue", le_sysvmsg);
 
-	messagebuffer = (struct php_msgbuf*)emalloc(sizeof(struct php_msgbuf) + maxsize);
+	messagebuffer = (struct php_msgbuf*)safe_emalloc(maxsize, 1, sizeof(struct php_msgbuf));
 	
 	result = msgrcv(mq->id, messagebuffer, maxsize, desiredmsgtype, realflags);
 		
@@ -363,7 +368,7 @@ PHP_FUNCTION(msg_send)
 		
 		/* NB: php_msgbuf is 1 char bigger than a long, so there is no need to
 		 * allocate the extra byte. */
-		messagebuffer = emalloc(sizeof(struct php_msgbuf) + msg_var.len);
+		messagebuffer = safe_emalloc(msg_var.len, 1, sizeof(struct php_msgbuf));
 		memcpy(messagebuffer->mtext, msg_var.c, msg_var.len + 1);
 		message_len = msg_var.len;
 		smart_str_free(&msg_var);
@@ -389,7 +394,7 @@ PHP_FUNCTION(msg_send)
 				RETURN_FALSE;
 		}
 
-		messagebuffer = emalloc(sizeof(struct php_msgbuf) + message_len);
+		messagebuffer = safe_emalloc(message_len, 1, sizeof(struct php_msgbuf));
 		memcpy(messagebuffer->mtext, p, message_len + 1);
 
 		if (Z_TYPE_P(message) != IS_STRING) {

@@ -89,23 +89,6 @@ static BOOL become_gid(gid_t gid)
 }
 
 /****************************************************************************
- Become the specified uid and gid.
-****************************************************************************/
-
-static BOOL become_id(uid_t uid, gid_t gid)
-{
-#ifdef WITH_PTHREAD_NP
-	if (uid == 0)
-		uid = KAUTH_UID_NONE;
-	if (gid == 0)
-		gid = KAUTH_GID_NONE;
-	return pthread_setugid_np(uid, gid);
-#else 
-	return become_gid(gid) && become_uid(uid);
-#endif
-}
-
-/****************************************************************************
  Drop back to root privileges in order to change to another user.
 ****************************************************************************/
 
@@ -115,9 +98,6 @@ static void gain_root(void)
 		return;
 	}
 	
-#ifdef WITH_PTHREAD_NP
-	become_id(KAUTH_UID_NONE,KAUTH_GID_NONE);
-#else
 	if (geteuid() != 0) {
 		set_effective_uid(0);
 
@@ -137,7 +117,6 @@ static void gain_root(void)
 			       "gid system\n"));
 		}
 	}
-#endif
 }
 
 /****************************************************************************
@@ -304,9 +283,8 @@ void set_sec_ctx(uid_t uid, gid_t gid, int ngroups, gid_t *groups, NT_USER_TOKEN
 
 	gain_root();
 
-#ifdef HAVE_SETGROUPS
-	sys_setgroups(ngroups, groups);
-#endif
+	become_gid(gid);
+	sys_setgroups(uid, ngroups, groups);
 
 	ctx_p->ngroups = ngroups;
 
@@ -319,7 +297,7 @@ void set_sec_ctx(uid_t uid, gid_t gid, int ngroups, gid_t *groups, NT_USER_TOKEN
 	ctx_p->groups = memdup(groups, sizeof(gid_t) * ngroups);
 	ctx_p->token = dup_nt_token(token);
 
-	become_id(uid, gid);
+	become_uid(uid);
 
 	ctx_p->uid = uid;
 	ctx_p->gid = gid;
@@ -380,11 +358,11 @@ BOOL pop_sec_ctx(void)
 
 	prev_ctx_p = &sec_ctx_stack[sec_ctx_stack_ndx];
 
-#ifdef HAVE_SETGROUPS
-	sys_setgroups(prev_ctx_p->ngroups, prev_ctx_p->groups);
-#endif
+	become_gid(prev_ctx_p->gid);
+	sys_setgroups(prev_ctx_p->uid,
+		prev_ctx_p->ngroups, prev_ctx_p->groups);
 
-	become_id(prev_ctx_p->uid, prev_ctx_p->gid);
+	become_uid(prev_ctx_p->uid);
 
 	/* Update current_user stuff */
 

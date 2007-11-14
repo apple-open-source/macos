@@ -2,7 +2,7 @@
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2007 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -16,7 +16,7 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -27,21 +27,19 @@
 
 namespace KJS {
 
-  class ArrayInstanceImp : public ObjectImp {
+  class ArrayInstance : public JSObject {
   public:
-    ArrayInstanceImp(ObjectImp *proto, unsigned initialLength);
-    ArrayInstanceImp(ObjectImp *proto, const List &initialValues);
-    ~ArrayInstanceImp();
+    ArrayInstance(JSObject *proto, unsigned initialLength);
+    ArrayInstance(JSObject *proto, const List &initialValues);
+    ~ArrayInstance();
 
-    virtual Value get(ExecState *exec, const Identifier &propertyName) const;
-    virtual Value get(ExecState *exec, unsigned propertyName) const;
-    virtual void put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr = None);
-    virtual void put(ExecState *exec, unsigned propertyName, const Value &value, int attr = None);
-    virtual bool hasOwnProperty(ExecState *exec, const Identifier &propertyName) const;
-    virtual bool hasOwnProperty(ExecState *exec, unsigned propertyName) const;
+    virtual bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
+    virtual bool getOwnPropertySlot(ExecState *, unsigned, PropertySlot&);
+    virtual void put(ExecState *exec, const Identifier &propertyName, JSValue *value, int attr = None);
+    virtual void put(ExecState *exec, unsigned propertyName, JSValue *value, int attr = None);
     virtual bool deleteProperty(ExecState *exec, const Identifier &propertyName);
     virtual bool deleteProperty(ExecState *exec, unsigned propertyName);
-    virtual ReferenceList propList(ExecState *exec, bool recursive);
+    virtual void getPropertyNames(ExecState*, PropertyNameArray&);
 
     virtual void mark();
 
@@ -49,23 +47,28 @@ namespace KJS {
     static const ClassInfo info;
     
     unsigned getLength() const { return length; }
+    JSValue* getItem(unsigned) const;
     
     void sort(ExecState *exec);
-    void sort(ExecState *exec, Object &compareFunction);
+    void sort(ExecState *exec, JSObject *compareFunction);
     
   private:
+    static JSValue *lengthGetter(ExecState *, JSObject *, const Identifier&, const PropertySlot&);
+
     void setLength(unsigned newLength, ExecState *exec);
     
-    unsigned pushUndefinedObjectsToEnd(ExecState *exec);
+    unsigned compactForSorting();
     
     void resizeStorage(unsigned);
 
+    // store capacity in extra space at the beginning of the storage array to save space
+    size_t capacity() { return storage ? reinterpret_cast<size_t>(storage[-1]) : 0; }
+
     unsigned length;
     unsigned storageLength;
-    unsigned capacity;
-    ValueImp **storage;
+    JSValue **storage;
   };
 
-}; // namespace KJS
+} // namespace KJS
 
 #endif

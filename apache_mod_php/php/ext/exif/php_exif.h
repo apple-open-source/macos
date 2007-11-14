@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_exif.h,v 1.10.4.1.8.1 2006/01/01 13:46:52 sniper Exp $ */
+/* $Id: php_exif.h,v 1.10.4.1.8.2 2007/01/01 09:46:41 sebastian Exp $ */
 
 #if HAVE_EXIF
 extern zend_module_entry exif_module_entry;

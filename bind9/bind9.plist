@@ -4,13 +4,13 @@
         <key>OpenSourceProject</key>
         <string>bind9</string>
         <key>OpenSourceVersion</key>
-        <string>9.3.4</string>
+        <string>9.3.4-P1</string>
         <key>OpenSourceURL</key>
-        <string>ftp://ftp.isc.org/isc/bind9/9.3.4/bind-9.3.4.tar.gz</string>
+        <string>ftp://ftp.isc.org/isc/bind9/9.3.4-P1/bind-9.3.4-P1.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>f53c7e24157ae1fd881834351804bfee3c2782ee</string>
+        <string>064eae5e9303c735e16bf7c6437b8bd8def8c9fb</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-01-26</string>
+        <string>2007-07-25</string>
         <key>OpenSourceLicense</key>
         <string>Other</string>
         <key>OpenSourceLicenseFile</key>

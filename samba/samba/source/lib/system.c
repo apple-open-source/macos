@@ -21,6 +21,10 @@
 
 #include "includes.h"
 
+#if defined(HAVE_DARWIN_INITGROUPS)
+#include <sys/syscall.h>
+#endif
+
 /*
    The idea is that this file will eventually have wrappers around all
    important system calls in samba. The aims are:
@@ -740,14 +744,40 @@ int sys_getgroups(int setlen, gid_t *gidset)
 /**************************************************************************
  Wrapper for setgroups. Deals with broken (int) case. Automatically used
  if we have broken getgroups.
+
+ The gmuid argument is the uid of the user who is associated with the group
+ list we are setting. It is only used for Darwin.
 ****************************************************************************/
 
-int sys_setgroups(int setlen, gid_t *gidset)
+int sys_setgroups(uid_t gmuid, int setlen, gid_t *gidset)
 {
-#if !defined(HAVE_SETGROUPS)
+
+#if defined(HAVE_DARWIN_INITGROUPS)
+	/* The Darwin groups implementation is a little unusual. The list of
+	 * groups in the kernel credential is not exhaustive, but rather is a
+	 * cache. The full group list is held in userspace and checked on
+	 * dynamically.
+	 * This is an optional mechanism, and setgroups(2) opts out
+	 * of it. That is, if you call setgroups, then the list of groups you
+	 * set are the only groups that are ever checked. This is not what we
+	 * want. We want to opt in to the dynamic resolution mechanism, so we
+	 * need to specify the uid of the user whose group list (cache) we are
+	 * setting.
+	 *
+	 * The Darwin rules are:
+	 *  1. Thou shalt setegid, initgroups and seteuid IN THAT ORDER
+	 *  2. Thou shalt not pass more that NGROUPS_MAX to initgroups
+	 *  3. Thou shalt leave the first entry in the groups list well alone
+	 */
+	int maxgroups = sysconf(_SC_NGROUPS_MAX);
+	if (setlen > maxgroups) {
+	    setlen = maxgroups;
+	}
+	return syscall(SYS_initgroups, setlen, gidset, gmuid);
+
+#elif !defined(HAVE_SETGROUPS)
 	errno = ENOSYS;
 	return -1;
-#endif /* HAVE_SETGROUPS */
 
 #if !defined(HAVE_BROKEN_GETGROUPS)
 	return setgroups(setlen, gidset);
@@ -787,6 +817,7 @@ int sys_setgroups(int setlen, gid_t *gidset)
 	SAFE_FREE(group_list);
 	return 0 ;
 #endif /* HAVE_BROKEN_GETGROUPS */
+#endif /* HAVE_SETGROUPS */
 }
 
 /**************************************************************************

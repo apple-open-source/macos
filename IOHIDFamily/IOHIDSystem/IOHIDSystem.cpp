@@ -2972,7 +2972,7 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
 	outData.key.origCharSet = origCharSet;
 	outData.key.origCharCode = origCharCode;
 	outData.key.keyboardType = keyboardType;
-
+	
 	if ( eventsOpen == false )
             return;
 

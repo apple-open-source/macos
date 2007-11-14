@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_output.h,v 1.47.2.1.8.1 2006/01/01 13:46:59 sniper Exp $ */
+/* $Id: php_output.h,v 1.47.2.1.8.3 2007/02/12 17:13:22 tony2001 Exp $ */
 
 #ifndef PHP_OUTPUT_H
 #define PHP_OUTPUT_H
@@ -27,6 +27,7 @@ PHPAPI void php_output_startup(void);
 PHPAPI void php_output_activate(TSRMLS_D);
 PHPAPI void php_output_set_status(zend_bool status TSRMLS_DC);
 PHPAPI void php_output_register_constants(TSRMLS_D);
+PHPAPI int  php_default_output_func(const char *str, uint str_len TSRMLS_DC);
 PHPAPI int  php_body_write(const char *str, uint str_length TSRMLS_DC);
 PHPAPI int  php_header_write(const char *str, uint str_length TSRMLS_DC);
 PHPAPI int php_start_ob_buffer(zval *output_handler, uint chunk_size, zend_bool erase TSRMLS_DC);

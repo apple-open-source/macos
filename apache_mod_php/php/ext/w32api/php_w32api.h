@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_w32api.h,v 1.4.2.1.12.1 2006/01/01 13:46:59 sniper Exp $ */
+/* $Id: php_w32api.h,v 1.4.2.1.12.2 2007/01/01 09:46:49 sebastian Exp $ */
 
 #if		HAVE_W32API
 

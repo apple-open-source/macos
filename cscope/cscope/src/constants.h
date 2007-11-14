@@ -30,7 +30,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: constants.h,v 1.7 2004/07/09 21:51:24 nicolai Exp $ */
+/* $Id: constants.h,v 1.15 2006/08/20 15:00:34 broeker Exp $ */
 
 /*	cscope - interactive C symbol cross-reference
  *
@@ -54,20 +54,21 @@
 /* get the next character in the cross-reference */
 /* note that blockp is assumed not to be null */
 #define	getrefchar()	(*(++blockp + 1) != '\0' ? *blockp : \
-			(readblock() != NULL ? *blockp : '\0'))
+			(read_block() != NULL ? *blockp : '\0'))
 
 /* skip the next character in the cross-reference */
 /* note that blockp is assumed not to be null and that
    this macro will always be in a statement by itself */
-#define	skiprefchar()	if (*(++blockp + 1) == '\0') (void) readblock()
+#define	skiprefchar()	if (*(++blockp + 1) == '\0') (void) read_block()
 
 #define	ESC	'\033'		/* escape character */
 #define	DEL	'\177'		/* delete character */
 #define	DUMMYCHAR	' '	/* use space as a dummy character */
-#define	MSGLEN	PATLEN + 80	/* displayed message length */
+#define	MSGLEN	((PATLEN) + 80)	/* displayed message length */
 #define	NUMLEN	5		/* line number length */
 #define	PATHLEN	250		/* file pathname length */
 #define	PATLEN	250		/* symbol pattern length */
+#define TEMPSTRING_LEN 8191     /* max strlen() of the global temp string */
 #define	REFFILE	"cscope.out"	/* cross-reference output file */
 #define	NAMEFILE "cscope.files"	/* default list-of-files file */
 #define	INVNAME	"cscope.in.out"	/* inverted index to the database */
@@ -76,6 +77,13 @@
 #define	INVPOST2 "cscope.out.po"/* follows correct naming convention */
 
 #define	STMTMAX	10000		/* maximum source statement length */
+
+#define STR2(x) #x
+#define STRINGIZE(x) STR2(x)
+#define PATLEN_STR STRINGIZE(PATLEN)
+#define PATHLEN_STR STRINGIZE(PATHLEN)
+#define NUMLEN_STR STRINGIZE(NUMLEN)
+#define TEMPSTRING_LEN_STR STRINGIZE(TEMPSTRING_LEN)
 
 /* screen lines */
 #define	FLDLINE	(LINES - FIELDS - 1)	/* first input field line */
@@ -95,38 +103,35 @@
 #define INCLUDES	8
 #define	FIELDS		9
 
-#if (BSD || V9) && !__NetBSD__ && !__APPLE__
-#define TERMINFO	0	/* no terminfo curses */
+#if (BSD || V9) && !__NetBSD__ && !__FreeBSD__ && !__APPLE__
+# define TERMINFO	0	/* no terminfo curses */
 #else
-#define TERMINFO	1
+# define TERMINFO	1
 #endif
 
 
-#ifndef __FreeBSD__	/* Prevent search issues in cscope.out */
 #if !TERMINFO
-#ifndef KEY_BREAK
-#define	KEY_BREAK	0400	/* easier to define than to add #if around the use */
-#endif
-#ifndef KEY_ENTER
-#define	KEY_ENTER	0401
-#endif
-#ifndef KEY_BACKSPACE
-#define	KEY_BACKSPACE	0402
-#endif
+# ifndef KEY_BREAK
+#  define	KEY_BREAK	0400	/* easier to define than to add #if around the use */
+# endif
+# ifndef KEY_ENTER
+#  define	KEY_ENTER	0401
+# endif
+# ifndef KEY_BACKSPACE
+#  define	KEY_BACKSPACE	0402
+# endif
 
-#if !sun && !__APPLE__
-#define cbreak()	crmode()			/* name change */
-#endif
+# if !sun && !__APPLE__
+#  define cbreak()	crmode()			/* name change */
+# endif
 
-#if UNIXPC
-#define	erasechar()	(_tty.c_cc[VERASE])		/* equivalent */
-#define	killchar()	(_tty.c_cc[VKILL])		/* equivalent */
-#else
-#define	erasechar()	(_tty.sg_erase)			/* equivalent */
-#define	killchar()	(_tty.sg_kill)			/* equivalent */
-#endif	/* if UNIXPC */
-
+# if UNIXPC
+#  define erasechar() (_tty.c_cc[VERASE])		/* equivalent */
+#  define killchar()  (_tty.c_cc[VKILL])		/* equivalent */
+# else
+#  define erasechar() (_tty.sg_erase)			/* equivalent */
+#  define killchar()  (_tty.sg_kill)			/* equivalent */
+# endif /* if UNIXPC */
 #endif	/* if !TERMINFO */
-#endif	/* ifndef __FreeBSD__ */
 
 #endif /* CSCOPE_CONSTANTS_H */

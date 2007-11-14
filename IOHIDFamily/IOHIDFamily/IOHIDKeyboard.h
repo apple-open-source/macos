@@ -85,6 +85,9 @@ enum {
     kprodSantaISOKbd        = 0x212,
     kgestSantaJISKbd        = 39,      /* (39) Apple Santa Keyboard Japanese (JIS) Keyboard */
     kprodSantaJISKbd        = 0x213,
+    
+    kgestM89ISOKbd          = 47,      /* (47) Apple M89 Wired (ISO) Keyboard */
+    kgestM90ISOKbd          = 44,      /* (44) Apple M90 Wireless (ISO) Keyboard */
 };
 
 enum {
@@ -102,6 +105,7 @@ typedef struct _SecondaryKey {
 } SecondaryKey;
 
 #define ADB_CONVERTER_LEN       0xff + 1   //length of array def_usb_2_adb_keymap[]
+#define APPLE_ADB_CONVERTER_LEN 0xff + 1   //length of array def_usb_apple_2_adb_keymap[]
 
 class IOHIDKeyboard : public IOHIKeyboard
 {
@@ -117,6 +121,7 @@ class IOHIDKeyboard : public IOHIKeyboard
 
     // Scan Code Array Specific Members
     UInt8                   _usb_2_adb_keymap[ADB_CONVERTER_LEN + 1];
+    UInt8                   _usb_apple_2_adb_keymap[APPLE_ADB_CONVERTER_LEN + 1];
     
     // FN Key Member
     bool                    _containsFKey;
@@ -148,7 +153,6 @@ public:
     UInt32                  deviceType();
 
     // IOHIKeyboard methods
-    UInt32                  maxKeyCodes();
     const unsigned char * 	defaultKeymapOfLength(UInt32 * length);
     void                    setAlphaLockFeedback(bool LED_state);
     void                    setNumLockFeedback(bool LED_state);

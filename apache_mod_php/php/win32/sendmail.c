@@ -17,7 +17,7 @@
  *
  */
 
-/* $Id: sendmail.c,v 1.47.2.10.2.3 2006/01/06 01:10:21 sniper Exp $ */
+/* $Id: sendmail.c,v 1.47.2.10.2.4 2007/01/16 00:11:53 iliaa Exp $ */
 
 #include "php.h"				/*php specific */
 #include <stdio.h>
@@ -486,7 +486,7 @@ static int SendText(char *RPath, char *Subject, char *mailTo, char *mailCc, char
 		while(token != NULL)
 		{
 			SMTP_SKIP_SPACE(token);
-			sprintf(Buffer, "RCPT TO:<%s>\r\n", token);
+			snprintf(Buffer, MAIL_BUFFER_SIZE, "RCPT TO:<%s>\r\n", token);
 			if ((res = Post(Buffer)) != SUCCESS)
 				return (res);
 			if ((res = Ack(&server_response)) != SUCCESS) {
@@ -542,7 +542,7 @@ static int SendText(char *RPath, char *Subject, char *mailTo, char *mailCc, char
 			while(token != NULL)
 			{
 				SMTP_SKIP_SPACE(token);
-				sprintf(Buffer, "RCPT TO:<%s>\r\n", token);
+				snprintf(Buffer, MAIL_BUFFER_SIZE, "RCPT TO:<%s>\r\n", token);
 				if ((res = Post(Buffer)) != SUCCESS) {
 					return (res);
 				}

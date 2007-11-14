@@ -17,15 +17,15 @@
  *
  *  You should have received a copy of the GNU Library General Public License
  *  along with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA 02111-1307, USA.
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
  *
  */
 
 #ifndef _KJS_COMPLETION_H_
 #define _KJS_COMPLETION_H_
 
-#include "identifier.h"
+#include "CommonIdentifiers.h"
 #include "value.h"
 
 namespace KJS {
@@ -33,13 +33,13 @@ namespace KJS {
   /**
    * Completion types.
    */
-  enum ComplType { Normal, Break, Continue, ReturnValue, Throw };
+  enum ComplType { Normal, Break, Continue, ReturnValue, Throw, Interrupted };
 
   /**
    * Completion objects are used to convey the return status and value
    * from functions.
    *
-   * See @ref FunctionImp::execute()
+   * See FunctionImp::execute()
    *
    * @see FunctionImp
    *
@@ -47,17 +47,16 @@ namespace KJS {
    */
   class Completion {
   public:
-    Completion(ComplType c = Normal, const Value& v = Value(),
-               const Identifier &t = Identifier::null())
+    Completion(ComplType c = Normal, JSValue *v = NULL, const Identifier &t = CommonIdentifiers::shared()->nullIdentifier)
         : comp(c), val(v), tar(t) { }
 
     ComplType complType() const { return comp; }
-    Value value() const { return val; }
+    JSValue *value() const { return val; }
     Identifier target() const { return tar; }
-    bool isValueCompletion() const { return !val.isNull(); }
+    bool isValueCompletion() const { return !!val; }
   private:
     ComplType comp;
-    Value val;
+    JSValue *val;
     Identifier tar;
   };
 

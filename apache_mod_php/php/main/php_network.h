@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Stig Venaas <venaas@uninett.no>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_network.h,v 1.37.2.5.2.1 2006/01/01 13:46:59 sniper Exp $ */
+/* $Id: php_network.h,v 1.37.2.5.2.2 2007/01/01 09:46:50 sebastian Exp $ */
 
 #ifndef _PHP_NETWORK_H
 #define _PHP_NETWORK_H

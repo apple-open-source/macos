@@ -15,51 +15,52 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
-#ifndef _ERROR_OBJECT_H_
-#define _ERROR_OBJECT_H_
+#ifndef ERROR_OBJECT_H_
+#define ERROR_OBJECT_H_
 
-#include "internal.h"
 #include "function_object.h"
 
 namespace KJS {
 
-  class ErrorPrototypeImp : public ObjectImp {
+  class ErrorInstance : public JSObject {
   public:
-    ErrorPrototypeImp(ExecState *exec,
-                      ObjectPrototypeImp *objectProto,
-                      FunctionPrototypeImp *funcProto);
+    ErrorInstance(JSObject *proto);
+    
+    virtual const ClassInfo *classInfo() const { return &info; }
+    static const ClassInfo info;
+  };
+  
+  class ErrorPrototype : public JSObject {
+  public:
+    ErrorPrototype(ExecState *exec,
+                      ObjectPrototype *objectProto,
+                      FunctionPrototype *funcProto);
   };
 
-  class ErrorProtoFuncImp : public InternalFunctionImp {
+  class ErrorProtoFunc : public InternalFunctionImp {
   public:
-    ErrorProtoFuncImp(ExecState *exec, FunctionPrototypeImp *funcProto);
-    virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    ErrorProtoFunc(ExecState*, FunctionPrototype*, const Identifier&);
+    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
   };
 
   class ErrorObjectImp : public InternalFunctionImp {
   public:
-    ErrorObjectImp(ExecState *exec, FunctionPrototypeImp *funcProto,
-                   ErrorPrototypeImp *errorProto);
+    ErrorObjectImp(ExecState *exec, FunctionPrototype *funcProto,
+                   ErrorPrototype *errorProto);
 
     virtual bool implementsConstruct() const;
-    virtual Object construct(ExecState *exec, const List &args);
+    virtual JSObject *construct(ExecState *exec, const List &args);
 
-    virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
   };
 
-
-
-
-
-  class NativeErrorPrototypeImp : public ObjectImp {
+  class NativeErrorPrototype : public JSObject {
   public:
-    NativeErrorPrototypeImp(ExecState *exec, ErrorPrototypeImp *errorProto,
+    NativeErrorPrototype(ExecState *exec, ErrorPrototype *errorProto,
                             ErrorType et, UString name, UString message);
   private:
     ErrorType errType;
@@ -67,22 +68,21 @@ namespace KJS {
 
   class NativeErrorImp : public InternalFunctionImp {
   public:
-    NativeErrorImp(ExecState *exec, FunctionPrototypeImp *funcProto,
-                   const Object &prot);
+    NativeErrorImp(ExecState *exec, FunctionPrototype *funcProto,
+                   JSObject *prot);
 
     virtual bool implementsConstruct() const;
-    virtual Object construct(ExecState *exec, const List &args);
-    virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    virtual JSObject *construct(ExecState *exec, const List &args);
+    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
 
     virtual void mark();
 
     virtual const ClassInfo *classInfo() const { return &info; }
     static const ClassInfo info;
   private:
-    ObjectImp *proto;
+    JSObject *proto;
   };
 
-}; // namespace
+} // namespace
 
 #endif

@@ -39,7 +39,7 @@
 
 #define OPENFLAG_READ	0
 
-static char const rcsid[] = "$Id: vpopen.c,v 1.2 2004/07/09 21:34:45 nicolai Exp $";
+static char const rcsid[] = "$Id: vpopen.c,v 1.4 2002/07/28 15:40:07 broeker Exp $";
 
 int
 vpopen(char *path, int oflag)

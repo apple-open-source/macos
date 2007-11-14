@@ -1,6 +1,7 @@
+// -*- mode: c++; c-basic-offset: 4 -*-
 /*
  *  This file is part of the KDE libraries
- *  Copyright (C) 2004 Apple Computer, Inc.
+ *  Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -14,26 +15,30 @@
  *
  *  You should have received a copy of the GNU Library General Public License
  *  along with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA 02111-1307, USA.
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
  *
  */
 
-#ifndef _KJS_PROPERTY_MAP_H_
-#define _KJS_PROPERTY_MAP_H_
+#ifndef KJS_PROPERTY_MAP_H_
+#define KJS_PROPERTY_MAP_H_
 
 #include "identifier.h"
+#include <wtf/OwnArrayPtr.h>
 
 namespace KJS {
 
-    class Object;
-    class ReferenceList;
-    class ValueImp;
+    class PropertyNameArray;
+    class JSObject;
+    class JSValue;
     
     class SavedProperty;
     
     struct PropertyMapHashTable;
     
+/**
+* Saved Properties
+*/
     class SavedProperties {
     friend class PropertyMap;
     public:
@@ -42,21 +47,24 @@ namespace KJS {
         
     private:
         int _count;
-        SavedProperty *_properties;
-        
-        SavedProperties(const SavedProperties&);
-        SavedProperties& operator=(const SavedProperties&);
+        OwnArrayPtr<SavedProperty> _properties;
     };
     
+/**
+* A hashtable entry for the @ref PropertyMap.
+*/
     struct PropertyMapHashTableEntry
     {
         PropertyMapHashTableEntry() : key(0) { }
         UString::Rep *key;
-        ValueImp *value;
+        JSValue *value;
         int attributes;
         int index;
     };
 
+/**
+* Javascript Property Map.
+*/
     class PropertyMap {
     public:
         PropertyMap();
@@ -64,36 +72,55 @@ namespace KJS {
 
         void clear();
         
-        void put(const Identifier &name, ValueImp *value, int attributes);
+        void put(const Identifier &name, JSValue *value, int attributes, bool roCheck = false);
         void remove(const Identifier &name);
-        ValueImp *get(const Identifier &name) const;
-        ValueImp *get(const Identifier &name, int &attributes) const;
+        JSValue *get(const Identifier &name) const;
+        JSValue *get(const Identifier &name, unsigned &attributes) const;
+        JSValue **getLocation(const Identifier &name);
 
         void mark() const;
-        void addEnumerablesToReferenceList(ReferenceList &, const Object &) const;
-	void addSparseArrayPropertiesToReferenceList(ReferenceList &, const Object &) const;
+        void getEnumerablePropertyNames(PropertyNameArray&) const;
+        void getSparseArrayPropertyNames(PropertyNameArray&) const;
 
         void save(SavedProperties &) const;
         void restore(const SavedProperties &p);
 
+        bool hasGetterSetterProperties() const { return m_getterSetterFlag; }
+        void setHasGetterSetterProperties(bool f) { m_getterSetterFlag = f; }
+
+        bool containsGettersOrSetters() const;
     private:
         static bool keysMatch(const UString::Rep *, const UString::Rep *);
         void expand();
         void rehash();
         void rehash(int newTableSize);
         
-        void insert(UString::Rep *, ValueImp *value, int attributes, int index);
+        void insert(UString::Rep *, JSValue *value, int attributes, int index);
         
         void checkConsistency();
         
         typedef PropertyMapHashTableEntry Entry;
         typedef PropertyMapHashTable Table;
 
-        Table *_table;
-        
-        Entry _singleEntry;
+        UString::Rep* m_singleEntryKey;
+        union {
+          JSValue* singleEntryValue;
+          Table* table;
+        } m_u;
+
+        short m_singleEntryAttributes;
+        bool m_getterSetterFlag : 1;
+        bool m_usingTable : 1;
     };
 
-}; // namespace
+    inline PropertyMap::PropertyMap() 
+        : m_singleEntryKey(0)
+        , m_getterSetterFlag(false)
+        , m_usingTable(false)
+
+    {
+    }
+
+} // namespace
 
 #endif // _KJS_PROPERTY_MAP_H_

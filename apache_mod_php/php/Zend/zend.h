@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.164.2.27.2.2 2006/01/01 13:46:49 sniper Exp $ */
+/* $Id: zend.h,v 1.164.2.27.2.3 2007/03/13 01:22:02 stas Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
@@ -454,7 +454,9 @@ ZEND_API void free_estring(char **str_p);
 
 /* output support */
 #define ZEND_WRITE(str, str_len)		zend_write((str), (str_len))
+#define ZEND_WRITE_EX(str, str_len)		write_func((str), (str_len))
 #define ZEND_PUTS(str)					zend_write((str), strlen((str)))
+#define ZEND_PUTS_EX(str)				write_func((str), strlen((str)))
 #define ZEND_PUTC(c)					zend_write(&(c), 1), (c)
 
 

@@ -115,5 +115,4 @@ after_install:
 	mkdir -p "$(DSTROOT)/System/Library/LaunchDaemons"
 	cp tftp.plist "$(DSTROOT)/System/Library/LaunchDaemons/"
 	cp tftp.plist-SERVER "$(DSTROOT)/System/Library/LaunchDaemons/"
-	mkdir -p "$(DSTROOT)/private/tftpboot/private"
-	ln -s / "$(DSTROOT)/private/tftpboot/private/tftpboot"
+	mkdir -p "$(DSTROOT)/private/tftpboot"

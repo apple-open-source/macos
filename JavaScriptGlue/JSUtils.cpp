@@ -1,7 +1,32 @@
-//
-// JSUtils.cpp
-//
+/*
+ * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer. 
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution. 
+ * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ *     its contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission. 
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
+#include "config.h"
 #include "JSUtils.h"
 #include "JSBase.h"
 #include "JSObject.h"
@@ -9,24 +34,23 @@
 #include "UserObjectImp.h"
 #include "JSValueWrapper.h"
 #include "JSObject.h"
+#include <JavaScriptCore/PropertyNameArray.h>
 
 struct ObjectImpList {
-	ObjectImp* imp;
-	ObjectImpList* next;
-	CFTypeRef data;
+    JSObject* imp;
+    ObjectImpList* next;
+    CFTypeRef data;
 };
 
-static CFTypeRef KJSValueToCFTypeInternal(const Value& inValue, ExecState *exec, ObjectImpList* inImps);
+static CFTypeRef KJSValueToCFTypeInternal(JSValue *inValue, ExecState *exec, ObjectImpList* inImps);
 
 
 //--------------------------------------------------------------------------
-//	CFStringToUString
+// CFStringToUString
 //--------------------------------------------------------------------------
 
 UString CFStringToUString(CFStringRef inCFString)
 {
-    InterpreterLock lock;
-
     UString result;
     if (inCFString) {
         CFIndex len = CFStringGetLength(inCFString);
@@ -43,82 +67,73 @@ UString CFStringToUString(CFStringRef inCFString)
 
 
 //--------------------------------------------------------------------------
-//	UStringToCFString
+// UStringToCFString
 //--------------------------------------------------------------------------
 // Caller is responsible for releasing the returned CFStringRef
 CFStringRef UStringToCFString(const UString& inUString)
 {
-	return CFStringCreateWithCharacters(NULL, (const UniChar*)inUString.data(), inUString.size());
+    return CFStringCreateWithCharacters(0, (const UniChar*)inUString.data(), inUString.size());
 }
 
 
-#if JAG_PINK_OR_LATER
 //--------------------------------------------------------------------------
-//	CFStringToIdentifier
+// CFStringToIdentifier
 //--------------------------------------------------------------------------
 
 Identifier CFStringToIdentifier(CFStringRef inCFString)
 {
-	return Identifier(CFStringToUString(inCFString));
+    return Identifier(CFStringToUString(inCFString));
 }
 
 
 //--------------------------------------------------------------------------
-//	IdentifierToCFString
+// IdentifierToCFString
 //--------------------------------------------------------------------------
 // Caller is responsible for releasing the returned CFStringRef
 CFStringRef IdentifierToCFString(const Identifier& inIdentifier)
 {
-	return UStringToCFString(inIdentifier.ustring());
+    return UStringToCFString(inIdentifier.ustring());
 }
-#endif
 
 
 //--------------------------------------------------------------------------
-//	KJSValueToJSObject
+// KJSValueToJSObject
 //--------------------------------------------------------------------------
-JSUserObject*		KJSValueToJSObject(const Value& inValue, ExecState *exec)
+JSUserObject* KJSValueToJSObject(JSValue *inValue, ExecState *exec)
 {
-	JSUserObject* result = NULL;
-#if JAG_PINK_OR_LATER
-	UserObjectImp* userObjectImp;
-	if (inValue.type() == ObjectType && (userObjectImp = dynamic_cast<UserObjectImp*>(inValue.imp())))
-#else
-	if (UserObjectImp* userObjectImp = dynamic_cast<UserObjectImp*>(inValue.imp()))
-#endif
-	{
-		result =  userObjectImp->GetJSUserObject();
-		if (result) result->Retain();
-	}
-	else
-	{
-		JSValueWrapper* wrapperValue = new JSValueWrapper(inValue);
-		if (wrapperValue)
-		{
-			JSObjectCallBacks callBacks;
-			JSValueWrapper::GetJSObectCallBacks(callBacks);
-			result = (JSUserObject*)JSObjectCreate(wrapperValue, &callBacks);
-			if (!result)
-			{
-				delete wrapperValue;
-			}
-		}
-	}
-	return result;
+    JSUserObject* result = 0;
+
+    if (inValue->isObject(&UserObjectImp::info)) {
+        UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(inValue);
+        result = userObjectImp->GetJSUserObject();
+        if (result)
+            result->Retain();
+    } else {
+        JSValueWrapper* wrapperValue = new JSValueWrapper(inValue);
+        if (wrapperValue) {
+            JSObjectCallBacks callBacks;
+            JSValueWrapper::GetJSObectCallBacks(callBacks);
+            result = (JSUserObject*)JSObjectCreate(wrapperValue, &callBacks);
+            if (!result) {
+                delete wrapperValue;
+            }
+        }
+    }
+    return result;
 }
 
 //--------------------------------------------------------------------------
-//	JSObjectKJSValue
+// JSObjectKJSValue
 //--------------------------------------------------------------------------
-Value JSObjectKJSValue(JSUserObject* ptr)
+JSValue *JSObjectKJSValue(JSUserObject* ptr)
 {
-    InterpreterLock lock;
+    JSLock lock;
 
-    Value result = Undefined();
+    JSValue *result = jsUndefined();
     if (ptr)
     {
         bool handled = false;
-        
+
         switch (ptr->DataType())
         {
             case kJSUserObjectDataTypeJSValueWrapper:
@@ -131,7 +146,7 @@ Value JSObjectKJSValue(JSUserObject* ptr)
                 }
                 break;
             }
-                
+
             case kJSUserObjectDataTypeCFType:
             {
                 CFTypeRef cfType = (CFTypeRef*)ptr->GetData();
@@ -140,41 +155,24 @@ Value JSObjectKJSValue(JSUserObject* ptr)
                     CFTypeID typeID = CFGetTypeID(cfType);
                     if (typeID == CFStringGetTypeID())
                     {
-                        result = String(CFStringToUString((CFStringRef)cfType));
+                        result = jsString(CFStringToUString((CFStringRef)cfType));
                         handled = true;
                     }
                     else if (typeID == CFNumberGetTypeID())
                     {
-                        if (CFNumberIsFloatType((CFNumberRef)cfType))
-                        {
-                            double num;
-                            if (CFNumberGetValue((CFNumberRef)cfType, kCFNumberDoubleType, &num))
-                            {
-                                result = Number(num);
-                                handled = true;
-                            }
-                        }
-                        else
-                        {
-                            long num;
-                            if (CFNumberGetValue((CFNumberRef)cfType, kCFNumberLongType, &num))
-                            {
-                                result = Number(num);
-                                handled = true;
-                            }
-                        }
+                        double num;
+                        CFNumberGetValue((CFNumberRef)cfType, kCFNumberDoubleType, &num);
+                        result = jsNumber(num);
+                        handled = true;
                     }
                     else if (typeID == CFBooleanGetTypeID())
                     {
-                        result = KJS::Boolean(CFBooleanGetValue((CFBooleanRef)cfType));
+                        result = jsBoolean(CFBooleanGetValue((CFBooleanRef)cfType));
                         handled = true;
-                    }
-                    else if (typeID == CFDateGetTypeID())
-                    {
                     }
                     else if (typeID == CFNullGetTypeID())
                     {
-                        result = Null();
+                        result = jsNull();
                         handled = true;
                     }
                 }
@@ -183,7 +181,7 @@ Value JSObjectKJSValue(JSUserObject* ptr)
         }
         if (!handled)
         {
-            result = Object(new UserObjectImp(ptr));
+            result = new UserObjectImp(ptr);
         }
     }
     return result;
@@ -193,279 +191,190 @@ Value JSObjectKJSValue(JSUserObject* ptr)
 
 
 //--------------------------------------------------------------------------
-//	KJSValueToCFTypeInternal
+// KJSValueToCFTypeInternal
 //--------------------------------------------------------------------------
 // Caller is responsible for releasing the returned CFTypeRef
-CFTypeRef KJSValueToCFTypeInternal(const Value& inValue, ExecState *exec, ObjectImpList* inImps)
+CFTypeRef KJSValueToCFTypeInternal(JSValue *inValue, ExecState *exec, ObjectImpList* inImps)
 {
-#if JAG_PINK_OR_LATER
-	if (inValue.isNull())
-		return NULL;
-#endif
-		
-	CFTypeRef result = NULL;
-	
-        InterpreterLock lock;
+    if (!inValue)
+        return 0;
 
-	switch (inValue.type())
-	{
-		case BooleanType:
-			{
-				result = inValue.toBoolean(exec) ? kCFBooleanTrue : kCFBooleanFalse;
-				RetainCFType(result);
-			}
-			break;
-			
-		case StringType:
-			{
-				UString uString = inValue.toString(exec);
-				result = UStringToCFString(uString);
-			}
-			break;
-			
-		case NumberType:
-			{
-				double number1 = inValue.toNumber(exec);
-				double number2 = (double)inValue.toInteger(exec);
-				if (number1 ==  number2)
-				{
-					int intValue = (int)number2;
-					result = CFNumberCreate(NULL, kCFNumberIntType, &intValue);
-				}
-				else
-				{
-					result = CFNumberCreate(NULL, kCFNumberDoubleType, &number1);
-				}
-			}
-			break;
-			
-		case ObjectType:
-			{
-				if (UserObjectImp* userObjectImp = dynamic_cast<UserObjectImp*>(inValue.imp()))
-				{
-					JSUserObject* ptr = userObjectImp->GetJSUserObject();
-					if (ptr)
-					{
-						result = ptr->CopyCFValue();
-					}
-				}
-				else
-				{
-					Object object = inValue.toObject(exec);
-					UInt8 isArray = false;
+    CFTypeRef result = 0;
 
-					// if two objects reference each
-					ObjectImp* imp = object.imp();
-					ObjectImpList* temp = inImps;
-					while (temp) {
-						if (imp == temp->imp) {
-							return CFRetain(GetCFNull());
-						}
-						temp = temp->next;
-					}
+    JSLock lock;
 
-					ObjectImpList imps;
-					imps.next = inImps;
-					imps.imp = imp;
+    switch (inValue->type())
+    {
+        case BooleanType:
+            {
+                result = inValue->toBoolean(exec) ? kCFBooleanTrue : kCFBooleanFalse;
+                RetainCFType(result);
+            }
+            break;
 
-					
+        case StringType:
+            {
+                UString uString = inValue->toString(exec);
+                result = UStringToCFString(uString);
+            }
+            break;
+
+        case NumberType:
+            {
+                double number1 = inValue->toNumber(exec);
+                double number2 = (double)inValue->toInteger(exec);
+                if (number1 ==  number2)
+                {
+                    int intValue = (int)number2;
+                    result = CFNumberCreate(0, kCFNumberIntType, &intValue);
+                }
+                else
+                {
+                    result = CFNumberCreate(0, kCFNumberDoubleType, &number1);
+                }
+            }
+            break;
+
+        case ObjectType:
+            {
+                            if (inValue->isObject(&UserObjectImp::info)) {
+                                UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(inValue);
+                    JSUserObject* ptr = userObjectImp->GetJSUserObject();
+                    if (ptr)
+                    {
+                        result = ptr->CopyCFValue();
+                    }
+                }
+                else
+                {
+                    JSObject *object = inValue->toObject(exec);
+                    UInt8 isArray = false;
+
+                    // if two objects reference each
+                    JSObject* imp = object;
+                    ObjectImpList* temp = inImps;
+                    while (temp) {
+                        if (imp == temp->imp) {
+                            return CFRetain(GetCFNull());
+                        }
+                        temp = temp->next;
+                    }
+
+                    ObjectImpList imps;
+                    imps.next = inImps;
+                    imps.imp = imp;
+
+
 //[...] HACK since we do not have access to the class info we use class name instead
 #if 0
-					if (object.inherits(&ArrayInstanceImp::info))
+                    if (object->inherits(&ArrayInstanceImp::info))
 #else
-					if (object.className() == "Array")
+                    if (object->className() == "Array")
 #endif
-					{
-						isArray = true;					
-#if JAG_PINK_OR_LATER
-						JSInterpreter* intrepreter = (JSInterpreter*)exec->dynamicInterpreter();
-						if (intrepreter && (intrepreter->Flags() & kJSFlagConvertAssociativeArray)) {
-							ReferenceList propList = object.propList(exec, false);
-							ReferenceListIterator iter = propList.begin();
-							ReferenceListIterator end = propList.end();
-							while(iter != end && isArray)
-							{
-								Identifier propName = iter->getPropertyName(exec);
-								UString ustr = propName.ustring();
-								const UniChar* uniChars = (const UniChar*)ustr.data();
-								int size = ustr.size();
-								while (size--) {
-									if (uniChars[size] < '0' || uniChars[size] > '9') {
-										isArray = false;
-										break;
-									}
-								}
-								iter++;
-							}
-						}
-#endif
-					}
-					
-					if (isArray)
-					{				
-						// This is an KJS array
-						unsigned int length = object.get(exec, "length").toUInt32(exec);
-						result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-						if (result)
-						{
-#if JAG_PINK_OR_LATER
-							for (unsigned i = 0; i < length; i++)
-							{
-								CFTypeRef cfValue = KJSValueToCFTypeInternal(object.get(exec, i), exec, &imps);
-								CFArrayAppendValue((CFMutableArrayRef)result, cfValue);
-								ReleaseCFType(cfValue);
-							}
-#else
-							for (unsigned int i = 0; i < length; i++)
-							{
-								UString propertyName = UString::from(i);
-								CFTypeRef cfValue = KJSValueToCFTypeInternal(object.get(exec, propertyName), exec, &imps);
-								CFArrayAppendValue((CFMutableArrayRef)result, cfValue);
-								ReleaseCFType(cfValue);
-							}
-#endif
-						}
-					}
-					else
-					{
-#if JAG_PINK_OR_LATER
-						// Not an arry, just treat it like a dictionary which contains (property name, property value) paiars
-						ReferenceList propList = object.propList(exec, false);
-						{
-							result = CFDictionaryCreateMutable(NULL, 
-															   0, 
-															   &kCFTypeDictionaryKeyCallBacks, 
-															   &kCFTypeDictionaryValueCallBacks);
-							if (result)
-							{
-								ReferenceListIterator iter = propList.begin();
-								ReferenceListIterator end = propList.end();
-								while(iter != end)
-								{
-									Identifier propName = iter->getPropertyName(exec);
-									if (object.hasProperty(exec, propName))
-									{
-										CFStringRef cfKey = IdentifierToCFString(propName);
-										CFTypeRef cfValue = KJSValueToCFTypeInternal(object.get(exec, propName), exec, &imps);
-										if (cfKey && cfValue)
-										{
-											CFDictionaryAddValue((CFMutableDictionaryRef)result, cfKey, cfValue);
-										}
-										ReleaseCFType(cfKey);
-										ReleaseCFType(cfValue);
-									}
-									iter++;
-								}
-							}
-						}
-#else
-						List propList = object.propList(exec);
-						if (propList.size() > 0)
-						{
-							result = CFDictionaryCreateMutable(NULL, 
-															   0, 
-															   &kCFTypeDictionaryKeyCallBacks, 
-															   &kCFTypeDictionaryValueCallBacks);
-							if (result)
-							{
-								ListIterator iter = propList.begin();
-								ListIterator end = propList.end();
-								while(iter != end)
-								{
-									UString propName = iter->getPropertyName(exec);
-									if (object.hasProperty(exec, propName))
-									{
-										CFStringRef cfKey = UStringToCFString(propName);
-										CFTypeRef cfValue = KJSValueToCFTypeInternal(iter->getValue(exec), exec, &imps);
-										if (cfKey && cfValue)
-										{
-											CFDictionaryAddValue((CFMutableDictionaryRef)result, cfKey, cfValue);
-										}
-										ReleaseCFType(cfKey);
-										ReleaseCFType(cfValue);
-									}
-									++iter;
-								}
-							}
-						}
-#endif
-					}
-				}
-			}
-			break;
+                    {
+                        isArray = true;
+                        JSInterpreter* intrepreter = (JSInterpreter*)exec->dynamicInterpreter();
+                        if (intrepreter && (intrepreter->Flags() & kJSFlagConvertAssociativeArray)) {
+                            PropertyNameArray propNames;
+                            object->getPropertyNames(exec, propNames);
+                            PropertyNameArrayIterator iter = propNames.begin();
+                            PropertyNameArrayIterator end = propNames.end();
+                            while(iter != end && isArray)
+                            {
+                                Identifier propName = *iter;
+                                UString ustr = propName.ustring();
+                                const UniChar* uniChars = (const UniChar*)ustr.data();
+                                int size = ustr.size();
+                                while (size--) {
+                                    if (uniChars[size] < '0' || uniChars[size] > '9') {
+                                        isArray = false;
+                                        break;
+                                    }
+                                }
+                                iter++;
+                            }
+                        }
+                    }
 
-#if !JAG_PINK_OR_LATER
-		case ReferenceType:
-			{
-				Value value = inValue.getValue(exec);
-				result = KJSValueToCFTypeInternal(value, exec, NULL);
-			}
-			break;
+                    if (isArray)
+                    {
+                        // This is an KJS array
+                        unsigned int length = object->get(exec, "length")->toUInt32(exec);
+                        result = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+                        if (result)
+                        {
+                            for (unsigned i = 0; i < length; i++)
+                            {
+                                CFTypeRef cfValue = KJSValueToCFTypeInternal(object->get(exec, i), exec, &imps);
+                                CFArrayAppendValue((CFMutableArrayRef)result, cfValue);
+                                ReleaseCFType(cfValue);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Not an array, just treat it like a dictionary which contains (property name, property value) pairs
+                        PropertyNameArray propNames;
+                        object->getPropertyNames(exec, propNames);
+                        {
+                            result = CFDictionaryCreateMutable(0,
+                                                               0,
+                                                               &kCFTypeDictionaryKeyCallBacks,
+                                                               &kCFTypeDictionaryValueCallBacks);
+                            if (result)
+                            {
+                                PropertyNameArrayIterator iter = propNames.begin();
+                                PropertyNameArrayIterator end = propNames.end();
+                                while(iter != end)
+                                {
+                                    Identifier propName = *iter;
+                                    if (object->hasProperty(exec, propName))
+                                    {
+                                        CFStringRef cfKey = IdentifierToCFString(propName);
+                                        CFTypeRef cfValue = KJSValueToCFTypeInternal(object->get(exec, propName), exec, &imps);
+                                        if (cfKey && cfValue)
+                                        {
+                                            CFDictionaryAddValue((CFMutableDictionaryRef)result, cfKey, cfValue);
+                                        }
+                                        ReleaseCFType(cfKey);
+                                        ReleaseCFType(cfValue);
+                                    }
+                                    iter++;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            break;
 
-		case ListType:
-			{
-				List list = List::dynamicCast(inValue);
-				if (!list.isNull())
-				{
-					result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-					if (result)
-					{
-						ListIterator iter = list.begin();
-						ListIterator end = list.end();
-						while (iter != end)
-						{
-							CFTypeRef cfTypeRef = KJSValueToCFTypeInternal(*iter, exec, NULL);
-							if (cfTypeRef)
-								CFArrayAppendValue((CFMutableArrayRef)result, cfTypeRef);
-							++iter;
-						}
-					}
-				}
-			}
-			break;
-#endif
-		
-		case NullType:
-		case UndefinedType:
-		case UnspecifiedType:
-			result = RetainCFType(GetCFNull());
-			break;
-			
-#if !JAG_PINK_OR_LATER
-		case CompletionType:
-			{
-				Completion completion = Completion::dynamicCast(inValue);
-				if (completion.isValueCompletion())
-				{
-					result = KJSValueToCFTypeInternal(completion.value(), exec, NULL);
-				}
-			}
-			break;
-#endif
+        case NullType:
+        case UndefinedType:
+        case UnspecifiedType:
+            result = RetainCFType(GetCFNull());
+            break;
 
-#if JAG_PINK_OR_LATER
-		default:
-			fprintf(stderr, "KJSValueToCFType: wrong value type %d\n", inValue.type());
-			break;
-#endif
-	}
-	
-	return result;
+        default:
+            fprintf(stderr, "KJSValueToCFType: wrong value type %d\n", inValue->type());
+            break;
+    }
+
+    return result;
 }
 
-CFTypeRef KJSValueToCFType(const Value& inValue, ExecState *exec)
+CFTypeRef KJSValueToCFType(JSValue *inValue, ExecState *exec)
 {
-	return KJSValueToCFTypeInternal(inValue, exec, NULL);
+    return KJSValueToCFTypeInternal(inValue, exec, 0);
 }
 
 CFTypeRef GetCFNull(void)
 {
-	static CFArrayRef sCFNull = CFArrayCreate(NULL, NULL, 0, NULL);
-	CFTypeRef result = JSGetCFNull();
-	if (!result)
-	{
-		result = sCFNull;
-	}
-	return result;
+    static CFArrayRef sCFNull = CFArrayCreate(0, 0, 0, 0);
+    CFTypeRef result = JSGetCFNull();
+    if (!result)
+    {
+        result = sCFNull;
+    }
+    return result;
 }
 

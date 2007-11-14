@@ -22,22 +22,47 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#include <Foundation/Foundation.h>
 
-#include <JavaScriptCore/internal.h>
+#include "config.h"
+#include "objc_utility.h"
 
-#include <objc_instance.h>
-#include <objc_utility.h>
+#include "objc_instance.h"
 
-#include <runtime_array.h>
-#include <runtime_object.h>
-#include <runtime_root.h>
+#include "runtime_array.h"
+#include "runtime_object.h"
 
-#include <WebScriptObjectPrivate.h>
+#include "WebScriptObject.h"
 
+#if !defined(_C_LNG_LNG)
+#define _C_LNG_LNG 'q'
+#endif
 
-using namespace KJS;
-using namespace KJS::Bindings;
+#if !defined(_C_ULNG_LNG)
+#define _C_ULNG_LNG 'Q'
+#endif
+
+#if !defined(_C_CONST)
+#define _C_CONST 'r'
+#endif
+
+#if !defined(_C_BYCOPY)
+#define _C_BYCOPY 'O'
+#endif
+
+#if !defined(_C_BYREF)
+#define _C_BYREF 'R'
+#endif
+
+#if !defined(_C_ONEWAY)
+#define _C_ONEWAY 'V'
+#endif
+
+#if !defined(_C_GCINVISIBLE)
+#define _C_GCINVISIBLE '!'
+#endif
+
+namespace KJS {
+namespace Bindings {
 
 /*
     By default, a JavaScript method name is produced by concatenating the 
@@ -56,7 +81,7 @@ using namespace KJS::Bindings;
             Returns true for success, false for failure. (Failure occurs when 'buffer' 
             is not big enough to hold the result.)
 */
-bool KJS::Bindings::convertJSMethodNameToObjc(const char *JSName, char *buffer, size_t bufferSize)
+bool convertJSMethodNameToObjc(const char *JSName, char *buffer, size_t bufferSize)
 {
     assert(JSName && buffer);
     
@@ -70,7 +95,7 @@ bool KJS::Bindings::convertJSMethodNameToObjc(const char *JSName, char *buffer, 
             *dp = *sp;
         } else if (*sp == '_')
             *dp = ':';
-	else
+        else
             *dp = *sp;
 
         // If a future coder puts funny ++ operators above, we might write off the end 
@@ -96,260 +121,252 @@ bool KJS::Bindings::convertJSMethodNameToObjc(const char *JSName, char *buffer, 
     String          NSString
     wrapper         id
     Object          WebScriptObject
+    null            NSNull
     [], other       exception
 
 */
-ObjcValue KJS::Bindings::convertValueToObjcValue (KJS::ExecState *exec, const KJS::Value &value, ObjcValueType type)
+ObjcValue convertValueToObjcValue(ExecState *exec, JSValue *value, ObjcValueType type)
 {
     ObjcValue result;
     double d = 0;
-   
-    if (value.type() == NumberType || value.type() == StringType || value.type() == BooleanType)
-	d = value.toNumber(exec);
-	
-    switch (type){
+
+    if (value->isNumber() || value->isString() || value->isBoolean())
+        d = value->toNumber(exec);
+
+    switch (type) {
         case ObjcObjectType: {
-	    KJS::Interpreter *originInterpreter = exec->interpreter();
-            const Bindings::RootObject *originExecutionContext = rootForInterpreter(originInterpreter);
+            JSLock lock;
+            
+            Interpreter *originInterpreter = exec->dynamicInterpreter();
+            RootObject* originRootObject = findRootObject(originInterpreter);
 
-	    KJS::Interpreter *interpreter = 0;
-	    if (originInterpreter->isGlobalObject(value)) {
-		interpreter = originInterpreter->interpreterForGlobalObject (value.imp());
-	    }
+            Interpreter *interpreter = 0;
+            if (originInterpreter->isGlobalObject(value))
+                interpreter = originInterpreter->interpreterForGlobalObject(value);
 
-	    if (!interpreter)
-		interpreter = originInterpreter;
-		
-            const Bindings::RootObject *executionContext = rootForInterpreter(interpreter);
-            if (!executionContext) {
-                Bindings::RootObject *newExecutionContext = new KJS::Bindings::RootObject(0);
-                newExecutionContext->setInterpreter (interpreter);
-                executionContext = newExecutionContext;
-            }
-            result.objectValue = [WebScriptObject _convertValueToObjcValue:value originExecutionContext:originExecutionContext executionContext:executionContext ];
+            if (!interpreter)
+                interpreter = originInterpreter;
+                
+            RootObject* rootObject = findRootObject(interpreter);
+            result.objectValue =  rootObject
+                ? [webScriptObjectClass() _convertValueToObjcValue:value originRootObject:originRootObject rootObject:rootObject]
+                : nil;
         }
         break;
-        
-        
-        case ObjcCharType: {
+
+        case ObjcCharType:
+        case ObjcUnsignedCharType:
             result.charValue = (char)d;
-        }
-        break;
-
-        case ObjcShortType: {
+            break;
+        case ObjcShortType:
+        case ObjcUnsignedShortType:
             result.shortValue = (short)d;
-        }
-        break;
-
-        case ObjcIntType: {
+            break;
+        case ObjcIntType:
+        case ObjcUnsignedIntType:
             result.intValue = (int)d;
-        }
-        break;
-
-        case ObjcLongType: {
+            break;
+        case ObjcLongType:
+        case ObjcUnsignedLongType:
             result.longValue = (long)d;
-        }
-        break;
-
-        case ObjcFloatType: {
+            break;
+        case ObjcLongLongType:
+        case ObjcUnsignedLongLongType:
+            result.longLongValue = (long long)d;
+            break;
+        case ObjcFloatType:
             result.floatValue = (float)d;
-        }
-        break;
-
-        case ObjcDoubleType: {
+            break;
+        case ObjcDoubleType:
             result.doubleValue = (double)d;
-        }
-        break;
-
-        case ObjcVoidType: {
-            bzero (&result, sizeof(ObjcValue));
-        }
-        break;
+            break;
+        case ObjcVoidType:
+            bzero(&result, sizeof(ObjcValue));
+            break;
 
         case ObjcInvalidType:
         default:
-        {
-            // FIXME:  throw an exception
-        }
-        break;
+            // FIXME: throw an exception?
+            break;
     }
+
     return result;
 }
 
-Value KJS::Bindings::convertNSStringToString(NSString *nsstring)
+JSValue *convertNSStringToString(NSString *nsstring)
 {
+    JSLock lock;
+    
     unichar *chars;
     unsigned int length = [nsstring length];
     chars = (unichar *)malloc(sizeof(unichar)*length);
     [nsstring getCharacters:chars];
-    UString u((const KJS::UChar*)chars, length);
-    Value aValue = String (u);
+    UString u((const UChar*)chars, length);
+    JSValue *aValue = jsString(u);
     free((void *)chars);
     return aValue;
 }
 
 /*
-
     ObjC      to    JavaScript
-    char            Number
-    short
-    int
-    long
-    float
-    double
-    NSNumber        Number
-    NSString        String
-    NSArray         Array
-    id              Object wrapper
+    ----            ----------
+    char            number
+    short           number
+    int             number
+    long            number
+    float           number
+    double          number
+    NSNumber        boolean or number
+    NSString        string
+    NSArray         array
+    NSNull          null
+    WebScriptObject underlying JavaScript object
+    WebUndefined    undefined
+    id              object wrapper
     other           should not happen
-
 */
-Value KJS::Bindings::convertObjcValueToValue (KJS::ExecState *exec, void *buffer, ObjcValueType type)
+JSValue* convertObjcValueToValue(ExecState* exec, void* buffer, ObjcValueType type, RootObject* rootObject)
 {
-    Value aValue;
-
+    JSLock lock;
+    
     switch (type) {
-        case ObjcObjectType:
-            {
-                ObjectStructPtr *obj = (ObjectStructPtr *)buffer;
-
-                /*
-                    NSNumber to Number
-                    NSString to String
-                    NSArray  to Array
-                    id       to Object wrapper
-                */
-                if ([*obj isKindOfClass:[NSString class]]){
-                    NSString *string = (NSString *)*obj;
-                    aValue = convertNSStringToString (string);
-                }
-                else if (*obj == [WebUndefined undefined]) {
-                    return Undefined();
-                }
-                else if ((CFBooleanRef)*obj == kCFBooleanTrue) {
-                    aValue = Boolean(true);
-                }
-                else if ((CFBooleanRef)*obj == kCFBooleanFalse) {
-                    aValue = Boolean(false);
-                }
-                else if ([*obj isKindOfClass:[NSNumber class]]) {
-                    aValue = Number([*obj doubleValue]);
-                }
-                else if ([*obj isKindOfClass:[NSArray class]]) {
-                    aValue = Object(new RuntimeArrayImp(exec, new ObjcArray (*obj)));
-                }
-                else if ([*obj isKindOfClass:[WebScriptObject class]]) {
-                    WebScriptObject *jsobject = (WebScriptObject *)*obj;
-                    aValue = Object([jsobject _imp]);
-                }
-                else if (*obj == 0) {
-                    return Undefined();
-                }
-                else {
-		    aValue = Instance::createRuntimeObject(Instance::ObjectiveCLanguage, (void *)*obj);
-                }
+        case ObjcObjectType: {
+            id obj = *(id*)buffer;
+            if ([obj isKindOfClass:[NSString class]])
+                return convertNSStringToString((NSString *)obj);
+            if ([obj isKindOfClass:webUndefinedClass()])
+                return jsUndefined();
+            if ((CFBooleanRef)obj == kCFBooleanTrue)
+                return jsBoolean(true);
+            if ((CFBooleanRef)obj == kCFBooleanFalse)
+                return jsBoolean(false);
+            if ([obj isKindOfClass:[NSNumber class]])
+                return jsNumber([obj doubleValue]);
+            if ([obj isKindOfClass:[NSArray class]])
+                return new RuntimeArray(exec, new ObjcArray(obj, rootObject));
+            if ([obj isKindOfClass:webScriptObjectClass()]) {
+                JSObject* imp = [obj _imp];
+                return imp ? imp : jsUndefined();
             }
-            break;
+            if ([obj isKindOfClass:[NSNull class]])
+                return jsNull();
+            if (obj == 0)
+                return jsUndefined();
+            return Instance::createRuntimeObject(Instance::ObjectiveCLanguage, obj, rootObject);
+        }
         case ObjcCharType:
-            {
-                char *objcVal = (char *)buffer;
-                aValue = Number ((short)*objcVal);
-            }
-            break;
+            return jsNumber(*(char *)buffer);
+        case ObjcUnsignedCharType:
+            return jsNumber(*(unsigned char *)buffer);
         case ObjcShortType:
-            {
-                short *objcVal = (short *)buffer;
-                aValue = Number ((short)*objcVal);
-            }
-            break;
+            return jsNumber(*(short *)buffer);
+        case ObjcUnsignedShortType:
+            return jsNumber(*(unsigned short *)buffer);
         case ObjcIntType:
-            {
-                int *objcVal = (int *)buffer;
-                aValue = Number ((int)*objcVal);
-            }
-            break;
+            return jsNumber(*(int *)buffer);
+        case ObjcUnsignedIntType:
+            return jsNumber(*(unsigned int *)buffer);
         case ObjcLongType:
-            {
-                long *objcVal = (long *)buffer;
-                aValue = Number ((long)*objcVal);
-            }
-            break;
+            return jsNumber(*(long *)buffer);
+        case ObjcUnsignedLongType:
+            return jsNumber(*(unsigned long *)buffer);
+        case ObjcLongLongType:
+            return jsNumber(*(long long *)buffer);
+        case ObjcUnsignedLongLongType:
+            return jsNumber(*(unsigned long long *)buffer);
         case ObjcFloatType:
-            {
-                float *objcVal = (float *)buffer;
-                aValue = Number ((float)*objcVal);
-            }
-            break;
+            return jsNumber(*(float *)buffer);
         case ObjcDoubleType:
-            {
-                double *objcVal = (double *)buffer;
-                aValue = Number ((double)*objcVal);
-            }
-            break;
+            return jsNumber(*(double *)buffer);
         default:
-            // Should never get here.  Argument types are filtered (and
-            // the assert above should have fired in the impossible case
-            // of an invalid type anyway).
-            fprintf (stderr, "%s:  invalid type (%d)\n", __PRETTY_FUNCTION__, (int)type);
-            assert (true);
+            // Should never get here. Argument types are filtered.
+            fprintf(stderr, "%s: invalid type (%d)\n", __PRETTY_FUNCTION__, (int)type);
+            assert(false);
     }
     
-    return aValue;
+    return 0;
 }
 
-
-ObjcValueType KJS::Bindings::objcValueTypeForType (const char *type)
+ObjcValueType objcValueTypeForType(const char *type)
 {
     int typeLength = strlen(type);
     ObjcValueType objcValueType = ObjcInvalidType;
-    
-    if (typeLength == 1) {
-        char typeChar = type[0];
-        switch (typeChar){
-            case _C_ID: {
+
+    for (int i = 0; i < typeLength; ++i) {
+        char typeChar = type[i];
+        switch (typeChar) {
+            case _C_CONST:
+            case _C_BYCOPY:
+            case _C_BYREF:
+            case _C_ONEWAY:
+            case _C_GCINVISIBLE:
+                // skip these type modifiers
+                break;
+            case _C_ID:
                 objcValueType = ObjcObjectType;
-            }
-            break;
-            case _C_CHR: {
+                break;
+            case _C_CHR:
                 objcValueType = ObjcCharType;
-            }
-            break;
-            case _C_SHT: {
+                break;
+            case _C_UCHR:
+                objcValueType = ObjcUnsignedCharType;
+                break;
+            case _C_SHT:
                 objcValueType = ObjcShortType;
-            }
-            break;
-            case _C_INT: {
+                break;
+            case _C_USHT:
+                objcValueType = ObjcUnsignedShortType;
+                break;
+            case _C_INT:
                 objcValueType = ObjcIntType;
-            }
-            break;
-            case _C_LNG: {
+                break;
+            case _C_UINT:
+                objcValueType = ObjcUnsignedIntType;
+                break;
+            case _C_LNG:
                 objcValueType = ObjcLongType;
-            }
-            break;
-            case _C_FLT: {
+                break;
+            case _C_ULNG:
+                objcValueType = ObjcUnsignedLongType;
+                break;
+            case _C_LNG_LNG:
+                objcValueType = ObjcLongLongType;
+                break;
+            case _C_ULNG_LNG:
+                objcValueType = ObjcUnsignedLongLongType;
+                break;
+            case _C_FLT:
                 objcValueType = ObjcFloatType;
-            }
-            break;
-            case _C_DBL: {
+                break;
+            case _C_DBL:
                 objcValueType = ObjcDoubleType;
-            }
-            break;
-            case _C_VOID: {
+                break;
+            case _C_VOID:
                 objcValueType = ObjcVoidType;
-            }
-            break;
+                break;
+            default:
+                // Unhandled type. We don't handle C structs, unions, etc.
+                // FIXME: throw an exception?
+                assert(false);
         }
+
+        if (objcValueType != ObjcInvalidType)
+            break;
     }
+
     return objcValueType;
 }
 
-
-void *KJS::Bindings::createObjcInstanceForValue (const Object &value, const RootObject *origin, const RootObject *current)
+JSObject *throwError(ExecState *exec, ErrorType type, NSString *message)
 {
-    if (value.type() != ObjectType)
-	return 0;
+    assert(message);
+    size_t length = [message length];
+    unichar *buffer = new unichar[length];
+    [message getCharacters:buffer];
+    JSObject *error = throwError(exec, type, UString(reinterpret_cast<UChar *>(buffer), length));
+    delete [] buffer;
+    return error;
+}
 
-    ObjectImp *imp = static_cast<ObjectImp*>(value.imp());
-    
-    return [[[WebScriptObject alloc] _initWithObjectImp:imp originExecutionContext:origin executionContext:current] autorelease];
+}
 }

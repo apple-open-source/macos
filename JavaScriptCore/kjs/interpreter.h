@@ -16,112 +16,59 @@
  *
  *  You should have received a copy of the GNU Library General Public License
  *  along with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA 02111-1307, USA.
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
  *
  */
 
 #ifndef _KJS_INTERPRETER_H_
 #define _KJS_INTERPRETER_H_
 
+#include "ExecState.h"
+#include "protect.h"
 #include "value.h"
-#include "object.h"
 #include "types.h"
-
-#if APPLE_CHANGES
-
-#include "runtime.h"
-
-#endif
 
 namespace KJS {
 
-  class ContextImp;
-  class InterpreterImp;
-
-  /**
-   * Represents an execution context, as specified by section 10 of the ECMA
-   * spec.
-   *
-   * An execution context contains information about the current state of the
-   * script - the scope for variable lookup, the value of "this", etc. A new
-   * execution context is entered whenever global code is executed (e.g. with
-   * @ref Interpreter::evaluate()), a function is called (see @ref
-   * Object::call()), or the builtin "eval" function is executed.
-   *
-   * Most inheritable functions in the KJS api take a @ref ExecState pointer as
-   * their first parameter. This can be used to obtain a handle to the current
-   * execution context.
-   *
-   * Note: Context objects are wrapper classes/smart pointers for the internal
-   * KJS ContextImp type. When one context variable is assigned to another, it
-   * is still referencing the same internal object.
-   */
-  class Context {
-  public:
-    Context(ContextImp *i) : rep(i) { }
-
-    ContextImp *imp() const { return rep; }
-
-    /**
-     * Returns the scope chain for this execution context. This is used for
-     * variable lookup, with the list being searched from start to end until a
-     * variable is found.
-     *
-     * @return The execution context's scope chain
-     */
-    const ScopeChain &scopeChain() const;
-
-    /**
-     * Returns the variable object for the execution context. This contains a
-     * property for each variable declared in the execution context.
-     *
-     * @return The execution context's variable object
-     */
-    Object variableObject() const;
-
-    /**
-     * Returns the "this" value for the execution context. This is the value
-     * returned when a script references the special variable "this". It should
-     * always be an Object, unless application-specific code has passed in a
-     * different type.
-     *
-     * The object that is used as the "this" value depends on the type of
-     * execution context - for global contexts, the global object is used. For
-     * function objewcts, the value is given by the caller (e.g. in the case of
-     * obj.func(), obj would be the "this" value). For code executed by the
-     * built-in "eval" function, the this value is the same as the calling
-     * context.
-     *
-     * @return The execution context's "this" value
-     */
-    Object thisValue() const;
-
-    /**
-     * Returns the context from which the current context was invoked. For
-     * global code this will be a null context (i.e. one for which @ref
-     * isNull() returns true). You should check @ref isNull() on the returned
-     * value before calling any of it's methods.
-     *
-     * @return The calling execution context
-     */
-    const Context callingContext() const;
-
-  private:
-    ContextImp *rep;
-  };
-
-  class SavedBuiltinsInternal;
-
-  class SavedBuiltins {
-    friend class InterpreterImp;
-  public:
-    SavedBuiltins();
-    ~SavedBuiltins();
-  private:
-    SavedBuiltinsInternal *_internal;
-  };
-
+  class ArrayObjectImp;
+  class ArrayPrototype;
+  class BooleanObjectImp;
+  class BooleanPrototype;
+  class Context;
+  class DateObjectImp;
+  class DatePrototype;
+  class Debugger;
+  class ErrorObjectImp;
+  class ErrorPrototype;
+  class EvalError;
+  class EvalErrorPrototype;
+  class FunctionObjectImp;
+  class FunctionPrototype;
+  class NativeErrorImp;
+  class NativeErrorPrototype;
+  class NumberObjectImp;
+  class NumberPrototype;
+  class ObjectObjectImp;
+  class ObjectPrototype;
+  class RangeError;
+  class RangeErrorPrototype;
+  class ReferenceError;
+  class ReferenceError;
+  class ReferenceErrorPrototype;
+  class RegExpObjectImp;
+  class RegExpPrototype;
+  class RuntimeMethod;
+  class SavedBuiltins;
+  class ScopeChain;
+  class StringObjectImp;
+  class StringPrototype;
+  class SyntaxErrorPrototype;
+  class TypeError;
+  class TypeErrorPrototype;
+  class UriError;
+  class UriErrorPrototype;
+  
   /**
    * Interpreter objects can be used to evaluate ECMAScript code. Each
    * interpreter has a global object which is used for the purposes of code
@@ -129,6 +76,7 @@ namespace KJS {
    * " Object" and "Number".
    */
   class Interpreter {
+      friend class Collector;
   public:
     /**
      * Creates a new interpreter. The supplied object will be used as the global
@@ -146,25 +94,24 @@ namespace KJS {
      *
      * @param global The object to use as the global object for this interpreter
      */
-    Interpreter(const Object &global);
+    Interpreter(JSObject* globalObject);
     /**
      * Creates a new interpreter. A global object will be created and
      * initialized with the standard global properties.
      */
     Interpreter();
-    virtual ~Interpreter();
+
+    /**
+     * Resets the global object's default properties and adds the default object 
+     * prototype to its prototype chain.
+     */
+    void initGlobalObject();
 
     /**
      * Returns the object that is used as the global object during all script
      * execution performed by this interpreter
      */
-    Object &globalObject() const;
-
-    void initGlobalObject();
-
-    static void lock();
-    static void unlock();
-    static int lockCount();
+    JSObject* globalObject() const;
 
     /**
      * Returns the execution state object which can be used to execute
@@ -177,15 +124,17 @@ namespace KJS {
      *
      * @return The interpreter global execution state object
      */
-    ExecState *globalExec();
+    virtual ExecState *globalExec();
 
     /**
      * Parses the supplied ECMAScript code and checks for syntax errors.
      *
      * @param code The code to check
-     * @return true if there were no syntax errors in the code, otherwise false
+     * @return A normal completion if there were no syntax errors in the code, 
+     * otherwise a throw completion with the syntax error as its value.
      */
-    bool checkSyntax(const UString &code);
+    Completion checkSyntax(const UString& sourceURL, int startingLineNumber, const UString& code);
+    Completion checkSyntax(const UString& sourceURL, int startingLineNumber, const UChar* code, int codeLength);
 
     /**
      * Evaluates the supplied ECMAScript code.
@@ -199,21 +148,11 @@ namespace KJS {
      *
      * @param code The code to evaluate
      * @param thisV The value to pass in as the "this" value for the script
-     * execution. This should either be Null() or an Object.
+     * execution. This should either be jsNull() or an Object.
      * @return A completion object representing the result of the execution.
      */
-    Completion evaluate(const UString &sourceURL, int startingLineNumber, const UString &code, const Value &thisV = Value());
-
-	// Overload of evaluate to keep JavaScriptGlue both source and binary compatible.
-	Completion evaluate(const UString &code, const Value &thisV = Value(), const UString &sourceFilename = UString());
-
-    /**
-     * @internal
-     *
-     * Returns the implementation object associated with this interpreter.
-     * Only useful for internal KJS operations.
-     */
-    InterpreterImp *imp() const { return rep; }
+    Completion evaluate(const UString& sourceURL, int startingLineNumber, const UChar* code, int codeLength, JSValue* thisV = 0);
+    Completion evaluate(const UString& sourceURL, int startingLineNumber, const UString& code, JSValue* thisV = 0);
 
     /**
      * Returns the builtin "Object" object. This is the object that was set
@@ -223,133 +162,131 @@ namespace KJS {
      *
      * @return The builtin "Object" object
      */
-    Object builtinObject() const;
+    JSObject *builtinObject() const;
 
     /**
      * Returns the builtin "Function" object.
      */
-    Object builtinFunction() const;
+    JSObject *builtinFunction() const;
 
     /**
      * Returns the builtin "Array" object.
      */
-    Object builtinArray() const;
+    JSObject *builtinArray() const;
 
     /**
      * Returns the builtin "Boolean" object.
      */
-    Object builtinBoolean() const;
+    JSObject *builtinBoolean() const;
 
     /**
      * Returns the builtin "String" object.
      */
-    Object builtinString() const;
+    JSObject *builtinString() const;
 
     /**
      * Returns the builtin "Number" object.
      */
-    Object builtinNumber() const;
+    JSObject *builtinNumber() const;
 
     /**
      * Returns the builtin "Date" object.
      */
-    Object builtinDate() const;
+    JSObject *builtinDate() const;
 
     /**
      * Returns the builtin "RegExp" object.
      */
-    Object builtinRegExp() const;
+    JSObject *builtinRegExp() const;
 
     /**
      * Returns the builtin "Error" object.
      */
-    Object builtinError() const;
+    JSObject *builtinError() const;
 
     /**
      * Returns the builtin "Object.prototype" object.
      */
-    Object builtinObjectPrototype() const;
+    JSObject *builtinObjectPrototype() const;
 
     /**
      * Returns the builtin "Function.prototype" object.
      */
-    Object builtinFunctionPrototype() const;
+    JSObject *builtinFunctionPrototype() const;
 
     /**
      * Returns the builtin "Array.prototype" object.
      */
-    Object builtinArrayPrototype() const;
+    JSObject *builtinArrayPrototype() const;
 
     /**
      * Returns the builtin "Boolean.prototype" object.
      */
-    Object builtinBooleanPrototype() const;
+    JSObject *builtinBooleanPrototype() const;
 
     /**
      * Returns the builtin "String.prototype" object.
      */
-    Object builtinStringPrototype() const;
+    JSObject *builtinStringPrototype() const;
 
     /**
      * Returns the builtin "Number.prototype" object.
      */
-    Object builtinNumberPrototype() const;
+    JSObject *builtinNumberPrototype() const;
 
     /**
      * Returns the builtin "Date.prototype" object.
      */
-    Object builtinDatePrototype() const;
+    JSObject *builtinDatePrototype() const;
 
     /**
      * Returns the builtin "RegExp.prototype" object.
      */
-    Object builtinRegExpPrototype() const;
+    JSObject *builtinRegExpPrototype() const;
 
     /**
      * Returns the builtin "Error.prototype" object.
      */
-    Object builtinErrorPrototype() const;
+    JSObject *builtinErrorPrototype() const;
 
     /**
      * The initial value of "Error" global property
      */
-    Object builtinEvalError() const;
-    Object builtinRangeError() const;
-    Object builtinReferenceError() const;
-    Object builtinSyntaxError() const;
-    Object builtinTypeError() const;
-    Object builtinURIError() const;
+    JSObject *builtinEvalError() const;
+    JSObject *builtinRangeError() const;
+    JSObject *builtinReferenceError() const;
+    JSObject *builtinSyntaxError() const;
+    JSObject *builtinTypeError() const;
+    JSObject *builtinURIError() const;
 
-    Object builtinEvalErrorPrototype() const;
-    Object builtinRangeErrorPrototype() const;
-    Object builtinReferenceErrorPrototype() const;
-    Object builtinSyntaxErrorPrototype() const;
-    Object builtinTypeErrorPrototype() const;
-    Object builtinURIErrorPrototype() const;
+    JSObject *builtinEvalErrorPrototype() const;
+    JSObject *builtinRangeErrorPrototype() const;
+    JSObject *builtinReferenceErrorPrototype() const;
+    JSObject *builtinSyntaxErrorPrototype() const;
+    JSObject *builtinTypeErrorPrototype() const;
+    JSObject *builtinURIErrorPrototype() const;
 
     enum CompatMode { NativeMode, IECompat, NetscapeCompat };
     /**
      * Call this to enable a compatibility mode with another browser.
      * (by default konqueror is in "native mode").
-     * Currently, in KJS, this only changes the behaviour of Date::getYear()
+     * Currently, in KJS, this only changes the behavior of Date::getYear()
      * which returns the full year under IE.
      */
-    void setCompatMode(CompatMode mode);
-    CompatMode compatMode() const;
+    void setCompatMode(CompatMode mode) { m_compatMode = mode; }
+    CompatMode compatMode() const { return m_compatMode; }
+    
+    /**
+     * Run the garbage collection. Returns true when at least one object
+     * was collected; false otherwise.
+     */
+    static bool collect();
 
     /**
-     * Called by InterpreterImp during the mark phase of the garbage collector
-     * Default implementation does nothing, this exist for classes that reimplement Interpreter.
+     * Called during the mark phase of the garbage collector. Subclasses 
+     * implementing custom mark methods must make sure to chain to this one.
      */
-    virtual void mark() {}
-
-    /**
-     * Provides a way to distinguish derived classes.
-     * Only useful if you reimplement Interpreter and if different kind of
-     * interpreters are created in the same process.
-     * The base class returns 0, the ECMA-bindings interpreter returns 1.
-     */
-    virtual int rtti() { return 0; }
+    virtual void mark();
 
 #ifdef KJS_DEBUG_MEM
     /**
@@ -358,15 +295,12 @@ namespace KJS {
     static void finalCheck();
 #endif
 
-#if APPLE_CHANGES
     static bool shouldPrintExceptions();
     static void setShouldPrintExceptions(bool);
-#endif
 
-    void saveBuiltins (SavedBuiltins &) const;
-    void restoreBuiltins (const SavedBuiltins &);
+    void saveBuiltins (SavedBuiltins&) const;
+    void restoreBuiltins (const SavedBuiltins&);
 
-#if APPLE_CHANGES
     /**
      * Determine if the value is a global object (for any interpreter).  This may
      * be difficult to determine for multiple uses of JSC in a process that are
@@ -374,7 +308,7 @@ namespace KJS {
      * is used to determine if an object is the Window object so we can perform
      * security checks.
      */
-    virtual bool isGlobalObject(const Value &v) { return false; }
+    virtual bool isGlobalObject(JSValue*) { return false; }
     
     /** 
      * Find the interpreter for a particular global object.  This should really
@@ -383,7 +317,7 @@ namespace KJS {
      * created in an application to correctly implement this method.  The only
      * override of this method is currently in WebCore.
      */
-    virtual Interpreter *interpreterForGlobalObject (const ValueImp *imp) { return 0; }
+    virtual Interpreter* interpreterForGlobalObject(const JSValue*) { return 0; }
     
     /**
      * Determine if the it is 'safe' to execute code in the target interpreter from an
@@ -391,93 +325,116 @@ namespace KJS {
      * cross frame security rules.  In particular, attempts to access 'bound' objects are
      * not allowed unless isSafeScript returns true.
      */
-    virtual bool isSafeScript (const Interpreter *target) { return true; }
-    
-    virtual void *createLanguageInstanceForValue (ExecState *exec, Bindings::Instance::BindingLanguage language, const Object &value, const Bindings::RootObject *origin, const Bindings::RootObject *current);
-#endif
-    
-  private:
-    InterpreterImp *rep;
+    virtual bool isSafeScript(const Interpreter*) { return true; }
+  
+    // Chained list of interpreters (ring)
+    static Interpreter* firstInterpreter() { return s_hook; }
+    Interpreter* nextInterpreter() const { return next; }
+    Interpreter* prevInterpreter() const { return prev; }
 
-    /**
-     * This constructor is not implemented, in order to prevent
-     * copy-construction of Interpreter objects. You should always pass around
-     * pointers to an interpreter instance instead.
-     */
+    Debugger* debugger() const { return m_debugger; }
+    void setDebugger(Debugger* d) { m_debugger = d; }
+    
+    void setContext(Context* c) { m_context = c; }
+    Context* context() const { return m_context; }
+    
+    static Interpreter* interpreterWithGlobalObject(JSObject*);
+    
+    void setTimeoutTime(unsigned timeoutTime) { m_timeoutTime = timeoutTime; }
+
+    void startTimeoutCheck();
+    void stopTimeoutCheck();
+    
+    bool timedOut();
+    
+    void ref() { ++m_refCount; }
+    void deref() { if (--m_refCount <= 0) delete this; }
+    int refCount() const { return m_refCount; }
+    
+protected:
+    virtual ~Interpreter(); // only deref should delete us
+    virtual bool shouldInterruptScript() const { return true; }
+
+    unsigned m_timeoutTime;
+
+private:
+    void init();
+
+    void resetTimeoutCheck();
+    bool checkTimeout();
+
+    // Uncopyable
     Interpreter(const Interpreter&);
-
-    /**
-     * This constructor is not implemented, in order to prevent assignment of
-     * Interpreter objects. You should always pass around pointers to an
-     * interpreter instance instead.
-     */
     Interpreter operator=(const Interpreter&);
-  protected:
-    virtual void virtual_hook( int id, void* data );
+    
+    int m_refCount;
+    
+    ExecState m_globalExec;
+
+    // Chained list of interpreters (ring) - for collector
+    static Interpreter* s_hook;
+    Interpreter *next, *prev;
+    
+    int m_recursion;
+    
+    Debugger* m_debugger;
+    Context* m_context;
+    CompatMode m_compatMode;
+
+    unsigned m_timeAtLastCheckTimeout;
+    unsigned m_timeExecuting;
+    unsigned m_timeoutCheckCount;
+    
+    unsigned m_tickCount;
+    unsigned m_ticksUntilNextTimeoutCheck;
+
+    JSObject* m_globalObject;
+
+    ObjectObjectImp* m_Object;
+    FunctionObjectImp* m_Function;
+    ArrayObjectImp* m_Array;
+    BooleanObjectImp* m_Boolean;
+    StringObjectImp* m_String;
+    NumberObjectImp* m_Number;
+    DateObjectImp* m_Date;
+    RegExpObjectImp* m_RegExp;
+    ErrorObjectImp* m_Error;
+    
+    ObjectPrototype* m_ObjectPrototype;
+    FunctionPrototype* m_FunctionPrototype;
+    ArrayPrototype* m_ArrayPrototype;
+    BooleanPrototype* m_BooleanPrototype;
+    StringPrototype* m_StringPrototype;
+    NumberPrototype* m_NumberPrototype;
+    DatePrototype* m_DatePrototype;
+    RegExpPrototype* m_RegExpPrototype;
+    ErrorPrototype* m_ErrorPrototype;
+    
+    NativeErrorImp* m_EvalError;
+    NativeErrorImp* m_RangeError;
+    NativeErrorImp* m_ReferenceError;
+    NativeErrorImp* m_SyntaxError;
+    NativeErrorImp* m_TypeError;
+    NativeErrorImp* m_UriError;
+    
+    NativeErrorPrototype* m_EvalErrorPrototype;
+    NativeErrorPrototype* m_RangeErrorPrototype;
+    NativeErrorPrototype* m_ReferenceErrorPrototype;
+    NativeErrorPrototype* m_SyntaxErrorPrototype;
+    NativeErrorPrototype* m_TypeErrorPrototype;
+    NativeErrorPrototype* m_UriErrorPrototype;
   };
 
-  /**
-   * Represents the current state of script execution. This object allows you
-   * obtain a handle the interpreter that is currently executing the script,
-   * and also the current execution state context.
-   */
-  class ExecState {
-    friend class InterpreterImp;
-    friend class FunctionImp;
-#if APPLE_CHANGES
-    friend class RuntimeMethodImp;
-#endif
-
-    friend class GlobalFuncImp;
-  public:
-    /**
-     * Returns the interpreter associated with this execution state
-     *
-     * @return The interpreter executing the script
-     */
-    Interpreter *dynamicInterpreter() const { return _interpreter; }
-
-    // for compatibility
-    Interpreter *interpreter() const { return dynamicInterpreter(); }
-
-    /**
-     * Returns the interpreter associated with the current scope's
-     * global object
-     *
-     * @return The interpreter currently in scope
-     */
-    Interpreter *lexicalInterpreter() const;
-
-    /**
-     * Returns the execution context associated with this execution state
-     *
-     * @return The current execution state context
-     */
-    Context context() const { return _context; }
-
-    void setException(const Value &e) { _exception = e; }
-    void clearException() { _exception = Value(); }
-    Value exception() const { return _exception; }
-    bool hadException() const { return !_exception.isNull(); }
-
-  private:
-    ExecState(Interpreter *interp, ContextImp *con)
-        : _interpreter(interp), _context(con) { }
-    Interpreter *_interpreter;
-    ContextImp *_context;
-    Value _exception;
-  };
-
-    class InterpreterLock
-    {
-    public:
-        InterpreterLock() { Interpreter::lock(); }
-        ~InterpreterLock() { Interpreter::unlock(); }
-    private:
-        InterpreterLock(const InterpreterLock &);
-        InterpreterLock &operator =(const InterpreterLock &);
-    };
-
+  inline bool Interpreter::timedOut()
+  {
+      m_tickCount++;
+      
+      if (m_tickCount != m_ticksUntilNextTimeoutCheck)
+          return false;
+      
+      return checkTimeout();
+  }
+  
 } // namespace
 
 #endif // _KJS_INTERPRETER_H_

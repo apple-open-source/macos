@@ -94,7 +94,8 @@ void AppleEmbeddedKeyboard::dispatchKeyboardEvent(
                                 UInt32                      value,
                                 IOOptionBits                options)
 {
-    if (( usagePage == kHIDPage_AppleVendor ) && ( usage == kHIDUsage_AppleVendor_KeyboardFn ))
+    if ( (( usagePage == kHIDPage_AppleVendorTopCase ) && ( usage == kHIDUsage_AppleVendor_KeyboardFn )) || 
+         (( usagePage == kHIDPage_AppleVendorKeyboard ) && ( usage == kHIDUsage_AppleVendorKeyboard_Function )) )
     {        
         if (_keyboardRollOverElement 
             && (CMP_ABSOLUTETIME(&(_keyboardRollOverElement->getTimeStamp()), &timeStamp) == 0)
@@ -247,9 +248,9 @@ void AppleEmbeddedKeyboard::parseSecondaryUsages()
         if (!mappingString) break;                                                  \
         str = (char *)mappingString->getCStringNoCopy();                            \
         while ( str && (*str != '\0')) {                                            \
-            index = strtol(str, &str, 16) & 0xff;                                   \
+            index = strtoul(str, &str, 16) & 0xff;                                  \
             while ((*str!='\0')&&((*str < '0')||(*str > '9'))) { str ++; }          \
-            value = strtol(str, &str, 16);                                          \
+            value = strtoul(str, &str, 16);                                         \
             while ((*str!='\0')&&((*str < '0')||(*str > '9'))) { str ++; }          \
             _secondaryKeys[index].type##UsagePage   = (value >> 16) & 0xffff;       \
             _secondaryKeys[index].type##Usage       = value & 0xffff;               \
@@ -260,6 +261,21 @@ void AppleEmbeddedKeyboard::parseSecondaryUsages()
     DECODE_MAP(numLockKeyboard, kNumLockKeyboardUsageMapKey, kSecondaryKeyNumLockKeyboard);
     DECODE_MAP(fnKeyboard, kFnKeyboardUsageMapKey, kSecondaryKeyFnKeyboard);
     DECODE_MAP(fnFunction, kFnFunctionUsageMapKey, kSecondaryKeyFnFunction);
+    
+    if ( getProperty(kNumLockKeyboardUsageMapKey) ) {
+        _virtualMouseKeysSupport = TRUE;
+        for (index=0; index<255; index++) {
+            if ( ( _secondaryKeys[index].bits & kSecondaryKeyFnFunction ) && 
+                ( _secondaryKeys[index].fnFunctionUsagePage == kHIDPage_KeyboardOrKeypad ) &&
+                ( _secondaryKeys[index].fnFunctionUsage == kHIDUsage_KeyboardLockingNumLock ) ) {
+                
+                _virtualMouseKeysSupport = FALSE;
+                break;
+            }
+        }
+    } else {
+        _virtualMouseKeysSupport = FALSE;
+    }
 }
 
 
@@ -270,15 +286,20 @@ IOReturn AppleEmbeddedKeyboard::setSystemProperties( OSDictionary * properties )
 {
     OSNumber * number;
     
-    if (number = OSDynamicCast(OSNumber, properties->getObject(kIOHIDFKeyModeKey)))
+    if ((number = OSDynamicCast(OSNumber, properties->getObject(kIOHIDFKeyModeKey))))
     {	
         _fKeyMode = number->unsigned32BitValue();
         setProperty(kIOHIDFKeyModeKey, number);
     }
 
-    if (number = OSDynamicCast(OSNumber, properties->getObject(kIOHIDStickyKeysOnKey)))
+    if ((number = OSDynamicCast(OSNumber, properties->getObject(kIOHIDStickyKeysOnKey))))
     {	
         _stickyKeysOn = number->unsigned32BitValue();
+    }
+    
+    if (_virtualMouseKeysSupport && (number = OSDynamicCast(OSNumber, properties->getObject(kIOHIDMouseKeysOnKey))))
+    {
+        _numLockDown = number->unsigned32BitValue();
     }
 
     return super::setSystemProperties(properties);

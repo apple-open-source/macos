@@ -30,7 +30,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: vp.h,v 1.2 2004/07/09 21:34:45 nicolai Exp $ */
+/* $Id: vp.h,v 1.7 2004/04/30 15:31:43 broeker Exp $ */
 
 /*
  *	VPATH assumptions:
@@ -53,6 +53,7 @@
 # include <fcntl.h>		/* needed for O_... open flags */
 #endif
 
+#include <sys/types.h>
 #include <sys/stat.h>
 
 #if !NOMALLOC
@@ -64,7 +65,7 @@ extern	char	vpdirs[MAXDIR][DIRLEN + 1];
 #endif
 extern	int	vpndirs;	/* number of directories in view path */
 
-void	vpinit(char *currentdir);
+void	vpinit(char *current_dir);
 int	vpopen(char *path, int oflag);
 int	vpaccess(char *path, mode_t amode);
 

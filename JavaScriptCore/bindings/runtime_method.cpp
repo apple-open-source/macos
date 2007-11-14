@@ -23,92 +23,81 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
  
-#include "context.h"
-#include "internal.h"
+#include "config.h"
 #include "runtime_method.h"
+
+#include "context.h"
 #include "runtime_object.h"
+#include "function_object.h"
 
 using namespace KJS::Bindings;
 using namespace KJS;
 
-RuntimeMethodImp::RuntimeMethodImp(ExecState *exec, const Identifier &ident, Bindings::MethodList &m) : FunctionImp (exec, ident)
-{
-    _methodList = m;
-}
-
-RuntimeMethodImp::~RuntimeMethodImp()
+RuntimeMethod::RuntimeMethod(ExecState *exec, const Identifier &ident, Bindings::MethodList &m) 
+    : InternalFunctionImp (static_cast<FunctionPrototype*>(exec->lexicalInterpreter()->builtinFunctionPrototype()), ident)
+    , _methodList(new MethodList(m))
 {
 }
 
-Value RuntimeMethodImp::get(ExecState *exec, const Identifier &propertyName) const
+JSValue *RuntimeMethod::lengthGetter(ExecState*, JSObject*, const Identifier&, const PropertySlot& slot)
 {
-    // Find the arguments from the closest context.
-    if (propertyName == argumentsPropertyName) {
-        ContextImp *context = exec->_context;
-        while (context) {
-            if (context->function() == this)
-                return static_cast<ActivationImp *>
-                    (context->activationObject())->get(exec, propertyName);
-            context = context->callingContext();
-        }
-        return Undefined();
+    RuntimeMethod *thisObj = static_cast<RuntimeMethod *>(slot.slotBase());
+
+    // Ick!  There may be more than one method with this name.  Arbitrarily
+    // just pick the first method.  The fundamental problem here is that 
+    // JavaScript doesn't have the notion of method overloading and
+    // Java does.
+    // FIXME: a better solution might be to give the maximum number of parameters
+    // of any method
+    return jsNumber(thisObj->_methodList->at(0)->numParameters());
+}
+
+bool RuntimeMethod::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot &slot)
+{
+    if (propertyName == exec->propertyNames().length) {
+        slot.setCustom(this, lengthGetter);
+        return true;
     }
     
-    // Compute length of parameters.
-    if (propertyName == lengthPropertyName) {
-        // Ick!  There may be more than one method with this name.  Arbitrarily
-        // just pick the first method.  The fundamental problem here is that 
-        // JavaScript doesn't have the notion of method overloading and
-        // Java does.
-        return Number(_methodList.methodAt(0)->numParameters());
-    }
-    
-    return FunctionImp::get(exec, propertyName);
+    return InternalFunctionImp::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-bool RuntimeMethodImp::implementsCall() const
+JSValue *RuntimeMethod::callAsFunction(ExecState *exec, JSObject *thisObj, const List &args)
 {
-    return true;
-}
-
-Value RuntimeMethodImp::call(ExecState *exec, Object &thisObj, const List &args)
-{
-    if (_methodList.length() > 0) {
-	RuntimeObjectImp *imp;
-	
-	// If thisObj is the DOM object for a plugin, get the corresponding
-	// runtime object from the DOM object.
-	if (thisObj.classInfo() != &KJS::RuntimeObjectImp::info) {
-	    Value runtimeObject = thisObj.get(exec, "__apple_runtime_object");
-	    imp = static_cast<RuntimeObjectImp*>(runtimeObject.imp());
-	}
-	else {
-	    imp = static_cast<RuntimeObjectImp*>(thisObj.imp());
-	}
-        if (imp) {
-            Instance *instance = imp->getInternalInstance();
-            
-            instance->begin();
-            
-            Value aValue = instance->invokeMethod(exec, _methodList, args);
-            
-            instance->end();
-            
-            return aValue;
-        }
-    }
+    if (_methodList->isEmpty())
+        return jsUndefined();
     
-    return Undefined();
+    RuntimeObjectImp *imp = 0;
+
+    if (thisObj->classInfo() == &KJS::RuntimeObjectImp::info) {
+        imp = static_cast<RuntimeObjectImp*>(thisObj);
+    } else {
+        // If thisObj is the DOM object for a plugin, get the corresponding
+        // runtime object from the DOM object.
+        JSValue* value = thisObj->get(exec, "__apple_runtime_object");
+        if (value->isObject(&KJS::RuntimeObjectImp::info))    
+            imp = static_cast<RuntimeObjectImp*>(value);
+    }
+
+    if (!imp)
+        return throwError(exec, TypeError);
+
+    Instance *instance = imp->getInternalInstance();
+    if (!instance) 
+        return RuntimeObjectImp::throwInvalidAccessError(exec);
+        
+    instance->begin();
+    JSValue *aValue = instance->invokeMethod(exec, *_methodList, args);
+    instance->end();
+    return aValue;
 }
 
-CodeType RuntimeMethodImp::codeType() const
+CodeType RuntimeMethod::codeType() const
 {
     return FunctionCode;
 }
 
-
-Completion RuntimeMethodImp::execute(ExecState *exec)
+Completion RuntimeMethod::execute(ExecState*)
 {
-    return Completion(Normal, Undefined());
+    return Completion(Normal, jsUndefined());
 }
-

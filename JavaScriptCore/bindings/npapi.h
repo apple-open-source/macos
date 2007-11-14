@@ -50,11 +50,11 @@
 #define JRIEnv  void
 #endif
 
-#ifdef _WINDOWS
+#ifdef _WIN32
 #    ifndef XP_WIN
 #        define XP_WIN 1
 #    endif /* XP_WIN */
-#endif /* _WINDOWS */
+#endif /* _WIN32 */
 
 #ifdef __MWERKS__
 #    define _declspec __declspec
@@ -83,6 +83,7 @@
 #ifdef XP_MACOSX
     #include <Carbon/Carbon.h>
     #include <ApplicationServices/ApplicationServices.h>
+    #include <OpenGL/OpenGL.h>
 #endif
 
 #ifdef XP_UNIX
@@ -90,13 +91,20 @@
     #include <X11/Xutil.h>
 #endif
 
+#ifdef XP_WIN
+    #include <windows.h>
+#endif
+
+#if defined(XP_MACOSX) && defined(__LP64__)
+#error 64-bit Netscape plug-ins are not supported on Mac OS X
+#endif
 
 /*----------------------------------------------------------------------*/
 /*             Plugin Version Constants                                 */
 /*----------------------------------------------------------------------*/
 
 #define NP_VERSION_MAJOR 0
-#define NP_VERSION_MINOR 14
+#define NP_VERSION_MINOR 18
 
 
 
@@ -105,24 +113,31 @@
 /*----------------------------------------------------------------------*/
 
 #ifndef _UINT16
+#define _UINT16
 typedef unsigned short uint16;
 #endif
+
 #ifndef _UINT32
-#if defined(__alpha)
+#define _UINT32
+#ifdef __LP64__
 typedef unsigned int uint32;
-#else /* __alpha */
+#else /* __LP64__ */
 typedef unsigned long uint32;
-#endif /* __alpha */
+#endif /* __LP64__ */
 #endif
+
 #ifndef _INT16
+#define _INT16
 typedef short int16;
 #endif
+
 #ifndef _INT32
-#if defined(__alpha)
+#define _INT32
+#ifdef __LP64__
 typedef int int32;
-#else /* __alpha */
+#else /* __LP64__ */
 typedef long int32;
-#endif /* __alpha */
+#endif /* __LP64__ */
 #endif
 
 #ifndef FALSE
@@ -146,9 +161,11 @@ typedef char*            NPMIMEType;
 /*             Structures and definitions             */
 /*----------------------------------------------------------------------*/
 
+#if !defined(__LP64__)
 #if defined(XP_MAC) || defined(XP_MACOSX)
 #pragma options align=mac68k
 #endif
+#endif /* __LP64__ */
 
 /*
  *  NPP is a plug-in's opaque instance handle
@@ -170,6 +187,16 @@ typedef struct _NPStream
     uint32       end;
     uint32       lastmodified;
     void*        notifyData;
+    const char*  headers;      /* Response headers from host.
+                                * Exists only for >= NPVERS_HAS_RESPONSE_HEADERS.
+                                * Used for HTTP only; NULL for non-HTTP.
+                                * Available from NPP_NewStream onwards.
+                                * Plugin should copy this data before storing it.
+                                * Includes HTTP status line and all headers,
+                                * preferably verbatim as received from server,
+                                * headers formatted as in HTTP ("Header: Value"),
+                                * and newlines (\n, NOT \r\n) separating lines.
+                                * Terminated by \n\0 (NOT \n\n\0). */
 } NPStream;
 
 
@@ -297,7 +324,13 @@ typedef enum {
     NPPVpluginNeedsXEmbed         = 14, /* Not implemented in WebKit */
 
     /* Get the NPObject for scripting the plugin. */
-    NPPVpluginScriptableNPObject  = 15
+    NPPVpluginScriptableNPObject  = 15,
+
+    /* Get the plugin value (as \0-terminated UTF-8 string data) for
+     * form submission if the plugin is part of a form. Use
+     * NPN_MemAlloc() to allocate memory for the string data.
+     */
+    NPPVformValue = 16    /* Not implemented in WebKit */
 } NPPVariable;
 
 /*
@@ -322,7 +355,17 @@ typedef enum {
     NPNVWindowNPObject = 15,
 
     /* Get the NPObject wrapper for the plugins DOM element. */
-    NPNVPluginElementNPObject                 /* Not implemented in WebKit */
+    NPNVPluginElementNPObject
+
+#ifdef XP_MACOSX
+    , NPNVpluginDrawingModel = 1000 /* The NPDrawingModel specified by the plugin */
+
+#ifndef NP_NO_QUICKDRAW
+    , NPNVsupportsQuickDrawBool = 2000 /* TRUE if the browser supports the QuickDraw drawing model */
+#endif
+    , NPNVsupportsCoreGraphicsBool = 2001 /* TRUE if the browser supports the CoreGraphics drawing model */
+    , NPNVsupportsOpenGLBool = 2002 /* TRUE if the browser supports the OpenGL drawing model (CGL on Mac) */
+#endif /* XP_MACOSX */
 } NPNVariable;
 
 /*
@@ -333,6 +376,22 @@ typedef enum {
     NPWindowTypeWindow = 1,
     NPWindowTypeDrawable
 } NPWindowType;
+
+#ifdef XP_MACOSX
+
+/*
+ * The drawing model for a Mac OS X plugin.  These are the possible values for the NPNVpluginDrawingModel variable.
+ */
+ 
+typedef enum {
+#ifndef NP_NO_QUICKDRAW
+    NPDrawingModelQuickDraw = 0,
+#endif
+    NPDrawingModelCoreGraphics = 1,
+    NPDrawingModelOpenGL = 2
+} NPDrawingModel;
+
+#endif
 
 typedef struct _NPWindow
 {
@@ -390,8 +449,19 @@ typedef XEvent NPEvent;
 typedef void*            NPEvent;
 #endif /* XP_MAC */
 
-#if defined(XP_MAC) || defined(XP_MACOSX)
+#if defined(XP_MAC)
 typedef RgnHandle NPRegion;
+#elif defined(XP_MACOSX)
+/* 
+ * NPRegion's type depends on the drawing model specified by the plugin (see NPNVpluginDrawingModel).
+ * NPQDRegion represents a QuickDraw RgnHandle and is used with the QuickDraw drawing model.
+ * NPCGRegion repesents a graphical region when using any other drawing model.
+ */
+typedef void *NPRegion;
+#ifndef NP_NO_QUICKDRAW
+typedef RgnHandle NPQDRegion;
+#endif
+typedef CGPathRef NPCGRegion;
 #elif defined(XP_WIN)
 typedef HRGN NPRegion;
 #elif defined(XP_UNIX)
@@ -400,17 +470,58 @@ typedef Region NPRegion;
 typedef void *NPRegion;
 #endif /* XP_MAC */
 
+#ifdef XP_MACOSX
+
+/* 
+ * NP_CGContext is the type of the NPWindow's 'window' when the plugin specifies NPDrawingModelCoreGraphics
+ * as its drawing model.
+ */
+
+typedef struct NP_CGContext
+{
+    CGContextRef context;
+    WindowRef window;
+} NP_CGContext;
+
+/* 
+ * NP_GLContext is the type of the NPWindow's 'window' when the plugin specifies NPDrawingModelOpenGL as its
+ * drawing model.
+ */
+
+typedef struct NP_GLContext
+{
+    CGLContextObj context;
+    WindowRef window;
+} NP_GLContext;
+
+#endif /* XP_MACOSX */
+
 #if defined(XP_MAC) || defined(XP_MACOSX)
+
 /*
  *  Mac-specific structures and definitions.
  */
 
+#ifndef NP_NO_QUICKDRAW
+
+/* 
+ * NP_Port is the type of the NPWindow's 'window' when the plugin specifies NPDrawingModelQuickDraw as its
+ * drawing model, or the plugin does not specify a drawing model.
+ *
+ * It is not recommended that new plugins use NPDrawingModelQuickDraw or NP_Port, as QuickDraw has been
+ * deprecated in Mac OS X 10.5.  CoreGraphics is the preferred drawing API.
+ *
+ * NP_Port is not available in 64-bit.
+ */
+ 
 typedef struct NP_Port
 {
     CGrafPtr     port;        /* Grafport */
     int32        portx;        /* position inside the topmost window */
     int32        porty;
 } NP_Port;
+
+#endif /* NP_NO_QUICKDRAW */
 
 /*
  *  Non-standard event types that can be passed to HandleEvent
@@ -438,9 +549,11 @@ typedef struct NP_Port
 
 #define NP_MAXREADY    (((unsigned)(~0)<<1)>>1)
 
+#if !defined(__LP64__)
 #if defined(XP_MAC) || defined(XP_MACOSX)
 #pragma options align=reset
 #endif
+#endif /* __LP64__ */
 
 
 /*----------------------------------------------------------------------*/
@@ -490,6 +603,12 @@ typedef struct NP_Port
 #define NPVERS_WIN16_HAS_LIVECONNECT    9
 #define NPVERS_68K_HAS_LIVECONNECT    11
 #define NPVERS_HAS_WINDOWLESS       11
+#define NPVERS_HAS_XPCONNECT_SCRIPTING    13  /* Not implemented in WebKit */
+#define NPVERS_HAS_NPRUNTIME_SCRIPTING    14
+#define NPVERS_HAS_FORM_VALUES            15  /* Not implemented in WebKit; see bug 13061 */
+#define NPVERS_HAS_POPUPS_ENABLED_STATE   16  /* Not implemented in WebKit */
+#define NPVERS_HAS_RESPONSE_HEADERS       17
+#define NPVERS_HAS_NPOBJECT_ENUM          18
 
 
 /*----------------------------------------------------------------------*/
@@ -580,6 +699,8 @@ NPError     NPN_SetValue(NPP instance, NPPVariable variable,
 void        NPN_InvalidateRect(NPP instance, NPRect *invalidRect);
 void        NPN_InvalidateRegion(NPP instance, NPRegion invalidRegion);
 void        NPN_ForceRedraw(NPP instance);
+void        NPN_PushPopupsEnabledState(NPP instance, NPBool enabled);
+void        NPN_PopPopupsEnabledState(NPP instance);
 
 #ifdef __cplusplus
 }  /* end extern "C" */

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_domxml.c,v 1.218.2.50.2.2 2006/03/18 10:46:27 rrichards Exp $ */
+/* $Id: php_domxml.c,v 1.218.2.50.2.5 2007/01/01 09:46:41 sebastian Exp $ */
 
 /* TODO
  * - Support Notation Nodes
@@ -5519,6 +5519,13 @@ PHP_FUNCTION(domxml_xslt_version)
 }
 /* }}} */
 #endif /* HAVE_DOMXSLT */
+
+#ifdef PHP_WIN32
+__declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+{
+	return xmlDllMain(hinstDLL, fdwReason, lpvReserved);
+}
+#endif
 
 #endif /* HAVE_DOMXML */
 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: xml.c,v 1.110.2.5.2.1 2006/01/01 13:46:59 sniper Exp $ */
+/* $Id: xml.c,v 1.110.2.5.2.2 2007/01/01 09:46:49 sebastian Exp $ */
 
 #define IS_EXT_MODULE
 

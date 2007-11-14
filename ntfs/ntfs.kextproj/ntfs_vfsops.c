@@ -267,7 +267,9 @@ ntfs_mountfs(devvp, mp, argsp, context)
 	{
 		ino_t pi[3] = { NTFS_MFTINO, NTFS_ROOTINO, NTFS_BITMAPINO };
 		for (i=0; i<3; i++) {
-			error = ntfs_vgetex(mp, pi[i], NULLVP, NULL, VNON, NTFS_A_DATA, NULL, 0, p, &ntmp->ntm_sysvn[pi[i]]);
+			error = ntfs_vgetex(mp, pi[i], NULLVP, NULL, VNON,
+					NTFS_A_DATA, NULL, VG_INTERNAL, p,
+					&ntmp->ntm_sysvn[pi[i]]);
 			if(error)
 				goto out1;
 			vnode_ref(ntmp->ntm_sysvn[pi[i]]);
@@ -296,7 +298,8 @@ ntfs_mountfs(devvp, mp, argsp, context)
 		struct attrdef ad;
                 
 		/* Open $AttrDef */
-		error = ntfs_vgetex(mp, NTFS_ATTRDEFINO, NULLVP, NULL, VNON, NTFS_A_DATA, NULL, 0, p, &vp);
+		error = ntfs_vgetex(mp, NTFS_ATTRDEFINO, NULLVP, NULL, VNON,
+				NTFS_A_DATA, NULL, VG_INTERNAL, p, &vp);
 		if(error) 
 			goto out1;
 
@@ -638,7 +641,7 @@ ntfs_vgetex(
 	proc_t p,
 	vnode_t *vpp) 
 {
-	int error;
+	int error, is_system;
 	struct ntfsmount *ntmp;
 	struct ntnode *ip;
 	struct fnode *fp;
@@ -651,6 +654,29 @@ ntfs_vgetex(
 
 	ntmp = VFSTONTFS(mp);
 	*vpp = NULL;
+	/*
+	 * If inode number is one of the system files and this is not a driver
+	 * internal call, bail out now pretending the inode does not exist.
+	 * This removes all system files from the name space completely and
+	 * thus avoids the kernel panic described in <rdar://problem/5359268>.
+	 */
+	is_system = 0;
+	if (!(flags & VG_EXT) && ino <= NTFS_EXTENDINO && ino != NTFS_ROOTINO) {
+		if (!(flags & VG_INTERNAL)) {
+			dprintf(("ntfs_vget: aborting external call for "
+					"system inode %d, returning ENOENT\n",
+					ino));
+			return ENOENT;
+		}
+		/*
+		 * Do not mark $Extend as a system inode or vnode_create() will
+		 * panic because $Extend is a directory and on Tiger
+		 * directories are not permitted to have the VSYSTEM flag set
+		 * and this is enforced in vnode_create() with a panic().
+		 */
+		if (ino != NTFS_EXTENDINO)
+			is_system = 1;
+	}
 
 again:
 	/* Get ntnode */
@@ -722,7 +748,7 @@ again:
 	vfsp.vnfs_fsnode = fp;
 	vfsp.vnfs_vops = ntfs_vnodeop_p;
 	vfsp.vnfs_markroot = (ino == NTFS_ROOTINO);
-	vfsp.vnfs_marksystem = ((ino < 12) && (ino != NTFS_ROOTINO));
+	vfsp.vnfs_marksystem = is_system;
 	vfsp.vnfs_rdev = 0;		/* Set only for block or char devices */
 	vfsp.vnfs_filesize = fp->f_size;	/*¥ Assumes the fnode is valid! */
 	vfsp.vnfs_cnp = cnp;	/* Component name, if we know it */

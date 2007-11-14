@@ -15,84 +15,151 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
-#include "value.h"
-#include "object.h"
-#include "types.h"
-#include "interpreter.h"
-#include "operations.h"
+#include "config.h"
 #include "object_object.h"
+
+#include "operations.h"
 #include "function_object.h"
 #include <stdio.h>
-#include <assert.h>
 
 using namespace KJS;
 
-// ------------------------------ ObjectPrototypeImp --------------------------------
+// ------------------------------ ObjectPrototype --------------------------------
 
-ObjectPrototypeImp::ObjectPrototypeImp(ExecState *exec,
-                                       FunctionPrototypeImp *funcProto)
-  : ObjectImp() // [[Prototype]] is Null()
+ObjectPrototype::ObjectPrototype(ExecState* exec, FunctionPrototype* funcProto)
+  : JSObject() // [[Prototype]] is null
 {
-    Value protect(this);
-    putDirect(toStringPropertyName, new ObjectProtoFuncImp(exec,funcProto,ObjectProtoFuncImp::ToString,  0), DontEnum);
-    putDirect(valueOfPropertyName,  new ObjectProtoFuncImp(exec,funcProto,ObjectProtoFuncImp::ValueOf,   0), DontEnum);
-    putDirect("hasOwnProperty", new ObjectProtoFuncImp(exec,funcProto,ObjectProtoFuncImp::HasOwnProperty,1), DontEnum);
+    static const Identifier* hasOwnPropertyPropertyName = new Identifier("hasOwnProperty");
+    static const Identifier* propertyIsEnumerablePropertyName = new Identifier("propertyIsEnumerable");
+    static const Identifier* isPrototypeOfPropertyName = new Identifier("isPrototypeOf");
+    static const Identifier* defineGetterPropertyName = new Identifier("__defineGetter__");
+    static const Identifier* defineSetterPropertyName = new Identifier("__defineSetter__");
+    static const Identifier* lookupGetterPropertyName = new Identifier("__lookupGetter__");
+    static const Identifier* lookupSetterPropertyName = new Identifier("__lookupSetter__");
+
+    putDirectFunction(new ObjectProtoFunc(exec, funcProto, ObjectProtoFunc::ToString, 0, exec->propertyNames().toString), DontEnum);
+    putDirectFunction(new ObjectProtoFunc(exec, funcProto, ObjectProtoFunc::ToLocaleString, 0, exec->propertyNames().toLocaleString), DontEnum);
+    putDirectFunction(new ObjectProtoFunc(exec, funcProto, ObjectProtoFunc::ValueOf, 0, exec->propertyNames().valueOf), DontEnum);
+    putDirectFunction(new ObjectProtoFunc(exec, funcProto, ObjectProtoFunc::HasOwnProperty, 1, *hasOwnPropertyPropertyName), DontEnum);
+    putDirectFunction(new ObjectProtoFunc(exec, funcProto, ObjectProtoFunc::PropertyIsEnumerable, 1, *propertyIsEnumerablePropertyName), DontEnum);
+    putDirectFunction(new ObjectProtoFunc(exec, funcProto, ObjectProtoFunc::IsPrototypeOf, 1, *isPrototypeOfPropertyName), DontEnum);
+
+    // Mozilla extensions
+    putDirectFunction(new ObjectProtoFunc(exec, funcProto, ObjectProtoFunc::DefineGetter, 2, *defineGetterPropertyName), DontEnum);
+    putDirectFunction(new ObjectProtoFunc(exec, funcProto, ObjectProtoFunc::DefineSetter, 2, *defineSetterPropertyName), DontEnum);
+    putDirectFunction(new ObjectProtoFunc(exec, funcProto, ObjectProtoFunc::LookupGetter, 1, *lookupGetterPropertyName), DontEnum);
+    putDirectFunction(new ObjectProtoFunc(exec, funcProto, ObjectProtoFunc::LookupSetter, 1, *lookupSetterPropertyName), DontEnum);
 }
 
 
-// ------------------------------ ObjectProtoFuncImp --------------------------------
+// ------------------------------ ObjectProtoFunc --------------------------------
 
-ObjectProtoFuncImp::ObjectProtoFuncImp(ExecState *exec,
-                                       FunctionPrototypeImp *funcProto,
-                                       int i, int len)
-  : InternalFunctionImp(funcProto), id(i)
+ObjectProtoFunc::ObjectProtoFunc(ExecState* exec, FunctionPrototype* funcProto, int i, int len, const Identifier& name)
+  : InternalFunctionImp(funcProto, name)
+  , id(i)
 {
-  Value protect(this);
-  putDirect(lengthPropertyName, len, DontDelete|ReadOnly|DontEnum);
+  putDirect(exec->propertyNames().length, len, DontDelete|ReadOnly|DontEnum);
 }
 
 
-bool ObjectProtoFuncImp::implementsCall() const
-{
-  return true;
-}
+// ECMA 15.2.4.2, 15.2.4.4, 15.2.4.5, 15.2.4.7
 
-// ECMA 15.2.4.2, 15.2.4.4, 15.2.4.5
-
-Value ObjectProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args)
+JSValue *ObjectProtoFunc::callAsFunction(ExecState *exec, JSObject *thisObj, const List &args)
 {
     switch (id) {
         case ValueOf:
             return thisObj;
         case HasOwnProperty: {
-            // Same as hasProperty() but without checking the prototype
-            Identifier propertyName(args[0].toString(exec));
-            bool exists = thisObj.hasOwnProperty(exec, propertyName);
-            return Value(exists ? BooleanImp::staticTrue : BooleanImp::staticFalse);
+            PropertySlot slot;
+            return jsBoolean(thisObj->getOwnPropertySlot(exec, Identifier(args[0]->toString(exec)), slot));
         }
+        case IsPrototypeOf: {
+            if (!args[0]->isObject())
+                return jsBoolean(false);
+         
+            JSValue *v = static_cast<JSObject *>(args[0])->prototype();
+
+            while (true) {
+                if (!v->isObject())
+                    return jsBoolean(false);
+                
+                if (thisObj == static_cast<JSObject *>(v))
+                    return jsBoolean(true);
+                
+                v = static_cast<JSObject *>(v)->prototype();
+            }
+        }
+        case DefineGetter: 
+        case DefineSetter: {
+            if (!args[1]->isObject() ||
+                !static_cast<JSObject *>(args[1])->implementsCall()) {
+                if (id == DefineGetter)
+                    return throwError(exec, SyntaxError, "invalid getter usage");
+                else
+                    return throwError(exec, SyntaxError, "invalid setter usage");
+            }
+
+            if (id == DefineGetter)
+                thisObj->defineGetter(exec, Identifier(args[0]->toString(exec)), static_cast<JSObject *>(args[1]));
+            else
+                thisObj->defineSetter(exec, Identifier(args[0]->toString(exec)), static_cast<JSObject *>(args[1]));
+            return jsUndefined();
+        }
+        case LookupGetter:
+        case LookupSetter: {
+            Identifier propertyName = Identifier(args[0]->toString(exec));
+            
+            JSObject *obj = thisObj;
+            while (true) {
+                JSValue *v = obj->getDirect(propertyName);
+                
+                if (v) {
+                    if (v->type() != GetterSetterType)
+                        return jsUndefined();
+
+                    JSObject *funcObj;
+                        
+                    if (id == LookupGetter)
+                        funcObj = static_cast<GetterSetterImp *>(v)->getGetter();
+                    else
+                        funcObj = static_cast<GetterSetterImp *>(v)->getSetter();
+                
+                    if (!funcObj)
+                        return jsUndefined();
+                    else
+                        return funcObj;
+                }
+                
+                if (!obj->prototype() || !obj->prototype()->isObject())
+                    return jsUndefined();
+                
+                obj = static_cast<JSObject *>(obj->prototype());
+            }
+        }
+        case PropertyIsEnumerable:
+            return jsBoolean(thisObj->propertyIsEnumerable(exec, Identifier(args[0]->toString(exec))));
+        case ToLocaleString:
+            return jsString(thisObj->toString(exec));
         case ToString:
         default:
-            return String("[object " + thisObj.className() + "]");
+            return jsString("[object " + thisObj->className() + "]");
     }
 }
 
 // ------------------------------ ObjectObjectImp --------------------------------
 
-ObjectObjectImp::ObjectObjectImp(ExecState *exec,
-                                 ObjectPrototypeImp *objProto,
-                                 FunctionPrototypeImp *funcProto)
+ObjectObjectImp::ObjectObjectImp(ExecState* exec, ObjectPrototype* objProto, FunctionPrototype* funcProto)
   : InternalFunctionImp(funcProto)
 {
-  Value protect(this);
   // ECMA 15.2.3.1
-  putDirect(prototypePropertyName, objProto, DontEnum|DontDelete|ReadOnly);
+  putDirect(exec->propertyNames().prototype, objProto, DontEnum|DontDelete|ReadOnly);
 
   // no. of arguments for constructor
-  putDirect(lengthPropertyName, NumberImp::one(), ReadOnly|DontDelete|DontEnum);
+  putDirect(exec->propertyNames().length, jsNumber(1), ReadOnly|DontDelete|DontEnum);
 }
 
 
@@ -102,56 +169,26 @@ bool ObjectObjectImp::implementsConstruct() const
 }
 
 // ECMA 15.2.2
-Object ObjectObjectImp::construct(ExecState *exec, const List &args)
+JSObject* ObjectObjectImp::construct(ExecState* exec, const List& args)
 {
-  // if no arguments have been passed ...
-  if (args.isEmpty()) {
-    Object proto = exec->lexicalInterpreter()->builtinObjectPrototype();
-    Object result(new ObjectImp(proto));
-    return result;
-  }
-
-  Value arg = *(args.begin());
-  Object obj = Object::dynamicCast(arg);
-  if (!obj.isNull()) {
-    return obj;
-  }
-
-  switch (arg.type()) {
+  JSValue* arg = args[0];
+  switch (arg->type()) {
   case StringType:
   case BooleanType:
   case NumberType:
-    return arg.toObject(exec);
-  default:
-    assert(!"unhandled switch case in ObjectConstructor");
+  case ObjectType:
+      return arg->toObject(exec);
   case NullType:
   case UndefinedType:
-    Object proto = exec->lexicalInterpreter()->builtinObjectPrototype();
-    return Object(new ObjectImp(proto));
+      return new JSObject(exec->lexicalInterpreter()->builtinObjectPrototype());
+  default:
+      ASSERT_NOT_REACHED();
+      return 0;
   }
 }
 
-bool ObjectObjectImp::implementsCall() const
+JSValue* ObjectObjectImp::callAsFunction(ExecState* exec, JSObject* /*thisObj*/, const List &args)
 {
-  return true;
-}
-
-Value ObjectObjectImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
-{
-  Value result;
-
-  List argList;
-  // Construct a new Object
-  if (args.isEmpty()) {
-    result = construct(exec,argList);
-  } else {
-    Value arg = args[0];
-    if (arg.type() == NullType || arg.type() == UndefinedType) {
-      argList.append(arg);
-      result = construct(exec,argList);
-    } else
-      result = arg.toObject(exec);
-  }
-  return result;
+    return construct(exec, args);
 }
 

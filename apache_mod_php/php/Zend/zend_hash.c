@@ -178,11 +178,16 @@ ZEND_API int zend_hash_init(HashTable *ht, uint nSize, hash_func_t pHashFunction
 
 	SET_INCONSISTENT(HT_OK);
 
-	while ((1U << i) < nSize) {
-		i++;
+	if (nSize >= 0x80000000) {
+		/* prevent overflow */
+		ht->nTableSize = 0x80000000;
+	} else {
+		while ((1U << i) < nSize) {
+			i++;
+		}
+		ht->nTableSize = 1 << i;
 	}
 
-	ht->nTableSize = 1 << i;
 	ht->nTableMask = ht->nTableSize - 1;
 	ht->pDestructor = pDestructor;
 	ht->pListHead = NULL;

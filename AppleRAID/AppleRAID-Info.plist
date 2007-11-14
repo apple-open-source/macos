@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleRAID</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleRAID 2.3, Copyright 2006 Apple Computer, Inc.</string>
+	<string>AppleRAID 2.3, Copyright 2007 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -23,7 +23,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.3.3</string>
+	<string>2.3.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleRAID</key>

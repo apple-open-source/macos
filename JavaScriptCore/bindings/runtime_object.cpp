@@ -23,18 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#include "config.h"
+#include "runtime_object.h"
+
 #include "error_object.h"
-#include "function.h"
-#include "interpreter.h"
-#include "object.h"
 #include "operations.h"
 #include "runtime_method.h"
-#include "runtime_object.h"
-#include "types.h"
-#include "value.h"
-
-
-#include <assert.h>
+#include "runtime_root.h"
 
 using namespace KJS;
 using namespace Bindings;
@@ -44,116 +39,172 @@ const ClassInfo RuntimeObjectImp::info = {"RuntimeObject", 0, 0, 0};
 RuntimeObjectImp::RuntimeObjectImp(Bindings::Instance *i)
 : instance(i)
 {
+    instance->rootObject()->addRuntimeObject(this);
 }
 
-Value RuntimeObjectImp::get(ExecState *exec, const Identifier &propertyName) const
+RuntimeObjectImp::~RuntimeObjectImp()
 {
-    Value result = Undefined();
+    if (instance)
+        instance->rootObject()->removeRuntimeObject(this);
+}
 
+void RuntimeObjectImp::invalidate()
+{
+    ASSERT(instance);
+    instance = 0;
+}
+
+JSValue *RuntimeObjectImp::fallbackObjectGetter(ExecState* exec, JSObject*, const Identifier& propertyName, const PropertySlot& slot)
+{
+    RuntimeObjectImp *thisObj = static_cast<RuntimeObjectImp *>(slot.slotBase());
+    Bindings::Instance *instance = thisObj->instance.get();
+
+    if (!instance)
+        return throwInvalidAccessError(exec);
+    
+    instance->begin();
+
+    Class *aClass = instance->getClass();
+    JSValue *result = aClass->fallbackObject(exec, instance, propertyName);
+
+    instance->end();
+            
+    return result;
+}
+
+JSValue *RuntimeObjectImp::fieldGetter(ExecState* exec, JSObject*, const Identifier& propertyName, const PropertySlot& slot)
+{    
+    RuntimeObjectImp *thisObj = static_cast<RuntimeObjectImp *>(slot.slotBase());
+    Bindings::Instance *instance = thisObj->instance.get();
+
+    if (!instance)
+        return throwInvalidAccessError(exec);
+    
+    instance->begin();
+
+    Class *aClass = instance->getClass();
+    Field *aField = aClass->fieldNamed(propertyName, instance);
+    JSValue *result = instance->getValueOfField(exec, aField); 
+    
+    instance->end();
+            
+    return result;
+}
+
+JSValue *RuntimeObjectImp::methodGetter(ExecState* exec, JSObject*, const Identifier& propertyName, const PropertySlot& slot)
+{
+    RuntimeObjectImp *thisObj = static_cast<RuntimeObjectImp *>(slot.slotBase());
+    Bindings::Instance *instance = thisObj->instance.get();
+
+    if (!instance)
+        return throwInvalidAccessError(exec);
+    
+    instance->begin();
+
+    Class *aClass = instance->getClass();
+    MethodList methodList = aClass->methodsNamed(propertyName, instance);
+    JSValue *result = new RuntimeMethod(exec, propertyName, methodList);
+
+    instance->end();
+            
+    return result;
+}
+
+bool RuntimeObjectImp::getOwnPropertySlot(ExecState *exec, const Identifier& propertyName, PropertySlot& slot)
+{
+    if (!instance) {
+        throwInvalidAccessError(exec);
+        return false;
+    }
+    
     instance->begin();
     
     Class *aClass = instance->getClass();
     
     if (aClass) {
-        
-        // See if the instance have a field with the specified name.
-        Field *aField = aClass->fieldNamed(propertyName.ascii(), instance.get());
+        // See if the instance has a field with the specified name.
+        Field *aField = aClass->fieldNamed(propertyName, instance.get());
         if (aField) {
-            result = instance->getValueOfField (exec, aField); 
-        }
-        else {
+            slot.setCustom(this, fieldGetter);
+            instance->end();
+            return true;
+        } else {
             // Now check if a method with specified name exists, if so return a function object for
             // that method.
-            MethodList methodList = aClass->methodsNamed(propertyName.ascii(), instance.get());
-            if (methodList.length() > 0) {
-                result = Object (new RuntimeMethodImp(exec, propertyName, methodList));
+            MethodList methodList = aClass->methodsNamed(propertyName, instance.get());
+            if (methodList.size() > 0) {
+                slot.setCustom(this, methodGetter);
+                
+                instance->end();
+                return true;
             }
         }
-	
-        if (result.type() == UndefinedType) {
-            // Try a fallback object.
-            result = aClass->fallbackObject (exec, instance.get(), propertyName);
+
+        // Try a fallback object.
+        if (!aClass->fallbackObject(exec, instance.get(), propertyName)->isUndefined()) {
+            slot.setCustom(this, fallbackObjectGetter);
+            instance->end();
+            return true;
         }
     }
         
     instance->end();
 
-    
-    return result;
+    // don't call superclass, because runtime objects can't have custom properties or a prototype
+    return false;
 }
 
-void RuntimeObjectImp::put(ExecState *exec, const Identifier &propertyName,
-                    const Value &value, int attr)
+void RuntimeObjectImp::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int)
 {
+    if (!instance) {
+        throwInvalidAccessError(exec);
+        return;
+    }
+    
     instance->begin();
 
     // Set the value of the property.
-    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance.get());
-    if (aField) {
-        getInternalInstance()->setValueOfField(exec, aField, value);
-    }
-    else {
-	if (getInternalInstance()->supportsSetValueOfUndefinedField()){
-	    getInternalInstance()->setValueOfUndefinedField(exec, propertyName, value);
-	}
-    }
-
-    instance->end();
-}
-
-bool RuntimeObjectImp::canPut(ExecState *exec, const Identifier &propertyName) const
-{
-    bool result = false;
-
-    instance->begin();
-
-    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance.get());
-
-    instance->end();
-
+    Field *aField = instance->getClass()->fieldNamed(propertyName, instance.get());
     if (aField)
-	return true;
-    
-    return result;
+        instance->setValueOfField(exec, aField, value);
+    else if (instance->supportsSetValueOfUndefinedField())
+        instance->setValueOfUndefinedField(exec, propertyName, value);
+
+    instance->end();
 }
 
-bool RuntimeObjectImp::hasOwnProperty(ExecState *exec,
-                            const Identifier &propertyName) const
+bool RuntimeObjectImp::canPut(ExecState* exec, const Identifier& propertyName) const
 {
-    bool result = false;
+    if (!instance) {
+        throwInvalidAccessError(exec);
+        return false;
+    }
     
     instance->begin();
 
-    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance.get());
-    if (aField) {
-        instance->end();
-        return true;
-    }
-        
-    MethodList methodList = instance->getClass()->methodsNamed(propertyName.ascii(), instance.get());
+    Field *aField = instance->getClass()->fieldNamed(propertyName, instance.get());
 
     instance->end();
 
-    if (methodList.length() > 0)
-        return true;
-
-    return result;
+    return !!aField;
 }
 
-bool RuntimeObjectImp::deleteProperty(ExecState *exec,
-                            const Identifier &propertyName)
+bool RuntimeObjectImp::deleteProperty(ExecState*, const Identifier&)
 {
     // Can never remove a property of a RuntimeObject.
     return false;
 }
 
-Value RuntimeObjectImp::defaultValue(ExecState *exec, Type hint) const
+JSValue *RuntimeObjectImp::defaultValue(ExecState* exec, JSType hint) const
 {
-    Value result;
+    if (!instance)
+        return throwInvalidAccessError(exec);
+    
+    JSValue *result;
     
     instance->begin();
 
-    result = getInternalInstance()->defaultValue(hint);
+    result = instance->defaultValue(hint);
     
     instance->end();
     
@@ -162,18 +213,39 @@ Value RuntimeObjectImp::defaultValue(ExecState *exec, Type hint) const
     
 bool RuntimeObjectImp::implementsCall() const
 {
-    // Only true for default functions.
-    return true;
+    if (!instance)
+        return false;
+    
+    return instance->implementsCall();
 }
 
-Value RuntimeObjectImp::call(ExecState *exec, Object &thisObj, const List &args)
+JSValue *RuntimeObjectImp::callAsFunction(ExecState* exec, JSObject*, const List& args)
 {
+    if (!instance)
+        return throwInvalidAccessError(exec);
+
     instance->begin();
 
-    Value aValue = getInternalInstance()->invokeDefaultMethod(exec, args);
+    JSValue *aValue = instance->invokeDefaultMethod(exec, args);
     
     instance->end();
     
     return aValue;
 }
 
+void RuntimeObjectImp::getPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
+{
+    if (!instance) {
+        throwInvalidAccessError(exec);
+        return;
+    }
+    
+    instance->begin();
+    instance->getPropertyNames(exec, propertyNames);
+    instance->end();
+}
+
+JSObject* RuntimeObjectImp::throwInvalidAccessError(ExecState* exec)
+{
+    return throwError(exec, ReferenceError, "Trying to access object from destroyed plug-in.");
+}

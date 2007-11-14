@@ -57,6 +57,9 @@
 #define	VG_DONTVALIDFN	0x0002	/* Tells ntfs_vgetex to do not validate */
 				/* fnode */
 #define	VG_EXT		0x0004	/* This is not main record */
+#define	VG_INTERNAL	0x0008	/* This is an internal invocation of */
+				/* ntfs_vgetex().  Tells is to return system */
+				/* vnodes. Otherwise ENOENT is returned. */
 
 struct ntfsmount;
 struct thread;

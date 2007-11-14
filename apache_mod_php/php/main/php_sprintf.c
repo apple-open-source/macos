@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sprintf.c,v 1.12.8.5.2.1 2006/01/01 13:47:00 sniper Exp $ */
+/* $Id: php_sprintf.c,v 1.12.8.5.2.2 2007/01/01 09:46:50 sebastian Exp $ */
 
 #include <stdio.h>
 #include <stdarg.h>

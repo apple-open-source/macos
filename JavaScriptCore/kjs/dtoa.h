@@ -15,8 +15,8 @@
  *
  *  You should have received a copy of the GNU Library General Public License
  *  along with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA 02111-1307, USA.
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
  *
  */
 
@@ -25,7 +25,7 @@
 
 extern "C" double kjs_strtod(const char *s00, char **se);
 extern "C" char *kjs_dtoa(double d, int mode, int ndigits,
-			  int *decpt, int *sign, char **rve);
+                          int *decpt, int *sign, char **rve);
 extern "C" void kjs_freedtoa(char *s);
 
 #endif /* _KJS_DTOA_H */

@@ -1,0 +1,146 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Apache Tomcat Connector - Reference Guide - Configuring IIS</title><meta value="Mladen Turk" name="author"><meta value="mturk@apache.org" name="email"><link rel="stylesheet" type="text/css" href="../../style.css"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--TOMCAT LOGO--><a href="http://tomcat.apache.org/"><img border="0" alt="Apache Tomcat" align="left" src="../../images/tomcat.gif"></a><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="http://www.apache.org/images/asf-logo.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td valign="top" align="left"><h1>The Apache Tomcat Connector - Reference Guide</h1><h2>Configuring IIS</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Requirements"><strong>Requirements</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The Tomcat redirector requires three entities:
+
+<ul>
+<li>
+<b>isapi_redirect.dll</b> - The IIS server plugin, either obtain a pre-built DLL or build it yourself (see the build section).
+</li>
+<li>
+<b>workers.properties</b> - A file that describes the host(s) and port(s) used by the workers (Tomcat processes). 
+A sample workers.properties can be found under the conf directory.
+</li>
+<li>
+<b>uriworkermap.properties</b> - A file that maps URL-Path patterns to workers. 
+A sample uriworkermap.properties can be found under the conf directory as well.
+</li>
+</ul>
+</p>
+
+<p>
+The installation includes the following parts:
+
+<ul>
+<li>
+Configuring the ISAPI redirector with a default /examples context and checking that you can serve servlets with IIS.
+</li>
+<li>
+Adding more contexts to the configuration.
+</li>
+</ul>
+</p>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Registry settings"><strong>Registry settings</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+ISAPI redirector reads configuration from the registry, create a new registry key named :
+</p>
+<p>
+<b>"HKEY_LOCAL_MACHINE\SOFTWARE\Apache Software Foundation\Jakarta Isapi Redirector\1.0"</b>
+</p>
+<table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="20%"><font color="#ffffff">Key Name</font></th><th bgcolor="#023264" width="80%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><strong><code>extension_uri</code></strong></td><td valign="center" align="left"><p>
+A string value pointing to the ISAPI extension <b>/jakarta/isapi_redirect.dll</b>
+</p></td></tr><tr><td valign="center" align="left"><code>log_file</code></td><td valign="center" align="left"><p>
+A value pointing to location where log file will be created.
+(for example <b>c:\tomcat\logs\isapi.log</b>)
+</p></td></tr><tr><td valign="center" align="left"><code>log_level</code></td><td valign="center" align="left"><p>
+A string value for log level 
+(can be debug, info, warn, error or trace).
+</p></td></tr><tr><td valign="center" align="left"><strong><code>worker_file</code></strong></td><td valign="center" align="left"><p>
+A string value which is the full path to workers.properties file
+(for example <b>c:\tomcat\conf\workers.properties</b>)
+</p></td></tr><tr><td valign="center" align="left"><strong><code>worker_mount_file</code></strong></td><td valign="center" align="left"><p>
+A string value which is the full path to uriworkermap.properties file
+(for example <b>c:\tomcat\conf\uriworkermap.properties</b>)
+</p></td></tr><tr><td valign="center" align="left"><code>rewrite_rule_file</code></td><td valign="center" align="left"><p>
+A string value which is the full path to rewrite.properties file
+(for example <b>c:\tomcat\conf\rewrite.properties</b>)
+</p></td></tr><tr><td valign="center" align="left"><code>shm_size</code></td><td valign="center" align="left"><p>
+A DWORD value size of the shared memory. Set this value to be
+the number of all defined workers * 400.
+(Set this value only if you have <b>more</b> then <b>64</b> workers)
+</p>
+<p>This directive has been added in version 1.2.20</p>
+</td></tr><tr><td valign="center" align="left"><code>worker_mount_reload</code></td><td valign="center" align="left"><p>
+A DWORD value specifying the time in seconds upon which the
+<b>worker_mount_file</b> will be reloaded.
+</p>
+<p>This directive has been added in version 1.2.20</p>
+</td></tr><tr><td valign="center" align="left"><code>strip_session</code></td><td valign="center" align="left"><p>
+A string value representing a boolean. If it is set to true,
+URL session suffixes of the form ";jsessionid=..." get stripped of URLs,
+even if the are served locally by the web server.
+A true value can be represented by the string "1" or any string starting
+with the letters "T" or "t". A false value will be assumed for "0"
+or any string starting with "F" or "f". The default value is false.
+</p>
+<p>This directive has been added in version 1.2.21</p>
+</td></tr></table>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Using a properties file for configuration"><strong>Using a properties file for configuration</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The ISAPI redirector can read it's configuration from a properties file instead of the registry. 
+This has the advantage that you can use multiple ISAPI redirectors with independant configurations on the same server.
+The redirector will check for the properties file during initialisation, and use it in preference to the registry if present.
+</p>
+<p>
+Create a properties file in the same directory as the ISAPI redirector called <b>isapi_redirect.properties</b> i.e. with the same name as the ISAPI redirector DLL but with a <em>.properties</em> extension. A sample isapi_redirect.properties can be found under the conf directory.
+</p>
+<p>
+The property names and values in the properties file are the same as for the registry settings described above. For example:
+</p>
+<p>
+<div class="example"><pre>
+# Configuration file for the Jakarta ISAPI Redirector
+
+# The path to the ISAPI Redirector Extension, relative to the website
+# This must be in a virtual directory with execute privileges
+extension_uri=/jakarta/isapi_redirect.dll
+
+# Full path to the log file for the ISAPI Redirector
+log_file=c:\tomcat\logs\isapi_redirect.log
+
+# Log level (debug, info, warn, error or trace)
+log_level=info
+
+# Full path to the workers.properties file
+worker_file=c:\tomcat\conf\workers.properties
+
+# Full path to the uriworkermap.properties file
+worker_mount_file=c:\tomcat\conf\uriworkermap.properties
+</pre></div>
+</p>
+<p>
+    Notes: 
+    <ul>
+        <li>
+            Back-slashes - '\' - are not escape characters.
+        </li>
+        <li>
+            Comment lines begin with '#'.
+        </li>
+    </ul>
+</p>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Using a simple rewrite rules"><strong>Using a simple rewrite rules</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The ISAPI redirector with version 1.2.16 can do a simple URL rewriting. Althought not
+as powerfull as Apache Httpd's mod_rewrite, it allows a simple exchange of request uris
+</p>
+<p>
+The rule is in the form rewritten=real-url.
+</p>
+<p>
+The rules must be simple strings. For example:
+</p>
+<p>
+<div class="example"><pre>
+# Simple rewrite rules
+
+/jsp/=/jsp-examples/
+/servlets/=/servlets-examples/
+
+</pre></div>
+</p>
+<p>
+Note that the uriworkermap or mount point must point to that new rule.
+</p>
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

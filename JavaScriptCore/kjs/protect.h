@@ -15,8 +15,8 @@
  *
  *  You should have received a copy of the GNU Library General Public License
  *  along with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA 02111-1307, USA.
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
  *
  */
 
@@ -24,163 +24,120 @@
 #ifndef _KJS_PROTECT_H_
 #define _KJS_PROTECT_H_
 
-#include "object.h"
-#include "reference.h"
 #include "value.h"
-#include "protected_values.h"
-#include "interpreter.h"
+#include "collector.h"
+#include "JSLock.h"
 
 namespace KJS {
 
-    inline void gcProtect(ValueImp *val) 
-      { 
-#if TEST_CONSERVATIVE_GC | USE_CONSERVATIVE_GC
-	ProtectedValues::increaseProtectCount(val);
-#endif
-      }
-    inline void gcUnprotect(ValueImp *val)
-      { 
-#if TEST_CONSERVATIVE_GC | USE_CONSERVATIVE_GC
-	ProtectedValues::decreaseProtectCount(val);
-#endif
-      }
+    inline void gcProtect(JSValue *val) 
+    { 
+        Collector::protect(val);
+    }
 
-    inline void gcProtectNullTolerant(ValueImp *val) 
-      {
-	if (val) gcProtect(val);
-      }
+    inline void gcUnprotect(JSValue *val)
+    { 
+        Collector::unprotect(val);
+    }
 
-    inline void gcUnprotectNullTolerant(ValueImp *val) 
-      {
-	if (val) gcUnprotect(val);
-      }
+    inline void gcProtectNullTolerant(JSValue *val) 
+    {
+        if (val) 
+            gcProtect(val);
+    }
 
+    inline void gcUnprotectNullTolerant(JSValue *val) 
+    {
+        if (val) 
+            gcUnprotect(val);
+    }
     
-    class ProtectedValue : public Value {
+    // FIXME: Share more code with RefPtr template? The only differences are the ref/deref operation
+    // and the implicit conversion to raw pointer
+    template <class T> class ProtectedPtr {
     public:
-        ProtectedValue() : Value() {}
-        ProtectedValue(const Value&v) 
-            : Value(v) 
-        {
-            InterpreterLock lock;
-            gcProtectNullTolerant(v.imp()); 
-        }
-        ProtectedValue(const ProtectedValue&v)  
-            : Value(v)
-        {
-            InterpreterLock lock;
-            gcProtectNullTolerant(v.imp()); 
-        }
-        ~ProtectedValue() 
-        {
-            InterpreterLock lock;
-            gcUnprotectNullTolerant(imp());
-        }
-        ProtectedValue& operator=(const Value &v)
-	{ 
-            InterpreterLock lock;
-            ValueImp *old = imp();
-            Value::operator=(v); 
-            gcProtectNullTolerant(v.imp());
-            gcUnprotectNullTolerant(old); 
-            return *this;
-	}
-        ProtectedValue& operator=(const ProtectedValue &v)
-	{ 
-            InterpreterLock lock;
-            ValueImp *old = imp();
-            Value::operator=(v); 
-            gcProtectNullTolerant(v.imp());
-            gcUnprotectNullTolerant(old); 
-            return *this;
-	}
+        ProtectedPtr() : m_ptr(NULL) { }
+        ProtectedPtr(T *ptr);
+        ProtectedPtr(const ProtectedPtr &);
+        ~ProtectedPtr();
+
+        template <class U> ProtectedPtr(const ProtectedPtr<U> &);
+        
+        T *get() const { return m_ptr; }
+        operator T *() const { return m_ptr; }
+        T *operator->() const { return m_ptr; }
+        
+        bool operator!() const { return m_ptr == NULL; }
+
+        ProtectedPtr &operator=(const ProtectedPtr &);
+        ProtectedPtr &operator=(T *);
+        
     private:
-      explicit ProtectedValue(ValueImp *v);
+        T *m_ptr;
     };
 
-
-    class ProtectedObject : public Object {
-    public:
-        ProtectedObject() : Object() {}
-        ProtectedObject(const Object &o)
-            : Object(o)
-        {
-            InterpreterLock lock;
-            gcProtectNullTolerant(o.imp()); 
+    template <class T> ProtectedPtr<T>::ProtectedPtr(T *ptr)
+        : m_ptr(ptr)
+    {
+        if (ptr) {
+            JSLock lock;
+            gcProtect(ptr);
         }
+    }
 
-        ProtectedObject(const ProtectedObject &o) 
-          : Object(o) 
-        {
-            InterpreterLock lock;
-            gcProtectNullTolerant(o.imp()); 
+    template <class T> ProtectedPtr<T>::ProtectedPtr(const ProtectedPtr &o)
+        : m_ptr(o.get())
+    {
+        if (T *ptr = m_ptr) {
+            JSLock lock;
+            gcProtect(ptr);
         }
+    }
 
-        ~ProtectedObject()
-        { 
-            InterpreterLock lock;
-            gcUnprotectNullTolerant(imp());
+    template <class T> ProtectedPtr<T>::~ProtectedPtr()
+    {
+        if (T *ptr = m_ptr) {
+            JSLock lock;
+            gcUnprotect(ptr);
         }
+    }
 
-        ProtectedObject& operator=(const Object &o)
-	{ 
-            InterpreterLock lock;
-            ValueImp *old = imp();
-            Object::operator=(o); 
-            gcProtectNullTolerant(o.imp());
-            gcUnprotectNullTolerant(old); 
-            return *this;
-	}
-
-        ProtectedObject& operator=(const ProtectedObject &o)
-	{ 
-            InterpreterLock lock;
-            ValueImp *old = imp();
-            Object::operator=(o); 
-            gcProtectNullTolerant(o.imp());
-            gcUnprotectNullTolerant(old); 
-            return *this;
-	}
-    private:
-      explicit ProtectedObject(ObjectImp *o);
-    };
-
-
-    class ProtectedReference : public Reference {
-    public:
-        ProtectedReference(const Reference&r)
-            : Reference(r) 
-        {
-            InterpreterLock lock;
-            gcProtectNullTolerant(r.base.imp()); 
+    template <class T> template <class U> ProtectedPtr<T>::ProtectedPtr(const ProtectedPtr<U> &o)
+        : m_ptr(o.get())
+    {
+        if (T *ptr = m_ptr) {
+            JSLock lock;
+            gcProtect(ptr);
         }
+    }
 
-        ~ProtectedReference() 
-        { 
-            InterpreterLock lock;
-            gcUnprotectNullTolerant(base.imp());
-        }
+    template <class T> ProtectedPtr<T> &ProtectedPtr<T>::operator=(const ProtectedPtr<T> &o) 
+    {
+        JSLock lock;
+        T *optr = o.m_ptr;
+        gcProtectNullTolerant(optr);
+        gcUnprotectNullTolerant(m_ptr);
+        m_ptr = optr;
+         return *this;
+     }
 
-        ProtectedReference& operator=(const Reference &r)
-	{ 
-            InterpreterLock lock;
-            ValueImp *old = base.imp();
-            Reference::operator=(r); 
-            gcProtectNullTolerant(r.base.imp());
-            gcUnprotectNullTolerant(old); 
-            return *this;
-	}
+    template <class T> inline ProtectedPtr<T> &ProtectedPtr<T>::operator=(T *optr)
+    {
+        JSLock lock;
+        gcProtectNullTolerant(optr);
+        gcUnprotectNullTolerant(m_ptr);
+        m_ptr = optr;
+        return *this;
+    }
 
-    private:
-      ProtectedReference();
-      ProtectedReference(const Object& b, const Identifier& p);
-      ProtectedReference(const Object& b, unsigned p);
-      ProtectedReference(ObjectImp *b, const Identifier& p);
-      ProtectedReference(ObjectImp *b, unsigned p);
-      ProtectedReference(const Null& b, const Identifier& p);
-      ProtectedReference(const Null& b, unsigned p);
-    };
+    template <class T> inline bool operator==(const ProtectedPtr<T> &a, const ProtectedPtr<T> &b) { return a.get() == b.get(); }
+    template <class T> inline bool operator==(const ProtectedPtr<T> &a, const T *b) { return a.get() == b; }
+    template <class T> inline bool operator==(const T *a, const ProtectedPtr<T> &b) { return a == b.get(); }
 
-}
+    template <class T> inline bool operator!=(const ProtectedPtr<T> &a, const ProtectedPtr<T> &b) { return a.get() != b.get(); }
+    template <class T> inline bool operator!=(const ProtectedPtr<T> &a, const T *b) { return a.get() != b; }
+    template <class T> inline bool operator!=(const T *a, const ProtectedPtr<T> &b) { return a != b.get(); }
+ 
+} // namespace
 
 #endif

@@ -455,8 +455,8 @@ function UTC( t ) {
 function DaylightSavingTA( t ) {
     t = t - LocalTZA();
 
-    var dst_start = GetFirstSundayInApril(t) + 2*msPerHour;
-    var dst_end   = GetLastSundayInOctober(t)+ 2*msPerHour;
+    var dst_start = GetSecondSundayInMarch(t) + 2*msPerHour;
+    var dst_end   = GetFirstSundayInNovember(t)+ 2*msPerHour;
 
     if ( t >= dst_start && t < dst_end ) {
         return msPerHour;
@@ -499,6 +499,40 @@ function GetLastSundayInOctober( t ) {
         ;
     }
     return last_sunday;
+}
+
+// Added these two functions because DST rules changed for the US.
+function GetSecondSundayInMarch( t ) {
+	var	year = YearFromTime(t);
+	var	leap = InLeapYear(t);
+
+	var	march =	TimeFromYear(year) + TimeInMonth(0, leap) + TimeInMonth(1,leap);
+
+	var sundayCount = 0;
+	var flag = true;
+	for ( var second_sunday = march; flag; second_sunday += msPerDay )
+	{
+		if (WeekDay(second_sunday) == 0) {
+			if(++sundayCount == 2)
+				flag = false;
+		}
+	}
+
+	return second_sunday;
+}
+function GetFirstSundayInNovember( t ) {
+	var year = YearFromTime(t);
+	var leap = InLeapYear(t);
+
+	for ( var nov = TimeFromYear(year), m =	0; m < 10; m++ ) {
+		nov += TimeInMonth(m, leap);
+	}
+	for ( var first_sunday = nov; WeekDay(first_sunday) > 0;
+		first_sunday += msPerDay	)
+	{
+		;
+	}
+	return first_sunday;
 }
 function LocalTime( t ) {
     return ( t + LocalTZA() + DaylightSavingTA(t) );

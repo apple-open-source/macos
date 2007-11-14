@@ -4,7 +4,7 @@
 #
 # Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
 #
-# @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+# @APPLE_LICENSE_HEADER_START@
 # 
 # The contents of this file constitute Original Code as defined in and
 # are subject to the Apple Public Source License Version 1.1 (the
@@ -20,7 +20,7 @@
 # License for the specific language governing rights and limitations
 # under the License.
 # 
-# @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+# @APPLE_LICENSE_HEADER_END@
 #
 
 set -e
@@ -95,7 +95,7 @@ s/\$//g
 		printf "/*\n" > syslegal
 		printf " * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.\n" > syslegal
 		printf " * \n" > syslegal
-		printf " * @APPLE_OSREFERENCE_LICENSE_HEADER_START@ \n" > syslegal
+		printf " * @APPLE_LICENSE_HEADER_START@ \n" > syslegal
 		printf " * \n" > syslegal
 		printf " * The contents of this file constitute Original Code as defined in and \n" > syslegal
 		printf " * are subject to the Apple Public Source License Version 1.1 (the \n" > syslegal
@@ -111,7 +111,7 @@ s/\$//g
 		printf " * License for the specific language governing rights and limitations \n" > syslegal
 		printf " * under the License. \n" > syslegal
 		printf " * \n" > syslegal
-		printf " * @APPLE_OSREFERENCE_LICENSE_HEADER_END@ \n" > syslegal
+		printf " * @APPLE_LICENSE_HEADER_END@ \n" > syslegal
 		printf " * \n" > syslegal
 		printf " * \n" > syslegal
 		printf " * System call switch table.\n *\n" > syslegal

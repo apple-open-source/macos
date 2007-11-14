@@ -1,0 +1,437 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Apache Tomcat Connector - Reference Guide - Status Worker Reference</title><meta value="Rainer Jung" name="author"><meta value="rjung@apache.org" name="email"><link rel="stylesheet" type="text/css" href="../../style.css"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--TOMCAT LOGO--><a href="http://tomcat.apache.org/"><img border="0" alt="Apache Tomcat" align="left" src="../../images/tomcat.gif"></a><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="http://www.apache.org/images/asf-logo.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td valign="top" align="left"><h1>The Apache Tomcat Connector - Reference Guide</h1><h2>Status Worker Reference</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+Tomcat Connectors has a special type of worker, the so-called status worker.
+The status worker does not forward requests to Tomcat instances. Instead it allows
+to retrieve status and configuration information at runtime,
+and furthermore to change many configuration items dynamically. This can be done
+via a simple embedded web interface.
+</p>
+<p>
+The status worker is especially powerful, when used together with load balancing workers.
+The dynamic management features of load balancers in combination with the status worker
+are a good reason, to use load balancer workers on top of ajp13 workers, even if there would
+be only one member worker in the load balancer.
+</p>
+<p>
+This document does not explain the HTML user interface of the status worker.
+Until now it is very simple, so just go ahead and use it. This doc instead
+tries to explain the less obvious features of the status worker. We also will give a
+complete coverage of the various request parameters and their meaning, so that you can
+include the status worker in your automation scripts. 
+</p>
+<p>
+The documentation of the status worker starts with <b>jk 1.2.20</b>
+</p>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Usage Patterns"><strong>Usage Patterns</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Actions"><strong>Actions</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+The status worker knows about six actions.
+<ul>
+<li>
+<b>list</b>: lists the configurations and runtime information of all configured workers.
+The output will be grouped by global information first (version data), then load balancer
+information, after that AJP worker information and finally the legend. For load balancers,
+there will be a summary part, and after that details for each member worker. For all workers,
+we also include the URL mappings (forward definitions).
+</li>
+<li>
+<b>show</b>: the same as list, but only shows data for one chosen worker
+</li>
+<li>
+<b>edit</b>: produces a form to edit configuration data for a chosen worker. There is a
+special subtype of "edit", that makes it easy to change one attribute for all members of
+a load balancer, e.g. their activation state.
+</li>
+<li>
+<b>update</b>: commit changes made in an edit form. <b>Caution</b>: the changes will not be
+persisted to the configuration files. As soon as your restart your web server, all changes
+made through the status worker will be lost! On the other hand, the changes done by the status
+worker will be applied during runtime without a restart of the web server.
+</li>
+<li>
+<b>reset</b>: reset all runtime information for a load balancer
+or one of its members.
+</li>
+<li>
+<b>recover</b>: Mark a member of a load balancer, that is in error state, for immediate recovery.
+</li>
+<li>
+<b>version</b>: only show version information of the web server and the JK software
+</li>
+</ul>
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Output Format"><strong>Output Format</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+For most actions you can choose between 4 output formats.
+<ul>
+<li>
+<b>HTML</b>: Used interactively with a browser
+</li>
+<li>
+<b>XML</b>: Mostly useful for automation, when your scripting environment is XML friendly.
+This format has rich structure information, but does not work line based, so you would really
+like to use it together with XML tools.
+</li>
+<li>
+<b>Properties</b>: This format is a line based format, that conforms to the rules of Java
+property files. Most structure information is contained in the hierarchical key. For information,
+that is of configuration nature, the format should produce lines very similar to the ones you can
+use in workers.properties. It will not produce a complete configuration file!
+</li>
+<li>
+<b>Text</b>: A simple textual output format.
+</li>
+</ul>
+The "edit" action does only make sense for the HTML output type.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="User Interface Features"><strong>User Interface Features</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+In the HTML view, there is an <b>automatic refresh</b> feature, implemented via the meta refresh
+option of HTML. Once you start the automatic refresh, the UI will will respect it for all actions
+except edit, update and maintain. Even if you navigate through one of those, the automatic refresh
+will start again as soon as you come back to one of the other actions.
+</p>
+<p>
+Many parts of the HTML page can be minimized, if they are not interesting for you. There are a couple
+of "Hide" links, which will collapse parts of the information. The feature exists for the following
+blocks of information:
+<ul>
+<li>
+<b>Legend</b>: Do not show the legend for the information presented in "list" and "show" actions
+</li>
+<li>
+<b>Load Balancer Workers</b>: Do not show workers of type "lb"
+</li>
+<li>
+<b>AJP Workers</b>: Do not show workers of type ajp
+</li>
+<li>
+<b>Member Workers</b>: Do not show detailed information concerning each member of load balancers
+</li>
+</ul>
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special Considerations concerning URL Maps and Virtual Hosts"><strong>Special Considerations concerning URL Maps and Virtual Hosts</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+The Apache module mod_jk makes use of the internal Apache httpd infrastructure concerning
+virtual hosts. The downside of this is, that the status worker can only show URL maps, for
+the virtual host it is defined in. It is not able to reach the configuration objects
+for other virtual hosts. Of course you can define a status worker in any virtual host you
+are using. All information presented apart from the URL maps will be the same, independant
+of the virtual host the status worker has been called in.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Logging"><strong>Logging</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+The status worker will log changes made to the configuration with log level "info" to the usual
+JK log file. Invalid requests will be logged with log level "warn". If you want to report some
+broken behaviour, log file content of level "debug" or even "trace" will be useful.
+</p>
+</blockquote></td></tr></table>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuration"><strong>Configuration</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Basic Configuration"><strong>Basic Configuration</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+The basic configuration of a status worker is very similar to that of a usual ajp worker.
+You need to specify a name for the worker, and the URLs you want to map to it. The first
+part of the configuration happens in the workers.properties file. We define a worker named
+mystatus of type status:
+<div class="example"><pre>
+worker.list=mystatus
+worker.mystatus.type=status
+</pre></div>
+Then we define a URL, which should be mapped to this worker, i.e. the URL we use
+to reach the functionality of the status worker. You can use any method mod_jk supports
+for the web server of your choice. Possibilities are maps inside uriworkermap.properties,
+an additional mount attribute in workers.properties, or in Apache JkMount. Here's an
+example for a uriworkermap.properties line:
+<div class="example"><pre>
+/private/admin/mystatus=mystatus
+</pre></div>
+The URI pattern is case sensitive.
+</p>
+<p>
+As you will learn in the following sections, the status worker is very powerful. You should
+use the usual authentication and authorisation methods of your web server to secure this URL.
+</p>
+<p>
+You can also define multiple instances of the status worker, by using different names and URL mappings.
+For instance you might want to configure them individually
+and then allow special groups of people to use them
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Output Customization"><strong>Output Customization</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+There are a couple of attributes for the workers.properties entries, which allow to customize
+various aspects of the output of the status worker.
+</p>
+<p>
+The attribute <b>css</b> can be set to the URL of a stylesheet:
+<div class="example"><pre>
+worker.mystatus.css=/private/admin/static/mystatus.css
+</pre></div>
+When writing HTML output, the status worker then includes the line
+<div class="example"><pre>
+
+</pre></div>
+There is no sample stylesheet included with the mod_jk release, and by default the attribute css
+is empty, so no stylesheet reference will be included in the pages. The HTML code
+of the status worker output pages does not include any class attributes. If you like to contribute a
+stylesheet or improvements to the HTML layout, please contact us on the tomcat developers list.
+</p>
+<p>
+The properties output format can be customized via the attribute <b>prefix</b>. The names of all
+properties the status worker does output, will begin with this prefix. The default is "worker".
+</p>
+<p>
+Several attributes influence the format when writing XML output.
+The attribute <b>ns</b> allows to set a namespace prefix, that will be used for every status worker+element.
+The default is "jk:". Setting it to "-" disables the namesspace prefix.
+</p>
+<p>
+With the attribute xmlns you can map the prefix to a namespace URL. The default value
+is xmlns:jk="http://tomcat.apache.org". Setting it to "-" disables the output of the URL.
+</p>
+<p>
+Finally you can specify an XML document type via the attribute doctype. The specified string will 
+be inserted at the beginning of the document, directly after the xml header. The default is empty.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Securing Access"><strong>Securing Access</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+We urge you to use the builtin access control features of your web server to control
+access to the status worker URLs you have chosen. Nevertheless two configuration
+attributes of status workers are helpful. The attribute "read_only" disables all features of
+the status worker, that can be used to change configurations or runtime status of the other workers.
+A read_only status worker will not allow access to the edit, update, reset or recover actions.
+The default value is "False", ie. read/write. To enable read_only you need to set it to "True".
+</p>
+<p>
+You could configure two status workers, one has read_only and will be made available to a larger
+admin group, the other one will be used fully featured, but only by fewer people:
+<div class="example"><pre>
+worker.list=jk-watch
+worker.jk-watch.type=status
+worker.jk-watch.read_only=True
+worker.jk-watch.mount=/user/status/jk
+worker.list=jk-manage
+worker.jk-manage.type=status
+worker.jk-manage.mount=/admin/status/jk
+</pre></div>
+Starting with version 1.2.21, a read/write status worker can also be switched temporarily
+into read-only mode by the user via a link in the HTML GUI. The user can always switch it
+back to read/write. Only a status worker configured as read-only via the "read_only" attribute
+is completely safe from applying any changes.
+</p>
+<p>
+The other attribute you can use is <b>user</b>. By default this list is empty, which means
+no limit on the users. You can set "user" to a comma separated list of user names. If your
+web server is configured such that it sends the user names with the request, the status worker
+will check, if the name attached with the request is contained in it's "user" list.
+</p>
+<p>
+The user list can be split over multiple occurences of the "user" attribute.
+</p>
+<p>
+By default, the user names are matched case sensitively. Starting with version 1.2.21 you can set
+the attribute <b>user_case_insensitive</b> to "True". Then the comparison will be made case insensitive.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Service Availability Rating"><strong>Service Availability Rating</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+For load balancing workers the status worker shows some interesting overview information.
+It categorizes the members of the load balancer into the classes "good", "bad" and degraded".
+This feature can be combined with external escalation procedures. Depending on your global
+system design and your operating practises your preferred categorization might vary.
+</p>
+<p>
+The categorization is based on the activation state of the workers (active, disabled or stopped),
+which is a pure configuration state, and the runtime state
+(OK, N/A, busy, recovering, probing, forced recovery, error)
+which only depends on the runtime situation.
+</p>
+<p>
+By default the status worker groups into "good" all members, that have activation "active" and
+runtime state not equal to "error". The "bad" group consists of the members, that have either activation
+"stopped", or are in runtime state "error".
+</p>
+<p>
+Workers that fit neither of the two groups, are considered to be "degraded".
+</p>
+<p>
+You can define other rules for the grouping into good, bad and degraded.
+The two attributes "good" and "bad" can be populated by a comma-separated list ob single characters or
+dot-separated pairs. Each character stands for the first character of one of the possible states "active",
+"disabled", "stopped", "ok", "na", "busy", "recovering" and "error". The additional states "probing"
+and "forced recovery" are always rated equivalent to "recovering".
+Comma-separated entries will be combined
+with logical "or", if you combine a configuration and a runtime state with a dot. the are combined with logical
+"and". So the default value for "good" is "a.o,a.n,a.b,a.r", for "bad" it is "e,s".
+</p>
+<p>
+The status worker first tries to match against the "bad" definitions, if this doesn't succeed
+it tries to macth against "good", and finally it choses "degarded", if no "bad" or "good" match
+can be found.
+</p>
+</blockquote></td></tr></table>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Request Parameters"><strong>Request Parameters</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+This section should help you building automation scripts based on the jk status
+management interface. This interface is still not stable, we expect further
+improvements in the next releases. It is well possible, that the request parameters
+might change in an incompatible way. So be prepared to change you scripts when
+updating to future versions.
+</p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Actions"><strong>Actions</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+The action is determined by the parameter <b>cmd</b>. It can have the values "list", "show",
+"edit", "update", "reset", "recover" and "version". If you omit the "cmd" parameter,
+the default "list" will be used.
+All actions except for "list" and "refresh" need additional parameters.
+</p>
+</blockquote></td></tr></table>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Output Format"><strong>Output Format</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+The format is determined by the parameter <b>mime</b>. It can have the values "html", "xml",
+"txt" and "prop". If you omit the "mime" parameter, the default "html"
+will be used. The action "edit" (the edit form) does only make sense for "mime=html".
+</p>
+</blockquote></td></tr></table>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Worker Selection"><strong>Worker Selection</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+Actions that operate on a single worker need one or two additional parameters to select
+this worker. The parameter <b>w</b> contains the name of the worker from the worker list.
+If an action operates on a member (sub worker) of a load balancer, the parameter "w"
+contains the name of the load balancer worker, and the additional parameter <b>sw</b> contains the
+name of the sub worker.
+</p>
+</blockquote></td></tr></table>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Automatic Refresh"><strong>Automatic Refresh</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+During automatic refresh, the parameter <b>re</b> contain the refresh interval in seconds.
+If you omit this parameter, automatic refresh will be off.
+</p>
+</blockquote></td></tr></table>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Hide Options"><strong>Hide Options</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+The parameter <b>opt</b> contains a bit mask of activated options. The default is 0, so
+by default no options are activated. The following options exist:
+<ul>
+<li>
+<b>0x0001</b>: hide members of lb workers
+</li>
+<li>
+<b>0x0002</b>: hide URL maps
+</li>
+<li>
+<b>0x0004</b>: hide the legend
+</li>
+<li>
+<b>0x0008</b>: hide load balancer workers
+</li>
+<li>
+<b>0x0010</b>: hide ajp workers
+</li>
+<li>
+<b>0x0020</b>: only allow read_only actions for a read/write status worker.
+</li>
+</ul>
+</p>
+</blockquote></td></tr></table>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Data Parameters for the standard Update Action"><strong>Data Parameters for the standard Update Action</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+You can use the edit action with a final click to the update button, to change settings of workers.
+But you can also make direct calls to the update action. The following request parameters 
+contain the configuration information, you want to change. First the list for load balancer workers:
+<ul>
+<li>
+<b>lr</b>: retries (number)
+</li>
+<li>
+<b>lt</b>: recover_time (seconds)
+</li>
+<li>
+<b>ls</b>: sticky_session (0/f/n/off=off, 1/t/y/on=on; case insensitive)
+</li>
+<li>
+<b>lf</b>: sticky_session_force (0/f/n/off=off, 1/t/y/on=on; case insensitive)
+</li>
+<li>
+<b>lm</b>: method (0/r="Requests", 1/t="Traffic", 2/b="Busyness", 3/s="Sessions"; case insensitive, only first character is used)
+</li>
+<li>
+<b>ll</b>: lock (0/o="Optimistic", 1/p="Pessimistic"; case insensitive, only first character is used)
+</li>
+</ul>
+And now the list of parameters you can use to change settings for load balancer members:
+<ul>
+<li>
+<b>wa</b>: activation flag (0/a="active", 1/d="disabled", 2/s="stopped"; case insensitive, only first character is used)
+</li>
+<li>
+<b>wf</b>: load balancing factor (integer weight)
+</li>
+<li>
+<b>wn</b>: route for use with sticky sessions (string)
+</li>
+<li>
+<b>wr</b>: redirect to define simple failover rules (string)
+</li>
+<li>
+<b>wc</b>: domain to tell JK about your replication design (string)
+</li>
+<li>
+<b>wd</b>: distance to express preferences (integer)
+</li>
+</ul>
+For the details of all parameters, we refer to the <a href="workers.html">workers.properties Reference</a>.
+</p>
+</blockquote></td></tr></table>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Aspect Editing for Load Balancer Members"><strong>Aspect Editing for Load Balancer Members</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+You can use the edit action to edit all settings for a load balancer or for a
+member of a load balancer respectively on one page. If you want to edit one
+configuration aspect for all members of a load balancer simultaneously, this
+will be triggered by the parameter <b>att</b>. The value of the parameter indicates,
+which aspect you want to edit. The list is the same as in the previous section:
+"wa", "wf", "wn", "wr", "wc" and "wd". But here you
+need to put the name into the parameter "att", instead of using it as a request
+parameter name.
+</p>
+<p>
+The values of the common aspect for all the load balancer members will be given
+in parameters named "val1", "val2", ....
+</p>
+</blockquote></td></tr></table>
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

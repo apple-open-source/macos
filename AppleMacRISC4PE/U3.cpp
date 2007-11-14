@@ -3,20 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -92,7 +91,7 @@ bool AppleU3::start ( IOService * nub )
     uniNVersion = readUniNReg(kUniNVersion);
 
     if (uniNVersion < kUniNVersion3) {
-		kprintf ("AppleU3::start - UniN version 0x%x not supported\n", uniNVersion);
+		kprintf ("AppleU3::start - UniN version 0x%lx not supported\n", uniNVersion);
 		return false;
     }
 	
@@ -438,7 +437,7 @@ bool AppleU3::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 	bool						ret;
 	IOPlatformFunctionIterator 	*iter;
 	UInt32 						offset, value, valueLen, mask, maskLen, data = 0, writeLen, 
-									cmd, cmdLen, result, pHandle = 0, lastCmd = 0,
+									cmd, cmdLen, result, pHandle, lastCmd = 0,
 									param1, param2, param3, param4, param5, 
 									param6, param7, param8, param9, param10;
 
@@ -448,6 +447,8 @@ bool AppleU3::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 
 	if (!(iter = ((IOPlatformFunction *)func)->getCommandIterator()))
 		return false;
+
+	pHandle = func->getCommandPHandle();
 	
 	ret = true;
 	while (iter->getNextCommand (&cmd, &cmdLen, &param1, &param2, &param3, &param4, 
@@ -702,7 +703,7 @@ void AppleU3::u3APIPhyDisableProcessor1 ( void )
 IOReturn AppleU3::installChipFaultHandler ( IOService * provider )
 {
 	const OSData	*provider_phandle;
-	char			stringBuf[256];
+	char			stringBuf[32];
 	UInt32			pHandle;
 
 	symChipFaultFunc = symPFIntRegister = symPFIntEnable = symPFIntDisable = NULL;
@@ -711,7 +712,7 @@ IOReturn AppleU3::installChipFaultHandler ( IOService * provider )
 	if (provider->getProperty(kChipFaultFuncName) == NULL)
 	{
 		if ( IS_U3_HEAVY(uniNVersion) || IS_U4(uniNVersion) )
-			IOLog("AppleU3: WARNING: platform-chip-fault expected, but not found\n");
+			kprintf("AppleU3: WARNING: %s property expected, but not found\n", kChipFaultFuncName );
 	
 		return kIOReturnUnsupported;
 	}
@@ -725,7 +726,10 @@ IOReturn AppleU3::installChipFaultHandler ( IOService * provider )
 
 	// construct a function symbol of the form "platform-chip-fault-ff001122"
 	pHandle = *((UInt32 *)provider_phandle->getBytesNoCopy());
-	sprintf(stringBuf, "%s-%08lx", kChipFaultFuncName, pHandle);
+	if ( pHandle == 0 )
+		IOLog( "AppleU3::installChipFaultHandler - pHandle should not be zero!\n" );
+	// kChipFaultFuncName = "platform-chip-fault" == 19 chars; "-%08lx" == 9 chars; 1 char for EOS; 29 bytes total
+	snprintf(stringBuf, sizeof(stringBuf)-1, "%s-%08lx", kChipFaultFuncName, pHandle);
 	symChipFaultFunc = OSSymbol::withCString(stringBuf); 
 
 	// Mask all chip fault sources.  Bits that we want unmasked will be handled separately.
@@ -770,12 +774,20 @@ UInt32 SyndromeTable[kECCAllBits] =
         0x0100 , 0x0080 , 0x0040 , 0x0020 , 0x0010 , 0x0008 , 0x0004 , 0x0002 , 0x0001
 };
 
+
+
+
+
 /* static */	/* executing on system workloop */
 void AppleU3::sHandleChipFault( void * vSelf, void * vRefCon, void * /* NULL */, void * /* unused */ )
 {
-	UInt32 apiexcp, mear, mear1, mesr, rank, dimmloc, savedMaskRegister;
+UInt32	apiexcp, mear, mear1, mesr, rank, dimmloc, savedMaskRegister;
+char	errstr[128];
 
 	AppleU3 * me = OSDynamicCast( AppleU3, (OSMetaClassBase *) vSelf );
+
+	// don't use 'me' before we check to make sure it's okay
+	if (!me) return;
 
 	// Mask all chip fault sources.
 	if ( IS_U4(me->uniNVersion) )
@@ -788,11 +800,11 @@ void AppleU3::sHandleChipFault( void * vSelf, void * vRefCon, void * /* NULL */,
 		savedMaskRegister = me->safeReadRegUInt32( kU3ChipFaultMaskRegister );
 		me->safeWriteRegUInt32 ( kU3ChipFaultMaskRegister, ~0UL, 0 );
 	}
-	
-	if (!me) return;
 
-	// read the APIEXCP register to find out the source of this event.  the read operation
-	// causes the faults to be cleared.
+	// read the APIEXCP register to find out the source of this event. 
+	// **************************i*********************************
+	// NOTE - the read operation causes the faults to be cleared.
+	// **************************i*********************************
 	if ( IS_U4(me->uniNVersion) )
 		apiexcp = me->safeReadRegUInt32( kU4APIExceptionRegister );
 	else
@@ -801,7 +813,6 @@ void AppleU3::sHandleChipFault( void * vSelf, void * vRefCon, void * /* NULL */,
 	// Catch DART exceptions
 	if ( (apiexcp & kU3API_DARTExcp) || (apiexcp & kU4API_DARTExcp) )
 	{
-		char errstr[128];
 		UInt32 dartexcp = 0;
 
 		if( IS_U4(me->uniNVersion) )
@@ -809,91 +820,147 @@ void AppleU3::sHandleChipFault( void * vSelf, void * vRefCon, void * /* NULL */,
 			dartexcp = me->safeReadRegUInt32( kU4DARTExceptionRegister );
 			if ( dartexcp & kU4DARTExcpRQOPMask ) {
 				char	xcdString[40];
-				switch((dartexcp & kU4DARTExcpXCDMask))
-				{
+				switch((dartexcp & kU4DARTExcpXCDMask))			 //          1         2         3         4
+				{												 // 1234567890123456789012345678901234567890
 					case 0:
-						sprintf(xcdString, "XBE DART out of bounds Exception: ");
+						snprintf(xcdString, sizeof( xcdString )-1, "XBE DART out of bounds Exception: ");
 						break;
 					case 1:
-						sprintf(xcdString, "XBE DART Entry Exception: ");
+						snprintf(xcdString, sizeof( xcdString)-1,  "XBE DART Entry Exception: ");
 						break;
 					case 2:
-						sprintf(xcdString, "XBE DART Read Protection Exception: ");
+						snprintf(xcdString, sizeof( xcdString)-1, "XBE DART Read Protection Exception: ");
 						break;
 					case 3:
-						sprintf(xcdString, "XBE DART Write Protection Exception: ");
+						snprintf(xcdString, sizeof( xcdString)-1, "XBE DART Write Protection Exception: ");
 						break;
 					case 4:
-						sprintf(xcdString, "XBE DART Addressing Exception: ");
+						snprintf(xcdString, sizeof( xcdString)-1, "XBE DART Addressing Exception: ");
 						break;
 					case 5:
-						sprintf(xcdString, "XBE DART TLB Parity Error: ");
+						snprintf(xcdString, sizeof( xcdString)-1, "XBE DART TLB Parity Error: ");
 						break;
 				}
-				sprintf( errstr, "DART %s%s %s logical page 0x%05lX\n",
+				snprintf( errstr, sizeof( errstr)-1, "DART %s%s %s logical page 0x%05lX\n",
 					xcdString,
-					( dartexcp & kU4DARTExcpRQSRCMask ) ? "HyperTransport" : "PCI0",
-					( dartexcp & kU4DARTExcpRQOPMask ) ? "write" : "read",
+					( dartexcp & kU4DARTExcpRQSRCMask )? "HyperTransport" :
+														 "PCI0",
+					( dartexcp & kU4DARTExcpRQOPMask ) ? "write" :
+														 "read",
 					( dartexcp & kU4DARTExcpLogAdrsMask ) >> kU4DARTExcpLogAdrsShift );
 				// kaboom!
-				panic( errstr );
+				panic( "%s", errstr );
 			}
 
 		}
-		else
+		else		// U3H
 		{
 			dartexcp = me->safeReadRegUInt32( kU3DARTExceptionRegister );
-			if ( dartexcp & kU3DARTExcpRQOPMask ) {
-				sprintf( errstr, "DART %s%s%s %s logical page 0x%05lX\n",
-					( dartexcp & kU3DARTExcpXBEMask ) ? "out-of-bounds exception: " : "",
-					( dartexcp & kU3DARTExcpXEEMask ) ? "entry exception: " : "",
-					( dartexcp & kU3DARTExcpRQSRCMask ) ? "HyperTransport" : "PCI0",
-					( dartexcp & kU3DARTExcpRQOPMask ) ? "write" : "read",
+			// rdar://4137750 -- ONLY panic on DART WRITE errors.  Ignore DART READs.
+			// they are caused by PCI speculative reads, which are typically bogus.
+			if ( dartexcp & kU3DARTExcpRQOPMask )	// writes ONLY
+			{
+				snprintf( errstr, sizeof( errstr )-1,    "DART %s%s%s %s logical page 0x%05lX\n",
+					( dartexcp & kU3DARTExcpXBEMask )?   "out-of-bounds exception: " : "",
+					( dartexcp & kU3DARTExcpXEEMask )?   "entry exception: " : "",
+					( dartexcp & kU3DARTExcpRQSRCMask )? "HyperTransport" : "PCI0",
+					( dartexcp & kU3DARTExcpRQOPMask )?  "write" : "read",
 					( dartexcp & kU3DARTExcpLogAdrsMask ) >> kU3DARTExcpLogAdrsShift );
 
 				// kaboom!
-				panic( errstr );
+				panic( "%s", errstr );
 			}
 			
 		}
 
 	}
 
-	// if this is U3 Heavy, Check for ECC error
+	// if this is U3 Heavy, Check for ECC errors
 	if ( IS_U3_HEAVY(me->uniNVersion) && (apiexcp & (kU3API_ECC_UE_H | kU3API_ECC_UE_L | kU3API_ECC_CE_H | kU3API_ECC_CE_L)) )
 	{
+	UInt32	activeUEbits, activeCEbits, CEbitsToCheck = 0;
+
 		// interrogate U3 ECC registers
+		//
+		//	*** NOTE ***	reading the MESR causes the ECC state to be cleared
+		//
+
 		mear = me->safeReadRegUInt32( kU3MemErrorAddressRegister );
 		mesr = me->safeReadRegUInt32( kU3MemErrorSyndromeRegister );
 		
 		// get the dimm slot index
 		rank = (mear & kU3MEAR_RNK_A_mask) >> kU3MEAR_RNK_A_shift;
 
-		// Check for an uncorrectable error
-		if (apiexcp & (kU3API_ECC_UE_H | kU3API_ECC_UE_L))
-		{
-			dimmloc = rank - (rank%2) + (apiexcp & kU3API_ECC_UE_H ? 0 : 1);
+		// grab the uncorrectable and correctable ECC bit settings
+		activeUEbits  = apiexcp & (kU3API_ECC_UE_H | kU3API_ECC_UE_L);
+		activeCEbits  = apiexcp & (kU3API_ECC_CE_H | kU3API_ECC_CE_L);
+		// retrieve the upper/lower syndrome values
+		syndromes     = mesr &  kU3MESR_ECC_SYNDROMES_mask;
+		upperSyndrome = ( syndromes >> 8 ) & kU3MESR_ECC_SYNDROME_mask;
+		lowerSyndrome =   syndromes        & kU3MESR_ECC_SYNDROME_mask;
 
-			panic("Uncorrectable parity error detected in %s (MEAR=0x%08lX MESR=0x%08lX)\n",
-					me->dimmErrors[dimmloc].slotName, mear, mesr);
+		// Check for uncorrectable errors
+		if ( activeUEbits & ( kU3API_ECC_UE_H | kU3API_ECC_UE_L ) )		// if EITHER the upper or lower uncorrectable error is indicated
+		{
+
+
+			{
+				// according to Sally F, if the ECC_xE_H bit(s) are set, you need to choose the HIGHER of the dimm-pair
+				// and if BOTH UE_H and UE_L are set, we _should_ be reporting BOTH DIMMs as having errors.
+				dimmloc = rank - (rank % 2);	// gives dimm number of dimm where UE_L occurred.  add 1 for UE_H.
+				if ( activeUEbits == ( kU3API_ECC_UE_H | kU3API_ECC_UE_L ) )
+				{
+					snprintf( errstr, sizeof( errstr )-1, "DIMMs %s & %s",
+								me->dimmErrors[dimmloc].slotName, me->dimmErrors[dimmloc+1].slotName );
+				}
+				else
+				{
+					if (apiexcp & kU3API_ECC_UE_H)	// check if error was in upper or lower DIMM
+						dimmloc ++;					// if upper, add 1 to *dimmloc*
+					snprintf( errstr, sizeof( errstr )-1, "%s", me->dimmErrors[dimmloc].slotName );
+				}
+
+				/*  ***** DEATH BY UNCORRECTABLE ERROR HAPPENS HERE *****  */
+
+				panic("Uncorrectable parity error detected in %s (APIEXCP=0x%08lX, MEAR=0x%08lX MESR=0x%08lX)\n",
+					/* slot name(s) */ errstr, apiexcp, mear, mesr);
+			}
 		}
-		else
-			dimmloc = rank - (rank%2) + (apiexcp & kU3API_ECC_CE_H ? 0 : 1);
 
-		//kprintf("AppleU3 got correctable error dimm %u\n", dimmloc);
 
-		IOSimpleLockLock( me->dimmLock );
-		me->dimmErrors[dimmloc].count++;
-		IOSimpleLockUnlock( me->dimmLock );
-
-		// schedule a notification thread callout (if not already scheduled)
-		if (thread_call_is_delayed( me->eccErrorCallout, NULL ) == FALSE)
+		if ( activeCEbits )	// from APIEXCP
 		{
-			// kprintf("AppleU3 scheduling notifier thread\n");
+			// according to Sally F, if the ECC_xE_H bit(s) are set, you need to choose the HIGHER of the dimm-pair
+			// and if BOTH ECC_CE_H and CE_L are set, we ought to be setting updates for both DIMMs, not just one.
 
+			dimmloc = rank - (rank % 2 );	// gives location of lower DIMM of the DIMM-pair
+			IOSimpleLockLock( me->dimmLock );
+
+			// if BOTH bits are set, update the counts for both lower and upper DIMM location
+			if ( activeCEbits == ( kU3API_ECC_CE_H | kU3API_ECC_CE_L ) )
+			{
+				//kprintf("AppleU3 got correctable error in dimms %u and %u\n", dimmloc, dimmloc+1);
+				me->dimmErrors[dimmloc].count++;
+				me->dimmErrors[dimmloc+1].count++;
+			}
+			else	// either one or the other - figure out if we we need to further refine *dimmloc*
+			{
+				if ( activeCEbits & kU3API_ECC_CE_H )	// if CE_H is set, CE_L isn't, and we need to increment *dimmloc*
+					dimmloc ++;
+				//kprintf("AppleU3 got correctable error dimm %u\n", dimmloc);
+				me->dimmErrors[dimmloc].count++;
+			}
+
+			IOSimpleLockUnlock( me->dimmLock );
+
+			// schedule a notification thread callout (if not already scheduled)
+			if (thread_call_is_delayed( me->eccErrorCallout, NULL ) == FALSE)
+			{
 			AbsoluteTime deadline;
-			clock_interval_to_deadline( kU3ECCNotificationIntervalMS, kMillisecondScale, &deadline );
-			thread_call_enter1_delayed( me->eccErrorCallout, vRefCon, deadline);
+			
+				clock_interval_to_deadline( kU3ECCNotificationIntervalMS, kMillisecondScale, &deadline );
+				thread_call_enter1_delayed( me->eccErrorCallout, vRefCon, deadline);
+			}
 		}
 	}
 
@@ -911,7 +978,7 @@ void AppleU3::sHandleChipFault( void * vSelf, void * vRefCon, void * /* NULL */,
 		// Check for an uncorrectable error
 		if (apiexcp & kU4API_ECC_UEExcp)
 		{
-			panic("Uncorrectable parity error detected in rank %d [%s, %s] (MEAR0=0x%08lX MEAR1=0x%08lX MESR=0x%08lX)\n",
+			panic("Uncorrectable parity error detected in rank %ld [%s, %s] (MEAR0=0x%08lX MEAR1=0x%08lX MESR=0x%08lX)\n",
 				rank, me->dimmErrors[dimmloc].slotName, me->dimmErrors[dimmloc+1].slotName, mear, mear1, mesr);
 		}
 		else
@@ -946,6 +1013,8 @@ void AppleU3::sHandleChipFault( void * vSelf, void * vRefCon, void * /* NULL */,
 			thread_call_enter1_delayed( me->eccErrorCallout, vRefCon, deadline);
 		}
 	}
+
+DART_CASCADE_SKIP:
 
 	// Restore mask register.
 	if ( IS_U4(me->uniNVersion) )

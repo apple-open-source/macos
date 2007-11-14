@@ -7,11 +7,11 @@
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://cscope.sourceforge.net/</string>
 	<key>OpenSourceURL</key>
-	<string>http://voxel.dl.sourceforge.net/sourceforge/cscope/cscope-15.5.tar.gz</string>
+	<string>http://superb-east.dl.sourceforge.net/sourceforge/cscope/cscope-15.6.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>2e8e66735254328399dc50757b270bcc3e9002d3</string>
+	<string>f5f73dca1f223cf6905c09a7f0e8eb993fa5fd93</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-07-09</string>
+	<string>2006-12-21</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Minor compile fixes.</string>

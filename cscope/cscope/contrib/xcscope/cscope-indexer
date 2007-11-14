@@ -2,7 +2,7 @@
 ###############################################################################
 #
 # File:         cscope-indexer
-# RCS:          $Header: /cvs/root/cscope/cscope/contrib/xcscope/cscope-indexer,v 1.2 2004/07/09 21:34:44 nicolai Exp $
+# RCS:          $Header: /cvsroot/cscope/cscope/contrib/xcscope/cscope-indexer,v 1.2 2001/06/28 04:39:47 darrylo Exp $
 # Description:  Script to index files for cscope
 #
 #		This script generates a list of files to index

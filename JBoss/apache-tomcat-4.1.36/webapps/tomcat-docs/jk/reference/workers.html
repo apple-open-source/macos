@@ -1,0 +1,733 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Apache Tomcat Connector - Reference Guide - workers.properties configuration</title><meta value="Mladen Turk" name="author"><meta value="mturk@apache.org" name="email"><link rel="stylesheet" type="text/css" href="../style.css"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--TOMCAT LOGO--><a href="http://tomcat.apache.org/"><img border="0" alt="Apache Tomcat" align="left" src="../images/tomcat.gif"></a><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="http://www.apache.org/images/asf-logo.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--LEFT SIDE NAVIGATION--><td nowrap="true" valign="top" width="20%"><p><strong>Links</strong></p><ul><li><a href="../index.html">Docs Home</a></li></ul><p><strong>Reference Guide</strong></p><ul><li><a href="../reference/workers.html">workers.properties</a></li><li><a href="../reference/uriworkermap.html">uriworkermap.properties</a></li><li><a href="../reference/status.html">Status Worker</a></li><li><a href="../reference/apache.html">Apache</a></li><li><a href="../reference/iis.html">IIS</a></li></ul><p><strong>Generic HowTo</strong></p><ul><li><a href="../generic_howto/quick.html">For the impatient</a></li><li><a href="../generic_howto/workers.html">All about workers</a></li><li><a href="../generic_howto/loadbalancers.html">Load Balancing</a></li></ul><p><strong>Webserver HowTo</strong></p><ul><li><a href="../webserver_howto/apache.html">Apache</a></li><li><a href="../webserver_howto/iis.html">IIS</a></li><li><a href="../webserver_howto/nes.html">Netscape/SunOne/Sun</a></li></ul><p><strong>AJP Protocol Reference</strong></p><ul><li><a href="../ajp/ajpv13a.html">AJPv13</a></li><li><a href="../ajp/ajpv13ext.html">AJPv13 Extension Proposal</a></li></ul><p><strong>Miscellaneous Documentation</strong></p><ul><li><a href="../miscellaneous/faq.html">Frequently asked questions</a></li><li><a href="../miscellaneous/changelog.html">Changelog</a></li><li><a href="http://issues.apache.org/bugzilla/buglist.cgi?query_format=advanced&short_desc_type=allwordssubstr&short_desc=&product=Tomcat+5&component=Native%3AJK&long_desc_type=substring&long_desc=&bug_file_loc_type=allwordssubstr&bug_file_loc=&keywords_type=allwords&keywords=&bug_status=NEW&bug_status=ASSIGNED&bug_status=REOPENED&emailassigned_to1=1&emailtype1=substring&email1=&emailassigned_to2=1&emailreporter2=1&emailcc2=1&emailtype2=substring&email2=&bugidtype=include&bug_id=&votes=&chfieldfrom=&chfieldto=Now&chfieldvalue=&cmdtype=doit&order=Reuse+same+sort+as+last+time&field0-0-0=noop&type0-0-0=noop&value0-0-0=">Current Native:JK bugs</a></li><li><a href="../miscellaneous/doccontrib.html">Contribute documentation</a></li><li><a href="../miscellaneous/jkstatustasks.html">JK Status Ant Tasks</a></li><li><a href="../miscellaneous/reporttools.html">Reporting Tools</a></li><li><a href="http://tomcat.apache.org/connectors-doc-archive/jk2/index.html">Old JK/JK2 documentation</a></li></ul><p><strong>News</strong></p><ul><li><a href="../news/20070301.html">2007</a></li><li><a href="../news/20060101.html">2006</a></li><li><a href="../news/20050101.html">2005</a></li><li><a href="../news/20041100.html">2004</a></li></ul></td><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td valign="top" align="left"><h1>The Apache Tomcat Connector - Reference Guide</h1><h2>workers.properties configuration</h2></td><td nowrap="true" valign="top" align="right"><small><a href="printer/workers.html"><img alt="Printer Friendly Version" border="0" src="../images/printer.gif"><br>print-friendly<br>version
+                    </a></small></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+A <b>Tomcat worker</b> is a Tomcat instance that is waiting to execute servlets or any other content
+on behalf of some web server. For example, we can have a web server such as
+Apache forwarding servlet requests to a Tomcat process (the worker) running behind it.
+</p>
+<p>
+The scenario described above is a very simple one;
+in fact one can configure multiple Tomcat workers to serve servlets on
+behalf of a certain web server.
+The reasons for such configuration can be:
+</p>
+<ul>
+<li>
+We want different contexts to be served by different Tomcat workers to provide a
+development environment where all the developers share the same web server but
+own a Tomcat worker of their own.
+</li>
+<li>
+We want different virtual hosts served by different Tomcat processes to provide a
+clear separation between sites belonging to different companies.
+</li>
+<li>
+We want to provide load balancing, meaning run multiple Tomcat workers each on a
+machine of its own and distribute the requests between them.
+</li>
+</ul>
+
+<p>
+There are probably more reasons for having multiple workers but I guess that this list is enough...
+Tomcat workers are defined in a properties file dubbed <b>workers.properties</b> and this tutorial
+explains how to work with it.
+</p>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Directives"><strong>Directives</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>Each workers.properties directive consists of three words separated by dot. The first word is always
+<b>worker</b>. The second word is the worker name that can be any name. The worker name reflects the
+name of the <b>jvmRoute</b> defined in Tomcat's server.xml configuration file.
+</p>
+<p>
+<p><font color="#ff0000">
+The name of the worker can contain only the alphanumeric characters <b>[a-z][A-Z][0-9][_\-]</b> and is case sensitive.
+</font></p>
+</p>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Defining workers"><strong>Defining workers</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>The generic workers.properties directive is in the form:</p>
+<p><strong>worker.&lt;worker name&gt;.&lt;directive&gt;=&lt;value&gt;</strong></p>
+<p>Defining workers to the Tomcat web server plugin can be done using a properties file
+(a sample file named workers.properties is available in the conf/ directory).
+</p>
+<table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Directive</font></th><th bgcolor="#023264" width="10%"><font color="#ffffff">Default</font></th><th bgcolor="#023264" width="75%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><strong><code>worker.list</code></strong></td><td valign="center" align="center"><code>ajp13</code></td><td valign="center" align="left">
+A comma separated list of workers names that the JK will use. When starting up,
+the web server plugin will instantiate the workers whose name appears in the
+worker.list property, these are also the workers to whom you can map requests.
+<p>
+This directive can be used multiple times.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>worker.maintain</code></td><td valign="center" align="center"><code>60</code></td><td valign="center" align="left">
+Worker connection pool maintain interval in seconds. If set to the positive
+value JK will scan all connections for all workers specified in worker.list
+directive and check if connections needs to be recycled.
+<p>
+Furthermore any load balancer does a global maintenance every worker.maintain
+seconds. During global maintenance load counters are decayed and workers
+in error are checked for recover_time.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.13</b>.
+</p>
+</td></tr></table>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Mandatory directives"><strong>Mandatory directives</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>Mandatory directives are the one that each worker <b>must</b> contain. Without them the worker will
+be unavailable or will misbehave.
+</p>
+<table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Directive</font></th><th bgcolor="#023264" width="10%"><font color="#ffffff">Default</font></th><th bgcolor="#023264" width="75%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><strong><code>type</code></strong></td><td valign="center" align="center"><code>ajp13</code></td><td valign="center" align="left">
+Type of the worker (can be one of ajp13, ajp14, jni, lb or status). The type of the worker
+defines the directives that can be applied to the worker.
+<p>AJP13 worker is the preferred worker type that JK uses for communication
+between web server and Tomcat. This type of worker uses sockets as communication
+channel. For detailed description of the AJP13 protocol stack browse to
+<a href="../ajp/ajpv13a.html">AJPv13 protocol specification</a>
+</p>
+</td></tr></table>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Connection directives"><strong>Connection directives</strong></a></font></td></tr><tr><td><blockquote>
+<p>Connection directives defines the parameters needed to connect and maintain
+the connections pool of persistent connections between JK and remote Tomcat.
+</p>
+<table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Directive</font></th><th bgcolor="#023264" width="10%"><font color="#ffffff">Default</font></th><th bgcolor="#023264" width="75%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>host</code></td><td valign="center" align="center"><code>localhost</code></td><td valign="center" align="left">
+Host name or IP address of the backend Tomcat instance. The remote Tomcat must
+support the ajp13 protocol stack. The host name can have a <b>port</b> number
+embedded separated by the colon (':') character.
+</td></tr><tr><td valign="center" align="left"><code>port</code></td><td valign="center" align="center"><code>8009</code></td><td valign="center" align="left">
+Port number of the remote Tomcat instance listening for defined protocol requests.
+The default value depends on the worker type. For AJP13 workers the default port is
+<b>8009</b>, while for AJP14 type of worker that value is <b>8011</b>.
+</td></tr><tr><td valign="center" align="left"><code>socket_timeout</code></td><td valign="center" align="center"><code>0</code></td><td valign="center" align="left">
+Socket timeout in seconds used for communication channel between JK and remote host.
+If remote host does not respond inside that timeout the JK will generate an error,
+and retry again. If set to value zero (default) the JK will wait for infinite
+on all socket operations.
+</td></tr><tr><td valign="center" align="left"><code>socket_keepalive</code></td><td valign="center" align="center"><code>False</code></td><td valign="center" align="left">
+This directive should be used when you have a firewall between your webserver
+and the Tomcat engine, who tend to drop inactive connections. This flag will told Operating System
+to send <b class="code">KEEP_ALIVE</b> message on inactive connections (interval depend on global OS settings,
+generally 120 minutes), and thus prevent the firewall to cut the connection.
+To enable keepalive set this property value to the <b>True</b>.
+<p>
+The problem with Firewall cutting inactive connections is that sometimes, neither webserver or tomcat
+have information about the cut and couldn't handle it.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>retries</code></td><td valign="center" align="center"><code>2</code></td><td valign="center" align="left">
+The number of retries that the worker will try in case of error returned from remote
+Tomcat. If the number of retries set is greater than two (the default value), on
+each retry after default an extra wait of 100ms will be inserted.
+</td></tr><tr><td valign="center" align="left"><code>connection_pool_size</code></td><td valign="center" align="center"><code>see text</code></td><td valign="center" align="left">
+This defines the number of connections made to the AJP backend that
+are maintained as a connection pool.
+It will limit the number of those connection that each web server child
+process can made.
+<p>
+Connection pool size property is used only for multi threaded
+web servers such as Apache 2.0 (worker), IIS and Netscape. The connection_pool_size property
+should reflect the number of threads per child process. JK will discover
+the number of threads per child process on Apache 2 web server with worker-mpm and set
+its default value to match the ThreadsPerChild Apache directive. For IIS the default
+value is 10. For other web servers than Apache or IIS this value has to be set manually.
+</p>
+<p><font color="#ff0000">Do not use connection_pool_size with values higher then 1 on <b>Apache 2.x prefork</b> or <b>Apache 1.3.x</b>!</font></p>
+</td></tr><tr><td valign="center" align="left"><code>connection_pool_minsize</code></td><td valign="center" align="center"><code>(pool+1)/2</code></td><td valign="center" align="left">
+Minimum size of the connection pool that will be maintained.
+<p>
+Its default value is (connection_pool_size+1)/2.
+</p>
+<p><font color="#ff0000">Do not use connection_pool_size with values higher then 1 on <b>Apache 2.x prefork</b> or <b>Apache 1.3.x</b>!</font></p>
+<p>
+This feature has been added in <b>jk 1.2.16</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>connection_pool_timeout</code></td><td valign="center" align="center"><code>0</code></td><td valign="center" align="left">
+Cache timeout property should be used with <b>connection_pool_size</b> to specify how many seconds JK should keep
+an inactive socket in cache before closing it. This property should be used to reduce the number of threads
+on the Tomcat web server. The default value zero disables the closing (infinite timeout).
+<p>
+Each child could open an ajp13 connection if it have to forward a request to Tomcat, creating
+a new ajp13 thread on Tomcat side.
+</p>
+<p>
+The problem is that after an ajp13 connection is created, the child won't drop it
+until killed. And since the webserver will keep its childs/threads running
+to handle high-load, even it the child/thread handle only static contents, you could
+finish having many unused ajp13 threads on the Tomcat side.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>lbfactor</code></td><td valign="center" align="center"><code>1</code></td><td valign="center" align="left">
+Only used for a member worker of a load balancer.
+<p>
+The integer number lbfactor (load-balancing factor) is
+<i>how much we expect this worker to work</i>, or
+<i>the worker's work quota</i>. Load balancing factor is compared with other workers
+that makes the load balancer. For example if one worker has lb_factor 5 times higher then
+other worker, then it will receive five times more requests.
+</p>
+</td></tr></table>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Load balancing directives"><strong>Load balancing directives</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>Load balancer is a virtual worker that does not really communicate with Tomcat workers.
+Instead it is responsible for the management of several "real" workers.
+The worker is supposed to be a load balancer if it's worker type is <b>lb</b>.
+See worker's <b>type</b> directive. The workers that
+are member of load balancer must not appear in the <b>worker.list</b> directive.
+</p>
+<p>Loadbalancer directives defines the parameters needed to create a workers that are
+connecting to a remote cluster of backend Tomcat servers. Each cluster node has to
+have a worker defined.
+</p>
+<p>
+Load balancer management includes:
+</p>
+
+<ul>
+<li>
+Instantiating the workers in the web server.
+</li>
+<li>
+Using the worker's load-balancing factor, perform weighed-round-robin load balancing where
+high lbfactor means stronger machine (that is going to handle more requests)
+</li>
+<li>
+Keeping requests belonging to the same session executing on the same Tomcat worker.
+</li>
+<li>
+Identifying failed Tomcat workers, suspending requests to them and instead fall-backing on
+other workers managed by the lb worker.
+</li>
+</ul>
+
+<p>
+The overall result is that workers managed by the same lb worker are load-balanced
+(based on their lbfactor and current user session) and also fall-backed so a single
+Tomcat process death will not "kill" the entire site.
+The following table specifies properties that the lb worker can accept:
+</p>
+
+<table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Directive</font></th><th bgcolor="#023264" width="10%"><font color="#ffffff">Default</font></th><th bgcolor="#023264" width="75%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><strong><code>balance_workers</code></strong></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+A comma separated list of workers that the load balancer
+need to manage.
+<p>
+This directive can be used multiple times for the same load balancer.
+</p>
+<p>
+This directive replaces old <b>balanced_workers</b> directive and
+can be used only with mod_jk versions 1.2.7 and up.
+</p>
+<p><font color="#ff0000">These workers should <b>not</b> appear in the worker.list property!</font></p>
+</td></tr><tr><td valign="center" align="left"><code>sticky_session</code></td><td valign="center" align="center"><code>True</code></td><td valign="center" align="left">
+Specifies whether requests with SESSION ID's should be routed back to the same
+Tomcat worker. If sticky_session is set to <b>True</b> or <b>1</b> sessions are sticky, otherwise
+sticky_session is set to <b>False</b>. Set sticky_session to <b>False</b> when Tomcat
+is using a Session Manager which can persist session data across multiple
+instances of Tomcat. By default sticky_session is set to True.
+</td></tr><tr><td valign="center" align="left"><code>sticky_session_force</code></td><td valign="center" align="center"><code>False</code></td><td valign="center" align="left">
+Specifies whether requests with SESSION ID's for workers that are in error state
+should be rejected. If sticky_session_force is set to <b>True</b> or <b>1</b>
+and the worker that matches that SESSION ID is in error state, client will
+recieve 500 (Server Error). If set to <b>False</b> or <b>0</b> failover on
+another worker will be issued with loosing client session. This directive is
+used only when you set <b>sticky_session=True</b>.
+<p>
+This feature has been added in <b>jk 1.2.9</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>method</code></td><td valign="center" align="center"><code>Request</code></td><td valign="center" align="left">
+Specifies what method load balancer is using for electing the best worker.
+Please note, that session stickyness and perfect load balancing are
+conflicting targets, especially when the number
+of sessions is small, or the usage of sessions is extremely varying
+For huge numbers of sessions this usually is not a problem.
+<p>
+Some methods note, that they aggregate in a sliding time window. They add up
+accesses, and on each run of the global maintain method, the load counters
+get divided by 2. Usually this happens once a minute, depending on the
+setting of worker.maintain. The value of the load counters can be inspected
+using the status worker.
+</p>
+<p>
+If method is set to <b>R[equest]</b> the balancer will use number of requests
+to find the best worker. Accesses will be distributed according to the
+lbfactor in a sliding time window. This is the default value and should be
+working well for most applications.
+</p>
+<p>
+If method is set to <b>S[ession]</b> the balancer will use number of sessions
+to find the best worker. Accesses will be distributed according to the
+lbfactor in a sliding time window. Because the balancer does not keep any state,
+it actually does not know the number of sessions. Instead it counts each request
+without a session cookie or URL encoding as a new session. This method will neither
+know, when a session is being invalidated, nor will it correct its load numbers
+according to session timeouts or worker failover. This method should be used,
+if sessions are your limiting resource, e.g. when you only have limited memory
+and your sessions need a lot of memory.
+</p>
+<p>
+If set to <b>T[raffic]</b> the balancer will use
+the network traffic between JK and Tomcat to find the best worker.
+Accesses will be distributed according to the lbfactor in a sliding time window.
+This method should be used, if network to and from the backends is your
+limiting resource.
+</p>
+<p>
+If set to <b>B[usyness]</b> the balancer will
+pick the worker with the lowest current load, based on how many requests the
+worker is currently serving. This number is divided by the workers lbfactor,
+and the lowest value (least busy) worker is picked. This method is especially
+interesting, if your request take a long time to process, like for a download
+application.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.9</b>.
+The Session method has been added in <b>jk 1.2.20</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>lock</code></td><td valign="center" align="center"><code>Optimistic</code></td><td valign="center" align="left">
+Specifies what lock method the load balancer will use for synchronizing
+shared memory runtime data.
+If lock is set to <b>O[ptimistic]</b> balancer will not use shared memory lock
+to find the best worker. If set to <b>P[essimistic]</b> balancer will use
+shared memory lock. The balancer will work more accurately in case of
+Pessimistic locking, but can slow down the average response time.
+<p>
+This feature has been added in <b>jk 1.2.13</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>secret</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+Set a default secret word for all defined workers.
+See worker secret attribute description for more info.
+<p>
+This feature has been added in <b>jk 1.2.12</b>.
+</p>
+</td></tr></table>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Status Worker directives"><strong>Status Worker directives</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>
+The status worker does not communicate with Tomcat.
+Instead it is responsible for the load balancer management.
+</p>
+<table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Directive</font></th><th bgcolor="#023264" width="10%"><font color="#ffffff">Default</font></th><th bgcolor="#023264" width="75%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>css</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+Specifies the url for cascading stylesheet to use.
+</td></tr><tr><td valign="center" align="left"><code>read_only</code></td><td valign="center" align="center"><code>False</code></td><td valign="center" align="left">
+A status worker with read_only=True will not allow any operations,
+that change the runtime state or configuration of the other workers.
+These are edit/update/reset/recover.
+<p>
+This feature has been added in <b>jk 1.2.20</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>user</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+It is a list of users
+which gets compared to the user name authenticated by the web server.
+If the name is not contained in this list, access is denied. Per
+default the list is empty and then access is allowed to anybody.
+<p>
+This directive can be used multiple times.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.20</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>user_case_insensitive</code></td><td valign="center" align="center"><code>False</code></td><td valign="center" align="left">
+By default, the user names are matched case sensitively. You can set
+user_case_insensitive=True to make the comparison case insensitive.
+This may be especially useful on the Windows platform.
+<p>
+This feature has been added in <b>jk 1.2.21</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>good</code></td><td valign="center" align="center"><code>a.o,a.n,a.b,a.r</code></td><td valign="center" align="left">
+For every load balancer worker, the status worker shows a summary
+of the state of its members. There are three such states,
+"good", "bad" and "degraded".
+<p>
+These states are determined depending on the activation of the members
+(active, disabled, stopped) and their runtime state
+(ok, n/a, busy, recovering, probing, forced recovery, error).
+By default, members are assumed to be "good", if their activation
+is "active" and their runtime state is not "error".
+</p>
+<p>
+You can change this mapping, by assigning a list of values to the
+attribute "good". Each value gives a possible match for the members,
+and one match suffices. Each value is either a single character, or two
+characters combined with a dot ".". The single characters are the
+first characters in the words "active", "disabled", "stopped",
+"ok", "na", "busy", "recovering", "error". The additional states "probing"
+and "forced recovery" are always rated equivalent to "recovering".
+If a value consists only
+of a single character, then all members with this activation or runtime
+state will be assumed good. A combination of an activation and a runtime
+state concatenated with a dot "." does only apply to a member, that has
+exactly this activation and state.
+</p>
+<p>
+Members of a load balancer will first be matched against the state "bad",
+if they don't match, the state "good" will be tried, and if they
+still don't match, their state will be "degraded".
+</p>
+<p>
+This directive can be used multiple times.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.20</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>bad</code></td><td valign="center" align="center"><code>s,e</code></td><td valign="center" align="left">
+See: "good".
+<p>
+By default, members are assumed to be "bad", if their activation
+is "stopped" or their runtime state is "error".
+</p>
+<p>
+This directive can be used multiple times.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.20</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>prefix</code></td><td valign="center" align="center"><code>worker</code></td><td valign="center" align="left">
+The prefix, which will be used by the status worker
+when producing properties output (mime=prop).
+Each property key will be prefixed by this value.
+<p>
+This feature has been added in <b>jk 1.2.20</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>ns</code></td><td valign="center" align="center"><code>jk:</code></td><td valign="center" align="left">
+This directive can be used to customize the XML output from the
+status worker. If set to <b>-</b> no namespace will be used.
+<p>
+This feature has been added in <b>jk 1.2.20</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>xmlns</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+This directive can be used to customize the XML output from the
+status worker. If set to <b>-</b> no xmlns will be used.
+<p>
+Default value is set to xmlns:jk="http://tomcat.apache.org"
+</p>
+<p>
+This feature has been added in <b>jk 1.2.20</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>doctype</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+This directive can be used to customize the XML output from the
+status worker. This value will be inserted to the output xml
+after the xml header.
+<p>
+This feature has been added in <b>jk 1.2.20</b>.
+</p>
+</td></tr></table>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Advanced worker directives"><strong>Advanced worker directives</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Directive</font></th><th bgcolor="#023264" width="10%"><font color="#ffffff">Default</font></th><th bgcolor="#023264" width="75%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>connect_timeout</code></td><td valign="center" align="center"><code>0</code></td><td valign="center" align="left">
+Connect timeout property told webserver to send a PING request on ajp13 connection after
+connection is established. The parameter is the delay in milliseconds to wait for the PONG reply.
+The default value zero disables the timeout (infinite timeout).
+<p>
+This features has been added in <b>jk 1.2.6</b> to avoid problem with hung tomcat's and require ajp13
+ping/pong support which has been implemented on Tomcat <b>3.3.2+, 4.1.28+ and 5.0.13+</b>.
+Disabled by default.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>prepost_timeout</code></td><td valign="center" align="center"><code>0</code></td><td valign="center" align="left">
+Prepost timeout property told webserver to send a PING request on ajp13 connection before
+forwarding to it a request. The parameter is the delay in milliseconds to wait for the PONG reply.
+The default value zero disables the timeout (infinite timeout).
+<p>
+This features has been added in <b>jk 1.2.6</b> to avoid problem with hung tomcat's and require ajp13
+ping/pong support which has been implemented on <b>Tomcat 3.3.2+, 4.1.28+ and 5.0.13+</b>.
+Disabled by default.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>reply_timeout</code></td><td valign="center" align="center"><code>0</code></td><td valign="center" align="left">
+Reply_timeout property told webserver to wait some time for reply to a forwarded request
+before considering the remote tomcat is dead and eventually switch to another tomcat in a cluster
+group. By default (value zero) the webserver will wait forever which could be an issue for you.
+The parameter is the number of milliseconds to wait for reply, so adjust it carefully if you
+have long running servlets.
+<p>
+This features has been added in <b>jk 1.2.6</b> to avoid problem with hung tomcat's and works on all
+servlet engines supporting ajp13.
+Disabled by default.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>recover_time</code></td><td valign="center" align="center"><code>60</code></td><td valign="center" align="left">
+Only used for load balancer workers.
+<p>
+The recover time is the time in seconds the load balancer will not try
+to use a worker, after it went into error state. Only after this time has passed,
+a worker in error state will be marked as in recovering, so that it will be
+tried for new requests.
+</p>
+<p>
+This interval is not checked every time a request is being processed.
+Instead it is being checked during global maintenance. The time between two
+runs of global maintenance is controlled by worker.maintain.
+</p>
+<p>
+Do not set recover_time to a very short time unless you understand the implications.
+Every recovery attempt for a worker in error is done by a real request!
+</p>
+</td></tr><tr><td valign="center" align="left"><code>max_packet_size</code></td><td valign="center" align="center"><code>8192</code></td><td valign="center" align="left">
+This attribute sets the maximal AJP packet size in Bytes.
+The maximum value is 65536. If you change it from the default,
+you <b>must</b> also change the packetSize attribute of your AJP
+connector on the tomcat side! The attribute packetSize is only available
+in Tomcat 5.5.20+ and 6.0.2+.
+<p>
+Normally it is not necessary to change the maximum packet size. Problems
+with the default value have been reported when sending certificates or
+certificate chains.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.19</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>recovery_options</code></td><td valign="center" align="center"><code>0</code></td><td valign="center" align="left">
+Only used for a member worker of a load balancer.
+<p>
+Recovery options property told webserver how to handle recovery when
+it detect that tomcat failed.
+By default, webserver will forward the request to another tomcat in LB mode
+(or to another ajp thread in ajp13 mode).
+values are : 0 (full recovery), 1 (don't recover if tomcat failed after getting the request),
+2 (don't recover if tomcat failed after sending the headers to client), 3 (don't recover if tomcat failed
+getting the request or after sending the headers to client).
+</p>
+<p>
+This features has been added in <b>jk 1.2.6</b> to avoid problem with hung/broken tomcat's
+and works on all servlet engines supporting ajp13.
+Full recovery by default.
+</p>
+<p>If the value 4 is added to the recovery options, the connection
+between the webserver and tomcat will be closed if the client connection
+to the webserver is terminated during the request/response cycle. This allows
+to inform the servlet engine about broken client connections during lengthy operations.
+This feature has been added in <b>jk 1.2.16</b>
+</p>
+</td></tr><tr><td valign="center" align="left"><code>distance</code></td><td valign="center" align="center"><code>0</code></td><td valign="center" align="left">
+Only used for a member worker of a load balancer.
+<p>
+An integer number to express preferences between
+the balanced workers of an lb worker.
+A load balancer will never choose some balanced worker 
+in case there is another usable worker with lower distance.
+</p>
+<p>
+Only in case all workers below a given distance are in error, disabled or stopped,
+workers of a larger distance are eligible for balancing.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.16</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>domain</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+Only used for a member worker of a load balancer.
+<p>
+Domain directive can be used only when the worker is a member of the load balancer.
+Workers that share the same domain name are treated as single worker. If sticky_session
+is used, then the domain name is used as session route.
+</p>
+<p>
+This directive is used for large system with more then 6 Tomcats, to be able
+to cluster the Tomcats in two groups and thus lowering the session replication
+transfer between them.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.8</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>redirect</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+Only used for a member worker of a load balancer.
+<p>
+Set to the preferred failover worker. If worker matching SESSION ID is in
+error state then the redirect worker will be used instead. It will be used
+even if being disabled, thus offering hot standby.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.9</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>activation</code></td><td valign="center" align="center"><code>Active</code></td><td valign="center" align="left">
+Only used for a member worker of a load balancer.
+<p>
+Using this directive, a balanced worker of a load balancer
+can be configured as disabled or stopped. A disabled worker only gets
+requests, which belong to sessions for that worker. A stopped
+worker does not get any requests. Users will loose their sessions,
+unless session replication via clustering is used.
+</p>
+<p>
+Use <b>d</b> or <b>D</b> to disable and <b>s</b> or <b>S</b> to stop.
+If this directive is not present the deprecated directives
+"disabled" or "stopped" are used.
+</p>
+<p>
+This flag can be changed at runtime using status worker.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.19</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>route</code></td><td valign="center" align="center"><code>worker name</code></td><td valign="center" align="left">
+Normally the name of a balanced worker in a load balancer is equal to the jvmRoute
+of the corresponding Tomcat instance. If you want to include a worker corresponding
+to a Tomcat instance into several load balancers with different balancing configuration
+(e.g. disabled, stopped) you can use this attribute.
+<p>
+Define a seperate worker per lb and per Tomcat instance with an arbitrary worker name and 
+set the route attribute of the worker equal to the jvmRoute of the target Tomcat instance.
+</p>
+<p>
+If this attribute is left empty, the name of the worker will be used.
+</p>
+<p>
+This attribute can be changed at runtime using status worker.
+</p>
+<p>
+If the route name contains a period, the part before the first period will be
+used as domain name, unless domain is set explicitly.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.16</b>.<br>
+The automatic domain rule has been added in <b>jk 1.2.20</b>.<br>
+The attribute has been renamed from jvm_route to route in <b>jk 1.2.20</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>reference</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+This attribute can be used for normal workers and for load balancer workers.
+<p>
+This directive allows to copy configurations between workers
+in a hierarchical way. If worker castor sets <b>worker.castor.reference=worker.pollux</b>
+then it inherits all properties of <b>pollux</b>, except for the ones that
+are explicitely set for <b>castor</b>.
+</p>
+<p>
+Please note, that the value of the directive is not only the name of the referred worker,
+but the complete prefix including "worker.".
+</p>
+<p>
+This directive is especially useful, if one has a lot of balanced workers in a load balancer
+and these workers share most of their properties. You can set all of these properties
+in a phantom worker, e.g. using the prefix "worker.template1", and then simply
+reference those common properties in all balanced workers.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.19</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>secret</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+This attribute can be used for normal workers and for load balancer workers.
+<p>
+If set to AJP Connector secret keyword, only request with this keyword are successfull responding.
+Use <b>request.useSecret="true"</b> and <b>request.secret="secret key word"</b> at your tomcat ajp
+Connector configuration.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>mount</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+This attribute can be used for normal workers and for load balancer workers.
+<p>
+Space delimited list of uri maps the worker should handle. It is only used,
+if the worker is included in worker.list.
+</p>
+<p>
+This directive can be used multiple times for the same worker.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>fail_on_status</code></td><td valign="center" align="center"><code>0</code></td><td valign="center" align="left">
+Set this value to the HTTP status code that will cause a worker to fail
+if returned from Servlet contatiner. Use this directive to deal with
+cases when the servlet container can temporary return non-200 responses
+for a short amount of time, e.g during redeployment.
+<p>
+This feature has been added in <b>jk 1.2.20</b>.
+</p>
+<p>
+Starting with <b>jk 1.2.22</b> it is possible to define multiple
+status codes separated by space or coma characters.
+For example: <b class="code">worker.xxx.fail_on_status=500,503</b>
+</p>
+</td></tr></table>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Deprecated worker directives"><strong>Deprecated worker directives</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>The following directives have been deprecated in the past. We include their documentation
+in case you need to use an older version of mod_jk. We urge you to update and not use
+them any more. Please migrate your existing configurations.
+</p>
+<table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Directive</font></th><th bgcolor="#023264" width="15%"><font color="#ffffff">Successor</font></th><th bgcolor="#023264" width="10%"><font color="#ffffff">Default</font></th><th bgcolor="#023264" width="60%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>cachesize</code></td><td valign="center" align="center"><code>connection_pool_size</code></td><td valign="center" align="center"><code>see text</code></td><td valign="center" align="left">
+<p><font color="#ff0000">This directive has been deprecated since 1.2.16.</font></p>
+Cachesize defines the number of connections made to the AJP backend that
+are maintained as a connection pool.
+It will limit the number of those connection that each web server child
+process can make.
+<p>
+Cachesize property is used only for multi threaded 
+web servers such as Apache 2.0 (worker), IIS and Netscape. The cachesize property
+should reflect the number of threads per child process. JK will discover
+the number of threads per child process on Apache 2 web server with worker-mpm and set
+its default value to match the ThreadsPerChild Apache directive. For IIS the default
+value is 10. For other web servers than Apache or IIS this value has to be set manually.
+</p>
+<p><font color="#ff0000">Do not use cachesize with values higher then 1 on <b>Apache 2.x prefork</b> or <b>Apache 1.3.x</b>!</font></p>
+</td></tr><tr><td valign="center" align="left"><code>cache_timeout</code></td><td valign="center" align="center"><code>connection_pool_timeout</code></td><td valign="center" align="center"><code>0</code></td><td valign="center" align="left">
+<p><font color="#ff0000">This directive has been deprecated since 1.2.16.</font></p>
+Cache timeout property should be used with <b>cachesize</b> to specify how to time JK should keep
+an open socket in cache before closing it. This property should be used to reduce the number of threads 
+on the Tomcat web server.
+<p> 
+Each child could open an ajp13 connection if it have to forward a request to Tomcat, creating
+a new ajp13 thread on Tomcat side.
+</p>
+<p>
+The problem is that after an ajp13 connection is created, the child won't drop it
+until killed. And since the webserver will keep its childs/threads running
+to handle high-load, even it the child/thread handle only static contents, you could
+finish having many unused ajp13 threads on the Tomcat side.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>recycle_timeout</code></td><td valign="center" align="center"><code>connection_pool_timeout</code></td><td valign="center" align="center"><code>0</code></td><td valign="center" align="left">
+<p><font color="#ff0000">This directive has been deprecated since 1.2.16.</font></p>
+The number of seconds that told webserver to cut an ajp13 connection after some time of 
+inactivity. When choosing an endpoint for a request and the assigned socket is open, it will be
+closed if it was not used for the configured time.
+It's a good way to ensure that there won't too old threads living on Tomcat side, 
+with the extra cost you need to reopen the socket next time a request be forwarded.
+This property is very similar to <b>cache_timeout</b> but works also in non-cache mode.
+If set to value zero (default) no recycle will took place. 
+</td></tr><tr><td valign="center" align="left"><code>balanced_workers</code></td><td valign="center" align="center"><code>balance_workers</code></td><td valign="center" align="center"><code>-</code></td><td valign="center" align="left">
+<p><font color="#ff0000">This directive has been deprecated since 1.2.7.</font></p>
+A comma separated list of workers that the load balancer
+need to manage.
+</td></tr><tr><td valign="center" align="left"><code>disabled</code></td><td valign="center" align="center"><code>activation</code></td><td valign="center" align="center"><code>False</code></td><td valign="center" align="left">
+<p><font color="#ff0000">This directive has been deprecated since 1.2.19.</font></p>
+If set to <b>True</b> or <b>1</b> the worker will be disabled if member
+of load balancer. This flag can be changed at runtime using status worker.
+<p>
+This feature has been added in <b>jk 1.2.9</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>stopped</code></td><td valign="center" align="center"><code>activation</code></td><td valign="center" align="center"><code>False</code></td><td valign="center" align="left">
+<p><font color="#ff0000">This directive has been deprecated since 1.2.19.</font></p>
+If set to <b>True</b> or <b>1</b> the worker will be stopped if member
+of load balancer. The flag is needed for stop complete traffic of a sticky session
+worker. It is only usefull, when you have a cluster that replicated the sessions.
+This flag can be changed at runtime using status worker.
+<p>
+This feature has been added in <b>jk 1.2.11</b>.
+</p>
+</td></tr><tr><td valign="center" align="left"><code>jvm_route</code></td><td valign="center" align="center"><code>route</code></td><td valign="center" align="center"><code>worker name</code></td><td valign="center" align="left">
+<p><font color="#ff0000">This directive has been deprecated since 1.2.20.</font></p>
+Normally the name of a balanced worker in a load balancer is equal to the jvmRoute
+of the corresponding Tomcat instance. If you want to include a worker corresponding
+to a Tomcat instance into several load balancers with different balancing configuration
+(e.g. disabled, stopped) you can use this attribute.
+<p>
+Define a seperate worker per lb and per Tomcat instance with an arbitrary worker name and 
+set the jvm_route attribute of the worker equal to the jvmRoute of the target Tomcat instance.
+</p>
+<p>
+If this attribute is left empty, the name of the worker will be used.
+</p>
+<p>
+This attribute can be changed at runtime using status worker.
+</p>
+<p>
+This feature has been added in <b>jk 1.2.16</b>.
+</p>
+</td></tr></table>
+</blockquote></td></tr></table>
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

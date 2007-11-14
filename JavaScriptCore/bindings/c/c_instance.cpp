@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,67 +22,44 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#include <c_class.h>
-#include <c_instance.h>
-#include <c_runtime.h>
-#include <c_utility.h>
 
-#include <JavaScriptCore/npruntime_impl.h>
-#include <JavaScriptCore/npruntime_priv.h>
+#include "config.h"
 
-#ifdef NDEBUG
-#define C_LOG(formatAndArgs...) ((void)0)
-#else
-#define C_LOG(formatAndArgs...) { \
-    fprintf (stderr, "%s:%d -- %s:  ", __FILE__, __LINE__, __FUNCTION__); \
-    fprintf(stderr, formatAndArgs); \
-}
-#endif
+#if !PLATFORM(DARWIN) || !defined(__LP64__)
 
-using namespace KJS::Bindings;
-using namespace KJS;
+#include "c_instance.h"
 
-CInstance::CInstance (NPObject *o) 
+#include "c_class.h"
+#include "c_runtime.h"
+#include "c_utility.h"
+#include "list.h"
+#include "npruntime_impl.h"
+#include "PropertyNameArray.h"
+#include "runtime_root.h"
+#include <wtf/StringExtras.h>
+#include <wtf/Vector.h>
+
+namespace KJS {
+namespace Bindings {
+
+CInstance::CInstance(NPObject* o, PassRefPtr<RootObject> rootObject)
+    : Instance(rootObject)
 {
-    _object = _NPN_RetainObject (o);
+    _object = _NPN_RetainObject(o);
     _class = 0;
-    setExecutionContext (0);
-};
-
-CInstance::~CInstance () 
-{
-    _NPN_ReleaseObject (_object);
-    delete _class;
 }
 
-
-CInstance::CInstance (const CInstance &other) : Instance() 
+CInstance::~CInstance() 
 {
-    _object = _NPN_RetainObject (other._object);
-    _class = 0;
-    setExecutionContext (other.executionContext());
-};
-
-CInstance &CInstance::operator=(const CInstance &other){
-    if (this == &other)
-        return *this;
-    
-    NPObject *_oldObject = _object;
-    _object= _NPN_RetainObject (other._object);
-    _NPN_ReleaseObject (_oldObject);
-    _class = 0;
-    
-    return *this;
-};
+    _NPN_ReleaseObject(_object);
+}
 
 Class *CInstance::getClass() const
 {
-    if (!_class) {
-        _class = new CClass (_object->_class);
-    }
+    if (!_class)
+        _class = CClass::classForIsA(_object->_class);
     return _class;
 }
-
 
 void CInstance::begin()
 {
@@ -94,138 +71,141 @@ void CInstance::end()
     // Do nothing.
 }
 
-Value CInstance::invokeMethod (KJS::ExecState *exec, const MethodList &methodList, const List &args)
+bool CInstance::implementsCall() const
 {
-    Value resultValue;
+    return (_object->_class->invokeDefault != 0);
+}
 
+JSValue* CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, const List& args)
+{
     // Overloading methods are not allowed by NPObjects.  Should only be one
     // name match for a particular method.
-    assert (methodList.length() == 1);
+    assert(methodList.size() == 1);
 
-    CMethod *method = 0;
-    method = static_cast<CMethod*>(methodList.methodAt(0));
+    CMethod* method = static_cast<CMethod*>(methodList[0]);
 
-    NPIdentifier ident = _NPN_GetStringIdentifier (method->name());
-    if (!_object->_class->hasMethod (_object, ident)) {
-        return Undefined();
-    }
+    NPIdentifier ident = _NPN_GetStringIdentifier(method->name());
+    if (!_object->_class->hasMethod(_object, ident))
+        return jsUndefined();
 
-    unsigned i, count = args.size();
-    NPVariant *cArgs;
-    NPVariant localBuffer[128];
-    if (count > 128)
-        cArgs = (NPVariant *)malloc (sizeof(NPVariant)*count);
-    else
-        cArgs = localBuffer;
-    
-    for (i = 0; i < count; i++) {
-        convertValueToNPVariant (exec, args.at(i), &cArgs[i]);
-    }
+    unsigned count = args.size();
+    Vector<NPVariant, 128> cArgs(count);
+
+    unsigned i;
+    for (i = 0; i < count; i++)
+        convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
     // Invoke the 'C' method.
     NPVariant resultVariant;
     VOID_TO_NPVARIANT(resultVariant);
-    _object->_class->invoke (_object, ident, cArgs, count, &resultVariant);
 
-    for (i = 0; i < count; i++) {
-        _NPN_ReleaseVariantValue (&cArgs[i]);
+    {
+       JSLock::DropAllLocks dropAllLocks;
+        _object->_class->invoke(_object, ident, cArgs.data(), count, &resultVariant);
     }
 
-    if (cArgs != localBuffer)
-        free ((void *)cArgs);
-            
-    if (!NPVARIANT_IS_VOID(resultVariant)) {
-        resultValue = convertNPVariantToValue (exec, &resultVariant);
-        
-        _NPN_ReleaseVariantValue (&resultVariant);
-        
-        return resultValue;
-    }
-    
-    return Undefined();
+    for (i = 0; i < count; i++)
+        _NPN_ReleaseVariantValue(&cArgs[i]);
+
+    JSValue* resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
+    _NPN_ReleaseVariantValue(&resultVariant);
+    return resultValue;
 }
 
 
-Value CInstance::invokeDefaultMethod (KJS::ExecState *exec, const List &args)
+JSValue* CInstance::invokeDefaultMethod(ExecState* exec, const List& args)
 {
-    Value resultValue;
+    if (!_object->_class->invokeDefault)
+        return jsUndefined();
 
-    if (_object->_class->invokeDefault) {     
-        unsigned i, count = args.size();
-        NPVariant *cArgs;
-        NPVariant localBuffer[128];
-        if (count > 128)
-            cArgs = (NPVariant *)malloc (sizeof(NPVariant)*count);
-        else
-            cArgs = localBuffer;
-        
-        for (i = 0; i < count; i++) {
-            convertValueToNPVariant (exec, args.at(i), &cArgs[i]);
-        }
+    unsigned count = args.size();
+    Vector<NPVariant, 128> cArgs(count);
 
-        // Invoke the 'C' method.
-        NPVariant resultVariant;
-        VOID_TO_NPVARIANT(resultVariant);
-        _object->_class->invokeDefault (_object, cArgs, count, &resultVariant);
+    unsigned i;
+    for (i = 0; i < count; i++)
+        convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
-        for (i = 0; i < count; i++) {
-            _NPN_ReleaseVariantValue (&cArgs[i]);
-        }
-
-        if (cArgs != localBuffer)
-            free ((void *)cArgs);
-                
-        if (!NPVARIANT_IS_VOID(resultVariant)) {
-            resultValue = convertNPVariantToValue (exec, &resultVariant);
-            
-            _NPN_ReleaseVariantValue (&resultVariant);
-            
-            return resultValue;
-        }
+    // Invoke the 'C' method.
+    NPVariant resultVariant;
+    VOID_TO_NPVARIANT(resultVariant);
+    {
+       JSLock::DropAllLocks dropAllLocks;
+        _object->_class->invokeDefault(_object, cArgs.data(), count, &resultVariant);
     }
     
-    return Undefined();
+    for (i = 0; i < count; i++)
+        _NPN_ReleaseVariantValue(&cArgs[i]);
+
+    JSValue* resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
+    _NPN_ReleaseVariantValue(&resultVariant);
+    return resultValue;
 }
 
 
-KJS::Value CInstance::defaultValue (KJS::Type hint) const
+JSValue* CInstance::defaultValue(JSType hint) const
 {
-    if (hint == KJS::StringType) {
+    if (hint == StringType)
         return stringValue();
-    }
-    else if (hint == KJS::NumberType) {
+    if (hint == NumberType)
         return numberValue();
-    }
-    else if (hint == KJS::BooleanType) {
+   if (hint == BooleanType)
         return booleanValue();
-    }
-    
     return valueOf();
 }
 
-KJS::Value CInstance::stringValue() const
+JSValue* CInstance::stringValue() const
 {
     char buf[1024];
-    snprintf (buf, 1024, "NPObject %p, NPClass %p", _object, _object->_class);
-    KJS::String v(buf);
-    return v;
+    snprintf(buf, sizeof(buf), "NPObject %p, NPClass %p", _object, _object->_class);
+    return jsString(buf);
 }
 
-KJS::Value CInstance::numberValue() const
+JSValue* CInstance::numberValue() const
 {
-    // FIXME:  Implement something sensible
-    KJS::Number v(0);
-    return v;
+    // FIXME: Implement something sensible.
+    return jsNumber(0);
 }
 
-KJS::Value CInstance::booleanValue() const
+JSValue* CInstance::booleanValue() const
 {
-    // FIXME:  Implement something sensible
-    KJS::Boolean v((bool)0);
-    return v;
+    // FIXME: Implement something sensible.
+    return jsBoolean(false);
 }
 
-KJS::Value CInstance::valueOf() const 
+JSValue* CInstance::valueOf() const 
 {
     return stringValue();
-};
+}
+
+void CInstance::getPropertyNames(ExecState*, PropertyNameArray& nameArray) 
+{
+    if (!NP_CLASS_STRUCT_VERSION_HAS_ENUM(_object->_class) ||
+        !_object->_class->enumerate)
+        return;
+
+    unsigned count;
+    NPIdentifier* identifiers;
+    
+    {
+        JSLock::DropAllLocks dropAllLocks;
+        if (!_object->_class->enumerate(_object, &identifiers, &count))
+            return;
+    }
+    
+    for (unsigned i = 0; i < count; i++) {
+        PrivateIdentifier* identifier = static_cast<PrivateIdentifier*>(identifiers[i]);
+        
+        if (identifier->isString)
+            nameArray.add(identifierFromNPIdentifier(identifier->value.string));
+        else
+            nameArray.add(Identifier::from(identifier->value.number));
+    }
+         
+    // FIXME: This should really call NPN_MemFree but that's in WebKit
+    free(identifiers);
+}
+
+}
+}
+
+#endif

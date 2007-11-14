@@ -231,7 +231,7 @@ IOPhysicalAddress AppleRAIDStripeMemoryDescriptor::getPhysicalSegment(IOByteCoun
     physAddress = mdMemoryDescriptor->getPhysicalSegment(raidOffset, length);
     
     memberBlockOffset = mdSetBlockSize - memberBlockOffset;
-    if (*length > memberBlockOffset) *length = memberBlockOffset;
+    if (length && *length > memberBlockOffset) *length = memberBlockOffset;
     
     return physAddress;
 }

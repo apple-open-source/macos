@@ -14,39 +14,18 @@
  *
  *  You should have received a copy of the GNU Library General Public License
  *  along with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA 02111-1307, USA.
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
  *
  */
 
+#include "config.h"
 #include "scope_chain.h"
-#include "reference_list.h"
-
+#include "PropertyNameArray.h"
+#include <stdio.h>
 #include "object.h"
 
 namespace KJS {
-
-inline void ScopeChain::ref() const
-{
-    for (ScopeChainNode *n = _node; n; n = n->next) {
-        if (n->refCount++ != 0)
-            break;
-    }
-}
-
-ScopeChain &ScopeChain::operator=(const ScopeChain &c)
-{
-    c.ref();
-    deref();
-    _node = c._node;
-    return *this;
-}
-
-void ScopeChain::push(ObjectImp *o)
-{
-    assert(o);
-    _node = new ScopeChainNode(_node, o);
-}
 
 void ScopeChain::push(const ScopeChain &c)
 {
@@ -58,56 +37,27 @@ void ScopeChain::push(const ScopeChain &c)
     }
 }
 
-void ScopeChain::pop()
+#ifndef NDEBUG
+
+void ScopeChain::print()
 {
-    ScopeChainNode *oldNode = _node;
-    assert(oldNode);
-    ScopeChainNode *newNode = oldNode->next;
-    _node = newNode;
-    
-    if (--oldNode->refCount != 0) {
-        if (newNode)
-            ++newNode->refCount;
-    } else {
-        delete oldNode;
+    ScopeChainIterator scopeEnd = end();
+    for (ScopeChainIterator scopeIter = begin(); scopeIter != scopeEnd; ++scopeIter) {
+        JSObject* o = *scopeIter;
+        PropertyNameArray propertyNames;
+        // FIXME: should pass ExecState here!
+        o->getPropertyNames(0, propertyNames);
+        PropertyNameArrayIterator propEnd = propertyNames.end();
+
+        fprintf(stderr, "----- [scope %p] -----\n", o);
+        for (PropertyNameArrayIterator propIter = propertyNames.begin(); propIter != propEnd; propIter++) {
+            Identifier name = *propIter;
+            fprintf(stderr, "%s, ", name.ascii());
+        }
+        fprintf(stderr, "\n");
     }
 }
 
-void ScopeChain::release()
-{
-    // This function is only called by deref(),
-    // Deref ensures these conditions are true.
-    assert(_node && _node->refCount == 0);
-    ScopeChainNode *n = _node;
-    do {
-        ScopeChainNode *next = n->next;
-        delete n;
-        n = next;
-    } while (n && --n->refCount == 0);
-}
-
-void ScopeChain::mark()
-{
-    for (ScopeChainNode *n = _node; n; n = n->next) {
-        ObjectImp *o = n->object;
-        if (!o->marked())
-            o->mark();
-    }
-}
-
-ObjectImp *ScopeChain::bottom() const
-{
-    ScopeChainNode *last = 0;
-    for (ScopeChainNode *n = _node; n; n = n->next) {
-	if (!n->next) {
-	    last = n;
-	}
-    }
-    if (!last) {
-	return 0;
-    }
-
-    return last->object;
-}
+#endif
 
 } // namespace KJS

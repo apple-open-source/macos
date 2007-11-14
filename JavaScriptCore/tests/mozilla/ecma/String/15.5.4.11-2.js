@@ -1,45 +1,72 @@
-/* The contents of this file are subject to the Netscape Public
- * License Version 1.1 (the "License"); you may not use this file
- * except in compliance with the License. You may obtain a copy of
- * the License at http://www.mozilla.org/NPL/
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* ***** BEGIN LICENSE BLOCK *****
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
  *
- * Software distributed under the License is distributed on an "AS
- * IS" basis, WITHOUT WARRANTY OF ANY KIND, either express or
- * implied. See the License for the specific language governing
- * rights and limitations under the License.
+ * The contents of this file are subject to the Mozilla Public License Version
+ * 1.1 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ * http://www.mozilla.org/MPL/
  *
- * The Original Code is Mozilla Communicator client code, released March
- * 31, 1998.
+ * Software distributed under the License is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+ * for the specific language governing rights and limitations under the
+ * License.
  *
- * The Initial Developer of the Original Code is Netscape Communications
- * Corporation. Portions created by Netscape are
- * Copyright (C) 1998 Netscape Communications Corporation. All
- * Rights Reserved.
+ * The Original Code is Mozilla Communicator client code, released
+ * March 31, 1998.
  *
- * Contributor(s): 
- * 
- */
+ * The Initial Developer of the Original Code is
+ * Netscape Communications Corporation.
+ * Portions created by the Initial Developer are Copyright (C) 1998
+ * the Initial Developer. All Rights Reserved.
+ *
+ * Contributor(s):
+ *
+ * Alternatively, the contents of this file may be used under the terms of
+ * either the GNU General Public License Version 2 or later (the "GPL"), or
+ * the GNU Lesser General Public License Version 2.1 or later (the "LGPL"),
+ * in which case the provisions of the GPL or the LGPL are applicable instead
+ * of those above. If you wish to allow use of your version of this file only
+ * under the terms of either the GPL or the LGPL, and not to allow others to
+ * use your version of this file under the terms of the MPL, indicate your
+ * decision by deleting the provisions above and replace them with the notice
+ * and other provisions required by the GPL or the LGPL. If you do not delete
+ * the provisions above, a recipient may use your version of this file under
+ * the terms of any one of the MPL, the GPL or the LGPL.
+ *
+ * ***** END LICENSE BLOCK ***** */
 /**
-    File Name:          15.5.4.11-2.js
-    ECMA Section:       15.5.4.11 String.prototype.toLowerCase()
-    Description:
+   File Name:          15.5.4.11-2.js
+   ECMA Section:       15.5.4.11 String.prototype.toLowerCase()
+   Description:
 
-    Returns a string equal in length to the length of the result of converting
-    this object to a string. The result is a string value, not a String object.
+   Returns a string equal in length to the length of the result of converting
+   this object to a string. The result is a string value, not a String object.
 
-    Every character of the result is equal to the corresponding character of the
-    string, unless that character has a Unicode 2.0 uppercase equivalent, in which
-    case the uppercase equivalent is used instead. (The canonical Unicode 2.0 case
-    mapping shall be used, which does not depend on implementation or locale.)
+   Every character of the result is equal to the corresponding character of the
+   string, unless that character has a Unicode 2.0 uppercase equivalent, in which
+   case the uppercase equivalent is used instead. (The canonical Unicode 2.0 case
+   mapping shall be used, which does not depend on implementation or locale.)
 
-    Note that the toLowerCase function is intentionally generic; it does not require
-    that its this value be a String object. Therefore it can be transferred to other
-    kinds of objects for use as a method.
+   Note that the toLowerCase function is intentionally generic; it does not require
+   that its this value be a String object. Therefore it can be transferred to other
+   kinds of objects for use as a method.
 
-    Author:             christine@netscape.com
-    Date:               12 november 1997
+   Author:             christine@netscape.com
+   Date:               12 november 1997
 */
-
+/*
+    Safari Changes:  This test differs from the mozilla tests in two significant
+    ways.
+        First, the lower case range for Georgian letters in this file is the
+    correct range according to the Unicode 5.0 standard, as opposed to the 
+    Georgian caseless range that mozilla uses.
+        Secondly this test uses an array for expected results with two entries,
+    instead of a single expected result. This allows us to accept Unicode 4.0 or
+    Unicode 5.0 results as correct, as opposed to the mozilla test, which assumes
+    Unicode 5.0.  This allows Safari to pass this test on OS' with different
+    Unicode standards implemented (e.g. Tiger and XP)
+*/
     var SECTION = "15.5.4.11-2";
     var VERSION = "ECMA_1";
     startTest();
@@ -57,7 +84,7 @@ function getTestCases() {
     // Georgian
     // Range: U+10A0 to U+10FF
     for ( var i = 0x10A0; i <= 0x10FF; i++ ) {
-        var U = new Unicode( i );
+        var U = new Array(new Unicode( i, 4 ), new Unicode( i, 5 ));
 
 /*
         array[item++] = new TestCase(   SECTION,
@@ -65,39 +92,122 @@ function getTestCases() {
                                         String.fromCharCode(U.lower),
                                         eval("var s = new String( String.fromCharCode("+i+") ); s.toLowerCase()") );
 */
-        array[item++] = new TestCase(   SECTION,
+        array[item++] = new TestCaseDualExpected(   SECTION,
                                         "var s = new String( String.fromCharCode("+i+") ); s.toLowerCase().charCodeAt(0)",
-                                        U.lower,
+                                        U,
                                         eval("var s = new String( String.fromCharCode(i) ); s.toLowerCase().charCodeAt(0)") );
     }
 
     return array;
 }
+
+/*
+ * TestCase constructor
+ *
+ */
+
+function TestCaseDualExpected( n, d, e, a ) {
+    this.name        = n;
+    this.description = d;
+    this.expect      = e;
+    this.actual      = a;
+    this.passed      = true;
+    this.reason      = "";
+    this.bugnumber   = BUGNUMBER;
+
+    this.passed = getTestCaseResultDualExpected( this.expect, this.actual );
+    if ( DEBUG ) {
+        writeLineToLog( "added " + this.description );
+    }
+}
+
+// Added so that either Unicode 4.0 or 5.0 results will be considered correct.
+function writeTestCaseResultDualExpected( expect, actual, string ) {
+        var passed = getTestCaseResultDualExpected( expect, actual );
+        writeFormattedResult( expect[1].lower, actual, string, passed );
+        return passed;
+}
+/*
+ * Added so that either Unicode 4.0 or 5.0 results will be considered correct.
+ * Compare expected result to the actual result and figure out whether
+ * the test case passed.
+ */
+function getTestCaseResultDualExpected( expect, actual ) {
+    expectedU4 = expect[0].lower;
+    expectedU5 = expect[1].lower;
+    //  because ( NaN == NaN ) always returns false, need to do
+    //  a special compare to see if we got the right result.
+        if ( actual != actual ) {
+            if ( typeof actual == "object" ) {
+                actual = "NaN object";
+            } else {
+                actual = "NaN number";
+            }
+        }
+
+        if ( expectedU4 != expectedU4 )   {
+            if ( typeof expectedU4 == "object" ) {
+                expectedU4 = "NaN object";
+            } else {
+                expectedU4 = "NaN number";
+            }
+        }
+        if ( expectedU5 != expectedU5 )   {
+            if ( typeof expectedU5 == "object" ) {
+                expectedU5 = "NaN object";
+            } else {
+                expectedU5 = "NaN number";
+            }
+        }
+
+        var passed = ( expectedU4 == actual || expectedU5 == actual ) ? true : false;
+        
+        //  if both objects are numbers
+        // need to replace w/ IEEE standard for rounding
+        if ( !passed &&
+             typeof(actual) == "number" &&
+            (typeof(expectedU4) == "number" ||
+             typeof(expectedU5) == "number")) {
+            if (( Math.abs(actual-expectedU4) < 0.0000001 ) || ( Math.abs(actual-expectedU5) < 0.0000001 )) {
+                passed = true;
+            }
+        }
+
+        //  verify type is the same
+        if ( typeof(expectedU4) != typeof(actual) && typeof(expectedU5) != typeof(actual) )   {
+            passed = false;
+        }
+
+        return passed;
+}
+
 function test() {
     for ( tc=0; tc < testcases.length; tc++ ) {
-        testcases[tc].passed = writeTestCaseResult(
+        testcases[tc].passed = writeTestCaseResultDualExpected(
                             testcases[tc].expect,
                             testcases[tc].actual,
-                            testcases[tc].description +" = "+
-                            testcases[tc].actual );
+                            testcases[tc].description +" = "+ testcases[tc].actual );
 
         testcases[tc].reason += ( testcases[tc].passed ) ? "" : "wrong value ";
     }
     stopTest();
     return ( testcases );
 }
+
 function MyObject( value ) {
     this.value = value;
     this.substring = String.prototype.substring;
     this.toString = new Function ( "return this.value+''" );
 }
-function Unicode( c ) {
-    u = GetUnicodeValues( c );
+
+function Unicode( c, version ) {
+    u = GetUnicodeValues( c, version );
     this.upper = u[0];
     this.lower = u[1]
     return this;
 }
-function GetUnicodeValues( c ) {
+
+function GetUnicodeValues( c, version ) {
     u = new Array();
 
     u[0] = c;
@@ -328,6 +438,18 @@ function GetUnicodeValues( c ) {
 
     // Georgian
     // Range: U+10A0 to U+10F0
+    if ( version == 5 ) {
+        if ( c >= 0x10A0 && c <= 0x10C5 ) {
+            u[0] = c;
+            u[1] = c + 7264; //48;
+            return u;
+        }
+        if ( c >= 0x2D00 && c <= 0x2D25 ) {
+            u[0] = c;
+            u[1] = c;
+            return u;
+        }
+    }
 
     // Hangul Jamo
     // Range: U+1100 to U+11FF

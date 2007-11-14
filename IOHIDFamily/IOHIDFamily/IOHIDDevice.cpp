@@ -1694,6 +1694,9 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
             cookieCount, kIOHIDTransactionStateIdle, index, 0);
     
     ELEMENT_UNLOCK;
+
+    if ( report )
+        report->release();    
     
     return ret;
 }

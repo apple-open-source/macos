@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.c,v 1.162.2.26.2.3 2006/01/01 13:46:49 sniper Exp $ */
+/* $Id: zend.c,v 1.162.2.26.2.5 2007/03/13 01:22:02 stas Exp $ */
 
 #include "zend.h"
 #include "zend_extensions.h"
@@ -98,7 +98,7 @@ static uint zend_version_info_length;
 
 #define PRINT_ZVAL_INDENT 4
 
-static void print_hash(HashTable *ht, int indent)
+static void print_hash(zend_write_func_t write_func, HashTable *ht, int indent)
 {
 	zval **tmp;
 	char *string_key;
@@ -108,34 +108,38 @@ static void print_hash(HashTable *ht, int indent)
 	int i;
 
 	for (i=0; i<indent; i++) {
-		ZEND_PUTS(" ");
+		ZEND_PUTS_EX(" ");
 	}
-	ZEND_PUTS("(\n");
+	ZEND_PUTS_EX("(\n");
 	indent += PRINT_ZVAL_INDENT;
 	zend_hash_internal_pointer_reset_ex(ht, &iterator);
 	while (zend_hash_get_current_data_ex(ht, (void **) &tmp, &iterator) == SUCCESS) {
 		for (i=0; i<indent; i++) {
-			ZEND_PUTS(" ");
+			ZEND_PUTS_EX(" ");
 		}
-		ZEND_PUTS("[");
+		ZEND_PUTS_EX("[");
 		switch (zend_hash_get_current_key_ex(ht, &string_key, &str_len, &num_key, 0, &iterator)) {
 			case HASH_KEY_IS_STRING:
-				ZEND_WRITE(string_key, str_len-1);
+				ZEND_WRITE_EX(string_key, str_len-1);
 				break;
 			case HASH_KEY_IS_LONG:
-				zend_printf("%ld", num_key);
+				{
+					char key[25];
+					sprintf(key, "%ld", num_key);
+					ZEND_PUTS_EX(key);
+				}
 				break;
 		}
-		ZEND_PUTS("] => ");
-		zend_print_zval_r(*tmp, indent+PRINT_ZVAL_INDENT);
-		ZEND_PUTS("\n");
+		ZEND_PUTS_EX("] => ");
+		zend_print_zval_r_ex(write_func, *tmp, indent+PRINT_ZVAL_INDENT);
+		ZEND_PUTS_EX("\n");
 		zend_hash_move_forward_ex(ht, &iterator);
 	}
 	indent -= PRINT_ZVAL_INDENT;
 	for (i=0; i<indent; i++) {
-		ZEND_PUTS(" ");
+		ZEND_PUTS_EX(" ");
 	}
-	ZEND_PUTS(")\n");
+	ZEND_PUTS_EX(")\n");
 }
 
 
@@ -226,13 +230,13 @@ ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int
 {
 	switch(expr->type) {
 		case IS_ARRAY:
-			ZEND_PUTS("Array\n");
+			ZEND_PUTS_EX("Array\n");
 			if (++expr->value.ht->nApplyCount>1) {
-				ZEND_PUTS(" *RECURSION*");
+				ZEND_PUTS_EX(" *RECURSION*");
 				expr->value.ht->nApplyCount--;
 				return;
 			}
-			print_hash(expr->value.ht, indent);
+			print_hash(write_func, expr->value.ht, indent);
 			expr->value.ht->nApplyCount--;
 			break;
 		case IS_OBJECT:
@@ -240,17 +244,17 @@ ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int
 				zend_object *object = Z_OBJ_P(expr);
 
 				if (++object->properties->nApplyCount>1) {
-					ZEND_PUTS(" *RECURSION*");
+					ZEND_PUTS_EX(" *RECURSION*");
 					object->properties->nApplyCount--;
 					return;
 				}
 				zend_printf("%s Object\n", object->ce->name);
-				print_hash(object->properties, indent);
+				print_hash(write_func, object->properties, indent);
 				object->properties->nApplyCount--;
 				break;
 			}
 		default:
-			zend_print_variable(expr);
+			zend_print_zval_ex(write_func, expr, indent);
 			break;
 	}
 }
@@ -919,6 +923,7 @@ ZEND_API int zend_execute_scripts(int type TSRMLS_DC, zval **retval, int file_co
 	int i;
 	zend_file_handle *file_handle;
 	zend_op_array *orig_op_array = EG(active_op_array);
+	zval **orig_retval_ptr_ptr = EG(return_value_ptr_ptr);
 	zval *local_retval=NULL;
 
 	va_start(files, file_count);
@@ -941,11 +946,13 @@ ZEND_API int zend_execute_scripts(int type TSRMLS_DC, zval **retval, int file_co
 		} else if (type==ZEND_REQUIRE) {
 			va_end(files);
 			EG(active_op_array) = orig_op_array;
+			EG(return_value_ptr_ptr) = orig_retval_ptr_ptr;
 			return FAILURE;
 		}
 	}
 	va_end(files);
 	EG(active_op_array) = orig_op_array;
+	EG(return_value_ptr_ptr) = orig_retval_ptr_ptr;
 
 	return SUCCESS;
 }

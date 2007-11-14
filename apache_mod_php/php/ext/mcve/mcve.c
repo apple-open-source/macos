@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP version 4.0                                                      |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: mcve.c,v 1.14.2.11.2.3 2006/01/01 13:51:22 sniper Exp $ */
+/* $Id: mcve.c,v 1.14.2.11.2.4 2007/01/01 09:46:44 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"

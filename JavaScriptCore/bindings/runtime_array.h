@@ -22,28 +22,26 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _RUNTIME_ARRAY_H_
-#define _RUNTIME_ARRAY_H_
 
-#include <array_instance.h>
-#include <object.h>
-#include <runtime.h>
+#ifndef RUNTIME_ARRAY_H_
+#define RUNTIME_ARRAY_H_
 
+#include <wtf/OwnPtr.h>
+
+#include "array_instance.h"
+#include "runtime.h"
 
 namespace KJS {
     
-class RuntimeArrayImp : public ArrayInstanceImp {
+class RuntimeArray : public JSObject {
 public:
-    RuntimeArrayImp(ExecState *exec, Bindings::Array *i);
-    ~RuntimeArrayImp();
+    RuntimeArray(ExecState *exec, Bindings::Array *i);
     
-    virtual Value get(ExecState *exec, const Identifier &propertyName) const;
-    virtual Value get(ExecState *exec, unsigned index) const ;
-    virtual void put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr = None);
-    virtual void put(ExecState *exec, unsigned propertyName, const Value &value, int attr = None);
+    virtual bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
+    virtual bool getOwnPropertySlot(ExecState *, unsigned, PropertySlot&);
+    virtual void put(ExecState *exec, const Identifier &propertyName, JSValue *value, int attr = None);
+    virtual void put(ExecState *exec, unsigned propertyName, JSValue *value, int attr = None);
     
-    virtual bool hasOwnProperty(ExecState *exec, const Identifier &propertyName) const;
-    virtual bool hasOwnProperty(ExecState *exec, unsigned propertyName) const;
     virtual bool deleteProperty(ExecState *exec, const Identifier &propertyName);
     virtual bool deleteProperty(ExecState *exec, unsigned propertyName);
     
@@ -51,14 +49,17 @@ public:
     
     unsigned getLength() const { return getConcreteArray()->getLength(); }
     
-    Bindings::Array *getConcreteArray() const { return _array; }
+    Bindings::Array *getConcreteArray() const { return _array.get(); }
 
     static const ClassInfo info;
 
 private:
-    Bindings::Array *_array;
+    static JSValue *lengthGetter(ExecState *, JSObject *, const Identifier&, const PropertySlot&);
+    static JSValue *indexGetter(ExecState *, JSObject *, const Identifier&, const PropertySlot&);
+
+    OwnPtr<Bindings::Array> _array;
 };
     
-}; // namespace KJS
+} // namespace KJS
 
-#endif
+#endif // RUNTIME_ARRAY_H_

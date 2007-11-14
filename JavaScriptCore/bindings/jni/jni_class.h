@@ -22,37 +22,26 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _JNI_CLASS_H_
-#define _JNI_CLASS_H_
 
-#include <CoreFoundation/CoreFoundation.h>
+#ifndef JNI_CLASS_H_
+#define JNI_CLASS_H_
 
-#include <JavaVM/jni.h>
-
-#include <runtime.h>
 #include <jni_runtime.h>
+#include <wtf/HashMap.h>
 
 namespace KJS {
 
 namespace Bindings {
 
-class JavaClass : public Class
-{
+class JavaClass : public Class {
 public:
     JavaClass (jobject anInstance);
     ~JavaClass ();
 
     virtual const char *name() const { return _name; };
     
-    virtual MethodList methodsNamed(const char *name, Instance *instance) const;
-    
-    virtual Field *fieldNamed(const char *name, Instance *instance) const;
-    
-    virtual Constructor *constructorAt(long i) const {
-        return &_constructors[i]; 
-    };
-    
-    virtual long numConstructors() const { return _numConstructors; };
+    virtual MethodList methodsNamed(const Identifier&, Instance* instance) const;    
+    virtual Field *fieldNamed(const Identifier&, Instance* instance) const;
     
     bool isNumberClass() const;
     bool isBooleanClass() const;
@@ -60,18 +49,14 @@ public:
     
 private:
     JavaClass ();                                 // prevent default construction
-    JavaClass (const JavaClass &other);           // prevent copying
-    JavaClass &operator=(const JavaClass &other); // prevent copying
     
     const char *_name;
-    CFDictionaryRef _fields;
-    CFDictionaryRef _methods;
-    JavaConstructor *_constructors;
-    long _numConstructors;
+    FieldMap _fields;
+    MethodListMap _methods;
 };
 
 } // namespace Bindings
 
 } // namespace KJS
 
-#endif
+#endif // JNI_CLASS_H_

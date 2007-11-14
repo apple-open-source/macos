@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,112 +22,102 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#include <c_class.h>
-#include <c_instance.h>
-#include <c_runtime.h>
 
-using namespace KJS::Bindings;
+#include "config.h"
 
-bool NPN_IsValidIdentifier (const NPUTF8 *name);
+#if !PLATFORM(DARWIN) || !defined(__LP64__)
 
-void CClass::_commonDelete() {
-    CFRelease (_fields);
-    CFRelease (_methods);
-}
-    
+#include "c_class.h"
 
-void CClass::_commonCopy(const CClass &other) {
-    _isa = other._isa;
-    _methods = CFDictionaryCreateCopy (NULL, other._methods);
-    _fields = CFDictionaryCreateCopy (NULL, other._fields);
-}
-    
+#include "c_instance.h"
+#include "c_runtime.h"
+#include "identifier.h"
+#include "npruntime_impl.h"
 
-void CClass::_commonInit (NPClass *aClass)
+namespace KJS { namespace Bindings {
+
+CClass::CClass(NPClass* aClass)
 {
     _isa = aClass;
-    _methods = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
-    _fields = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
 }
 
-
-static CFMutableDictionaryRef classesByIsA = 0;
-
-static void _createClassesByIsAIfNecessary()
+CClass::~CClass()
 {
-    if (classesByIsA == 0)
-        classesByIsA = CFDictionaryCreateMutable (NULL, 0, NULL, NULL);
+    JSLock lock;
+
+    deleteAllValues(_methods);
+    _methods.clear();
+
+    deleteAllValues(_fields);
+    _fields.clear();
 }
 
-CClass *CClass::classForIsA (NPClass *isa)
+typedef HashMap<NPClass*, CClass*> ClassesByIsAMap;
+static ClassesByIsAMap* classesByIsA = 0;
+
+CClass* CClass::classForIsA(NPClass* isa)
 {
-    _createClassesByIsAIfNecessary();
-    
-    CClass *aClass = (CClass *)CFDictionaryGetValue(classesByIsA, isa);
-    if (aClass == NULL) {
-        aClass = new CClass (isa);
-        CFDictionaryAddValue (classesByIsA, isa, aClass);
+    if (!classesByIsA)
+        classesByIsA = new ClassesByIsAMap;
+
+    CClass* aClass = classesByIsA->get(isa);
+    if (!aClass) {
+        aClass = new CClass(isa);
+        classesByIsA->set(isa, aClass);
     }
-    
+
     return aClass;
 }
 
-
-CClass::CClass (NPClass *isa)
-{
-    _commonInit (isa);
-}
-
-const char *CClass::name() const
+const char* CClass::name() const
 {
     return "";
 }
 
-MethodList CClass::methodsNamed(const char *_name, Instance *instance) const
+MethodList CClass::methodsNamed(const Identifier& identifier, Instance* instance) const
 {
     MethodList methodList;
 
-    CFStringRef methodName = CFStringCreateWithCString(NULL, _name, kCFStringEncodingASCII);
-    Method *method = (Method *)CFDictionaryGetValue (_methods, methodName);
+    Method* method = _methods.get(identifier.ustring().rep());
     if (method) {
-        CFRelease (methodName);
-        methodList.addMethod(method);
+        methodList.append(method);
         return methodList;
     }
-    
-    NPIdentifier ident = _NPN_GetStringIdentifier (_name);
-    const CInstance *inst = static_cast<const CInstance*>(instance);
-    NPObject *obj = inst->getObject();
-    if (_isa->hasMethod && _isa->hasMethod (obj, ident)){
-        Method *aMethod = new CMethod (ident);
-        CFDictionaryAddValue ((CFMutableDictionaryRef)_methods, methodName, aMethod);
-        methodList.addMethod (aMethod);
-    }
 
-    CFRelease (methodName);
+    NPIdentifier ident = _NPN_GetStringIdentifier(identifier.ascii());
+    const CInstance* inst = static_cast<const CInstance*>(instance);
+    NPObject* obj = inst->getObject();
+    if (_isa->hasMethod && _isa->hasMethod(obj, ident)){
+        Method* aMethod = new CMethod(ident); // deleted in the CClass destructor
+        {
+            JSLock lock;
+            _methods.set(identifier.ustring().rep(), aMethod);
+        }
+        methodList.append(aMethod);
+    }
     
     return methodList;
 }
 
-
-Field *CClass::fieldNamed(const char *name, Instance *instance) const
+Field* CClass::fieldNamed(const Identifier& identifier, Instance* instance) const
 {
-    CFStringRef fieldName = CFStringCreateWithCString(NULL, name, kCFStringEncodingASCII);
-    Field *aField = (Field *)CFDictionaryGetValue (_fields, fieldName);
-    if (aField) {
-        CFRelease (fieldName);
+    Field* aField = _fields.get(identifier.ustring().rep());
+    if (aField)
         return aField;
-    }
-
-    NPIdentifier ident = _NPN_GetStringIdentifier (name);
-    const CInstance *inst = static_cast<const CInstance*>(instance);
-    NPObject *obj = inst->getObject();
-    if (_isa->hasProperty && _isa->hasProperty (obj, ident)){
-        aField = new CField (ident);
-        CFDictionaryAddValue ((CFMutableDictionaryRef)_fields, fieldName, aField);
-    }
     
-    CFRelease (fieldName);
-
+    NPIdentifier ident = _NPN_GetStringIdentifier(identifier.ascii());
+    const CInstance* inst = static_cast<const CInstance*>(instance);
+    NPObject* obj = inst->getObject();
+    if (_isa->hasProperty && _isa->hasProperty(obj, ident)){
+        aField = new CField(ident); // deleted in the CClass destructor
+        {
+            JSLock lock;
+            _fields.set(identifier.ustring().rep(), aField);
+        }
+    }
     return aField;
-};
+}
+
+} } // namespace KJS::Bindings
+
+#endif

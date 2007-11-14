@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: user_streams.c,v 1.29.2.4.2.2 2006/01/01 13:47:00 sniper Exp $ */
+/* $Id: user_streams.c,v 1.29.2.4.2.4 2007/01/01 09:46:51 sebastian Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -193,7 +193,33 @@ static php_stream *user_wrapper_opener(php_stream_wrapper *wrapper, char *filena
 	object_init_ex(us->object, uwrap->ce);
 	ZVAL_REFCOUNT(us->object) = 1;
 	PZVAL_IS_REF(us->object) = 1;
-	
+
+	if (zend_hash_exists(&uwrap->ce->function_table, uwrap->ce->name, uwrap->ce->name_length+1)) {
+		zval *retval_ptr;
+		zval *function_name;
+
+		MAKE_STD_ZVAL(function_name);
+		ZVAL_STRINGL(function_name, uwrap->ce->name, uwrap->ce->name_length, 1);
+
+		if (call_user_function_ex(EG(function_table), &us->object, function_name, &retval_ptr, 0, 0, 1, NULL TSRMLS_CC) == FAILURE) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not execute %s::%s()", uwrap->ce->name, uwrap->ce->name);
+			zval_dtor(function_name);
+			FREE_ZVAL(function_name);
+			zval_dtor(us->object);
+			FREE_ZVAL(us->object);
+			efree(us);
+			FG(user_stream_current_filename) = NULL;
+			return NULL;
+		} else {
+			if (retval_ptr) {
+				zval_ptr_dtor(&retval_ptr);
+			}
+		}
+		zval_dtor(function_name);
+		FREE_ZVAL(function_name);
+	}
+
+
 	/* call it's stream_open method - set up params first */
 	MAKE_STD_ZVAL(zfilename);
 	ZVAL_STRING(zfilename, filename, 1);

@@ -65,6 +65,8 @@ public:
 	Adornable &store();
 	void resetAcls();
 	
+	void notify(NotificationEvent event);
+
 	void lockProcessing();
 
 	typedef Token::ResetGeneration ResetGeneration;
@@ -97,6 +99,8 @@ public:
 	SecurityServerAcl &acl();		// it's our Token
 
 	bool isLocked() const;
+
+	void notify(NotificationEvent event) { return common().notify(event); }
 
 	bool validateSecret(const AclSubject *subject, const AccessCredentials *cred);
 	

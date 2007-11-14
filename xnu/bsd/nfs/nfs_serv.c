@@ -1,29 +1,23 @@
 /*
  * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * @APPLE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. The rights granted to you under the License
- * may not be used to create, or enable the creation or redistribution of,
- * unlawful or unlicensed copies of an Apple operating system, or to
- * circumvent, violate, or enable the circumvention or violation of, any
- * terms of an Apple operating system software license agreement.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
- * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ * @APPLE_LICENSE_HEADER_END@
  */
 /* Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved */
 /*
@@ -3740,7 +3734,7 @@ nfsrv_readdirplus(nfsd, slp, procp, mrq)
 	struct vnode_attr va, at, *vap = &va;
 	struct nfs_fattr *fp;
 	int len, nlen, rem, xfer, tsiz, i, error = 0, getret = 1;
-	int siz, count, fullsiz, eofflag, dirlen, nentries = 0, isdotdot;
+	int siz, dircount, maxcount, fullsiz, eofflag, dirlen, nentries = 0, isdotdot;
 	u_quad_t off, toff, verf;
 	nfsuint64 tquad;
 	int vnopflag;
@@ -3754,14 +3748,18 @@ nfsrv_readdirplus(nfsd, slp, procp, mrq)
 	tl += 2;
 	fxdr_hyper(tl, &verf);
 	tl += 2;
-	siz = fxdr_unsigned(int, *tl++);
-	count = fxdr_unsigned(int, *tl);
+	dircount = fxdr_unsigned(int, *tl++);
+	maxcount = fxdr_unsigned(int, *tl);
 	off = toff;
-	siz = ((siz + DIRBLKSIZ - 1) & ~(DIRBLKSIZ - 1));
 	xfer = NFS_SRVMAXDATA(nfsd);
-	if (siz > xfer)
-		siz = xfer;
-	fullsiz = siz;
+	dircount = ((dircount + DIRBLKSIZ - 1) & ~(DIRBLKSIZ - 1));
+	if (dircount > xfer)
+		dircount = xfer;
+	fullsiz = siz = dircount;
+	maxcount = ((maxcount + DIRBLKSIZ - 1) & ~(DIRBLKSIZ - 1));
+	if (maxcount > xfer)
+		maxcount = xfer;
+
 	if ((error = nfsrv_fhtovp(&dnfh, nam, TRUE, &vp, &nx, &nxo))) {
 		nfsm_reply(NFSX_UNSIGNED);
 		nfsm_srvpostop_attr(getret, &at);
@@ -3888,7 +3886,7 @@ again:
 	vnode_put(nvp);
 	    
 	dirlen = len = NFSX_V3POSTOPATTR + NFSX_V3COOKIEVERF + 2 * NFSX_UNSIGNED;
-	nfsm_reply(count);
+	nfsm_reply(maxcount);
 	nfsm_srvpostop_attr(getret, &at);
 	nfsm_build(tl, u_long *, 2 * NFSX_UNSIGNED);
 	txdr_hyper(&at.va_filerev, tl);
@@ -3930,10 +3928,10 @@ again:
 			 * are calculated conservatively, including all
 			 * XDR overheads.
 			 */
-			len += (8 * NFSX_UNSIGNED + nlen + rem + nfhp->nfh_len +
+			len += (8 * NFSX_UNSIGNED + nlen + rem + nfsm_rndup(nfhp->nfh_len) +
 				NFSX_V3POSTOPATTR);
 			dirlen += (6 * NFSX_UNSIGNED + nlen + rem);
-			if (len > count || dirlen > fullsiz) {
+			if ((len > maxcount) || (dirlen > dircount)) {
 				eofflag = 0;
 				break;
 			}

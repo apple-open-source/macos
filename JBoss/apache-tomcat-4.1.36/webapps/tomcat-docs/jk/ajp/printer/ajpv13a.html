@@ -1,0 +1,649 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Apache Tomcat Connector - AJP Protocol Reference - AJPv13</title><meta value="danmil@shore.net" name="author"><meta value="danmil@shore.net" name="email"><meta value="Jean-Frederic Clere" name="author"><meta value="jfrederic.clere@fujitsu-siemens.com" name="email"><link rel="stylesheet" type="text/css" href="../../style.css"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--TOMCAT LOGO--><a href="http://tomcat.apache.org/"><img border="0" alt="Apache Tomcat" align="left" src="../../images/tomcat.gif"></a><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="http://www.apache.org/images/asf-logo.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td valign="top" align="left"><h1>The Apache Tomcat Connector - AJP Protocol Reference</h1><h2>AJPv13</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Intro"><strong>Intro</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>
+The original document was written by
+Dan Milstein, <author email="danmil@shore.net">danmil@shore.net</author>
+on December 2000. The present document is generated out of an xml file
+to allow a more easy integration in the Tomcat documentation.
+
+</p>
+
+<p>
+This describes the Apache JServ Protocol version 1.3 (hereafter
+<b>ajp13</b>).  There is, apparently, no current documentation of how the
+protocol works.  This document is an attempt to remedy that, in order to
+make life easier for maintainers of JK, and for anyone who wants to
+port the protocol somewhere (into jakarta 4.x, for example).
+</p>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="author"><strong>author</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>
+I am not one of the designers of this protocol -- I believe that Gal
+Shachor was the original designer.  Everything in this document is derived
+from the actual implementation I found in the tomcat 3.x code.  I hope it
+is useful, but I can't make any grand claims to perfect accuracy.  I also
+don't know why certain design decisions were made.  Where I was able, I've
+offered some possible justifications for certain choices, but those are
+only my guesses.  In general, the C code which Shachor wrote is very clean
+and comprehensible (if almost totally undocumented).  I've cleaned up the
+Java code, and I think it's reasonably readable.
+</p>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Design Goals"><strong>Design Goals</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>
+According to email from Gal Shachor to the jakarta-dev mailing list,
+the original goals of <b>JK</b> (and thus <b>ajp13</b>) were to extend
+<b>mod_jserv</b> and <b>ajp12</b> by (I am only including the goals which
+relate to communication between the web server and the servlet container):
+
+<ul>
+  <li> Increasing performance (speed, specifically). </li>
+
+  <li> Adding support for SSL, so that <b class="code">isSecure()</b> and
+       <b class="code">getScheme()</b> will function correctly within the servlet
+       container.  The client certificates and cipher suite will be
+       available to servlets as request attributes. </li>
+
+</ul>
+</p>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Overview of the protocol"><strong>Overview of the protocol</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>
+The <b>ajp13</b> protocol is packet-oriented.  A binary format was
+presumably chosen over the more readable plain text for reasons of
+performance.  The web server communicates with the servlet container over
+TCP connections.  To cut down on the expensive process of socket creation,
+the web server will attempt to maintain persistent TCP connections to the
+servlet container, and to reuse a connection for multiple request/response
+cycles.
+</p><p>
+Once a connection is assigned to a particular request, it will not be
+used for any others until the request-handling cycle has terminated.  In
+other words, requests are not multiplexed over connections.  This makes
+for much simpler code at either end of the connection, although it does
+cause more connections to be open at once.
+</p><p>
+Once the web server has opened a connection to the servlet container,
+the connection can be in one of the following states:
+</p><p>
+<ul>
+  <li> Idle <br> No request is being handled over this connection. </li>
+  <li> Assigned <br> The connecton is handling a specific request.</li>
+</ul>
+
+</p><p>
+Once a connection is assigned to handle a particular request, the basic
+request informaton (e.g. HTTP headers, etc) is sent over the connection in
+a highly condensed form (e.g. common strings are encoded as integers).
+Details of that format are below in Request Packet Structure. If there is a
+body to the request (content-length &gt; 0), that is sent in a separate
+packet immediately after.
+</p><p>
+At this point, the servlet container is presumably ready to start
+processing the request.  As it does so, it can send the
+following messages back to the web server:
+
+<ul>
+  <li>SEND_HEADERS <br>Send a set of headers back to the browser.</li>
+
+  <li>SEND_BODY_CHUNK <br>Send a chunk of body data back to the browser.</li>
+
+  <li>GET_BODY_CHUNK <br>Get further data from the request if it hasn't all
+  been transferred yet.  This is necessary because the packets have a fixed
+  maximum size and arbitrary amounts of data can be included the body of a
+  request (for uploaded files, for example).  (Note: this is unrelated to
+  HTTP chunked tranfer).</li>
+
+  <li>END_RESPONSE <br> Finish the request-handling cycle.</li>
+</ul>
+</p><p>
+
+Each message is accompanied by a differently formatted packet of data.  See
+Response Packet Structures below for details.
+</p>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Basic Packet Structure"><strong>Basic Packet Structure</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>
+There is a bit of an XDR heritage to this protocol, but it differs in
+lots of ways (no 4 byte alignment, for example).
+</p><p>
+Byte order: I am not clear about the endian-ness of the individual
+bytes.  I'm guessing the bytes are little-endian, because that's what XDR
+specifies, and I'm guessing that sys/socket library is magically making
+that so (on the C side).  If anyone with a better knowledge of socket calls
+can step in, that would be great.
+</p><p>
+There are four data types in the protocol: bytes, booleans, integers and
+strings.
+
+<dl>
+  <dt><b>Byte</b></dt>
+  <dd>A single byte.</dd>
+
+  <dt><b>Boolean</b></dt>
+  <dd>A single byte, 1 = true, 0 = false.  Using other non-zero values as
+  true (i.e. C-style) may work in some places, but it won't in
+  others.</dd>
+  
+  <dt><b>Integer</b></dt>
+  <dd>A number in the range of 0 to 2^16 (32768).  Stored in 2 bytes with
+  the high-order byte first.</dd>
+
+  <dt><b>String</b></dt>
+  <dd>A variable-sized string (length bounded by 2^16). Encoded with the
+  length packed into two bytes first, followed by the string (including the
+  terminating '\0').  Note that the encoded length does <b>not</b> include
+  the trailing '\0' -- it is like <b class="code">strlen</b>.  This is a touch
+  confusing on the Java side, which is littered with odd autoincrement
+  statements to skip over these terminators.  I believe the reason this was
+  done was to allow the C code to be extra efficient when reading strings
+  which the servlet container is sending back -- with the terminating \0
+  character, the C code can pass around references into a single buffer,
+  without copying.  If the \0 was missing, the C code would have to copy
+  things out in order to get its notion of a string.</dd>
+</dl>
+</p>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Packet Size"><strong>Packet Size</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+According to much of the code, the max packet
+size is 8 * 1024 bytes (8K).  The actual length of the packet is encoded in the
+header.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Packet Headers"><strong>Packet Headers</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Packets sent from the server to the container begin with
+<b class="code">0x1234</b>.  Packets sent from the container to the server begin
+with <b class="code">AB</b> (that's the ASCII code for A followed by the ASCII
+code for B).  After those first two bytes, there is an integer (encoded as
+above) with the length of the payload.  Although this might suggest that
+the maximum payload could be as large as 2^16, in fact, the code sets the
+maximum to be 8K.
+
+
+<table>
+  <tr>
+    <th colspan="6">Packet Format (Server-&gt;Container)</th>
+  </tr>
+
+  <tr>
+    <th>Byte</th>
+    <td>0</td>
+    <td>1</td>
+    <td>2</td>
+    <td>3</td>
+    <td>4...(n+3)</td>
+  </tr>
+
+  <tr>
+    <th>Contents</th>
+    <td>0x12</td>
+    <td>0x34</td>
+    <td colspan="2">Data Length (n)</td>
+    <td>Data</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th colspan="6"><b>Packet Format (Container-&gt;Server)</b></th>
+  </tr>
+
+  <tr>
+    <th>Byte</th>
+    <td>0</td>
+    <td>1</td>
+    <td>2</td>
+    <td>3</td>
+    <td>4...(n+3)</td>
+  </tr>
+
+  <tr>
+    <th>Contents</th>
+    <td>A</td>
+    <td>B</td>
+    <td colspan="2">Data Length (n)</td>
+    <td>Data</td>
+  </tr>
+</table>
+</p>
+<p>
+<A NAME="prefix-codes"></A> For most packets, the first byte of the
+payload encodes the type of message.  The exception is for request body
+packets sent from the server to the container -- they are sent with a
+standard packet header (0x1234 and then length of the packet), but without
+any prefix code after that (this seems like a mistake to me).
+</p><p>
+The web server can send the following messages to the servlet container:
+
+<table>
+  <tr>
+    <th>Code</th>
+    <th>Type of Packet</th>
+    <th>Meaning</th>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>Forward Request</td>
+    <td>Begin the request-processing cycle with the following data</td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td>Shutdown</td>
+    <td>The web server asks the container to shut itself down.</td>
+  </tr>
+  <tr>
+    <td>8</td>
+    <td>Ping</td>
+    <td>The web server asks the container to take control (secure login phase).</td>
+  </tr>
+  <tr>
+    <td>10</td>
+    <td>CPing</td>
+    <td>The web server asks the container to respond quickly with a CPong.</td>
+  </tr>
+  <tr>
+    <td>none</td>
+    <td>Data</td>
+    <td>Size (2 bytes) and corresponding body data.</td>
+  </tr>
+</table>
+</p>
+<p>
+To ensure some
+basic security, the container will only actually do the <b class="code">Shutdown</b> if the
+request comes from the same machine on which it's hosted.
+</p>
+<p>
+The first <b class="code">Data</b> packet is send immediatly after the <b class="code">Forward Request</b> by the web server.
+</p>
+
+<p>The servlet container can send the following types of messages to the web
+server:
+<table>
+  <tr>
+    <th>Code</th>
+    <th>Type of Packet</th>
+    <th>Meaning</th>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>Send Body Chunk</td>
+    <td>Send a chunk of the body from the servlet container to the web
+    server (and presumably, onto the browser). </td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>Send Headers</td>
+    <td>Send the response headers from the servlet container to the web
+    server (and presumably, onto the browser).</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>End Response</td>
+    <td>Marks the end of the response (and thus the request-handling cycle).</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td>Get Body Chunk</td>
+    <td>Get further data from the request if it hasn't all been transferred
+    yet.</td>
+  </tr>
+  <tr>
+    <td>9</td>
+    <td>CPong Reply</td>
+    <td>The reply to a CPing request</td>
+  </tr>
+</table>
+</p>
+<p>
+Each of the above messages has a different internal structure, detailed below.
+</p>
+</blockquote></td></tr></table>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Request Packet Structure"><strong>Request Packet Structure</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>
+For messages from the server to the container of type "Forward Request":
+</p><p>
+<div class="example"><pre>
+AJP13_FORWARD_REQUEST :=
+    prefix_code      (byte) 0x02 = JK_AJP13_FORWARD_REQUEST
+    method           (byte)
+    protocol         (string)
+    req_uri          (string)
+    remote_addr      (string)
+    remote_host      (string)
+    server_name      (string)
+    server_port      (integer)
+    is_ssl           (boolean)
+    num_headers      (integer)
+    request_headers *(req_header_name req_header_value)
+    attributes      *(attribut_name attribute_value)
+    request_terminator (byte) OxFF
+</pre></div>
+</p><p>
+The <b class="code">request_headers</b> have the following structure:
+</p><p>
+<div class="example"><pre>
+req_header_name := 
+    sc_req_header_name | (string)  [see below for how this is parsed]
+
+sc_req_header_name := 0xA0xx (integer)
+
+req_header_value := (string)
+</pre></div>
+</p><p>
+
+The <b class="code">attributes</b> are optional and have the following structure:
+</p><p>
+<div class="example"><pre>
+attribute_name := sc_a_name | (sc_a_req_attribute string)
+
+attribute_value := (string)
+
+</pre></div>
+</p><p>
+Not that the all-important header is "content-length', because it
+determines whether or not the container looks for another packet
+immediately.
+</p><p>
+Detailed description of the elements of Forward Request.
+</p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="request_prefix"><strong>request_prefix</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+For all requests, this will be 2.
+See above for details on other <A HREF="#prefix-codes">prefix codes</A>.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="method"><strong>method</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The HTTP method, encoded as a single byte:
+</p>
+
+<p>
+<table>
+  <tr><th>Command Name</th><th>Code</th></tr>
+  <tr><td>OPTIONS</td><td>1</td></tr>
+  <tr><td>GET</td><td>2</td></tr>
+  <tr><td>HEAD</td><td>3</td></tr>
+  <tr><td>POST</td><td>4</td></tr>
+  <tr><td>PUT</td><td>5</td></tr>
+  <tr><td>DELETE</td><td>6</td></tr>
+  <tr><td>TRACE</td><td>7</td></tr>
+  <tr><td>PROPFIND</td><td>8</td></tr>
+  <tr><td>PROPPATCH</td><td>9</td></tr>
+  <tr><td>MKCOL</td><td>10</td></tr>
+  <tr><td>COPY</td><td>11</td></tr>
+  <tr><td>MOVE</td><td>12</td></tr>
+  <tr><td>LOCK</td><td>13</td></tr>
+  <tr><td>UNLOCK</td><td>14</td></tr>
+  <tr><td>ACL</td><td>15</td></tr>
+  <tr><td>REPORT</td><td>16</td></tr>
+  <tr><td>VERSION-CONTROL</td><td>17</td></tr>
+  <tr><td>CHECKIN</td><td>18</td></tr>
+  <tr><td>CHECKOUT</td><td>19</td></tr>
+  <tr><td>UNCHECKOUT</td><td>20</td></tr>
+  <tr><td>SEARCH</td><td>21</td></tr>
+  <tr><td>MKWORKSPACE</td><td>22</td></tr>
+  <tr><td>UPDATE</td><td>23</td></tr>
+  <tr><td>LABEL</td><td>24</td></tr>
+  <tr><td>MERGE</td><td>25</td></tr>
+  <tr><td>BASELINE_CONTROL</td><td>26</td></tr>
+  <tr><td>MKACTIVITY</td><td>27</td></tr>
+</table>
+</p>
+
+<p>Later version of ajp13, when used with mod_jk2, will transport 
+additional methods, even if they are not in this list.
+</p>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="protocol, req_uri, remote_addr, remote_host, server_name, server_port, is_ssl"><strong>protocol, req_uri, remote_addr, remote_host, server_name, server_port, is_ssl</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+  These are all fairly self-explanatory.  Each of these is required, and
+  will be sent for every request.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Headers"><strong>Headers</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+  The structure of <b class="code">request_headers</b> is the following:
+  First, the number of headers <b class="code">num_headers</b> is encoded.
+  Then, a series of header name <b class="code">req_header_name</b> / value
+  <b class="code">req_header_value</b> pairs follows.
+  Common header names are encoded as integers,
+  to save space.  If the header name is not in the list of basic headers,
+  it is encoded normally (as a string, with prefixed length).  The list of
+  common headers <b class="code">sc_req_header_name</b>and their codes
+  is as follows (all are case-sensitive):
+</p><p>
+<table>
+  <tr><th>Name</th><th>Code value</th><th>Code name</th></tr>
+  <tr><td>accept</td><td>0xA001</td><td>SC_REQ_ACCEPT</td></tr>
+  <tr><td>accept-charset</td><td>0xA002</td><td>SC_REQ_ACCEPT_CHARSET</td></tr>
+  <tr><td>accept-encoding</td><td>0xA003</td><td>SC_REQ_ACCEPT_ENCODING</td></tr>
+  <tr><td>accept-language</td><td>0xA004</td><td>SC_REQ_ACCEPT_LANGUAGE</td></tr>
+  <tr><td>authorization</td><td>0xA005</td><td>SC_REQ_AUTHORIZATION</td></tr>
+  <tr><td>connection</td><td>0xA006</td><td>SC_REQ_CONNECTION</td></tr>
+  <tr><td>content-type</td><td>0xA007</td><td>SC_REQ_CONTENT_TYPE</td></tr>
+  <tr><td>content-length</td><td>0xA008</td><td>SC_REQ_CONTENT_LENGTH</td></tr>
+  <tr><td>cookie</td><td>0xA009</td><td>SC_REQ_COOKIE</td></tr>
+  <tr><td>cookie2</td><td>0xA00A</td><td>SC_REQ_COOKIE2</td></tr>
+  <tr><td>host</td><td>0xA00B</td><td>SC_REQ_HOST</td></tr>
+  <tr><td>pragma</td><td>0xA00C</td><td>SC_REQ_PRAGMA</td></tr>
+  <tr><td>referer</td><td>0xA00D</td><td>SC_REQ_REFERER</td></tr>
+  <tr><td>user-agent</td><td>0xA00E</td><td>SC_REQ_USER_AGENT</td></tr>
+</table>
+</p><p>
+  The Java code that reads this grabs the first two-byte integer and if
+  it sees an <b class="code">'0xA0'</b> in the most significant
+  byte, it uses the integer in the second byte as an index into an array of
+  header names.  If the first byte is not '0xA0', it assumes that the
+  two-byte integer is the length of a string, which is then read in.
+</p><p>
+  This works on the assumption that no header names will have length
+  greater than 0x9999 (==0xA000 - 1), which is perfectly reasonable, though
+  somewhat arbitrary. (If you, like me, started to think about the cookie
+  spec here, and about how long headers can get, fear not -- this limit is
+  on header <b>names</b> not header <b>values</b>.  It seems unlikely that
+  unmanageably huge header names will be showing up in the HTTP spec any time
+  soon).
+</p><p>
+  <b>Note:</b> The <b class="code">content-length</b> header is extremely
+  important.  If it is present and non-zero, the container assumes that
+  the request has a body (a POST request, for example), and immediately
+  reads a separate packet off the input stream to get that body.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Attributes"><strong>Attributes</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+
+  The attributes prefixed with a <b class="code">?</b>
+  (e.g. <b class="code">?context</b>) are all optional.  For each, there is a
+  single byte code to indicate the type of attribute, and then a string to
+  give its value.  They can be sent in any order (thogh the C code always
+  sends them in the order listed below).  A special terminating code is
+  sent to signal the end of the list of optional attributes. The list of
+  byte codes is:
+</p><p>
+
+<table>
+  <tr><th>Information</th><th>Code Value</th><th>Note</th></tr>
+  <tr><td>?context</td><td>0x01</td><td>Not currently implemented</td></tr>
+  <tr><td>?servlet_path</td><td>0x02</td><td>Not currently implemented</td></tr>
+  <tr><td>?remote_user</td><td>0x03</td><td></td></tr>
+  <tr><td>?auth_type</td><td>0x04</td><td></td></tr>
+  <tr><td>?query_string</td><td>0x05</td><td></td></tr>
+  <tr><td>?route</td><td>0x06</td><td></td></tr>
+  <tr><td>?ssl_cert</td><td>0x07</td><td></td></tr>
+  <tr><td>?ssl_cipher</td><td>0x08</td><td></td></tr>
+  <tr><td>?ssl_session</td><td>0x09</td><td></td></tr>
+  <tr><td>?req_attribute</td><td>0x0A</td><td>Name (the name of the attribut follows)</td></tr>
+  <tr><td>?ssl_key_size</td><td>0x0B</td><td></td></tr>
+  <tr><td>are_done</td><td>0xFF</td><td>request_terminator</td></tr>
+</table>
+
+</p><p>
+
+  The <b class="code">context</b> and <b class="code">servlet_path</b> are not currently
+  set by the C code, and most of the Java code completely ignores whatever
+  is sent over for those fields (and some of it will actually break if a
+  string is sent along after one of those codes).  I don't know if this is
+  a bug or an unimplemented feature or just vestigial code, but it's
+  missing from both sides of the connection.
+</p><p>
+  The <b class="code">remote_user</b> and <b class="code">auth_type</b> presumably refer
+  to HTTP-level authentication, and communicate the remote user's username
+  and the type of authentication used to establish their identity (e.g. Basic,
+  Digest).  I'm not clear on why the password isn't also sent, but I don't
+  know HTTP authentication inside and out.
+</p><p>
+  The <b class="code">query_string</b>, <b class="code">ssl_cert</b>,
+  <b class="code">ssl_cipher</b>, and <b class="code">ssl_session</b> refer to the
+  corresponding pieces of HTTP and HTTPS.
+</p><p>
+  The <b class="code">route</b>, as I understand it, is used to support sticky
+  sessions -- associating a user's sesson with a particular Tomcat instance
+  in the presence of multiple, load-balancing servers.  I don't know the
+  details.
+</p><p>
+  Beyond this list of basic attributes, any number of other attributes can
+  be sent via the <b class="code">req_attribute</b> code (0x0A).  A pair of strings
+  to represent the attribute name and value are sent immediately after each
+  instance of that code.  Environment values are passed in via this method.
+</p><p>
+  Finally, after all the attributes have been sent, the attribute terminator,
+  0xFF, is sent.  This signals both the end of the list of attributes and
+  also then end of the Request Packet.
+</p>
+</blockquote></td></tr></table>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Response Packet Structure"><strong>Response Packet Structure</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>
+For messages which the container can send back to the server.
+
+<div class="example"><pre>
+AJP13_SEND_BODY_CHUNK := 
+  prefix_code   3
+  chunk_length  (integer)
+  chunk        *(byte)
+
+
+AJP13_SEND_HEADERS :=
+  prefix_code       4
+  http_status_code  (integer)
+  http_status_msg   (string)
+  num_headers       (integer)
+  response_headers *(res_header_name header_value)
+
+res_header_name := 
+    sc_res_header_name | (string)   [see below for how this is parsed]
+
+sc_res_header_name := 0xA0 (byte)
+
+header_value := (string)
+
+AJP13_END_RESPONSE :=
+  prefix_code       5
+  reuse             (boolean)
+
+
+AJP13_GET_BODY_CHUNK :=
+  prefix_code       6
+  requested_length  (integer)
+</pre></div>
+
+</p>
+<p>
+Details:
+</p>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Send Body Chunk"><strong>Send Body Chunk</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+  The chunk is basically binary data, and is sent directly back to the browser.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Send Headers"><strong>Send Headers</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+  The status code and message are the usual HTTP things (e.g. "200" and "OK").
+  The response header names are encoded the same way the request header names are.
+  See <A HREF="#header_encoding">above</A> for details about how the the
+  codes are distinguished from the strings.  The codes for common headers are:
+</p>
+
+<p>
+<table>
+  <tr><th>Name</th><th>Code value</th></tr>
+  <tr><td>Content-Type</td><td>0xA001</td></tr>
+  <tr><td>Content-Language</td><td>0xA002</td></tr>
+  <tr><td>Content-Length</td><td>0xA003</td></tr>
+  <tr><td>Date</td><td>0xA004</td></tr>
+  <tr><td>Last-Modified</td><td>0xA005</td></tr>
+  <tr><td>Location</td><td>0xA006</td></tr>
+  <tr><td>Set-Cookie</td><td>0xA007</td></tr>
+  <tr><td>Set-Cookie2</td><td>0xA008</td></tr>
+  <tr><td>Servlet-Engine</td><td>0xA009</td></tr>
+  <tr><td>Status</td><td>0xA00A</td></tr>
+  <tr><td>WWW-Authenticate</td><td>0xA00B</td></tr>
+</table>
+
+</p>
+
+<p> 
+  After the code or the string header name, the header value is immediately
+  encoded.
+</p>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="End Response"><strong>End Response</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+  Signals the end of this request-handling cycle.  If the
+  <b class="code">reuse</b> flag is true (==1), this TCP connection can now be used to
+  handle new incoming requests.  If <b class="code">reuse</b> is false (anything
+  other than 1 in the actual C code), the connection should be closed.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Get Body Chunk"><strong>Get Body Chunk</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+  The container asks for more data from the request (If the body was
+  too large to fit in the first packet sent over or when the request is
+  chuncked).
+  The server will send a body packet back with an amount of data which is
+  the minimum of the <b class="code">request_length</b>,
+  the maximum send body size (8186 (8 Kbytes - 6)), and the
+  number of bytes actually left to send from the request body.
+<br>
+  If there is no more data in the body (i.e. the servlet container is
+  trying to read past the end of the body), the server will send back an
+  "empty" packet, which is a body packet with a payload length of 0.
+  (0x12,0x34,0x00,0x00)
+</p>
+</blockquote></td></tr></table>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Questions I Have"><strong>Questions I Have</strong></a></font></td></tr><tr><td><blockquote>
+
+<p> What happens if the request headers &gt; max packet size?  There is no
+provision to send a second packet of request headers in case there are more
+than 8K (I think this is correctly handled for response headers, though I'm
+not certain).  I don't know if there is a way to get more than 8K worth of
+data into that initial set of request headers, but I'll bet there is
+(combine long cookies with long ssl information and a lot of environment
+variables, and you should hit 8K easily).  I think the connector would just
+fail before trying to send any headers in this case, but I'm not certain.</p>
+
+<p> What about authentication?  There doesn't seem to be any authentication
+of the connection between the web server and the container.  This strikes
+me as potentially dangerous.</p>
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

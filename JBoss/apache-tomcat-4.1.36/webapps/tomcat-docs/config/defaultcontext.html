@@ -1,0 +1,405 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>Server Configuration Reference - The DefaultContext Component</title><meta value="Craig R. McClanahan" name="author"><meta value="craigmcc@apache.org" name="email"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="0" width="100%" border="0"><!--PAGE HEADER--><tr><td><!--PROJECT LOGO--><a href="http://jakarta.apache.org/tomcat/"><img border="0" alt="
+    The Tomcat Servlet/JSP Container
+  " align="right" src="../images/tomcat.gif"></a></td><td><font face="arial,helvetica,sanserif"><h1>Apache Tomcat 4</h1></font></td><td><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="../images/asf-logo.gif"></a></td></tr></table><table cellspacing="4" width="100%" border="0"><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--LEFT SIDE NAVIGATION--><td nowrap="true" valign="top" width="20%"><p><strong>Links</strong></p><ul><li><a href="../index.html">Docs Home</a></li><li><a href="index.html">Config Ref. Home</a></li></ul><p><strong>Top Level Elements</strong></p><ul><li><a href="server.html">Server</a></li><li><a href="service.html">Service</a></li></ul><p><strong>Current Connectors</strong></p><ul><li><a href="connectors.html">Overview</a></li><li><a href="coyote.html">Coyote HTTP/1.1</a></li><li><a href="coyotejk.html">Coyote JK</a></li><li><a href="jk.html">JK</a></li><li><a href="http://httpd.apache.org/docs-2.1/mod/mod_proxy_ajp.html">mod_proxy_ajp</a></li></ul><p><strong>Deprecated Connectors</strong></p><ul><li><a href="connectors.html">Overview</a></li><li><a href="http11.html">HTTP/1.1</a></li><li><a href="ajp13.html">AJP/1.3</a></li><li><a href="webapp.html">Webapp</a></li><li><a href="jk2.html">JK2</a></li></ul><p><strong>Containers</strong></p><ul><li><a href="context.html">Context</a></li><li><a href="engine.html">Engine</a></li><li><a href="host.html">Host</a></li></ul><p><strong>Nested Components</strong></p><ul><li><a href="defaultcontext.html">Default Context</a></li><li><a href="globalresources.html">Global Resources</a></li><li><a href="loader.html">Loader</a></li><li><a href="logger.html">Logger</a></li><li><a href="manager.html">Manager</a></li><li><a href="realm.html">Realm</a></li><li><a href="resources.html">Resources</a></li><li><a href="valve.html">Valve</a></li></ul></td><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td nowrap="true" valign="top" align="left"><h1>The DefaultContext Component</h1></td><td nowrap="true" valign="top" align="right"><small><a href="printer/defaultcontext.html"><img alt="Printer Friendly Version" border="0" src="../images/printer.gif"><br>print-friendly<br>version
+                    </a></small></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p>The <strong>DefaultContext</strong> element represents a subset of
+  the configuration settings for a <a href="context.html">Context</a>,
+  and can be nested inside an <a href="engine.html">Engine</a> or
+  <a href="host.html">Host</a> element to represent <em>default
+  configuration properties</em> for Contexts that are automatically
+  created.</p>
+
+  <p>See <a href="host.html#Automatic Application Deployment">Automatic
+  Application Deployment</a> and
+  <a href="host.html#User Web Applications">User Web Applications</a>
+  for more information about the circumstances in which Catalina will
+  automatically create Contexts for you, based on the configuration
+  properties that are stored here.</p>
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Attributes"><strong>Attributes</strong></a></font></td></tr><tr><td><blockquote>
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
+
+    <p>All implementations of <strong>DefaultContext</strong>
+    support the following attributes:</p>
+
+    <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>cookies</code></td><td valign="center" align="left">
+        <p>Set to <code>true</code> if you want cookies to be used for
+        session identifier communication if supported by the client (this
+        is the default).  Set to <code>false</code> if you want to disable
+        the use of cookies for session identifier communication, and rely
+        only on URL rewriting by the application.</p>
+      </td></tr><tr><td valign="center" align="left"><code>crossContext</code></td><td valign="center" align="left">
+        <p>Set to <code>true</code> if you want calls within this application
+        to <code>ServletContext.getContext()</code> to successfully return a
+        request dispatcher for other web applications running on this virtual
+        host.  Set to <code>false</code> (the default) in security
+        conscious environments, to make <code>getContext()</code> always
+        return <code>null</code>.</p>
+      </td></tr><tr><td valign="center" align="left"><code>reloadable</code></td><td valign="center" align="left">
+        <p>Set to <code>true</code> if you want Catalina to monitor classes in
+        <code>/WEB-INF/classes/</code> and <code>/WEB-INF/lib</code> for
+        changes, and automatically reload the web application if a change
+        is detected.  This feature is very useful during application
+        development, but it requires significant runtime overhead and is
+        not recommended for use on deployed production applications.  You
+        can use the <a href="../manager-howto.html">Manager</a> web
+        application, however, to trigger reloads of deployed applications
+        on demand.</p>
+      </td></tr><tr><td valign="center" align="left"><code>wrapperClass</code></td><td valign="center" align="left">
+        <p>Java class name of the <code>org.apache.catalina.Wrapper</code>
+        implementation class that will be used for servlets managed by this
+        Context.  If not specified, a standard default value will be used.</p>
+      </td></tr></table>
+
+  </blockquote></td></tr></table>
+
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
+
+    <p>The standard implementation of <strong>DefaultContext</strong> is
+    <strong>org.apache.catalina.core.DefaultContext</strong>.
+    It supports the following additional attributes (in addition to the
+    common attributes listed above):</p>
+
+    <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>swallowOutput</code></td><td valign="center" align="left">
+        <p>If the value of this flag is <code>true</code>, the bytes output to
+        System.out and System.err by the web application will be redirected to
+        the web application logger. If not specified, the default value
+        of the flag is <code>false</code>.</p>
+      </td></tr><tr><td valign="center" align="left"><code>useNaming</code></td><td valign="center" align="left">
+        <p>Set to <code>true</code> (the default) to have Catalina enable a
+        JNDI <code>InitialContext</code> for this web application that is
+        compatible with Java2 Enterprise Edition (J2EE) platform
+        conventions.</p>
+      </td></tr></table>
+
+  </blockquote></td></tr></table>
+
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Nested Components"><strong>Nested Components</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p>You can nest at most one instance of the following utility components
+  by nesting a corresponding element inside your
+  <strong>DefaultContext</strong> element:</p>
+  <ul>
+  <li><a href="loader.html"><strong>Loader</strong></a> -
+      Configure the web application class loader that will be used to load
+      servlet and bean classes for each web application.  Normally, the
+      default configuration of the class loader will be sufficient.</li>
+
+  </ul>
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special Features"><strong>Special Features</strong></a></font></td></tr><tr><td><blockquote>
+
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Context Parameters"><strong>Context Parameters</strong></a></font></td></tr><tr><td><blockquote>
+
+    <p>You can configure named values that will be made visible to
+    web applications as servlet context initialization parameters by nesting
+    <code>&lt;Parameter&gt;</code> elements inside this element.  For
+    example, you can create an initialization parameter like this:</p>
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+&lt;DefaultContext ...&gt;
+  ...
+  &lt;Parameter name="companyName" value="My Company, Incorporated"
+         override="false"/&gt;
+  ...
+&lt;/DefaultContext&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr></table></div>
+
+    <p>This is equivalent to the inclusion of the following element in the
+    web application deployment descriptor (<code>/WEB-INF/web.xml</code>):
+    </p>
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+&lt;context-param&gt;
+  &lt;param-name&gt;companyName&lt;/param-name&gt;
+  &lt;param-value&gt;My Company, Incorporated&lt;/param-value&gt;
+&lt;/context-param&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr></table></div>
+    <p>but does <em>not</em> require modification of the deployment descriptor
+    to customize this value.</p>
+
+    <p>The valid attributes for a <code>&lt;Parameter&gt;</code> element
+    are as follows:</p>
+
+    <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>description</code></td><td valign="center" align="left">
+        <p>Optional, human-readable description of this context
+        initialization parameter.</p>
+      </td></tr><tr><td valign="center" align="left"><strong><code>name</code></strong></td><td valign="center" align="left">
+        <p>The name of the context initialization parameter to be created.</p>
+      </td></tr><tr><td valign="center" align="left"><code>override</code></td><td valign="center" align="left">
+        <p>Set this to <code>false</code> if you do <strong>not</strong> want
+        a <code>&lt;context-param&gt;</code> for the same parameter name,
+        found in the web application deployment descriptor, to override the
+        value specified here.  By default, overrides are allowed.</p>
+      </td></tr><tr><td valign="center" align="left"><strong><code>value</code></strong></td><td valign="center" align="left">
+        <p>The parameter value that will be presented to the application
+        when requested by calling
+        <code>ServletContext.getInitParameter()</code>.</p>
+      </td></tr></table>
+
+  </blockquote></td></tr></table>
+
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Environment Entries"><strong>Environment Entries</strong></a></font></td></tr><tr><td><blockquote>
+
+    <p>You can configure named values that will be made visible to
+    web applications as environment entry resources, by nesting
+    <code>&lt;Environment&gt;</code> entries inside this element.  For
+    example, you can create an environment entry like this:</p>
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+&lt;DefaultContext ...&gt;
+  ...
+  &lt;Environment name="maxExemptions" value="10"
+         type="java.lang.Integer" override="false"/&gt;
+  ...
+&lt;/DefaultContext&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr></table></div>
+
+    <p>This is equivalent to the inclusion of the following element in the
+    web application deployment descriptor (<code>/WEB-INF/web.xml</code>):
+    </p>
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+&lt;env-entry&gt;
+  &lt;env-entry-name&gt;maxExemptions&lt;/param-name&gt;
+  &lt;env-entry-value&gt;10&lt;/env-entry-value&gt;
+  &lt;env-entry-type&gt;java.lang.Integer&lt;/env-entry-type&gt;
+&lt;/env-entry&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr></table></div>
+    <p>but does <em>not</em> require modification of the deployment descriptor
+    to customize this value.</p>
+
+    <p>The valid attributes for an <code>&lt;Environment&gt;</code> element
+    are as follows:</p>
+
+    <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>description</code></td><td valign="center" align="left">
+        <p>Optional, human-readable description of this environment entry.</p>
+      </td></tr><tr><td valign="center" align="left"><strong><code>name</code></strong></td><td valign="center" align="left">
+        <p>The name of the environment entry to be created, relative to the
+        <code>java:comp/env</code> context.</p>
+      </td></tr><tr><td valign="center" align="left"><code>override</code></td><td valign="center" align="left">
+        <p>Set this to <code>false</code> if you do <strong>not</strong> want
+        an <code>&lt;env-entry&gt;</code> for the same environment entry name,
+        found in the web application deployment descriptor, to override the
+        value specified here.  By default, overrides are allowed.</p>
+      </td></tr><tr><td valign="center" align="left"><strong><code>type</code></strong></td><td valign="center" align="left">
+        <p>The fully qualified Java class name expected by the web application
+        for this environment entry.  Must be one of the legal values for
+        <code>&lt;env-entry-type&gt;</code> in the web application deployment
+        descriptor:  <code>java.lang.Boolean</code>,
+        <code>java.lang.Byte</code>, <code>java.lang.Character</code>,
+        <code>java.lang.Double</code>, <code>java.lang.Float</code>,
+        <code>java.lang.Integer</code>, <code>java.lang.Long</code>,
+        <code>java.lang.Short</code>, or <code>java.lang.String</code>.</p>
+      </td></tr><tr><td valign="center" align="left"><strong><code>value</code></strong></td><td valign="center" align="left">
+        <p>The parameter value that will be presented to the application
+        when requested from the JNDI context.  This value must be convertable
+        to the Java type defined by the <code>type</code> attribute.</p>
+      </td></tr></table>
+
+  </blockquote></td></tr></table>
+
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Lifecycle Listeners"><strong>Lifecycle Listeners</strong></a></font></td></tr><tr><td><blockquote>
+
+    <p>If you have implemented a Java object that needs to know when this
+    <strong>Context</strong> is started or stopped, you can declare it by
+    nesting a <strong>Listener</strong> element inside this element.  The
+    class name you specify must implement the
+    <code>org.apache.catalina.LifecycleListener</code> interface, and
+    it will be notified about the occurrence of the coresponding
+    lifecycle events.  Configuration of such a listener looks like this:</p>
+
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+&lt;DefaultContext  ...&gt;
+  ...
+  &lt;Listener className="com.mycompany.mypackage.MyListener" ... &gt;
+  ...
+&lt;/DefaultContext&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr></table></div>
+
+    <p>Note that a Listener can have any number of additional properties
+    that may be configured from this element.  Attribute names are matched
+    to corresponding JavaBean property names using the standard property
+    method naming patterns.</p>
+
+  </blockquote></td></tr></table>
+
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Resource Definitions"><strong>Resource Definitions</strong></a></font></td></tr><tr><td><blockquote>
+
+    <p>You can declare the characteristics of the resource
+    to be returned for JNDI lookups of <code>&lt;resource-ref&gt;</code> and
+    <code>&lt;resource-env-ref&gt;</code> elements in the web application
+    deployment descriptor.  You <strong>MUST</strong> also define
+    <a href="#Resource Parameters">Resource Parameters</a>
+    for the same resource name, to configure
+    the object factory to be used (if not known to Tomcat already), and
+    the properties used to configure that object factory.</p>
+
+    <p>For example, you can create a resource definition like this:</p>
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+&lt;DefaultContext ...&gt;
+  ...
+  &lt;Resource name="jdbc/EmployeeDB" auth="Container"
+            type="javax.sql.DataSource"
+     description="Employees Database for HR Applications"/&gt;
+  ...
+&lt;/DefaultContext&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr></table></div>
+
+    <p>This is equivalent to the inclusion of the following element in the
+    web application deployment descriptor (<code>/WEB-INF/web.xml</code>):</p>
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+&lt;resource-ref&gt;
+  &lt;description&gt;Employees Database for HR Applications&lt;/description&gt;
+  &lt;res-ref-name&gt;jdbc/EmployeeDB&lt;/res-ref-name&gt;
+  &lt;res-ref-type&gt;javax.sql.DataSource&lt;/res-ref-type&gt;
+  &lt;res-auth&gt;Container&lt;/res-auth&gt;
+&lt;/resource-ref&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr></table></div>
+
+    <p>but does <em>not</em> require modification of the deployment
+    descriptor to customize this value.</p>
+
+    <p>The valid attriutes for a <code>&lt;Resource&gt;</code> element
+    are as follows:</p>
+
+    <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>auth</code></td><td valign="center" align="left">
+        <p>Specify whether the web Application code signs on to the
+        corresponding resource manager programatically, or whether the
+        Container will sign on to the resource manager on behalf of the
+        application.  The value of this attribute must be
+        <code>Application</code> or <code>Container</code>.  This
+        attribute is <strong>required</strong> if the web application
+        will use a <code>&lt;resource-ref&gt;</code> element in the web
+        application deployment descriptor, but is optional if the
+        application uses a <code>&lt;resource-env-ref&gt;</code> instead.</p>
+      </td></tr><tr><td valign="center" align="left"><code>description</code></td><td valign="center" align="left">
+        <p>Optional, human-readable description of this resource.</p>
+      </td></tr><tr><td valign="center" align="left"><strong><code>name</code></strong></td><td valign="center" align="left">
+        <p>The name of the resource to be created, relative to the
+        <code>java:comp/env</code> context.</p>
+      </td></tr><tr><td valign="center" align="left"><code>scope</code></td><td valign="center" align="left">
+        <p>Specify whether connections obtained through this resource
+        manager can be shared.  The value of this attribute must be
+        <code>Shareable</code> or <code>Unshareable</code>.  By default,
+        connections are assumed to be shareable.</p>
+      </td></tr><tr><td valign="center" align="left"><strong><code>type</code></strong></td><td valign="center" align="left">
+        <p>The fully qualified Java class name expected by the web
+        application when it performs a lookup for this resource.</p>
+      </td></tr></table>
+
+
+  </blockquote></td></tr></table>
+
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Resource Parameters"><strong>Resource Parameters</strong></a></font></td></tr><tr><td><blockquote>
+
+    <p>This element is used to configure the resource manager (or object
+    factory) used to return objects when the web application performs a
+    JNDI lookup operation on the corresponding resource name.  You
+    <strong>MUST</strong> define resource parameters for every resource name
+    that is specified by a <code>&lt;Resource&gt;</code> element inside a
+    <code>&lt;Context&gt;</code> or <code>&lt;DefaultContext&gt;</code>
+    element in <code>$CATALINA_HOME/conf/server.xml</code>, and/or for every
+    name declared in a <code>&lt;resource-ref&gt;</code> or
+    <code>&lt;resource-env-ref&gt;</code> element in the web application
+    deployment descriptor, before that resource can be successfully
+    accessed.</p>
+
+    <p>Resource parameters are defined by name, and the precise set of
+    parameter names supported depend on the resource manager (or object
+    factory) you are using - they must match the names of settable JavaBeans
+    properties on the corresponding factory class.  The JNDI implementation
+    will configure an instance of the specified factory class specified by
+    calling all the corresponding JavaBeans property setters, and then
+    making the factory instance available via the JNDI <code>lookup()</code>
+    call.</p>
+
+    <p>The resource parameters for a JDBC data source might look something
+    like this:</p>
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+&lt;DefaultContext ...&gt;
+  ...
+  &lt;ResourceParams name="jdbc/EmployeeDB"&gt;
+    &lt;parameter&gt;
+      &lt;name&gt;driverClassName&lt;/name&gt;
+      &lt;value&gt;org.hsql.jdbcDriver&lt;/value&gt;
+    &lt;/parameter&gt;
+    &lt;parameter&gt;
+      &lt;name&gt;driverName&lt;/name&gt;
+      &lt;/value&gt;jdbc:HypersonicSQL:database&lt;/value&gt;
+    &lt;/parameter&gt;
+    &lt;parameter&gt;
+      &lt;name&gt;user&lt;/name&gt;
+      &lt;value&gt;dbusername&lt;/value&gt;
+    &lt;/parameter&gt;
+    &lt;parameter&gt;
+      &lt;name&gt;password&lt;/name&gt;
+      &lt;value&gt;dbpassword&lt;/value&gt;
+    &lt;/parameter&gt;
+  &lt;/ResourceParams&gt;
+  ...
+&lt;/DefaultContext&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr></table></div>
+
+    <p>If you need to specify the Java class name of a factory class for a
+    particular resource type, use a <code>&lt;parameter&gt;</code> entry
+    named <code>factory</code> nested inside the
+    <code>&lt;ResourceParams&gt;</code> element.</p>
+
+    <p>The valid attributes of a <code>&lt;ResourceParams&gt;</code> element
+    are as follows:</p>
+
+    <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><strong><code>name</code></strong></td><td valign="center" align="left">
+        <p>The name of the resource being configured, relative to the
+        <code>java:comp/env</code> contxt.  This name <strong>MUST</strong>
+        match the name of a resource defined by a <code>&lt;Resource&gt;</code>
+        element in <code>$CATALINA_HOME/conf/server.xml</code>, and/or
+        referenced in a <code>&lt;resource-ref&gt;</code> or
+        <code>&lt;resource-env-ref&gt;</code> element in the web application
+        deployment descriptor.</p>
+      </td></tr></table>
+
+  </blockquote></td></tr></table>
+
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Resource Links"><strong>Resource Links</strong></a></font></td></tr><tr><td><blockquote>
+
+     <p>This element is used to create a link to a global JNDI resource. Doing
+     a JNDI lookup on the link name will then return the linked global 
+     resource.</p>
+
+    <p>For example, you can create a resource link like this:</p>
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+&lt;DefaultContext ...&gt;
+  ...
+  &lt;ResourceLink name="linkToGlobalResource"
+            global="simpleValue"
+            type="java.lang.Integer"
+  ...
+&lt;/DefaultContext&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../images/void.gif"></td></tr></table></div>
+
+    <p>The valid attributes for a <code>&lt;ResourceLink&gt;</code> element
+    are as follows:</p>
+
+    <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><strong><code>global</code></strong></td><td valign="center" align="left">
+        <p>The name of the linked global resource in the 
+        gobal JNDI context.</p>
+      </td></tr><tr><td valign="center" align="left"><strong><code>name</code></strong></td><td valign="center" align="left">
+        <p>The name of the resource link to be created, relative to the
+        <code>java:comp/env</code> context.</p>
+      </td></tr><tr><td valign="center" align="left"><strong><code>type</code></strong></td><td valign="center" align="left">
+        <p>The fully qualified Java class name expected by the web
+        application when it performs a lookup for this resource link.</p>
+      </td></tr></table>
+
+  </blockquote></td></tr></table>
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

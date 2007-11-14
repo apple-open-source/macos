@@ -32,7 +32,6 @@
 #include <openssl/md5.h>
 #include <sys/attr.h>
 #include <CoreFoundation/CFBundlePriv.h>
-#include <IOKit/IOKitLib.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
 
 __private_extern__ int ___chattr( const char * path, ___attr_t attr, ___attr_t noattr )
@@ -570,4 +569,74 @@ __private_extern__ void ___DADisplayUpdateActivity( void )
             IOHIDPostEvent( port, NX_NULLEVENT, location, &data, 0, 0, 0 );
         }
     }
+}
+
+__private_extern__ kern_return_t ___IORegistryEntryGetPath( io_registry_entry_t entry, const io_name_t plane, ___io_path_t path )
+{
+    /*
+     * Create a path for a registry entry.
+     */
+
+    IOReturn status;
+
+    status = IORegistryEntryGetPath( entry, plane, path );
+
+    if ( status == kIOReturnBadArgument )
+    {
+        io_registry_entry_t parent;
+
+        status = IORegistryEntryGetParentEntry( entry, plane, &parent );
+
+        if ( status == kIOReturnSuccess )
+        {
+            status = ___IORegistryEntryGetPath( parent, plane, path );
+
+            if ( status == kIOReturnSuccess )
+            {
+                io_name_t name;
+
+                status = IORegistryEntryGetNameInPlane( entry, plane, name );
+
+                if ( status == kIOReturnSuccess )
+                {
+                    io_name_t location;
+
+                    status = IORegistryEntryGetLocationInPlane( entry, plane, location );
+
+                    if ( status == kIOReturnSuccess )
+                    {
+                        if ( strlen( path ) + strlen( "/" ) + strlen( name ) + strlen( "@" ) + strlen( location ) < sizeof( ___io_path_t ) )
+                        {
+                            strcat( path, "/" );
+                            strcat( path, name );
+                            strcat( path, "@" );
+                            strcat( path, location );
+                        }
+                        else
+                        {
+                            status = kIOReturnBadArgument;
+                        }
+                    }
+                    else
+                    {
+                        if ( strlen( path ) + strlen( "/" ) + strlen( name ) < sizeof( ___io_path_t ) )
+                        {
+                            strcat( path, "/" );
+                            strcat( path, name );
+
+                            status = kIOReturnSuccess;
+                        }
+                        else
+                        {
+                            status = kIOReturnBadArgument;
+                        }
+                    }
+                }
+            }
+
+            IOObjectRelease( parent );
+        }
+    }
+
+    return status;
 }

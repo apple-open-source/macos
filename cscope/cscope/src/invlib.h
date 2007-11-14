@@ -30,7 +30,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: invlib.h,v 1.2 2004/07/09 21:34:44 nicolai Exp $ */
+/* $Id: invlib.h,v 1.7 2004/02/12 18:14:05 broeker Exp $ */
 
 
 #ifndef CSCOPE_INVLIB_H
@@ -51,7 +51,7 @@
 #  define	BASE		95	/* 127 - ' ' */
 #  define	PRECISION	5	/* maximum digits after converting a long */
 # else
-#  error Need a platform with 8 bits in a char value
+  #error Need a platform with 8 bits in a char value
 # endif
 #endif
 

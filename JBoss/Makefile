@@ -1,4 +1,4 @@
-TOMCAT=jakarta-tomcat-LE-jdk14
+TOMCAT=apache-tomcat-4.1.36
 TARGETDIR:=$(DSTROOT)/Library/JBoss/3.2
 LOGDIR:=$(DSTROOT)/Library/Logs/JBoss
 JBOSS_ROOT:=$(SYMROOT)/jboss-all

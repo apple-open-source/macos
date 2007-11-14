@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,34 +22,34 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _NP_JSOBJECT_H
-#define _NP_JSOBJECT_H
 
-#include <JavaScriptCore/npruntime.h>
+#ifndef NP_JSOBJECT_H
+#define NP_JSOBJECT_H
 
-#include <JavaScriptCore/runtime.h>
-#include <JavaScriptCore/runtime_object.h>
-#include <JavaScriptCore/runtime_root.h>
- 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#if !PLATFORM(DARWIN) || !defined(__LP64__)
 
-extern NPClass *NPScriptObjectClass;
+#include "npruntime.h"
+#include <wtf/Forward.h>
 
-typedef struct
+namespace KJS {
+    class JSObject;
+    namespace Bindings {
+        class RootObject;
+    }
+}
+
+extern NPClass* NPScriptObjectClass;
+
+struct JavaScriptObject
 {
     NPObject object;
-    KJS::ObjectImp *imp;
-    const KJS::Bindings::RootObject *originExecutionContext;
-    const KJS::Bindings::RootObject *executionContext;
-} JavaScriptObject;
+    KJS::JSObject* imp;
+    KJS::Bindings::RootObject* originRootObject;
+    KJS::Bindings::RootObject* rootObject;
+};
 
-NPObject *_NPN_CreateScriptObject(NPP npp, KJS::ObjectImp *imp, const KJS::Bindings::RootObject *originExecutionContext, const KJS::Bindings::RootObject *executionContext);
-NPObject *_NPN_CreateNoScriptObject(void);
+NPObject* _NPN_CreateScriptObject(NPP npp, KJS::JSObject*, PassRefPtr<KJS::Bindings::RootObject> originRootObject, PassRefPtr<KJS::Bindings::RootObject> rootObject);
+NPObject* _NPN_CreateNoScriptObject(void);
 
-#ifdef __cplusplus
-}
 #endif
-
 #endif

@@ -11,7 +11,7 @@
  *
  */
 #ifndef lint
-static const char rcsid[] = "$Id: fcgiapp.c,v 1.1.4.3 2005/04/22 09:21:48 tony2001 Exp $";
+static const char rcsid[] = "$Id: fcgiapp.c,v 1.1.4.3.2.4 2007/04/19 13:41:37 dmitry Exp $";
 #endif /* not lint */
 
 #include <assert.h>
@@ -2061,6 +2061,10 @@ void FCGX_Free(FCGX_Request * request, int close)
         OS_IpcClose(request->ipcFd, ! request->detached);
         request->ipcFd = -1;
         request->detached = 0;
+#ifdef _WIN32
+    } else {
+        OS_StopImpersonation();
+#endif
     }
 }
 
@@ -2271,6 +2275,16 @@ TryAgain:
         FCGX_Free(reqDataPtr, 1);
 
     } /* for (;;) */
+
+#ifdef _WIN32
+    /*
+     * impersonate the client
+     */
+	if (!OS_StartImpersonation()) {
+		goto TryAgain;
+	}
+#endif
+
     /*
      * Build the remaining data structures representing the new
      * request and return successfully to the caller.

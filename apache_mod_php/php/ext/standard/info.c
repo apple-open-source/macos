@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: info.c,v 1.218.2.18.2.7 2006/06/28 13:12:09 derick Exp $ */
+/* $Id: info.c,v 1.218.2.18.2.9 2007/01/01 09:46:48 sebastian Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -374,6 +374,7 @@ PHPAPI void php_print_info_htmlhead(TSRMLS_D)
 	PUTS("<head>\n");
 	php_info_print_style();
 	PUTS("<title>phpinfo()</title>");
+	PUTS("<meta name=\"ROBOTS\" content=\"NOINDEX,NOFOLLOW,NOARCHIVE\" />");
 /*
 	php_printf("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=%s\" />\n", charset);
 */

@@ -1,5 +1,6 @@
 Joe Steffen - Creator of Cscope
-Petr Sorfa <petr@users.sourceforge.net> - Maintainer
+Hans-Bernhard Broeker <broeker@physik.rwth-aachen.de> - Maintainer
+Petr Sorfa <petr@users.sourceforge.net> - Initial OpenSource Maintainer
 Simon Cozens - autoconf setup
 garp@digi.com - .cc .hh support
 jens persson <cscope@persson.cx> - new man page
@@ -9,7 +10,6 @@ Joshua Uziel <uzi@linuxcare.com>  - code clean up, -h and -k options, and lots m
 Mike Hopkirk <hops@sco.com> - osr5 build, ocs
 Darrylo Okahata <darrylo@users.sourceforge.net> - code quality improvements
 Brent Verner <brent@rcfile.org> - -R option to recurse sub directories
-Hans-Bernhard Broeker <broeker@physik.rwth-aachen.de> - autoconf, memory leaks
 Thomas Klausner - NetBSD support
 Andrew Sharpe - progress bar, tab between line selection and prompts and more
 Carl Mascott - FreeBSD support
@@ -31,3 +31,4 @@ Ragho Mahalingam <ragho@mahalingam.com> - webcscope
 Dmitry Obukhov - Hilight code in webcscope
 David Cohrs - LEX and SUNOS scanner fix
 Valentin Podlovchenko - Overflow prevention and link recursion fix patch
+Neil Horman <nhorman@gmail.com>  - Various Bug Fixes

@@ -1,506 +1,414 @@
+/*
+ * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer. 
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution. 
+ * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ *     its contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission. 
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include "config.h"
 #include "UserObjectImp.h"
+#include <JavaScriptCore/PropertyNameArray.h>
 
 const ClassInfo UserObjectImp::info = {"UserObject", 0, 0, 0};
 
-class UserObjectPrototypeImp : public UserObjectImp {
-  public:
-    UserObjectPrototypeImp();
-	static UserObjectPrototypeImp* GlobalUserObjectPrototypeImp();
-  private:
-	static UserObjectPrototypeImp* sUserObjectPrototypeImp;
-};
-
-UserObjectPrototypeImp* UserObjectPrototypeImp::sUserObjectPrototypeImp = NULL;
-
-UserObjectPrototypeImp::UserObjectPrototypeImp()
-  : UserObjectImp()
+UserObjectImp::UserObjectImp(JSUserObject* userObject)
+    : fJSUserObject((JSUserObject*)userObject->Retain())
 {
 }
 
-UserObjectPrototypeImp* UserObjectPrototypeImp::GlobalUserObjectPrototypeImp()
+UserObjectImp::~UserObjectImp()
 {
-	if (!sUserObjectPrototypeImp)
-	{
-		sUserObjectPrototypeImp = new UserObjectPrototypeImp();
-		static ProtectedValue protectPrototype = Value(sUserObjectPrototypeImp);
-	}
-	return sUserObjectPrototypeImp;
+    if (fJSUserObject)
+        fJSUserObject->Release();
 }
 
-
-UserObjectImp::UserObjectImp(): ObjectImp(), fJSUserObject(NULL)
+const ClassInfo * UserObjectImp::classInfo() const
 {
+    return &info;
 }
 
-UserObjectImp::UserObjectImp(JSUserObject* userObject) : 
-	ObjectImp(Object(UserObjectPrototypeImp::GlobalUserObjectPrototypeImp())), 
-	fJSUserObject((JSUserObject*)userObject->Retain()) 
-{ 
+bool UserObjectImp::implementsCall() const
+{
+    return fJSUserObject ? fJSUserObject->ImplementsCall() : false;
 }
 
-UserObjectImp::~UserObjectImp() 
+JSValue *UserObjectImp::callAsFunction(ExecState *exec, JSObject *thisObj, const List &args)
 {
-	if (fJSUserObject)
-	{
-		fJSUserObject->Release(); 
-	}
-}
-    
-const ClassInfo	* UserObjectImp::classInfo() const 
-{
-	return &info; 
-}
-        
-bool	UserObjectImp::implementsCall() const 
-{
-	return fJSUserObject ? fJSUserObject->ImplementsCall() : false; 
-}
-
-Value	UserObjectImp::call(ExecState *exec, Object &thisObj, const List &args)
-{
-	Value result = Undefined();
-	JSUserObject* jsThisObj = KJSValueToJSObject(thisObj, exec);
-	if (jsThisObj)
-	{
-		CFIndex argCount = args.size();
-		CFArrayCallBacks arrayCallBacks;
-		JSTypeGetCFArrayCallBacks(&arrayCallBacks);
-		CFMutableArrayRef jsArgs = CFArrayCreateMutable(NULL, 0, &arrayCallBacks);
-		if (jsArgs)
-		{
-			for (CFIndex i = 0; i < argCount;  i++)
-			{
-				JSUserObject* jsArg = KJSValueToJSObject(args[i], exec);
-				CFArrayAppendValue(jsArgs, (void*)jsArg);
-				jsArg->Release();
-			}
-		}
-
-#if 0
-		JSUserObject* jsResult = fJSUserObject->CallFunction(jsThisObj, jsArgs);
-#else
-		int lockCount = Interpreter::lockCount();
-		int i;
-		for (i = 0; i < lockCount; i++)
-		{
-			Interpreter::unlock();
-		}
-
-		JSUserObject* jsResult = fJSUserObject->CallFunction(jsThisObj, jsArgs);
-
-		for (i = 0; i < lockCount; i++)
-		{
-			Interpreter::lock();
-		}
-#endif
-		if (jsResult)
-		{
-			result = JSObjectKJSValue(jsResult);
-			jsResult->Release();
-		}
-
-		ReleaseCFType(jsArgs);
-		jsThisObj->Release();
-	}
-	return result;
-}
-
-
-ReferenceList UserObjectImp::propList(ExecState *exec, bool recursive)
-{
-	ReferenceList propList;
-	JSUserObject* ptr = GetJSUserObject();
-	if (ptr)
-	{
-		Object theObject = toObject(exec);
-		CFArrayRef propertyNames = ptr->CopyPropertyNames();
-		if (propertyNames)
-		{
-			CFIndex count = CFArrayGetCount(propertyNames);
-			CFIndex i;
-			for (i = 0; i < count; i++)
-			{
-				CFStringRef propertyName = (CFStringRef)CFArrayGetValueAtIndex(propertyNames, i);
-				propList.append(Reference(theObject, CFStringToIdentifier(propertyName)));
-			}
-			CFRelease(propertyNames);
-		}
-	}
-	return propList;
-}
-
-bool UserObjectImp::hasOwnProperty(ExecState *exec, const Identifier &propertyName) const
-{
-    bool hasProperty = false;
-
-    CFStringRef	cfPropName = IdentifierToCFString(propertyName);
-    JSUserObject* jsResult = fJSUserObject->CopyProperty(cfPropName);
-    if (jsResult) {
-        Value result = JSObjectKJSValue(jsResult);
-        jsResult->Release();
-        if (result.type() != UndefinedType) {
-            hasProperty = true;
+    JSValue *result = jsUndefined();
+    JSUserObject* jsThisObj = KJSValueToJSObject(thisObj, exec);
+    if (jsThisObj) {
+        CFIndex argCount = args.size();
+        CFArrayCallBacks arrayCallBacks;
+        JSTypeGetCFArrayCallBacks(&arrayCallBacks);
+        CFMutableArrayRef jsArgs = CFArrayCreateMutable(0, 0, &arrayCallBacks);
+        if (jsArgs) {
+            for (CFIndex i = 0; i < argCount; i++) {
+                JSUserObject* jsArg = KJSValueToJSObject(args[i], exec);
+                CFArrayAppendValue(jsArgs, (void*)jsArg);
+                jsArg->Release();
+            }
         }
-    } else {
-        Value kjsValue = toPrimitive(exec);
-        if (kjsValue.type() != NullType && kjsValue.type() != UndefinedType) {
-            Object kjsObject = kjsValue.toObject(exec);
-            hasProperty = kjsObject.hasOwnProperty(exec, propertyName);
+
+        JSUserObject* jsResult;
+        { // scope
+            JSLock::DropAllLocks dropLocks;
+
+            // implementsCall should have guarded against a NULL fJSUserObject.
+            assert(fJSUserObject);
+            jsResult = fJSUserObject->CallFunction(jsThisObj, jsArgs);
+        }
+
+        if (jsResult) {
+            result = JSObjectKJSValue(jsResult);
+            jsResult->Release();
+        }
+
+        ReleaseCFType(jsArgs);
+        jsThisObj->Release();
+    }
+    return result;
+}
+
+
+void UserObjectImp::getPropertyNames(ExecState *exec, PropertyNameArray& propertyNames)
+{
+    JSUserObject* ptr = GetJSUserObject();
+    if (ptr) {
+        CFArrayRef cfPropertyNames = ptr->CopyPropertyNames();
+        if (cfPropertyNames) {
+            CFIndex count = CFArrayGetCount(cfPropertyNames);
+            CFIndex i;
+            for (i = 0; i < count; i++) {
+                CFStringRef propertyName = (CFStringRef)CFArrayGetValueAtIndex(cfPropertyNames, i);
+                propertyNames.add(CFStringToIdentifier(propertyName));
+            }
+            CFRelease(cfPropertyNames);
         }
     }
+    JSObject::getPropertyNames(exec, propertyNames);
+}
 
-    CFRelease(cfPropName);
+JSValue *UserObjectImp::userObjectGetter(ExecState *, JSObject *, const Identifier& propertyName, const PropertySlot& slot)
+{
+    UserObjectImp *thisObj = static_cast<UserObjectImp *>(slot.slotBase());
+    // getOwnPropertySlot should have guarded against a null fJSUserObject.
+    assert(thisObj->fJSUserObject);
+    
+    CFStringRef cfPropName = IdentifierToCFString(propertyName);
+    JSUserObject *jsResult = thisObj->fJSUserObject->CopyProperty(cfPropName);
+    ReleaseCFType(cfPropName);
+    JSValue *result = JSObjectKJSValue(jsResult);
+    jsResult->Release();
 
-    if (hasProperty)
+    return result;
+}
+
+bool UserObjectImp::getOwnPropertySlot(ExecState *exec, const Identifier& propertyName, PropertySlot& slot)
+{
+    if (!fJSUserObject)
+        return false;
+
+    CFStringRef cfPropName = IdentifierToCFString(propertyName);
+    JSUserObject *jsResult = fJSUserObject->CopyProperty(cfPropName);
+    ReleaseCFType(cfPropName);
+    if (jsResult) {
+        slot.setCustom(this, userObjectGetter);
+        jsResult->Release();
         return true;
-
-    return ObjectImp::hasOwnProperty(exec, propertyName);
+    } else {
+        JSValue *kjsValue = toPrimitive(exec);
+        if (kjsValue->type() != NullType && kjsValue->type() != UndefinedType) {
+            JSObject *kjsObject = kjsValue->toObject(exec);
+            if (kjsObject->getPropertySlot(exec, propertyName, slot))
+                return true;
+        }
+    }
+    return JSObject::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-#if JAG_PINK_OR_LATER
-Value	UserObjectImp::get(ExecState *exec, const Identifier &propertyName) const
+void UserObjectImp::put(ExecState *exec, const Identifier &propertyName, JSValue *value, int attr)
 {
-	Value result = Undefined();
-	CFStringRef	cfPropName = IdentifierToCFString(propertyName);
-	JSUserObject* jsResult = fJSUserObject->CopyProperty(cfPropName);
-	if (jsResult)
-	{
-		result = JSObjectKJSValue(jsResult);
-		jsResult->Release();
-	}
-	else
-	{
-		Value kjsValue = toPrimitive(exec);
-		if (kjsValue.type() != NullType && kjsValue.type() != UndefinedType)
-		{
-			Object kjsObject = kjsValue.toObject(exec);
-			Value kjsObjectProp = kjsObject.get(exec, propertyName);
-			result = kjsObjectProp;
-		}
-	}
-	ReleaseCFType(cfPropName);
-	return result;
+    if (!fJSUserObject)
+        return;
+    
+    CFStringRef cfPropName = IdentifierToCFString(propertyName);
+    JSUserObject *jsValueObj = KJSValueToJSObject(value, exec);
 
+    fJSUserObject->SetProperty(cfPropName, jsValueObj);
+
+    if (jsValueObj) jsValueObj->Release();
+    ReleaseCFType(cfPropName);
 }
 
-void	UserObjectImp::put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr)
+JSUserObject* UserObjectImp::GetJSUserObject() const
 {
-	CFStringRef	cfPropName = IdentifierToCFString(propertyName);
-	JSUserObject* jsValueObj = KJSValueToJSObject(value, exec);
-
-	fJSUserObject->SetProperty(cfPropName, jsValueObj);
-
-	if (jsValueObj) jsValueObj->Release();	
-	ReleaseCFType(cfPropName);
+    return fJSUserObject;
 }
-#else	//JAG_PINK_OR_LATER
-Value	UserObjectImp::get(ExecState* exec, const UString& propertyName) const
+
+JSValue *UserObjectImp::toPrimitive(ExecState *exec, JSType preferredType) const
 {
-	Value result = Undefined();
-	CFStringRef	cfPropName = UStringToCFString(propertyName);
-	JSUserObject* jsResult = fJSUserObject->CopyProperty(cfPropName);
-	if (jsResult)
-	{
-		result = JSObjectKJSValue(jsResult);
-		jsResult->Release();
-	}
-	else
-	{
-		Value kjsValue = toPrimitive(exec);
-		if (kjsValue != Null() && kjsValue != Undefined())
-		{
-			Object kjsObject = kjsValue.toObject(exec);
-			Value kjsObjectProp = kjsObject.get(exec, propertyName);
-			result = kjsObjectProp;
-		}
-	}
-	ReleaseCFType(cfPropName);
-	return result;
-
-}
-
-void	UserObjectImp::put(ExecState* exec, const UString& propertyName, const Value& value, int attr)
-{
-	CFStringRef	cfPropName = UStringToCFString(propertyName);
-	JSUserObject* jsValueObj = KJSValueToJSObject(value, exec);
-
-	fJSUserObject->SetProperty(cfPropName, jsValueObj);
-
-	if (jsValueObj) jsValueObj->Release();	
-	ReleaseCFType(cfPropName);
-}
-#endif	//JAG_PINK_OR_LATER
-        
-JSUserObject* UserObjectImp::GetJSUserObject() const 
-{ 
-	return fJSUserObject; 
-}
-
-
-
-Value UserObjectImp::toPrimitive(ExecState *exec, Type preferredType) const
-{
-	Value result = Undefined();
-	JSUserObject* jsObjPtr = KJSValueToJSObject(toObject(exec), exec);
-	CFTypeRef cfValue = jsObjPtr ? jsObjPtr->CopyCFValue() : NULL;
-	if (cfValue)
-	{
-		CFTypeID cfType = CFGetTypeID(cfValue);  // toPrimitive
-		if (cfValue == GetCFNull())
-		{
-			result = Null();
-		}
-		else if (cfType == CFBooleanGetTypeID())
-		{
-			if (cfValue == kCFBooleanTrue)
-			{
-				result = KJS::Boolean(true);
-			}
-			else 
-			{
-				result = KJS::Boolean(false);
-			}
-		}
-		else if (cfType == CFStringGetTypeID())
-		{
-			result = KJS::String(CFStringToUString((CFStringRef)cfValue));
-		}
-		else if (cfType == CFNumberGetTypeID())
-		{
-			double d = 0.0;
-			CFNumberGetValue((CFNumberRef)cfValue, kCFNumberDoubleType, &d);
-			result = KJS::Number(d);
-		}
-		else if (cfType == CFURLGetTypeID())
-		{
-			CFURLRef absURL = CFURLCopyAbsoluteURL((CFURLRef)cfValue);
-			if (absURL)
-			{
-				result = KJS::String(CFStringToUString(CFURLGetString(absURL)));
-				ReleaseCFType(absURL);
-			}
-		}		
-		ReleaseCFType(cfValue);
-	}
-	if (jsObjPtr) jsObjPtr->Release();
-	return result;
+    JSValue *result = jsUndefined();
+    JSUserObject* jsObjPtr = KJSValueToJSObject(toObject(exec), exec);
+    CFTypeRef cfValue = jsObjPtr ? jsObjPtr->CopyCFValue() : 0;
+    if (cfValue) {
+        CFTypeID cfType = CFGetTypeID(cfValue);  // toPrimitive
+        if (cfValue == GetCFNull()) {
+            result = jsNull();
+        }
+        else if (cfType == CFBooleanGetTypeID()) {
+            if (cfValue == kCFBooleanTrue) {
+                result = jsBoolean(true);
+            } else {
+                result = jsBoolean(false);
+            }
+        } else if (cfType == CFStringGetTypeID()) {
+            result = jsString(CFStringToUString((CFStringRef)cfValue));
+        } else if (cfType == CFNumberGetTypeID()) {
+            double d = 0.0;
+            CFNumberGetValue((CFNumberRef)cfValue, kCFNumberDoubleType, &d);
+            result = jsNumber(d);
+        } else if (cfType == CFURLGetTypeID()) {
+            CFURLRef absURL = CFURLCopyAbsoluteURL((CFURLRef)cfValue);
+            if (absURL) {
+                result = jsString(CFStringToUString(CFURLGetString(absURL)));
+                ReleaseCFType(absURL);
+            }
+        }
+        ReleaseCFType(cfValue);
+    }
+    if (jsObjPtr)
+        jsObjPtr->Release();
+    return result;
 }
 
 
 bool UserObjectImp::toBoolean(ExecState *exec) const
 {
-	bool result = false;
-	JSUserObject* jsObjPtr = KJSValueToJSObject(toObject(exec), exec);
-	CFTypeRef cfValue = jsObjPtr ? jsObjPtr->CopyCFValue() : NULL;
-	if (cfValue)
-	{
-		CFTypeID cfType = CFGetTypeID(cfValue);  // toPrimitive
-		if (cfValue == GetCFNull())
-		{
-			//
-		}
-		else if (cfType == CFBooleanGetTypeID())
-		{
-			if (cfValue == kCFBooleanTrue)
-			{
-				result = true;
-			}
-		}
-		else if (cfType == CFStringGetTypeID())
-		{
-			if (CFStringGetLength((CFStringRef)cfValue))
-			{
-				result = true;
-			}
-		}
-		else if (cfType == CFNumberGetTypeID())
-		{
-			if (cfValue != kCFNumberNaN)
-			{
-				double d;
-				if (CFNumberGetValue((CFNumberRef)cfValue, kCFNumberDoubleType, &d))
-				{
-					if (d != 0)
-					{
-						result = true;
-					}
-				}
-			}
-		}
-		else if (cfType == CFArrayGetTypeID())
-		{
-			if (CFArrayGetCount((CFArrayRef)cfValue))
-			{
-				result = true;
-			}
-		}
-		else if (cfType == CFDictionaryGetTypeID())
-		{
-			if (CFDictionaryGetCount((CFDictionaryRef)cfValue))
-			{
-				result = true;
-			}
-		}
-		else if (cfType == CFSetGetTypeID())
-		{
-			if (CFSetGetCount((CFSetRef)cfValue))
-			{
-				result = true;
-			}
-		}
-		else if (cfType == CFURLGetTypeID())
-		{
-			CFURLRef absURL = CFURLCopyAbsoluteURL((CFURLRef)cfValue);
-			if (absURL)
-			{
-				CFStringRef cfStr = CFURLGetString(absURL);
-				if (cfStr && CFStringGetLength(cfStr))
-				{
-					result = true;
-				}
-				ReleaseCFType(absURL);
-			}
-		}
-	}
-	if (jsObjPtr) jsObjPtr->Release();
-	ReleaseCFType(cfValue);
-	return result;
+    bool result = false;
+    JSUserObject* jsObjPtr = KJSValueToJSObject(toObject(exec), exec);
+    CFTypeRef cfValue = jsObjPtr ? jsObjPtr->CopyCFValue() : 0;
+    if (cfValue)
+    {
+        CFTypeID cfType = CFGetTypeID(cfValue);  // toPrimitive
+        if (cfValue == GetCFNull())
+        {
+            //
+        }
+        else if (cfType == CFBooleanGetTypeID())
+        {
+            if (cfValue == kCFBooleanTrue)
+            {
+                result = true;
+            }
+        }
+        else if (cfType == CFStringGetTypeID())
+        {
+            if (CFStringGetLength((CFStringRef)cfValue))
+            {
+                result = true;
+            }
+        }
+        else if (cfType == CFNumberGetTypeID())
+        {
+            if (cfValue != kCFNumberNaN)
+            {
+                double d;
+                if (CFNumberGetValue((CFNumberRef)cfValue, kCFNumberDoubleType, &d))
+                {
+                    if (d != 0)
+                    {
+                        result = true;
+                    }
+                }
+            }
+        }
+        else if (cfType == CFArrayGetTypeID())
+        {
+            if (CFArrayGetCount((CFArrayRef)cfValue))
+            {
+                result = true;
+            }
+        }
+        else if (cfType == CFDictionaryGetTypeID())
+        {
+            if (CFDictionaryGetCount((CFDictionaryRef)cfValue))
+            {
+                result = true;
+            }
+        }
+        else if (cfType == CFSetGetTypeID())
+        {
+            if (CFSetGetCount((CFSetRef)cfValue))
+            {
+                result = true;
+            }
+        }
+        else if (cfType == CFURLGetTypeID())
+        {
+            CFURLRef absURL = CFURLCopyAbsoluteURL((CFURLRef)cfValue);
+            if (absURL)
+            {
+                CFStringRef cfStr = CFURLGetString(absURL);
+                if (cfStr && CFStringGetLength(cfStr))
+                {
+                    result = true;
+                }
+                ReleaseCFType(absURL);
+            }
+        }
+    }
+    if (jsObjPtr) jsObjPtr->Release();
+    ReleaseCFType(cfValue);
+    return result;
 }
 
 double UserObjectImp::toNumber(ExecState *exec) const
 {
-	double result = 0;
-	JSUserObject* jsObjPtr = KJSValueToJSObject(toObject(exec), exec);
-	CFTypeRef cfValue = jsObjPtr ? jsObjPtr->CopyCFValue() : NULL;
-	if (cfValue)
-	{
-		CFTypeID cfType = CFGetTypeID(cfValue);
-		
-		if (cfValue == GetCFNull())
-		{
-			//
-		}
-		else if (cfType == CFBooleanGetTypeID())
-		{
-			if (cfValue == kCFBooleanTrue)
-			{
-				result = 1;
-			}
-		}
-		else if (cfType == CFStringGetTypeID())
-		{
-			result = CFStringGetDoubleValue((CFStringRef)cfValue);
-		}
-		else if (cfType == CFNumberGetTypeID())
-		{
-			CFNumberGetValue((CFNumberRef)cfValue, kCFNumberDoubleType, &result);		
-		}
-	}
-	ReleaseCFType(cfValue);
-	if (jsObjPtr) jsObjPtr->Release();
-	return result;
+    double result = 0;
+    JSUserObject* jsObjPtr = KJSValueToJSObject(toObject(exec), exec);
+    CFTypeRef cfValue = jsObjPtr ? jsObjPtr->CopyCFValue() : 0;
+    if (cfValue)
+    {
+        CFTypeID cfType = CFGetTypeID(cfValue);
+
+        if (cfValue == GetCFNull())
+        {
+            //
+        }
+        else if (cfType == CFBooleanGetTypeID())
+        {
+            if (cfValue == kCFBooleanTrue)
+            {
+                result = 1;
+            }
+        }
+        else if (cfType == CFStringGetTypeID())
+        {
+            result = CFStringGetDoubleValue((CFStringRef)cfValue);
+        }
+        else if (cfType == CFNumberGetTypeID())
+        {
+            CFNumberGetValue((CFNumberRef)cfValue, kCFNumberDoubleType, &result);
+        }
+    }
+    ReleaseCFType(cfValue);
+    if (jsObjPtr) jsObjPtr->Release();
+    return result;
 }
 
 UString UserObjectImp::toString(ExecState *exec) const
 {
-	UString result;
-	JSUserObject* jsObjPtr = KJSValueToJSObject(toObject(exec), exec);
-	CFTypeRef cfValue = jsObjPtr ? jsObjPtr->CopyCFValue() : NULL;
-	if (cfValue)
-	{
-		CFTypeID cfType = CFGetTypeID(cfValue);
-		if (cfValue == GetCFNull())
-		{
-			//
-		}
-		else if (cfType == CFBooleanGetTypeID())
-		{
-			if (cfValue == kCFBooleanTrue)
-			{
-				result = "true";
-			}
-			else
-			{
-				result = "false";
-			}
-		}
-		else if (cfType == CFStringGetTypeID())
-		{
-			result = CFStringToUString((CFStringRef)cfValue);
-		}
-		else if (cfType == CFNumberGetTypeID())
-		{
-			if (cfValue == kCFNumberNaN)
-			{
-				result = "Nan";
-			}
-			else if (CFNumberCompare(kCFNumberPositiveInfinity, (CFNumberRef)cfValue, NULL) == 0)
-			{
-				result = "Infinity";
-			}
-			else if (CFNumberCompare(kCFNumberNegativeInfinity, (CFNumberRef)cfValue, NULL) == 0)
-			{
-				result = "-Infinity";
-			}
-			else
-			{
-				CFStringRef cfNumStr = NULL;
-				if (CFNumberIsFloatType((CFNumberRef)cfValue))
-				{
-					double d = 0;
-					CFNumberGetValue((CFNumberRef)cfValue, kCFNumberDoubleType, &d);
-					cfNumStr = CFStringCreateWithFormat(NULL, NULL, CFSTR("%f"), (float)d);
-				}
-				else
-				{
-					int i = 0;
-					CFNumberGetValue((CFNumberRef)cfValue, kCFNumberIntType, &i);
-					cfNumStr = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), (int)i);
-				}
-				
-				if (cfNumStr)
-				{
-					result = CFStringToUString(cfNumStr);
-					ReleaseCFType(cfNumStr);
-				}				
-			}
-		}
-		else if (cfType == CFArrayGetTypeID())
-		{
-			//
-		}
-		else if (cfType == CFDictionaryGetTypeID())
-		{
-			//
-		}
-		else if (cfType == CFSetGetTypeID())
-		{
-			//
-		}
-		else if (cfType == CFURLGetTypeID())
-		{
-			CFURLRef absURL = CFURLCopyAbsoluteURL((CFURLRef)cfValue);
-			if (absURL)
-			{
-				CFStringRef cfStr = CFURLGetString(absURL);
-				if (cfStr)
-				{
-					result = CFStringToUString(cfStr);
-				}
-				ReleaseCFType(absURL);
-			}
-		}		
-	}
-	ReleaseCFType(cfValue);
-	if (jsObjPtr) jsObjPtr->Release();
-	return result;
+    UString result;
+    JSUserObject* jsObjPtr = KJSValueToJSObject(toObject(exec), exec);
+    CFTypeRef cfValue = jsObjPtr ? jsObjPtr->CopyCFValue() : 0;
+    if (cfValue)
+    {
+        CFTypeID cfType = CFGetTypeID(cfValue);
+        if (cfValue == GetCFNull())
+        {
+            //
+        }
+        else if (cfType == CFBooleanGetTypeID())
+        {
+            if (cfValue == kCFBooleanTrue)
+            {
+                result = "true";
+            }
+            else
+            {
+                result = "false";
+            }
+        }
+        else if (cfType == CFStringGetTypeID())
+        {
+            result = CFStringToUString((CFStringRef)cfValue);
+        }
+        else if (cfType == CFNumberGetTypeID())
+        {
+            if (cfValue == kCFNumberNaN)
+            {
+                result = "Nan";
+            }
+            else if (CFNumberCompare(kCFNumberPositiveInfinity, (CFNumberRef)cfValue, 0) == 0)
+            {
+                result = "Infinity";
+            }
+            else if (CFNumberCompare(kCFNumberNegativeInfinity, (CFNumberRef)cfValue, 0) == 0)
+            {
+                result = "-Infinity";
+            }
+            else
+            {
+                CFStringRef cfNumStr;
+                double d = 0;
+                CFNumberGetValue((CFNumberRef)cfValue, kCFNumberDoubleType, &d);
+                if (CFNumberIsFloatType((CFNumberRef)cfValue))
+                {
+                    cfNumStr = CFStringCreateWithFormat(0, 0, CFSTR("%f"), d);
+                }
+                else
+                {
+                    cfNumStr = CFStringCreateWithFormat(0, 0, CFSTR("%.0f"), d);
+                }
+                result = CFStringToUString(cfNumStr);
+                ReleaseCFType(cfNumStr);
+            }
+        }
+        else if (cfType == CFArrayGetTypeID())
+        {
+            //
+        }
+        else if (cfType == CFDictionaryGetTypeID())
+        {
+            //
+        }
+        else if (cfType == CFSetGetTypeID())
+        {
+            //
+        }
+        else if (cfType == CFURLGetTypeID())
+        {
+            CFURLRef absURL = CFURLCopyAbsoluteURL((CFURLRef)cfValue);
+            if (absURL)
+            {
+                CFStringRef cfStr = CFURLGetString(absURL);
+                if (cfStr)
+                {
+                    result = CFStringToUString(cfStr);
+                }
+                ReleaseCFType(absURL);
+            }
+        }
+    }
+    ReleaseCFType(cfValue);
+    if (jsObjPtr) jsObjPtr->Release();
+    return result;
 }
 
 void UserObjectImp::mark()
 {
-	ObjectImp::mark(); // call parent to mark self
-	if (fJSUserObject)
-	{
-		fJSUserObject->Mark(); // mark child
-	}
+    JSObject::mark();
+    if (fJSUserObject)
+        fJSUserObject->Mark();
 }

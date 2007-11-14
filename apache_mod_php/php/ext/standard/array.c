@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
 */
 
 
-/* $Id: array.c,v 1.199.2.44.2.10 2006/01/01 13:46:57 sniper Exp $ */
+/* $Id: array.c,v 1.199.2.44.2.16 2007/03/16 20:08:25 stas Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -626,40 +626,40 @@ static int array_user_key_compare(const void *a, const void *b TSRMLS_DC)
 {
 	Bucket *f;
 	Bucket *s;
-	pval key1, key2;
-	pval *args[2];
-	pval retval;
+	zval *key1, *key2;
+	zval *args[2];
+	zval retval;
 	int status;
 
-	args[0] = &key1;
-	args[1] = &key2;
-	INIT_PZVAL(&key1);
-	INIT_PZVAL(&key2);
+	ALLOC_INIT_ZVAL(key1);
+	ALLOC_INIT_ZVAL(key2);
+	args[0] = key1;
+	args[1] = key2;
 	
 	f = *((Bucket **) a);
 	s = *((Bucket **) b);
 
 	if (f->nKeyLength) {
-		Z_STRVAL(key1) = estrndup(f->arKey, f->nKeyLength-1);
-		Z_STRLEN(key1) = f->nKeyLength-1;
-		Z_TYPE(key1) = IS_STRING;
+		Z_STRVAL_P(key1) = estrndup(f->arKey, f->nKeyLength-1);
+		Z_STRLEN_P(key1) = f->nKeyLength-1;
+		Z_TYPE_P(key1) = IS_STRING;
 	} else {
-		Z_LVAL(key1) = f->h;
-		Z_TYPE(key1) = IS_LONG;
+		Z_LVAL_P(key1) = f->h;
+		Z_TYPE_P(key1) = IS_LONG;
 	}
 	if (s->nKeyLength) {
-		Z_STRVAL(key2) = estrndup(s->arKey, s->nKeyLength-1);
-		Z_STRLEN(key2) = s->nKeyLength-1;
-		Z_TYPE(key2) = IS_STRING;
+		Z_STRVAL_P(key2) = estrndup(s->arKey, s->nKeyLength-1);
+		Z_STRLEN_P(key2) = s->nKeyLength-1;
+		Z_TYPE_P(key2) = IS_STRING;
 	} else {
-		Z_LVAL(key2) = s->h;
-		Z_TYPE(key2) = IS_LONG;
+		Z_LVAL_P(key2) = s->h;
+		Z_TYPE_P(key2) = IS_LONG;
 	}
 
 	status = call_user_function(EG(function_table), NULL, *BG(user_compare_func_name), &retval, 2, args TSRMLS_CC);
 	
-	zval_dtor(&key1);
-	zval_dtor(&key2);
+	zval_ptr_dtor(&key1);
+	zval_ptr_dtor(&key2);
 	
 	if (status == SUCCESS) {
 		convert_to_long(&retval);
@@ -1028,32 +1028,28 @@ static int php_array_walk(HashTable *target_hash, zval **userdata TSRMLS_DC)
    Apply a user function to every member of an array */
 PHP_FUNCTION(array_walk)
 {
-	int	argc;
-	zval **array,
-		 **userdata = NULL,
+	zval *array,
+		 *userdata = NULL,
+		 *tmp,
 		 **old_walk_func_name;
 	HashTable *target_hash;
 
-	argc = ZEND_NUM_ARGS();
 	old_walk_func_name = BG(array_walk_func_name);
-	if (argc < 2 || argc > 3 ||
-		zend_get_parameters_ex(argc, &array, &BG(array_walk_func_name), &userdata) == FAILURE) {
-		BG(array_walk_func_name) = old_walk_func_name;
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz|z", &array, &tmp, &userdata) == FAILURE) {
+		return;
 	}
-	target_hash = HASH_OF(*array);
+	target_hash = HASH_OF(array);
 	if (!target_hash) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The argument should be an array");
-		BG(array_walk_func_name) = old_walk_func_name;
 		RETURN_FALSE;
 	}
-	if (Z_TYPE_PP(BG(array_walk_func_name)) != IS_ARRAY && 
-		Z_TYPE_PP(BG(array_walk_func_name)) != IS_STRING) {
+	if (Z_TYPE_P(tmp) != IS_ARRAY && Z_TYPE_P(tmp) != IS_STRING) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Wrong syntax for function name");
-		BG(array_walk_func_name) = old_walk_func_name;
 		RETURN_FALSE;
+	} else {
+		BG(array_walk_func_name) = &tmp;
 	}
-	php_array_walk(target_hash, userdata TSRMLS_CC);
+	php_array_walk(target_hash, userdata ? &userdata : NULL TSRMLS_CC);
 	BG(array_walk_func_name) = old_walk_func_name;
 	RETURN_TRUE;
 }
@@ -1774,7 +1770,7 @@ static void _phpi_pop(INTERNAL_FUNCTION_PARAMETERS, int off_the_end)
 		}
 		Z_ARRVAL_PP(stack)->nNextFreeElement = k;
 		zend_hash_rehash(Z_ARRVAL_PP(stack));
-	} else if (!key_len) {
+	} else if (!key_len && index >= Z_ARRVAL_PP(stack)->nNextFreeElement-1) {
 		Z_ARRVAL_PP(stack)->nNextFreeElement = Z_ARRVAL_PP(stack)->nNextFreeElement - 1;
 	}
 
@@ -2519,7 +2515,7 @@ PHP_FUNCTION(array_change_key_case)
    Removes duplicate values from array */
 PHP_FUNCTION(array_unique)
 {
-	zval **array;
+	zval **array, *tmp;
 	HashTable *target_hash;
 	Bucket *p;
 	struct bucketindex {
@@ -2538,9 +2534,8 @@ PHP_FUNCTION(array_unique)
 		RETURN_FALSE;
 	}
 
-	/* copy the argument array */
-	*return_value = **array;
-	zval_copy_ctor(return_value);
+	array_init(return_value);
+	zend_hash_copy(Z_ARRVAL_P(return_value), target_hash, (copy_ctor_func_t) zval_add_ref, (void *)&tmp, sizeof(zval*));
 
 	if (target_hash->nNumOfElements <= 1) /* nothing to do */
 			return;

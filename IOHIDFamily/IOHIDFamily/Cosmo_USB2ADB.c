@@ -28,7 +28,10 @@
  * the Cosmo USB Tables 1.0
  * I'm not sure what some of the Norsi key conflicts with standard ADB keyboards are.
  */
-#define DEADKEY 0x80
+
+#include "ev_keymap.h"
+
+#define DEADKEY NX_NUMKEYCODES
 
 unsigned char hid_usb_2_adb_keymap[] = 
 {
@@ -139,15 +142,15 @@ unsigned char hid_usb_2_adb_keymap[] =
 	0x69,	// 68  F13 on Andy keyboards
 	0x6b,	// 69  F14 on Andy keyboards
 	0x71,	// 6a  F15 on Andy keyboards
-	0x6a,	// 6b
-	DEADKEY,	// 6c
-	DEADKEY,	// 6d
-	DEADKEY,	// 6e
-	DEADKEY,	// 6f
-	DEADKEY,	// 70
-	DEADKEY,	// 71
-	DEADKEY,	// 72
-	DEADKEY,	// 73
+	0x6a,	// 6b  F16
+	0x40,	// 6c F17
+	0x4f,	// 6d F18
+	0x50,	// 6e F19
+	0x5a,	// 6f F20
+	DEADKEY,	// 70 F21
+	DEADKEY,	// 71 F22
+	DEADKEY,	// 72 F23
+	DEADKEY,	// 73 F24
 	DEADKEY,	// 74
 	0x72,		// 75
 	DEADKEY,	// 76
@@ -291,3 +294,264 @@ unsigned char hid_usb_2_adb_keymap[] =
 	0	//Final one
 };
 
+
+unsigned char hid_usb_apple_2_adb_keymap[] = 
+{
+	DEADKEY,	// 0
+	0x81,       // 1 Spotlight
+	0x82,       // 2 Dashboard
+	DEADKEY,	// 3
+	DEADKEY,	// 4
+	DEADKEY,	// 5
+	DEADKEY,	// 6
+	DEADKEY,	// 7
+	DEADKEY,	// 8
+	DEADKEY,	// 9
+	DEADKEY,	// a
+	DEADKEY,	// b
+	DEADKEY,	// c
+	DEADKEY,	// d
+	DEADKEY,	// e
+	DEADKEY,	// f
+	0xa0,       // 10 Expose All 
+	0xa1,       // 11 Expose Desktop
+	DEADKEY,	// 12
+	DEADKEY,	// 13
+	DEADKEY,	// 14
+	DEADKEY,	// 15
+	DEADKEY,	// 16
+	DEADKEY,	// 17
+	DEADKEY,	// 18
+	DEADKEY,	// 19
+	DEADKEY,	// 1a
+	DEADKEY,	// 1b
+	DEADKEY,	// 1c
+	DEADKEY,	// 1d
+	DEADKEY,	// 1e
+	DEADKEY,	// 1f
+	0x90,       // 20 Main Brightness Up
+	0x91,       // 21 Main Brightness Down
+	DEADKEY,	// 22
+	DEADKEY,	// 23
+	DEADKEY,	// 24
+	DEADKEY,	// 25
+	DEADKEY,	// 26
+	DEADKEY,	// 27
+	DEADKEY,	// 28
+	DEADKEY,	// 29
+	DEADKEY,	// 2a
+	DEADKEY,	// 2b
+	DEADKEY,	// 2c
+	DEADKEY,	// 2d
+	DEADKEY,	// 2e
+	DEADKEY,	// 2f
+	DEADKEY,	// 30
+	DEADKEY,	// 31
+	DEADKEY,	// 32
+	DEADKEY,	// 33
+	DEADKEY,	// 34
+	DEADKEY,	// 35
+	DEADKEY,	// 36
+	DEADKEY,	// 37
+	DEADKEY,	// 38
+	DEADKEY,	// 39
+	DEADKEY,	// 3a
+	DEADKEY,	// 3b
+	DEADKEY,	// 3c
+	DEADKEY,	// 3d
+	DEADKEY,	// 3e
+	DEADKEY,	// 3f
+	DEADKEY,	// 40
+	DEADKEY,	// 41
+	DEADKEY,	// 42
+	DEADKEY,	// 43
+	DEADKEY,	// 44
+	DEADKEY,	// 45
+	DEADKEY,	// 46
+	DEADKEY,	// 47
+	DEADKEY,	// 48
+	DEADKEY,	// 49
+	DEADKEY,	// 4a
+	DEADKEY,	// 4b
+	DEADKEY,	// 4c
+	DEADKEY,	// 4d
+	DEADKEY,	// 4e
+	DEADKEY,	// 4f
+	DEADKEY,	// 50
+	DEADKEY,	// 51
+	DEADKEY,	// 52
+	DEADKEY,	// 53
+	DEADKEY,	// 54
+	DEADKEY,	// 55
+	DEADKEY,	// 56
+	DEADKEY,	// 57
+	DEADKEY,	// 58
+	DEADKEY,	// 59
+	DEADKEY,	// 5a
+	DEADKEY,	// 5b
+	DEADKEY,	// 5c
+	DEADKEY,	// 5d
+	DEADKEY,	// 5e
+	DEADKEY,	// 5f
+	DEADKEY,	// 60
+	DEADKEY,	// 61
+	DEADKEY,	// 62
+	DEADKEY,	// 63
+	DEADKEY,	// 64
+	DEADKEY,	// 65
+	DEADKEY,	// 66 
+	DEADKEY,	// 67
+	DEADKEY,	// 68 
+	DEADKEY,	// 69 
+	DEADKEY,	// 6a
+	DEADKEY,	// 6b
+	DEADKEY,	// 6c
+	DEADKEY,	// 6d
+	DEADKEY,	// 6e
+	DEADKEY,	// 6f
+	DEADKEY,	// 70
+	DEADKEY,	// 71
+	DEADKEY,	// 72
+	DEADKEY,	// 73
+	DEADKEY,	// 74
+	DEADKEY,    // 75
+	DEADKEY,	// 76
+	DEADKEY,	// 77
+	DEADKEY,	// 78
+	DEADKEY,	// 79
+	DEADKEY,	// 7a
+	DEADKEY,	// 7b
+	DEADKEY,	// 7c
+	DEADKEY,	// 7d
+	DEADKEY,	// 7e
+	DEADKEY,	// 7f
+	DEADKEY,	// 80
+	DEADKEY,	// 81
+	DEADKEY,	// 82
+	DEADKEY,	// 83
+	DEADKEY,	// 84
+	DEADKEY,	// 85
+	DEADKEY,	// 86
+	DEADKEY,	// 87
+	DEADKEY,	// 88
+	DEADKEY,	// 89
+	DEADKEY,	// 8a
+	DEADKEY,	// 8b
+	DEADKEY,	// 8c
+	DEADKEY,	// 8d
+	DEADKEY,	// 8e
+	DEADKEY,	// 8f
+	DEADKEY,	// 90
+	DEADKEY,	// 91
+	DEADKEY,	// 92
+	DEADKEY,	// 93
+	DEADKEY,	// 94
+	DEADKEY,	// 95
+	DEADKEY,	// 96
+	DEADKEY,	// 97
+	DEADKEY,	// 98
+	DEADKEY,	// 99
+	DEADKEY,	// 9a
+	DEADKEY,	// 9b
+	DEADKEY,	// 9c
+	DEADKEY,	// 9d
+	DEADKEY,	// 9e
+	DEADKEY,	// 9f
+	DEADKEY,	// a0
+	DEADKEY,	// a1
+	DEADKEY,	// a2
+	DEADKEY,	// a3
+	DEADKEY,	// a4
+	DEADKEY,	// a5
+	DEADKEY,	// a6
+	DEADKEY,	// a7
+	DEADKEY,	// a8
+	DEADKEY,	// a9
+	DEADKEY,	// aa
+	DEADKEY,	// ab
+	DEADKEY,	// ac
+	DEADKEY,	// ad
+	DEADKEY,	// ae
+	DEADKEY,	// af
+	DEADKEY,	// b0
+	DEADKEY,	// b1
+	DEADKEY,	// b2
+	DEADKEY,	// b3
+	DEADKEY,	// b4
+	DEADKEY,	// b5
+	DEADKEY,	// b6
+	DEADKEY,	// b7
+	DEADKEY,	// b8
+	DEADKEY,	// b9
+	DEADKEY,	// ba
+	DEADKEY,	// bb
+	DEADKEY,	// bc
+	DEADKEY,	// bd
+	DEADKEY,	// be
+	DEADKEY,	// bf
+	DEADKEY,	// c0
+	DEADKEY,	// c1
+	DEADKEY,	// c2
+	DEADKEY,	// c3
+	DEADKEY,	// c4
+	DEADKEY,	// c5
+	DEADKEY,	// c6
+	DEADKEY,	// c7
+	DEADKEY,	// c8
+	DEADKEY,	// c9
+	DEADKEY,	// ca
+	DEADKEY,	// cb
+	DEADKEY,	// cc
+	DEADKEY,	// cd
+	DEADKEY,	// ce
+	DEADKEY,	// cf
+	DEADKEY,	// d0
+	DEADKEY,	// d1
+	DEADKEY,	// d2
+	DEADKEY,	// d3
+	DEADKEY,	// d4
+	DEADKEY,	// d5
+	DEADKEY,	// d6
+	DEADKEY,	// d7
+	DEADKEY,	// d8
+	DEADKEY,	// d9
+	DEADKEY,	// da
+	DEADKEY,	// db
+	DEADKEY,	// dc
+	DEADKEY,	// dd
+	DEADKEY,	// de
+	DEADKEY,	// df
+	DEADKEY,	// e0
+	DEADKEY,	// e1
+	DEADKEY,	// e2
+	DEADKEY,	// e3
+	DEADKEY,	// e4 
+	DEADKEY,	// e5
+	DEADKEY,	// e6
+	DEADKEY,	// e7
+	DEADKEY,	// e8
+	DEADKEY,	// e9
+	DEADKEY,	// ea
+	DEADKEY,	// eb
+	DEADKEY,	// ec
+	DEADKEY,	// ed
+	DEADKEY,	// ee
+	DEADKEY,	// ef
+	DEADKEY,	// f0
+	DEADKEY,	// f1
+	DEADKEY,	// f2
+	DEADKEY,	// f3
+	DEADKEY,	// f4
+	DEADKEY,	// f5
+	DEADKEY,	// f6
+	DEADKEY,	// f7
+	DEADKEY,	// f8
+	DEADKEY,	// f9
+	DEADKEY,	// fa
+	DEADKEY,	// fb
+	DEADKEY,	// fc
+	DEADKEY,	// fd
+	DEADKEY,	// fe
+	DEADKEY,	// ff
+	0	//Final one
+};

@@ -24,6 +24,30 @@
 
 #import "UserGroup.h"
 #import <sys/syslog.h>
+#import <libkern/OSByteOrder.h>
+
+void SwapRequest(struct kauth_identity_extlookup* request)
+{
+	int i;
+
+	// swap 32 bit values
+	request->el_seqno = OSSwapInt32(request->el_seqno);
+	request->el_result = OSSwapInt32(request->el_result);
+	request->el_flags = OSSwapInt32(request->el_flags);
+	request->el_uid = OSSwapInt32(request->el_uid);
+	request->el_uguid_valid = OSSwapInt32(request->el_uguid_valid);
+	request->el_usid_valid = OSSwapInt32(request->el_usid_valid);
+	request->el_gid = OSSwapInt32(request->el_gid);
+	request->el_gguid_valid = OSSwapInt32(request->el_gguid_valid);
+	request->el_member_valid = OSSwapInt32(request->el_member_valid);
+
+	// uuids don't need swapping, and only the sid_authorities part of the sids do
+	for (i = 0; i < KAUTH_NTSID_MAX_AUTHORITIES; i++)
+	{
+		request->el_usid.sid_authorities[i] = OSSwapInt32(request->el_usid.sid_authorities[i]);
+		request->el_gsid.sid_authorities[i] = OSSwapInt32(request->el_gsid.sid_authorities[i]);
+	}
+}
 
 void ProcessLookup(struct kauth_identity_extlookup* request)
 {

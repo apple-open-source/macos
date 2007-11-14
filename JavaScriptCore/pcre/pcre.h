@@ -65,8 +65,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define pcre_version kjs_pcre_version
 
 #define PCRE_MAJOR          6
-#define PCRE_MINOR          1
-#define PCRE_DATE           21-Jun-2005
+#define PCRE_MINOR          4
+#define PCRE_DATE           05-Sep-2005
 
 #define PCRE_UTF16          1
 
@@ -237,9 +237,9 @@ PCRE_DATA_SCOPE int   pcre_callout(pcre_callout_block *);
 
 /* Exported PCRE functions */
 
-PCRE_DATA_SCOPE pcre *pcre_compile(const pcre_char *, int, const char **, int *,
+PCRE_DATA_SCOPE pcre *pcre_compile(const pcre_char *, int, int, const char **, int *,
                   const unsigned char *);
-PCRE_DATA_SCOPE pcre *pcre_compile2(const pcre_char *, int, int *, const char **,
+PCRE_DATA_SCOPE pcre *pcre_compile2(const pcre_char *, int, int, int *, const char **,
                   int *, const unsigned char *);
 PCRE_DATA_SCOPE int  pcre_config(int, void *);
 PCRE_DATA_SCOPE int  pcre_copy_named_substring(const pcre *, const pcre_char *,

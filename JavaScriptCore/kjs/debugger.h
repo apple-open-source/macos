@@ -16,19 +16,23 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
 #ifndef _KJSDEBUGGER_H_
 #define _KJSDEBUGGER_H_
 
+#include <wtf/HashMap.h>
+#include "protect.h"
+
 namespace KJS {
 
   class DebuggerImp;
   class Interpreter;
   class ExecState;
-  class Object;
+  class JSObject;
+  class JSValue;
   class UString;
   class List;
 
@@ -100,16 +104,19 @@ namespace KJS {
      *
      * @param exec The current execution state
      * @param sourceId The ID of the source code (corresponds to the
-     * sourceId supplied in other functions such as @ref atStatement()
-     * @param sourceURL Where the source code that was parsed came from 
+     * sourceId supplied in other functions such as atStatement()
+     * @param sourceURL Where the source code that was parsed came from
      * @param source The source code that was parsed
+     * @param startingLineNumber The line number at which parsing started
      * @param errorLine The line number at which parsing encountered an
-     * error, or -1 if the source code was valid and parsed succesfully
+     * error, or -1 if the source code was valid and parsed successfully
+     * @param errorMsg The error description, or null if the source code
+       was valid and parsed successfully
      * @return true if execution should be continue, false if it should
      * be aborted
      */
-     virtual bool sourceParsed(ExecState *exec, int sourceId, const UString &sourceURL,
-                  const UString &source, int errorLine);
+    virtual bool sourceParsed(ExecState *exec, int sourceId, const UString &sourceURL,
+                              const UString &source, int startingLineNumber, int errorLine, const UString &errorMsg);
 
     /**
      * Called when all functions/programs associated with a particular
@@ -141,7 +148,9 @@ namespace KJS {
      * be aborted
      */
     virtual bool exception(ExecState *exec, int sourceId, int lineno,
-                           Object &exceptionObj);
+                           JSValue *exception);
+
+    bool hasHandledException(ExecState *, JSValue *);
 
     /**
      * Called when a line of the script is reached (before it is executed)
@@ -153,7 +162,7 @@ namespace KJS {
      * @param sourceId The ID of the source code being executed
      * @param firstLine The starting line of the statement  that is about to be
      * executed
-     * @param firstLine The ending line of the statement  that is about to be
+     * @param lastLine The ending line of the statement  that is about to be
      * executed (usually the same as firstLine)
      * @return true if execution should be continue, false if it should
      * be aborted
@@ -181,7 +190,7 @@ namespace KJS {
      * be aborted
      */
     virtual bool callEvent(ExecState *exec, int sourceId, int lineno,
-			   Object &function, const List &args);
+                           JSObject *function, const List &args);
 
     /**
      * Called on each function exit. The function being returned from is that
@@ -202,15 +211,16 @@ namespace KJS {
      * be aborted
      */
     virtual bool returnEvent(ExecState *exec, int sourceId, int lineno,
-                             Object &function);
+                             JSObject *function);
 
   private:
     DebuggerImp *rep;
+    HashMap<Interpreter*, ProtectedPtr<JSValue> > latestExceptions;
 
   public:
     static int debuggersPresent;
   };
 
-};
+}
 
 #endif

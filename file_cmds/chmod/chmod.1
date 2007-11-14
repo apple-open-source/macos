@@ -63,6 +63,11 @@
 .Op Fl R Op Fl H | L | P 
 .Op Fl C
 .Ar
+.Nm chmod
+.Op Fl fv
+.Op Fl R Op Fl H | L | P
+.Op Fl N
+.Ar
 .Sh DESCRIPTION
 The
 .Nm
@@ -520,6 +525,8 @@ Returns false if any of the named files have ACLs in non-canonical order.
 Removes the 'inherited' bit from all entries in the named file(s) ACLs.
 .It Fl I
 Removes all inherited entries from the named file(s) ACL(s).
+.It Fl N
+Removes the ACL from the named file(s).
 .El
 .Sh COMPATIBILITY
 The

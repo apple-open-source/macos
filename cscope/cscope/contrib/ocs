@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: ocs,v 1.2 2004/07/09 21:34:43 nicolai Exp $
+# $Id: ocs,v 1.4 2004/06/21 18:13:21 broeker Exp $
 # This utility maintains the database for cscope on a recursive dir set
 # Author:   donwo	Tue Jun 25 15:36:39 PDT 1996
 # Modified: hops Jan 2000  chg defaults to not update if files exist and force
@@ -71,8 +71,20 @@
 # Here is where we put things
 
 CSCOPE=cscope
-SYSDIR=/usr/local/lib/cs
 HOMEDIR=${HOME}/lib/cs
+
+#set the default value for SYSDIR 
+if [ -z "${SYSDIR}" ]; then
+   SYSDIR=/usr/local/lib/cs
+   echo setting default sysdir
+fi
+
+#check that SYSDIR exists
+if [ ! -d ${SYSDIR} ]; then
+   echo -n $SYSDIR does not exist. 
+   echo Please create the directory and set SYSDIR appropriately
+   exit 
+fi
 
 # Check that cscope is in PATH
 type cscope 1>/dev/null 2>&1

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,150 +22,111 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#include <value.h>
-#include <interpreter.h>
 
-#include <runtime_object.h>
-#include <jni_instance.h>
-#include <objc_instance.h>
-#include <c_instance.h>
-#include <NP_jsobject.h>
-#include <jni_jsobject.h>
+#include "config.h"
+#include "runtime.h"
 
-using namespace KJS;
-using namespace KJS::Bindings;
+#include "JSLock.h"
+#include "NP_jsobject.h"
+#include "c_instance.h"
+#include "runtime_object.h"
+#include "runtime_root.h"
 
-    
-void MethodList::addMethod (Method *aMethod)
+#if HAVE(JNI)
+#include "jni_instance.h"
+#endif
+#if PLATFORM(MAC)
+#include "objc_instance.h"
+#endif
+#if PLATFORM(QT)
+#include "qt_instance.h"
+#endif
+
+namespace KJS { namespace Bindings {
+
+Array::Array(PassRefPtr<RootObject> rootObject)
+    : _rootObject(rootObject)
 {
-    Method **_newMethods = new Method *[_length + 1];
-    if (_length > 0) {
-        memcpy (_newMethods, _methods, sizeof(Method *) * _length);
-        delete [] _methods;
-    }
-    _methods = _newMethods;
-    _methods[_length++] = aMethod;
+    ASSERT(_rootObject);
 }
 
-unsigned int MethodList::length() const
+Array::~Array()
 {
-    return _length;
 }
 
-Method *MethodList::methodAt (unsigned int index) const
+Instance::Instance(PassRefPtr<RootObject> rootObject)
+    : _rootObject(rootObject)
+    , _refCount(0)
 {
-    assert (index < _length);
-    return _methods[index];
-}
-    
-MethodList::~MethodList()
-{
-    delete [] _methods;
+    ASSERT(_rootObject);
 }
 
-MethodList::MethodList (const MethodList &other) {
-    _length = other._length;
-    _methods = new Method *[_length];
-    if (_length > 0)
-        memcpy (_methods, other._methods, sizeof(Method *) * _length);
-}
-
-MethodList &MethodList::operator=(const MethodList &other)
-{
-    if (this == &other)
-        return *this;
-            
-    delete [] _methods;
-    
-    _length = other._length;
-    _methods = new Method *[_length];
-    if (_length > 0)
-        memcpy (_methods, other._methods, sizeof(Method *) * _length);
-
-    return *this;
-}
-
-
-Instance::Instance()
-: _executionContext(0)
-, _refCount(0)
+Instance::~Instance()
 {
 }
 
 static KJSDidExecuteFunctionPtr _DidExecuteFunction;
 
-void Instance::setDidExecuteFunction (KJSDidExecuteFunctionPtr func) { _DidExecuteFunction = func; }
-KJSDidExecuteFunctionPtr Instance::didExecuteFunction () { return _DidExecuteFunction; }
+void Instance::setDidExecuteFunction(KJSDidExecuteFunctionPtr func) { _DidExecuteFunction = func; }
+KJSDidExecuteFunctionPtr Instance::didExecuteFunction() { return _DidExecuteFunction; }
 
-Value Instance::getValueOfField (KJS::ExecState *exec, const Field *aField) const {  
-    return aField->valueFromInstance (exec, this);
+JSValue *Instance::getValueOfField(ExecState *exec, const Field *aField) const
+{
+    return aField->valueFromInstance(exec, this);
 }
 
-void Instance::setValueOfField (KJS::ExecState *exec, const Field *aField, const Value &aValue) const {  
-    aField->setValueToInstance (exec, this, aValue);
+void Instance::setValueOfField(ExecState *exec, const Field *aField, JSValue *aValue) const
+{
+    aField->setValueToInstance(exec, this, aValue);
 }
 
-Instance *Instance::createBindingForLanguageInstance (BindingLanguage language, void *nativeInstance, const RootObject *executionContext)
+Instance* Instance::createBindingForLanguageInstance(BindingLanguage language, void* nativeInstance, PassRefPtr<RootObject> rootObject)
 {
     Instance *newInstance = 0;
     
     switch (language) {
-	case Instance::JavaLanguage: {
-	    newInstance = new Bindings::JavaInstance ((jobject)nativeInstance, executionContext);
-	    break;
-	}
-	case Instance::ObjectiveCLanguage: {
-	    newInstance = new Bindings::ObjcInstance ((struct objc_object *)nativeInstance);
-	    break;
-	}
-	case Instance::CLanguage: {
-	    newInstance = new Bindings::CInstance ((NPObject *)nativeInstance);
-	    break;
-	}
-	default:
-	    break;
+#if HAVE(JNI)
+        case Instance::JavaLanguage: {
+            newInstance = new Bindings::JavaInstance((jobject)nativeInstance, rootObject);
+            break;
+        }
+#endif
+#if PLATFORM(MAC)
+        case Instance::ObjectiveCLanguage: {
+            newInstance = new Bindings::ObjcInstance((ObjectStructPtr)nativeInstance, rootObject);
+            break;
+        }
+#endif
+#if !PLATFORM(DARWIN) || !defined(__LP64__)
+        case Instance::CLanguage: {
+            newInstance = new Bindings::CInstance((NPObject *)nativeInstance, rootObject);
+            break;
+        }
+#endif
+#if PLATFORM(QT)
+        case Instance::QtLanguage: {
+            newInstance = new Bindings::QtInstance((QObject *)nativeInstance, rootObject);
+            break;
+        }
+#endif
+        default:
+            break;
     }
 
-    if (newInstance)
-	newInstance->setExecutionContext (executionContext);
-	
     return newInstance;
 }
 
-Object Instance::createRuntimeObject (BindingLanguage language, void *nativeInstance, const RootObject *executionContext)
+JSObject* Instance::createRuntimeObject(BindingLanguage language, void* nativeInstance, PassRefPtr<RootObject> rootObject)
 {
-    Instance *interfaceObject = Instance::createBindingForLanguageInstance(language, nativeInstance, executionContext);
+    Instance* instance = Instance::createBindingForLanguageInstance(language, nativeInstance, rootObject);
     
-    InterpreterLock lock;
-    return Object(new RuntimeObjectImp(interfaceObject));
+    JSLock lock;
+    return new RuntimeObjectImp(instance);
 }
 
-void *Instance::createLanguageInstanceForValue (ExecState *exec, BindingLanguage language, const Object &value, const RootObject *origin, const RootObject *current)
-{
-    void *result = 0;
-    
-    if (value.type() != ObjectType)
-	return 0;
-
-    ObjectImp *imp = static_cast<ObjectImp*>(value.imp());
-    
-    switch (language) {
-	case Instance::ObjectiveCLanguage: {
-	    result = createObjcInstanceForValue (value, origin, current);
-	    break;
-	}
-	case Instance::CLanguage: {
-	    result = _NPN_CreateScriptObject (0, imp, origin, current);
-	    break;
-	}
-	case Instance::JavaLanguage: {
-	    // FIXME:  factor creation of jni_jsobjects, also remove unnecessary thread
-	    // invocation code.
-	    break;
-	}
-	default:
-	    break;
-    }
-    
-    return result;
+RootObject* Instance::rootObject() const 
+{ 
+    return _rootObject && _rootObject->isValid() ? _rootObject.get() : 0;
 }
+
+} } // namespace KJS::Bindings

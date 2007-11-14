@@ -3,7 +3,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: var_unserializer.c,v 1.18.4.24.2.7 2006/08/09 23:29:17 nlopess Exp $ */
+/* $Id: var_unserializer.c,v 1.18.4.24.2.9 2007/01/01 09:46:49 sebastian Exp $ */
 
 #include "php.h"
 #include "ext/standard/php_var.h"
@@ -932,6 +932,10 @@ yy83:
 	
 	if (*rval == *rval_ref) return 0;
 
+	if ((*rval_ref)->refcount > 65500) {
+		return 0;
+	}
+
 	if (*rval != NULL) {
 	zval_ptr_dtor(rval);
 	}
@@ -971,6 +975,10 @@ yy89:
 
 	id = parse_iv(start + 2) - 1;
 	if (id == -1 || var_access(var_hash, id, &rval_ref) != SUCCESS) {
+		return 0;
+	}
+
+	if ((*rval_ref)->refcount > 65500) {
 		return 0;
 	}
 

@@ -1,0 +1,62 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>Server Configuration Reference - The Service Component</title><meta value="Craig R. McClanahan" name="author"><meta value="craigmcc@apache.org" name="email"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="0" width="100%" border="0"><!--PAGE HEADER--><tr><td><!--PROJECT LOGO--><a href="http://jakarta.apache.org/tomcat/"><img border="0" alt="
+    The Tomcat Servlet/JSP Container
+  " align="right" src="../../images/tomcat.gif"></a></td><td><font face="arial,helvetica,sanserif"><h1>Apache Tomcat 4</h1></font></td><td><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="../../images/asf-logo.gif"></a></td></tr></table><table cellspacing="4" width="100%" border="0"><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td nowrap="true" valign="top" align="left"><h1>The Service Component</h1></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p>A <strong>Service</strong> element represents the combination of one or
+  more <strong>Connector</strong> components that share a single
+  <a href="engine.html">Engine</a> component for processing incoming
+  requests.  One or more <strong>Service</strong> elements may be nested
+  inside a <a href="server.html">Server</a> element.</p>
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Attributes"><strong>Attributes</strong></a></font></td></tr><tr><td><blockquote>
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p>All implementations of <strong>Service</strong>
+  support the following attributes:</p>
+
+  <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>className</code></td><td valign="center" align="left">
+      <p>Java class name of the implementation to use.  This class must
+      implement the <code>org.apache.catalina.Service</code> interface.
+      If no class name is specified, the standard implementation will
+      be used.</p>
+    </td></tr><tr><td valign="center" align="left"><strong><code>name</code></strong></td><td valign="center" align="left">
+      <p>The display name of this <strong>Service</strong>, which will
+      be included in log messages if you utilize standard Catalina
+      components.  The name of each <strong>Service</strong> that is
+      associated with a particular <a href="server.html">Server</a>
+      must be unique.</p>
+    </td></tr></table>
+
+  </blockquote></td></tr></table>
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p>The standard implementation of <strong>Service</strong> is
+  <strong>org.apache.catalina.core.StandardService</strong>.
+  It supports the following additional attributes (in addition to the
+  common attributes listed above):</p>
+
+  <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>debug</code></td><td valign="center" align="left">
+      <p>The level of debugging detail logged by this <strong>Service</strong>
+      to the associated <a href="logger.html">Logger</a>.  Higher numbers
+      generate more detailed output.  If not specified, the default
+      debugging detail level is zero (0).</p>
+    </td></tr></table>
+
+  </blockquote></td></tr></table>
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Nested Components"><strong>Nested Components</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p>The only components that may be nested inside a <strong>Service</strong>
+  element are one or more <strong>Connector</strong> elements,
+  followed by exactly one <a href="engine.html">Engine</a> element.</p>
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Special Features"><strong>Special Features</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p>There are no special features associated with a <strong>Service</strong>.
+  </p>
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

@@ -1,0 +1,125 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>Server Configuration Reference - The AJP/1.3 Connector</title><meta value="Remy Maucherat" name="author"><meta value="remm@apache.org" name="email"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="0" width="100%" border="0"><!--PAGE HEADER--><tr><td><!--PROJECT LOGO--><a href="http://jakarta.apache.org/tomcat/"><img border="0" alt="
+    The Tomcat Servlet/JSP Container
+  " align="right" src="../images/tomcat.gif"></a></td><td><font face="arial,helvetica,sanserif"><h1>Apache Tomcat 4</h1></font></td><td><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="../images/asf-logo.gif"></a></td></tr></table><table cellspacing="4" width="100%" border="0"><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--LEFT SIDE NAVIGATION--><td nowrap="true" valign="top" width="20%"><p><strong>Links</strong></p><ul><li><a href="../index.html">Docs Home</a></li><li><a href="index.html">Config Ref. Home</a></li></ul><p><strong>Top Level Elements</strong></p><ul><li><a href="server.html">Server</a></li><li><a href="service.html">Service</a></li></ul><p><strong>Current Connectors</strong></p><ul><li><a href="connectors.html">Overview</a></li><li><a href="coyote.html">Coyote HTTP/1.1</a></li><li><a href="coyotejk.html">Coyote JK</a></li><li><a href="jk.html">JK</a></li><li><a href="http://httpd.apache.org/docs-2.1/mod/mod_proxy_ajp.html">mod_proxy_ajp</a></li></ul><p><strong>Deprecated Connectors</strong></p><ul><li><a href="connectors.html">Overview</a></li><li><a href="http11.html">HTTP/1.1</a></li><li><a href="ajp13.html">AJP/1.3</a></li><li><a href="webapp.html">Webapp</a></li><li><a href="jk2.html">JK2</a></li></ul><p><strong>Containers</strong></p><ul><li><a href="context.html">Context</a></li><li><a href="engine.html">Engine</a></li><li><a href="host.html">Host</a></li></ul><p><strong>Nested Components</strong></p><ul><li><a href="defaultcontext.html">Default Context</a></li><li><a href="globalresources.html">Global Resources</a></li><li><a href="loader.html">Loader</a></li><li><a href="logger.html">Logger</a></li><li><a href="manager.html">Manager</a></li><li><a href="realm.html">Realm</a></li><li><a href="resources.html">Resources</a></li><li><a href="valve.html">Valve</a></li></ul></td><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td nowrap="true" valign="top" align="left"><h1>The AJP/1.3 Connector</h1></td><td nowrap="true" valign="top" align="right"><small><a href="printer/ajp13.html"><img alt="Printer Friendly Version" border="0" src="../images/printer.gif"><br>print-friendly<br>version
+                    </a></small></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+  <p><b>IMPORTANT NOTE: The AJP/1.3 Connector is now deprecated. Use the 
+  <a href="coyotejk.html">Coyote JK Connector</a> instead.</b></p>
+
+  <p>The <strong>AJP/1.3 Connector</strong> element represents a
+  <strong>Connector</strong> component that communicates with a web
+  connector via the <code>JK</code> protocol (also known as the AJP protocol).
+  This is used for cases where you wish to invisibly integrate Tomcat 4 into 
+  an existing (or new) web server installation, and you want the web server to
+  handle the static content contained in the web application, and/or utilize 
+  the web server's SSL processing.  In many application environments, this will 
+  result in better overall performance than running your applications under
+  Tomcat stand-alone using the <a href="coyote.html">Coyote HTTP/1.1
+  Connector</a>. However, the only way to know for sure whether it will
+  provide better performance for <strong>your</strong> application is to try
+  it both ways.</p>
+
+  <p>This connector supports load balancing when used in conjunction with
+  the <code>jvmRoute</code> attribute of the 
+  <a href="engine.html">Engine</a>.</p>
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Attributes"><strong>Attributes</strong></a></font></td></tr><tr><td><blockquote>
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Common Attributes"><strong>Common Attributes</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p>All implementations of <strong>Connector</strong>
+  support the following attributes:</p>
+
+  <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><strong><code>className</code></strong></td><td valign="center" align="left">
+      <p>Java class name of the implementation to use.  This class must
+      implement the <code>org.apache.catalina.Connector</code> interface.
+      You must specify the standard value defined below.</p>
+    </td></tr><tr><td valign="center" align="left"><code>enableLookups</code></td><td valign="center" align="left">
+      <p>Set to <code>true</code> if you want calls to
+      <code>request.getRemoteHost()</code> to perform DNS lookups in
+      order to return the actual host name of the remote client.  Set
+      to <code>false</code> to skip the DNS lookup and return the IP
+      address in String form instead (thereby improving performance).
+      By default, DNS lookups are disabled.</p>
+    </td></tr><tr><td valign="center" align="left"><code>redirectPort</code></td><td valign="center" align="left">
+      <p>If this <strong>Connector</strong> is supporting non-SSL
+      requests, and a request is received for which a matching
+      <code>&lt;security-constraint&gt;</code> requires SSL transport,
+      Catalina will automatically redirect the request to the port
+      number specified here.</p>
+    </td></tr><tr><td valign="center" align="left"><code>scheme</code></td><td valign="center" align="left">
+      <p>Set this attribute to the name of the protocol you wish to have
+      returned by calls to <code>request.getScheme()</code>.  For
+      example, you would set this attribute to "<code>https</code>"
+      for an SSL Connector.  The default value is "<code>http</code>".</p>
+    </td></tr><tr><td valign="center" align="left"><code>secure</code></td><td valign="center" align="left">
+      <p>Set this attribute to <code>true</code> if you wish to have
+      calls to <code>request.isSecure()</code> to return <code>true</code>
+      for requests received by this Connector (you would want this on an
+      SSL Connector).  The default value is <code>false</code>.</p>
+    </td></tr></table>
+
+  </blockquote></td></tr></table>
+
+  <table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Standard Implementation"><strong>Standard Implementation</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p>The standard implementation of <strong>JK/AJP Connector</strong> is
+  <strong>org.apache.ajp.tomcat4.Ajp13Connector</strong>.</p>
+
+  <p><strong>This implementation supports the JK 1.3 and 1.4 protocols
+  (also known as AJP 1.3 and 1.4).</strong></p>
+
+  <p>It supports the following additional attributes (in addition to the
+  common attributes listed above):</p>
+
+  <table cellpadding="5" border="1"><tr><th bgcolor="#023264" width="15%"><font color="#ffffff">Attribute</font></th><th bgcolor="#023264" width="85%"><font color="#ffffff">Description</font></th></tr><tr><td valign="center" align="left"><code>acceptCount</code></td><td valign="center" align="left">
+      <p>The maximum queue length for incoming connection requests when
+      all possible request processing threads are in use.  Any requests
+      received when the queue is full will be refused.  The default
+      value is 10.</p>
+    </td></tr><tr><td valign="center" align="left"><code>address</code></td><td valign="center" align="left">
+      <p>For servers with more than one IP address, this attribute
+      specifies which address will be used for listening on the specified
+      port.  By default, this port will be used on all IP addresses
+      associated with the server.</p>
+    </td></tr><tr><td valign="center" align="left"><code>debug</code></td><td valign="center" align="left">
+      <p>The debugging detail level of log messages generated by this
+      component, with higher numbers creating more detailed output.
+      If not specified, this attribute is set to zero (0).</p>
+    </td></tr><tr><td valign="center" align="left"><code>maxProcessors</code></td><td valign="center" align="left">
+      <p>The maximum number of request processing threads to be created
+      by this <strong>Connector</strong>, which therefore determines the
+      maximum number of simultaneous requests that can be handled.  If
+      not specified, this attribute is set to 20.</p>
+      <p><b>NOTE:</b>For Apache 1.3 on Unix there is a 1 to 1 mapping
+      between httpd processes and Ajp13Processors.  You must configure
+      maxProcessors to be greater than or equal to the maximum number
+      of httpd processes your Apache web server spawns.</p>
+    </td></tr><tr><td valign="center" align="left"><code>minProcessors</code></td><td valign="center" align="left">
+      <p>The number of request processing threads that will be created
+      when this <strong>Connector</strong> is first started.  This
+      attribute should be set to a value smaller than that set for
+      <code>maxProcessors</code>.  The default value is 5.</p>
+    </td></tr><tr><td valign="center" align="left"><strong><code>port</code></strong></td><td valign="center" align="left">
+      <p>The TCP port number on which this <strong>Connector</strong>
+      will create a server socket and await incoming connections.  Your
+      operating system will allow only one server application to listen
+      to a particular port number on a particular IP address.</p>
+    </td></tr><tr><td valign="center" align="left"><code>tomcatAuthentication</code></td><td valign="center" align="left">
+      <p>This flag, which value defaults to <code>true</code>, indicates
+      whether or not authentication will be handled by Tomcat or the native 
+      web server. If the attribute value is <code>true</code>, any pricipal 
+      authenticated by the native web server will be ignored, and Tomcat will 
+      take care of the authentication. If the attribute value 
+      is <code>false</code>, Tomcat will not attempt to authenticate 
+      a principal if the native web server has already authenticated one.</p>
+    </td></tr></table>
+
+  </blockquote></td></tr></table>
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Nested Components"><strong>Nested Components</strong></a></font></td></tr><tr><td><blockquote>
+
+  <p></p>
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

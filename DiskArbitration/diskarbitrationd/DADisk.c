@@ -247,7 +247,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
     io_name_t              name;
     CFMutableDictionaryRef properties = NULL;
     CFTypeRef              object;
-    io_string_t            path;
+    ___io_path_t           path;
     io_iterator_t          services;
     kern_return_t          status;
     CFDictionaryRef        sub;
@@ -442,8 +442,8 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
      * Create the disk description -- media path.
      */
 
-    status = IORegistryEntryGetPath( media, kIODeviceTreePlane, path );
-    if ( status != KERN_SUCCESS )  status = IORegistryEntryGetPath( media, kIOServicePlane, path );
+    status = ___IORegistryEntryGetPath( media, kIODeviceTreePlane, path );
+    if ( status != KERN_SUCCESS )  status = ___IORegistryEntryGetPath( media, kIOServicePlane, path );
     if ( status != KERN_SUCCESS )  goto DADiskCreateFromIOMediaErr;
 
     object = CFStringCreateWithCString( allocator, path, kCFStringEncodingUTF8 );
@@ -607,7 +607,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
      * Create the disk description -- device path.
      */
 
-    status = IORegistryEntryGetPath( device, kIOServicePlane, path );
+    status = ___IORegistryEntryGetPath( device, kIOServicePlane, path );
     if ( status != KERN_SUCCESS )  goto DADiskCreateFromIOMediaErr;
 
     object = CFStringCreateWithCString( allocator, path, kCFStringEncodingUTF8 );
@@ -698,7 +698,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
          * Create the disk description -- bus path.
          */
 
-        status = IORegistryEntryGetPath( bus, kIODeviceTreePlane, path );
+        status = ___IORegistryEntryGetPath( bus, kIODeviceTreePlane, path );
         if ( status != KERN_SUCCESS )  goto DADiskCreateFromIOMediaErr;
 
         object = CFStringCreateWithCString( allocator, path, kCFStringEncodingUTF8 );
@@ -881,7 +881,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
 
 DADiskCreateFromIOMediaErr:
 
-    if ( IORegistryEntryGetPath( media, kIOServicePlane, path ) == KERN_SUCCESS )
+    if ( ___IORegistryEntryGetPath( media, kIOServicePlane, path ) == KERN_SUCCESS )
     {
         DALogError( "unable to create disk, id = %s.", disk ? DADiskGetID( disk ) : NULL );
     }

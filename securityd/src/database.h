@@ -68,6 +68,9 @@ public:
 	
 	virtual void sleepProcessing();		// generic action on system sleep
 	virtual void lockProcessing();		// generic action on "lock" requests
+
+protected:
+	void notify(NotificationEvent event, const DLDbIdentifier &ident);
 };
 
 

@@ -23,6 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#include "config.h"
 #include <Foundation/Foundation.h>
 
 #import <WebKit/WebScriptObject.h>
@@ -65,10 +66,10 @@
 
 @interface MyFirstInterface : NSObject
 {
-	int myInt;
-	MySecondInterface *mySecondInterface;
-	id jsobject;
-	NSString *string;
+    int myInt;
+    MySecondInterface *mySecondInterface;
+    id jsobject;
+    NSString *string;
 }
 
 - (int)getInt;
@@ -104,27 +105,27 @@
 /*
 - (id)invokeUndefinedMethodFromWebScript:(NSString *)name withArguments:(NSArray *)args;
 {
-	NSLog (@"Call to undefined method %@", name);
-	NSLog (@"%d args\n", [args count]);
-	int i;
-	for (i = 0; i < [args count]; i++) {
-		NSLog (@"%d: %@\n", i, [args objectAtIndex:i]);
-	}
-	return @"success";
+    NSLog (@"Call to undefined method %@", name);
+    NSLog (@"%d args\n", [args count]);
+    int i;
+    for (i = 0; i < [args count]; i++) {
+            NSLog (@"%d: %@\n", i, [args objectAtIndex:i]);
+    }
+    return @"success";
 }
 */
 
 /*
 - (id)valueForUndefinedKey:(NSString *)key
 {
-	NSLog (@"%s:  key = %@", __PRETTY_FUNCTION__, key);
-	return @"aValue";
+    NSLog (@"%s:  key = %@", __PRETTY_FUNCTION__, key);
+    return @"aValue";
 }
 */
 
 - (void)setValue:(id)value forUndefinedKey:(NSString *)key
 {
-	NSLog (@"%s:  key = %@", __PRETTY_FUNCTION__, key);
+    NSLog (@"%s:  key = %@", __PRETTY_FUNCTION__, key);
 }
 
 - init
@@ -155,7 +156,7 @@
 
 - (NSString *)getString
 {
-	return string;
+    return string;
 }
 
 - (MySecondInterface *)getMySecondInterface 
@@ -239,7 +240,7 @@ int main(int argc, char **argv)
     {
         NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
         
-        InterpreterLock lock;
+        JSLock lock;
         
         // create interpreter w/ global object
         Object global(new GlobalImp());
@@ -280,12 +281,7 @@ int main(int argc, char **argv)
         }
         
         [myInterface release];
-        
-#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_3
-        [pool release];
-#else
         [pool drain];
-#endif
     } // end block, so that Interpreter and global get deleted
     
     return ret ? 0 : 3;

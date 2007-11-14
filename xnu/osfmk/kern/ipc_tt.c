@@ -1,29 +1,23 @@
 /*
  * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * @APPLE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. The rights granted to you under the License
- * may not be used to create, or enable the creation or redistribution of,
- * unlawful or unlicensed copies of an Apple operating system, or to
- * circumvent, violate, or enable the circumvention or violation of, any
- * terms of an Apple operating system software license agreement.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
- * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ * @APPLE_LICENSE_HEADER_END@
  */
 /*
  * @OSF_COPYRIGHT@
@@ -421,6 +415,74 @@ ipc_thread_terminate(
 		ipc_port_dealloc_reply(thread->ith_rpc_reply);
 
 	thread->ith_rpc_reply = IP_NULL;
+}
+
+/*
+ *	Routine:	ipc_thread_reset
+ *	Purpose:
+ *		Reset the IPC state for a given Mach thread when
+ *		its task enters an elevated security context.
+ * 		Both the thread port and its exception ports have
+ *		to be reset.  Its RPC reply port cannot have any
+ *		rights outstanding, so it should be fine.
+ *	Conditions:
+ *		Nothing locked.
+ */
+
+void
+ipc_thread_reset(
+	thread_t	thread)
+{
+	ipc_port_t old_kport, new_kport;
+	ipc_port_t old_sself;
+	ipc_port_t old_exc_actions[EXC_TYPES_COUNT];
+	int i;
+
+	new_kport = ipc_port_alloc_kernel();
+	if (new_kport == IP_NULL)
+		panic("ipc_task_reset");
+
+	thread_mtx_lock(thread);
+
+	old_kport = thread->ith_self;
+
+	if (old_kport == IP_NULL) {
+		/* the  is already terminated (can this happen?) */
+		thread_mtx_unlock(thread);
+		ipc_port_dealloc_kernel(new_kport);
+		return;
+	}
+
+	thread->ith_self = new_kport;
+	old_sself = thread->ith_sself;
+	thread->ith_sself = ipc_port_make_send(new_kport);
+	ipc_kobject_set(old_kport, IKO_NULL, IKOT_NONE);
+	ipc_kobject_set(new_kport, (ipc_kobject_t) thread, IKOT_THREAD);
+
+	for (i = FIRST_EXCEPTION; i < EXC_TYPES_COUNT; i++) {
+		if (!thread->exc_actions[i].privileged) {
+			old_exc_actions[i] = thread->exc_actions[i].port;
+			thread->exc_actions[i].port = IP_NULL;
+		} else {
+			old_exc_actions[i] = IP_NULL;
+		}
+	}/* for */
+
+	thread_mtx_unlock(thread);
+
+	/* release the naked send rights */
+
+	if (IP_VALID(old_sself))
+		ipc_port_release_send(old_sself);
+
+	for (i = FIRST_EXCEPTION; i < EXC_TYPES_COUNT; i++) {
+		if (IP_VALID(old_exc_actions[i])) {
+			ipc_port_release_send(old_exc_actions[i]);
+		}
+	}/* for */
+
+	/* destroy the kernel port */
+	ipc_port_dealloc_kernel(old_kport);
 }
 
 /*
@@ -1272,6 +1334,7 @@ thread_set_exception_ports(
 	thread_state_flavor_t	new_flavor)
 {
 	ipc_port_t		old_port[EXC_TYPES_COUNT];
+	boolean_t privileged = current_task()->sec_token.val[0] == 0;
 	register int	i;
 
 	if (thread == THREAD_NULL)
@@ -1315,6 +1378,7 @@ thread_set_exception_ports(
 			thread->exc_actions[i].port = ipc_port_copy_send(new_port);
 			thread->exc_actions[i].behavior = new_behavior;
 			thread->exc_actions[i].flavor = new_flavor;
+			thread->exc_actions[i].privileged = privileged;
 		}
 		else
 			old_port[i] = IP_NULL;
@@ -1437,6 +1501,7 @@ thread_swap_exception_ports(
 	thread_state_flavor_array_t	flavors)
 {
 	ipc_port_t		old_port[EXC_TYPES_COUNT];
+	boolean_t privileged = current_task()->sec_token.val[0] == 0;
 	unsigned int	i, j, count;
 
 	if (thread == THREAD_NULL)
@@ -1496,6 +1561,7 @@ thread_swap_exception_ports(
 			thread->exc_actions[i].port = ipc_port_copy_send(new_port);
 			thread->exc_actions[i].behavior = new_behavior;
 			thread->exc_actions[i].flavor = new_flavor;
+			thread->exc_actions[i].privileged = privileged;
 			if (count > *CountCnt)
 				break;
 		}

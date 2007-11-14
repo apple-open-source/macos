@@ -5,7 +5,7 @@
 /* This is the public header file for the PCRE library, to be #included by
 applications that call the PCRE functions.
 
-           Copyright (c) 1997-2005 University of Cambridge
+           Copyright (c) 1997-2006 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #ifndef _PCRE_H
 #define _PCRE_H
- 
+
 #include "php_compat.h"
 
 /* The current PCRE version information. */
@@ -54,10 +54,10 @@ and libpcre.pc. The values are not put into configure.ac and substituted here
 cannot run ./configure. As it now stands, this file need not be edited in that
 circumstance. */
 
-#define PCRE_MAJOR          6
-#define PCRE_MINOR          6
+#define PCRE_MAJOR          7
+#define PCRE_MINOR          0
 #define PCRE_PRERELEASE
-#define PCRE_DATE           06-Feb-2006
+#define PCRE_DATE           18-Dec-2006
 
 /* Win32 uses DLL by default; it needs special stuff for exported functions
 when building PCRE. */
@@ -116,6 +116,11 @@ extern "C" {
 #define PCRE_DFA_SHORTEST       0x00010000
 #define PCRE_DFA_RESTART        0x00020000
 #define PCRE_FIRSTLINE          0x00040000
+#define PCRE_DUPNAMES           0x00080000
+#define PCRE_NEWLINE_CR         0x00100000
+#define PCRE_NEWLINE_LF         0x00200000
+#define PCRE_NEWLINE_CRLF       0x00300000
+#define PCRE_NEWLINE_ANY        0x00400000
 
 /* Exec-time and get/set-time error codes */
 
@@ -123,7 +128,8 @@ extern "C" {
 #define PCRE_ERROR_NULL            (-2)
 #define PCRE_ERROR_BADOPTION       (-3)
 #define PCRE_ERROR_BADMAGIC        (-4)
-#define PCRE_ERROR_UNKNOWN_NODE    (-5)
+#define PCRE_ERROR_UNKNOWN_OPCODE  (-5)
+#define PCRE_ERROR_UNKNOWN_NODE    (-5)  /* For backward compatibility */
 #define PCRE_ERROR_NOMEMORY        (-6)
 #define PCRE_ERROR_NOSUBSTRING     (-7)
 #define PCRE_ERROR_MATCHLIMIT      (-8)
@@ -140,6 +146,8 @@ extern "C" {
 #define PCRE_ERROR_DFA_WSSIZE     (-19)
 #define PCRE_ERROR_DFA_RECURSE    (-20)
 #define PCRE_ERROR_RECURSIONLIMIT (-21)
+#define PCRE_ERROR_NULLWSLIMIT    (-22)
+#define PCRE_ERROR_BADNEWLINE     (-23)
 
 /* Request types for pcre_fullinfo() */
 
@@ -269,6 +277,8 @@ PCRE_DATA_SCOPE int  pcre_fullinfo(const pcre *, const pcre_extra *, int,
 PCRE_DATA_SCOPE int  pcre_get_named_substring(const pcre *, const char *,
                   int *, int, const char *, const char **);
 PCRE_DATA_SCOPE int  pcre_get_stringnumber(const pcre *, const char *);
+PCRE_DATA_SCOPE int  pcre_get_stringtable_entries(const pcre *, const char *,
+                  char **, char **);
 PCRE_DATA_SCOPE int  pcre_get_substring(const char *, int *, int, int,
                   const char **);
 PCRE_DATA_SCOPE int  pcre_get_substring_list(const char *, int *, int,

@@ -22,57 +22,59 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#include <Foundation/Foundation.h>
 
+#include "config.h"
+#include "objc_runtime.h"
 
-#include <JavaScriptCore/internal.h>
-
-#include <objc_instance.h>
-#include <WebScriptObjectPrivate.h>
-
-#include <runtime_array.h>
-#include <runtime_object.h>
-
+#include "objc_instance.h"
+#include "runtime_array.h"
+#include "runtime_object.h"
+#include "WebScriptObject.h"
 
 using namespace KJS;
 using namespace KJS::Bindings;
 
+extern ClassStructPtr KJS::Bindings::webScriptObjectClass()
+{
+    static ClassStructPtr<WebScriptObject> webScriptObjectClass = NSClassFromString(@"WebScriptObject");
+    return webScriptObjectClass;
+}
+
+extern ClassStructPtr KJS::Bindings::webUndefinedClass()
+{
+    static ClassStructPtr<WebUndefined> webUndefinedClass = NSClassFromString(@"WebUndefined");
+    return webUndefinedClass;
+}
+
 // ---------------------- ObjcMethod ----------------------
 
-ObjcMethod::ObjcMethod(ClassStructPtr aClass, const char *name)
+ObjcMethod::ObjcMethod(ClassStructPtr aClass, const char* name)
 {
     _objcClass = aClass;
     _selector = name;   // Assume ObjC runtime keeps these around forever.
     _javaScriptName = 0;
 }
 
-const char *ObjcMethod::name() const
+const char* ObjcMethod::name() const
 {
-    return (const char *)_selector;
+    return _selector;
 }
 
-long ObjcMethod::numParameters() const
+int ObjcMethod::numParameters() const
 {
     return [getMethodSignature() numberOfArguments] - 2;
 }
 
-
-NSMethodSignature *ObjcMethod::getMethodSignature() const
+NSMethodSignature* ObjcMethod::getMethodSignature() const
 {
-    return [(id)_objcClass instanceMethodSignatureForSelector:(SEL)_selector];
-}
-
-void ObjcMethod::setJavaScriptName (CFStringRef n)
-{
-    if (n != _javaScriptName) {
-        if (_javaScriptName != 0)
-            CFRelease (_javaScriptName);
-        _javaScriptName = (CFStringRef)CFRetain (n);
-    }
+#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
+    return [_objcClass instanceMethodSignatureForSelector:sel_registerName(_selector)];
+#else
+    return [_objcClass instanceMethodSignatureForSelector:(SEL)_selector];
+#endif
 }
 
 // ---------------------- ObjcField ----------------------
-
 
 ObjcField::ObjcField(Ivar ivar) 
 {
@@ -86,117 +88,81 @@ ObjcField::ObjcField(CFStringRef name)
     _name = (CFStringRef)CFRetain(name);
 }
 
-const char *ObjcField::name() const 
+const char* ObjcField::name() const 
 {
+#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
+    if (_ivar)
+        return ivar_getName(_ivar);
+#else
     if (_ivar)
         return _ivar->ivar_name;
-    return [(NSString *)_name UTF8String];
+#endif
+    return [(NSString*)_name.get() UTF8String];
 }
 
-RuntimeType ObjcField::type() const 
-{ 
-    if (_ivar)
-        return _ivar->ivar_type;
-    
-    // Type is irrelevant if we use KV to set/get the value.
-    return "";
-}
-
-Value ObjcField::valueFromInstance(KJS::ExecState *exec, const Instance *instance) const
+JSValue* ObjcField::valueFromInstance(ExecState* exec, const Instance* instance) const
 {
-    Value aValue;
+    JSValue* result = jsUndefined();
+    
     id targetObject = (static_cast<const ObjcInstance*>(instance))->getObject();
-    id objcValue = nil;
 
-    NS_DURING
-    
-        NSString *key = [NSString stringWithCString:name()];
-        objcValue = [targetObject valueForKey:key];
-        
-    NS_HANDLER
-        
-        Value exceptionValue = Error::create(exec, GeneralError, [[localException reason] lossyCString]);
-        exec->setException(exceptionValue);
-        
-    NS_ENDHANDLER
+   JSLock::DropAllLocks dropAllLocks; // Can't put this inside the @try scope because it unwinds incorrectly.
 
-    if (objcValue)
-        aValue = convertObjcValueToValue (exec, &objcValue, ObjcObjectType);
-    else
-        aValue = Undefined();
-
-    return aValue;
-}
-
-static id convertValueToObjcObject (KJS::ExecState *exec, const KJS::Value &value)
-{
-    const Bindings::RootObject *root = rootForInterpreter(exec->interpreter());
-    if (!root) {
-        Bindings::RootObject *newRoot = new KJS::Bindings::RootObject(0);
-        newRoot->setInterpreter (exec->interpreter());
-        root = newRoot;
+    @try {
+        NSString* key = [NSString stringWithCString:name() encoding:NSASCIIStringEncoding];
+        if (id objcValue = [targetObject valueForKey:key])
+            result = convertObjcValueToValue(exec, &objcValue, ObjcObjectType, instance->rootObject());
+    } @catch(NSException* localException) {
+        JSLock::lock();
+        throwError(exec, GeneralError, [localException reason]);
+        JSLock::unlock();
     }
-    return [WebScriptObject _convertValueToObjcValue:value originExecutionContext:root executionContext:root ];
+
+    return result;
 }
 
+static id convertValueToObjcObject(ExecState* exec, JSValue* value)
+{
+    RefPtr<RootObject> rootObject = findRootObject(exec->dynamicInterpreter());
+    if (!rootObject)
+        return nil;
+    return [webScriptObjectClass() _convertValueToObjcValue:value originRootObject:rootObject.get() rootObject:rootObject.get()];
+}
 
-void ObjcField::setValueToInstance(KJS::ExecState *exec, const Instance *instance, const KJS::Value &aValue) const
+void ObjcField::setValueToInstance(ExecState* exec, const Instance* instance, JSValue* aValue) const
 {
     id targetObject = (static_cast<const ObjcInstance*>(instance))->getObject();
     id value = convertValueToObjcObject(exec, aValue);
-    
-    NS_DURING
-    
-        NSString *key = [NSString stringWithCString:name()];
-        [targetObject setValue:value forKey:key];
 
-    NS_HANDLER
-        
-        Value aValue = Error::create(exec, GeneralError, [[localException reason] lossyCString]);
-        exec->setException(aValue);
-        
-    NS_ENDHANDLER
+   JSLock::DropAllLocks dropAllLocks; // Can't put this inside the @try scope because it unwinds incorrectly.
+
+    @try {
+        NSString* key = [NSString stringWithCString:name() encoding:NSASCIIStringEncoding];
+        [targetObject setValue:value forKey:key];
+    } @catch(NSException* localException) {
+        JSLock::lock();
+        throwError(exec, GeneralError, [localException reason]);
+        JSLock::unlock();
+    }
 }
 
 // ---------------------- ObjcArray ----------------------
 
-ObjcArray::ObjcArray (ObjectStructPtr a) 
+ObjcArray::ObjcArray(ObjectStructPtr a, PassRefPtr<RootObject> rootObject)
+    : Array(rootObject)
+    , _array(a)
 {
-    _array = (id)CFRetain(a);
 }
 
-ObjcArray::~ObjcArray () 
+void ObjcArray::setValueAt(ExecState* exec, unsigned int index, JSValue* aValue) const
 {
-    CFRelease(_array);
-}
-
-
-ObjcArray::ObjcArray (const ObjcArray &other) : Array() 
-{
-    _array = other._array;
-    CFRetain(_array);
-}
-
-ObjcArray &ObjcArray::operator=(const ObjcArray &other)
-{
-    ObjectStructPtr _oldArray = _array;
-    _array = other._array;
-    CFRetain(_array);
-    CFRelease(_oldArray);
-    return *this;
-}
-
-void ObjcArray::setValueAt(KJS::ExecState *exec, unsigned int index, const KJS::Value &aValue) const
-{
-    if (![_array respondsToSelector:@selector(insertObject:atIndex:)]) {
-        Object error = Error::create(exec, TypeError, "Array is not mutable.");
-        exec->setException(error);
+    if (![_array.get() respondsToSelector:@selector(insertObject:atIndex:)]) {
+        throwError(exec, TypeError, "Array is not mutable.");
         return;
     }
 
-    if (index > [_array count]) {
-        Object error = Error::create(exec, RangeError, "Index exceeds array size.");
-        exec->setException(error);
+    if (index > [_array.get() count]) {
+        throwError(exec, RangeError, "Index exceeds array size.");
         return;
     }
     
@@ -204,86 +170,63 @@ void ObjcArray::setValueAt(KJS::ExecState *exec, unsigned int index, const KJS::
     // array.
     ObjcValue oValue = convertValueToObjcValue (exec, aValue, ObjcObjectType);
 
-NS_DURING
-
-    [_array insertObject:oValue.objectValue atIndex:index];
-
-NS_HANDLER
-    
-    Object error = Error::create(exec, GeneralError, "ObjectiveC exception.");
-    exec->setException(error);
-    
-NS_ENDHANDLER
+    @try {
+        [_array.get() insertObject:oValue.objectValue atIndex:index];
+    } @catch(NSException* localException) {
+        throwError(exec, GeneralError, "Objective-C exception.");
+    }
 }
 
-
-KJS::Value ObjcArray::valueAt(KJS::ExecState *exec, unsigned int index) const
+JSValue* ObjcArray::valueAt(ExecState* exec, unsigned int index) const
 {
-    ObjectStructPtr obj = 0;
-    Object error;
-    volatile bool haveError = false;
-    
-    if (index > [_array count]) {
-        Object error = Error::create(exec, RangeError, "Index exceeds array size.");
-        exec->setException(error);
-        return error;
+    if (index > [_array.get() count])
+        return throwError(exec, RangeError, "Index exceeds array size.");
+    @try {
+        id obj = [_array.get() objectAtIndex:index];
+        if (obj)
+            return convertObjcValueToValue (exec, &obj, ObjcObjectType, _rootObject.get());
+    } @catch(NSException* localException) {
+        return throwError(exec, GeneralError, "Objective-C exception.");
     }
-    
-NS_DURING
-
-    obj = [_array objectAtIndex:index];
-    
-NS_HANDLER
-    
-    Object error = Error::create(exec, GeneralError, "ObjectiveC exception.");
-    exec->setException(error);
-    haveError = true;
-    
-NS_ENDHANDLER
-
-    if (haveError)
-        return error;
-        
-    return convertObjcValueToValue (exec, &obj, ObjcObjectType);
+    return jsUndefined();
 }
 
 unsigned int ObjcArray::getLength() const
 {
-    return [_array count];
+    return [_array.get() count];
 }
-
 
 const ClassInfo ObjcFallbackObjectImp::info = {"ObjcFallbackObject", 0, 0, 0};
 
-ObjcFallbackObjectImp::ObjcFallbackObjectImp(ObjcInstance *i, const KJS::Identifier propertyName)
-: ObjectImp ((ObjectImp *)0)
-, _instance(i)
+ObjcFallbackObjectImp::ObjcFallbackObjectImp(ObjcInstance* i, const KJS::Identifier propertyName)
+: _instance(i)
 , _item(propertyName)
 {
 }
 
-Value ObjcFallbackObjectImp::get(ExecState *exec, const Identifier &propertyName) const
+bool ObjcFallbackObjectImp::getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot& slot)
 {
-    return Undefined();
+    // keep the prototype from getting called instead of just returning false
+    slot.setUndefined(this);
+    return true;
 }
 
-void ObjcFallbackObjectImp::put(ExecState *exec, const Identifier &propertyName,
-                 const Value &value, int attr)
+void ObjcFallbackObjectImp::put(ExecState*, const Identifier&, JSValue*, int)
 {
 }
 
-bool ObjcFallbackObjectImp::canPut(ExecState *exec, const Identifier &propertyName) const
+bool ObjcFallbackObjectImp::canPut(ExecState*, const Identifier&) const
 {
     return false;
 }
 
 
-Type ObjcFallbackObjectImp::type() const
+JSType ObjcFallbackObjectImp::type() const
 {
     id targetObject = _instance->getObject();
     
     if ([targetObject respondsToSelector:@selector(invokeUndefinedMethodFromWebScript:withArguments:)])
-	return ObjectType;
+        return ObjectType;
     
     return UndefinedType;
 }
@@ -293,63 +236,60 @@ bool ObjcFallbackObjectImp::implementsCall() const
     id targetObject = _instance->getObject();
     
     if ([targetObject respondsToSelector:@selector(invokeUndefinedMethodFromWebScript:withArguments:)])
-	return true;
+        return true;
     
     return false;
 }
 
-Value ObjcFallbackObjectImp::call(ExecState *exec, Object &thisObj, const List &args)
+JSValue* ObjcFallbackObjectImp::callAsFunction(ExecState* exec, JSObject* thisObj, const List &args)
 {
-    Value result = Undefined();
-    
-    RuntimeObjectImp *imp = static_cast<RuntimeObjectImp*>(thisObj.imp());
-    if (imp) {
-        Instance *instance = imp->getInternalInstance();
-        
-        instance->begin();
+    if (thisObj->classInfo() != &KJS::RuntimeObjectImp::info)
+        return throwError(exec, TypeError);
 
-        ObjcInstance *objcInstance = static_cast<ObjcInstance*>(instance);
-        id targetObject = objcInstance->getObject();
-        
-        if ([targetObject respondsToSelector:@selector(invokeUndefinedMethodFromWebScript:withArguments:)]){
-            MethodList methodList;
-            ObjcClass *objcClass = static_cast<ObjcClass*>(instance->getClass());
-            ObjcMethod *fallbackMethod = new ObjcMethod (objcClass->isa(), (const char *)@selector(invokeUndefinedMethodFromWebScript:withArguments:));
-            fallbackMethod->setJavaScriptName((CFStringRef)[NSString stringWithCString:_item.ascii()]);
-            methodList.addMethod ((Method *)fallbackMethod);
-            result = instance->invokeMethod(exec, methodList, args);
-            delete fallbackMethod;
-        }
-                
-        instance->end();
+    JSValue* result = jsUndefined();
+
+    RuntimeObjectImp* imp = static_cast<RuntimeObjectImp*>(thisObj);
+    Instance* instance = imp->getInternalInstance();
+
+    if (!instance)
+        return RuntimeObjectImp::throwInvalidAccessError(exec);
+    
+    instance->begin();
+
+    ObjcInstance* objcInstance = static_cast<ObjcInstance*>(instance);
+    id targetObject = objcInstance->getObject();
+    
+    if ([targetObject respondsToSelector:@selector(invokeUndefinedMethodFromWebScript:withArguments:)]){
+        MethodList methodList;
+        ObjcClass* objcClass = static_cast<ObjcClass*>(instance->getClass());
+        ObjcMethod* fallbackMethod = new ObjcMethod (objcClass->isa(), sel_getName(@selector(invokeUndefinedMethodFromWebScript:withArguments:)));
+        fallbackMethod->setJavaScriptName((CFStringRef)[NSString stringWithCString:_item.ascii() encoding:NSASCIIStringEncoding]);
+        methodList.append(fallbackMethod);
+        result = instance->invokeMethod(exec, methodList, args);
+        delete fallbackMethod;
     }
+            
+    instance->end();
 
     return result;
 }
 
-bool ObjcFallbackObjectImp::hasOwnProperty(ExecState *exec,
-                         const Identifier &propertyName) const
+bool ObjcFallbackObjectImp::deleteProperty(ExecState*, const Identifier&)
 {
     return false;
 }
 
-bool ObjcFallbackObjectImp::deleteProperty(ExecState *exec,
-                            const Identifier &propertyName)
-{
-    return false;
-}
-
-Value ObjcFallbackObjectImp::defaultValue(ExecState *exec, Type hint) const
+JSValue* ObjcFallbackObjectImp::defaultValue(ExecState* exec, JSType hint) const
 {
     return _instance->getValueOfUndefinedField(exec, _item, hint);
 }
 
-bool ObjcFallbackObjectImp::toBoolean(ExecState *exec) const
+bool ObjcFallbackObjectImp::toBoolean(ExecState *) const
 {
     id targetObject = _instance->getObject();
     
     if ([targetObject respondsToSelector:@selector(invokeUndefinedMethodFromWebScript:withArguments:)])
-	return true;
+        return true;
     
     return false;
 }

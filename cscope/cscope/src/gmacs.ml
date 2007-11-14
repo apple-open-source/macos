@@ -29,7 +29,7 @@
 	; OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 	; DAMAGE. 
 	; =========================================================================
-	; $Id: gmacs.ml,v 1.2 2004/07/09 21:34:44 nicolai Exp $ 
+	; $Id: gmacs.ml,v 1.1 2000/04/27 16:33:47 petr Exp $ 
 
 
 	; cscope.ml (s.cscope.ml) - 1.4 (2/21/84 14:53:58)

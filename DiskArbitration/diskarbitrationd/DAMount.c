@@ -210,7 +210,7 @@ Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
 
         if ( range.location + range.length < CFStringGetLength( arguments ) )
         {
-            if ( CFStringGetCharacterAtIndex( arguments, range.location + range.length - 1 ) != ',' )
+            if ( CFStringGetCharacterAtIndex( arguments, range.location + range.length ) != ',' )
             {
                 range.length = 0;
             }
@@ -604,6 +604,31 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
         automatic = NULL;
 
         CFStringReplaceAll( options, CFSTR( "" ) );
+    }
+
+    /*
+     * Determine whether the volume is to be updated.
+     */
+
+    if ( DAMountContainsArgument( options, kDAFileSystemMountArgumentUpdate ) )
+    {
+        if ( mountpoint )
+        {
+            status = EINVAL;
+
+            goto DAMountWithArgumentsErr;
+        }
+
+        mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+
+        if ( mountpoint == NULL )
+        {
+            status = EINVAL;
+
+            goto DAMountWithArgumentsErr;
+        }
+
+        CFRetain( mountpoint );
     }
 
     /*

@@ -1,0 +1,57 @@
+div.screen {
+    margin: 10px 0px 10px 20px;
+    font-size: smaller;
+    color: #ffffff; 
+}
+div.example {
+    background-color: #e5ecf3;
+    color: #000;
+    padding: 0.5em;
+    margin: 1em 2em 1em 1em;
+}
+pre {
+    font-family: "Courier New", Courier, monospace;
+    font-weight: normal;
+    font-style: normal;
+    font-size: smaller;
+}
+em.screen {
+    font-weight: normal;
+    font-style: normal;
+    color: #c0c0c0;
+}
+p.screen {
+    background-color: #000000;
+    border-style: none;
+    color: #c0c0c0;
+    margin-left: 10px;
+    margin-right: 0px;
+    text-align: left;         
+}
+b.screen {
+    font-weight: normal;
+    font-style: normal;
+    color: #c0c0c0;
+}   
+code.screen {
+    background-color: #000000;
+    border-style: none;
+    color: #c0c0c0;
+    margin-left: 10px;
+    margin-right: 0px;
+    text-align: left; 
+}
+b.code {
+    font-weight: normal;
+    font-style: normal;
+    color: #023264;
+}
+p.todo {
+    background-color: #ffffff;
+    border-style: none;
+    color: #000000;
+    margin-left: 20px;
+    margin-right: 10px;
+    text-align: justify;
+    font-size: smaller;
+}                                  

@@ -25,6 +25,7 @@
 #define __DISKARBITRATIOND_DABASE__
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOKitLib.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,6 +36,8 @@ extern "C" {
 #define ___ATTR_INVISIBLE 0x4000
 
 typedef uint16_t ___attr_t;
+
+typedef char ___io_path_t[1024];
 
 __private_extern__ int             ___chattr( const char * path, ___attr_t attr, ___attr_t noattr );
 __private_extern__ int             ___isautofs( const char * path );
@@ -53,6 +56,7 @@ __private_extern__ CFUUIDRef       ___CFUUIDCreateFromName( CFAllocatorRef alloc
 __private_extern__ CFUUIDRef       ___CFUUIDCreateFromString( CFAllocatorRef allocator, CFStringRef string );
 __private_extern__ CFStringRef     ___CFURLCopyRawDeviceFileSystemPath( CFURLRef url, CFURLPathStyle pathStyle );
 __private_extern__ void            ___DADisplayUpdateActivity( void );
+__private_extern__ kern_return_t   ___IORegistryEntryGetPath( io_registry_entry_t entry, const io_name_t plane, ___io_path_t path );
 
 #ifdef __cplusplus
 }

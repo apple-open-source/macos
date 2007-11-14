@@ -1574,7 +1574,7 @@ binary_assign_op_addr: {
 						if (EX(opline)->op1.op_type==IS_CONST) { /* used for class_name::function() */
 							zval **object_ptr_ptr;
 
-							if (zend_hash_find(EG(active_symbol_table), "this", sizeof("this"), (void **) &object_ptr_ptr)==FAILURE || Z_TYPE_PP(object_ptr_ptr) != IS_OBJECT) {
+							if (zend_hash_find(EG(active_symbol_table), "this", sizeof("this"), (void **) &object_ptr_ptr)==FAILURE || Z_TYPE_PP(object_ptr_ptr) != IS_OBJECT || !PZVAL_IS_REF(*object_ptr_ptr)) {
 								EX(object).ptr=NULL;
 							} else {
 								/* We assume that "this" is already is_ref and pointing to the object.
@@ -1632,7 +1632,13 @@ binary_assign_op_addr: {
 						active_function_table = EG(function_table);
 					}
 					if (zend_hash_find(active_function_table, function_name->value.str.val, function_name->value.str.len+1, (void **) &function)==FAILURE) {
-						zend_error(E_ERROR, "Call to undefined function:  %s()", function_name->value.str.val);
+						if (EX(object).ptr && EX(object).ptr->type == IS_OBJECT) {
+							zend_error(E_ERROR, "Call to undefined method: %s->%s()", Z_OBJCE_P(EX(object).ptr)->name, function_name->value.str.val);
+						} else if (EX(opline)->op1.op_type == IS_CONST) {
+							zend_error(E_ERROR, "Call to undefined static function: %s::%s()", EX(opline)->op1.u.constant.value.str.val, function_name->value.str.val);
+						} else {
+							zend_error(E_ERROR, "Call to undefined function: %s()", function_name->value.str.val);
+						}
 					}
 					zval_dtor(&tmp);
 					EX(fbc) = function;

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.45.2.13.2.6 2006/02/13 12:19:10 dmitry Exp $ */
+/* $Id: php_variables.c,v 1.45.2.13.2.10 2007/04/13 00:42:48 stas Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -225,27 +225,33 @@ plain_var:
 
 SAPI_API SAPI_POST_HANDLER_FUNC(php_std_post_handler)
 {
-	char *var, *val;
-	char *strtok_buf = NULL;
+	char *var, *val, *e, *s, *p;
 	zval *array_ptr = (zval *) arg;
 
 	if (SG(request_info).post_data==NULL) {
 		return;
 	}	
 
-	var = php_strtok_r(SG(request_info).post_data, "&", &strtok_buf);
+	s = SG(request_info).post_data;
+	e = s + SG(request_info).post_data_length;
 
-	while (var) {
-		val = strchr(var, '=');
-		if (val) { /* have a value */
+	while (s < e && (p = memchr(s, '&', (e - s)))) {
+last_value:
+		if ((val = memchr(s, '=', (p - s)))) { /* have a value */
 			int val_len;
 
-			*val++ = '\0';
-			php_url_decode(var, strlen(var));
-			val_len = php_url_decode(val, strlen(val));
+			var = s;
+
+			php_url_decode(var, (val - s));
+			val++;
+			val_len = php_url_decode(val, (p - val));
 			php_register_variable_safe(var, val, val_len, array_ptr TSRMLS_CC);
 		}
-		var = php_strtok_r(NULL, "&", &strtok_buf);
+		s = p + 1;
+	}
+	if (s < e) {
+		p = e;
+		goto last_value;
 	}
 }
 

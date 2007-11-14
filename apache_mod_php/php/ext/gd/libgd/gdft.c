@@ -196,6 +196,16 @@ tweencolorkey_t;
 #include "jisx0208.h"
 #endif
 
+extern int any2eucjp (char *, char *, unsigned int);
+
+/* Persistent font cache until explicitly cleared */
+/* Fonts can be used across multiple images */
+
+/* 2.0.16: thread safety (the font cache is shared) */
+gdMutexDeclare(gdFontCacheMutex);
+static gdCache_head_t *fontCache = NULL;
+static FT_Library library;
+
 #define Tcl_UniChar int
 #define TCL_UTF_MAX 3
 static int
@@ -740,9 +750,10 @@ gdft_draw_bitmap (gdCache_head_t *tc_cache, gdImage * im, int fg, FT_Bitmap bitm
 		  /* find antialised color */
 	
 		  tc_key.bgcolor = *pixel;
-		  tc_elem = (tweencolor_t *) gdCacheGet (
-							  tc_cache, &tc_key);
+		  gdMutexLock(gdFontCacheMutex);
+		  tc_elem = (tweencolor_t *) gdCacheGet (tc_cache, &tc_key);
 		  *pixel = tc_elem->tweencolor;
+		  gdMutexUnlock(gdFontCacheMutex);
 		}
 	    }
 	}
@@ -758,23 +769,15 @@ gdroundupdown (FT_F26Dot6 v1, int updown)
     : (v1 > 0 ? ((v1 + 63) >> 6) : v1 >> 6);
 }
 
-extern int any2eucjp (char *, char *, unsigned int);
-
-/* Persistent font cache until explicitly cleared */
-/* Fonts can be used across multiple images */
- 
-/* 2.0.16: thread safety (the font cache is shared) */
-gdMutexDeclare(gdFontCacheMutex);
-static gdCache_head_t *fontCache = NULL;
-static FT_Library library;
-
 void gdFontCacheShutdown()
 {
 	if (fontCache) {
- 		gdMutexShutdown(gdFontCacheMutex);
- 		gdCacheDelete(fontCache);
+		gdMutexLock(gdFontCacheMutex);
+		gdCacheDelete(fontCache);
 		fontCache = NULL;
- 		FT_Done_FreeType(library);
+		gdMutexUnlock(gdFontCacheMutex);
+		gdMutexShutdown(gdFontCacheMutex);
+		FT_Done_FreeType(library);
 	}
 }
 
@@ -1035,7 +1038,7 @@ gdImageStringFTEx (gdImage * im, int *brect, int fg, char *fontlist, double ptsi
 					} else {
 						ch = c & 0xFF;	/* don't extend sign */
 					}
-					next++;
+					if (*next) next++;
 				}
 				break;
 			case gdFTEX_Big5: {

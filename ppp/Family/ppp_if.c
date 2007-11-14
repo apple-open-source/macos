@@ -846,6 +846,9 @@ errno_t ppp_if_output(ifnet_t ifp, mbuf_t m)
 	
 	lck_mtx_lock(ppp_domain_mutex);
 	    
+	// clear any flag that can confuse the underlying driver
+	mbuf_setflags(m, mbuf_flags(m) & ~(M_BCAST + M_MCAST));
+
     proto = ntohs(*(u_int16_t*)mbuf_data(m));
     switch (proto) {
         case PPP_IP:

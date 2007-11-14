@@ -22,187 +22,107 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _BINDINGS_OBJC_RUNTIME_H_
-#define _BINDINGS_OBJC_RUNTIME_H_
+
+#ifndef KJS_BINDINGS_OBJC_RUNTIME_H
+#define KJS_BINDINGS_OBJC_RUNTIME_H
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <JavaScriptCore/objc_header.h>
+#include <JavaScriptCore/object.h>
+#include <JavaScriptCore/runtime.h>
 
-#include <runtime.h>
-#include <ustring.h>
+#include <wtf/RetainPtr.h>
 
-#include <objc_header.h>
-#include "shared_ptr.h"
+namespace KJS {
+namespace Bindings {
 
-namespace KJS
-{
-class Value;
-
-namespace Bindings
-{
+extern ClassStructPtr webScriptObjectClass();
+extern ClassStructPtr webUndefinedClass();
 
 class ObjcInstance;
 
 class ObjcField : public Field
 {
 public:
-    ObjcField(Ivar ivar);
-
+    ObjcField(IvarStructPtr ivar);
     ObjcField(CFStringRef name);
     
-    ~ObjcField() {
-        if (_name)
-            CFRelease (_name);
-    };
-
-    ObjcField(const ObjcField &other) : Field() {
-        _ivar = other._ivar;
-
-        if (other._name != _name) {
-            if (_name)
-                CFRelease (_name);
-            if (other._name)
-                _name = (CFStringRef)CFRetain (other._name);
-            else 
-                _name = 0;
-        }
-    };
-    
-    ObjcField &operator=(const ObjcField &other) {
-        if (this == &other)
-            return *this;
-
-        _ivar = other._ivar;
-        
-        if (other._name != _name) {
-            if (_name)
-                CFRelease (_name);
-            if (other._name)
-                _name = (CFStringRef)CFRetain (other._name);
-            else 
-                _name = 0;
-        }
-        
-        return *this;
-    };
-        
-    virtual KJS::Value valueFromInstance(KJS::ExecState *exec, const Instance *instance) const;
-    virtual void setValueToInstance(KJS::ExecState *exec, const Instance *instance, const KJS::Value &aValue) const;
+    virtual JSValue *valueFromInstance(ExecState *exec, const Instance *instance) const;
+    virtual void setValueToInstance(ExecState *exec, const Instance *instance, JSValue *aValue) const;
     
     virtual const char *name() const;
-    virtual RuntimeType type() const;
         
 private:
-    Ivar _ivar;
-    CFStringRef _name;
+    IvarStructPtr _ivar;
+    RetainPtr<CFStringRef> _name;
 };
-
 
 class ObjcMethod : public Method
 {
 public:
-    ObjcMethod() : Method(), _objcClass(0), _selector(0) {};
-
-    ObjcMethod(struct objc_class *aClass, const char *_selector);
-    ~ObjcMethod () {
-        if (_javaScriptName);
-            CFRelease (_javaScriptName);
-    };
-
-    ObjcMethod(const ObjcMethod &other) : Method() {
-        _objcClass = other._objcClass;
-        _selector = other._selector;
-    };
-    
-    ObjcMethod &operator=(const ObjcMethod &other) {
-        if (this == &other)
-            return *this;
-
-        _objcClass = other._objcClass;
-        _selector = other._selector;
-        
-        return *this;
-    }
+    ObjcMethod() : _objcClass(0), _selector(0), _javaScriptName(0) {}
+    ObjcMethod(ClassStructPtr aClass, const char *_selector);
 
     virtual const char *name() const;
 
-    virtual long numParameters() const;
-    
+    virtual int numParameters() const;
+
     NSMethodSignature *getMethodSignature() const;
     
     bool isFallbackMethod() const { return strcmp(_selector, "invokeUndefinedMethodFromWebScript:withArguments:") == 0; }
-    void setJavaScriptName (CFStringRef n);
-    CFStringRef javaScriptName() const { return _javaScriptName; }
+    void setJavaScriptName(CFStringRef n) { _javaScriptName = n; }
+    CFStringRef javaScriptName() const { return _javaScriptName.get(); }
     
 private:
-    struct objc_class *_objcClass;
+    ClassStructPtr _objcClass;
     const char *_selector;
-    CFStringRef _javaScriptName;
+    RetainPtr<CFStringRef> _javaScriptName;
 };
 
 class ObjcArray : public Array
 {
 public:
-    ObjcArray (ObjectStructPtr a);
+    ObjcArray(ObjectStructPtr, PassRefPtr<RootObject>);
 
-    ObjcArray (const ObjcArray &other);
-
-    ObjcArray &operator=(const ObjcArray &other);
-    
-    virtual void setValueAt(KJS::ExecState *exec, unsigned int index, const KJS::Value &aValue) const;
-    virtual KJS::Value valueAt(KJS::ExecState *exec, unsigned int index) const;
+    virtual void setValueAt(ExecState *exec, unsigned int index, JSValue *aValue) const;
+    virtual JSValue *valueAt(ExecState *exec, unsigned int index) const;
     virtual unsigned int getLength() const;
     
-    virtual ~ObjcArray();
+    ObjectStructPtr getObjcArray() const { return _array.get(); }
 
-    ObjectStructPtr getObjcArray() const { return _array; }
-
-    static KJS::Value convertObjcArrayToArray (KJS::ExecState *exec, ObjectStructPtr anObject);
+    static JSValue *convertObjcArrayToArray(ExecState *exec, ObjectStructPtr anObject);
 
 private:
-    ObjectStructPtr _array;
+    RetainPtr<ObjectStructPtr> _array;
 };
 
-class ObjcFallbackObjectImp : public KJS::ObjectImp {
+class ObjcFallbackObjectImp : public JSObject {
 public:
-    ObjcFallbackObjectImp(ObjcInstance *i, const KJS::Identifier propertyName);
+    ObjcFallbackObjectImp(ObjcInstance *i, const Identifier propertyName);
 
     const ClassInfo *classInfo() const { return &info; }
 
-    virtual Value get(ExecState *exec, const Identifier &propertyName) const;
-
-    virtual void put(ExecState *exec, const Identifier &propertyName,
-                     const Value &value, int attr = None);
-
+    virtual bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
     virtual bool canPut(ExecState *exec, const Identifier &propertyName) const;
-
+    virtual void put(ExecState *exec, const Identifier &propertyName, JSValue *value, int attr = None);
     virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
+    virtual bool deleteProperty(ExecState *exec, const Identifier &propertyName);
+    virtual JSValue *defaultValue(ExecState *exec, JSType hint) const;
 
-    virtual bool hasOwnProperty(ExecState *exec,
-			     const Identifier &propertyName) const;
-
-
-    virtual bool deleteProperty(ExecState *exec,
-                                const Identifier &propertyName);
-
-    virtual Value defaultValue(ExecState *exec, Type hint) const;
-
-    virtual Type type() const;
+    virtual JSType type() const;
     virtual bool toBoolean(ExecState *exec) const;
 
 private:
     ObjcFallbackObjectImp(); // prevent default construction
-    ObjcFallbackObjectImp(const ObjcFallbackObjectImp& other); // prevent copying
-    ObjcFallbackObjectImp& operator=(const ObjcFallbackObjectImp& other); // ditto
     
     static const ClassInfo info;
 
-    SharedPtr<ObjcInstance> _instance;
-    KJS::Identifier _item;
+    RefPtr<ObjcInstance> _instance;
+    Identifier _item;
 };
 
 } // namespace Bindings
-
 } // namespace KJS
 
 #endif

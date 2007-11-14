@@ -22,55 +22,65 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#include <identifier.h>
-#include <interpreter.h>
-#include <runtime.h>
-#include <runtime_array.h>
+
+#include "config.h"
+#include "runtime_array.h"
 
 using namespace KJS;
 
-const ClassInfo RuntimeArrayImp::info = {"RuntimeArray", &ArrayInstanceImp::info, 0, 0};
+const ClassInfo RuntimeArray::info = {"RuntimeArray", &ArrayInstance::info, 0, 0};
 
-RuntimeArrayImp::RuntimeArrayImp(ExecState *exec, Bindings::Array *a) : ArrayInstanceImp (exec->lexicalInterpreter()->builtinArrayPrototype().imp(), a->getLength())
+RuntimeArray::RuntimeArray(ExecState *exec, Bindings::Array *a)
+    : JSObject(exec->lexicalInterpreter()->builtinArrayPrototype())
+    , _array(a)
 {
-    // Always takes ownership of concrete array.
-    _array = a;
 }
 
-RuntimeArrayImp::~RuntimeArrayImp()
+JSValue *RuntimeArray::lengthGetter(ExecState*, JSObject*, const Identifier&, const PropertySlot& slot)
 {
-    delete _array;
+    RuntimeArray *thisObj = static_cast<RuntimeArray *>(slot.slotBase());
+    return jsNumber(thisObj->getLength());
 }
 
-
-Value RuntimeArrayImp::get(ExecState *exec, const Identifier &propertyName) const
+JSValue *RuntimeArray::indexGetter(ExecState* exec, JSObject*, const Identifier&, const PropertySlot& slot)
 {
-    if (propertyName == lengthPropertyName)
-        return Number(getLength());
+    RuntimeArray *thisObj = static_cast<RuntimeArray *>(slot.slotBase());
+    return thisObj->getConcreteArray()->valueAt(exec, slot.index());
+}
+
+bool RuntimeArray::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+{
+    if (propertyName == exec->propertyNames().length) {
+        slot.setCustom(this, lengthGetter);
+        return true;
+    }
     
     bool ok;
     unsigned index = propertyName.toArrayIndex(&ok);
     if (ok) {
-        if (index >= getLength())
-            return Undefined();
-        return getConcreteArray()->valueAt(exec, index);
+        if (index < getLength()) {
+            slot.setCustomIndex(this, index, indexGetter);
+            return true;
+        }
     }
     
-    return ObjectImp::get(exec, propertyName);
+    return JSObject::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-Value RuntimeArrayImp::get(ExecState *exec, unsigned index) const
+bool RuntimeArray::getOwnPropertySlot(ExecState *exec, unsigned index, PropertySlot& slot)
 {
-    if (index >= getLength())
-        return Undefined();
-    return getConcreteArray()->valueAt(exec, index);
+    if (index < getLength()) {
+        slot.setCustomIndex(this, index, indexGetter);
+        return true;
+    }
+    
+    return JSObject::getOwnPropertySlot(exec, index, slot);
 }
 
-void RuntimeArrayImp::put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr)
+void RuntimeArray::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
 {
-    if (propertyName == lengthPropertyName) {
-        Object err = Error::create(exec,RangeError);
-        exec->setException(err);
+    if (propertyName == exec->propertyNames().length) {
+        throwError(exec, RangeError);
         return;
     }
     
@@ -81,50 +91,25 @@ void RuntimeArrayImp::put(ExecState *exec, const Identifier &propertyName, const
         return;
     }
     
-    ObjectImp::put(exec, propertyName, value, attr);
+    JSObject::put(exec, propertyName, value, attr);
 }
 
-void RuntimeArrayImp::put(ExecState *exec, unsigned index, const Value &value, int attr)
+void RuntimeArray::put(ExecState* exec, unsigned index, JSValue* value, int)
 {
     if (index >= getLength()) {
-        Object err = Error::create(exec,RangeError);
-        exec->setException(err);
+        throwError(exec, RangeError);
         return;
     }
     
     getConcreteArray()->setValueAt(exec, index, value);
 }
 
-
-bool RuntimeArrayImp::hasOwnProperty(ExecState *exec, const Identifier &propertyName) const
-{
-    if (propertyName == lengthPropertyName)
-        return true;
-    
-    bool ok;
-    unsigned index = propertyName.toArrayIndex(&ok);
-    if (ok) {
-        if (index >= getLength())
-            return false;
-        return true;
-    }
-    
-    return ObjectImp::hasOwnProperty(exec, propertyName);
-}
-
-bool RuntimeArrayImp::hasOwnProperty(ExecState *exec, unsigned index) const
-{
-    if (index >= getLength())
-        return false;
-    return true;
-}
-
-bool RuntimeArrayImp::deleteProperty(ExecState *exec, const Identifier &propertyName)
+bool RuntimeArray::deleteProperty(ExecState*, const Identifier&)
 {
     return false;
 }
 
-bool RuntimeArrayImp::deleteProperty(ExecState *exec, unsigned index)
+bool RuntimeArray::deleteProperty(ExecState*, unsigned)
 {
     return false;
 }

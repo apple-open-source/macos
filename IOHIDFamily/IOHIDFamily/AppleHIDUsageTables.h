@@ -33,11 +33,35 @@
 /* Usage Pages */
 enum
 {
-	kHIDPage_AppleVendor	= 0xff
+    kHIDPage_AppleVendor                        = 0xff00,
+    kHIDPage_AppleVendorKeyboard                = 0xff01,
+	kHIDPage_AppleVendorTopCase                 = 0x00ff
 };
 
 
-/* AppleVendor Page (0xff) */
+/* AppleVendor Page (0xff00) */
+enum
+{
+    kHIDUsage_AppleVendor_TopCase               = 0x0001, /* Application Collection */
+    kHIDUsage_AppleVendor_Keyboard              = 0x0006  /* Application Collection */
+};
+
+
+/* AppleVendor Keyboard Page (0xff01) */
+enum
+{
+    kHIDUsage_AppleVendorKeyboard_Spotlight         = 0x01,
+    kHIDUsage_AppleVendorKeyboard_Dashboard         = 0x02,
+    kHIDUsage_AppleVendorKeyboard_Function          = 0x03,
+    kHIDUsage_AppleVendorKeyboard_Reserved          = 0x0a,
+    kHIDUsage_AppleVendorKeyboard_Expose_All        = 0x10,
+    kHIDUsage_AppleVendorKeyboard_Expose_Desktop    = 0x11,
+    kHIDUsage_AppleVendorKeyboard_Brightness_Up     = 0x20,
+    kHIDUsage_AppleVendorKeyboard_Brightness_Down   = 0x21,
+};
+
+
+/* AppleVendor Page Top Case (0x00ff) */
 enum
 {
     kHIDUsage_AppleVendor_KeyboardFn            = 0x03,

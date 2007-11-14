@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.244.2.40.2.3 2006/01/01 13:46:56 sniper Exp $ */
+/* $Id: pgsql.c,v 1.244.2.40.2.7 2007/01/11 16:47:32 tony2001 Exp $ */
 
 #include <stdlib.h>
 
@@ -216,7 +216,7 @@ ZEND_GET_MODULE(pgsql)
 
 static int le_link, le_plink, le_result, le_lofp, le_string;
 
-ZEND_DECLARE_MODULE_GLOBALS(pgsql);
+ZEND_DECLARE_MODULE_GLOBALS(pgsql)
 
 /* {{{ _php_pgsql_trim_message */
 static char * _php_pgsql_trim_message(const char *message, int *len)
@@ -2658,10 +2658,11 @@ PHP_FUNCTION(pg_copy_from)
 				zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(pg_rows), &pos);
 				while (zend_hash_get_current_data_ex(Z_ARRVAL_P(pg_rows), (void **) &tmp, &pos) == SUCCESS) {
 					convert_to_string_ex(tmp);
-					query = (char *)emalloc(Z_STRLEN_PP(tmp) +2);
-					strcpy(query, Z_STRVAL_PP(tmp));
-					if(*(query+Z_STRLEN_PP(tmp)-1) != '\n')
-						strcat(query, "\n");
+					query = (char *)emalloc(Z_STRLEN_PP(tmp) + 2);
+					strlcpy(query, Z_STRVAL_PP(tmp), Z_STRLEN_PP(tmp) + 2);
+					if(Z_STRLEN_PP(tmp) > 0 && *(query + Z_STRLEN_PP(tmp) - 1) != '\n') {
+						strlcat(query, "\n", Z_STRLEN_PP(tmp) + 2);
+					}
 					if (PQputline(pgsql, query)) {
 						efree(query);
 						PHP_PQ_ERROR("copy failed: %s", pgsql);
@@ -3772,14 +3773,14 @@ PHPAPI int php_pgsql_convert(PGconn *pg_link, const char *table_name, const zval
 				switch(Z_TYPE_PP(val)) {
 					case IS_STRING:
 						if (Z_STRLEN_PP(val) == 0) {
-							ZVAL_STRING(new_val, "NULL", 1);
-						}
-						else {
+							ZVAL_STRINGL(new_val, "NULL", sizeof("NULL")-1, 1);
+						} else if (!strcasecmp(Z_STRVAL_PP(val), "now()")) {
+							ZVAL_STRINGL(new_val, "NOW()", sizeof("NOW()")-1, 1);
+						} else {
 							/* FIXME: better regex must be used */
 							if (php_pgsql_convert_match(Z_STRVAL_PP(val), "^([0-9]{4}[/-][0-9]{1,2}[/-][0-9]{1,2})([ \\t]+(([0-9]{1,2}:[0-9]{1,2}){1}(:[0-9]{1,2}){0,1}(\\.[0-9]+){0,1}([ \\t]*([+-][0-9]{1,2}(:[0-9]{1,2}){0,1}|[a-zA-Z]{1,5})){0,1})){0,1}$", 1 TSRMLS_CC) == FAILURE) {
 								err = 1;
-							}
-							else {
+							} else {
 								ZVAL_STRING(new_val, Z_STRVAL_PP(val), 1);
 								php_pgsql_add_quotes(new_val, 1 TSRMLS_CC);
 							}
@@ -3787,7 +3788,7 @@ PHPAPI int php_pgsql_convert(PGconn *pg_link, const char *table_name, const zval
 						break;
 				
 					case IS_NULL:
-						ZVAL_STRING(new_val, "NULL", 1);
+						ZVAL_STRINGL(new_val, "NULL", sizeof("NULL")-1, 1);
 						break;
 
 					default:
@@ -4285,7 +4286,7 @@ static inline int build_assignment_string(smart_str *querystr, HashTable *ht, co
 				smart_str_append_long(querystr, Z_LVAL_PP(val));
 				break;
 			case IS_DOUBLE:
-				smart_str_appendl(querystr, buf, sprintf(buf, "%f", Z_DVAL_PP(val)));
+				smart_str_appendl(querystr, buf, MIN(snprintf(buf, sizeof(buf), "%f", Z_DVAL_PP(val)), sizeof(buf)-1));
 				break;
 			default:
 				/* should not happen */

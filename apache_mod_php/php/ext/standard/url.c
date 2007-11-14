@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: url.c,v 1.58.2.21.2.3 2006/02/12 16:43:03 iliaa Exp $ */
+/* $Id: url.c,v 1.58.2.21.2.6 2007/01/01 09:46:48 sebastian Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -202,9 +202,17 @@ PHPAPI php_url *php_url_parse_ex(char const *str, int length)
 	} else {
 		e = p;
 	}	
+
+	{
+		const char *t = s;
+		p = NULL;
+		while (e > t && (t = memchr(t, '@', (e-t)))) {
+			p = t++;
+		}
+	}
 		
 	/* check for login and password */
-	if ((p = memchr(s, '@', (e-s)))) {
+	if (p) {
 		if ((pp = memchr(s, ':', (p-s)))) {
 			if ((pp-s) > 0) {
 				ret->user = estrndup(s, (pp-s));

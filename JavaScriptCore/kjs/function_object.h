@@ -2,6 +2,7 @@
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
+ *  Copyright (C) 2006 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -15,14 +16,13 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
-#ifndef _FUNCTION_OBJECT_H_
-#define _FUNCTION_OBJECT_H_
+#ifndef FUNCTION_OBJECT_H_
+#define FUNCTION_OBJECT_H_
 
-#include "internal.h"
 #include "object_object.h"
 #include "function.h"
 
@@ -31,31 +31,14 @@ namespace KJS {
   /**
    * @internal
    *
-   * The initial value of Function.prototype (and thus all objects created
-   * with the Function constructor
-   */
-  class FunctionPrototypeImp : public InternalFunctionImp {
-  public:
-    FunctionPrototypeImp(ExecState *exec);
-    virtual ~FunctionPrototypeImp();
-
-    virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
-  };
-
-  /**
-   * @internal
-   *
    * Class to implement all methods that are properties of the
    * Function.prototype object
    */
-  class FunctionProtoFuncImp : public InternalFunctionImp {
+  class FunctionProtoFunc : public InternalFunctionImp {
   public:
-    FunctionProtoFuncImp(ExecState *exec,
-                        FunctionPrototypeImp *funcProto, int i, int len);
+    FunctionProtoFunc(ExecState*, FunctionPrototype*, int i, int len, const Identifier&);
 
-    virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
 
     enum { ToString, Apply, Call };
   private:
@@ -69,16 +52,15 @@ namespace KJS {
    */
   class FunctionObjectImp : public InternalFunctionImp {
   public:
-    FunctionObjectImp(ExecState *exec, FunctionPrototypeImp *funcProto);
+    FunctionObjectImp(ExecState*, FunctionPrototype*);
     virtual ~FunctionObjectImp();
 
     virtual bool implementsConstruct() const;
-    virtual Object construct(ExecState *exec, const List &args, const UString &sourceURL, int lineNumber);
-    virtual Object construct(ExecState *exec, const List &args);
-    virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    virtual JSObject* construct(ExecState*, const List& args);
+    virtual JSObject* construct(ExecState*, const List& args, const Identifier& functionName, const UString& sourceURL, int lineNumber);
+    virtual JSValue* callAsFunction(ExecState*, JSObject* thisObj, const List& args);
   };
 
-}; // namespace
+} // namespace
 
 #endif // _FUNCTION_OBJECT_H_

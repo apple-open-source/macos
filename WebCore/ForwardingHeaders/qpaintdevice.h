@@ -1,1 +1,0 @@
-#import "KWQPaintDevice.h"

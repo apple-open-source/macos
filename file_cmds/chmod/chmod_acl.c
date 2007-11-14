@@ -37,6 +37,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #include <membership.h>
 #include "chmod_acl.h"
@@ -694,6 +696,23 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 
 	if (path == NULL)
 		usage();
+
+	if (optflags & ACL_CLEAR_FLAG) {
+		filesec_t fsec = filesec_init();
+		if (fsec == NULL)
+			err(1, "filesec_init() failed");
+		if (filesec_set_property(fsec, FILESEC_ACL,
+					 _FILESEC_REMOVE_ACL) != 0)
+			err(1, "filesec_set_property() failed");
+		if (chmodx_np(path, fsec) != 0) {
+			if (!fflag)
+				warn("Failed to clear ACL on file %s", path);
+			retval = 1;
+		} else
+			retval = 0;
+		filesec_free(fsec);
+		return (retval);
+	}
 
 	if (optflags & ACL_FROM_STDIN)
 		oacl = acl_dup(modifier);

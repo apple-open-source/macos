@@ -1,9 +1,9 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT
-AC_CONFIG_SRCDIR([src/basename.c])
-AM_INIT_AUTOMAKE(cscope, 15.5)
-AM_CONFIG_HEADER(config.h:config.h.in)
-AC_PREREQ(2.57)
+AC_INIT(cscope, 15.6)
+AC_CONFIG_SRCDIR([src/crossref.c])
+AM_INIT_AUTOMAKE([1.9])
+AC_CONFIG_HEADERS([config.h:config.h.in])
+AC_PREREQ(2.59)
 AC_CANONICAL_HOST
 
 dnl User specification of lexer
@@ -15,7 +15,7 @@ dnl Checks for programs.
 AC_PROG_INSTALL
 AC_PROG_CC
 AC_EXEEXT
-AC_PROG_LEX
+AM_PROG_LEX
 AM_CONDITIONAL(USING_LEX, test "x$LEX" = "xlex")
 if test "x$LEX" = "xlex" ; then AC_DEFINE(USING_LEX, 1, 
    [Define this if the scanner is run through lex, not flex])
@@ -111,7 +111,7 @@ dnl /*=== End new stuff for acconfig.h ===*/
 dnl 
 
 
-AC_DEFUN(AC_CHECK_CURSES,[
+AC_DEFUN([AC_CHECK_CURSES],[
 	search_ncurses=true
 	screen_manager=""
 	has_curses=false
@@ -175,7 +175,7 @@ AC_DEFUN(AC_CHECK_CURSES,[
 ])
 
 
-AC_DEFUN(AC_USE_SUNOS_CURSES, [
+AC_DEFUN([AC_USE_SUNOS_CURSES], [
 	search_ncurses=false
 	screen_manager="SunOS 4.x /usr/5include curses"
 	AC_MSG_RESULT(Using SunOS 4.x /usr/5include curses)
@@ -189,7 +189,7 @@ AC_DEFUN(AC_USE_SUNOS_CURSES, [
 	AC_MSG_RESULT(Please note that some screen refreshs may fail)
 ])
 
-AC_DEFUN(AC_USE_OSF1_CURSES, [
+AC_DEFUN([AC_USE_OSF1_CURSES], [
        AC_MSG_RESULT(Using OSF1 curses)
        search_ncurses=false
        screen_manager="OSF1 curses"
@@ -200,7 +200,7 @@ AC_DEFUN(AC_USE_OSF1_CURSES, [
        CURSES_LIBS="-lcurses"
 ])
 
-AC_DEFUN(AC_USE_SYSV_CURSES, [
+AC_DEFUN([AC_USE_SYSV_CURSES], [
 	AC_MSG_RESULT(Using SysV curses)
 	AC_DEFINE(HAS_CURSES)
 	has_curses=true
@@ -235,7 +235,7 @@ dnl)
 dnl
 dnl Parameters: directory filename cureses_LIBS curses_INCLUDEDIR nicename
 dnl
-AC_DEFUN(AC_NCURSES, [
+AC_DEFUN([AC_NCURSES], [
     if $search_ncurses
     then
         if test -f $1/$2
@@ -252,7 +252,7 @@ AC_DEFUN(AC_NCURSES, [
     fi
 ])
 
-AC_DEFUN(AC_SEARCH_NCURSES, [
+AC_DEFUN([AC_SEARCH_NCURSES], [
     AS_MESSAGE(checking "location of ncurses.h file"...)
 
     AC_NCURSES(/usr/include, ncurses.h, -lncurses,, "ncurses on /usr/include")
@@ -359,7 +359,7 @@ AC_CHECK_LIB(regex, regcomp)
 
 dnl Check for a GNOME installation
 
-AC_DEFUN(AC_CHECK_GNOME,[
+AC_DEFUN([AC_CHECK_GNOME],[
 	has_gnome=false
 	AC_CHECK_PROG(gnome1, gnome-config, true)	
 	AC_CHECK_PROG(gnome2, pkg-config, true)
@@ -381,13 +381,22 @@ AC_CHECK_GNOME
 dnl Checks for header files.
 AC_HEADER_DIRENT
 AC_HEADER_STDC
-AC_CHECK_HEADERS(fcntl.h sys/window.h sys/termios.h unistd.h)
+AC_CHECK_HEADERS(fcntl.h sys/window.h sys/termios.h unistd.h signal.h floss.h io.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_MODE_T
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
+AC_CHECK_TYPE(sighandler_t,[],[],[
+#ifdef HAVE_SIGNAL_H
+# include <signal.h>
+#endif])
+dnl This test was ripped from gnuplot's configure.in:
+AC_MSG_CHECKING(for sigsetjmp)
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <setjmp.h>]], [[jmp_buf env; sigsetjmp(env, 1);]])],[AC_MSG_RESULT(yes)
+   AC_DEFINE(HAVE_SIGSETJMP,1,
+             [ Define if we have sigsetjmp(). ])],[AC_MSG_RESULT(no)])
 
 dnl Checks for library functions.
 AC_TYPE_SIGNAL

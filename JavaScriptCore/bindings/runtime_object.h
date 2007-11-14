@@ -22,53 +22,50 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _RUNTIME_OBJECT_H_
-#define _RUNTIME_OBJECT_H_
 
-#include <JavaScriptCore/runtime.h>
-#include <JavaScriptCore/object.h>
-#include <JavaScriptCore/protect.h>
-#include "shared_ptr.h"
+#ifndef KJS_RUNTIME_OBJECT_H
+#define KJS_RUNTIME_OBJECT_H
+
+#include "runtime.h"
+#include "object.h"
+
+#include <wtf/Noncopyable.h>
 
 namespace KJS {
 
-class RuntimeObjectImp : public ObjectImp {
+class RuntimeObjectImp : public JSObject {
 public:
     RuntimeObjectImp(Bindings::Instance *i);
-
+    virtual ~RuntimeObjectImp();
+    
     const ClassInfo *classInfo() const { return &info; }
 
-    virtual Value get(ExecState *exec, const Identifier &propertyName) const;
-
-    virtual void put(ExecState *exec, const Identifier &propertyName,
-                     const Value &value, int attr = None);
-
+    virtual bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
     virtual bool canPut(ExecState *exec, const Identifier &propertyName) const;
-
-    virtual bool hasOwnProperty(ExecState *exec,
-			     const Identifier &propertyName) const;
-
-
-    virtual bool deleteProperty(ExecState *exec,
-                                const Identifier &propertyName);
-
-    virtual Value defaultValue(ExecState *exec, Type hint) const;
-
-    Bindings::Instance *getInternalInstance() const { return instance.get(); }
-
+    virtual void put(ExecState *exec, const Identifier &propertyName, JSValue *value, int attr = None);
+    virtual bool deleteProperty(ExecState *exec, const Identifier &propertyName);
+    virtual JSValue *defaultValue(ExecState *exec, JSType hint) const;
     virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
+    virtual void getPropertyNames(ExecState*, PropertyNameArray&);
+
+    void invalidate();
+    Bindings::Instance *getInternalInstance() const { return instance.get(); }
+    
+    static JSObject* throwInvalidAccessError(ExecState*);
     
     static const ClassInfo info;
 
 private:
     RuntimeObjectImp(); // prevent default construction
-    RuntimeObjectImp(const RuntimeObjectImp& other); // prevent copying
-    RuntimeObjectImp& operator=(const RuntimeObjectImp& other); // ditto
     
-    SharedPtr<Bindings::Instance> instance;
+    static JSValue *fallbackObjectGetter(ExecState *, JSObject *, const Identifier&, const PropertySlot&);
+    static JSValue *fieldGetter(ExecState *, JSObject *, const Identifier&, const PropertySlot&);
+    static JSValue *methodGetter(ExecState *, JSObject *, const Identifier&, const PropertySlot&);
+
+    RefPtr<Bindings::Instance> instance;
 };
     
-}; // namespace
+} // namespace
 
 #endif

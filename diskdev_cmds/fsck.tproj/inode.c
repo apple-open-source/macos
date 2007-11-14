@@ -376,6 +376,9 @@ cacheino(dp, inumber)
 	memmove(&inp->i_blks[0], &dp->di_db[0], (size_t)inp->i_numblks);
 	if (inplast == listmax) {
 		listmax += 100;
+		if ((size_t)listmax > SIZE_T_MAX / sizeof(struct inoinfo *)) 
+			errx(EEXIT, "integer overflow detected reallocating directory list");
+
 		inpsort = (struct inoinfo **)realloc((char *)inpsort,
 		    (unsigned)listmax * sizeof(struct inoinfo *));
 		if (inpsort == NULL)

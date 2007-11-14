@@ -181,6 +181,9 @@
 /* Whether we have CUPS */
 #undef HAVE_CUPS
 
+/* Whether to use the Darwin-specific initgroups system call */
+#undef HAVE_DARWIN_INITGROUPS
+
 /* Define to 1 if you have the `des_set_key' function. */
 #undef HAVE_DES_SET_KEY
 
@@ -1694,16 +1697,16 @@
 /* The size of the 'ino_t' type */
 #undef SIZEOF_INO_T
 
-/* The size of a `int', as computed by sizeof. */
+/* The size of `int', as computed by sizeof. */
 #undef SIZEOF_INT
 
-/* The size of a `long', as computed by sizeof. */
+/* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
 /* The size of the 'off_t' type */
 #undef SIZEOF_OFF_T
 
-/* The size of a `short', as computed by sizeof. */
+/* The size of `short', as computed by sizeof. */
 #undef SIZEOF_SHORT
 
 /* Whether the solaris sendfile() API is available */
@@ -1808,9 +1811,6 @@
 
 /* Whether to use profiling */
 #undef WITH_PROFILE
-
-/* Whether PTHREAD_API is available */
-#undef WITH_PTHREAD_NP
 
 /* Whether to use disk quota support */
 #undef WITH_QUOTAS
@@ -1935,7 +1935,7 @@
 /* Define to `int' if <sys/types.h> does not define. */
 #undef mode_t
 
-/* Define to `long' if <sys/types.h> does not define. */
+/* Define to `long int' if <sys/types.h> does not define. */
 #undef off_t
 
 /* Define to `loff_t' if <sys/types.h> does not define. */
@@ -1995,7 +1995,7 @@
 /* Whether to build rpc_wks as shared module */
 #undef rpc_wks_init
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
+/* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t
 
 /* Define to `int' if <sys/types.h> does not define. */

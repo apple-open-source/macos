@@ -20,7 +20,7 @@ this can be done via --enable-ebcdic. */
 before the definition of an exported function, define this macro to contain the
 relevant magic. It apears at the start of every exported function. */
 
-#define EXPORT
+#define PCRE_EXPORT
 
 /* Define to empty if the "const" keyword does not work. */
 
@@ -91,9 +91,11 @@ to get memory. For more detail, see comments and other stuff just above the
 match() function. On Unix systems, "configure" can be used to set this in the
 Makefile (use --disable-stack-for-recursion). */
 
-/* #define NO_RECURSE */
+#define NO_RECURSE
 
 /* End */
 
 #define SUPPORT_UCP 1
 #define SUPPORT_UTF8 1
+
+#define JAVASCRIPT 1

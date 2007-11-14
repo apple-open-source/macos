@@ -38,7 +38,7 @@
 #include "global.h"
 #include "lookup.h"
 
-static char const rcsid[] = "$Id: lookup.c,v 1.2 2004/07/09 21:34:45 nicolai Exp $";
+static char const rcsid[] = "$Id: lookup.c,v 1.4 2006/04/21 10:45:48 broeker Exp $";
 
 /* keyword text for fast testing of keywords in the scanner */
 char	enumtext[] = "enum";
@@ -106,15 +106,15 @@ static	struct	keystruct *hashtab[HASHMOD]; /* pointer table */
 void
 initsymtab(void)
 {
-	int	i, j;
-	struct	keystruct *p;
+    unsigned int i, j;
+    struct keystruct *p;
 	
-	for (i = 1; i < KEYWORDS; ++i) {
-		p = &keyword[i];
-		j = hash(p->text) % HASHMOD;
-		p->next = hashtab[j];
-		hashtab[j] = p;
-	}
+    for (i = 1; i < KEYWORDS; ++i) {
+	p = keyword + i;
+	j = hash(p->text) % HASHMOD;
+	p->next = hashtab[j];
+	hashtab[j] = p;
+    }
 }
 
 /* see if this identifier is a keyword */

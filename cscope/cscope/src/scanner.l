@@ -44,7 +44,7 @@
 
 #define	IFLEVELINC	5	/* #if nesting level size increment */
 
-static char const rcsid[] = "$Id: scanner.l,v 1.2 2004/07/09 21:34:45 nicolai Exp $";
+static char const rcsid[] = "$Id: scanner.l,v 1.7 2004/01/08 14:07:20 broeker Exp $";
 
 int	first;	/* buffer index for first char of symbol */
 int	last;	/* buffer index for last char of symbol */
@@ -103,10 +103,14 @@ int	comment(void);
 #endif
 
 %}
+
+ws		[ \t\r\v\f]
+wsnl		[ \t\r\v\f\n]
 identifier	[a-zA-Z_$][a-zA-Z_0-9$]*
 number		\.?[0-9][.0-9a-fA-FlLuUxX]*
+
 %start SDL
-%a 4000
+%a 12000
 %o 7000
 %%
 %\{		{	/* lex/yacc C declarations/definitions */
@@ -153,14 +157,14 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 				/* NOTREACHED */
 			}
 		}
-<SDL>STATE[ \t]+({identifier}|\*)	{ /* sdl state, treat as function def */
+<SDL>STATE{ws}+({identifier}|\*)	{ /* sdl state, treat as function def */
 			braces = 1;
 			fcndef = YES;
 			token = FCNDEF;
 			goto findident;
 			/* NOTREACHED */
 		}
-<SDL>ENDSTATE[ \t]	{ /* end of an sdl state, treat as end of a function */
+<SDL>ENDSTATE{ws}	{ /* end of an sdl state, treat as end of a function */
 			goto endstate;
 			/* NOTREACHED */
 		}
@@ -182,7 +186,7 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 			goto more;
 			/* NOTREACHED */
 		}
-\#[ \t]*endif/.*\n[ \t\n]*#[ \t]*if	{
+\#{ws}*endif/.*\n{wsnl}*#{ws}*if	{
 			/* attempt to correct erroneous brace count caused by:
 			 * 
 			 * #if ...
@@ -201,7 +205,7 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 			goto more;
 			/* NOTREACHED */
 		}
-\#[ \t]*ifn?(def)?	{ /* #if, #ifdef or #ifndef */
+\#{ws}*ifn?(def)?	{ /* #if, #ifdef or #ifndef */
 			elseelif = NO;
 			if (pseudoelif == YES) {
 				pseudoelif = NO;
@@ -220,7 +224,7 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 			goto more;
 			/* NOTREACHED */
 		}
-\#[ \t]*el(se|if)	{ /* #elif or #else */
+\#{ws}*el(se|if)	{ /* #elif or #else */
 			elseelif = YES;
 		elif:
 			if (iflevel > 0) {
@@ -235,7 +239,7 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 			goto more;
 			/* NOTREACHED */
 		}
-\#[ \t]*endif	{	/* #endif */
+\#{ws}*endif	{	/* #endif */
 		endif:
 			if (iflevel > 0) {
 				
@@ -334,7 +338,7 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 			goto more;
 			/* NOTREACHED */
 		}
-\#[ \t]*define[ \t]+{identifier}	{
+\#{ws}*define{ws}+{identifier}	{
 				
 			/* preprocessor macro or constant definition */
 			ppdefine = YES;
@@ -351,18 +355,18 @@ number		\.?[0-9][.0-9a-fA-FlLuUxX]*
 			goto fcn;
 			/* NOTREACHED */
 		}
-class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
+class{ws}+{identifier}({wsnl}|[a-zA-Z0-9_():])*\{	{	/* class definition */
 			classdef = YES;
 			tagdef =  'c';
 			REJECT;
 			/* NOTREACHED */
 		}
-(enum|struct|union)/([ \t\n]+{identifier})[ \t\n]*\{	{ /* enum/struct/union definition */
+(enum|struct|union)/({wsnl}+{identifier}){wsnl}*\{	{ /* enum/struct/union definition */
 			tagdef = *(yytext + first);
 			goto ident;
 			/* NOTREACHED */
 		}
-(enum|struct|union)/[ \t\n]*\{		{ /* tag-less e/s/u definition */
+(enum|struct|union)/{wsnl}*\{		{ /* tag-less e/s/u definition */
 			tagdef = yytext[first];
 			if (braces == 0) {
 				esudef = YES;
@@ -371,7 +375,7 @@ class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
 			tagdef = '\0';
 			goto more;
 		}  			
-{identifier}/[ \t]*\([ \t\na-zA-Z0-9_*&[\]=,.]*\)[ \t\n()]*[:a-zA-Z_#{]	{
+{identifier}/{ws}*\(({wsnl}|a-zA-Z0-9_*&[\]=,.])*\)({wsnl}|[()])*[:a-zA-Z_#{]	{
 			
 			/* warning: "if (...)" must not overflow yytext, so the content
 			   of function argument definitions is restricted, in particular
@@ -389,7 +393,7 @@ class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
 			goto fcncal;
 			/* NOTREACHED */
 		}
-{identifier}/[ \t]*\(	{ /* if a function call */
+{identifier}/{ws}*\(	{ /* if a function call */
 		fcncal:	if (fcndef == YES || ppdefine == YES || rules == YES) {
 				token = FCNCALL;
 				goto fcn;
@@ -402,7 +406,7 @@ class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
 			goto ident;
 			/* NOTREACHED */
 		}
-{identifier}/[* \t\n]+[a-zA-Z0-9_]	{	/* typedef name use */
+{identifier}/([*]|{wsnl})+[a-zA-Z0-9_]	{	/* typedef name use */
 			goto ident;
 			/* NOTREACHED */
 		}
@@ -564,9 +568,9 @@ class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
 			goto more;
 			/* NOTREACHED */
 		}
-^[ \t\f]+	{	/* don't save leading white space */
+^{ws}+		{	/* don't save leading white space */
 		}
-\#[ \t]*include[ \t]*["<][^"> \t\n]+	{ /* #include file */
+\#{ws}*include{ws}*["<][^"> \t\n]+	{ /* #include file */
 			char	*s;
 			
 			s = strpbrk(yytext, "\"<");
@@ -582,7 +586,7 @@ class[ \t]+{identifier}[ \t\na-zA-Z0-9_():]*\{	{	/* class definition */
 			return(INCLUDE);
 			/* NOTREACHED */
 		}
-\#[ \t]*{identifier}	|	/* preprocessor keyword */
+\#{ws}*{identifier}	|	/* preprocessor keyword */
 {number}	|	/* number */
 .		{	/* punctuation and operators */
 		more:	first = yyleng;

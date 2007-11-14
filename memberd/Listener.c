@@ -269,9 +269,18 @@ void* StartListening(void* dummy)
 
 kern_return_t Server_mbr_DoMembershipCall( mach_port_t server, kauth_identity_extlookup *request)
 {
+	// mig calls all use seqno as a byte order field, so check if we need to swap
+	int needsSwap = (request->el_seqno != 1) && (request->el_seqno == ntohl(1));
+	
+	if (needsSwap)
+		SwapRequest(request);
+
 	pthread_mutex_lock(&gProcessMutex);
 	ProcessLookup(request);
 	pthread_mutex_unlock(&gProcessMutex);
+
+	if (needsSwap)
+		SwapRequest(request);
 
 	return KERN_SUCCESS;
 }

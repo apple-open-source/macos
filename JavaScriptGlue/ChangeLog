@@ -1,10 +1,496 @@
-=== JavaScriptGlue-418 ===
+2007-10-11  Mark Rowe  <mrowe@apple.com>
 
-2006-04-25  Timothy Hatcher  <timothy@apple.com>
+        Reviewed by Tim Hatcher.
 
-        Merged fix from TOT to Safari-2-0-branch
+        Fix for <rdar://problem/5488678>.  Disable debugging symbols in production builds for 10.4
+        PowerPC to prevent a huge STABS section from being generated.
 
-    2006-03-31  Geoffrey Garen  <ggaren@apple.com>
+        * Configurations/Base.xcconfig:
+
+2007-10-04  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver.
+
+        Switch to default level of debugging symbols to resolve <rdar://problem/5488678>.
+        The "full" level appears to offer no observable benefits even though the documentation
+        suggests it be used for dead code stripping.  This should also decrease link times.
+
+        * Configurations/Base.xcconfig:
+
+2007-09-03  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        <rdar://problem/5452164> Production build with in symbols directory has no debug info
+
+        Enable debug symbol generation on all build configurations.  Production builds are stripped
+        of symbols by Xcode during deployment post-processing.
+
+        * Configurations/Base.xcconfig:
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2007-08-09  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Antti.
+
+        <rdar://problem/5400709> Versioning in debug and release builds should include minor and tiny version before +
+
+        * Configurations/Version.xcconfig:
+        * JavaScriptGlue.xcodeproj/project.pbxproj: Add a shell script phase to make to dependency between
+        Version.xcconfig and Info.plist explicit to Xcode.
+
+2007-07-16  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Oliver.
+
+        Turn off -Wshorten-64-to-32 warning for 64-bit builds.
+
+        * Configurations/Base.xcconfig:
+
+2007-04-27  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj: Improve dependencies in Xcode project
+        by marking JavaScriptGlue as a dependency of testjsglue.
+
+2007-03-24  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Dave Hyatt.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj: Use GCC 4.0 for testjsglue.
+
+2007-03-24  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Darin.
+
+        * Configurations/JavaScriptGlue.xcconfig: Remove unnecessary INFOPLIST_PREPROCESS.
+
+2007-03-19  Andrew Wellington  <proton@wiretapped.net>
+
+        Reviewed by Maciej.
+
+        Really set Xcode editor to use 4 space indentation (http://webkit.org/coding/coding-style.html)
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2007-03-18  Andrew Wellington  <proton@wiretapped.net>
+
+        Reviewed by Mark Rowe
+        
+        Set Xcode editor to use 4 space indentation (http://webkit.org/coding/coding-style.html)
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2007-03-17  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Made Version.xcconfig smarter when building for different configurations.
+        Now uses the 522+ OpenSource version for Debug and Release, while using the    
+        full 522.4 version for Production builds. The system prefix is also computed
+        based on the current system, so 4522.4 on Tiger and 5522.4 on Leopard.
+
+        * Configurations/JavaScriptGlue.xcconfig:
+        * Configurations/Version.xcconfig:
+
+2007-03-15  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by John.
+
+        * Factored out most of our common build settings into .xcconfig files. Anything that was common in
+          each build configuration was factored out into the shared .xcconfig file.
+        * Adds a Version.xcconfig file to define the current framework version, to be used in other places.
+        * Use the new $(BUNDLE_VERSION) (defined in Version.xcconfig) in the preprocessed Info.plist.
+        * Use the versions defined in Version.xcconfig to set $(DYLIB_CURRENT_VERSION).
+
+        * Configurations/Base.xcconfig: Added.
+        * Configurations/DebugRelease.xcconfig: Added.
+        * Configurations/JavaScriptGlue.xcconfig: Added.
+        * Configurations/Version.xcconfig: Added.
+        * Info.plist:
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+=== Safari-5522.4 ===
+
+2007-03-12  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+        
+        Updated in light of fix for <rdar://problem/4681051> Installer crashes 
+        in KJS::Collector::markOtherThreadConservatively(KJS::Collector::Thread*) 
+        trying to install iLife 06 using Rosetta on an Intel Machine
+        
+        * JavaScriptGlue.cpp:
+        (JSLockInterpreter): Ensure backwards compatibility by calling 
+        registerThread() when explicitly taking the JSLock. (This doesn't happen 
+        automatically anymore.) I doubt this actally matters, but in JavaScriptGlue
+        territory, that kind of thinking will get you killed.
+
+2007-03-06  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fixed all known crashers exposed by run-webkit-tests --threaded while using
+        a PAC file (for maximum carnage). See JavaScriptCore ChangeLog for 
+        more details.
+
+        * JSBase.cpp:
+        (JSBase::Release): Lock when deleting, because we may be deleting an object
+        (like a JSRun) that holds thread-unsafe data.
+
+        * JSUtils.cpp:
+        (CFStringToUString): Don't lock, because our caller locks. Also, locking
+        inside a function that returns thread-unsafe data by copy will only mask
+        threading problems.
+
+        * JavaScriptGlue.cpp:
+        (JSRunEvaluate): Added missing JSLock.
+        (JSRunCheckSyntax): Converted to JSLock.
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2007-02-22  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler.
+        
+        Fixed <rdar://problem/4942528> Installer.app Stuck "Examining additional 
+        volumes..."
+        
+        The problem was that JavaScriptGlue held a JSObject in a static pointer
+        without protecting it from garbage collection. 
+        
+            sUserObjectPrototypeImp  = new UserObjectPrototypeImp();
+            static ProtectedPtr<UserObjectPrototypeImp> protectPrototype; // valiant, brave, but useless
+
+        Through an interesting comedy of errors, this object would be collected 
+        and then assigned as the prototype of another object allocated at the 
+        same address, thus becoming its own prototype. (See http://www.ziplo.com/grandpa.htm
+        for further explanation of this phenomenon.) Hence the infinte loop in 
+        property lookup.
+        
+        The solution is equally humorous: all of this code was completely useless --
+        it only served to create an empty object in the prototype chain -- so
+        I just removed it.
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::UserObjectImp):
+        * UserObjectImp.h:
+
+2007-02-19  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Geoff.
+
+        <rdar://problem/4636301> Deprecate JavaScriptGlue
+
+        * JavaScriptGlue.h: adds DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER to everything
+        * JavaScriptGlue.xcodeproj/project.pbxproj: use -Wno-deprecated-declarations to keep the project building
+        * config.h: define DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER as empty on other systems
+
+2007-02-16  Darin Adler  <darin@apple.com>
+
+        Reviewed by Anders.
+
+        - fix <rdar://problem/5000216> JavaScriptGlue framework started turning all CFNumbers
+          into signed 32bit values
+
+        Circumstantial evidence seems to indicate that JavaScriptGlue was depending on a bug
+        in CFNumber where CFNumberIsFloatType was returning true for 64-bit integer values.
+
+        * JSUtils.cpp: (JSObjectKJSValue): Removed the call to CFNumberIsFloatType in the
+        conversion of numeric values, and always use kCFNumberDoubleType, since double is
+        the internal format of numbers in JavaScriptCore. There's no value to having a
+        separate code path for integers. There's also no reason to check the return value
+        from CFNumberGetValue -- if it returns false it still does the best it can to convert
+        to a double, which is what we want.
+
+        * UserObjectImp.cpp: (UserObjectImp::toString): Removed a similar code path that
+        tried to handle integers separate from double. Instead, always use a double. For
+        compatibility, use a format without a decimal point when CFNumberIsFloatType returns
+        false. Also removed a bogus cast to float; the "%f" format string takes a double,
+        not a float, so all the cast did was cut down on precision.
+
+2007-01-25  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Maciej.
+
+        * Info.plist: Update copyright string.
+
+2006-12-19  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Darin.
+
+        <rdar://problem/4891774> Local WebCore/WebBrowser builds fail in 9A328 due to warning about ObjC-2.0 language features
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+=== Safari-521.26 ===
+
+2006-08-15  Mark Rowe  <opendarwin.org@bdash.net.nz>
+
+        Reviewed by Tim H.
+
+        Build fix:  DWARF and -gfull are incompatible with symbol separation.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2006-08-15  Mark Rowe  <opendarwin.org@bdash.net.nz>
+
+        Reviewed by Tim H.
+
+        http://bugs.webkit.org/show_bug.cgi?id=10394
+        Bug 10394: WebKit Release and Production configurations should enable dead code stripping
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2006-08-15  Mark Rowe  <opendarwin.org@bdash.net.nz>
+
+        Reviewed by Tim H.
+
+        http://bugs.webkit.org/show_bug.cgi?id=10384
+        Bug 10384: Switch to DWARF for Release configuration
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2006-08-04  Sam Weinig  <sam.weinig@gmail.com>
+
+        Reviewed by Darin.
+
+        - patch for http://bugs.webkit.org/show_bug.cgi?id=10192
+          Make WebCore (and friends) compile with -Wshorten-64-to-32
+
+          * Adds -Wshorten-64-to-32 flag to Xcode project.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2006-08-03  Sam Weinig  <sam.weinig@gmail.com>
+
+        Reviewed by Darin.
+
+        - patch for http://bugs.webkit.org/show_bug.cgi?id=10176
+          Make WebCore compile with -Wundef
+
+          * Adds -Wundef flag to Xcode project
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2006-07-29  Sam Weinig  <sam.weinig@gmail.com>
+
+        Reviewed by Darin.
+
+        - patch for http://bugs.webkit.org/show_bug.cgi?id=10080
+          Adopt pedantic changes from the Unity project to improve 
+          cross-compiler compatibility
+
+          Changes include:
+          * Turning on gcc warning for missing newline at the end of a source file
+            (GCC_WARN_ABOUT_MISSING_NEWLINE in Xcode, -Wnewline in gcc).
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+=== Safari-521.19 ===
+
+2006-07-19  Geoffrey Garen  <ggaren@apple.com>
+
+        Fixed by Darin & Maciej, reviewed by me.
+        
+        - Fixed <rdar://problem/4638934> Leopard 9A227: Installer crashes right 
+        after LCA and while preparing Installation
+
+        Compile release/production with NDEBUG set, to ensure binary compatibility
+        between JavaScriptGlue and JavaScriptCore. In debug builds, JavaScriptCore 
+        includes an extra debug data member in HashSet.
+        
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+=== Safari-521.18 ===
+
+2006-07-15  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+        - switch property lists to be vector+set of Identifiers instead of list of References
+        
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal): updated for JSC SPI changes
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames): ditto
+        * UserObjectImp.cpp:
+        (UserObjectImp::getPropertyNames): ditto
+        * UserObjectImp.h:
+
+=== Safari-521.17 ===
+
+2006-07-14  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej.
+        
+        - Updated JSInterpreter to work with Interpreter ref-counting in JavaScriptCore.
+
+        (JSInterpreter::JSInterpreter::~JSInterpreter): Now protected to catch
+        manual delete.
+
+2006-07-12  Anders Carlsson  <acarlsson@apple.com>
+
+        Build fix
+        
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal):
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        * UserObjectImp.cpp:
+        (UserObjectImp::getPropertyList):
+        
+=== Safari-521.15 ===
+
+2006-07-07  Geoffrey Garen  <ggaren@apple.com>
+
+        - build fix
+
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal):
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+
+2006-07-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej.
+        
+        * JSRun.cpp:
+        (JSRun::CheckSyntax): Updated to use new checkSyntax syntax in JSC.
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+=== Safari-521.14 ===
+
+2006-06-28  Timothy Hatcher  <timothy@apple.com>
+
+        Prefer the Stabs debugging symbols format until DWARF bugs are fixed.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2006-06-24  David Kilzer  <ddkilzer@kilzer.net>
+
+        Reviewed by Timothy.
+
+        * Info.plist: Fixed copyright to include 2003-2006.
+
+=== JavaScriptGlue-521.13 ===
+        
+2006-06-20  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Anders.
+        
+        - Required for JS API: Rename propList to getPropertyList and have it
+        take its target property list by reference so that subclasses can
+        add properties to the list before calling through to their superclasses.
+
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal):
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        * UserObjectImp.cpp:
+        (UserObjectImp::getPropertyList):
+        * UserObjectImp.h:
+
+2006-06-15  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Geoff and Darin.
+        
+        Prefer the DWARF debugging symbols format for use in Xcode 2.3.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2006-06-12  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by TimO, Maciej.
+        
+        - JSGlue part of merging InterpreterImp into Interpreter.
+        
+        Since there's now a kjs forwarding header, I moved all forwarding
+        headers into a "ForwardingHeaders" directory, like in WebCore.
+
+        * ForwardingHeaders: Added.
+        * ForwardingHeaders/kjs: Added.
+        * ForwardingHeaders/kjs/ExecState.h: Added.
+        * ForwardingHeaders/wtf: Added.
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+        * config.h:
+        * wtf: Removed.
+        * wtf/AlwaysInline.h: Removed.
+        * wtf/Assertions.h: Removed.
+        * wtf/FastMalloc.h: Removed.
+        * wtf/Forward.h: Removed.
+        * wtf/HashCountedSet.h: Removed.
+        * wtf/HashSet.h: Removed.
+        * wtf/Noncopyable.h: Removed.
+        * wtf/OwnArrayPtr.h: Removed.
+        * wtf/OwnPtr.h: Removed.
+        * wtf/PassRefPtr.h: Removed.
+        * wtf/Platform.h: Removed.
+        * wtf/RefPtr.h: Removed.
+        * wtf/Vector.h: Removed.
+
+=== JavaScriptGlue-521.10 ===
+
+2006-05-09  Maciej Stachowiak  <mjs@apple.com>
+
+        Rubber stamped by Anders.
+        
+        - renamed kxmlcore to wtf
+        
+        kxmlcore --> wtf
+        KXMLCore --> WTF
+        KXC --> WTF
+
+        * config.h:
+        * kxmlcore: Removed.
+        * kxmlcore/AlwaysInline.h: Removed.
+        * kxmlcore/Assertions.h: Removed.
+        * kxmlcore/FastMalloc.h: Removed.
+        * kxmlcore/Forward.h: Removed.
+        * kxmlcore/HashCountedSet.h: Removed.
+        * kxmlcore/HashSet.h: Removed.
+        * kxmlcore/Noncopyable.h: Removed.
+        * kxmlcore/OwnArrayPtr.h: Removed.
+        * kxmlcore/OwnPtr.h: Removed.
+        * kxmlcore/PassRefPtr.h: Removed.
+        * kxmlcore/Platform.h: Removed.
+        * kxmlcore/RefPtr.h: Removed.
+        * kxmlcore/Vector.h: Removed.
+        * wtf: Added.
+
+2006-04-11  Darin Adler  <darin@apple.com>
+
+        - try to fix Windows build
+
+        * kxmlcore/HashForward.h: Removed.
+
+2006-04-10  Darin Adler  <darin@apple.com>
+
+        Rubber-stamped by John Sullivan.
+
+        - added forwarding headers for the new Forward.h and HashForward.h files
+
+        * kxmlcore/Forward.h: Added.
+        * kxmlcore/HashForward.h: Added.
+
+2006-04-04  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Darin.
+
+        The Debug and Release frameworks are now built with install paths relative to the build products directory.
+        This removes the need for other projects to build with -framework WebCore and -framework JavaScriptCore. 
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2006-04-02  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by andersca.
+
+        Add missing forwarding header.
+
+        * kxmlcore/Vector.h: Added.
+
+2006-03-31  Geoffrey Garen  <ggaren@apple.com>
 
         Reviewed by Darin.
 
@@ -45,17 +531,364 @@
         * JavaScriptGlue.xcodeproj/project.pbxproj:
         testjsglue.cpp: Added.
 
-=== JavaScriptGlue-417 ===
+2006-03-28  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoff.
+
+        - added a build step that checks for init routines
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj: Added a custom build phase that invokes the
+        check-for-global-initializers script.
+
+2006-03-02  Maciej Stachowiak  <mjs@apple.com>
+
+        Not reviewed, but I noticed these trivial extra changes were needed to avoid
+        breaking the build with my reviewed patch for:
+        
+        http://bugs.webkit.org/show_bug.cgi?id=7387
+        
+        Add config.h, includes of it, and Platform.h forwarding header.
+
+        * JSBase.cpp:
+        * JSObject.cpp:
+        * JSRun.cpp:
+        * JSUtils.cpp:
+        * JSValueWrapper.cpp:
+        * JavaScriptGlue.cpp:
+        * UserObjectImp.cpp:
+        * config.h: Added.
+        * kxmlcore/Platform.h: Added.
+
+=== JavaScriptGlue-521.7 ===
+
+2006-02-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by eric.
+
+        - Fixed build.
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::toPrimitive):
+        * UserObjectImp.h:
+
+2006-02-03  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Justin.
+
+        Renamed configuration names to Debug, Release and Production.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2006-02-01  Darin Adler  <darin@apple.com>
+
+        - added some forwarding headers to make new JavaScriptCore changes work
+
+        * kxmlcore/Assertions.h: Added.
+        * kxmlcore/Noncopyable.h: Added.
+        * kxmlcore/OwnPtr.h: Added.
+        * kxmlcore/OwnArrayPtr.h: Added.
+
+2006-01-16  Timothy Hatcher  <timothy@apple.com>
+
+        Adding the license header to all files so we can
+        move JavaScriptGlue into the open source repository.
+
+        * LICENSE: Added.
+        * JSBase.cpp: license header added.
+        * JSBase.h: ditto.
+        * JSObject.cpp: ditto.
+        * JSObject.h: ditto.
+        * JSRun.cpp: ditto.
+        * JSRun.h: ditto.
+        * JSUtils.cpp: ditto.
+        * JSUtils.h: ditto.
+        * JSValueWrapper.cpp: ditto.
+        * JSValueWrapper.h: ditto.
+        * JavaScriptGlue.cpp: ditto.
+        * JavaScriptGlue.h: ditto.
+        * UserObjectImp.cpp: ditto.
+        * UserObjectImp.h: ditto.
+
+2005-12-21  Timothy Hatcher  <timothy@apple.com>
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+          Set tab width to 8, indent width to 4 and uses tabs to false per file.
+
+2005-12-19  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoff Garen and Eric Seidel.
+
+        - fix http://bugs.webkit.org/show_bug.cgi?id=4923
+          stop using <ostream> in WebCore, eliminating the <cmath> troubles it causes
+
+        * kxmlcore/AlwaysInline.h: Added.
+
+2005-12-15  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        * JSRun.cpp: (JSRun::Evaluate): Updated for change to Interpreter::evaluate.
+
+2005-12-15  Darin Adler  <darin@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj: Removed some redundant build
+        settings, turned off prebinding explicitly for our Development and
+        Deployment builds, remove .exp file from sources. All "clean-up".
+
+=== Safari-521~5 ===
+
+2005-12-13  Geoffrey Garen  <ggaren@apple.com>
+
+    - Fixed build after Anders's last checkin to JavaScriptCore.
+    
+        Reviewed by darin.
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::userObjectGetter): Updated to reflect new argument that 
+    getters take (unused here).
+        * UserObjectImp.h:
+
+2005-12-13  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Eric.
+
+    - added forwarding header for HashCountedSet
+
+        * kxmlcore/HashCountedSet.h: Added.
+
+2005-12-10  Darin Adler  <darin@apple.com>
+
+        Rubber stamped by Maciej.
+
+        - updated for KJS class renaming
+
+        * many files and functions
+
+2005-12-10  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - eliminated the old Undefined(), Null(), Boolean(), Number(), and String()
+
+        Code now uses jsUndefined(), jsNull(), jsBoolean(), jsNumber(), and jsString().
+
+        * JSUtils.cpp:
+        (JSObjectKJSValue):
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+        (UserObjectImp::toPrimitive):
+
+2005-12-05  Maciej Stachowiak  <mjs@apple.com>
+
+        - added new forwarding headers
+
+        * kxmlcore/PassRefPtr.h: Added.
+        * kxmlcore/RefPtr.h: Added.
+
+2005-12-05  Maciej Stachowiak  <mjs@apple.com>
+
+        * kxmlcore/PassRefPtr.h: Added.
+
+2005-11-26  Maciej Stachowiak  <mjs@apple.com>
+
+        Rubber stamped by Eric.
+
+    - renamed InterpreterLock to JSLock
+
+        * JSUtils.cpp:
+        (CFStringToUString):
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        (JSValueWrapper::JSObjectCopyCFValue):
+        * JavaScriptGlue.cpp:
+        (JSRunCreate):
+        (JSCollect):
+        (JSLockInterpreter):
+        (JSUnlockInterpreter):
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+
+2005-11-16  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Geoff.
+
+    Updated to use new API to drop all locks.
+
+        * JavaScriptGlue.cpp:
+        (JSLockInterpreter):
+        (JSUnlockInterpreter):
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+
+2005-11-14  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by mjs.
+
+        - Part of the fix for <rdar://problem/4342216> Installer crash in 
+          KJS::ValueImp::marked() when garbage collector runs inside call to 
+          ConstantValues::init()
+          
+        Added locking in JSRunCreate, since JSRun::JSRun constructs an object.
+        
+        * JavaScriptGlue.cpp:
+        (JSRunCreate):
+
+2005-11-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej.
+
+        - Fixed <rdar://problem/4334445> installer crashed on my 
+          dual g4 450Mhz after clicking language
+
+        - Reversed backwards NULL check.
+        - Inserted guards against NULL fJSUserObject data member.
+        - Cleaned up some style.
+
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal):
+        * UserObjectImp.cpp:
+        (UserObjectImp::~UserObjectImp):
+        (UserObjectImp::callAsFunction):
+        (UserObjectImp::userObjectGetter):
+        (UserObjectImp::getOwnPropertySlot):
+        (UserObjectImp::put):
+        (UserObjectImp::mark):
+
+2005-11-04  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Darin.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+          Fixed the FRAMEWORK_SEARCH_PATHS to look in the WebKit
+          Frameworks for the Default config.
+
+2005-11-03  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Darin and Vicki.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+          Change to use $(SYSTEM_LIBRARY_DIR) consistently and place
+          $(NEXT_ROOT) in a few spots to make build-root work.
+
+2005-11-01  Maciej Stachowiak  <mjs@apple.com>
+
+    Reviewed by: Eric.
+    
+        <rdar://problem/4324107> get JavaScriptGlue working with TOT JavaScriptCore again
+
+    - reverted all this stuff to use ReferenceList instead of IdentifierSequencedSet
+
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal):
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        * UserObjectImp.cpp:
+        (UserObjectImp::propList):
+        * UserObjectImp.h:
+
+2005-10-11  Timothy Hatcher  <timothy@apple.com>
+
+        Setup the proper Framework search path for the Default config.
+        Prepping for a TOT submission and build by B&I.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2005-10-10  Darin Adler  <darin@apple.com>
+
+        Reviewed by Eric.
+
+        - converted tabs to spaces, NULL to 0, added some (void), got rid of __ prefixes
+          in headers (reserved for compiler/library)
+
+        * Info.plist:
+        * JSBase.cpp:
+        * JSBase.h:
+        * JSObject.cpp:
+        * JSObject.h:
+        * JSRun.cpp:
+        * JSRun.h:
+        * JSUtils.cpp:
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        * JSValueWrapper.h:
+        * JavaScriptGlue.cpp:
+        * JavaScriptGlue.h:
+        * UserObjectImp.cpp:
+        * UserObjectImp.h:
+
+2005-10-10  Darin Adler  <darin@apple.com>
+
+        * .cvsignore: Added. Ignore Makefile.in and Makefile.
+
+2005-10-07  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Maciej.
+        
+        Build fix, needed to disable RTTI. Upgraded to a native target.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+        * Info.plist
+
+2005-10-05  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Eric and Darin.
+
+    <rdar://problem/4260506> Port JavaScriptGlue to TOT JavaScriptCore
+
+        * JSRun.cpp:
+        (JSRun::JSRun):
+        (JSRun::GlobalObject):
+        * JSRun.h:
+        (JSInterpreter::JSInterpreter):
+        * JSUtils.cpp:
+        (KJSValueToJSObject):
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (KJSValueToCFType):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSValueWrapper):
+        (JSValueWrapper::GetValue):
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        (JSValueWrapper::JSObjectMark):
+        * JSValueWrapper.h:
+        * JavaScriptGlue.cpp:
+        (JSRunCopyGlobalObject):
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+        * Makefile.am: Added.
+        * UserObjectImp.cpp:
+        (UserObjectPrototypeImp::GlobalUserObjectPrototypeImp):
+        (UserObjectImp::UserObjectImp):
+        (UserObjectImp::callAsFunction):
+        (UserObjectImp::getPropertyNames):
+        (UserObjectImp::userObjectGetter):
+        (UserObjectImp::getOwnPropertySlot):
+        (UserObjectImp::put):
+        (UserObjectImp::toPrimitive):
+        (UserObjectImp::mark):
+        * UserObjectImp.h:
+        * kxmlcore/FastMalloc.h: Added.
+        * kxmlcore/HashSet.h: Added.
 
 2005-09-14  Maciej Stachowiak  <mjs@apple.com>
 
         Reviewed by Geoff.
 
-	- fixed <rdar://problem/4214783> REGRESSION: kjs_fast_malloc crash due to lack of locking on multiple threads (seen selecting volumes in the installer)
+    - fixed <rdar://problem/4214783> REGRESSION: kjs_fast_malloc crash due to lack of locking on multiple threads (seen selecting volumes in the installer)
 
-	Make sure to lock using the InterpreterLock class in all places that need it
-	(including anything that uses the collector, the parser, the protect count hash table,
-	and anything that allocates via fast_malloc).
+    Make sure to lock using the InterpreterLock class in all places that need it
+    (including anything that uses the collector, the parser, the protect count hash table,
+    and anything that allocates via fast_malloc).
 
         * JSUtils.cpp:
         (CFStringToUString):
@@ -71,34 +904,27 @@
         * JavaScriptGlue.cpp:
         (JSCollect):
 
-=== Safari-416.6 ===
+2005-09-27  Adele Peterson  <adele@apple.com>
 
-2005-09-08  Adele Peterson  <adele@apple.com>
+        Reviewed by Maciej.
 
-        Reviewed by Geoff and Tim.
+        <rdar://problem/4223297> JavaScriptGlue: Submit 64-bit compatible versions of your API and SPIs by September 15
 
-        Converting project to XCode 2.1 on the Safari-2-0-branch
+        * JavaScriptGlue.h: Changed UInt32 to CFTypeID for JSTypeID
+
+2005-09-06  Geoffrey Garen  <ggaren@apple.com>
+
+        -upgraded project files to XCode 2.1
 
         * JavaScriptGlue.pbproj/project.pbxproj: Removed.
         * JavaScriptGlue.xcodeproj/.cvsignore: Added.
         * JavaScriptGlue.xcodeproj/project.pbxproj: Added.
 
-2005-09-02  Maciej Stachowiak  <mjs@apple.com>
-
-        Reviewed by John.
-
-	- fixed <rdar://problem/4234146> Denver Regression: for (x in y) broken in JavaScriptGlue (could cause crash)
-
-        * UserObjectImp.cpp:
-        (UserObjectImp::hasOwnProperty): Renamed from hasProperty and implemented in a
-	lower-level way, to avoid relying on get.
-        * UserObjectImp.h:
-
 2005-09-01  Maciej Stachowiak  <mjs@apple.com>
 
         Rubber stamped by hyatt.
 
-	- initial import of JavaScriptGlue into our repository
+    - initial import of JavaScriptGlue into our repository
 
         * English.lproj/InfoPlist.strings: Added.
         * JSBase.cpp: Added.

@@ -50,6 +50,7 @@ class AppleEmbeddedKeyboard: public IOHIDEventDriver
     
     bool                    _fnKeyDown;
     bool                    _numLockDown;
+    bool                    _virtualMouseKeysSupport;
     bool                    _stickyKeysOn;
     UInt32                  _fKeyMode;
     SecondaryKey    		_secondaryKeys[255];

@@ -15,53 +15,54 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
-#ifndef _ARRAY_OBJECT_H_
-#define _ARRAY_OBJECT_H_
+#ifndef ARRAY_OBJECT_H_
+#define ARRAY_OBJECT_H_
 
-#include "internal.h"
+#include "array_instance.h"
 #include "function_object.h"
 
 namespace KJS {
 
- class ArrayPrototypeImp : public ArrayInstanceImp {
+ class ArrayPrototype : public ArrayInstance {
   public:
-    ArrayPrototypeImp(ExecState *exec,
-                      ObjectPrototypeImp *objProto);
-    Value get(ExecState *exec, const Identifier &p) const;
+    ArrayPrototype(ExecState *exec,
+                      ObjectPrototype *objProto);
+    bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
     virtual const ClassInfo *classInfo() const { return &info; }
     static const ClassInfo info;
   };
 
-  class ArrayProtoFuncImp : public InternalFunctionImp {
+  class ArrayProtoFunc : public InternalFunctionImp {
   public:
-    ArrayProtoFuncImp(ExecState *exec, int i, int len);
+    ArrayProtoFunc(ExecState *exec, int i, int len, const Identifier& name);
 
-    virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
 
     enum { ToString, ToLocaleString, Concat, Join, Pop, Push,
-	   Reverse, Shift, Slice, Sort, Splice, UnShift };
+          Reverse, Shift, Slice, Sort, Splice, UnShift, 
+          Every, ForEach, Some, IndexOf, Filter, Map, LastIndexOf };
   private:
     int id;
   };
 
+  const unsigned MAX_ARRAY_INDEX = 0xFFFFFFFEu;
+
   class ArrayObjectImp : public InternalFunctionImp {
   public:
     ArrayObjectImp(ExecState *exec,
-                   FunctionPrototypeImp *funcProto,
-                   ArrayPrototypeImp *arrayProto);
+                   FunctionPrototype *funcProto,
+                   ArrayPrototype *arrayProto);
 
     virtual bool implementsConstruct() const;
-    virtual Object construct(ExecState *exec, const List &args);
-    virtual bool implementsCall() const;
-    virtual Value call(ExecState *exec, Object &thisObj, const List &args);
+    virtual JSObject *construct(ExecState *exec, const List &args);
+    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
 
   };
 
-}; // namespace
+} // namespace
 
 #endif

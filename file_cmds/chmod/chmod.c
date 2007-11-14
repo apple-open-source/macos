@@ -93,7 +93,7 @@ main(int argc, char *argv[])
 #ifndef __APPLE__
 	while ((ch = getopt(argc, argv, "HLPRXfghorstuvwx")) != -1)
 #else
-	while ((ch = getopt(argc, argv, "ACEHILPRVXafginorstuvwx")) != -1)
+	while ((ch = getopt(argc, argv, "ACEHILNPRVXafginorstuvwx")) != -1)
 #endif
 		switch (ch) {
 		case 'H':
@@ -149,6 +149,10 @@ main(int argc, char *argv[])
 		case 'n':
 			acloptflags |= ACL_FLAG | ACL_NO_TRANSLATE;
 			break;
+		case 'N':
+			acloptflags |= ACL_FLAG | ACL_CLEAR_FLAG;
+			ace_arg_not_required = 1;
+			goto done;
 		case 'V':
 			acloptflags |= ACL_FLAG | ACL_INVOKE_EDITOR;
 			ace_arg_not_required = 1;

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: zip.c,v 1.33.2.3.2.1 2006/01/01 13:46:59 sniper Exp $ */
+/* $Id: zip.c,v 1.33.2.3.2.3 2007/01/02 14:40:32 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -283,7 +283,7 @@ PHP_FUNCTION(zip_entry_open)
 }
 /* }}} */
 
-/* {{{ proto string zip_entry_read(resource zip_ent)
+/* {{{ proto string zip_entry_read(resource zip_ent [, int nbytes])
    Read X bytes from an opened zip entry */
 PHP_FUNCTION(zip_entry_read)
 {
@@ -295,6 +295,10 @@ PHP_FUNCTION(zip_entry_read)
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|l", &zzip_ent, &len) == FAILURE) {
 		return;
+	}
+	if (len <= 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The bytes parameter must greater then zero");
+		RETURN_FALSE;
 	}
 	ZEND_FETCH_RESOURCE(entry, php_zzip_dirent *, &zzip_ent, -1, le_zip_entry_name, le_zip_entry);
 

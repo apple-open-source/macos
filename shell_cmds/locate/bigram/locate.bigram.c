@@ -1,6 +1,5 @@
-/*	$NetBSD: locate.bigram.c,v 1.6 1997/10/19 04:11:52 lukem Exp $	*/
-
 /*
+ * Copyright (c) 1995 Wolfram Schneider <wosch@FreeBSD.org>. Berlin.
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -34,62 +33,78 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD: src/usr.bin/locate/bigram/locate.bigram.c,v 1.12 2005/02/09 09:13:36 stefanf Exp $
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static char copyright[] =
+"@(#) Copyright (c) 1989, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)locate.bigram.c	8.2 (Berkeley) 4/28/95";
-#endif
-__RCSID("$NetBSD: locate.bigram.c,v 1.6 1997/10/19 04:11:52 lukem Exp $");
+static char sccsid[] = "@(#)locate.bigram.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 
 /*
- *  bigram < text > bigrams
- * 
+ *  bigram < sorted_file_names | sort -nr | 
+ *  	awk 'NR <= 128 { printf $2 }' > bigrams
+ *
  * List bigrams for 'updatedb' script.
  * Use 'code' to encode a file using this output.
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/param.h>			/* for MAXPATHLEN */
+#include "locate.h"
 
-char buf1[MAXPATHLEN] = " ";	
-char buf2[MAXPATHLEN];
-
-int	main __P((int, char **));
+u_char buf1[MAXPATHLEN] = " ";
+u_char buf2[MAXPATHLEN];
+u_int bigram[UCHAR_MAX + 1][UCHAR_MAX + 1];
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(void)
 {
-  	char *cp;
-	char *oldpath = buf1, *path = buf2;
+  	register u_char *cp;
+	register u_char *oldpath = buf1, *path = buf2;
+	register u_int i, j;
 
-     	while ( fgets ( path, sizeof(buf2), stdin ) != NULL ) {
+     	while (fgets(path, sizeof(buf2), stdin) != NULL) {
+
+		/* 
+		 * We don't need remove newline character '\n'.
+		 * '\n' is less than ASCII_MIN and will be later
+		 * ignored at output.
+		 */
+
 
 		/* skip longest common prefix */
-		for ( cp = path; *cp == *oldpath; cp++, oldpath++ )
-			if ( *oldpath == '\0' )
+		for (cp = path; *cp == *oldpath; cp++, oldpath++)
+			if (*cp == '\0')
 				break;
-		/*
-		 * output post-residue bigrams only
-		 */
-		while ( *cp != '\0' && *(cp + 1) != '\0' ) {
-			putchar ( *cp++ );
-			putchar ( *cp++ );
-			putchar ( '\n' );
+
+		while (*cp != '\0' && *(cp + 1) != '\0') {
+			bigram[(u_char)*cp][(u_char)*(cp + 1)]++;
+			cp += 2;
 		}
-		if ( path == buf1 )		/* swap pointers */
-			path = buf2, oldpath = buf1;
-		else
-			path = buf1, oldpath = buf2;
+
+		/* swap pointers */
+		if (path == buf1) { 
+			path = buf2;
+			oldpath = buf1;
+		} else {
+			path = buf1;
+			oldpath = buf2;
+		}
    	}
-	return (0);
+
+	/* output, boundary check */
+	for (i = ASCII_MIN; i <= ASCII_MAX; i++)
+		for (j = ASCII_MIN; j <= ASCII_MAX; j++)
+			if (bigram[i][j] != 0)
+				(void)printf("%4u %c%c\n", bigram[i][j], i, j);
+
+	exit(0);
 }

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    |          Wez Furlong <wez@thebrainroom.com>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: http_fopen_wrapper.c,v 1.53.2.20.2.9 2006/04/16 17:45:55 iliaa Exp $ */ 
+/* $Id: http_fopen_wrapper.c,v 1.53.2.20.2.10 2007/01/01 09:46:48 sebastian Exp $ */ 
 
 #include "php.h"
 #include "php_globals.h"

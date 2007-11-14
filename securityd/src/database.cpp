@@ -30,7 +30,9 @@
 #include "key.h"
 #include "server.h"
 #include "session.h"
+#include "notifications.h"
 #include <security_agent_client/agentclient.h>
+#include <securityd_client/dictionary.h>
 #include <security_cdsa_utilities/acl_any.h>	// for default owner ACLs
 #include <security_cdsa_client/wrapkey.h>
 #include <security_utilities/endian.h>
@@ -66,6 +68,24 @@ Process& Database::process() const
 	return referent<Process>();
 }
 
+
+//
+// Send a keychain-related notification event about this database
+//
+void DbCommon::notify(NotificationEvent event, const DLDbIdentifier &ident)
+{
+	// form the data (encoded DLDbIdentifier)
+    NameValueDictionary nvd;
+    NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier(ident, nvd);
+    CssmData data;
+    nvd.Export(data);
+
+	// inject notification into Security event system
+    Listener::notify(kNotificationDomainDatabase, event, data);
+	
+	// clean up
+    free (data.data());
+}
 
 //
 // Default behaviors

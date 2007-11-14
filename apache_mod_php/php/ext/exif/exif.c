@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: exif.c,v 1.118.2.37.2.4 2006/01/01 13:46:52 sniper Exp $ */
+/* $Id: exif.c,v 1.118.2.37.2.7 2007/01/09 11:38:04 tony2001 Exp $ */
 
 /*  ToDos
  *
@@ -107,7 +107,7 @@ function_entry exif_functions[] = {
 };
 /* }}} */
 
-#define EXIF_VERSION "1.4 $Id: exif.c,v 1.118.2.37.2.4 2006/01/01 13:46:52 sniper Exp $"
+#define EXIF_VERSION "1.4 $Id: exif.c,v 1.118.2.37.2.7 2007/01/09 11:38:04 tony2001 Exp $"
 
 /* {{{ PHP_MINFO_FUNCTION
  */
@@ -1550,6 +1550,7 @@ static void exif_iif_add_value(image_info_type *image_info, int section_index, c
 	image_info->info_list[section_index].list = list;
 
 	info_data  = &image_info->info_list[section_index].list[image_info->info_list[section_index].count];
+	memset(info_data, 0, sizeof(image_info_data));
 	info_data->tag    = tag;
 	info_data->format = format;
 	info_data->length = length;
@@ -3536,7 +3537,7 @@ static int exif_process_IFD_in_TIFF(image_info_type *ImageInfo, size_t dir_offse
 								exif_error_docref(NULL TSRMLS_CC, ImageInfo, E_NOTICE, "%s THUMBNAIL @0x%04X + 0x%04X", ImageInfo->Thumbnail.data ? "ignore" : "read", ImageInfo->Thumbnail.offset, ImageInfo->Thumbnail.size);
 #endif
 								if (!ImageInfo->Thumbnail.data) {
-									ImageInfo->Thumbnail.data = emalloc(ImageInfo->Thumbnail.size);
+									ImageInfo->Thumbnail.data = safe_emalloc(ImageInfo->Thumbnail.size, 1, 0);
 									php_stream_seek(ImageInfo->infile, ImageInfo->Thumbnail.offset, SEEK_SET);
 									fgot = php_stream_read(ImageInfo->infile, ImageInfo->Thumbnail.data, ImageInfo->Thumbnail.size);
 									if (fgot < ImageInfo->Thumbnail.size) {
@@ -3569,7 +3570,7 @@ static int exif_process_IFD_in_TIFF(image_info_type *ImageInfo, size_t dir_offse
 					exif_error_docref(NULL TSRMLS_CC, ImageInfo, E_NOTICE, "%s THUMBNAIL @0x%04X + 0x%04X", ImageInfo->Thumbnail.data ? "ignore" : "read", ImageInfo->Thumbnail.offset, ImageInfo->Thumbnail.size);
 #endif
 					if (!ImageInfo->Thumbnail.data && ImageInfo->Thumbnail.offset && ImageInfo->Thumbnail.size && ImageInfo->read_thumbnail) {
-						ImageInfo->Thumbnail.data = emalloc(ImageInfo->Thumbnail.size);
+						ImageInfo->Thumbnail.data = safe_emalloc(ImageInfo->Thumbnail.size, 1, 0);
 						php_stream_seek(ImageInfo->infile, ImageInfo->Thumbnail.offset, SEEK_SET);
 						fgot = php_stream_read(ImageInfo->infile, ImageInfo->Thumbnail.data, ImageInfo->Thumbnail.size);
 						if (fgot < ImageInfo->Thumbnail.size) {

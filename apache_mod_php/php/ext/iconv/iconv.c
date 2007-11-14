@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: iconv.c,v 1.65.2.13.2.1 2006/01/01 13:46:53 sniper Exp $ */
+/* $Id: iconv.c,v 1.65.2.13.2.3 2007/01/01 09:46:43 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -369,7 +369,7 @@ static void _php_iconv_show_error(php_iconv_err_t err, const char *in_charset, c
 
 		case PHP_ICONV_ERR_TOO_BIG:
 			/* should not happen */
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Run out buffer");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Buffer length exceeded");
 			break;
 
 		default:

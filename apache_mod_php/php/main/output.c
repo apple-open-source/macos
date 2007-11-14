@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2006 The PHP Group                                |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: output.c,v 1.142.2.16.2.4 2006/01/01 13:46:59 sniper Exp $ */
+/* $Id: output.c,v 1.142.2.16.2.6 2007/02/12 17:13:22 tony2001 Exp $ */
 
 #include "php.h"
 #include "ext/standard/head.h"
@@ -49,7 +49,7 @@ php_output_globals output_globals;
 #endif
 
 /* {{{ php_default_output_func */
-static inline int php_default_output_func(const char *str, uint str_len TSRMLS_DC)
+PHPAPI int php_default_output_func(const char *str, uint str_len TSRMLS_DC)
 {
 	fwrite(str, 1, str_len, stderr);
 	return str_len;

@@ -22,10 +22,11 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#import <Foundation/Foundation.h>
 
-#import <JavaScriptCore/objc_instance.h>
-#import <JavaScriptCore/WebScriptObject.h>
+#import "config.h"
+#import "objc_instance.h"
+
+#import "WebScriptObject.h"
 
 #ifdef NDEBUG
 #define OBJC_LOG(formatAndArgs...) ((void)0)
@@ -36,162 +37,134 @@
 }
 #endif
 
-#include <JavaScriptCore/objc_runtime.h>
-
 using namespace KJS::Bindings;
 using namespace KJS;
 
-ObjcInstance::ObjcInstance (ObjectStructPtr instance) 
+ObjcInstance::ObjcInstance(ObjectStructPtr instance, PassRefPtr<RootObject> rootObject) 
+    : Instance(rootObject)
+    , _instance(instance)
+    , _class(0)
+    , _pool(0)
+    , _beginCount(0)
 {
-    _instance = (id)instance;
-    if (_instance) {
-        CFRetain(_instance);
-    }
-    _class = 0;
-    _pool = 0;
-    _beginCount = 0;
 }
 
-ObjcInstance::~ObjcInstance () 
+ObjcInstance::~ObjcInstance() 
 {
-    if ([_instance respondsToSelector:@selector(finalizeForWebScript)])
-        [_instance finalizeForWebScript];
-    if (_instance) {
-        CFRelease(_instance);
-    }
-}
-
-ObjcInstance::ObjcInstance (const ObjcInstance &other) : Instance() 
-{
-    _instance = (id)other._instance;
-    if (_instance) {
-        CFRetain(_instance);
-    }
-    _class = other._class;
-    _pool = 0;
-    _beginCount = 0;
-}
-
-ObjcInstance &ObjcInstance::operator=(const ObjcInstance &other)
-{
-    ObjectStructPtr _oldInstance = _instance;
-    _instance = other._instance;
-    if (_instance) {
-        CFRetain(_instance);
-    }
-    if (_oldInstance) {
-        CFRelease(_oldInstance);
-    }
-    
-    // Classes are kept around forever.
-    _class = other._class;
-    
-    return *this;
+    begin(); // -finalizeForWebScript and -dealloc/-finalize may require autorelease pools.
+    if ([_instance.get() respondsToSelector:@selector(finalizeForWebScript)])
+        [_instance.get() performSelector:@selector(finalizeForWebScript)];
+    _instance = 0;
+    end();
 }
 
 void ObjcInstance::begin()
 {
-    if (!_pool) {
+    if (!_pool)
         _pool = [[NSAutoreleasePool alloc] init];
-    }
     _beginCount++;
 }
 
 void ObjcInstance::end()
 {
     _beginCount--;
-    assert (_beginCount >= 0);
-    if (_beginCount == 0) {
-#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_3
-        [_pool release];
-#else
+    assert(_beginCount >= 0);
+    if (!_beginCount) {
         [_pool drain];
-#endif
+        _pool = 0;
     }
-    _pool = 0;
 }
 
-Bindings::Class *ObjcInstance::getClass() const 
+Bindings::Class* ObjcInstance::getClass() const 
 {
-    if (_instance == 0)
+    if (!_instance)
         return 0;
-        
-    if (_class == 0) {
+    if (!_class)
         _class = ObjcClass::classForIsA(_instance->isa);
-    }
     return static_cast<Bindings::Class*>(_class);
 }
 
-Value ObjcInstance::invokeMethod (KJS::ExecState *exec, const MethodList &methodList, const List &args)
+bool ObjcInstance::implementsCall() const
 {
-    Value resultValue;
+    return [_instance.get() respondsToSelector:@selector(invokeDefaultMethodWithArguments:)];
+}
+
+JSValue* ObjcInstance::invokeMethod(ExecState* exec, const MethodList &methodList, const List &args)
+{
+    JSValue* result = jsUndefined();
+    
+   JSLock::DropAllLocks dropAllLocks; // Can't put this inside the @try scope because it unwinds incorrectly.
 
     // Overloading methods is not allowed in ObjectiveC.  Should only be one
     // name match for a particular method.
-    assert (methodList.length() == 1);
+    assert(methodList.size() == 1);
 
-NS_DURING
-    
-    ObjcMethod *method = 0;
-    method = static_cast<ObjcMethod*>(methodList.methodAt(0));
-    NSMethodSignature *signature = method->getMethodSignature();
-    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+@try {
+    ObjcMethod* method = 0;
+    method = static_cast<ObjcMethod*>(methodList[0]);
+    NSMethodSignature* signature = method->getMethodSignature();
+    NSInvocation* invocation = [NSInvocation invocationWithMethodSignature:signature];
+#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
+    [invocation setSelector:sel_registerName(method->name())];
+#else
     [invocation setSelector:(SEL)method->name()];
-    [invocation setTarget:_instance];
-    unsigned i, count = args.size();
-    
+#endif
+    [invocation setTarget:_instance.get()];
+
     if (method->isFallbackMethod()) {
-        // invokeUndefinedMethodFromWebScript:withArguments: implementation must return an
-        // object.
-        if (strcmp ([signature methodReturnType], "@") != 0) {
-            OBJC_LOG ("incorrect signature for invokeUndefinedMethodFromWebScript:withArguments:, expected object return type");
-            delete method;
-            return Undefined();
+        if (objcValueTypeForType([signature methodReturnType]) != ObjcObjectType) {
+            NSLog(@"Incorrect signature for invokeUndefinedMethodFromWebScript:withArguments: -- return type must be object.");
+            return result;
         }
-        
+
         // Invoke invokeUndefinedMethodFromWebScript:withArguments:, pass JavaScript function
         // name as first (actually at 2) argument and array of args as second.
-        NSString *jsName = (NSString *)method->javaScriptName();
+        NSString* jsName = (NSString* )method->javaScriptName();
         [invocation setArgument:&jsName atIndex:2];
-        
-        NSMutableArray *objcArgs = [NSMutableArray array];
-        for (i = 0; i < count; i++) {
-            ObjcValue value = convertValueToObjcValue (exec, args.at(i), ObjcObjectType);
+
+        NSMutableArray* objcArgs = [NSMutableArray array];
+        int count = args.size();
+        for (int i = 0; i < count; i++) {
+            ObjcValue value = convertValueToObjcValue(exec, args.at(i), ObjcObjectType);
             [objcArgs addObject:value.objectValue];
         }
         [invocation setArgument:&objcArgs atIndex:3];
-    }
-    else {
-        if (count != [signature numberOfArguments] - 2){
-            return Undefined();
-        }
-        
-        for (i = 2; i < count+2; i++) {
-            const char *type = [signature getArgumentTypeAtIndex:i];
-            ObjcValueType objcValueType = objcValueTypeForType (type);
+    } else {
+        unsigned count = [signature numberOfArguments];
+        for (unsigned i = 2; i < count ; i++) {
+            const char* type = [signature getArgumentTypeAtIndex:i];
+            ObjcValueType objcValueType = objcValueTypeForType(type);
 
             // Must have a valid argument type.  This method signature should have
             // been filtered already to ensure that it has acceptable argument
             // types.
-            assert (objcValueType != ObjcInvalidType && objcValueType != ObjcVoidType);
-            
-            ObjcValue value = convertValueToObjcValue (exec, args.at(i-2), objcValueType);
-            
+            assert(objcValueType != ObjcInvalidType && objcValueType != ObjcVoidType);
+
+            ObjcValue value = convertValueToObjcValue(exec, args.at(i-2), objcValueType);
+
             switch (objcValueType) {
                 case ObjcObjectType:
                     [invocation setArgument:&value.objectValue atIndex:i];
                     break;
                 case ObjcCharType:
+                case ObjcUnsignedCharType:
                     [invocation setArgument:&value.charValue atIndex:i];
                     break;
                 case ObjcShortType:
+                case ObjcUnsignedShortType:
                     [invocation setArgument:&value.shortValue atIndex:i];
                     break;
                 case ObjcIntType:
+                case ObjcUnsignedIntType:
                     [invocation setArgument:&value.intValue atIndex:i];
                     break;
                 case ObjcLongType:
+                case ObjcUnsignedLongType:
                     [invocation setArgument:&value.longValue atIndex:i];
+                    break;
+                case ObjcLongLongType:
+                case ObjcUnsignedLongLongType:
+                    [invocation setArgument:&value.longLongValue atIndex:i];
                     break;
                 case ObjcFloatType:
                     [invocation setArgument:&value.floatValue atIndex:i];
@@ -203,216 +176,173 @@ NS_DURING
                     // Should never get here.  Argument types are filtered (and
                     // the assert above should have fired in the impossible case
                     // of an invalid type anyway).
-                    fprintf (stderr, "%s:  invalid type (%d)\n", __PRETTY_FUNCTION__, (int)objcValueType);
-                    assert (true);
+                    fprintf(stderr, "%s: invalid type (%d)\n", __PRETTY_FUNCTION__, (int)objcValueType);
+                    assert(false);
             }
         }
     }
-    
-    // Invoke the ObjectiveC method.
+
     [invocation invoke];
 
     // Get the return value type.
-    const char *type = [signature methodReturnType];
-    ObjcValueType objcValueType = objcValueTypeForType (type);
-    
+    const char* type = [signature methodReturnType];
+    ObjcValueType objcValueType = objcValueTypeForType(type);
+
     // Must have a valid return type.  This method signature should have
     // been filtered already to ensure that it have an acceptable return
     // type.
-    assert (objcValueType != ObjcInvalidType);
-    
-    // Get the return value and convert it to a KJS::Value.  Length
+    assert(objcValueType != ObjcInvalidType);
+
+    // Get the return value and convert it to a JavaScript value. Length
     // of return value will never exceed the size of largest scalar
     // or a pointer.
     char buffer[1024];
-    assert ([signature methodReturnLength] < 1024);
-    
-    if (*type == 'v') {
-        resultValue = Undefined();
-    }
-    else {
+    assert([signature methodReturnLength] < 1024);
+
+    if (*type != 'v') {
         [invocation getReturnValue:buffer];
-        resultValue = convertObjcValueToValue (exec, buffer, objcValueType);
+        result = convertObjcValueToValue(exec, buffer, objcValueType, _rootObject.get());
     }
-
-NS_HANDLER
-    
-    resultValue = Undefined();
-    
-NS_ENDHANDLER
-
-    return resultValue;
+} @catch(NSException* localException) {
+}
+    return result;
 }
 
-Value ObjcInstance::invokeDefaultMethod (KJS::ExecState *exec, const List &args)
+JSValue* ObjcInstance::invokeDefaultMethod(ExecState* exec, const List &args)
 {
-    Value resultValue;
-    
-NS_DURING
+    JSValue* result = jsUndefined();
 
-    if (![_instance respondsToSelector:@selector(invokeDefaultMethodWithArguments:)])
-        return Undefined();
-    
-    NSMethodSignature *signature = [_instance methodSignatureForSelector:@selector(invokeDefaultMethodWithArguments:)];
-    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+   JSLock::DropAllLocks dropAllLocks; // Can't put this inside the @try scope because it unwinds incorrectly.
+
+@try {
+    if (![_instance.get() respondsToSelector:@selector(invokeDefaultMethodWithArguments:)])
+        return result;
+
+    NSMethodSignature* signature = [_instance.get() methodSignatureForSelector:@selector(invokeDefaultMethodWithArguments:)];
+    NSInvocation* invocation = [NSInvocation invocationWithMethodSignature:signature];
     [invocation setSelector:@selector(invokeDefaultMethodWithArguments:)];
-    [invocation setTarget:_instance];
-    unsigned i, count = args.size();
-    
-    // invokeDefaultMethodWithArguments: implementation must return an
-    // object.
-    if (strcmp ([signature methodReturnType], "@") != 0) {
-        OBJC_LOG ("incorrect signature for invokeDefaultMethodWithArguments:, expected object return type");
-        return Undefined();
+    [invocation setTarget:_instance.get()];
+
+    if (objcValueTypeForType([signature methodReturnType]) != ObjcObjectType) {
+        NSLog(@"Incorrect signature for invokeDefaultMethodWithArguments: -- return type must be object.");
+        return result;
     }
-    
-    NSMutableArray *objcArgs = [NSMutableArray array];
-    for (i = 0; i < count; i++) {
-        ObjcValue value = convertValueToObjcValue (exec, args.at(i), ObjcObjectType);
+
+    NSMutableArray* objcArgs = [NSMutableArray array];
+    unsigned count = args.size();
+    for (unsigned i = 0; i < count; i++) {
+        ObjcValue value = convertValueToObjcValue(exec, args.at(i), ObjcObjectType);
         [objcArgs addObject:value.objectValue];
     }
     [invocation setArgument:&objcArgs atIndex:2];
-    
-    // Invoke the ObjectiveC method.
+
     [invocation invoke];
 
     // Get the return value type, should always be "@" because of
     // check above.
-    const char *type = [signature methodReturnType];
-    ObjcValueType objcValueType = objcValueTypeForType (type);
-    
-    // Get the return value and convert it to a KJS::Value.  Length
+    const char* type = [signature methodReturnType];
+    ObjcValueType objcValueType = objcValueTypeForType(type);
+
+    // Get the return value and convert it to a JavaScript value. Length
     // of return value will never exceed the size of a pointer, so we're
-    // OK we 32 here.
+    // OK with 32 here.
     char buffer[32];
     [invocation getReturnValue:buffer];
-    resultValue = convertObjcValueToValue (exec, buffer, objcValueType);
-
-NS_HANDLER
-    
-    resultValue = Undefined();
-    
-NS_ENDHANDLER
-
-    return resultValue;
+    result = convertObjcValueToValue(exec, buffer, objcValueType, _rootObject.get());
+} @catch(NSException* localException) {
 }
 
-void ObjcInstance::setValueOfField (KJS::ExecState *exec, const Field *aField, const KJS::Value &aValue) const
-{
-    aField->setValueToInstance (exec, this, aValue);
+    return result;
 }
 
-bool ObjcInstance::supportsSetValueOfUndefinedField ()
+bool ObjcInstance::supportsSetValueOfUndefinedField()
 {
     id targetObject = getObject();
-    
     if ([targetObject respondsToSelector:@selector(setValue:forUndefinedKey:)])
-	return true;
-	
+        return true;
     return false;
 }
 
-void ObjcInstance::setValueOfUndefinedField (KJS::ExecState *exec, const KJS::Identifier &property, const KJS::Value &aValue)
+void ObjcInstance::setValueOfUndefinedField(ExecState* exec, const Identifier &property, JSValue* aValue)
 {
     id targetObject = getObject();
-    
+
+   JSLock::DropAllLocks dropAllLocks; // Can't put this inside the @try scope because it unwinds incorrectly.
+
     // This check is not really necessary because NSObject implements
     // setValue:forUndefinedKey:, and unfortnately the default implementation
     // throws an exception.
     if ([targetObject respondsToSelector:@selector(setValue:forUndefinedKey:)]){
-        
-        NS_DURING
-        
-            ObjcValue objcValue = convertValueToObjcValue (exec, aValue, ObjcObjectType);
-            [targetObject setValue:objcValue.objectValue forUndefinedKey:[NSString stringWithCString:property.ascii()]];
-        
-        NS_HANDLER
-            
+        ObjcValue objcValue = convertValueToObjcValue(exec, aValue, ObjcObjectType);
+
+        @try {
+            [targetObject setValue:objcValue.objectValue forUndefinedKey:[NSString stringWithCString:property.ascii() encoding:NSASCIIStringEncoding]];
+        } @catch(NSException* localException) {
             // Do nothing.  Class did not override valueForUndefinedKey:.
-            
-        NS_ENDHANDLER
-        
+        }
     }
 }
 
-Value ObjcInstance::getValueOfField (KJS::ExecState *exec, const Field *aField) const {  
-    return aField->valueFromInstance (exec, this);
-}
-
-KJS::Value ObjcInstance::getValueOfUndefinedField (KJS::ExecState *exec, const KJS::Identifier &property, KJS::Type hint) const
+JSValue* ObjcInstance::getValueOfUndefinedField(ExecState* exec, const Identifier& property, JSType) const
 {
-    Value result = Undefined();
+    JSValue* result = jsUndefined();
     
     id targetObject = getObject();
-    
+
+   JSLock::DropAllLocks dropAllLocks; // Can't put this inside the @try scope because it unwinds incorrectly.
+
     // This check is not really necessary because NSObject implements
     // valueForUndefinedKey:, and unfortnately the default implementation
     // throws an exception.
     if ([targetObject respondsToSelector:@selector(valueForUndefinedKey:)]){
-        id objcValue;
-        
-        NS_DURING
-        
-            objcValue = [targetObject valueForUndefinedKey:[NSString stringWithCString:property.ascii()]];
-            result = convertObjcValueToValue (exec, &objcValue, ObjcObjectType);
-        
-        NS_HANDLER
-            
+        @try {
+            id objcValue = [targetObject valueForUndefinedKey:[NSString stringWithCString:property.ascii() encoding:NSASCIIStringEncoding]];
+            result = convertObjcValueToValue(exec, &objcValue, ObjcObjectType, _rootObject.get());
+        } @catch(NSException* localException) {
             // Do nothing.  Class did not override valueForUndefinedKey:.
-            
-        NS_ENDHANDLER
-        
+        }
     }
-    
+
     return result;
 }
 
-KJS::Value ObjcInstance::defaultValue (KJS::Type hint) const
+JSValue* ObjcInstance::defaultValue(JSType hint) const
 {
-    if (hint == KJS::StringType) {
+    switch (hint) {
+    case StringType:
         return stringValue();
-    }
-    else if (hint == KJS::NumberType) {
+    case NumberType:
         return numberValue();
-    }
-    else if (hint == KJS::BooleanType) {
+    case BooleanType:
         return booleanValue();
-    }
-    else if (hint == KJS::UnspecifiedType) {
-        if ([_instance isKindOfClass:[NSString class]]) {
+    case UnspecifiedType:
+        if ([_instance.get() isKindOfClass:[NSString class]])
             return stringValue();
-        }
-        else if ([_instance isKindOfClass:[NSNumber class]]) {
+        if ([_instance.get() isKindOfClass:[NSNumber class]])
             return numberValue();
-        }
-        else if ([_instance isKindOfClass:[NSNumber class]]) {
-            return booleanValue();
-        }
+    default:
+        return valueOf();
     }
-    
-    return valueOf();
 }
 
-KJS::Value ObjcInstance::stringValue() const
+JSValue* ObjcInstance::stringValue() const
 {
-    return convertNSStringToString ([getObject() description]);
+    return convertNSStringToString([getObject() description]);
 }
 
-KJS::Value ObjcInstance::numberValue() const
+JSValue* ObjcInstance::numberValue() const
 {
     // FIXME:  Implement something sensible
-    KJS::Number v(0);
-    return v;
+    return jsNumber(0);
 }
 
-KJS::Value ObjcInstance::booleanValue() const
+JSValue* ObjcInstance::booleanValue() const
 {
     // FIXME:  Implement something sensible
-    KJS::Boolean v((bool)0);
-    return v;
+    return jsBoolean(false);
 }
 
-KJS::Value ObjcInstance::valueOf() const 
+JSValue* ObjcInstance::valueOf() const 
 {
     return stringValue();
 }

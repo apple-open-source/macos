@@ -1,29 +1,23 @@
 /*
  * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * @APPLE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. The rights granted to you under the License
- * may not be used to create, or enable the creation or redistribution of,
- * unlawful or unlicensed copies of an Apple operating system, or to
- * circumvent, violate, or enable the circumvention or violation of, any
- * terms of an Apple operating system software license agreement.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
- * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ * @APPLE_LICENSE_HEADER_END@
  */
 /*
  * @OSF_COPYRIGHT@
@@ -418,6 +412,8 @@ vm_object_bootstrap(void)
 				round_page_32(12*1024),
 				"vm objects");
 
+	queue_init(&vm_object_reaper_queue);
+
 	queue_init(&vm_object_cached_list);
 	mutex_init(&vm_object_cached_lock_data, 0);
 
@@ -545,7 +541,6 @@ vm_object_reaper_init(void)
 	kern_return_t	kr;
 	thread_t	thread;
 
-	queue_init(&vm_object_reaper_queue);
 	kr = kernel_thread_start_priority(
 		(thread_continue_t) vm_object_reaper_thread,
 		NULL,
@@ -1062,7 +1057,7 @@ vm_object_terminate(
 		vm_object_unlock(shadow_object);
 	}
 
-	if (FALSE && object->paging_in_progress != 0) {
+	if (object->paging_in_progress != 0) {
 		/*
 		 * There are still some paging_in_progress references
 		 * on this object, meaning that there are some paging
@@ -1087,8 +1082,16 @@ vm_object_terminate(
 		vm_object_reap_async(object);
 		vm_object_cache_unlock();
 		vm_object_unlock(object);
-		return KERN_SUCCESS;
+		/*
+		 * Return KERN_FAILURE to let the caller know that we
+		 * haven't completed the termination and it can't drop this
+		 * object's reference on its shadow object yet.
+		 * The reaper thread will take care of that once it has
+		 * completed this object's termination.
+		 */
+		return KERN_FAILURE;
 	}
+
 	/* complete the VM object termination */
 	vm_object_reap(object);
 	object = VM_OBJECT_NULL;
@@ -1198,6 +1201,8 @@ vm_object_reap(
 	vm_external_destroy(object->existence_map, object->size);
 #endif	/* MACH_PAGEMAP */
 
+	object->shadow = VM_OBJECT_NULL;
+
 	/*
 	 *	Free the space for the object.
 	 */
@@ -1226,7 +1231,7 @@ vm_object_reap_async(
 void
 vm_object_reaper_thread(void)
 {
-	vm_object_t	object;
+	vm_object_t	object, shadow_object;
 
 	vm_object_cache_lock();
 
@@ -1238,10 +1243,22 @@ vm_object_reaper_thread(void)
 		vm_object_lock(object);
 		assert(object->terminating);
 		assert(!object->alive);
-		
+
+		shadow_object =
+			object->pageout ? VM_OBJECT_NULL : object->shadow;
+
 		vm_object_reap(object);
 		/* cache is unlocked and object is no longer valid */
 		object = VM_OBJECT_NULL;
+
+		if (shadow_object != VM_OBJECT_NULL) {
+			/*
+			 * Drop the reference "object" was holding on
+			 * its shadow object.
+			 */
+			vm_object_deallocate(shadow_object);
+			shadow_object = VM_OBJECT_NULL;
+		}
 
 		vm_object_cache_lock();
 	}

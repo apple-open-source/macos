@@ -856,9 +856,6 @@
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET
 
-/* Define if you have the sqlcli library (-lsqlcli).  */
-#undef HAVE_LIBSQLCLI
-
 /* Define if processor uses big-endian word */
 #undef WORDS_BIGENDIAN
 
@@ -1745,6 +1742,9 @@
 /*   */
 #undef HAVE_IMAP2004
 
+/* Whether utf8_mime2text() has new signature */
+#undef HAVE_NEW_MIME2TEXT
+
 /*   */
 #undef HAVE_IMAP2001
 
@@ -1786,15 +1786,6 @@
 
 /* Whether to build interbase as dynamic module */
 #undef COMPILE_DL_INTERBASE
-
-/* Whether thttpd is available */
-#undef IRCG_WITH_THTTPD
-
-/* Whether you want IRCG support */
-#undef HAVE_IRCG
-
-/* Whether to build ircg as dynamic module */
-#undef COMPILE_DL_IRCG
 
 /*   */
 #undef HAVE_JAVA
@@ -2206,12 +2197,6 @@
 
 /* Whether to build overload as dynamic module */
 #undef COMPILE_DL_OVERLOAD
-
-/* Whether to build ovrimos as dynamic module */
-#undef COMPILE_DL_OVRIMOS
-
-/*   */
-#undef HAVE_LIBSQLCLI
 
 /*   */
 #undef HAVE_FORK

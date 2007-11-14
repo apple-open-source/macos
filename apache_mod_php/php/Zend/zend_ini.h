@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_ini.h,v 1.21.2.2 2005/01/09 17:00:16 sniper Exp $ */
+/* $Id: zend_ini.h,v 1.21.2.2.2.1 2006/12/26 17:33:12 iliaa Exp $ */
 
 #ifndef ZEND_INI_H
 #define ZEND_INI_H
@@ -175,6 +175,7 @@ END_EXTERN_C()
 BEGIN_EXTERN_C()
 ZEND_API ZEND_INI_MH(OnUpdateBool);
 ZEND_API ZEND_INI_MH(OnUpdateInt);
+ZEND_API ZEND_INI_MH(OnUpdateLongGEZero);
 ZEND_API ZEND_INI_MH(OnUpdateReal);
 ZEND_API ZEND_INI_MH(OnUpdateString);
 ZEND_API ZEND_INI_MH(OnUpdateStringUnempty);

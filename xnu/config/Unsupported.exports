@@ -203,6 +203,7 @@ _soconnect
 _socreate
 _sodisconnect
 _sofree
+_sofreelastref
 _soisconnected
 _soisconnecting
 _soisdisconnected

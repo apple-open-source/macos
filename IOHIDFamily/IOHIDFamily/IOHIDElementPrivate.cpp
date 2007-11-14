@@ -1022,6 +1022,11 @@ bool IOHIDElementPrivate::processReport(
     {
         *next = _nextReportHandler;
         
+        if ( _reportID != reportID )
+        {
+            return false;
+        }
+        
         if (_isInterruptReportHandler && (options & kIOHIDReportOptionNotInterrupt))
         {
             return false;

@@ -1,0 +1,201 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Apache Tomcat Connector - Documentation Index</title><meta value="Mladen Turk" name="author"><meta value="mturk@apache.org" name="email"><meta value="Rainer Jung" name="author"><meta value="rjung@apache.org" name="email"><link rel="stylesheet" type="text/css" href="./style.css"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--TOMCAT LOGO--><a href="http://tomcat.apache.org/"><img border="0" alt="Apache Tomcat" align="left" src="./images/tomcat.gif"></a><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="http://www.apache.org/images/asf-logo.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--LEFT SIDE NAVIGATION--><td nowrap="true" valign="top" width="20%"><p><strong>Links</strong></p><ul><li><a href="index.html">Docs Home</a></li></ul><p><strong>Reference Guide</strong></p><ul><li><a href="reference/workers.html">workers.properties</a></li><li><a href="reference/uriworkermap.html">uriworkermap.properties</a></li><li><a href="reference/status.html">Status Worker</a></li><li><a href="reference/apache.html">Apache</a></li><li><a href="reference/iis.html">IIS</a></li></ul><p><strong>Generic HowTo</strong></p><ul><li><a href="generic_howto/quick.html">For the impatient</a></li><li><a href="generic_howto/workers.html">All about workers</a></li><li><a href="generic_howto/loadbalancers.html">Load Balancing</a></li></ul><p><strong>Webserver HowTo</strong></p><ul><li><a href="webserver_howto/apache.html">Apache</a></li><li><a href="webserver_howto/iis.html">IIS</a></li><li><a href="webserver_howto/nes.html">Netscape/SunOne/Sun</a></li></ul><p><strong>AJP Protocol Reference</strong></p><ul><li><a href="ajp/ajpv13a.html">AJPv13</a></li><li><a href="ajp/ajpv13ext.html">AJPv13 Extension Proposal</a></li></ul><p><strong>Miscellaneous Documentation</strong></p><ul><li><a href="miscellaneous/faq.html">Frequently asked questions</a></li><li><a href="miscellaneous/changelog.html">Changelog</a></li><li><a href="http://issues.apache.org/bugzilla/buglist.cgi?query_format=advanced&short_desc_type=allwordssubstr&short_desc=&product=Tomcat+5&component=Native%3AJK&long_desc_type=substring&long_desc=&bug_file_loc_type=allwordssubstr&bug_file_loc=&keywords_type=allwords&keywords=&bug_status=NEW&bug_status=ASSIGNED&bug_status=REOPENED&emailassigned_to1=1&emailtype1=substring&email1=&emailassigned_to2=1&emailreporter2=1&emailcc2=1&emailtype2=substring&email2=&bugidtype=include&bug_id=&votes=&chfieldfrom=&chfieldto=Now&chfieldvalue=&cmdtype=doit&order=Reuse+same+sort+as+last+time&field0-0-0=noop&type0-0-0=noop&value0-0-0=">Current Native:JK bugs</a></li><li><a href="miscellaneous/doccontrib.html">Contribute documentation</a></li><li><a href="miscellaneous/jkstatustasks.html">JK Status Ant Tasks</a></li><li><a href="miscellaneous/reporttools.html">Reporting Tools</a></li><li><a href="http://tomcat.apache.org/connectors-doc-archive/jk2/index.html">Old JK/JK2 documentation</a></li></ul><p><strong>News</strong></p><ul><li><a href="news/20070301.html">2007</a></li><li><a href="news/20060101.html">2006</a></li><li><a href="news/20050101.html">2005</a></li><li><a href="news/20041100.html">2004</a></li></ul></td><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td valign="top" align="left"><h1>The Apache Tomcat Connector</h1><h2>Documentation Index</h2></td><td nowrap="true" valign="top" align="right"><small><a href="printer/index.html"><img alt="Printer Friendly Version" border="0" src="./images/printer.gif"><br>print-friendly<br>version
+                    </a></small></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>This is the top-level entry point of the documentation bundle for the
+<strong>Apache Tomcat Connectors</strong> 
+
+</p>
+<p>Select one of the links from the navigation menu (to the left) to drill
+down to the more detailed documentation that is available. Each available
+manual is described in more detail below.</p>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Headlines"><strong>Headlines</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<ul>
+<li><a href="news/20070301.html#20070301.1">1 March 2007 - <b>JK-1.2.21 released</b></a>
+<p>The Apache Tomcat team is proud to announce the immediate availability
+of Tomcat Connectors 1.2.21 Stable.
+</p>
+<p>This version addresses the security flaw:
+<br>
+<a href="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2007-0774"><b>CVE-2007-0774</b></a>
+A Long URL Stack Overflow Vulnerability exists in the URI handler for the mod_jk library.
+When parsing a long URL request, the URI worker map routine performs an
+unsafe memory copy. This results in a stack overflow condition which can
+be leveraged execute arbitrary code.
+</p><p>
+Please note this issue only affected versions 1.2.19 and 1.2.20 of the
+JK Apache Tomcat Connector and not previous versions.
+Tomcat 5.5.20 and Tomcat 4.1.34
+included a vulnerable version in their source packages.
+<strong>No </strong>other source code releases <strong> and no binary packages</strong>
+of Tomcat were affected.
+</p><p>
+The Apache Tomcat project recommends that all users who have built mod_jk from source apply the patch or upgrade to the latest level and rebuild. Providers of mod_jk-based modules in pre-compiled form will be able to determine if this vulnerability applies to their builds. That determination has no bearing on any other builds of mod_jk, and mod_jk users are urged to exercise caution and apply patches or upgrade unless they have specific instructions from the provider of their module.
+</p><p>
+The Tomcat Project thanks an anonymous researcher working with 
+TippingPoint (www.tippingpoint.com) and the Zero Day Initiative 
+(www.zerodayintiative.com) for their responsible reporting of this 
+vulnerability.
+</p>
+<p>Download the <a href="http://www.apache.org/dist/tomcat/tomcat-connectors/jk/source/jk-1.2.21/tomcat-connectors-1.2.21-src.tar.gz">JK 1.2.21 release sources</a>
+ | <a href="http://www.apache.org/dist/tomcat/tomcat-connectors/jk/source/jk-1.2.21/tomcat-connectors-1.2.21-src.tar.gz.asc">PGP signature</a>
+</p>
+<p>Download the <a href="http://www.apache.org/dist/tomcat/tomcat-connectors/jk/binaries/">binaries</a> for selected platforms.
+</p>
+</li>
+<li><a href="news/20060101.html#20061210.1">10 December 2006 - <b>JK-1.2.20 released</b></a>
+<p>The Apache Tomcat team is proud to announce the immediate availability
+of Tomcat Connectors 1.2.20 Stable.
+</p>
+<p>Download the <a href="http://www.apache.org/dist/tomcat/tomcat-connectors/jk/source/jk-1.2.20/tomcat-connectors-1.2.20-src.tar.gz">JK 1.2.20 release sources</a>
+ | <a href="http://www.apache.org/dist/tomcat/tomcat-connectors/jk/source/jk-1.2.20/tomcat-connectors-1.2.20-src.tar.gz.asc">PGP signature</a>
+</p>
+<p>Download the <a href="http://www.apache.org/dist/tomcat/tomcat-connectors/jk/binaries/">binaries</a> for selected platforms.
+</p>
+</li>
+<li><a href="news/20060101.html#20060917.1">17 September 2006 - <b>JK-1.2.19 released</b></a>
+<p>The Apache Tomcat team is proud to announce the immediate availability
+of Tomcat Connectors 1.2.19 Stable.
+</p>
+<p>Download the <a href="http://www.apache.org/dist/tomcat/tomcat-connectors/jk/source/jk-1.2.19/tomcat-connectors-1.2.19-src.tar.gz">JK 1.2.19 release sources</a>
+ | <a href="http://www.apache.org/dist/tomcat/tomcat-connectors/jk/source/jk-1.2.19/tomcat-connectors-1.2.19-src.tar.gz.asc">PGP signature</a>
+</p>
+<p>Download the <a href="http://www.apache.org/dist/tomcat/tomcat-connectors/jk/binaries/">binaries</a> for selected platforms.
+</p>
+</li>
+</ul>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Reference Guide"><strong>Reference Guide</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<ul>
+<li><a href="reference/workers.html"><b>workers.properties</b></a>
+<p>A Tomcat worker is a Tomcat instance that is waiting to execute servlets
+on behalf of some web server. For example, we can have a web server such as Apache
+forwarding servlet requests to a Tomcat process (the worker) running behind it. 
+</p>
+<p>This page contains detailed description of all workers.properties
+directives.
+</p>
+</li>
+
+<li><a href="reference/uriworkermap.html"><b>uriworkermap.properties</b></a>
+<p>
+The forwarding of requests from the web server to tomcat gets configured by defining mapping rules.
+The so-called <b>uriworkermap</b> file is a mechanism of defining those rules.
+</p>
+</li>
+
+<li><a href="reference/apache.html"><b>Apache</b></a>
+<p>This page contains detailed description of all directives related to
+Apache web server. 
+</p>
+</li>
+
+<li><a href="reference/iis.html"><b>IIS</b></a>
+<p>This page contains detailed description of all IIS directives.
+</p>
+</li>
+
+</ul>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Generic HowTo"><strong>Generic HowTo</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<ul>
+
+<li><a href="generic_howto/quick.html"><b>Quick Start</b></a>
+<p>This page describes the configuration files used by JK on the
+Web Server side for the 'impatients'.
+</p>
+</li>
+<li><a href="generic_howto/workers.html"><b>All about workers</b></a>
+<p>This page contains an overview about the various aspects of defining
+and using workers.
+</p>
+</li>
+<li><a href="generic_howto/loadbalancers.html"><b>Load Balancing</b></a>
+<p>This page contains an introduction on load balancing with JK.
+</p>
+</li>
+
+</ul>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Webserver HowTo"><strong>Webserver HowTo</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>These pages contain detailed descriptions of how to build and
+install JK for the various web servers.
+</p>
+<ul>
+
+<li><a href="webserver_howto/apache.html"><b>Apache</b></a>
+</li>
+<li><a href="webserver_howto/iis.html"><b>IIS</b></a>
+</li>
+<li><a href="webserver_howto/nes.html"><b>Netscape/SunOne/Sun</b></a>
+</li>
+
+</ul>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="AJP Protocol Reference"><strong>AJP Protocol Reference</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<ul>
+<li><a href="ajp/ajpv13a.html"><b>AJPv13</b></a>
+<p>This page describes the Apache JServ Protocol version 1.3 (hereafter
+<b>ajp13</b>). 
+</p>
+</li>
+<li><a href="ajp/ajpv13ext.html"><b>AJPv13 Extension Proposal</b></a>
+<p>This page describes an extension proposal for ajp13.
+</p>
+</li>
+</ul>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Miscellaneous documentation"><strong>Miscellaneous documentation</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<ul>
+<li><a href="miscellaneous/faq.html"><b>Frequently asked questions</b></a>
+<p>
+</p>
+</li>
+<li><a href="miscellaneous/changelog.html"><b>Changelog</b></a>
+<p>
+The FAQ detail the changes made in each version of JK.
+</p>
+</li>
+<li><a href="http://issues.apache.org/bugzilla/buglist.cgi?query_format=advanced&short_desc_type=allwordssubstr&short_desc=&product=Tomcat+5&component=Native%3AJK&long_desc_type=substring&long_desc=&bug_file_loc_type=allwordssubstr&bug_file_loc=&keywords_type=allwords&keywords=&bug_status=NEW&bug_status=ASSIGNED&bug_status=REOPENED&emailassigned_to1=1&emailtype1=substring&email1=&emailassigned_to2=1&emailreporter2=1&emailcc2=1&emailtype2=substring&email2=&bugidtype=include&bug_id=&votes=&chfieldfrom=&chfieldto=Now&chfieldvalue=&cmdtype=doit&order=Reuse+same+sort+as+last+time&field0-0-0=noop&type0-0-0=noop&value0-0-0=">
+<b>Current Native:JK bugs</b></a>
+<p>This is the Bugzilla Bug List related to Native:JK.
+</p>
+</li>
+<li><a href="miscellaneous/doccontrib.html"><b>Contribute documentation</b></a>
+<p>
+This page describes, how to contribute to the JK documentation.
+</p>
+</li>
+<li><a href="miscellaneous/tools.html"><b>Tools</b></a>
+<p>
+This page contains information, on some tool scripts contained in the Jk distribution.
+</p>
+</li>
+<li><a href="http://tomcat.apache.org/connectors-doc-archive/jk2/index.html">
+<b>Old JK/JK2 documentation archive.</b></a>
+<p>Here you can find old JK and JK2 documentation.
+</p>
+</li>
+</ul>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="News"><strong>News</strong></a></font></td></tr><tr><td><blockquote>
+<br>
+<p>Release news from various years.
+</p>
+
+<ul>
+<li><a href="news/20070301.html"><b>2007</b></a>
+</li>
+<li><a href="news/20060101.html"><b>2006</b></a>
+</li>
+<li><a href="news/20050101.html"><b>2005</b></a>
+</li>
+<li><a href="news/20041100.html"><b>2004</b></a>
+</li>
+
+</ul>
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

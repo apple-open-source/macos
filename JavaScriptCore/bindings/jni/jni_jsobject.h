@@ -22,21 +22,23 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-#ifndef _JNI_JSOBJECT_H_
-#define _JNI_JSOBJECT_H_
+
+#ifndef JAVASCRIPTCORE_BINDINGS_JNI_JSOBJECT_H
+#define JAVASCRIPTCORE_BINDINGS_JNI_JSOBJECT_H
 
 #include <CoreFoundation/CoreFoundation.h>
-
-#include <JavaScriptCore/interpreter.h>
-#include <JavaScriptCore/object.h>
 
 #include <JavaVM/jni.h>
 
 #define jlong_to_ptr(a) ((void*)(uintptr_t)(a))
-#define jlong_to_impptr(a) (static_cast<KJS::ObjectImp*>(((void*)(uintptr_t)(a))))
+#define jlong_to_impptr(a) (static_cast<KJS::JSObject*>(((void*)(uintptr_t)(a))))
 #define ptr_to_jlong(a) ((jlong)(uintptr_t)(a))
 
 namespace KJS {
+
+class List;
+class JSObject;
+class JSValue;
 
 namespace Bindings {
 
@@ -67,13 +69,10 @@ struct JSObjectCallContext
     jvalue result;
 };
 
-
-typedef struct JSObjectCallContext JSObjectCallContext;
-
-class JSObject
+class JavaJSObject
 {
 public:
-    JSObject(jlong nativeHandle);
+    JavaJSObject(jlong nativeHandle);
     
     static jlong createNative(jlong nativeHandle);
     jobject call(jstring methodName, jobjectArray args) const;
@@ -86,15 +85,17 @@ public:
     jstring toString() const;
     void finalize() const;
     
-    static jvalue invoke (JSObjectCallContext *context);
+    static jvalue invoke(JSObjectCallContext*);
 
-    jobject convertValueToJObject (KJS::Value value) const;
-    KJS::Value convertJObjectToValue (jobject theObject) const;
-    KJS::List listFromJArray(jobjectArray jArray) const;
+    jobject convertValueToJObject(JSValue*) const;
+    JSValue* convertJObjectToValue(jobject) const;
+    List listFromJArray(jobjectArray) const;
+    
+    RootObject* rootObject() const;
     
 private:
-    const Bindings::RootObject *_root;
-    KJS::ObjectImp *_imp;
+    RefPtr<RootObject> _rootObject;
+    JSObject* _imp;
 };
 
 
@@ -104,18 +105,18 @@ private:
 
 extern "C" {
 
-// Functions called from the Java VM when making calls to the JSObject class.
-jlong KJS_JSCreateNativeJSObject (JNIEnv *env, jclass clazz, jstring jurl, jlong nativeHandle, jboolean ctx);
-void KJS_JSObject_JSFinalize (JNIEnv *env, jclass jsClass, jlong nativeJSObject);
-jobject KJS_JSObject_JSObjectCall (JNIEnv *env, jclass jsClass, jlong nativeJSObject, jstring jurl, jstring methodName, jobjectArray args, jboolean ctx);
-jobject KJS_JSObject_JSObjectEval (JNIEnv *env, jclass jsClass, jlong nativeJSObject, jstring jurl, jstring jscript, jboolean ctx);
-jobject KJS_JSObject_JSObjectGetMember (JNIEnv *env, jclass jsClass, jlong nativeJSObject, jstring jurl, jstring jname, jboolean ctx);
-void KJS_JSObject_JSObjectSetMember (JNIEnv *env, jclass jsClass, jlong nativeJSObject, jstring jurl, jstring jname, jobject value, jboolean ctx);
-void KJS_JSObject_JSObjectRemoveMember (JNIEnv *env, jclass jsClass, jlong nativeJSObject, jstring jurl, jstring jname, jboolean ctx);
-jobject KJS_JSObject_JSObjectGetSlot (JNIEnv *env, jclass jsClass, jlong nativeJSObject, jstring jurl, jint jindex, jboolean ctx);
-void KJS_JSObject_JSObjectSetSlot (JNIEnv *env, jclass jsClass, jlong nativeJSObject, jstring jurl, jint jindex, jobject value, jboolean ctx);
-jstring KJS_JSObject_JSObjectToString (JNIEnv *env, jclass clazz, jlong nativeJSObject);
+// The Java VM calls these functions to handle calls to methods in Java's JSObject class.
+jlong KJS_JSCreateNativeJSObject(JNIEnv*, jclass, jstring jurl, jlong nativeHandle, jboolean ctx);
+void KJS_JSObject_JSFinalize(JNIEnv*, jclass, jlong nativeJSObject);
+jobject KJS_JSObject_JSObjectCall(JNIEnv*, jclass, jlong nativeJSObject, jstring jurl, jstring methodName, jobjectArray args, jboolean ctx);
+jobject KJS_JSObject_JSObjectEval(JNIEnv*, jclass, jlong nativeJSObject, jstring jurl, jstring jscript, jboolean ctx);
+jobject KJS_JSObject_JSObjectGetMember(JNIEnv*, jclass, jlong nativeJSObject, jstring jurl, jstring jname, jboolean ctx);
+void KJS_JSObject_JSObjectSetMember(JNIEnv*, jclass, jlong nativeJSObject, jstring jurl, jstring jname, jobject value, jboolean ctx);
+void KJS_JSObject_JSObjectRemoveMember(JNIEnv*, jclass, jlong nativeJSObject, jstring jurl, jstring jname, jboolean ctx);
+jobject KJS_JSObject_JSObjectGetSlot(JNIEnv*, jclass, jlong nativeJSObject, jstring jurl, jint jindex, jboolean ctx);
+void KJS_JSObject_JSObjectSetSlot(JNIEnv*, jclass, jlong nativeJSObject, jstring jurl, jint jindex, jobject value, jboolean ctx);
+jstring KJS_JSObject_JSObjectToString(JNIEnv*, jclass, jlong nativeJSObject);
 
-} // namespace Bindings
+}
 
 #endif

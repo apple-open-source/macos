@@ -160,6 +160,7 @@ void DoSelfTest()
 	char guidStr[100];
 	uint64_t time;
 	
+	request.el_seqno = 1;  // used as byte order field
 	request.el_flags = KAUTH_EXTLOOKUP_VALID_UID | KAUTH_EXTLOOKUP_VALID_GID | 
 				KAUTH_EXTLOOKUP_WANT_MEMBERSHIP | KAUTH_EXTLOOKUP_WANT_UGUID | KAUTH_EXTLOOKUP_WANT_GGUID;
 	request.el_uid = 501;

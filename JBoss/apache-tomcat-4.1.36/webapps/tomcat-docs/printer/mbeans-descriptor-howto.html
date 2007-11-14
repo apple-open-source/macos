@@ -1,0 +1,60 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>Apache Tomcat 4 - MBean Descriptor How To</title><meta value="Amy Roh" name="author"><meta value="amyroh@apache.org" name="email"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="0" width="100%" border="0"><!--PAGE HEADER--><tr><td><!--PROJECT LOGO--><a href="http://tomcat.apache.org/"><img border="0" alt="
+      The Tomcat Servlet/JSP Container
+    " align="right" src="./../images/tomcat.gif"></a></td><td><font face="arial,helvetica,sanserif"><h1>Apache Tomcat 4</h1></font></td><td><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="./../images/asf-logo.gif"></a></td></tr></table><table cellspacing="4" width="100%" border="0"><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td nowrap="true" valign="top" align="left"><h1>MBean Descriptor How To</h1></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>Tomcat 4 uses JMX MBeans as the technology for implementing 
+manageability of Tomcat.</p>
+
+<p>The descriptions of JMX MBeans for Catalina are in the 
+org.apache.catalina.mbeans.mbeans-descriptor.xml file.</p>
+
+<p>You will need to add MBean descriptions for your custom components 
+in order to avoid a "ManagedBean is not found" exception.</p>
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Including your own mbean-descriptor files"><strong>Including your own mbean-descriptor files</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>You may configure custom components (e.g. Valves/Realms) by including 
+your own mbean-descriptor file(s), and setting the "descriptors" 
+attribute to point to a ';' separated list of paths (in the ClassLoader sense) 
+of files to add to the default list under ServerLifecycleListener definition 
+in server.xml.</p>
+
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+&lt;Listener className="org.apache.catalina.mbeans.ServerLifecycleListener"
+          debug="0"
+          descriptors="/com/myfirm/mypackage/mbean-descriptor.xml"/&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr></table></div>          
+
+
+</blockquote></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Adding MBean description to Catalina's mbean-descriptors.xml"><strong>Adding MBean description to Catalina's mbean-descriptors.xml</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>You may also add MBean descriptions for custom components in 
+org.apache.catalina.mbeans.mbeans-descriptor.xml file.</p>
+
+<div align="left"><table border="0" cellpadding="0" cellspacing="4"><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr><tr><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" bgcolor="#ffffff"><pre>
+  &lt;mbean         name="LDAPRealm"
+            className="org.apache.catalina.mbeans.ClassNameMBean"
+          description="Custom LDAPRealm"
+               domain="Catalina"
+                group="Realm"
+                 type="com.myfirm.mypackage.LDAPRealm"&gt;
+
+    &lt;attribute   name="className"
+          description="Fully qualified class name of the managed object"
+                 type="java.lang.String"
+            writeable="false"/&gt;
+
+    &lt;attribute   name="debug"
+          description="The debugging detail level for this component"
+                 type="int"/&gt;
+    .
+    .
+    .
+
+  &lt;/mbean&gt;
+</pre></td><td width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr><tr><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td><td height="1" width="1" bgcolor="#023264"><img border="0" hspace="0" vspace="0" height="1" width="1" src="./../images/void.gif"></td></tr></table></div>
+
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

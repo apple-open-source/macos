@@ -24,6 +24,7 @@
 #import "HashTable.h"
 #import "Listener.h"
 
+#import <fcntl.h>
 #import <stdlib.h>
 #import <string.h>
 #import <stdio.h>
@@ -35,6 +36,8 @@
 #import <DirectoryService/DirServices.h>
 #import <DirectoryService/DirServicesConst.h>
 #import <DirectoryService/DirServicesUtils.h>
+
+extern bool gDebug;
 
 #ifndef kDSNAttrGroupMembers
 #define kDSNAttrGroupMembers "dsAttrTypeNative:GroupMembers"
@@ -134,6 +137,7 @@ TempUIDCacheBlockBase* gUIDCache = NULL;
 #define kFoundItem 0x0100
 #define kItemInCache 0x0200
 #define kMembershipCheck 0x0400
+#define kItemRefreshed 0x0800
 
 typedef struct LogEntry
 {
@@ -265,21 +269,21 @@ void PrintLogEntry(FILE* file, LogEntry* entry, guid_t* extraID)
 		sprintf(cur, "cache was reset");
 	else if (item != NULL)
 	{
-		if (item->fCheckVal != entry->fCheckVal)
-			sprintf(cur, "unknown item with id %d", entry->fID);
+		if (item->fIsUser)
+			sprintf(cur, "User");
 		else
-		{
-			if (item->fIsUser)
-				sprintf(cur, "User");
-			else
-				sprintf(cur, "Group");
-				
-			cur += strlen(cur);
-			if (item->fName != NULL && strlen(item->fName) < 512)
-				sprintf(cur, " '%s'", item->fName);
-				
-		}
+			sprintf(cur, "Group");
+			
 		cur += strlen(cur);
+		if (item->fName != NULL && strlen(item->fName) < 512)
+			sprintf(cur, " '%s' - 0x%X", item->fName, (unsigned int) item );
+		cur += strlen(cur);
+		
+		if (item->fCheckVal != entry->fCheckVal)
+		{	
+			sprintf( cur, " (historical)" );
+			cur += strlen(cur);
+		}
 				
 		if ((type & kMembershipCheck) == 0)
 		{
@@ -307,10 +311,12 @@ void PrintLogEntry(FILE* file, LogEntry* entry, guid_t* extraID)
 				sprintf(cur, " by name");
 
 			cur += strlen(cur);
-			if ((type & kItemInCache) == 0)
-				sprintf(cur, " (result added to cache)");
+			if ((type & kItemRefreshed) == kItemRefreshed)
+				sprintf(cur, " (result refreshed in cache)");
+			else if ((type & kItemInCache) == kItemInCache)
+				sprintf(cur, " (result from cache)");
 			else
-				sprintf(cur, " (result is from cache)");
+				sprintf(cur, " (result added to cache)");
 		}
 		else
 		{
@@ -377,21 +383,48 @@ void DumpState(bool dumpLogOnly)
 {
 	struct stat sb;
 	char* logName = "/Library/Logs/memberd_dump.log";
-	int i;
-	if (stat(logName, &sb) == 0)
+        int i;
+
+        // roll logs starting from the end
+        // only keep the last 9 logs around
+        for ( i = 8; i >= 0; i-- )
+        {
+                char fileName[128];
+                char newName[128];
+
+                snprintf( fileName, sizeof(fileName), "%s.%d", logName, i );
+                if ( lstat(fileName, &sb) == 0 )
+                {
+                        snprintf( newName, sizeof(newName), "%s.%d", logName, i+1 );
+
+                        // first unlink any existing file and then rename current to the new
+                        unlink( newName );
+                        rename( fileName, newName );
+                }
+        }
+
+        // now rename any existing log to /Library/Logs/memberd_dump.log.0
+	if ( lstat(logName, &sb) == 0 )
 	{
-		char fileName[30];
-		int i = 1;
-		while (1)
-		{
-			sprintf(fileName, "/Library/Logs/memberd-%d.log", i);
-			if (stat(fileName, &sb) != 0)
-				break;
-			i++;
-		}
-		rename(logName, fileName);
+                char newName[128];
+
+                snprintf( newName, sizeof(newName), "%s.0", logName );
+
+                // unlink the new name and immediately rename
+                unlink( newName );
+                rename( logName, newName );
 	}
-	FILE* dumpFile = fopen(logName, "w");
+
+        int fd = open( logName, O_EXCL | O_CREAT | O_RDWR, 0644 );
+        if ( fd == -1 )
+                return;
+
+        FILE* dumpFile = fdopen( fd, "w" );
+        if ( dumpFile == NULL ) {
+                close( fd );
+                return;
+        }
+
 	i = curLogPtr - gLogSize;
 	if (i < 0) i=0;
 	while (i < curLogPtr)
@@ -476,6 +509,7 @@ UserGroup* GetItem(int recordType, char* idType, void* guidData, ntsid_t* sid, i
 	UserGroup* cacheResult = NULL;
 	u_int16_t logType = 0;
 	ntsid_t tempsid;
+	int doLog = 1;
 	
 	if (sid != NULL)
 	{
@@ -519,6 +553,11 @@ UserGroup* GetItem(int recordType, char* idType, void* guidData, ntsid_t* sid, i
 	if (cacheResult == NULL || ItemOutdated(cacheResult))
 	{
 		uint64_t microsec = GetElapsedMicroSeconds();
+		
+		doLog = 0;
+		
+		if (cacheResult != NULL)
+			logType |= kItemRefreshed;
 		
 		gStatBlock->fCacheMisses++;
 		if (guidData != NULL)
@@ -658,7 +697,9 @@ UserGroup* GetItem(int recordType, char* idType, void* guidData, ntsid_t* sid, i
 	
 	if (!result->fNotFound)
 		logType |= kFoundItem;
-	AddLogEntry(logType, result, NULL);
+		
+	if (doLog || result->fNotFound)
+		AddLogEntry(logType, result, NULL);
 	
 	if ((recordType == TYPE_USER) && result->fNotFound)
 	{
@@ -853,6 +894,7 @@ void ResetUserGroup(UserGroup* ug)
 UserGroup* GetNewUGStruct()
 {
 	UserGroup* result = NULL;
+    uint32_t currentTime = GetElapsedSeconds();
 
 	while (result == NULL)
 	{
@@ -868,8 +910,9 @@ UserGroup* GetNewUGStruct()
 			UserGroup* current = gListTail;
 			while (current != NULL)
 			{
-				if (current->fRefCount == 0)
-					break;  // use the first item not in a membership hash
+                // we'll keep the entry the minimum of the login expiration time before recycling
+				if (current->fRefCount == 0 && currentTime > current->fLoginExpiration)
+					break;
 				current = current->fBackLink;
 			}
 			
@@ -904,6 +947,12 @@ void UpdateIDOrNameHash(HashTable* hash, UserGroup* result, void* resultKey)
 UserGroup* FindOrAddUG(UserGroup* template, int hasGUID, int hasID, int foundByID, int foundByName)
 {
 	UserGroup* result;
+	u_int16_t logType = kFoundItem;  // default to found, if we are here
+	
+	if (foundByName)
+		logType |= kSearchByName;
+	else if(foundByID)
+		logType |= kSearchByID;
 	
 	if (!hasID)
 	{
@@ -940,12 +989,16 @@ UserGroup* FindOrAddUG(UserGroup* template, int hasGUID, int hasID, int foundByI
 	if (result == NULL || ItemOutdated(result))
 	{
 		int checkval;
+		
+		if( result != NULL )
+			logType |= kItemRefreshed;
 	
 		if (result == NULL)
 			result = GetNewUGStruct();
 		else
 		{
-			// wipe out old info
+			// wipe out old info after saving the refcount
+			template->fRefCount = result->fRefCount;
 			ResetUserGroup(result);
 		}
 
@@ -981,6 +1034,8 @@ UserGroup* FindOrAddUG(UserGroup* template, int hasGUID, int hasID, int foundByI
 		else
 			UpdateIDOrNameHash(gGroupNameHash, result, result->fName);
 	}
+	
+	AddLogEntry(logType, result, NULL);
 	
 	return result;
 }
@@ -1024,7 +1079,7 @@ void ConvertSIDToString(char* string, ntsid_t* sid)
 	for(i=0; i < sid->sid_authcount; i++)
 	{
 		current = current + strlen(current);
-		sprintf(current, "-%lu", sid->sid_authorities[i]);
+		sprintf(current, "-%u", sid->sid_authorities[i]);
 	}
 }
 

@@ -111,6 +111,7 @@ static void	SetAliasAddressFromIfName (const char *ifName);
 static void	InitiateShutdown (int);
 static void	Shutdown (int);
 static void	RefreshAddr (int);
+static void	HandleInfo (int);
 static void	ParseOption (const char* option, const char* parms);
 static void	ReadConfigFile (const char* fileName);
 static void	SetupPortRedirect (const char* parms);
@@ -152,6 +153,7 @@ static 	int			packetDirection;
 static  int			dropIgnoredIncoming;
 static  int			logDropped;
 static	int			logFacility;
+static	int			dumpinfo;
 
 #define	NATPORTMAP		1
 
@@ -173,47 +175,50 @@ static	int			logFacility;
 #define OUTOFRESOURCES			4
 #define UNSUPPORTEDOPCODE		5
 #define MAXRETRY        10
-#define TIMER_RATE      250
+#define TIMER_RATE      250000
 
 #define FAILED					-1
 
-typedef struct  stdportmaprequest{
-		char			version;
-		unsigned char   opcode;
-		unsigned short  result;
-		char			data[4];
-	}stdportmaprequest;
+typedef struct  stdportmaprequest {
+	char			version;
+	unsigned char   opcode;
+	unsigned short  result;
+	char			data[4];
+} stdportmaprequest;
 
-typedef struct  publicaddrreply{
-		char			version;
-		unsigned char   opcode;
-		unsigned short  result;
-		unsigned int	epoch;
-		struct in_addr  addr;
-	}publicaddrreply;
-typedef struct  publicportreq{
-		char			version;
-		unsigned char   opcode;
-		unsigned short  result;
-		unsigned short  privateport;
-		unsigned short  publicport;
-		int				lifetime;		/* in second */
-	}publicportreq;
-typedef struct  publicportreply{
-                char                    version;
-                unsigned char   opcode;
-                unsigned short  result;
-                unsigned int    epoch;
-                unsigned short  privateport;
-                unsigned short  publicport;
-                int             lifetime;               /* in second */
-        }publicportreply;
-typedef struct  stderrreply{
-		char			version;
-		unsigned char   opcode;
-		unsigned short  result;
-		unsigned int	epoch;
-	}stderrreply;
+typedef struct  publicaddrreply {
+	char			version;
+	unsigned char   opcode;
+	unsigned short  result;
+	unsigned int	epoch;
+	struct in_addr  addr;
+ } publicaddrreply;
+
+typedef struct  publicportreq {
+	char			version;
+	unsigned char   opcode;
+	unsigned short  result;
+	unsigned short  privateport;
+	unsigned short  publicport;
+	int				lifetime;		/* in second */
+} publicportreq;
+
+typedef struct  publicportreply {
+	char			version;
+	unsigned char   opcode;
+	unsigned short  result;
+	unsigned int    epoch;
+	unsigned short  privateport;
+	unsigned short  publicport;
+	int             lifetime;               /* in second */
+} publicportreply;
+
+typedef struct  stderrreply {
+	char			version;
+	unsigned char   opcode;
+	unsigned short  result;
+	unsigned int	epoch;
+} stderrreply;
 
 
 static	int		enable_natportmap = 0; 
@@ -232,7 +237,7 @@ static  double		secdivisor;
 static void		HandlePortMap( int fd );
 static void		SendPortMapResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, unsigned char origopcode, unsigned short result);
 static void		SendPublicAddress( int fd, struct sockaddr_in *clientaddr, int clientaddrlen );
-static void		SendPublicPortResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *reply, int  publicport);
+static void		SendPublicPortResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *reply, u_short publicport, int result);
 static void		Doubletime( struct timeval *tvp);
 static void		Stoptimer();
 static void		Natdtimer();
@@ -445,6 +450,7 @@ int main (int argc, char** argv)
 	siginterrupt(SIGHUP, 1);
 	signal (SIGTERM, InitiateShutdown);
 	signal (SIGHUP, RefreshAddr);
+	signal (SIGINFO, HandleInfo);
 /*
  * Set alias address if it has been given.
  */
@@ -535,9 +541,13 @@ int main (int argc, char** argv)
 			    NULL,
 			    NULL) == -1) {
 
-			if (errno == EINTR)
+			if (errno == EINTR) {
+				if (dumpinfo) {
+					DumpInfo();
+					dumpinfo = 0;
+				}
 				continue;
-
+			}
 			Quit ("Select failed.");
 		}
 
@@ -633,8 +643,8 @@ static void DoAliasing (int fd, int direction)
 	int			bytes;
 	int			origBytes;
 	int			status;
-	int			addrSize;
-	struct ip*		ip;
+	socklen_t	addrSize;
+	struct ip*	ip;
 
 	if (assignAliasAddr) {
 
@@ -925,7 +935,7 @@ static void SendPublicAddress( int fd, struct sockaddr_in *clientaddr, int clien
 	reply.opcode = SERVERREPLYOP + PUBLICADDRREQ;
 	reply.result = SUCCESS;
 	reply.addr = lastassignaliasAddr;
-        reply.epoch = getuptime();
+	reply.epoch = getuptime();
 
 	bytes = sendto (fd, (void*)&reply, sizeof(reply), 0, (struct sockaddr*)clientaddr, clientaddrlen);
 	if ( bytes != sizeof(reply) )
@@ -935,24 +945,29 @@ static void SendPublicAddress( int fd, struct sockaddr_in *clientaddr, int clien
 /* SendPublicPortResponse */
 /* response for portmap request and portmap removal request */
 /* publicport <= 0 means error */
-static void SendPublicPortResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *req, int  publicport)
+static void SendPublicPortResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *req, u_short publicport, int result)
 {
 
 	int				bytes;
 	publicportreply                 reply;
 	
+	bzero(&reply, sizeof(publicportreply));
 	reply.version = NATPMVERSION;
 	reply.opcode = SERVERREPLYOP + req->opcode;
-	if ( publicport <= 0)
+	if (result)
 		/* error in port mapping */
 		reply.result = OUTOFRESOURCES;
 	else
 		reply.result = SUCCESS;
-        reply.epoch = getuptime();
+	
+	reply.epoch = getuptime();
 
-	if ( req->lifetime ){			/* not delete mapping */
-		reply.privateport = req->privateport;
+	reply.privateport = req->privateport;
+
+	/* adding or renewing a mapping */
+	if ( req->lifetime ) {
 		reply.publicport = publicport;
+		reply.lifetime = req->lifetime;
 	}
 	bytes = sendto (fd, (void*)&reply, sizeof(publicportreply), 0, (struct sockaddr*)clientaddr, clientaddrlen);
 	if ( bytes != sizeof(publicportreply) )
@@ -1013,23 +1028,18 @@ static void SendPortMapMulti()
 /* double the time value */
 static void Doubletime( struct timeval *tvp)
 {
-
-        if ( tvp->tv_sec )
-                tvp->tv_sec *= 2;
-        if ( tvp->tv_usec )
-                tvp->tv_usec *= 2;
-        if (tvp->tv_usec >= 1000000) {
-               tvp->tv_sec += tvp->tv_usec / 1000000;
-               tvp->tv_usec = tvp->tv_usec % 1000000;
-        }
+	
+	timeradd(tvp, tvp, tvp);
+	
 }
 
 /* stop running natd timer */
 static void Stoptimer()
 {
-        itval.it_value.tv_usec = 0;
-        if (setitimer(ITIMER_REAL, &itval, (struct itimerval *)NULL) < 0)
-                printf( "setitimer err: %d\n", errno);
+	itval.it_value.tv_sec = 0;
+	itval.it_value.tv_usec = 0;
+	if (setitimer(ITIMER_REAL, &itval, (struct itimerval *)NULL) < 0)
+		printf( "setitimer err: %d\n", errno);
 }
 
 /* natdtimer */
@@ -1043,7 +1053,8 @@ static void Natdtimer()
 	
 	if ( numoftries < MAXRETRY ){
 		Doubletime( &itval.it_value);
-		itval.it_interval = itval.it_value;
+		itval.it_interval.tv_sec = 0;
+		itval.it_interval.tv_usec = 0;
 		if (setitimer(ITIMER_REAL, &itval, (struct itimerval *)NULL) < 0)
 				printf( "setitimer err: %d\n", errno);
 	}
@@ -1070,7 +1081,7 @@ static void NotifyPublicAddress()
 	itval.it_value.tv_sec = 0;
 	itval.it_value.tv_usec = TIMER_RATE;
 	itval.it_interval.tv_sec = 0;
-	itval.it_interval.tv_usec = TIMER_RATE;
+	itval.it_interval.tv_usec = 0;
 	if (setitimer(ITIMER_REAL, &itval, (struct itimerval *)NULL) < 0)
 			printf( "setitimer err: %d\n", errno);
 
@@ -1082,26 +1093,33 @@ void DoPortMapping( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, p
 {
 	u_char		proto = IPPROTO_TCP;
 	int		aliasport;
+	struct in_addr inany = { INADDR_ANY };
 	
 	if ( req->opcode == MAPUDPREQ)
 		proto = IPPROTO_UDP;
 	if ( req->lifetime == 0)
 	{
 		/* remove port mapping */
-		if ( !FindAliasPortOut(  clientaddr->sin_addr, lastassignaliasAddr, req->privateport, req->publicport, proto, req->lifetime, 0))
+		if ( !FindAliasPortOut(  clientaddr->sin_addr, inany , req->privateport, req->publicport, proto, req->lifetime, 0))
 			/* FindAliasPortOut returns no error, port successfully removed, return no error response to client */
-			SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, 1 );
+			SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, 0, 0 );
 		else
 			/* deleting port fails, return error */
-			SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, -1 );
+			SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, 0, -1 );
 	}
 	else 
 	{
 		/* look for port mapping - public port is ignored in this case */
 		/* create port mapping - map provided public port to private port if public port is not 0 */
-		aliasport = FindAliasPortOut(  clientaddr->sin_addr, lastassignaliasAddr, req->privateport, req->publicport, proto, req->lifetime, 1);
+		aliasport = FindAliasPortOut(  clientaddr->sin_addr, 
+			inany, /* lastassignaliasAddr */
+			req->privateport, 
+			0, 
+			proto, 
+			req->lifetime, 
+			1);
 		/* aliasport should be non zero if mapping is successfully, else -1 is returned, alias port shouldn't be zero???? */
-		SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, aliasport );
+		SendPublicPortResponse( fd, clientaddr, clientaddrlen, req, aliasport, 0 );
 			
 	}
 }
@@ -1110,69 +1128,70 @@ void DoPortMapping( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, p
 /* handle all packets sent to NATPORTMAP port  */
 static void HandlePortMap( int fd )
 {
-#define		MAXBUFFERSIZE		100
-
-        struct sockaddr_in	clientaddr;
-        int			clientaddrlen;
-		unsigned char		buffer[MAXBUFFERSIZE];
-		int							bytes;
-		unsigned short				result = SUCCESS;
-		struct stdportmaprequest	*req;
-
-        clientaddrlen = sizeof( clientaddr );
-        bytes = recvfrom( fd, buffer, sizeof(buffer), 0, (struct sockaddr*)&clientaddr, &clientaddrlen);
-        if ( bytes == -1 )
-        {
-                printf( "Read NATPM port error\n");
-                return;
-        }
-        req = (struct stdportmaprequest*)buffer;
+	#define		MAXBUFFERSIZE		100
+	
+	struct sockaddr_in			clientaddr;
+	socklen_t					clientaddrlen;
+	unsigned char				buffer[MAXBUFFERSIZE];
+	int							bytes;
+	unsigned short				result = SUCCESS;
+	struct stdportmaprequest	*req;
+	
+	clientaddrlen = sizeof( clientaddr );
+	bytes = recvfrom( fd, buffer, sizeof(buffer), 0, (struct sockaddr*)&clientaddr, &clientaddrlen);
+	if ( bytes == -1 )
+	{
+		printf( "Read NATPM port error\n");
+		return;
+	}
+	req = (struct stdportmaprequest*)buffer;
+	
+	#ifdef DEBUG
+	{
+		int i;
 		
-#ifdef DEBUG
+		printf("HandlePortMap from %s:%u length= %d: ", inet_ntoa(clientaddr.sin_addr), clientaddr.sin_port, bytes);
+		for ( i = 0; i<bytes; i++)
 		{
-			int i;
-			
-			for ( i = 0; i<bytes; i++)
-			{
-				printf("%d", buffer[i]);
-			}
-			printf("\n");
+			printf("%02x", buffer[i]);
 		}
-#endif			
-		/* check client version */
-		if ( req->version > NATPMVERSION )
-			result = NOTSUPPORTEDVERSION;
-		else if ( !enable_natportmap )
-			/* natd wasn't launched with portmapping enabled */
-			result = NOTAUTHORIZED;
-			
-		if ( result )
+		printf("\n");
+	}
+	#endif			
+	/* check client version */
+	if ( req->version > NATPMVERSION )
+		result = NOTSUPPORTEDVERSION;
+	else if ( !enable_natportmap )
+		/* natd wasn't launched with portmapping enabled */
+		result = NOTAUTHORIZED;
+		
+	if ( result )
+	{
+		SendPortMapResponse( fd, &clientaddr, clientaddrlen, req->opcode, result );
+		return;
+	}
+		
+	switch ( req->opcode )
+	{
+		case PUBLICADDRREQ:
 		{
-			SendPortMapResponse( fd, &clientaddr, clientaddrlen, req->opcode, result );
-			return;
+			SendPublicAddress(fd, &clientaddr, clientaddrlen);
+			break;
 		}
-			
-		switch ( req->opcode )
+		
+		case MAPUDPREQ:
+		case MAPTCPREQ:
+		case MAPUDPTCPREQ:
 		{
-			case PUBLICADDRREQ:
-			{
-				SendPublicAddress(fd, &clientaddr, clientaddrlen);
-				break;
-			}
-			
-			case MAPUDPREQ:
-			case MAPTCPREQ:
-			case MAPUDPTCPREQ:
-			{
-				DoPortMapping( fd, &clientaddr, clientaddrlen, (publicportreq*)req);
-				break;
-			}
-			
-			
-			default:
-				SendPortMapResponse( fd, &clientaddr, clientaddrlen, req->opcode, UNSUPPORTEDOPCODE );
+			DoPortMapping( fd, &clientaddr, clientaddrlen, (publicportreq*)req);
+			break;
 		}
-			
+		
+		
+		default:
+			SendPortMapResponse( fd, &clientaddr, clientaddrlen, req->opcode, UNSUPPORTEDOPCODE );
+	}
+		
 }
 
 
@@ -1385,6 +1404,11 @@ static void InitiateShutdown (int sig)
 static void Shutdown (int sig)
 {
 	running = 0;
+}
+
+static void HandleInfo (int sig)
+{
+	dumpinfo++;
 }
 
 /* 

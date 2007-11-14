@@ -88,6 +88,14 @@ void TokenDbCommon::resetAcls()
 	token().removeCommon(*this);			// unregister from Token
 }
 
+// Send out a "keychain" notification for this database
+//
+void TokenDbCommon::notify(NotificationEvent event)
+{
+	DbCommon::notify(event, DLDbIdentifier(dbName().c_str(), gGuidAppleSdCSPDL,
+		subservice(), CSSM_SERVICE_DL | CSSM_SERVICE_CSP));
+}
+
 
 //
 // Process (our part of) a "lock all" request.
@@ -482,7 +490,11 @@ void TokenDatabase::authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentia
 		secdebug("tokendb", "%p authenticate calling validate", this);
 		int pin;
 		if (sscanf(cred->EntryTag, "PIN%d", &pin) == 1)
-			return validate(CSSM_ACL_AUTHORIZATION_PREAUTH(pin), cred);
+		{
+			validate(CSSM_ACL_AUTHORIZATION_PREAUTH(pin), cred);
+			notify(kNotificationEventUnlocked);
+			return;
+		}
 	}
 
 	access().authenticate(mode, cred);
@@ -490,6 +502,7 @@ void TokenDatabase::authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentia
 	case CSSM_DB_ACCESS_RESET:
 		// this mode is known to trigger "lockdown" (i.e. reset)
 		common().resetAcls();
+		notify(kNotificationEventLocked);
 		break;
 	default:
 	{

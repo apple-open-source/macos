@@ -394,8 +394,8 @@ bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol
                 _ledElements[usage - kHIDUsage_LED_NumLock] = element;
             }
             else if ((getVendorID() == kIOUSBVendorIDAppleComputer) 
-                && (usagePage == kHIDPage_AppleVendor)
-                && (usage == kHIDUsage_AppleVendor_KeyboardFn))
+                && (((usagePage == kHIDPage_AppleVendorTopCase) && (usage == kHIDUsage_AppleVendor_KeyboardFn)) 
+                || ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function))))
             {
                 stored |= storeReportElement ( element );
             }
@@ -736,7 +736,9 @@ void IOHIDEventDriver::handleInterruptReport (
                         break;
                 }
             }
-            else if ((usagePage == kHIDPage_AppleVendor) && (usage == kHIDUsage_AppleVendor_KeyboardFn) && elementIsCurrent)
+            else if (elementIsCurrent && 
+                       (((usagePage == kHIDPage_AppleVendorTopCase) && (usage == kHIDUsage_AppleVendor_KeyboardFn)) || 
+                        ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function))))
             {
                 dispatchKeyboardEvent(timeStamp, usagePage, usage, element->getValue());
             }

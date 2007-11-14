@@ -15,12 +15,21 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Install_Target      = install
 
 strip-binaries:
-	$(STRIP) -x $(DSTROOT)/usr/bin/bunzip2
-	$(STRIP) -x $(DSTROOT)/usr/bin/bzcat
-	$(STRIP) -x $(DSTROOT)/usr/bin/bzip2recover
-	$(STRIP) -x $(DSTROOT)/usr/bin/bzip2
+	for binary in bunzip2 bzcat bzip2recover bzip2; do \
+		file=$(DSTROOT)/usr/bin/$${binary}; \
+		echo $(CP) $${file} $(SYMROOT); \
+		$(CP) $${file} $(SYMROOT); \
+		echo $(STRIP) -x $${file}; \
+		$(STRIP) -x $${file}; \
+		for arch in ppc64 x86_64; do \
+			echo lipo -remove $${arch} -output $${file} $${file}; \
+			lipo -remove $${arch} -output $${file} $${file} || true; \
+		done \
+	done
+	$(CP) $(DSTROOT)/usr/local/lib/libbz2.a $(SYMROOT)
 	$(STRIP) -x $(DSTROOT)/usr/local/lib/libbz2.a
-	$(STRIP) -x $(DSTROOT)/usr/lib/libbz2.1.0.dylib
+	$(CP) $(DSTROOT)/usr/lib/libbz2.1.0.3.dylib $(SYMROOT)
+	$(STRIP) -x $(DSTROOT)/usr/lib/libbz2.1.0.3.dylib
 
 fix-manpages:
 	$(MKDIR) $(DSTROOT)/usr/share
@@ -41,11 +50,11 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.0.2
+AEP_Version    = 1.0.4
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = bzdiff.diff EA.diff dylib.diff
+AEP_Patches    = EA.diff dylib.diff nopic.diff bzgrep.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -60,6 +69,6 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(AEP_Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 endif

@@ -2207,7 +2207,8 @@ ntfs_toupper_use(mp, ntmp, p)
 	 */
 	ntfs_toupper_tab = OSMalloc(65536 * sizeof(u_int16_t), ntfs_malloc_tag);
 		
-	error = ntfs_vgetex(mp, NTFS_UPCASEINO, NULLVP, NULL, VNON, NTFS_A_DATA, NULL, 0, p, &vp);
+	error = ntfs_vgetex(mp, NTFS_UPCASEINO, NULLVP, NULL, VNON,
+			NTFS_A_DATA, NULL, VG_INTERNAL, p, &vp);
 	if (error)
 		goto out;
 	error = ntfs_readattr(ntmp, VTONT(vp), NTFS_A_DATA, NULL, 0,

@@ -9,7 +9,8 @@ exit
 echo ---- Start by patching the ylwrap script to avoid problems
 echo      with "ln -s":
 
-patch -p0 -i packages/MSDOS/ylwrap.pat
+if exist src\ylwrap patch -p0 -i packages/MSDOS/ylwrap.pat
+if exist ylwrap patch -p1 -i packages/MSDOS/ylwrap.pat
 
 echo ---- Now configure and make it.
 echo -- NOTE --: this assumes you have pdcurses installed!

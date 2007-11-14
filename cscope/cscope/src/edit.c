@@ -42,7 +42,7 @@
 #include <curses.h>
 #endif
 
-static char const rcsid[] = "$Id: edit.c,v 1.2 2004/07/09 21:34:44 nicolai Exp $";
+static char const rcsid[] = "$Id: edit.c,v 1.6 2006/08/20 15:00:34 broeker Exp $";
 
 /* edit this displayed reference */
 
@@ -60,7 +60,7 @@ editref(int i)
 	seekline(i + topline);
 	
 	/* get the file name and line number */
-	if (fscanf(refsfound, "%s%*s%s", file, linenum) == 2) {
+	if (fscanf(refsfound, "%" PATHLEN_STR "s%*s%" NUMLEN_STR "s", file, linenum) == 2) {
 		edit(file, linenum);	/* edit it */
 	}
 	seekline(topline);	/* restore the line pointer */
@@ -83,7 +83,7 @@ editall(void)
 	seekline(1);
 	
 	/* get each file name and line number */
-	while (fscanf(refsfound, "%s%*s%s%*[^\n]", file, linenum) == 2) {
+	while (fscanf(refsfound, "%" PATHLEN_STR "s%*s%" NUMLEN_STR "s%*[^\n]", file, linenum) == 2) {
 		edit(file, linenum);	/* edit it */
 		if (editallprompt == YES) {
 			addstr("Type ^D to stop editing all lines, or any other character to continue: ");

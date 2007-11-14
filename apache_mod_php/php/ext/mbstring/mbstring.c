@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.c,v 1.142.2.47.2.17 2006/04/03 13:04:13 masugata Exp $ */
+/* $Id: mbstring.c,v 1.142.2.47.2.21 2007/04/04 15:28:18 masugata Exp $ */
 
 /*
  * PHP4 Multibyte String module "mbstring"
@@ -1013,7 +1013,10 @@ PHP_RINIT_FUNCTION(mbstring)
 	MBSTRG(current_http_output_encoding) = MBSTRG(http_output_encoding);
 	MBSTRG(current_filter_illegal_mode) = MBSTRG(filter_illegal_mode);
 	MBSTRG(current_filter_illegal_substchar) = MBSTRG(filter_illegal_substchar);
-	MBSTRG(illegalchars) = 0;
+
+	if (!MBSTRG(encoding_translation)) {
+		MBSTRG(illegalchars) = 0;
+	}
 
 	n = 0;
 	if (MBSTRG(detect_order_list)) {
@@ -1774,6 +1777,8 @@ MBSTRING_API SAPI_TREAT_DATA_FUNC(mbstr_treat_data)
 	info.num_from_encodings     = MBSTRG(http_input_list_size); 
 	info.from_language          = MBSTRG(language);
 
+	MBSTRG(illegalchars) = 0;
+
 	detected = php_mbstr_encoding_handler(&info, array_ptr, res TSRMLS_CC);
 	MBSTRG(http_input_identify) = detected;
 
@@ -1949,9 +1954,9 @@ PHP_FUNCTION(mb_parse_str)
 	string.no_encoding = from_encoding;
 	old_rg = PG(register_globals);
 	if (argc == 1) {
-		PG(register_globals) = 1;
+		zend_alter_ini_entry("register_globals", sizeof("register_globals"), "1", sizeof("1")-1, PHP_INI_PERDIR, PHP_INI_STAGE_RUNTIME);
 	} else {
-		PG(register_globals) = 0;
+		zend_alter_ini_entry("register_globals", sizeof("register_globals"), "0", sizeof("0")-1, PHP_INI_PERDIR, PHP_INI_STAGE_RUNTIME);
 	}
 	n = 0;
 	while (n < num) {
@@ -1980,7 +1985,11 @@ PHP_FUNCTION(mb_parse_str)
 		mbfl_string_clear(&resvar);
 		mbfl_string_clear(&resval);
 	}
-	PG(register_globals) = old_rg;
+	if (old_rg) {
+		zend_alter_ini_entry("register_globals", sizeof("register_globals"), "1", sizeof("1")-1, PHP_INI_PERDIR, PHP_INI_STAGE_RUNTIME);
+	} else {
+		zend_alter_ini_entry("register_globals", sizeof("register_globals"), "0", sizeof("0")-1, PHP_INI_PERDIR, PHP_INI_STAGE_RUNTIME);
+	}
 
 	if (convd != NULL) {
 		MBSTRG(illegalchars) += mbfl_buffer_illegalchars(convd);
@@ -2192,11 +2201,11 @@ PHP_FUNCTION(mb_strpos)
 	convert_to_string_ex(arg2);
 
 	if (offset < 0 || offset > Z_STRLEN_PP(arg1)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Offset is out of range");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Offset not contained in string.");
 		RETURN_FALSE;
 	}
 	if (Z_STRLEN_PP(arg2) == 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty needle");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty delimiter.");
 		RETURN_FALSE;
 	}
 	haystack.val = (unsigned char *)Z_STRVAL_PP(arg1);
@@ -2267,11 +2276,9 @@ PHP_FUNCTION(mb_strrpos)
 	convert_to_string_ex(arg1);
 	convert_to_string_ex(arg2);
 	if (Z_STRLEN_PP(arg1) <= 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty haystack");
 		RETURN_FALSE;
 	}
 	if (Z_STRLEN_PP(arg2) <= 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING,"Empty needle");
 		RETURN_FALSE;
 	}
 	haystack.val = (unsigned char *)Z_STRVAL_PP(arg1);
@@ -2326,7 +2333,7 @@ PHP_FUNCTION(mb_substr_count)
 	convert_to_string_ex(arg2);
 
 	if (Z_STRLEN_PP(arg2) <= 0) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING,"Empty needle");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING,"Empty substring.");
 		RETURN_FALSE;
 	}
 	haystack.val = (unsigned char *)Z_STRVAL_PP(arg1);
@@ -3499,19 +3506,19 @@ PHP_FUNCTION(mb_decode_numericentity)
 #if HAVE_SENDMAIL
 #define SKIP_LONG_HEADER_SEP_MBSTRING(str, pos)						\
 	if (str[pos] == '\r' && str[pos + 1] == '\n' && (str[pos + 2] == ' ' || str[pos + 2] == '\t')) {	\
-		pos += 3;											\
-		while (str[pos] == ' ' || str[pos] == '\t') {		\
+		pos += 2;											\
+		while (str[pos + 1] == ' ' || str[pos + 1] == '\t') {							\
 			pos++;											\
 		}                                               \
 		continue;											\
 	}													\
-	else if (str[pos] == '\n' && (str[pos + 1] == ' ' || str[pos + 1] == '\t')) {	\
-		pos += 2;											\
-		while (str[pos] == ' ' || str[pos] == '\t') {		\
-			pos++;											\
-		}												\
-		continue;											\
-	}													\
+
+#define MAIL_ASCIIZ_CHECK_MBSTRING(str, len)			\
+	pp = str;					\
+	ee = pp + len;					\
+	while ((pp = memchr(pp, '\0', (ee - pp)))) {	\
+		*pp = ' ';				\
+	}						\
 
 PHP_FUNCTION(mb_send_mail)
 {
@@ -3529,7 +3536,8 @@ PHP_FUNCTION(mb_send_mail)
 	const mbfl_language *lang;
 	int err = 0;
 	char *to_r = NULL;
-	int to_len, i;
+	int to_len, extra_cmd_len, i;
+	char *pp, *ee;
 
     if (PG(safe_mode) && (ZEND_NUM_ARGS() == 5)) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "SAFE MODE Restriction in effect.  The fifth parameter is disabled in SAFE MODE.");
@@ -3562,6 +3570,8 @@ PHP_FUNCTION(mb_send_mail)
 	if (Z_STRVAL_PP(argv[0])) {
 		to = Z_STRVAL_PP(argv[0]);
 		to_len = Z_STRLEN_PP(argv[0]);
+		/* ASCIIZ check */
+		MAIL_ASCIIZ_CHECK_MBSTRING(to, to_len);
 		if (to_len > 0) {
 			to_r = estrndup(to, to_len);
 			for (; to_len; to_len--) {
@@ -3598,6 +3608,8 @@ we use the
 		orig_str.no_language = MBSTRG(current_language);
 		orig_str.val = (unsigned char *)Z_STRVAL_PP(argv[1]);
 		orig_str.len = Z_STRLEN_PP(argv[1]);
+		/* ASCIIZ check */
+		MAIL_ASCIIZ_CHECK_MBSTRING(orig_str.val, orig_str.len);
 		orig_str.no_encoding = MBSTRG(current_internal_encoding);
 		if (orig_str.no_encoding == mbfl_no_encoding_invalid
 		    || orig_str.no_encoding == mbfl_no_encoding_pass) {
@@ -3620,6 +3632,8 @@ we use the
 		orig_str.no_language = MBSTRG(current_language);
 		orig_str.val = Z_STRVAL_PP(argv[2]);
 		orig_str.len = Z_STRLEN_PP(argv[2]);
+		/* ASCIIZ check */
+		MAIL_ASCIIZ_CHECK_MBSTRING(orig_str.val, orig_str.len);
 		orig_str.no_encoding = MBSTRG(current_internal_encoding);
 
 		if (orig_str.no_encoding == mbfl_no_encoding_invalid
@@ -3656,6 +3670,8 @@ we use the
 		convert_to_string_ex(argv[3]);
 		p = Z_STRVAL_PP(argv[3]);
 		n = Z_STRLEN_PP(argv[3]);
+		/* ASCIIZ check */
+		MAIL_ASCIIZ_CHECK_MBSTRING(p, n);
 		mbfl_memory_device_strncat(&device, p, n);
 		if (p[n - 1] != '\n') {
 			mbfl_memory_device_strncat(&device, "\n", 1);
@@ -3679,6 +3695,9 @@ we use the
 	if (argc == 5) {	/* extra options that get passed to the mailer */
 		convert_to_string_ex(argv[4]);
 		extra_cmd = Z_STRVAL_PP(argv[4]);
+		extra_cmd_len = Z_STRLEN_PP(argv[4]);
+		/* ASCIIZ check */
+		MAIL_ASCIIZ_CHECK_MBSTRING(extra_cmd, extra_cmd_len);
 	}
 
 	if (extra_cmd) {
@@ -3864,8 +3883,13 @@ PHP_FUNCTION(mb_check_encoding)
 
 	if (ret != NULL) {
 		MBSTRG(illegalchars) += illegalchars;
-		efree(ret->val);
-		RETURN_BOOL(illegalchars == 0);
+		if (illegalchars == 0 && strncmp(string.val, ret->val, string.len) == 0) {
+			efree(ret->val);
+			RETURN_TRUE;
+		} else {
+			efree(ret->val);
+			RETURN_FALSE;
+		}
 	} else {
 		RETURN_FALSE;
 	}

@@ -39,7 +39,9 @@ POSSIBILITY OF SUCH DAMAGE.
 
 
 /* This module contains some fixed tables that are used by more than one of the
-PCRE code modules. */
+PCRE code modules. The tables are also #included by the pcretest program, which
+uses macros to change their names from _pcre_xxx to xxxx, thereby avoiding name
+clashes with the library. */
 
 
 #include "pcre_internal.h"
@@ -62,7 +64,7 @@ character. */
 const int _pcre_utf8_table1[] =
   { 0x7f, 0x7ff, 0xffff, 0x1fffff, 0x3ffffff, 0x7fffffff};
 
-const int _pcre_utf8_table1_size = sizeof(_pcre_utf8_table1)/sizeof(int);
+const int _pcre_utf8_table1_size = (int)(sizeof(_pcre_utf8_table1)/sizeof(int));
 
 /* These are the indicator bits and the mask for the data bits to set in the
 first byte of a character, indexed by the number of additional bytes. */
@@ -81,8 +83,7 @@ const uschar _pcre_utf8_table4[] = {
   3,3,3,3,3,3,3,3,4,4,4,4,5,5,5,5 };
 
 /* This table translates Unicode property names into code values for the
-ucp_findchar() function. It is used by pcretest as well as by the library
-functions. */
+_pcre_ucp_findchar() function. */
 
 const ucp_type_table _pcre_utt[] = {
   { "C",  128 + ucp_C },
@@ -124,7 +125,7 @@ const ucp_type_table _pcre_utt[] = {
   { "Zs", ucp_Zs }
 };
 
-const int _pcre_utt_size = sizeof(_pcre_utt)/sizeof(ucp_type_table);
+const int _pcre_utt_size = (int)(sizeof(_pcre_utt)/sizeof(ucp_type_table));
 
 #include "chartables.c"
 

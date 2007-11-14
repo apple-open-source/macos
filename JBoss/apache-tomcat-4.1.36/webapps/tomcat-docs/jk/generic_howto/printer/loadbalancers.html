@@ -1,0 +1,138 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Apache Tomcat Connector - Generic HowTo - LoadBalancer HowTo</title><meta value="Mladen Tur" name="author"><meta value="mturk@apache.org" name="email"><link rel="stylesheet" type="text/css" href="../../style.css"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--TOMCAT LOGO--><a href="http://tomcat.apache.org/"><img border="0" alt="Apache Tomcat" align="left" src="../../images/tomcat.gif"></a><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="http://www.apache.org/images/asf-logo.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td valign="top" align="left"><h1>The Apache Tomcat Connector - Generic HowTo</h1><h2>LoadBalancer HowTo</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote> 
+<br>
+<p>A Load balancer is a virtual worker that does not really communicate with Tomcat workers.
+Instead it is responsible for the management of several "real" workers.
+The worker is supposed to be a load balancer if its worker type is <b>lb</b>.
+See workers <b>type</b> directive. For a complete reference of all load balancer configuration
+items, please consult the worker <a href="../../reference/workers.html">reference</a>.
+The comprehensive status management features of the load balancer together with the status worker,
+makes its use an interesting option, even if only combined with a single "real" worker.
+<p><font color="#ff0000">The workers that are member of load balancer do not need to appear in the
+<b>worker.list</b> directive.</font></p>
+</p>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="lb Worker properties"><strong>lb Worker properties</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The load-balancing worker does not really communicate with Tomcat workers.
+Instead it is responsible for the management of several "real" workers. 
+This management includes:
+</p>
+
+<ul>
+<li>
+Instantiating the workers in the web server.
+</li>
+<li>
+Using the worker's load-balancing factor, perform weighed-round-robin load balancing where 
+high lbfactor means stronger machine (that is going to handle more requests)
+</li>
+<li>
+Keeping requests belonging to the same session executing on the same Tomcat worker.
+</li>
+<li>
+Identifying failed Tomcat workers, suspending requests to them and instead falling-back on 
+other workers managed by the lb worker.
+</li>
+</ul>
+
+<p>
+The overall result is that workers managed by the same lb worker are load-balanced (based on their lbfactor and current user session) and also fall-backed so a single Tomcat process death will not "kill" the entire site.
+The following table specifies some properties that the lb worker can accept:
+<ul>
+<li><b>balance_workers</b> is a comma separated list of workers that the load balancer need to manage. 
+These workers do not need to appear in the worker.list property. This directive can be used multiple times for the same load balancer.</li>
+<li><b>sticky_session</b> specifies whether requests with SESSION ID's should be routed back to the same
+Tomcat worker. You can set sticky_session to False when Tomcat is using a Session Manager which
+can persist session data across multiple instances of Tomcat. By default sticky_session is set to True.</li>
+</ul>
+</p>
+
+<div class="example"><pre>
+  # The worker balance1 while use "real" workers worker1 and worker2
+  worker.balance1.balance_workers=worker1, worker2
+</pre></div>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Advanced lb Worker properties"><strong>Advanced lb Worker properties</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+With JK 1.2.x, new load-balancing and fault-tolerant support has been added via
+2 new properties, <b>redirect</b> and <b>activation</b>.
+</p>
+
+<p>
+Let's take an example environment:
+</p>
+
+<p>
+A cluster with two nodes (worker1+worker2), running a webserver + tomcat tandem on each node and 
+a loadbalancer in front of the nodes.
+</p>
+
+<div class="example"><pre>
+  # The advanced router LB worker
+  worker.list=router
+
+  # Define a worker using ajp13
+  worker.worker1.port=8009
+  worker.worker1.host=node1.domain.org
+  worker.worker1.type=ajp13
+  worker.worker1.lbfactor=1
+  # Define prefered failover node for worker1
+  worker.worker1.redirect=worker2
+
+  # Define another worker using ajp13
+  worker.worker2.port=8009
+  worker.worker2.host=node2.domain.org
+  worker.worker2.type=ajp13
+  worker.worker2.lbfactor=1
+  # Disable worker2 for all requests except failover
+  worker.worker2.activation=disabled
+  
+  # Define the LB worker
+  worker.router.type=lb
+  worker.router.balance_workers=worker1,worker2
+</pre></div>
+
+<p>
+The <b>redirect</b> flag on worker1 tells the <b>lb_worker</b> to redirect the requests
+to worker2 only if worker1 is in error state. In other cases worker2 will not receive
+any requests, thus acting like a hot standby.
+</p>
+
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Status Worker properties"><strong>Status Worker properties</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The status worker does not communicate with Tomcat.
+Instead it is responsible for the load balancer management. 
+</p>
+<div class="example"><pre>
+  # Add the status worker to the worker list
+  worker.list=jkstatus
+  # Define a 'jkstatus' worker using status
+  worker.jkstatus.type=status
+</pre></div>
+<p>Next thing is to mount the requests to the jkstatus worker. For Apache
+web servers use the:</p>
+<div class="example"><pre>
+  # Add the jkstatus mount point
+  JkMount /jkmanager/* jkstatus 
+</pre></div>
+<p>To obtain a higher level of security use the:</p>
+<div class="example"><pre>
+  # Enable the JK manager access from localhost only
+ &lt;Location /jkmanager/&gt;
+    JkMount jkstatus
+    Order deny,allow
+    Deny from all
+    Allow from 127.0.0.1
+ &lt;/Location&gt;
+</pre></div>
+
+</blockquote></td></tr></table>
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

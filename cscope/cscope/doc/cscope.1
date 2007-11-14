@@ -9,7 +9,7 @@ cscope - interactively examine a C program
 .BI [\-f reffile ]
 .BI [\-I incdir ]
 .BI [\-i namefile ]
-.BI [\-[ 0-9 ] pattern ]
+.BI [\-[ 0123456789 ] pattern ]
 .BI [\-p n ]
 .BI [\-s dir ]
 .BI [ files ]
@@ -500,13 +500,14 @@ where:
 is the function name
 .TP
 .I blank
-is zero or more spaces or tabs, not including newlines
+is zero or more spaces, tabs, vtabs, form feeds or carriage returns,
+not including newlines
 .TP
 .I args
 is any string that does not contain a ``"'' or a newline
 .TP
 .I white
-is zero or more spaces, tabs, or newlines
+is zero or more spaces, tabs, vtabs, form feeds, carriage returns or newlines
 .TP
 .I arg_decs
 are zero or more argument declarations (arg_decs may include

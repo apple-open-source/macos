@@ -32,7 +32,7 @@
 
 /* get a file's base name from its path name */
 
-static char const rcsid[] = "$Id: basename.c,v 1.2 2004/07/09 21:34:44 nicolai Exp $";
+static char const rcsid[] = "$Id: basename.c,v 1.3 2001/07/05 14:31:00 broeker Exp $";
 
 #include "global.h"
 

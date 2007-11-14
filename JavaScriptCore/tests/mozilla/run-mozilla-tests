@@ -1,2 +1,0 @@
-perl jsDriver.pl -e kjs -L ecma/Date -f actual.html
-"$SYMROOTS/jst" expected.html actual.html

@@ -14,10 +14,12 @@ PROJECT_TYPE = Tool
 
 HFILES = locate.h pathnames.h
 
-CFILES = locate.c
+CFILES = util.c locate.c
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble locate.1\
-            updatedb.csh locate.updatedb.8
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble \
+            fastfind.c \
+            locate.1 locate.updatedb.8 locate.rc \
+            concatdb.sh mklocatedb.sh updatedb.sh
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

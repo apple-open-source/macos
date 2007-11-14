@@ -17,7 +17,7 @@
  *  significantly more enjoyable.)
  */
 #ifndef lint
-static const char rcsid[] = "$Id: os_win32.c,v 1.6.2.1 2003/09/21 22:08:16 sas Exp $";
+static const char rcsid[] = "$Id: os_win32.c,v 1.6.2.1.4.4 2007/04/19 13:41:37 dmitry Exp $";
 #endif /* not lint */
 
 #define WIN32_LEAN_AND_MEAN 
@@ -60,6 +60,7 @@ static BOOLEAN shutdownPending = FALSE;
 static BOOLEAN shutdownNow = FALSE;
 
 static BOOLEAN bImpersonate = FALSE;
+static BOOLEAN bImpersonated = FALSE;
 /*
  * An enumeration of the file types
  * supported by the FD_TABLE structure.
@@ -304,6 +305,29 @@ int OS_SetImpersonate(void)
 		return 1;
 	}
 	return 0;
+}
+
+int OS_StartImpersonation(void)
+{
+	if (!bImpersonate) {
+		return 1;
+	} else if (hListen == INVALID_HANDLE_VALUE) {
+		return 1;
+	} else {
+		if (ImpersonateNamedPipeClient(hListen)) {
+			bImpersonated = TRUE;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void OS_StopImpersonation(void)
+{
+	if (bImpersonated) {
+		bImpersonated = FALSE;
+		RevertToSelf();
+	}
 }
 
 /*
@@ -596,7 +620,7 @@ void OS_LibShutdown()
     if (stdioHandles[0] != INVALID_HANDLE_VALUE) {
 		DisconnectNamedPipe(hListen);
 		CancelIo(hListen);
-		if (bImpersonate) RevertToSelf();
+		OS_StopImpersonation();
 	}
 
     WSACleanup();
@@ -1760,18 +1784,10 @@ static int acceptNamedPipe()
         }
     }
 
-    //
-    // impersonate the client
-    //
-    if(bImpersonate && !ImpersonateNamedPipeClient(hListen)) {
-        DisconnectNamedPipe(hListen);
-    } else {
-		ipcFd = Win32NewDescriptor(FD_PIPE_SYNC, (int) hListen, -1);
-		if (ipcFd == -1) 
-		{
-			DisconnectNamedPipe(hListen);
-			if (bImpersonate) RevertToSelf();
-		}
+	ipcFd = Win32NewDescriptor(FD_PIPE_SYNC, (int) hListen, -1);
+	if (ipcFd == -1) 
+	{
+		DisconnectNamedPipe(hListen);
 	}
 
     return ipcFd;
@@ -1975,7 +1991,7 @@ int OS_IpcClose(int ipcFd, int shutdown)
 
         if (! DisconnectNamedPipe(fdTable[ipcFd].fid.fileHandle)) return -1;
 
-        if (bImpersonate) RevertToSelf();
+		OS_StopImpersonation();
 
         /* fall through */
     case FD_SOCKET_SYNC:
@@ -2049,4 +2065,3 @@ void OS_SetFlags(int fd, int flags)
     }
     return;
 }
-

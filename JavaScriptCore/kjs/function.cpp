@@ -4,6 +4,7 @@
  *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
  *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -17,13 +18,15 @@
  *
  *  You should have received a copy of the GNU Library General Public License
  *  along with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- *  Boston, MA 02111-1307, USA.
+ *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ *  Boston, MA 02110-1301, USA.
  *
  */
 
+#include "config.h"
 #include "function.h"
 
+#include "dtoa.h"
 #include "internal.h"
 #include "function_object.h"
 #include "lexer.h"
@@ -31,19 +34,18 @@
 #include "operations.h"
 #include "debugger.h"
 #include "context.h"
-#include "shared_ptr.h"
 
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <ctype.h>
 
-#if APPLE_CHANGES
-#include <unicode/uchar.h>
-#endif
+#include <wtf/unicode/Unicode.h>
 
-using namespace kxmlcore;
+using namespace WTF;
+using namespace Unicode;
 
 namespace KJS {
 
@@ -51,47 +53,41 @@ namespace KJS {
 
 const ClassInfo FunctionImp::info = {"Function", &InternalFunctionImp::info, 0, 0};
 
-  class Parameter {
-  public:
-    Parameter(const Identifier &n) : name(n), next(0L) { }
-    ~Parameter() { delete next; }
-    Identifier name;
-    Parameter *next;
-  };
-
-FunctionImp::FunctionImp(ExecState *exec, const Identifier &n)
-  : InternalFunctionImp(
-      static_cast<FunctionPrototypeImp*>(exec->lexicalInterpreter()->builtinFunctionPrototype().imp())
-      ), param(0L), ident(n)
+FunctionImp::FunctionImp(ExecState* exec, const Identifier& n, FunctionBodyNode* b)
+  : InternalFunctionImp(static_cast<FunctionPrototype*>
+                        (exec->lexicalInterpreter()->builtinFunctionPrototype()), n)
+  , body(b)
 {
+}
+
+void FunctionImp::mark()
+{
+    InternalFunctionImp::mark();
+    _scope.mark();
 }
 
 FunctionImp::~FunctionImp()
 {
-  delete param;
 }
 
-bool FunctionImp::implementsCall() const
+JSValue* FunctionImp::callAsFunction(ExecState* exec, JSObject* thisObj, const List& args)
 {
-  return true;
-}
-
-Value FunctionImp::call(ExecState *exec, Object &thisObj, const List &args)
-{
-  Object &globalObj = exec->dynamicInterpreter()->globalObject();
+  JSObject* globalObj = exec->dynamicInterpreter()->globalObject();
 
   // enter a new execution context
-  ContextImp ctx(globalObj, exec->dynamicInterpreter()->imp(), thisObj, codeType(),
-                 exec->context().imp(), this, &args);
+  Context ctx(globalObj, exec->dynamicInterpreter(), thisObj, body.get(),
+                 codeType(), exec->context(), this, &args);
   ExecState newExec(exec->dynamicInterpreter(), &ctx);
-  newExec.setException(exec->exception()); // could be null
+  if (exec->hadException())
+    newExec.setException(exec->exception());
+  ctx.setExecState(&newExec);
 
   // assign user supplied arguments to parameters
-  processParameters(&newExec, args);
+  passInParameters(&newExec, args);
   // add variable declarations (initialized to undefined)
   processVarDecls(&newExec);
 
-  Debugger *dbg = exec->dynamicInterpreter()->imp()->debugger();
+  Debugger* dbg = exec->dynamicInterpreter()->debugger();
   int sid = -1;
   int lineno = -1;
   if (dbg) {
@@ -100,11 +96,10 @@ Value FunctionImp::call(ExecState *exec, Object &thisObj, const List &args)
       lineno = static_cast<DeclaredFunctionImp*>(this)->body->firstLine();
     }
 
-    Object func(this);
-    bool cont = dbg->callEvent(&newExec,sid,lineno,func,args);
+    bool cont = dbg->callEvent(&newExec,sid,lineno,this,args);
     if (!cont) {
       dbg->imp()->abort();
-      return Undefined();
+      return jsUndefined();
     }
   }
 
@@ -123,6 +118,11 @@ Value FunctionImp::call(ExecState *exec, Object &thisObj, const List &args)
     fprintf(stderr, "returning: undefined\n");
 #endif
 
+  // The debugger may have been deallocated by now if the WebFrame
+  // we were running in has been destroyed, so refetch it.
+  // See http://bugs.webkit.org/show_bug.cgi?id=9477
+  dbg = exec->dynamicInterpreter()->debugger();
+
   if (dbg) {
     if (inherits(&DeclaredFunctionImp::info))
       lineno = static_cast<DeclaredFunctionImp*>(this)->body->lastLine();
@@ -130,11 +130,10 @@ Value FunctionImp::call(ExecState *exec, Object &thisObj, const List &args)
     if (comp.complType() == Throw)
         newExec.setException(comp.value());
 
-    Object func(this);
-    int cont = dbg->returnEvent(&newExec,sid,lineno,func);
+    int cont = dbg->returnEvent(&newExec,sid,lineno,this);
     if (!cont) {
       dbg->imp()->abort();
-      return Undefined();
+      return jsUndefined();
     }
   }
 
@@ -145,119 +144,137 @@ Value FunctionImp::call(ExecState *exec, Object &thisObj, const List &args)
   else if (comp.complType() == ReturnValue)
     return comp.value();
   else
-    return Undefined();
+    return jsUndefined();
 }
-
-void FunctionImp::addParameter(const Identifier &n)
-{
-  Parameter **p = &param;
-  while (*p)
-    p = &(*p)->next;
-
-  *p = new Parameter(n);
-}
-
-UString FunctionImp::parameterString() const
-{
-  UString s;
-  const Parameter *p = param;
-  while (p) {
-    if (!s.isEmpty())
-        s += ", ";
-    s += p->name.ustring();
-    p = p->next;
-  }
-
-  return s;
-}
-
 
 // ECMA 10.1.3q
-void FunctionImp::processParameters(ExecState *exec, const List &args)
+inline void FunctionImp::passInParameters(ExecState* exec, const List& args)
 {
-  Object variable = exec->context().imp()->variableObject();
+    Vector<Parameter>& parameters = body->parameters();
+
+    JSObject* variable = exec->context()->variableObject();
 
 #ifdef KJS_VERBOSE
-  fprintf(stderr, "---------------------------------------------------\n"
-	  "processing parameters for %s call\n",
-	  name().isEmpty() ? "(internal)" : name().ascii());
+    fprintf(stderr, "---------------------------------------------------\n"
+          "processing parameters for %s call\n",
+          functionName().isEmpty() ? "(internal)" : functionName().ascii());
 #endif
 
-  if (param) {
-    ListIterator it = args.begin();
-    Parameter *p = param;
-    while (p) {
-      if (it != args.end()) {
+    size_t size = parameters.size();
+    for (size_t i = 0; i < size; ++i) {
 #ifdef KJS_VERBOSE
-	fprintf(stderr, "setting parameter %s ", p->name.ascii());
-	printInfo(exec,"to", *it);
+      fprintf(stderr, "setting parameter %s ", parameters.at(i).name.ascii());
+      printInfo(exec, "to", args[i]);
 #endif
-	variable.put(exec, p->name, *it);
-	it++;
-      } else
-	variable.put(exec, p->name, Undefined());
-      p = p->next;
+      variable->put(exec, parameters[i].name, args[i]);
     }
-  }
-#ifdef KJS_VERBOSE
-  else {
-    for (int i = 0; i < args.size(); i++)
-      printInfo(exec,"setting argument", args[i]);
-  }
-#endif
 }
 
-void FunctionImp::processVarDecls(ExecState */*exec*/)
+void FunctionImp::processVarDecls(ExecState*)
 {
 }
 
-Value FunctionImp::get(ExecState *exec, const Identifier &propertyName) const
+JSValue* FunctionImp::argumentsGetter(ExecState* exec, JSObject*, const Identifier& propertyName, const PropertySlot& slot)
+{
+  FunctionImp* thisObj = static_cast<FunctionImp*>(slot.slotBase());
+  Context* context = exec->m_context;
+  while (context) {
+    if (context->function() == thisObj)
+      return static_cast<ActivationImp*>(context->activationObject())->get(exec, propertyName);
+    context = context->callingContext();
+  }
+  return jsNull();
+}
+
+JSValue* FunctionImp::callerGetter(ExecState* exec, JSObject*, const Identifier&, const PropertySlot& slot)
+{
+    FunctionImp* thisObj = static_cast<FunctionImp*>(slot.slotBase());
+    Context* context = exec->m_context;
+    while (context) {
+        if (context->function() == thisObj)
+            break;
+        context = context->callingContext();
+    }
+
+    if (!context)
+        return jsNull();
+    
+    Context* callingContext = context->callingContext();
+    if (!callingContext)
+        return jsNull();
+    
+    FunctionImp* callingFunction = callingContext->function();
+    if (!callingFunction)
+        return jsNull();
+
+    return callingFunction;
+}
+
+JSValue* FunctionImp::lengthGetter(ExecState*, JSObject*, const Identifier&, const PropertySlot& slot)
+{
+    FunctionImp* thisObj = static_cast<FunctionImp*>(slot.slotBase());
+    return jsNumber(thisObj->body->numParams());
+}
+
+bool FunctionImp::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
     // Find the arguments from the closest context.
-    if (propertyName == argumentsPropertyName) {
-        ContextImp *context = exec->_context;
-        while (context) {
-            if (context->function() == this)
-                return static_cast<ActivationImp *>
-                    (context->activationObject())->get(exec, propertyName);
-            context = context->callingContext();
-        }
-        return Null();
+    if (propertyName == exec->propertyNames().arguments) {
+        slot.setCustom(this, argumentsGetter);
+        return true;
     }
-    
+
     // Compute length of parameters.
-    if (propertyName == lengthPropertyName) {
-        const Parameter * p = param;
-        int count = 0;
-        while (p) {
-            ++count;
-            p = p->next;
-        }
-        return Number(count);
+    if (propertyName == exec->propertyNames().length) {
+        slot.setCustom(this, lengthGetter);
+        return true;
     }
-    
-    return InternalFunctionImp::get(exec, propertyName);
+
+    if (propertyName == exec->propertyNames().caller) {
+        slot.setCustom(this, callerGetter);
+        return true;
+    }
+
+    return InternalFunctionImp::getOwnPropertySlot(exec, propertyName, slot);
 }
 
-void FunctionImp::put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr)
+void FunctionImp::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
 {
-    if (propertyName == argumentsPropertyName || propertyName == lengthPropertyName)
+    if (propertyName == exec->propertyNames().arguments || propertyName == exec->propertyNames().length)
         return;
     InternalFunctionImp::put(exec, propertyName, value, attr);
 }
 
-bool FunctionImp::hasOwnProperty(ExecState *exec, const Identifier &propertyName) const
+bool FunctionImp::deleteProperty(ExecState* exec, const Identifier& propertyName)
 {
-    if (propertyName == argumentsPropertyName || propertyName == lengthPropertyName)
-        return true;
-    return InternalFunctionImp::hasOwnProperty(exec, propertyName);
-}
-
-bool FunctionImp::deleteProperty(ExecState *exec, const Identifier &propertyName)
-{
-    if (propertyName == argumentsPropertyName || propertyName == lengthPropertyName)
+    if (propertyName == exec->propertyNames().arguments || propertyName == exec->propertyNames().length)
         return false;
     return InternalFunctionImp::deleteProperty(exec, propertyName);
+}
+
+/* Returns the parameter name corresponding to the given index. eg:
+ * function f1(x, y, z): getParameterName(0) --> x
+ *
+ * If a name appears more than once, only the last index at which
+ * it appears associates with it. eg:
+ * function f2(x, x): getParameterName(0) --> null
+ */
+Identifier FunctionImp::getParameterName(int index)
+{
+    Vector<Parameter>& parameters = body->parameters();
+
+    if (static_cast<size_t>(index) >= body->numParams())
+        return CommonIdentifiers::shared()->nullIdentifier;
+  
+    Identifier name = parameters[index].name;
+
+    // Are there any subsequent parameters with the same name?
+    size_t size = parameters.size();
+    for (size_t i = index + 1; i < size; ++i)
+        if (parameters[i].name == name)
+            return CommonIdentifiers::shared()->nullIdentifier;
+
+    return name;
 }
 
 // ------------------------------ DeclaredFunctionImp --------------------------
@@ -265,11 +282,10 @@ bool FunctionImp::deleteProperty(ExecState *exec, const Identifier &propertyName
 // ### is "Function" correct here?
 const ClassInfo DeclaredFunctionImp::info = {"Function", &FunctionImp::info, 0, 0};
 
-DeclaredFunctionImp::DeclaredFunctionImp(ExecState *exec, const Identifier &n,
-					 FunctionBodyNode *b, const ScopeChain &sc)
-  : FunctionImp(exec,n), body(b)
+DeclaredFunctionImp::DeclaredFunctionImp(ExecState* exec, const Identifier& n,
+                                         FunctionBodyNode* b, const ScopeChain& sc)
+  : FunctionImp(exec, n, b)
 {
-  Value protect(this);
   setScope(sc);
 }
 
@@ -279,56 +295,169 @@ bool DeclaredFunctionImp::implementsConstruct() const
 }
 
 // ECMA 13.2.2 [[Construct]]
-Object DeclaredFunctionImp::construct(ExecState *exec, const List &args)
+JSObject* DeclaredFunctionImp::construct(ExecState* exec, const List& args)
 {
-  Object proto;
-  Value p = get(exec,prototypePropertyName);
-  if (p.type() == ObjectType)
-    proto = Object(static_cast<ObjectImp*>(p.imp()));
+  JSObject* proto;
+  JSValue* p = get(exec, exec->propertyNames().prototype);
+  if (p->isObject())
+    proto = static_cast<JSObject*>(p);
   else
     proto = exec->lexicalInterpreter()->builtinObjectPrototype();
 
-  Object obj(new ObjectImp(proto));
+  JSObject* obj(new JSObject(proto));
 
-  Value res = Object(this).call(exec,obj,args);
+  JSValue* res = call(exec,obj,args);
 
-  if (res.type() == ObjectType)
-    return Object::dynamicCast(res);
+  if (res->isObject())
+    return static_cast<JSObject*>(res);
   else
     return obj;
 }
 
-Completion DeclaredFunctionImp::execute(ExecState *exec)
+Completion DeclaredFunctionImp::execute(ExecState* exec)
 {
   Completion result = body->execute(exec);
 
   if (result.complType() == Throw || result.complType() == ReturnValue)
       return result;
-  return Completion(Normal, Undefined()); // TODO: or ReturnValue ?
+  return Completion(Normal, jsUndefined()); // TODO: or ReturnValue ?
 }
 
-void DeclaredFunctionImp::processVarDecls(ExecState *exec)
+void DeclaredFunctionImp::processVarDecls(ExecState* exec)
 {
   body->processVarDecls(exec);
 }
 
-// ------------------------------ ArgumentsImp ---------------------------------
+// ------------------------------ IndexToNameMap ---------------------------------
 
-const ClassInfo ArgumentsImp::info = {"Arguments", 0, 0, 0};
+// We map indexes in the arguments array to their corresponding argument names. 
+// Example: function f(x, y, z): arguments[0] = x, so we map 0 to Identifier("x"). 
 
-// ECMA 10.1.8
-ArgumentsImp::ArgumentsImp(ExecState *exec, FunctionImp *func)
-  : ArrayInstanceImp(exec->lexicalInterpreter()->builtinObjectPrototype().imp(), 0)
+// Once we have an argument name, we can get and set the argument's value in the 
+// activation object.
+
+// We use Identifier::null to indicate that a given argument's value
+// isn't stored in the activation object.
+
+IndexToNameMap::IndexToNameMap(FunctionImp* func, const List& args)
 {
-  Value protect(this);
-  putDirect(calleePropertyName, func, DontEnum);
+  _map = new Identifier[args.size()];
+  this->size = args.size();
+  
+  int i = 0;
+  ListIterator iterator = args.begin(); 
+  for (; iterator != args.end(); i++, iterator++)
+    _map[i] = func->getParameterName(i); // null if there is no corresponding parameter
 }
 
-ArgumentsImp::ArgumentsImp(ExecState *exec, FunctionImp *func, const List &args)
-  : ArrayInstanceImp(exec->lexicalInterpreter()->builtinObjectPrototype().imp(), args)
+IndexToNameMap::~IndexToNameMap() {
+  delete [] _map;
+}
+
+bool IndexToNameMap::isMapped(const Identifier& index) const
 {
-  Value protect(this);
-  putDirect(calleePropertyName, func, DontEnum);
+  bool indexIsNumber;
+  int indexAsNumber = index.toUInt32(&indexIsNumber);
+  
+  if (!indexIsNumber)
+    return false;
+  
+  if (indexAsNumber >= size)
+    return false;
+
+  if (_map[indexAsNumber].isNull())
+    return false;
+  
+  return true;
+}
+
+void IndexToNameMap::unMap(const Identifier& index)
+{
+  bool indexIsNumber;
+  int indexAsNumber = index.toUInt32(&indexIsNumber);
+
+  assert(indexIsNumber && indexAsNumber < size);
+  
+  _map[indexAsNumber] = CommonIdentifiers::shared()->nullIdentifier;
+}
+
+Identifier& IndexToNameMap::operator[](int index)
+{
+  return _map[index];
+}
+
+Identifier& IndexToNameMap::operator[](const Identifier& index)
+{
+  bool indexIsNumber;
+  int indexAsNumber = index.toUInt32(&indexIsNumber);
+
+  assert(indexIsNumber && indexAsNumber < size);
+  
+  return (*this)[indexAsNumber];
+}
+
+// ------------------------------ Arguments ---------------------------------
+
+const ClassInfo Arguments::info = {"Arguments", 0, 0, 0};
+
+// ECMA 10.1.8
+Arguments::Arguments(ExecState* exec, FunctionImp* func, const List& args, ActivationImp* act)
+: JSObject(exec->lexicalInterpreter()->builtinObjectPrototype()), 
+_activationObject(act),
+indexToNameMap(func, args)
+{
+  putDirect(exec->propertyNames().callee, func, DontEnum);
+  putDirect(exec->propertyNames().length, args.size(), DontEnum);
+  
+  int i = 0;
+  ListIterator iterator = args.begin(); 
+  for (; iterator != args.end(); i++, iterator++) {
+    if (!indexToNameMap.isMapped(Identifier::from(i))) {
+      JSObject::put(exec, Identifier::from(i), *iterator, DontEnum);
+    }
+  }
+}
+
+void Arguments::mark() 
+{
+  JSObject::mark();
+  if (_activationObject && !_activationObject->marked())
+    _activationObject->mark();
+}
+
+JSValue* Arguments::mappedIndexGetter(ExecState* exec, JSObject*, const Identifier& propertyName, const PropertySlot& slot)
+{
+  Arguments* thisObj = static_cast<Arguments*>(slot.slotBase());
+  return thisObj->_activationObject->get(exec, thisObj->indexToNameMap[propertyName]);
+}
+
+bool Arguments::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+{
+  if (indexToNameMap.isMapped(propertyName)) {
+    slot.setCustom(this, mappedIndexGetter);
+    return true;
+  }
+
+  return JSObject::getOwnPropertySlot(exec, propertyName, slot);
+}
+
+void Arguments::put(ExecState* exec, const Identifier& propertyName, JSValue* value, int attr)
+{
+  if (indexToNameMap.isMapped(propertyName)) {
+    _activationObject->put(exec, indexToNameMap[propertyName], value, attr);
+  } else {
+    JSObject::put(exec, propertyName, value, attr);
+  }
+}
+
+bool Arguments::deleteProperty(ExecState* exec, const Identifier& propertyName) 
+{
+  if (indexToNameMap.isMapped(propertyName)) {
+    indexToNameMap.unMap(propertyName);
+    return true;
+  } else {
+    return JSObject::deleteProperty(exec, propertyName);
+  }
 }
 
 // ------------------------------ ActivationImp --------------------------------
@@ -336,69 +465,87 @@ ArgumentsImp::ArgumentsImp(ExecState *exec, FunctionImp *func, const List &args)
 const ClassInfo ActivationImp::info = {"Activation", 0, 0, 0};
 
 // ECMA 10.1.6
-ActivationImp::ActivationImp(FunctionImp *function, const List &arguments)
-    : _function(function), _arguments(true), _argumentsObject(0)
+ActivationImp::ActivationImp(FunctionImp* function, const List& arguments)
+    : _function(function), _arguments(arguments), _argumentsObject(0)
 {
-  _arguments = arguments.copy();
   // FIXME: Do we need to support enumerating the arguments property?
 }
 
-Value ActivationImp::get(ExecState *exec, const Identifier &propertyName) const
+JSValue* ActivationImp::argumentsGetter(ExecState* exec, JSObject*, const Identifier&, const PropertySlot& slot)
 {
-    if (propertyName == argumentsPropertyName) {
-        if (!_argumentsObject)
-            createArgumentsObject(exec);
-        return Value(_argumentsObject);
-    }
-    return ObjectImp::get(exec, propertyName);
+  ActivationImp* thisObj = static_cast<ActivationImp*>(slot.slotBase());
+
+  // default: return builtin arguments array
+  if (!thisObj->_argumentsObject)
+    thisObj->createArgumentsObject(exec);
+  
+  return thisObj->_argumentsObject;
 }
 
-void ActivationImp::put(ExecState *exec, const Identifier &propertyName, const Value &value, int attr)
+PropertySlot::GetValueFunc ActivationImp::getArgumentsGetter()
 {
-    if (propertyName == argumentsPropertyName) {
-        // FIXME: Do we need to allow overwriting this?
-        return;
-    }
-    ObjectImp::put(exec, propertyName, value, attr);
+  return ActivationImp::argumentsGetter;
 }
 
-bool ActivationImp::hasOwnProperty(ExecState *exec, const Identifier &propertyName) const
+bool ActivationImp::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-    if (propertyName == argumentsPropertyName)
+    // do this first so property map arguments property wins over the below
+    // we don't call JSObject because we won't have getter/setter properties
+    // and we don't want to support __proto__
+
+    if (JSValue** location = getDirectLocation(propertyName)) {
+        slot.setValueSlot(this, location);
         return true;
-    return ObjectImp::hasOwnProperty(exec, propertyName);
+    }
+
+    if (propertyName == exec->propertyNames().arguments) {
+        slot.setCustom(this, getArgumentsGetter());
+        return true;
+    }
+
+    return false;
 }
 
-bool ActivationImp::deleteProperty(ExecState *exec, const Identifier &propertyName)
+bool ActivationImp::deleteProperty(ExecState* exec, const Identifier& propertyName)
 {
-    if (propertyName == argumentsPropertyName)
+    if (propertyName == exec->propertyNames().arguments)
         return false;
-    return ObjectImp::deleteProperty(exec, propertyName);
+    return JSObject::deleteProperty(exec, propertyName);
+}
+
+void ActivationImp::put(ExecState*, const Identifier& propertyName, JSValue* value, int attr)
+{
+  // There's no way that an activation object can have a prototype or getter/setter properties
+  assert(!_prop.hasGetterSetterProperties());
+  assert(prototype() == jsNull());
+
+  _prop.put(propertyName, value, attr, (attr == None || attr == DontDelete));
 }
 
 void ActivationImp::mark()
 {
     if (_function && !_function->marked()) 
         _function->mark();
-    _arguments.mark();
     if (_argumentsObject && !_argumentsObject->marked())
         _argumentsObject->mark();
-    ObjectImp::mark();
+    JSObject::mark();
 }
 
-void ActivationImp::createArgumentsObject(ExecState *exec) const
+void ActivationImp::createArgumentsObject(ExecState* exec)
 {
-  _argumentsObject = new ArgumentsImp(exec, _function, _arguments);
+  _argumentsObject = new Arguments(exec, _function, _arguments, const_cast<ActivationImp*>(this));
+  // The arguments list is only needed to create the arguments object, so discard it now
+  _arguments.reset();
 }
 
 // ------------------------------ GlobalFunc -----------------------------------
 
 
-GlobalFuncImp::GlobalFuncImp(ExecState *exec, FunctionPrototypeImp *funcProto, int i, int len)
-  : InternalFunctionImp(funcProto), id(i)
+GlobalFuncImp::GlobalFuncImp(ExecState* exec, FunctionPrototype* funcProto, int i, int len, const Identifier& name)
+  : InternalFunctionImp(funcProto, name)
+  , id(i)
 {
-  Value protect(this);
-  putDirect(lengthPropertyName, len, DontDelete|ReadOnly|DontEnum);
+  putDirect(exec->propertyNames().length, len, DontDelete|ReadOnly|DontEnum);
 }
 
 CodeType GlobalFuncImp::codeType() const
@@ -406,17 +553,12 @@ CodeType GlobalFuncImp::codeType() const
   return id == Eval ? EvalCode : codeType();
 }
 
-bool GlobalFuncImp::implementsCall() const
+static JSValue* encode(ExecState* exec, const List& args, const char* do_not_escape)
 {
-  return true;
-}
-
-static Value encode(ExecState *exec, const List &args, const char *do_not_escape)
-{
-  UString r = "", s, str = args[0].toString(exec);
+  UString r = "", s, str = args[0]->toString(exec);
   CString cstr = str.UTF8String();
-  const char *p = cstr.c_str();
-  for (int k = 0; k < cstr.size(); k++, p++) {
+  const char* p = cstr.c_str();
+  for (size_t k = 0; k < cstr.size(); k++, p++) {
     char c = *p;
     if (c && strchr(do_not_escape, c)) {
       r.append(c);
@@ -426,17 +568,17 @@ static Value encode(ExecState *exec, const List &args, const char *do_not_escape
       r += tmp;
     }
   }
-  return String(r);
+  return jsString(r);
 }
 
-static Value decode(ExecState *exec, const List &args, const char *do_not_unescape, bool strict)
+static JSValue* decode(ExecState* exec, const List& args, const char* do_not_unescape, bool strict)
 {
-  UString s = "", str = args[0].toString(exec);
+  UString s = "", str = args[0]->toString(exec);
   int k = 0, len = str.size();
-  const UChar *d = str.data();
+  const UChar* d = str.data();
   UChar u;
   while (k < len) {
-    const UChar *p = d + k;
+    const UChar* p = d + k;
     UChar c = *p;
     if (c == '%') {
       int charLen = 0;
@@ -448,7 +590,7 @@ static Value decode(ExecState *exec, const List &args, const char *do_not_unesca
           char sequence[5];
           sequence[0] = b0;
           for (int i = 1; i < sequenceLen; ++i) {
-            const UChar *q = p + i * 3;
+            const UChar* q = p + i * 3;
             if (q[0] == '%' && isxdigit(q[1].uc) && isxdigit(q[2].uc))
               sequence[i] = Lexer::convertHex(q[1].uc, q[2].uc);
             else {
@@ -472,18 +614,15 @@ static Value decode(ExecState *exec, const List &args, const char *do_not_unesca
         }
       }
       if (charLen == 0) {
-        if (strict) {
-	  Object error = Error::create(exec, URIError);
-          exec->setException(error);
-          return error;
-        }
+        if (strict)
+          return throwError(exec, URIError);
         // The only case where we don't use "strict" mode is the "unescape" function.
         // For that, it's good to support the wonky "%u" syntax for compatibility with WinIE.
         if (k <= len - 6 && p[1] == 'u'
             && isxdigit(p[2].uc) && isxdigit(p[3].uc)
             && isxdigit(p[4].uc) && isxdigit(p[5].uc)) {
-	  charLen = 6;
-	  u = Lexer::convertUnicode(p[2].uc, p[3].uc, p[4].uc, p[5].uc);
+          charLen = 6;
+          u = Lexer::convertUnicode(p[2].uc, p[3].uc, p[4].uc, p[5].uc);
         }
       }
       if (charLen && (u.uc == 0 || u.uc >= 128 || !strchr(do_not_unescape, u.low()))) {
@@ -494,7 +633,7 @@ static Value decode(ExecState *exec, const List &args, const char *do_not_unesca
     k++;
     s.append(c);
   }
-  return String(s);
+  return jsString(s);
 }
 
 static bool isStrWhiteSpace(unsigned short c)
@@ -511,12 +650,7 @@ static bool isStrWhiteSpace(unsigned short c)
         case 0x2029:
             return true;
         default:
-#if APPLE_CHANGES
-            return u_charType(c) == U_SPACE_SEPARATOR;
-#else
-            // ### properly support other Unicode Zs characters
-            return false;
-#endif
+            return isSeparatorSpace(c);
     }
 }
 
@@ -537,7 +671,29 @@ static int parseDigit(unsigned short c, int radix)
     return digit;
 }
 
-static double parseInt(const UString &s, int radix)
+double parseIntOverflow(const char* s, int length, int radix)
+{
+    double number = 0.0;
+    double radixMultiplier = 1.0;
+
+    for (const char* p = s + length - 1; p >= s; p--) {
+        if (radixMultiplier == Inf) {
+            if (*p != '0') {
+                number = Inf;
+                break;
+            }
+        } else {
+            int digit = parseDigit(*p, radix);
+            number += digit * radixMultiplier;
+        }
+
+        radixMultiplier *= radix;
+    }
+
+    return number;
+}
+
+static double parseInt(const UString& s, int radix)
 {
     int length = s.size();
     int p = 0;
@@ -569,6 +725,7 @@ static double parseInt(const UString &s, int radix)
     if (radix < 2 || radix > 36)
         return NaN;
 
+    int firstDigitPosition = p;
     bool sawDigit = false;
     double number = 0;
     while (p < length) {
@@ -581,13 +738,20 @@ static double parseInt(const UString &s, int radix)
         ++p;
     }
 
+    if (number >= mantissaOverflowLowerBound) {
+        if (radix == 10)
+            number = kjs_strtod(s.substr(firstDigitPosition, p - firstDigitPosition).ascii(), 0);
+        else if (radix == 2 || radix == 4 || radix == 8 || radix == 16 || radix == 32)
+            number = parseIntOverflow(s.substr(firstDigitPosition, p - firstDigitPosition).ascii(), p - firstDigitPosition, radix);
+    }
+
     if (!sawDigit)
         return NaN;
 
     return sign * number;
 }
 
-static double parseFloat(const UString &s)
+static double parseFloat(const UString& s)
 {
     // Check for 0x prefix here, because toDouble allows it, but we must treat it as 0.
     // Need to skip any whitespace and then one + or - sign.
@@ -606,9 +770,9 @@ static double parseFloat(const UString &s)
     return s.toDouble( true /*tolerant*/, false /* NaN for empty string */ );
 }
 
-Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
+JSValue* GlobalFuncImp::callAsFunction(ExecState* exec, JSObject* thisObj, const List& args)
 {
-  Value res;
+  JSValue* res = jsUndefined();
 
   static const char do_not_escape[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -630,71 +794,81 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
     "#$&+,/:;=?@";
 
   switch (id) {
-  case Eval: { // eval()
-    Value x = args[0];
-    if (x.type() != StringType)
-      return x;
-    else {
-      UString s = x.toString(exec);
+    case Eval: { // eval()
+      JSValue* x = args[0];
+      if (!x->isString())
+        return x;
+      else {
+        UString s = x->toString(exec);
+        
+        int sid;
+        int errLine;
+        UString errMsg;
+        RefPtr<ProgramNode> progNode(Parser::parse(UString(), 0, s.data(),s.size(),&sid,&errLine,&errMsg));
 
-      int sid;
-      int errLine;
-      UString errMsg;
-      SharedPtr<ProgramNode> progNode(Parser::parse(UString(), 0, s.data(),s.size(),&sid,&errLine,&errMsg));
+        Debugger* dbg = exec->dynamicInterpreter()->debugger();
+        if (dbg) {
+          bool cont = dbg->sourceParsed(exec, sid, UString(), s, 0, errLine, errMsg);
+          if (!cont)
+            return jsUndefined();
+        }
 
-      Debugger *dbg = exec->dynamicInterpreter()->imp()->debugger();
-      if (dbg) {
-        bool cont = dbg->sourceParsed(exec, sid, UString(), s, errLine);
-        if (!cont)
-          return Undefined();
-      }
+        // no program node means a syntax occurred
+        if (!progNode)
+          return throwError(exec, SyntaxError, errMsg, errLine, sid, NULL);
 
-      // no program node means a syntax occurred
-      if (!progNode) {
-	Object err = Error::create(exec,SyntaxError,errMsg.ascii(),errLine);
-        err.put(exec,"sid",Number(sid));
-        exec->setException(err);
-        return err;
-      }
+        bool switchGlobal = thisObj && exec->dynamicInterpreter()->isGlobalObject(thisObj) && thisObj != exec->dynamicInterpreter()->globalObject();
+          
+        // enter a new execution context
+        Interpreter* interpreter = switchGlobal ? exec->dynamicInterpreter()->interpreterForGlobalObject(thisObj) : exec->dynamicInterpreter();
+        JSObject* thisVal = static_cast<JSObject*>(exec->context()->thisValue());
+        Context ctx(interpreter->globalObject(),
+                       interpreter,
+                       thisVal,
+                       progNode.get(),
+                       EvalCode,
+                       exec->context());
+        ExecState newExec(interpreter, &ctx);
+        if (exec->hadException())
+            newExec.setException(exec->exception());
+        ctx.setExecState(&newExec);
+          
+        if (switchGlobal) {
+            ctx.pushScope(thisObj);
+            ctx.setVariableObject(thisObj);
+        }
+        
+        // execute the code
+        progNode->processVarDecls(&newExec);
+        Completion c = progNode->execute(&newExec);
+          
+        if (switchGlobal)
+            ctx.popScope();
 
-      // enter a new execution context
-      Object thisVal(Object::dynamicCast(exec->context().thisValue()));
-      ContextImp ctx(exec->dynamicInterpreter()->globalObject(),
-                     exec->dynamicInterpreter()->imp(),
-                     thisVal,
-                     EvalCode,
-                     exec->context().imp());
+        // if an exception occured, propogate it back to the previous execution object
+        if (newExec.hadException())
+          exec->setException(newExec.exception());
 
-      ExecState newExec(exec->dynamicInterpreter(), &ctx);
-      newExec.setException(exec->exception()); // could be null
-
-      // execute the code
-      Completion c = progNode->execute(&newExec);
-
-      // if an exception occured, propogate it back to the previous execution object
-      if (newExec.hadException())
-        exec->setException(newExec.exception());
-
-        res = Undefined();
+        res = jsUndefined();
         if (c.complType() == Throw)
-            exec->setException(c.value());
+          exec->setException(c.value());
         else if (c.isValueCompletion())
             res = c.value();
+      }
+      break;
     }
-    break;
-  }
   case ParseInt:
-    res = Number(parseInt(args[0].toString(exec), args[1].toInt32(exec)));
+    res = jsNumber(parseInt(args[0]->toString(exec), args[1]->toInt32(exec)));
     break;
   case ParseFloat:
-    res = Number(parseFloat(args[0].toString(exec)));
+    res = jsNumber(parseFloat(args[0]->toString(exec)));
     break;
   case IsNaN:
-    res = Boolean(isNaN(args[0].toNumber(exec)));
+    res = jsBoolean(isNaN(args[0]->toNumber(exec)));
     break;
   case IsFinite: {
-    double n = args[0].toNumber(exec);
-    res = Boolean(!isNaN(n) && !isInf(n));
+    double n = args[0]->toNumber(exec);
+    res = jsBoolean(!isNaN(n) && !isInf(n));
     break;
   }
   case DecodeURI:
@@ -711,8 +885,8 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
     break;
   case Escape:
     {
-      UString r = "", s, str = args[0].toString(exec);
-      const UChar *c = str.data();
+      UString r = "", s, str = args[0]->toString(exec);
+      const UChar* c = str.data();
       for (int k = 0; k < str.size(); k++, c++) {
         int u = c->uc;
         if (u > 255) {
@@ -728,23 +902,23 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
         }
         r += s;
       }
-      res = String(r);
+      res = jsString(r);
       break;
     }
   case UnEscape:
     {
-      UString s = "", str = args[0].toString(exec);
+      UString s = "", str = args[0]->toString(exec);
       int k = 0, len = str.size();
       while (k < len) {
-        const UChar *c = str.data() + k;
+        const UChar* c = str.data() + k;
         UChar u;
         if (*c == UChar('%') && k <= len - 6 && *(c+1) == UChar('u')) {
           if (Lexer::isHexDigit((c+2)->uc) && Lexer::isHexDigit((c+3)->uc) &&
               Lexer::isHexDigit((c+4)->uc) && Lexer::isHexDigit((c+5)->uc)) {
-	  u = Lexer::convertUnicode((c+2)->uc, (c+3)->uc,
-				    (c+4)->uc, (c+5)->uc);
-	  c = &u;
-	  k += 5;
+          u = Lexer::convertUnicode((c+2)->uc, (c+3)->uc,
+                                    (c+4)->uc, (c+5)->uc);
+          c = &u;
+          k += 5;
           }
         } else if (*c == UChar('%') && k <= len - 3 &&
                    Lexer::isHexDigit((c+1)->uc) && Lexer::isHexDigit((c+2)->uc)) {
@@ -755,17 +929,59 @@ Value GlobalFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args
         k++;
         s += UString(c, 1);
       }
-      res = String(s);
+      res = jsString(s);
       break;
     }
 #ifndef NDEBUG
   case KJSPrint:
-    puts(args[0].toString(exec).ascii());
+    puts(args[0]->toString(exec).ascii());
     break;
 #endif
   }
 
   return res;
+}
+
+UString escapeStringForPrettyPrinting(const UString& s)
+{
+    UString escapedString;
+    
+    for (int i = 0; i < s.size(); i++) {
+        unsigned short c = s.data()[i].unicode();
+        
+        switch (c) {
+        case '\"':
+            escapedString += "\\\"";
+            break;
+        case '\n':
+            escapedString += "\\n";
+            break;
+        case '\r':
+            escapedString += "\\r";
+            break;
+        case '\t':
+            escapedString += "\\t";
+            break;
+        case '\\':
+            escapedString += "\\\\";
+            break;
+        default:
+            if (c < 128 && isPrintableChar(c))
+                escapedString.append(c);
+            else {
+                char hexValue[7];
+            
+#if PLATFORM(WIN_OS)
+                _snprintf(hexValue, 7, "\\u%04x", c);
+#else
+                snprintf(hexValue, 7, "\\u%04x", c);
+#endif
+                escapedString += hexValue;
+            }
+        }
+    }
+    
+    return escapedString;    
 }
 
 } // namespace

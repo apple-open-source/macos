@@ -1,4 +1,3 @@
-// -*- c-basic-offset: 2 -*-
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
@@ -16,293 +15,131 @@
  *
  *  You should have received a copy of the GNU Lesser General Public
  *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-#ifndef HAVE_SYS_TIMEB_H
-#define HAVE_SYS_TIMEB_H 0
+#include "config.h"
+#include "date_object.h"
+#include "date_object.lut.h"
+#include "internal.h"
+
+#if HAVE(ERRNO_H)
+#include <errno.h>
 #endif
 
-#if TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-#if HAVE_SYS_TIME_H
-#include <sys/time.h>
-#else
-#  include <time.h>
-# endif
+#if HAVE(SYS_PARAM_H)
+#include <sys/param.h>
 #endif
-#if HAVE_SYS_TIMEB_H
+
+#if HAVE(SYS_TIME_H)
+#include <sys/time.h>
+#endif
+
+#if HAVE(SYS_TIMEB_H)
 #include <sys/timeb.h>
 #endif
 
-#ifdef HAVE_SYS_PARAM_H
-#  include <sys/param.h>
-#endif // HAVE_SYS_PARAM_H
-
+#include <ctype.h>
+#include <float.h>
+#include <limits.h>
+#include <locale.h>
 #include <math.h>
-#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <locale.h>
-#include <ctype.h>
+#include <string.h>
+#include <time.h>
 
-#include "date_object.h"
 #include "error_object.h"
 #include "operations.h"
+#include "DateMath.h"
 
-#include "date_object.lut.h"
+#include <wtf/MathExtras.h>
+#include <wtf/StringExtras.h>
 
-// some constants
-const time_t invalidDate = -1;
-const double hoursPerDay = 24;
-const double minutesPerHour = 60;
-const double secondsPerMinute = 60;
-const double msPerSecond = 1000;
-const double msPerMinute = msPerSecond * secondsPerMinute;
-const double msPerHour = msPerMinute * minutesPerHour;
-const double msPerDay = msPerHour * hoursPerDay;
+#if PLATFORM(MAC)
+    #include <CoreFoundation/CoreFoundation.h>
+#endif
 
-#if APPLE_CHANGES
+namespace KJS {
 
-// Originally, we wrote our own implementation that uses Core Foundation because of a performance problem in Mac OS X 10.2.
-// But we need to keep using this rather than the standard library functions because this handles a larger range of dates.
+static double parseDate(const UString&);
+static double timeClip(double);
 
-#include <notify.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <CoreServices/CoreServices.h>
-
-using KJS::UChar;
-using KJS::UString;
-
-#define gmtime(x) gmtimeUsingCF(x)
-#define localtime(x) localtimeUsingCF(x)
-#define mktime(x) mktimeUsingCF(x)
-#define timegm(x) timegmUsingCF(x)
-#define time(x) timeUsingCF(x)
-
-#define ctime(x) NotAllowedToCallThis()
-#define strftime(a, b, c, d) NotAllowedToCallThis()
-
-static const char * const weekdayName[7] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
-static const char * const monthName[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-    
-static struct tm *tmUsingCF(time_t clock, CFTimeZoneRef timeZone)
+inline int gmtoffset(const GregorianDateTime& t)
 {
-    static struct tm result;
-    static char timeZoneCString[128];
-    
-    CFAbsoluteTime absoluteTime = clock - kCFAbsoluteTimeIntervalSince1970;
-    CFGregorianDate date = CFAbsoluteTimeGetGregorianDate(absoluteTime, timeZone);
-
-    CFStringRef abbreviation = CFTimeZoneCopyAbbreviation(timeZone, absoluteTime);
-    CFStringGetCString(abbreviation, timeZoneCString, sizeof(timeZoneCString), kCFStringEncodingASCII);
-    CFRelease(abbreviation);
-
-    result.tm_sec = (int)date.second;
-    result.tm_min = date.minute;
-    result.tm_hour = date.hour;
-    result.tm_mday = date.day;
-    result.tm_mon = date.month - 1;
-    result.tm_year = date.year - 1900;
-    result.tm_wday = CFAbsoluteTimeGetDayOfWeek(absoluteTime, timeZone) % 7;
-    result.tm_yday = CFAbsoluteTimeGetDayOfYear(absoluteTime, timeZone) - 1;
-    result.tm_isdst = CFTimeZoneIsDaylightSavingTime(timeZone, absoluteTime);
-    result.tm_gmtoff = (int)CFTimeZoneGetSecondsFromGMT(timeZone, absoluteTime);
-    result.tm_zone = timeZoneCString;
-    
-    return &result;
+    return t.utcOffset;
 }
 
-static CFTimeZoneRef UTCTimeZone()
+
+/**
+ * @internal
+ *
+ * Class to implement all methods that are properties of the
+ * Date object
+ */
+class DateObjectFuncImp : public InternalFunctionImp {
+public:
+    DateObjectFuncImp(ExecState *, FunctionPrototype *, int i, int len, const Identifier& );
+
+    virtual JSValue *callAsFunction(ExecState *, JSObject *thisObj, const List &args);
+
+    enum { Parse, UTC };
+
+private:
+    int id;
+};
+
+#if PLATFORM(MAC)
+
+static CFDateFormatterStyle styleFromArgString(const UString& string, CFDateFormatterStyle defaultStyle)
 {
-    static CFTimeZoneRef zone = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0.0);
-    return zone;
-}
-
-static CFTimeZoneRef CopyLocalTimeZone()
-{
-    // Check for a time zone notification, and tell CoreFoundation to re-get the time zone if it happened.
-    // Some day, CoreFoundation may do this itself, but for now it needs our help.
-    static bool registered = false;
-    static int notificationToken;
-    if (!registered) {
-        uint32_t status = notify_register_check("com.apple.system.timezone", &notificationToken);
-        if (status == NOTIFY_STATUS_OK) {
-            registered = true;
-        }
-    }
-    if (registered) {
-        int notified;
-        uint32_t status = notify_check(notificationToken, &notified);
-        if (status == NOTIFY_STATUS_OK && notified) {
-            CFTimeZoneResetSystem();
-        }
-    }
-
-    CFTimeZoneRef zone = CFTimeZoneCopyDefault();
-    if (zone) {
-        return zone;
-    }
-    zone = UTCTimeZone();
-    CFRetain(zone);
-    return zone;
-}
-
-static struct tm *gmtimeUsingCF(const time_t *clock)
-{
-    return tmUsingCF(*clock, UTCTimeZone());
-}
-
-static struct tm *localtimeUsingCF(const time_t *clock)
-{
-    CFTimeZoneRef timeZone = CopyLocalTimeZone();
-    struct tm *result = tmUsingCF(*clock, timeZone);
-    CFRelease(timeZone);
-    return result;
-}
-
-static time_t timetUsingCF(struct tm *tm, CFTimeZoneRef timeZone)
-{
-    CFGregorianDate date;
-    date.second = tm->tm_sec;
-    date.minute = tm->tm_min;
-    date.hour = tm->tm_hour;
-    date.day = tm->tm_mday;
-    date.month = tm->tm_mon + 1;
-    date.year = tm->tm_year + 1900;
-
-    // CFGregorianDateGetAbsoluteTime will go nuts if the year is too large or small,
-    // so we pick an arbitrary cutoff.
-    if (date.year < -2500 || date.year > 2500) {
-        return invalidDate;
-    }
-    
-    CFAbsoluteTime absoluteTime = CFGregorianDateGetAbsoluteTime(date, timeZone);
-    
-    if (tm->tm_isdst >= 0) {
-      if (CFTimeZoneIsDaylightSavingTime(timeZone, absoluteTime) && !tm->tm_isdst)
-        absoluteTime += 3600;
-      else if (!CFTimeZoneIsDaylightSavingTime(timeZone, absoluteTime) && tm->tm_isdst)
-        absoluteTime -= 3600;
-    }
-    
-    CFTimeInterval interval = absoluteTime + kCFAbsoluteTimeIntervalSince1970;
-    if (interval > LONG_MAX) {
-        interval = LONG_MAX;
-    }
-
-    return (time_t) interval;
-}
-
-static time_t mktimeUsingCF(struct tm *tm)
-{
-    CFTimeZoneRef timeZone = CopyLocalTimeZone();
-    time_t result = timetUsingCF(tm, timeZone);
-    CFRelease(timeZone);
-    return result;
-}
-
-static time_t timegmUsingCF(struct tm *tm)
-{
-    return timetUsingCF(tm, UTCTimeZone());
-}
-
-static time_t timeUsingCF(time_t *clock)
-{
-    time_t result = (time_t)(CFAbsoluteTimeGetCurrent() + kCFAbsoluteTimeIntervalSince1970);
-    if (clock) {
-        *clock = result;
-    }
-    return result;
-}
-
-static UString formatDate(struct tm &tm)
-{
-    char buffer[100];
-    snprintf(buffer, sizeof(buffer), "%s %s %02d %04d",
-        weekdayName[(tm.tm_wday + 6) % 7],
-        monthName[tm.tm_mon], tm.tm_mday, tm.tm_year + 1900);
-    return buffer;
-}
-
-static UString formatDateUTCVariant(struct tm &tm)
-{
-    char buffer[100];
-    snprintf(buffer, sizeof(buffer), "%s, %02d %s %04d",
-        weekdayName[(tm.tm_wday + 6) % 7],
-        tm.tm_mday, monthName[tm.tm_mon], tm.tm_year + 1900);
-    return buffer;
-}
-
-static UString formatTime(struct tm &tm)
-{
-    char buffer[100];
-    if (tm.tm_gmtoff == 0) {
-        snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d GMT", tm.tm_hour, tm.tm_min, tm.tm_sec);
-    } else {
-        int offset = tm.tm_gmtoff;
-        if (offset < 0) {
-            offset = -offset;
-        }
-        snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d GMT%c%02d%02d",
-            tm.tm_hour, tm.tm_min, tm.tm_sec,
-            tm.tm_gmtoff < 0 ? '-' : '+', offset / (60*60), (offset / 60) % 60);
-    }
-    return UString(buffer);
-}
-
-static CFDateFormatterStyle styleFromArgString(const UString& string,CFDateFormatterStyle defaultStyle)
-{
-    CFDateFormatterStyle retVal = defaultStyle;
     if (string == "short")
-	retVal = kCFDateFormatterShortStyle;
-    else if (string == "medium")
-	retVal = kCFDateFormatterMediumStyle;
-    else if (string == "long")
-	retVal = kCFDateFormatterLongStyle;
-    else if (string == "full")
-	retVal = kCFDateFormatterFullStyle;
-    return retVal;
+        return kCFDateFormatterShortStyle;
+    if (string == "medium")
+        return kCFDateFormatterMediumStyle;
+    if (string == "long")
+        return kCFDateFormatterLongStyle;
+    if (string == "full")
+        return kCFDateFormatterFullStyle;
+    return defaultStyle;
 }
 
-static UString formatLocaleDate(KJS::ExecState *exec, double time, bool includeDate, bool includeTime, const KJS::List &args)
+static UString formatLocaleDate(ExecState *exec, double time, bool includeDate, bool includeTime, const List &args)
 {
-    CFLocaleRef locale = CFLocaleCopyCurrent();
-    int argCount = args.size();
-    
-    CFDateFormatterStyle    dateStyle = (includeDate ? kCFDateFormatterLongStyle : kCFDateFormatterNoStyle);
-    CFDateFormatterStyle    timeStyle = (includeTime ? kCFDateFormatterLongStyle : kCFDateFormatterNoStyle);
+    CFDateFormatterStyle dateStyle = (includeDate ? kCFDateFormatterLongStyle : kCFDateFormatterNoStyle);
+    CFDateFormatterStyle timeStyle = (includeTime ? kCFDateFormatterLongStyle : kCFDateFormatterNoStyle);
 
-    UString	arg0String;
-    UString	arg1String;
-    bool	useCustomFormat = false;
-    UString	customFormatString;
-    arg0String = args[0].toString(exec);
-    if ((arg0String == "custom") && (argCount >= 2)) {
-	useCustomFormat = true;
-	customFormatString = args[1].toString(exec);
-    } else if (includeDate && includeTime && (argCount >= 2)) {
-	arg1String = args[1].toString(exec);
-	dateStyle = styleFromArgString(arg0String,dateStyle);
-	timeStyle = styleFromArgString(arg1String,timeStyle);
-    } else if (includeDate && (argCount >= 1)) {
-	dateStyle = styleFromArgString(arg0String,dateStyle);
-    } else if (includeTime && (argCount >= 1)) {
-	timeStyle = styleFromArgString(arg0String,timeStyle);
+    bool useCustomFormat = false;
+    UString customFormatString;
+
+    UString arg0String = args[0]->toString(exec);
+    if (arg0String == "custom" && !args[1]->isUndefined()) {
+        useCustomFormat = true;
+        customFormatString = args[1]->toString(exec);
+    } else if (includeDate && includeTime && !args[1]->isUndefined()) {
+        dateStyle = styleFromArgString(arg0String, dateStyle);
+        timeStyle = styleFromArgString(args[1]->toString(exec), timeStyle);
+    } else if (includeDate && !args[0]->isUndefined()) {
+        dateStyle = styleFromArgString(arg0String, dateStyle);
+    } else if (includeTime && !args[0]->isUndefined()) {
+        timeStyle = styleFromArgString(arg0String, timeStyle);
     }
-    CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, locale, dateStyle, timeStyle);
+
+    CFLocaleRef locale = CFLocaleCopyCurrent();
+    CFDateFormatterRef formatter = CFDateFormatterCreate(0, locale, dateStyle, timeStyle);
+    CFRelease(locale);
+
     if (useCustomFormat) {
-	CFStringRef	customFormatCFString = CFStringCreateWithCharacters(NULL,(UniChar*)customFormatString.data(),customFormatString.size());
-	CFDateFormatterSetFormat(formatter,customFormatCFString);
-	CFRelease(customFormatCFString);
+        CFStringRef customFormatCFString = CFStringCreateWithCharacters(0, (UniChar *)customFormatString.data(), customFormatString.size());
+        CFDateFormatterSetFormat(formatter, customFormatCFString);
+        CFRelease(customFormatCFString);
     }
-    CFStringRef string = CFDateFormatterCreateStringWithAbsoluteTime(NULL, formatter, time - kCFAbsoluteTimeIntervalSince1970);
+
+    CFStringRef string = CFDateFormatterCreateStringWithAbsoluteTime(0, formatter, time - kCFAbsoluteTimeIntervalSince1970);
+
+    CFRelease(formatter);
+
     // We truncate the string returned from CFDateFormatter if it's absurdly long (> 200 characters).
     // That's not great error handling, but it just won't happen so it doesn't matter.
     UChar buffer[200];
@@ -314,214 +151,309 @@ static UString formatLocaleDate(KJS::ExecState *exec, double time, bool includeD
     CFStringGetCharacters(string, CFRangeMake(0, length), reinterpret_cast<UniChar *>(buffer));
 
     CFRelease(string);
-    CFRelease(formatter);
-    CFRelease(locale);
-    
+
     return UString(buffer, length);
 }
 
-#endif // APPLE_CHANGES
-
-using namespace KJS;
-
-static int day(double t)
-{
-  return int(floor(t / msPerDay));
-}
-
-static double dayFromYear(int year)
-{
-  return 365.0 * (year - 1970)
-    + floor((year - 1969) / 4.0)
-    - floor((year - 1901) / 100.0)
-    + floor((year - 1601) / 400.0);
-}
-
-// depending on whether it's a leap year or not
-static int daysInYear(int year)
-{
-  if (year % 4 != 0)
-    return 365;
-  else if (year % 400 == 0)
-    return 366;
-  else if (year % 100 == 0)
-    return 365;
-  else
-    return 366;
-}
-
-// time value of the start of a year
-static double timeFromYear(int year)
-{
-  return msPerDay * dayFromYear(year);
-}
-
-// year determined by time value
-static int yearFromTime(double t)
-{
-  // ### there must be an easier way
-  // initial guess
-  int y = 1970 + int(t / (365.25 * msPerDay));
-  // adjustment
-  if (timeFromYear(y) > t) {
-    do {
-      --y;
-    } while (timeFromYear(y) > t);
-  } else {
-    while (timeFromYear(y + 1) < t)
-      ++y;
-  }
-
-  return y;
-}
-
-// 0: Sunday, 1: Monday, etc.
-static int weekDay(double t)
-{
-  int wd = (day(t) + 4) % 7;
-  if (wd < 0)
-    wd += 7;
-  return wd;
-}
-
-static long timeZoneOffset(const struct tm *t)
-{
-#if defined BSD || defined(__linux__) || defined(__APPLE__)
-  return -(t->tm_gmtoff / 60);
 #else
-#  if defined(__BORLANDC__) || defined(__CYGWIN__)
-// FIXME consider non one-hour DST change
-#if !defined(__CYGWIN__)
-#error please add daylight savings offset here!
-#endif
-  return _timezone / 60 - (t->tm_isdst > 0 ? 60 : 0);
-#  else
-  return timezone / 60 - (t->tm_isdst > 0 ? 60 : 0 );
-#  endif
-#endif
+
+enum LocaleDateTimeFormat { LocaleDateAndTime, LocaleDate, LocaleTime };
+ 
+static JSCell* formatLocaleDate(const GregorianDateTime& gdt, const LocaleDateTimeFormat format)
+{
+    static const char* formatStrings[] = {"%#c", "%#x", "%X"};
+ 
+    // Offset year if needed
+    struct tm localTM = gdt;
+    int year = gdt.year + 1900;
+    bool yearNeedsOffset = year < 1900 || year > 2038;
+    if (yearNeedsOffset) {
+        localTM.tm_year = equivalentYearForDST(year) - 1900;
+     }
+ 
+    // Do the formatting
+    const int bufsize=128;
+    char timebuffer[bufsize];
+    size_t ret = strftime(timebuffer, bufsize, formatStrings[format], &localTM);
+ 
+    if ( ret == 0 )
+        return jsString("");
+ 
+    // Copy original into the buffer
+    if (yearNeedsOffset && format != LocaleTime) {
+        static const int yearLen = 5;   // FIXME will be a problem in the year 10,000
+        char yearString[yearLen];
+ 
+        snprintf(yearString, yearLen, "%d", localTM.tm_year + 1900);
+        char* yearLocation = strstr(timebuffer, yearString);
+        snprintf(yearString, yearLen, "%d", year);
+ 
+        strncpy(yearLocation, yearString, yearLen - 1);
+    }
+ 
+    return jsString(timebuffer);
 }
 
-// ------------------------------ DateInstanceImp ------------------------------
+#endif // PLATFORM(WIN_OS)
 
-const ClassInfo DateInstanceImp::info = {"Date", 0, 0, 0};
+static UString formatDate(const GregorianDateTime &t)
+{
+    char buffer[100];
+    snprintf(buffer, sizeof(buffer), "%s %s %02d %04d",
+        weekdayName[(t.weekDay + 6) % 7],
+        monthName[t.month], t.monthDay, t.year + 1900);
+    return buffer;
+}
 
-DateInstanceImp::DateInstanceImp(ObjectImp *proto)
-  : ObjectImp(proto)
+static UString formatDateUTCVariant(const GregorianDateTime &t)
+{
+    char buffer[100];
+    snprintf(buffer, sizeof(buffer), "%s, %02d %s %04d",
+        weekdayName[(t.weekDay + 6) % 7],
+        t.monthDay, monthName[t.month], t.year + 1900);
+    return buffer;
+}
+
+static UString formatTime(const GregorianDateTime &t, bool utc)
+{
+    char buffer[100];
+    if (utc) {
+        snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d GMT", t.hour, t.minute, t.second);
+    } else {
+        int offset = abs(gmtoffset(t));
+        char tzname[70];
+        struct tm gtm = t;
+        strftime(tzname, sizeof(tzname), "%Z", &gtm);
+
+        if (tzname) {
+            snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d GMT%c%02d%02d (%s)",
+                t.hour, t.minute, t.second,
+                gmtoffset(t) < 0 ? '-' : '+', offset / (60*60), (offset / 60) % 60, tzname);
+        } else {
+            snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d GMT%c%02d%02d",
+                t.hour, t.minute, t.second,
+                gmtoffset(t) < 0 ? '-' : '+', offset / (60*60), (offset / 60) % 60);
+        }
+    }
+    return UString(buffer);
+}
+
+// Converts a list of arguments sent to a Date member function into milliseconds, updating
+// ms (representing milliseconds) and t (representing the rest of the date structure) appropriately.
+//
+// Format of member function: f([hour,] [min,] [sec,] [ms])
+static void fillStructuresUsingTimeArgs(ExecState *exec, const List &args, int maxArgs, double *ms, GregorianDateTime *t)
+{
+    double milliseconds = 0;
+    int idx = 0;
+    int numArgs = args.size();
+    
+    // JS allows extra trailing arguments -- ignore them
+    if (numArgs > maxArgs)
+        numArgs = maxArgs;
+
+    // hours
+    if (maxArgs >= 4 && idx < numArgs) {
+        t->hour = 0;
+        milliseconds += args[idx++]->toInt32(exec) * msPerHour;
+    }
+
+    // minutes
+    if (maxArgs >= 3 && idx < numArgs) {
+        t->minute = 0;
+        milliseconds += args[idx++]->toInt32(exec) * msPerMinute;
+    }
+    
+    // seconds
+    if (maxArgs >= 2 && idx < numArgs) {
+        t->second = 0;
+        milliseconds += args[idx++]->toInt32(exec) * msPerSecond;
+    }
+    
+    // milliseconds
+    if (idx < numArgs) {
+        milliseconds += roundValue(exec, args[idx]);
+    } else {
+        milliseconds += *ms;
+    }
+    
+    *ms = milliseconds;
+}
+
+// Converts a list of arguments sent to a Date member function into years, months, and milliseconds, updating
+// ms (representing milliseconds) and t (representing the rest of the date structure) appropriately.
+//
+// Format of member function: f([years,] [months,] [days])
+static void fillStructuresUsingDateArgs(ExecState *exec, const List &args, int maxArgs, double *ms, GregorianDateTime *t)
+{
+    int idx = 0;
+    int numArgs = args.size();
+  
+    // JS allows extra trailing arguments -- ignore them
+    if (numArgs > maxArgs)
+        numArgs = maxArgs;
+  
+    // years
+    if (maxArgs >= 3 && idx < numArgs)
+        t->year = args[idx++]->toInt32(exec) - 1900;
+  
+    // months
+    if (maxArgs >= 2 && idx < numArgs)
+        t->month = args[idx++]->toInt32(exec);
+  
+    // days
+    if (idx < numArgs) {
+        t->monthDay = 0;
+        *ms += args[idx]->toInt32(exec) * msPerDay;
+    }
+}
+
+// ------------------------------ DateInstance ------------------------------
+
+const ClassInfo DateInstance::info = {"Date", 0, 0, 0};
+
+DateInstance::DateInstance(JSObject *proto)
+  : JSWrapperObject(proto)
 {
 }
 
-// ------------------------------ DatePrototypeImp -----------------------------
+bool DateInstance::getTime(GregorianDateTime &t, int &offset) const
+{
+    double milli = internalValue()->getNumber();
+    if (isNaN(milli))
+        return false;
+    
+    msToGregorianDateTime(milli, false, t);
+    offset = gmtoffset(t);
+    return true;
+}
 
-const ClassInfo DatePrototypeImp::info = {"Date", 0, &dateTable, 0};
+bool DateInstance::getUTCTime(GregorianDateTime &t) const
+{
+    double milli = internalValue()->getNumber();
+    if (isNaN(milli))
+        return false;
+    
+    msToGregorianDateTime(milli, true, t);
+    return true;
+}
+
+bool DateInstance::getTime(double &milli, int &offset) const
+{
+    milli = internalValue()->getNumber();
+    if (isNaN(milli))
+        return false;
+    
+    GregorianDateTime t;
+    msToGregorianDateTime(milli, false, t);
+    offset = gmtoffset(t);
+    return true;
+}
+
+bool DateInstance::getUTCTime(double &milli) const
+{
+    milli = internalValue()->getNumber();
+    if (isNaN(milli))
+        return false;
+    
+    return true;
+}
+
+static inline bool isTime_tSigned()
+{
+    time_t minusOne = (time_t)(-1);
+    return minusOne < 0;
+}
+
+// ------------------------------ DatePrototype -----------------------------
+
+const ClassInfo DatePrototype::info = {"Date", &DateInstance::info, &dateTable, 0};
 
 /* Source for date_object.lut.h
    We use a negative ID to denote the "UTC" variant.
 @begin dateTable 61
-  toString		DateProtoFuncImp::ToString		DontEnum|Function	0
-  toUTCString		-DateProtoFuncImp::ToUTCString		DontEnum|Function	0
-  toDateString		DateProtoFuncImp::ToDateString		DontEnum|Function	0
-  toTimeString		DateProtoFuncImp::ToTimeString		DontEnum|Function	0
-  toLocaleString	DateProtoFuncImp::ToLocaleString	DontEnum|Function	0
-  toLocaleDateString	DateProtoFuncImp::ToLocaleDateString	DontEnum|Function	0
-  toLocaleTimeString	DateProtoFuncImp::ToLocaleTimeString	DontEnum|Function	0
-  valueOf		DateProtoFuncImp::ValueOf		DontEnum|Function	0
-  getTime		DateProtoFuncImp::GetTime		DontEnum|Function	0
-  getFullYear		DateProtoFuncImp::GetFullYear		DontEnum|Function	0
-  getUTCFullYear	-DateProtoFuncImp::GetFullYear		DontEnum|Function	0
-  toGMTString		-DateProtoFuncImp::ToGMTString		DontEnum|Function	0
-  getMonth		DateProtoFuncImp::GetMonth		DontEnum|Function	0
-  getUTCMonth		-DateProtoFuncImp::GetMonth		DontEnum|Function	0
-  getDate		DateProtoFuncImp::GetDate		DontEnum|Function	0
-  getUTCDate		-DateProtoFuncImp::GetDate		DontEnum|Function	0
-  getDay		DateProtoFuncImp::GetDay		DontEnum|Function	0
-  getUTCDay		-DateProtoFuncImp::GetDay		DontEnum|Function	0
-  getHours		DateProtoFuncImp::GetHours		DontEnum|Function	0
-  getUTCHours		-DateProtoFuncImp::GetHours		DontEnum|Function	0
-  getMinutes		DateProtoFuncImp::GetMinutes		DontEnum|Function	0
-  getUTCMinutes		-DateProtoFuncImp::GetMinutes		DontEnum|Function	0
-  getSeconds		DateProtoFuncImp::GetSeconds		DontEnum|Function	0
-  getUTCSeconds		-DateProtoFuncImp::GetSeconds		DontEnum|Function	0
-  getMilliseconds	DateProtoFuncImp::GetMilliSeconds	DontEnum|Function	0
-  getUTCMilliseconds	-DateProtoFuncImp::GetMilliSeconds	DontEnum|Function	0
-  getTimezoneOffset	DateProtoFuncImp::GetTimezoneOffset	DontEnum|Function	0
-  setTime		DateProtoFuncImp::SetTime		DontEnum|Function	1
-  setMilliseconds	DateProtoFuncImp::SetMilliSeconds	DontEnum|Function	1
-  setUTCMilliseconds	-DateProtoFuncImp::SetMilliSeconds	DontEnum|Function	1
-  setSeconds		DateProtoFuncImp::SetSeconds		DontEnum|Function	2
-  setUTCSeconds		-DateProtoFuncImp::SetSeconds		DontEnum|Function	2
-  setMinutes		DateProtoFuncImp::SetMinutes		DontEnum|Function	3
-  setUTCMinutes		-DateProtoFuncImp::SetMinutes		DontEnum|Function	3
-  setHours		DateProtoFuncImp::SetHours		DontEnum|Function	4
-  setUTCHours		-DateProtoFuncImp::SetHours		DontEnum|Function	4
-  setDate		DateProtoFuncImp::SetDate		DontEnum|Function	1
-  setUTCDate		-DateProtoFuncImp::SetDate		DontEnum|Function	1
-  setMonth		DateProtoFuncImp::SetMonth		DontEnum|Function	2
-  setUTCMonth		-DateProtoFuncImp::SetMonth		DontEnum|Function	2
-  setFullYear		DateProtoFuncImp::SetFullYear		DontEnum|Function	3
-  setUTCFullYear	-DateProtoFuncImp::SetFullYear		DontEnum|Function	3
-  setYear		DateProtoFuncImp::SetYear		DontEnum|Function	1
-  getYear		DateProtoFuncImp::GetYear		DontEnum|Function	0
+  toString              DateProtoFunc::ToString                 DontEnum|Function       0
+  toUTCString           -DateProtoFunc::ToUTCString             DontEnum|Function       0
+  toDateString          DateProtoFunc::ToDateString             DontEnum|Function       0
+  toTimeString          DateProtoFunc::ToTimeString             DontEnum|Function       0
+  toLocaleString        DateProtoFunc::ToLocaleString           DontEnum|Function       0
+  toLocaleDateString    DateProtoFunc::ToLocaleDateString       DontEnum|Function       0
+  toLocaleTimeString    DateProtoFunc::ToLocaleTimeString       DontEnum|Function       0
+  valueOf               DateProtoFunc::ValueOf                  DontEnum|Function       0
+  getTime               DateProtoFunc::GetTime                  DontEnum|Function       0
+  getFullYear           DateProtoFunc::GetFullYear              DontEnum|Function       0
+  getUTCFullYear        -DateProtoFunc::GetFullYear             DontEnum|Function       0
+  toGMTString           -DateProtoFunc::ToGMTString             DontEnum|Function       0
+  getMonth              DateProtoFunc::GetMonth                 DontEnum|Function       0
+  getUTCMonth           -DateProtoFunc::GetMonth                DontEnum|Function       0
+  getDate               DateProtoFunc::GetDate                  DontEnum|Function       0
+  getUTCDate            -DateProtoFunc::GetDate                 DontEnum|Function       0
+  getDay                DateProtoFunc::GetDay                   DontEnum|Function       0
+  getUTCDay             -DateProtoFunc::GetDay                  DontEnum|Function       0
+  getHours              DateProtoFunc::GetHours                 DontEnum|Function       0
+  getUTCHours           -DateProtoFunc::GetHours                DontEnum|Function       0
+  getMinutes            DateProtoFunc::GetMinutes               DontEnum|Function       0
+  getUTCMinutes         -DateProtoFunc::GetMinutes              DontEnum|Function       0
+  getSeconds            DateProtoFunc::GetSeconds               DontEnum|Function       0
+  getUTCSeconds         -DateProtoFunc::GetSeconds              DontEnum|Function       0
+  getMilliseconds       DateProtoFunc::GetMilliSeconds          DontEnum|Function       0
+  getUTCMilliseconds    -DateProtoFunc::GetMilliSeconds         DontEnum|Function       0
+  getTimezoneOffset     DateProtoFunc::GetTimezoneOffset        DontEnum|Function       0
+  setTime               DateProtoFunc::SetTime                  DontEnum|Function       1
+  setMilliseconds       DateProtoFunc::SetMilliSeconds          DontEnum|Function       1
+  setUTCMilliseconds    -DateProtoFunc::SetMilliSeconds         DontEnum|Function       1
+  setSeconds            DateProtoFunc::SetSeconds               DontEnum|Function       2
+  setUTCSeconds         -DateProtoFunc::SetSeconds              DontEnum|Function       2
+  setMinutes            DateProtoFunc::SetMinutes               DontEnum|Function       3
+  setUTCMinutes         -DateProtoFunc::SetMinutes              DontEnum|Function       3
+  setHours              DateProtoFunc::SetHours                 DontEnum|Function       4
+  setUTCHours           -DateProtoFunc::SetHours                DontEnum|Function       4
+  setDate               DateProtoFunc::SetDate                  DontEnum|Function       1
+  setUTCDate            -DateProtoFunc::SetDate                 DontEnum|Function       1
+  setMonth              DateProtoFunc::SetMonth                 DontEnum|Function       2
+  setUTCMonth           -DateProtoFunc::SetMonth                DontEnum|Function       2
+  setFullYear           DateProtoFunc::SetFullYear              DontEnum|Function       3
+  setUTCFullYear        -DateProtoFunc::SetFullYear             DontEnum|Function       3
+  setYear               DateProtoFunc::SetYear                  DontEnum|Function       1
+  getYear               DateProtoFunc::GetYear                  DontEnum|Function       0
 @end
 */
 // ECMA 15.9.4
 
-DatePrototypeImp::DatePrototypeImp(ExecState *,
-                                   ObjectPrototypeImp *objectProto)
-  : DateInstanceImp(objectProto)
+DatePrototype::DatePrototype(ExecState *, ObjectPrototype *objectProto)
+  : DateInstance(objectProto)
 {
-  Value protect(this);
-  setInternalValue(NumberImp::create(NaN));
-  // The constructor will be added later, after DateObjectImp has been built
+    setInternalValue(jsNaN());
+    // The constructor will be added later, after DateObjectImp has been built.
 }
 
-Value DatePrototypeImp::get(ExecState *exec, const Identifier &propertyName) const
+bool DatePrototype::getOwnPropertySlot(ExecState *exec, const Identifier& propertyName, PropertySlot& slot)
 {
-  return lookupGetFunction<DateProtoFuncImp, ObjectImp>( exec, propertyName, &dateTable, this );
+    return getStaticFunctionSlot<DateProtoFunc, JSObject>(exec, &dateTable, this, propertyName, slot);
 }
 
-// ------------------------------ DateProtoFuncImp -----------------------------
+// ------------------------------ DateProtoFunc -----------------------------
 
-DateProtoFuncImp::DateProtoFuncImp(ExecState *exec, int i, int len)
-  : InternalFunctionImp(
-    static_cast<FunctionPrototypeImp*>(exec->lexicalInterpreter()->builtinFunctionPrototype().imp())
-    ), id(abs(i)), utc(i<0)
+DateProtoFunc::DateProtoFunc(ExecState* exec, int i, int len, const Identifier& name)
+  : InternalFunctionImp(static_cast<FunctionPrototype*>(exec->lexicalInterpreter()->builtinFunctionPrototype()), name)
+  , id(abs(i))
+  , utc(i < 0)
   // We use a negative ID to denote the "UTC" variant.
 {
-  Value protect(this);
-  putDirect(lengthPropertyName, len, DontDelete|ReadOnly|DontEnum);
+    putDirect(exec->propertyNames().length, len, DontDelete|ReadOnly|DontEnum);
 }
 
-bool DateProtoFuncImp::implementsCall() const
+JSValue *DateProtoFunc::callAsFunction(ExecState *exec, JSObject *thisObj, const List &args)
 {
-  return true;
-}
+  if (!thisObj->inherits(&DateInstance::info))
+    return throwError(exec, TypeError);
 
-Value DateProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args)
-{
-  if ((id == ToString || id == ValueOf || id == GetTime || id == SetTime) &&
-      !thisObj.inherits(&DateInstanceImp::info)) {
-    // non-generic function called on non-date object
+  DateInstance* thisDateObj = static_cast<DateInstance*>(thisObj); 
 
-    // ToString and ValueOf are generic according to the spec, but the mozilla
-    // tests suggest otherwise...
-    Object err = Error::create(exec,TypeError);
-    exec->setException(err);
-    return err;
-  }
-
-
-  Value result;
+  JSValue *result = 0;
   UString s;
-#if !APPLE_CHANGES
-  const int bufsize=100;
-  char timebuffer[bufsize];
-  CString oldlocale = setlocale(LC_TIME,NULL);
-  if (!oldlocale.c_str())
-    oldlocale = setlocale(LC_ALL, NULL);
-#endif
-  Value v = thisObj.internalValue();
-  double milli = v.toNumber(exec);
-  
+  JSValue *v = thisDateObj->internalValue();
+  double milli = v->toNumber(exec);
   if (isNaN(milli)) {
     switch (id) {
       case ToString:
@@ -532,7 +464,7 @@ Value DateProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args)
       case ToLocaleString:
       case ToLocaleDateString:
       case ToLocaleTimeString:
-        return String("Invalid Date");
+        return jsString("Invalid Date");
       case ValueOf:
       case GetTime:
       case GetYear:
@@ -545,203 +477,112 @@ Value DateProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args)
       case GetSeconds:
       case GetMilliSeconds:
       case GetTimezoneOffset:
-        return Number(NaN);
+        return jsNaN();
     }
   }
   
-  // check whether time value is outside time_t's usual range
-  // make the necessary transformations if necessary
-  int realYearOffset = 0;
-  double milliOffset = 0.0;
-  double secs = floor(milli / 1000.0);
+  double secs = floor(milli / msPerSecond);
+  double ms = milli - secs * msPerSecond;
 
-  if (milli < 0 || milli >= timeFromYear(2038)) {
-    // ### ugly and probably not very precise
-    int realYear = yearFromTime(milli);
-    int base = daysInYear(realYear) == 365 ? 2001 : 2000;
-    milliOffset = timeFromYear(base) - timeFromYear(realYear);
-    milli += milliOffset;
-    realYearOffset = realYear - base;
-  }
+  GregorianDateTime t;
+  msToGregorianDateTime(milli, utc, t);
 
-  time_t tv = (time_t) floor(milli / 1000.0);
-  int ms = int(milli - tv * 1000.0);
-
-  struct tm *t = utc ? gmtime(&tv) : localtime(&tv);
-  // we had an out of range year. use that one (plus/minus offset
-  // found by calculating tm_year) and fix the week day calculation
-  if (realYearOffset != 0) {
-    t->tm_year += realYearOffset;
-    milli -= milliOffset;
-    // our own weekday calculation. beware of need for local time.
-    double m = milli;
-    if (!utc)
-      m -= timeZoneOffset(t) * msPerMinute;
-    t->tm_wday = weekDay(m);
-  }
-  
   switch (id) {
-#if APPLE_CHANGES
   case ToString:
-    result = String(formatDate(*t) + " " + formatTime(*t));
-    break;
+    return jsString(formatDate(t) + " " + formatTime(t, utc));
   case ToDateString:
-    result = String(formatDate(*t));
+    return jsString(formatDate(t));
     break;
   case ToTimeString:
-    result = String(formatTime(*t));
+    return jsString(formatTime(t, utc));
     break;
   case ToGMTString:
   case ToUTCString:
-    result = String(formatDateUTCVariant(*t) + " " + formatTime(*t));
+    return jsString(formatDateUTCVariant(t) + " " + formatTime(t, utc));
     break;
+#if PLATFORM(MAC)
   case ToLocaleString:
-    result = String(formatLocaleDate(exec, secs, true, true, args));
+    return jsString(formatLocaleDate(exec, secs, true, true, args));
     break;
   case ToLocaleDateString:
-    result = String(formatLocaleDate(exec, secs, true, false, args));
+    return jsString(formatLocaleDate(exec, secs, true, false, args));
     break;
   case ToLocaleTimeString:
-    result = String(formatLocaleDate(exec, secs, false, true, args));
+    return jsString(formatLocaleDate(exec, secs, false, true, args));
     break;
 #else
-  case ToString:
-    s = ctime(&tv);
-    result = String(s.substr(0, s.size() - 1));
-    break;
-  case ToDateString:
-  case ToTimeString:
-  case ToGMTString:
-  case ToUTCString:
-    setlocale(LC_TIME,"C");
-    if (id == DateProtoFuncImp::ToDateString) {
-      strftime(timebuffer, bufsize, "%x",t);
-    } else if (id == DateProtoFuncImp::ToTimeString) {
-      strftime(timebuffer, bufsize, "%X",t);
-    } else { // toGMTString & toUTCString
-      strftime(timebuffer, bufsize, "%a, %d %b %Y %H:%M:%S %Z", t);
-    }
-    setlocale(LC_TIME,oldlocale.c_str());
-    result = String(timebuffer);
-    break;
   case ToLocaleString:
-    strftime(timebuffer, bufsize, "%c", t);
-    result = String(timebuffer);
+    return formatLocaleDate(t, LocaleDateAndTime);
     break;
   case ToLocaleDateString:
-    strftime(timebuffer, bufsize, "%x", t);
-    result = String(timebuffer);
+    return formatLocaleDate(t, LocaleDate);
     break;
   case ToLocaleTimeString:
-    strftime(timebuffer, bufsize, "%X", t);
-    result = String(timebuffer);
+    return formatLocaleDate(t, LocaleTime);
     break;
 #endif
   case ValueOf:
-    result = Number(milli);
-    break;
   case GetTime:
-    result = Number(milli);
-    break;
+    return jsNumber(milli);
   case GetYear:
     // IE returns the full year even in getYear.
-    if ( exec->dynamicInterpreter()->compatMode() == Interpreter::IECompat )
-      result = Number(1900 + t->tm_year);
-    else
-      result = Number(t->tm_year);
-    break;
+    if (exec->dynamicInterpreter()->compatMode() == Interpreter::IECompat)
+      return jsNumber(1900 + t.year);
+    return jsNumber(t.year);
   case GetFullYear:
-    result = Number(1900 + t->tm_year);
-    break;
+    return jsNumber(1900 + t.year);
   case GetMonth:
-    result = Number(t->tm_mon);
-    break;
+    return jsNumber(t.month);
   case GetDate:
-    result = Number(t->tm_mday);
-    break;
+    return jsNumber(t.monthDay);
   case GetDay:
-    result = Number(t->tm_wday);
-    break;
+    return jsNumber(t.weekDay);
   case GetHours:
-    result = Number(t->tm_hour);
-    break;
+    return jsNumber(t.hour);
   case GetMinutes:
-    result = Number(t->tm_min);
-    break;
+    return jsNumber(t.minute);
   case GetSeconds:
-    result = Number(t->tm_sec);
-    break;
+    return jsNumber(t.second);
   case GetMilliSeconds:
-    result = Number(ms);
-    break;
+    return jsNumber(ms);
   case GetTimezoneOffset:
-#if defined BSD || defined(__APPLE__)
-    result = Number(-t->tm_gmtoff / 60);
-#else
-#  if defined(__BORLANDC__)
-#error please add daylight savings offset here!
-    // FIXME: Using the daylight value was wrong for BSD, maybe wrong here too.
-    result = Number(_timezone / 60 - (_daylight ? 60 : 0));
-#  else
-    // FIXME: Using the daylight value was wrong for BSD, maybe wrong here too.
-    result = Number(( timezone / 60 - ( daylight ? 60 : 0 )));
-#  endif
-#endif
-    break;
+    return jsNumber(-gmtoffset(t) / minutesPerHour);
   case SetTime:
-    milli = roundValue(exec,args[0]);
-    result = Number(milli);
-    thisObj.setInternalValue(result);
+    milli = roundValue(exec, args[0]);
+    result = jsNumber(milli);
+    thisDateObj->setInternalValue(result);
     break;
   case SetMilliSeconds:
-    ms = args[0].toInt32(exec);
+    fillStructuresUsingTimeArgs(exec, args, 1, &ms, &t);
     break;
   case SetSeconds:
-    t->tm_sec = args[0].toInt32(exec);
-    if (args.size() >= 2)
-      ms = args[1].toInt32(exec);
+    fillStructuresUsingTimeArgs(exec, args, 2, &ms, &t);
     break;
   case SetMinutes:
-    t->tm_min = args[0].toInt32(exec);
-    if (args.size() >= 2)
-      t->tm_sec = args[1].toInt32(exec);
-    if (args.size() >= 3)
-      ms = args[2].toInt32(exec);
+    fillStructuresUsingTimeArgs(exec, args, 3, &ms, &t);
     break;
   case SetHours:
-    t->tm_hour = args[0].toInt32(exec);
-    if (args.size() >= 2)
-      t->tm_min = args[1].toInt32(exec);
-    if (args.size() >= 3)
-      t->tm_sec = args[2].toInt32(exec);
-    if (args.size() >= 4)
-      ms = args[3].toInt32(exec);
+    fillStructuresUsingTimeArgs(exec, args, 4, &ms, &t);
     break;
   case SetDate:
-    t->tm_mday = args[0].toInt32(exec);
+    fillStructuresUsingDateArgs(exec, args, 1, &ms, &t);
     break;
   case SetMonth:
-    t->tm_mon = args[0].toInt32(exec);
-    if (args.size() >= 2)
-      t->tm_mday = args[1].toInt32(exec);
+    fillStructuresUsingDateArgs(exec, args, 2, &ms, &t);    
     break;
   case SetFullYear:
-    t->tm_year = args[0].toInt32(exec) - 1900;
-    if (args.size() >= 2)
-      t->tm_mon = args[1].toInt32(exec);
-    if (args.size() >= 3)
-      t->tm_mday = args[2].toInt32(exec);
+    fillStructuresUsingDateArgs(exec, args, 3, &ms, &t);
     break;
   case SetYear:
-    t->tm_year = args[0].toInt32(exec) >= 1900 ? args[0].toInt32(exec) - 1900 : args[0].toInt32(exec);
+    t.year = (args[0]->toInt32(exec) > 99 || args[0]->toInt32(exec) < 0) ? args[0]->toInt32(exec) - 1900 : args[0]->toInt32(exec);
     break;
   }
 
   if (id == SetYear || id == SetMilliSeconds || id == SetSeconds ||
       id == SetMinutes || id == SetHours || id == SetDate ||
       id == SetMonth || id == SetFullYear ) {
-    result = Number(makeTime(t, ms, utc));
-    thisObj.setInternalValue(result);
+    result = jsNumber(gregorianDateTimeToMS(t, ms, utc));
+    thisDateObj->setInternalValue(result);
   }
   
   return result;
@@ -752,204 +593,141 @@ Value DateProtoFuncImp::call(ExecState *exec, Object &thisObj, const List &args)
 // TODO: MakeTime (15.9.11.1) etc. ?
 
 DateObjectImp::DateObjectImp(ExecState *exec,
-                             FunctionPrototypeImp *funcProto,
-                             DatePrototypeImp *dateProto)
+                             FunctionPrototype *funcProto,
+                             DatePrototype *dateProto)
   : InternalFunctionImp(funcProto)
 {
-  Value protect(this);
-  
-  // ECMA 15.9.4.1 Date.prototype
-  putDirect(prototypePropertyName, dateProto, DontEnum|DontDelete|ReadOnly);
+  static const Identifier* parsePropertyName = new Identifier("parse");
+  static const Identifier* UTCPropertyName = new Identifier("UTC");
 
-  static const Identifier parsePropertyName("parse");
-  putDirect(parsePropertyName, new DateObjectFuncImp(exec,funcProto,DateObjectFuncImp::Parse, 1), DontEnum);
-  static const Identifier UTCPropertyName("UTC");
-  putDirect(UTCPropertyName,   new DateObjectFuncImp(exec,funcProto,DateObjectFuncImp::UTC,   7),   DontEnum);
-
-  // no. of arguments for constructor
-  putDirect(lengthPropertyName, 7, ReadOnly|DontDelete|DontEnum);
+  putDirect(exec->propertyNames().prototype, dateProto, DontEnum|DontDelete|ReadOnly);
+  putDirectFunction(new DateObjectFuncImp(exec, funcProto, DateObjectFuncImp::Parse, 1, *parsePropertyName), DontEnum);
+  putDirectFunction(new DateObjectFuncImp(exec, funcProto, DateObjectFuncImp::UTC, 7, *UTCPropertyName), DontEnum);
+  putDirect(exec->propertyNames().length, 7, ReadOnly|DontDelete|DontEnum);
 }
 
 bool DateObjectImp::implementsConstruct() const
 {
-  return true;
+    return true;
 }
 
 // ECMA 15.9.3
-Object DateObjectImp::construct(ExecState *exec, const List &args)
+JSObject *DateObjectImp::construct(ExecState *exec, const List &args)
 {
   int numArgs = args.size();
 
-#ifdef KJS_VERBOSE
-  fprintf(stderr,"DateObjectImp::construct - %d args\n", numArgs);
-#endif
   double value;
 
   if (numArgs == 0) { // new Date() ECMA 15.9.3.3
-#if HAVE_SYS_TIMEB_H
-#  if defined(__BORLANDC__)
-    struct timeb timebuffer;
-    ftime(&timebuffer);
-#  else
-    struct _timeb timebuffer;
-    _ftime(&timebuffer);
-#  endif
-    double utc = floor((double)timebuffer.time * 1000.0 + (double)timebuffer.millitm);
-#else
-    struct timeval tv;
-    gettimeofday(&tv, 0L);
-    double utc = floor((double)tv.tv_sec * 1000.0 + (double)tv.tv_usec / 1000.0);
-#endif
-    value = utc;
+    value = getCurrentUTCTime();
   } else if (numArgs == 1) {
-    UString s = args[0].toString(exec);
-    double d = s.toDouble();
-    if (isNaN(d))
-      value = parseDate(s);
-    else
-      value = d;
+    if (args[0]->isObject(&DateInstance::info))
+      value = static_cast<DateInstance*>(args[0])->internalValue()->toNumber(exec);
+    else {
+      JSValue* primitive = args[0]->toPrimitive(exec);
+      if (primitive->isString())
+        value = parseDate(primitive->getString());
+      else
+        value = primitive->toNumber(exec);
+    }
   } else {
-    struct tm t;
-    memset(&t, 0, sizeof(t));
-    if (isNaN(args[0].toNumber(exec))
-        || isNaN(args[1].toNumber(exec))
-        || (numArgs >= 3 && isNaN(args[2].toNumber(exec)))
-        || (numArgs >= 4 && isNaN(args[3].toNumber(exec)))
-        || (numArgs >= 5 && isNaN(args[4].toNumber(exec)))
-        || (numArgs >= 6 && isNaN(args[5].toNumber(exec)))
-        || (numArgs >= 7 && isNaN(args[6].toNumber(exec)))) {
+    if (isNaN(args[0]->toNumber(exec))
+        || isNaN(args[1]->toNumber(exec))
+        || (numArgs >= 3 && isNaN(args[2]->toNumber(exec)))
+        || (numArgs >= 4 && isNaN(args[3]->toNumber(exec)))
+        || (numArgs >= 5 && isNaN(args[4]->toNumber(exec)))
+        || (numArgs >= 6 && isNaN(args[5]->toNumber(exec)))
+        || (numArgs >= 7 && isNaN(args[6]->toNumber(exec)))) {
       value = NaN;
     } else {
-      int year = args[0].toInt32(exec);
-      t.tm_year = (year >= 0 && year <= 99) ? year : year - 1900;
-      t.tm_mon = args[1].toInt32(exec);
-      t.tm_mday = (numArgs >= 3) ? args[2].toInt32(exec) : 1;
-      t.tm_hour = (numArgs >= 4) ? args[3].toInt32(exec) : 0;
-      t.tm_min = (numArgs >= 5) ? args[4].toInt32(exec) : 0;
-      t.tm_sec = (numArgs >= 6) ? args[5].toInt32(exec) : 0;
-      t.tm_isdst = -1;
-      int ms = (numArgs >= 7) ? args[6].toInt32(exec) : 0;
-      value = makeTime(&t, ms, false);
+      GregorianDateTime t;
+      int year = args[0]->toInt32(exec);
+      t.year = (year >= 0 && year <= 99) ? year : year - 1900;
+      t.month = args[1]->toInt32(exec);
+      t.monthDay = (numArgs >= 3) ? args[2]->toInt32(exec) : 1;
+      t.hour = (numArgs >= 4) ? args[3]->toInt32(exec) : 0;
+      t.minute = (numArgs >= 5) ? args[4]->toInt32(exec) : 0;
+      t.second = (numArgs >= 6) ? args[5]->toInt32(exec) : 0;
+      t.isDST = -1;
+      double ms = (numArgs >= 7) ? roundValue(exec, args[6]) : 0;
+      value = gregorianDateTimeToMS(t, ms, false);
     }
   }
   
-  Object proto = exec->lexicalInterpreter()->builtinDatePrototype();
-  Object ret(new DateInstanceImp(proto.imp()));
-  ret.setInternalValue(Number(timeClip(value)));
+  DateInstance *ret = new DateInstance(exec->lexicalInterpreter()->builtinDatePrototype());
+  ret->setInternalValue(jsNumber(timeClip(value)));
   return ret;
 }
 
-bool DateObjectImp::implementsCall() const
-{
-  return true;
-}
-
 // ECMA 15.9.2
-Value DateObjectImp::call(ExecState */*exec*/, Object &/*thisObj*/, const List &/*args*/)
+JSValue *DateObjectImp::callAsFunction(ExecState * /*exec*/, JSObject * /*thisObj*/, const List &/*args*/)
 {
-#ifdef KJS_VERBOSE
-  fprintf(stderr,"DateObjectImp::call - current time\n");
-#endif
-  time_t t = time(0L);
-#if APPLE_CHANGES
-  struct tm *tm = localtime(&t);
-  return String(formatDate(*tm) + " " + formatTime(*tm));
-#else
-  UString s(ctime(&t));
-
-  // return formatted string minus trailing \n
-  return String(s.substr(0, s.size() - 1));
-#endif
+    time_t t = time(0);
+    GregorianDateTime ts(*localtime(&t));
+    return jsString(formatDate(ts) + " " + formatTime(ts, false));
 }
 
 // ------------------------------ DateObjectFuncImp ----------------------------
 
-DateObjectFuncImp::DateObjectFuncImp(ExecState *exec, FunctionPrototypeImp *funcProto,
-                                     int i, int len)
-  : InternalFunctionImp(funcProto), id(i)
+DateObjectFuncImp::DateObjectFuncImp(ExecState* exec, FunctionPrototype* funcProto, int i, int len, const Identifier& name)
+    : InternalFunctionImp(funcProto, name), id(i)
 {
-  Value protect(this);
-  putDirect(lengthPropertyName, len, DontDelete|ReadOnly|DontEnum);
-}
-
-bool DateObjectFuncImp::implementsCall() const
-{
-  return true;
+    putDirect(exec->propertyNames().length, len, DontDelete|ReadOnly|DontEnum);
 }
 
 // ECMA 15.9.4.2 - 3
-Value DateObjectFuncImp::call(ExecState *exec, Object &/*thisObj*/, const List &args)
+JSValue *DateObjectFuncImp::callAsFunction(ExecState* exec, JSObject*, const List& args)
 {
   if (id == Parse) {
-    return Number(parseDate(args[0].toString(exec)));
+    return jsNumber(parseDate(args[0]->toString(exec)));
   }
   else { // UTC
-    struct tm t;
-    memset(&t, 0, sizeof(t));
     int n = args.size();
-    if (isNaN(args[0].toNumber(exec))
-        || isNaN(args[1].toNumber(exec))
-        || (n >= 3 && isNaN(args[2].toNumber(exec)))
-        || (n >= 4 && isNaN(args[3].toNumber(exec)))
-        || (n >= 5 && isNaN(args[4].toNumber(exec)))
-        || (n >= 6 && isNaN(args[5].toNumber(exec)))
-        || (n >= 7 && isNaN(args[6].toNumber(exec)))) {
-      return Number(NaN);
+    if (isNaN(args[0]->toNumber(exec))
+        || isNaN(args[1]->toNumber(exec))
+        || (n >= 3 && isNaN(args[2]->toNumber(exec)))
+        || (n >= 4 && isNaN(args[3]->toNumber(exec)))
+        || (n >= 5 && isNaN(args[4]->toNumber(exec)))
+        || (n >= 6 && isNaN(args[5]->toNumber(exec)))
+        || (n >= 7 && isNaN(args[6]->toNumber(exec)))) {
+      return jsNaN();
     }
-    int year = args[0].toInt32(exec);
-    t.tm_year = (year >= 0 && year <= 99) ? year : year - 1900;
-    t.tm_mon = args[1].toInt32(exec);
-    t.tm_mday = (n >= 3) ? args[2].toInt32(exec) : 1;
-    t.tm_hour = (n >= 4) ? args[3].toInt32(exec) : 0;
-    t.tm_min = (n >= 5) ? args[4].toInt32(exec) : 0;
-    t.tm_sec = (n >= 6) ? args[5].toInt32(exec) : 0;
-    int ms = (n >= 7) ? args[6].toInt32(exec) : 0;
-    time_t mktimeResult = timegm(&t);
-    if (mktimeResult == invalidDate)
-      return Number(NaN);
-    return Number(mktimeResult * 1000.0 + ms);
+
+    GregorianDateTime t;
+    memset(&t, 0, sizeof(t));
+    int year = args[0]->toInt32(exec);
+    t.year = (year >= 0 && year <= 99) ? year : year - 1900;
+    t.month = args[1]->toInt32(exec);
+    t.monthDay = (n >= 3) ? args[2]->toInt32(exec) : 1;
+    t.hour = (n >= 4) ? args[3]->toInt32(exec) : 0;
+    t.minute = (n >= 5) ? args[4]->toInt32(exec) : 0;
+    t.second = (n >= 6) ? args[5]->toInt32(exec) : 0;
+    double ms = (n >= 7) ? roundValue(exec, args[6]) : 0;
+    return jsNumber(gregorianDateTimeToMS(t, ms, true));
   }
 }
 
 // -----------------------------------------------------------------------------
 
+// Code originally from krfcdate.cpp, but we don't want to use kdecore, and we want double range.
 
-double KJS::parseDate(const UString &u)
+static inline double ymdhmsToSeconds(long year, int mon, int day, int hour, int minute, int second)
 {
-#ifdef KJS_VERBOSE
-  fprintf(stderr,"KJS::parseDate %s\n",u.ascii());
-#endif
-  double /*time_t*/ seconds = KRFCDate_parseDate( u );
-
-  return seconds == invalidDate ? NaN : seconds * 1000.0;
+    double days = (day - 32075)
+        + floor(1461 * (year + 4800.0 + (mon - 14) / 12) / 4)
+        + 367 * (mon - 2 - (mon - 14) / 12 * 12) / 12
+        - floor(3 * ((year + 4900.0 + (mon - 14) / 12) / 100) / 4)
+        - 2440588;
+    return ((days * hoursPerDay + hour) * minutesPerHour + minute) * secondsPerMinute + second;
 }
 
-///// Awful duplication from krfcdate.cpp - we don't link to kdecore
-
-static double ymdhms_to_seconds(int year, int mon, int day, int hour, int minute, int second)
-{
-    double ret = (day - 32075)       /* days */
-            + 1461L * (year + 4800L + (mon - 14) / 12) / 4
-            + 367 * (mon - 2 - (mon - 14) / 12 * 12) / 12
-            - 3 * ((year + 4900L + (mon - 14) / 12) / 100) / 4
-            - 2440588;
-    ret = 24*ret + hour;     /* hours   */
-    ret = 60*ret + minute;   /* minutes */
-    ret = 60*ret + second;   /* seconds */
-
-    return ret;
-}
-
-static const char haystack[37]="janfebmaraprmayjunjulaugsepoctnovdec";
-
-// we follow the recommendation of rfc2822 to consider all
-// obsolete time zones not listed here equivalent to "-0000"
+// We follow the recommendation of RFC 2822 to consider all
+// obsolete time zones not listed here equivalent to "-0000".
 static const struct KnownZone {
-#ifdef _WIN32
-    char tzName[4];
-#else
-    const char tzName[4];
+#if !PLATFORM(WIN_OS)
+    const
 #endif
+        char tzName[4];
     int tzOffset;
 } known_zones[] = {
     { "UT", 0 },
@@ -964,393 +742,342 @@ static const struct KnownZone {
     { "PDT", -420 }
 };
 
-double KJS::makeTime(struct tm *t, int ms, bool utc)
+inline static void skipSpacesAndComments(const char *&s)
 {
-    int utcOffset;
-    if (utc) {
-        time_t zero = 0;
-#if defined BSD || defined(__linux__) || defined(__APPLE__)
-        struct tm t3;
-        localtime_r(&zero, &t3);
-        utcOffset = t3.tm_gmtoff;
-        t->tm_isdst = t3.tm_isdst;
-#else
-        (void)localtime(&zero);
-#  if defined(__BORLANDC__) || defined(__CYGWIN__)
-        utcOffset = - _timezone;
-#  else
-        utcOffset = - timezone;
-#  endif
-        t->tm_isdst = 0;
-#endif
-    } else {
-	utcOffset = 0;
-	t->tm_isdst = -1;
+    int nesting = 0;
+    char ch;
+    while ((ch = *s)) {
+        if (!isspace(ch)) {
+            if (ch == '(')
+                nesting++;
+            else if (ch == ')' && nesting > 0)
+                nesting--;
+            else if (nesting == 0)
+                break;
+        }
+        s++;
     }
-
-    double yearOffset = 0.0;
-    if (t->tm_year < (1970 - 1900) || t->tm_year > (2038 - 1900)) {
-      // we'll fool mktime() into believing that this year is within
-      // its normal, portable range (1970-2038) by setting tm_year to
-      // 2000 or 2001 and adding the difference in milliseconds later.
-      // choice between offset will depend on whether the year is a
-      // leap year or not.
-      int y = t->tm_year + 1900;
-      int baseYear = daysInYear(y) == 365 ? 2001 : 2000;
-      const double baseTime = timeFromYear(baseYear);
-      yearOffset = timeFromYear(y) - baseTime;
-      t->tm_year = baseYear - 1900;
-    }
-
-    return (mktime(t) + utcOffset) * 1000.0 + ms + yearOffset;
 }
 
 // returns 0-11 (Jan-Dec); -1 on failure
 static int findMonth(const char *monthStr)
 {
-  assert(monthStr);
-  static const char haystack[37] = "janfebmaraprmayjunjulaugsepoctnovdec";
-  char needle[4];
-  for (int i = 0; i < 3; ++i) {
-    if (!*monthStr)
-      return -1;
-    needle[i] = tolower(*monthStr++);
-  }
-  needle[3] = '\0';
-  const char *str = strstr(haystack, needle);
-  if (str) {
-    int position = str - haystack;
-    if (position % 3 == 0) {
-      return position / 3;
+    assert(monthStr);
+    char needle[4];
+    for (int i = 0; i < 3; ++i) {
+        if (!*monthStr)
+            return -1;
+        needle[i] = static_cast<char>(tolower(*monthStr++));
     }
-  }
-  return -1;
+    needle[3] = '\0';
+    const char *haystack = "janfebmaraprmayjunjulaugsepoctnovdec";
+    const char *str = strstr(haystack, needle);
+    if (str) {
+        int position = static_cast<int>(str - haystack);
+        if (position % 3 == 0)
+            return position / 3;
+    }
+    return -1;
 }
 
-double KJS::KRFCDate_parseDate(const UString &_date)
+static double parseDate(const UString &date)
 {
-     // This parse a date in the form:
-     //     Tuesday, 09-Nov-99 23:12:40 GMT
-     // or
-     //     Sat, 01-Jan-2000 08:00:00 GMT
-     // or
-     //     Sat, 01 Jan 2000 08:00:00 GMT
-     // or
-     //     01 Jan 99 22:00 +0100    (exceptions in rfc822/rfc2822)
-     // ### non RFC formats, added for Javascript:
-     //     [Wednesday] January 09 1999 23:12:40 GMT
-     //     [Wednesday] January 09 23:12:40 GMT 1999
-     //
-     // We ignore the weekday
-     //
-     double result = -1;
-     int offset = 0;
-     bool have_tz = false;
-     char *newPosStr;
-     const char *dateString = _date.ascii();
-     int day = 0;
-     int month = -1; // not set yet
-     int year = 0;
-     int hour = 0;
-     int minute = 0;
-     int second = 0;
-     bool have_time = false;
+    // This parses a date in the form:
+    //     Tuesday, 09-Nov-99 23:12:40 GMT
+    // or
+    //     Sat, 01-Jan-2000 08:00:00 GMT
+    // or
+    //     Sat, 01 Jan 2000 08:00:00 GMT
+    // or
+    //     01 Jan 99 22:00 +0100    (exceptions in rfc822/rfc2822)
+    // ### non RFC formats, added for Javascript:
+    //     [Wednesday] January 09 1999 23:12:40 GMT
+    //     [Wednesday] January 09 23:12:40 GMT 1999
+    //
+    // We ignore the weekday.
+
+    CString dateCString = date.UTF8String();
+    const char *dateString = dateCString.c_str();
      
-     // for strtol error checking
-     errno = 0;
+    // Skip leading space
+    skipSpacesAndComments(dateString);
 
-     // Skip leading space
-     while(isspace(*dateString))
-     	dateString++;
-
-     const char *wordStart = dateString;
-     // Check contents of first words if not number
-     while(*dateString && !isdigit(*dateString))
-     {
-        if ( isspace(*dateString) && dateString - wordStart >= 3 )
-        {
-          month = findMonth(wordStart);
-          while(isspace(*dateString))
-             dateString++;
-          wordStart = dateString;
-        }
-        else
+    long month = -1;
+    const char *wordStart = dateString;
+    // Check contents of first words if not number
+    while (*dateString && !isdigit(*dateString)) {
+        if (isspace(*dateString) || *dateString == '(') {
+            if (dateString - wordStart >= 3)
+                month = findMonth(wordStart);
+            skipSpacesAndComments(dateString);
+            wordStart = dateString;
+        } else
            dateString++;
-     }
-     // missing delimiter between month and day (like "January29")?
-     if (month == -1 && dateString && wordStart != dateString) {
-       month = findMonth(wordStart);
-       // TODO: emit warning about dubious format found
-     }
+    }
 
-     while(isspace(*dateString))
-     	dateString++;
+    // Missing delimiter between month and day (like "January29")?
+    if (month == -1 && wordStart != dateString)
+        month = findMonth(wordStart);
 
-     if (!*dateString)
-     	return invalidDate;
+    skipSpacesAndComments(dateString);
 
-     // ' 09-Nov-99 23:12:40 GMT'
-     day = strtol(dateString, &newPosStr, 10);
-     if (errno)
-       return invalidDate;
-     dateString = newPosStr;
+    if (!*dateString)
+        return NaN;
 
-     if (!*dateString)
-     	return invalidDate;
+    // ' 09-Nov-99 23:12:40 GMT'
+    char *newPosStr;
+    errno = 0;
+    long day = strtol(dateString, &newPosStr, 10);
+    if (errno)
+        return NaN;
+    dateString = newPosStr;
 
-     if (day < 1)
-       return invalidDate;
-     if (day > 31) {
-       // ### where is the boundary and what happens below?
-       if (*dateString == '/' && day >= 1000) {
-         // looks like a YYYY/MM/DD date
-         if (!*++dateString)
-           return invalidDate;
-         year = day;
-         month = strtol(dateString, &newPosStr, 10) - 1;
-         if (errno)
-           return invalidDate;
-         dateString = newPosStr;
-         if (*dateString++ != '/' || !*dateString)
-           return invalidDate;
-         day = strtol(dateString, &newPosStr, 10);
-         if (errno)
-           return invalidDate;
-         dateString = newPosStr;
-       } else {
-         return invalidDate;
-       }
-     } else if (*dateString == '/' && day <= 12 && month == -1) {
-     	dateString++;
-        // This looks like a MM/DD/YYYY date, not an RFC date.....
+    if (!*dateString)
+        return NaN;
+
+    if (day < 0)
+        return NaN;
+
+    long year = 0;
+    if (day > 31) {
+        // ### where is the boundary and what happens below?
+        if (*dateString != '/')
+            return NaN;
+        // looks like a YYYY/MM/DD date
+        if (!*++dateString)
+            return NaN;
+        year = day;
+        month = strtol(dateString, &newPosStr, 10) - 1;
+        if (errno)
+            return NaN;
+        dateString = newPosStr;
+        if (*dateString++ != '/' || !*dateString)
+            return NaN;
+        day = strtol(dateString, &newPosStr, 10);
+        if (errno)
+            return NaN;
+        dateString = newPosStr;
+    } else if (*dateString == '/' && month == -1) {
+        dateString++;
+        // This looks like a MM/DD/YYYY date, not an RFC date.
         month = day - 1; // 0-based
         day = strtol(dateString, &newPosStr, 10);
         if (errno)
-          return invalidDate;
+            return NaN;
+        if (day < 1 || day > 31)
+            return NaN;
         dateString = newPosStr;
         if (*dateString == '/')
-          dateString++;
+            dateString++;
         if (!*dateString)
-          return invalidDate;
-     }
-     else
-     {
-       if (*dateString == '-')
-         dateString++;
+            return NaN;
+     } else {
+        if (*dateString == '-')
+            dateString++;
 
-       while(isspace(*dateString))
-         dateString++;
+        skipSpacesAndComments(dateString);
 
-       if (*dateString == ',')
-         dateString++;
+        if (*dateString == ',')
+            dateString++;
 
-       if ( month == -1 ) // not found yet
-       {
-         month = findMonth(dateString);
-         if (month == -1)
-           return invalidDate;
+        if (month == -1) { // not found yet
+            month = findMonth(dateString);
+            if (month == -1)
+                return NaN;
 
-         while(*dateString && (*dateString != '-') && !isspace(*dateString))
-           dateString++;
+            while (*dateString && (*dateString != '-') && !isspace(*dateString))
+                dateString++;
 
-         if (!*dateString)
-           return invalidDate;
+            if (!*dateString)
+                return NaN;
 
-         // '-99 23:12:40 GMT'
-         if ((*dateString != '-') && (*dateString != '/') && !isspace(*dateString))
-           return invalidDate;
-         dateString++;
-       }
+            // '-99 23:12:40 GMT'
+            if (*dateString != '-' && *dateString != '/' && !isspace(*dateString))
+                return NaN;
+            dateString++;
+        }
+    }
 
-       if ((month < 0) || (month > 11))
-         return invalidDate;
-     }
+    if (month < 0 || month > 11)
+        return NaN;
 
-     // '99 23:12:40 GMT'
-     if (year <= 0 && *dateString) {
-       year = strtol(dateString, &newPosStr, 10);
-       if (errno)
-         return invalidDate;
+    // '99 23:12:40 GMT'
+    if (year <= 0 && *dateString) {
+        year = strtol(dateString, &newPosStr, 10);
+        if (errno)
+            return NaN;
     }
     
-     // Don't fail if the time is missing.
-     if (*newPosStr)
-     {
+    // Don't fail if the time is missing.
+    long hour = 0;
+    long minute = 0;
+    long second = 0;
+    if (!*newPosStr)
+        dateString = newPosStr;
+    else {
         // ' 23:12:40 GMT'
         if (!isspace(*newPosStr)) {
-           if ( *newPosStr == ':' ) // Ah, so there was no year, but the number was the hour
-               year = -1;
-           else
-               return invalidDate;
-        } else // in the normal case (we parsed the year), advance to the next number
+            if (*newPosStr != ':')
+                return NaN;
+            // There was no year; the number was the hour.
+            year = -1;
+        } else {
+            // in the normal case (we parsed the year), advance to the next number
             dateString = ++newPosStr;
+            skipSpacesAndComments(dateString);
+        }
 
         hour = strtol(dateString, &newPosStr, 10);
-
         // Do not check for errno here since we want to continue
         // even if errno was set becasue we are still looking
         // for the timezone!
-        // read a number? if not this might be a timezone name
+
+        // Read a number? If not, this might be a timezone name.
         if (newPosStr != dateString) {
-          have_time = true;
-          dateString = newPosStr;
-
-          if ((hour < 0) || (hour > 23))
-            return invalidDate;
-
-          if (!*dateString)
-            return invalidDate;
-
-          // ':12:40 GMT'
-          if (*dateString++ != ':')
-            return invalidDate;
-
-          minute = strtol(dateString, &newPosStr, 10);
-          if (errno)
-            return invalidDate;
-          dateString = newPosStr;
-
-          if ((minute < 0) || (minute > 59))
-            return invalidDate;
-
-          // ':40 GMT'
-          if (*dateString && *dateString != ':' && !isspace(*dateString))
-            return invalidDate;
-
-          // seconds are optional in rfc822 + rfc2822
-          if (*dateString ==':') {
-            dateString++;
-
-            second = strtol(dateString, &newPosStr, 10);
-            if (errno)
-              return invalidDate;
             dateString = newPosStr;
+
+            if (hour < 0 || hour > 23)
+                return NaN;
+
+            if (!*dateString)
+                return NaN;
+
+            // ':12:40 GMT'
+            if (*dateString++ != ':')
+                return NaN;
+
+            minute = strtol(dateString, &newPosStr, 10);
+            if (errno)
+                return NaN;
+            dateString = newPosStr;
+
+            if (minute < 0 || minute > 59)
+                return NaN;
+
+            // ':40 GMT'
+            if (*dateString && *dateString != ':' && !isspace(*dateString))
+                return NaN;
+
+            // seconds are optional in rfc822 + rfc2822
+            if (*dateString ==':') {
+                dateString++;
+
+                second = strtol(dateString, &newPosStr, 10);
+                if (errno)
+                    return NaN;
+                dateString = newPosStr;
             
-            if ((second < 0) || (second > 59))
-              return invalidDate;
-          }
+                if (second < 0 || second > 59)
+                    return NaN;
+            }
 
-          while(isspace(*dateString))
-            dateString++;
+            skipSpacesAndComments(dateString);
 
-	  if (strncasecmp(dateString, "AM", 2) == 0) {
-	    if (hour > 12)
-	      return invalidDate;
-	    if (hour == 12)
-	      hour = 0;
-	    dateString += 2;
-	    while (isspace(*dateString))
-	      dateString++;
-	  } else if (strncasecmp(dateString, "PM", 2) == 0) {
-	    if (hour > 12)
-	      return invalidDate;
-	    if (hour != 12)
-	      hour += 12;
-	    dateString += 2;
-	    while (isspace(*dateString))
-	      dateString++;
-	  }
+            if (strncasecmp(dateString, "AM", 2) == 0) {
+                if (hour > 12)
+                    return NaN;
+                if (hour == 12)
+                    hour = 0;
+                dateString += 2;
+                skipSpacesAndComments(dateString);
+            } else if (strncasecmp(dateString, "PM", 2) == 0) {
+                if (hour > 12)
+                    return NaN;
+                if (hour != 12)
+                    hour += 12;
+                dateString += 2;
+                skipSpacesAndComments(dateString);
+            }
         }
-     } else {
-       dateString = newPosStr;
-     }
+    }
 
-     // Don't fail if the time zone is missing. 
-     // Some websites omit the time zone (4275206).
-     if (*dateString) {
-       if (strncasecmp(dateString, "GMT", 3) == 0 ||
-	   strncasecmp(dateString, "UTC", 3) == 0) {
-         dateString += 3;
-         have_tz = true;
-       }
+    bool haveTZ = false;
+    int offset = 0;
 
-       while (isspace(*dateString))
-         ++dateString;
+    // Don't fail if the time zone is missing. 
+    // Some websites omit the time zone (4275206).
+    if (*dateString) {
+        if (strncasecmp(dateString, "GMT", 3) == 0 || strncasecmp(dateString, "UTC", 3) == 0) {
+            dateString += 3;
+            haveTZ = true;
+        }
 
-       if (strncasecmp(dateString, "GMT", 3) == 0) {
-         dateString += 3;
-       }
-       if ((*dateString == '+') || (*dateString == '-')) {
-         offset = strtol(dateString, &newPosStr, 10);
-         if (errno)
-           return invalidDate;
-         dateString = newPosStr;
+        if (*dateString == '+' || *dateString == '-') {
+            long o = strtol(dateString, &newPosStr, 10);
+            if (errno)
+                return NaN;
+            dateString = newPosStr;
 
-         if ((offset < -9959) || (offset > 9959))
-            return invalidDate;
+            if (o < -9959 || o > 9959)
+                return NaN;
 
-         int sgn = (offset < 0)? -1:1;
-         offset = abs(offset);
-         if ( *dateString == ':' ) { // GMT+05:00
-           int offset2 = strtol(dateString, &newPosStr, 10);
-           if (errno)
-             return invalidDate;
-           dateString = newPosStr;
-           offset = (offset*60 + offset2)*sgn;
-         }
-         else
-           offset = ((offset / 100)*60 + (offset % 100))*sgn;
-         have_tz = true;
-       } else {
-         for (int i=0; i < int(sizeof(known_zones)/sizeof(KnownZone)); i++) {
-           if (0 == strncasecmp(dateString, known_zones[i].tzName, strlen(known_zones[i].tzName))) {
-             offset = known_zones[i].tzOffset;
-             dateString += strlen(known_zones[i].tzName);
-             have_tz = true;
-             break;
-           }
-         }
-       }
-     }
+            int sgn = (o < 0) ? -1 : 1;
+            o = abs(o);
+            if (*dateString != ':') {
+                offset = ((o / 100) * 60 + (o % 100)) * sgn;
+            } else { // GMT+05:00
+                long o2 = strtol(dateString, &newPosStr, 10);
+                if (errno)
+                    return NaN;
+                dateString = newPosStr;
+                offset = (o * 60 + o2) * sgn;
+            }
+            haveTZ = true;
+        } else {
+            for (int i = 0; i < int(sizeof(known_zones) / sizeof(KnownZone)); i++) {
+                if (0 == strncasecmp(dateString, known_zones[i].tzName, strlen(known_zones[i].tzName))) {
+                    offset = known_zones[i].tzOffset;
+                    dateString += strlen(known_zones[i].tzName);
+                    haveTZ = true;
+                    break;
+                }
+            }
+        }
+    }
 
-     while(isspace(*dateString))
-        dateString++;
+    skipSpacesAndComments(dateString);
 
-     if ( *dateString && year == -1 ) {
-       year = strtol(dateString, &newPosStr, 10);
-       if (errno)
-         return invalidDate;
-       dateString = newPosStr;
-     }
+    if (*dateString && year == -1) {
+        year = strtol(dateString, &newPosStr, 10);
+        if (errno)
+            return NaN;
+        dateString = newPosStr;
+    }
      
-     while (isspace(*dateString))
-       dateString++;
+    skipSpacesAndComments(dateString);
      
-     // Trailing garbage
-     if (*dateString != '\0')
-       return invalidDate;
+    // Trailing garbage
+    if (*dateString)
+        return NaN;
 
-     // Y2K: Solve 2 digit years
-     if ((year >= 0) && (year < 50))
-         year += 2000;
+    // Y2K: Handle 2 digit years.
+    if (year >= 0 && year < 100) {
+        if (year < 50)
+            year += 2000;
+        else
+            year += 1900;
+    }
 
-     if ((year >= 50) && (year < 100))
-         year += 1900;  // Y2K
+    // fall back to local timezone
+    if (!haveTZ) {
+        GregorianDateTime t;
+        memset(&t, 0, sizeof(tm));
+        t.monthDay = day;
+        t.month = month;
+        t.year = year - 1900;
+        t.isDST = -1;
+        t.second = second;
+        t.minute = minute;
+        t.hour = hour;
 
-     // fall back to midnight, local timezone
-     if (!have_tz) {
-       struct tm t;
-       memset(&t, 0, sizeof(tm));
-       t.tm_mday = day;
-       t.tm_mon = month;
-       t.tm_year = year - 1900;
-       t.tm_isdst = -1;
-       if (have_time) {
-         t.tm_sec = second;
-         t.tm_min = minute;
-         t.tm_hour = hour;
-       }
+        // Use our gregorianDateTimeToMS() rather than mktime() as the latter can't handle the full year range.
+        return gregorianDateTimeToMS(t, 0, false);
+    }
 
-       // better not use mktime() as it can't handle the full year range
-       return makeTime(&t, 0, false) / 1000.0;
-     }
-     
-     result = ymdhms_to_seconds(year, month + 1, day, hour, minute, second) - (offset * 60);
-     return result;
+    return (ymdhmsToSeconds(year, month + 1, day, hour, minute, second) - (offset * 60.0)) * msPerSecond;
 }
 
-
-double KJS::timeClip(double t)
+double timeClip(double t)
 {
     if (!isfinite(t))
         return NaN;
@@ -1358,4 +1085,6 @@ double KJS::timeClip(double t)
     if (at > 8.64E15)
         return NaN;
     return copysign(floor(at), t);
+}
+
 }

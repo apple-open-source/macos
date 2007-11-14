@@ -61,7 +61,7 @@ static const string empty_string;
 // If the user doesn't ask for any options, we just use this one
 static RE_Options default_options;
 
-void RE::Init(const char* pat, const RE_Options* options) {
+void RE::Init(const string& pat, const RE_Options* options) {
   pattern_ = pat;
   if (options == NULL) {
     options_ = default_options;
@@ -78,7 +78,7 @@ void RE::Init(const char* pat, const RE_Options* options) {
     // conservative in that it may treat some "simple" patterns
     // as "complex" (e.g., if the vertical bar is in a character
     // class or is escaped).  But it seems good enough.
-    if (strchr(pat, '|') == NULL) {
+    if (strchr(pat.c_str(), '|') == NULL) {
       // Simple pattern: we can use position-based checks to perform
       // fully anchored matches
       re_full_ = re_partial_;
@@ -89,11 +89,17 @@ void RE::Init(const char* pat, const RE_Options* options) {
   }
 }
 
-RE::~RE() {
+void RE::Cleanup() {
   if (re_full_ != NULL && re_full_ != re_partial_) (*pcre_free)(re_full_);
   if (re_partial_ != NULL)                         (*pcre_free)(re_partial_);
   if (error_ != &empty_string)                     delete error_;
 }
+
+
+RE::~RE() {
+  Cleanup();
+}
+
 
 pcre* RE::Compile(Anchor anchor) {
   // First, convert RE_Options into pcre options
@@ -332,6 +338,30 @@ bool RE::Replace(const StringPiece& rewrite,
   return true;
 }
 
+// Returns PCRE_NEWLINE_CRLF, PCRE_NEWLINE_CR, or PCRE_NEWLINE_LF.
+// Note that PCRE_NEWLINE_CRLF is defined to be P_N_CR | P_N_LF.
+static int NewlineMode(int pcre_options) {
+  // TODO: if we can make it threadsafe, cache this var
+  int newline_mode = 0;
+  /* if (newline_mode) return newline_mode; */  // do this once it's cached
+  if (pcre_options & (PCRE_NEWLINE_CRLF|PCRE_NEWLINE_CR|PCRE_NEWLINE_LF)) {
+    newline_mode = (pcre_options &
+                    (PCRE_NEWLINE_CRLF|PCRE_NEWLINE_CR|PCRE_NEWLINE_LF));
+  } else {
+    int newline;
+    pcre_config(PCRE_CONFIG_NEWLINE, &newline);
+    if (newline == 10)
+      newline_mode = PCRE_NEWLINE_LF;
+    else if (newline == 13)
+      newline_mode = PCRE_NEWLINE_CR;
+    else if (newline == 3338)
+      newline_mode = PCRE_NEWLINE_CRLF;
+    else
+      assert("" == "Unexpected return value from pcre_config(NEWLINE)");
+  }
+  return newline_mode;
+}
+
 int RE::GlobalReplace(const StringPiece& rewrite,
                       string *str) const {
   int count = 0;
@@ -350,9 +380,27 @@ int RE::GlobalReplace(const StringPiece& rewrite,
     if (matchstart == matchend && matchstart == lastend) {
       // advance one character if we matched an empty string at the same
       // place as the last match occurred
-      if (start < static_cast<int>(str->length()))
-        out.push_back((*str)[start]);
-      start++;
+      matchend = start + 1;
+      // If the current char is CR and we're in CRLF mode, skip LF too.
+      // Note it's better to call pcre_fullinfo() than to examine
+      // all_options(), since options_ could have changed bewteen
+      // compile-time and now, but this is simpler and safe enough.
+      if (start+1 < static_cast<int>(str->length()) &&
+          (*str)[start] == '\r' && (*str)[start+1] == '\n' &&
+          NewlineMode(options_.all_options()) == PCRE_NEWLINE_CRLF) {
+        matchend++;
+      }
+      // We also need to advance more than one char if we're in utf8 mode.
+#ifdef SUPPORT_UTF8
+      if (options_.utf8()) {
+        while (matchend < static_cast<int>(str->length()) &&
+               ((*str)[matchend] & 0xc0) == 0x80)
+          matchend++;
+      }
+#endif
+      if (matchend <= static_cast<int>(str->length()))
+        out.append(*str, start, matchend - start);
+      start = matchend;
     } else {
       out.append(*str, start, matchstart - start);
       Rewrite(&out, rewrite, *str, vec, matches);
@@ -380,6 +428,34 @@ bool RE::Extract(const StringPiece& rewrite,
     return false;
   out->erase();
   return Rewrite(out, rewrite, text, vec, matches);
+}
+
+/*static*/ string RE::QuoteMeta(const StringPiece& unquoted) {
+  string result;
+
+  // Escape any ascii character not in [A-Za-z_0-9].
+  //
+  // Note that it's legal to escape a character even if it has no
+  // special meaning in a regular expression -- so this function does
+  // that.  (This also makes it identical to the perl function of the
+  // same name; see `perldoc -f quotemeta`.)
+  for (int ii = 0; ii < unquoted.size(); ++ii) {
+    // Note that using 'isalnum' here raises the benchmark time from
+    // 32ns to 58ns:
+    if ((unquoted[ii] < 'a' || unquoted[ii] > 'z') &&
+        (unquoted[ii] < 'A' || unquoted[ii] > 'Z') &&
+        (unquoted[ii] < '0' || unquoted[ii] > '9') &&
+        unquoted[ii] != '_' &&
+        // If this is the part of a UTF8 or Latin1 character, we need
+        // to copy this byte without escaping.  Experimentally this is
+        // what works correctly with the regexp library.
+        !(unquoted[ii] & 128)) {
+      result += '\\';
+    }
+    result += unquoted[ii];
+  }
+
+  return result;
 }
 
 /***** Actual matching and rewriting code *****/
@@ -767,14 +843,14 @@ bool Arg::parse_float(const char* str, int n, void* dest) {
     return parse_##name##_radix(str, n, dest, 0);                       \
   }
 
-DEFINE_INTEGER_PARSERS(short);
-DEFINE_INTEGER_PARSERS(ushort);
-DEFINE_INTEGER_PARSERS(int);
-DEFINE_INTEGER_PARSERS(uint);
-DEFINE_INTEGER_PARSERS(long);
-DEFINE_INTEGER_PARSERS(ulong);
-DEFINE_INTEGER_PARSERS(longlong);
-DEFINE_INTEGER_PARSERS(ulonglong);
+DEFINE_INTEGER_PARSERS(short)      /*                                   */
+DEFINE_INTEGER_PARSERS(ushort)     /*                                   */
+DEFINE_INTEGER_PARSERS(int)        /* Don't use semicolons after these  */
+DEFINE_INTEGER_PARSERS(uint)       /* statements because they can cause */
+DEFINE_INTEGER_PARSERS(long)       /* compiler warnings if the checking */
+DEFINE_INTEGER_PARSERS(ulong)      /* level is turned up high enough.   */
+DEFINE_INTEGER_PARSERS(longlong)   /*                                   */
+DEFINE_INTEGER_PARSERS(ulonglong)  /*                                   */
 
 #undef DEFINE_INTEGER_PARSERS
 

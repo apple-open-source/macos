@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: var_unserializer.re,v 1.11.4.16.2.4 2006/01/01 13:46:58 sniper Exp $ */
+/* $Id: var_unserializer.re,v 1.11.4.16.2.5 2006/10/27 08:33:55 sesser Exp $ */
 
 #include "php.h"
 #include "ext/standard/php_var.h"
@@ -353,6 +353,10 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 	if (id == -1 || var_access(var_hash, id, &rval_ref) != SUCCESS) {
 		return 0;
 	}
+	
+	if ((*rval_ref)->refcount > 65500) {
+		return 0;
+	}
 
 	if (*rval != NULL) {
 	zval_ptr_dtor(rval);
@@ -376,6 +380,10 @@ PHPAPI int php_var_unserialize(UNSERIALIZE_PARAMETER)
 	}
 	
 	if (*rval == *rval_ref) return 0;
+
+	if ((*rval_ref)->refcount > 65500) {
+		return 0;
+	}
 
 	if (*rval != NULL) {
 	zval_ptr_dtor(rval);

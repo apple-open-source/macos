@@ -1,0 +1,448 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>The Apache Tomcat Connector - Webserver HowTo - SunOne -- Netscape/iPlanet HowTo</title><meta value="Henri Gomez" name="author"><meta value="hgomez@apache.org" name="email"><meta value="Jim Jagielski" name="author"><meta value="jim@apache.org" name="email"><meta value="Gal Shachor" name="author"><meta value="shachor@il.ibm.com" name="email"><meta value="Mladen Turk" name="author"><meta value="mturk@apache.org" name="email"><link rel="stylesheet" type="text/css" href="../../style.css"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--TOMCAT LOGO--><a href="http://tomcat.apache.org/"><img border="0" alt="Apache Tomcat" align="left" src="../../images/tomcat.gif"></a><!--APACHE LOGO--><a href="http://www.apache.org/"><img border="0" alt="Apache Logo" align="right" src="http://www.apache.org/images/asf-logo.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td valign="top" align="left"><h1>The Apache Tomcat Connector - Webserver HowTo</h1><h2>SunOne -- Netscape/iPlanet HowTo</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Introduction"><strong>Introduction</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+This document explains how to set up Sun ONE Web Server previously known as
+Netscape web servers to cooperate with Tomcat. 
+</p>
+
+<p>
+Normally the Sun ONE Web Servers come with their own Servlet engine, 
+but you can also configure them to send servlet and JSP requests to Tomcat 
+using the NSAPI redirector plugin.
+</p>
+
+<p>
+It is recommended that you also read the <a href="../../generic_howto/workers.html">Workers HowTo</a> document
+to learn how to setup the working entities between your web server and Tomcat Engines.
+</p>
+
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Document Conventions and Assumptions"><strong>Document Conventions and Assumptions</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+${tomcat_home} is the root directory of tomcat. 
+Your Tomcat installation should have the following subdirectories:
+
+<ul>
+<li>
+${tomcat_home}\conf - Where you can place various configuration files
+</li>
+<li>
+${tomcat_home}\webapps - Containing example applications
+</li>
+<li>
+${tomcat_home}\bin - Where you place web server plugins
+</li>
+</ul>
+</p>
+<p>
+In all the examples in this document ${tomcat_home} will be <b>c:\tomcat</b>.
+A worker is defined to be a tomcat process that accepts work from the Sun ONE Web Server.
+</p>
+</blockquote></td></tr></table>
+
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Supported Configuration"><strong>Supported Configuration</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The NSAPI-Tomcat redirector was developed and tested on:
+<ul>
+<li>
+WINNT 2000/XP/2003 (should be able to work with other service packs) and some Unixes
+</li>
+<li>
+Sun ONE Web Server 6.1
+</li>
+<li>
+Tomcat 4.1.x , Tomcat 5.0.x and Tomcat 5.5.x
+</li>
+</ul>
+</p>
+
+<p>
+The redirector uses <b>ajp12</b> and <b>ajp13</b> to send requests to the Tomcat containers. 
+There is also an option to use Tomcat in process, 
+more about the in-process mode can be found in the in process howto.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Who support ajp protocols ?"><strong>Who support ajp protocols ?</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The ajp12 protocol is only available in Tomcat 3.2.x and 3.3.x.
+</p>
+
+<p>
+The <b>ajp12</b> has been <b>deprecated</b> with Tomcat 3.3.x and you should use instead 
+<b>ajp13</b> which is the only ajp protocol known by Tomcat 4.0.x, 4.1.x, 5.0.x, 5.5.x and 6.
+</p>
+
+<p>
+Of course Tomcat 3.2.x and 3.3.x also support ajp13 protocol.
+</p>
+
+<p>
+Others servlet engines such as <b>jetty</b> have support for ajp13 protocol
+</p>
+
+</blockquote></td></tr></table>
+
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="How does it work ?"><strong>How does it work ?</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+<ol>
+<li>
+The NSAPI-Tomcat redirector is an Netscape service step plugin, 
+Netscape load the redirector plugin and calls its service handler 
+function for request that are assigned to the "servlet" configuration object.
+</li>
+<li>
+For each in-coming request Netscape will execute the set of NameTrans directives 
+that we added to obj.conf, the assign-name function will check if it's from 
+parameter matches the request URL.
+</li>
+<li>
+If a match is found, assign-name will assign the servlet object name to the request. 
+This will cause Netscape to send the request to the servlet configuration object.
+</li>
+<li>
+Netscape will execute our jk_service extension. The extension collects the 
+request parameters and forwards them to the appropriate worker using the ajp13 protocol 
+(the worker="defworker" parameter in jk_service inform it that the worker for this request is named <b>defworker</b>).
+the workers properties files, <b>workers.properties</b>, will indicate that defworker use ajp13 protocol.
+</li>
+<li>
+The extension collects the response from the worker and returns it to the browser.
+</li>
+</ol>
+</p>
+</blockquote></td></tr></table>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Installation"><strong>Installation</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+A pre-built version of the NSAPI redirector, nsapi_redirect.dll, may be available under 
+the win32/i386 directory of tomcat-connectors distribution. 
+For those using Netscape as your browser, try downloading a zip version of the file, if available. 
+
+You can also build a copy locally from the source present in tomcat-connectors distribution.
+
+
+The Tomcat redirector requires two entities:
+<ul>
+<li>
+nsapi_redirect.dll (Windows) -or- nsapi_redirector.so (Unix) - The NSAPI server plugin, either obtain a pre-built DLL/so or build it yourself 
+(see the build section).
+</li>
+<li>
+workers.properties - A file that describes the host(s) and port(s) used by the workers (Tomcat processes). 
+A sample workers.properties can be found under the conf directory.
+</li>
+</ul>
+
+The installation includes the following parts:
+
+<ul>
+<li>
+Configuring the NSAPI redirector with a default /examples context and checking that you can serve servlets 
+with Netscape.
+</li>
+<li>
+Adding more contexts to the configuration.
+</li>
+</ul>
+
+</p>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Configuring the NSAPI Redirector"><strong>Configuring the NSAPI Redirector</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+In this document we'll assume that nsapi_redirect.dll is placed in 
+<b>c:\jk\lib\nsapi_redirect.dll</b>, the properties file is in<b>c:\jk\conf</b>
+and you created a log directory <b>c:\jk\logs</b>
+</p>
+
+<ul>
+<li>
+If the built in servlet support is working disable it.
+</li>
+<li>
+Add the redirector plugin into the Netscape server configuration. 
+Edit your server <b>magnus.conf</b> and add the following lines:
+</li>
+</ul>
+
+<div class="example"><pre>
+  
+  Init fn="load-modules" funcs="jk_init,jk_service" shlib="c:/jk/lib/nsapi_redirect.dll" shlib_flags="(global|now)"
+  Init fn="jk_init" worker_file="c:/jk/conf/workers.properties" log_level="debug" log_file="c:/jk/logs/nsapi.log"
+</pre></div>
+<ul>
+<li>
+Edit your server <b>obj.conf</b> and add the following lines:
+</li>
+</ul>
+<div class="example"><pre>
+
+  
+  In the default object NameTrans section
+  &lt;Object name="default"&gt;
+      
+  NameTrans fn="assign-name" from="/servlets-examples(|/*)" name="jknsapi" 
+  NameTrans fn="assign-name" from="/jsp-examples(|/*)" name="jknsapi"
+  ....
+  &lt;/Object&gt;
+  
+  Create a new configuration object by adding the following lines to the end of the obj.conf file
+  
+  &lt;Object name="jknsapi"&gt;
+    ObjectType fn=force-type type=text/plain
+    Service fn="jk_service" method="*" worker="worker1"
+  &lt;/Object&gt;
+</pre></div>
+
+<ul>
+<li>
+Restart Web Server (stop and start the server)
+</li>
+</ul>
+
+<p>
+That's all, now you should start tomcat and ask for http://server:port/servlets-examples/
+</p>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Adding additional Contexts"><strong>Adding additional Contexts</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The examples context is useful for verifying your installation, but you will also need to add your own contexts. 
+Adding a new context requires two operations:
+</p>
+<ul>
+<li>
+Adding the context to Tomcat (I am not going to talk about this).
+</li>
+<li>
+Assigning the NSAPI redirector to handle this context.
+</li>
+</ul>
+
+<p>
+Assigning the NSAPI redirector to handle this context is simple, 
+all you need to do is to edit <b>obj.conf</b> and add a NameTrans line that looks like:
+</p>
+
+<div class="example"><pre>
+  NameTrans fn="assign-name" from="/&lt;context name&gt;/*" name="jknsapi"
+</pre></div>
+
+<p>
+After saving <b>obj.conf</b> restart Netscape and it will serve the new context.
+</p>
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Advanced Context Configuration"><strong>Advanced Context Configuration</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Sometimes it is better to have Netscape serve the static pages (html, gif, jpeg etc.) 
+even if these files are part of a context served by Tomcat. For example, consider the html and gif files in the examples context, there is no need to serve them from the Tomcat process, Netscape will suffice.
+</p>
+<p>
+Making Netscape serve static files that are part of the Tomcat contexts requires the following:
+</p>
+<ul>
+<li>
+Configuring Netscape to know about the Tomcat contexts
+</li>
+<li>
+Make sure that the WEB-INF directory is protected from access.
+</li>
+<li>
+Configuring Netscape to assign the NSAPI redirector only specific requests that requires JSP/Servlet handling.
+</li>
+</ul>
+
+<p>
+Adding a Tomcat context to Netscape requires the addition of a new Netscape virtual directory 
+that covers the Tomcat context.
+</p>
+
+<p>
+For example, adding a /example Netscape virtual directory that 
+covers the <b>c:\tomcat\webapps\examples</b> directory. 
+</p>
+
+<p>
+To add a new virtual directory add the following line to your <b>obj.conf</b>:
+</p>
+
+<div class="example"><pre>
+  NameTrans fn=pfx2dir from=/examples dir="c:/tomcat/webapps/examples"
+</pre></div>
+
+<p>
+WEB-INF protection requires some explanation; Each servlet application (context) has a special directory named <b>WEB-INF</b>,
+this directory contains sensitive configurations data and Java classes and must be kept hidden from web users. 
+WEB-INF can be protected by adding the following line to the PathCheck section in the default configuration object:
+</p>
+
+<div class="example"><pre>
+  PathCheck fn="deny-existence" path="*/WEB-INF/*"
+  
+  This line instructs the Netscape server to reject any request with a URL that contain the path /WEB-INF/.
+</pre></div>
+
+<p>
+Configuring Netscape to assign the NSAPI redirector only specific requests is somewhat harder, 
+you will need to specify the exact URL-Path pattern(s) that you want Tomcat to handle 
+(usually only JSP files and servlets). 
+</p>
+
+<p>
+This requires a change to NemaTrans portion of <b>obj.conf</b>. 
+</p>
+
+<div class="example"><pre>
+  For the examples context it requires to replace the following line:
+  
+  NameTrans fn="assign-name" from="/examples/*" name="jknsapi"
+  
+  with the following two lines:
+  
+  NameTrans fn="assign-name" from="/examples/jsp/*.jsp" name="jknsapi"
+  NameTrans fn="assign-name" from="/examples/servlet/*" name="jknsapi"
+</pre></div>
+
+<p>
+As you can see the second configuration is more explicit, it actually instructs 
+Netscape to assign the redirector with only requests to resources under 
+<b>/examples/servlet/</b> and resources under <b>/examples/</b> whose name ends with <b>.jsp</b>.
+</p>
+
+<p>
+You can be even more explicit and provide lines such as:
+</p>
+
+<div class="example"><pre>
+  NameTrans fn="assign-name" from="/examples/servletname" name="jknsapi"
+  
+  Instructs Netscape to assign the redirector request whose URL-Path equals /example/servletname
+</pre></div>
+
+</blockquote></td></tr></table>
+
+<table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Advanced Worker Configuration"><strong>Advanced Worker Configuration</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+Sometimes you want to serve different contexts with different Tomcat processes 
+(for example to spread the load among different machines). 
+To achieve such goal you will need to define several workers and assign each context with its own worker.
+</p>
+
+<p>
+Defining workers is done in <b>workers.properties</b>, this file includes two types of entries:
+</p>
+
+<div class="example"><pre>
+  #An entry that lists all the workers defined. For example:
+  worker.list=worker1,worker2
+  
+  # Entries that define the host and port associated with these workers.
+  worker.worker1.host=localhost
+  worker.worker1.port=8009
+  worker.worker1.type=ajp13
+
+  worker.worker2.host=otherhost
+  worker.worker2.port=8009
+  worker.worker2.type=ajp13
+</pre></div>
+
+<p>
+The above examples defined two workers, now we can use these workers to serve two different 
+contexts each with it's own worker. 
+Submitting requests to different workers is accomplished by using multiple Service directives 
+in the servlet configuration Object, each with a different path pattern parameter. 
+</p>
+
+<p>
+For example, if we want to submit the <b>/examples</b> context to the worker named <b>worker1</b> and the 
+<b>/webpages</b> context to the worker named <b>worker2</b> we should use the following configuration:
+</p>
+
+<div class="example"><pre>
+  &lt;Object name="jknsapi"&gt;
+    ObjectType fn=force-type type=text/plain
+    Service fn="jk_service" worker="worker1" path="/examples/*"
+    Service fn="jk_service" worker="worker2" path="/webpages/*"
+    Service fn="jk_service" worker="worker1"
+  &lt;/Object&gt;
+</pre></div>
+
+<p>
+More informations on using and configuring workers in the <a href="../../generic_howto/workers.html">Workers HowTo</a>
+and in the <a href="../../reference/workers.html">worker.properties configuration reference</a>.
+
+</p>
+</blockquote></td></tr></table>
+
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Building NSAPI DLL redirector for Windows"><strong>Building NSAPI DLL redirector for Windows</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The redirector was developed using Visual C++ Ver.6.0, so having this environment is a prereq if you want 
+to perform a custom build. You should also have NES developer SDK
+
+The steps that you need to take are:
+<ul>
+<li>
+Change directory to the nsapi plugins source directory.
+</li>
+<li>
+Edit <b>nsapi.dsp</b> and update the include and library path to reflect your own Netscape server installation 
+(search for a <b>/I compiler</b> option and <b>/libpath</b> linker option)
+</li>
+<li>
+Make the source with MSDEV
+</li>
+</ul>
+<screendos>
+<notedos>Change directory to the nsapi plugins source directory</notedos>
+<code><nobr><em class="screen">c:\&gt;</em><b class="screen">cd c:\home\apache\jk\nsapi</b></nobr></code><br>
+<notedos>Build the sources using MSDEV</notedos>
+<code><nobr><em class="screen">c:\&gt;</em><b class="screen">MSDEV nsapi.dsp /MAKE ALL</b></nobr></code><br>
+</screendos>
+</p>
+<p>
+If msdev is not in your path, enter the full path to msdev.exe. 
+This will build both release and debug versions of the redirector plugin.
+An alternative will be to open the nsapi workspace file (nsapi.dsw) in msdev and 
+build it using the build menu.
+</p>
+</blockquote></td></tr></table><table width="100%" cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Building NSAPI so plugin redirector for Unix"><strong>Building NSAPI so plugin redirector for Unix</strong></a></font></td></tr><tr><td><blockquote>
+<p>
+The redirector requires either gcc or the native Solaris cc compiler.
+
+The steps that you need to take are:
+<ul>
+<li>
+Change directory to the nsapi plugins source directory (src/native).
+</li>
+<li>
+configure for Netscape/iPlanet/SunONE webserver.
+</li>
+<li>
+Change directory to the nsapi netscape directory (./netstape).
+</li>
+<li>
+Edit <b>Makefile.solaris</b> and update the SUITSPOT_HOME and JAVE_HOME path to reflect your own Netscape server installation.
+</li>
+<li>
+Make the source with gmake.
+</li>
+</ul>
+<screendos>
+<notedos>Change directory to the nsapi plugins source directory</notedos>
+<code><nobr><em class="screen">c:\&gt;</em><b class="screen">cd /usr/local/src/tomcat-connectors-xxx-src/native</b></nobr></code><br>
+<notedos>configure for Netscape/iPlanet/SunONE webserver</notedos>
+<code><nobr><em class="screen">c:\&gt;</em><b class="screen">./configure --enable-netscape</b></nobr></code><br>
+<notedos>Change directory to the nsapi netscape directory</notedos>
+<code><nobr><em class="screen">c:\&gt;</em><b class="screen">cd netscape</b></nobr></code><br>
+<notedos>Edit Makefile.solaris</notedos>
+<code><nobr><em class="screen">c:\&gt;</em><b class="screen">vi Makefile.solaris</b></nobr></code><br>
+<notedos>Make the source with gmake</notedos>
+<code><nobr><em class="screen">c:\&gt;</em><b class="screen">gmake -f Makefile.solaris</b></nobr></code><br>
+</screendos>
+</p>
+<p>
+After the build, you will have the required nsapi_redirector.so plugin.
+</p>
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade="noshade"></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2005, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>
