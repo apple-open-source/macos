@@ -8,7 +8,8 @@ BASEDIR=$(cd $(dirname $0)/.. ; pwd)
 SVNBASE="svn+ssh://src.apple.com/svn/fs/samba"
 SVNTRUNK="$SVNBASE/trunk"
 
-TAG=$($BASEDIR/scripts/next-svn-tag)
+# Take tagname from the environment. Useful for software updates.
+TAG=${TAG:-$($BASEDIR/scripts/next-svn-tag)}
 
 CHECKDIR="submit.$TAG"
 BNI="$SVNBASE/tags/$TAG"

@@ -588,6 +588,15 @@ CFDictionaryRef KXKextCopyPersonalities(KXKextRef aKext)
     CFStringRef * keys = NULL;   // must free
     CFStringRef * values = NULL; // must free
 
+    newPDict = CFDictionaryCreateMutable(
+        kCFAllocatorDefault, 0,
+        &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks);
+    if (!newPDict) {
+        error = true;
+        goto finish;
+    }
+
     pDict = (CFDictionaryRef)CFDictionaryGetValue(aKext->infoDictionary,
         CFSTR("IOKitPersonalities"));
     if (!pDict) {
@@ -598,20 +607,20 @@ CFDictionaryRef KXKextCopyPersonalities(KXKextRef aKext)
     if ((kCFBooleanTrue == (CFTypeRef) pDict) || (kCFBooleanFalse == (CFTypeRef) pDict)) {
         KXKextManagerError
         checkResult = __KXKextRealizeFromCache(aKext);
-        if (checkResult != kKXKextManagerErrorNone) {
+        // We don't care if it's inconsistent, we want the real data from the bundle,
+        // but mark the repository so it will rescan
+        if (checkResult == kKXKextManagerErrorCache) {
+            KXKextRepositorySetNeedsReset(aKext->repository, true);
+        } else if (checkResult != kKXKextManagerErrorNone) {
+            error = true;
             goto finish;
         }
         pDict = (CFDictionaryRef)CFDictionaryGetValue(aKext->infoDictionary,
             CFSTR("IOKitPersonalities"));
-    }
-
-    newPDict = CFDictionaryCreateMutable(
-        kCFAllocatorDefault, 0,
-        &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-    if (!newPDict) {
-        error = true;
-        goto finish;
+        if (!pDict) {
+            // not an error to have no personalities
+            goto finish;
+        }
     }
 
     count = CFDictionaryGetCount(pDict);
@@ -660,6 +669,13 @@ CFArrayRef KXKextCopyPersonalitiesArray(KXKextRef aKext)
     CFIndex count, i;
     CFStringRef * values = NULL; // must free
 
+    newPArray = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+            &kCFTypeArrayCallBacks);
+    if (!newPArray) {
+        error = true;
+        goto finish;
+    }
+
     pDict = (CFDictionaryRef)CFDictionaryGetValue(aKext->infoDictionary,
         CFSTR("IOKitPersonalities"));
     if (!pDict) {
@@ -668,24 +684,32 @@ CFArrayRef KXKextCopyPersonalitiesArray(KXKextRef aKext)
     }
 
     if ((kCFBooleanTrue == (CFTypeRef) pDict) || (kCFBooleanFalse == (CFTypeRef) pDict)) {
-        KXKextManagerError
-        checkResult = __KXKextRealizeFromCache(aKext);
-        if (checkResult != kKXKextManagerErrorNone) {
+        KXKextManagerError checkResult = __KXKextRealizeFromCache(aKext);
+        // We don't care if it's inconsistent, we want the real data from the bundle,
+        // but mark the repository so it will rescan
+        if (checkResult == kKXKextManagerErrorCache) {
+            KXKextRepositorySetNeedsReset(aKext->repository, true);
+        } else if (checkResult != kKXKextManagerErrorNone) {
+            error = true;
             goto finish;
         }
         pDict = (CFDictionaryRef)CFDictionaryGetValue(aKext->infoDictionary,
             CFSTR("IOKitPersonalities"));
-    }
-
-    newPArray = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-            &kCFTypeArrayCallBacks);
-    if (!newPArray) {
-        error = true;
-        goto finish;
+        if (!pDict) {
+            // not an error to have no personalities
+            goto finish;
+        }
     }
 
     count = CFDictionaryGetCount(pDict);
+    if (!count) {
+        goto finish;
+    }
     values = (CFStringRef *)malloc(count * sizeof(CFTypeRef));
+    if (!values) {
+        error = true;
+        goto finish;
+    }
 
     CFDictionaryGetKeysAndValues(pDict, NULL, (const void **)values);
 
@@ -5253,7 +5277,7 @@ KXKextManagerError __KXKextRealizeFromCache(KXKextRef aKext)
 
     if (!CFEqual(aKext->infoDictionary, comparisonInfoDictionary)) {
         result = kKXKextManagerErrorCache;
-        goto finish;
+        // don't jump to finish, apply the from-bundle info dictionary
     }
     CFRelease(aKext->infoDictionary);  // save a little memory
     aKext->infoDictionary = bundleInfoDictionary;  // not the comparison dict!
@@ -5267,7 +5291,7 @@ KXKextManagerError __KXKextRealizeFromCache(KXKextRef aKext)
         !__KXKextCheckStringProperty(aKext, aKext->infoDictionary,
             CFSTR("CFBundlePackageType"), NULL, true, CFSTR("KEXT"), NULL)) {
         result = kKXKextManagerErrorCache;
-        goto finish;
+        // do not goto finish any more
     }
 
 

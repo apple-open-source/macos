@@ -1057,6 +1057,11 @@ extern "C" {
 	
     if ( mPWFileValidated )
     {
+		#if DEBUG
+		if ( mTestSpillBucket )
+			return 2;
+		#endif
+		
 		if ( mPWFileHeader.deepestSlotUsedByThisServer < mPWFileHeader.numberOfSlotsCurrentlyInFile - 1 )
 		{
 			err = [self getPasswordRec:mPWFileHeader.deepestSlotUsedByThisServer + 1 putItHere:&dbEntry];
@@ -1492,7 +1497,7 @@ extern "C" {
 	}
 	else
 	{
-		[mOverflow saveOverflowRecord:passwordRec obfuscate:NO setModDate:YES];
+		[mOverflow saveOverflowRecord:passwordRec obfuscate:YES setModDate:YES];
 	}
 
 	return err;
@@ -1701,7 +1706,6 @@ extern "C" {
 		err = [mOverflow getPasswordRecFromSpillBucket:passwordRec unObfuscate:unObfuscate];
 		if ( err == 0 )
 		{
-			memcpy( passwordRec, &dbEntry, sizeof(PWFileEntry) );
 			if ( outFromSpillBucket != NULL )
 				*outFromSpillBucket = YES;
 		}
@@ -1816,14 +1820,17 @@ extern "C" {
 	
 	// start with a zero record
 	bzero( &deleteRec, sizeof(PWFileEntry) );
+	
+	// keep slot ID for routing in the DB
+	deleteRec.time = passwordRec->time;
+	deleteRec.rnd = passwordRec->rnd;
+	deleteRec.sequenceNumber = passwordRec->sequenceNumber;
+	deleteRec.slot = passwordRec->slot;
+	
 	if ( useDeathCertificate )
 	{
 		// keep the ID, mark the time of deletion in modDateOfPassword,
 		// and mark dead.
-		deleteRec.time = passwordRec->time;
-		deleteRec.rnd = passwordRec->rnd;
-		deleteRec.sequenceNumber = passwordRec->sequenceNumber;
-		deleteRec.slot = passwordRec->slot;
 		pwsf_getGMTime( (struct tm *)&deleteRec.modDateOfPassword );
 		deleteRec.extraAccess.recordIsDead = true;
 		deleteRec.changeTransactionID = passwordRec->changeTransactionID;
@@ -3713,7 +3720,7 @@ extern "C" {
 	
 	localKerbRec = inKerbList->GetPrincipalByName( remoteKerbRec->GetName() );
 	if ( localKerbRec == NULL )
-			{
+	{
 		// not in the database yet (or not in the cache)
 		*outAccepted = YES;
 		return kSyncStatusNoErr;

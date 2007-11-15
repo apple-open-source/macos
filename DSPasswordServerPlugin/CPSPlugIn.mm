@@ -4123,7 +4123,7 @@ SInt32 CPSPlugIn::DoAuthMethodNewComputer( sDoDirNodeAuth *inData, sPSContextDat
 
 
 // ---------------------------------------------------------------------------
-//	* DoAuthMethodListReplicas
+//	* DoAuthMethodSetComputerAccountPassword
 // ---------------------------------------------------------------------------
 
 SInt32

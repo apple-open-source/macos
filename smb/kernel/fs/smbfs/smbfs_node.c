@@ -951,6 +951,18 @@ smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap, int UpdateResourceParent
 		 */
 		fap->fa_attr &= ~SMB_FA_RDONLY;	/* Can't trust the one we just got in */
 		fap->fa_attr |= (np->n_dosattr & SMB_FA_RDONLY);	/* Leave it set to what it was before */
+	} else if ((vnode_isvroot(vp)) && (fap->fa_attr & SMB_FA_RDONLY)) {
+	    	/*
+		 * See Radar 5563358 for more details.
+		 *
+		 * On Windows the Read-Only bit is advisory when dealing with directories. We use this 
+		 * bit to allow Mac users to lock directories on Windows Servers. This makes the Mac
+		 * experance a little better and really doesn't affect the Windows users. The problem is 
+		 * when this bit is set on a root node. We should never let the Windows Ready-Only bit 
+		 * determine if the root is locked. Seems some Window special shares have this set by 
+		 * default.
+		 */
+		fap->fa_attr &= ~SMB_FA_RDONLY; /* Never let this bit lock the root vnode. */
 	}
 
 	/*

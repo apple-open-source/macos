@@ -1,4 +1,4 @@
-# Mac OS X 10.5
+# Mac OS X 10.5.1
 Apple16X50Serial	19.2
 Apple3Com3C90x	10
 AppleADBButtons	300
@@ -54,7 +54,7 @@ CoreOSMakefiles	40
 CrackLib	30889
 Csu	75
 CyrusIMAP	187
-DSPasswordServerPlugin	206
+DSPasswordServerPlugin	207.1
 DSTools	109
 DirectoryService	514
 DiskArbitration	182
@@ -79,7 +79,7 @@ IOGraphics	233
 IOHIDFamily	247
 IOI2CFamily	111.0.2
 IOKitTools	76
-IOKitUser	376
+IOKitUser	376.0.1
 IONetworkingFamily	46
 IOPCCardFamily	48
 IOPCIFamily	103
@@ -115,7 +115,7 @@ RubyCocoa	57
 RubyGems	15
 RubyOnRails	25
 SCSIHeaderInstaller	100.0.2
-Security	31122
+Security	32736
 SecurityTokend	32363
 SecurityTool	32482
 SmartCardServices	32672
@@ -182,7 +182,7 @@ cvs_wrapped	13
 cxxfilt	6
 developer_cmds	48
 diffstat	5
-diskdev_cmds	419
+diskdev_cmds	420
 disklabel	2
 distcc	881
 doc_cmds	47
@@ -262,7 +262,7 @@ libsecurity_cssm	31536
 libsecurity_dotmacdl	29745
 libsecurity_filedb	32510
 libsecurity_filevault	28631
-libsecurity_keychain	32623
+libsecurity_keychain	32768
 libsecurity_ldap_dl	30174
 libsecurity_manifest	29384
 libsecurity_mds	32449
@@ -282,7 +282,7 @@ libxslt	8.4.1
 lsof	33
 lukemftp	11
 lukemftpd	33
-mDNSResponder	161.1
+mDNSResponder	164
 mail_cmds	22
 mailman	126
 man	12
@@ -328,7 +328,7 @@ rsync	30
 ruby	67
 ruby_dnssd	6
 ruby_libxml	6
-samba	187
+samba	187.1
 screen	12
 security_authtrampoline	32534
 security_certificates	32641
@@ -340,7 +340,7 @@ security_privportserver	26778
 security_systemkeychain	32626
 securityd	32661
 shell_cmds	116
-smb	344
+smb	345
 srm	6
 stmalloc	4
 subversion	16
@@ -366,7 +366,7 @@ webdavfs	252
 wxWidgets	11
 xar	28
 xelf	1
-xnu	1228
+xnu	1228.0.2
 zip	9
 zlib	18
 zsh	48

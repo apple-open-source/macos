@@ -36,7 +36,8 @@
 #include <security_keychain/KeyItem.h>
 #include <Security/Authorization.h>
 
-#define kKeychainRenamedSuffix "_renamed"
+#define kLegacyKeychainRenamedSuffix    "_renamed"
+#define kKeychainRenamedSuffix          "_renamed_"
 
 namespace Security
 {

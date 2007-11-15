@@ -240,15 +240,15 @@ PWSFKerberosPrincipal* PWSFKerberosPrincipalList::GetPrincipalByName(char* princ
 	}
 	else
 	{
-	while (current != NULL)
-	{
-		name = current->GetName();
-				if (name != NULL && *name == firstChar && strcmp(name + 1, principalName + 1) == 0)
-			break;
-		current = current->GetNext();
+		while (current != NULL)
+		{
+			name = current->GetName();
+			if (name != NULL && *name == firstChar && strcmp(name + 1, principalName + 1) == 0)
+				break;
+			current = current->GetNext();
+		}
 	}
-	}
-		
+	
 	return current;
 }
 

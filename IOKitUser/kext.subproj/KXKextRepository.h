@@ -28,6 +28,10 @@ Boolean KXKextRepositoryGetScansForKexts(KXKextRepositoryRef aRepository);
 KXKextManagerError KXKextRepositorySetScansForKexts(
     KXKextRepositoryRef aRepository,
     Boolean flag);
+Boolean KXKextRepositoryGetNeedsReset(KXKextRepositoryRef aRepository);
+void KXKextRepositorySetNeedsReset(
+    KXKextRepositoryRef aRepository,
+    Boolean flag);
 
 void KXKextRepositoryResolveBadKextDependencies(KXKextRepositoryRef aRepository);
 
@@ -45,6 +49,8 @@ KXKextManagerError KXKextRepositoryScan(
 // and rescans its directory. Otherwise records the URLs of all kexts
 // in the repository, empties the repository, and attempts to recreate
 // those kexts from disk and not from the cache.
+KXKextManagerError KXKextRepositoryResetIfNeeded(
+    KXKextRepositoryRef aRepository);
 KXKextManagerError KXKextRepositoryReset(
     KXKextRepositoryRef aRepository);
 

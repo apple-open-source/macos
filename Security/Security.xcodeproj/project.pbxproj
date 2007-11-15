@@ -411,11 +411,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>5.0</string>
+	<string>5.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>31122</string>
+	<string>32736</string>
 </dict>
 </plist>
 ";
@@ -945,7 +945,6 @@
 			productRefGroup = 034768DFFF38A50411DB9C8B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				C224637B0B86213C00626F1B /* World */,
 				0867D69CFE84028FC02AAC07 /* Security */,
@@ -1460,9 +1459,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 31122;
+				CURRENT_PROJECT_VERSION = 32736;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 31122;
+				DYLIB_CURRENT_VERSION = 32736;
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
@@ -1515,9 +1514,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 31122;
+				CURRENT_PROJECT_VERSION = 32736;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 31122;
+				DYLIB_CURRENT_VERSION = 32736;
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
@@ -1573,9 +1572,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 31122;
+				CURRENT_PROJECT_VERSION = 32736;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 31122;
+				DYLIB_CURRENT_VERSION = 32736;
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
@@ -1624,9 +1623,9 @@
 				BUILD_VARIANTS = normal;
 				COPY_PHASE_STRIP = NO;
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers/Security";
-				CURRENT_PROJECT_VERSION = 31122;
+				CURRENT_PROJECT_VERSION = 32736;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 31122;
+				DYLIB_CURRENT_VERSION = 32736;
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
@@ -1681,9 +1680,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 31122;
+				CURRENT_PROJECT_VERSION = 32736;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 31122;
+				DYLIB_CURRENT_VERSION = 32736;
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,

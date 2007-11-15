@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#import <TargetConditionals.h>
 #import <unistd.h>
 #import <sys/stat.h>
 #import "AuthOverflowFile.h"
@@ -155,9 +156,8 @@
 	unsigned int encodeLen;
     int writeCount;
     char *filePath = NULL;
-#if TARGET_RT_LITTLE_ENDIAN
+	bool bad = false;
 	PWFileEntry passRec;
-#endif
 
 	if ( inPasswordRec == NULL )
 		return -1;
@@ -198,7 +198,14 @@
 		byteCount = pread( fileno(fp), buff, sizeof(buff), offset );
 		if ( byteCount == 0 )
 			break;
-		if ( (byteCount != sizeof(buff)) || (fileNumber >= 0 && [self simpleHash:(PWFileEntry *)(buff + 34)] != fileNumber) )
+		bad = (byteCount != sizeof(buff));
+		if ( !bad )
+		{
+			pwsf_stringToPasswordRecRef( buff, &passRec );
+			bad = (fileNumber >= 0 && [self simpleHash:&passRec] != fileNumber);
+		}
+		
+		if ( bad )
 		{
 			[self pwWait];
 			if ( offset > 0 ) {
@@ -275,7 +282,7 @@
 #if TARGET_RT_LITTLE_ENDIAN
 				memcpy( &passRec, inPasswordRec, sizeof(PWFileEntry) );
 				pwsf_EndianAdjustPWFileEntry( &passRec, 0 );
-				writeCount = fwrite( inPasswordRec, sizeof(PWFileEntry), 1, fp );
+				writeCount = fwrite( &passRec, sizeof(PWFileEntry), 1, fp );
 				bzero( &passRec, sizeof(PWFileEntry) );
 #else
 				writeCount = fwrite( inPasswordRec, sizeof(PWFileEntry), 1, fp );
@@ -565,6 +572,7 @@ done:
 	bool repairedAFile = false;
 	char *thePrincDomain = NULL;
 	long len = 0;
+	bool bad = false;
 	//unsigned long encodeLen = 0;
 	char filePathStr[PATH_MAX] = {0};
 	char thePrincName[256] = {0,};
@@ -637,7 +645,13 @@ done:
 					break;
 				
 				// file integrity check
-				if ( (byteCount != sizeof(recBuff)) || (fileNumber >= 0 && [self simpleHash:&recBuff] != fileNumber) )
+				bad = (byteCount != sizeof(recBuff));
+				if ( !bad )
+				{
+					pwsf_EndianAdjustPWFileEntry( &recBuff, 1 );
+					bad = (fileNumber >= 0 && [self simpleHash:&recBuff] != fileNumber);
+				}
+				if ( bad )
 				{
 					if ( offset > 0 ) {
 						#if DEBUG

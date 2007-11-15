@@ -747,6 +747,11 @@ void KXKextManagerResetAllRepositories(KXKextManagerRef aKextManager)
     _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelDetails, NULL, 0,
         "resetting all repositories");
 
+   /* Ensure all references to CFBundles are dropped *before* resetting,
+    * or CFBundleCreate won't bother to read from disk.
+    */
+    __KXKextManagerClearRelationships(aKextManager);
+
     KXKextManagerDisableClearRelationships(aKextManager);
 
     count = CFArrayGetCount(aKextManager->repositoryList);
@@ -1714,8 +1719,9 @@ KXKextManagerError KXKextManagerSendAllKextPersonalitiesToCatalog(
     KXKextManagerRef aKextManager)
 {
     KXKextManagerError result = kKXKextManagerErrorNone;
+    Boolean cacheError = false;
     CFMutableArrayRef thePersonalities = NULL;  // returned
-    CFIndex count, kextCount, i;
+    CFIndex numRepositories, nonCachedKextCount, probCachedKextCount, i;
     KXKextRef * values = NULL;  // must free
 
     IOCatalogueReset(kIOMasterPortDefault, kIOCatalogResetDefault);
@@ -1733,29 +1739,37 @@ KXKextManagerError KXKextManagerSendAllKextPersonalitiesToCatalog(
         KXKextManagerCalculateVersionRelationships(aKextManager);
     }
 
-    kextCount = CFDictionaryGetCount(aKextManager->candidateKexts);
-    count = CFArrayGetCount(aKextManager->repositoryList);
-    for (i = 0; i < count; i++) {
+    probCachedKextCount = CFDictionaryGetCount(aKextManager->candidateKexts);
+    numRepositories = CFArrayGetCount(aKextManager->repositoryList);
+    for (i = 0; i < numRepositories; i++) {
         KXKextRepositoryRef thisRepository = (KXKextRepositoryRef)
             CFArrayGetValueAtIndex(aKextManager->repositoryList, i);
 
         result = KXKextRepositorySendCatalogFromCache(thisRepository, aKextManager->candidateKexts);
-        if (kKXKextManagerErrorNone == result) {
-            // aKextManager->candidateKexts has been altered
-            aKextManager->needsCalculateRelationships = true;
+        // regardless of result, aKextManager->candidateKexts may have been altered
+        aKextManager->needsCalculateRelationships = true;
+        if (kKXKextManagerErrorCache == result) {
+            cacheError = true;
         }
     }
 
     result = kKXKextManagerErrorNone;
-    count = CFDictionaryGetCount(aKextManager->candidateKexts);
+    nonCachedKextCount = CFDictionaryGetCount(aKextManager->candidateKexts);
     _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelDefault, NULL, 0,
         "%ld cached, %ld uncached personalities to catalog",
-        kextCount - count, count);
+        probCachedKextCount - nonCachedKextCount, nonCachedKextCount);
 
-    if (!count)
+    if (!nonCachedKextCount) {
         goto finish;
+    }
 
-    values = (KXKextRef *)malloc(kextCount * sizeof(KXKextRef));
+    if (cacheError) {
+        __KXKextManagerClearRelationships(aKextManager);
+        KXKextManagerCalculateVersionRelationships(aKextManager);
+    }
+
+    nonCachedKextCount = CFDictionaryGetCount(aKextManager->candidateKexts);
+    values = (KXKextRef *)malloc(nonCachedKextCount * sizeof(KXKextRef));
     if (!values) {
         _KXKextManagerLogError(aKextManager, "no memory?");
         result = kKXKextManagerErrorNoMemory;
@@ -1772,7 +1786,7 @@ KXKextManagerError KXKextManagerSendAllKextPersonalitiesToCatalog(
         goto finish;
     }
 
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < nonCachedKextCount; i++) {
         KXKextRef thisKext = values[i];
         CFArrayRef personalities = KXKextCopyPersonalitiesArray(thisKext);
         if (personalities) {
@@ -1780,6 +1794,18 @@ KXKextManagerError KXKextManagerSendAllKextPersonalitiesToCatalog(
                 CFRangeMake(0, CFArrayGetCount(personalities)));
             CFRelease(personalities);
         }
+    }
+
+   /* Ensure all references to CFBundles are dropped *before* resetting,
+    * or CFBundleCreate won't bother to read from disk.
+    */
+    __KXKextManagerClearRelationships(aKextManager);
+
+    for (i = 0; i < numRepositories; i++) {
+        KXKextRepositoryRef thisRepository = (KXKextRepositoryRef)
+            CFArrayGetValueAtIndex(aKextManager->repositoryList, i);
+
+        KXKextRepositoryResetIfNeeded(thisRepository);
     }
 
     result = KXKextManagerSendPersonalitiesToCatalog(aKextManager, thePersonalities);

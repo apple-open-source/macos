@@ -3388,6 +3388,11 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 	 * field from inline attribute record.
 	 */
 	err = GetBTreeRecord(GPtr->calculatedAttributesFCB, selCode, &attrKey, &attrRecord, &attrRecordSize, &hint);
+	if (err == btNotFound) {
+		/* The attributes B-tree is empty, which is OK; nothing to do. */
+		err = noErr;
+		goto out;
+	}
 	if (err != noErr) goto out; 
 
 	selCode = 1;	/* Get next record */

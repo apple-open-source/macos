@@ -30,6 +30,7 @@ typedef struct __KXKextRepository {
     KXKextManagerRef manager;
 
     CFStringRef  repositoryPath;    // canonicalized to absolute path
+    Boolean   needsReset;           // indiv. kext: cache inconsistency found at some point
     Boolean   useCache;             // use/update cache files when possible
     Boolean   scansForKexts;        // scan whole directory or just kexts known
 
@@ -144,6 +145,25 @@ KXKextManagerError KXKextRepositorySetScansForKexts(
 /*******************************************************************************
 *
 *******************************************************************************/
+Boolean KXKextRepositoryGetNeedsReset(KXKextRepositoryRef aRepository)
+{
+    return aRepository->needsReset;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+void KXKextRepositorySetNeedsReset(
+    KXKextRepositoryRef aRepository,
+    Boolean flag)
+{
+    aRepository->needsReset = flag;
+    return;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
 void KXKextRepositoryResolveBadKextDependencies(KXKextRepositoryRef aRepository)
 {
     CFIndex count, i;
@@ -202,6 +222,25 @@ KXKextManagerError KXKextRepositoryScan(
     aRepository->hasAuthenticated = false;
 
     return result;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+KXKextManagerError KXKextRepositoryResetIfNeeded(
+    KXKextRepositoryRef aRepository)
+{
+    if (KXKextRepositoryGetNeedsReset(aRepository)) {
+        const char * repository_name =
+            _KXKextRepositoryCopyCanonicalPathnameAsCString(aRepository);
+        if (repository_name) {
+            _KXKextManagerLogMessage(aRepository->manager,
+                "rescanning %s due to cache inconsistency", repository_name);
+            free((char *)repository_name);
+        }
+        return KXKextRepositoryReset(aRepository);
+    }
+    return kKXKextManagerErrorNone;
 }
 
 /*******************************************************************************
@@ -338,6 +377,7 @@ KXKextManagerError KXKextRepositoryReset(
     aRepository->hasAuthenticated = false;
 
 finish:
+    aRepository->needsReset = false;
     if (kextURLs) CFRelease(kextURLs);
     return result;
 }

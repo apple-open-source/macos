@@ -66,9 +66,10 @@ using namespace KeychainCore;
 #define x_debug(str) secdebug("KClogin",(str))
 #define x_debug1(fmt,arg1) secdebug("KClogin",(fmt),(arg1))
 #define x_debug2(fmt,arg1,arg2) secdebug("KClogin",(fmt),(arg1),(arg2))
+
 #define kLoginKeychainPathPrefix "~/Library/Keychains/"
 #define kUserLoginKeychainPath "~/Library/Keychains/login.keychain"
-
+#define kEmptyKeychainSizeInBytes   20460
 
 //-----------------------------------------------------------------------------------
 
@@ -432,7 +433,7 @@ void StorageManager::rename(Keychain keychain, const char* newName)
 			assert(it != mKeychains.end() && it->second == keychain.get());
 			if (it != mKeychains.end() && it->second == keychain.get())
 			{
-				// Remove the keychain from the cache under it's old
+				// Remove the keychain from the cache under its old
 				// dLDbIdentifier
 				mKeychains.erase(it);
 			}
@@ -946,133 +947,255 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 	if (!loginDLDbIdentifier)
 		MacOSError::throwMe(errSecNoSuchKeychain);
 
-	
-	
-	/***** Variables used thoughout the whole Function****************/
-		//Extract User ID
-		int uid = geteuid();
-		//check for root
-		
-		struct passwd * pw;
-		//Search password database for the given user uid
-		pw = getpwuid(uid);
-		if (pw == NULL){
-			x_debug("StorageManager::login: invalid argument (NULL uid)");
-			MacOSError::throwMe(paramErr);
-		}
-			
-		//Get user name from the returned passwd struct
-		char * userName		= pw->pw_name;
-		
-		//Creating shortname Full path
-		std::string shortnameKeychain = DLDbListCFPref::ExpandTildesInPath(kLoginKeychainPathPrefix);
-		shortnameKeychain += userName; // to access, use shortnameKeychain.c_str()
-		
-		//lKeychain contains the full path of login.keychain
-		std::string lKeychain = DLDbListCFPref::ExpandTildesInPath(kLoginKeychainPathPrefix);
-		lKeychain += "login.keychain";
-		
-		//Used to check if the shortnamekeychain exist
-		struct stat st;
-		int stat_result = stat(shortnameKeychain.c_str(), &st);
-	/****************************************************************/
-	
-	Keychain theKeychain(keychain(loginDLDbIdentifier));
-	
-	//Flag to determine if the login.keychain unlocked
-	//	This variable is used for the "Allowing another keychain other than login.keychain to be unlocked"
-	bool loginUnlocked = false;	
-	try
-	{
-		x_debug2("Attempting to unlock login keychain %s with %d-character password", (theKeychain) ? theKeychain->name() : "<NULL>", (unsigned int)passwordLength);
-		theKeychain->unlock(CssmData(const_cast<void *>(password), passwordLength));
-		// x_debug("Login keychain unlocked successfully");
-		loginUnlocked = true;
-	}
-	catch(const CssmError &e)
-	{
-		if (e.osStatus() != CSSMERR_DL_DATASTORE_DOESNOT_EXIST)
-			throw;
-		
-		int rename_stat = 0;
-		
-		//if "~/Libary/Keychains/shortname" file Exist
-		//Note: At this point we know that login.keychain is not made yet, therfore
-		//if "~/Libary/Keychains/shortname" we rename it to login.keychain
-		if(stat_result == 0){
-			
-			//Rename "~/Libary/Keychains/shortname" to "~/Libary/Keychains/login.keychain"
-			rename_stat = ::rename(shortnameKeychain.c_str(), lKeychain.c_str());
-			
-			if(rename_stat != 0){
-				MacOSError::throwMe(errno);
-			}
-			
-			// make the shortname identifier
-			CSSM_VERSION version = {0, 0};
-			DLDbIdentifier shortnameDLDbIdentifier = DLDbListCFPref::makeDLDbIdentifier(gGuidAppleCSPDL, version, 0, CSSM_SERVICE_CSP | CSSM_SERVICE_DL,shortnameKeychain.c_str(),NULL);
-			
-			//if the short keychain exists and it is the only item in
-			//the plist, rename it and blow the plist away.
-			if (mSavedList.searchList().size() == 1 && mSavedList.member(shortnameDLDbIdentifier)){
-				mSavedList.remove(shortnameDLDbIdentifier);
-			}
-			//If the shortname is in the plist, rename it in the plist as well
-			else if(mSavedList.member(shortnameDLDbIdentifier)){
-				mSavedList.revert(true);
-				
-				// theKeychain is in the searchList so lets rename it
-				mSavedList.rename(shortnameDLDbIdentifier,loginDLDbIdentifier);
-				mSavedList.save();
-			}
-			
-		}else{
-			//Default login.keychain is created	
-			x_debug1("Creating login keychain %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
-			theKeychain->create(passwordLength, password);
-			x_debug("Login keychain created successfully");
-			// Set the prefs for this new login keychain.
-			loginKeychain(theKeychain);
-			// Login Keychain does not lock on sleep nor lock after timeout by default.
-			theKeychain->setSettings(INT_MAX, false);
-		}
-	}
-	
-	/********** This part of the Code is a Temp solution for when a User wants 
-	*			 another Keychain (other than login.keychain) to auto unlock    *************************************
-	*
-	*Description: 
-	*	If the shortname keychain exist and is not in the searchlist then we added it. Also this code
-	*	now will automatically unlock any shortname keychain that has the same password as login.keychain.
-	****************************************************************************************************************/
 
-	
-	try{
-		
-		//If the shrtnamekeychain is not in the searchlist then we should add it to the SearchList
-		CSSM_VERSION version = {0, 0};
-		DLDbIdentifier shrtnameDLDbIdentifier = DLDbListCFPref::makeDLDbIdentifier(gGuidAppleCSPDL, version, 0, CSSM_SERVICE_CSP | CSSM_SERVICE_DL,shortnameKeychain.c_str(),NULL);
-		if( !(mSavedList.member(shrtnameDLDbIdentifier))  && (stat_result == 0) ){
-			// the Keychain exists and is not in our search list, so add it to the 
-			// search list.
-			mSavedList.revert(true);
-			mSavedList.add(shrtnameDLDbIdentifier);
-			mSavedList.save();
-		}
-		
-		Keychain shrtnameKC(keychain(shrtnameDLDbIdentifier));
-					
-		
-		x_debug2("Attempting to unlock shrtnamekeychain %s with %d-character password", 
-			(shrtnameKC) ? shrtnameKC->name() : "<NULL>", (unsigned int)passwordLength);
-		shrtnameKC->unlock(CssmData(const_cast<void *>(password), passwordLength));
-	}
-	catch(const CssmError &e){
-		if (e.osStatus() != CSSMERR_DL_DATASTORE_DOESNOT_EXIST)
-			throw;
-	}
-	//***************************************************************************************************************
-	
+    //***************************************************************
+    // gather keychain information
+    //***************************************************************
+
+    // user name
+    int uid = geteuid();
+    struct passwd *pw = getpwuid(uid);
+    if (pw == NULL) {
+        x_debug("StorageManager::login: invalid argument (NULL uid)");
+        MacOSError::throwMe(paramErr);
+    }
+    char *userName = pw->pw_name;
+
+    // make keychain path strings
+    std::string keychainPath = DLDbListCFPref::ExpandTildesInPath(kLoginKeychainPathPrefix);
+    std::string shortnameKeychain = keychainPath + userName;
+    std::string shortnameDotKeychain = shortnameKeychain + ".keychain";
+    std::string loginDotKeychain = keychainPath + "login.keychain";
+    std::string loginRenamed1Keychain = keychainPath + "login_renamed1.keychain";
+    
+    // check for existence of keychain files
+    bool shortnameKeychainExists = false;
+    bool shortnameDotKeychainExists = false;
+    bool loginKeychainExists = false;
+    bool loginRenamed1KeychainExists = false;
+    {
+        struct stat st;
+        int stat_result;
+        stat_result = ::stat(shortnameKeychain.c_str(), &st);
+        shortnameKeychainExists = (stat_result == 0);
+        stat_result = ::stat(shortnameDotKeychain.c_str(), &st);
+        shortnameDotKeychainExists = (stat_result == 0);
+        stat_result = ::stat(loginDotKeychain.c_str(), &st);
+        loginKeychainExists = (stat_result == 0);
+        stat_result = ::stat(loginRenamed1Keychain.c_str(), &st);
+        loginRenamed1KeychainExists = (stat_result == 0);
+    }
+
+    bool loginUnlocked = false;	
+
+    // make the keychain identifiers
+    CSSM_VERSION version = {0, 0};
+    DLDbIdentifier shortnameDLDbIdentifier = DLDbListCFPref::makeDLDbIdentifier(gGuidAppleCSPDL, version, 0, CSSM_SERVICE_CSP | CSSM_SERVICE_DL, shortnameKeychain.c_str(), NULL);
+    DLDbIdentifier shortnameDotDLDbIdentifier = DLDbListCFPref::makeDLDbIdentifier(gGuidAppleCSPDL, version, 0, CSSM_SERVICE_CSP | CSSM_SERVICE_DL, shortnameDotKeychain.c_str(), NULL);
+    DLDbIdentifier loginRenamed1DLDbIdentifier = DLDbListCFPref::makeDLDbIdentifier(gGuidAppleCSPDL, version, 0, CSSM_SERVICE_CSP | CSSM_SERVICE_DL, loginRenamed1Keychain.c_str(), NULL);
+
+    //***************************************************************
+    // make file renaming changes first
+    //***************************************************************
+
+    // if "~/Library/Keychains/shortname" exists, we need to migrate it forward;
+    // either to login.keychain if there isn't already one, otherwise to shortname.keychain
+    if (shortnameKeychainExists) {
+        int rename_stat = 0;
+        if (loginKeychainExists) {
+            struct stat st;
+            int tmp_result = ::stat(loginDotKeychain.c_str(), &st);
+            if (tmp_result == 0) {
+                if (st.st_size <= kEmptyKeychainSizeInBytes) {
+                    tmp_result = ::unlink(loginDotKeychain.c_str());
+                    rename_stat = ::rename(shortnameKeychain.c_str(), loginDotKeychain.c_str());
+                    shortnameKeychainExists = (rename_stat != 0);
+                }
+            }
+        }
+        if (shortnameKeychainExists) {
+            if (loginKeychainExists && !shortnameDotKeychainExists) {
+                rename_stat = ::rename(shortnameKeychain.c_str(), shortnameDotKeychain.c_str());
+                shortnameDotKeychainExists = (rename_stat == 0);
+            } else if (!loginKeychainExists) {
+                rename_stat = ::rename(shortnameKeychain.c_str(), loginDotKeychain.c_str());
+                loginKeychainExists = (rename_stat == 0);
+            } else {
+                // we have all 3 keychains: login.keychain, shortname, and shortname.keychain.
+                // on Leopard we never want a shortname keychain, so we must move it aside.
+                char pathbuf[MAXPATHLEN];
+                std::string shortnameRenamedXXXKeychain = keychainPath;
+                shortnameRenamedXXXKeychain += userName;
+                shortnameRenamedXXXKeychain += "_renamed_XXX.keychain";
+                ::strlcpy(pathbuf, shortnameRenamedXXXKeychain.c_str(), sizeof(pathbuf));
+                ::mkstemps(pathbuf, 9); // 9 == strlen(".keychain")
+                rename_stat = ::rename(shortnameKeychain.c_str(), pathbuf);
+                shortnameKeychainExists = (rename_stat != 0);
+            }
+        }
+        if (rename_stat != 0) {
+            MacOSError::throwMe(errno);
+        }
+    }
+    
+    //***************************************************************
+    // handle special case where user previously reset the keychain
+    //***************************************************************
+    // Since 9A581, we have changed the definition of kKeychainRenamedSuffix from "_renamed" to "_renamed_".
+    // Therefore, if "login_renamed1.keychain" exists and there is no plist, the user may have run into a
+    // prior upgrade issue and clicked Reset. If we can successfully unlock login_renamed1.keychain with the
+    // supplied password, then we will attempt to rename it to login.keychain if that file is empty, or with
+    // "shortname.keychain" if it is not.
+
+    if (loginRenamed1KeychainExists && (!loginKeychainExists ||
+        (mSavedList.searchList().size() == 1 && mSavedList.member(loginDLDbIdentifier)) )) {
+        try
+        {
+            Keychain loginRenamed1KC(keychain(loginRenamed1DLDbIdentifier));
+            x_debug2("Attempting to unlock %s with %d-character password", 
+                (loginRenamed1KC) ? loginRenamed1KC->name() : "<NULL>", (unsigned int)passwordLength);
+            loginRenamed1KC->unlock(CssmData(const_cast<void *>(password), passwordLength));
+            // if we get here, we unlocked it
+            if (loginKeychainExists) {
+                struct stat st;
+                int tmp_result = ::stat(loginDotKeychain.c_str(), &st);
+                if (tmp_result == 0) {
+                    if (st.st_size <= kEmptyKeychainSizeInBytes) {
+                        tmp_result = ::unlink(loginDotKeychain.c_str());
+                        tmp_result = ::rename(loginRenamed1Keychain.c_str(), loginDotKeychain.c_str());
+                    } else if (!shortnameDotKeychainExists) {
+                        tmp_result = ::rename(loginRenamed1Keychain.c_str(), shortnameDotKeychain.c_str());
+                        shortnameDotKeychainExists = (tmp_result == 0);
+                    } else {
+                        throw 1;   // can't do anything with it except move it out of the way
+                    }
+                }
+            } else {
+                int tmp_result = ::rename(loginRenamed1Keychain.c_str(), loginDotKeychain.c_str());
+                loginKeychainExists = (tmp_result == 0);
+            }
+        }
+        catch(...)
+        {
+            // we failed to unlock the login_renamed1.keychain file with the login password.
+            // move it aside so we don't try to deal with it again.
+            char pathbuf[MAXPATHLEN];
+            std::string loginRenamedXXXKeychain = keychainPath;
+            loginRenamedXXXKeychain += "login_renamed_XXX.keychain";
+            ::strlcpy(pathbuf, loginRenamedXXXKeychain.c_str(), sizeof(pathbuf));
+            ::mkstemps(pathbuf, 9); // 9 == strlen(".keychain")
+            ::rename(loginRenamed1Keychain.c_str(), pathbuf);
+        }
+    }
+
+    // if login.keychain does not exist at this point, create it
+    if (!loginKeychainExists) {
+        Keychain theKeychain(keychain(loginDLDbIdentifier));
+        x_debug1("Creating login keychain %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
+        theKeychain->create(passwordLength, password);
+        x_debug("Login keychain created successfully");
+        loginKeychainExists = true;
+        // Set the prefs for this new login keychain.
+        loginKeychain(theKeychain);
+        // Login Keychain does not lock on sleep nor lock after timeout by default.
+        theKeychain->setSettings(INT_MAX, false);
+        loginUnlocked = true;
+        mSavedList.revert(true);
+    }
+
+    //***************************************************************
+    // make plist changes after files have been renamed or created
+    //***************************************************************
+
+    // if the shortname keychain is currently set as the default, reset the default to login.keychain
+    if (mSavedList.defaultDLDbIdentifier() == shortnameDLDbIdentifier) {
+    	x_debug1("Changing default keychain to %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
+        mSavedList.defaultDLDbIdentifier(loginDLDbIdentifier);
+        mSavedList.save();
+        mSavedList.revert(true);
+    }
+
+    // if the shortname keychain exists in the search list, either rename or remove the entry
+    if (mSavedList.member(shortnameDLDbIdentifier)) {
+        if (shortnameDotKeychainExists && !mSavedList.member(shortnameDotDLDbIdentifier)) {
+            // change shortname to shortname.keychain (login.keychain will be added later if not present)
+            x_debug2("Renaming %s to %s in keychain search list",
+                    (shortnameDLDbIdentifier) ? shortnameDLDbIdentifier.dbName() : "<NULL>",
+                    (shortnameDotDLDbIdentifier) ? shortnameDotDLDbIdentifier.dbName() : "<NULL>");
+            mSavedList.rename(shortnameDLDbIdentifier, shortnameDotDLDbIdentifier);
+        } else if (!mSavedList.member(loginDLDbIdentifier)) {
+            // change shortname to login.keychain
+            x_debug2("Renaming %s to %s in keychain search list",
+                    (shortnameDLDbIdentifier) ? shortnameDLDbIdentifier.dbName() : "<NULL>",
+                    (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
+            mSavedList.rename(shortnameDLDbIdentifier, loginDLDbIdentifier);
+        } else {
+            // already have login.keychain in list, and renaming to shortname.keychain isn't an option,
+            // so just remove the entry
+            x_debug1("Removing %s from keychain search list", (shortnameDLDbIdentifier) ? shortnameDLDbIdentifier.dbName() : "<NULL>");
+            mSavedList.remove(shortnameDLDbIdentifier);
+        }
+
+        // note: save() will cause the plist to be unlinked if the only remaining entry is for login.keychain
+        mSavedList.save();
+        mSavedList.revert(true);
+    }
+
+    // make sure that login.keychain is in the search list
+    if (!mSavedList.member(loginDLDbIdentifier)) {
+    	x_debug1("Adding %s to keychain search list", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
+        mSavedList.add(loginDLDbIdentifier);
+        mSavedList.save();
+        mSavedList.revert(true);
+    }
+
+    // if we have a shortname.keychain, always include it in the plist (after login.keychain)
+    if (shortnameDotKeychainExists && !mSavedList.member(shortnameDotDLDbIdentifier)) {
+        mSavedList.add(shortnameDotDLDbIdentifier);
+        mSavedList.save();
+        mSavedList.revert(true);
+    }
+
+    //***************************************************************
+    // auto-unlock the login keychain(s)
+    //***************************************************************
+    // all our preflight fixups are finally done, so we can now attempt to unlock the login keychain
+
+    OSStatus loginResult = noErr;
+	if (!loginUnlocked) {
+        try
+        {
+            Keychain theKeychain(keychain(loginDLDbIdentifier));
+            x_debug2("Attempting to unlock login keychain \"%s\" with %d-character password",
+                (theKeychain) ? theKeychain->name() : "<NULL>", (unsigned int)passwordLength);
+            theKeychain->unlock(CssmData(const_cast<void *>(password), passwordLength));
+            // x_debug("Login keychain unlocked successfully");
+            loginUnlocked = true;
+        }
+        catch(const CssmError &e)
+        {
+            loginResult = e.osStatus(); // save this result
+        }
+    }
+
+    // if "shortname.keychain" exists and is in the search list, attempt to auto-unlock it with the same password
+    if (shortnameDotKeychainExists && mSavedList.member(shortnameDotDLDbIdentifier)) {
+        try
+        {
+            Keychain shortnameDotKC(keychain(shortnameDotDLDbIdentifier));
+            x_debug2("Attempting to unlock %s with %d-character password", 
+                (shortnameDotKC) ? shortnameDotKC->name() : "<NULL>", (unsigned int)passwordLength);
+            shortnameDotKC->unlock(CssmData(const_cast<void *>(password), passwordLength));
+        }
+        catch(const CssmError &e)
+        {
+            // ignore; failure to unlock this keychain is not considered an error
+        }
+    }
+    
+    if (loginResult != noErr) {
+        MacOSError::throwMe(loginResult);
+    }
 }
 
 void StorageManager::logout()
@@ -1125,7 +1248,7 @@ void StorageManager::resetKeychain(Boolean resetSearchList)
                 CFRange suffixRange = CFStringFind(newName, kcSuffix, 0);
                 CFStringFindAndReplace(newName, kcSuffix, CFSTR(""), suffixRange, 0);
             }
-            CFStringAppend(newName, CFSTR(kKeychainRenamedSuffix));	// add "_renamed"
+            CFStringAppend(newName, CFSTR(kKeychainRenamedSuffix));	// add "_renamed_"
             try
             {
                 renameUnique(keychain, newName);

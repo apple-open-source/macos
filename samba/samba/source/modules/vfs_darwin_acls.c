@@ -50,7 +50,29 @@
 #define FILE_SPECIFIC_EXECUTE_BITS \
     (FILE_EXECUTE)
 
-const SEC_ACL empty_acl = {
+/* Bitmask of all possible ACL permissions. We use this in an ugly workaround
+ * for the lack of an API that tests whether a permset is empty or not.
+ */
+#define ACL_ALL_PERMISSIONS \
+    ( ACL_READ_DATA | \
+        ACL_LIST_DIRECTORY | \
+        ACL_WRITE_DATA | \
+        ACL_ADD_FILE | \
+        ACL_EXECUTE | \
+        ACL_SEARCH | \
+        ACL_DELETE | \
+        ACL_APPEND_DATA | \
+        ACL_ADD_SUBDIRECTORY | \
+        ACL_DELETE_CHILD | \
+        ACL_READ_ATTRIBUTES | \
+        ACL_WRITE_ATTRIBUTES | \
+        ACL_WRITE_EXTATTRIBUTES | \
+        ACL_READ_SECURITY | \
+        ACL_WRITE_SECURITY | \
+        ACL_CHANGE_OWNER)
+
+
+static SEC_ACL empty_acl = {
 	NT4_ACL_REVISION, /* revision */
 	SEC_ACL_HEADER_SIZE, /* size */
 	0, /* number of ACEs */
@@ -165,7 +187,6 @@ static BOOL ace_list_new(void * mem_ctx, struct sec_ace_list * acelist)
 static BOOL ace_list_append_ace(struct sec_ace_list * acelist,
 		const DOM_SID *sid, uint8 type, SEC_ACCESS mask, uint8 flag)
 {
-
 	/* Make room for a new SEC_ACE if necessary. */
 	if (acelist->ace_count == acelist->ace_length) {
 		if (!ace_list_grow(acelist)) {
@@ -210,7 +231,7 @@ static const struct
 	{ ACL_READ_DATA, FILE_READ_DATA },
 	{ ACL_WRITE_DATA, FILE_WRITE_DATA },
 	{ ACL_EXECUTE, FILE_EXECUTE },
-	{ ACL_DELETE, STD_RIGHT_DELETE_ACCESS },
+	{ ACL_DELETE, DELETE_ACCESS },
 	{ ACL_APPEND_DATA, FILE_APPEND_DATA },
 	{ ACL_DELETE_CHILD, FILE_DELETE_CHILD },
 	{ ACL_READ_ATTRIBUTES, FILE_READ_ATTRIBUTES },
@@ -220,11 +241,6 @@ static const struct
 	{ ACL_READ_SECURITY, READ_CONTROL_ACCESS },
 	{ ACL_WRITE_SECURITY, WRITE_DAC_ACCESS },
 	{ ACL_CHANGE_OWNER, WRITE_OWNER_ACCESS },
-
-	{ ACL_GENERIC_ALL, GENERIC_ALL_ACCESS },
-	{ ACL_GENERIC_EXECUTE, GENERIC_EXECUTE_ACCESS },
-	{ ACL_GENERIC_WRITE, GENERIC_WRITE_ACCESS },
-	{ ACL_GENERIC_READ, GENERIC_READ_ACCESS }
 
 };
 
@@ -243,6 +259,7 @@ static const struct
 
 static int map_flags_darwin_to_nt (acl_flagset_t flags)
 {
+	uint32 darwin_flags = 0;
 	int ntflags = 0;
 	int i;
 
@@ -255,9 +272,13 @@ static int map_flags_darwin_to_nt (acl_flagset_t flags)
 
 	for (i = 0; i < ARRAY_SIZE(ntacl_flag_table); ++i) {
 		if (acl_get_flag_np(flags, ntacl_flag_table[i].aclflag) == 1) {
-			ntflags |=  ntacl_flag_table[i].ntflag;
+			ntflags |= ntacl_flag_table[i].ntflag;
+			darwin_flags |= ntacl_flag_table[i].aclflag;
 		}
 	}
+
+	DEBUG(4, ("%s: mapped Darwin flags %#x to NT flags %#x\n",
+		MODULE_NAME, darwin_flags, ntflags));
 
 	return ntflags;
 }
@@ -266,8 +287,7 @@ static void map_flags_nt_to_darwin(SEC_ACE *ace, acl_flagset_t flagset)
 {
 	int i;
 	int acl_add_flag_return;
-
-	DEBUG(4,("map_flags_nt_to_darwin: flags(%X)\n", ace->flags));
+	uint32 darwin_flags = 0;
 
 	for (i = 0; i < ARRAY_SIZE(ntacl_flag_table); ++i) {
 		if (!(ace->flags & ntacl_flag_table[i].ntflag)) {
@@ -280,10 +300,15 @@ static void map_flags_nt_to_darwin(SEC_ACE *ace, acl_flagset_t flagset)
 		acl_add_flag_return =
 			acl_add_flag_np(flagset, ntacl_flag_table[i].aclflag);
 		SMB_ASSERT(acl_add_flag_return == 0);
+
+		darwin_flags |= ntacl_flag_table[i].aclflag;
 	}
+
+	DEBUG(4, ("%s: mapped NT flags %#x to Darwin flags %#x\n",
+		MODULE_NAME, ace->flags, darwin_flags));
 }
 
-static int map_perms_darwin_to_nt(acl_permset_t perms)
+static uint32 map_perms_darwin_to_nt(acl_permset_t perms)
 {
 	uint32 ntperms = 0;
 	int i;
@@ -297,8 +322,6 @@ static int map_perms_darwin_to_nt(acl_permset_t perms)
 			darwin_perms |= p;
 		}
 	}
-
-	ntperms |= SYNCHRONIZE_ACCESS;
 
 	/* Log this harder if we didn't come up with a mapping. */
 	DEBUG(darwin_perms == 0 ? 0 : 4,
@@ -326,6 +349,26 @@ static void map_perms_nt_to_darwin(SEC_ACCESS ntperms, acl_permset_t permset)
 			SMB_ASSERT(acl_add_perm_return == 0);
 			darwin_perms |= p;
 		}
+	}
+
+	if (ntperms & GENERIC_ALL_ACCESS) {
+		acl_add_perm(permset, ACL_GENERIC_ALL);
+		darwin_perms |= ACL_GENERIC_ALL;
+	}
+
+	if (ntperms & GENERIC_EXECUTE_ACCESS) {
+		acl_add_perm(permset, ACL_GENERIC_EXECUTE);
+		darwin_perms |= ACL_GENERIC_EXECUTE;
+	}
+
+	if (ntperms & GENERIC_WRITE_ACCESS) {
+		acl_add_perm(permset, ACL_GENERIC_WRITE);
+		darwin_perms |= ACL_GENERIC_WRITE;
+	}
+
+	if (ntperms & GENERIC_READ_ACCESS) {
+		acl_add_perm(permset, ACL_GENERIC_READ);
+		darwin_perms |= ACL_GENERIC_READ;
 	}
 
 	/* Log this harder if we didn't come up with a mapping. */
@@ -920,6 +963,7 @@ static int map_darwinacl_to_ntacl(filesec_t fsect,
 
 	FOREACH_ACE(darwin_acl, entry) {
 		BOOL ret;
+		uint32 mask;
 
 		if ((qualifier = acl_get_qualifier(entry)) == NULL)
 			continue;
@@ -937,7 +981,15 @@ static int map_darwinacl_to_ntacl(filesec_t fsect,
 			acl_free(qualifier);
 		}
 
-		init_sec_access(&acc, map_perms_darwin_to_nt(perms));
+		mask = map_perms_darwin_to_nt(perms);
+		if (mask == 0) {
+			DEBUG(4, ("%s: ignoring ACE mapped to empty permission set\n",
+				func));
+			continue;
+		}
+
+		mask |= SYNCHRONIZE_ACCESS;
+		init_sec_access(&acc, mask);
 
 		DEBUG(4,("%s: acc(%X) tag_type(%x), flags(%X)\n",
 			    func, acc, tag_type, flags ));
@@ -1150,11 +1202,18 @@ static BOOL map_ntacl_to_darwinacl(SEC_ACL *dacl,
 		}
 
 		acl_clear_perms(permset);
-
 		map_perms_nt_to_darwin(psa->access_mask, permset);
-		if (permset == 0) {
+
+		/* XXX There is no ACL API to test whether the permset is
+		 * clear, so we test whether any of the perm bits are set.
+		 * This is an abuse of the acl_get_perm_np API, since you are
+		 * not supposed to pass a bitmask to it.
+		 */
+		if (acl_get_perm_np(permset, ACL_ALL_PERMISSIONS) != 1) {
 			DEBUG(4, ("%s: ignoring ACE mapped to empty permission set\n",
 				func));
+
+			acl_delete_entry(*darwin_acl, darwin_acl_entry);
 			continue;
 		}
 
