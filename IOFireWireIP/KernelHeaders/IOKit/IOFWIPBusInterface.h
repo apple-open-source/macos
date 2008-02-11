@@ -122,7 +122,8 @@ private:
 	int						fCurrentAsyncIPCommands;
 	int						fCurrentMBufCommands;
 	int						fCurrentRCBCommands;
-
+	UInt32					fOptimalMTU;
+	
 protected:	
 	IOFWAsyncStreamListener	*fBroadcastReceiveClient;
 

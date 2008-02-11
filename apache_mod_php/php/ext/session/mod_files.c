@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mod_files.c,v 1.100.2.3.2.9 2007/08/23 12:23:59 jani Exp $ */
+/* $Id: mod_files.c,v 1.100.2.3.2.10 2007/09/10 23:42:54 iliaa Exp $ */
 
 #include "php.h"
 
@@ -295,7 +295,7 @@ PS_OPEN_FUNC(files)
 		argv[argc++] = last;
 		last = ++p;
 		p = strchr(p, ';');
-		if (argc > 1) break;
+		if (argc > 2) break;
 	}
 	argv[argc++] = last;
 

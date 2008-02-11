@@ -41,6 +41,8 @@ POSSIBILITY OF SUCH DAMAGE.
 /* This module contains code for searching the table of Unicode character
 properties. */
 
+#include <config.h>
+
 #include "pcre_internal.h"
 
 #include "ucp.h"               /* Category definitions */

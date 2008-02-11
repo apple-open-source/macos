@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 44;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -370,7 +370,7 @@
 		72E40F83091CC03000674539 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 72E40F84091CC03000674539 /* Build configuration list for PBXProject "ntfs" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.0";
 			hasScannedForEncodings = 0;
 			mainGroup = 72E40F81091CC03000674539;
 			productRefGroup = 72E40FE8091CC3A900674539 /* Products */;
@@ -599,7 +599,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 2.0;
+				MODULE_VERSION = 2.1;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
 				WARNING_CFLAGS = "-Wall";
@@ -621,7 +621,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 2.0;
+				MODULE_VERSION = 2.1;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
 				WARNING_CFLAGS = "-Wall";

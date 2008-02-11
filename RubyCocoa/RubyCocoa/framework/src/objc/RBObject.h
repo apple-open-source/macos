@@ -14,6 +14,7 @@
 {
   VALUE m_rbobj;
   BOOL m_rbobj_retained;
+  BOOL m_rbobj_retain_release_track;
   id oc_master;
 }
 

@@ -18,7 +18,7 @@ def announce(msg='')
 end
 
 # Disable certs for now. 
-ENV.delete('CERT_DIR')
+ENV['CERT_DIR'] ||= File.expand_path(File.join('~', '.gem'))
 
 PKG_NAME = 'rubygems'
 def package_version
@@ -192,14 +192,9 @@ end
 
 # --------------------------------------------------------------------
 
-begin
+begin # rcov
   require 'rcov/rcovtask'
-  HAVE_RCOV = true
-rescue LoadError
-  HAVE_RCOV = false
-end
 
-if HAVE_RCOV
   Rcov::RcovTask.new do |t|
     t.libs << "test"
     t.rcov_opts = ['-xRakefile', '-xrakefile', '-xpublish.rf', '--text-report']
@@ -208,6 +203,7 @@ if HAVE_RCOV
     ]
     t.verbose = true
   end
+rescue LoadError
 end
 
 # --------------------------------------------------------------------
@@ -218,8 +214,9 @@ rd = Rake::RDocTask.new("rdoc") { |rdoc|
   rdoc.rdoc_dir = 'html'
   rdoc.title    = "RubyGems"
   rdoc.options << '--line-numbers' << '--inline-source' << '--main' << 'README'
-  rdoc.rdoc_files.include('README', 'TODO', 'Releases', 'LICENSE.txt', 'GPL.txt')
+  rdoc.rdoc_files.include('README', 'TODO', 'LICENSE.txt', 'GPL.txt')
   rdoc.rdoc_files.include('lib/**/*.rb')
+  rdoc.rdoc_files.include('doc/**/*.rdoc')
 #  rdoc.rdoc_files.include('test/**/*.rb')
 }
 
@@ -260,10 +257,9 @@ end
 # Package tasks
 
 PKG_FILES = FileList[
-  "Rakefile", "ChangeLog", "Releases", "TODO", "README", "LICENSE.txt",
+  "Rakefile", "ChangeLog", "TODO", "README", "LICENSE.txt",
   "GPL.txt",
   "setup.rb",
-  "post-install.rb",
   "bin/*",
   "doc/*.css", "doc/*.rb",
   "examples/**/*",
@@ -288,6 +284,7 @@ end
 Spec = Gem::Specification.new do |s|
   s.name = PKG_NAME + "-update"  
   s.version = PKG_VERSION
+  s.required_ruby_version = Gem::Requirement.new '> 1.8.2'
   s.summary = "RubyGems Update GEM"
   s.description = %{RubyGems is a package management framework for Ruby.  This Gem
 is a update for the base RubyGems software.  You must have a base
@@ -295,7 +292,7 @@ installation of RubyGems before this update can be applied.
 }
   s.files = PKG_FILES.to_a
   s.require_path = 'lib'
-  s.authors = ['Jim Weirich', 'Chad Fowler']
+  s.authors = ['Jim Weirich', 'Chad Fowler', 'Eric Hodel']
   s.email = "rubygems-developers@rubyforge.org"
   s.homepage = "http://rubygems.rubyforge.org"
   s.rubyforge_project = "rubygems"
@@ -325,9 +322,7 @@ end
 
 desc "Install RubyGems"
 task :install do
-  ruby 'setup.rb config'
-  ruby 'setup.rb setup'
-  ruby 'setup.rb install'
+  ruby 'setup.rb'
 end
 
 # Run 'gem' (using local bin and lib directories).
@@ -373,3 +368,38 @@ task :rubyfiles do
 end
 
 task :rf => :rubyfiles
+
+# These tasks expect to have the following directory structure:
+#
+#   ruby/trunk # ruby subversion HEAD checkout
+#   rubygems/trunk # RubyGems subversion HEAD checkout
+#
+# If you don't have this directory structure, set RUBY_PATH.
+
+desc "Updates Ruby HEAD with the currently checked-out copy of RubyGems."
+task :update_ruby do
+  ruby_dir = ENV['RUBY_PATH'] || '../../ruby/trunk'
+
+  options = "-avP --exclude '*svn*' --exclude '*swp' --exclude '*rbc'"
+
+  sh "rsync #{options} bin/gem #{ruby_dir}/bin/gem"
+  sh "rsync #{options} lib/ #{ruby_dir}/lib"
+  sh "rsync #{options} test/ #{ruby_dir}/test/rubygems"
+  sh "rsync #{options} util/gem_prelude.rb #{ruby_dir}/gem_prelude.rb"
+end
+
+desc "Diffs Ruby HEAD with the currently checked-out copy of RubyGems."
+task :diff_ruby do
+  ruby_dir = ENV['RUBY_PATH'] || '../../ruby/trunk'
+
+  options = "-urpN --exclude '*svn*' --exclude '*swp' --exclude '*rbc'"
+
+  sh "diff #{options} bin/gem #{ruby_dir}/bin/gem; true"
+  sh "diff #{options} lib/ubygems.rb #{ruby_dir}/lib/ubygems.rb; true"
+  sh "diff #{options} lib/rubygems.rb #{ruby_dir}/lib/rubygems.rb; true"
+  sh "diff #{options} lib/rubygems #{ruby_dir}/lib/rubygems; true"
+  sh "diff #{options} lib/rbconfig #{ruby_dir}/lib/rbconfig; true"
+  sh "diff #{options} test #{ruby_dir}/test/rubygems; true"
+  sh "diff #{options} util/gem_prelude.rb #{ruby_dir}/gem_prelude.rb; true"
+end
+

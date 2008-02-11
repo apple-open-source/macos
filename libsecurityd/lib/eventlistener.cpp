@@ -137,11 +137,21 @@ void NotificationPort::receive (const MachPlusPlus::Message &msg)
 		EventListenerList::iterator it = tempList.begin ();
 		while (it != tempList.end ())
 		{
-			EventPointer ep = *it++;
-			if (ep->GetDomain () == domain &&
-				(ep->GetMask () & (1 << event)) != 0)
+			try
 			{
-				ep->consume (domain, event, data);
+				EventPointer ep = *it++;
+				if (ep->GetDomain () == domain &&
+					(ep->GetMask () & (1 << event)) != 0)
+				{
+					ep->consume (domain, event, data);
+				}
+			}
+			catch (CssmError &e)
+			{
+				if (e.error != CSSM_ERRCODE_INTERNAL_ERROR)
+				{
+					throw;
+				}
 			}
 		}
 	}

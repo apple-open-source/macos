@@ -66,6 +66,7 @@ static void _router_config_expand(router_t r)
     char *str, *ip, *mask, *name, *target;
     config_elem_t elem;
     int i;
+    int len;
     alias_t alias;
 
     r->id = config_get_one(r->config, "id", 0);
@@ -170,6 +171,15 @@ static void _router_config_expand(router_t r)
 	r->message_logging_enabled = j_atoi(config_get_one(r->config, "message_logging_enabled", 0), 1);
 	r->message_logging_dir = config_get_one(r->config, "message_logging_dir", 0);
 	r->message_logging_file = config_get_one(r->config, "message_logging_file", 0);
+	len = strlen(r->message_logging_dir) + strlen(r->message_logging_file);
+	if (len < (PATH_MAX-13)) {  	// room for a full path plus .xxxx.gz appended (necessary for log rolling)
+		r->message_logging_fullpath = (char *)malloc(len+2);
+		snprintf(r->message_logging_fullpath, len+2, "%s/%s", r->message_logging_dir, r->message_logging_file);
+	} else {
+		log_debug(ZONE, "ERROR: message logging directory and filename exceed file system limits, %d bytes.\n   Disabling message logging.", len);
+		r->message_logging_fullpath = NULL;
+		r->message_logging_enabled = 0;
+	}
 	r->message_logging_roll_days = j_atoi(config_get_one(r->config, "message_logging_roll_days", 0), 30);
 	r->message_logging_roll_megs = j_atoi(config_get_one(r->config, "message_logging_roll_megs", 0), 500);
 	r->log_group_chats = j_atoi(config_get_one(r->config, "log_group_chats", 0), 1);
@@ -292,7 +302,7 @@ int main(int argc, char **argv)
     union xhashv xhv;
 	struct passwd *p;
 	int newuid, newgid;
-	int close_wait_max;
+    int close_wait_max;
 
 #ifdef POOL_DEBUG
     time_t pool_time = 0;
@@ -526,7 +536,7 @@ int main(int argc, char **argv)
      *     their destinations
      */
 
-	close_wait_max = 30; /* time limit for component shutdown */
+    close_wait_max = 30; /* time limit for component shutdown */
 
     /* close connections to components */
     xhv.comp_val = &comp;
@@ -534,8 +544,8 @@ int main(int argc, char **argv)
         do {
             xhash_iter_get(r->components, NULL, xhv.val);
             sx_close(comp->s);
-			if (1 > close_wait_max--) break;
-			sleep(1);
+            if (1 > close_wait_max--) break;
+            sleep(1);
         } while(xhash_count(r->components) > 0);
 
     xhash_free(r->components);
@@ -565,6 +575,10 @@ int main(int argc, char **argv)
 
     /* unload acls */
     aci_unload(r->aci);
+
+    /* free message logging variables */
+    if (r->message_logging_fullpath != NULL)
+        free(r->message_logging_fullpath);
 
     sx_env_free(r->sx_env);
 

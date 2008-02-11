@@ -53,6 +53,9 @@ protected:
     OSData *                memSizesData;
     OSData *                memSpeedData;
     OSData *                memInfoData;
+    OSData *                memManufData;
+    OSData *                memSerialData;
+    OSData *                memPartData;
     UInt64                  memSizeTotal;
 	
 	void *					SMBIOSTable;

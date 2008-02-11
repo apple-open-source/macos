@@ -4364,12 +4364,11 @@ delete_slaves(ip)
 
 
 /* finalize operation */
-static VALUE
+static void
 lib_mark_at_exit(self)
     VALUE self;
 {
     at_exit = 1;
-    return Qnil;
 }
 
 static int
@@ -4414,13 +4413,13 @@ ip_finalize(ip)
     }
 
     if (Tcl_InterpDeleted(ip)) {
-        DUMP2("ip(%lx) is already deleted", ip);
+        DUMP2("ip(%p) is already deleted", ip);
         return;
     }
 
 #if TCL_NAMESPACE_DEBUG
     if (ip_null_namespace(ip)) {
-        DUMP2("ip(%lx) has null namespace", ip);
+        DUMP2("ip(%p) has null namespace", ip);
         return;
     }
 #endif
@@ -7995,8 +7994,6 @@ Init_tcltklib()
 
     /* --------------------------------------------------------------- */
 
-    rb_define_module_function(lib, "_mark_at_exit", lib_mark_at_exit, 0);
-
     rb_define_module_function(lib, "mainloop", lib_mainloop, -1);
     rb_define_module_function(lib, "mainloop_thread?", 
                               lib_evloop_thread_p, 0);
@@ -8133,7 +8130,7 @@ Init_tcltklib()
 
     /* --------------------------------------------------------------- */
 
-    rb_eval_string("at_exit{ TclTkLib._mark_at_exit }");
+    rb_set_end_proc(lib_mark_at_exit, 0);
 
     /* --------------------------------------------------------------- */
 

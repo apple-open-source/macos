@@ -25,10 +25,6 @@ if($target eq 'install') {
     sys_print("mkdir $ENV{OBJROOT}") unless -e $ENV{OBJROOT};
     $ENV{DESTDIR}=$ENV{DSTROOT};
 
-    ($osx_version)=(`sw_vers -productVersion` =~ /(10\.\d)/);
-    print "Building on $osx_version\n";
-    
-# Must create local aclocal dir or aclocal fails
     $ACLOCAL_LOCALDIR="$prefix/share/aclocal";
     system "mkdir -p $ACLOCAL_LOCALDIR";
     
@@ -54,9 +50,8 @@ if($target eq 'install') {
 	$arch_flags_32 .= " -arch $arch " unless $arch =~ /64/;
     }
     
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -I$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags -DDARWIN_WITH_QUARTZ -DXFree86Server -DTRANS_REOPEN";
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -I$prefix/include -DNO_ALLOCA -D__DEBUG__ -g3 -pipe $arch_flags";
     $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags";
-    $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
     
     $ENV{RC_Project_Source_Version}=0 unless exists $ENV{RC_Project_Source_Version};
     sys_print("ditto $ENV{SRCROOT}/ $ENV{OBJROOT}");
@@ -69,7 +64,6 @@ if($target eq 'install') {
     sys_print("mkdir -p $ENV{DSTROOT}$prefix/include/GL");
     sys_print("ditto lib $ENV{DSTROOT}$prefix/lib");
     sys_print("ditto include/GL $ENV{DSTROOT}$prefix/include/GL");
-    sys_print("cp src/glw/*.h $ENV{DSTROOT}$prefix/include/GL");
     sys_print("rm -rf $ENV{DSTROOT}$prefix/include/GL/internal");
     sys_print("chown -R root:wheel $ENV{DSTROOT}$prefix/include/GL/*");
     sys_print("ln -s libGLU.1.dylib $ENV{DSTROOT}$prefix/lib/libGLU.1.3.dylib");
@@ -83,60 +77,41 @@ if($target eq 'install') {
     sys_print("ln -s libOSMesa.4.dylib $ENV{DSTROOT}$prefix/lib/libOSMesa.4.0.dylib");
     sys_print("ln -s libOSMesa.4.dylib $ENV{DSTROOT}$prefix/lib/libOSMesa.dylib");
 
-    ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=gmtime();
-    $mon++;
-    $year+=1900;
-
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -I$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_32 -DDARWIN_WITH_QUARTZ -DXFree86Server "
-	. "-DTRANS_REOPEN -DROOTLESS_WORKAROUND -DBUILD_DATE=\\\"$year$mon$mday\\\"";
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -I$prefix/include -DNO_ALLOCA -D__DEBUG__ -g3 -pipe $arch_flags_32";
     $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags_32";
 
-    chdir("$ENV{OBJROOT}/xorg-server-X11R7.2-1.2.0");
+    chdir("$ENV{OBJROOT}/xorg-server-1.3.0-apple5");
     print "Building Xserver\n";
-    sys_print("autoreconf -fvi");
 
-    $conf_flags="--with-mesa-source=$ENV{OBJROOT}/mesa/Mesa-6.5.2 --enable-debug --enable-xorg --enable-quartz ".
-	"--disable-dependency-tracking --disable-nls --disable-xvfb --disable-xprint --disable-xnest ".
-	"--datarootdir=/usr/X11/lib/X11 --with-fontdir=/usr/X11/lib/X11/fonts --disable-xf86bigfont " .
-	"--with-module-dir=/usr/X11/lib/xorg/modules --prefix=$prefix";
+    $conf_flags="--with-mesa-source=$ENV{OBJROOT}/mesa/Mesa-6.5.2 --enable-debug --disable-dependency-tracking --disable-nls --datarootdir=/usr/X11/lib/X11 --with-fontdir=/usr/X11/lib/X11/fonts --prefix=$prefix --with-launchagents-dir=/System/Library/LaunchAgents";
     sys_print( "./configure $conf_flags");
     print "building\n";
     sys_print("make -j2");
     sys_print("make install");
+    sys_print("make clean");
+    $conf_flags="--with-mesa-source=$ENV{OBJROOT}/mesa/Mesa-6.5.2 --enable-debug --disable-dependency-tracking --disable-nls --datarootdir=/usr/X11/lib/X11 --with-fontdir=/usr/X11/lib/X11/fonts --prefix=$prefix --disable-xquartz --enable-kdrive --enable-xfake --enable-xephyr";
+    sys_print( "./configure $conf_flags");
+    print "building\n";
+    sys_print("make -j2");
+    sys_print("make install");
+    
     chdir("../..");
 
 # move X11.app into place
-    sys_print_nodie("mkdir -p $ENV{DSTROOT}/usr/X11");
-    sys_print_nodie("mv $ENV{OBJROOT}/xorg-server-X11R7.2-1.2.0/hw/darwin/apple/build/X11.app ".
-		    "$ENV{DSTROOT}/usr/X11/X11.app");
-    sys_print_nodie("chown -R root:wheel $ENV{DSTROOT}/usr/X11/X11.app");
-    sys_print_nodie("mv $ENV{OBJROOT}/xorg-server-X11R7.2-1.2.0/hw/darwin/apple/build/X11.app.dSYM ".
-		    "$ENV{SYMROOT}/");
     $x11_file = "$ENV{DSTROOT}/usr/X11/X11.app/Contents/MacOS/X11";
     system("lipo -remove ppc64 -output $x11_file $x11_file") if($ENV{RC_ppc64});
     system("lipo -remove x86_64 -output $x11_file $x11_file") if($ENV{RC_x86_64});
-    sys_print_nodie("cd $ENV{DSTROOT}/usr/X11/X11.app/Contents/Resources && mv Info.plist ..");
-
-    sys_print_nodie("mkdir -p $ENV{DSTROOT}/Applications/Utilities");
-    sys_print_nodie("mv $ENV{OBJROOT}/xorg-server-X11R7.2-1.2.0/hw/darwin/launcher/build/X11.app ".
-		    "$ENV{DSTROOT}/Applications/Utilities/X11.app");
-    sys_print_nodie("mv $ENV{OBJROOT}/xorg-server-X11R7.2-1.2.0/hw/darwin/launcher/build/X11.app.dSYM ".
-		    "$ENV{SYMROOT}/X11-launcher.app.dSYM");
+    sys_print_nodie("rm $ENV{DSTROOT}/usr/X11/X11.app/Contents/Resources/Info.plist");
+    sys_print_nodie("rm $ENV{DSTROOT}/Application/Utilities/X11.app/Contents/Resources/Info.plist");
     $x11_file = "$ENV{DSTROOT}/Applications/Utilities/X11.app/Contents/MacOS/X11";
     system("lipo -remove ppc64 -output $x11_file $x11_file") if($ENV{RC_ppc64});
     system("lipo -remove x86_64 -output $x11_file $x11_file") if($ENV{RC_x86_64});
-    sys_print_nodie("cd $ENV{DSTROOT}/Applications/Utilities/X11.app/Contents/Resources && mv Info.plist ..");
 
-# clean up /usr/X11/bin
-    sys_print_nodie("rm -rf $ENV{DSTROOT}$prefix/bin/Applications $ENV{DSTROOT}$prefix/bin/X");
-    sys_print_nodie("rm $ENV{DSTROOT}$prefix/bin/startXClients $ENV{DSTROOT}$prefix/bin/XDarwinStartup");
     sys_print_nodie("ln -s Xquartz $ENV{DSTROOT}/usr/X11/bin/X");
 # fix man pages
     sys_print_nodie("mkdir -p $ENV{DSTROOT}/usr/X11/man");
-    sys_print_nodie("cd $ENV{DSTROOT}/etc/X11/man/man1 && rm XDarwin* && mv Xserver.1 Xquartz.1 && ln -s Xquartz.1 X");
-    sys_print_nodie("mv $ENV{DSTROOT}/etc/X11/man/man1 $ENV{DSTROOT}/usr/X11/man");
-# nuke XDarwin.app and /etc
-    sys_print_nodie("rm -rf $ENV{DSTROOT}/Applications/Utilities/XDarwin.app $ENV{DSTROOT}/etc");
+    sys_print_nodie("mv $ENV{DSTROOT}/usr/X11/lib/X11/man/man1 $ENV{DSTROOT}/usr/X11/man/man1");
+    sys_print_nodie("ln -s Xquartz.1 $ENV{DSTROOT}/usr/X11/man/man1/X.1");
     make_dsyms();
 }
 

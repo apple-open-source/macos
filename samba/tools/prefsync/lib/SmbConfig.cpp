@@ -32,8 +32,8 @@
 #include <sys/stat.h>
 
 #define SMB_CONFIG_PATH		"/etc/smb.conf"
-#define SMB_RUN_CONFIG_PATH	"/var/run/smb.conf"
-#define SMB_RUN_TEMPLATE	"/var/run/.smb.conf.XXXXXXXX"
+#define SMB_RUN_CONFIG_PATH	"/var/db/smb.conf"
+#define SMB_RUN_TEMPLATE	"/var/db/.smb.conf.XXXXXXXX"
 
 #define LAUNCHD_PLIST(name) ("/System/Library/LaunchDaemons/" name ".plist")
 

@@ -455,7 +455,7 @@ rb_ffi_dispatch (
       if (is_c_array && bs_arg->c_ary_type == bsCArrayArgDelimitedByArg) {
         int * plen;
 
-        FFI_LOG("arg[%d] defined as the array length (%d)\n", bs_arg->c_ary_type_value, len);
+        FFI_LOG("arg[%d] defined as the array length (%d)", bs_arg->c_ary_type_value, len);
         plen = (int *) alloca(sizeof(int));
         *plen = len;
         arg_values[bs_arg->c_ary_type_value + argc_delta] = plen;
@@ -740,9 +740,11 @@ done:
   return self;
 }
 
+extern NSThread *rubycocoaThread;
+
 - (void)dispatch
 {
-  [self performSelectorOnMainThread:@selector(syncDispatch) withObject:nil waitUntilDone:YES];
+  DISPATCH_ON_RUBYCOCOA_THREAD(self, @selector(syncDispatch));
 }
 
 - (void)syncDispatch

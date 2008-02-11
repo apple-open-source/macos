@@ -10,14 +10,17 @@
 class SharedMemoryServer
 {
 protected:
-	std::string mSegmentName;
+	std::string mSegmentName, mFileName;
 	size_t mSegmentSize;
 	
 	u_int8_t* mSegment;
-
-	void WriteOffsetAtOffset (SegmentOffsetType offset, SegmentOffsetType data);
-	void WriteDataAtOffset (SegmentOffsetType offset, const void* data, SegmentOffsetType length);
-
+	u_int8_t* mDataArea;
+	u_int8_t* mDataPtr;
+	u_int8_t* mDataMax;
+	
+	void WriteOffset (SegmentOffsetType offset);
+	void WriteData (const void* data, SegmentOffsetType length);
+	
 public:
 	SharedMemoryServer (const char* segmentName, SegmentOffsetType segmentSize);
 	virtual ~SharedMemoryServer ();
@@ -27,8 +30,8 @@ public:
 	const char* GetSegmentName ();
 	size_t GetSegmentSize ();
 	
-	SegmentOffsetType GetProducerCount ();
-	void SetProducerCount (SegmentOffsetType producerCount);
+	SegmentOffsetType GetProducerOffset ();
+	void SetProducerOffset (SegmentOffsetType producerOffset);
 };
 
 

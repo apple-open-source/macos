@@ -98,4 +98,13 @@ __private_extern__ int res_query_mDNSResponder(res_state statp, const char *name
 
 int dns_res_once(struct sockaddr *server, struct timeval *timeout, int options, const char *name, int class, int type, u_char *res, int *reslen);
 
+/*
+ * Interrupt a thread blocked in select()
+ */
+void res_interrupt_requests_enable(void);
+void res_interrupt_requests_disable(void);
+void res_interrupt_requests(void* token);
+void* res_init_interrupt_token(void);
+void res_delete_interrupt_token(void* token);
+
 #endif

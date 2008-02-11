@@ -23,7 +23,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: run-tests.php,v 1.226.2.37.2.34 2007/07/31 21:29:21 jani Exp $ */
+/* $Id: run-tests.php,v 1.226.2.37.2.35 2007/09/14 15:28:03 nlopess Exp $ */
 
 /* Sanity check to ensure that pcre extension needed by this script is available.
  * In the event it is not, print a nice error message indicating that this script will
@@ -399,7 +399,7 @@ if (isset($argc) && $argc > 1) {
 					$html_output = is_resource($html_file);
 					break;
 				case '--version':
-					echo '$Revision: 1.226.2.37.2.34 $'."\n";
+					echo '$Revision: 1.226.2.37.2.35 $'."\n";
 					exit(1);
 
 				case 'u':
@@ -1486,14 +1486,15 @@ COMMAND $cmd
 		if (isset($section_text['EXPECTF'])) {
 			$wanted_re = preg_quote($wanted_re, '/');
 			// Stick to basics
-			$wanted_re = str_replace("%e", '\\' . DIRECTORY_SEPARATOR, $wanted_re);
-			$wanted_re = str_replace("%s", ".+?", $wanted_re); //not greedy
-			$wanted_re = str_replace("%w", "\s*", $wanted_re);
-			$wanted_re = str_replace("%i", "[+\-]?[0-9]+", $wanted_re);
-			$wanted_re = str_replace("%d", "[0-9]+", $wanted_re);
-			$wanted_re = str_replace("%x", "[0-9a-fA-F]+", $wanted_re);
-			$wanted_re = str_replace("%f", "[+\-]?\.?[0-9]+\.?[0-9]*(E-?[0-9]+)?", $wanted_re);
-			$wanted_re = str_replace("%c", ".", $wanted_re);
+			$wanted_re = str_replace('%e', '\\' . DIRECTORY_SEPARATOR, $wanted_re);
+			$wanted_re = str_replace('%s', '[^\r\n]+', $wanted_re);
+			$wanted_re = str_replace('%a', '.+', $wanted_re);
+			$wanted_re = str_replace('%w', '\s*', $wanted_re);
+			$wanted_re = str_replace('%i', '[+-]?\d+', $wanted_re);
+			$wanted_re = str_replace('%d', '\d+', $wanted_re);
+			$wanted_re = str_replace('%x', '[0-9a-fA-F]+', $wanted_re);
+			$wanted_re = str_replace('%f', '[+-]?\.?\d+\.?\d*(?:E-?\d+)?', $wanted_re);
+			$wanted_re = str_replace('%c', '.', $wanted_re);
 			// %f allows two points "-.0.0" but that is the best *simple* expression
 		}
 /* DEBUG YOUR REGEX HERE

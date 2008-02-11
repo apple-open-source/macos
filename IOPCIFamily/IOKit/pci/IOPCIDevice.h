@@ -294,6 +294,7 @@ Matches a device whose class code is 0x0200zz, an ethernet device.
 
 class IOPCIBridge;
 class IOPCI2PCIBridge;
+class IOPCIMessagedInterruptController;
 
 class IOPCIDevice : public IOService
 {

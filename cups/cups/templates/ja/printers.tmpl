@@ -10,15 +10,20 @@
 </TD>
 <TD VALIGN="TOP"><B>説明:</B> {printer_info}<BR>
 <B>場所:</B> {printer_location}<BR>
-<B>メーカとモデル:</B> {printer_make_and_model}<BR>
+<B>プリンタドライバ:</B> {printer_make_and_model}<BR>
 <B>プリンタの状態:</B> {printer_state=3?待機中:{printer_state=4?処理中:停止}},
 {printer_is_accepting_jobs=0?ジョブを拒否中:ジョブを受け付け中}, {printer_is_shared=0?非:}公開。
 {?device_uri=?:<BR><B>デバイス URI:</B> {device_uri}}
 
-<P>
+<P><TABLE WIDTH="100%" CELLPADDING="5" SUMMARY="アクション">
+<TR VALIGN="TOP"><TD>
 <A HREF="{printer_uri_supported}?op=print-test-page">
 <IMG SRC="/images/button-print-test-page.gif" ALT="テストページの印刷" CLASS="button"></A>
-{printer_state=5?
+{?cupscommand=1?<A HREF="{printer_uri_supported}?op=clean-print-heads">
+<IMG SRC="/images/button-clean-print-heads.gif" ALT="印刷ヘッドの清掃" CLASS="button"></A>
+<A HREF="{printer_uri_supported}?op=print-self-test-page">
+<IMG SRC="/images/button-print-self-test-page.gif" ALT="自己テストページの印刷" CLASS="button"></A>:}</TD>
+<TD>{printer_state=5?
 <A HREF="{admin_uri}?op=start-printer&amp;printer_name={%printer_name}">
 <IMG SRC="/images/button-start-printer.gif" ALT="プリタを開始" CLASS="button"></A>
 :
@@ -35,8 +40,8 @@
 <A HREF="{printer_uri_supported}?op=move-jobs&amp;printer_name={%printer_name}">
 <IMG SRC="/images/button-move-jobs.gif" ALT="すべてのジョブの移動" CLASS="button"></A>
 <A HREF="{admin_uri}?op=purge-jobs&amp;printer_name={%printer_name}">
-<IMG SRC="/images/button-cancel-all-jobs.gif" ALT="すべてのジョブをキャンセル" CLASS="button"></A>
-{printer_is_shared=0?
+<IMG SRC="/images/button-cancel-all-jobs.gif" ALT="すべてのジョブをキャンセル" CLASS="button"></A></TD>
+<TD>{printer_is_shared=0?
 <A HREF="{admin_uri}?op=set-sharing&amp;printer_name={%printer_name}&amp;shared=1">
 <IMG SRC="/images/button-publish-printer.gif" ALT="プリンタを公開" CLASS="button"></A>
 :
@@ -52,8 +57,9 @@
 <A HREF="{admin_uri}?op=set-as-default&amp;printer_name={%printer_name}">
 <IMG SRC="/images/button-set-as-default.gif" ALT="デフォルトに設定" CLASS="button"></A>
 <A HREF="{admin_uri}?op=set-allowed-users&amp;printer_name={%printer_name}">
-<IMG SRC="/images/button-set-allowed-users.gif" ALT="許可するユーザの設定" CLASS="button"></A>
-</P>
+<IMG SRC="/images/button-set-allowed-users.gif" ALT="許可するユーザの設定" CLASS="button"></A></TD>
+</TR>
+</TABLE></P>
 </TD>
 </TR>
 </TABLE>

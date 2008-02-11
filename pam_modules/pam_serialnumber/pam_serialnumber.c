@@ -50,7 +50,7 @@ PAM_EXTERN int
 pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
 	int i;
-	int options;
+	int options = 0;
 	const char *user;
 	const char *password;
 	size_t pass_len;
@@ -89,7 +89,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	
 	/* Get the first 8 characters of the serial number */
 	cfs = ASI_CopyFormattedSerialNumber();
-	if (0 < CFStringGetLength(cfs)) {
+	if (NULL != cfs && 0 < CFStringGetLength(cfs)) {
 		snbuffsz = CFStringGetLength(cfs)+1;
 		if ((2 > snbuffsz) && (128 < snbuffsz)) {
 			return PAM_AUTH_ERR;
@@ -122,6 +122,12 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	/* Just to be on the safe side... */
 	bzero((void *)password, pass_len);
 
+	return PAM_SUCCESS;
+}
+
+PAM_EXTERN int
+pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
+{
 	return PAM_SUCCESS;
 }
 

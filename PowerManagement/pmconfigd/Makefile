@@ -1,8 +1,8 @@
-OBJ_FILES = SetActive.o PMSettings.o PrivateLib.o AutoWakeScheduler.o \
+OBJ_FILES = SetActive.o PMSettings.o PrivateLib.o AutoWakeScheduler.o PMSystemEvents.o \
 	RepeatingAutoWake.o BatteryTimeRemaining.o PSLowPower.o  pmconfigd.o \
 	powermanagementServer.o IOUPSPrivate.o ioupspluginUser.o TTYKeepAwake.o
 H_FILES = PrivateLib.h AutoWakeScheduler.h PMSettings.h RepeatingAutoWake.h \
-	BatteryTimeRemaining.h PSLowPower.h SetActive.h
+	BatteryTimeRemaining.h PSLowPower.h SetActive.h PMSystemEvents.h
 MIG_PRODUCTS = powermanagement.h powermanagementServer.c powermanagementServer.h \
 	powermanagementUser.c ioupspluginUser.c ioupsplugin.h ioupspluginServer.c
 

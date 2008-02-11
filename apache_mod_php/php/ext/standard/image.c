@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: image.c,v 1.114.2.2.2.5 2007/05/08 18:38:20 iliaa Exp $ */
+/* $Id: image.c,v 1.114.2.2.2.6 2007/10/04 13:31:11 jani Exp $ */
 
 #include "php.h"
 #include <stdio.h>
@@ -1317,8 +1317,7 @@ PHP_FUNCTION(getimagesize)
 #if HAVE_ZLIB && !defined(COMPILE_DL_ZLIB)
 			result = php_handle_swc(stream TSRMLS_CC);
 #else
-			php_error_docref(NULL TSRMLS_CC, E_NOTICE, "The image is a compressed SWF file, but you do not have a static version of the zlib extension enabled.");
-
+			php_error_docref(NULL TSRMLS_CC, E_NOTICE, "The image is a compressed SWF file, but you do not have a static version of the zlib extension enabled");
 #endif
 			break;
 		case IMAGE_FILETYPE_PSD:

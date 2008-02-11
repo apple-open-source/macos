@@ -1,3 +1,0 @@
-install-man-page:
-	install -d $(DSTROOT)/usr/share/man/man8
-	install -c -m 444 routed.8 $(DSTROOT)/usr/share/man/man8/routed.8

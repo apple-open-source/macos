@@ -279,10 +279,17 @@ IOReturn IOHIDStackShotUserClient::registerNotificationPort(
 bool IOHIDEventSystemUserClient::
 initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
 {
-    if (!super::init() || 
-            (IOUserClient::clientHasPrivilege(owningTask, 
-                kIOClientPrivilegeAdministrator) != kIOReturnSuccess))
+    if ( !super::init() ) {
         return false;
+    }
+        
+    if ( IOUserClient::clientHasPrivilege(owningTask, 
+                kIOClientPrivilegeAdministrator) != kIOReturnSuccess ) {
+        IOLog("%s: Client task not privileged to open IOHIDSystem for mapping memory\n", __PRETTY_FUNCTION__);
+        
+        return false;
+    }
+
 
     client = owningTask;
     task_reference (client);
@@ -347,7 +354,9 @@ IOExternalMethod * IOHIDEventSystemUserClient::getTargetAndMethodForIndex(
 /* 0 */  { NULL, (IOMethod) &IOHIDEventSystemUserClient::createEventQueue,
             kIOUCScalarIScalarO, 2, 1 },
 /* 1 */  { NULL, (IOMethod) &IOHIDEventSystemUserClient::destroyEventQueue,
-            kIOUCScalarIScalarO, 2, 0 }
+            kIOUCScalarIScalarO, 2, 0 },
+/* 2 */  { NULL, (IOMethod) &IOHIDEventSystemUserClient::tickle,
+            kIOUCScalarIScalarO, 0, 0 }
     };
 
     if( index > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
@@ -422,6 +431,13 @@ IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*p3,v
                 userQueues->removeObject(eventQueue);
             break;
     }
+
+    return kIOReturnSuccess;
+}
+
+IOReturn IOHIDEventSystemUserClient::tickle(void*,void*,void*,void*,void*,void*)
+{
+    owner->displayManager->activityTickle(0,0);;
 
     return kIOReturnSuccess;
 }

@@ -3,7 +3,7 @@
   variable.c -
 
   $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Date: 2007-08-22 08:52:26 +0900 (Wed, 22 Aug 2007) $
   created at: Tue Apr 19 23:55:15 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -241,16 +241,21 @@ rb_path2class(path)
     const char *pbeg, *p;
     ID id;
     VALUE c = rb_cObject;
+    VALUE str = 0;
 
     if (path[0] == '#') {
 	rb_raise(rb_eArgError, "can't retrieve anonymous class %s", path);
     }
     pbeg = p = path;
     while (*p) {
-	VALUE str;
-
 	while (*p && *p != ':') p++;
-	str = rb_str_new(pbeg, p-pbeg);
+	if (str) {
+	    RSTRING(str)->len = 0;
+	    rb_str_cat(str, pbeg, p-pbeg);
+	}
+	else {
+	    str = rb_str_new(pbeg, p-pbeg);
+	}
 	id = rb_intern(RSTRING(str)->ptr);
 	if (p[0] == ':') {
 	    if (p[1] != ':') goto undefined_class;

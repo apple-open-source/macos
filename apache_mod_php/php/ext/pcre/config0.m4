@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config0.m4,v 1.38.2.3.2.8 2007/07/03 17:25:34 sniper Exp $
+dnl $Id: config0.m4,v 1.38.2.3.2.10 2007/09/11 16:17:33 nlopess Exp $
 dnl
 
 dnl By default we'll compile and link against the bundled PCRE library

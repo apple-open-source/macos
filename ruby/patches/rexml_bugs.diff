@@ -1,0 +1,44 @@
+--- lib/rexml/document.rb.old	2007-11-17 00:06:28.000000000 +0100
++++ lib/rexml/document.rb	2007-11-17 00:06:53.000000000 +0100
+@@ -167,7 +167,7 @@
+     #   indentation will be twice this number of spaces, and children will be
+     #   indented an additional amount.  For a value of 3, every item will be 
+     #   indented 3 more levels, or 6 more spaces (2 * 3). Defaults to -1
+-    # trans::
++    # transitive::
+     #   If transitive is true and indent is >= 0, then the output will be
+     #   pretty-printed in such a way that the added whitespace does not affect
+     #   the absolute *value* of the document -- that is, it leaves the value
+@@ -178,7 +178,7 @@
+     #   unable to parse proper XML, we have to provide a hack to generate XML
+     #   that IE's limited abilities can handle.  This hack inserts a space 
+     #   before the /> on empty tags.  Defaults to false
+-		def write( output=$stdout, indent=-1, trans=false, ie_hack=false )
++		def write( output=$stdout, indent=-1, transitive=false, ie_hack=false )
+       if xml_decl.encoding != "UTF-8" && !output.kind_of?(Output)
+         output = Output.new( output, xml_decl.encoding )
+       end
+--- lib/rexml/doctype.rb.old	2007-11-17 00:13:31.000000000 +0100
++++ lib/rexml/doctype.rb	2007-11-17 00:14:32.000000000 +0100
+@@ -65,6 +65,10 @@
+       else
+         super()
+       end
++      if @long_name
++      	@long_name.gsub!(/^["']/, '')
++      	@long_name.gsub!(/["']$/, '')
++      end
+     end
+ 
+     def node_type
+--- lib/rexml/text.rb.old	2007-11-17 00:08:29.000000000 +0100
++++ lib/rexml/text.rb	2007-11-17 00:08:49.000000000 +0100
+@@ -286,7 +286,7 @@
+     EREFERENCE = /&(?!#{Entity::NAME};)/
+     # Escapes all possible entities
+     def Text::normalize( input, doctype=nil, entity_filter=nil )
+-      copy = input
++      copy = input.to_s
+       # Doing it like this rather than in a loop improves the speed
+       #copy = copy.gsub( EREFERENCE, '&amp;' )
+       copy = copy.gsub( "&", "&amp;" )

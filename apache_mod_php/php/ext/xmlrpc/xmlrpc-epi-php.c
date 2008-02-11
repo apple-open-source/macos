@@ -51,7 +51,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: xmlrpc-epi-php.c,v 1.39.2.5.2.5 2007/01/12 12:32:15 tony2001 Exp $ */
+/* $Id: xmlrpc-epi-php.c,v 1.39.2.5.2.6 2007/09/18 19:49:53 iliaa Exp $ */
 
 /**********************************************************************
 * BUGS:                                                               *
@@ -1325,9 +1325,13 @@ int set_zval_xmlrpc_type(zval* value, XMLRPC_VALUE_TYPE newtype)
                   if(SUCCESS == zend_hash_update(Z_OBJPROP_P(value), OBJECT_TYPE_ATTR, sizeof(OBJECT_TYPE_ATTR), (void *) &type, sizeof(zval *), NULL)) {
                      bSuccess = zend_hash_update(Z_OBJPROP_P(value), OBJECT_VALUE_TS_ATTR, sizeof(OBJECT_VALUE_TS_ATTR), (void *) &ztimestamp, sizeof(zval *), NULL);
                   }
-               }
+               } else {
+			zval_ptr_dtor(&type);
+	       }
                XMLRPC_CleanupValue(v);
-            }
+            } else {
+		zval_ptr_dtor(&type);
+	    }
          }
          else {
             convert_to_object(value);

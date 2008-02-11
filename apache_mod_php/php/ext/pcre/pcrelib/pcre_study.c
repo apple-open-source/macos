@@ -42,6 +42,8 @@ POSSIBILITY OF SUCH DAMAGE.
 supporting functions. */
 
 
+#include <config.h>
+
 #include "pcre_internal.h"
 
 

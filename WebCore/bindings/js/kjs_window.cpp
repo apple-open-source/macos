@@ -56,6 +56,7 @@
 #include "PlatformScreen.h"
 #include "PlugInInfoStore.h"
 #include "RenderView.h"
+#include "SecurityOrigin.h"
 #include "Settings.h"
 #include "WindowFeatures.h"
 #include "htmlediting.h"
@@ -720,6 +721,8 @@ void Window::put(ExecState* exec, const Identifier& propertyName, JSValue* value
     case Location_: {
       Frame* p = Window::retrieveActive(exec)->impl()->frame();
       if (p) {
+        if (!p->loader()->shouldAllowNavigation(impl()->frame()))
+          return;
         DeprecatedString dstUrl = p->loader()->completeURL(DeprecatedString(value->toString(exec))).url();
         if (!dstUrl.startsWith("javascript:", false) || isSafeScript(exec)) {
           bool userGesture = static_cast<ScriptInterpreter *>(exec->dynamicInterpreter())->wasRunByUserGesture();
@@ -917,34 +920,23 @@ bool Window::isSafeScript(ExecState *exec) const
       return true;
 
   WebCore::Document* actDocument = activeFrame->document();
-  const KURL& actURL = actDocument->securityPolicyURL();
 
-  if (actURL.isLocalFile())
+  const SecurityOrigin& actSecurityOrigin = actDocument->securityOrigin();
+  const SecurityOrigin& thisSecurityOrigin = thisDocument->securityOrigin();
+
+  if (actSecurityOrigin.canAccess(thisSecurityOrigin))
     return true;
 
-  const KURL& thisURL = thisDocument->securityPolicyURL();
+  // FIXME: this error message should contain more specifics of why the same origin check has failed.
+  String message = String::format("Unsafe JavaScript attempt to access frame with URL %s from frame with URL %s. Domains, protocols and ports must match.\n",
+                                  thisDocument->URL().utf8().data(), actDocument->URL().utf8().data());
 
-  // data: URL's are not allowed access to anything other than themselves.
-  if (equalIgnoringCase(thisURL.protocol(), "data") || equalIgnoringCase(actURL.protocol(), "data"))
-    return false;
+  if (Interpreter::shouldPrintExceptions())
+    printf("%s", message.utf8().data());
 
-  if (thisDocument->domainWasSetInDOM() && actDocument->domainWasSetInDOM()) {
-    if (thisDocument->domain() == actDocument->domain())
-      return true;
-  }
-
-  if (equalIgnoringCase(actURL.host(), thisURL.host()) && equalIgnoringCase(actURL.protocol(), thisURL.protocol()) && actURL.port() == thisURL.port())
-    return true;
-
-  if (Interpreter::shouldPrintExceptions()) {
-      printf("Unsafe JavaScript attempt to access frame with URL %s from frame with URL %s. Domains, protocols and ports must match.\n", 
-             thisURL.url().latin1(), actURL.url().latin1());
-  }
-  String message = String::format("Unsafe JavaScript attempt to access frame with URL %s from frame with URL %s. Domains, protocols and ports must match.\n", 
-                                  thisURL.url().latin1(), actURL.url().latin1());
   if (Page* page = frame->page())
-      page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, message, 1, String());
-  
+    page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, message, 1, String());
+
   return false;
 }
 
@@ -1261,6 +1253,10 @@ JSValue *WindowFunc::callAsFunction(ExecState *exec, JSObject *thisObj, const Li
   }
   case Window::Open:
   {
+      Frame* activeFrame = Window::retrieveActive(exec)->impl()->frame();
+      if (!activeFrame)
+          return jsUndefined();
+
       String urlString = valueToStringWithUndefinedOrNullCheck(exec, args[0]);
       AtomicString frameName = args[1]->isUndefinedOrNull() ? "_blank" : AtomicString(args[1]->toString(exec));
 
@@ -1268,20 +1264,24 @@ JSValue *WindowFunc::callAsFunction(ExecState *exec, JSObject *thisObj, const Li
       // Otherwise, illegitimate window.open() calls with no name will pass right through the popup blocker.
       if (!allowPopUp(exec, window) && (frameName.isEmpty() || !frame->tree()->find(frameName)))
           return jsUndefined();
-      
-      // Get the target frame for the special cases of _top and _parent
-      if (frameName == "_top")
-          while (frame->tree()->parent())
-                frame = frame->tree()->parent();
-      else if (frameName == "_parent")
-          if (frame->tree()->parent())
-              frame = frame->tree()->parent();
-              
-      // In those cases, we can schedule a location change right now and return early
-      if (frameName == "_top" || frameName == "_parent") {
+
+      // Get the target frame for the special cases of _top and _parent.  In those 
+      // cases, we can schedule a location change right now and return early.
+      bool topOrParent = false;
+      if (frameName == "_top") {
+          frame = frame->tree()->top();
+          topOrParent = true;
+      } else if (frameName == "_parent") {
+          if (Frame* parent = frame->tree()->parent())
+              frame = parent;
+          if (!activeFrame->loader()->shouldAllowNavigation(frame))
+              return jsUndefined();
+          topOrParent = true;
+      }
+
+      if (topOrParent) {
           String completedURL;
-          Frame* activeFrame = Window::retrieveActive(exec)->impl()->frame();
-          if (!urlString.isEmpty() && activeFrame)
+          if (!urlString.isEmpty())
               completedURL = activeFrame->document()->completeURL(urlString);
 
           const Window* window = Window::retrieveWindow(frame);
@@ -1742,10 +1742,11 @@ void Location::put(ExecState *exec, const Identifier &p, JSValue *v, int attr)
       switch (entry->value) {
       case Href: {
           Frame* frame = Window::retrieveActive(exec)->impl()->frame();
-          if (frame)
-              url = frame->loader()->completeURL(str).url();
-          else
-              url = str;
+          if (!frame)
+              return;
+          if (!frame->loader()->shouldAllowNavigation(m_frame))
+              return;
+          url = frame->loader()->completeURL(str).url();
           break;
       } 
       case Hash: {
@@ -1810,9 +1811,11 @@ JSValue *LocationFunc::callAsFunction(ExecState *exec, JSObject *thisObj, const 
     switch (id) {
     case Location::Replace:
     {
-      DeprecatedString str = args[0]->toString(exec);
       Frame* p = Window::retrieveActive(exec)->impl()->frame();
-      if ( p ) {
+      if (p) {
+        if (!p->loader()->shouldAllowNavigation(frame))
+          return jsUndefined();
+        DeprecatedString str = args[0]->toString(exec);
         const Window* window = Window::retrieveWindow(frame);
         if (!str.startsWith("javascript:", false) || (window && window->isSafeScript(exec))) {
           bool userGesture = static_cast<ScriptInterpreter *>(exec->dynamicInterpreter())->wasRunByUserGesture();
@@ -1834,6 +1837,8 @@ JSValue *LocationFunc::callAsFunction(ExecState *exec, JSObject *thisObj, const 
     {
         Frame *p = Window::retrieveActive(exec)->impl()->frame();
         if (p) {
+            if (!p->loader()->shouldAllowNavigation(frame))
+                return jsUndefined();
             const Window *window = Window::retrieveWindow(frame);
             DeprecatedString dstUrl = p->loader()->completeURL(DeprecatedString(args[0]->toString(exec))).url();
             if (!dstUrl.startsWith("javascript:", false) || (window && window->isSafeScript(exec))) {

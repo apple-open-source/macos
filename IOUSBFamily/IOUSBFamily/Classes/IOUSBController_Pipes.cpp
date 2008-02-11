@@ -398,12 +398,14 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
     err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
     if (kIOReturnSuccess == err)
 	{
+		bool	isSyncTransfer = command->GetIsSyncTransfer();
+
 		err = _commandGate->runAction(DoIOTransfer, command);
 		
 		// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
 		// we get an immediate error
 		//
-		if ( command->GetIsSyncTransfer() || (kIOReturnSuccess != err) )
+		if ( isSyncTransfer || (kIOReturnSuccess != err) )
 		{
 			IODMACommand		*dmaCommand = command->GetDMACommand();
 			IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;
@@ -585,12 +587,14 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
     err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
     if (kIOReturnSuccess == err)
 	{
+		bool	isSyncTransfer = command->GetIsSyncTransfer();
+		
 		err = _commandGate->runAction(DoIOTransfer, command);
 		
 		// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
 		// we get an immediate error
 		//
-		if ( command->GetIsSyncTransfer() || (kIOReturnSuccess != err) )
+		if ( isSyncTransfer || (kIOReturnSuccess != err) )
 		{
 			IODMACommand		*dmaCommand = command->GetDMACommand();
 			IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;

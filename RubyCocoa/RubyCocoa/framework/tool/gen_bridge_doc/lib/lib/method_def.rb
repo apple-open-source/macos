@@ -1,18 +1,21 @@
 class CocoaRef::MethodDef
   include Extras
   
-  attr_accessor :type, :name, :description, :definition, :parameters, :return_value, :discussion, :availability, :see_also, :is_a_setter_variant
+  attr_accessor :type, :name, :description, :definition, :parameters, :return_value, :discussion, :availability, :see_also
+  attr_accessor :is_a_setter_variant, :is_a_question_variant
   attr_reader :log
   
   def initialize
     @methods_debug = false
-    @is_a_setter_variant = false
+    @is_a_setter_variant, @is_a_question_variant = false
     @type, @name, @description, @definition, @parameters, @return_value, @discussion, @availability, @see_also = '', '', '', '', '', '', '', '', []
     @log = CocoaRef::Log.new
   end
   
+  # begin rubyesque added code
+  
   def is_setter?
-    @name != 'set' && @name != 'set:' && @name[0..2] == 'set'
+    @name.scan(/:/).length == 1 && @name != 'set' && @name != 'set:' && @name[0..2] == 'set'
   end
   
   def create_rubyesque_setter_variant
@@ -26,7 +29,25 @@ class CocoaRef::MethodDef
   def ruby_setter_for(str)
     str[3...4].downcase << str[4..-1]
   end
+
+  def is_question?
+    @name != 'is' && @name != 'is:' && @name[0..1] == 'is'
+  end
   
+  def create_rubyesque_question_variant
+    # isFoo() will become foo?
+    dup = self.dup
+    dup.is_a_question_variant = true
+    dup.name = self.ruby_question_for(@name)
+    return dup
+  end
+  
+  def ruby_question_for(str)
+    str[2...3].downcase << str[3..-1]
+  end
+  
+  # end rubyesque added code
+
   def to_s
     str  = "METHOD:\n#{self.name}\n"
     str += "TYPE:\n#{@type.to_s}\n"
@@ -61,7 +82,7 @@ class CocoaRef::MethodDef
     str += "    # #{self.definition.gsub(/\n/, ' ').strip_tags.clean_special_chars}\n"
     str += "    #\n"
     
-    unless self.is_a_setter_variant
+    unless self.is_a_setter_variant or self.is_a_question_variant
       unless ruby_style_def == 'an_error_occurred_while_parsing_method_def!'
         objc_method_style = self.to_objc_method(class_name)
         unless objc_method_style.nil?
@@ -186,8 +207,9 @@ class CocoaRef::MethodDef
       str += '(' << method_def_parts.collect{|m| m[:arg] }.join(', ') << ')'
     else
       str = parsed_method_name.join('_')
+      str += '?' if self.is_a_question_variant
     end
-  
+
     if str =~ /^[_(]+/
       error_str  = "[WARNING] A empty string was returned as the method definition for:\n"
       error_str += "          #{@name}\n"

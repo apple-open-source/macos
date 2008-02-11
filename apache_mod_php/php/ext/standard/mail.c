@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.87.2.1.2.7 2007/07/11 17:36:56 johannes Exp $ */
+/* $Id: mail.c,v 1.87.2.1.2.8 2007/10/04 13:31:11 jani Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -98,7 +98,7 @@ PHP_FUNCTION(mail)
 	char *p, *e;
 
 	if (PG(safe_mode) && (ZEND_NUM_ARGS() == 5)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "SAFE MODE Restriction in effect.  The fifth parameter is disabled in SAFE MODE.");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "SAFE MODE Restriction in effect.  The fifth parameter is disabled in SAFE MODE");
 		RETURN_FALSE;
 	}	
 	

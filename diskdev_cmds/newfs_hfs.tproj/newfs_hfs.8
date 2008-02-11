@@ -55,7 +55,15 @@ The options are as follows:
 .Bl -tag -width Fl
 .It Fl N Ar [partition-size]
 Causes the file system parameters to be printed out
-without really creating the file system.
+without really creating the file system.  The optional
+.Ar partition-size
+argument can be specified in bytes (with a `b' suffix),
+petabytes (`p' suffix), terabytes (`t' suffix), gigabytes
+(`g' suffix), megabytes (`m' suffix), or kilobytes
+(`k' suffix).  All suffixes indicate binary, not decimal,
+multipliers (e.g., `1k' is 1024 bytes).  If no suffix is
+specified, the value is assumed to be in bytes; if an illegal
+suffix is specified, it results in a size of 0 bytes.
 .It Fl U Ar uid
 Set the owner of the file system's root directory to
 .Pa uid .

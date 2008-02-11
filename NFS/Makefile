@@ -2,7 +2,13 @@
 # Makefile for the NFS project
 #
 
-SUBPROJECTS = mount_nfs nfs_fs nfsd nfsiod nfsstat rpc.lockd rpc.rquotad rpc.statd showmount files
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
+
+SUBPROJECTS = mount_nfs nfs_fs nfsiod nfsstat rpc.rquotad showmount files
+
+ifeq "$(Embedded)" "NO"
+SUBPROJECTS += nfsd rpc.lockd rpc.statd
+endif
 
 .PHONY: installsrc clean installhdrs install all
 

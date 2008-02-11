@@ -240,17 +240,40 @@ void IOHIDPointing::setupProperties()
 {
     OSNumber *  number  = NULL;
     
+	// Store the resolution
+    if ( number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDPointerResolutionKey)) )
+    {
+        IOFixed newResolution = number->unsigned32BitValue();
+        if ( newResolution != 0 ) {
+            _resolution = number->unsigned32BitValue();
+            setProperty(kIOHIDPointerResolutionKey, number);
+            _isDispatcher = FALSE;
+        }
+    }
+    else if ( _resolution )
+    {
+        setProperty(kIOHIDPointerResolutionKey, _resolution, 32);
+    }
+    
 	// Store the scroll resolution
     if ( number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDScrollResolutionKey)) )
     {
         _scrollResolution = number->unsigned32BitValue();
         setProperty(kIOHIDScrollResolutionKey, number);
+		_isDispatcher = FALSE;
     }
     else if ( _scrollResolution )
     {
         setProperty(kIOHIDScrollResolutionKey, _scrollResolution, 32);
     }
-    
+	
+	// deal with buttons
+	if ( _numButtons == 1 && (number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDPointerButtonCountKey))))
+	{
+		_numButtons = number->unsigned32BitValue();
+		_isDispatcher = FALSE;
+	}
+
     if ( _isDispatcher )
         setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
 
@@ -263,7 +286,6 @@ void IOHIDPointing::setupProperties()
     setProperty(kIOHIDScrollAccelerationTableYKey, _provider->getProperty( kIOHIDScrollAccelerationTableYKey ));
     setProperty(kIOHIDScrollAccelerationTableZKey, _provider->getProperty( kIOHIDScrollAccelerationTableZKey ));
     
-    setProperty(kIOHIDPointerResolutionKey, _provider->getProperty( kIOHIDPointerResolutionKey ));
     setProperty(kIOHIDScrollReportRateKey, _provider->getProperty( kIOHIDScrollReportRateKey ));
 
     setProperty( kIOHIDScrollMouseButtonKey, _provider->getProperty( kIOHIDScrollMouseButtonKey ));

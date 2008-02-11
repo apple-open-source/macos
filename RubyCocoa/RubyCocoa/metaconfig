@@ -41,8 +41,15 @@ if File.exist?('/Developer/Applications/Project Builder.app') then
 end 
 
 if File.exist?('/Developer/Applications/Xcode.app') then
+  if RubyCocoaConfig.system_version.to_f >= 10.5
+    xcode_templates_dir = '/Library/Application Support/Developer/3.0/Xcode/'
+  else
+    xcode_templates_dir = 
+      ['/Library/Application Support/Apple/Developer Tools',
+       '/Library/Application Support/Developer/2.5/Xcode/'].join(',')
+  end
   add_path_config 'xcode-extras', 
-    '/Library/Application Support/Apple/Developer Tools',
+    xcode_templates_dir,
     'path to the directory for "Xcode Extras"'
 end 
 
@@ -52,7 +59,7 @@ add_path_config 'examples', '/Developer/Examples',
 add_path_config 'documentation', '/Developer/Documentation',
   'path to the directory for Documentation'
 
-add_bool_config 'gen-bridge-support', true,
+add_bool_config 'gen-bridge-support', RubyCocoaConfig.system_version.to_f < 10.5,
   'yes, generate bridge metadata files'
 
 add_bool_config 'build-as-embeddable', true,
@@ -75,13 +82,16 @@ add_path_config 'ri-dir',
   'the directory for ri files'
 
 if RubyCocoaConfig.system_version.to_f >= 10.4
-  add_bool_config 'build-universal', false,
+  add_bool_config 'build-universal', RubyCocoaConfig.system_version.to_f >= 10.5,
     'yes, build universal binary (requires Xcode 2.1 or later and SDK)'
 end
 
 add_config 'macosx-deployment-target', 'version', 
   sprintf('%02.1f', RubyCocoaConfig.system_version.to_f),
   'target Mac OS X version'
+
+add_config 'sdkroot', 'sdkroot path', '',
+  '$SDKROOT of Xcode. automatically sets when --build-universal=yes for 10.4'
 
 ### versioning ### 
 

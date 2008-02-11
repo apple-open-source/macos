@@ -379,6 +379,15 @@ bool
 {
 	DeallocateResources ( );
 	
+	// Release the retain we took to keep IOFireWireSBP2LUN from doing garbage collection on us
+	// when we are in the middle of DeallocateResources.
+		
+	if ( fSBPTarget )
+	{
+		fSBPTarget->release ( );
+		fSBPTarget = NULL;
+	}
+	
 	return super::finalize ( options );
 }
 
@@ -399,22 +408,7 @@ void IOFireWireSerialBusProtocolTransport::free ( void )
 		IOFree ( reserved, sizeof ( ExpansionData ) );
 		reserved = NULL;
 	}
-	
-	if ( fLogin != NULL )
-	{
-		fLogin->release ();
-		fLogin = NULL;
-	}
-	
-	// Release the retain we took to keep IOFireWireSBP2LUN from doing garbage collection on us
-	// when we are in the middle of DeallocateResources.
-		
-	if ( fSBPTarget )
-	{
-		fSBPTarget->release ( );
-		fSBPTarget = NULL;
-	}
-	
+
 	super::free ( );
 }
 
@@ -1756,6 +1750,13 @@ void IOFireWireSerialBusProtocolTransport::DeallocateResources ( void )
 	
 	reserved->fSubmitQueue->release ();
 	reserved->fSubmitQueue = NULL;
+	
+	if ( fLogin != NULL )
+	{
+		fLogin->release ();
+		fLogin = NULL;
+	}
+	
 }
 
 //--------------------------------------------------------------------------------------------------

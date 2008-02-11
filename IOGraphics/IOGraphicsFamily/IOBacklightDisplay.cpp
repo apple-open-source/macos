@@ -234,7 +234,7 @@ void IOBacklightDisplay::handlePMSettingCallback(
 {
     OSNumber    *newSetting;
     int         setting;
-    UInt8       newLevel;
+    UInt16      newLevel;
     
     if( (arg_type == fDisplaySleepUsesDimSettingKey)
         && (newSetting = OSDynamicCast(OSNumber, arg_val)) )

@@ -48,10 +48,6 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 	int keep_parent = state->unlink_flags & REMOVEFILE_KEEP_PARENT;
 	int secure = state->unlink_flags & (REMOVEFILE_SECURE_7_PASS | REMOVEFILE_SECURE_35_PASS | REMOVEFILE_SECURE_1_PASS);
 
-	while (path[strlen(path) - 1] == '/') {
-		path[strlen(path)- 1] = '\0';
-	}
-
 	switch (current_file->fts_info) {
 		// attempt to unlink the directory on pre-order in case it is
 		// a directory hard-link.  If we succeed, it was a hard-link
@@ -95,6 +91,7 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 		case FTS_F:
 		case FTS_SL:
 		case FTS_SLNONE:
+		case FTS_DEFAULT:
 			if (secure) {
 				res = __removefile_sunlink(path, state);
 			} else if (geteuid() == 0 &&
@@ -119,7 +116,6 @@ int
 __removefile_tree_walker(char **trees, removefile_state_t state) {
 	FTSENT *current_file;
 	FTS *stream;
-	int i = 0;
 	int rval = 0;
 
 	removefile_callback_t cb_confirm = NULL;
@@ -129,13 +125,6 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 	cb_confirm = state->confirm_callback;
 	cb_status = state->status_callback;
 	cb_error = state->error_callback;
-
-	while (trees[i] != NULL) {
-		while (trees[i][strlen(trees[i]) - 1] == '/') {
-			trees[i][strlen(trees[i]) -1] = '\0';
-		}
-		i++;
-	}
 
 	stream = fts_open(trees, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
 	if (stream == NULL) return -1;
@@ -162,12 +151,23 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 					state);
 
 			if (state->error_num != 0) {
-				if (cb_error) {
-					res = cb_error(state,
-						current_file->fts_path,
-						state->error_context);
-				} else {
-					res = REMOVEFILE_STOP;
+				// Since removefile(3) is abstracting the
+				// traversal of the directory tree, suppress
+				// all ENOENT and ENOTDIR errors from the
+				// calling process.
+				// However, these errors should still be
+				// reported for the ROOTLEVEL since those paths
+				// were explicitly provided by the application.
+				if ((state->error_num != ENOENT &&
+				     state->error_num != ENOTDIR) ||
+				    current_file->fts_level == FTS_ROOTLEVEL) {
+					if (cb_error) {
+						res = cb_error(state,
+							current_file->fts_path,
+							state->error_context);
+					} else {
+						res = REMOVEFILE_STOP;
+					}
 				}
 			// show status for regular files and directories
 			// in post-order

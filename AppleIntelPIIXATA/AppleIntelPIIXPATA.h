@@ -29,6 +29,7 @@
 #include <IOKit/ata/IOPCIATA.h>
 #include <IOKit/ata/IOATAController.h>
 #include <IOKit/ata/ATADeviceNub.h>
+#include <IOKit/IOPolledInterface.h>
 #include "AppleIntelPIIXATATiming.h"
 #include "AppleIntelPIIXATAHW.h"
 #include "AppleIntelPIIXATAKeys.h"
@@ -42,7 +43,7 @@ class AppleIntelPIIXPATA : public IOPCIATA
 protected:
     
     static const UInt32 kMaxDrives = 2;
-
+    class AppleIntelICHxPATAPolledAdapter* polledPATAAdapter;
     /*
      * General and PIIX specific ATA controller properties.
      */
@@ -140,6 +141,17 @@ protected:
 	virtual IOReturn dispatchNext( void );
 	
 	virtual IOATAController::transState	determineATAPIState(void);
+	
+	//override for polling
+    virtual void executeEventCallouts(  ataEventCode event, ataUnitID unit);
+    virtual IOReturn startTimer( UInt32 inMS);
+    virtual void stopTimer( void );
+
+	
+public:
+    virtual void pollEntry( void );
+    virtual void transitionFixup( void );
+
 
 public:
     /* IOService overrides */
@@ -192,5 +204,33 @@ public:
 	virtual IOReturn selectDevice( ataUnitID unit );
 
 };
+
+class AppleIntelICHxPATAPolledAdapter : public IOPolledInterface
+
+{
+    OSDeclareDefaultStructors(AppleIntelICHxPATAPolledAdapter)
+
+protected:
+    AppleIntelPIIXPATA* owner;
+    bool pollingActive;
+
+public:
+    virtual IOReturn probe(IOService * target);
+    virtual IOReturn open( IOOptionBits state, IOMemoryDescriptor * buffer);
+    virtual IOReturn close(IOOptionBits state);
+
+    virtual IOReturn startIO(uint32_t 	        operation,
+                             uint32_t           bufferOffset,
+                             uint64_t	        deviceOffset,
+                             uint64_t	        length,
+                             IOPolledCompletion completion) ;
+
+    virtual IOReturn checkForWork(void);
+	
+    bool isPolling( void );
+    
+    void setOwner( AppleIntelPIIXPATA* owner );
+};
+
 
 #endif /* !_APPLEINTELPIIXPATA_H */

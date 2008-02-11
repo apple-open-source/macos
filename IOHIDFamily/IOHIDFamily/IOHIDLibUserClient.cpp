@@ -21,6 +21,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#include <TargetConditionals.h>
+
 #include <sys/systm.h>
 #include <sys/proc.h>
 #include <kern/task.h>
@@ -348,6 +351,7 @@ void IOHIDLibUserClient::resourceNotificationGated()
         if (ret == kIOReturnSuccess) 
             break;
 
+#if !TARGET_OS_EMBEDDED
 		if ( fNubIsKeyboard ) {
 			IOUCProcessToken token;
 			token.token = fClient;
@@ -356,6 +360,7 @@ void IOHIDLibUserClient::resourceNotificationGated()
 		} else {
 			ret = clientHasPrivilege(fClient, kIOClientPrivilegeConsoleUser);
 		}
+#endif
     } while (false);
     
     setValid(kIOReturnSuccess == ret);

@@ -512,7 +512,7 @@ hfs_newfs(char *device, int forceHFS)
 	if (gPartitionSize) {
 		dip.sectorSize = kBytesPerSector;
 		dip.physTotalSectors = dip.totalSectors = gPartitionSize / kBytesPerSector;
-		dip.physSectorSize = (128 * 1024) / kBytesPerSector;
+		dip.physSectorSize = kBytesPerSector;	/* 512-byte sectors */
 		dip.fd = 0;
 	} else {
 		if (gNoCreate) {

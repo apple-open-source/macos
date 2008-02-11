@@ -29,6 +29,7 @@
 				C6175A0E057E749700252FAB /* PBXTargetDependency */,
 				C6175A10057E749700252FAB /* PBXTargetDependency */,
 				BA83D5AF0C19C23900752534 /* PBXTargetDependency */,
+				C68F28640CC13D5500E3CD6A /* PBXTargetDependency */,
 			);
 			name = World;
 			productName = World;
@@ -129,8 +130,15 @@
 		C664E3030C4BEA8900C6437C /* BLBootRootMapMemberToDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = C664E3020C4BEA8900C6437C /* BLBootRootMapMemberToDevice.c */; };
 		C664E3070C4BEAA800C6437C /* BLBootRootMapMemberToHelper.c in Sources */ = {isa = PBXBuildFile; fileRef = C664E3060C4BEAA800C6437C /* BLBootRootMapMemberToHelper.c */; };
 		C664E3090C4BEAB400C6437C /* BLBootRootMapHelperToMember.c in Sources */ = {isa = PBXBuildFile; fileRef = C664E3080C4BEAB400C6437C /* BLBootRootMapHelperToMember.c */; };
+		C67162C40CC559A0004C34DC /* firmwaresyncd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C67162AD0CC5596F004C34DC /* firmwaresyncd.8 */; };
 		C6778AD80A40BE3F00B63466 /* BLCreateBooterInformationDictionary.c in Sources */ = {isa = PBXBuildFile; fileRef = C6B5C7900A221695000530DB /* BLCreateBooterInformationDictionary.c */; };
 		C67DDCA10A2D08AC00E1B16A /* BLGetCStringRepresentation.c in Sources */ = {isa = PBXBuildFile; fileRef = C67DDCA00A2D08AC00E1B16A /* BLGetCStringRepresentation.c */; };
+		C68F273D0CC13BEC00E3CD6A /* firmwaresyncd.c in Sources */ = {isa = PBXBuildFile; fileRef = C68F273C0CC13BEC00E3CD6A /* firmwaresyncd.c */; };
+		C68F27550CC13D3900E3CD6A /* com.apple.firmwaresyncd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C68F273F0CC13C5A00E3CD6A /* com.apple.firmwaresyncd.plist */; };
+		C68F27560CC13D4200E3CD6A /* libbless.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C61759C9057E749600252FAB /* libbless.a */; };
+		C68F27650CC13D4B00E3CD6A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F61E91F901A4B30C01F50364 /* IOKit.framework */; };
+		C68F28680CC13D7000E3CD6A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F61E91F801A4B30C01F50364 /* CoreFoundation.framework */; };
+		C68F28B20CC13D7300E3CD6A /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C6DF0CE707B938FE00F5F2FA /* DiskArbitration.framework */; };
 		C697E1470C0222D3008725C6 /* BLIsEFIRecoveryAccessibleDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = C697E1460C0222D3008725C6 /* BLIsEFIRecoveryAccessibleDevice.c */; };
 		C6AB8C17099D38CA003E8E87 /* BLSupportsLegacyMode.c in Sources */ = {isa = PBXBuildFile; fileRef = C6AB8C16099D38CA003E8E87 /* BLSupportsLegacyMode.c */; };
 		C6ABCFA0099A7059001ADBA3 /* BLInterpretEFIXMLRepresentationAsLegacyDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = C6ABCF9F099A7059001ADBA3 /* BLInterpretEFIXMLRepresentationAsLegacyDevice.c */; };
@@ -198,6 +206,20 @@
 			remoteGlobalIDString = C617599A057E749600252FAB;
 			remoteInfo = "libbless (Upgraded)";
 		};
+		C68F28630CC13D5500E3CD6A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C68F27320CC13BCF00E3CD6A;
+			remoteInfo = firmwarefontd;
+		};
+		C68F28650CC13D5900E3CD6A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C617599A057E749600252FAB;
+			remoteInfo = libbless;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -218,6 +240,26 @@
 			dstSubfolderSpec = 0;
 			files = (
 				C6175984057E749600252FAB /* bless.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		C67162C50CC559BE004C34DC /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				C67162C40CC559A0004C34DC /* firmwaresyncd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		C68F27530CC13C8600E3CD6A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/LaunchDaemons";
+			dstSubfolderSpec = 0;
+			files = (
+				C68F27550CC13D3900E3CD6A /* com.apple.firmwaresyncd.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -262,7 +304,11 @@
 		C664E3020C4BEA8900C6437C /* BLBootRootMapMemberToDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLBootRootMapMemberToDevice.c; sourceTree = "<group>"; };
 		C664E3060C4BEAA800C6437C /* BLBootRootMapMemberToHelper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLBootRootMapMemberToHelper.c; sourceTree = "<group>"; };
 		C664E3080C4BEAB400C6437C /* BLBootRootMapHelperToMember.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLBootRootMapHelperToMember.c; sourceTree = "<group>"; };
+		C67162AD0CC5596F004C34DC /* firmwaresyncd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = firmwaresyncd.8; sourceTree = "<group>"; };
 		C67DDCA00A2D08AC00E1B16A /* BLGetCStringRepresentation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLGetCStringRepresentation.c; sourceTree = "<group>"; };
+		C68F27330CC13BCF00E3CD6A /* firmwaresyncd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = firmwaresyncd; sourceTree = BUILT_PRODUCTS_DIR; };
+		C68F273C0CC13BEC00E3CD6A /* firmwaresyncd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = firmwaresyncd.c; sourceTree = "<group>"; };
+		C68F273F0CC13C5A00E3CD6A /* com.apple.firmwaresyncd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.firmwaresyncd.plist; sourceTree = "<group>"; };
 		C697E1460C0222D3008725C6 /* BLIsEFIRecoveryAccessibleDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLIsEFIRecoveryAccessibleDevice.c; sourceTree = "<group>"; };
 		C6AB8C16099D38CA003E8E87 /* BLSupportsLegacyMode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLSupportsLegacyMode.c; sourceTree = "<group>"; };
 		C6ABCF9F099A7059001ADBA3 /* BLInterpretEFIXMLRepresentationAsLegacyDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLInterpretEFIXMLRepresentationAsLegacyDevice.c; sourceTree = "<group>"; };
@@ -373,6 +419,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C68F27310CC13BCF00E3CD6A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C68F28B20CC13D7300E3CD6A /* DiskArbitration.framework in Frameworks */,
+				C68F28680CC13D7000E3CD6A /* CoreFoundation.framework in Frameworks */,
+				C68F27650CC13D4B00E3CD6A /* IOKit.framework in Frameworks */,
+				C68F27560CC13D4200E3CD6A /* libbless.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -408,6 +465,7 @@
 				BA3A398B04C8AB2200E2414C /* test */,
 				BA10D77D04FADE430070B3E0 /* minibless.c */,
 				BA3D8141086C4E5000484376 /* unbless.c */,
+				C68F273C0CC13BEC00E3CD6A /* firmwaresyncd.c */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -421,6 +479,7 @@
 				C61759D7057E749600252FAB /* setOFLabel */,
 				C61759EB057E749600252FAB /* extractBootBlocks */,
 				BA3D8159086C4E7D00484376 /* unbless */,
+				C68F27330CC13BCF00E3CD6A /* firmwaresyncd */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -593,6 +652,8 @@
 		F61E922B01A4CF5801F50364 /* Other Files */ = {
 			isa = PBXGroup;
 			children = (
+				C67162AD0CC5596F004C34DC /* firmwaresyncd.8 */,
+				C68F273F0CC13C5A00E3CD6A /* com.apple.firmwaresyncd.plist */,
 				F5D6CE3E027A8CB901F502C1 /* EXPORT.APPLE */,
 				F61E922D01A4CF5801F50364 /* bless.8 */,
 				F61E923201A4DB1701F50364 /* files */,
@@ -772,6 +833,25 @@
 			productReference = C61759EB057E749600252FAB /* extractBootBlocks */;
 			productType = "com.apple.product-type.tool";
 		};
+		C68F27320CC13BCF00E3CD6A /* firmwaresyncd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C68F273E0CC13BEC00E3CD6A /* Build configuration list for PBXNativeTarget "firmwaresyncd" */;
+			buildPhases = (
+				C68F27300CC13BCF00E3CD6A /* Sources */,
+				C68F27310CC13BCF00E3CD6A /* Frameworks */,
+				C68F27530CC13C8600E3CD6A /* CopyFiles */,
+				C67162C50CC559BE004C34DC /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C68F28660CC13D5900E3CD6A /* PBXTargetDependency */,
+			);
+			name = firmwaresyncd;
+			productName = firmwarefontd;
+			productReference = C68F27330CC13BCF00E3CD6A /* firmwaresyncd */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -792,6 +872,7 @@
 				BA83D5A20C19C22F00752534 /* bootblockdata */,
 				C61759E3057E749600252FAB /* extractBootBlocks */,
 				BA3D8158086C4E7D00484376 /* unbless */,
+				C68F27320CC13BCF00E3CD6A /* firmwaresyncd */,
 			);
 		};
 /* End PBXProject section */
@@ -963,6 +1044,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C68F27300CC13BCF00E3CD6A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C68F273D0CC13BEC00E3CD6A /* firmwaresyncd.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1001,13 +1090,23 @@
 			target = C617599A057E749600252FAB /* libbless */;
 			targetProxy = C6175A15057E749700252FAB /* PBXContainerItemProxy */;
 		};
+		C68F28640CC13D5500E3CD6A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C68F27320CC13BCF00E3CD6A /* firmwaresyncd */;
+			targetProxy = C68F28630CC13D5500E3CD6A /* PBXContainerItemProxy */;
+		};
+		C68F28660CC13D5900E3CD6A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C617599A057E749600252FAB /* libbless */;
+			targetProxy = C68F28650CC13D5900E3CD6A /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		BA3D815C086C4E9C00484376 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1020,7 +1119,7 @@
 		BA3D815D086C4E9C00484376 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1053,7 +1152,7 @@
 		BA4E13E70C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -1067,7 +1166,7 @@
 		BA4E13E80C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1090,7 +1189,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1106,7 +1205,7 @@
 		BA4E13EA0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_LDFLAGS = "";
@@ -1119,7 +1218,7 @@
 		BA4E13EC0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1138,7 +1237,7 @@
 		BA4E13ED0C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = "$(HOME)/bin";
@@ -1152,7 +1251,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1168,7 +1267,7 @@
 		BA7EB3D1086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -1190,7 +1289,7 @@
 		BA7EB3D6086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1212,7 +1311,7 @@
 		BA7EB3DB086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_LDFLAGS = (
@@ -1235,7 +1334,7 @@
 		BA7EB3E5086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1267,7 +1366,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1283,7 +1382,7 @@
 		BA7EB485086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -1305,7 +1404,7 @@
 		BA7EB486086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1327,7 +1426,7 @@
 		BA7EB487086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_LDFLAGS = (
@@ -1350,7 +1449,7 @@
 		BA7EB489086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 63;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1397,6 +1496,44 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = bootblockdata;
+			};
+			name = Debug;
+		};
+		C68F27350CC13BCF00E3CD6A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 63;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = firmwaresyncd;
+				VALID_ARCHS = "ppc i386";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		C68F27360CC13BCF00E3CD6A /* Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 63;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = firmwaresyncd;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Embedded;
+		};
+		C68F27370CC13BCF00E3CD6A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 63;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = firmwaresyncd;
+				VALID_ARCHS = "ppc i386";
+				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
 		};
@@ -1489,6 +1626,16 @@
 				BA83D5AB0C19C23000752534 /* Release */,
 				BA83D5AC0C19C23000752534 /* Embedded */,
 				BA83D5AD0C19C23000752534 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C68F273E0CC13BEC00E3CD6A /* Build configuration list for PBXNativeTarget "firmwaresyncd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C68F27350CC13BCF00E3CD6A /* Release */,
+				C68F27360CC13BCF00E3CD6A /* Embedded */,
+				C68F27370CC13BCF00E3CD6A /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

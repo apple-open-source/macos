@@ -3,7 +3,7 @@
   intern.h -
 
   $Author: shyouhei $
-  $Date: 2007-06-07 21:40:01 +0900 (Thu, 07 Jun 2007) $
+  $Date: 2007-08-22 11:41:24 +0900 (Wed, 22 Aug 2007) $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -114,6 +114,7 @@ VALUE rb_mod_ancestors _((VALUE));
 VALUE rb_class_instance_methods _((int, VALUE*, VALUE));
 VALUE rb_class_public_instance_methods _((int, VALUE*, VALUE));
 VALUE rb_class_protected_instance_methods _((int, VALUE*, VALUE));
+VALUE rb_big_rshift(VALUE, VALUE);
 VALUE rb_class_private_instance_methods _((int, VALUE*, VALUE));
 VALUE rb_obj_singleton_methods _((int, VALUE*, VALUE));
 void rb_define_method_id _((VALUE, ID, VALUE (*)(ANYARGS), int));

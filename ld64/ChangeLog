@@ -1,4 +1,9 @@
 
+2007-10-16     Nick Kledzik    <kledzik@apple.com>
+
+	<rdar://problem/5556038> Cannot build with libm_static.a statically linked
+	* src/MachOWriterExecutable.hpp: fix when extern relocs are used with -r -d
+
 ----- Tagged ld64-77
 
 2007-07-3     Nick Kledzik    <kledzik@apple.com>
@@ -1825,12 +1830,6 @@
 	* src/MachOReaderRelocatable.cpp: mark non-lazy-pointer atoms as scopeTranslationUnit if targetting a static symbol
 
 
-#ifndef __OPEN_SOURCE__
-2006-04-27      Nick Kledzik    <kledzik@apple.com>
-
-	<rdar://problem/4498971> dyld crashes ungracefully on x86_64 when there is an internal exception
-	* src/MachOWriterExecutable.cpp: allow non-zero PCRELGOT addends (used by C++ eh frames)
-#endif
 
 2006-04-21      Nick Kledzik    <kledzik@apple.com>
 
@@ -1874,11 +1873,6 @@
 
 ----- Tagged ld64-50
 
-#ifndef __OPEN_SOURCE__
-2006-03-29      Nick Kledzik    <kledzik@apple.com>
-
-	* src/MachOWriterExecutable.hpp: fix x86_64 addends when -multi_module forces an external relocation
-#endif
 
 2006-03-29      Nick Kledzik    <kledzik@apple.com>
 
@@ -1930,62 +1924,18 @@
 	* src/Options.cpp: setup ReaderOptions.fForFinalLinkedImage
 	* src/MachOReaderRelocatable.hpp: mark .eh symbols kSymbolTableNotIn when building final linked image
 
-#ifndef __OPEN_SOURCE__
-2006-03-21	Nick Kledzik	<kledzik@apple.com>
-
-	<rdar://problem/4475928> Inca ld64-45 fatal error with C++ and asm() renaming
-	* src/MachOReaderRelocatable.hpp: fix Reader<x86_64>::makeReferenceToEH(() to walk relocations to find
-	target of eh symbol, rather assume target name is eh symbol name less .eh
-
-#endif
 2006-03-21	Nick Kledzik	<kledzik@apple.com>
 
 	<rdar://problem/4473742> ld64 does not parse optional second argument to -filelist
 	* unit-tests/test-cases/filelist: added
 	* src/Options.cpp: in Options::loadFileList() handle comma option
 
-#ifndef __OPEN_SOURCE__
-2006-03-21	Nick Kledzik	<kledzik@apple.com>
-
-	<rdar://problem/4483625> 32-bit pointer difference out of range for cxx eh frame
-	* src/MachOReaderRelocatable.hpp: x86_64 doesn't have anonymous non-lazy-pointers
-	* src/machochecker.cpp: fix validFile() for x86_64
-	* unit-tests/run-all-unit-tests: add x86_64
-	* unit-tests/include/common.makefile: don't add -g to all compilers
-	* unit-tests/test-cases/relocs-asm/relocs-asm.s: add x86_64 test cases
-	* unit-tests/test-cases/relocs-c/Makefile: fix to work with x86_64
-	* src/ld.cpp: add hack to use i386 dylibs if x86_64 don't exist
-
-2006-03-19	Nick Kledzik	<kledzik@apple.com>
-
-	<rdar://problem/4483330> ld64 crashes whenever I try to link with dylib1.o
-	* src/MachOReaderRelocatable.hpp: in Reader<x86_64>::addRelocReference() fix local relocations
-#endif
 
 ----- Tagged ld64-47.1
 
-#ifndef __OPEN_SOURCE__
-2006-03-16	Nick Kledzik	<kledzik@apple.com>
-
-	<rdar://problem/4459633> ld64-41 in Leopard doesn't have x86_64 support
-	* ld64.xcodeproj/project.pbxproj: enable x86_64 for Leopard
-#endif
 
 ----- Tagged ld64-47
 
-#ifndef __OPEN_SOURCE__
-2006-03-14	Nick Kledzik	<kledzik@apple.com>
-
-	* src/Architectures.hpp: redo x86_64 relocation types
-	* src/MachOReaderRelocatable.hpp: redo x86_64 relocation types, make some section type illegal for x86_64
-	* src/MachOWriterExecutable.hpp: redo x86_64 relocation types
-
-2006-03-13	Nick Kledzik	<kledzik@apple.com>
-
-	<rdar://problem/4467122> ld64 -r does not handle internal relocations for x86_64
-	* src/MachOWriterExecutable.hpp: handle internal relocations in Writer<x86_64>::fixUpReferenceRelocatable()
-	  and Writer<x86_64>::addObjectRelocs().
-#endif
 
 ----- Tagged ld64-46
 
@@ -2019,24 +1969,12 @@
 
 ----- Tagged ld64-45
 
-#ifndef __OPEN_SOURCE__
-2006-03-06	Nick Kledzik	<kledzik@apple.com>
-
-	<rdar://problem/4466930> <rdar://problem/4467982> ld64 failed: rel32 out of range when linking a dylib
-	* src/MachOWriterExecutable.cpp: in  Writer<x86_64>::fixUpReferenceFinal add (int32_t) cast
-#endif
 
 2006-03-06	Nick Kledzik	<kledzik@apple.com>
 
 	<rdar://problem/4466930> LP64/9A122: ld64: hang when trying to link DiscRecording framework
 	* src/Options.cpp: addSectionAlignment, warn on zero.  Use log2() for alignment conversion
 
-#ifndef __OPEN_SOURCE__
-2006-03-06	Nick Kledzik	<kledzik@apple.com>
-
-	<rdar://problem/4457818> x86_THREAD_STATE64_COUNT will change, ld64 must adapt
-	* src/MachOWriterExecutable.hpp: update ThreadsLoadCommandsAtom<x86_64> for new thread status layout
-#endif
 
 ----- Tagged ld64-44
 
@@ -2051,14 +1989,6 @@
 
 ----- Tagged ld64-43
 
-#ifndef __OPEN_SOURCE__
-2006-03-03	Nick Kledzik	<kledzik@apple.com>
-
-	<rdar://problem/4465443> RIP-relative offsets aren't handled properly when the instruction has immediate operands
-	* src/Architectures.hpp: add x86_64::kPCRel32_*
-	* src/MachOReaderRelocatable.hpp: generate x86_64::kPCRel32_*
-	* src/MachOWriterExecutable.hpp: process x86_64::kPCRel32_*
-#endif
 
 2006-03-02	Nick Kledzik	<kledzik@apple.com>
 

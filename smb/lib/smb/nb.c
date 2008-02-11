@@ -57,19 +57,19 @@ nb_ctx_done(struct nb_ctx *ctx)
 {
 	if (ctx->nb_scope)
 		free(ctx->nb_scope);
-	if (ctx->nb_nsname)
-		free(ctx->nb_nsname);
+	if (ctx->nb_wins_name)
+		free(ctx->nb_wins_name);
 }
 
 int
-nb_ctx_setns(struct nb_ctx *ctx, const char *addr)
+nb_ctx_set_wins_name(struct nb_ctx *ctx, const char *addr)
 {
 	char * wspace;
 	
 	if ((addr == NULL) || (addr[0] == 0) || (addr[0] == 0x20))
 		return EINVAL;
-	if (ctx->nb_nsname)
-		free(ctx->nb_nsname);
+	if (ctx->nb_wins_name)
+		free(ctx->nb_wins_name);
 	/* 
 	 * %%%
 	 * Currently we only support one WINS server, someday maybe more
@@ -80,7 +80,7 @@ nb_ctx_setns(struct nb_ctx *ctx, const char *addr)
 	if (wspace)
 		*wspace = 0;
 	
-	if ((ctx->nb_nsname = strdup(addr)) == NULL)
+	if ((ctx->nb_wins_name = strdup(addr)) == NULL)
 		return ENOMEM;
 	return 0;
 }
@@ -111,15 +111,15 @@ int nb_ctx_resolve(struct nb_ctx *ctx)
 	struct sockaddr *sap;
 	int error;
 
-	if (ctx->nb_nsname == NULL) {
+	if (ctx->nb_wins_name == NULL) {
 		ctx->nb_ns.sin_addr.s_addr = htonl(INADDR_BROADCAST);
 		ctx->nb_ns.sin_port = htons(NBNS_UDP_PORT_137);
 		ctx->nb_ns.sin_family = AF_INET;
 		ctx->nb_ns.sin_len = sizeof(ctx->nb_ns);
 	} else {
-		error = nb_resolvehost_in(ctx->nb_nsname, &sap, NBNS_UDP_PORT_137, TRUE);
+		error = nb_resolvehost_in(ctx->nb_wins_name, &sap, NBNS_UDP_PORT_137, TRUE);
 		if (error) {
-			smb_log_info("can't resolve %s", error, ASL_LEVEL_DEBUG, ctx->nb_nsname);
+			smb_log_info("can't resolve %s", error, ASL_LEVEL_DEBUG, ctx->nb_wins_name);
 			return error;
 		}
 		bcopy(sap, &ctx->nb_ns, sizeof(ctx->nb_ns));
@@ -156,10 +156,10 @@ nb_ctx_readrcsection(struct rcfile *rcfile, struct nb_ctx *ctx,
 	if (!p)
 	    rc_getstringptr(rcfile, sname, "winsserver", &p);
 	if (p) {
-	    	smb_log_info("wins address %s specified in the section %s", 0, ASL_LEVEL_DEBUG, p, sname);
-		error = nb_ctx_setns(ctx, p);
+		smb_log_info("wins address %s specified in the section %s", 0, ASL_LEVEL_DEBUG, p, sname);
+		error = nb_ctx_set_wins_name(ctx, p);
 		if (error) {
-			smb_log_info("invalid address specified in the section %s", 0, ASL_LEVEL_DEBUG, sname);
+			smb_log_info("invalid wins address specified in the section %s", 0, ASL_LEVEL_DEBUG, sname);
 			return error;
 		}
 	}

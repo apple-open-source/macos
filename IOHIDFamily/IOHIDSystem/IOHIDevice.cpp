@@ -27,6 +27,7 @@
 #include <IOKit/hidsystem/IOHIDevice.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
 #include "IOHIDevicePrivateKeys.h"
+#include "IOHIDEventService.h"
 
 #define super IOService
 OSDefineMetaClassAndStructors(IOHIDevice, IOService);
@@ -146,13 +147,12 @@ IOReturn IOHIDevice::setProperties( OSObject * properties )
 
 IOReturn IOHIDevice::setParamProperties( OSDictionary * dict )
 {
-    IOService *    eventService             = NULL;
-    OSDictionary * eventServiceProperties   = NULL;
+    IOHIDEventService * eventService = NULL;
     
     if ( dict->getObject(kIOHIDEventServicePropertiesKey) == NULL ) {
-        IOService * eventService = getProvider();            
-        if ( eventService && eventService->metaCast("IOHIDEventService"))
-            eventServiceProperties = OSDynamicCast(OSDictionary, eventService->copyProperty(kIOHIDEventServicePropertiesKey));
+        IOService * service = getProvider();            
+        if ( service )
+            eventService = OSDynamicCast(IOHIDEventService, service);
     }
 
     if ( dict->getObject(kIOHIDDeviceParametersKey) == kOSBooleanTrue ) {
@@ -190,14 +190,8 @@ IOReturn IOHIDevice::setParamProperties( OSDictionary * dict )
             deviceParameters->release();
             
             // RY: Propogate up to IOHIDEventService level
-            if ( eventServiceProperties ) {
-                eventServiceProperties->merge(dict);
-                eventServiceProperties->removeObject(kIOHIDResetKeyboardKey);
-                eventServiceProperties->removeObject(kIOHIDResetPointerKey);
-                eventServiceProperties->removeObject(kIOHIDEventServicePropertiesKey);
-                eventService->setProperty(kIOHIDEventServicePropertiesKey, eventServiceProperties);
-                eventServiceProperties->release();
-            }
+            if ( eventService )
+                eventService->setSystemProperties(dict);
             
         }
     }

@@ -2230,16 +2230,18 @@ static int ntfs_mount(mount_t mp, vnode_t dev_vn, user_addr_t data,
 		.dev_vn = dev_vn,
 		/*
 		 * Default is group and other have read-only access to files
-		 * and directories while owner has full access.  Further, files
-		 * by default are not executable but directories are of course
-		 * browseable.  In reality it does not matter as we set
-		 * MNT_IGNORE_OWNERSHIP thus everyone can fully access the NTFS
-		 * volume.  The only reason to set the umask this way is that
-		 * when people copy files with the Finder or "cp -p" from an
-		 * NTFS volume to a HFS for example, the file does not end up
-		 * being world writable.
+		 * and directories while owner has full access.  Everyone gets
+		 * directory search and file execute permission.  The latter is
+		 * so people can execute binaries from NTFS volumes.
+		 *
+		 * In reality it does not matter as we set MNT_IGNORE_OWNERSHIP
+		 * thus everyone can fully access the NTFS volume.  The only
+		 * reason to set the umask this way is that when people copy
+		 * files with the Finder or "cp -p" from an NTFS volume to a
+		 * HFS for example, the file does not end up being world
+		 * writable.
 		 */
-		.fmask = 0133,
+		.fmask = 0022,
 		.dmask = 0022,
 		.mft_zone_multiplier = 1,
 	};

@@ -24,7 +24,7 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = private-Leopard-branch-20070917
+AEP_Version    = private-Leopard-branch-20071207
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)

@@ -46,7 +46,9 @@
 
 // Convert USBLog to use kprintf debugging
 // The switch is here, but the work is done in the individual source files because this header is included by the companion controllers
-#define EHCI_USE_KPRINTF 0
+#ifndef EHCI_USE_KPRINTF
+	#define EHCI_USE_KPRINTF 0
+#endif
 
 #ifdef __ppc__
 #define IOSync eieio

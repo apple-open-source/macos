@@ -1,12 +1,17 @@
 require 'test/unit'
-require 'test/gemutilities'
-require 'rubygems/gem_commands'
+require File.join(File.expand_path(File.dirname(__FILE__)), 'gemutilities')
+require 'rubygems/commands/outdated_command'
 
 class TestGemOutdatedCommand < RubyGemTestCase
 
   def setup
-    Gem::CommandManager.instance    
     super
+
+    @cmd = Gem::Commands::OutdatedCommand.new
+  end
+
+  def test_initialize
+    assert @cmd.handles?(%W[--platform #{Gem::Platform.local}])
   end
 
   def test_execute
@@ -23,15 +28,12 @@ class TestGemOutdatedCommand < RubyGemTestCase
                                  remote_20.full_name + ".gemspec"
     FileUtils.rm remote_spec_file
 
-    oc = Gem::Commands::OutdatedCommand.new
-
     util_setup_source_info_cache remote_10, remote_20
 
-    ui = MockGemUi.new 
-    use_ui ui do oc.execute end
+    use_ui @ui do @cmd.execute end
 
-    assert_equal "foo (0.2 < 2.0)\n", ui.output
-    assert_equal "", ui.error
+    assert_equal "foo (0.2 < 2.0)\n", @ui.output
+    assert_equal "", @ui.error
   end
 
 end

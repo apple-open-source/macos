@@ -735,7 +735,7 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
 		// as an error.  However, any client that does not implement the message method will return
 		// kIOReturnUnsupported, so we have to treat that as not an error
 		//
-		if ( _USBPLANE_PARENT )
+		if ( _expansionData && _USBPLANE_PARENT )
 		{
 			_USBPLANE_PARENT->retain();
 			
@@ -1244,10 +1244,11 @@ IOUSBDevice::ResetDevice()
     USBLog(5, "-%s[%p] ResetDevice for port %ld, error: 0x%x", getName(), this, _PORT_NUMBER, _RESET_ERROR );
 	
     _RESET_IN_PROGRESS = false;
+    kr = _RESET_ERROR;
 	
     release();
 	
-    return _RESET_ERROR;
+    return kr;
 }
 
 /******************************************************
@@ -3125,7 +3126,7 @@ IOUSBDevice::ProcessPortReEnumerate(UInt32 options)
     // just send a message to all the clients of our parent.  The hub driver will be the only one that
     // should do anything with that message.
     //
-    if ( _USBPLANE_PARENT )
+    if ( _expansionData && _USBPLANE_PARENT )
     {
         USBLog(3, "%s[%p] calling messageClients (kIOUSBMessageHubReEnumeratePort)", getName(), this);
         _USBPLANE_PARENT->retain();
@@ -3163,6 +3164,9 @@ IOUSBDevice::ProcessPortSuspend(bool suspend)
     IOReturn			err = kIOReturnSuccess;
 	
     USBLog(6,"+%s[%p]::ProcessPortSuspend, _PORT_SUSPEND_THREAD_ACTIVE = %d, isInactive() = %d",getName(), this, _PORT_RESET_THREAD_ACTIVE, isInactive() ); 
+	
+	if (!_expansionData)
+		return;
 	
 	// if we are already resetting the port, then just return ( Perhaps we should do this atomically)?
 	//

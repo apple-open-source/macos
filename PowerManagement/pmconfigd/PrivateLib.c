@@ -107,13 +107,8 @@ _setRootDomainProperty(
     io_registry_entry_t         root_domain;
     IOReturn                    ret;
 
-    IOServiceGetMatchingServices(
-                    MACH_PORT_NULL, 
-                    IOServiceNameMatching("IOPMrootDomain"), 
-                    &it);
-    if(!it) return kIOReturnError;
-    root_domain = (io_registry_entry_t)IOIteratorNext(it);
-    if(!root_domain) return kIOReturnError;
+    root_domain = IORegistryEntryFromPath( kIOMasterPortDefault, 
+                        kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
  
     ret = IORegistryEntrySetCFProperty(root_domain, key, val);
 
@@ -210,6 +205,8 @@ static void _unpackBatteryState(IOPMBattery *b, CFDictionaryRef prop)
 
     b->failureDetected = (CFStringRef)CFDictionaryGetValue(prop, CFSTR(kIOPMPSErrorConditionKey));
 
+    b->chargeStatus = (CFStringRef)CFDictionaryGetValue(prop, CFSTR(kIOPMPSBatteryChargeStatusKey));
+
     n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSCurrentCapacityKey));
     if(n) {
         CFNumberGetValue(n, kCFNumberIntType, &b->currentCap);
@@ -253,14 +250,6 @@ static void _unpackBatteryState(IOPMBattery *b, CFDictionaryRef prop)
         CFNumberGetValue(n, kCFNumberIntType, &b->invalidWakeSecs);
     } else {
         b->invalidWakeSecs = kInvalidWakeSecsDefault;
-    }
-    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSBatteryHealthKey));
-    if(n) {
-        CFNumberGetValue(n, kCFNumberIntType, &b->health);
-    }
-    n = CFDictionaryGetValue(prop, CFSTR(kIOPMPSHealthConfidenceKey));
-    if(n) {
-        CFNumberGetValue(n, kCFNumberIntType, &b->healthConfidence);
     }
 
     return;
@@ -376,6 +365,8 @@ __private_extern__ CFArrayRef _copyLegacyBatteryInfo(void)
     return battery_info;
 }
 
+#if HAVE_CF_USER_NOTIFICATION
+
 __private_extern__ CFUserNotificationRef _showUPSWarning(void)
 {
 #ifndef STANDALONE
@@ -417,6 +408,8 @@ __private_extern__ CFUserNotificationRef _showUPSWarning(void)
     return NULL;
 #endif
 }
+
+#endif
 
 /************************* One off hack for AppleSMC
  *************************

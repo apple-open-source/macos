@@ -96,21 +96,29 @@ module OSX
         raise RuntimeError, "invalid class: #{model.class}"
       end
 
-      model.entities.to_a.each do |ent|
-        klassname = ent.managedObjectClassName.to_s
-        next if klassname == 'NSManagedObject'
-        next unless Object.const_defined?(klassname)
-
-        attrs = ent.attributesByName.allKeys.to_a.collect {|key| key.to_s}
-        rels = ent.relationshipsByName.allKeys.to_a.collect {|key| key.to_s}
-        klass = Object.const_get(klassname)
-        klass.instance_eval <<-EOE_AUTOWRAP,__FILE__,__LINE__+1
-          kvc_wrapper attrs
-          kvc_wrapper_reader rels
-        EOE_AUTOWRAP
+      model.entities.each do |ent|
+        CoreData.define_wrapper_for_entity(ent)
       end
     end
     module_function :define_wrapper
+
+    def define_wrapper_for_entity(entity)
+      klassname = entity.managedObjectClassName.to_s
+      return if klassname == 'NSManagedObject'
+      unless Object.const_defined?(klassname)
+	warn "define_wrapper_for_entity: class \"#{klassname}\" is not defined."
+        return
+      end
+
+      attrs = entity.attributesByName.allKeys.collect {|key| key.to_s}
+      rels = entity.relationshipsByName.allKeys.collect {|key| key.to_s}
+      klass = Object.const_get(klassname)
+      klass.instance_eval <<-EOE_AUTOWRAP,__FILE__,__LINE__+1
+	kvc_wrapper attrs
+	kvc_wrapper_reader rels
+      EOE_AUTOWRAP
+    end
+    module_function :define_wrapper_for_entity
   end
 
 end

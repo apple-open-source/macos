@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2001,2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 1999-2001,2003-2004,2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -226,7 +226,7 @@ representation is implied */
 #define APPLE_DOTMAC_CERT_EXTEN_OID_LENGTH  APPLE_DOTMAC_CERT_OID_LENGTH + 1
 
 /*
- * Basis of .mac Certificate request OID/value identitifiers
+ * Basis of .mac Certificate request OID/value identifiers
  *
  * dotMacCertificateRequestValues OBJECT IDENTIFIER ::= 
  *		{ appleDotMacCertificate 3 }
@@ -249,19 +249,37 @@ representation is implied */
  * Basis of Apple Code Signing extended key usages
  * appleCodeSigning  OBJECT IDENTIFIER ::= 
  *		{ appleExtendedKeyUsage 1 }
- *      { 1 2 840 113635 100 4 1}
+ *      { 1 2 840 113635 100 4 1 }
  */
 #define APPLE_EKU_CODE_SIGNING			APPLE_EKU_OID, 1
 #define APPLE_EKU_CODE_SIGNING_LENGTH	APPLE_EKU_OID_LENGTH + 1
 
 /*
- * Basis of Apple-specific Certific Policy IDs.
+ * Basis of Apple-specific Certificate Policy identifiers
  * appleCertificatePolicies OBJECT IDENTIFIER ::= 
- *		{appleDataSecurity 5}
+ *		{ appleDataSecurity 5 }
  *		{ 1 2 840 113635 100 5 }
  */
 #define APPLE_CERT_POLICIES				APPLE_ADS_OID, 5
 #define APPLE_CERT_POLICIES_LENGTH		APPLE_ADS_OID_LENGTH + 1
+
+/*
+ * Basis of Apple-specific certificate extensions
+ * appleCertificateExtensions OBJECT IDENTIFIER ::= 
+ *		{ appleDataSecurity 6 }
+ *		{ 1 2 840 113635 100 6 }
+ */
+#define APPLE_EXTENSION_OID				APPLE_ADS_OID, 6
+#define APPLE_EXTENSION_OID_LENGTH		APPLE_ADS_OID_LENGTH + 1
+
+/*
+ * Basis of Apple-specific Code Signing certificate extensions
+ * appleCertificateExtensionCodeSigning OBJECT IDENTIFIER ::= 
+ *		{ appleCertificateExtensions 1 }
+ *		{ 1 2 840 113635 100 6 1 }
+ */
+#define APPLE_EXTENSION_CODE_SIGNING		APPLE_EXTENSION_OID, 1
+#define APPLE_EXTENSION_CODE_SIGNING_LENGTH	APPLE_EXTENSION_OID_LENGTH + 1
 
 /*
  * Netscape OIDs.

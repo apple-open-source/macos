@@ -35,6 +35,10 @@ namespace Security {
 namespace CodeSigning {
 
 
+static CFStringRef appleIntermediateCN = CFSTR("Apple Code Signing Certification Authority");
+static CFStringRef appleIntermediateO = CFSTR("Apple Inc.");
+
+
 //
 // Construct an interpreter given a Requirement and an evaluation context.
 //
@@ -61,14 +65,7 @@ bool Requirement::Interpreter::evaluate()
 	case opIdent:
 		return getString() == mContext->directory->identifier();
 	case opAppleAnchor:
-		if (SecCertificateRef cert = mContext->cert(anchorCert))
-			return verifyAnchor(cert, appleAnchorHash())
-#if defined(TEST_APPLE_ANCHOR)
-				|| verifyAnchor(cert, testAppleAnchorHash())
-#endif
-			;
-	else
-			return false;
+		return appleSigned();
 	case opAnchorHash:
 		{
 			SecCertificateRef cert = mContext->cert(get<int32_t>());
@@ -185,6 +182,26 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 
 	// unrecognized key. Fail but do not abort to promote backward compatibility down the road
 	secdebug("csinterp", "cert field notation \"%s\" not understood", key.c_str());
+	return false;
+}
+
+
+//
+// Check the Apple-signed condition
+//
+bool Requirement::Interpreter::appleSigned()
+{
+	if (SecCertificateRef cert = mContext->cert(anchorCert))
+		if (verifyAnchor(cert, appleAnchorHash())
+#if defined(TEST_APPLE_ANCHOR)
+			|| verifyAnchor(cert, testAppleAnchorHash())
+#endif
+		)
+			if (SecCertificateRef intermed = mContext->cert(-2))	// first intermediate
+				// first intermediate common name match (exact)
+				if (certFieldValue("subject.CN", Match(appleIntermediateCN, matchEqual), intermed)
+					&& certFieldValue("subject.O", Match(appleIntermediateO, matchEqual), intermed))
+					return true;
 	return false;
 }
 

@@ -2,7 +2,7 @@
  * syck.h
  *
  * $Author: shyouhei $
- * $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+ * $Date: 2007-08-22 10:16:17 +0900 (Wed, 22 Aug 2007) $
  *
  * Copyright (C) 2003 why the lucky stiff
  */
@@ -17,6 +17,7 @@
 #define YAML_DOMAIN     "yaml.org,2002"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include "st.h"
 
@@ -399,6 +400,7 @@ int syck_scan_scalar( int, char *, long );
 void syck_parser_handler( SyckParser *, SyckNodeHandler );
 void syck_parser_error_handler( SyckParser *, SyckErrorHandler );
 void syck_parser_bad_anchor_handler( SyckParser *, SyckBadAnchorHandler );
+void syck_parser_set_input_type( SyckParser *, enum syck_parser_input );
 void syck_parser_file( SyckParser *, FILE *, SyckIoFileRead );
 void syck_parser_str( SyckParser *, char *, long, SyckIoStrRead );
 void syck_parser_str_auto( SyckParser *, char *, SyckIoStrRead );

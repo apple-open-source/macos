@@ -27,4 +27,5 @@ struct smbfs_flock {
 	u_int32_t	lck_pid;
 	off_t		start;
 	u_int64_t	len;
+	u_int32_t	flck_pid;	/* pid used to obtain the lock */
 };

@@ -97,7 +97,7 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 		UInt8								_rootHubPollingRate;								// probably 32 ms
 		UInt8								_rootHubNumPorts;									// number of root hub ports - should be 15 or fewer!
 		UInt16								_rootHubStatusChangedBitmap;						// support up to 15 ports for status changes
-		bool								_rootHubTimerActive;								// true when we have set the timer
+		bool								_rootHubTimerActive;								// true when we are executing inside the timer callback
 		IOUSBRootHubInterruptTransaction	_outstandingRHTrans[kIOUSBMaxRootHubTransactions];	// transactions for the root hub, which will get completed in the timer thread
 
 		struct V3ExpansionData { 

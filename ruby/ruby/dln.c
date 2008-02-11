@@ -3,7 +3,7 @@
   dln.c -
 
   $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Date: 2007-08-22 11:46:14 +0900 (Wed, 22 Aug 2007) $
   created at: Tue Jan 18 17:05:06 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -1671,35 +1671,6 @@ dln_find_file(fname, path)
     return _macruby_path_conv_posix_to_macos(dln_find_1(fname, path, 0));
 #endif
 }
-
-#if defined(__CYGWIN32__)
-const char *
-conv_to_posix_path(win32, posix, len)
-    char *win32;
-    char *posix;
-    int len;
-{
-    char *first = win32;
-    char *p = win32;
-    char *dst = posix;
-
-    posix[0] = '\0';
-    for (p = win32; *p; p++)
-	if (*p == ';') {
-	    *p = 0;
-	    cygwin32_conv_to_posix_path(first, posix);
-	    posix += strlen(posix);
-	    *posix++ = ':';
-	    first = p + 1;
-	    *p = ';';
-	}
-    if (len < strlen(first))
-	fprintf(stderr, "PATH length too long: %s\n", first);
-    else
-	cygwin32_conv_to_posix_path(first, posix);
-    return dst;
-}
-#endif
 
 static char fbuf[MAXPATHLEN];
 

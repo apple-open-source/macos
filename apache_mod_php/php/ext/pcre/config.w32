@@ -1,4 +1,4 @@
-// $Id: config.w32,v 1.4.2.5.2.5 2007/06/15 19:09:24 nlopess Exp $
+// $Id: config.w32,v 1.4.2.5.2.7 2007/09/11 16:17:33 nlopess Exp $
 // vim:ft=javascript
 
 ARG_WITH("pcre-regex", "Perl Compatible Regular Expressions", "yes");

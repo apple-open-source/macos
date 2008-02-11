@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: xsl_fe.h,v 1.8.2.1.2.1 2007/01/01 09:36:10 sebastian Exp $ */
+/* $Id: xsl_fe.h,v 1.8.2.1.2.2 2007/10/06 21:35:53 tony2001 Exp $ */
 
 #ifndef XSL_FE_H
 #define XSL_FE_H
@@ -34,3 +34,12 @@ PHP_FUNCTION(xsl_xsltprocessor_remove_parameter);
 PHP_FUNCTION(xsl_xsltprocessor_has_exslt_support);
 PHP_FUNCTION(xsl_xsltprocessor_register_php_functions);
 #endif
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
+ */

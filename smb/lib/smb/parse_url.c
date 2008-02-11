@@ -293,13 +293,11 @@ static int SetUserNameFromURL(struct smb_ctx *ctx, CFURLRef url)
 {
 	CFStringRef username = SetWorkgroupFromURL(ctx, url);
 	int error;
-	
+
 	/* No user name in the URL */
 	if (! username)
 		return 0;
 	LogCFString(username, "Username",__FUNCTION__, __LINE__);
-	/* May still have the special URL percent escape characters, remove any that exist. */ 
-	username = CreateStringByReplacingPercentEscapesUTF8(username, CFSTR(""));
 
 	/* Username is too long return an error */
 	if (CFStringGetLength(username) >= SMB_MAXUSERNAMELEN) {
@@ -325,14 +323,11 @@ static int SetUserNameFromURL(struct smb_ctx *ctx, CFURLRef url)
 static int SetPasswordFromURL(struct smb_ctx *ctx, CFURLRef url)
 {
 	CFStringRef passwd = CFURLCopyPassword(url);
-	
+		
 	/*  URL =" //username@smb-win2003.apple.com" or URL =" //smb-win2003.apple.com" */
 	if (! passwd)
 		return 0;
 	
-	/* May still have the special URL percent escape characters, remove any that exist. */ 
-	passwd = CreateStringByReplacingPercentEscapesUTF8(passwd, CFSTR(""));
-
 	/* Password is too long return an error */	
 	if (CFStringGetLength(passwd) >= SMB_MAXPASSWORDLEN) {
 		CFRelease(passwd);
@@ -415,7 +410,8 @@ static int GetShareAndPathFromURL(CFURLRef url, CFStringRef *out_share, CFString
 		CFArrayRemoveValueAtIndex(userArrayM, 0);
 		path = CFStringCreateByCombiningStrings(NULL, userArrayM, CFSTR("/"));
 		path = CreateStringByReplacingPercentEscapesUTF8(path, CFSTR(""));
-		LogCFString(path, "Path", __FUNCTION__, __LINE__);
+		if (path)
+			LogCFString(path, "Path", __FUNCTION__, __LINE__);
 
 		CFRelease(userArrayM);
 		/* Something went wrong use the original value */

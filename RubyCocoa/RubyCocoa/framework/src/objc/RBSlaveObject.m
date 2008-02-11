@@ -17,7 +17,13 @@
 
 static VALUE rbobj_for(VALUE rbclass, id master)
 {
-  return rb_funcall(rbclass, rb_intern("new_with_ocid"), 1, OCID2NUM(master));
+  static BOOL in_rbobj_for = NO;
+  VALUE val;
+  if (in_rbobj_for == YES) return Qnil;
+  in_rbobj_for = YES;
+  val = rb_funcall(rbclass, rb_intern("new_with_ocid"), 1, OCID2NUM(master));
+  in_rbobj_for = NO;
+  return val;
 }
 
 @implementation RBObject(RBSlaveObject)

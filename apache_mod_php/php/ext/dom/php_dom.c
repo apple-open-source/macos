@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_dom.c,v 1.73.2.12.2.11 2007/08/06 16:22:24 rrichards Exp $ */
+/* $Id: php_dom.c,v 1.73.2.12.2.12 2007/08/30 16:32:34 rrichards Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -943,6 +943,7 @@ void node_list_unlink(xmlNodePtr node TSRMLS_DC)
 				case XML_DOCUMENT_TYPE_NODE:
 				case XML_ENTITY_DECL:
 				case XML_ATTRIBUTE_NODE:
+				case XML_TEXT_NODE:
 					break;
 				default:
 					node_list_unlink((xmlNodePtr) node->properties TSRMLS_CC);

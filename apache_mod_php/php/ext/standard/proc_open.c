@@ -15,7 +15,7 @@
    | Author: Wez Furlong <wez@thebrainroom.com>                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: proc_open.c,v 1.36.2.1.2.16 2007/08/17 10:42:30 jani Exp $ */
+/* $Id: proc_open.c,v 1.36.2.1.2.17 2007/09/12 11:42:43 nlopess Exp $ */
 
 #if 0 && (defined(__linux__) || defined(sun) || defined(__IRIX__))
 # define _BSD_SOURCE 		/* linux wants this when XOPEN mode is on */
@@ -677,6 +677,12 @@ PHP_FUNCTION(proc_open)
 #ifdef PHP_WIN32
 				descriptors[ndesc].childend = dup_fd_as_handle(fd);
 				_close(fd);
+
+				/* simulate the append mode by fseeking to the end of the file
+				this introduces a potential race-condition, but it is the best we can do, though */
+				if (strchr(Z_STRVAL_PP(zmode), 'a')) {
+					SetFilePointer(descriptors[ndesc].childend, 0, NULL, FILE_END);
+				}
 #else
 				descriptors[ndesc].childend = fd;
 #endif

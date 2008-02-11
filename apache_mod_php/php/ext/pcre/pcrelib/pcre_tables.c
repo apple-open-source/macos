@@ -44,6 +44,8 @@ uses macros to change their names from _pcre_xxx to xxxx, thereby avoiding name
 clashes with the library. */
 
 
+#include <config.h>
+
 #include "pcre_internal.h"
 
 

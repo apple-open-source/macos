@@ -48,7 +48,9 @@
 
 #define	SMB_CFG_FILE		"/etc/nsmb.conf"
 #define SMB_CFG_LOCAL_FILE	"/Library/Preferences/nsmb.conf"
-#define	SMB_GCFG_FILE		"/var/run/smb.conf"
+#define	SMB_GCFG_FILE		"/var/db/smb.conf"
+#define SMB_BonjourServiceNameType "_smb._tcp."
+#define NetBIOS_SMBSERVER		"*SMBSERVER"
 
 /* Used by mount_smbfs to pass mount option into the smb_mount call */
 #define kStreamstMountKey	CFSTR("SMBStreamsMount")
@@ -106,7 +108,7 @@
 struct nb_ctx {
 	int					nb_timo;
 	char *				nb_scope;	/* NetBIOS scope */
-	char *				nb_nsname;	/* name server */
+	char *				nb_wins_name;	/* WINS name server, DNS name or IP Dot Notation */
 	struct sockaddr_in	nb_ns;	/* ip addr of name server */
 	struct sockaddr_in	nb_lastns;
 };
@@ -126,7 +128,7 @@ struct smb_ctx {
 	UInt16		ct_port;
 	CFStringRef	serverDisplayName; /* Server name from URL or Bonjour Service Name*/
 	char *		ct_fullserver; /* Server name from URL */
-	char *		ct_srvaddr;	/* hostname or IP address of server taken from config file */
+	char *		netbios_dns_name;	/* Given a NetBIOS name this is the DNS name (or IP Dot Notation) found in the configuration file */
 	struct nb_ctx ct_nb;
 	struct smbioc_ossn	ct_ssn;
 	struct smbioc_oshare	ct_sh;
@@ -149,6 +151,7 @@ struct smb_ctx {
 #define	SMBCF_READ_PREFS	0x00000010	/* We already read the preference */
 #define SMBCF_MOUNTSMBFS	0x00000020	/* Called from the mount_smbfs command */
 #define SMBCF_EXPLICITPWD	0x00010000	/* The password set by the url */
+#define SMBCF_RESOLVED_NetBIOS	0x00020000	/* We have reolved the address and name using NetBIOS */
 
 #define SMBCF_CONNECT_STATE	SMBCF_CONNECTED | SMBCF_AUTHORIZED | SMBCF_SHARE_CONN
 /*

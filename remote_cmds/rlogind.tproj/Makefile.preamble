@@ -1,3 +1,0 @@
-CLEAN_ALL_SUBPROJECTS = YES
-OTHER_OFILES = des_rw.o
--include ../Makefile.include

@@ -145,7 +145,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSerialBusProtocolTransport;
-				MODULE_VERSION = 1.5.0;
+				MODULE_VERSION = 1.5.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

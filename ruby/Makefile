@@ -140,7 +140,7 @@ install-xray-template:
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 1.8.6-p36
+AEP_Version    = 1.8.6-p111
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -159,16 +159,13 @@ AEP_Patches    = patch-configure \
                  ext_digest_sha1_extconf.rb.diff \
                  ext_digest_sha1_sha1.h.diff \
                  ext_tk_extconf.rb.diff \
-                 ext_openssl_lib_openssl_ssl.rb.diff \
-                 lib_net_http.rb.diff \
-                 lib_open-uri.rb.diff \
                  lib_rdoc_usage.rb.diff \
                  lib_rdoc_ri_ri_options.rb.diff \
                  lib_rdoc_ri_ri_paths.rb.diff \
                  lib_irb_init.rb.diff \
-                 fix_cplusplus_extensions.diff \
                  dtrace.diff \
-                 ruby_thread_hooks.diff
+                 ruby_thread_hooks.diff \
+                 rexml_bugs.diff
 
 # Extract the source.
 install_source::

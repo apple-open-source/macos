@@ -22,6 +22,9 @@
  */
 #define CFRUNLOOP_NEW_API 1
 
+// 
+#include <TargetConditionals.h>
+
 #include <CoreFoundation/CFMachPort.h>
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -31,6 +34,8 @@
 #include <IOKit/usb/IOUSBUserClient.h>
 #include <IOKit/usb/IOUSBLib.h>
 
+#if !TARGET_OS_EMBEDDED
+#endif
 
 #include <stdio.h>
 
@@ -229,6 +234,8 @@ IOUSBDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
     CFMutableDictionaryRef 	entryProperties = 0;
     kern_return_t 		kr;
     
+#if !TARGET_OS_EMBEDDED
+#endif
 	
     res = IOServiceOpen(inService, mach_task_self(), 0, &fConnection);
     if (res != kIOReturnSuccess)
@@ -1137,7 +1144,9 @@ IOUSBDeviceClass::CreateInterfaceIterator(IOUSBFindInterfaceRequest *intfReq, io
 			   intfReq->bAlternateSetting);
 	
 	
-
+#if !TARGET_OS_EMBEDDED
+#endif
+	
 	ret = IOConnectCallStructMethod( fConnection, kUSBDeviceUserClientCreateInterfaceIterator,  intfReq, inSize, iter, &len);
     if (ret == MACH_SEND_INVALID_DEST)
     {
@@ -1148,7 +1157,9 @@ IOUSBDeviceClass::CreateInterfaceIterator(IOUSBFindInterfaceRequest *intfReq, io
     }
 	
 	
-	 
+#if !TARGET_OS_EMBEDDED
+#endif
+	
 	DEBUGPRINT("-IOUSBDeviceClass::CreateInterfaceIterator returning error 0x%x (%d), iterator: 0x%x\n", ret, ret, *iter);
     return ret;
 }
@@ -1169,6 +1180,8 @@ IOUSBDeviceClass::GetBusFrameNumber(UInt64 *frame, AbsoluteTime *atTime)
     ret = IOConnectCallStructMethod(fConnection, kUSBDeviceUserClientGetFrameNumber, 0, 0, &frameInfo, &len);
     if(kIOReturnSuccess == ret) 
     {
+#if !TARGET_OS_EMBEDDED
+#endif
 		{
 			*frame = frameInfo.frame;
 			*atTime = frameInfo.timeStamp;
@@ -1203,6 +1216,8 @@ IOUSBDeviceClass::GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *atTim
 	ret = IOConnectCallStructMethod(fConnection, kUSBDeviceUserClientGetMicroFrameNumber, 0, 0, &frameInfo, &len);
     if(kIOReturnSuccess == ret)
     {
+#if !TARGET_OS_EMBEDDED
+#endif
 		{
 			*microFrame = frameInfo.frame;
 			*atTime = frameInfo.timeStamp;
@@ -1238,6 +1253,8 @@ IOUSBDeviceClass::GetBusFrameNumberWithTime(UInt64 *frame, AbsoluteTime *atTime)
 	ret = IOConnectCallStructMethod(fConnection, kUSBDeviceUserClientGetFrameNumberWithTime, 0, 0, (void *) &frameInfo, &len);
     if(kIOReturnSuccess == ret) 
     {
+#if !TARGET_OS_EMBEDDED
+#endif
 		{
 			*frame = frameInfo.frame;
 			*atTime = frameInfo.timeStamp;

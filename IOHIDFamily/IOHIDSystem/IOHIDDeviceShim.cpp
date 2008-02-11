@@ -56,19 +56,24 @@ bool IOHIDDeviceShim::handleStart( IOService * provider )
             
         device = _hiDevice;
         do {
-            if (_device = (IOService *)device->metaCast("IOUSBDevice"))
+			if ((_device = (IOService *)device->metaCast("IOHIDDevice")))
+			{
+				break;
+			}
+			
+            if ((_device = (IOService *)device->metaCast("IOUSBDevice")) || (_device = (IOService *)device->metaCast("IOUSBInterface")))
             {
                 _transport = kIOHIDTransportUSB;
                 break;
             }
                 
-            else if (_device = (IOService *)device->metaCast("IOADBDevice"))
+			if (_device = (IOService *)device->metaCast("IOADBDevice"))
             {
                 _transport = kIOHIDTransportADB;
                 break;
             }
             
-            else if (_device = (IOService *)device->metaCast("ApplePS2Controller"))
+			if (_device = (IOService *)device->metaCast("ApplePS2Controller"))
             {
                 _transport = kIOHIDTransportPS2;
                 break;
@@ -84,10 +89,12 @@ OSString * IOHIDDeviceShim::newProductString() const
     OSString * string       = NULL;
     OSString * returnString = NULL;
     
-    if (_device && (string = OSDynamicCast(OSString, _device->getProperty("USB Product Name"))))
-    {
+    if (_device && 
+			((string = OSDynamicCast(OSString, _device->getProperty("USB Product Name"))) || 
+			 (string = OSDynamicCast(OSString, _device->getProperty(kIOHIDProductKey)))))
+	{
         returnString = OSString::withString(string);
-    }
+	}
     else if (_hiDevice)
     {
         if (_hiDevice->hidKind() == kHIRelativePointingDevice)
@@ -119,7 +126,9 @@ OSString * IOHIDDeviceShim::newManufacturerString() const
     OSString * string       = NULL;
     OSString * returnString = NULL;
     
-    if (_device && (string = OSDynamicCast(OSString, _device->getProperty("USB Vendor Name"))))
+    if (_device && 
+			((string = OSDynamicCast(OSString, _device->getProperty("USB Vendor Name"))) || 
+			 (string = OSDynamicCast(OSString, _device->getProperty(kIOHIDManufacturerKey)))))
         returnString = OSString::withString(string);
         
     else if (_hiDevice && (_hiDevice->deviceType() > 2))
@@ -139,12 +148,19 @@ OSString * IOHIDDeviceShim::newTransportString() const
     {
         case kIOHIDTransportUSB:
             returnString = OSString::withCString("USB");
+			break;
 
         case kIOHIDTransportADB:
             returnString = OSString::withCString("ADB");
+			break;
 
         case kIOHIDTransportPS2:
             returnString = OSString::withCString("PS2");
+			break;
+		
+		default:
+			returnString = (OSString*)_device->copyProperty(kIOHIDTransportKey);
+			break;
     }      
     
     if ( _hiDevice && returnString )
@@ -158,10 +174,12 @@ OSNumber * IOHIDDeviceShim::newVendorIDNumber() const
     OSNumber * number       = NULL;
     OSNumber * returnNumber = NULL;
     
-    if (_device && (number = OSDynamicCast(OSNumber, _device->getProperty("idVendor"))))
-    {
+    if (_device && 
+			((number = OSDynamicCast(OSNumber, _device->getProperty("idVendor"))) || 
+			 (number = OSDynamicCast(OSNumber, _device->getProperty(kIOHIDVendorIDKey)))))
+	{
         returnNumber = OSNumber::withNumber(number->unsigned32BitValue(), 32);
-    }
+	}
     else if (_hiDevice && (_hiDevice->deviceType() > 2))
     {
         UInt32	vendorID = kIOHIDAppleVendorID;
@@ -179,7 +197,9 @@ OSNumber * IOHIDDeviceShim::newProductIDNumber() const
     OSNumber * number       = NULL;
     OSNumber * returnNumber = NULL;
     
-    if (_device && (number = OSDynamicCast(OSNumber, _device->getProperty("idProduct"))))
+    if (_device && 
+			((number = OSDynamicCast(OSNumber, _device->getProperty("idProduct"))) || 
+			 (number = OSDynamicCast(OSNumber, _device->getProperty(kIOHIDProductIDKey)))))
         returnNumber = OSNumber::withNumber(number->unsigned32BitValue(), 32);
 
     if ( _hiDevice && returnNumber )
@@ -195,7 +215,8 @@ OSNumber * IOHIDDeviceShim::newLocationIDNumber() const
     
     if (_device && !location)
     {
-        if (number = OSDynamicCast(OSNumber, _device->getProperty("locationID")))
+        if ((number = OSDynamicCast(OSNumber, _device->getProperty("locationID"))) || 
+			(number = OSDynamicCast(OSNumber, _device->getProperty(kIOHIDLocationIDKey))))
         {
             location = number->unsigned32BitValue();
         }
@@ -216,14 +237,22 @@ OSNumber * IOHIDDeviceShim::newLocationIDNumber() const
 OSString * IOHIDDeviceShim::newSerialNumberString() const
 {
     OSNumber * number;
+	OSString * string;
     char str[33];
     
-    if (_device && (number = OSDynamicCast(OSNumber, _device->getProperty("iSerialNumber"))))
-    {
-        sprintf(str, "%d", number->unsigned32BitValue());
-        str[32] = 0;
-        return OSString::withCString(str);
-    }
+	if (_device) {
+		if (number = OSDynamicCast(OSNumber, _device->getProperty("iSerialNumber")))
+		{
+			sprintf(str, "%d", number->unsigned32BitValue());
+			str[32] = 0;
+			return OSString::withCString(str);
+		} 
+		else if (string = OSDynamicCast(OSString, _device->getProperty(kIOHIDSerialNumberKey)))
+		{
+			string->retain();
+			return string;
+		}
+	}
 
     return 0;
 }

@@ -43,6 +43,9 @@ auxiliary function that can be used to maintain a reference count in a compiled
 pattern data block. This might be helpful in applications where the block is
 shared by different users. */
 
+
+#include <config.h>
+
 #include "pcre_internal.h"
 
 

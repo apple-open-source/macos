@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: plain_wrapper.c,v 1.52.2.6.2.23 2007/07/25 16:34:05 dmitry Exp $ */
+/* $Id: plain_wrapper.c,v 1.52.2.6.2.25 2007/11/01 17:32:26 jani Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -24,6 +24,7 @@
 #include "php_open_temporary_file.h"
 #include "ext/standard/file.h"
 #include "ext/standard/flock_compat.h"
+#include "ext/standard/php_filestat.h"
 #include <stddef.h>
 #include <fcntl.h>
 #if HAVE_SYS_WAIT_H
@@ -1008,8 +1009,6 @@ static int php_plain_files_unlink(php_stream_wrapper *wrapper, char *url, int op
 {
 	char *p;
 	int ret;
-	zval funcname;
-	zval *retval = NULL;
 
 	if ((p = strstr(url, "://")) != NULL) {
 		url = p + 3;
@@ -1032,12 +1031,10 @@ static int php_plain_files_unlink(php_stream_wrapper *wrapper, char *url, int op
 		}
 		return 0;
 	}
+
 	/* Clear stat cache */
-	ZVAL_STRINGL(&funcname, "clearstatcache", sizeof("clearstatcache")-1, 0);
-	call_user_function_ex(CG(function_table), NULL, &funcname, &retval, 0, NULL, 0, NULL TSRMLS_CC);
-	if (retval) {
-		zval_ptr_dtor(&retval);
-	}
+	php_clear_stat_cache(TSRMLS_C);
+
 	return 1;
 }
 
@@ -1107,6 +1104,9 @@ static int php_plain_files_rename(php_stream_wrapper *wrapper, char *url_from, c
         return 0;
 	}
 
+	/* Clear stat cache */
+	php_clear_stat_cache(TSRMLS_C);
+
 	return 1;
 }
 
@@ -1151,7 +1151,7 @@ static int php_plain_files_mkdir(php_stream_wrapper *wrapper, char *dir, int mod
 		}
 		else {
 			/* find a top level directory we need to create */
-			while ( (p = strrchr(buf + offset, DEFAULT_SLASH)) || ( offset !=1 && (p = strrchr(buf, DEFAULT_SLASH))) ) {
+			while ( (p = strrchr(buf + offset, DEFAULT_SLASH)) || (offset != 1 && (p = strrchr(buf, DEFAULT_SLASH))) ) {
 				int n = 0;
 
 				*p = '\0';
@@ -1217,6 +1217,9 @@ static int php_plain_files_rmdir(php_stream_wrapper *wrapper, char *url, int opt
 		php_error_docref1(NULL TSRMLS_CC, url, E_WARNING, "%s", strerror(errno));
 		return 0;
 	}
+
+	/* Clear stat cache */
+	php_clear_stat_cache(TSRMLS_C);
 
 	return 1;
 }
@@ -1411,9 +1414,6 @@ stream_skip:
 
 }
 /* }}} */
-
-
-
 
 /*
  * Local variables:

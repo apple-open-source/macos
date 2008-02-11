@@ -442,7 +442,7 @@ static int ZEND_BEGIN_SILENCE_SPEC_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 	}
 
 	if (EG(error_reporting)) {
-		zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), "0", 1, ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
+		zend_alter_ini_entry_ex("error_reporting", sizeof("error_reporting"), "0", 1, ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME, 1);
 	}
 	ZEND_VM_NEXT_OPCODE();
 }
@@ -592,7 +592,7 @@ static int ZEND_HANDLE_EXCEPTION_SPEC_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 		Z_TYPE(restored_error_reporting) = IS_LONG;
 		Z_LVAL(restored_error_reporting) = Z_LVAL_P(EX(old_error_reporting));
 		convert_to_string(&restored_error_reporting);
-		zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), Z_STRVAL(restored_error_reporting), Z_STRLEN(restored_error_reporting), ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
+		zend_alter_ini_entry_ex("error_reporting", sizeof("error_reporting"), Z_STRVAL(restored_error_reporting), Z_STRLEN(restored_error_reporting), ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME, 1);
 		zendi_zval_dtor(restored_error_reporting);
 	}
 	EX(old_error_reporting) = NULL;
@@ -1837,7 +1837,7 @@ static int ZEND_CLONE_SPEC_CONST_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 	zend_object_clone_obj_t clone_call;
 
 	if (!obj || Z_TYPE_P(obj) != IS_OBJECT) {
-		zend_error(E_WARNING, "__clone method called on non-object");
+		zend_error_noreturn(E_ERROR, "__clone method called on non-object");
 		EX_T(opline->result.u.var).var.ptr = EG(error_zval_ptr);
 		EX_T(opline->result.u.var).var.ptr->refcount++;
 
@@ -1895,9 +1895,11 @@ static int ZEND_CAST_SPEC_CONST_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 	zval *expr = &opline->op1.u.constant;
 	zval *result = &EX_T(opline->result.u.var).tmp_var;
 
-	*result = *expr;
-	if (!0) {
-		zendi_zval_copy_ctor(*result);
+	if (opline->extended_value != IS_STRING) {
+		*result = *expr;
+		if (!0) {
+			zendi_zval_copy_ctor(*result);
+		}
 	}
 	switch (opline->extended_value) {
 		case IS_NULL:
@@ -1916,10 +1918,17 @@ static int ZEND_CAST_SPEC_CONST_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 			zval var_copy;
 			int use_copy;
 
-			zend_make_printable_zval(result, &var_copy, &use_copy);
+			zend_make_printable_zval(expr, &var_copy, &use_copy);
 			if (use_copy) {
-				zval_dtor(result);
 				*result = var_copy;
+				if (0) {
+
+				}
+			} else {
+				*result = *expr;
+				if (!0) {
+					zendi_zval_copy_ctor(*result);
+				}
 			}
 			break;
 		}
@@ -4403,7 +4412,7 @@ static int ZEND_CLONE_SPEC_TMP_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 	zend_object_clone_obj_t clone_call;
 
 	if (!obj || Z_TYPE_P(obj) != IS_OBJECT) {
-		zend_error(E_WARNING, "__clone method called on non-object");
+		zend_error_noreturn(E_ERROR, "__clone method called on non-object");
 		EX_T(opline->result.u.var).var.ptr = EG(error_zval_ptr);
 		EX_T(opline->result.u.var).var.ptr->refcount++;
 
@@ -4461,9 +4470,11 @@ static int ZEND_CAST_SPEC_TMP_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 	zval *expr = _get_zval_ptr_tmp(&opline->op1, EX(Ts), &free_op1 TSRMLS_CC);
 	zval *result = &EX_T(opline->result.u.var).tmp_var;
 
-	*result = *expr;
-	if (!1) {
-		zendi_zval_copy_ctor(*result);
+	if (opline->extended_value != IS_STRING) {
+		*result = *expr;
+		if (!1) {
+			zendi_zval_copy_ctor(*result);
+		}
 	}
 	switch (opline->extended_value) {
 		case IS_NULL:
@@ -4482,10 +4493,17 @@ static int ZEND_CAST_SPEC_TMP_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 			zval var_copy;
 			int use_copy;
 
-			zend_make_printable_zval(result, &var_copy, &use_copy);
+			zend_make_printable_zval(expr, &var_copy, &use_copy);
 			if (use_copy) {
-				zval_dtor(result);
 				*result = var_copy;
+				if (1) {
+					zval_dtor(free_op1.var);
+				}
+			} else {
+				*result = *expr;
+				if (!1) {
+					zendi_zval_copy_ctor(*result);
+				}
 			}
 			break;
 		}
@@ -4922,7 +4940,7 @@ static int ZEND_END_SILENCE_SPEC_TMP_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 		Z_TYPE(restored_error_reporting) = IS_LONG;
 		Z_LVAL(restored_error_reporting) = Z_LVAL(EX_T(opline->op1.u.var).tmp_var);
 		convert_to_string(&restored_error_reporting);
-		zend_alter_ini_entry("error_reporting", sizeof("error_reporting"), Z_STRVAL(restored_error_reporting), Z_STRLEN(restored_error_reporting), ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
+		zend_alter_ini_entry_ex("error_reporting", sizeof("error_reporting"), Z_STRVAL(restored_error_reporting), Z_STRLEN(restored_error_reporting), ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME, 1);
 		zendi_zval_dtor(restored_error_reporting);
 	}
 	if (EX(old_error_reporting) == &EX_T(opline->op1.u.var).tmp_var) {
@@ -7541,7 +7559,7 @@ static int ZEND_CLONE_SPEC_VAR_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 	zend_object_clone_obj_t clone_call;
 
 	if (!obj || Z_TYPE_P(obj) != IS_OBJECT) {
-		zend_error(E_WARNING, "__clone method called on non-object");
+		zend_error_noreturn(E_ERROR, "__clone method called on non-object");
 		EX_T(opline->result.u.var).var.ptr = EG(error_zval_ptr);
 		EX_T(opline->result.u.var).var.ptr->refcount++;
 		if (free_op1.var) {zval_ptr_dtor(&free_op1.var);};
@@ -7599,9 +7617,11 @@ static int ZEND_CAST_SPEC_VAR_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 	zval *expr = _get_zval_ptr_var(&opline->op1, EX(Ts), &free_op1 TSRMLS_CC);
 	zval *result = &EX_T(opline->result.u.var).tmp_var;
 
-	*result = *expr;
-	if (!0) {
-		zendi_zval_copy_ctor(*result);
+	if (opline->extended_value != IS_STRING) {
+		*result = *expr;
+		if (!0) {
+			zendi_zval_copy_ctor(*result);
+		}
 	}
 	switch (opline->extended_value) {
 		case IS_NULL:
@@ -7620,10 +7640,17 @@ static int ZEND_CAST_SPEC_VAR_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 			zval var_copy;
 			int use_copy;
 
-			zend_make_printable_zval(result, &var_copy, &use_copy);
+			zend_make_printable_zval(expr, &var_copy, &use_copy);
 			if (use_copy) {
-				zval_dtor(result);
 				*result = var_copy;
+				if (0) {
+					if (free_op1.var) {zval_ptr_dtor(&free_op1.var);};
+				}
+			} else {
+				*result = *expr;
+				if (!0) {
+					zendi_zval_copy_ctor(*result);
+				}
 			}
 			break;
 		}
@@ -14692,7 +14719,7 @@ static int ZEND_CLONE_SPEC_UNUSED_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 	zend_object_clone_obj_t clone_call;
 
 	if (!obj || Z_TYPE_P(obj) != IS_OBJECT) {
-		zend_error(E_WARNING, "__clone method called on non-object");
+		zend_error_noreturn(E_ERROR, "__clone method called on non-object");
 		EX_T(opline->result.u.var).var.ptr = EG(error_zval_ptr);
 		EX_T(opline->result.u.var).var.ptr->refcount++;
 
@@ -19604,7 +19631,7 @@ static int ZEND_CLONE_SPEC_CV_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 	zend_object_clone_obj_t clone_call;
 
 	if (!obj || Z_TYPE_P(obj) != IS_OBJECT) {
-		zend_error(E_WARNING, "__clone method called on non-object");
+		zend_error_noreturn(E_ERROR, "__clone method called on non-object");
 		EX_T(opline->result.u.var).var.ptr = EG(error_zval_ptr);
 		EX_T(opline->result.u.var).var.ptr->refcount++;
 
@@ -19662,9 +19689,11 @@ static int ZEND_CAST_SPEC_CV_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 	zval *expr = _get_zval_ptr_cv(&opline->op1, EX(Ts), BP_VAR_R TSRMLS_CC);
 	zval *result = &EX_T(opline->result.u.var).tmp_var;
 
-	*result = *expr;
-	if (!0) {
-		zendi_zval_copy_ctor(*result);
+	if (opline->extended_value != IS_STRING) {
+		*result = *expr;
+		if (!0) {
+			zendi_zval_copy_ctor(*result);
+		}
 	}
 	switch (opline->extended_value) {
 		case IS_NULL:
@@ -19683,10 +19712,17 @@ static int ZEND_CAST_SPEC_CV_HANDLER(ZEND_OPCODE_HANDLER_ARGS)
 			zval var_copy;
 			int use_copy;
 
-			zend_make_printable_zval(result, &var_copy, &use_copy);
+			zend_make_printable_zval(expr, &var_copy, &use_copy);
 			if (use_copy) {
-				zval_dtor(result);
 				*result = var_copy;
+				if (0) {
+
+				}
+			} else {
+				*result = *expr;
+				if (!0) {
+					zendi_zval_copy_ctor(*result);
+				}
 			}
 			break;
 		}

@@ -1,15 +1,850 @@
+2007-12-14  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* VERSION:
+	Tagged for 0.13.1.
+
+2007-12-14  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Added method_missing duck typing for NSString again.
+	- NSString#=~ is now forwarded to method_missing for duck typing.
+	- Added tests.
+
+2007-12-06  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* sample/Scripts/pdf2tiff.rb:
+	New sample code, contributed by Ernie Prabhakar.
+
+2007-12-05  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/objc/RBClassUtils.m:
+	When creating a new ObjC class for a Ruby class, if a class already
+	exists in ObjC land, print a warning and use it.
+
+2007-12-04  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	Added NSSelectionArray#to_a, workaround for a crash on Tiger.
+
+2007-12-02  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_types_appkit.rb,
+	  tests/tc_boxed.rb:
+	- Added #size and #size= to NSRange.
+	- Added tests.
+
+2007-12-02  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_types_appkit.rb,
+	  tests/tc_boxed.rb:
+	- Now NSRange#empty? returns true when not_found?.
+	- Updated tests.
+
+2007-12-02  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_types.rb,
+	  tests/tc_boxed.rb:
+	- Added #x=, #y=, #width= and #height= to NSRect.
+	- Added tests.
+
+=== RubyCocoa 0.13.0 ===
+
+2007-11-24  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* package/post-package.rb:
+	Remove .svn directories from the DSTROOT.
+
+	* package/pre-package.rb:
+	Do not insert the postflight script and the modified libruby.dylib in 10.5.
+
+	* metaconfig:
+	Default value for --build-universal in 10.5 is now 'yes'.
+
+	* VERSION:
+	Updated for 0.13.0.
+
+2007-11-22  kimura wataru  <kimuraw@i.nifty.jp>
+
+	* package/tmpl/Info.plist:
+	correct CFBundleShortVersionString of .dmg package.
+
+2007-11-22  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Added duck typing methods to NSString:
+		count, delete, delete!, gsub, gsub!, scan, squeeze, squeeze!, sub, sub!,
+		tr, tr!, tr_s, tr_s!.
+	- Added tests.
+
+2007-11-22  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Removed method_missing for the duck typing in NSString, NSArray and NSDictionary.
+	  Now NSString doens't respond to:
+		~, =~, count, delete, delete!, gsub, gsub!, match, scan, squeeze, squeeze!,
+		sub, sub!, tr, tr!, tr_s, tr_s!.
+	  NSString doesn't support Regexp parameters in:
+		[], []=, index, rindex, slice, slice!, split.
+	- Moved casecmp to NSString.
+	- Updated tests.
+
+2007-11-22  kimura wataru  <kimuraw@i.nifty.jp>
+
+	* pre-install.rb, metaconfig:
+        - accepts multi values of config 'xcode-extras' with comma separated.
+	- change the location of templates for Xcode 3.0/2.5.
+	  -> 10.5: /Library/Application Support/Developer/3.0/Xcode/
+	  -> 10.4: /Library/Application Support/Developer/2.5/Xcode/,
+	           /Library/Application Support/Apple/Developer Tools
+
+2007-11-20  kimura wataru  <kimuraw@i.nifty.jp>
+
+	* sample/CocoaRepl/CocoaRepl.xcodeproj:
+	remove ARCHS setting to avoid build failure on 10.4 ppc.
+
+2007-11-20 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/src/ruby/osx/objc/ruby_addition.rb:
+	Removed the suggested boolean arg for #to_ns
+	that's displayed in the warning message for #to_nsstring.
+	Because the optional parameter was taken out in r2132.
+
+2007-11-18  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/ruby/osx/objc/ruby_addition.rb,
+	  framework/src/objc/ocdata_conv.m,
+	  tests/tc_to_ns.rb:
+	- Reverted the [2007-11-06] change where mutable objects weren't returned
+	  during conversion anymore. This wasn't a good idea after all.
+	- #to_ns doesn't accept a parameter anymore, it always returns mutable
+	  objects when possible (from String, Array and Hash).
+	- Updated the tests.
+
+2007-11-14  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Added NSString#split.
+	- Changed NSString#lines to use each_line.
+	- Added tests.
+
+2007-11-13  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/ruby/osx/objc/foundation.rb:
+	Load the libSystem.bridgesupport file if it exists.
+
+	* sample/Scripts/watcher.rb,
+	  sample/Scripts/libSystem/*.rb,
+	  sample/RSSPhotoViewer:
+	Added Leopard-only samples.
+
+	* VERSION:
+	Prepared for 0.13.0.
+
+2007-11-13  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/objc/cls_objcptr.m,
+	  tests/tc_objcptr.rb,
+	  tests/objc_test.m,
+	  tests/ObjcPtrTest.bridgesupport:
+	- Added ObjcPtr#cast_as(encoding) for more generic casting from void*.
+	- Removed ObjcPtr#as_id.
+	- Updated tests.
+
+2007-11-12  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/objc/cls_objcptr.m:
+	Added _set_encoding to fix a bug, encoding was sometimes deallocated.
+
+	* tests/ObjcPtrTest.bridgesupport:
+	Use type_modifier 'n' for void*.
+
+2007-11-11 Chris McGrath <chris@octopod.info>
+
+	* framework/tool/rb_nibtool.rb:
+	Fixed problem with rb_nibtool.rb not detecting existing classes
+
+2007-11-12  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/objc/cls_objcptr.m,
+	  tests/tc_objcptr.rb:
+	Removed ObjcPtr#as_cfbooleanref, because #as_id.boolValue is enough.
+
+2007-11-12  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/objc/cls_objcptr.m,
+	  tests/tc_objcptr.rb,
+	  tests/objc_test.m,
+	  tests/ObjcPtrTest.bridgesupport:
+	- Added ObjcPtr#as_cfbooleanref.
+	- Fixed compile warnings.
+
+2007-11-12  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/objc/cls_objcptr.m,
+	  tests/tc_objcptr.rb,
+	  tests/objc_test.m,
+	  tests/ObjcPtrTest.bridgesupport:
+	Added ObjcPtr#as_id to extract an id from void*.
+
+2007-11-10  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/objc/mdl_objwrapper.m,
+	  framework/src/objc/objc_compat.h,
+	  tests/tc_wrapper.rb:
+	Removed #ocm_conforms? for now, because we don't have yet a working
+	implementation for systems equal or below than Tiger.
+
+2007-11-10  kimura wataru  <kimuraw@i.nifty.jp>
+
+	* framework/src/ruby/osx/objc/cocoa_macros.rb:
+	- add CoreData.define_wrapper_for_entity(). this feature was a part of 
+	  CoreData.define_wrapper().
+	- remove "to_a" for NSArray in CoreData module.
+
+2007-11-07  kimura wataru  <kimuraw@i.nifty.jp>
+
+	* tests/tc_rubystring.rb:
+	add test for String#nsenconding, to_nsstring, to_nsmutablestring again. 
+
+2007-11-07  kimura wataru  <kimuraw@i.nifty.jp>
+
+	* sample/Scripts/darkroom.rb:
+	fix SEGV of darkroom.rb on Leopard. 
+
+2007-11-07  Satoshi Nakagawa <artension@gmail.com>
+
+	* tests/tc_to_ns.rb:
+	Enabled test cases for to_ns(false).
+
+2007-11-06  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/objc/ocdata_conv.m:
+	Do not create immutable instances of NSArray and NSDictionary when converting Array and
+	Hash to Objective-C.
+
+2007-11-07  Satoshi Nakagawa <artension@gmail.com>
+
+	* tests/tc_to_ns.rb:
+	Added test cases for to_ns.
+
+2007-11-07  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/ruby_addition.rb:
+	Added String#nsenconding, to_nsstring, to_nsmutablestring again with deprecation warnings
+	due to compatibilities.
+
+2007-11-06  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/ruby/osx/objc/ruby_addition.rb,
+	  framework/src/objc/mdl_objwrapper.m,
+	  tests/tc_wrapper.rb:
+	- #to_ns now returns mutable objects by default. Pass false to get an 
+	  immutable object.
+	- Introduced #ocm_conforms? to verify that a given class conforms to a given
+	  Objective-C protocol. Added tests.
+
+	* framework/src/objc/RBSlaveObject.m:
+	Avoid an infinite loop when creating the slave proxy, which could be caused
+	by an attempt to pass an object to Objective-C in its #initialize method.
+
+2007-11-07  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/objc/mdl_osxobjc.m,
+	  framework/src/objc/ocdata_conv.m,
+	  tests/tc_nsstring.rb:
+	Fixed a bug, calling to_ns for a Ruby String which has illegal utf-8 sequences caused a bus error.
+
+2007-11-06 kimura wataru  <kimuraw@i.nifty.jp>
+
+	* framework/src/ruby/osx/objc/ruby_addition.rb,
+	  tests/tc_rubystring.rb:
+	String#nsenconding, to_nsstring, to_nsmutablestring were obsoleted.
+
+2007-11-05 kimura wataru  <kimuraw@i.nifty.jp>
+
+	* pre-config.rb,
+	  framework/post-config.rb,
+	  metaconfig:
+	- new config option --sdkroot.
+	- fix setup error --macosx-deployment-target=10.4 on 10.5.
+
+2007-10-30 kimura wataru  <kimuraw@i.nifty.jp>
+
+	* Rakefile:
+	use '--gen-bridge-doc=no' at 'package' task on 10.5.
+
+	* metaconfig:
+	by default, '--gen-bridge-doc=no' on 10.5.
+
+2007-10-28 kimura wataru  <kimuraw@i.nifty.jp>
+
+	* Rakefile:
+	add a missed '=' into '--gen-bridge-doc no'.
+
+2007-10-28 Eloy Duran <e.duran@superalloy.nl>
+
+	* Rakefile:
+	Updated Rakefile to use '--gen-bridge-doc no' on 10.5.
+
+2007-10-28  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Added methods to NSString:
+		%, casecmp, center, dump, ljust, lstrip, lstrip!, next, next!,
+		partition, rjust, rstrip, rstrip!, rpartition. slice, slice!, succ,
+		succ!, sum, swapcase, swapcase!, upto.
+	- Added tests.
+
+	* framework/src/ruby/osx/objc/oc_types_appkit.rb,
+	  tests/tc_boxed.rb:
+	- Added NSRange#not_found?.
+	- Added tests.
+
+2007-10-28 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/tool/gen_bridge_doc.rb,
+	  framework/tool/gen_bridge_doc/lib/lib/datatype_def.rb,
+	  framework/tool/gen_bridge_doc/rdocify_framework.rb:
+	- Added check for 10.4 or 10.5 and use the appropriate path to the reference files.
+	- In 10.5 there are also some files in 'Introduction' instead of 'Reference',
+	  this may be a mistake from Apple, but it's supported now nonetheless.
+	- OSX::NSHashTable doesn't respond to #fields and #isOpaque.
+	- gen_bridge_doc is now able to run, however there are still quite some class reference
+	  files being skipped because of errors. Let alone all the new supported frameworks.
+
+2007-10-28  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	NSDictionary#invert should return NSMutableDictionary.
+
+2007-10-27  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/objc/RBRuntime.m:
+	Added the 10.5 part of the threading support code.
+
+2007-10-26  kimura wataru  <kimuraw@i.nifty.jp>
+
+	* tests/objc_test.m, 
+	  tests/tc_retaincount.rb:
+	add tests for ownership from 'new'.
+
+2007-10-25  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/ruby/osx/objc/oc_import.rb,
+	  tests/tc_subclass.rb:
+	Now allow the send the of 'new' message to any ObjC class that will respond
+	to it. Keep the old behavior (raising an exception) for classes that don't
+	implement new.
+
+2007-10-24 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  framework/tool/rb_nibtool.rb:
+
+	- Added pretty print support to NSString, NSArray, NSDictionary. (require 'pp')
+	- Removed useless const.nil? statement in rb_nibtool.rb.
+
+2007-10-24  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/tool/rb_nibtool.rb:
+	- Skip the use of NSObject if a superclass is unknown IF rubynode is used.
+
+2007-10-24 Eloy Duran <e.duran@superalloy.nl>
+
+	* framework/tool/rb_nibtool.rb:
+	- Fixed bug where #each was called on nil if there were
+	  either no actions OR outlets in the class.
+	- Fixed bug where a new class from a source file would
+	  not show up in the class list in IB because the superclass
+	  is unknown to the classes list in IB.
+	  If the superclass const is not found it will default to NSObject.
+
+2007-09-12  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/ruby/osx/objc/oc_import.rb:
+	Fixed a bug when using test-spec, reported by Eloy Duran.
+
+2007-09-10  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/objc/RBObject.m,
+	  framework/src/objc/libffi.m,
+	  framework/src/objc/mdl_osxobjc.m,
+	  framework/src/objc/internal_macros.h,
+	  framework/src/objc/OverrideMixin.m:
+	Better facility that dispatches messages from threads to the thread where
+	RubyCocoa was initialized. It was previously assuming that RubyCocoa was
+	run in the main thread, which may not be always true (Ruby could be ran in
+	a different thread).
+
+2007-10-02  Eloy Duran <eloy.de.enige@gmail.com>
+
+	* framework/tool/standaloneify.rb:
+	- Standaloneify now sets the environment variable ENV['RUBYCOCOA_STANDALONEIFYING?']
+	  This is to be able to prevent code from being ran when
+	  a application s being standaloneified.
+	- Standaloneify will now skip all the source files at any depth in Resources.
+
+2007-10-01  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/objc/OverrideMixin.m,
+	  tests/tc_ovmix.rb,
+	  tests/objc_test.m:
+	Fixed a bug, when ObjC arguments that were passed from an ObjC closure
+	to Ruby were not retained, as they should. Added a test case.
+
+	* tool/create-symlinks.rb:
+	Fixed for Leopard.
+
+	* framework/src/objc/ocdata_conv.m,
+	  tests/tc_subclass.rb:
+	Removed the old __slave_nsobj__ ivar hook. Now all pure-Ruby objects will
+	be wrapped in an autoreleased RBObject.
+
+2007-09-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* tests/tc_nsstring_compat.rb:
+	Added tests for NSString#[]=(str,value).
+
+2007-09-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Added methods to NSString:
+		each_byte, insert, hex, oct, ord, replace, reverse, reverse!, rindex.
+	- Changed to_i and to_f of NSString to forward to String.
+	- Refactoring []= and each of NSString.
+	- Updated tests.
+
+2007-09-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Refactoring NSString and NSArray.
+	- Improved tests.
+
+2007-09-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	Refactoring operations around Range.
+
+2007-09-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	length should be counted on NSString.
+	
+2007-09-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Added methods to NSString: chr, chomp, chomp!.
+	- Updated tests.
+	
+2007-09-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb,
+	  tests/tc_nsarray.rb:
+	- Refactoring [], each and include? of NSString.
+	- Refactoring [] and []= of NSArray.
+	- Added methods to NSString: []=, index.
+	- Updated tests.
+
+2007-09-28  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* sample/CocoaRepl/ReplController.rb:
+	Keep the text view delegate as an ivar, because otherwise it will be 
+	collected by the Ruby GC, because the text view doesn't retain its delegate,
+	and neither its datasource.
+
+	* framework/src/objc/RBObject.h,
+	  framework/src/objc/RBObject.m,
+	  framework/src/objc/mdl_objwrapper.m,
+	  framework/src/objc/OverrideMixin.m,
+	  framework/src/objc/RBSlaveObject.h:
+	Better OvMix retain cycle: if an OvMix object is created from Ruby, we by 
+	default don't retain its Ruby proxy, and start tracking retain/release 
+	messages, and appropriately re-retain/re-release the Ruby proxy.
+
+2007-09-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Refactoring NSString#[], NSArray#[] and NSArray#[]=.
+	- Added methods to NSString:
+		chop, chop!, each, each_line, intern, lines, to_sym.
+	- Added NSIndexSet#inspect.
+	- Updated tests.
+
+2007-09-28  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Added error checks for NSString#* and NSString#+.
+	- Disabled NSString#[regexp].
+	- NSString#capitalize should be compatible to String#capitalize.
+	- NSString#capitalize!, NSString#downcase! and NSString#upcase! should return nil when not modified.
+	- NSString#[start,len] and NSString#[start..end] should return '' when start == count.
+	- NSArray#[start,len] and NSArray#[start..end] should return [] when start == count.
+	- [-3,2] should be treated as (-3+count)..(-3+count+2) in NSArray#[] and NSArray#[]=.
+	- Updated tests.
+
+2007-09-27  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* AUTHORS:
+	Fixed a typo in Vincent's last name.
+
+2007-09-27  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/objc/objc_compat.h:
+	Added #define class_respondsToSelector.
+
+2007-09-27  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/ruby/osx/objc/ruby_addition.rb,
+	  framework/src/ruby/osx/objc/oc_wrapper.rb,
+	  framework/src/objc/ocdata_conv.m:
+	#objc_send will now pass a frozen selector to the core, where underscore
+	characters won't be transformed as ':'. This is a convenience utility to
+	call ObjC methods that contain underscores as part of their selector, like
+	for example [__rbobj__].
+
+	* tests/tc_subclass.rb:
+	Added a test case for the [copyWithZone:] hook fix described just below. 
+
+2007-09-26  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/objc/RBObject.m,
+	  framework/src/objc/mdl_osxobjc.m,
+	  framework/src/objc/RBRuntime.m,
+	  framework/src/objc/mdl_objwrapper.m,
+	  framework/src/objc/OverrideMixin.h,
+	  framework/src/objc/ocdata_conv.m,
+	  framework/src/objc/OverrideMixin.m,
+	  tests/tc_subclass.rb:
+	- Fixed a bug when an object that was being allocated from a Ruby thread
+	  was still in the cache while the thread was killed, resulting in a
+	  corrupted cache.
+	- Make sure we do not cache CF-based objects.
+	- Fixed a circular retain cycle from ObjC objects allocated from an 
+	  NSObject-based Ruby class, resulting in a leak of both the ObjC object
+	  and its Ruby proxy.
+	- Hook [copyWithZone:] and reset the slave object so that every ObjC object
+	  has a different slave object. This fixes a crash when releasing a slave 
+	  object that could be shared by multiple ObjC objects.
+	- Added test cases.
+
+2007-09-21  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* AUTHORS:
+	Added Gustav.
+
+2007-09-21  Gustav Munkby <grddev@gmail.com>
+
+	* framework/src/objc/RBRuntime.m:
+	Now resetting the context autorelease pools on every restore.
+
+2007-09-21  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Added methods to NSString: [].
+	- Added tests.
+
+2007-09-21  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring.rb:
+	- Changed to use intValue in NSString#to_i.
+	- Changed to use doubleValue in NSString#to_f.
+	- Updated tests.
+
+2007-09-21  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsstring_compat.rb:
+	- Added methods to NSString:
+	    *, +, <<, concat, capitalize, capitalize!, clear, downcase, downcase!, empty?
+	    end_with?, include?, size, start_with?, to_f, to_i, upcase, upcase!.
+	- Added tests.
+
+2007-09-19  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/ruby/osx/objc/ruby_addition.rb
+	  framework/src/ruby/osx/objc/oc_attachments.rb
+	  framework/src/objc/mdl_osxobjc.m
+	  tests/tc_to_ns.rb:
+	- Added a #to_ns method to Ruby primitive classes, updated test suite ;
+	- Added a customized NSDate#inspect method.
+
+2007-09-18  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/ruby/osx/objc/cocoa_macros.rb:
+	Fixed String#to_nsstring for 10.5.
+
+	* sample/Stickies/English.lproj/Sticky.nib:
+	Make sure the resize corner view doesn't overlap with the sticky content
+	scroll view, as the later could intercept the mouseDrag event before it can
+	reach the corner view (in 10.5).
+
+	* framework/src/objc/OverrideMixin.m:
+	Create the slave objects at demand, if they do not exist yet. This fixes a 
+	bindings / CoreData problem in 10.5.
+
+2007-09-14  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	Fixed a bug, #method_missing of NSString, NSArray and NSDictionary should return self
+	when Ruby objects returned self.
+
+2007-09-09  Eloy Duran <eloy.de.enige@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_attachments.rb:
+	- Added useful inspect methods to NSString, NSNumber, NSArray, NSDictionary & NSCFBoolean.
+	- Fixed a typo bug in NSNumber#<=>.
+
+2007-09-08  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_types.rb:
+	Renamed NSNumber#is_float? to float?.
+
+2007-09-08  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_types.rb:
+	- Added NSNumber#is_float?.
+	- Updated tests.
+
+2007-09-08  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	NSArray and NSDictionary should include NSEnumerable.
+
+2007-09-07  Eloy Duran <eloy.de.enige@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  framework/tool/gen_bridge_doc/lib/lib/method_def.rb,
+	  framework/tool/gen_bridge_doc/lib/lib/class_def.rb,
+	  framework/tool/gen_bridge_doc/lib/lib/clean_up.rb,
+	  framework/tool/gen_bridge_doc/DOCUMENTATION_VERSION,
+	  framework/tool/gen_bridge_doc.rb:
+	- Directly added duck-type methods to the NSArray & NSDictionary classes
+	  instead of including them from modules. This is so the methods are picked up by rdoc.
+	- Now also rdocify: oc_attachments.rb, oc_attachments_appkit.rb,
+	  oc_types.rb, oc_types_appkit.rb & ruby_addition.rb.
+	- Updated the gen_bridge_doc tool to work with the latest update from 13-08-2007.
+	- Fixed a bug where </i> tags weren't replaced by '_'.
+	- Added documentation for the translated bool methods, eg: isRunning -> running?.
+
+2007-09-07  Laurent Sansonetti <lsansonetti@apple.com>
+
+	* framework/src/ruby/osx/objc/oc_wrapper.rb:
+	Do not translate 'set' methods that get more than one argument.
+
+2007-09-05  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_types_appkit.rb,
+	  tests/tc_types.rb:
+	- Changed NSRange#to_range to return a Range with exclude_end.
+	- Updated a test.
+
+2007-09-05  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	Fixed typo.
+
+2007-09-03  Satoshi Nakagawa <artension@gmail.com>
+
+	* package/tmpl/postflight-universal.rb:
+	Fixed an error, "Please install again" on reinstalling.
+
+2007-08-30  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	Fixed a bug, contents should not be changed in each.
+
+2007-08-30  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- Added NSEnumerable#zip.
+	- Updated tests.
+
+2007-08-30  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- Added NSEnumerable:
+	    grep, map, collect, select, find_all, partition, reject,
+	    sort, sort_by.
+	- Updated tests.
+
+2007-08-30  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsdictionary.rb,
+	  tests/tc_attachments.rb:
+	- Added NSDictionaryAttachment methods:
+	    fetch, merge, merge!, shift, update, values_at.
+	- Updated tests.
+
+2007-08-30  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- All NSArrayAttachment methods returns NSArray not Array.
+	- Added type checks for NSArray when checking is_a?(Array).
+	- Changed to use to_a in *, sort, sort!, transpose of NSAttachment. 
+	  Because of performance.
+	- Improved performance of uniq, uniq! of NSAttachment.
+	- Fixed bugs, NSArrayAttachment#[]= should return the raw argument.
+	- Updated tests.
+
+2007-08-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsdictionary.rb:
+	- Added dup and clone method to NSString, NSArray, NSDictionary.
+	- Refactoring NSArrayAttachment#*.
+	- Fixed a bug, NSArrayAttachment#flatten should return Array.
+	- Added NSDictionaryAttachment:
+	    each_key, each_pair, each_value, [], default, default=,
+	    default_proc, default_proc=, delete, delete_if, reject!,
+	    empty?, has_key?, include?, key?, member?, has_value?,
+	    invert, key, rehash, reject, replace.
+	- Updated tests.
+
+	* tests/tc_nsarray.rb,
+	  tests/tc_nsstring.rb:
+	Added copying tests.
+
+2007-08-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- Added NSArrayAttachment methods: &, |, *, +, -.
+	- Updated tests.
+
+2007-08-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- Added == and <=> method to NSNumber.
+	- Added NSArrayAttachment methods:
+	    flatten, flatten!, pack, sort, sort!, transpose, uniq, uniq!.
+	- Updated tests.
+
+2007-08-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- Added NSArrayAttachment methods: indexes, indices.
+	- Removed workaround for ruby's Array#slice! bug.
+	- Updated tests.
+
+2007-08-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	Tweaked variable names.
+
+2007-08-29  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- Fixed a bug, cannot pass a block to method_missing of NSString, NSArray,
+	  NSDictionary.
+	- Moved Array methods in NSArray to module NSAttachment.
+	- Implemented Array methods:
+	    reverse_each, insert, last, pop, rassoc, replace, reverse, reverse!,
+	    rindex, shift, slice, slice!, to_splat, unshift, values_at.
+	- Removed methods because of bad performance:
+	    +, *, -, &, |, flatten, flatten!.
+	- Changed not to use to_ruby in join.
+	- Improved collect! and map! performance.
+	- Fixed a bug, compact! should return nil.
+	- Updated tests.
+
 2007-08-28  Laurent Sansonetti <lsansonetti@apple.com>
 
 	* framework/src/objc/libffi.m,
 	  tests/tc_passbyref.rb:
 	Fixed a crash when passing a pointer to an ObjC object, then trying to convert
-	it as a Ruby object after the API call, but crashing because the pointer
+	it as a Ruby object after the API call, but crashing because the pointer 
 	wasn't touched by the API. Now preparing passed-by-reference pointers to NULL.
 	Added a test case.
 
 	* framework/tool/rb_nibtool.rb:
-	Fixed a crash when the provided Ruby script only defines actions but no
+	Fixed a crash when the provided Ruby script only defines actions but no 
 	outlets, or vice-versa.
+
+2007-08-28  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- Implemented Array methods on NSArray:
+	  fill, first, flatten, flatten!, include?, index.
+	- Updated tests.
+
+2007-08-28  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	Fixed typo.
+
+2007-08-27  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- Refactoring Array methods on NSArray.
+	- Improved tests.
+
+2007-08-27  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- Changed NSArray#assoc to ignore [] element inside the array.
+	- Improved tests.
+
+2007-08-27  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+	  tests/tc_nsarray.rb:
+	- Implemented Array methods for NSArray:
+	  [], []=, +, *, -, &, |, <<, assoc, at, clear, collect!, map!
+	  compact, compact!, concat, delete, delete_at, delete_if, reject!
+	  each_index, empty?, fetch, join.
+	- Added tests for new methods of NSArray.
+
+2007-08-27  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_types_appkit.rb,
+	  framework/src/ruby/osx/objc/oc_types.rb:
+	- Replaced ArgumentException to ArgumentError.
+	- Added a constructor of NSRange: new(Range, count).
+
+2007-08-26  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb:
+	Fixed typo.
+
+2007-08-25  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb,
+  	  tests/tc_nsarray.rb,
+	  tests/tc_nsdictionary.rb:
+	NSArray and NSDictionary behave like Ruby Array and Ruby Hash respectively.
+
+2007-08-25  Satoshi Nakagawa <artension@gmail.com>
+
+	* framework/src/ruby/osx/objc/oc_types.rb,
+	  framework/src/ruby/osx/objc/oc_types_appkit.rb:
+	Moved NSRange utility to oc_types_appkit.rb.
 
 2007-08-22  Laurent Sansonetti <lsansonetti@apple.com>
 

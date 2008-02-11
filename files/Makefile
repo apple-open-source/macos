@@ -15,11 +15,14 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 # If the corresponding directory exists in the SRCROOT
 # and contains a Makefile, execute that makefile.
 ##
+SRC_HIERARCHY=hierarchy
+
 Product=$(shell tconf --product)
+ifeq "$(Product)" "AppleTV"
+	SRC_HIERARCHY=hierarchy hierarchy.AppleTV
+endif
 ifeq "$(Product)" "iPhone"
 	SRC_HIERARCHY=hierarchy hierarchy.iPhone
-else
-	SRC_HIERARCHY="hierarchy"
 endif
 
 install::

@@ -2,8 +2,8 @@
 /* Perl dtrace provider */
 
 provider perl {
-    probe entry(char *, char *, int);
-    probe exit(char *, char *, int);
+    probe sub__entry(char *, char *, int);
+    probe sub__return(char *, char *, int);
 };
 
 /*
@@ -13,7 +13,7 @@ Entry
 	2. char * (file name, CopFILE((COP*)CvSTART(cv)))
 	3. int    (line number, CopLINE((COP*)CvSTART(cv)))
 
-Exit
+Return
 	1. char * (sub name, GvENAME(CvGV(cv)))
 	2. char * (file name, CopFILE((COP*)CvSTART(cv)))
 	3. int    (line number, CopLINE((COP*)CvSTART(cv)))

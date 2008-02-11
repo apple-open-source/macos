@@ -1,5 +1,5 @@
-{\rtf1\ansi\ansicpg1252\cocoartf942
-{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset238 LucidaGrande;}
+{\rtf1\ansi\ansicpg1252\cocoartf949
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;\f1\fnil\fcharset0 LucidaGrande;}
 {\colortbl;\red255\green255\blue255;}
 \margl1440\margr1440\vieww18180\viewh17700\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ql\qnatural\pardirnatural
@@ -44,6 +44,12 @@ For the purposes of these instructions, assume that $SRCDIR is e.g. ~/tla. For p
 \
 		export SRCTST=/SecurityTests/clxutils/anchorTest/\
 		$SRCTST/anchorSourceTest .\
+\
+On my machine, I use for example\
+\
+	export LOCAL_BUILD_DIR=/Volumes/xenos/dev/build\
+	export SRCDIR=/Volumes/xenos/dev/tla2\
+	export SRCTST=$SRCDIR/SecurityTests/clxutils/anchorTest/\
 \
 - Build a new SystemRootCertificates.keychain and SystemTrustSettings.plist in place on your branch like this:\
 \
@@ -154,6 +160,15 @@ To build and run the test tools, you must have the LOCAL_BUILD_DIR env var set t
 \b0 \
 \
 - openssl x509 -outform DER -in SoneraClass1CA.pem -out SoneraClass1.crt\
+\
+
+\b Converting from PKCS#7
+\b0 \
+\
+If the file contains multiple certificates, you may have to split the file apart. Alternatively, import the p7 file into a blank keychain in Keychain Access, the drag each certificate out.\
+\
+openssl pkcs7  -inform DER -in IdenTrust_Root_X3.p7b -print_certs -out IdenTrust_Root_X3.pem\
+openssl x509 -outform DER -in IdenTrust_Root_X3.pem -out IdenTrust_Root_X3.der\
 \
 
 \b Other useful scripts

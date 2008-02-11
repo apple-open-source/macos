@@ -3,7 +3,7 @@
 ##
 
 Project = RubyCocoa
-ProjectVersion = trunk
+ProjectVersion = 0.13.1
 FullProjectVersion = $(ProjectVersion)
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
@@ -25,17 +25,16 @@ RUN_TESTS = 0
 
 build::
 	(cd $(SRCROOT)/$(Project) \
-	&& ruby install.rb config --prefix=$(RUBYUSR) --site-ruby=$(DSTRUBYDIR)/1.8 --so-dir=$(DSTRUBYDIR)/1.8/universal-darwin9.0 --frameworks="$(DSTROOT)/System/Library/Frameworks" --xcode-extras="$(DSTROOT)/Developer/Library/Xcode" --examples="$(DSTROOT)/Developer/Examples/Ruby" --documentation="$(DSTROOT)/Developer/Documentation" --gen-bridge-support=false --build-as-embeddable=false \
-	&& ruby install.rb setup \
-	&& (if [ $(RUN_TESTS)"" = "1" ]; then (cd tests && (DYLD_FRAMEWORK_PATH=../framework/build ruby -I../lib -I../ext/rubycocoa testall.rb || exit 1)); fi) \
-	&& ruby install.rb install \
-	&& ruby install.rb clean)
+	&& /usr/bin/ruby install.rb config --prefix=$(RUBYUSR) --site-ruby=$(DSTRUBYDIR)/1.8 --so-dir=$(DSTRUBYDIR)/1.8/universal-darwin9.0 --frameworks="$(DSTROOT)/System/Library/Frameworks" --xcode-extras="$(DSTROOT)/Developer/Library/Xcode" --examples="$(DSTROOT)/Developer/Examples/Ruby" --documentation="$(DSTROOT)/Developer/Documentation" --gen-bridge-support=false --build-as-embeddable=false --build-universal=false \
+	&& /usr/bin/ruby install.rb setup \
+	&& (if [ $(RUN_TESTS)"" = "1" ]; then (cd tests && (DYLD_FRAMEWORK_PATH=../framework/build /usr/bin/ruby -I../lib -I../ext/rubycocoa testall.rb || exit 1)); fi) \
+	&& /usr/bin/ruby install.rb install \
+	&& /usr/bin/ruby install.rb clean)
 	$(MKDIR) $(DSTGEMSDIR)
 	(cd gems && $(GEM_INSTALL) rubynode)
 	$(STRIP) -x `find $(RUBYUSR)/lib -name "*.bundle"` 
 	(cd "$(DSTROOT)/Developer/Examples/Ruby/RubyCocoa/RoundTransparentWindow" && chmod 644 English.lproj/InfoPlist.strings English.lproj/MainMenu.nib/info.nib English.lproj/MainMenu.nib/objects.nib ReadMe.html main.m pentagon.tif)
 	(cd "$(DSTROOT)/Developer/Examples/Ruby/RubyCocoa/QTKitSimpleDocument" && chmod 644 English.lproj/InfoPlist.strings English.lproj/MyDocument.nib/info.nib English.lproj/MyDocument.nib/keyedobjects.nib English.lproj/MyDocument.nib/classes.nib English.lproj/Credits.rtf)
-	(cd $(SRCROOT)/sample && cp -r RSSPhotoViewer $(SAMPLES) && cp -r libSystem watcher.rb $(SAMPLES)/Scripts && rm -rf `find $(SAMPLES) -name ".svn"`)
 	$(MKDIR) $(DEV_USR_BIN)
 	$(LN) -s /System/Library/Frameworks/RubyCocoa.framework/Versions/Current/Tools/rb_nibtool.rb $(DEV_USR_BIN)/rb_nibtool
 	chmod +x $(DSTROOT)/System/Library/Frameworks/RubyCocoa.framework/Versions/Current/Tools/rb_nibtool.rb
@@ -64,9 +63,9 @@ sync:
 AEP_Project    = $(Project)
 AEP_Version    = $(FullProjectVersion)
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
+AEP_Filename   = $(AEP_ProjVers).tgz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = fix_install.rb.diff fix_ext_rubycocoa_extconf.rb.diff fix_templates_for_leopard.diff libsystem_support.diff ruby_threading.diff
+AEP_Patches    = fix_install.rb.diff fix_ext_rubycocoa_extconf.rb.diff fix_templates_for_leopard.diff
 
 # Extract the source.
 install_source::

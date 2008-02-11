@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: mysqli_api.c,v 1.118.2.22.2.14 2007/07/24 09:22:16 andrey Exp $ 
+  $Id: mysqli_api.c,v 1.118.2.22.2.18 2007/10/17 08:19:50 tony2001 Exp $ 
 */
 
 #ifdef HAVE_CONFIG_H
@@ -325,6 +325,9 @@ PHP_FUNCTION(mysqli_stmt_bind_result)
 			case MYSQL_TYPE_VAR_STRING:
 			case MYSQL_TYPE_STRING:
 			case MYSQL_TYPE_BLOB:
+			case MYSQL_TYPE_TINY_BLOB:
+			case MYSQL_TYPE_MEDIUM_BLOB:
+			case MYSQL_TYPE_LONG_BLOB:
 			case MYSQL_TYPE_TIMESTAMP:
 			case MYSQL_TYPE_DECIMAL:
 #ifdef FIELD_TYPE_NEWDECIMAL
@@ -455,6 +458,7 @@ PHP_FUNCTION(mysqli_close)
 	MYSQLI_FETCH_RESOURCE(mysql, MY_MYSQL *, &mysql_link, "mysqli_link", MYSQLI_STATUS_INITIALIZED);
 
 	mysql_close(mysql->mysql);
+	mysql->mysql = NULL;
 	php_clear_mysql(mysql);
 	efree(mysql);
 	MYSQLI_CLEAR_RESOURCE(&mysql_link);	
@@ -1166,8 +1170,7 @@ PHP_FUNCTION(mysqli_set_local_infile_default)
 	MYSQLI_FETCH_RESOURCE(mysql, MY_MYSQL *, &mysql_link, "mysqli_link", MYSQLI_STATUS_VALID);
 
 	if (mysql->li_read) {
-		efree(Z_STRVAL_P(mysql->li_read));
-		zval_dtor(mysql->li_read);
+		zval_ptr_dtor(&(mysql->li_read));
 		mysql->li_read = NULL;
 	}
 }
@@ -1195,11 +1198,14 @@ PHP_FUNCTION(mysqli_set_local_infile_handler)
 		efree(callback_name);
 		RETURN_FALSE;		
 	}
-	efree(callback_name);
 
 	/* save callback function */
-	ALLOC_ZVAL(mysql->li_read);	
-	ZVAL_STRING(mysql->li_read, callback_func->value.str.val, 1);
+	if (!mysql->li_read) {
+		MAKE_STD_ZVAL(mysql->li_read);
+	} else {
+		zval_dtor(mysql->li_read);
+	}
+	ZVAL_STRING(mysql->li_read, callback_name, 0);
 
 	RETURN_TRUE;
 }
@@ -2000,7 +2006,10 @@ PHP_FUNCTION(mysqli_stmt_store_result)
 	  double - but this is a known problem of the simple MySQL API ;)
 	*/
 	for (i = mysql_stmt_field_count(stmt->stmt) - 1; i >=0; --i) {
-		if (stmt->stmt->fields && stmt->stmt->fields[i].type == MYSQL_TYPE_BLOB) {
+		if (stmt->stmt->fields && (stmt->stmt->fields[i].type == MYSQL_TYPE_BLOB ||
+			stmt->stmt->fields[i].type == MYSQL_TYPE_MEDIUM_BLOB ||
+			stmt->stmt->fields[i].type == MYSQL_TYPE_LONG_BLOB))
+		{
 			my_bool	tmp=1;
 			mysql_stmt_attr_set(stmt->stmt, STMT_ATTR_UPDATE_MAX_LENGTH, &tmp);
 			break;

@@ -1,9 +1,0 @@
-HELPERDIR = /AppleInternal/Developer/Tools
-after_install::
-	install -d $(DSTROOT)/usr/share/man/man1
-	install -c -m 444 arch.1 $(DSTROOT)/usr/share/man/man1
-	install -c -m 444 machine.1 $(DSTROOT)/usr/share/man/man1
-	@-$(RM) -f $(DSTROOT)$(INSTALLDIR)/machine
-	ln $(DSTROOT)$(INSTALLDIR)/arch $(DSTROOT)$(INSTALLDIR)/machine
-	install -d $(DSTROOT)$(HELPERDIR)
-	install -c -m 755 arch_helper.pl $(DSTROOT)$(HELPERDIR)

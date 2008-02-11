@@ -1,4 +1,0 @@
-OTHER_CFLAGS = -I$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
-OTHER_LIBS = -lproc
-OTHER_GENERATED_OFILES = $(VERS_OFILE)
-

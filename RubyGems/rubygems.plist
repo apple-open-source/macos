@@ -4,22 +4,21 @@
         <key>OpenSourceProject</key>
         <string>RubyGems</string>
         <key>OpenSourceVersion</key>
-        <string>0.9.4</string>
+        <string>1.0.1</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://docs.rubygems.org/</string>
         <key>OpenSourceURL</key>
-        <string>http://rubyforge.org/frs/download.php/20989/rubygems-0.9.4.tgz</string>
+        <string>http://rubyforge.org/frs/download.php/29548/rubygems-1.0.1.tgz</string>
         <key>OpenSourceSHA1</key>
-        <string>904080d36e34d7a6969c3cef228380eb82688d2a</string>
+        <string>232750fa59917ea9baf03797fdb10a22d29ebad9</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-05-31</string>
+        <string>2007-12-22</string>
         <key>OpenSourceLicense</key>
         <string>Other</string>
         <key>OpenSourceLicenseFile</key>
         <string>rubygems.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>fixed default gem executable install directory to /usr/bin (as Config::CONFIG['bindir'] points within the Ruby framework)</string>
 	</array>
 </dict>
 </array>

@@ -853,6 +853,7 @@ smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap, int UpdateResourceParent
 {
 	struct smbmount *smp = VTOSMBFS(vp);
 	struct smb_share *ssp = smp->sm_share;
+	int unix_extensions = (UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP);
 	struct smbnode *np = VTOSMB(vp);
 	enum vtype node_vtype;
 	struct timespec ts;
@@ -943,7 +944,7 @@ smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap, int UpdateResourceParent
 				np->n_mode |= (mode_t)(fap->fa_permissions & ACCESSPERMS);
 			}
 		}
-	} else if ((UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP) && (np->n_flags_mask & EXT_IMMUTABLE)) {
+	} else if (unix_extensions && (np->n_flags_mask & EXT_IMMUTABLE)) {
 		/* 
 		 * We are doing unix extensions yet this fap didn't come from the unix info2 call. The
 		 * fa_attr could be wrong. We cannot trust the read only bit in this case so leave it set
@@ -951,18 +952,6 @@ smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap, int UpdateResourceParent
 		 */
 		fap->fa_attr &= ~SMB_FA_RDONLY;	/* Can't trust the one we just got in */
 		fap->fa_attr |= (np->n_dosattr & SMB_FA_RDONLY);	/* Leave it set to what it was before */
-	} else if ((vnode_isvroot(vp)) && (fap->fa_attr & SMB_FA_RDONLY)) {
-	    	/*
-		 * See Radar 5563358 for more details.
-		 *
-		 * On Windows the Read-Only bit is advisory when dealing with directories. We use this 
-		 * bit to allow Mac users to lock directories on Windows Servers. This makes the Mac
-		 * experance a little better and really doesn't affect the Windows users. The problem is 
-		 * when this bit is set on a root node. We should never let the Windows Ready-Only bit 
-		 * determine if the root is locked. Seems some Window special shares have this set by 
-		 * default.
-		 */
-		fap->fa_attr &= ~SMB_FA_RDONLY; /* Never let this bit lock the root vnode. */
 	}
 
 	/*
@@ -1000,6 +989,7 @@ smbfs_attr_cachelookup(vnode_t vp, struct vnode_attr *va,
 	struct smbnode *np = VTOSMB(vp);
 	struct smbmount *smp = VTOSMBFS(vp);
 	struct smb_share *ssp = smp->sm_share;
+	int unix_extensions = (UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP);
 	time_t attrtimeo;
 	struct timespec ts;
 	mode_t	type;
@@ -1046,7 +1036,7 @@ smbfs_attr_cachelookup(vnode_t vp, struct vnode_attr *va,
 	}
 	
 	VATTR_RETURN(va, va_rdev, 0);
-	if (UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP)
+	if (unix_extensions)
 		VATTR_RETURN(va, va_nlink, np->n_nlinks);
 	else
 		VATTR_RETURN(va, va_nlink, 1);
@@ -1121,10 +1111,15 @@ smbfs_attr_cachelookup(vnode_t vp, struct vnode_attr *va,
 		 * us to support the finder lock bit and makes us follow the 
 		 * MSDOS code model. See msdosfs project.
 		 *
-		 * NOTE: The ready-only flags does not exactly follow the lock/immutable bit
-		 * also note the for directories its advisory only.
+		 * NOTE: The ready-only flags does not exactly follow the lock/immutable bit.
+		 *
+		 * See Radar 5582956 for more details.
+		 *
+		 * When dealing with Window Servers the read-only bit for folder does not mean the samething 
+		 * as it does for files. Doing this translation was confusing customers and really
+		 * didn't work the way Mac users would expect.
 		 */
- 		if (np->n_dosattr & SMB_FA_RDONLY)
+		if ((unix_extensions || (!vnode_isdir(vp))) && (np->n_dosattr & SMB_FA_RDONLY))
 			va->va_flags |= UF_IMMUTABLE;
 		/* The server has it marked as hidden set the new UF_HIDDEN bit. */
  		if (np->n_dosattr & SMB_FA_HIDDEN)

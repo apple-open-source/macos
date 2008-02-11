@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: SAPI.h,v 1.114.2.1.2.2 2007/01/01 09:36:10 sebastian Exp $ */
+/* $Id: SAPI.h,v 1.114.2.1.2.3 2007/08/31 07:43:37 jani Exp $ */
 
 #ifndef SAPI_H
 #define SAPI_H
@@ -107,9 +107,9 @@ typedef struct {
 	char *current_user;
 	int current_user_length;
 
-    /* this is necessary for CLI module */
-    int argc;
-    char **argv;
+	/* this is necessary for CLI module */
+	int argc;
+	char **argv;
 	int proto_num;
 } sapi_request_info;
 

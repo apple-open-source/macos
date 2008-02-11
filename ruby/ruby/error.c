@@ -3,7 +3,7 @@
   error.c -
 
   $Author: shyouhei $
-  $Date: 2007-05-23 01:28:10 +0900 (Wed, 23 May 2007) $
+  $Date: 2007-08-22 10:57:22 +0900 (Wed, 22 Aug 2007) $
   created at: Mon Aug  9 16:11:34 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -488,14 +488,14 @@ static VALUE
 exc_backtrace(exc)
     VALUE exc;
 {
-    ID bt = rb_intern("bt");
+    static ID bt;
 
-    if (!rb_ivar_defined(exc, bt)) return Qnil;
-    return rb_ivar_get(exc, bt);
+    if (!bt) bt = rb_intern("bt");
+    return rb_attr_get(exc, bt);
 }
 
-static VALUE
-check_backtrace(bt)
+VALUE
+rb_check_backtrace(bt)
     VALUE bt;
 {
     long i;
@@ -532,7 +532,7 @@ exc_set_backtrace(exc, bt)
     VALUE exc;
     VALUE bt;
 {
-    return rb_iv_set(exc, "bt", check_backtrace(bt));
+    return rb_iv_set(exc, "bt", rb_check_backtrace(bt));
 }
 
 /*

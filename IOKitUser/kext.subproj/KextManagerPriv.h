@@ -4,7 +4,10 @@
 #define __KEXTMANAGERPRIV_H__
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <TargetConditionals.h>
+#if !TARGET_OS_EMBEDDED
 #include <Security/Authorization.h>
+#endif /* !TARGET_OS_EMBEDDED */
 
 #include <sys/cdefs.h>
 
@@ -17,7 +20,9 @@ CFArrayRef _KextManagerCreatePropertyValueArray(
     CFAllocatorRef allocator,
     CFStringRef    propertyKey);
 
+#if !TARGET_OS_EMBEDDED
 void _KextManagerUserDidLogIn(uid_t euid, AuthorizationExternalForm authref);
+#endif /*  !TARGET_OS_EMBEDDED */
 void _KextManagerUserWillLogOut(uid_t euid);
 
 uid_t _KextManagerGetLoggedInUserid(void);

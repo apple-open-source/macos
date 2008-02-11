@@ -27,6 +27,11 @@
 
 Class objc_class_alloc(const char* name, Class super_class)
 {
+  Class klass = objc_getClass(name);
+  if (klass != NULL) {
+    rb_warn("Cannot create Objective-C class for Ruby class `%s', because another class is already registered in Objective-C with the same name. Using the existing class instead for the Ruby class representation.", name);
+    return klass;
+  }
   return objc_allocateClassPair(super_class, name, 0);
 }
 
@@ -215,7 +220,7 @@ Class RBObjcDerivedClassNew(VALUE kls, const char* name, Class super_class)
 
   c = objc_class_alloc(name, super_class);
 
-  // init instance variable (m_proxy)
+  // init instance variable
   install_ovmix_ivars(c);
 
   // init instance methods
@@ -228,6 +233,10 @@ Class RBObjcDerivedClassNew(VALUE kls, const char* name, Class super_class)
   objc_registerClassPair(c);
   class_map_dic_add(name, kls);
   derived_class_dic_add(kls);
+
+  // init hooks
+  install_ovmix_hooks(c);
+
   return c;
 }
 

@@ -173,7 +173,7 @@ ifdef SubProjects
 		$(MAKE) -C $$SubProject $(TARGET)				\
 		        BuildDirectory=$(BuildDirectory)/$${SubProject}		\
 		               Sources=$(Sources)/$${SubProject}		\
-		       CoreOSMakefiles=$(CoreOSMakefiles);			\
+		       CoreOSMakefiles=$(CoreOSMakefiles) || exit 1 ;		\
 	      done
 endif
 

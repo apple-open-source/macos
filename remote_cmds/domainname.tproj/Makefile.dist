@@ -1,6 +1,0 @@
-#	from: @(#)Makefile	5.3 (Berkeley) 5/11/90
-#	$Id: Makefile.dist,v 1.1 1999/05/02 03:57:38 wsanchez Exp $
-
-PROG=	domainname
-
-.include <bsd.prog.mk>

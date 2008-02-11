@@ -89,10 +89,17 @@ const int DNS_BUFFER_SIZE       = 8192;
 
 static pthread_t       gActiveThreads[512];
 static int             gNotifyTokens[512];
+static void*		   gInterruptTokens[512];
 static bool			   gThreadAbandon[512];
 
 // private SPI
-extern "C" uint32_t notify_register_plain( const char *name, int *out_token );
+extern "C" {
+	uint32_t notify_register_plain( const char *name, int *out_token );
+	void res_interrupt_requests_enable(void);
+	void* res_init_interrupt_token(void);
+	void res_delete_interrupt_token( void* token );
+	void res_interrupt_request( void* token );
+}
 
 #pragma mark -
 #pragma mark Cache Plugin
@@ -103,6 +110,9 @@ struct sDNSQuery
 {
     sDNSLookup          *fLookupEntry;
     int                 fQueryIndex;
+	bool				fIsParallel;
+	pthread_mutex_t     *fMutex;
+    pthread_cond_t      *fCondition;
 };
 
 // state engine information
@@ -132,53 +142,6 @@ void dsFlushLibinfoCache( void )
 static void DNSChangeCallBack(SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *callback_argument)
 {
 	gCacheNode->DNSConfigurationChanged();
-}
-
-void sDNSLookup::AbandonLookups( void )
-{
-	pthread_mutex_lock( &fMutex );
-	pthread_mutex_lock( &gActiveThreadMutex );
-	
-	for ( int ii = 0; ii < fTotal; ii++ )
-	{
-		for ( int zz = 0; zz < gActiveThreadCount; zz++ )
-		{
-			// see if it matches the ID we are looking for so we get the slot
-			if ( fThreadID[ii] != NULL && gActiveThreads[zz] == fThreadID[ii] )
-			{
-				if ( gNotifyTokens[zz] == 0 )
-				{
-					char notify_name[128];
-					int notify_token = 0;
-					
-					snprintf( notify_name, sizeof(notify_name), "self.thread.%lu", (unsigned long) gActiveThreads[zz] );
-					
-					int status = notify_register_plain( notify_name, &notify_token );
-					if (status == NOTIFY_STATUS_OK)
-					{
-						notify_set_state( notify_token, ThreadStateExitRequested );
-						gNotifyTokens[zz] = notify_token;
-						gThreadAbandon[zz] = true;
-						DbgLog( kLogDebug, "CCachePlugin::AbandonLookups called for slot %d notification '%s'", zz, notify_name );
-					}
-					
-					// send a signal to the thread too to cause it to break out of a select immediately
-					pthread_kill( gActiveThreads[zz], SIGURG );
-				}
-				else
-				{
-					DbgLog( kLogDebug, "CCachePlugin::AbandonLookups slot %d already being cancelled, just setting abandon flag", zz );
-					gThreadAbandon[zz] = true;
-				}
-				
-				// we can break out of this loop and continue
-				break;
-			}
-		}
-	}
-	
-	pthread_mutex_unlock( &gActiveThreadMutex );
-	pthread_mutex_unlock( &fMutex );
 }
 
 // --------------------------------------------------------------------------------
@@ -271,6 +234,9 @@ CCachePlugin::CCachePlugin ( FourCharCode inSig, const char *inName ) : CServerP
 	
 	bzero( gActiveThreads, sizeof(gActiveThreads) );
 	bzero( gNotifyTokens, sizeof(gNotifyTokens) );
+	
+	// let's enable the ability interrupt requests
+	res_interrupt_requests_enable();
     
     // state engine initialization
     int iDoUnqualifiedSRV[] = { kResolveStateBuildExtraQueries,
@@ -4418,8 +4384,16 @@ kvbuf_t* CCachePlugin::GetRecordListLibInfo( tDirNodeReference inNodeRef, const 
                 }
             }
         }// got records returned
+		
+        // if we got invalid context or continue data, reset the search
+        if ( siResult == eDSInvalidContext || siResult == eDSInvalidContinueData || siResult == eDSBadContextData ) {
+            kvbuf_free( outBuffer );
+            outBuffer = NULL;
+            context = 0;
+            siResult = eDSBadContextData; // make it one error code to simplify check in do/while
+        }
         
-    } while ( (siResult == eDSBufferTooSmall) || ((siResult == eDSNoErr) && (context != 0)) );
+    } while ( siResult == eDSBufferTooSmall || (siResult == eDSNoErr && context != 0) || siResult == eDSBadContextData );
     
     if ( siResult == eDSNoErr )
     {
@@ -4528,8 +4502,16 @@ kvbuf_t* CCachePlugin::ValueSearchLibInfo( tDirNodeReference inNodeRef, const ch
                     }
                 }
             }// got records returned
+			
+            // if we got invalid context or continue data, reset the search
+            if ( siResult == eDSInvalidContext || siResult == eDSInvalidContinueData || siResult == eDSBadContextData ) {
+                kvbuf_free( outBuffer );
+                outBuffer = NULL;
+                context = 0;
+                siResult = eDSBadContextData; // make it one error code to simplify check in do/while
+            }
             
-        } while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (context != nil) ) );
+        } while ( siResult == eDSBufferTooSmall || (siResult == eDSNoErr && context != 0) || siResult == eDSBadContextData );
     }
     
     catch( SInt32 err )
@@ -4606,12 +4588,18 @@ int AddToDNSThreads( void )
     int slot = -1;
     int ii;
     
-    pthread_mutex_lock( &gActiveThreadMutex );
+    int rc = pthread_mutex_lock( &gActiveThreadMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::AddToDNSThreads - pthread_mutex_lock failed %s (%d).  Aborting",
+			   strerror(rc), rc);
+		abort();
+	}
+
     for( ii = 0; ii < gActiveThreadCount; ii++ )
     {
         if( gActiveThreads[ii] == NULL )
         {
-            gActiveThreads[ii] = pthread_self();
             slot = ii;
             break;
         }
@@ -4621,13 +4609,27 @@ int AddToDNSThreads( void )
     if( slot == -1 && gActiveThreadCount < 512 )
     {
 		slot = gActiveThreadCount;
-        gActiveThreads[slot] = pthread_self();
         gActiveThreadCount++;
     }
 	
-    DbgLog( kLogDebug, "CCachePlugin::AddToDNSThreads called added thread %X to slot %d", (unsigned long) gActiveThreads[slot], slot );
-
-    pthread_mutex_unlock( &gActiveThreadMutex );
+	if ( slot != -1 )
+	{
+		gActiveThreads[slot] = pthread_self();
+		gInterruptTokens[slot] = res_init_interrupt_token();
+		DbgLog( kLogDebug, "CCachePlugin::AddToDNSThreads called added thread %X to slot %d", (unsigned long) gActiveThreads[slot], slot );
+	}
+	else
+	{
+		DbgLog( kLogDebug, "CCachePlugin::AddToDNSThreads called no slots available to add thread %X ", (unsigned long) pthread_self() );
+	}
+	
+    rc = pthread_mutex_unlock( &gActiveThreadMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::AddToDNSThreads - pthread_mutex_unlock failed %s (%d).  Aborting",
+			   strerror(rc), rc);
+		abort();
+	}
     
     return slot;
 }
@@ -4642,8 +4644,14 @@ bool RemoveFromDNSThreads( int inSlot )
         return bReturn;
 	}
 	
-    pthread_mutex_lock( &gActiveThreadMutex );
-
+    int rc = pthread_mutex_lock( &gActiveThreadMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::RemoveFromDNSThreads - pthread_mutex_lock failed %s (%d).  Aborting",
+			   strerror(rc), rc);
+		abort();
+	}
+	
     DbgLog( kLogDebug, "CCachePlugin::RemoveFromDNSThreads called for slot %d = %X", inSlot, (unsigned long) gActiveThreads[inSlot] );
 
     gActiveThreads[inSlot] = NULL;
@@ -4660,16 +4668,36 @@ bool RemoveFromDNSThreads( int inSlot )
         gNotifyTokens[inSlot] = 0;
 		gThreadAbandon[inSlot] = false;
     }
+	
+	if ( gInterruptTokens[inSlot] != NULL )
+	{
+        DbgLog( kLogDebug, "CCachePlugin::RemoveFromDNSThreads deleting interrupt token %d", gInterruptTokens[inSlot] );
+		res_delete_interrupt_token( gInterruptTokens[inSlot] );
+		gInterruptTokens[inSlot] = NULL;
+	}
 
-    pthread_mutex_unlock( &gActiveThreadMutex );
+    rc = pthread_mutex_unlock( &gActiveThreadMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::RemoveFromDNSThreads - pthread_mutex_unlock failed %s (%d).  Aborting",
+			   strerror(rc), rc);
+		abort();
+	}
 	
 	return bReturn;
 }
 
 void CancelDNSThreads( void )
 {
-    pthread_mutex_lock( &gActiveThreadMutex );
+    int rc = pthread_mutex_lock( &gActiveThreadMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::CancelDNSThreads - pthread_mutex_lock failed %s (%d).  Aborting",
+			    strerror(rc), rc);
+		abort();
+	}
 	
+	int numThreadsCancelled = 0;
     for( int ii = 0; ii < gActiveThreadCount; ii++ )
     {
         if( gActiveThreads[ii] != NULL && gNotifyTokens[ii] == 0 )
@@ -4684,43 +4712,26 @@ void CancelDNSThreads( void )
                 notify_set_state(notify_token, ThreadStateExitRequested);
                 gNotifyTokens[ii] = notify_token;
                 DbgLog( kLogDebug, "CCachePlugin::CancelDNSThreads called for slot %d notification '%s'", ii, notify_name );
+				
+				// let's interrupt inflight requests so the token(s) can be checked
+				// we need to do for each thread to break multiple selects it seems
+				// Only do this if we got a notify token - libresolv could spin if we
+				// interrupt w/o a token.
+				res_interrupt_request( gInterruptTokens[ii] );
+				++numThreadsCancelled;
             }
-            
-            // send a signal to the thread too to cause it to break out of a select immediately
-            pthread_kill( gActiveThreads[ii], SIGURG );
         }
     }
-    pthread_mutex_unlock( &gActiveThreadMutex );
-}
-
-static void DNSQueryCleanup( void *inData )
-{
-    sDNSQuery       *theQuery   = (sDNSQuery *) inData;
-    sDNSLookup      *lookup     = theQuery->fLookupEntry;
-    int             index       = theQuery->fQueryIndex;
-
-    pthread_mutex_lock( &(lookup->fMutex) );
-    
-	OSAtomicCompareAndSwap32Barrier( false, true, &(lookup->fQueryFinished[index]) );
-	OSAtomicDecrement32Barrier( &(lookup->fOutstanding) );
-	lookup->fThreadID[index] = NULL; // since we are done, let's NULL out our thread ID
-    
-    DbgLog( kLogDebug, "CCachePlugin::DNSQueryCleanup - Index %d, Outstanding = %d, Total = %d", index, lookup->fOutstanding, lookup->fTotal );
-    
-    // signal that we are done
-    if( lookup->fOutstanding <= 0 && lookup->fDeleteEntry == true )
-    {
-		pthread_mutex_unlock( &(lookup->fMutex) );
-		lookup->SignalCondition();
-		DSDelete( lookup );
-    }
-    else
-    {
-        pthread_mutex_unlock( &(lookup->fMutex) );
-		lookup->SignalCondition();
-    }
 	
-	DSFree( theQuery ); // now that we're done, we need to free the query
+	DbgLog( kLogDebug, "CCachePlugin::CancelDNSThreads %d threads cancelled", numThreadsCancelled );
+
+    rc = pthread_mutex_unlock( &gActiveThreadMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::CancelDNSThreads - pthread_mutex_unlock failed %s (%d).  Aborting",
+			   strerror(rc), rc);
+		abort();
+	}
 }
 
 void *DoDNSQuery( void *inData )
@@ -4730,11 +4741,9 @@ void *DoDNSQuery( void *inData )
     sDNSQuery       *theQuery   = (sDNSQuery *) inData;
     sDNSLookup      *lookup     = theQuery->fLookupEntry;
     int             index       = theQuery->fQueryIndex;
+	int				rc;
+	double          endTime     = 0.0;
     
-	// handle the cleanup in a thread cleanup routine to ensure
-	// it's always done
-	pthread_cleanup_push( DNSQueryCleanup, (void*)theQuery );
-
 lookupAgain:
 	
     if( dns )
@@ -4747,11 +4756,14 @@ lookupAgain:
 
         dns_set_buffer_size( dns, 8192 );
 		
+		// Reset the TTL in case this is a redo.
+		lookup->fMinimumTTL[index] = -1;
+
         int slot = AddToDNSThreads();
 		double startTime = dsTimestamp();
         dnsReply = idna_dns_lookup( dns, lookup->fQueryStrings[index], lookup->fQueryClasses[index], lookup->fQueryTypes[index], 
 								    &(lookup->fMinimumTTL[index]) );
-		lookup->fAnswerTime[index] = dsTimestamp() - startTime;
+		endTime = dsTimestamp() - startTime;
 		
         dns_free( dns );
         
@@ -4761,7 +4773,8 @@ lookupAgain:
 			dns = dns_open( NULL );
 			
 			// free any existing reply we don't care what it was
-			if ( dnsReply != NULL ) {
+			if ( dnsReply != NULL )
+			{
 				dns_free_reply( dnsReply );
 				dnsReply = NULL;
 			}
@@ -4771,15 +4784,48 @@ lookupAgain:
 
 		DbgLog( kLogPlugin, "CCachePlugin::DoDNSQuery - Index %d got %d answer(s) for %s type %d minTTL %d - %d ms", index, 
 			    (dnsReply ? dnsReply->header->ancount : 0), lookup->fQueryStrings[index], lookup->fQueryTypes[index], lookup->fMinimumTTL[index],
-			    (int) (lookup->fAnswerTime[index] / 1000) );
+			    (int) (endTime / 1000.0) );
 	}
     
-    pthread_mutex_lock( &(lookup->fMutex) );
-    lookup->fAnswers[index] = dnsReply;
-    pthread_mutex_unlock( &(lookup->fMutex) );
+	// only need to lock for multi-threaded queries
+	if ( theQuery->fIsParallel )
+	{
+		rc = pthread_mutex_lock( theQuery->fMutex );
+		if ( rc != 0 )
+		{
+			DbgLog( kLogCritical, "CCachePlugin::DoDNSQuery - pthread_mutex_lock failed, %s (%d).  Aborting",
+					strerror(rc), rc);
+			abort();
+		}
+	}
 
-	// call the cleanup function.
-	pthread_cleanup_pop( true );
+    lookup->fAnswers[index] = dnsReply;
+	lookup->fAnswerTime[index] = endTime;
+	lookup->fThreadID[index] = NULL; // since we are done, let's NULL out our thread ID
+	OSAtomicCompareAndSwap32Barrier( false, true, &(lookup->fQueryFinished[index]) );
+	OSAtomicDecrement32Barrier( &(lookup->fOutstanding) );
+    
+    DbgLog( kLogDebug, "CCachePlugin::DoDNSQuery - Index %d, Outstanding = %d, Total = %d", index, lookup->fOutstanding, lookup->fTotal );
+    
+	// only need to signal for multi-threaded queries
+	if ( theQuery->fIsParallel )
+	{
+		rc = pthread_cond_signal( theQuery->fCondition );
+		if ( rc != 0 )
+		{
+			DbgLog( kLogCritical, "CCachePlugin::DoDNSQuery - pthread_cond_signal failed, %s (%d).  Aborting",
+					strerror(rc), rc);
+			abort();
+		}
+
+		rc = pthread_mutex_unlock( theQuery->fMutex );
+		if ( rc != 0 )
+		{
+			DbgLog( kLogCritical, "CCachePlugin::DoDNSQuery - pthread_mutex_unlock failed, %s (%d).  Aborting",
+					strerror(rc), rc);
+			abort();
+		}
+	}
 
     return NULL;
 }
@@ -6856,61 +6902,123 @@ kvbuf_t *CCachePlugin::DSinnetgr( kvbuf_t *inBuffer )
 
 void CCachePlugin::InitiateDNSQuery( sDNSLookup *inLookup, bool inParallel )
 {
-    int	index			= 0;
-	int	iIndexOfAReq	= -1;
-    
-    if( inParallel && inLookup->fTotal > 1 )
+    if ( inParallel && inLookup->fTotal > 1 )
     {
         DbgLog( kLogDebug, "CCachePlugin::InitiateDNSQuery - Called with Total = %d", inLookup->fTotal );
+
+		IssueParallelDNSQueries( inLookup );
+    }
+    else
+    {
+		if ( inParallel )
+            DbgLog( kLogDebug, "CCachePlugin::InitiateDNSQuery - AI_PARALLEL was requested, but only one query" );
 		
-reissue:
+
+        for (int index = 0;  index < inLookup->fTotal;  index++ )
+        {
+            sDNSQuery   query;
+            
+            query.fLookupEntry = inLookup;
+            query.fQueryIndex = index;
+			query.fIsParallel = false;
+			query.fMutex = NULL;
+			query.fCondition = NULL;
+            
+			OSAtomicCompareAndSwap32Barrier( inLookup->fOutstanding, 1, &inLookup->fOutstanding );
+
+            DoDNSQuery( &query );
+        }
+    }
+}
+
+void CCachePlugin::IssueParallelDNSQueries( sDNSLookup *inLookup )
+{
+	int	iIndexOfAReq	= -1;
+
+	pthread_mutexattr_t dnsMutexAttr;
+	int rc = pthread_mutexattr_init( &dnsMutexAttr );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_mutexattr_init failed, %s (%d).  Aborting.",
+				strerror(rc), rc);
+		abort();
+	}
+
+	rc = pthread_mutexattr_settype( &dnsMutexAttr, PTHREAD_MUTEX_ERRORCHECK );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_mutexattr_settype failed, %s (%d).  Aborting",
+				strerror(rc), rc);
+		abort();
+	}
+
+	pthread_mutex_t dnsMutex;
+	rc = pthread_mutex_init( &dnsMutex, &dnsMutexAttr );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_mutex_init failed, %s (%d).  Aborting",
+				strerror(rc), rc);
+		abort();
+	}
+
+	pthread_cond_t dnsCondition;
+	rc = pthread_cond_init( &dnsCondition, NULL );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_mutex_init failed, %s (%d).  Aborting",
+				strerror(rc), rc);
+		abort();
+	}
+
+	bool reissueQueries;
+
+	do
+	{
+		int iSlot = AddToDNSThreads();
+
+		reissueQueries = false;  // assume the queries will finish.
 		OSAtomicCompareAndSwap32Barrier( inLookup->fOutstanding, 0, &inLookup->fOutstanding );
 
-		int iSlot = AddToDNSThreads();
-		
-        while( index < inLookup->fTotal )
-        {
-            sDNSQuery       *pQuery     = new sDNSQuery;
-            pthread_attr_t  attrs;
-            
-            pQuery->fLookupEntry = inLookup;
-            pQuery->fQueryIndex = index;
-			
+		sDNSQuery *pQueries = new sDNSQuery[inLookup->fTotal];
+
+		for (int index = 0;  index < inLookup->fTotal;  index++ )
+		{
+			sDNSQuery       *pQuery     = &pQueries[index];
+
+			pQuery->fLookupEntry = inLookup;
+			pQuery->fQueryIndex = index;
+			pQuery->fIsParallel = true;
+			pQuery->fMutex = &dnsMutex;
+			pQuery->fCondition = &dnsCondition;
+
 			if ( inLookup->fQueryTypes[index] == fTypeA )
 				iIndexOfAReq = index;
-            
-            pthread_attr_init( &attrs );
-            pthread_attr_setdetachstate( &attrs, PTHREAD_CREATE_DETACHED );
-            
-            while ( pthread_create( &(inLookup->fThreadID[index]), &attrs, DoDNSQuery, pQuery ) != 0 )
+
+			pthread_attr_t attrs;
+			pthread_attr_init( &attrs );
+			pthread_attr_setdetachstate( &attrs, PTHREAD_CREATE_DETACHED );
+
+			while ( pthread_create( &(inLookup->fThreadID[index]), &attrs, DoDNSQuery, pQuery ) != 0 )
 			{
-                usleep( 1000 );
+				usleep( 1000 );
 			}
 
- 			OSAtomicIncrement32Barrier( &inLookup->fOutstanding );
+			// increment here to ensure fOutstanding is non-zero before we go
+			// into the wait.  it's possible that the threads won't even run
+			// until this thread blocks.
+			OSAtomicIncrement32Barrier( &inLookup->fOutstanding );
 
-			DbgLog( kLogDebug, "CCachePlugin::InitiateDNSQuery - Started thread #%d, Outstanding = %d, Total = %d", index, inLookup->fOutstanding, 
-				    inLookup->fTotal );
+			DbgLog( kLogDebug, "CCachePlugin::IssueParallelDNSQueries - spawned thread #%d, thread ID = %X, Outstanding = %d, Total = %d",
+				   index, inLookup->fThreadID[index], inLookup->fOutstanding, inLookup->fTotal );		
+		}
 
-            index++;
-        }
-
-        inLookup->WaitUntilDone( iIndexOfAReq );
+		WaitForDNSQueries( iIndexOfAReq, inLookup, &dnsMutex, &dnsCondition );
 
 		// if our lookup was cancelled, we need to re-issue all DNS lookups
 		if ( RemoveFromDNSThreads(iSlot) == true )
 		{
-			// abandon the rest of the lookups
-			inLookup->AbandonLookups();
-			
-			// wait for the rest of the lookups to exit so we can re-issue
-			while ( inLookup->fOutstanding > 0 ) {
-				DbgLog( kLogDebug, "CCachePlugin::InitiateDNSQuery - re-issuing queries due to DNS change, waiting for threads to finish" );
-				inLookup->WaitUntilDone( -1 );
-			}
-			
-			pthread_mutex_lock( &(inLookup->fMutex) );
-			
+			DbgLog( kLogDebug, "CCachePlugin::IssueParallelDNSQueries - re-issuing queries due to DNS change, waiting for threads to finish" );
+
 			// delete all answers and re-issue
 			for ( int ii = 0; ii < inLookup->fTotal; ii++ )
 			{
@@ -6918,32 +7026,227 @@ reissue:
 					dns_free_reply( inLookup->fAnswers[ii] );
 					inLookup->fAnswers[ii] = NULL;
 				}
+				inLookup->fQueryFinished[ii] = false;
+				inLookup->fAnswerTime[ii] = 0.0;
 			}
 
-			inLookup->fDeleteEntry = false;
 			OSMemoryBarrier(); // ensure we are sync'd across processors at this point
-			pthread_mutex_unlock( &(inLookup->fMutex) );
-			
-			goto reissue;
+
+			reissueQueries = true;
 		}
-    }
-    else
-    {
-		if ( inParallel )
-            DbgLog( kLogDebug, "CCachePlugin::InitiateDNSQuery - AI_PARALLEL was requested, but only one query" );
+
+		delete[] pQueries;
+	} while ( reissueQueries );
+
+	rc = pthread_cond_destroy( &dnsCondition );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_cond_destroy failed, %s (%d).  Aborting",
+				strerror(rc), rc);
+		abort();
+	}
+
+	rc = pthread_mutex_destroy( &dnsMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::IssueParallelDNSQueries - pthread_mutex_destroy failed, %s (%d).  Aborting",
+				strerror(rc), rc);
+		abort();
+	}
+}
+
+void CCachePlugin::WaitForDNSQueries( int              inIndexOfAReq,
+									  sDNSLookup      *inLookup,
+									  pthread_mutex_t *dnsMutex,
+									  pthread_cond_t  *dnsCondition )
+{
+	struct timeval	tvNow;
+	struct timespec	tsTimeout   = { 0 };
+	struct timespec	tsWaitTime  = { 60, 0 }; // only wait 60 seconds.
+
+	if ( inIndexOfAReq >= 0 )
+	{
+		DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - Waiting (60 sec max) for first A response, Outstanding = %d, Total = %d", 
+				inLookup->fOutstanding, inLookup->fTotal );
+	}
+	else
+	{
+		DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - Waiting (60 sec max), Outstanding = %d, Total = %d",
+				inLookup->fOutstanding, inLookup->fTotal );
+	}
+
+	int rc = pthread_mutex_lock( dnsMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::WaitForDNSQueries - pthread_mutex_lock failed, %s (%d).  Aborting",
+				strerror(rc), rc);
+		abort();
+	}
+
+	bool bWaitingForCancelledThreads = false;
+
+	while ( inLookup->fOutstanding > 0 )
+	{
+		gettimeofday( &tvNow, NULL );
+		TIMEVAL_TO_TIMESPEC ( &tvNow, &tsTimeout );
+		ADD_MACH_TIMESPEC( &tsTimeout, &tsWaitTime );
 		
-        while( index < inLookup->fTotal )
-        {
-            sDNSQuery   *pQuery = new sDNSQuery;
-            
-            pQuery->fLookupEntry = inLookup;
-            pQuery->fQueryIndex = index;
-            
-            DoDNSQuery( pQuery );
-            
-            index++;
-        }
-    }
+		rc = pthread_cond_timedwait( dnsCondition, dnsMutex, &tsTimeout );
+		if ( rc == ETIMEDOUT )
+		{
+			DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - timed out after %d %s  - Outstanding = %d, Total = %d",
+					tsWaitTime.tv_sec ? tsWaitTime.tv_sec : tsWaitTime.tv_nsec * 1000000,
+					tsWaitTime.tv_sec ? "sec" : "ms", inLookup->fOutstanding, inLookup->fTotal );
+
+			if ( !bWaitingForCancelledThreads )
+			{
+				DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - cancelling remaining threads - Outstanding = %d, Total = %d.  Will wait 30 seconds for threads to cancel.",
+						inLookup->fOutstanding, inLookup->fTotal );
+
+				// Timed out waiting for the queries to complete.  Cancel them
+				// and wait for them to finish.
+				AbandonDNSQueries( inLookup );
+				bWaitingForCancelledThreads = true;
+				tsWaitTime.tv_sec = 30;
+				tsWaitTime.tv_nsec = 0;
+			}
+			else
+			{
+				// This is bad - the threads were cancelled but they haven't come back.
+				// Those threads are sharing inLookup as well as pointers to dnsMutex
+				// and dnsCondition.
+				// If they haven't come back, they're likely hung in libresolv.
+				syslog( LOG_ERR, "CCachePlugin::WaitForDNSQueries - aborting because cancelled threads didn't return after 30 seconds." );
+				abort();
+			}
+		}
+		else if ( rc != 0 )
+		{
+			DbgLog( kLogCritical, "CCachePlugin::WaitForDNSQueries - pthread_cond_timedwait failed, %s (%d).  Aborting",
+					strerror(rc), rc);
+			abort();
+		}
+		else // rc == 0, we were signalled.
+		{
+			if ( inLookup->fOutstanding == 0 )
+			{
+				DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - queries complete" );
+			}
+			else
+			{
+				// got at least one answer back, but waiting on others.  determine
+				// how much longer we'll wait for the rest of the queries to finish.
+
+				double maxTime = 0.0;  // in microseconds
+
+				// if we are looking for an A request and got an answer, use that time as our calculation
+				// if we are looking for an A request and didn't get an answer, wait 60 seconds.
+				if ( inIndexOfAReq >= 0 )
+				{
+					if ( inLookup->fQueryFinished[inIndexOfAReq] )
+					{
+						maxTime = inLookup->fAnswerTime[inIndexOfAReq]; // use the time of that request directly
+					}
+					else
+					{
+						maxTime = 60000000.0; // 60 seconds in microseconds
+					}
+				}
+				else
+				{
+					// find response with highest time and use that as our further delay
+					for ( int ii = 0; ii < inLookup->fTotal; ii++ ) 
+					{
+						// if the query is finished and we got an answer
+						if ( inLookup->fQueryFinished[ii] && inLookup->fAnswerTime[ii] > maxTime )
+						{
+							maxTime = inLookup->fAnswerTime[ii];
+						}
+					}
+				}
+
+				int milliSecs = (maxTime / 1000) * inLookup->fTotal;
+				milliSecs = MAX( milliSecs, 100 );    // wait at least 100 ms ...
+				milliSecs = MIN( milliSecs, 60000 );  // ... but no more than 60
+				tsWaitTime.tv_sec = (milliSecs / 1000);
+				tsWaitTime.tv_nsec = ((milliSecs % 1000) * 1000000);
+
+				DbgLog( kLogDebug, "CCachePlugin::WaitForDNSQueries - got at least 1 answer, waiting %d ms for the rest", milliSecs );
+			}
+		}
+	}
+
+	rc = pthread_mutex_unlock( dnsMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::WaitForDNSQueries - dnsMutex pthread_mutex_unlock failed, %s (%d).  Aborting",
+				strerror(rc), rc);
+		abort();
+	}
+}
+
+void CCachePlugin::AbandonDNSQueries( sDNSLookup *inLookup )
+{
+	int rc = pthread_mutex_lock( &gActiveThreadMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::AbandonDNSQueries - gActiveThreadMutex pthread_mutex_lock failed, %s (%d).  Aborting",
+				strerror(rc), rc);
+		abort();
+	}
+	
+	int numThreadsCancelled = 0;
+	for ( int ii = 0; ii < inLookup->fTotal; ii++ )
+	{
+		for ( int zz = 0; zz < gActiveThreadCount; zz++ )
+		{
+			// see if it matches the ID we are looking for so we get the slot
+			if ( inLookup->fThreadID[ii] != NULL && gActiveThreads[zz] == inLookup->fThreadID[ii] )
+			{
+				if ( gNotifyTokens[zz] == 0 )
+				{
+					char notify_name[128];
+					int notify_token = 0;
+					
+					snprintf( notify_name, sizeof(notify_name), "self.thread.%lu", (unsigned long) gActiveThreads[zz] );
+					
+					int status = notify_register_plain( notify_name, &notify_token );
+					if (status == NOTIFY_STATUS_OK)
+					{
+						notify_set_state( notify_token, ThreadStateExitRequested );
+						gNotifyTokens[zz] = notify_token;
+						gThreadAbandon[zz] = true;
+						DbgLog( kLogDebug, "CCachePlugin::AbandonDNSQueries called for slot %d notification '%s'", zz, notify_name );
+						
+						// let's interrupt inflight requests so the token can be checked
+						// we need to do for each thread to break multiple selects it seems.
+						// Only do this if we got a notify token - libresolv could spin if we
+						// interrupt w/o a token.
+						res_interrupt_request( gInterruptTokens[zz] );
+						++numThreadsCancelled;
+					}
+				}
+				else
+				{
+					DbgLog( kLogDebug, "CCachePlugin::AbandonDNSQueries slot %d already being cancelled, just setting abandon flag", zz );
+					gThreadAbandon[zz] = true;
+				}
+				
+				// we can break out of this loop and continue
+				break;
+			}
+		}
+	}
+
+	DbgLog( kLogDebug, "CCachePlugin::AbandonDNSQueries %d threads cancelled", numThreadsCancelled );
+
+	rc = pthread_mutex_unlock( &gActiveThreadMutex );
+	if ( rc != 0 )
+	{
+		DbgLog( kLogCritical, "CCachePlugin::AbandonDNSQueries - dnsMutex pthread_mutex_unlock failed, %s (%d).  Aborting",
+				strerror(rc), rc);
+		abort();
+	}
 }
 
 kvbuf_t* CCachePlugin::DSgethostbyname( kvbuf_t *inBuffer, pid_t inPID, bool inParallelQuery, sDNSLookup *inLookup )
@@ -7095,9 +7398,6 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                 // we only care about the difference if we aren't a qualified question
                 int nameLen     = strlen( inName );
                 
-                // we lock the structure while we do this so we don't get confusing answers
-                pthread_mutex_lock( &(pAnswer->fMutex) );
-
                 if( pAnswer->fTotal > 1 && inName[nameLen-1] != '.' )
                 {
                     int     iMatch[pAnswer->fTotal];
@@ -7242,8 +7542,6 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                                 {
                                     // we use the lowest TTL so we refresh this if needed
                                     int tempTTL = reply->answer[index]->ttl;
-                                    if( 0 == ttl || tempTTL < (int) ttl )
-                                        ttl = reply->answer[index]->ttl;
                                     
                                     if( reply->answer[index]->dnstype == fTypeA )
                                     {
@@ -7258,7 +7556,11 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                                         {
                                             kvbuf_add_val( outBuffer, inet_ntoa(address->addr) );
                                         }
-                                    }
+										
+                                        // Only care about ttl for IPv4 & IPv6
+                                        if( 0 >= ttl || tempTTL < (int) ttl )
+										    ttl = tempTTL;
+                                   }
                                     else if( reply->answer[index]->dnstype == fTypeAAAA )
                                     {
                                         dns_in6_address_record_t    *address = reply->answer[index]->data.AAAA;
@@ -7286,6 +7588,10 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                                                 kvbuf_add_val( outBuffer, buffer );
                                             }
                                         }
+
+                                        // Only care about ttl for IPv4 & IPv6
+                                        if( 0 >= ttl || tempTTL < (int) ttl )
+                                            ttl = tempTTL;
                                     }                                    
                                     else if( reply->answer[index]->dnstype == fTypeCNAME )
                                     {
@@ -7317,8 +7623,6 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                         ttl = pAnswer->fMinimumTTL[zz];
                     }
                 }
-                
-                pthread_mutex_unlock( &(pAnswer->fMutex) );
                 
                 if( NULL != outBuffer )
                 {
@@ -7380,19 +7684,7 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                 // set the delete flag and unlock
                 if( inLookup == NULL )
                 {
-					pAnswer->AbandonLookups();
-
-                    pthread_mutex_lock( &(pAnswer->fMutex) );
-                    pAnswer->fDeleteEntry = true;
-                    if( pAnswer->fOutstanding > 0 )
-                    {
-                        pthread_mutex_unlock( &(pAnswer->fMutex) );
-                    }
-                    else
-                    {
-                        pthread_mutex_unlock( &(pAnswer->fMutex) );
-                        DSDelete( pAnswer );
-                    }
+					DSDelete( pAnswer );
                 }
             }
             else
@@ -7460,51 +7752,58 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                 if( outTTL != NULL )
                     (*outTTL) = ttl;
             }
-            else if ( ttl > 0 && localOnlyPID == false )
+            else if ( localOnlyPID == false )
             {
-				// before we put a negative entry, let's look 1 more time while holding the lock before forcing a negative entry
-				fLibinfoCache->fCacheLock.WaitLock();
-				
-				if ( ipv4 != 0 )
+				if ( ttl > 0 )
 				{
-					outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_name", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
-					if ( outBuffer == NULL )
-						outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_aliases", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
-				}
-				else
-				{
-					outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_name", inName, "ipv6", inIPv6, NULL );
-					if ( outBuffer == NULL )
-						outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_aliases", inName, "ipv6", inIPv6, NULL );
-				}
-
-				// if we still don't have an entry while holding the cache, it's safe to put a negative entry
-				if ( outBuffer == NULL )
-				{
-					// if we got a TTL, then we'll do a NODATA equivalent
-					outBuffer = kvbuf_new();
+					// before we put a negative entry, let's look 1 more time while holding the lock before forcing a negative entry
+					fLibinfoCache->fCacheLock.WaitLock();
 					
-					// we negative cache based on the determined TTL which is based on RFC2308 behavior
-					// when we have no TTL, we have no authority, so we don't cache
-					if ( ipv4 == 1 && ipv6 == 1 )
+					if ( ipv4 != 0 )
 					{
-						AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_HOST, ttl, "h_name", inName, 
-													"ipv4", "1", "ipv6", "1", NULL );
-					}
-					else if ( ipv4 == 1 )
-					{
-						AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_HOST, ttl, "h_name", inName, 
-													"ipv4", "1", NULL );
+						outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_name", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
+						if ( outBuffer == NULL )
+							outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_aliases", inName, "ipv4", inIPv4, (ipv6 ? "ipv6" : NULL), inIPv6, NULL );
 					}
 					else
 					{
-						AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_HOST, ttl, "h_name", inName, 
-													"ipv6", "1", NULL );
+						outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_name", inName, "ipv6", inIPv6, NULL );
+						if ( outBuffer == NULL )
+							outBuffer = FetchFromCache( fLibinfoCache, &ttl, "h_aliases", inName, "ipv6", inIPv6, NULL );
 					}
+
+					// if we still don't have an entry while holding the cache, it's safe to put a negative entry
+					if ( outBuffer == NULL )
+					{
+						// if we got a TTL, then we'll do a NODATA equivalent
+						outBuffer = kvbuf_new();
+						
+						// we negative cache based on the determined TTL which is based on RFC2308 behavior
+						// when we have no TTL, we have no authority, so we don't cache
+						if ( ipv4 == 1 && ipv6 == 1 )
+						{
+							AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_HOST, ttl, "h_name", inName, 
+														"ipv4", "1", "ipv6", "1", NULL );
+						}
+						else if ( ipv4 == 1 )
+						{
+							AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_HOST, ttl, "h_name", inName, 
+														"ipv4", "1", NULL );
+						}
+						else
+						{
+							AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_HOST, ttl, "h_name", inName, 
+														"ipv6", "1", NULL );
+						}
+					}
+					
+					fLibinfoCache->fCacheLock.SignalLock();
 				}
-				
-				fLibinfoCache->fCacheLock.SignalLock();
-            }
+				else
+				{
+					DbgLog( kLogDebug, "CCachePlugin::gethostbyname - query for %s didn't return A/AAAA records - no cache entries created", inName );
+				}
+			}
             
             dsDataListDeallocate( fDirRef, attrTypes );
             DSFree( attrTypes );
@@ -7657,27 +7956,34 @@ kvbuf_t* CCachePlugin::DSgethostbyaddr( kvbuf_t *inBuffer, pid_t inPID )
                     
                     if( NULL != reply )
                     {
-                        if( (reply->header != NULL) && (DNS_STATUS_OK == reply->status) && (reply->header->ancount > 0) )
+                        if ( (reply->header != NULL) && (DNS_STATUS_OK == reply->status) )
                         {
-                            if( (NULL != reply->answer[0]) && (ns_t_ptr == reply->answer[0]->dnstype) )
-                            {
-                                dns_domain_name_record_t *PTR = reply->answer[0]->data.PTR;
-                                
-                                int tempTTL = reply->answer[0]->ttl;
-                                if ( ttl == 0 || tempTTL < ttl )
-                                    ttl = tempTTL;
-                                
-                                if( NULL != PTR )
-                                {
-                                    outBuffer = kvbuf_new();
-                                    kvbuf_add_dict( outBuffer );
+							// There could be CNAME records too, so loop until a PTR record is found.
+							for ( int ii = 0;  ii < reply->header->ancount;  ii++ )
+							{
+								if ( (NULL != reply->answer[ii]) && (ns_t_ptr == reply->answer[ii]->dnstype) )
+								{
+									dns_domain_name_record_t *PTR = reply->answer[ii]->data.PTR;
+									
+									int tempTTL = reply->answer[ii]->ttl;
+									if ( ttl == 0 || tempTTL < ttl )
+										ttl = tempTTL;
+									
+									if( NULL != PTR && PTR->name != NULL )
+									{
+										outBuffer = kvbuf_new();
+										kvbuf_add_dict( outBuffer );
 
-                                    kvbuf_add_key( outBuffer, "h_name" );
-                                    kvbuf_add_val( outBuffer, PTR->name );
-                                    kvbuf_add_key( outBuffer, (family == AF_INET ? "h_ipv4_addr_list" : "h_ipv6_addr_list") );
-                                    kvbuf_add_val( outBuffer, address );
-                                }
-                            }
+										kvbuf_add_key( outBuffer, "h_name" );
+										kvbuf_add_val( outBuffer, PTR->name );
+										kvbuf_add_key( outBuffer, (family == AF_INET ? "h_ipv4_addr_list" : "h_ipv6_addr_list") );
+										kvbuf_add_val( outBuffer, address );
+										
+										// found one - no need to continue;
+										break;
+									}
+								}
+							}
                         }
                         else if ( reply->authority[0] != NULL )
                         {
@@ -7984,15 +8290,16 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
                             RemoveFromDNSThreads( slot );
                         }
                         
-                        if( (NULL != reply) && (DNS_STATUS_OK == reply->status) )
+                        if ( (NULL != reply) && (DNS_STATUS_OK == reply->status) && (reply->header != NULL) )
                         {
-                            if( (reply->header != NULL) && (reply->header->ancount > 0) )
+							// There could be CNAME records too, so loop until a PTR record is found.
+                            for ( int ii = 0;  ii < reply->header->ancount;  ii++ )
                             {
-                                if( (NULL != reply->answer[0]) && (ns_t_ptr == reply->answer[0]->dnstype) )
+                                if ( (NULL != reply->answer[ii]) && (ns_t_ptr == reply->answer[ii]->dnstype) )
                                 {
-                                    dns_domain_name_record_t *PTR = reply->answer[0]->data.PTR;
+                                    dns_domain_name_record_t *PTR = reply->answer[ii]->data.PTR;
                                     
-                                    int tempTTL = reply->answer[0]->ttl;
+                                    int tempTTL = reply->answer[ii]->ttl;
                                     if ( ttl == 0 || tempTTL < ttl )
                                         ttl = tempTTL;
                                     
@@ -8003,6 +8310,9 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
 
                                         kvbuf_add_key( tempBuffer, "gni_name" );
                                         kvbuf_add_val( tempBuffer, PTR->name );
+										
+										// found one - no need to continue;
+										break;
                                     }
                                 }
                             }
@@ -8949,8 +9259,6 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
         // we got a DNSQuery results directly, which means we did an SRV lookup, process them first
         if( NULL != pDNSLookup )
         {
-            pthread_mutex_lock( &(pDNSLookup->fMutex) );
-            
             // we need to parse out any SRV lookups in this request, ignoring 
             for( int ii = 0; ii < pDNSLookup->fTotal; ii++ )
             {
@@ -9006,8 +9314,6 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                     }
                 }                
             }
-            
-            pthread_mutex_unlock( &(pDNSLookup->fMutex) );
         }
     }
     
@@ -9410,20 +9716,7 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                 
     if( pDNSLookup != NULL )
     {
-		// abandon the rest at this point since we are done using them
-		pDNSLookup->AbandonLookups();
-
-        pthread_mutex_lock( &(pDNSLookup->fMutex) );
-        pDNSLookup->fDeleteEntry = true;
-        if( pDNSLookup->fOutstanding > 0 )
-        {
-            pthread_mutex_unlock( &(pDNSLookup->fMutex) );
-        }                    
-        else
-        {
-            pthread_mutex_unlock( &(pDNSLookup->fMutex) );
-            DSDelete( pDNSLookup );
-        }
+		DSDelete( pDNSLookup );
     }
     
     // if the pTempBuffer == NULL or is empty, then we got no lookup from DNS, so if the outBuffer is also empty, let's release it and return NULL instead

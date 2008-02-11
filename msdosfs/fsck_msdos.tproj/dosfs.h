@@ -150,7 +150,7 @@ struct dosDirEntry {
 	cl_t head;			/* cluster no */
 	cl_t end;			/* cluster # to stop iterating at */
 	u_int32_t size;			/* filesize in bytes */
-	u_int32_t physicalSize;		/* Number of bytes in object's cluster chain */
+	u_int64_t physicalSize;		/* Number of bytes in object's cluster chain */
 	uint fsckflags;			/* flags during fsck */
 };
 /* Flags in fsckflags: */

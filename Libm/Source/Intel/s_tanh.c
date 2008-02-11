@@ -7,39 +7,6 @@
  
 #include <math.h>
 
-double tanh( double x )
-{
-    static const double overflow = 1.477319723e+03L/2.0;      //log(0x1.0p1024)
-    double fabsx = __builtin_fabs( x );
-    
-	if( x != x )	return x + x;
-	
-	if( fabsx > 0x1.0p-27 )		//sqrt( negative epsilon )
-	{
-		if( fabsx < overflow )
-		{
-			fabsx = expm1( -2.0 * fabsx );
-			fabsx = -fabsx / (2.0 + fabsx );
-		}
-		else
-			fabsx = 1.0;
-	}
-	else
-	{
-		if( x == 0.0 )
-			return x;
-	
-		fabsx *= 0x1.0p55;
-		fabsx -= 0x1.0p-1022;
-		fabsx *= 0x1.0p-55;
-	}
-
-	if( x < 0 )
-		fabsx = -fabsx;
-	
-	return fabsx;
-}
-
 long double tanhl( long double x )
 {
     static const long double overflow = 1.13565234062941445534588410310297337926799095235775e+04L / 2.0L;      //log(0x1.0p16384)

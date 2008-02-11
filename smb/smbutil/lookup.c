@@ -80,7 +80,7 @@ cmd_lookup(int argc, char *argv[])
 	while ((opt = getopt(argc, argv, "w:")) != EOF) {
 		switch(opt){
 		    case 'w':
-			nb_ctx_setns(&ctx, optarg);
+			nb_ctx_set_wins_name(&ctx, optarg);
 			break;
 		    default:
 			lookup_usage();
@@ -95,7 +95,7 @@ cmd_lookup(int argc, char *argv[])
 	if (hostname == NULL)
 		err(EX_NOHOST, "unable to encode %s", argv[argc - 1]);
 
-	errno = nbns_resolvename(hostname, &ctx, 0, &sap);
+	errno = nbns_resolvename(hostname, &ctx, 0, &sap,  TRUE, NBSS_TCP_PORT_139);
 	free(hostname);	/* Done with the converted version */
 	hostname = argv[argc - 1];
 	if (errno)

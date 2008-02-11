@@ -180,6 +180,9 @@ install-tools:
 	$(INSTALL) -c -m 755 -o root -g wheel \
 		$(SRCROOT)/tools/migrate-preferences \
 		$(DSTROOT)$(SMB_LIBEXEC)
+	$(INSTALL) -c -m 755 -o root -g wheel \
+		$(SRCROOT)/tools/smb-conf-upgrade \
+		$(DSTROOT)$(SMB_LIBEXEC)
 
 NOSHIP_MANPAGES := \
 	man8/smbmnt.8 \

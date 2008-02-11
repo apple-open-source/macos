@@ -22,11 +22,11 @@ pbextras_dir =
   @config['projectbuilder-extras'] ?
     File.expand_path("#{install_root}#{@config['projectbuilder-extras']}") : nil
 xcodeextras_dir = 
-  @config['xcode-extras'] ?
-    File.expand_path("#{install_root}#{@config['xcode-extras']}") : nil
+  @config['xcode-extras'] ? @config['xcode-extras'].split(',').map {|path|
+    File.expand_path("#{install_root}#{path}")} : nil
 pbtmpldir = "template/ProjectBuilder"
 
-[pbextras_dir, xcodeextras_dir].compact.each do |extras_dir|
+[pbextras_dir, xcodeextras_dir].flatten.compact.each do |extras_dir|
   [
     [ "#{pbtmpldir}/File",
       "#{extras_dir}/File Templates/Ruby" ],

@@ -749,12 +749,14 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
     err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
     if (kIOReturnSuccess == err)
 	{
+		bool isSyncTransfer = command->GetIsSyncTransfer();
+		
         err = _commandGate->runAction(DoIOTransfer, command);
 		
 		// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
 		// we get an immediate error
 		//
-		if ( command->GetIsSyncTransfer() || (kIOReturnSuccess != err) )
+		if ( isSyncTransfer || (kIOReturnSuccess != err) )
 		{
 			IODMACommand		*dmaCommand = command->GetDMACommand();
 			IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;
@@ -961,7 +963,7 @@ IOUSBControllerV2::PutTDonDoneQueue(IOUSBControllerIsochEndpoint* pED, IOUSBCont
 	pED->onDoneQueue++;
 	
 	// if there are no TDs on the schedule, and no TDs on the toDO list, then we should clear out the deferred queue
-	if (checkDeferred && !pED->scheduledTDs && !pED->toDoList)
+	if (checkDeferred && (pED->scheduledTDs == 0) && !pED->toDoList)
 	{
 		deferredTD = GetTDfromDeferredQueue(pED);
 		while (deferredTD)
@@ -1045,13 +1047,13 @@ void
 IOUSBControllerV2::ReturnIsochDoneQueueEntry(OSObject *target, thread_call_param_t endpointPtr)
 {
     IOUSBControllerV2 *					me = OSDynamicCast(IOUSBControllerV2, target);
-    IOUSBControllerIsochEndpoint* 	pEP = (IOUSBControllerIsochEndpoint*) endpointPtr;
+    IOUSBControllerIsochEndpoint*		pEP = (IOUSBControllerIsochEndpoint*) endpointPtr;
 	
     if (!me || !pEP)
         return;
 	
     me->retain();
-    me->ReturnIsochDoneQueue(pEP);
+	me->ReturnIsochDoneQueue(pEP);
     me->release();
 }
 

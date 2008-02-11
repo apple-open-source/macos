@@ -58,8 +58,11 @@ static const char rcsid[] =
 #include <unistd.h>
 
 #ifdef __APPLE__
+#include <TargetConditionals.h>
+#if !TARGET_OS_EMBEDDED
 #include "kextmanager.h"
 #include <IOKit/kext/kextmanager_types.h>
+#endif
 #include <mach/mach_port.h>		// allocate
 #include <mach/mach.h>			// task_self, etc
 #include <servers/bootstrap.h>	// bootstrap
@@ -68,7 +71,7 @@ static const char rcsid[] =
 
 void usage(void);
 u_int get_pageins(void);
-#ifdef __APPLE__
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 int reserve_reboot(void);
 #endif
 
@@ -128,6 +131,7 @@ main(int argc, char *argv[])
 			break;
 		case 'q':
 			qflag = 1;
+			howto |= RB_QUICK;
 			break;
 		case '?':
 		default:
@@ -145,7 +149,7 @@ main(int argc, char *argv[])
 		err(1, NULL);
 	}
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 	if (!lflag) {	// shutdown(8) has already checked w/kextd
 		if ((errno = reserve_reboot()) && !qflag)
 			err(1, "couldn't lock for reboot");
@@ -153,7 +157,12 @@ main(int argc, char *argv[])
 #endif
 
 	if (qflag) {
+		#ifdef __APPLE__
+	        	// launchd(8) handles reboot.  This call returns NULL on success.
+        		exit(reboot2(howto) == NULL ? EXIT_SUCCESS : EXIT_FAILURE); 
+		#else /* __APPLE__ */
 		reboot(howto);
+		#endif /* __APPLE__ */
 		err(1, NULL);
 	}
 
@@ -282,7 +291,7 @@ get_pageins()
 	return pageins;
 }
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 // XX this routine is also in shutdown.tproj; it would be nice to share
 
 #define WAITFORLOCK 1

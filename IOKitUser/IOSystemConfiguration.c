@@ -1,3 +1,4 @@
+#include <TargetConditionals.h>
 #include <libc.h>
 #include <sys/stat.h>
 #include <mach-o/dyld.h>
@@ -274,6 +275,25 @@ SCPreferencesCreate		(
     else
 	return NULL;
 }
+
+#if TARGET_OS_EMBEDDED
+__private_extern__ SCPreferencesRef
+SCPreferencesCreateWithAuthorization	(
+					CFAllocatorRef		allocator,
+					CFStringRef		name,
+					CFStringRef		prefsID,
+					AuthorizationRef	authorization
+					)
+{
+    static typeof (SCPreferencesCreateWithAuthorization) *dyfunc;
+    if (!dyfunc) 
+	dyfunc = symAddrInSC("_SCPreferencesCreateWithAuthorization");
+    if (dyfunc)
+	return (*dyfunc)(allocator, name, prefsID, authorization);
+    else
+	return NULL;
+}
+#endif /* TARGET_OS_EMBEDDED */
 
 __private_extern__ CFPropertyListRef
 SCPreferencesGetValue		(

@@ -41,6 +41,8 @@
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecKeychain.h>
+#include <Security/SecKeychainItem.h>
+#include <Security/SecKeychainItemPriv.h>
 #include <Security/SecKeychainSearch.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
@@ -190,82 +192,149 @@ EAPSecIdentityListCreate(CFArrayRef * ret_array)
     return (status);
 }
 
-OSStatus
-EAPSecIdentityHandleCreateSecIdentity(EAPSecIdentityHandleRef cert_id, 
-				      SecIdentityRef * ret_identity)
+/* 
+ * Function: IdentityCreateFromDictionary
+ *
+ * Purpose:
+ *   This function locates a SecIdentityRef matching the passed in
+ *   EAPSecIdentityHandle, in the form of a dictionary.  It also handles the
+ *   NULL case i.e. find the first identity.
+ *
+ *   Old EAPSecIdentityHandle's used a dictionary with two key/value
+ *   pairs, one for the type, the second for the data corresponding to the
+ *   entire certificate.  
+ *
+ *   This function grabs all of the identities, then finds a match, either
+ *   the first identity (dict == NULL), or one that matches the given
+ *   certificate.
+ * Returns:
+ *   noErr and a non-NULL SecIdentityRef in *ret_identity if an identity
+ *   was found, non-noErr otherwise.
+ */
+static OSStatus
+IdentityCreateFromDictionary(CFDictionaryRef dict,
+			     SecIdentityRef * ret_identity)
 {
     SecCertificateRef		cert_to_match = NULL;
-    CFDictionaryRef		dict = (CFDictionaryRef)cert_id;
-    SecIdentityRef		identity = NULL;
-    SecIdentitySearchRef 	search = NULL;
-    OSStatus			status = noErr;
+    int				count;
+    int				i;
+    CFArrayRef			identity_list;
+    OSStatus			status;
 
     *ret_identity = NULL;
     if (dict != NULL) {
 	CFStringRef	certid_type;
-	CFDataRef	certid_data;	
-
-	if (isA_CFDictionary(dict) == NULL) {
-	    return (paramErr);
-	}
-	certid_type = CFDictionaryGetValue(cert_id, kEAPSecIdentityHandleType);
+	CFDataRef	certid_data;
+	
+	status = paramErr;
+	certid_type = CFDictionaryGetValue(dict, kEAPSecIdentityHandleType);
 	if (isA_CFString(certid_type) == NULL) {
-	    return (paramErr);
+	    goto done;
 	}
 	if (!CFEqual(certid_type, kEAPSecIdentityHandleTypeCertificateData)) {
-	    return (paramErr);
+	    goto done;
 	}
-	certid_data = CFDictionaryGetValue(cert_id, kEAPSecIdentityHandleData);
+	certid_data = CFDictionaryGetValue(dict, kEAPSecIdentityHandleData);
 	if (isA_CFData(certid_data) == NULL) {
-	    return (paramErr);
+	    goto done;
 	}
 	cert_to_match = _EAPCFDataCreateSecCertificate(certid_data);
 	if (cert_to_match == NULL) {
-	    return (paramErr);
+	    goto done;
 	}
     }
-    status = SecIdentitySearchCreate(NULL, CSSM_KEYUSE_SIGN, &search);
+    status = EAPSecIdentityListCreate(&identity_list);
     if (status != noErr) {
-	fprintf(stderr, "SecIdentitySearchCreate failed, %s (%d)\n", 
-		EAPSecurityErrorString(status), (int)status);
-	return (status);
+	goto done;
     }
-    while (TRUE) {
-	SecCertificateRef	this_cert = NULL;
-
-	status = SecIdentitySearchCopyNext(search, &identity);
-	if (status != noErr) {
-	    if (status != errSecItemNotFound) {
-		fprintf(stderr, "SecIdentitySearchCopyNext failed, %s (%d)\n",
-			EAPSecurityErrorString(status), (int)status);
-	    }
-	    break; /* out of while */
-	}
+    count = CFArrayGetCount(identity_list);
+    for (i = 0; *ret_identity == NULL && i < count; i++) {
+	SecIdentityRef		identity;
+	SecCertificateRef	this_cert;
+	
+	identity = (SecIdentityRef)CFArrayGetValueAtIndex(identity_list, i);
 	if (cert_to_match == NULL) {
-	    /* grab the first identity */
+	    /* just return the first one */
+	    CFRetain(identity);
 	    *ret_identity = identity;
-	    break; /* out of while */
+	    break;
 	}
 	status = SecIdentityCopyCertificate(identity, &this_cert);
 	if (this_cert == NULL) {
 	    fprintf(stderr, 
+		    "IdentityCreateFromDictionary:"
 		    "SecIdentityCopyCertificate failed, %s (%d)\n",
 		    EAPSecurityErrorString(status), (int)status);
+	    break;
 	}
-	else if (EAPSecCertificateEqual(cert_to_match, this_cert)) {
+	if (EAPSecCertificateEqual(cert_to_match, this_cert)) {
 	    /* found a match */
+	    CFRetain(identity);
 	    *ret_identity = identity;
-	    my_CFRelease(&this_cert);
-	    break; /* out of while */
 	}
-	my_CFRelease(&this_cert);
-	my_CFRelease(&identity);
+	CFRelease(this_cert);
     }
-    my_CFRelease(&search);
+    CFRelease(identity_list);
+
+ done:
     my_CFRelease(&cert_to_match);
     return (status);
 }
 
+static OSStatus
+IdentityCreateFromData(CFDataRef data, SecIdentityRef * ret_identity)
+{
+    SecKeychainItemRef		cert;
+    OSStatus			status;
+
+    status = SecKeychainItemCopyFromPersistentReference(data, &cert);
+    if (status != noErr) {
+	return (status);
+    }
+    status = SecIdentityCreateWithCertificate(NULL,
+					      (SecCertificateRef) cert,
+					      ret_identity);
+    CFRelease(cert);
+    return (status);
+}
+
+/*
+ * Function: EAPSecIdentityHandleCreateSecIdentity
+ * Purpose:
+ *   Creates a SecIdentityRef for the given EAPSecIdentityHandle.
+ *
+ *   The handle 'cert_id' is NULL, a non-NULL dictionary, or a non-NULL data.
+ *   Any other input is invalid.
+ *
+ * Returns:
+ *   noErr and !NULL *ret_identity on success, non-noErr otherwise.
+ */    
+OSStatus
+EAPSecIdentityHandleCreateSecIdentity(EAPSecIdentityHandleRef cert_id, 
+				      SecIdentityRef * ret_identity)
+{
+    *ret_identity = NULL;
+    if (cert_id == NULL
+	|| isA_CFDictionary(cert_id) != NULL) {
+	return (IdentityCreateFromDictionary(cert_id, ret_identity));
+    }
+    if (isA_CFData(cert_id) != NULL) {
+	return (IdentityCreateFromData((CFDataRef)cert_id, ret_identity));
+    }
+    return (paramErr);
+}
+
+/*
+ * Function: EAPSecIdentityHandleCreateSecIdentityTrustChain
+ *
+ * Purpose:
+ *   Turns an EAPSecIdentityHandle into the array required by
+ *   SSLSetCertificates().  See the <Security/SecureTransport.h> for more
+ *   information.
+ *
+ * Returns:
+ *   noErr and *ret_array != NULL on success, non-noErr otherwise.
+ */
 OSStatus
 EAPSecIdentityHandleCreateSecIdentityTrustChain(EAPSecIdentityHandleRef cert_id,
 						CFArrayRef * ret_array)
@@ -301,31 +370,37 @@ EAPSecIdentityHandleCreateSecIdentityTrustChain(EAPSecIdentityHandleRef cert_id,
     return (status);
 }
 
+/*
+ * Function: EAPSecIdentityHandleCreate
+ * Purpose:
+ *   Return the persistent reference for a given SecIdentityRef.
+ * Returns:
+ *   !NULL SecIdentityRef on success, NULL otherwise.
+ */
 EAPSecIdentityHandleRef
 EAPSecIdentityHandleCreate(SecIdentityRef identity)
 {
-    CFDataRef			cert_data;
     SecCertificateRef		cert;
-    CFMutableDictionaryRef	dict;
+    CFDataRef			data;
     OSStatus			status;
 
     status = SecIdentityCopyCertificate(identity, &cert);
-    if (cert == NULL) {
+    if (status != noErr) {
 	fprintf(stderr, 
 		"SecIdentityCopyCertificate failed, %s (%d)\n",
 		EAPSecurityErrorString(status), (int)status);
 	return (NULL);
     }
-    cert_data = _EAPSecCertificateCreateCFData(cert);
-    dict = CFDictionaryCreateMutable(NULL, 0,
-				     &kCFTypeDictionaryKeyCallBacks,
-				     &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(dict, kEAPSecIdentityHandleType,
-			 kEAPSecIdentityHandleTypeCertificateData);
-    CFDictionarySetValue(dict, kEAPSecIdentityHandleData, cert_data);
-    my_CFRelease(&cert);
-    my_CFRelease(&cert_data);
-    return ((EAPSecIdentityHandleRef)dict);
+    status = SecKeychainItemCreatePersistentReference((SecKeychainItemRef)cert,
+						      &data);
+    CFRelease(cert);
+    if (status != noErr) {
+	fprintf(stderr, 
+		"SecIdentityCopyCertificate failed, %s (%d)\n",
+		EAPSecurityErrorString(status), (int)status);
+	return (NULL);
+    }
+    return (data);
 }
 
 /*

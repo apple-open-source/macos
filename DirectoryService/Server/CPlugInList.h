@@ -144,7 +144,7 @@ CServerPlugin* 	GetPlugInPtr		( const UInt32 inKey, bool loadIfNeeded = true );
 protected:
 	bool		CreatePrefDirectory	( void );
 	sTableData*	MakeTableEntryCopy	( sTableData* inEntry );
-	void		SetPluginState		( sTableData *inTableEntry );
+	void		SetPluginState		( CServerPlugin	*inPluginPtr, ePluginState inPluginState );
 
 
 	CFDictionaryRef		fCFRecordTypeRestrictions;

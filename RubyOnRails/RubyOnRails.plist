@@ -4,13 +4,13 @@
         <key>OpenSourceProject</key>
         <string>RubyOnRails</string>
         <key>OpenSourceVersion</key>
-        <string>1.2.3</string>
+        <string>1.2.6</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.rubyonrails.org/</string>
         <key>OpenSourceSHA1</key>
-        <string>53302796daa82d5635d4044cb30f50d9cf4b3ad9</string>
+        <string>10b539a69678c3665d61f8b91b6268a863737199</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-03-14</string>
+        <string>2007-11-25</string>
         <key>OpenSourceLicense</key>
         <string>MIT</string>
         <key>OpenSourceLicenseFile</key>

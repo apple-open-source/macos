@@ -103,7 +103,7 @@ class TC_Types < Test::Unit::TestCase
     range = OSX::NSRange.new(2..6)
     assert_equal(2, range.location)
     assert_equal(5, range.length)
-    assert_equal(2..6, range.to_range)
+    assert_equal(2...7, range.to_range)
     range = OSX::NSRange.new(2, 10)
     assert_equal(2, range.location)
     assert_equal(10, range.length)
@@ -132,6 +132,8 @@ class TC_Types < Test::Unit::TestCase
   def test_float_nsnumber
     assert(!OSX::CFNumberIsFloatType(42))
     assert(OSX::CFNumberIsFloatType(42.42))
+    assert(!OSX::NSNumber.numberWithInt(42).float?)
+    assert(OSX::NSNumber.numberWithFloat(42.42).float?)
   end
 
   def test_cftypes

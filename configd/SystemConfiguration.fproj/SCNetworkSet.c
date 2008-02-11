@@ -770,7 +770,7 @@ SCNetworkSetGetName(SCNetworkSetRef set)
 	}
 
 	if (setPrivate->name != NULL) {
-		return setPrivate->name;;
+		return setPrivate->name;
 	}
 
 	path = SCPreferencesPathKeyCreateSet(NULL, setPrivate->setID);
@@ -1173,21 +1173,62 @@ add_supported_interfaces(CFMutableArrayRef interface_list, SCNetworkInterfaceRef
 }
 
 
-Boolean
-SCNetworkSetEstablishDefaultConfiguration(SCNetworkSetRef set)
+static CFStringRef
+next_service_name(SCNetworkServiceRef service)
+{
+	CFArrayRef		components;
+	CFIndex			n;
+	CFStringRef		name;
+	CFMutableArrayRef	newComponents;
+	SInt32			suffix	= 2;
+
+	name = SCNetworkServiceGetName(service);
+	if (name == NULL) {
+		return NULL;
+	}
+
+	components = CFStringCreateArrayBySeparatingStrings(NULL, name, CFSTR(" "));
+	if (components != NULL) {
+		newComponents = CFArrayCreateMutableCopy(NULL, 0, components);
+		CFRelease(components);
+	} else {
+		newComponents = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		CFArrayAppendValue(newComponents, name);
+	}
+
+	n = CFArrayGetCount(newComponents);
+	if (n > 1) {
+		CFStringRef	str;
+
+		str = CFArrayGetValueAtIndex(newComponents, n - 1);
+		suffix = CFStringGetIntValue(str);
+		if (suffix++ > 0) {
+			CFArrayRemoveValueAtIndex(newComponents, n - 1);
+		} else {
+			suffix = 2;
+		}
+	}
+
+	name = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), suffix);
+	CFArrayAppendValue(newComponents, name);
+	CFRelease(name);
+
+	name = CFStringCreateByCombiningStrings(NULL, newComponents, CFSTR(" "));
+	CFRelease(newComponents);
+
+	return name;
+}
+
+
+static Boolean
+__SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CFArrayRef interfaces)
 {
 	CFIndex			i;
-	CFArrayRef		interfaces;
 	CFIndex			n;
 	Boolean			ok		= TRUE;
 	CFArrayRef		services;
-	Boolean			setUpdated	= FALSE;
 	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
-
-	if (!isA_SCNetworkSet(set)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
-	}
+	Boolean			updated		= FALSE;
 
 	// first, assume that we only want to add new services
 	// for those interfaces that are not represented in the
@@ -1202,7 +1243,6 @@ SCNetworkSetEstablishDefaultConfiguration(SCNetworkSetRef set)
 		services = SCNetworkServiceCopyAll(setPrivate->prefs);
 	}
 
-	interfaces = SCNetworkInterfaceCopyAll();
 	n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
 	for (i = 0; i < n; i++) {
 		SCNetworkInterfaceRef	interface;
@@ -1247,19 +1287,57 @@ SCNetworkSetEstablishDefaultConfiguration(SCNetworkSetRef set)
 					goto nextInterface;
 				}
 
-				ok = SCNetworkSetAddService(set, service);
-				if (!ok) {
-					SCLog(TRUE, LOG_DEBUG,
-					      CFSTR("could not add service for \"%@\": %s\n"),
-					      SCNetworkInterfaceGetLocalizedDisplayName(interface),
-					      SCErrorString(SCError()));
-					SCNetworkServiceRemove(service);
-					CFRelease(service);
-					goto nextInterface;
+				while (TRUE) {
+					CFStringRef	newName;
+
+					ok = SCNetworkSetAddService(set, service);
+					if (ok) {
+						break;
+					}
+
+					if (SCError() != kSCStatusKeyExists) {
+						SCLog(TRUE, LOG_DEBUG,
+						      CFSTR("could not add service for \"%@\": %s\n"),
+						      SCNetworkInterfaceGetLocalizedDisplayName(interface),
+						      SCErrorString(SCError()));
+						SCNetworkServiceRemove(service);
+						CFRelease(service);
+						goto nextInterface;
+					}
+
+					// we have two interfaces with the same service
+					// name, acquire a new, hopefully unique, name
+
+					newName = next_service_name(service);
+					if (newName == NULL) {
+						SCLog(TRUE, LOG_DEBUG,
+						      CFSTR("could not set unique name for \"%@\": %s\n"),
+						      SCNetworkInterfaceGetLocalizedDisplayName(interface),
+						      SCErrorString(SCError()));
+						SCNetworkServiceRemove(service);
+						CFRelease(service);
+						goto nextInterface;
+					}
+
+					ok = SCNetworkServiceSetName(service, newName);
+					CFRelease(newName);
+					if (ok) {
+						continue;
+					}
+
+					if (SCError() != kSCStatusKeyExists) {
+						SCLog(TRUE, LOG_DEBUG,
+						      CFSTR("could not set unique name for \"%@\": %s\n"),
+						      SCNetworkInterfaceGetLocalizedDisplayName(interface),
+						      SCErrorString(SCError()));
+						SCNetworkServiceRemove(service);
+						CFRelease(service);
+						goto nextInterface;
+					}
 				}
 
 				CFRelease(service);
-				setUpdated = TRUE;
+				updated = TRUE;
 			} else {
 				add_supported_interfaces(interface_list, interface);
 			}
@@ -1270,13 +1348,56 @@ SCNetworkSetEstablishDefaultConfiguration(SCNetworkSetRef set)
 		}
 		CFRelease(interface_list);
 	}
-	if (interfaces != NULL) CFRelease(interfaces);
 	if (services != NULL)	CFRelease(services);
 
-	if (ok && !setUpdated) {
+	if (ok && !updated) {
 		// if no changes were made
 		_SCErrorSet(kSCStatusOK);
 	}
 
-	return setUpdated;
+	return updated;
+}
+
+
+Boolean
+SCNetworkSetEstablishDefaultConfiguration(SCNetworkSetRef set)
+{
+	CFArrayRef	interfaces;
+	Boolean		updated;
+
+	if (!isA_SCNetworkSet(set)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	interfaces = SCNetworkInterfaceCopyAll();
+	updated = __SCNetworkSetEstablishDefaultConfigurationForInterfaces(set, interfaces);
+	if (interfaces != NULL) CFRelease(interfaces);
+
+	return updated;
+}
+
+
+Boolean
+SCNetworkSetEstablishDefaultInterfaceConfiguration(SCNetworkSetRef set, SCNetworkInterfaceRef interface)
+{
+	CFMutableArrayRef	interfaces;
+	Boolean			updated;
+
+	if (!isA_SCNetworkSet(set)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (!isA_SCNetworkInterface(interface)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFArrayAppendValue(interfaces, interface);
+	updated = __SCNetworkSetEstablishDefaultConfigurationForInterfaces(set, interfaces);
+	CFRelease(interfaces);
+
+	return updated;
 }

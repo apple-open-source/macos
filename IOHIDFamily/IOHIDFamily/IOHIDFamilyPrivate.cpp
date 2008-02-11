@@ -113,7 +113,9 @@ bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * sc
         }
         
         functions->release();
-    }
+    } else {
+		matches = false;
+	}
     
     return matches;
 }

@@ -60,6 +60,7 @@ protected:
 	bool infoKeyValue(const std::string &key, const Match &match);
 	bool certFieldValue(const string &key, const Match &match, SecCertificateRef cert);
 	bool verifyAnchor(SecCertificateRef cert, const unsigned char *digest);
+	bool appleSigned();
 	bool trustedCerts();
 	bool trustedCert(int slot);
 	

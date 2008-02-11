@@ -1,5 +1,0 @@
-after_install::
-	$(LN) $(INSTALLED_PRODUCTS) $(DSTROOT)$(INSTALLDIR)/halt
-	mkdir -p $(DSTROOT)/usr/share/man/man8
-	install -c -m 444 reboot.8 $(DSTROOT)/usr/share/man/man8/
-	ln $(DSTROOT)/usr/share/man/man8/reboot.8 $(DSTROOT)/usr/share/man/man8/halt.8

@@ -1,3 +1,207 @@
+2007-12-20  Mark Rowe  <mrowe@apple.com>
+
+        Merge r28057.
+
+    2007-11-26  Sam Weinig  <sam@webkit.org>
+
+        Fix potential null-dereference.
+
+        Reviewed by Adam Roben.
+
+        * page/FrameTree.cpp:
+        (WebCore::FrameTree::isDescendantOf):
+
+2007-12-10  Mark Rowe  <mrowe@apple.com>
+
+        Merge r28304.
+
+    2007-12-01  Darin Adler  <darin@apple.com>
+
+        Reviewed by Mitz.
+
+        - fix problem tracked by these bugs:
+          http://bugs.webkit.org/show_bug.cgi?id=16097
+          <rdar://problem/5619305> Safari crashes during load of LexisNexis search results
+          <rdar://problem/5510779> CrashTracer: [USER] 25 crashes in Safari at
+          WebCore::DocumentLoader::isLoadingMultipartContent const
+
+        * loader/ImageDocument.cpp:
+        (WebCore::ImageDocument::createDocumentStructure): Create an ImageDocumentElement
+        instead of an HTMLImageElement.
+        (WebCore::ImageDocument::scale): Added a null check for m_imageElement.
+        (WebCore::ImageDocument::resizeImageToFit): Ditto.
+        (WebCore::ImageDocument::restoreImageSize): Ditto.
+        (WebCore::ImageDocument::imageFitsInWindow): Ditto.
+        (WebCore::ImageDocument::windowSizeChanged): Ditto.
+        (WebCore::ImageDocumentElement::~ImageDocumentElement): Call
+        disconnectImageElement so m_imageElement will be set to 0
+         if we're still connected to the document.
+        (WebCore::ImageDocumentElement::willMoveToNewOwnerDocument): Ditto.
+
+        * loader/ImageDocument.h: Changed image element type to be
+        ImageDocumentElement instead of HTMLImageElement. Also added
+        a disconnectImageElement function that sets m_imageElement to 0.
+
+2007-12-10  Mark Rowe  <mrowe@apple.com>
+
+        Merge r27379.
+
+    2007-11-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Mitz.
+
+        - speculative fix for http://bugs.webkit.org/show_bug.cgi?id=15805
+          <rdar://problem/5510779> crashes in isLoadingMultipartContent
+
+        * loader/DocumentLoader.cpp: (WebCore::DocumentLoader::isLoadingMultipartContent):
+        Instead of asserting the frame loader is non-0, return false if it is 0.
+
+2007-12-10  Mark Rowe  <mrowe@apple.com>
+
+        Merge r28066.
+
+    2007-11-26  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Darin.
+
+        Update to last change.  Moved addPendingSheet call to within nil check for m_cachedSheet.
+
+        * page/Frame.cpp:
+        (WebCore::UserStyleSheetLoader::UserStyleSheetLoader):
+
+2007-12-10  Mark Rowe  <mrowe@apple.com>
+
+        Merge r28064.
+
+    2007-11-26  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Darin.
+
+        Fix for <rdar://problem/5591583> CrashTracer: [USER] 157 in Mail crashes at -[WebCoreFrameBridge reapplyStylesForDeviceType:]
+
+        * page/Frame.cpp: Add nil checks since every other caller of requestCSSStyleSheet checks for nil.
+        (WebCore::UserStyleSheetLoader::UserStyleSheetLoader):
+        (WebCore::UserStyleSheetLoader::~UserStyleSheetLoader):
+
+2007-12-10  Mark Rowe  <mrowe@apple.com>
+
+        Merge r27796.
+
+    2007-11-14  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        <rdar://problem/5546763> CrashTracer: [USER] 362 crashes at WebCore::DeleteSelectionCommand::mergeParagraphs
+
+        * editing/DeleteSelectionCommand.cpp:
+        (WebCore::DeleteSelectionCommand::handleGeneralDelete): 
+        Removed an irrelevant FIXME.
+        (WebCore::DeleteSelectionCommand::mergeParagraphs): If the block that contained the end of the selection
+        hasn't been removed but has been emptied by deletion, we would to try and fail to create a VisiblePosition
+        inside that block, which could lead to a crash.  If that happens, there's no content in the block to move,
+        so just remove the block and return.
+        Preserve m_needPlaceholder during the call to moveParagraphs, since it may change it and since it does
+        its own placeholder insertion when necessary.
+        (WebCore::DeleteSelectionCommand::doApply): No need to check m_needPlaceholder before calling mergeParagraphs,
+        because it handles preserving m_needPlaceholder when it calls moveParagraphs.
+
+2007-12-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r28225 to Safari-3-branch.
+
+    2007-11-29  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Oliver.
+
+        Additional fix for <rdar://problem/5592988> / http://bugs.webkit.org/show_bug.cgi?id=15936
+        - More closely match IE's policy for frame navigation.
+
+        * bindings/js/kjs_window.cpp:
+        (KJS::WindowProtoFuncOpen::callAsFunction):
+        * loader/FrameLoader.cpp:
+        (WebCore::FrameLoader::shouldAllowNavigation):
+        * page/FrameTree.cpp:
+        (WebCore::FrameTree::top):
+        * page/FrameTree.h:
+
+2007-12-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r28056 to Safari-3-branch.
+
+    2007-11-26  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin.
+
+        Fix for <rdar://problem/5592988>
+        - Enforce tighter restrictions on what frames in other domains
+          can be navigated.
+
+        Tests: http/tests/security/frameNavigation/xss-ALLOWED-parent-navigation-change.html
+               http/tests/security/frameNavigation/xss-ALLOWED-targeted-subframe-navigation-change.html
+
+        * bindings/js/kjs_window.cpp:
+        (KJS::Window::put):
+        (KJS::Location::put):
+        (KJS::LocationProtoFuncReplace::callAsFunction):
+        (KJS::LocationProtoFuncAssign::callAsFunction):
+        * loader/FrameLoader.cpp:
+        (WebCore::FrameLoader::createWindow):
+        (WebCore::FrameLoader::load):
+        (WebCore::FrameLoader::shouldAllowNavigation): Move and update logic from canTarget().
+        * loader/FrameLoader.h:
+        * page/FrameTree.cpp:
+        (WebCore::FrameTree::isDescendantOf): Make this O(1) in the case when both frames are not
+        in the same page.
+
+2007-12-01  Mark Rowe  <mrowe@apple.com>
+
+    Merge r27433 from trunk to Safari-3-branch.
+
+    2007-11-04  Sam Weinig  <sam@webkit.org>
+
+        Rubber-stamped by Adam Roben.
+
+        Rename SecurityOrigin::allowsAccessFrom to SecurityOrigin::canAccess to 
+        clear up ambiguity.
+
+        * bindings/js/kjs_window.cpp:
+        (KJS::Window::isSafeScript):
+        * platform/SecurityOrigin.cpp:
+        (WebCore::SecurityOrigin::canAccess):
+        * platform/SecurityOrigin.h:
+
+2007-12-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r26780 from trunk to Safari-3-branch.
+
+    2007-10-19  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin.
+
+        Encapsulate the same origin check into the new SecurityOrigin class.
+
+        * WebCore.xcodeproj/project.pbxproj:
+        * bindings/js/kjs_window.cpp:
+        (KJS::Window::isSafeScript):
+        * dom/Document.cpp:
+        (WebCore::Document::Document):
+        (WebCore::Document::defaultEventHandler):
+        * dom/Document.h:
+        (WebCore::Document::securityOrigin):
+        * loader/FrameLoader.cpp:
+        (WebCore::FrameLoader::begin):
+        (WebCore::FrameLoader::setOpener):
+        * loader/FrameLoader.h:
+        * platform/SecurityOrigin.cpp: Added.
+        (WebCore::SecurityOrigin::SecurityOrigin):
+        (WebCore::SecurityOrigin::clear):
+        (WebCore::SecurityOrigin::isEmpty):
+        (WebCore::SecurityOrigin::setForFrame):
+        (WebCore::SecurityOrigin::setDomainFromDOM):
+        (WebCore::SecurityOrigin::allowsAccessFrom):
+        (WebCore::SecurityOrigin::isSecureTransitionTo):
+        * platform/SecurityOrigin.h: Added.
+
 2007-10-05  Geoffrey Garen  <ggaren@apple.com>
 
         Reviewed by Sam Weinig.

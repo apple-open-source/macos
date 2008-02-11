@@ -1,7 +1,0 @@
-VPATH += :../rlogin.tproj
-
-after_install:
-	install -d $(DSTROOT)/usr/share/man/man8
-	install -c -m 444 rlogind.8 $(DSTROOT)/usr/share/man/man8/rlogind.8
-	mkdir -p "$(DSTROOT)/System/Library/LaunchDaemons"
-	cp login.plist "$(DSTROOT)/System/Library/LaunchDaemons/"

@@ -11,7 +11,7 @@ $fp = fopen($filename, 'w');
 fclose($fp);
 if(fileowner($filename) == 0) {
         unlink ($filename);
-        die('skip...cannot be run as root\n');
+        die('skip cannot be run as root');
 }
 
 unlink($filename);
@@ -70,7 +70,7 @@ unlink( dirname(__FILE__)."/006_error.tmp");
 
 Warning: chmod(): %s in %s on line %d
 bool(false)
-100644
+100%d44
 
 Warning: chmod(): %s in %s on line %d
 bool(false)

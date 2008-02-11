@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,7 @@ enum {
 	SCHELPER_MSG_PREFS_APPLY,
 	SCHELPER_MSG_PREFS_UNLOCK,
 	SCHELPER_MSG_PREFS_CLOSE,
+	SCHELPER_MSG_PREFS_SYNCHRONIZE,
 
 	// SCNetworkConfiguration
 	SCHELPER_MSG_INTERFACE_REFRESH	= 200,

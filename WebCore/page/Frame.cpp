@@ -99,14 +99,18 @@ public:
         : m_document(document)
         , m_cachedSheet(m_document->docLoader()->requestUserCSSStyleSheet(url, ""))
     {
-        m_document->addPendingSheet();
-        m_cachedSheet->ref(this);
+        if (m_cachedSheet) {
+            m_document->addPendingSheet();
+            m_cachedSheet->ref(this);
+        }
     }
     ~UserStyleSheetLoader()
     {
-        if (!m_cachedSheet->isLoaded())
-            m_document->removePendingSheet();        
-        m_cachedSheet->deref(this);
+        if (m_cachedSheet) {
+            if (!m_cachedSheet->isLoaded())
+                m_document->removePendingSheet();        
+            m_cachedSheet->deref(this);
+        }
     }
 private:
     virtual void setCSSStyleSheet(const String& /*URL*/, const String& /*charset*/, const String& sheet)

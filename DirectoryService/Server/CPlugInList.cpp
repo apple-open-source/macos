@@ -100,15 +100,18 @@ SInt32 CPlugInList::AddPlugIn ( const char		*inName,
 	SInt32			siResult	= eDSInvalidPlugInConfigData;
 	sTableData     *aTableEntry = nil;
 
+	if ( inName == nil )
+	{
+		return( eDSNullParameter );
+	}
+	
+	// ask the plugin about it state outside the lock to avoid deadlock.
+	ePluginState pluginState = gPluginConfig->GetPluginState( inName );
+
 	fMutex.WaitLock();
 
 	try
 	{
-		if ( inName == nil )
-		{
-			return( eDSNullParameter );
-		}
-
 		aTableEntry = (sTableData *)calloc(1, sizeof(sTableData));
 		if (fTableTail != nil)
 		{
@@ -145,7 +148,6 @@ SInt32 CPlugInList::AddPlugIn ( const char		*inName,
 			fTableTail->fULVers	= inULVers;
 			
 		fTableTail->fKey = inKey;
-		ePluginState pluginState = gPluginConfig->GetPluginState( fTableTail->fName );
 		
 		fTableTail->fState = pluginState | kUninitialized;
 
@@ -339,12 +341,12 @@ SInt32 CPlugInList::IsPresent ( const char *inName )
 	SInt32			siResult	= ePluginNameNotFound;
 	sTableData     *aTableEntry = nil;
 
-	fMutex.WaitLock();
-
 	if ( inName == nil )
 	{
 		return( eDSNullParameter );
 	}
+	
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
@@ -381,12 +383,12 @@ SInt32 CPlugInList::SetState ( const char *inName, const UInt32 inState )
 	UInt32			curState		= kUnknownState;
 	sTableData	   *pluginEntry		= NULL;
 
-	fMutex.WaitLock();
-
 	if ( inName == nil )
 	{
 		return( eDSNullParameter );
 	}
+	
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
@@ -432,17 +434,27 @@ SInt32 CPlugInList::SetState ( const char *inName, const UInt32 inState )
 		DSFree(tmpTableEntry);
 	}
 	
+	// so we can call SetPluginState without the mutex being locked to avoid deadlock.
+	CServerPlugin* pluginPtr = NULL;
+
 	fMutex.WaitLock();
 
 	if ( (curState & inState) != inState && pluginEntry != NULL && pluginEntry->fPluginPtr != NULL )
 	{
 		pluginEntry->fState = inState;
-		pluginEntry->fPluginPtr->SetPluginState( inState );
+
+		// this will trigger a call to SetPluginState below
+		pluginPtr = pluginEntry->fPluginPtr;
 		
 		siResult = eDSNoErr;
 	}	
 	
 	fMutex.SignalLock();
+	
+	if ( pluginPtr )
+	{
+		pluginPtr->SetPluginState( inState );
+	}
 
 	return( siResult );
 
@@ -459,12 +471,12 @@ SInt32 CPlugInList::GetState ( const char *inName, UInt32 *outState )
 	SInt32			siResult		= ePluginNameNotFound;
 	sTableData     *aTableEntry		= nil;
 
-	fMutex.WaitLock();
-
 	if ( inName == nil )
 	{
 		return( eDSNullParameter );
 	}
+	
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
@@ -500,12 +512,12 @@ SInt32 CPlugInList::UpdateValidDataStamp ( const char *inName )
 	SInt32			siResult		= ePluginNameNotFound;
 	sTableData     *aTableEntry		= nil;
 
-	fMutex.WaitLock();
-
 	if ( inName == nil )
 	{
 		return( eDSNullParameter );
 	}
+	
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
@@ -541,12 +553,12 @@ UInt32 CPlugInList::GetValidDataStamp ( const char *inName )
 	UInt32			outStamp		= 0;
 	sTableData     *aTableEntry		= nil;
 
-	fMutex.WaitLock();
-
 	if ( inName == nil )
 	{
 		return( eDSNullParameter );
 	}
+	
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
@@ -618,24 +630,20 @@ UInt32 CPlugInList::GetActiveCount ( void )
 //
 // ---------------------------------------------------------------------------
 
-void CPlugInList::SetPluginState( sTableData *inTableEntry )
+void CPlugInList::SetPluginState( CServerPlugin	*inPluginPtr, ePluginState inPluginState )
 {
-	if ( inTableEntry == NULL || inTableEntry->fPluginPtr == NULL )
+	if ( inPluginPtr == NULL )
 		return;
-	
-	CServerPlugin	*pluginPtr	= inTableEntry->fPluginPtr;
-	char			*pluginName = pluginPtr->GetPluginName();
-	ePluginState	pluginState = gPluginConfig->GetPluginState( pluginName );
-	SInt32			siResult	= pluginPtr->SetPluginState( pluginState );
+
+	SInt32	siResult	= inPluginPtr->SetPluginState( inPluginState );
 
 	if ( siResult == eDSNoErr )
-		SrvrLog( kLogApplication, "Plug-in %s state is now %s.", pluginName, (pluginState == kActive ? "active" : "inactive") );
+		SrvrLog( kLogApplication, "Plug-in %s state is now %s.", inPluginPtr->GetPluginName(), (inPluginState == kActive ? "active" : "inactive") );
 	else
-		SrvrLog( kLogApplication, "Unable to set %s plug-in state to %s.  Received error %l.", pluginName, (pluginState == kActive ? "active" : "inactive"),
-				 siResult );
-	
-	inTableEntry->fState = pluginState;
+		SrvrLog( kLogApplication, "Unable to set %s plug-in state to %s.  Received error %l.", inPluginPtr->GetPluginName(), (inPluginState == kActive ? "active" : "inactive"),
+				siResult );
 }
+
 
 // ---------------------------------------------------------------------------
 //	* GetPlugInPtr ()
@@ -646,14 +654,15 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const char *inName, bool loadIfNeeded
 {
 	CServerPlugin  *pResult			= nil;
 	sTableData     *aTableEntry		= nil;
-	sTableData     *tmpTableEntry		= nil;
-
-	fMutex.WaitLock();
+	sTableData     *tmpTableEntry	= nil;
+	ePluginState	newState		= kUnknownState;
 
 	if ( inName == nil )
 	{
 		return( nil );
 	}
+	
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
@@ -704,7 +713,12 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const char *inName, bool loadIfNeeded
 						aTableEntry->fPluginPtr = tmpTableEntry->fPluginPtr;
 						aTableEntry->fState = tmpTableEntry->fState;
 
-						SetPluginState( aTableEntry );
+						if ( aTableEntry->fPluginPtr != NULL )
+						{
+							// save in newState so that we can call out to the plugin ouside the lock.
+							newState = gPluginConfig->GetPluginState( aTableEntry->fPluginPtr->GetPluginName() );
+							aTableEntry->fState = newState;
+						}
 					}
 						
 					pResult = aTableEntry->fPluginPtr;
@@ -716,6 +730,13 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const char *inName, bool loadIfNeeded
 		
 		fMutex.SignalLock();
 		DSFree(tmpTableEntry);
+		
+		// if the plugin was loaded, set the state.  needs to be done
+		// with the mutex unlocked to prevent deadlock.
+		if ( loadIfNeeded && pResult != NULL )
+		{
+			SetPluginState( pResult, newState );
+		}
 	}
 
 	return( pResult );
@@ -732,7 +753,8 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const UInt32 inKey, bool loadIfNeeded
 {
 	CServerPlugin  *pResult			= nil;
 	sTableData     *aTableEntry		= nil;
-	sTableData     *tmpTableEntry		= nil;
+	sTableData     *tmpTableEntry	= nil;
+	ePluginState	newState		= kUnknownState;
 
 	fMutex.WaitLock();
 
@@ -787,7 +809,13 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const UInt32 inKey, bool loadIfNeeded
 						aTableEntry->fPluginPtr = tmpTableEntry->fPluginPtr;
 						aTableEntry->fState = tmpTableEntry->fState;
 						
-						SetPluginState( aTableEntry );
+						
+						if ( aTableEntry->fPluginPtr != NULL )
+						{
+							// save in newState so that we can call out to the plugin ouside the lock.
+							newState = gPluginConfig->GetPluginState( aTableEntry->fPluginPtr->GetPluginName() );
+							aTableEntry->fState = newState;
+						}
 					}
 	
 					pResult = aTableEntry->fPluginPtr;
@@ -799,6 +827,13 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const UInt32 inKey, bool loadIfNeeded
 		}
 		fMutex.SignalLock();
 		DSFree(tmpTableEntry);
+
+		// if the plugin was loaded, set the state.  needs to be done
+		// with the mutex unlocked to prevent deadlock.
+		if ( loadIfNeeded && pResult != NULL )
+		{
+			SetPluginState( pResult, newState );
+		}		
 	}
 
 	return( pResult );

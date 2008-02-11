@@ -189,7 +189,8 @@ void prime()
     RepeatingAutoWake_prime();
     PMAssertions_prime();
     TTYKeepAwake_prime();
-        
+    PMSystemEvents_prime();
+    
     return;
 }
 
@@ -785,7 +786,7 @@ mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
      */
 
     options = MACH_SEND_MSG;
-    if (MACH_MSGH_BITS_REMOTE(bufReply->Head.msgh_bits) == MACH_MSG_TYPE_MOVE_SEND_ONCE) {
+    if (MACH_MSGH_BITS_REMOTE(bufReply->Head.msgh_bits) != MACH_MSG_TYPE_MOVE_SEND_ONCE) {
         options |= MACH_SEND_TIMEOUT;
     }
     mr = mach_msg(&bufReply->Head,        /* msg */
@@ -1203,6 +1204,13 @@ RootDomainInterest(
     natural_t messageType, 
     void *messageArgument)
 {
+    if (messageType == kIOPMMessageSystemPowerEventOccurred)
+    {
+        // Let System Events know about just-occurred thermal state change
+        
+        PMSystemEventsRootDomainInterest();
+    }
+
     if (messageType == kIOPMMessageFeatureChange)
     {
         // Let PMSettings code know that some settings may have been

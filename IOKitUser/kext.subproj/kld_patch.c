@@ -61,6 +61,7 @@
 #include "mach_loader.h"
 
 #include <vm/vm_kern.h>
+#include <TargetConditionals.h>
 
 enum { false = 0, true = 1 };
 
@@ -1174,6 +1175,10 @@ findSymbolByAddress(const struct fileRecord *file, void *entry)
     const struct nlist *sym;
     int i, nsyms;
 
+#if TARGET_OS_EMBEDDED
+    Boolean isARM = (sPreferArchInfo ?: NXGetLocalArchInfo())->cputype == 12; /*CPU_TYPE_ARM */
+#endif
+								   
     // First try to find the symbol in the most likely place which is the
     // extern symbols
     sym = file->fLocalSyms;
@@ -1181,6 +1186,13 @@ findSymbolByAddress(const struct fileRecord *file, void *entry)
 	if (sym->n_value == (unsigned long) entry && !(sym->n_type & N_STAB) )
 	    return sym;
     }
+
+#if TARGET_OS_EMBEDDED
+	// Ignore the bottom bit for Thumb function pointers
+	if (isARM && !(sym->n_type & N_STAB) && (sym->n_desc & N_ARM_THUMB_DEF)
+	    && ((sym->n_value & ~1) == (((unsigned long)entry) & ~1)))
+	    return sym;
+#endif
 
     // Didn't find it in the external symbols so try to local symbols before
     // giving up.
@@ -1190,6 +1202,11 @@ findSymbolByAddress(const struct fileRecord *file, void *entry)
 	    return NULL;
 	if ( sym->n_value == (unsigned long) entry && !(sym->n_type & N_STAB) )
 	    return sym;
+#if TARGET_OS_EMBEDDED
+	if (isARM && !(sym->n_type & N_STAB) && (sym->n_desc & N_ARM_THUMB_DEF)
+	    && ((sym->n_value & ~1) == (((unsigned long)entry) & ~1)))
+	    return sym;
+#endif
     }
 
     return NULL;

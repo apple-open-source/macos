@@ -59,7 +59,7 @@ static char *_iq_vcard_map[] = {
     NULL,           NULL
 };
 
-const max_vcard_field_length = 8192;
+const max_vcard_field_length = 32768;
 
 static os_t _iq_vcard_to_object(pkt_t pkt) {
     os_t os;

@@ -120,6 +120,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     bool								_inTestMode;							// T while we are in test mode
 	bool								_needToAckSetPowerState;
 	bool								_checkPortsThreadActive;
+	bool								_abandonCheckPorts;						// T if we should abandon the check ports thread
     IOTimerEventSource *				_timerSource;
     UInt32								_timeoutFlag;
     UInt32								_portTimeStamp[32];
@@ -242,6 +243,7 @@ public:
 	// IOUSBHubPolicyMaker methods
 	virtual bool			ConfigureHubDriver(void);
 	virtual IOReturn		HubPowerChange(unsigned long powerStateOrdinal);
+	virtual IOReturn		EnsureUsability(void);
 	
 	// inline method
     IOUSBDevice * GetDevice(void) { return _device; }

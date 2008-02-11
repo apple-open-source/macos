@@ -62,8 +62,8 @@
 #include "IconLoader.h"
 #include "InspectorController.h"
 #include "Logging.h"
-#include "MainResourceLoader.h"
 #include "MIMETypeRegistry.h"
+#include "MainResourceLoader.h"
 #include "Page.h"
 #include "PageCache.h"
 #include "ProgressTracker.h"
@@ -71,6 +71,7 @@
 #include "RenderWidget.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
+#include "SecurityOrigin.h"
 #include "SegmentedString.h"
 #include "Settings.h"
 #include "SystemTime.h"
@@ -292,6 +293,8 @@ Frame* FrameLoader::createWindow(const FrameLoadRequest& request, const WindowFe
 
     if (!request.frameName().isEmpty() && request.frameName() != "_blank")
         if (Frame* frame = m_frame->tree()->find(request.frameName())) {
+            if (!shouldAllowNavigation(frame))
+                return 0;
             if (!request.resourceRequest().url().isEmpty())
                 frame->loader()->load(request, false, true, 0, 0, HashMap<String, String>());
             if (Page* page = frame->page())
@@ -859,21 +862,6 @@ void FrameLoader::setResponseMIMEType(const String& type)
     m_responseMIMEType = type;
 }
     
-bool FrameLoader::isSecureTransition(const KURL& fromURL, const KURL& toURL)
-{ 
-    // new window created by the application
-    if (fromURL.isEmpty())
-        return true;
-    
-    if (fromURL.isLocalFile())
-        return true;
-    
-    if (equalIgnoringCase(fromURL.host(), toURL.host()) && equalIgnoringCase(fromURL.protocol(), toURL.protocol()) && fromURL.port() == toURL.port())
-        return true;
-    
-    return false;
-}
-
 void FrameLoader::begin()
 {
     begin(KURL());
@@ -881,8 +869,7 @@ void FrameLoader::begin()
 
 void FrameLoader::begin(const KURL& url, bool dispatch)
 {
-    bool resetScripting = !(m_isDisplayingInitialEmptyDocument && m_frame->document() 
-                            && isSecureTransition(m_frame->document()->securityPolicyURL(), url));
+    bool resetScripting = !(m_isDisplayingInitialEmptyDocument && m_frame->document() && m_frame->document()->securityOrigin().isSecureTransitionTo(url));
     clear(resetScripting, resetScripting);
     if (dispatch)
         dispatchWindowObjectAvailable();
@@ -1636,7 +1623,7 @@ void FrameLoader::setOpener(Frame* opener)
     m_opener = opener;
 
     if (m_frame->document())
-        m_frame->document()->initSecurityPolicyURL();
+        m_frame->document()->initSecurityOrigin();
 }
 
 bool FrameLoader::openedByDOM() const
@@ -1919,7 +1906,7 @@ void FrameLoader::load(const FrameLoadRequest& request, bool lockHistory, bool u
         referrer = String();
     
     Frame* targetFrame = m_frame->tree()->find(request.frameName());
-    if (!canTarget(targetFrame))
+    if (!shouldAllowNavigation(targetFrame))
         return;
         
     if (request.resourceRequest().httpMethod() != "POST") {
@@ -2288,35 +2275,50 @@ void FrameLoader::reload()
     load(loader.get(), FrameLoadTypeReload, 0);
 }
 
-bool FrameLoader::canTarget(Frame* target) const
+bool FrameLoader::shouldAllowNavigation(Frame* targetFrame) const
 {
-    // This function prevents this exploit:
-    // <rdar://problem/3715785> multiple frame injection vulnerability reported by Secunia, affects almost all browsers
+    // The navigation change is safe if the active frame is:
+    //   - in the same security origin as the target or one of the target's ancestors
+    // Or the target frame is:
+    //   - a top-level frame in the frame hierarchy
 
-    // Allow if there is no specific target.
-    if (!target)
+    if (!targetFrame)
         return true;
 
-    // Allow navigation within the same page/frameset.
-    if (m_frame->page() == target->page())
+    if (m_frame == targetFrame)
         return true;
 
-    // Allow if the request is made from a local file.
-    ASSERT(m_frame->document());
-    String domain = m_frame->document()->domain();
-    if (domain.isEmpty())
+    if (!targetFrame->tree()->parent())
         return true;
+
+    Document* activeDocument = m_frame->document();
+    ASSERT(activeDocument);
+    const SecurityOrigin& activeSecurityOrigin = activeDocument->securityOrigin();
+    for (Frame* ancestorFrame = targetFrame; ancestorFrame; ancestorFrame = ancestorFrame->tree()->parent()) {
+        Document* ancestorDocument = ancestorFrame->document();
+        if (!ancestorDocument)
+            return true;
+
+        const SecurityOrigin& ancestorSecurityOrigin = ancestorDocument->securityOrigin();
+        if (activeSecurityOrigin.canAccess(ancestorSecurityOrigin))
+            return true;
+    }
+
+    if (!targetFrame->settings()->privateBrowsingEnabled()) {
+        Document* targetDocument = targetFrame->document();
+        // FIXME: this error message should contain more specifics of why the navigation change is not allowed.
+        String message = String::format("Unsafe JavaScript attempt to initiate a navigation change for frame with URL %s from frame with URL %s.\n",
+                                        targetDocument->URL().utf8().data(), activeDocument->URL().utf8().data());
+
+        if (KJS::Interpreter::shouldPrintExceptions())
+            printf("%s", message.utf8().data());
+
+        // FIXME: should we print to the console of the activeFrame as well?
+        if (Page* page = targetFrame->page())
+            page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, message, 1, String());
+    }
     
-    // Allow if target is an entire window (top level frame of a window).
-    Frame* parent = target->tree()->parent();
-    if (!parent)
-        return true;
-    
-    // Allow if the domain of the parent of the targeted frame equals this domain.
-    String parentDomain;
-    if (Document* parentDocument = parent->document())
-        parentDomain = parentDocument->domain();
-    return equalIgnoringCase(parentDomain, domain);
+    return false;
 }
 
 void FrameLoader::stopLoadingSubframes()

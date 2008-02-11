@@ -23,10 +23,12 @@
 #ifndef _IOPMLibPrivate_h_
 #define _IOPMLibPrivate_h_
 
+#include <TargetConditionals.h>
 #include <IOKit/IOKitLib.h>
 #include <CoreFoundation/CFArray.h>
 #include <IOKit/pwr_mgt/IOPMLibDefs.h>
 #include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/pwr_mgt/IOPMLib.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
@@ -53,6 +55,9 @@ __BEGIN_DECLS
 #define kIOPMAutoWakeScheduleImmediate      "WakeImmediate"
 #define kIOPMAutoPowerScheduleImmediate     "PowerOnImmediate"
 
+// Notification posted when IOPMSchedulePowerEvent successfully schedules a power event
+#define kIOPMSchedulePowerEventNotification "IOPMSchedulePowerEventNotification"
+
 // The 'date' argument to IOPMSchedulePowerEvent is an relative one to 
 // "right now," for 'AutoWakeScheduleImmediate' and 'AutoPowerScheduleImmediate'
 //
@@ -68,6 +73,49 @@ __BEGIN_DECLS
 #define kIOPMAutoWakeRelativeSeconds        kIOPMSettingDebugWakeRelativeKey
 #define kIOPMAutoPowerRelativeSeconds       kIOPMSettingDebugPowerRelativeKey
 
+/**************************************************
+*
+* Private assertions
+*
+**************************************************/
+// Keeps the CPU at its highest level
+#define kIOPMAssertionTypeNeedsCPU              CFSTR("CPUBoundAssertion")
+#define kIOPMCPUBoundAssertion                  kIOPMAssertionTypeNeedsCPU
+
+// Disables AC Power Inflow (requires root to initiate)
+#define kIOPMAssertionTypeDisableInflow         CFSTR("DisableInflow")
+#define kIOPMInflowDisableAssertion             kIOPMAssertionTypeDisableInflow
+
+// Disables battery charging (requires root to initiate)
+#define kIOPMAssertionTypeInhibitCharging       CFSTR("ChargeInhibit")
+#define kIOPMChargeInhibitAssertion             kIOPMAssertionTypeInhibitCharging
+
+// Disables low power battery warnings
+#define kIOPMAssertionTypeDisableLowBatteryWarnings     CFSTR("DisableLowPowerBatteryWarnings")
+#define kIOPMDisableLowBatteryWarningsAssertion         kIOPMAssertionTypeDisableLowBatteryWarnings
+
+// Once initially asserted, the machine may only idle sleep while this assertion
+// is asserted. For embedded use only.
+#define kIOPMAssertionTypeEnableIdleSleep           CFSTR("EnableIdleSleep")
+
+#if TARGET_OS_EMBEDDED
+    // RY: Look's like some embedded clients are still dependent on the following
+
+    // Disables system idle sleep 
+    #define kIOPMPreventIdleSleepAssertion          kIOPMAssertionTypeNoIdleSleep
+
+    // Enables system idle sleep 
+    #define kIOPMEnableIdleSleepAssertion           kIOPMAssertionTypeEnableIdleSleep
+    
+    enum {
+        kIOPMAssertionDisable   = kIOPMAssertionLevelOff,
+        kIOPMAssertionEnable    = kIOPMAssertionLevelOn,
+        kIOPMAssertionIDInvalid = kIOPMNullAssertionID
+     };
+
+    #define kIOPMAssertionValueKey                  kIOPMAssertionLevelKey
+    
+#endif /* TARGET_OS_EMBEDDED */
 
 /**************************************************
 *
@@ -398,31 +446,61 @@ IOReturn IOPMScheduleRepeatingPowerEvent(CFDictionaryRef events);
  */ 
 IOReturn IOPMCancelAllRepeatingPowerEvents(void);
 
+
+
 /**************************************************
 *
-* Assertions
-* Private assertions; not published publicly
+* Power API - For applications
+*
+* Details constraints or emergency levels that the
+* system may be operating under.
 *
 **************************************************/
-// Keeps the CPU at its highest level
-#define kIOPMAssertionTypeNeedsCPU              CFSTR("CPUBoundAssertion")
-#define kIOPMCPUBoundAssertion                  kIOPMAssertionTypeNeedsCPU
 
-// Disables AC Power Inflow (requires root to initiate)
-#define kIOPMAssertionTypeDisableInflow         CFSTR("DisableInflow")
-#define kIOPMInflowDisableAssertion             kIOPMAssertionTypeDisableInflow
+// notify API - keys to register for notifications from the BSD notify mechanism
+#define kIOPMCPUPowerNotificationKey            "com.apple.system.power.CPU"
+#define kIOPMThermalWarningNotificationKey      "com.apple.system.power.thermal_warning"
 
-// Disables battery charging (requires root to initiate)
-#define kIOPMAssertionTypeInhibitCharging       CFSTR("ChargeInhibit")
-#define kIOPMChargeInhibitAssertion             kIOPMAssertionTypeInhibitCharging
+/* @function IOPMCopyCPUPowerStatus
+    @abstract Copy status of all current CPU power levels.
+    @param cpuPowerStatus Upon success, a pointer to a dictionary defining CPU power; 
+        otherwise NULL. Pointer will be populated with a newly created dictionary 
+        upon successful return. Caller must release dictionary.
+    @result kIOReturnSuccess, or other error report. Returns kIOReturnNotFound if 
+        CPU PowerStatus has not been published.
+*/
+IOReturn IOPMCopyCPUPowerStatus(CFDictionaryRef *cpuPowerStatus);
 
-// Disables low power battery warnings
-#define kIOPMAssertionTypeDisableLowBatteryWarnings     CFSTR("DisableLowPowerBatteryWarnings")
-#define kIOPMDisableLowBatteryWarningsAssertion         kIOPMAssertionTypeDisableLowBatteryWarnings
+/* @function IOPMGetThermalWarningLevel
+    @abstract Get thermal warning level of the system.
+    @result An integer pointer declaring the power warning level of the system. 
+        The value of the integer is one of (defined in IOPM.h):
+              kIOPMThermalWarningLevelNormal
+              kIOPMThermalWarningLevelDanger
+              kIOPMThermalWarningLevelCrisis
+        Upon success the thermal level value will be found at the 
+        pointer argument.
+    @result kIOReturnSuccess, or other error report. Returns kIOReturnNotFound if 
+        thermal warning level has not been published.
+*/
+IOReturn IOPMGetThermalWarningLevel(uint32_t *thermalLevel);
 
-// Once initially asserted, the machine may only idle sleep while this assertion
-// is asserted. For embedded use only.
-#define kIOPMAssertionTypeEnableIdleSleep           CFSTR("EnableIdleSleep")
+/**************************************************
+*
+* Power API - For userspace power & thermal drivers
+*
+**************************************************/
+
+/* @function IOPMSystemPowerEventOccurred
+    @abstract Called to alert the system of a power or thermal event
+    @param eventType A CFStringRef defining the type of event
+    @param eventObject The CF payload describing the event
+    @result kIOReturnSuccess; kIOReturnNotPrivileged, kIOReturnInternalError, or kIOReturnError on error.
+*/
+IOReturn IOPMSystemPowerEventOccurred(
+        CFStringRef typeString, 
+        CFTypeRef eventValue);
+
 
 __END_DECLS
 

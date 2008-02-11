@@ -1,3 +1,0 @@
-ifeq "$(shell tconf --test TARGET_OS_EMBEDDED)" "YES"
-OTHER_CFLAGS += -dead_strip
-endif

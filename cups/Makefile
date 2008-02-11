@@ -47,6 +47,8 @@ post-install:
 		fi \
 	done
 	find $(DSTROOT) -type f -perm +111 -exec $(STRIP) -x '{}' \;
+	chown root:lp $(DSTROOT)/usr/bin/lppasswd
+	chmod 4755 $(DSTROOT)/usr/bin/lppasswd
 
 install-plist:
 	$(MKDIR) $(OSV)

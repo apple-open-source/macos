@@ -171,6 +171,7 @@ OSDefineMetaClassAndStructors( IOPCIMessagedInterruptController,
 bool IOPCIMessagedInterruptController::init( UInt32 numVectors )
 {
     OSNumber * num;
+    const OSSymbol * sym = 0;
 
     if (!super::init())
 	return (false);
@@ -196,7 +197,7 @@ bool IOPCIMessagedInterruptController::init( UInt32 numVectors )
     }
 
     attach(getPlatform());
-    const OSSymbol * sym = copyName();
+    sym = copyName();
     setProperty(kInterruptControllerNameKey, (OSObject *) sym);
     getPlatform()->registerInterruptController( (OSSymbol *) sym, this );
     sym->release();
@@ -205,7 +206,7 @@ bool IOPCIMessagedInterruptController::init( UInt32 numVectors )
                          getProperty( kBaseVectorNumberKey ) );
     if ( num ) _vectorBase = num->unsigned32BitValue();
 
-    _messagedInterruptsAllocator = IORangeAllocator::withRange(0, 0, IORangeAllocator::kLocking);
+    _messagedInterruptsAllocator = IORangeAllocator::withRange(0, 0, 4, IORangeAllocator::kLocking);
     _messagedInterruptsAllocator->deallocate(_vectorBase, _vectorCount);
 
     registerService();

@@ -32,7 +32,7 @@
 .Op haltremain Ar minutes
 .Nm
 .Fl g
-.Op disk | live | cap | sched | ups | ps | pslog | rawlog
+.Op custom | live | cap | sched | ups | ps | pslog | rawlog
 .Nm
 schedule
 .Op cancel 
@@ -90,8 +90,9 @@ The boot argument tells power management that system bootup is complete. Loginwi
 will also display the settings currently in use.
 .br
 .Fl g
-.Ar disk
-will display settings for all power sources, including those not currently in use.
+.Ar custom
+will display custom settings for all power sources, although these settings may not currently be in use;
+a pre-set settings profile may be active instead.
 .br
 .Fl g
 .Ar cap

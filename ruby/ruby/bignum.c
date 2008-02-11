@@ -3,7 +3,7 @@
   bignum.c -
 
   $Author: shyouhei $
-  $Date: 2007-05-23 05:37:49 +0900 (Wed, 23 May 2007) $
+  $Date: 2007-09-19 11:13:21 +0900 (Wed, 19 Sep 2007) $
   created at: Fri Jun 10 00:48:55 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -74,6 +74,7 @@ get2comp(x)
     BDIGIT *ds = BDIGITS(x);
     BDIGIT_DBL num;
 
+    if (!i) return;
     while (i--) ds[i] = ~ds[i];
     i = 0; num = 1;
     do {
@@ -102,7 +103,8 @@ bigtrunc(x)
     long len = RBIGNUM(x)->len;
     BDIGIT *ds = BDIGITS(x);
 
-    while (len-- && !ds[len]);
+    if (len == 0) return x;
+    while (--len && !ds[len]);
     RBIGNUM(x)->len = ++len;
     return x;
 }
@@ -345,6 +347,13 @@ rb_cstr_to_inum(str, base, badcheck)
     VALUE z;
     BDIGIT *zds;
 
+#define conv_digit(c) \
+    (!ISASCII(c) ? -1 : \
+     isdigit(c) ? ((c) - '0') : \
+     islower(c) ? ((c) - 'a' + 10) : \
+     isupper(c) ? ((c) - 'A' + 10) : \
+     -1)
+
     if (!str) {
 	if (badcheck) goto bad;
 	return INT2FIX(0);
@@ -437,7 +446,13 @@ rb_cstr_to_inum(str, base, badcheck)
     }
     if (*str == '0') {		/* squeeze preceeding 0s */
 	while (*++str == '0');
-	--str;
+	if (!*str) --str;
+    }
+    c = *str;
+    c = conv_digit(c);
+    if (c < 0 || c >= base) {
+	if (badcheck) goto bad;
+	return INT2FIX(0);
     }
     len *= strlen(str)*sizeof(char);
 
@@ -471,7 +486,7 @@ rb_cstr_to_inum(str, base, badcheck)
     z = bignew(len, sign);
     zds = BDIGITS(z);
     for (i=len;i--;) zds[i]=0;
-    while (c = *str++) {
+    while ((c = *str++) != 0) {
 	if (c == '_') {
 	    if (badcheck) {
 		if (nondigit) goto bad;
@@ -479,19 +494,7 @@ rb_cstr_to_inum(str, base, badcheck)
 	    }
 	    continue;
 	}
-	else if (!ISASCII(c)) {
-	    break;
-	}
-	else if (isdigit(c)) {
-	    c -= '0';
-	}
-	else if (islower(c)) {
-	    c -= 'a' - 10;
-	}
-	else if (isupper(c)) {
-	    c -= 'A' - 10;
-	}
-	else {
+	else if ((c = conv_digit(c)) < 0) {
 	    break;
 	}
 	if (c >= base) break;
@@ -1086,6 +1089,7 @@ rb_big_neg(x)
     if (!RBIGNUM(x)->sign) get2comp(z);
     ds = BDIGITS(z);
     i = RBIGNUM(x)->len;
+    if (!i) return INT2FIX(~0);
     while (i--) ds[i] = ~ds[i];
     RBIGNUM(z)->sign = !RBIGNUM(z)->sign;
     if (RBIGNUM(x)->sign) get2comp(z);
@@ -1541,6 +1545,20 @@ rb_big_remainder(x, y)
     return bignorm(z);
 }
 
+static VALUE big_lshift _((VALUE, unsigned long));
+static VALUE big_rshift _((VALUE, unsigned long));
+
+static VALUE big_shift(x, n)
+    VALUE x;
+    int n;
+{
+    if (n < 0)
+	return big_lshift(x, (unsigned int)n);
+    else if (n > 0)
+	return big_rshift(x, (unsigned int)n);
+    return x;
+}
+
 /*
  *  call-seq:
  *     big.divmod(numeric)   => array
@@ -1643,8 +1661,10 @@ rb_big_pow(x, y)
 	yy = FIX2LONG(y);
 	if (yy > 0) {
 	    VALUE z = x;
+	    const long BIGLEN_LIMIT = 1024*1024 / SIZEOF_BDIGITS;
 
-	    if (RBIGNUM(x)->len * SIZEOF_BDIGITS * yy > 1024*1024) {
+	    if ((RBIGNUM(x)->len > BIGLEN_LIMIT) ||
+		(RBIGNUM(x)->len > BIGLEN_LIMIT / yy)) {
 		rb_warn("in a**b, b may be too big");
 		d = (double)yy;
 		break;
@@ -1844,7 +1864,15 @@ rb_big_xor(xx, yy)
     return bignorm(z);
 }
 
-static VALUE rb_big_rshift _((VALUE,VALUE));
+static VALUE
+check_shiftdown(VALUE y, VALUE x)
+{
+    if (!RBIGNUM(x)->len) return INT2FIX(0);
+    if (RBIGNUM(y)->len > SIZEOF_LONG / SIZEOF_BDIGITS) {
+	return RBIGNUM(x)->sign ? INT2FIX(0) : INT2FIX(-1);
+    }
+    return Qnil;
+}
 
 /*
  * call-seq:
@@ -1857,15 +1885,46 @@ VALUE
 rb_big_lshift(x, y)
     VALUE x, y;
 {
+    long shift;
+    int neg = 0;
+
+    for (;;) {
+	if (FIXNUM_P(y)) {
+	    shift = FIX2LONG(y);
+	    if (shift < 0) {
+		neg = 1;
+		shift = -shift;
+	    }
+	    break;
+	}
+	else if (TYPE(y) == T_BIGNUM) {
+	    if (!RBIGNUM(y)->sign) {
+		VALUE t = check_shiftdown(y, x);
+		if (!NIL_P(t)) return t;
+		neg = 1;
+	    }
+	    shift = big2ulong(y, "long", Qtrue);
+	    break;
+	}
+	y = rb_to_int(y);
+    }
+
+    if (neg) return big_rshift(x, shift);
+    return big_lshift(x, shift);
+}
+
+static VALUE
+big_lshift(x, shift)
+    VALUE x;
+    unsigned long shift;
+{
     BDIGIT *xds, *zds;
-    int shift = NUM2INT(y);
-    int s1 = shift/BITSPERDIG;
+    long s1 = shift/BITSPERDIG;
     int s2 = shift%BITSPERDIG;
     VALUE z;
     BDIGIT_DBL num = 0;
     long len, i;
 
-    if (shift < 0) return rb_big_rshift(x, INT2FIX(-shift));
     len = RBIGNUM(x)->len;
     z = bignew(len+s1+1, RBIGNUM(x)->sign);
     zds = BDIGITS(z);
@@ -1889,20 +1948,52 @@ rb_big_lshift(x, y)
  * Shifts big right _numeric_ positions (left if _numeric_ is negative).
  */
 
-static VALUE
+VALUE
 rb_big_rshift(x, y)
     VALUE x, y;
 {
+    long shift;
+    int neg = 0;
+
+    for (;;) {
+	if (FIXNUM_P(y)) {
+	    shift = FIX2LONG(y);
+	    if (shift < 0) {
+		neg = 1;
+		shift = -shift;
+	    }
+	    break;
+	}
+	else if (TYPE(y) == T_BIGNUM) {
+	    if (RBIGNUM(y)->sign) {
+		VALUE t = check_shiftdown(y, x);
+		if (!NIL_P(t)) return t;
+	    }
+	    else {
+		neg = 1;
+	    }
+	    shift = big2ulong(y, "long", Qtrue);
+	    break;
+	}
+	y = rb_to_int(y);
+    }
+
+    if (neg) return big_lshift(x, shift);
+    return big_rshift(x, shift);
+}
+
+static VALUE
+big_rshift(x, shift)
+    VALUE x;
+    unsigned long shift;
+{
     BDIGIT *xds, *zds;
-    int shift = NUM2INT(y);
     long s1 = shift/BITSPERDIG;
-    long s2 = shift%BITSPERDIG;
+    int s2 = shift%BITSPERDIG;
     VALUE z;
     BDIGIT_DBL num = 0;
     long i, j;
     volatile VALUE save_x;
-
-    if (shift < 0) return rb_big_lshift(x, INT2FIX(-shift));
 
     if (s1 > RBIGNUM(x)->len) {
 	if (RBIGNUM(x)->sign)
@@ -1960,29 +2051,39 @@ rb_big_aref(x, y)
     VALUE x, y;
 {
     BDIGIT *xds;
-    int shift;
-    long s1, s2;
+    BDIGIT_DBL num;
+    unsigned long shift;
+    long i, s1, s2;
 
     if (TYPE(y) == T_BIGNUM) {
-	if (!RBIGNUM(y)->sign || RBIGNUM(x)->sign)
+	if (!RBIGNUM(y)->sign)
 	    return INT2FIX(0);
-	return INT2FIX(1);
+	if (RBIGNUM(bigtrunc(y))->len > SIZEOF_LONG/SIZEOF_BDIGITS) {
+	  out_of_range:
+	    return RBIGNUM(x)->sign ? INT2FIX(0) : INT2FIX(1);
+	}
+	shift = big2ulong(y, "long", Qfalse);
     }
-    shift = NUM2INT(y);
-    if (shift < 0) return INT2FIX(0);
+    else {
+	i = NUM2LONG(y);
+	if (i < 0) return INT2FIX(0);
+	shift = (VALUE)i;
+    }
     s1 = shift/BITSPERDIG;
     s2 = shift%BITSPERDIG;
 
+    if (s1 >= RBIGNUM(x)->len) goto out_of_range;
     if (!RBIGNUM(x)->sign) {
-	if (s1 >= RBIGNUM(x)->len) return INT2FIX(1);
-	x = rb_big_clone(x);
-	get2comp(x);
+	xds = BDIGITS(x);
+	i = 0; num = 1;
+	while (num += ~xds[i], ++i <= s1) {
+	    num = BIGDN(num);
+	}
     }
     else {
-	if (s1 >= RBIGNUM(x)->len) return INT2FIX(0);
+	num = BDIGITS(x)[s1];
     }
-    xds = BDIGITS(x);
-    if (xds[s1] & (1<<s2))
+    if (num & ((BDIGIT_DBL)1<<s2))
 	return INT2FIX(1);
     return INT2FIX(0);
 }

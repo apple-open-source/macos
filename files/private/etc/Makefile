@@ -33,6 +33,9 @@ install-files:
 	$(_v) $(INSTALL_FILE) -m 0644 -c asl.conf	 "$(Destination)/asl.conf"
 	$(_v) $(INSTALL_FILE) -m 0644 -c /dev/null	 "$(Destination)/find.codes"
 	$(_v) $(INSTALL_FILE) -m 0644 -c ftpusers	 "$(Destination)/ftpusers"
+ifeq "$(Product)" "iPhone"
+	$(_v) $(INSTALL_FILE) -m 0644 -c fstab		 "$(Destination)/fstab"
+endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c fstab.hd	 "$(Destination)/fstab.hd"
 	$(_v) $(INSTALL_FILE) -m 0644 -c gettytab	 "$(Destination)/gettytab"
 	$(_v) $(INSTALL_FILE) -m 0644 -c /dev/null	 "$(Destination)/hosts.equiv"

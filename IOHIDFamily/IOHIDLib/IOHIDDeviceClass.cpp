@@ -361,7 +361,7 @@ IOReturn IOHIDDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inS
     fService = inService;
     IOObjectRetain(fService);
     
-    res = IOServiceOpen(fService, mach_task_self(), 0, &fConnection);
+    res = IOServiceOpen(fService, mach_task_self(), kIOHIDLibUserClientConnectManager, &fConnection);
     if (res != kIOReturnSuccess)
         return res;
 

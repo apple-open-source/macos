@@ -6,20 +6,27 @@
 #include <architecture/byte_order.h>
 #include <security_cdsa_utilities/cssmdb.h>
 #include "SharedMemoryClient.h"
+#include <string>
+#include <security_utilities/crc.h>
 
+static const char* kPrefix = "/var/tmp/mds/messages/se_";
 
 using namespace Security;
 
 SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetType segmentSize) :
 	mSegmentName (segmentName), mSegmentSize (segmentSize), mSegment (NULL)
 {
+	// make the name
+	std::string name (kPrefix);
+	name += segmentName;
+	
 	StLock<Mutex> _(mMutex);
 	
 	// make a connection to the shared memory block
-	int segmentDescriptor = shm_open (segmentName, O_RDONLY, S_IROTH);
+	int segmentDescriptor = open (name.c_str (), O_RDONLY, S_IROTH);
 	if (segmentDescriptor < 0) // error on opening the shared memory segment?
 	{
-		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+		CssmError::throwMe (CSSM_ERRCODE_INTERNAL_ERROR);
 	}
 	
 	// map the segment into place
@@ -31,7 +38,9 @@ SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetTy
 		return;
 	}
 	
-	mCurrentOffset = GetProducerCount ();
+	mDataArea = mSegment + sizeof (SegmentOffsetType);
+	mDataMax = mSegment + segmentSize;
+	mDataPtr = mDataArea + GetProducerCount ();
 }
 
 
@@ -73,7 +82,7 @@ size_t SharedMemoryClient::GetSegmentSize ()
 
 
 
-bool SharedMemoryClient::ReadBytes (void* buffer, SegmentOffsetType offset, SegmentOffsetType bytesToRead)
+void SharedMemoryClient::ReadData (void* buffer, SegmentOffsetType length)
 {
 	if (mSegment == NULL) // error on opening the shared memory segment?
 	{
@@ -82,28 +91,35 @@ bool SharedMemoryClient::ReadBytes (void* buffer, SegmentOffsetType offset, Segm
 
 	u_int8_t* bptr = (u_int8_t*) buffer;
 
-	// calculate the number of bytes between offset and the end of the buffer
-	if (offset > kPoolAvailableForData)
-	{
-		// we have an obvious error, do nothing -- it's better than crashing...
-		return false;
-	}
+	SegmentOffsetType bytesToEnd = mDataMax - mDataPtr;
 	
-	while (bytesToRead > 0)
-	{
-		// figure out how many bytes are left in the buffer before wrapping around
-		SegmentOffsetType bytesAvailable = kPoolAvailableForData - offset;
-		SegmentOffsetType bytesToReadThisTime = bytesToRead > bytesAvailable ? bytesAvailable : bytesToRead;
-		
-		// move the first load of bytes
-		memmove (bptr, mSegment + sizeof (SegmentOffsetType) + offset, bytesToReadThisTime);
-		
-		// update everything
-		bytesToRead -= bytesToReadThisTime;
-		offset = 0;
-	}
+	// figure out how many bytes we can read
+	SegmentOffsetType bytesToRead = (length <= bytesToEnd) ? length : bytesToEnd;
+
+	// move the first part of the data
+	memcpy (bptr, mDataPtr, bytesToRead);
+	bptr += bytesToRead;
 	
-	return true;
+	// see if we have anything else to read
+	mDataPtr += bytesToRead;
+	
+	length -= bytesToRead;
+	if (length != 0)
+	{
+		mDataPtr = mDataArea;
+		memcpy(bptr, mDataPtr, length);
+		mDataPtr += length;
+	}
+}
+
+
+
+SegmentOffsetType SharedMemoryClient::ReadOffset()
+{
+	SegmentOffsetType offset;
+	ReadData(&offset, sizeof(SegmentOffsetType));
+	offset = OSSwapBigToHostInt32 (offset);
+	return offset;
 }
 
 
@@ -119,73 +135,39 @@ bool SharedMemoryClient::ReadMessage (void* message, SegmentOffsetType &length, 
 
 	ur = kURNone;
 	
-	// if there are more bytes between my count and the producer's, our buffer has been overrun
-	SegmentOffsetType offset = GetProducerCount ();
-	if (offset == mCurrentOffset)
+	size_t offset = mDataPtr - mDataArea;
+	if (offset == GetProducerCount())
 	{
 		ur = kURNoMessage;
 		return false;
 	}
 	
-	if (offset - mCurrentOffset > kPoolAvailableForData) // oops, we've been overrun...
-	{
-		ur = kURMessageDropped;
-		mCurrentOffset = GetProducerCount ();
-		return false;
-	}
+	// get the length of the message in the buffer
+	length = ReadOffset();
 	
 	// we have the possibility that data is correct, figure out where the data is actually located
-	SegmentOffsetType actualOffset = mCurrentOffset % kPoolAvailableForData;
-	
 	// get the length of the message stored there
-	if (!ReadBytes (&length, actualOffset, sizeof (SegmentOffsetType)))
+	if (length >= kPoolAvailableForData)
 	{
 		ur = kURBufferCorrupt;
-		mCurrentOffset = GetProducerCount ();
+		mDataPtr = mDataArea + GetProducerCount ();
 		return false;
 	}
 	
-	length = OSSwapBigToHostInt32 (length);
-	
-	if (length == 0) // the producer is in the process of writing out the message
-	{
-		ur = kURMessagePending;
-		return false;
-	}
-	
-	if (length > kPoolAvailableForData)
-	{
-		ur = kURBufferCorrupt;
-		mCurrentOffset = GetProducerCount ();
-		return false;
-	}
-	
-	// update our pointer
-	mCurrentOffset += length;
-	
-	actualOffset += sizeof (SegmentOffsetType);
-	if (actualOffset > kPoolAvailableForData)
-	{
-		actualOffset -= kPoolAvailableForData;
-	}
-	
-	length -= sizeof (SegmentOffsetType);
-	
+	// read the crc
+	SegmentOffsetType crc = ReadOffset();
+
 	// read the data into the buffer
-	if (!ReadBytes (message, actualOffset, length))
+	ReadData (message, length);
+	
+	// calculate the CRC
+	SegmentOffsetType crc2 = CalculateCRC((u_int8_t*) message, length);
+	if (crc != crc2)
 	{
 		ur = kURBufferCorrupt;
-		mCurrentOffset = GetProducerCount ();
+		mDataPtr = mDataArea + GetProducerCount ();
 		return false;
 	}
-	
-	// check again to make sure that we haven't been overrun
-	if (GetProducerCount () - mCurrentOffset > kPoolAvailableForData) // oops, we've been overrun...
-	{
-		ur = kURMessageDropped;
-		mCurrentOffset = GetProducerCount ();
-		return false;
-	}
-	
+
 	return true;
 }

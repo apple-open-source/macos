@@ -3,13 +3,13 @@
 #include "pldtrace.h"
 .
 /PUSHSUB_BASE(/a
-	if (PERL_ENTRY_ENABLED())					\
-	    PERL_ENTRY(GvENAME(CvGV(cv)), CopFILE((COP*)CvSTART(cv)),	\
+	if (PERL_SUB_ENTRY_ENABLED())					\
+	    PERL_SUB_ENTRY(GvENAME(CvGV(cv)), CopFILE((COP*)CvSTART(cv)),	\
 		CopLINE((COP*)CvSTART(cv)));				\
 .
 /POPSUB(/+1a
-	if (PERL_EXIT_ENABLED())					\
-	    PERL_EXIT(GvENAME(CvGV(cx->blk_sub.cv)),			\
+	if (PERL_SUB_RETURN_ENABLED())					\
+	    PERL_SUB_RETURN(GvENAME(CvGV(cx->blk_sub.cv)),		\
 		CopFILE((COP*)CvSTART(cx->blk_sub.cv)),			\
 		CopLINE((COP*)CvSTART(cx->blk_sub.cv)));		\
 .

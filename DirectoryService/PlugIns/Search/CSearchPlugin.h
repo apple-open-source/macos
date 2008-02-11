@@ -90,7 +90,7 @@ typedef struct {
 
 typedef struct {
 	sSearchList		   *fSearchNodeList;
-	bool				bListChanged;
+	int32_t				bListChanged;   // int32_t because it's used in OSAtomic calls
 	DSMutexSemaphore   *pSearchListMutex;
 	UInt32				offset;
 	UInt32				fSearchConfigKey;

@@ -299,6 +299,9 @@ const cmdInfo commands_prefs[] = {
 	{ "close",	0,	1,	do_prefs_close,		2,	1,
 		" close [!]                     : close current \"preference\" session"		},
 
+	{ "synchronize",0,	1,	do_prefs_synchronize,	2,	0,
+		" synchronize            : synchronize a \"preferences\" session"		},
+	
 	{ "list",	0,	1,	do_prefs_list,		4,	0,
 		" list [path]                   : list preference paths"			},
 

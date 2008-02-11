@@ -1,3 +1,0 @@
-after_install:
-	mkdir -p $(DSTROOT)/usr/share/man/man1
-	install -c -m 444 talk.1 $(DSTROOT)/usr/share/man/man1/talk.1

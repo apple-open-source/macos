@@ -114,6 +114,17 @@ class OSX::NSObject
   objc_method(:mySuperMethodWithBlock, [:id, :int]) { |x| "foo_#{x}" }
 end
 
+class OvmixArgRetainedController < OSX::NSObject
+  def setObject(o)
+    @o = o
+  end
+  objc_method :setObject, ['id', 'id']
+  def getObject
+    @o
+  end
+  objc_method :getObject, ['id']
+end
+
 class TC_OVMIX < Test::Unit::TestCase
   def test_rig
     testrig = OSX::TestRig.alloc.init
@@ -148,4 +159,8 @@ class TC_OVMIX < Test::Unit::TestCase
     assert_equal('foo_456', o.objc_send(:mySuperMethodWithBlock, 456).to_s)
   end
 
+  def test_arg_retained
+    c = OvmixArgRetainedController.alloc.init
+    OSX::OvmixArgRetained.test(c)
+  end
 end

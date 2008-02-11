@@ -7,23 +7,39 @@
 
 #include "abi.h"
 
-
+// Note: I tried doing rintl with fistpll, but it fails for 0x1.0p63-1ulp.
 ENTRY( rintl )
-    xorl        %ecx,                       %ecx
-    movw        8+FIRST_ARG_OFFSET(STACKP), %cx
-    andw        $0x7fff,                    %cx
-	fldt		FIRST_ARG_OFFSET(STACKP)	// { f }
-    cmpw        $(16383+63),                %cx         //test for NaNs, Infs, large integer
-    jae         1f
-    fldz                                    // { 0, f }
-    fucomip      %st(1),     %st(0)                      // test for zeros
-    je          1f
+    movswl      8+FRAME_SIZE(STACKP),       %eax
+    movl        %eax,                       %edx        // sign + exponent of x
+    andl        $0x7fff,                    %eax        // exponent of x
+    andl        $0x80000000,                %edx        // signof (x)
+    fldt        FRAME_SIZE( STACKP )                    // { x }
+    subl        $16383,                     %eax
+    movl        %edx,                       %ecx        // signof (x)
+    orl         $0x5f000000,                %edx        // copysignf( 0x1.0p63f, x )
+    cmpl        $63,                        %eax        // if( |x| >= 0x1.0p63L || isnan(x) )
+    jae         1f                                      //      goto 2
+    
+    // 1.0L <= |x| < 0x1.0p63L
+    movl        %edx,                       FRAME_SIZE( STACKP )
+    flds        FRAME_SIZE(STACKP)                      // copysignl( 0x1.0p63L, x )
+    fadd        %st(0),                     %st(1)      // x + copysignl( 0x1.0p63, x )
+    fsubrp                                              // x + copysignl( 0x1.0p63, x ) - copysignl( 0x1.0p63, x )
+    ret
+    
+1:  jge         2f                                      // if( |x| >= 0x1.0p63L || isnan(x) ) goto 2
 
-    //do rint
-    fistpll     FRAME_SIZE( STACKP )        // { f }
-    fildll      FRAME_SIZE( STACKP )        // { rintl(f) }
-
-1:	ret
+    // |x| < 1.0L
+    movl        %edx,                       FRAME_SIZE( STACKP )
+    orl         $0x3f800000,                 %ecx       // copysign( 1, x )
+    flds        FRAME_SIZE(STACKP)                      // copysignl( 0x1.0p63L, x )
+    movl        %ecx,                       4+FRAME_SIZE(STACKP)
+    fadd        %st(0),                     %st(1)      // x + copysignl( 0x1.0p63, x )
+    fsubrp                                              // x + copysignl( 0x1.0p63, x ) - copysignl( 0x1.0p63, x )
+    fabs                                                // strip sign       
+    fmuls       4+FRAME_SIZE(STACKP)                    // restore sign to signof x
+    
+2:  ret
 
 ENTRY( rintf )
 #if defined( __i386__ )
@@ -78,82 +94,6 @@ ENTRY( rint )
 1:	ret
 	
 #endif
-/*
-ENTRY( nearbyintl )
-	SUBP	$28, STACKP
-	
-	fldt	(FIRST_ARG_OFFSET+28)( STACKP )				//{f}
-	
-	//read fpcw + fpsw
-	fnstenv	(STACKP)
-	movw	(STACKP),	%ax
-
-	//or it with 0x20 
-	movl	%eax, %edx
-	orl		$0x20,  %eax
-
-	//stick it back int the fpcw
-	movw	%ax, (STACKP)
-	fldenv	(STACKP)
-	
-	//round
-	frndint							//{ result }
-		
-	//reset fpsw and fpcw
-	movw	%dx, (STACKP)
-	fldenv	(STACKP)
-	
-	ADDP	$28, STACKP
-	ret
-*/
-
-# if defined( __LP64__ )
-ENTRY( llrintl )
-ENTRY( lrintl )
-	SUBP		$12, STACKP
-	movl		$0x5f000000, 8(STACKP)						//limit = 0x1.0p63f
-#else
-ENTRY( llrintl )
-	SUBP		$12, STACKP
-	movl		$0x5f000000, 8(STACKP)						//0x1.0p63f
-	xor			%edx,		%edx
-
-	flds		8(STACKP)                                   //{0x1.0p63 }
-	fldt		(FIRST_ARG_OFFSET+12)( STACKP )				//{f, 0x1.0p63}
-	fucomi 		%ST(1), %ST                                 //{f, 0x1.0p63}		f>=0x1.0p63
-	fistpll		(STACKP)                                    //{0x1.0p63}
-	fstp		%ST(0)                                      //{}
-
-	setnb		%dl                                         // copy f >= 0x1.0p63 to the d register
-	negl		%edx                                        // edx = -edx
-	movl		(STACKP),	%eax                            // load in the low part of the result from the fistpll above to eax
-	xorl		%edx,		%eax                            // xor with edx. This flips 0x8000000000000000 to 0x7fffffffffffffff for overflow
-	xorl		4(STACKP),	%edx                            // load in the high part and flip it
-	
-	ADDP		$12,		STACKP                          
-	ret
-
-ENTRY( lrintl )
-	SUBP		$12, STACKP
-	movl		$0x4f000000, 8(STACKP)						//limit = 0x1.0p31f
-
-#endif
-
-	XORP		DX_P,		DX_P
-
-	flds		8(STACKP)							//{limit }
-	fldt		(FIRST_ARG_OFFSET+12)( STACKP )		//{f, limit}
-	fucomi 		%ST(1), %ST                         //{f, limit}		f>=limit   test for overflow
-	FISTPP		(STACKP)							//{limit}
-	fstp		%ST(0)                              //{}
-
-	setnb		%dl                                 // copy f >= limit to the d register
-	NEGP		DX_P                                // rdx = -rdx
-	MOVP		(STACKP),	AX_P                    // load in the result from the fistpll to the a register
-	XORP		DX_P,		AX_P                    // xor with the d register to flip 0x8000... to 0x7fff... in the case of overflow
-	
-	ADDP		$12,		STACKP
-	ret
     
 
 //i386 versions if these functions are in xmm_floor.c

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOHIDEventDriver</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>I/O Kit HID Event Driver</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.5.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.5.2</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>HID Keyboard Driver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>DeviceUsagePairs</key>
+			<array>
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>6</integer>
+					<key>DeviceUsagePage</key>
+					<integer>1</integer>
+				</dict>
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>7</integer>
+					<key>DeviceUsagePage</key>
+					<integer>1</integer>
+				</dict>
+			</array>
+			<key>HIDDefaultBehavior</key>
+			<string></string>
+			<key>IOClass</key>
+			<string>IOHIDEventDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOHIDFamily</key>
+		<string>1.4</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Console</string>
+</dict>
+</plist>

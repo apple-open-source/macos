@@ -857,6 +857,7 @@ char	errstr[128];
 						snprintf(xcdString, sizeof( xcdString)-1, "XBE DART TLB Parity Error: ");
 						break;
 				}
+#if 0	// no more panics on DART exceptions -- this wouldn't happen on a non-DART system.  Just log it.
 				snprintf( errstr, sizeof( errstr)-1, "DART %s%s %s logical page 0x%05lX\n",
 					xcdString,
 					( dartexcp & kU4DARTExcpRQSRCMask )? "HyperTransport" :
@@ -866,6 +867,16 @@ char	errstr[128];
 					( dartexcp & kU4DARTExcpLogAdrsMask ) >> kU4DARTExcpLogAdrsShift );
 				// kaboom!
 				panic( "%s", errstr );
+#endif
+				snprintf( errstr, sizeof( errstr)-1, "DMA %s%s %s logical page 0x%05lX\n",
+					xcdString,
+					( dartexcp & kU4DARTExcpRQSRCMask )? "HyperTransport" :
+														 "PCI0",
+					( dartexcp & kU4DARTExcpRQOPMask ) ? "write" :
+														 "read",
+					( dartexcp & kU4DARTExcpLogAdrsMask ) >> kU4DARTExcpLogAdrsShift );
+				kprintf( "%s", errstr );
+				IOLog( "%s", errstr );
 			}
 
 		}
@@ -873,9 +884,10 @@ char	errstr[128];
 		{
 			dartexcp = me->safeReadRegUInt32( kU3DARTExceptionRegister );
 			// rdar://4137750 -- ONLY panic on DART WRITE errors.  Ignore DART READs.
-			// they are caused by PCI speculative reads, which are typically bogus.
+			// they are often caused by PCI speculative reads, which are typically bogus.
 			if ( dartexcp & kU3DARTExcpRQOPMask )	// writes ONLY
 			{
+#if 0	// no more panics on DART exceptions -- this wouldn't happen on a non-DART system.  Just log it.
 				snprintf( errstr, sizeof( errstr )-1,    "DART %s%s%s %s logical page 0x%05lX\n",
 					( dartexcp & kU3DARTExcpXBEMask )?   "out-of-bounds exception: " : "",
 					( dartexcp & kU3DARTExcpXEEMask )?   "entry exception: " : "",
@@ -885,6 +897,14 @@ char	errstr[128];
 
 				// kaboom!
 				panic( "%s", errstr );
+#endif
+				snprintf( errstr, sizeof( errstr )-1,    "DMA %s%s%s write logical page 0x%05lX\n",
+					( dartexcp & kU3DARTExcpXBEMask )?   "out-of-bounds exception: " : "",
+					( dartexcp & kU3DARTExcpXEEMask )?   "entry exception: " : "",
+					( dartexcp & kU3DARTExcpRQSRCMask )? "HyperTransport" : "PCI0",
+					( dartexcp & kU3DARTExcpLogAdrsMask ) >> kU3DARTExcpLogAdrsShift );
+				kprintf( "%s", errstr );
+				IOLog( "%s", errstr );
 			}
 			
 		}

@@ -90,7 +90,14 @@ IOReturn IOPMScheduleRepeatingPowerEvent(CFDictionaryRef events)
         !is_valid_repeating_dictionary(repeating_off)) return kIOReturnBadArgument;
  
     // Toss 'em out to the disk and to PM configd. configd will do the heavy lifting.
+#if TARGET_OS_EMBEDDED
+    if (geteuid() != 0)
+        prefs = SCPreferencesCreateWithAuthorization(0, CFSTR("IOKit-AutoWake"), 
+                                CFSTR(kIOPMAutoWakePrefsPath), NULL);
+    else
+#endif /* TARGET_OS_EMBEDDED */
     prefs = SCPreferencesCreate(0, CFSTR("IOKit-AutoWake"), CFSTR(kIOPMAutoWakePrefsPath));
+
     if(!prefs || !SCPreferencesLock(prefs, true))
     {
         if(kSCStatusAccessError == SCError())
@@ -131,7 +138,14 @@ CFDictionaryRef IOPMCopyRepeatingPowerEvents(void)
     
     // Open SCPreferences
     // Open the prefs file and grab the current array
+#if TARGET_OS_EMBEDDED
+    if (geteuid() != 0)
+        prefs = SCPreferencesCreateWithAuthorization(0, CFSTR("IOKit-AutoWake"), 
+                                CFSTR(kIOPMAutoWakePrefsPath), NULL);
+    else
+#endif /* TARGET_OS_EMBEDDED */
     prefs = SCPreferencesCreate(0, CFSTR("IOKit-AutoWake"), CFSTR(kIOPMAutoWakePrefsPath));
+
     if(!prefs)
     {
         return_dict = NULL;
@@ -167,7 +181,14 @@ IOReturn IOPMCancelAllRepeatingPowerEvents(void)
     SCPreferencesRef            prefs = 0;
     IOReturn                    ret = kIOReturnError;
     
+#if TARGET_OS_EMBEDDED
+    if (geteuid() != 0)
+        prefs = SCPreferencesCreateWithAuthorization(0, CFSTR("IOKit-AutoWake"), 
+                                CFSTR(kIOPMAutoWakePrefsPath), NULL);
+    else
+#endif /* TARGET_OS_EMBEDDED */
     prefs = SCPreferencesCreate(0, CFSTR("IOKit-AutoWake"), CFSTR(kIOPMAutoWakePrefsPath));
+
     if(!prefs || !SCPreferencesLock(prefs, true))
     {
         if(kSCStatusAccessError == SCError())

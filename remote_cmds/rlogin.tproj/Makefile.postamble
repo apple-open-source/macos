@@ -1,5 +1,0 @@
-INSTALL_PERMISSIONS = 4755    # If set, 'install' chmod's executable to this
-
-after_install:
-	mkdir -p $(DSTROOT)/usr/share/man/man1
-	install -c -m 444 rlogin.1 $(DSTROOT)/usr/share/man/man1/rlogin.1

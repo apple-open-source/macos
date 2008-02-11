@@ -19,7 +19,7 @@
    |          Sara Golemon <pollita@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: http_fopen_wrapper.c,v 1.99.2.12.2.9 2007/04/23 16:37:28 bjori Exp $ */ 
+/* $Id: http_fopen_wrapper.c,v 1.99.2.12.2.10 2007/10/04 13:31:11 jani Exp $ */ 
 
 #include "php.h"
 #include "php_globals.h"
@@ -137,7 +137,7 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 		/* Normal http request (possibly with proxy) */
 	
 		if (strpbrk(mode, "awx+")) {
-			php_stream_wrapper_log_error(wrapper, options TSRMLS_CC, "HTTP wrapper does not support writeable connections.");
+			php_stream_wrapper_log_error(wrapper, options TSRMLS_CC, "HTTP wrapper does not support writeable connections");
 			php_url_free(resource);
 			return NULL;
 		}

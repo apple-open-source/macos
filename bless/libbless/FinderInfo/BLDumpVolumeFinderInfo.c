@@ -43,22 +43,6 @@
 #include "bless.h"
 #include "bless_private.h"
 
-struct BootBlocks {
-  short   id;
-  long    entryPoint;
-  short   version;
-  short   pageFlags;
-  Str15   system;
-  Str15   shellApplication;
-  Str15   debugger1;
-  Str15   debugger2;
-  Str15   startupScreen;
-  Str15   startupApplication;
-  char    otherStuff[1024 - (2+4+2+2+16+16+16+16+16+16)];
-} __attribute__((packed));
-
-typedef struct BootBlocks BootBlocks;
-
 /*
  * 1. getattrlist on the mountpoint to get the volume id
  * 2. read in the finder words
@@ -133,15 +117,14 @@ int BLCreateVolumeInformationDictionary(BLContextPtr context, const char * mount
 
     
     {
-        CFTypeRef val2;
 
       fbootstraptransfer_t        bbr;
       int                         fd;
       char                       bbPtr[kBootBlocksSize];
       
-      CFMutableDictionaryRef bdict =
+    CFMutableDictionaryRef bdict =
 	CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        CFDataRef bdata = NULL;
+    CFDataRef bdata = NULL;
 
       fd = open(mount, O_RDONLY);
       if (fd == -1) {
@@ -163,36 +146,7 @@ int BLCreateVolumeInformationDictionary(BLContextPtr context, const char * mount
       }
       close(fd);
 
-      if((uint16_t)CFSwapInt16BigToHost(*(uint16_t *)&bbPtr[0]) == kBootBlockTradOSSig) {
-	  BootBlocks		*bb = (BootBlocks *)bbPtr;
-    
-	    val2 = CFStringCreateWithPascalString(kCFAllocatorDefault, bb->system, kCFStringEncodingMacRoman);
-	    CFDictionaryAddValue(bdict, CFSTR("System"), val2);
-	    CFRelease(val2); val2 = NULL;
-    
-	    val2 = CFStringCreateWithPascalString(kCFAllocatorDefault, bb->shellApplication, kCFStringEncodingMacRoman);
-	    CFDictionaryAddValue(bdict, CFSTR("ShellApplication"), val2);
-	    CFRelease(val2); val2 = NULL;
-    
-	    val2 = CFStringCreateWithPascalString(kCFAllocatorDefault, bb->debugger1, kCFStringEncodingMacRoman);
-	    CFDictionaryAddValue(bdict, CFSTR("Debugger1"), val2);
-	    CFRelease(val2); val2 = NULL;
-    
-	    val2 = CFStringCreateWithPascalString(kCFAllocatorDefault, bb->debugger2, kCFStringEncodingMacRoman);
-	    CFDictionaryAddValue(bdict, CFSTR("Debugger2"), val2);
-	    CFRelease(val2); val2 = NULL;
-    
-	    val2 = CFStringCreateWithPascalString(kCFAllocatorDefault, bb->startupScreen,  kCFStringEncodingMacRoman);
-	    CFDictionaryAddValue(bdict, CFSTR("StartupScreen"), val2);
-	    CFRelease(val2); val2 = NULL;
-    
-	    val2 = CFStringCreateWithPascalString(kCFAllocatorDefault, bb->startupApplication, kCFStringEncodingMacRoman);
-	    CFDictionaryAddValue(bdict, CFSTR("StartupApplication"), val2);
-	    CFRelease(val2); val2 = NULL;
-    
-      }
-
-      bdata = CFDataCreate(kCFAllocatorDefault, (UInt8 *)bbPtr, 1024);
+      bdata = CFDataCreate(kCFAllocatorDefault, (UInt8 *)bbPtr, kBootBlocksSize);
       CFDictionaryAddValue(bdict, CFSTR("Data"), bdata);
       CFRelease(bdata); bdata = NULL;
 

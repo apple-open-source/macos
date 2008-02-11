@@ -31,7 +31,7 @@ extern "C" {
 
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOPlatformExpert.h>
-#include <IOKit/pccard/IOPCCard.h>
+
 #include <IOKit/platform/ApplePlatformExpert.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>

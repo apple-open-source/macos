@@ -1796,9 +1796,6 @@
 /* whether to have multibyte string support */
 #undef HAVE_MBSTRING
 
-/* Define if stdarg.h is available */
-#undef HAVE_STDARG_PROTOTYPES
-
 /* whether to have multibyte regex support */
 #undef HAVE_MBREGEX
 
@@ -2176,6 +2173,9 @@
 
 /* Whether to build pdo_oci as dynamic module */
 #undef COMPILE_DL_PDO_OCI
+
+/*   */
+#undef PHP_PDO_OCI_CLIENT_VERSION
 
 /*   */
 #undef HAVE_ODBC_H

@@ -1,5 +1,0 @@
-after_install:
-	mkdir -p $(DSTROOT)/usr/share/man/man8
-	install -c -m 444 bootlog.8 $(DSTROOT)/usr/share/man/man8
-	mkdir -p $(DSTROOT)/System/Library/LaunchDaemons
-	install -c -m 444 com.apple.bootlog.plist $(DSTROOT)/System/Library/LaunchDaemons

@@ -15,7 +15,7 @@ WARNFLAGS = -Wall -Wextra -Wshadow -Wmissing-prototypes \
 	 -Wmissing-declarations -Wno-discard-qual
 
 Extra_CC_Flags = $(WARNFLAGS)  -I $(SRCROOT) -I $(OBJROOT)
-Extra_LD_Flags = -lutil
+Extra_LD_Flags = -lutil -dead_strip
 
 DST_DIR = $(DSTROOT)/usr/sbin
 MAN_DIR = $(DSTROOT)/usr/share/man/man8

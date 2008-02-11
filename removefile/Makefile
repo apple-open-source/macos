@@ -27,6 +27,15 @@ LIBS =	$(SYMROOT)/libremovefile.a \
 	$(SYMROOT)/libremovefile_profile.a \
 	$(SYMROOT)/libremovefile_debug.a
 
+OSV     = $(DSTROOT)/usr/local/OpenSourceVersions
+OSL     = $(DSTROOT)/usr/local/OpenSourceLicenses
+
+install-plist:
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) LICENSE $(OSL)/$(Project).txt
+
 installhdrs:: $(HDRS)
 	$(_v) $(INSTALL_DIRECTORY) $(INC_DIR)
 	$(_v) $(INSTALL) -c -m 444 -o root -g wheel $(SRCROOT)/removefile.h $(INC_DIR)
@@ -35,7 +44,7 @@ installhdrs:: $(HDRS)
 $(OBJROOT) $(SYMROOT)::
 	$(MKDIR) $@ 
 
-install:: $(OBJROOT) $(SYMROOT) $(LIBS) install-files compress_man_pages
+install:: $(OBJROOT) $(SYMROOT) $(LIBS) install-files compress_man_pages install-plist
 	$(_v) $(INSTALL_DIRECTORY) $(LIB_DIR)
 	$(_v) $(INSTALL) -c -m 644 $(LIBS) $(LIB_DIR)
 	$(_v) $(INSTALL_DIRECTORY) $(INC_DIR)
@@ -80,3 +89,8 @@ $(SYMROOT)/libremovefile_profile.a:: $(foreach X, $(OBJ:.o=-profile.o), $(OBJROO
 
 $(SYMROOT)/libremovefile_debug.a:: $(foreach X, $(OBJ:.o=-debug.o), $(OBJROOT)/$(X)) $(VERSOBJ)
 	libtool -static -o $@ $^
+
+.PHONY : test
+test: 
+	$(CC) -g test/test-removefile.c -o /tmp/test-removefile
+	/tmp/test-removefile

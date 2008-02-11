@@ -12,7 +12,7 @@ SYMROOT ?= .
 DSTROOT ?= .
 
 Extra_CC_Flags = -Wall
-Extra_LD_Flags = -framework CoreFoundation
+Extra_LD_Flags = -framework CoreFoundation -dead_strip
 
 DST_DIR = $(DSTROOT)/usr/bin
 MAN_DIR = $(DSTROOT)/usr/share/man/man8

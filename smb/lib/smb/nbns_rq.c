@@ -82,7 +82,8 @@ static u_int32_t in_local_subnet(u_char *addr)
 }
 
 /* When invoked from smb_ctx_resolve we need the smb_ctx structure */
-static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struct smb_ctx *smbctx, struct sockaddr **adpp)
+static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struct smb_ctx *smbctx, 
+									 struct sockaddr **adpp, u_int16_t port)
 {
 	struct nbns_rq *rqp;
 	struct nb_name nn;
@@ -90,7 +91,7 @@ static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struc
 	struct sockaddr_in *nameserver_sock, *session_sock;
 	int error, rdrcount, len;
 	char wkgrp[SMB_MAXUSERNAMELEN + 1];
-	u_char *current_ip, *end_of_rr;
+	u_char *current_ip, *end_of_rr, *next_of_rr = NULL;
 
 	wkgrp[0] = '\0';
 	if (strlen(name) > NB_NAMELEN)
@@ -166,20 +167,75 @@ static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struc
 		bzero(session_sock, len);
 		session_sock->sin_len = len;
 		session_sock->sin_family = AF_INET;
-		session_sock->sin_port = htons(NBSS_TCP_PORT_139);
+		session_sock->sin_port = htons(port);
+		/* Used by smbutil lookup, should see if there a better way to hold this info */
 		ctx->nb_lastns = rqp->nr_sender;
 
 		end_of_rr = rr.rr_data + rr.rr_rdlength;
-		error = -1; /* So that we won't skip 2nd loop if no IPs in local subnet */
+		/*
+		 * We should use Radar 3916980 and 3165159 to clean up this code.  What to do with multiple 
+		 * address? Once we decide how to handle IPv6 and IPv4 address, then we should use that
+		 * same method here. 
+		 *
+		 * The code below doesn't make much sense to me. We have a list of address. If only one
+		 * address then aren't we done. If multiple address what does looking it up on port
+		 * 137 do for us? Seems like a performance issue to me.
+		 *
+		 * Since this work may go into a  software update lets only fix what is required.
+		 */
+
+		/*
+		 * If there is only one address looking it up at this point is a waste of time, let the
+		 * connect code decide if the server is present.
+		 *
+		 * NOTE: rr_data points at a list of entries. The entries contian a 2 byte flags field 
+		 * followed by a 4 byte IPv4 address field. So if there is only one address then next_of_rr
+		 * should equal end_of_rr, if not fall through and let the old code handle it.
+		 *
+		 */
+		current_ip = (rr.rr_data + 2); 	/* Points to the first ip address */
+		next_of_rr = current_ip + 4; 	/* Points to the next offset */
+#ifdef DEBUG
+		smb_log_info("rr_data = %p end_of_rr = %p current_ip = %p next_of_rr = %p", 0, ASL_LEVEL_DEBUG, 
+					 rr.rr_data, end_of_rr, current_ip, next_of_rr);
+#endif // DEBUG
+		if ((current_ip < end_of_rr) && (next_of_rr == end_of_rr)) {
+			/* Only one address so, we are really done here */
+			bcopy(current_ip, &session_sock->sin_addr.s_addr, 4);
+			error = 0;
+			break;			
+		}
+			
+		
+		/*
+		 * We should either have no address or multiple address at this point. In most case we should
+		 * have either one address or no address, so most of the code below will never get excuted.
+		 *
+		 * If multiple address then still try to use port 137 to see which should be the preferred
+		 * address.
+		 */
+		error = -1; /* So that we won't skip 2nd loop if no IPs */
+		/*
+		 * Look to see if any of the address are in our local subnet mask. Currently we always
+		 * prefer those address. See if we can connect to port 137 at that address, if not keep trying 
+		 * until we can or there are no more address.
+		 */
 		for(current_ip = rr.rr_data + 2; current_ip < end_of_rr; current_ip += 6)
 			if (in_local_subnet(current_ip)) {
-    				bcopy(current_ip, &session_sock->sin_addr.s_addr, 4);
-				if (!(error = nbns_getnodestatus((struct sockaddr *)session_sock,
-	   	    		    ctx, NULL, wkgrp))) {
-					/* Good IP! */
-					break;
+				bcopy(current_ip, &session_sock->sin_addr.s_addr, 4);
+				if (nbns_getnodestatus((struct sockaddr *)session_sock, ctx, NULL, wkgrp) == 0) {
+					error = 0;	/* Found something we can use. */
+					break;	/* We know we can connect to this one on port 137 use it. */
+				} else {
+					smb_log_info("Found 0x%x address on the local subnet, but couldn't connect to port 137!", 
+								 0, ASL_LEVEL_DEBUG, session_sock->sin_addr.s_addr);					
 				}
-			}
+			}	
+		/*
+		 * If no error at this point then we found an address and we should use that address,
+		 * even if we couldn't connect to port 137. If we have an error then search the list
+		 * again (crazy I know) to see if we can find it on a remote subnet.
+		 */
 		if (error) {
 			/* 
 			 * None of the IPs inside subnet worked. 
@@ -193,16 +249,20 @@ static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struc
 			 */
 			for(current_ip = rr.rr_data + 2; current_ip < end_of_rr; current_ip += 6)
 				if (!(in_local_subnet(current_ip))) {
-    					bcopy(current_ip, &session_sock->sin_addr.s_addr, 4);
-					if (!(error = nbns_getnodestatus((struct sockaddr *)session_sock,
-	   	    			    ctx, NULL, wkgrp))) {
-						/* Good IP! */
-						break;
+					bcopy(current_ip, &session_sock->sin_addr.s_addr, 4);
+					if (nbns_getnodestatus((struct sockaddr *)session_sock, ctx, NULL, wkgrp) == 0) {
+						error = 0;	/* Found something we can use. */
+						break;	/* We know we can connect to this one on port 137 use it. */
+					} else {
+						smb_log_info("Found 0x%x address on a remote subnet, but couldn't connect to port 137!", 
+									 0, ASL_LEVEL_DEBUG, session_sock->sin_addr.s_addr);						
 					}
 				}
 		}
+		/* If no error we are done, otherwise continue the loop because they didn't return an address */
 		if (!error)
 			break; 
+		smb_log_info("Didn't find any address in this list try again if %d > 0", 0, ASL_LEVEL_DEBUG, rdrcount);		
 	} /* end big for loop */
 #ifdef OVERRIDE_USER_SETTING_DOMAIN
 	if (!error && smbctx) 
@@ -219,19 +279,39 @@ static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, struc
 	return error;
 }
 
+
 /* When invoked from smb_ctx_resolve we need the smb_ctx structure */
-int nbns_resolvename(const char *name, struct nb_ctx *ctx, struct smb_ctx *smbctx, struct sockaddr **adpp)
+int nbns_resolvename(const char *name, struct nb_ctx *ctx, struct smb_ctx *smbctx, 
+					 struct sockaddr **adpp, int allow_local_conn, u_int16_t port)
 {
-	int error = nbns_resolvename_internal(name, ctx, smbctx, adpp);
+	int error = nbns_resolvename_internal(name, ctx, smbctx, adpp, port);
 	
 	/* We tried it with WINS and failed try broadcast now */
-	if (error && (ctx->nb_nsname != NULL)) {
-		ctx->nb_ns.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-		ctx->nb_ns.sin_port = htons(NBNS_UDP_PORT_137);
-		ctx->nb_ns.sin_family = AF_INET;
-		ctx->nb_ns.sin_len = sizeof(ctx->nb_ns);
-		error = nbns_resolvename_internal(name, ctx, smbctx, adpp);
+	if (error && (ctx->nb_wins_name != NULL)) {
+		char *save_wins_name = ctx->nb_wins_name;
+		
+		ctx->nb_wins_name = NULL;	/* Force it to setup the broadcast address */
+		error = nb_ctx_resolve(ctx);
+		if (error == 0)
+			error = nbns_resolvename_internal(name, ctx, smbctx, adpp, port);
+		ctx->nb_wins_name = save_wins_name; /* Restore the wins name */
 	}
+	/* Make sure we are not connecting to ourself */
+	if ((error == 0) && (*adpp) && (! allow_local_conn)) {
+		struct sockaddr_in *sinp = *(struct sockaddr_in **)adpp;
+
+		if (sinp->sin_addr.s_addr  == (u_int32_t)htonl(INADDR_LOOPBACK)) {
+			smb_log_info("The address for `%s' is a loopback address, not allowed!\n", 0, ASL_LEVEL_ERR, name);
+			/* AFP now returns ELOOP, so we will do the same */
+			return ELOOP;		
+		}
+		if (isLocalNetworkAddress(sinp->sin_addr.s_addr) == TRUE) {
+			smb_log_info("isLocalNetworkAddress: The address for `%s' is a local address, not allowed!\n", 0, ASL_LEVEL_ERR, name);			
+			/* AFP now returns ELOOP, so we will do the same */
+			return ELOOP;		
+		}		
+	}
+	
 	return error;
 }
 

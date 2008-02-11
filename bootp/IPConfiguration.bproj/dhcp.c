@@ -1712,6 +1712,10 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  break;
       }
       case IFEventID_wake_e: {
+	  if (service_ifstate(service_p)->netboot == TRUE) {
+	      break;
+	  }
+
 	  /* make sure that when we wake up, there's no IP address assigned */
 	  service_p->published.status = ipconfig_status_media_inactive_e;
 	  service_remove_address(service_p);

@@ -4,7 +4,7 @@
 # FetchCurrentSamba - fetch the Samba source that matches the installed system
 #
 # The canonical version of this file is:
-# $HeadURL: svn+ssh://src.apple.com/svn/fs/samba/tags/samba-187.1/scripts/bb-scripts/FetchCurrentSamba $
+# $HeadURL: svn+ssh://src.apple.com/svn/fs/samba/tags/samba-187.4/scripts/bb-scripts/FetchCurrentSamba $
 # $Id: FetchCurrentSamba 30931 2007-04-16 17:44:14Z jpeach $
 
 SAMBA_SOURCE=$(~rc/bin/getvers -path samba | \

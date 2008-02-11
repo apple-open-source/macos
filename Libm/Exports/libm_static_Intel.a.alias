@@ -236,7 +236,7 @@ _cosl	_cosl$fenv_access_off
 _erfcl	_erfcl$fenv_access_off
 _erfl	_erfl$fenv_access_off
 _exp2l	_exp2l$fenv_access_off
-_expl	_expl$fenv_access_off
+#_expl	_expl$fenv_access_off
 _expm1l	_expm1l$fenv_access_off
 _fabsl	_fabsl$fenv_access_off
 _fdiml	_fdiml$fenv_access_off
@@ -292,3 +292,5 @@ _cbrt	_cbrt$fenv_access_off
 #_nan	_nan$fenv_access_off
 #_nanf	_nanf$fenv_access_off
 #_remquo	_remquo$fenv_access_off
+
+___Libm_version

@@ -18,11 +18,12 @@
    |          Sara Golemon <pollita@php.net>                              |
    +----------------------------------------------------------------------+
  */
-/* $Id: ftp_fopen_wrapper.c,v 1.85.2.4.2.2 2007/06/07 08:59:00 tony2001 Exp $ */
+/* $Id: ftp_fopen_wrapper.c,v 1.85.2.4.2.6 2007/10/04 13:31:11 jani Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
 #include "php_network.h"
+#include "php_ini.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,7 +69,11 @@
 
 #include "php_fopen_wrappers.h"
 
+#define FTPS_ENCRYPT_DATA 1
+#define GET_FTP_RESULT(stream)	get_ftp_result((stream), tmp_line, sizeof(tmp_line) TSRMLS_CC)
 
+/* {{{ get_ftp_result
+ */
 static inline int get_ftp_result(php_stream *stream, char *buffer, size_t buffer_size TSRMLS_DC)
 {
 	while (php_stream_gets(stream, buffer, buffer_size-1) &&
@@ -76,24 +81,21 @@ static inline int get_ftp_result(php_stream *stream, char *buffer, size_t buffer
 			 isdigit((int) buffer[2]) && buffer[3] == ' '));
 	return strtol(buffer, NULL, 10);
 }
-#define GET_FTP_RESULT(stream)	get_ftp_result((stream), tmp_line, sizeof(tmp_line) TSRMLS_CC)
+/* }}} */
 
-#define FTPS_ENCRYPT_DATA 1
-
-static int php_stream_ftp_stream_stat(php_stream_wrapper *wrapper,
-		php_stream *stream,
-		php_stream_statbuf *ssb
-		TSRMLS_DC)
+/* {{{ php_stream_ftp_stream_stat
+ */
+static int php_stream_ftp_stream_stat(php_stream_wrapper *wrapper, php_stream *stream, php_stream_statbuf *ssb TSRMLS_DC)
 {
 	/* For now, we return with a failure code to prevent the underlying
 	 * file's details from being used instead. */
 	return -1;
 }
+/* }}} */
 
-
-static int php_stream_ftp_stream_close(php_stream_wrapper *wrapper,
-		php_stream *stream
-		TSRMLS_DC)
+/* {{{ php_stream_ftp_stream_close
+ */
+static int php_stream_ftp_stream_close(php_stream_wrapper *wrapper, php_stream *stream TSRMLS_DC)
 {
 	php_stream *controlstream = (php_stream *)stream->wrapperdata;
 	
@@ -104,6 +106,7 @@ static int php_stream_ftp_stream_close(php_stream_wrapper *wrapper,
 	}
 	return 0;
 }
+/* }}} */
 
 /* {{{ php_ftp_fopen_connect
  */
@@ -409,7 +412,7 @@ php_stream * php_stream_url_wrap_ftp(php_stream_wrapper *wrapper, char *path, ch
 	}
 	if (strpbrk(mode, "wa+")) {
 		if (read_write) {
-			php_stream_wrapper_log_error(wrapper, options TSRMLS_CC, "FTP does not support simultaneous read/write connections.");
+			php_stream_wrapper_log_error(wrapper, options TSRMLS_CC, "FTP does not support simultaneous read/write connections");
 			return NULL;
 		}
 		if (strchr(mode, 'a')) {
@@ -420,7 +423,7 @@ php_stream * php_stream_url_wrap_ftp(php_stream_wrapper *wrapper, char *path, ch
 	}
 	if (!read_write) {
 		/* No mode specified? */
-		php_stream_wrapper_log_error(wrapper, options TSRMLS_CC, "Unknown file open mode.");
+		php_stream_wrapper_log_error(wrapper, options TSRMLS_CC, "Unknown file open mode");
 		return NULL;
 	}
 
@@ -483,7 +486,7 @@ php_stream * php_stream_url_wrap_ftp(php_stream_wrapper *wrapper, char *path, ch
 					goto errexit;
 				}
 			} else {
-				php_stream_wrapper_log_error(wrapper, options TSRMLS_CC, "Remote file already exists and overwrite context option not specified.");
+				php_stream_wrapper_log_error(wrapper, options TSRMLS_CC, "Remote file already exists and overwrite context option not specified");
 				errno = EEXIST;
 				goto errexit;
 			}
@@ -563,7 +566,7 @@ php_stream * php_stream_url_wrap_ftp(php_stream_wrapper *wrapper, char *path, ch
 	php_url_free(resource);
 	return datastream;
 
- errexit:
+errexit:
 	if (resource) {
 		php_url_free(resource);
 	}
@@ -668,6 +671,8 @@ php_stream * php_stream_ftp_opendir(php_stream_wrapper *wrapper, char *path, cha
 	char ip[sizeof("123.123.123.123")];
 	unsigned short portno;
 
+	tmp_line[0] = '\0';
+
 	stream = php_ftp_fopen_connect(wrapper, path, mode, options, opened_path, context, &reuseid, &resource, &use_ssl, &use_ssl_on_data TSRMLS_CC);
 	if (!stream) {
 		goto opendir_errexit;	
@@ -725,7 +730,7 @@ php_stream * php_stream_ftp_opendir(php_stream_wrapper *wrapper, char *path, cha
 	php_url_free(resource);
 	return php_stream_alloc(&php_ftp_dirstream_ops, datastream, 0, mode);
 
- opendir_errexit:
+opendir_errexit:
 	if (resource) {
 		php_url_free(resource);
 	}
@@ -733,8 +738,9 @@ php_stream * php_stream_ftp_opendir(php_stream_wrapper *wrapper, char *path, cha
 		php_stream_notify_error(context, PHP_STREAM_NOTIFY_FAILURE, tmp_line, result);
 		php_stream_close(stream);
 	}
-	if (tmp_line[0] != '\0')
+	if (tmp_line[0] != '\0') {
 		php_stream_wrapper_log_error(wrapper, options TSRMLS_CC, "FTP server reports %s", tmp_line);
+	}
 	return NULL;
 }
 /* }}} */
@@ -824,7 +830,7 @@ static int php_stream_ftp_url_stat(php_stream_wrapper *wrapper, char *url, int f
 #endif
 	} else {
 		/* error or unsupported command */
- mdtm_error:
+mdtm_error:
 #ifdef NETWARE
 		ssb->sb.st_mtime.tv_sec = -1;
 #else
@@ -856,7 +862,7 @@ static int php_stream_ftp_url_stat(php_stream_wrapper *wrapper, char *url, int f
 	php_url_free(resource);
 	return 0;
 
- stat_errexit:
+stat_errexit:
 	if (resource) {
 		php_url_free(resource);
 	}
@@ -906,7 +912,7 @@ static int php_stream_ftp_unlink(php_stream_wrapper *wrapper, char *url, int opt
 	php_stream_close(stream);
 	return 1;
 
- unlink_errexit:
+unlink_errexit:
 	if (resource) {
 		php_url_free(resource);
 	}
@@ -982,7 +988,7 @@ static int php_stream_ftp_rename(php_stream_wrapper *wrapper, char *url_from, ch
 	php_stream_close(stream);
 	return 1;
 
- rename_errexit:
+rename_errexit:
 	if (resource_from) {
 		php_url_free(resource_from);
 	}
@@ -1079,7 +1085,7 @@ static int php_stream_ftp_mkdir(php_stream_wrapper *wrapper, char *url, int mode
 
 	return 1;
 
- mkdir_errexit:
+mkdir_errexit:
 	if (resource) {
 		php_url_free(resource);
 	}
@@ -1129,7 +1135,7 @@ static int php_stream_ftp_rmdir(php_stream_wrapper *wrapper, char *url, int opti
 
 	return 1;
 
- rmdir_errexit:
+rmdir_errexit:
 	if (resource) {
 		php_url_free(resource);
 	}

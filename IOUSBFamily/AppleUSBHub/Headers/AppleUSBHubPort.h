@@ -120,6 +120,7 @@ private:
     UInt32							_devZeroCounter;
     bool							_extraResetDelay;
 	bool							_resumePending;
+	bool							_lowerPowerStateOnResume;
     
     static void						PortInitEntry(OSObject *target);					// this will run on its own thread
     static void						PortStatusChangedHandlerEntry(OSObject *target);	// this will run on its own thread

@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_reflection.c,v 1.164.2.33.2.45 2007/08/20 17:01:22 sebastian Exp $ */
+/* $Id: php_reflection.c,v 1.164.2.33.2.47 2007/10/28 13:47:14 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1992,7 +1992,7 @@ ZEND_METHOD(reflection_parameter, getClass)
 {
 	reflection_object *intern;
 	parameter_reference *param;
-	zend_class_entry **pce;
+	zend_class_entry **pce, *ce;
 
 	METHOD_NOTSTATIC_NUMPARAMS(reflection_parameter_ptr, 0);
 	GET_REFLECTION_OBJECT_PTR(param);
@@ -2011,7 +2011,7 @@ ZEND_METHOD(reflection_parameter, getClass)
 		 * lint-mode.
 		 */
 		if (0 == strncmp(param->arg_info->class_name, "self", sizeof("self")- 1)) {
-			zend_class_entry *ce= param->fptr->common.scope;
+			ce = param->fptr->common.scope;
 			if (!ce) {
 			   zend_throw_exception_ex(reflection_exception_ptr, 0 TSRMLS_CC, 
 				   "Parameter uses 'self' as type hint but function is not a class member!");
@@ -2019,7 +2019,7 @@ ZEND_METHOD(reflection_parameter, getClass)
 			}
 			pce= &ce;
 		} else if (0 == strncmp(param->arg_info->class_name, "parent", sizeof("parent")- 1)) {
-			zend_class_entry *ce= param->fptr->common.scope;
+			ce = param->fptr->common.scope;
 			if (!ce) {
 			   zend_throw_exception_ex(reflection_exception_ptr, 0 TSRMLS_CC, 
 				   "Parameter uses 'parent' as type hint but function is not a class member!");
@@ -3405,7 +3405,7 @@ ZEND_METHOD(reflection_class, isInstance)
    Returns an instance of this class */
 ZEND_METHOD(reflection_class, newInstance)
 {
-	zval *retval_ptr;
+	zval *retval_ptr = NULL;
 	reflection_object *intern;
 	zend_class_entry *ce;
 	int argc = ZEND_NUM_ARGS();
@@ -3449,7 +3449,9 @@ ZEND_METHOD(reflection_class, newInstance)
 
 		if (zend_call_function(&fci, &fcc TSRMLS_CC) == FAILURE) {
 			efree(params);
-			zval_ptr_dtor(&retval_ptr);
+			if (retval_ptr) {
+				zval_ptr_dtor(&retval_ptr);
+			}
 			zend_error(E_WARNING, "Invocation of %s's constructor failed", ce->name);
 			RETURN_NULL();
 		}
@@ -3469,7 +3471,7 @@ ZEND_METHOD(reflection_class, newInstance)
    Returns an instance of this class */
 ZEND_METHOD(reflection_class, newInstanceArgs)
 {
-	zval *retval_ptr;
+	zval *retval_ptr = NULL;
 	reflection_object *intern;
 	zend_class_entry *ce;
 	int argc = 0;
@@ -3524,7 +3526,9 @@ ZEND_METHOD(reflection_class, newInstanceArgs)
 			if (params) {
 				efree(params);
 			}
-			zval_ptr_dtor(&retval_ptr);
+			if (retval_ptr) {
+				zval_ptr_dtor(&retval_ptr);
+			}
 			zend_error(E_WARNING, "Invocation of %s's constructor failed", ce->name);
 			RETURN_NULL();
 		}
@@ -4903,7 +4907,7 @@ PHP_MINFO_FUNCTION(reflection) /* {{{ */
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Reflection", "enabled");
 
-	php_info_print_table_row(2, "Version", "$Id: php_reflection.c,v 1.164.2.33.2.45 2007/08/20 17:01:22 sebastian Exp $");
+	php_info_print_table_row(2, "Version", "$Id: php_reflection.c,v 1.164.2.33.2.47 2007/10/28 13:47:14 iliaa Exp $");
 
 	php_info_print_table_end();
 } /* }}} */

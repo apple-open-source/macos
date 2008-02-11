@@ -88,6 +88,7 @@ module ActiveReload
   
       def webView_didFinishLoadForFrame(web_view, frame)
         viewport = web_view.mainFrame.frameView.documentView
+        viewport.window.orderFront(nil)
         viewport.window.display
         viewport.window.setContentSize([@options[:width], (@options[:height] > 0 ? @options[:height] : viewport.bounds.height)])
         viewport.setFrame(viewport.bounds)

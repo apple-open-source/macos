@@ -199,7 +199,6 @@ __SCPreferencesCreate_helper(SCPreferencesRef prefs)
 	Boolean			ok;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	uint32_t		status		= kSCStatusOK;
-	CFDataRef		reply		= NULL;
 
 	// start helper
 	prefsPrivate->helper = _SCHelperOpen(prefsPrivate->authorizationData);
@@ -216,8 +215,6 @@ __SCPreferencesCreate_helper(SCPreferencesRef prefs)
 	}
 
 	// have the helper "open" the prefs
-	status = kSCStatusOK;
-	reply  = NULL;
 	ok = _SCHelperExec(prefsPrivate->helper,
 			   SCHELPER_MSG_PREFS_OPEN,
 			   data,
@@ -271,8 +268,6 @@ __SCPreferencesAccess_helper(SCPreferencesRef prefs)
 	}
 
 	// have the helper "access" the prefs
-	status = kSCStatusOK;
-	reply  = NULL;
 	ok = _SCHelperExec(prefsPrivate->helper,
 			   SCHELPER_MSG_PREFS_ACCESS,
 			   NULL,
@@ -853,6 +848,36 @@ SCPreferencesUnscheduleFromRunLoop(SCPreferencesRef     prefs,
 }
 
 
+static void
+__SCPreferencesSynchronize_helper(SCPreferencesRef prefs)
+{
+	Boolean			ok;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	uint32_t		status		= kSCStatusOK;
+	
+	if (prefsPrivate->helper == -1) {
+		// if no helper
+		return;
+	}
+	
+	// have the helper "synchronize" the prefs
+	ok = _SCHelperExec(prefsPrivate->helper,
+			   SCHELPER_MSG_PREFS_SYNCHRONIZE,
+			   NULL,
+			   &status,
+			   NULL);
+	if (!ok) {
+		// close helper
+		if (prefsPrivate->helper != -1) {
+			_SCHelperClose(prefsPrivate->helper);
+			prefsPrivate->helper = -1;
+		}
+	}
+	
+	return;
+}
+
+
 void
 SCPreferencesSynchronize(SCPreferencesRef       prefs)
 {
@@ -862,6 +887,10 @@ SCPreferencesSynchronize(SCPreferencesRef       prefs)
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoPrefsSession);
 		return;
+	}
+
+	if (prefsPrivate->authorizationData != NULL) {
+		__SCPreferencesSynchronize_helper(prefs);
 	}
 
 	if (prefsPrivate->prefs != NULL) {

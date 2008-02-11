@@ -1,0 +1,24 @@
+<?xml version='1.0'?>
+<!DOCTYPE signatures SYSTEM "file://localhost/System/Library/DTDs/BridgeSupport.dtd">
+<signatures version='0.9'>
+  <class name='ObjcPtrTest'>
+    <method selector='returnVoidPtrForArrayOfString'>
+      <retval type_modifier='n'/>
+    </method>
+    <method selector='returnVoidPtrForKCFBooleanTrue'>
+      <retval type_modifier='n'/>
+    </method>
+    <method selector='returnVoidPtrForKCFBooleanFalse'>
+      <retval type_modifier='n'/>
+    </method>
+    <method selector='returnVoidPtrForInt'>
+      <retval type_modifier='^v'/>
+    </method>
+    <method selector='returnVoidPtrForUInt'>
+      <retval type_modifier='^v'/>
+    </method>
+    <method selector='returnVoidPtrForCStr'>
+      <retval type_modifier='^v'/>
+    </method>
+  </class>
+</signatures>

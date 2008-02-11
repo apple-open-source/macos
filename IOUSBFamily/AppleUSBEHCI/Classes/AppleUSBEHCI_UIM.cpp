@@ -2255,7 +2255,7 @@ AppleUSBEHCI::AbortIsochEP(AppleEHCIIsochEndpoint* pEP)
 							{
 								if (!stopAdvancing)
 								{
-									USBLog(6, "AppleUSBEHCI[%p]::AbortIsochEP(%p) - advancing _outslot from 0x%x to 0x%lx", this, pEP, _outSlot, nextSlot);
+									USBLog(7, "AppleUSBEHCI[%p]::AbortIsochEP(%p) - advancing _outslot from 0x%x to 0x%lx", this, pEP, _outSlot, nextSlot);
 									_outSlot = nextSlot;
 								}
 								else
@@ -2269,7 +2269,11 @@ AppleUSBEHCI::AbortIsochEP(AppleEHCIIsochEndpoint* pEP)
 						// done with the TD
                         
                         err = pTD->UpdateFrameList(timeStamp);											// TODO - accumulate the return values or force abort err
-						pEP->scheduledTDs--;
+						OSDecrementAtomic( &(pEP->scheduledTDs));
+						if ( pEP->scheduledTDs < 0 )
+						{
+							USBLog(1, "AppleUSBEHCI[%p]::AbortIsochEP (%p) - scheduleTDs is negative! (%ld)", this, pEP, pEP->scheduledTDs);
+						}
                         PutTDonDoneQueue(pEP, pTD, true	);
                     }
 					else if (pTD->_pEndpoint == NULL)
@@ -2303,7 +2307,7 @@ AppleUSBEHCI::AbortIsochEP(AppleEHCIIsochEndpoint* pEP)
 		pTD = GetTDfromToDoList(pEP);
     }
 
-	if (!pEP->scheduledTDs)
+	if (pEP->scheduledTDs == 0)
 	{
 		// since we have no Isoch xactions on the endpoint, we can reset the counter
 		pEP->firstAvailableFrame = 0;
@@ -2672,7 +2676,7 @@ AppleUSBEHCI::unlinkIntEndpoint(AppleEHCIQueueHead * pED)
 			_logicalPeriodicList[i] = pED->_logicalNext;
 			_periodicList[i] = HostToUSBLong(pED->GetPhysicalLink());
 			foundED = true;
-			USBLog(6, "AppleUSBEHCI[%p]::unlinkIntEndpoint- found ED at top of list %d, new logical=%p, new physical=0x%x", this, i, _logicalPeriodicList[i], USBToHostLong(_periodicList[i]));
+			USBLog(7, "AppleUSBEHCI[%p]::unlinkIntEndpoint- found ED at top of list %d, new logical=%p, new physical=0x%x", this, i, _logicalPeriodicList[i], USBToHostLong(_periodicList[i]));
 		}
 		else
 		{
@@ -3713,6 +3717,8 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 		return;
     }
 
+	USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - scheduledTDs = %ld, deferredTDs = %ld", this, pEP->scheduledTDs, pEP->deferredTDs);
+
 	// 4211382 - This routine is already non-reentrant, since it runs on the WL.
 	// However, we also need to disable preemption while we are in here, since we have to get everything
 	// done within a couple of milliseconds, and if we are preempted, we may come back long after that
@@ -3747,7 +3753,7 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 		pTD = GetTDfromToDoList(pEP);
 		//USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - ignoring TD(%p) because it is too old (%Lx) vs (%Lx) ", this, pTD, pTD->_frameNumber, currFrame);
 		ret = pTD->UpdateFrameList(timeStamp);		// TODO - accumulate the return values
-		if (pEP->scheduledTDs)
+		if (pEP->scheduledTDs > 0)
 			PutTDonDeferredQueue(pEP, pTD);
 		else
 		{
@@ -3756,15 +3762,19 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 		}
 	    
         //USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - pTD = %p", this, pTD);
-		if(pEP->toDoList == NULL)
+		if (pEP->toDoList == NULL)
 		{	
 			// Run out of transactions to move.  Call this on a separate thread so that we return to the caller right away
             // 
 			// ReturnIsocDoneQueue(pEP);
 			IOSimpleLockUnlock(_isochScheduleLock);
 			// OK to call USBLog, now that preemption is reenabled
-            USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - calling the ReturnIsocDoneQueue on a separate thread", this);
-            thread_call_enter1(_returnIsochDoneQueueThread, (thread_call_param_t) pEP);
+			USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - calling thread_call_enter1(_returnIsochDoneQueueThread) scheduledTDs = %ld, deferredTDs = %ld", this, pEP->scheduledTDs, pEP->deferredTDs);
+			bool alreadyQueued = thread_call_enter1(_returnIsochDoneQueueThread, (thread_call_param_t) pEP);
+			if ( alreadyQueued )
+			{
+				USBLog(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - thread_call_enter1(_returnIsochDoneQueueThread) was NOT scheduled.  That's not good", this);
+			}
 			return;
 		}
 		newCurrFrame = GetFrameNumber();
@@ -3879,7 +3889,7 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 				_periodicList[pEP->inSlot] = HostToUSBLong(pTD->GetPhysicalAddrWithType());
 			}
 			
-			pEP->scheduledTDs++;
+			OSIncrementAtomic(&(pEP->scheduledTDs));
 			fetchNewTDFromToDoList = true;
 			// USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - _periodicList[%x]:%x", this, pEP->inSlot, USBToHostLong(_periodicList[pEP->inSlot]));
 		}

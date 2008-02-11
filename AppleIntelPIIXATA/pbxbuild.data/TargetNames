@@ -1,5 +1,0 @@
-if [ "${Target}" = "AppleIntelPIIXATA" ]; then
-	Targets='AppleIntelPIIXATA'
-else
-	Targets='AppleIntelPIIXATA'
-fi

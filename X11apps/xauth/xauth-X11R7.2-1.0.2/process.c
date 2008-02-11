@@ -485,6 +485,9 @@ get_displayname_auth(char *displayname, AuthList **authl)
     if (cp && strncmp (cp, "/unix:", 6) == 0)
       prelen = (cp - displayname);
 
+    if (strncmp (displayname, "/tmp/launch", 11) == 0)
+      displayname = strrchr(displayname, '/') + 1;
+
     if (!parse_displayname (displayname + ((prelen > 0) ? prelen + 1 : 0),
 			    &family, &host, &dpynum, &scrnum, &rest)) {
 	return False;

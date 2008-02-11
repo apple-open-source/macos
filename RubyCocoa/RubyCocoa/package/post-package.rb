@@ -1,8 +1,10 @@
-# $Id: post-package.rb 1374 2007-01-08 15:43:02Z hisa $
+# $Id: post-package.rb 2144 2007-11-24 15:06:24Z lrz $
 
 work_dir = File.expand_path('work')
 contents_dir = File.join(work_dir, 'files')
 resources_dir = File.join(work_dir, 'resources')
+
+system "find '#{contents_dir}' -name .svn -exec rm -rf {} \\; >& /dev/null"
 
 package_name = "RubyCocoa-#{@config['rubycocoa-version']}-OSX#{@config['macosx-deployment-target']}"
 if @config['build-universal'] == 'yes'

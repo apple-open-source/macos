@@ -241,6 +241,16 @@
 		52AADF0508ABBEED00654A97 /* belgiumrs.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = belgiumrs.crt; sourceTree = "<group>"; };
 		52AADF0F08ABC6B700654A97 /* Equifax_Secure_eBusiness_CA-1.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Equifax_Secure_eBusiness_CA-1.cer"; sourceTree = "<group>"; };
 		52AADF1808ABC76900654A97 /* Equifax_Secure_eBusiness_CA-2.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Equifax_Secure_eBusiness_CA-2.cer"; sourceTree = "<group>"; };
+		52C2C0590D130CC200C58916 /* A-Trust-nQual-01.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = "A-Trust-nQual-01.cer"; sourceTree = "<group>"; };
+		52C2C05A0D130CC200C58916 /* A-Trust-nQual-03.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = "A-Trust-nQual-03.cer"; sourceTree = "<group>"; };
+		52C2C05B0D130CC200C58916 /* A-Trust-Qual-01.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = "A-Trust-Qual-01.cer"; sourceTree = "<group>"; };
+		52C2C05C0D130CC200C58916 /* Certigna.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = Certigna.cer; sourceTree = "<group>"; };
+		52C2C05F0D130CC200C58916 /* certplus_class2.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = certplus_class2.der; sourceTree = "<group>"; };
+		52C2C0600D130CC200C58916 /* Deutsche_Telekom_Root_CA_2.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = Deutsche_Telekom_Root_CA_2.der; sourceTree = "<group>"; };
+		52C2C0610D130CC200C58916 /* DigiCertGlobalRootCA.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = DigiCertGlobalRootCA.crt; sourceTree = "<group>"; };
+		52C2C0620D130CC200C58916 /* DigiCertHighAssuranceEVRootCA.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = DigiCertHighAssuranceEVRootCA.crt; sourceTree = "<group>"; };
+		52C2C0630D130CC200C58916 /* IdenTrust_Root_X3.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = IdenTrust_Root_X3.der; sourceTree = "<group>"; };
+		52C2C0640D130CC200C58916 /* IdenTrust_Root_X6.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = IdenTrust_Root_X6.der; sourceTree = "<group>"; };
 		52D8CBCD07C51BF60074667F /* Comodo_AAA_Certificate_Services.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = Comodo_AAA_Certificate_Services.cer; sourceTree = "<group>"; };
 		52D8CBCE07C51BF60074667F /* Comodo_Secure_Certificate_Services.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = Comodo_Secure_Certificate_Services.cer; sourceTree = "<group>"; };
 		52D8CBCF07C51BF60074667F /* Comodo_Trusted_Certificate_Services.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = Comodo_Trusted_Certificate_Services.cer; sourceTree = "<group>"; };
@@ -335,6 +345,16 @@
 		4CFDFC4E06309AFB00519F96 /* roots */ = {
 			isa = PBXGroup;
 			children = (
+				52C2C0590D130CC200C58916 /* A-Trust-nQual-01.cer */,
+				52C2C05A0D130CC200C58916 /* A-Trust-nQual-03.cer */,
+				52C2C05B0D130CC200C58916 /* A-Trust-Qual-01.cer */,
+				52C2C05C0D130CC200C58916 /* Certigna.cer */,
+				52C2C05F0D130CC200C58916 /* certplus_class2.der */,
+				52C2C0600D130CC200C58916 /* Deutsche_Telekom_Root_CA_2.der */,
+				52C2C0610D130CC200C58916 /* DigiCertGlobalRootCA.crt */,
+				52C2C0620D130CC200C58916 /* DigiCertHighAssuranceEVRootCA.crt */,
+				52C2C0630D130CC200C58916 /* IdenTrust_Root_X3.der */,
+				52C2C0640D130CC200C58916 /* IdenTrust_Root_X6.der */,
 				5290BC370CA878770040B90A /* SwissSign-Gold_G2.der */,
 				5290BC380CA878770040B90A /* SwissSign-Platinum_G2.der */,
 				5290BC390CA878770040B90A /* SwissSign-Silver_G2.der */,
@@ -519,7 +539,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 32641;
+				CURRENT_PROJECT_VERSION = 32854;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -533,7 +553,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 32641;
+				CURRENT_PROJECT_VERSION = 32854;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = security_certificates;
 				ZERO_LINK = NO;
@@ -543,7 +563,7 @@
 		C27AD4460987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 32641;
+				CURRENT_PROJECT_VERSION = 32854;
 				PRODUCT_NAME = security_certificates;
 			};
 			name = Default;
@@ -552,7 +572,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 32641;
+				CURRENT_PROJECT_VERSION = 32854;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -566,7 +586,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 32641;
+				CURRENT_PROJECT_VERSION = 32854;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "copy certs";
 				ZERO_LINK = NO;
@@ -576,7 +596,7 @@
 		C27AD44A0987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 32641;
+				CURRENT_PROJECT_VERSION = 32854;
 				PRODUCT_NAME = "copy certs";
 			};
 			name = Default;

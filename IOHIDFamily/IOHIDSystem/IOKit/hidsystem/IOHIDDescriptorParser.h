@@ -23,13 +23,18 @@
 #ifndef __IOHIDDescriptorParser__
 #define __IOHIDDescriptorParser__
 
+#include <TargetConditionals.h>
 #include <IOKit/IOTypes.h>
 #include <IOKit/hidsystem/IOHIDUsageTables.h>
+#if !TARGET_OS_EMBEDDED
+    #include <IOKit/ndrvsupport/IOMacOSTypes.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#if TARGET_OS_EMBEDDED
 /* Types and enums required by these functions but not in IOTypes.h */
 
 typedef UInt8		Byte;
@@ -41,6 +46,7 @@ typedef UInt32		ByteCount;
 enum {
 	noErr	= 0
 };
+#endif
 
 /* End missing types and enums */
 

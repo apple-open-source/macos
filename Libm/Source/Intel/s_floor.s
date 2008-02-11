@@ -1,12 +1,12 @@
 /*
  * Written by Ian Ollmann
- * Copyright © 2005, Apple Computer Inc. All rights reserved.
+ * Copyright ï¿½ 2005, Apple Computer Inc. All rights reserved.
  */
 
 #include <machine/asm.h>
 #include "abi.h"
 
-
+/*
 ENTRY( floorl )
     xorl        %ecx,                       %ecx
     fldz                                    // { 0 }
@@ -30,6 +30,7 @@ ENTRY( floorl )
 	fsubrp		%ST(0), %ST(1)				//{ floorl(f), f }
 1:  fstp        %st(1)
 	ret
+*/
 
 ENTRY( floorf )
 #if defined( __i386__ )

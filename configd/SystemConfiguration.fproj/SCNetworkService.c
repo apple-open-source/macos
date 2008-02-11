@@ -75,6 +75,9 @@ __SCNetworkServiceCopyDescription(CFTypeRef cf)
 	CFStringAppendFormat(result, NULL, CFSTR("<SCNetworkService %p [%p]> {"), cf, allocator);
 	CFStringAppendFormat(result, NULL, CFSTR("id = %@"), servicePrivate->serviceID);
 	CFStringAppendFormat(result, NULL, CFSTR(", prefs = %p"), servicePrivate->prefs);
+	if (servicePrivate->name != NULL) {
+		CFStringAppendFormat(result, NULL, CFSTR(", name = %@"), servicePrivate->name);
+	}
 	CFStringAppendFormat(result, NULL, CFSTR("}"));
 
 	return result;
@@ -89,8 +92,9 @@ __SCNetworkServiceDeallocate(CFTypeRef cf)
 	/* release resources */
 
 	CFRelease(servicePrivate->serviceID);
-	if (servicePrivate->interface != NULL)	CFRelease(servicePrivate->interface);
+	if (servicePrivate->interface != NULL) CFRelease(servicePrivate->interface);
 	CFRelease(servicePrivate->prefs);
+	if (servicePrivate->name != NULL) CFRelease(servicePrivate->name);
 
 	return;
 }
@@ -157,6 +161,7 @@ __SCNetworkServiceCreatePrivate(CFAllocatorRef		allocator,
 	servicePrivate->prefs		= CFRetain(prefs);
 	servicePrivate->serviceID	= CFStringCreateCopy(NULL, serviceID);
 	servicePrivate->interface       = (interface != NULL) ? CFRetain(interface) : NULL;
+	servicePrivate->name		= NULL;
 
 	return servicePrivate;
 }
@@ -659,7 +664,7 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 				// update template for v.92 modems
 				if ((overrides == NULL) &&
 				    CFDictionaryGetValueIfPresent(config,
-					   			  kSCPropNetModemConnectionScript,
+								  kSCPropNetModemConnectionScript,
 								  (const void **)&script) &&
 				    CFEqual(script, CFSTR("v.34 Personality")) &&
 				    _SCNetworkInterfaceIsModemV92(interface)) {
@@ -861,6 +866,10 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 		return NULL;
 	}
 
+	if (servicePrivate->name != NULL) {
+		return servicePrivate->name;
+	}
+
 	path = SCPreferencesPathKeyCreateNetworkServiceEntity(NULL,				// allocator
 							      servicePrivate->serviceID,	// service
 							      NULL);				// entity
@@ -869,7 +878,9 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 
 	if (isA_CFDictionary(entity)) {
 		name = CFDictionaryGetValue(entity, kSCPropUserDefinedName);
-		name = isA_CFString(name);
+		if (isA_CFString(name)) {
+			servicePrivate->name = CFRetain(name);
+		}
 	}
 
 	interface = SCNetworkServiceGetInterface(service);
@@ -885,23 +896,48 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 	}
 
 	if (interface != NULL) {
-		if (name != NULL) {
-			CFStringRef	interface_name;
+		CFStringRef	interface_name;
+		CFStringRef	suffix		= NULL;
 
+		if (servicePrivate->name != NULL) {
 			interface_name = __SCNetworkInterfaceGetNonLocalizedDisplayName(interface);
-			if ((interface_name != NULL) && CFEqual(name, interface_name)) {
-				// if service name matches the [non-]localized
-				// interface name
-				name = NULL;
+			if (interface_name != NULL) {
+				if (CFEqual(name, interface_name)) {
+					// if service name matches the [non-]localized
+					// interface name
+					CFRelease(servicePrivate->name);
+					servicePrivate->name = NULL;
+				} else if (CFStringHasPrefix(name, interface_name)) {
+					CFIndex	prefixLen	= CFStringGetLength(interface_name);
+					CFIndex	suffixLen	= CFStringGetLength(name);
+
+					suffix = CFStringCreateWithSubstring(NULL,
+									     name,
+									     CFRangeMake(prefixLen, suffixLen - prefixLen));
+					CFRelease(servicePrivate->name);
+					servicePrivate->name = NULL;
+				}
 			}
 		}
 
-		if (name == NULL) {
-			name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
+		if (servicePrivate->name == NULL) {
+			interface_name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
+			if (interface_name != NULL) {
+				if (suffix != NULL) {
+					servicePrivate->name = CFStringCreateWithFormat(NULL,
+											NULL,
+											CFSTR("%@%@"),
+											interface_name,
+											suffix);
+				} else {
+					servicePrivate->name = CFRetain(interface_name);
+				}
+			}
 		}
+		if (suffix != NULL) CFRelease(suffix);
 	}
 
-	return name;
+	return servicePrivate->name;
 }
 
 
@@ -1039,6 +1075,7 @@ SCNetworkServiceSetName(SCNetworkServiceRef service, CFStringRef name)
 	CFDictionaryRef			entity;
 	Boolean				ok		= FALSE;
 	CFStringRef			path;
+	CFStringRef			saveName	= NULL;
 	SCNetworkServicePrivateRef	servicePrivate	= (SCNetworkServicePrivateRef)service;
 
 	if (!isA_SCNetworkService(service)) {
@@ -1046,9 +1083,12 @@ SCNetworkServiceSetName(SCNetworkServiceRef service, CFStringRef name)
 		return FALSE;
 	}
 
-	if ((name != NULL) && !isA_CFString(name)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
+	if (name != NULL) {
+		if (!isA_CFString(name)) {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return FALSE;
+		}
+		saveName = CFRetain(name);
 	}
 
 	if (name != NULL) {
@@ -1070,12 +1110,36 @@ SCNetworkServiceSetName(SCNetworkServiceRef service, CFStringRef name)
 			CFStringRef	interface_name;
 
 			interface_name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
-			if ((interface_name != NULL) && CFEqual(name, interface_name)) {
-				// if service name matches the localized interface name
-				// then store the non-localized name.
-				interface_name = __SCNetworkInterfaceGetNonLocalizedDisplayName(interface);
-				if (interface_name != NULL) {
-					name = interface_name;
+			if (interface_name != NULL) {
+				if (CFEqual(name, interface_name)) {
+					// if service name matches the localized interface name
+					// then store the non-localized name.
+					interface_name = __SCNetworkInterfaceGetNonLocalizedDisplayName(interface);
+					if (interface_name != NULL) {
+						CFRelease(saveName);
+						saveName = CFRetain(interface_name);
+					}
+				} else if (CFStringHasPrefix(name, interface_name)) {
+					CFIndex		prefixLen	= CFStringGetLength(interface_name);
+					CFStringRef	suffix;
+					CFIndex		suffixLen	= CFStringGetLength(name);
+
+					// if service name matches the localized interface name plus
+					// a few extra characters) then store the non-localized name with
+					// the same suffix.
+					suffix = CFStringCreateWithSubstring(NULL,
+									     name,
+									     CFRangeMake(prefixLen, suffixLen - prefixLen));
+					interface_name = __SCNetworkInterfaceGetNonLocalizedDisplayName(interface);
+					if (interface_name != NULL) {
+						CFRelease(saveName);
+						saveName = CFStringCreateWithFormat(NULL,
+										    NULL,
+										    CFSTR("%@%@"),
+										    interface_name,
+										    suffix);
+					}
+					CFRelease(suffix);
 				}
 			}
 		}
@@ -1134,6 +1198,7 @@ SCNetworkServiceSetName(SCNetworkServiceRef service, CFStringRef name)
 					 * the "name" is not unique.
 					 */
 					CFRelease(sets);
+					if (saveName != NULL) CFRelease(saveName);
 					_SCErrorSet(kSCStatusKeyExists);
 					return FALSE;
 				}
@@ -1160,8 +1225,8 @@ SCNetworkServiceSetName(SCNetworkServiceRef service, CFStringRef name)
 		CFMutableDictionaryRef	newEntity;
 
 		newEntity = CFDictionaryCreateMutableCopy(NULL, 0, entity);
-		if (name != NULL) {
-			CFDictionarySetValue(newEntity, kSCPropUserDefinedName, name);
+		if (saveName != NULL) {
+			CFDictionarySetValue(newEntity, kSCPropUserDefinedName, saveName);
 		} else {
 			CFDictionaryRemoveValue(newEntity, kSCPropUserDefinedName);
 		}
@@ -1169,6 +1234,11 @@ SCNetworkServiceSetName(SCNetworkServiceRef service, CFStringRef name)
 		CFRelease(newEntity);
 	}
 	CFRelease(path);
+	if (saveName != NULL) CFRelease(saveName);
+
+	if (servicePrivate->name != NULL) CFRelease(servicePrivate->name);
+	if (name != NULL) CFRetain(name);
+	servicePrivate->name = name;
 
 	return ok;
 }

@@ -8249,7 +8249,11 @@ tDirStatus CLDAPv3Plugin::LookupAttribute (	sLDAPContextData *inContext,
 								for ( idx = 0; idx < numValues; idx++ )
 								{
 									valueData = dsCStrFromCharacters( berVal[idx]->bv_val, berVal[idx]->bv_len );
-									if ( valueData == nil ) throw ( eMemoryError );
+									if ( valueData == nil )
+									{
+										inContext->fLDAPConnection->UnlockLDAPSession( aHost, false );
+										throw ( eMemoryError );
+									}
 									
 									// TODO: return the right string
 									DbgLog( kLogPlugin, "CLDAPv3Plugin: LookupAttribute value found %s\n", valueData ); 
@@ -8867,9 +8871,13 @@ void CLDAPv3Plugin::ContinueDeallocProc ( void* inContinueData )
 			if ( pLDAPContinue->fLDAPConnection != nil ) 
 			{
 				LDAP *aHost = pLDAPContinue->fLDAPConnection->LockLDAPSession();
-				if ( aHost != NULL && aHost == pLDAPContinue->fRefLD )
+				if ( aHost != NULL )
 				{
-					ldap_abandon_ext( aHost, pLDAPContinue->fLDAPMsgId, NULL, NULL );
+					if ( aHost == pLDAPContinue->fRefLD )
+					{
+						ldap_abandon_ext( aHost, pLDAPContinue->fLDAPMsgId, NULL, NULL );
+					}
+
 					pLDAPContinue->fLDAPConnection->UnlockLDAPSession( aHost, false );
 				}
 			}

@@ -1,0 +1,3 @@
+0750	root	wheel	private/var/frontrow
+0700	root	wheel	private/var/frontrow/Library
+0700	root	wheel	private/var/frontrow/Library/Preferences

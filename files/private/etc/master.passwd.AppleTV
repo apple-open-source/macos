@@ -5,7 +5,7 @@
 ##
 nobody:*:-2:-2::0:0:Unprivileged User:/var/empty:/usr/bin/false
 root:/s/tPywxLb9gQ:0:0::0:0:System Administrator:/var/root:/bin/sh
-frontrow:/s/tPywxLb9gQ:501:501::0:0:Front Row:/var/root:/bin/sh
+frontrow:/s/tPywxLb9gQ:501:501::0:0:Front Row:/var/frontrow:/bin/sh
 daemon:*:1:1::0:0:System Services:/var/root:/usr/bin/false
 _mdnsresponder:*:65:65::0:0:mDNSResponder:/var/empty:/usr/bin/false
 _unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false

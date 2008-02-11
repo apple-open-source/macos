@@ -844,13 +844,16 @@ deextend(dep, length, flags, context)
         }
     }
 
-	error = cluster_write(DETOV(dep), (struct uio *) 0,
-						  (off_t)dep->de_FileSize, (off_t)(length),
-						  (off_t)dep->de_FileSize, (off_t)0,
-						  (flags | IO_HEADZEROFILL));
-	if (error)
-		return (error);
-
+	/* Zero fill the newly allocated bytes, except if IO_NOZEROFILL was given. */
+	if (!(flags & IO_NOZEROFILL)) {
+		error = cluster_write(DETOV(dep), (struct uio *) 0,
+							  (off_t)dep->de_FileSize, (off_t)(length),
+							  (off_t)dep->de_FileSize, (off_t)0,
+							  (flags | IO_HEADZEROFILL));
+		if (error)
+			return (error);
+	}
+	
 	ubc_setsize(DETOV(dep), (off_t)length); /* XXX check errors */
 
     dep->de_FileSize = length;

@@ -43,6 +43,8 @@ see if it was compiled with the opposite endianness. If so, it uses an
 auxiliary local function to flip the appropriate bytes. */
 
 
+#include <config.h>
+
 #include "pcre_internal.h"
 
 

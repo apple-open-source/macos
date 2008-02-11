@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_filestat.h,v 1.24.2.4.2.1 2007/01/01 09:36:08 sebastian Exp $ */
+/* $Id: php_filestat.h,v 1.24.2.4.2.2 2007/10/31 13:23:06 jani Exp $ */
 
 #ifndef PHP_FILESTAT_H
 #define PHP_FILESTAT_H
@@ -87,6 +87,7 @@ typedef unsigned int php_stat_len;
 typedef int php_stat_len;
 #endif
 
+PHPAPI void php_clear_stat_cache(TSRMLS_D);
 PHPAPI void php_stat(const char *filename, php_stat_len filename_length, int type, zval *return_value TSRMLS_DC);
 
 /* Switches for various filestat functions: */

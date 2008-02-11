@@ -689,6 +689,12 @@ unsigned long
 IOUSBHIDDriver::maxCapabilityForDomainState ( IOPMPowerFlags domainState )
 {
 	unsigned long ret = super::maxCapabilityForDomainState(domainState);
+	if (isInactive())
+	{
+		USBLog(1, "IOUSBHIDDriver[%p]::maxCapabilityForDomainState - while inactive - ignoring", this);
+		return ret;
+	}
+
 	USBLog(5, "IOUSBHIDDriver(%s)[%p]::maxCapabilityForDomainState - domainState[%d] - returning[%d]", getName(), this, (int)domainState, (int)ret);
 	return ret;
 }
@@ -698,13 +704,13 @@ IOUSBHIDDriver::maxCapabilityForDomainState ( IOPMPowerFlags domainState )
 IOReturn
 IOUSBHIDDriver::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice)
 {
-	USBLog(5, "IOUSBHIDDriver(%s)[%p]::powerStateWillChangeTo - capabilities[%p] stateNumber[%d] whatDevice[%p]", getName(), this, (void*)capabilities, (int)stateNumber, whatDevice);
-
 	if (isInactive())
 	{
-		USBLog(1, "IOUSBHIDDriver(%s)[%p]::powerStateWillChangeTo - while inactive - ignoring", getName(), this);
+		USBLog(1, "IOUSBHIDDriver[%p]::powerStateWillChangeTo - while inactive - ignoring", this);
 		return IOPMAckImplied;
 	}
+
+	USBLog(5, "IOUSBHIDDriver(%s)[%p]::powerStateWillChangeTo - capabilities[%p] stateNumber[%d] whatDevice[%p]", getName(), this, (void*)capabilities, (int)stateNumber, whatDevice);
 
 	if (whatDevice != this)
 	{
@@ -725,18 +731,18 @@ IOReturn
 IOUSBHIDDriver::setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice )
 {
 	
+	if ( isInactive() )
+	{
+		USBLog(3,"IOUSBHIDDriver[%p]::setPowerState - while inactive - ignoring", this);
+		return kIOPMAckImplied;
+	}
+	
 	// at the moment, we don't do anything in the setPowerState. However, I want to log it for the time being..
 	USBLog(5, "IOUSBHIDDriver(%s)[%p]::setPowerState - powerStateOrdinal[%d] whatDevice[%p] _device[%p](%s)", getName(), this, (int)powerStateOrdinal, whatDevice, _device, _device->getName());
 
 	if ( whatDevice != this )
 	{
 		USBLog(1,"IOUSBHIDDriver[%p]::setPowerState - whatDevice != this", this);
-		return kIOPMAckImplied;
-	}
-	
-	if ( isInactive() )
-	{
-		USBLog(3,"IOUSBHIDDriver[%p]::setPowerState - I am inactive - bailing", this);
 		return kIOPMAckImplied;
 	}
 	
@@ -794,6 +800,12 @@ IOUSBHIDDriver::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned lo
 {
 	IOReturn		err;
 
+	if ( isInactive() )
+	{
+		USBLog(3,"IOUSBHIDDriver[%p]::powerStateDidChangeTo - while inactive - ignoring", this);
+		return kIOPMAckImplied;
+	}
+	
 	if (whatDevice != this)
 	{
 		USBLog(5, "IOUSBHIDDriver(%s)[%p]::powerStateDidChangeTo - whatDevice[%p] is not me - ignoring", getName(), this, whatDevice);
@@ -826,6 +838,12 @@ void
 IOUSBHIDDriver::powerChangeDone ( unsigned long fromState)
 {
 	
+	if (isInactive())
+	{
+		USBLog(1, "IOUSBHIDDriver[%p]::powerChangeDone - from state (%d)  - ignoring", this, (int)fromState);
+		return;
+	}
+
 	USBLog((fromState == _MYPOWERSTATE) ? 7 : 5, "IOUSBHIDDriver[%p]::powerChangeDone from state (%d) to state (%d) _device name(%s)", this, (int)fromState, (int)_MYPOWERSTATE, _device->getName());
 	_POWERSTATECHANGING = false;
 	super::powerChangeDone(fromState);
@@ -1639,7 +1657,7 @@ IOUSBHIDDriver::ClearFeatureEndpointHalt( )
     // Clear out the structure for the request
     //
     bzero( &request, sizeof(IOUSBDevRequest));
-    while ( retries > 0 )
+    while ( (retries > 0) && (_interruptPipe) )
     {
         retries--;
         
@@ -1647,10 +1665,10 @@ IOUSBHIDDriver::ClearFeatureEndpointHalt( )
         //
         request.bmRequestType 	= USBmakebmRequestType(kUSBNone, kUSBStandard, kUSBEndpoint);
         request.bRequest 		= kUSBRqClearFeature;
-        request.wValue		= 0;	// Zero is ENDPOINT_HALT
-        request.wIndex		= _interruptPipe->GetEndpointNumber() | 0x80 ; // bit 7 sets the direction of the endpoint to IN
-        request.wLength		= 0;
-        request.pData 		= NULL;
+        request.wValue			= 0;	// Zero is ENDPOINT_HALT
+        request.wIndex			= _interruptPipe->GetEndpointNumber() | 0x80 ; // bit 7 sets the direction of the endpoint to IN
+        request.wLength			= 0;
+        request.pData			= NULL;
         
         // Send the command over the control endpoint
         //
@@ -2573,8 +2591,13 @@ IOUSBHIDDriver::RearmInterruptRead()
 		if ( (err == kIOReturnUnsupported) && (_interruptPipe != NULL) && (_buffer != NULL))
 		{
 			err = _interruptPipe->Read(_buffer, 0, 0, _buffer->getLength(), &_completion);
+			if ((err == kIOReturnNotResponding) && (_POWERSTATECHANGING || (_MYPOWERSTATE < kUSBHIDPowerStateOn)))
+			{
+				USBLog(3, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - err(kIOReturnNotResponding) while _POWERSTATECHANGING(%s) or (_MYPOWERSTATE < kUSBHIDPowerStateOn)(%d) - no posting read", getName(), this, _POWERSTATECHANGING ? "true" : "false", (int)_MYPOWERSTATE);
+				break;			// out of the while loop
+			}
 		}
-		
+
 		// If we get an error, let's clear the pipe and try again
 		if ( (err != kIOReturnSuccess) && (_interruptPipe != NULL))
 		{
@@ -2592,6 +2615,8 @@ IOUSBHIDDriver::RearmInterruptRead()
 	
     return err;
 }
+
+
 
 OSMetaClassDefineReservedUsed(IOUSBHIDDriver,  4)
 IOReturn	

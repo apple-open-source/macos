@@ -207,6 +207,7 @@ static inline double _xexp( double _x )
     return XDOUBLE_2_DOUBLE( result );
 }
 
+
 static inline double _xexp2( double x ) ALWAYS_INLINE;
 static inline double _xexp2( double x )
 {
@@ -223,12 +224,14 @@ static inline double _xexp2( double x )
     return _xexp( x * conversion );
 }
 
-#if ! defined( BUILDING_FOR_CARBONCORE_LEGACY )
 
+#if ! defined( BUILDING_FOR_CARBONCORE_LEGACY )
+/*
 double exp ( double x )
 {
     return  _xexp( x );
 }
+ */
 
 /*
 float    expf( float x )
@@ -427,10 +430,12 @@ static inline double _xexpm1( double _x )
 	
 }
 
+/*
 double expm1( double x )
 {
     return _xexpm1( x );
 }
+*/
 
 /*
 float    expm1f( float x )
@@ -451,10 +456,13 @@ float exp2f( float x )
 
 #else /*carbon core legacy */
 
+/*
 double exp2( double x )
 {
     return _xexp2( x );
 }
+ */
+
 
 #endif  /*CARBONCORE LEGACY */
 

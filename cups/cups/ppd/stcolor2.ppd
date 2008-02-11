@@ -1,6 +1,6 @@
 *PPD-Adobe: "4.3"
 *% PPD file for New Stylus Color Series with CUPS.
-*% Created by the CUPS PPD Compiler v1.2.0.
+*% Created by the CUPS PPD Compiler v1.2.4.
 *% Copyright 2007 by Apple Inc.
 *% Copyright 1997-2007 by Easy Software Products.
 *% 
@@ -34,7 +34,7 @@
 *cupsModelNumber: 4
 *cupsManualCopies: True
 *cupsFilter: "application/vnd.cups-raster 50 rastertoepson"
-*cupsLanguages: "da de es fi fr it ja ko nl no pt pt_BR pt_PT sv zh zh_TW"
+*cupsLanguages: "en da de es fi fr it ja ko nl no pt pt_BR sv zh zh_TW"
 *OpenUI *PageSize/Media Size: PickOne
 *OrderDependency: 10 AnySetup *PageSize
 *DefaultPageSize: Letter
@@ -233,7 +233,7 @@
 *ko.Translation ModelName/Epson New Stylus Color Series: ""
 *ko.Translation ShortNickName/Epson New Stylus Color Series: ""
 *ko.Translation NickName/Epson New Stylus Color Series, 1.3: ""
-*ko.Translation PageSize/Media Size: ""
+*ko.Translation PageSize/Page Size: ""
 *ko.PageSize Letter/Letter - 8.5x11in: ""
 *ko.PageSize Legal/Legal - 8.5x14in: ""
 *ko.PageSize A4/A4 - 210x297mm: ""
@@ -324,25 +324,6 @@
 *pt_BR.Translation ColorModel/Modo Cor: ""
 *pt_BR.ColorModel CMYK/CMYK: ""
 *pt_BR.ColorModel Gray/Grayscale: ""
-*pt_PT.Translation Manufacturer/Epson: ""
-*pt_PT.Translation ModelName/Epson New Stylus Color Series: ""
-*pt_PT.Translation ShortNickName/Epson New Stylus Color Series: ""
-*pt_PT.Translation NickName/Epson New Stylus Color Series, 1.3: ""
-*pt_PT.Translation PageSize/Media Size: ""
-*pt_PT.PageSize Letter/Letter - 8.5x11in: ""
-*pt_PT.PageSize Legal/Legal - 8.5x14in: ""
-*pt_PT.PageSize A4/A4 - 210x297mm: ""
-*pt_PT.PageSize FanFoldUS/Fanfold - 14.875x11in: ""
-*pt_PT.PageSize Letter/Letter - 8.5x11in: ""
-*pt_PT.PageSize Legal/Legal - 8.5x14in: ""
-*pt_PT.PageSize A4/A4 - 210x297mm: ""
-*pt_PT.Translation Resolution/Resolution: ""
-*pt_PT.Resolution 180dpi/180dpi: ""
-*pt_PT.Resolution 360dpi/360dpi: ""
-*pt_PT.Resolution 720dpi/720dpi: ""
-*pt_PT.Translation ColorModel/Modo Cor: ""
-*pt_PT.ColorModel CMYK/CMYK: ""
-*pt_PT.ColorModel Gray/Grayscale: ""
 *sv.Translation Manufacturer/Epson: ""
 *sv.Translation ModelName/Epson New Stylus Color Series: ""
 *sv.Translation ShortNickName/Epson New Stylus Color Series: ""
@@ -366,7 +347,7 @@
 *zh.Translation ModelName/Epson New Stylus Color Series: ""
 *zh.Translation ShortNickName/Epson New Stylus Color Series: ""
 *zh.Translation NickName/Epson New Stylus Color Series, 1.3: ""
-*zh.Translation PageSize/Media Size: ""
+*zh.Translation PageSize/Page Size: ""
 *zh.PageSize Letter/Letter - 8.5x11in: ""
 *zh.PageSize Legal/Legal - 8.5x14in: ""
 *zh.PageSize A4/A4 - 210x297mm: ""
@@ -385,7 +366,7 @@
 *zh_TW.Translation ModelName/Epson New Stylus Color Series: ""
 *zh_TW.Translation ShortNickName/Epson New Stylus Color Series: ""
 *zh_TW.Translation NickName/Epson New Stylus Color Series, 1.3: ""
-*zh_TW.Translation PageSize/Media Size: ""
+*zh_TW.Translation PageSize/Page Size: ""
 *zh_TW.PageSize Letter/Letter - 8.5x11in: ""
 *zh_TW.PageSize Legal/Legal - 8.5x14in: ""
 *zh_TW.PageSize A4/A4 - 210x297mm: ""
@@ -436,4 +417,4 @@
 *Font Times-Roman: Standard "(1.05)" Standard ROM
 *Font ZapfChancery-MediumItalic: Standard "(1.05)" Standard ROM
 *Font ZapfDingbats: Special "(001.005)" Special ROM
-*% End of STCOLOR2.PPD, 20042 bytes.
+*% End of STCOLOR2.PPD, 19185 bytes.

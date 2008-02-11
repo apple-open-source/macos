@@ -83,17 +83,18 @@ void _sx_process_read(sx_t s, sx_buf_t buf) {
                 (NAD_ENAME_L(nad, 0) == 7 && strncmp("message", NAD_ENAME(nad, 0), 7) == 0))
             {
                 for (i = 1; NAD_ENAME_L(nad, i) > 0; i++) {
-                    if((NAD_ENAME_L(nad, i) == 4) && (strncmp("body", NAD_ENAME(nad, i), 4) == 0)) {
-                        if (NAD_CDATA_L(nad, i) > s->max_message_bytes) {
+                    if((NAD_ENAME_L(nad, i) == 4) && 
+                        (nad->elems[i].iname != NULL) &&
+                        (strncmp("body", NAD_ENAME(nad, i), 4) == 0) &&
+                        (NAD_CDATA_L(nad, i) > s->max_message_bytes)) {
                             _sx_gen_error(sxe, SX_ERR_STREAM, "Stream error", "Message body too large");
                             _sx_event(s, event_ERROR, (void *) &sxe);
                             nad_free(nad);
                             return;
-                        }
                     }
                 }
             }
-			
+
             /* check for errors */
             if(NAD_ENS(nad, 0) >= 0 && NAD_NURI_L(nad, NAD_ENS(nad, 0)) == strlen(uri_STREAMS) && strncmp(NAD_NURI(nad, NAD_ENS(nad, 0)), uri_STREAMS, strlen(uri_STREAMS)) == 0 && NAD_ENAME_L(nad, 0) == 5 && strncmp(NAD_ENAME(nad, 0), "error", 5) == 0) {
 

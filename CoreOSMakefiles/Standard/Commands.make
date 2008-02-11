@@ -61,8 +61,11 @@ GM4     = /usr/bin/gm4
 GNUMAKE = /usr/bin/gnumake
 LEX     = $(FLEX)
 LIPO    = /usr/bin/lipo
+LIBTOOL = /usr/bin/libtool
 M4      = /usr/bin/m4
+MIG     = /usr/bin/mig
 OTOOL   = /usr/bin/otool
+RPCGEN	= /usr/bin/rpcgen
 STRIP   = /usr/bin/strip
 YACC    = /usr/bin/yacc
 

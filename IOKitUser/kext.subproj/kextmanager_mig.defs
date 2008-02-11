@@ -6,7 +6,12 @@ serverprefix _;
 
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
+//import <TargetConditionals.h>;
+// RY: Looks like TargetConditionals is not working with MIG
+// Using NO_SECURITY_FRAMEWORK instead of !TARGET_OS_EMBEDDED
+#ifndef NO_SECURITY_FRAMEWORK
 import <Security/Authorization.h>;
+#endif /* NO_SECURITY_FRAMEWORK */
 import <IOKit/kext/kextmanager_types.h>;
 import <mach/kmod.h>;
 import <sys/param.h>;
@@ -34,8 +39,10 @@ type xmlDataOut = ^ array [] of MACH_MSG_TYPE_BYTE
         ctype : xmlDataOut_t;
 type xmlDataIn = ^ array [] of MACH_MSG_TYPE_BYTE
         ctype : xmlDataIn_t;
+#ifndef NO_SECURITY_FRAMEWORK
 type AuthRefIn = struct [8] of unsigned32
         ctype : AuthorizationExternalForm;
+#endif /* NO_SECURITY_FRAMEWORK */
 
 // for finding icons
 routine kextmanager_path_for_bundle_id(
@@ -51,10 +58,12 @@ routine kextmanager_create_property_value_array(
     out data         : xmlDataOut, dealloc);
 
 // login / logout tracking
+#ifndef NO_SECURITY_FRAMEWORK
 routine kextmanager_user_did_log_in(
     server           : mach_port_t;
     euid             : uint32_t;
     authref          : AuthRefIn);
+#endif /* NO_SECURITY_FRAMEWORK */
 
 routine kextmanager_user_will_log_out(
     server           : mach_port_t;

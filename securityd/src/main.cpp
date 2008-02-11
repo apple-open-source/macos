@@ -240,9 +240,6 @@ int main(int argc, char *argv[])
         secdebug("SS", "Cannot handle SIGHUP: errno=%d", errno);
 #endif //NDEBUG
 
-	// create the shared memory notification hub
-	new SharedMemoryListener(messagingName, kSharedMemoryPoolSize);
-	
 	// create an Authorization engine
 	Authority authority(authorizationConfig);
 	
@@ -299,6 +296,9 @@ int main(int argc, char *argv[])
     // install MDS and initialize the local CSSM
     server.loadCssm();
     
+	// create the shared memory notification hub
+	new SharedMemoryListener(messagingName, kSharedMemoryPoolSize);
+	
 	// okay, we're ready to roll
 	Syslog::notice("Entering service");
 	secdebug("SS", "%s initialized", bootstrapName);

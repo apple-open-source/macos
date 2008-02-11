@@ -31,6 +31,11 @@
   #define HAVE_SMART_BATTERY            1
 #endif
 
+// TODO: Delete me once sync'd with OS (rdar://5608255)
+#ifndef kIOPMPSBatteryChargeStatusKey
+    #define kIOPMPSBatteryChargeStatusKey               "ChargeStatus"
+#endif
+
 struct IOPMBattery {
     io_registry_entry_t     me;
     io_object_t             msg_port;
@@ -39,6 +44,7 @@ struct IOPMBattery {
     bool                    externalChargeCapable:1;
     bool                    isCharging:1;
     bool                    isPresent:1;
+    bool                    markedNeedsReplacement:1;
     int                     currentCap;
     int                     maxCap;
     int                     designCap;
@@ -52,11 +58,11 @@ struct IOPMBattery {
     int                     hwInstantTR;
     int                     swCalculatedTR;
     int                     invalidWakeSecs;
-    int                     health;
-    int                     healthConfidence;
+    CFStringRef             health;
     CFStringRef             failureDetected;
     CFStringRef             name;
     CFStringRef             dynamicStoreKey;
+    CFStringRef             chargeStatus;
 };
 typedef struct IOPMBattery IOPMBattery;
 

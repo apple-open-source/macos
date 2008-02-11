@@ -360,13 +360,31 @@ cupsdProcessIPPRequest(
 	ippAddString(con->response, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
                      "attributes-natural-language", NULL, DefaultLanguage);
 
-      if (!charset || !language ||
-	  (!uri &&
-	   con->request->request.op.operation_id != CUPS_GET_DEFAULT &&
-	   con->request->request.op.operation_id != CUPS_GET_PRINTERS &&
-	   con->request->request.op.operation_id != CUPS_GET_CLASSES &&
-	   con->request->request.op.operation_id != CUPS_GET_DEVICES &&
-	   con->request->request.op.operation_id != CUPS_GET_PPDS))
+      if (charset &&
+          strcasecmp(charset->values[0].string.text, "us-ascii") &&
+          strcasecmp(charset->values[0].string.text, "utf-8"))
+      {
+       /*
+        * Bad character set...
+	*/
+
+        cupsdLogMessage(CUPSD_LOG_ERROR, "Unsupported character set \"%s\"!",
+	                charset->values[0].string.text);
+	cupsdAddEvent(CUPSD_EVENT_SERVER_AUDIT, NULL, NULL,
+		      "%04X %s Unsupported attributes-charset value \"%s\"",
+		      IPP_CHARSET, con->http.hostname,
+		      charset->values[0].string.text);
+	send_ipp_status(con, IPP_BAD_REQUEST,
+	                _("Unsupported character set \"%s\"!"),
+	                charset->values[0].string.text);
+      }
+      else if (!charset || !language ||
+	       (!uri &&
+	        con->request->request.op.operation_id != CUPS_GET_DEFAULT &&
+	        con->request->request.op.operation_id != CUPS_GET_PRINTERS &&
+	        con->request->request.op.operation_id != CUPS_GET_CLASSES &&
+	        con->request->request.op.operation_id != CUPS_GET_DEVICES &&
+	        con->request->request.op.operation_id != CUPS_GET_PPDS))
       {
        /*
 	* Return an error, since attributes-charset,
@@ -902,16 +920,6 @@ add_class(cupsd_client_t  *con,		/* I - Client connection */
   }
 
  /*
-  * Check policy...
-  */
-
-  if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
-  {
-    send_http_error(con, status, NULL);
-    return;
-  }
-
- /*
   * See if the class already exists; if not, create a new class...
   */
 
@@ -935,8 +943,14 @@ add_class(cupsd_client_t  *con,		/* I - Client connection */
     }
 
    /*
-    * No, add the pclass...
+    * No, check the default policy and then add the class...
     */
+
+    if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
+    {
+      send_http_error(con, status, NULL);
+      return;
+    }
 
     pclass = cupsdAddClass(resource + 9);
     modify = 0;
@@ -944,8 +958,15 @@ add_class(cupsd_client_t  *con,		/* I - Client connection */
   else if (pclass->type & CUPS_PRINTER_IMPLICIT)
   {
    /*
-    * Rename the implicit class to "AnyClass" or remove it...
+    * Check the default policy, then rename the implicit class to "AnyClass"
+    * or remove it...
     */
+
+    if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
+    {
+      send_http_error(con, status, NULL);
+      return;
+    }
 
     if (ImplicitAnyClasses)
     {
@@ -965,8 +986,14 @@ add_class(cupsd_client_t  *con,		/* I - Client connection */
   else if (pclass->type & CUPS_PRINTER_DISCOVERED)
   {
    /*
-    * Rename the remote class to "Class"...
+    * Check the default policy, then rename the remote class to "Class"...
     */
+
+    if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
+    {
+      send_http_error(con, status, NULL);
+      return;
+    }
 
     snprintf(newname, sizeof(newname), "%s@%s", resource + 9, pclass->hostname);
     cupsdRenamePrinter(pclass, newname);
@@ -977,6 +1004,12 @@ add_class(cupsd_client_t  *con,		/* I - Client connection */
 
     pclass = cupsdAddClass(resource + 9);
     modify = 0;
+  }
+  else if ((status = cupsdCheckPolicy(pclass->op_policy_ptr, con,
+                                      NULL)) != HTTP_OK)
+  {
+    send_http_error(con, status, pclass);
+    return;
   }
   else
     modify = 1;
@@ -1235,7 +1268,8 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
 
   cupsdLogMessage(CUPSD_LOG_DEBUG2, "add_job(%p[%d], %p(%s), %p(%s/%s))",
                   con, con->http.fd, printer, printer->name,
-		  filetype, filetype->super, filetype->type);
+		  filetype, filetype ? filetype->super : "none",
+		  filetype ? filetype->type : "none");
 
  /*
   * Check remote printing to non-shared printer...
@@ -1472,17 +1506,7 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
     */
 
     if (auth_info)
-    {
-      if (job->attrs->prev)
-        job->attrs->prev->next = auth_info->next;
-      else
-        job->attrs->attrs = auth_info->next;
-
-      if (job->attrs->last == auth_info)
-        job->attrs->last = job->attrs->prev;
-
-      _ippFreeAttr(auth_info);
-    }
+      ippDeleteAttribute(job->attrs, auth_info);
   }
 
   if ((attr = ippFindAttribute(job->attrs, "job-originating-host-name",
@@ -2174,16 +2198,6 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
   }
 
  /*
-  * Check policy...
-  */
-
-  if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
-  {
-    send_http_error(con, status, NULL);
-    return;
-  }
-
- /*
   * See if the printer already exists; if not, create a new printer...
   */
 
@@ -2207,8 +2221,14 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
     }
 
    /*
-    * No, add the printer...
+    * No, check the default policy then add the printer...
     */
+
+    if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
+    {
+      send_http_error(con, status, NULL);
+      return;
+    }
 
     printer = cupsdAddPrinter(resource + 10);
     modify  = 0;
@@ -2216,8 +2236,15 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
   else if (printer->type & CUPS_PRINTER_IMPLICIT)
   {
    /*
-    * Rename the implicit printer to "AnyPrinter" or delete it...
+    * Check the default policy, then rename the implicit printer to
+    * "AnyPrinter" or delete it...
     */
+
+    if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
+    {
+      send_http_error(con, status, NULL);
+      return;
+    }
 
     if (ImplicitAnyClasses)
     {
@@ -2237,8 +2264,15 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
   else if (printer->type & CUPS_PRINTER_DISCOVERED)
   {
    /*
-    * Rename the remote printer to "Printer@server"...
+    * Check the default policy, then rename the remote printer to
+    * "Printer@server"...
     */
+
+    if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
+    {
+      send_http_error(con, status, NULL);
+      return;
+    }
 
     snprintf(newname, sizeof(newname), "%s@%s", resource + 10,
              printer->hostname);
@@ -2250,6 +2284,12 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
 
     printer = cupsdAddPrinter(resource + 10);
     modify  = 0;
+  }
+  else if ((status = cupsdCheckPolicy(printer->op_policy_ptr, con,
+                                      NULL)) != HTTP_OK)
+  {
+    send_http_error(con, status, printer);
+    return;
   }
   else
     modify = 1;
@@ -2275,13 +2315,30 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
   {
    /*
     * Do we have a valid device URI?
+    *
+    * Note: Need to allow bad "hpip" URIs for now to work around HP bug...
     */
+
+    http_uri_status_t uri_status;	/* URI separation status */
+
 
     need_restart_job = 1;
 
-    httpSeparateURI(HTTP_URI_CODING_ALL, attr->values[0].string.text, scheme,
-                    sizeof(scheme), username, sizeof(username), host,
-		    sizeof(host), &port, resource, sizeof(resource));
+    uri_status = httpSeparateURI(HTTP_URI_CODING_ALL,
+				 attr->values[0].string.text,
+				 scheme, sizeof(scheme),
+				 username, sizeof(username),
+				 host, sizeof(host), &port,
+				 resource, sizeof(resource));
+
+    if (uri_status < HTTP_URI_OK && strcmp(scheme, "hpip"))
+    {
+      send_ipp_status(con, IPP_NOT_POSSIBLE, _("Bad device-uri \"%s\"!"),
+		      attr->values[0].string.text);
+      cupsdLogMessage(CUPSD_LOG_DEBUG,
+                      "add_printer: httpSeparateURI returned %d", uri_status);
+      return;
+    }
 
     if (!strcmp(scheme, "file"))
     {
@@ -2345,7 +2402,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
     need_restart_job = 1;
 
     supported = ippFindAttribute(printer->attrs, "port-monitor-supported",
-                                 IPP_TAG_KEYWORD);
+                                 IPP_TAG_NAME);
     for (i = 0; i < supported->num_values; i ++)
       if (!strcmp(supported->values[i].string.text,
                   attr->values[0].string.text))
@@ -2898,7 +2955,7 @@ authenticate_job(cupsd_client_t  *con,	/* I - Client connection */
 
   if (!validate_user(job, con, job->username, username, sizeof(username)))
   {
-    send_http_error(con, HTTP_UNAUTHORIZED, NULL);
+    send_http_error(con, HTTP_UNAUTHORIZED, cupsdFindDest(job->dest));
     return;
   }
 
@@ -3215,7 +3272,7 @@ cancel_job(cupsd_client_t  *con,	/* I - Client connection */
 
   if (!validate_user(job, con, job->username, username, sizeof(username)))
   {
-    send_http_error(con, HTTP_UNAUTHORIZED, NULL);
+    send_http_error(con, HTTP_UNAUTHORIZED, cupsdFindDest(job->dest));
     return;
   }
 
@@ -5871,6 +5928,12 @@ get_jobs(cupsd_client_t  *con,		/* I - Client connection */
 
     cupsdLogMessage(CUPSD_LOG_DEBUG2, "get_jobs: job->id = %d", job->id);
 
+    if (!job->dest || !job->username)
+      cupsdLoadJob(job);
+
+    if (!job->dest || !job->username)
+      continue;
+
     if ((dest && strcmp(job->dest, dest)) &&
         (!job->printer || !dest || strcmp(job->printer->name, dest)))
       continue;
@@ -6123,7 +6186,7 @@ get_ppd(cupsd_client_t  *con,		/* I - Client connection */
 
     if ((status = cupsdCheckPolicy(dest->op_policy_ptr, con, NULL)) != HTTP_OK)
     {
-      send_http_error(con, status, NULL);
+      send_http_error(con, status, dest);
       return;
     }
 
@@ -6860,7 +6923,7 @@ hold_job(cupsd_client_t  *con,		/* I - Client connection */
 
   if (!validate_user(job, con, job->username, username, sizeof(username)))
   {
-    send_http_error(con, HTTP_UNAUTHORIZED, NULL);
+    send_http_error(con, HTTP_UNAUTHORIZED, cupsdFindDest(job->dest));
     return;
   }
 
@@ -7118,7 +7181,7 @@ move_job(cupsd_client_t  *con,		/* I - Client connection */
 
     if (!validate_user(job, con, job->username, username, sizeof(username)))
     {
-      send_http_error(con, HTTP_UNAUTHORIZED, NULL);
+      send_http_error(con, HTTP_UNAUTHORIZED, cupsdFindDest(job->dest));
       return;
     }
 
@@ -7864,7 +7927,7 @@ release_job(cupsd_client_t  *con,	/* I - Client connection */
 
   if (!validate_user(job, con, job->username, username, sizeof(username)))
   {
-    send_http_error(con, HTTP_UNAUTHORIZED, NULL);
+    send_http_error(con, HTTP_UNAUTHORIZED, cupsdFindDest(job->dest));
     return;
   }
 
@@ -8106,7 +8169,7 @@ restart_job(cupsd_client_t  *con,	/* I - Client connection */
 
   if (!validate_user(job, con, job->username, username, sizeof(username)))
   {
-    send_http_error(con, HTTP_UNAUTHORIZED, NULL);
+    send_http_error(con, HTTP_UNAUTHORIZED, cupsdFindDest(job->dest));
     return;
   }
 
@@ -8275,9 +8338,7 @@ save_krb5_creds(cupsd_client_t *con,	/* I - Client connection */
   krb5_error_code	error;		/* Kerberos error code */
   OM_uint32		major_status,	/* Major status code */
 			minor_status;	/* Minor status code */
-#    ifdef HAVE_KRB5_CC_NEW_UNIQUE
   krb5_principal	principal;	/* Kerberos principal */
-#    endif /* HAVE_KRB5_CC_NEW_UNIQUE */
 
 
 #   ifdef __APPLE__
@@ -8306,7 +8367,7 @@ save_krb5_creds(cupsd_client_t *con,	/* I - Client connection */
   if ((error = krb5_cc_new_unique(KerberosContext, "FILE", NULL,
                                   &(job->ccache))) != 0)
 #    else /* HAVE_HEIMDAL */
-  if ((error = krb5_cc_gen_new(krb_context, &krb5_fcc_ops,
+  if ((error = krb5_cc_gen_new(KerberosContext, &krb5_fcc_ops,
                                &(job->ccache))) != 0)
 #    endif /* HAVE_KRB5_CC_NEW_UNIQUE */
   {
@@ -8478,7 +8539,7 @@ send_document(cupsd_client_t  *con,	/* I - Client connection */
 
   if (!validate_user(job, con, job->username, username, sizeof(username)))
   {
-    send_http_error(con, HTTP_UNAUTHORIZED, NULL);
+    send_http_error(con, HTTP_UNAUTHORIZED, cupsdFindDest(job->dest));
     return;
   }
 
@@ -8770,6 +8831,23 @@ send_http_error(
       printer && printer->num_auth_info_required > 0 &&
       !strcmp(printer->auth_info_required[0], "negotiate"))
     cupsdSendError(con, status, AUTH_NEGOTIATE);
+  else if (printer)
+  {
+    char	resource[HTTP_MAX_URI];	/* Resource portion of URI */
+    cupsd_location_t *auth;		/* Pointer to authentication element */
+
+
+    if (printer->type & CUPS_PRINTER_CLASS)
+      snprintf(resource, sizeof(resource), "/classes/%s", printer->name);
+    else
+      snprintf(resource, sizeof(resource), "/printers/%s", printer->name);
+
+    if ((auth = cupsdFindBest(resource, HTTP_POST)) == NULL ||
+        auth->type == AUTH_NONE)
+      auth = cupsdFindPolicyOp(printer->op_policy_ptr, IPP_PRINT_JOB);
+
+    cupsdSendError(con, status, auth ? auth->type : AUTH_NONE);
+  }
   else
     cupsdSendError(con, status, AUTH_NONE);
 
@@ -8997,7 +9075,7 @@ set_job_attrs(cupsd_client_t  *con,	/* I - Client connection */
 
   if (!validate_user(job, con, job->username, username, sizeof(username)))
   {
-    send_http_error(con, HTTP_UNAUTHORIZED, NULL);
+    send_http_error(con, HTTP_UNAUTHORIZED, cupsdFindDest(job->dest));
     return;
   }
 

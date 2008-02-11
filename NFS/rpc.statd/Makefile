@@ -12,7 +12,7 @@ SYMROOT ?= .
 DSTROOT ?= .
 
 Extra_CC_Flags = -Wall
-Extra_LD_Flags = -lutil
+Extra_LD_Flags = -lutil -dead_strip
 
 DST_DIR = $(DSTROOT)/usr/sbin
 MAN_DIR = $(DSTROOT)/usr/share/man/man8

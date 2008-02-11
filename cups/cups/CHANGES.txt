@@ -1,5 +1,116 @@
-CHANGES.txt - 2007-09-28
+CHANGES.txt - 2007-12-14
 ------------------------
+
+CHANGES IN CUPS V1.3.5
+
+	- The scheduler incorrectly removed auth-info attributes,
+	  potentially leading to a loss of all options for a job.
+	- The scheduler stopped sending CUPS browse packets on a
+	  restart when using fixed addresses (STR #2618)
+	- Fixed PDF filter security issues (CVE-2007-4352
+	  CVE-2007-5392 CVE-2007-5393)
+	- Changing settings would always change the DefaultAuthType
+	  and Allow lines (STR #2580)
+	- The scheduler would crash when submitting an undefined
+	  format file from Samba with LogLevel debug2 (STR #2600)
+	- The scheduler did not use poll() when epoll() was not
+	  supported by the running kernel (STR #2582)
+	- Fixed a compile problem with Heimdal Kerberos (STR #2592)
+	- The USB backend now retries connections to a printer
+	  indefinitely rather than stopping the queue.
+	- Printers with untranslated JCL options were not exported
+	  to Samba correctly (STR #2570)
+	- The USB backend did not work with some Minolta USB
+	  printers (STR #2604)
+	- The strcasecmp() emulation code did not compile (STR
+	  #2612)
+	- The scheduler would crash if a job was sent to an empty
+	  class (STR #2605)
+	- The lpc command did not work in non-UTF-8 locales (STR
+	  #2595)
+	- Subscriptions for printer-stopped events also received
+	  other state changes (STR #2572)
+	- cupstestppd incorrectly reported translation errors for
+	  the "en" locale.
+	- ppdOpen() did not handle custom options properly when the
+	  Custom attribute appeared before the OpenUI for that
+	  option.
+	- The scheduler could crash when deleting a printer or
+	  listing old jobs.
+	- The Mac OS X USB backend did not allow for requeuing of
+	  jobs submitted to a class.
+	- lpmove didn't accept a job ID by itself.
+	- The scheduler incorrectly removed job history information
+	  for remote print jobs.
+	- The scheduler incorrectly sent the
+	  "com.apple.printerListChanged" message for printer state
+	  changes.
+	- The PostScript filter drew the page borders (when enabled)
+	  outside the imageable area.
+	- The LPD and IPP backends did not default to the correct
+	  port numbers when using alternate scheme names.
+	- The scheduler incorrectly deleted hardwired remote
+	  printers on system sleep.
+	- The scheduler would abort if a bad browse protocol name
+	  was listed in the cupsd.conf file.
+	- The online cupsd.conf help file incorrectly showed
+	  "dns-sd" instead of "dnssd" for Bonjour sharing.
+	- The scheduler could crash changing the port-monitor value.
+	- The scheduler generated CoreFoundation errors when run as
+	  a background process.
+	- When printing with number-up > 1, it was possible to get
+	  an extra blank page.
+
+
+CHANGES IN CUPS V1.3.4
+
+	- Documentation updates (STR #2560, STR #2563, STR #2569)
+	- CUPS now maps the "nb" locale to "no" on all platforms
+	  (STR #2575)
+	- CUPS did not work with a Windows 2003 R2 KDC (STR #2568)
+	- ippReadIO() could read past the end of a buffer (STR
+	  #2561)
+	- The scheduler would crash on shutdown if it was unable
+	  to create a Kerberos context.
+	- Multiple AuthTypes in cupsd.conf did not work (STR
+	  #2545)
+	- The snmp.conf file referenced the wrong man page (STR
+	  #2564)
+	- The cupsaddsmb program didn't handle domain sockets
+	  properly (STR #2556)
+	- The scheduler now validates device URIs when adding
+	  printers.
+	- Updated httpSeparateURI() to support hostnames with
+	  the backslash character.
+	- Updated the Japanese localization (STR #2546)
+	- The parallel backend now gets the current IEEE-1284
+	  device ID string on Linux (STR #2553)
+	- The IPP backend now checks the job status at
+	  variable intervals (from 1 to 10 seconds) instead
+	  of every 10 seconds for faster remote printing
+	  (STR #2548)
+	- "lpr -p" and "lpr -l" did not work (STR #2544)
+	- Compilation failed when a previous version of CUPS
+	  was installed and was included in the SSL include
+	  path (STR #2538)
+	- The scheduler did not reject requests with charsets
+	  other than US-ASCII or UTF-8, and the CUPS API
+	  incorrectly passed the locale charset to the scheduler
+	  instead of UTF-8 (STR #2537)
+	- cups-deviced did not filter out duplicate devices.
+	- The AppleTalk backend incorrectly added a scheme
+	  listing when AppleTalk was disabled or no printers
+	  were found.
+	- The PostScript filter generated N^2 copies when the
+	  printer supported collated copies and user requested
+	  reverse-order output.
+	- The scheduler did not reprint all of the files in a
+	  job that was held.
+	- The scheduler did not update the printcap file after
+	  removing stale remote queues.
+	- The cupsd.conf man page incorrectly referenced
+	  "AuthType Kerberos" instead of "AuthType Negotiate".
+
 
 CHANGES IN CUPS V1.3.3
 

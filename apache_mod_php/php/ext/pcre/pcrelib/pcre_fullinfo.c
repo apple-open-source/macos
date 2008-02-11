@@ -42,6 +42,8 @@ POSSIBILITY OF SUCH DAMAGE.
 information about a compiled pattern. */
 
 
+#include <config.h>
+
 #include "pcre_internal.h"
 
 
@@ -146,6 +148,10 @@ switch (what)
 
   case PCRE_INFO_JCHANGED:
   *((int *)where) = (re->options & PCRE_JCHANGED) != 0;
+  break;
+
+  case PCRE_INFO_HASCRORLF:
+  *((int *)where) = (re->options & PCRE_HASCRORLF) != 0;
   break;
 
   default: return PCRE_ERROR_BADOPTION;

@@ -185,7 +185,7 @@ enum {
  * Clusters required to hold size bytes
  */
 #define	de_clcount(pmp, size) \
-	(((size) + (pmp)->pm_bpcluster - 1) >> (pmp)->pm_cnshift)
+	(((off_t)(size) + (pmp)->pm_bpcluster - 1) >> (pmp)->pm_cnshift)
 
 /*
  * Convert file offset to first block number of cluster containing offset.

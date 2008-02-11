@@ -83,7 +83,12 @@ enum {
     kMCalibrateRequestBit                   = 0x0008,
     kMChargeInhibitBit                      = 0x0010,
     kMChargerPowerOnResetBit                = 0x0020,
-    kMCalibrateBit                          = 0x0040
+    kMCalibrateBit                          = 0x0040,
+/* Bits 14 & 15 convey information about charges that were
+   terminated for temperature reasons
+ */
+    kMReservedNoChargeBit14                  = 0x4000,
+    kMReservedNoChargeBit15                  = 0x8000
 };
 
 /*  SBSM BatterySystemStateInfo bitfields               */

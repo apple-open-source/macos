@@ -103,57 +103,68 @@ bool BLIsValidNetworkInterface(BLContextPtr context,
 bool isInterfaceLinkUp(BLContextPtr context,
                                 io_service_t serv)
 {
-    CFTypeRef   linkStatus, builtin;
-    bool        hasLink;
-
-    builtin = IORegistryEntryCreateCFProperty(serv, CFSTR(kIOBuiltin),
-                                              kCFAllocatorDefault, 0);
-    
-    if(builtin == NULL || CFGetTypeID(builtin) != CFBooleanGetTypeID()
-       || !CFEqual(builtin, kCFBooleanTrue)) {
-        if(builtin) CFRelease(builtin);
-        
-        contextprintf(context, kBLLogLevelError, "Interface is not built-in\n");
-        
-        return false;
-    }
-
-    CFRelease(builtin);
-    
-
-    linkStatus = IORegistryEntrySearchCFProperty(serv, kIOServicePlane,
-                                                 CFSTR(kIOLinkStatus),
-                                                 kCFAllocatorDefault,
-                                                 kIORegistryIterateRecursively|kIORegistryIterateParents);
-    if(linkStatus == NULL) {
-        hasLink = false;
-    } else {
-        if(CFGetTypeID(linkStatus) != CFNumberGetTypeID()) {
-            hasLink = false;
-        } else {
-            uint32_t    linkNum;
-            
-            if(!CFNumberGetValue(linkStatus, kCFNumberSInt32Type, &linkNum)) {
-                hasLink = false;
-            } else {
-                if((linkNum & (kIONetworkLinkValid|kIONetworkLinkActive))
-                   == (kIONetworkLinkValid|kIONetworkLinkActive)) {
-                    hasLink = true;
-                } else {
-                    hasLink = false;
-                }
-            }
-        }
-        CFRelease(linkStatus);
-    }
-
-    contextprintf(context, kBLLogLevelVerbose, "Interface %s an active link\n",
-                      hasLink ? "has" : "does not have");
-    
-    if(hasLink) {
-        return true;
-    } else {
-        return false;
-    }
+	CFTypeRef   linkStatus, builtin, netbootable;
+	bool        hasLink, isbootable = false;
+	
+	builtin = IORegistryEntryCreateCFProperty(serv, CFSTR(kIOBuiltin),
+											  kCFAllocatorDefault, 0);
+	
+	if (builtin && CFGetTypeID(builtin) == CFBooleanGetTypeID()
+		&& CFEqual(builtin, kCFBooleanTrue)) {
+		isbootable = true;
+	}
+	if (builtin) CFRelease(builtin);
+	
+	if (!isbootable) {
+		netbootable = IORegistryEntrySearchCFProperty(serv, kIOServicePlane, CFSTR("ioNetBootable"),
+													  kCFAllocatorDefault, kIORegistryIterateRecursively|kIORegistryIterateParents);
+		
+		if (netbootable && CFGetTypeID(netbootable) == CFDataGetTypeID()) {
+			isbootable = true;
+		}
+		if (netbootable) CFRelease(netbootable);
+	}
+	
+	if(!isbootable) {
+		contextprintf(context, kBLLogLevelError, "Interface is not built-in\n");
+		
+		return false;
+	}
+	
+	
+	linkStatus = IORegistryEntrySearchCFProperty(serv, kIOServicePlane,
+												 CFSTR(kIOLinkStatus),
+												 kCFAllocatorDefault,
+												 kIORegistryIterateRecursively|kIORegistryIterateParents);
+	if(linkStatus == NULL) {
+		hasLink = false;
+	} else {
+		if(CFGetTypeID(linkStatus) != CFNumberGetTypeID()) {
+			hasLink = false;
+		} else {
+			uint32_t    linkNum;
+			
+			if(!CFNumberGetValue(linkStatus, kCFNumberSInt32Type, &linkNum)) {
+				hasLink = false;
+			} else {
+				if((linkNum & (kIONetworkLinkValid|kIONetworkLinkActive))
+				   == (kIONetworkLinkValid|kIONetworkLinkActive)) {
+					hasLink = true;
+				} else {
+					hasLink = false;
+				}
+			}
+		}
+		CFRelease(linkStatus);
+	}
+	
+	contextprintf(context, kBLLogLevelVerbose, "Interface %s an active link\n",
+				  hasLink ? "has" : "does not have");
+	
+	if(hasLink) {
+		return true;
+	} else {
+		return false;
+	}
 }
 

@@ -16,7 +16,7 @@
    |         Ilia Alshanetsky <iliaa@php.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.113.2.3.2.1 2007/01/01 09:36:08 sebastian Exp $ */
+/* $Id: exec.c,v 1.113.2.3.2.2 2007/10/04 13:31:11 jani Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -463,7 +463,7 @@ PHP_FUNCTION(proc_nice)
 	errno = 0;
 	nice(pri);
 	if (errno) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Only a super user may attempt to increase the priority of a process.");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Only a super user may attempt to increase the priority of a process");
 		RETURN_FALSE;
 	}
 	

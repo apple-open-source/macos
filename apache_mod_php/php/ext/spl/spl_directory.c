@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_directory.c,v 1.45.2.27.2.22 2007/08/21 22:45:53 johannes Exp $ */
+/* $Id: spl_directory.c,v 1.45.2.27.2.23 2007/09/22 15:55:35 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -862,7 +862,7 @@ SPL_METHOD(SplFileInfo, getRealPath)
 		spl_filesystem_object_get_file_name(intern TSRMLS_CC);
 	}
 
-	if (intern->file_name_len && VCWD_REALPATH(intern->file_name, buff)) {
+	if (intern->file_name && VCWD_REALPATH(intern->file_name, buff)) {
 #ifdef ZTS
 		if (VCWD_ACCESS(buff, F_OK)) {
 			RETVAL_FALSE;

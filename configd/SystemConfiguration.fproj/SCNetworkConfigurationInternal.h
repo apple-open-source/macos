@@ -64,6 +64,9 @@ typedef struct {
 	// prefs
 	SCPreferencesRef	prefs;
 
+	// name
+	CFStringRef		name;
+
 } SCNetworkServicePrivate, *SCNetworkServicePrivateRef;
 
 

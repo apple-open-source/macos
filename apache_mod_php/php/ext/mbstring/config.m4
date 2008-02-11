@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.58.2.4.2.10 2007/07/31 12:23:50 tony2001 Exp $
+dnl $Id: config.m4,v 1.58.2.4.2.11 2007/09/18 21:35:39 hirokawa Exp $
 dnl
 
 AC_DEFUN([PHP_MBSTRING_ADD_SOURCES], [
@@ -87,7 +87,7 @@ esac
 )
     ])
 
-    AC_CHECK_HEADERS([stdlib.h string.h strings.h unistd.h sys/time.h sys/times.h])
+    AC_CHECK_HEADERS([stdlib.h string.h strings.h unistd.h sys/time.h sys/times.h stdarg.h])
     AC_CHECK_SIZEOF(int, 4)
     AC_CHECK_SIZEOF(short, 2)
     AC_CHECK_SIZEOF(long, 4)
@@ -96,9 +96,6 @@ esac
     AC_FUNC_ALLOCA
     AC_FUNC_MEMCMP
 
-    if test "$cv_php_mbstring_stdarg" = "yes"; then
-      AC_DEFINE([HAVE_STDARG_PROTOTYPES], 1, [Define if stdarg.h is available])
-    fi
     AC_DEFINE([HAVE_MBREGEX], 1, [whether to have multibyte regex support])
 
 

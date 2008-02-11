@@ -1,0 +1,4 @@
+Package: system-cmds
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: System commands
+Build-Depends: build-base, librpcsvc-hdrs, libinfo-hdrs, libstreams-hdrs, iokituser, libcurses-hdrs, corefoundation, carbonheaders, project-makefiles, iostoragefamily

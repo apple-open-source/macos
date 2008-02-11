@@ -2,8 +2,8 @@
 
   defines.h -
 
-  $Author: knu $
-  $Date: 2007-02-25 02:52:08 +0900 (Sun, 25 Feb 2007) $
+  $Author: shyouhei $
+  $Date: 2007-09-07 16:33:58 +0900 (Fri, 07 Sep 2007) $
   created at: Wed May 18 00:21:44 JST 1994
 
 ************************************************/
@@ -221,9 +221,7 @@ flush_register_windows(void)
 #endif
 # if defined(__sparc_v9__) || defined(__sparcv9) || defined(__arch64__)
 	("flushw")
-# elif defined(linux) || defined(__linux__)
-	("ta  0x83")
-# else /* Solaris, OpenBSD, NetBSD, etc. */
+# else
 	("ta  0x03")
 # endif /* trap always to flush register windows if we are on a Sparc system */
 	;

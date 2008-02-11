@@ -3,7 +3,7 @@
   array.c -
 
   $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Date: 2007-09-07 16:46:40 +0900 (Fri, 07 Sep 2007) $
   created at: Fri Aug  6 09:46:12 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -272,6 +272,7 @@ rb_ary_initialize(argc, argv, ary)
     long len;
     VALUE size, val;
 
+    rb_ary_modify(ary);
     if (rb_scan_args(argc, argv, "02", &size, &val) == 0) {
 	RARRAY(ary)->len = 0;
 	if (rb_block_given_p()) {
@@ -295,7 +296,6 @@ rb_ary_initialize(argc, argv, ary)
     if (len > 0 && len * (long)sizeof(VALUE) <= len) {
 	rb_raise(rb_eArgError, "array size too big");
     }
-    rb_ary_modify(ary);
     if (len > RARRAY(ary)->aux.capa) {
 	REALLOC_N(RARRAY(ary)->ptr, VALUE, len);
 	RARRAY(ary)->aux.capa = len;
@@ -606,7 +606,7 @@ rb_ary_subseq(ary, beg, len)
     if (beg > RARRAY(ary)->len) return Qnil;
     if (beg < 0 || len < 0) return Qnil;
 
-    if (beg + len > RARRAY(ary)->len) {
+    if (RARRAY(ary)->len < len || RARRAY(ary)->len < beg + len) {
 	len = RARRAY(ary)->len - beg;
 	if (len < 0)
 	    len = 0;
@@ -961,7 +961,7 @@ rb_ary_splice(ary, beg, len, rpl)
 	    rb_raise(rb_eIndexError, "index %ld out of array", beg);
 	}
     }
-    if (beg + len > RARRAY(ary)->len) {
+    if (RARRAY(ary)->len < len || RARRAY(ary)->len < beg + len) {
 	len = RARRAY(ary)->len - beg;
     }
 
@@ -2266,6 +2266,9 @@ rb_ary_fill(argc, argv, ary)
     }
     rb_ary_modify(ary);
     end = beg + len;
+    if (end < 0) {
+	rb_raise(rb_eArgError, "argument too big");
+    }
     if (end > RARRAY(ary)->len) {
 	if (end >= RARRAY(ary)->aux.capa) {
 	    REALLOC_N(RARRAY(ary)->ptr, VALUE, end);

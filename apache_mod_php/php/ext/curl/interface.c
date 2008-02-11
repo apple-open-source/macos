@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: interface.c,v 1.62.2.14.2.27 2007/07/04 13:34:23 tony2001 Exp $ */
+/* $Id: interface.c,v 1.62.2.14.2.29 2007/10/13 11:35:35 bjori Exp $ */
 
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
@@ -174,7 +174,7 @@ static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 		} 													\
 															\
 		if (!php_memnstr(str, tmp_url->path, strlen(tmp_url->path), str + len)) {				\
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "URL '%s' contains unencoded control characters.", str);	\
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "URL '%s' contains unencoded control characters", str);	\
 			php_url_free(tmp_url); 																\
 			php_curl_ret(__ret);											\
 		}													\
@@ -387,7 +387,7 @@ PHP_MINIT_FUNCTION(curl)
 	REGISTER_CURL_CONSTANT(CURLOPT_PROXYUSERPWD);
 	REGISTER_CURL_CONSTANT(CURLOPT_RANGE);
 	REGISTER_CURL_CONSTANT(CURLOPT_TIMEOUT);
-#ifdef CURLOPT_TIMEOUT_MS
+#if LIBCURL_VERSION_NUM > 0x071002
 	REGISTER_CURL_CONSTANT(CURLOPT_TIMEOUT_MS);
 #endif
 	REGISTER_CURL_CONSTANT(CURLOPT_POSTFIELDS);
@@ -433,7 +433,7 @@ PHP_MINIT_FUNCTION(curl)
 	REGISTER_CURL_CONSTANT(CURLOPT_RANDOM_FILE);
 	REGISTER_CURL_CONSTANT(CURLOPT_EGDSOCKET);
 	REGISTER_CURL_CONSTANT(CURLOPT_CONNECTTIMEOUT);
-#ifdef CURLOPT_CONNECTTIMEOUT_MS
+#if LIBCURL_VERSION_NUM > 0x071002
 	REGISTER_CURL_CONSTANT(CURLOPT_CONNECTTIMEOUT_MS);
 #endif
 	REGISTER_CURL_CONSTANT(CURLOPT_SSL_VERIFYPEER);
@@ -980,7 +980,7 @@ static size_t curl_passwd(void *ctx, char *prompt, char *buf, int buflen)
 			strlcpy(buf, Z_STRVAL_P(retval), Z_STRLEN_P(retval));
 		}
 	} else {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "User handler '%s' did not return a string.", Z_STRVAL_P(func));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "User handler '%s' did not return a string", Z_STRVAL_P(func));
 	}
 	
 	zval_ptr_dtor(&argv[0]);
@@ -1233,7 +1233,7 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *retu
 		 case CURLOPT_MUTE:
 #endif
 		case CURLOPT_TIMEOUT:
-#ifdef CURLOPT_TIMEOUT_MS
+#if LIBCURL_VERSION_NUM > 0x071002
 		case CURLOPT_TIMEOUT_MS:
 #endif
 		case CURLOPT_FTP_USE_EPSV:
@@ -1252,7 +1252,7 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *retu
 		case CURLOPT_FRESH_CONNECT:
 		case CURLOPT_FORBID_REUSE:
 		case CURLOPT_CONNECTTIMEOUT:
-#ifdef CURLOPT_CONNECTTIMEOUT_MS
+#if LIBCURL_VERSION_NUM > 0x071002
 		case CURLOPT_CONNECTTIMEOUT_MS:
 #endif
 		case CURLOPT_SSL_VERIFYHOST:
@@ -1645,7 +1645,7 @@ PHP_FUNCTION(curl_setopt_array)
 	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(arr), &pos);
 	while (zend_hash_get_current_data_ex(Z_ARRVAL_P(arr), (void **)&entry, &pos) == SUCCESS) {
 		if (zend_hash_get_current_key_ex(Z_ARRVAL_P(arr), &string_key, &str_key_len, &option, 0, &pos) == HASH_KEY_IS_STRING) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Array keys must be CURLOPT constants or equivalent interger values."); 
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Array keys must be CURLOPT constants or equivalent integer values"); 
 			RETURN_FALSE;
 		}
 		if (_php_curl_setopt(ch, option, entry, return_value TSRMLS_CC)) {

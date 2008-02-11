@@ -65,8 +65,22 @@ ocm_retain_arg_if_necessary (VALUE result, BOOL is_result, void *context)
     }
     // We assume that the object is retained at that point.
     OBJCID_DATA_PTR(result)->retained = YES; 
-    if (selector != @selector(alloc) && selector != @selector(allocWithZone:))
+    if (selector != @selector(alloc) && selector != @selector(allocWithZone:)) {
       OBJCID_DATA_PTR(result)->can_be_released = YES;
+    }
+    // Objects that come from an NSObject-based class defined in Ruby have a
+    // slave object as an instance variable that serves as the message proxy.
+    // However, this RBObject retains the Ruby instance by default, which isn't
+    // what we want, because this is a retain circle, and both objects will
+    // leak. So we manually release the Ruby object from the slave, so that
+    // when the Ruby object will be collected by the Ruby GC, the ObjC object
+    // will be properly auto-released.
+    //
+    // We only do this magic for objects that are explicitely allocated from
+    // Ruby.
+    if ([OBJCID_ID(result) respondsToSelector:@selector(__trackSlaveRubyObject)]) {
+      [OBJCID_ID(result) performSelector:@selector(__trackSlaveRubyObject)];
+    }
   }
 }
 
@@ -317,6 +331,12 @@ ocm_send(int argc, VALUE* argv, VALUE rcv, VALUE* result)
 
     if (NIL_P(exception)) {
       if (*methodReturnType != _C_VOID) {
+        /* Theoretically, ObjC objects should be removed from the oc2rb
+           cache upon dealloc, but it is possible to lose some of them when
+           they are allocated within a thread that is directly killed. */
+        if (selector == @selector(alloc))
+          remove_from_oc2rb_cache(val);
+          
         OBJWRP_LOG("got return value %p", val);
         if (!ocdata_to_rbobj(rcv, methodReturnType, (const void *)&val, result, NO)) {
           exception = rb_err_new(ocdataconv_err_class(), "Cannot convert the result as '%s' to Ruby", methodReturnType);
@@ -427,6 +447,19 @@ wrapper_ocm_responds_p(VALUE rcv, VALUE sel)
   SEL oc_sel = rbobj_to_nssel(sel);
   return [oc_rcv respondsToSelector: oc_sel] ? Qtrue : Qfalse;
 }
+
+#if 0
+// Disabled, because we don't have a working implementation for systems
+// equal or below than Tiger.
+static VALUE
+wrapper_ocm_conforms_p(VALUE rcv, VALUE name)
+{
+  Protocol *protocol = objc_getProtocol(STR2CSTR(name));
+  if (protocol == NULL)
+    rb_raise(rb_eArgError, "Invalid protocol name `%s'", STR2CSTR(name));
+  return class_conformsToProtocol(rbobj_get_ocid(rcv), protocol) ? Qtrue : Qfalse;
+}
+#endif
 
 static VALUE
 wrapper_ocm_send(int argc, VALUE* argv, VALUE rcv)
@@ -635,6 +668,7 @@ init_mdl_OCObjWrapper(VALUE outer)
   _mObjWrapper = rb_define_module_under(outer, "OCObjWrapper");
 
   rb_define_method(_mObjWrapper, "ocm_responds?", wrapper_ocm_responds_p, 1);
+	//rb_define_method(_mObjWrapper, "ocm_conforms?", wrapper_ocm_conforms_p, 1);
   rb_define_method(_mObjWrapper, "ocm_send", wrapper_ocm_send, -1);
   rb_define_method(_mObjWrapper, "to_s", wrapper_to_s, 0);
 

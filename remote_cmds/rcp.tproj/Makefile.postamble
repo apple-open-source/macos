@@ -1,7 +1,0 @@
-VPATH += :$(SRCROOT)$(SRCPATH)/../rlogin.tproj
-INSTALL_PERMISSIONS = 4555    # If set, 'install' chmod's executable to this
-
-after_install::
-	$(CHFLAGS) schg $(DSTROOT)$(INSTALLDIR)/$(NAME)
-	mkdir -p $(DSTROOT)/usr/share/man/man1
-	install -c -m 444 rcp.1 $(DSTROOT)/usr/share/man/man1/rcp.1

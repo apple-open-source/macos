@@ -41,6 +41,7 @@
 #include <hfs/hfs_format.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "bless.h"
 #include "bless_private.h"
@@ -54,8 +55,6 @@ struct allocinfo {
     uint32_t length;
     off_t allocationSize;
 };
-
-extern int errno;
 
 /*
  * First determine the device and the extents on the mounted volume

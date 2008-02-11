@@ -30,6 +30,10 @@
 
 #include "IOHIDKeys.h"
 
+enum IOHIDLibUserClientConnectTypes {
+    kIOHIDLibUserClientConnectManager = 0x00484944 /* HID */
+};
+ 
 // evil hack alert: we are using type in one of two ways:
 // if type == 0, then we want to get the element values
 // else type is an object pointer (in kernel space).

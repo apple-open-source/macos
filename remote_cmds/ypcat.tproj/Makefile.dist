@@ -1,6 +1,0 @@
-#	from: @(#)Makefile	5.8 (Berkeley) 7/28/90
-#	$Id: Makefile.dist,v 1.1 1999/05/02 03:59:01 wsanchez Exp $
-
-PROG=	ypcat
-
-.include <bsd.prog.mk>

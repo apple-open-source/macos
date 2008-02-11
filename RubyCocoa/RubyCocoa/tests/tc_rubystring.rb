@@ -14,7 +14,13 @@ class TC_RubyString < Test::Unit::TestCase
   def setup
     @rbstr = "オブジェクト指向スクリプト言語Ruby".toeuc
     @nsstr = NSString.stringWithRubyString( @rbstr )
+    @verbose = $VERBOSE # supress warnings for deprecate 
+    $VERBOSE = nil
   end
+
+  def teardown
+    $VERBOSE = @verbose
+  end 
 
   def test_nsencoding
     assert_equal( NSJapaneseEUCStringEncoding, @rbstr.nsencoding )

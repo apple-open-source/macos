@@ -1,7 +1,0 @@
-#	$Id: Makefile.dist,v 1.1 1999/05/02 03:58:27 wsanchez Exp $
-
-PROG=	spray
-NOMAN=
-LDADD=	-lrpcsvc
-
-.include <bsd.prog.mk>

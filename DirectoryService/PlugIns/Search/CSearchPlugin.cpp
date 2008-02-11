@@ -1657,6 +1657,7 @@ SInt32 CSearchPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 	CDataBuff	 	   *aAttrData		= nil;
 	CDataBuff	 	   *aTmpData		= nil;
 	UInt32				searchNodeNameBufLen = 0;
+	bool				bHaveLock		= false;
 
 	try
 	{
@@ -1677,6 +1678,7 @@ SInt32 CSearchPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 		}
 
 		fMutex.WaitLock();
+		bHaveLock = true;
 		aSearchConfig	= FindSearchConfigWithKey(pContext->fSearchConfigKey);
 		if ( aSearchConfig == nil ) throw( (SInt32)eDSInvalidNodeRef );		
 
@@ -2089,6 +2091,7 @@ SInt32 CSearchPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 		} // while loop over the attributes requested
 
 		fMutex.SignalLock();
+		bHaveLock = false;
 		aRecData->AppendShort( uiAttrCnt );
 		aRecData->AppendBlock( aAttrData->GetData(), aAttrData->GetLength() );
 
@@ -2123,7 +2126,10 @@ SInt32 CSearchPlugin::GetDirNodeInfo ( sGetDirNodeInfo *inData )
 	catch( SInt32 err )
 	{
 		siResult = err;
-		fMutex.SignalLock();
+		if ( bHaveLock )
+		{
+			fMutex.SignalLock();
+		}
 	}
 
 	if ( localNodeName != nil )
@@ -4373,7 +4379,7 @@ SInt32 CSearchPlugin::CleanContextData ( sSearchContextData *inContext )
 				inContext->fSearchNodeList = nil;
 			}
 
-			inContext->bListChanged		= false;
+			OSAtomicCompareAndSwap32Barrier(true, false, &inContext->bListChanged);
 			inContext->offset			= 0;
 			inContext->fSearchConfigKey	= 0;
 			inContext->pSearchListMutex	= nil;
@@ -5753,7 +5759,7 @@ void CSearchPlugin:: ContextSetListChangedProc ( void* inContextData )
 
 	if ( pContext != nil )
 	{
-		pContext->bListChanged	= true;
+		OSAtomicCompareAndSwap32Barrier(false, true, &pContext->bListChanged);
 	}
 } // ContextSetListChangedProc
 
@@ -5784,11 +5790,6 @@ SInt32 CSearchPlugin::CheckSearchPolicyChange( sSearchContextData *pContext, tDi
 	// reference mutex to avoid deadlock
 	fMutex.WaitLock();
 	
-	if( pContext->pSearchListMutex )
-	{
-		pContext->pSearchListMutex->WaitLock();
-	}
-	
 	aSearchConfig	= FindSearchConfigWithKey(pContext->fSearchConfigKey);
 	if ( aSearchConfig == nil )
 	{
@@ -5805,6 +5806,17 @@ SInt32 CSearchPlugin::CheckSearchPolicyChange( sSearchContextData *pContext, tDi
 		}
 		else
 		{
+			if ( pContext->pSearchListMutex )
+			{
+				// If the list has changed and we can't get the lock, invalidate
+				// whatever is going on.  Prevents deadlock.
+				if ( !pContext->pSearchListMutex->WaitTry() )
+				{
+					fMutex.SignalLock();
+					return eDSBadContextData;
+				}
+			}
+	
 			//switch the search policy to the current one
 			//flush the old search path list
 			CleanSearchListData( pContext->fSearchNodeList );
@@ -5826,14 +5838,15 @@ SInt32 CSearchPlugin::CheckSearchPolicyChange( sSearchContextData *pContext, tDi
 			}
 			
 			//reset the flag
-			pContext->bListChanged	= false;
+			OSAtomicCompareAndSwap32Barrier(true, false, &pContext->bListChanged);
+			
+			if( pContext->pSearchListMutex )
+			{
+				pContext->pSearchListMutex->SignalLock();
+			}
 		}
 	}
 	
-	if( pContext->pSearchListMutex )
-	{
-		pContext->pSearchListMutex->SignalLock();
-	}
 	fMutex.SignalLock();
 	
 	return siResult;

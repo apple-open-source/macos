@@ -13,11 +13,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0</string>
+	<string>2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0</string>
+	<string>2.1</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>Windows_NTFS</key>

@@ -53,11 +53,11 @@
 		<key>com.apple.iokit.IOUSBFamily</key>
 		<string>3.0.0</string>
 		<key>com.apple.kpi.mach</key>
-		<string>9.0.0d7</string>
+		<string>9.0.0</string>
 		<key>com.apple.kpi.libkern</key>
-		<string>9.0.0d7</string>
+		<string>9.0.0</string>
 		<key>com.apple.kpi.iokit</key>
-		<string>9.0.0d7</string>
+		<string>9.0.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Console</string>

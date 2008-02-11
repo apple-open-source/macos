@@ -22,12 +22,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
 #include <IOKit/hid/IOHIDDevicePlugIn.h>
 #include <IOKit/hid/IOHIDServicePlugIn.h>
 #include "IOHIDIUnknown.h"
 #include "IOHIDDeviceClass.h"
-#include "IOHIDUPSClass.h"
-//#include "IOHIDEventServiceClass.h"
+
+#if TARGET_OS_EMBEDDED
+    #include "IOHIDEventServiceClass.h"
+#else
+    #include "IOHIDUPSClass.h"
+#endif
 
 int IOHIDIUnknown::factoryRefCount = 0;
 
@@ -37,10 +43,13 @@ void *IOHIDLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
         return (void *) IOHIDObsoleteDeviceClass::alloc();
     else if (CFEqual(typeID, kIOHIDDeviceTypeID))
         return (void *) IOHIDDeviceClass::alloc();
+#if TARGET_OS_EMBEDDED
+    else if (CFEqual(typeID, kIOHIDServicePlugInTypeID))
+        return (void *) IOHIDEventServiceClass::alloc();
+#else
     else if (CFEqual(typeID, kIOUPSPlugInTypeID))
         return (void *) IOHIDUPSClass::alloc();
-//    else if (CFEqual(typeID, kIOHIDServicePlugInTypeID))
-//        return (void *) IOHIDEventServiceClass::alloc();
+#endif
     else
         return NULL;
 }

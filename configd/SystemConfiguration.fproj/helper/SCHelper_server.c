@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,7 +73,7 @@ do_Auth(void *info, CFDataRef data, uint32_t *status, CFDataRef *reply)
 		if (CFDataGetLength(data) == sizeof(extForm.bytes)) {
 			OSStatus	err;
 
-			memcpy(extForm.bytes, CFDataGetBytePtr(data), sizeof(extForm.bytes));
+			bcopy(CFDataGetBytePtr(data), extForm.bytes, sizeof(extForm.bytes));
 			err = AuthorizationCreateFromExternalForm(&extForm, &authorization);
 			if (err != errAuthorizationSuccess) {
 				SCLog(TRUE, LOG_ERR,
@@ -373,7 +373,6 @@ do_prefs_Access(void *info, CFDataRef data, uint32_t *status, CFDataRef *reply)
 		*status = SCError();
 	}
 
-	SCPreferencesSynchronize(prefs);
 	return TRUE;
 }
 
@@ -453,7 +452,6 @@ do_prefs_Commit(void *info, CFDataRef data, uint32_t *status, CFDataRef *reply)
 		*status = SCError();
 	}
 
-	SCPreferencesSynchronize(prefs);
 	return TRUE;
 }
 
@@ -526,6 +524,25 @@ do_prefs_Close(void *info, CFDataRef data, uint32_t *status, CFDataRef *reply)
 }
 
 
+/*
+ * SYNCHRONIZE
+ *   (in)  data   = N/A
+ *   (out) status = kSCStatusOK
+ *   (out) reply  = N/A
+ */
+static Boolean
+do_prefs_Synchronize(void *info, CFDataRef data, uint32_t *status, CFDataRef *reply)
+{
+	if (prefs == NULL) {
+		return FALSE;
+	}
+	
+	SCPreferencesSynchronize(prefs);
+	*status = kSCStatusOK;
+	return TRUE;
+}
+
+
 static Boolean
 hasAuthorization()
 {
@@ -589,6 +606,7 @@ static const struct helper {
 	{ SCHELPER_MSG_PREFS_APPLY,		"PREFS apply",		TRUE,	do_prefs_Apply		, NULL		},
 	{ SCHELPER_MSG_PREFS_UNLOCK,		"PREFS unlock",		FALSE,	do_prefs_Unlock		, NULL		},
 	{ SCHELPER_MSG_PREFS_CLOSE,		"PREFS close",		FALSE,	do_prefs_Close		, NULL		},
+	{ SCHELPER_MSG_PREFS_SYNCHRONIZE,	"PREFS synchronize",	FALSE,	do_prefs_Synchronize	, NULL		},
 
 	{ SCHELPER_MSG_INTERFACE_REFRESH,	"INTERFACE refresh",	TRUE,	do_interface_refresh	, NULL		},
 

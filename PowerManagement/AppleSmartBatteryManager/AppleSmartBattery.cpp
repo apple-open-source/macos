@@ -124,6 +124,39 @@ static const OSSymbol *_CellVoltageSym =
 static const OSSymbol *_ManufacturerDataSym = 
                         OSSymbol::withCString("ManufacturerData");
 
+/* _SerialNumberSym represents the manufacturer's 16-bit serial number in
+    numeric format. 
+ */
+static const OSSymbol *_SerialNumberSym =
+                        OSSymbol::withCString("SerialNumber");
+
+/* _SoftwareSerialSym == AppleSoftwareSerial
+   represents the Apple-generated user readable serial number that will appear
+   in the OS and is accessible to users.
+ */
+static const OSSymbol *_SoftwareSerialSym =
+                        OSSymbol::withCString("BatterySerialNumber");
+
+/* _ChargeStatusSym tracks any irregular charging patterns in the battery
+    that might cause it to stop charging mid-charge.
+ */
+
+// TODO: Delete these local definitions sync'd with OS (rdar://5608255)
+#ifndef kIOPMPSBatteryChargeStatusKey
+    #define kIOPMPSBatteryChargeStatusKey               "ChargeStatus"
+    #define kIOPMBatteryChargeStatusTooHot              "HighTemperature"
+    #define kIOPMBatteryChargeStatusTooCold             "LowTemperature"
+    #define kIOPMBatteryChargeStatusGradient            "BatteryTemperatureGradient"
+#endif
+
+static const OSSymbol *_ChargeStatusSym =
+                        OSSymbol::withCString(kIOPMPSBatteryChargeStatusKey);
+static const OSSymbol *_ChargeStatusTooHot =                        
+                        OSSymbol::withCString(kIOPMBatteryChargeStatusTooHot);
+static const OSSymbol *_ChargeStatusTooCold =                        
+                        OSSymbol::withCString(kIOPMBatteryChargeStatusTooCold);
+static const OSSymbol *_ChargeStatusGradient =                        
+                        OSSymbol::withCString(kIOPMBatteryChargeStatusGradient);
 
 #define super IOPMPowerSource
 OSDefineMetaClassAndStructors(AppleSmartBattery,IOPMPowerSource)
@@ -647,11 +680,14 @@ bool AppleSmartBattery::transactionCompletion(
             // Determines if AC is "charge capable"
             if( kIOSMBusStatusOK == transaction_status ) 
             {
-                int new_ac_connected;
+                int new_ac_connected = 0;
+                uint16_t charge_disrupted = 0;
 
                 my_unsigned_16 = (transaction->receiveData[1] << 8)
                                 | transaction->receiveData[0];
-
+#if 0
+                IOLog("AppleSmartBattery::MStateCont = 0x%04x\n", my_unsigned_16);
+#endif
                 // If fInflowDisabled is currently set, then we acknowledge 
                 // our lack of AC power.
                 //
@@ -682,6 +718,51 @@ bool AppleSmartBattery::transactionCompletion(
                 setExternalConnected(fACConnected);
                 setExternalChargeCapable(
                         (my_unsigned_16 & kMPowerNotGoodBit) ? false:true);
+                        
+                        
+         /* Check whether our charge has been terminated due to temperature
+            If yes, then the user's battery level is likely stuck somewhere
+            less than 100% and the CPU is not charging.
+
+            We use the reserved bits in BatterySystemStateCont(0x02) register 
+            in the Smart Battery System Manager Specification to specify these 
+            thermal reasons.
+        
+            Bit 12 to Bit 15 are reserved.  We will use Bit 14 and Bit 15 to specify 
+            three types of thermal conditions:
+
+            Bit 15,   Bit 14
+            ---------------
+            1             0                battery charging limited/stopped due to high temperature
+            0             1                battery charging limited/stopped due to low temperature
+            1             1                battery charging limited/stopped due to battery temperature 
+                                             gradient (difference between 2 battery thermistors)
+          */
+
+                
+                charge_disrupted = my_unsigned_16 & (kMReservedNoChargeBit14
+                                                    | kMReservedNoChargeBit15);
+            
+#if 0
+                IOLog("AppleSmartBattery: Charge Disrupted = 0x%04x\n", charge_disrupted);
+#endif
+                if (kMReservedNoChargeBit14 == charge_disrupted)
+                {
+                setChargeStatus(_ChargeStatusTooCold);
+                } else if (charge_disrupted == kMReservedNoChargeBit15)
+                {
+                setChargeStatus(_ChargeStatusTooHot);
+                } else if (charge_disrupted == (kMReservedNoChargeBit14 
+                                                | kMReservedNoChargeBit15))
+                {
+                    setChargeStatus(_ChargeStatusGradient);
+                } else {
+                    // clear any existing charge status, since there are no
+                    // charge-preventing conditions any longer.
+                    if (chargeStatus()) {
+                        setChargeStatus(NULL);
+                    }
+                }
             } else {
                 fACConnected = false;
                 setExternalConnected(true);
@@ -807,6 +888,14 @@ bool AppleSmartBattery::transactionCompletion(
             }
 
 
+            /*
+             *
+             * TODO - check battery charge prevention bits defined by Karen
+             *         here!
+             *
+             */
+
+
             // The battery read state machine may fork at this stage.
             if(kNewBatteryPath == fMachinePath) {
                 /* Following this path reads:
@@ -920,6 +1009,10 @@ bool AppleSmartBattery::transactionCompletion(
             if( kIOSMBusStatusOK == transaction_status ) 
             {
                 const OSSymbol *serialSym;
+        
+                setSerialNumber((uint16_t) 
+                                (transaction->receiveData[0] 
+                              | (transaction->receiveData[1] << 8) ));
         
                 // IOPMPowerSource expects an OSSymbol for serial number, so we
                 // sprint this 16-bit number into an OSSymbol
@@ -1275,6 +1368,9 @@ bool AppleSmartBattery::transactionCompletion(
             }
         
 
+            /* construct and publish our battery serial number here */
+            constructAppleSerialNumber();
+
             /* Cancel read-completion timeout; Successfully read battery state */
             fBatteryReadAllTimer->cancelTimeout();
 
@@ -1371,7 +1467,9 @@ void AppleSmartBattery::clearBatteryState(bool do_update)
     removeProperty(batteryInfoKey);
     properties->removeObject(errorConditionKey);
     removeProperty(errorConditionKey);
-        
+    properties->removeObject(_ChargeStatusSym);
+    removeProperty(_ChargeStatusSym);
+    
     rebuildLegacyIOBatteryInfo();
 
     if(do_update) {
@@ -1411,10 +1509,82 @@ void AppleSmartBattery::clearBatteryState(bool do_update)
 }
 
 /******************************************************************************
+ *  Fabricate a serial number from our manufacturer, model, manufacture date,
+ *  and factory serial numbers. This is unique, and mappable back to Apple's
+ *  independently assigned serial number.
+ ******************************************************************************/
+ 
+ #define kMaxGeneratedSerialSize (16+16+4+4+4)
+void AppleSmartBattery::constructAppleSerialNumber(void)
+{
+    OSSymbol        *manf_string = manufacturer();
+    const char *    manf_cstring_ptr;
+    OSSymbol        *device_string = deviceName();
+    const char *    device_cstring_ptr;
+    OSNumber        *manf_date;
+    uint16_t        date16 = 0;
+    uint16_t        serial16 = serialNumber();
+    
+    const OSSymbol  *printableSerial = NULL;
+    char            serialBuf[kMaxGeneratedSerialSize];
+    
+    if (manf_string) {
+        manf_cstring_ptr = manf_string->getCStringNoCopy();
+    } else {
+        manf_cstring_ptr = "XXXX";
+    }
+    
+    if (device_string) {
+        device_cstring_ptr = device_string->getCStringNoCopy();
+    } else {
+        device_cstring_ptr = "YYYY";
+    }
+
+    manf_date = (OSNumber *)OSDynamicCast(OSNumber, getPSProperty(_ManfDateSym));
+    if (manf_date)
+        date16 = manf_date->unsigned16BitValue();
+    else 
+        date16 = 0;
+    
+    bzero(serialBuf, kMaxGeneratedSerialSize);
+
+    snprintf(serialBuf, kMaxGeneratedSerialSize, "%s-%s-%x-%x", 
+                manf_cstring_ptr, device_cstring_ptr, date16, serial16);
+    
+    printableSerial = OSSymbol::withCString(serialBuf);
+    if (printableSerial) {
+        setPSProperty(_SoftwareSerialSym, (OSObject *)printableSerial);
+        printableSerial->release();
+    }
+    
+    return;
+}
+
+
+/******************************************************************************
  *  Power Source value accessors
  *  These supplement the built-in accessors in IOPMPowerSource.h, and should 
  *  arguably be added back into the superclass IOPMPowerSource
  ******************************************************************************/
+
+void AppleSmartBattery::setSerialNumber(uint16_t sernum)
+{
+    OSNumber    *n = OSNumber::withNumber(sernum, 16);
+    if (n) {
+        setPSProperty(_SerialNumberSym, n);
+        n->release();
+    }
+}
+
+uint16_t AppleSmartBattery::serialNumber(void)
+{
+    OSNumber    *n = OSDynamicCast(OSNumber, properties->getObject(_SerialNumberSym));
+    if (n) {
+        return n->unsigned16BitValue();
+    } else {
+        return 0;
+    }
+}
 
 void AppleSmartBattery::setMaxErr(int error)
 {
@@ -1545,6 +1715,20 @@ void    AppleSmartBattery::setManufacturerData(uint8_t *buffer, uint32_t bufferS
     }
 }
 
+void    AppleSmartBattery::setChargeStatus(const OSSymbol *sym)
+{
+    if (NULL == sym) {
+        properties->removeObject(_ChargeStatusSym);
+        removeProperty(_ChargeStatusSym);
+    } else {
+        setPSProperty(_ChargeStatusSym, (OSObject *)sym);
+    }
+}
+
+const OSSymbol *AppleSmartBattery::chargeStatus(void)
+{
+    return (const OSSymbol *)properties->getObject(_ChargeStatusSym);
+}
 
 /******************************************************************************
  ******************************************************************************

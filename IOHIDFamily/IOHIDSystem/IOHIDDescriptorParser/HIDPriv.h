@@ -57,7 +57,7 @@
 		 <1>	  3/5/99	BWS		first checked in
 */
 
-#include "MacTypes.h"
+#include "HIDMacTypes.h"
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
 
 /* the following constants are from the USB HID Specification (www.usb.org)*/

@@ -236,6 +236,9 @@ main(int  argc,				/* I - Number of command-line args */
     return (CUPS_BACKEND_STOP);
   }
 
+  if (!port)
+    port = IPP_PORT;			/* Default to port 631 */
+
   if (!strcmp(method, "https"))
     cupsSetEncryption(HTTP_ENCRYPT_ALWAYS);
   else
@@ -1055,7 +1058,7 @@ main(int  argc,				/* I - Number of command-line args */
 
     _cupsLangPuts(stderr, _("INFO: Waiting for job to complete...\n"));
 
-    for (; !job_cancelled;)
+    for (delay = 1; !job_cancelled;)
     {
      /*
       * Build an IPP_GET_JOB_ATTRIBUTES request...
@@ -1146,10 +1149,14 @@ main(int  argc,				/* I - Number of command-line args */
       check_printer_state(http, uri, resource, argv[2], version, job_id);
 
      /*
-      * Wait 10 seconds before polling again...
+      * Wait 1-10 seconds before polling again...
       */
 
-      sleep(10);
+      sleep(delay);
+
+      delay ++;
+      if (delay > 10)
+        delay = 1;
     }
   }
 

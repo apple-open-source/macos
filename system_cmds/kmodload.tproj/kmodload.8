@@ -1,0 +1,103 @@
+.\"
+.\" Copyright (c) 1997 Doug Rabson
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"	$Id: kmodload.8,v 1.4 2002/01/30 22:44:21 lindak Exp $
+.\"
+.Dd April 8, 1999
+.Dt KMODLOAD 8
+.Os FreeBSD
+.Sh NAME
+.Nm kmodload
+.Nd loads and starts a kernel module
+.Sh SYNOPSIS
+.Nm kmodload
+.Op Fl v
+.Op Fl k Ar kernel_file
+.Op Fl d Ar dependency_file
+.Op Fl o Ar symbol_file
+.Ar module_file
+.Sh DESCRIPTION
+.Nm kmodload
+is deprecated; use
+.Xr kextload 8 ,
+instead.
+.Pp
+The
+.Nm kmodload
+command loads the file 
+.Ar module_file
+into the kernel and starts its execution.
+.Pp
+The following options are available:
+.Bl -tag -width indent
+.\" ==========
+.It Fl d Ar dependency_file
+Add symbols from
+.Ar dependency_file
+to kernel symbols, prior to linking of
+.Ar module_file .
+The file 
+.Ar dependency_file
+must already be loaded.
+.\" ==========
+.It Fl k Ar kernel_file
+Use an alternate file
+.Ar kernel_file ,
+instead of the default file (/mach), for linking
+.Ar module_file .
+.\" ==========
+.It Fl o Ar symbol_file
+Create a file named
+.Ar symbol_file
+that contains statically-linked output suitable
+for remote debugging use with
+.Xr gdb 1 .
+.\" ==========
+.It Fl v
+Be more verbose.
+.El
+.Sh FILES
+.Bl -tag -width /modules -compact
+.It Pa /System/Library/Extensions
+directory containing loadable kernel modules.
+.Sh DIAGNOSTICS
+The
+.Nm kmodload
+utility exits with a status of 0 on success.
+A status of 1 indicates a usage error.
+A status of 2 indicates a indicates a permissions error.
+A status of 3 indicates a problem with linking the module.
+A status of 4 indicates a internal or system error.
+A status of 5 indicates the module has already been loaded. 
+.Sh SEE ALSO
+.Xr gdb 1 ,
+.Xr kmodstat 8 ,
+.Xr kmodsyms 8 ,
+.Xr kmodunload 8
+.Sh HISTORY
+The
+.Nm kmodload
+command is based on the command kldload written by
+.An Doug Rabson Aq dfr@FreeBSD.org

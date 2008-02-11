@@ -89,7 +89,7 @@
  *	directly -- and assumed always to succeed.
  */
 
-/* $Id: zend_strtod.c,v 1.17.2.2.2.12 2007/07/23 16:17:10 jani Exp $ */
+/* $Id: zend_strtod.c,v 1.17.2.2.2.13 2007/09/04 18:46:21 tony2001 Exp $ */
 
 #include <zend_operators.h>
 #include <zend_strtod.h>
@@ -133,6 +133,16 @@ typedef long int int32_t;
 typedef unsigned int uint32_t;
 # elif SIZEOF_LONG == 4
 typedef unsigned long int uint32_t;
+# endif
+#endif
+
+#if (defined(__APPLE__) || defined(__APPLE_CC__)) && (defined(__BIG_ENDIAN__) || defined(__LITTLE_ENDIAN__))
+# if defined(__LITTLE_ENDIAN__)
+#  undef WORDS_BIGENDIAN
+# else 
+#  if defined(__BIG_ENDIAN__)
+#   define WORDS_BIGENDIAN
+#  endif
 # endif
 #endif
 

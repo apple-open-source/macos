@@ -51,6 +51,7 @@
 #endif
 
 #include <sys/types.h>
+#include <sys/syslimits.h>
 
 typedef struct router_st    *router_t;
 typedef struct component_st *component_t;
@@ -144,6 +145,7 @@ struct router_st {
 	int message_logging_enabled;
 	char *message_logging_dir;
 	char *message_logging_file;
+	char *message_logging_fullpath;
 	int message_logging_roll_days;
 	int message_logging_roll_megs;
 	int log_group_chats;

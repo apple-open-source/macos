@@ -141,6 +141,7 @@ public:
     virtual IOExternalMethod * getTargetAndMethodForIndex(IOService ** targetP, UInt32 index );
     virtual IOReturn createEventQueue(void*,void*,void*,void*,void*,void*);
     virtual IOReturn destroyEventQueue(void*,void*,void*,void*,void*,void*);
+    virtual IOReturn tickle(void*,void*,void*,void*,void*,void*);
 
     virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon );
     virtual IOReturn clientMemoryForType( UInt32 type, UInt32 * flags, IOMemoryDescriptor ** memory );

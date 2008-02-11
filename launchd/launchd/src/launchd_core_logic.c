@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23433 $";
+static const char *const __rcs_file_version__ = "$Revision: 23459 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -333,6 +333,7 @@ struct job_s {
 	char *groupname;
 	char *stdoutpath;
 	char *stderrpath;
+	char *alt_exc_handler;
 	struct machservice *lastlookup;
 	unsigned int lastlookup_gennum;
 	char *seatbelt_profile;
@@ -360,7 +361,7 @@ struct job_s {
 		     currently_ignored:1, forced_peers_to_demand_mode:1, setnice:1, hopefully_exits_last:1, removal_pending:1,
 		     wait4pipe_eof:1, sent_sigkill:1, debug_before_kill:1, weird_bootstrap:1, start_on_mount:1,
 		     per_user:1, hopefully_exits_first:1, deny_unknown_mslookups:1, unload_at_mig_return:1, abandon_pg:1,
-		     poll_for_vfs_changes:1;
+		     poll_for_vfs_changes:1, internal_exc_handler:1;
 	const char label[0];
 };
 
@@ -861,6 +862,9 @@ job_remove(job_t j)
 	if (j->stderrpath) {
 		free(j->stderrpath);
 	}
+	if (j->alt_exc_handler) {
+		free(j->alt_exc_handler);
+	}
 	if (j->seatbelt_profile) {
 		free(j->seatbelt_profile);
 	}
@@ -1323,6 +1327,13 @@ job_import_bool(job_t j, const char *key, bool value)
 			found_key = true;
 		}
 		break;
+	case 'm':
+	case 'M':
+		if (strcasecmp(key, LAUNCH_JOBKEY_MACHEXCEPTIONHANDLER) == 0) {
+			j->internal_exc_handler = value;
+			found_key = true;
+		}
+		break;
 	case 'i':
 	case 'I':
 		if (strcasecmp(key, LAUNCH_JOBKEY_INITGROUPS) == 0) {
@@ -1376,6 +1387,12 @@ job_import_string(job_t j, const char *key, const char *value)
 	char **where2put = NULL;
 
 	switch (key[0]) {
+	case 'm':
+	case 'M':
+		if (strcasecmp(key, LAUNCH_JOBKEY_MACHEXCEPTIONHANDLER) == 0) {
+			where2put = &j->alt_exc_handler;
+		}
+		break;
 	case 'p':
 	case 'P':
 		if (strcasecmp(key, LAUNCH_JOBKEY_PROGRAM) == 0) {
@@ -2514,6 +2531,11 @@ job_start(job_t j)
 		if (sipc) {
 			job_assumes(j, runtime_close(spair[0]) == 0);
 			job_assumes(j, runtime_close(spair[1]) == 0);
+		}
+		if (!j->legacy_mach_job) {
+			job_assumes(j, runtime_close(oepair[0]) != -1);
+			job_assumes(j, runtime_close(oepair[1]) != -1);
+			j->log_redirect_fd = 0;
 		}
 		break;
 	case 0:
@@ -3997,9 +4019,20 @@ machservice_status(struct machservice *ms)
 void
 job_setup_exception_port(job_t j, task_t target_task)
 {
+	struct machservice *ms;
 	thread_state_flavor_t f = 0;
+	mach_port_t exc_port = the_exception_server;
 
-	if (!the_exception_server) {
+	if (j->alt_exc_handler) {
+		ms = jobmgr_lookup_service(j->mgr, j->alt_exc_handler, true, 0);
+		if (ms) {
+			exc_port = machservice_port(ms);
+		} else {
+			job_log(j, LOG_WARNING, "Falling back to default Mach exception handler. Could not find: %s", j->alt_exc_handler);
+		}
+	} else if (j->internal_exc_handler) {
+		exc_port = runtime_get_kernel_port();
+	} else if (!exc_port) {
 		return;
 	}
 
@@ -4010,9 +4043,9 @@ job_setup_exception_port(job_t j, task_t target_task)
 #endif
 
 	if (target_task) {
-		job_assumes(j, task_set_exception_ports(target_task, EXC_MASK_CRASH, the_exception_server,
+		job_assumes(j, task_set_exception_ports(target_task, EXC_MASK_CRASH, exc_port,
 					EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES, f) == KERN_SUCCESS);
-	} else if (getpid() == 1) {
+	} else if (getpid() == 1 && the_exception_server) {
 		mach_port_t mhp = mach_host_self();
 		job_assumes(j, host_set_exception_ports(mhp, EXC_MASK_CRASH, the_exception_server,
 					EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES, f) == KERN_SUCCESS);
@@ -6447,14 +6480,17 @@ job_mig_spawn(job_t j, vm_offset_t indata, mach_msg_type_number_t indataCnt, pid
 		return BOOTSTRAP_NO_MEMORY;
 	}
 
-	job_assumes(jr, jr->p);
+	if (!job_assumes(jr, jr->p)) {
+		job_remove(jr);
+		return BOOTSTRAP_NO_MEMORY;
+	}
 
 	if (!job_setup_machport(jr)) {
 		job_remove(jr);
 		return BOOTSTRAP_NO_MEMORY;
 	}
 
-	job_log(j, LOG_INFO, "Spawned");
+	job_log(jr, LOG_DEBUG, "Spawned by PID %u: %s", j->p, j->label);
 
 	*child_pid = jr->p;
 	*obsvr_port = jr->j_port;

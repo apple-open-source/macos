@@ -1,0 +1,473 @@
+{\rtf1\ansi\ansicpg1252\cocoartf949
+{\fonttbl\f0\froman\fcharset0 TimesNewRomanPSMT;\f1\froman\fcharset0 Times-Roman;}
+{\colortbl;\red255\green255\blue255;}
+{\info
+{\title Apple OID Assignments}
+{\author Doug Mitchell}
+{\*\company Apple Computer, Inc.}}\vieww20400\viewh17580\viewkind0
+\deftab720
+\pard\pardeftab720\qc\pardirnatural
+
+\f0\fs24 \cf0 Apple OID Assignments\
+Last Update 21 January 2008 by Richard Murphy\
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+
+\b 1.0
+\b0  apple ::=  \{ iso(1) member-body(2) US(840) 113635 \}\
+-- 1 2 840 113635\
+-- Top level Apple OID\
+\
+\pard\pardeftab720\li720\ql\qnatural\pardirnatural
+
+\b \cf0 1.1 
+\b0 appleDataSecurity ::= \{apple 100\}\
+-- 1 2 840 113635 100\
+-- Apple Data Security arc\
+\
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+
+\b \cf0 1.1.1 
+\b0 appleTrustPolicy ::= \{appleDataSecurity 1\}\
+-- 1 2 840 113635 100 1\
+-- Apple Certificate Trust Policies\
+\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 iSignTP ::= \{appleTrustPolicy 1\}\
+-- 1 2 840 113635 100 1 1\
+-- Apple iSign policy \
+\
+appleX509Basic ::= \{appleTrustPolicy 2\}\
+-- 1 2 840 113635 100 1 2\
+-- Apple Basic X.509 Cert Policy\
+\
+appleSSLPolicy ::= \{appleTrustPolicy 3\}\
+-- 1 2 840 113635 100 1 3\
+-- Apple SSL Cert Policy\
+\
+appleLocalCertGenPolicy ::= \{appleTrustPolicy 4\}\
+-- 1 2 840 113635 100 1 4\
+-- Apple Local Certificate Generation Policy\
+\
+appleCSRGenPolicy ::= \{appleTrustPolicy 5\}\
+-- 1 2 840 113635 100 1 5\
+-- Apple Local CSR Generation Policy\
+\
+appleCRLPolicy ::= \{appleTrustPolicy 6\}\
+-- 1 2 840 113635 100 1 6\
+-- Apple CRL Revocation Policy\
+\
+appleOCSPPolicy ::= \{appleTrustPolicy 7\}\
+-- 1 2 840 113635 100 1 7\
+-- Apple OCSP Revocation Policy\
+\
+appleSMIMEPolicy ::= \{appleTrustPolicy 8\}\
+-- 1 2 840 113635 100 1 8\
+-- Apple S/MIME Cert Policy\
+\
+appleEAPPolicy ::= \{appleTrustPolicy 9\}\
+-- 1 2 840 113635 100 1 9\
+-- Apple EAP Cert Policy\
+\
+appleSWUpdateSigningPolicy ::= \{appleTrustPolicy 10\}\
+-- Note: this was renamed from appleCodeSigningPolicy on 8/15/06\
+-- 1 2 840 113635 100 1 10\
+-- Apple Software Update Signing Policy\
+\
+appleIPSecPolicy ::= \{appleTrustPolicy 11\}\
+-- 1 2 840 113635 100 1 11\
+-- Apple IPSec Cert Policy\
+\
+appleIChatPolicy ::= \{appleTrustPolicy 12\}\
+-- 1 2 840 113635 100 1 12\
+-- Apple iChat Cert Policy\
+\
+appleResourceSignPolicy ::= \{appleTrustPolicy 13\}\
+-- 1 2 840 113635 100 1 13\
+-- Apple Resource Sign Cert Policy\
+\
+
+\f1 applePKINITClientPolicy ::= \{appleTrustPolicy 14\}\
+-- 1 2 840 113635 100 1 14\
+-- Apple Kerberos PKINIT Client Cert Policy\
+\
+applePKINITServerPolicy ::= \{appleTrustPolicy 15\}\
+-- 1 2 840 113635 100 1 15\
+-- Apple Kerberos PKINIT Server Cert Policy\
+\
+appleCodeSigningPolicy ::= \{appleTrustPolicy 16\}\
+-- 1 2 840 113635 100 1 16\
+-- Apple Code Signing Policy\
+\
+applePackageSigningPolicy ::= \{appleTrustPolicy 17\}\
+-- 1 2 840 113635 100 1 17\
+-- Apple Package Signing Policy\
+\
+
+\f0 \
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+
+\b \cf0 1.1.2 
+\b0 appleSecurityAlgorithm ::=  \{appleDataSecurity 2\}\
+-- 1 2 840 113635 100 2\
+-- Apple Security Algorithms\
+\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 appleFEE ::= \{ appleSecurityAlgorithm 1\}\
+-- 1 2 840 113635 100 2 1\
+-- Apple Fast Elliptic Encryption\
+\
+appleASC ::= \{ appleSecurityAlgorithm 2\}\
+-- 1 2 840 113635 100 2 2\
+-- Apple Secure Compression\
+\
+appleFEE_MD5 ::= \{ appleSecurityAlgorithm 3\}\
+-- 1 2 840 113635 100 2 3\
+-- Apple FEE with MD5 signature\
+\
+appleFEE_SHA1::= \{ appleSecurityAlgorithm 4\}\
+-- 1 2 840 113635 100 2 4\
+-- Apple FEE with MSHA1D5 signature\
+\
+appleFEED ::= \{ appleSecurityAlgorithm 5\}\
+-- 1 2 840 113635 100 2 5\
+-- Apple FEE with direct embedding\
+\
+appleFEEDEXP ::= \{ appleSecurityAlgorithm 6\}\
+-- 1 2 840 113635 100 2 6\
+-- Apple FEE with direct embedding, experimental\
+\
+appleECDSA ::= \{ appleSecurityAlgorithm 7\}\
+-- 1 2 840 113635 100 2 7\
+-- Apple FEE/ECDSA signature\
+\
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+
+\b \cf0 1.1.3 
+\b0 appleDotMacCertificate ::=  \{appleDataSecurity 3\}\
+-- 1 2 840 113635 100 3\
+-- Apple .mac certificate arc\
+\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+
+\b \cf0 1.1.3.1
+\b0  dotMacCertificateRequest ::= \{ appleDotMacCertificate 1\}\
+-- 1 2 840 113635 100 3 1\
+-- Apple .mac certificate request arc\
+\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 dotMacCertReqIdentity ::= \{ dotMacCertificateRequest 1\}\
+-- 1 2 840 113635 100 3 1 1\
+-- Apple .mac Identity certificate request \
+-- Actually Used for encrypted iChat certs; deprecated in Leopard\
+\
+dotMacCertReqEmailSign ::= \{ dotMacCertificateRequest 2\}\
+-- 1 2 840 113635 100 3 1 2\
+-- Apple .mac Email Signing certificate request \
+\
+dotMacCertReqEmailEncrypt ::= \{ dotMacCertificateRequest 3\}\
+-- 1 2 840 113635 100 3 1 3\
+-- Apple .mac Email Encryption certificate request \
+\
+dotMacCertReqArchiveList ::= \{ dotMacCertificateRequest 4\}\
+-- 1 2 840 113635 100 3 1 4\
+-- Apple .mac archive list request \
+\
+dotMacCertReqArchiveStore ::= \{ dotMacCertificateRequest 5\}\
+-- 1 2 840 113635 100 3 1 5\
+-- Apple .mac archive store request \
+\
+dotMacCertReqArchiveFetch ::= \{ dotMacCertificateRequest 6\}\
+-- 1 2 840 113635 100 3 1 6\
+-- Apple .mac archive fetch request \
+\
+dotMacCertReqArchiveRemove ::= \{ dotMacCertificateRequest 7\}\
+-- 1 2 840 113635 100 3 1 7\
+-- Apple .mac archive remove request \
+\
+dotMacCertReqSign ::= \{ dotMacCertificateRequest 8\}\
+-- 1 2 840 113635 100 3 1 8\
+-- Apple .mac signing certificate request \
+\
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+
+\b \cf0 1.1.3.2
+\b0  dotMacCertificateExtension ::= \{ appleDotMacCertificate 2\}\
+-- 1 2 840 113635 100 3 2\
+-- Apple .mac certificate extension arc\
+\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 dotMacCertExtensionIdentity ::= \{ dotMacCertificateExtension 1\}\
+-- 1 2 840 113635 100 3 2 1\
+-- Apple .mac certificate extended key use: Identity\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 dotMacCertExtensionEmailSign ::= \{ dotMacCertificateExtension 2\}\
+-- 1 2 840 113635 100 3 2 2\
+-- Apple .mac certificate extended key use: Email Signing\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 dotMacCertExtensionEmailEncrypt ::= \{ dotMacCertificateExtension 3\}\
+-- 1 2 840 113635 100 3 2 3\
+-- Apple .mac certificate extended key use: Email Encrypt\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+
+\b \cf0 1.1.3.3 
+\b0 dotMacCertificateRequestValues ::= \{ appleDotMacCertificate 3\}\
+-- 1 2 840 113635 100 3 3\
+-- Apple .mac certificate request parameter arc\
+\
+	dotMacCertRequestValueUserName ::= \{ dotMacCertificateRequestValues 1\}\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 -- 1 2 840 113635 100 3 3 1\
+-- Apple .mac certificate request parameter: userName\
+\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 	dotMacCertRequestValuePasssword ::= \{ dotMacCertificateRequestValues 2\}\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 -- 1 2 840 113635 100 3 3 2\
+-- Apple .mac certificate request parameter: password\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+	dotMacCertRequestValueHostName ::= \{ dotMacCertificateRequestValues 3\}\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 -- 1 2 840 113635 100 3 3 3\
+-- Apple .mac certificate request parameter: hostName\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+	dotMacCertRequestValueRenew ::= \{ dotMacCertificateRequestValues 4\}\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 -- 1 2 840 113635 100 3 3 4\
+-- Apple .mac certificate request parameter: Renew flag\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+	dotMacCertRequestValueAsync ::= \{ dotMacCertificateRequestValues 5\}\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 -- 1 2 840 113635 100 3 3 5\
+-- Apple .mac certificate request parameter: asynchronous flag\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+	dotMacCertRequestValueIsPending ::= \{ dotMacCertificateRequestValues 6\}\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 -- 1 2 840 113635 100 3 3 6\
+-- Apple .mac certificate request parameter: poll server for pending request\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+	dotMacCertRequestValueTypeIChat ::= \{ dotMacCertificateRequestValues 7\}\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 -- 1 2 840 113635 100 3 3 7\
+-- Apple .mac certificate request parameter: cert type = iChat\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+	dotMacCertRequestValueTypeSharedServices ::= \
+\pard\pardeftab720\li3600\fi720\ql\qnatural\pardirnatural
+\cf0 \{ dotMacCertificateRequestValues 8\}\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 -- 1 2 840 113635 100 3 3 8\
+-- Apple .mac certificate request parameter: cert type = Shared Services\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+	dotMacCertRequestValueTypeEmailEncrypt ::= \
+\pard\pardeftab720\li3600\fi720\ql\qnatural\pardirnatural
+\cf0 \{ dotMacCertificateRequestValues 9\}\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 -- 1 2 840 113635 100 3 3 9\
+-- Apple .mac certificate request parameter: cert type = Email Encryption\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+	dotMacCertRequestValueTypeEmailSigning ::= \
+\pard\pardeftab720\li3600\fi720\ql\qnatural\pardirnatural
+\cf0 \{ dotMacCertificateRequestValues 10\}\
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 -- 1 2 840 113635 100 3 3 10\
+-- Apple .mac certificate request parameter: cert type = Email Signing\
+\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+\cf0 \
+
+\b 1.1.4 
+\b0 appleExtendedKeyUsage ::= \{appleDataSecurity 4\}\
+-- 1 2 840 113635 100 4\
+-- Apple Extended Key Usage arc\
+\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 appleCodeSigning ::= \{ appleExtendedKeyUsage 1\}\
+-- 1 2 840 113635 100 4 1\
+-- Apple Code Signing Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 appleCodeSigningDevelopment ::= \{ appleCodeSigning 1\}\
+-- 1 2 840 113635 100 4 1 1\
+-- Apple Code Signing Extended Key Usage, Development \
+\
+appleSoftwareUpdateSigning ::= \{ appleCodeSigning 2\}\
+-- 1 2 840 113635 100 4 1 2\
+-- Apple Software Update Signing Extended Key Usage\
+\
+appleCodeSigningThirdParty ::= \{ appleCodeSigning 3\}\
+-- 1 2 840 113635 100 4 1 3\
+-- Apple Third-Party Code Signing Extended Key Usage\
+\
+appleResourceSigning ::= \{ appleCodeSigning 4\}\
+-- 1 2 840 113635 100 4 1 4\
+-- Apple Resource Signing Extended Key Usage\
+\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 appleIChatSigning ::= \{ appleExtendedKeyUsage 2\}\
+-- 1 2 840 113635 100 4 2\
+-- Apple iChat Signing Extended Key Usage \
+\
+appleIChatEncryption ::= \{ appleExtendedKeyUsage 3\}\
+-- 1 2 840 113635 100 4 3\
+-- Apple iChat Encryption Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 appleSystemIdentity ::= \{ appleExtendedKeyUsage 4\}\
+-- 1 2 840 113635 100 4 4\
+-- Apple System Identity Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 appleCryptoEnv ::= \{ appleExtendedKeyUsage 5\}\
+-- 1 2 840 113635 100 4 5\
+-- Apple Encryption Environment Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 appleCryptoProductionEnv ::= \{ appleCryptoEnv 1\}\
+-- 1 2 840 113635 100 4 5 1\
+-- Apple Encryption Production Environment Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 appleCryptoMaintenanceEnv ::= \{ appleCryptoEnv 2\}\
+-- 1 2 840 113635 100 4 5 2\
+-- Apple Encryption Maintenance Environment Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 appleCryptoTestEnv ::= \{ appleCryptoEnv 3\}\
+-- 1 2 840 113635 100 4 5 3\
+-- Apple Encryption Test Environment Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 appleCryptoDevelopmentEnv ::= \{ appleCryptoEnv 4\}\
+-- 1 2 840 113635 100 4 5 4\
+-- Apple Encryption Development Environment Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 appleCryptoQoS ::= \{ appleExtendedKeyUsage 6\}\
+-- 1 2 840 113635 100 4 6\
+-- Apple Encryption Quality of Service Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 appleCryptoTier0QoS ::= \{ appleCryptoQoS 1\}\
+-- 1 2 840 113635 100 4 6 1\
+-- Apple Encryption Tier 0 Quality of Service Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 appleCryptoTier0QoS ::= \{ appleCryptoQoS 2\}\
+-- 1 2 840 113635 100 4 6 2\
+-- Apple Encryption Tier 1 Quality of Service Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 appleCryptoTier0QoS ::= \{ appleCryptoQoS 3\}\
+-- 1 2 840 113635 100 4 6 3\
+-- Apple Encryption Tier 2 Quality of Service Extended Key Usage \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2880\ql\qnatural\pardirnatural
+\cf0 appleCryptoTier0QoS ::= \{ appleCryptoQoS 4\}\
+-- 1 2 840 113635 100 4 6 4\
+-- Apple Encryption Tier 3 Quality of Service Extended Key Usage \
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+
+\b \cf0 1.1.5 
+\b0 appleCertificatePolicies ::= \{appleDataSecurity 5\}\
+-- 1 2 840 113635 100 5\
+-- Apple Certificate Policies arc\
+\
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 appleCertificatePolicyID ::= \{ appleCertificatePolicies 1\}\
+-- 1 2 840 113635 100 5 1\
+-- Apple Certificate Policy \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\li2160\ql\qnatural\pardirnatural
+\cf0 appleDotMacCertificatePolicyID ::= \{ appleCertificatePolicies 2\}\
+-- 1 2 840 113635 100 5 2\
+-- Apple .Mac certificate policy ID\
+\
+appleADCCertificatePolicyID ::= \{ appleCertificatePolicies 3\}\
+-- 1 2 840 113635 100 5 3\
+-- ADC Certificate Policy\
+\
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+
+\b \cf0 1.1.6 
+\b0 appleCertificateExtensions ::= \{appleDataSecurity 6\}\
+-- 1 2 840 113635 100 6\
+-- Apple Certificate Extensions arc\
+\
+	appleCertificateExtensionCodeSigning ::= \{ appleCertificateExtensions 1 \}\
+	-- 1 2 840 113635 100 6 1\
+	-- Apple Code Signature\
+\
+		appleCertificateExtensionAppleSigning ::= \{ appleCertificateExtensionCodeSigning 1 \}\
+		-- 1 2 840 113635 100 6 1 1\
+		-- Apple Released Code Signature\
+\
+		appleCertificateExtensionADCDeveloperSigning ::= \{ appleCertificateExtensionCodeSigning 2 \}\
+		-- 1 2 840 113635 100 6 1 2\
+		-- Apple Developer Connection Issued Certificates for Code Signing\
+\
+		appleCertificateExtensionADCAppleSigning ::= \{ appleCertificateExtensionCodeSigning 3 \}\
+		-- 1 2 840 113635 100 6 1 3\
+		-- Apple Developer Connection Apple Certificates for Code Signing\
+\
+\
+\pard\pardeftab720\ql\qnatural\pardirnatural
+\cf0 \
+\
+\
+\pard\pardeftab720\li1440\ql\qnatural\pardirnatural
+\cf0 \
+\pard\pardeftab720\ql\qnatural\pardirnatural
+
+\b \cf0 \ul \ulc0 Revision History\
+\ulnone \
+\ul    Date   \ulnone 	\ul Change    \
+
+\b0 \ulnone 01/21/08	Added Code Signing Critical Certificate Extensions\
+04/04/07	Added appleCryptoEnv and appleCryptoQoS ExtendedKeyUse trees
+\b \
+
+\b0 09/14/06	Added dotMacCertReqEncryptedIChat, dotMacCertReqCollaboration\
+08/16/06	Changes AppleCodeSigningPolicy to appleSWUpdateSigningPolicy\
+		Added (new) AppleCodeSigningPolicy\
+		Added 
+\f1 applePackageSigningPolicy
+\f0 \
+01/28/05	Added appleCertificatePolicies arc  \
+		Moved dotMacCertPolicyID to appleCertificatePolicies arc\
+01/25/05	Added dotMacCertPolicyID\
+}

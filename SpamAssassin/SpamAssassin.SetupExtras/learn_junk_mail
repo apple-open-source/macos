@@ -36,7 +36,7 @@ then
   cd $MAIL_STORE_PATH/$JUNK_MAIL_USER
   for file in *. ; do
     if [ -f $file ]; then
-      cat $file | su - _amavisd -c "sa-learn --spam --no-sync >> /dev/null";
+      cat $file | sudo -u _amavisd sa-learn --dbpath /var/amavis/.spamassassin --spam --no-sync >> /dev/null;
     fi
   done
 fi
@@ -48,10 +48,10 @@ then
   cd $MAIL_STORE_PATH/$NOT_JUNK_MAIL_USER
   for file in *. ; do
     if [ -f $file ]; then
-      cat $file | su - _amavisd -c "sa-learn --ham --no-sync >> /dev/null";
+      cat $file | sudo -u _amavisd sa-learn --dbpath /var/amavis/.spamassassin --ham --no-sync >> /dev/null;
     fi
   done
 fi
 
 # Force a database sync
-su - _amavisd  -c "sa-learn --sync >> /dev/null"
+sudo -u _amavisd sa-learn --dbpath /var/amavis/.spamassassin --sync >> /dev/null

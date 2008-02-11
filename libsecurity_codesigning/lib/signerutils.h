@@ -168,9 +168,14 @@ public:
 	
 private:
 	void childAction();
+	void parentAction();
+	
 	Universal *mNewCode;
 	UnixPlusPlus::AutoFileDesc mFd;
 	bool mTempMayExist;
+	
+	const char *mHelperPath;
+	bool mHelperOverridden;
 };
 
 

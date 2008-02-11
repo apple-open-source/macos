@@ -1110,6 +1110,13 @@ AppleUSBUHCI::RHResumePortCompletion(UInt32 port)
 		return kIOReturnInternalError;
 	}
 	
+	if (!_controllerAvailable)
+	{
+		USBLog(5, "AppleUSBEHCI[%p]::RHResumePortCompletion - cannot finish resume on port %d because the controller is unavailable", this, (int)port);
+		_rhPortBeingResumed[port-1] = false;
+		return kIOReturnInternalError;
+	}
+	
 	value = ReadPortStatus(port-1) & kUHCI_PORTSC_MASK;
 	value &= ~(kUHCI_PORTSC_RD | kUHCI_PORTSC_SUSPEND);
 	USBLog(5, "AppleUSBUHCI[%p]: de-asserting resume signal by writing (%p)", this, (void*)value);

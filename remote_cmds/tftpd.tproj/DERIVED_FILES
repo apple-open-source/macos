@@ -1,0 +1,5 @@
+# The following files have been derived from another project.  If you do any
+# changes to them here, make sure you mirror them there too.
+
+argon_usrbin/tftp/tftpsubs.h
+argon_usrbin/tftp/tftpsubs.c

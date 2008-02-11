@@ -24,7 +24,9 @@
 #define _APPLEINTELICHXSATA_H
 
 #include "AppleIntelPIIXPATA.h"
+#ifndef kIOPolledInterfaceSupportKey
 #include <IOKit/IOPolledInterface.h>
+#endif
 
 class AppleIntelICHxSATA : public AppleIntelPIIXPATA
 {
@@ -53,8 +55,8 @@ public:
                                     IOService *   whatDevice );
 
 public:
-    void pollEntry( void );
-    void transitionFixup( void );
+    virtual void pollEntry( void );
+    virtual void transitionFixup( void );
 };
 
 class AppleIntelICHxSATAPolledAdapter : public IOPolledInterface

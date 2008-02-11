@@ -1,3 +1,0 @@
-after_install:
-	install -d $(DSTROOT)/usr/share/man/man8
-	install -c -m 444 ifconfig.8 $(DSTROOT)/usr/share/man/man8

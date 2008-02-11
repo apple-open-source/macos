@@ -17,7 +17,7 @@
    |          Hartmut Holzgraefe <hholzgra@php.net>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_fopen_wrapper.c,v 1.45.2.4.2.7 2007/06/21 12:42:36 dmitry Exp $ */
+/* $Id: php_fopen_wrapper.c,v 1.45.2.4.2.8 2007/10/04 13:31:11 jani Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -253,7 +253,7 @@ php_stream * php_stream_url_wrap_php(php_stream_wrapper *wrapper, char *path, ch
 		pathdup = estrndup(path + 6, strlen(path + 6));
 		p = strstr(pathdup, "/resource=");
 		if (!p) {
-			php_error_docref(NULL TSRMLS_CC, E_RECOVERABLE_ERROR, "No URL resource specified.");
+			php_error_docref(NULL TSRMLS_CC, E_RECOVERABLE_ERROR, "No URL resource specified");
 			efree(pathdup);
 			return NULL;
 		}

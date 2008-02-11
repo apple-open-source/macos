@@ -19,108 +19,77 @@
 #endif
 
 ENTRY( frexpf )
-    SUBP    $LOCAL_STACK_SIZE,   STACKP
-
     //Fetch the arguments
 #if defined( __i386__ )
-    movl    FIRST_ARG_OFFSET( STACKP ),     %eax
-    movl    4+FIRST_ARG_OFFSET( STACKP ),   RESULT_P
+    movl    FRAME_SIZE( STACKP ),           %eax
+    movl    4+FRAME_SIZE( STACKP ),         RESULT_P
 #else
     movd    %xmm0,                          %eax
 #endif
 
-    //copy mantissa out of harms way
-    movl    %eax,                           %ecx
+    movl    %eax,                           %ecx        //  x
+    andl    $0x7f800000,                    %eax        //  biased exponent
+    addl    $0x00800000,                    %eax        //  add one to exponent
+    cmpl    $0x00800000,                    %eax        // if( isdenormal(x) || isinf(x) || isnan(x) )
+    jle     1f                                          //      goto 1
 
-    //expose exponent
-    andl    $0x7f800000,                    %eax
-
-    //extract sign + mantissa
-    andl    $0x807fffff,                    %ecx
+    andl    $0x807fffff,                    %ecx        //  sign + significand
+    sarl    $23,                            %eax        //  shift exponent to units position
+    orl     $0x3f000000,                    %ecx        //  set return exponent to -1
+    subl    $127,                           %eax        //  remove bias
     
-    //add 1 to the exponent 
-    addl    $0x00800000,                    %eax
-    
-    //or in -1 + bias as the new exponent for the mantissa
-    orl     $0x3f000000,                    %ecx
-
-    //test to see if we are in an exceptional case.  (0x00800000 -> 0 or denormal, 0x80000000 -> NaN or Inf)
-    cmpl    $0x00800000,                    %eax
-    jle     1f
-
-    //Move the new mantissa to return register
+    //return result
 #if defined( __i386__ )
-    movl    %ecx,                           (STACKP)
-    flds    (STACKP)
+    movl    %ecx,                           FRAME_SIZE( STACKP )
+    flds    FRAME_SIZE( STACKP )
 #else
-    movd    %ecx,                           %xmm0 
+    movd    %ecx,                           %xmm0
 #endif
-
-    //move exponent to units precision, and store
-    sarl    $23,                            %eax
-    addl    $-127,                          %eax            //remove bias
-    movl    %eax,                           (RESULT_P)
-
-    //exit
-    ADDP    $LOCAL_STACK_SIZE,   STACKP
+    movl    %eax,                           (RESULT_P)  //  store exponent
     ret
 
-    //special case code
-1:  je      3f              
+//  0, denorm, nan, inf
+1:  jl      3f                                          // NaN, inf goto 3
 
-2:  movl    $0,                             (RESULT_P)
-  //Infs, zeros and NaNs -- return input value
+    // 0 or denor
+    movl    %ecx,                           %eax        // x
+    andl    $0x7fffffff,                    %ecx        // |x|
+    jz      3f                                          // if the value is zero, goto 3
+
+    // denormal
+    bsrl    %ecx,                           %ecx       // count leading zeros
+    subl    $23,                            %ecx       // correct for the backwards bit numbering scheme
+    negl    %ecx                                       // fix sign
+    shl     %cl,                            %eax       // move high bit to lowest exponent bit
+    addl    $125,                           %ecx       // find exponent
+    andl    $0x007fffff,                    %eax       // trim high bit
+    negl    %ecx
+    movl    %ecx,                           (RESULT_P) // write out exponent -- we need the register
+
 #if defined( __i386__ )
-    flds    FIRST_ARG_OFFSET( STACKP )
+    movl    FRAME_SIZE( STACKP ),           %ecx       // we lost the sign bit along the way. Get it back
+#else
+    movd    %xmm0,                          %ecx       // we lost the sign bit along the way. Get it back
 #endif
-    ADDP    $LOCAL_STACK_SIZE,   STACKP
-    ret
-
-//zeros and denormals
-3:  movd    %ecx,                           %xmm1
-    movl    %ecx,                           %eax
-    andl    $0x007fffff,                    %ecx    //test for non-zero
-    jz      2b
-    
-    //denormals
-    andl    $0x80000000,                    %eax
     orl     $0x3f000000,                    %eax
-    movd    %eax,                           %xmm2
-    subss   %xmm2,                          %xmm1
-    movd    %xmm1,                          %eax
-    
-    //copy mantissa out of harms way
-    movl    %eax,                           %ecx
+    andl    $0x80000000,                    %ecx
+    orl     %ecx,                           %eax
 
-    //expose exponent
-    andl    $0x7f800000,                    %eax
-
-    //extract sign + mantissa
-    andl    $0x807fffff,                    %ecx
-    
-    //shift the exponent to units precision 
-    sarl    $23,                            %eax
-    
-    //or in -1 + bias as the new exponent for the mantissa
-    orl     $0x3f000000,                    %ecx
-    
-    //add  -126 + 1 -127 to the exponent
-    addl    $(-126+1-127),                  %eax
-    
-    //Move the new mantissa to return register
 #if defined( __i386__ )
-    movl    %ecx,                           (STACKP)
-    flds    (STACKP)
+    movl    %eax,                           FRAME_SIZE( STACKP )
+    flds    FRAME_SIZE(STACKP)
 #else
-    movd    %ecx,                           %xmm0 
+    movd    %eax,                           %xmm0
 #endif
-
-    //move exponent to units precision, and store
-    movl    %eax,                           (RESULT_P)
-
-    //exit
-    ADDP    $LOCAL_STACK_SIZE,   STACKP
     ret
+    
+3:  // 0, inf, NaN
+#if defined( __i386__ )
+    flds    FRAME_SIZE(STACKP)
+#endif
+    movl    $0,                             (RESULT_P)
+    ret
+
 
 
 ENTRY( frexp )
@@ -324,7 +293,7 @@ ENTRY( frexpl )
     
     //extract exponent
     andl    $0x7fff,                        %eax
-    addl    $(-16383-16382-63-1),           %eax
+    addl    $(-16383-16382-63+1),           %eax
     movl    %eax,                           (RESULT_P)
     
     //prepare new exponent for mantissa

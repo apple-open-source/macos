@@ -47,7 +47,7 @@
                               (regex "^(/private)?/var/log/krb5kdc/kdc\\.log$")
                               (regex "^(/private)?/var/tmp/krb5_RC")
                               (regex "^(/private)?/var/tmp/krb5kdc_rcache")
-                              (regex "^(/private)?/var/tmp/mds/system(/|$)"))
+                              (regex "^(/private)?/var/tmp/mds(/|$)"))
 							  
 (allow file-write-data (literal #"/dev/dtracehelper"))
 

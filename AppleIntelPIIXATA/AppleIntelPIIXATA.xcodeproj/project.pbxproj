@@ -40,7 +40,7 @@
 			productName = AppleIntelPIIXATA;
 			productReference = 0B81C263FFB7832611CA28AA /* AppleIntelPIIXATA.kext */;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
@@ -48,7 +48,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleIntelPIIXATA</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.18, Copyright Apple Inc. 2000-2007</string>
+	<string>2.0.0, Copyright Apple Inc. 2000-2007</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -60,11 +60,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.18</string>
+	<string>2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.18</string>
+	<string>2.0.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>ESB2 ATA/100</key>
@@ -340,12 +340,10 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 424EEE1309871760007E6FBC /* Build configuration list for PBXProject "AppleIntelPIIXATA" */;
-			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleIntelPIIXATA */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				089C1673FE841209C02AAC07 /* AppleIntelPIIXATA */,
 			);
@@ -423,7 +421,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleIntelPIIXATA;
-				MODULE_VERSION = 1.18;
+				MODULE_VERSION = 2.0.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -452,7 +450,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleIntelPIIXATA;
-				MODULE_VERSION = 1.18;
+				MODULE_VERSION = 2.0.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -479,7 +477,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleIntelPIIXATA;
-				MODULE_VERSION = 1.18;
+				MODULE_VERSION = 2.0.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

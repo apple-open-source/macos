@@ -406,11 +406,14 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 		return (error);		
 	}
 	
+#ifdef RADAR_5618109
 	if (args->version != SMBFS_VERSION) {
 		SMBERROR("mount version mismatch: kernel=%d, mount=%d\n", SMBFS_VERSION, args->version);
 		free(args, M_SMBFSDATA);		
 		return (EINVAL);
 	}
+#endif // RADAR_5618109
+	
 	/* Get the debug level as soon as possible. */
 	smbfs_loglevel =  args->debug_level;
 	error = smb_dev2share(args->dev, &ssp);

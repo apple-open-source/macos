@@ -1,60 +1,31 @@
-.Dd February 9, 2006
-.Dt ERB 1
+.Dd December 5, 2007
+.Dt GEM 1
 .Os
 .Sh NAME
-.Nm gem , gem_mirror , gem_server , gemlock, gemri, gemwhich , index_gem_repository.rb , update_rubygems 
-.Nd RubyGems helper programs
+.Nm gem, update_rubygems
+.Nd RubyGems Package Manager
 .Sh SYNOPSIS
 .Nm gem 
 .Ar command 
 .Op Ar arguments... 
 .Op Ar options...
-.Nm gem_server 
-.Op Ar options...
-.Nm gemlock
-.Op Ar options
-.Op Ar libname ...
-.Nm gemri
-.Op Ar options
-.Op Ar name ...
-.Nm gemwhich 
-.Op Ar options
-.Op Ar libname ...
-.Nm index_gem_repository.rb 
-.Op Ar options
-.Nm update_rubygems 
+.Nm update_rubygems
 .Sh DESCRIPTION
-These are various helper programs that are part of the RubyGems distribution, a sophisticated package manager for the Ruby programming language.
+RubyGems is a sophisticated package manager for the Ruby programming language, that consists of the
+.Nm gem
+command line program.
 .Pp
-For more information about a specific program, you can use its
+For more information about the
+.Nm gem
+program, you can use its
 .Fl -help
 flag. There is also online documentation available at "http://docs.rubygems.org".
 .Pp
-.Nm gem 
-is the main interface to the RubyGems packaging system.
+The
+.Nm update_rubygems
+program is a tool used to update the RubyGems distribution.
 .Pp
-.Nm gem_server 
-is a tool to serve your entire set of installed gems to anyone.
-.Pp
-.Nm gemlock
-generates a series of require_gem commands that will lock down an application or library to a particular version of their dependent gem.
-.Pp
-.Nm gemri
-acts as a wrapper for the
-.Xr ri 1
-command to read gems RI documentation.
-.Pp
-.Nm gemwhich  
-is a script that behaves like the
-.Xr which 1
-command for ruby libraries and gem repositories.
-.Pp
-.Nm index_gem_repository.rb 
-generates index files for your RubyGems server.
-.Pp
-.Nm update_rubygems 
-is an internal script used to update RubyGems. 
 .Sh SEE ALSO
 .Xr ruby 1
 .Sh AUTHORS
-RubyGems was originally developed at RubyConf 2003 by Rich Kilmer, Chad Fowler, David Black, Paul Brannan and Jim Weirch, and has received a lot of contributions since then. You can obtain the RubyGems sources at http://rubyforge.org/projects/rubygems/. 
+RubyGems was originally developed at RubyConf 2003 by Rich Kilmer, Chad Fowler, David Black, Paul Brannan and Jim Weirch, and has received a lot of contributions since then. RubyGems is now principally developed and maintained by Eric Hodel. You can obtain the RubyGems sources at http://rubyforge.org/projects/rubygems/. 

@@ -97,6 +97,8 @@ static const char sccsid[] = "@(#)w.c	8.4 (Berkeley) 4/16/94";
 #endif /* HAVE_UTMPX */
 #include <vis.h>
 
+#include <TargetConditionals.h>
+
 #include "extern.h"
 
 struct timeval	boottime;
@@ -261,10 +263,12 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
+#if !TARGET_OS_EMBEDDED
 	if (!(_res.options & RES_INIT))
 		res_init();
 	_res.retrans = 2;	/* resolver timeout to 2 seconds per try */
 	_res.retry = 1;		/* only try once.. */
+#endif
 
 #if HAVE_KVM
 	/*

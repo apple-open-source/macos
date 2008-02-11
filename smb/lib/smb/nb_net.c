@@ -78,7 +78,7 @@ static int SocketUtilsIncrementIfReqIter(UInt8** inIfReqIter, struct ifreq* ifr)
  * for AF_INET6, but since we don't support AF_INET6 yet no need to do that
  * work.
  */
-static int isLocalNetworkAddress(struct hostent* h)
+int isLocalNetworkAddress(u_int32_t addr)
 {
     UInt32		kMaxAddrBufferSize = 2048;
     UInt8 		buffer[kMaxAddrBufferSize];
@@ -114,7 +114,7 @@ static int isLocalNetworkAddress(struct hostent* h)
 		}
 		if (ifreq.ifr_flags & IFF_UP) {
 			struct sockaddr_in *laddr = (struct sockaddr_in *)&(ifreq.ifr_addr);
-			if ((u_int32_t)laddr->sin_addr.s_addr == *(u_int32_t *)h->h_addr) {
+			if ((u_int32_t)laddr->sin_addr.s_addr == addr) {
 				foundit = TRUE;
 				break;
 			}
@@ -180,7 +180,7 @@ int nb_resolvehost_in(const char *name, struct sockaddr **dest, u_int16_t port, 
 			return ELOOP;		
 		}
 		
-		if (isLocalNetworkAddress(h) == TRUE) {
+		if (isLocalNetworkAddress(*(u_int32_t *)h->h_addr) == TRUE) {
 			smb_log_info("The address for `%s' is a local address, not allowed!\n", 0, ASL_LEVEL_ERR, name);			
 			/* AFP now returns ELOOP, so we will do the same */
 			return ELOOP;		

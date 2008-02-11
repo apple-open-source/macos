@@ -30,8 +30,15 @@ namespace Security {
 CssmData NameValuePair::CloneData (const CssmData &value)
 {
 	void* clonedData = (void*) new unsigned char [value.length ()];
-	memcpy (clonedData, value.data (), value.length ());
-	return CssmData (clonedData, value.length ());
+	if (clonedData != NULL)
+	{
+		memcpy (clonedData, value.data (), value.length ());
+		return CssmData (clonedData, value.length ());
+	}
+	else
+	{
+		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+	}
 }
 
 
@@ -143,6 +150,11 @@ NameValueDictionary::NameValueDictionary (const CssmData &data)
 		for (i = sizeof (uint32); i < 2 * sizeof (uint32); ++i)
 		{
 			length = (length << 8) | finger[i];
+		}
+		
+		if (length > data.length())
+		{
+			break;
 		}
 		
 		// add the length of the "header"

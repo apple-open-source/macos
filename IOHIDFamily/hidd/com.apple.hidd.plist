@@ -9,7 +9,10 @@
     <key>MachServices</key>
     <dict>
             <key>com.apple.iohideventsystem</key>
-            <true/>
+            <dict>
+                    <key>ResetAtClose</key>
+                    <true/>
+            </dict>
     </dict>
 	<key>ProgramArguments</key>
 	<array>

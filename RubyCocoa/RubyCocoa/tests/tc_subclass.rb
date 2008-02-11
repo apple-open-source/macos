@@ -1,5 +1,5 @@
 #
-#  $Id: tc_subclass.rb 1821 2007-06-08 07:16:33Z lrz $
+#  $Id: tc_subclass.rb 2093 2007-10-25 14:43:46Z lrz $
 #
 #  Copyright (c) 2005-2006 kimura wataru
 #  Copyright (c) 2001-2002 FUJIMOTO Hisakuni
@@ -58,14 +58,33 @@ end
 
 class SimpleClass; end
 
+class SimpleNSObjectClass < OSX::NSObject; end
+
 class TestActionClass < OSX::NSObject; end
+
+class NSCopyingClass < OSX::NSCell; end
+
+class TestSuper < OSX::NSObject
+  def init
+    if super
+      @foo = 42
+    end
+    self
+  end
+  attr_reader :foo
+  def self.description
+    super + 'XXX'
+  end
+end
 
 class TC_SubClass < Test::Unit::TestCase
 
   def test_s_new
+    # all NSObject-based classes respond to new, others don't.
+    assert_kind_of(OSX::NSObject, OSX::NSObject.new)
     err = nil
     begin
-      SubClassA.new
+      OSX::NSProxy.new
     rescue => err
     end
     assert_kind_of( RuntimeError, err )
@@ -227,11 +246,38 @@ class TC_SubClass < Test::Unit::TestCase
     test = OSX::TestRBObject.alloc.init
     o = SimpleClass.new    
     n = test.addressOfObject(o)
-    assert_equal(n, test.addressOfObject(o))
-    GC.start
-    assert_equal(n, test.addressOfObject(o))
-    o = SimpleClass.new
     assert(n != test.addressOfObject(o))
+    a = OSX::NSMutableArray.array
+    a << o
+    n = test.addressOfObject(o)
+    assert(n == test.addressOfObject(o))
+  end
+
+  def test_rbobject_gc
+    @t = 0 
+    10_000.times do
+      ObjectSpace.define_finalizer(
+        SimpleNSObjectClass.alloc.init, 
+        proc { @t += 1 })
+    end
+    GC.start
+    assert(@t >= 9_990 && @t <= 10_000)
+  end
+
+  def test_rbobject_nscopying
+    o = NSCopyingClass.alloc.init
+    o.stringValue = 'foo'
+    o2 = o.copy
+
+    assert_kind_of(NSCopyingClass, o2)
+    assert(o.objc_send('__rbobj__') != o2.objc_send('__rbobj__'))
+    assert_equal(o.stringValue, o2.stringValue)
+  end
+
+  # XXX not working for now
+  def xxx_test_super
+    assert_equal(42, TestSuper.alloc.init.foo)
+    assert_equal('TestSuperXXX', TestSuper.description)
   end
 
 end

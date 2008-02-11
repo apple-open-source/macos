@@ -375,7 +375,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32449;
+				CURRENT_PROJECT_VERSION = 32820;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -421,7 +421,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32449;
+				CURRENT_PROJECT_VERSION = 32820;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
@@ -465,7 +465,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32449;
+				CURRENT_PROJECT_VERSION = 32820;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",

@@ -24,6 +24,7 @@
 
 #include <IOKit/IOLib.h>
 
+#include "IOHIDFamilyPrivate.h"
 #include "IOHIDPointingDevice.h" 
 
 typedef struct ScrollDescriptor {    
@@ -167,6 +168,37 @@ static inline void convert16to8( const UInt16 src,
     dst[1] = (0xff00 & src) >> 8;
 }
 
+static Boolean CheckDeviceUsage(IOHIDDevice * device, UInt32 usagePage, UInt32 usage)
+{
+    OSDictionary * matchingDictionary = OSDictionary::withCapacity(2);
+    Boolean ret = FALSE;
+    
+    if ( matchingDictionary ) 
+    {
+        OSNumber * number;
+        
+        number = OSNumber::withNumber(usagePage, 32);
+        if ( number )
+        {
+            matchingDictionary->setObject(kIOHIDDeviceUsagePageKey, number);
+            number->release();
+        }
+        
+        number = OSNumber::withNumber(usage, 32);
+        if ( number )
+        {
+            matchingDictionary->setObject(kIOHIDDeviceUsageKey, number);
+            number->release();
+        }
+        
+        ret = CompareDeviceUsage(device, matchingDictionary, NULL, 0);
+        
+        matchingDictionary->release();
+    }
+    
+    return ret;
+}
+
 #define super IOHIDDeviceShim
 
 OSDefineMetaClassAndStructors( IOHIDPointingDevice, super )
@@ -179,8 +211,11 @@ IOHIDPointingDevice::newPointingDeviceAndStart(IOService *owner, UInt8 numButton
     
     while (provider = provider->getProvider())
     {
-	if(OSDynamicCast(IOHIDDevice, provider) || OSDynamicCast(IOHIDevice, provider))
-            return  0;
+        if(OSDynamicCast(IOHIDevice, provider) || 
+            (OSDynamicCast(IOHIDDevice, provider) && CheckDeviceUsage((IOHIDDevice*)provider, kHIDPage_GenericDesktop, kHIDUsage_GD_Mouse)) )
+        {
+                return  0;
+        }
     }
 
     IOHIDPointingDevice * device = new IOHIDPointingDevice;
@@ -328,7 +363,7 @@ IOReturn IOHIDPointingDevice::newReportDescriptor(
     }
 
         
-    if (_resolution != 400)
+    if (_resolution && _resolution != 400)
     {
         convert16to8((unsigned)-32767, mouse->xyLogMinNum);
         convert16to8(32767, mouse->xyLogMaxNum);

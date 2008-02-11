@@ -1,4 +1,0 @@
-OTHER_GENERATED_OFILES = $(VERS_OFILE)
--include ../Makefile.include
-AFTER_INSTALL += install-man-page install-config-file install-script
-OTHER_CFLAGS += -mdynamic-no-pic

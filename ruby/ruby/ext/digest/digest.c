@@ -2,14 +2,14 @@
 
   digest.c -
 
-  $Author: knu $
+  $Author: shyouhei $
   created at: Fri May 25 08:57:27 JST 2001
 
   Copyright (C) 1995-2001 Yukihiro Matsumoto
   Copyright (C) 2001-2006 Akinori MUSHA
 
   $RoughId: digest.c,v 1.16 2001/07/13 15:38:27 knu Exp $
-  $Id: digest.c 11950 2007-02-28 18:42:47Z knu $
+  $Id: digest.c 13176 2007-08-22 01:16:17Z shyouhei $
 
 ************************************************/
 
@@ -97,7 +97,7 @@ rb_digest_s_hexencode(VALUE klass, VALUE str)
 static VALUE
 rb_digest_instance_update(VALUE self, VALUE str)
 {
-    rb_raise(rb_eRuntimeError, "%s does not implement update()", rb_inspect(self));
+    rb_raise(rb_eRuntimeError, "%s does not implement update()", RSTRING_PTR(rb_inspect(self)));
 }
 
 /*
@@ -115,7 +115,7 @@ rb_digest_instance_update(VALUE self, VALUE str)
 static VALUE
 rb_digest_instance_finish(VALUE self)
 {
-    rb_raise(rb_eRuntimeError, "%s does not implement finish()", rb_inspect(self));
+    rb_raise(rb_eRuntimeError, "%s does not implement finish()", RSTRING_PTR(rb_inspect(self)));
 }
 
 /*
@@ -129,7 +129,7 @@ rb_digest_instance_finish(VALUE self)
 static VALUE
 rb_digest_instance_reset(VALUE self)
 {
-    rb_raise(rb_eRuntimeError, "%s does not implement reset()", rb_inspect(self));
+    rb_raise(rb_eRuntimeError, "%s does not implement reset()", RSTRING_PTR(rb_inspect(self)));
 }
 
 /*
@@ -358,7 +358,7 @@ rb_digest_instance_length(VALUE self)
 static VALUE
 rb_digest_instance_block_length(VALUE self)
 {
-    rb_raise(rb_eRuntimeError, "%s does not implement block_length()", rb_inspect(self));
+    rb_raise(rb_eRuntimeError, "%s does not implement block_length()", RSTRING_PTR(rb_inspect(self)));
 }
 
 /*
@@ -381,7 +381,6 @@ static VALUE
 rb_digest_class_s_digest(int argc, VALUE *argv, VALUE klass)
 {
     VALUE str;
-    void *pctx;
     volatile VALUE obj;
 
     if (argc < 1) {

@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -1361,11 +1360,15 @@ _sdns_send(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type,
 	char *qname;
 	pdns_handle_t **pdns;
 	uint32_t pdns_count;
-	int i, n, m;
+	int i, n;
+	int m, tmin, minstate;
 
 	pdns = NULL;
 	pdns_count = 0;
 	n = -1;
+	minstate = 0;
+	*min = -1;
+	m = -1;
 
 	pdns_count = _pdns_get_handles_for_name(sdns, name, &pdns);
 
@@ -1377,16 +1380,25 @@ _sdns_send(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type,
 
 	for (i = 0; i < pdns_count; i++)
 	{
-		m = -1;
-		n = _pdns_query(sdns, pdns[i], qname, class, type, buf, len, from, fromlen, &m);
-		if (min != NULL)
+		tmin = -1;
+		n = _pdns_query(sdns, pdns[i], qname, class, type, buf, len, from, fromlen, &tmin);
+		if (n <= 0)
 		{
-			if (*min == -1) *min = m;
-			else if ((m >= 0) && (m < *min)) *min = m;
+			if (tmin < 0)
+			{
+				minstate = -1;
+			}
+			else if (minstate == 0)
+			{
+				if (m == -1) m = tmin;
+				else if (tmin < m) m = tmin;
+			}
 		}
 
 		if (n > 0) break;
 	}
+
+	if (minstate == 0) *min = m;
 
 	free(pdns);
 	free(qname);
@@ -1397,12 +1409,27 @@ __private_extern__ int
 _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type, uint32_t fqdn, uint32_t recurse, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen, int *min)
 {
 	pdns_handle_t *primary, **pdns;
-	int i, n, ndots, status, m;
+	int i, n, ndots, status;
+	int m, tmin, minstate;
 	char *dot, *qname;
 	uint32_t pdns_count;
 
 	if (sdns == NULL) return -1;
 	if (name == NULL) return -1;
+
+	/*
+	 * A minimum TTL derived from the minimim of all SOA records
+	 * that are received with NXDOMAIN or no data is returned to
+	 * the caller if every call returns an NXDOMAIN or no data
+	 * and a SOA min ttl.  If any call times out or returns some
+	 * other error, we return "-1" in the "min" out parameter.
+	 * The minstate variable is set to -1 if we must return -1.
+	 */
+	minstate = 0;
+	*min = -1;
+
+	/* m is the lowest of all minima.  -1 is unset */
+	m = -1;
 
 	/* ndots is the threshold for trying a qualified name "as is" */
 	ndots = 1;
@@ -1431,16 +1458,20 @@ _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t typ
 	 */
 	if ((n >= ndots) || (fqdn == 1) || (type == ns_t_ptr))
 	{
-		status = _sdns_send(sdns, name, class, type, fqdn, buf, len, from, fromlen, min);
+		tmin = -1;
+		status = _sdns_send(sdns, name, class, type, fqdn, buf, len, from, fromlen, &tmin);
 		if (status > 0) return status;
+
+		if (tmin < 0) minstate = -1;
+		else m = tmin;
 	}
 
 	/* end of the line for FQDNs or PTR queries */
-	if (fqdn == 1) return -1;
-	if (type == ns_t_ptr) return -1;
-
-	if (recurse == 0) return -1;
-	if (primary == NULL) return -1;
+	if ((fqdn == 1) || (type == ns_t_ptr) || (recurse == 0) || (primary == NULL))
+	{
+		if (minstate == 0) *min = m;
+		return -1;
+	}
 
 	/* Try appending names from the search list */
 	if (primary->search_count == SEARCH_COUNT_INIT) _pdns_process_res_search_list(primary);
@@ -1454,17 +1485,26 @@ _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t typ
 			asprintf(&qname, "%s.%s", name, primary->search_list[i]);
 			if (qname == NULL) return -1;
 
-			m = -1;
-			status = _sdns_search(sdns, qname, class, type, fqdn, 0, buf, len, from, fromlen, &m);
+			tmin = -1;
+			status = _sdns_search(sdns, qname, class, type, fqdn, 0, buf, len, from, fromlen, &tmin);
+			if (status <= 0)
 			{
-				if (*min == -1) *min = m;
-				else if ((m >= 0) && (m < *min)) *min = m;
+				if (tmin < 0)
+				{
+					minstate = -1;
+				}
+				else if (minstate == 0)
+				{
+					if (m == -1) m = tmin;
+					else if (tmin < m) m = tmin;
+				}
 			}
-			
+
 			free(qname);
 			if (status > 0) return status;
 		}
 
+		if (minstate == 0) *min = m;
 		return -1;
 	}
 
@@ -1476,27 +1516,43 @@ _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t typ
 	pdns_count = _pdns_get_default_handles(sdns, &pdns);
 	status = -1;
 
-	if (pdns_count == 0) return -1;
+	if (pdns_count == 0)
+	{
+		if (minstate == 0) *min = m;
+		return -1;
+	}
 
 	for (i = 0; i < pdns_count; i++)
 	{
 		qname = NULL;
 		if (pdns[i]->name == NULL) asprintf(&qname, "%s", name);
 		else asprintf(&qname, "%s.%s", name, pdns[i]->name);
+
+		/* leave *min at -1 in case of a malloc failure */
 		if (qname == NULL) return -1;
 
-		m = -1;
-		status = _pdns_query(sdns, pdns[i], qname, class, type, buf, len, from, fromlen, min);
+		tmin = -1;
+		status = _pdns_query(sdns, pdns[i], qname, class, type, buf, len, from, fromlen, &tmin);
+		if (status <= 0)
 		{
-			if (*min == -1) *min = m;
-			else if ((m >= 0) && (m < *min)) *min = m;
+			if (tmin < 0)
+			{
+				minstate = -1;
+			}
+			else if (minstate == 0)
+			{
+				if (m == -1) m = tmin;
+				else if (tmin < m) m = tmin;
+			}
 		}
-		
+
 		free(qname);
 		if (status > 0) break;
 	}
 
 	free(pdns);
+
+	if (minstate == 0) *min = m;
 	return status;
 }
 

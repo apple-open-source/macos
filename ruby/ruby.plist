@@ -4,15 +4,15 @@
     <key>OpenSourceProject</key>
     <string>ruby</string>
     <key>OpenSourceVersion</key>
-    <string>1.8.5-p2</string>
+    <string>1.8.6-p111</string>
     <key>OpenSourceWebsiteURL</key>
     <string>http://www.ruby-lang.org/</string>
     <key>OpenSourceURL</key>
-    <string>http://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.5-p2.tar.gz</string>
+    <string>ftp://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.6-p111.tar.gz</string>
     <key>OpenSourceSHA1</key>
-    <string>f614bba73f447ddf35f8a4beb71ccc3df87831a5</string>
+    <string>0872b2b7bdcd840efe218f55ae6c51e201449732</string>
     <key>OpenSourceImportDate</key>
-    <string>2007-01-31</string>
+    <string>2007-11-16</string>
     <key>OpenSourceLicense</key>
     <string>Other</string>
     <key>OpenSourceLicenseFile</key>
@@ -26,7 +26,6 @@
         <string>make [md5|sha1].bundle using CommonCrypto instead of OpenSSL</string>
         <string>all libraries are compiled 4-way fat (i386, ppc, x86_64 and ppc64) but the tk extension, and the ruby command line binary is kept 2-way fat (i386 and ppc) for compatibility purposes</string>
         <string>emit DTrace static probes when entering/leaving a Ruby method</string>
-        <string>replace the fastthread library with its 1.0 version</string>
     </array>
 </dict>
 </array>

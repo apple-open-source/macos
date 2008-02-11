@@ -1,0 +1,55 @@
+--- setup.rb.old	2007-12-22 15:27:22.000000000 +0100
++++ setup.rb	2007-12-22 15:28:11.000000000 +0100
+@@ -72,8 +72,8 @@
+ 
+   raise "invalid --prefix #{prefix.inspect}" if prefix.nil?
+ 
+-  lib_dir = File.join prefix, 'lib'
+-  bin_dir = File.join prefix, 'bin'
++  lib_dir = File.join prefix, Config::CONFIG['rubylibdir']
++  bin_dir = File.join prefix, Config::CONFIG['bindir']
+ 
+   mkdir_p lib_dir
+   mkdir_p bin_dir
+@@ -180,18 +180,18 @@
+ user_cache_file = Gem::SourceInfoCache.user_cache_file
+ system_cache_file = Gem::SourceInfoCache.system_cache_file
+ 
+-rm user_cache_file if File.writable? user_cache_file
+-rm system_cache_file if File.writable? system_cache_file
++#rm user_cache_file if File.writable? user_cache_file
++#rm system_cache_file if File.writable? system_cache_file
+ 
+ # install RDoc
+ 
+ gem_doc_dir = File.join Gem.dir, 'doc'
+ 
+ if File.writable? gem_doc_dir then
+-  puts "Removing old RubyGems RDoc and ri..."
+-  Dir[File.join(Gem.dir, 'doc', 'rubygems-[0-9]*')].each do |dir|
+-    rm_rf dir
+-  end
++  #puts "Removing old RubyGems RDoc and ri..."
++  #Dir[File.join(Gem.dir, 'doc', 'rubygems-[0-9]*')].each do |dir|
++  #  rm_rf dir
++  #end
+ 
+   def run_rdoc(*args)
+     args << '--quiet'
+@@ -204,7 +204,7 @@
+ 
+   rubygems_name = "rubygems-#{Gem::RubyGemsVersion}"
+ 
+-  doc_dir = File.join Gem.dir, 'doc', rubygems_name
++  doc_dir = File.join lib_dir, '..', 'gems', Config::CONFIG['ruby_version'], 'doc', rubygems_name
+ 
+   unless ARGV.include? '--no-ri' then
+     ri_dir = File.join doc_dir, 'ri'
+@@ -223,6 +223,7 @@
+ end
+ 
+ # Remove stubs
++exit
+ 
+ def stub?(path)
+   return unless File.readable? path

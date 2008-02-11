@@ -1,5 +1,0 @@
-OTHER_GENERATED_OFILES = $(VERS_OFILE)
--include ../Makefile.include
-OTHER_CFLAGS += -mdynamic-no-pic
-LOCAL_CFLAGS= -DINET6 -DIPSEC_DEBUG -DKAME_SCOPEID -DIPSEC  
-AFTER_INSTALL += install-man-page

@@ -2,8 +2,8 @@
 
   numeric.c -
 
-  $Author: knu $
-  $Date: 2007-02-23 13:24:16 +0900 (Fri, 23 Feb 2007) $
+  $Author: shyouhei $
+  $Date: 2007-08-22 10:50:21 +0900 (Wed, 22 Aug 2007) $
   created at: Fri Aug 13 18:33:09 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -2177,6 +2177,15 @@ fix_divmod(x, y)
     return rb_num_coerce_bin(x, y);
 }
 
+static VALUE
+int_even_p(VALUE num)
+{
+    if (rb_funcall(num, '%', 1, INT2FIX(2)) == INT2FIX(0)) {
+	return Qtrue;
+    }
+    return Qfalse;
+}
+
 /*
  *  call-seq:
  *    fix ** other         => Numeric
@@ -2193,22 +2202,45 @@ static VALUE
 fix_pow(x, y)
     VALUE x, y;
 {
+    long a = FIX2LONG(x);
+
     if (FIXNUM_P(y)) {
-	long a, b;
+	long b;
 
 	b = FIX2LONG(y);
 	if (b == 0) return INT2FIX(1);
 	if (b == 1) return x;
 	a = FIX2LONG(x);
+	if (a == 0) return INT2FIX(0);
+	if (a == 1) return INT2FIX(1);
+	if (a == -1) {
+	    if (b % 2 == 0)
+		return INT2FIX(1);
+	    else 
+		return INT2FIX(-1);
+	}
 	if (b > 0) {
 	    return rb_big_pow(rb_int2big(a), y);
 	}
 	return rb_float_new(pow((double)a, (double)b));
-    } else if (TYPE(y) == T_FLOAT) {
-        long a = FIX2LONG(x);
-        return rb_float_new(pow((double)a, RFLOAT(y)->value));
     }
-    return rb_num_coerce_bin(x, y);
+    switch (TYPE(y)) {
+      case T_BIGNUM:
+	if (a == 0) return INT2FIX(0);
+	if (a == 1) return INT2FIX(1);
+	if (a == -1) {
+	    if (int_even_p(y)) return INT2FIX(1);
+	    else return INT2FIX(-1);
+	}
+	x = rb_int2big(FIX2LONG(x));
+	return rb_big_pow(x, y);
+      case T_FLOAT:
+	if (a == 0) return rb_float_new(0.0);
+	if (a == 1) return rb_float_new(1.0);
+	return rb_float_new(pow((double)a, RFLOAT(y)->value));
+      default:
+	return rb_num_coerce_bin(x, y);
+    }
 }
 
 /*
@@ -2425,7 +2457,8 @@ fix_xor(x, y)
     return LONG2NUM(val);
 }
 
-static VALUE fix_rshift _((VALUE, VALUE));
+static VALUE fix_lshift _((long, unsigned long));
+static VALUE fix_rshift _((long, unsigned long));
 
 /*
  * call-seq:
@@ -2435,18 +2468,28 @@ static VALUE fix_rshift _((VALUE, VALUE));
  */
 
 static VALUE
-fix_lshift(x, y)
+rb_fix_lshift(x, y)
     VALUE x, y;
 {
     long val, width;
 
     val = NUM2LONG(x);
-    width = NUM2LONG(y);
+    if (!FIXNUM_P(y))
+	return rb_big_lshift(rb_int2big(val), y);
+    width = FIX2LONG(y);
     if (width < 0)
-	return fix_rshift(x, LONG2FIX(-width));
+	return fix_rshift(val, (unsigned long)-width);
+    return fix_lshift(val, width);
+}
+
+static VALUE
+fix_lshift(val, width)
+    long val;
+    unsigned long width;
+{
     if (width > (sizeof(VALUE)*CHAR_BIT-1)
 	|| ((unsigned long)val)>>(sizeof(VALUE)*CHAR_BIT-1-width) > 0) {
-	return rb_big_lshift(rb_int2big(val), y);
+	return rb_big_lshift(rb_int2big(val), ULONG2NUM(width));
     }
     val = val << width;
     return LONG2NUM(val);
@@ -2460,16 +2503,24 @@ fix_lshift(x, y)
  */
 
 static VALUE
-fix_rshift(x, y)
+rb_fix_rshift(x, y)
     VALUE x, y;
 {
     long i, val;
 
-    i = NUM2LONG(y);
-    if (i < 0)
-	return fix_lshift(x, LONG2FIX(-i));
-    if (i == 0) return x;
     val = FIX2LONG(x);
+    if (!FIXNUM_P(y))
+	return rb_big_rshift(rb_int2big(val), y);
+    i = FIX2LONG(y);
+    if (i == 0) return x;
+    if (i < 0)
+	return fix_lshift(val, (unsigned long)-i);
+    return fix_rshift(val, i);
+}
+
+static VALUE
+fix_rshift(long val, unsigned long i)
+{
     if (i >= sizeof(long)*CHAR_BIT-1) {
 	if (val < 0) return INT2FIX(-1);
 	return INT2FIX(0);
@@ -2870,8 +2921,8 @@ Init_Numeric()
     rb_define_method(rb_cFixnum, "^", fix_xor, 1);
     rb_define_method(rb_cFixnum, "[]", fix_aref, 1);
 
-    rb_define_method(rb_cFixnum, "<<", fix_lshift, 1);
-    rb_define_method(rb_cFixnum, ">>", fix_rshift, 1);
+    rb_define_method(rb_cFixnum, "<<", rb_fix_lshift, 1);
+    rb_define_method(rb_cFixnum, ">>", rb_fix_rshift, 1);
 
     rb_define_method(rb_cFixnum, "to_f", fix_to_f, 0);
     rb_define_method(rb_cFixnum, "size", fix_size, 0);

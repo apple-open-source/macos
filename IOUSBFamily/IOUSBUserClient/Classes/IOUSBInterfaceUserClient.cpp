@@ -309,11 +309,13 @@ IOUSBInterfaceUserClientV2::IsoReqComplete(void *obj, void *param, IOReturn res,
 {
     io_user_reference_t								args[1];
     IOUSBInterfaceUserClientISOAsyncParamBlock *	pb = (IOUSBInterfaceUserClientISOAsyncParamBlock *)param;
-    IOUSBInterfaceUserClientV2 *						me = OSDynamicCast(IOUSBInterfaceUserClientV2, (OSObject*)obj);
+    IOUSBInterfaceUserClientV2 *					me = OSDynamicCast(IOUSBInterfaceUserClientV2, (OSObject*)obj);
 	UInt32			i;
 	
     if (!me)
 		return;
+	
+    USBLog(7, "%s[%p]::IsoReqComplete, result = 0x%x, dataMem: %p", me->getName(), me, res, pb->dataMem);
 	
 	args[0] = (io_user_reference_t) pb->frameBase;
     pb->countMem->writeBytes(0, pb->frames, pb->frameLen);
@@ -730,6 +732,7 @@ IOUSBInterfaceUserClientV2::GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *si
 	}
 	
     DecrementOutstandingIO();
+    USBLog(7, "-%s[%p]::GetFrameNumber  FrameNumber: %qd", getName(), this,data->frame);
     return ret;
 }
 
@@ -2462,10 +2465,7 @@ IOUSBInterfaceUserClientV2::DoIsochPipeAsync(IOUSBIsocStruct *stuff, io_user_ref
     bool					dataMemPrepared = false;
 	IOUSBIsocCompletion		tap;
 	IOUSBInterfaceUserClientISOAsyncParamBlock *	pb = NULL;
-	
-	USBLog(7,"+%s[%p]::DoIsochPipeAsync  fPipe: %ld, fBuffer: %p, fBufSize = 0x%lx, fStartFrame: 0x%qx, fNumFrames: 0x%lx, fFramecounts: %p, crossEndian: %d", getName(), this,
-	stuff->fPipe, stuff->fBuffer, stuff->fBufSize, stuff->fStartFrame, stuff->fNumFrames, stuff->fFrameCounts, fClientRunningUnderRosetta);
-	
+		
     if (fOwner && !isInactive())
     {
 		pipeObj = GetPipeObj(stuff->fPipe);
@@ -2528,6 +2528,9 @@ IOUSBInterfaceUserClientV2::DoIsochPipeAsync(IOUSBIsocStruct *stuff, io_user_ref
 				tap.action = &IOUSBInterfaceUserClientV2::IsoReqComplete;
 				tap.parameter = pb;
 				
+				USBLog(7,"+%s[%p]::DoIsochPipeAsync  fPipe: %ld, dataMem: %p, fBufSize = 0x%lx, fStartFrame: %qd", getName(), this,
+					   stuff->fPipe,dataMem, stuff->fBufSize, stuff->fStartFrame);
+
 				if(direction == kIODirectionOut)
 					ret = pipeObj->Write(dataMem, stuff->fStartFrame, stuff->fNumFrames, pb->frames, &tap);
 				else

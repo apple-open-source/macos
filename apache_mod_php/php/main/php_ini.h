@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ini.h,v 1.45.2.3.2.2 2007/08/02 23:57:52 stas Exp $ */
+/* $Id: php_ini.h,v 1.45.2.3.2.3 2007/08/31 07:48:05 jani Exp $ */
 
 #ifndef PHP_INI_H
 #define PHP_INI_H
@@ -27,7 +27,10 @@ BEGIN_EXTERN_C()
 int php_init_config(TSRMLS_D);
 int php_shutdown_config(void);
 void php_ini_register_extensions(TSRMLS_D);
-zval *cfg_get_entry(char *name, uint name_length);
+PHPAPI zval *cfg_get_entry(char *name, uint name_length);
+PHPAPI int cfg_get_long(char *varname, long *result);
+PHPAPI int cfg_get_double(char *varname, double *result);
+PHPAPI int cfg_get_string(char *varname, char **result);
 END_EXTERN_C()
 
 #define PHP_INI_USER	ZEND_INI_USER

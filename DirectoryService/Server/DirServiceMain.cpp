@@ -108,7 +108,7 @@ DSEventSemaphore	gPluginRunLoopEvent;
 extern CDSLocalPlugin	*gLocalNode;
 
 #warning VERIFY the version string before each software release
-const char* gStrDaemonAppleVersion = "5.0"; //match this with x.y in 10.x.y
+const char* gStrDaemonAppleVersion = "5.2"; //match this with x.y in 10.x.y
 
 const char* gStrDaemonBuildVersion = "unlabeled/engineering";
 
@@ -398,42 +398,6 @@ void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t
 
 	}
 } // dsPMNotificationHandler
-
-// Workaround for CrashReporter to redirect crash reporter on DirectoryServices
-void RedirectCrashReporting( void ) 
-{
-   // look up the correct exception port
-    mach_port_t exceptionPort = MACH_PORT_NULL;
-    bootstrap_look_up(bootstrap_port, "com.apple.ReportCrash.DirectoryService", &exceptionPort);
-    // do error handling here if bootstrap_look_up failed
-
-    // get information about the original set of exception ports for the task 
-	mach_msg_type_number_t count = 0;
-    exception_mask_t originalMasks[EXC_TYPES_COUNT];
-    exception_port_t originalPorts[EXC_TYPES_COUNT];	
-    exception_behavior_t originalBehaviors[EXC_TYPES_COUNT];
-    thread_state_flavor_t originalFlavors[EXC_TYPES_COUNT];
-	
-#if defined(EXC_MASK_CRASH)
-	kern_return_t err = task_get_exception_ports(mach_task_self(), EXC_MASK_CRASH, originalMasks, &count, originalPorts, originalBehaviors, originalFlavors);
-#else
-	kern_return_t err = task_get_exception_ports(mach_task_self(), EXC_MASK_RPC_ALERT, originalMasks, &count, originalPorts, originalBehaviors, originalFlavors);
-#endif
-    if (err != KERN_SUCCESS) {
-asl_log(NULL, NULL, ASL_LEVEL_ERR, "task_get_exception_ports() failed with error (%d: %s)", err, mach_error_string(err));
-        count = 0;
-    }
-	
-    // replace with our new port
-    unsigned int i;
-    for (i = 0; i < count; i++) {
-        err = task_set_exception_ports(mach_task_self(), originalMasks[i], exceptionPort, originalBehaviors[i], originalFlavors[i]);
-        if (err != KERN_SUCCESS) {
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "task_set_exception_ports(%X, %X, %X, %X, %X) failed with error (%d: %s)", mach_task_self(), originalMasks[i], exceptionPort, originalBehaviors[i], originalFlavors[i], err, mach_error_string(err));
-        }
-    }
-}
-
 
 // ---------------------------------------------------------------------------
 //	* dsPostEvent ()
@@ -792,13 +756,6 @@ int main ( int argc, char * const *argv )
 		
 		//set up a mutex semaphore for all plugins using Kerberos
 		gKerberosMutex = new DSMutexSemaphore("::gKerberosMutex");
-		
-		// temporary workaround for WWDC to prevent deadlock between crash report process and DS due to libinfo
-		// dependencies
-		if( !gDSDebugMode )
-		{
-			RedirectCrashReporting();
-		}
 		
 		// Do setup after parent is removed if daemonizing
 		gSrvrCntl = new ServerControl();

@@ -79,9 +79,12 @@
     ; Check in with PAM to enforce SACL access policy.
     obey pam restrictions = yes
 
+    ; Make sure that we resolve unqualified names as NetBIOS before DNS.
+    name resolve order = lmhosts wins bcast host
+
     ; Pull in system-wide preference settings. These are managed by
     ; synchronize-preferences tool.
-    include = /var/run/smb.conf
+    include = /var/db/smb.conf
 
 [printers]
     comment = All Printers
@@ -94,3 +97,4 @@
 
 ; Site-specific parameters can be added below this comment.
 ; END required configuration.
+

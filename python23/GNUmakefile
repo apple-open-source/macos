@@ -65,6 +65,7 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Modules/_localemodule.c < $(FIX)/_localemodule.c.ed && \
 	ed - $(PROJECT)/pyconfig.h.in < $(FIX)/pyconfig.h.in.ed && \
 	ed - $(PROJECT)/Python/mactoolboxglue.c < $(FIX)/mactoolboxglue.c.ed
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p1 -i $(FIX)/CVE-2007-4965-int-overflow.patch
 
 install: installpython
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/email/test/data/audiotest.au

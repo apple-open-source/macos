@@ -368,6 +368,16 @@ void
 IOUSBHubPolicyMaker::powerChangeDone(unsigned long fromState)
 {
 	_powerStateChangingTo = kIOUSBHubPowerStateStable;
+	if (_isRootHub && (_myPowerState < kIOUSBHubPowerStateSleep))
+	{
+		// 5315453 if I am in OFF or in RESTART, then either I am a PCI card root hub and we are sleeping, or 
+		// we are actually going to go away for good - make sure that if we DO come back, it will be to ON
+		// use changePowerStateTo instead of changePowerStateToPriv because the override used for restarting uses Priv
+		// this will get reduced when LowerPowerState is called after the ports are re-started
+		// this call will have no immediate affect on the actual power state because we are clamped either by our parent's 
+		// power state or by an override
+		changePowerStateTo(kIOUSBHubPowerStateOn);
+	}
 	super::powerChangeDone(fromState);
 }
 

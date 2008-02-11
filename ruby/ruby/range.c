@@ -3,7 +3,7 @@
   range.c -
 
   $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Date: 2007-09-17 04:38:27 +0900 (Mon, 17 Sep 2007) $
   created at: Thu Aug 19 17:46:47 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -319,8 +319,11 @@ range_step(argc, argv, range)
 
 	if (unit == 0) rb_raise(rb_eArgError, "step can't be 0");
 	if (!EXCL(range)) end += 1;
-	for (i=FIX2LONG(b); i<end; i+=unit) {
+	i = FIX2LONG(b);	
+	while (i < end) {
 	    rb_yield(LONG2NUM(i));
+	    if (i + unit < i) break;
+	    i += unit;
 	}
     }
     else {

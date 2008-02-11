@@ -62,9 +62,9 @@ class ReplController < OSX::NSObject
     @statusView.setStringValue("ready")
     @window.setTitle("RubyCocoa REPL : #{initial_msg}")
 
-    tvdel = RubyProgramTextViewDelegate.alloc.init
-    tvdel.setController(self)
-    @scratchText.setDelegate(tvdel)
+    @tvdel = RubyProgramTextViewDelegate.alloc.init
+    @tvdel.setController(self)
+    @scratchText.setDelegate(@tvdel)
     @wordsTable.setDelegate(@scratchText.delegate)
     @wordsTable.setDataSource(@scratchText.delegate)
     load_scratch

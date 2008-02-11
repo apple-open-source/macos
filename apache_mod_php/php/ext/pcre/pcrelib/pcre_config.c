@@ -41,6 +41,8 @@ POSSIBILITY OF SUCH DAMAGE.
 /* This module contains the external function pcre_config(). */
 
 
+#include <config.h>
+
 #include "pcre_internal.h"
 
 

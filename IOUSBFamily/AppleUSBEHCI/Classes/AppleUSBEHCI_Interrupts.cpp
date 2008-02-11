@@ -386,7 +386,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 						if (isochEl->_pEndpoint)
 						{
 							isochEl->_pEndpoint->onProducerQ++;
-							isochEl->_pEndpoint->scheduledTDs--;
+							OSDecrementAtomic( &(isochEl->_pEndpoint->scheduledTDs));
 						}
 						
 						thing = nextThing;

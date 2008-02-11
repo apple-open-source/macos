@@ -1,5 +1,0 @@
-INSTALL_PERMISSIONS = 4555  # If set, 'install' chmod's executable to this
-
-after_install::
-	/usr/bin/install -m 755 -d $(DSTROOT)/usr/share/man/man8
-	/usr/bin/install -m 444 -c ping.8 $(DSTROOT)/usr/share/man/man8

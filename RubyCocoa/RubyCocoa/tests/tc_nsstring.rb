@@ -1,5 +1,5 @@
 #
-#  $Id: tc_nsstring.rb 1111 2006-09-24 13:15:53Z lrz $
+#  $Id: tc_nsstring.rb 2106 2007-11-06 15:56:40Z psychs $
 #
 #  Copyright (c) 2005 kimura wataru
 #  Copyright (c) 2001-2003 FUJIMOTO Hisakuni
@@ -78,5 +78,19 @@ class TC_NSString < Test::Unit::TestCase
     data.getBytes_length( bytes )
     assert_equal( @eucstr.tojis, bytes )
   end
-
+  
+  def test_copy
+    assert_nothing_raised {
+      a = NSString.stringWithString('abc')
+      b = a.dup
+      b += 'def'
+      b = a.clone
+      b += 'def'
+    }
+  end
+  
+  def test_to_ns
+    assert_equal(OSX::NSString.stringWithString('abc'), 'abc'.to_ns)
+    assert_equal(nil, "\270\236\010\210\245".to_ns)
+  end
 end

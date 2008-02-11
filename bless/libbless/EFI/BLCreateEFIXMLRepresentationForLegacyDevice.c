@@ -34,6 +34,9 @@
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/storage/IOMedia.h>
+#ifndef __MACTYPES__
+typedef struct NumVersion NumVersion;
+#endif
 #include <IOKit/usb/IOUSBLib.h>
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 

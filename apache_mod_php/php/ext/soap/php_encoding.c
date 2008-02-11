@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: php_encoding.c,v 1.103.2.21.2.35 2007/08/22 14:18:09 dmitry Exp $ */
+/* $Id: php_encoding.c,v 1.103.2.21.2.38 2007/10/17 12:08:45 dmitry Exp $ */
 
 #include <time.h>
 
@@ -357,7 +357,7 @@ static zend_bool soap_check_xml_ref(zval **data, xmlNodePtr node TSRMLS_DC)
 	return 0;
 }
 
-xmlNodePtr master_to_xml(encodePtr encode, zval *data, int style, xmlNodePtr parent)
+static xmlNodePtr master_to_xml_int(encodePtr encode, zval *data, int style, xmlNodePtr parent, int check_class_map)
 {
 	xmlNodePtr node = NULL;
 	TSRMLS_FETCH();
@@ -428,7 +428,7 @@ xmlNodePtr master_to_xml(encodePtr encode, zval *data, int style, xmlNodePtr par
 			xmlSetNs(node, nsp);
 		}
 	} else {
-		if (SOAP_GLOBAL(class_map) && data &&
+		if (check_class_map && SOAP_GLOBAL(class_map) && data &&
 		    Z_TYPE_P(data) == IS_OBJECT &&
 		    !Z_OBJPROP_P(data)->nApplyCount) {
 			zend_class_entry *ce = Z_OBJCE_P(data);
@@ -487,6 +487,11 @@ xmlNodePtr master_to_xml(encodePtr encode, zval *data, int style, xmlNodePtr par
 		}
 	}
 	return node;
+}
+
+xmlNodePtr master_to_xml(encodePtr encode, zval *data, int style, xmlNodePtr parent)
+{
+	return master_to_xml_int(encode, data, style, parent, 1);
 }
 
 static zval *master_to_zval_int(encodePtr encode, xmlNodePtr data)
@@ -859,13 +864,50 @@ static xmlNodePtr to_xml_string(encodeTypePtr type, zval *data, int style, xmlNo
 			efree(str);
 			str = estrdup((char*)xmlBufferContent(out));
 			new_len = n;
-		} else if (!php_libxml_xmlCheckUTF8(BAD_CAST(str))) {
-			soap_error1(E_ERROR,  "Encoding: string '%s' is not a valid utf-8 string", str);
 		}
 		xmlBufferFree(out);
 		xmlBufferFree(in);
-	} else if (!php_libxml_xmlCheckUTF8(BAD_CAST(str))) {
-		soap_error1(E_ERROR,  "Encoding: string '%s' is not a valid utf-8 string", str);
+	}
+
+	if (!php_libxml_xmlCheckUTF8(BAD_CAST(str))) {
+		char *err = emalloc(new_len + 8);
+		char c;
+		int i;
+		
+		memcpy(err, str, new_len+1);
+		for (i = 0; (c = err[i++]);) {
+			if ((c & 0x80) == 0) {
+			} else if ((c & 0xe0) == 0xc0) {
+				if ((err[i] & 0xc0) != 0x80) {
+					break;
+				}
+				i++;
+			} else if ((c & 0xf0) == 0xe0) {
+				if ((err[i] & 0xc0) != 0x80 || (err[i+1] & 0xc0) != 0x80) {
+					break;
+				}
+				i += 2;
+			} else if ((c & 0xf8) == 0xf0) {
+				if ((err[i] & 0xc0) != 0x80 || (err[i+1] & 0xc0) != 0x80 || (err[i+2] & 0xc0) != 0x80) {
+					break;
+				}
+				i += 3;
+			} else {
+				break;
+			}
+		}
+		if (c) {
+			err[i-1] = '\\';
+			err[i++] = 'x';
+			err[i++] = ((unsigned char)c >> 4) + ((((unsigned char)c >> 4) > 9) ? ('a' - 10) : '0');
+			err[i++] = (c & 15) + (((c & 15) > 9) ? ('a' - 10) : '0');
+			err[i++] = '.';
+			err[i++] = '.';
+			err[i++] = '.';
+			err[i++] = 0;
+		}
+
+		soap_error1(E_ERROR,  "Encoding: string '%s' is not a valid utf-8 string", err);
 	}
 
 	text = xmlNewTextLen(BAD_CAST(str), new_len);
@@ -1166,9 +1208,10 @@ static zval* get_zval_property(zval* object, char* name TSRMLS_DC)
 		zval *data;
 		zend_class_entry *old_scope;
 
+		INIT_PZVAL(&member);
 		ZVAL_STRING(&member, name, 0);
 		old_scope = EG(scope);
-	  EG(scope) = Z_OBJCE_P(object);
+		EG(scope) = Z_OBJCE_P(object);
 		data = Z_OBJ_HT_P(object)->read_property(object, &member, BP_VAR_IS TSRMLS_CC);
 		if (data == EG(uninitialized_zval_ptr)) {
 			/* Hack for bug #32455 */
@@ -1199,9 +1242,10 @@ static void unset_zval_property(zval* object, char* name TSRMLS_DC)
 		zval member;
 		zend_class_entry *old_scope;
 
+		INIT_PZVAL(&member);
 		ZVAL_STRING(&member, name, 0);
 		old_scope = EG(scope);
-	  EG(scope) = Z_OBJCE_P(object);
+		EG(scope) = Z_OBJCE_P(object);
 		Z_OBJ_HT_P(object)->unset_property(object, &member TSRMLS_CC);
 		EG(scope) = old_scope;
 	} else if (Z_TYPE_P(object) == IS_ARRAY) {
@@ -2685,7 +2729,7 @@ static xmlNodePtr guess_xml_convert(encodeTypePtr type, zval *data, int style, x
 	} else {
 		enc = get_conversion(IS_NULL);
 	}
-	ret = master_to_xml(enc, data, style, parent);
+	ret = master_to_xml_int(enc, data, style, parent, 0);
 /*
 	if (style == SOAP_LITERAL && SOAP_GLOBAL(sdl)) {
 		set_ns_and_type(ret, &enc->details);

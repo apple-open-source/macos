@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5</string>
+	<string>1.5.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5</string>
+	<string>1.5.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleLibraries</key>
@@ -29,7 +29,7 @@
 		<key>com.apple.kpi.bsd</key>
 		<string>8.0.0</string>
 		<key>com.apple.kpi.libkern</key>
-		<string>9.0.0d3</string>
+		<string>9.0.0</string>
 		<key>com.apple.kpi.mach</key>
 		<string>8.0.0</string>
 		<key>com.apple.kpi.unsupported</key>

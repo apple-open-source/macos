@@ -34,6 +34,10 @@ class OSX::NSRect
   def y; origin.y; end
   def width; size.width; end
   def height; size.height; end
+  def x=(v); origin.x = v; end
+  def y=(v); origin.y = v; end
+  def width=(v); size.width = v; end
+  def height=(v); size.height = v; end
   alias_method :old_to_a, :to_a # To remove a warning.
   def to_a; [origin.to_a, size.to_a]; end
   def center; OSX::NSPoint.new(OSX::NSMidX(self), OSX::NSMidY(self)); end
@@ -44,7 +48,7 @@ class OSX::NSRect
     when OSX::NSPoint
       OSX::NSPointInRect(arg, self)
     else
-      raise ArgumentException, "argument should be NSRect or NSPoint"
+      raise ArgumentError, "argument should be NSRect or NSPoint"
     end
   end
   def empty?; OSX::NSIsEmptyRect(self); end
@@ -66,23 +70,4 @@ end
 
 class OSX::NSSize
   def inspect; "#<#{self.class} width=#{width}, height=#{height}>"; end
-end
-
-class OSX::NSRange
-  def contain?(arg)
-    case arg
-    when OSX::NSRange
-      location <= arg.location and arg.location + arg.length <= location + length
-    when Numeric
-      OSX::NSLocationInRange(arg, self)
-    else
-      raise ArgumentException, "argument should be NSRange or Numeric"
-    end
-  end
-  def empty?; length == 0; end
-  def intersect?(range); !intersection(range).empty?; end
-  def intersection(range); OSX::NSIntersectionRange(self, range); end
-  def union(range); OSX::NSUnionRange(self, range); end
-  def max; location + length; end
-  def inspect; "#<#{self.class} location=#{location}, length=#{length}>"; end
 end

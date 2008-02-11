@@ -1,5 +1,5 @@
 #
-#  $Id: tc_attachments.rb 1740 2007-05-14 16:41:08Z lrz $
+#  $Id: tc_attachments.rb 2038 2007-09-09 16:54:28Z el_oy $
 #
 #  Copyright (c) 2006 Jonathan Paisley
 #
@@ -54,12 +54,12 @@ class TC_Attachments < Test::Unit::TestCase
   end
   
   def test_dictionary_keys
-    assert_kind_of Array, @d.keys
+    assert_kind_of NSArray, @d.keys
     assert_equal ["a", "b"], @d.keys.map { |e| e.to_s }.sort
   end
   
   def test_dictionary_values
-    assert_kind_of Array, @d.values
+    assert_kind_of NSArray, @d.values
     assert_equal [1,2], @d.values.map { |e| e.to_i }.sort
   end
   
@@ -109,5 +109,22 @@ class TC_Attachments < Test::Unit::TestCase
     assert_kind_of(Time, now.to_time)
     assert_equal(now2.to_i, now.to_time.to_i)
   end
-
+  
+  def test_inspect
+    str =   OSX::NSString.stringWithString('foo')
+    assert_equal('#<NSCFString "foo">', str.inspect)
+    
+    num_i = OSX::NSNumber.numberWithInt(42)
+    assert_equal("#<NSCFNumber 42>", num_i.inspect)
+    num_f = OSX::NSNumber.numberWithFloat(99.99)
+    assert_equal("#<NSCFNumber 99.99>", num_f.inspect)
+    num_b = OSX::NSNumber.numberWithBool(true)
+    assert_equal("#<NSCFBoolean true>", num_b.inspect)
+    
+    arr =   OSX::NSArray.arrayWithArray([str, num_i])
+    assert_equal("#<NSCFArray [#{str.inspect}, #{num_i.inspect}]>", arr.inspect)
+    
+    dict =  OSX::NSDictionary.dictionaryWithDictionary({ str => num_b })
+    assert_equal("#<NSCFDictionary {#{str.inspect}=>#{num_b.inspect}}>", dict.inspect)
+  end
 end

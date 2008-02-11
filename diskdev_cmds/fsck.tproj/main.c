@@ -261,6 +261,12 @@ docheck(fsp)
 	    fsp->fs_passno == 0)
 		return 0;
 
+#define DISKARB_LABEL "LABEL="
+#define DISKARB_UUID "UUID="
+    if ((strncmp(fsp->fs_spec, DISKARB_LABEL, strlen(DISKARB_LABEL)) == 0)
+        || (strncmp(fsp->fs_spec, DISKARB_UUID, strlen(DISKARB_UUID)) == 0))
+        return 0;
+
 	return 1;
 }
 

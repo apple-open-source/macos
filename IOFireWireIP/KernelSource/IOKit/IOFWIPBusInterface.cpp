@@ -72,7 +72,7 @@ bool IOFWIPBusInterface::init(IOFireWireIP *primaryInterface)
 	fCurrentAsyncIPCommands	= 0;
 	fCurrentRCBCommands		= 0;
 	fUnitCount				= 0;
-	
+	fOptimalMTU			= 0;
 	fLowWaterMark			= kLowWaterMark;
 	fIPLocalNode->fIPoFWDiagnostics.fMaxQueueSize		= TRANSMIT_QUEUE_SIZE;
 
@@ -595,6 +595,8 @@ void IOFWIPBusInterface::updateLinkStatus()
 		fLcb->ownHardwareAddress.spd = fLcb->maxBroadcastSpeed;
 		// fix to enable the arp/dhcp support from network pref pane
 		fIPLocalNode->setProperty(kIOFWHWAddr,  (void *)&fLcb->ownHardwareAddress, sizeof(IP1394_HDW_ADDR));
+		
+		fOptimalMTU	= 0;
 	}
 }
 
@@ -1172,9 +1174,14 @@ SInt32	IOFWIPBusInterface::txBroadcastIP(const mbuf_t m, UInt16 nodeID, UInt32 b
 {
 	UInt16 datagramSize = mbuf_pkthdr_len(m) - sizeof(struct firewire_header);
 
-	fIPLocalNode->fIPoFWDiagnostics.fMaxPktSize = max(datagramSize,fIPLocalNode->fIPoFWDiagnostics.fMaxPktSize);
-	
 	UInt16 maxPayload = MIN((UInt16)1 << maxBroadcastPayload, (UInt16)1 << ownMaxPayload);
+
+	if( maxPayload < fOptimalMTU || fOptimalMTU == 0 )
+	{
+		fOptimalMTU = maxPayload;
+		fIPLocalNode->networkInterface->setIfnetMTU( MAX(fOptimalMTU, 1500) );
+		fIPLocalNode->fIPoFWDiagnostics.fMaxPacketSize = fOptimalMTU;
+	}
 
 	IOReturn	status = ENOBUFS;
 	// Asynchronous stream datagrams are never fragmented!
@@ -1392,10 +1399,11 @@ SInt32 IOFWIPBusInterface::txUnicastIP(mbuf_t m, UInt16 nodeID, UInt32 busGenera
 		return status;
 	}
 	
-	TNF_HANDLE *handle = &arb->handle; 
+	TNF_HANDLE		*handle = &arb->handle; 
+	IOFireWireNub	*device = OSDynamicCast(IOFireWireNub, (IOFireWireNub*)handle->unicast.deviceID);
 
 	// Node had disappeared, but entry exists for specified timer value
-	if(handle->unicast.deviceID == NULL) 
+	if(device == NULL) 
 	{
 		fIPLocalNode->freePacket((struct mbuf*)m);
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
@@ -1405,13 +1413,12 @@ SInt32 IOFWIPBusInterface::txUnicastIP(mbuf_t m, UInt16 nodeID, UInt32 busGenera
 	
 	// Get the actual length of the packet from the mbuf
 	UInt16 datagramSize = mbuf_pkthdr_len(m) - sizeof(struct firewire_header);
-	UInt16 residual = datagramSize;
+	UInt16 residual		= datagramSize;
 	
 	// setup block write
 	FWAddress addr; 
 	addr.addressHi   = handle->unicast.unicastFifoHi;
 	addr.addressLo   = handle->unicast.unicastFifoLo;
-	IOFireWireNub	*device = (IOFireWireNub*)handle->unicast.deviceID;
 	
 	// Calculate the payload and further down will decide the fragmentation based on that
 	UInt32 drbMaxPayload = 1 << device->maxPackLog(true, addr);
@@ -1419,7 +1426,12 @@ SInt32 IOFWIPBusInterface::txUnicastIP(mbuf_t m, UInt16 nodeID, UInt32 busGenera
 	UInt32 maxPayload = MIN((UInt32)1 << (handle->unicast.maxRec+1), (UInt32)1 << fLcb->ownMaxPayload);
 	maxPayload = MIN(drbMaxPayload, maxPayload);
 
-	fIPLocalNode->fIPoFWDiagnostics.fMaxPacketSize = maxPayload;
+	if( maxPayload < fOptimalMTU || fOptimalMTU == 0 )
+	{
+		fOptimalMTU = maxPayload;
+		fIPLocalNode->networkInterface->setIfnetMTU( MAX(fOptimalMTU, 1500) );
+		fIPLocalNode->fIPoFWDiagnostics.fMaxPacketSize = fOptimalMTU;
+	}
 
 	UInt16 dgl = 0;
 	bool unfragmented = false;

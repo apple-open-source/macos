@@ -200,7 +200,8 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 	char			buf[32];
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	int			sc_status	= kSCStatusFailed;
-	struct stat		statbuf;
+	struct stat		statBuf;
+	struct stat		statBuf2;
 
 	if (prefs == NULL) {
 		/* sorry, you must provide a session */
@@ -242,26 +243,38 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 
     retry :
 
-	prefsPrivate->lockFD = open(prefsPrivate->lockPath, O_WRONLY|O_CREAT, 0644);
+	prefsPrivate->lockFD = open(prefsPrivate->lockPath,
+				    wait ? O_WRONLY|O_CREAT|O_EXLOCK
+					 : O_WRONLY|O_CREAT|O_EXLOCK|O_NONBLOCK,
+				    0644);
 	if (prefsPrivate->lockFD == -1) {
-		if (errno == EROFS) {
-			goto locked;
-		}
+		switch (errno) {
+			case ENOENT :
+				if ((prefsPrivate->prefsID == NULL) ||
+				    !CFStringHasPrefix(prefsPrivate->prefsID, CFSTR("/"))) {
+					int	ret;
 
-		if ((errno == ENOENT) &&
-		    ((prefsPrivate->prefsID == NULL) || !CFStringHasPrefix(prefsPrivate->prefsID, CFSTR("/")))) {
-			int	ret;
-
-			// create parent (/Library/Preferences/SystemConfiguration)
-			ret = createParentDirectory(prefsPrivate->lockPath);
-			if (ret == 0) {
-				SCLog(TRUE, LOG_NOTICE,
-				      CFSTR("created directory for \"%s\""),
-				      prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
-				goto retry;
-			} else if (errno == EROFS) {
+					// create parent (/Library/Preferences/SystemConfiguration)
+					ret = createParentDirectory(prefsPrivate->lockPath);
+					if (ret == 0) {
+						SCLog(TRUE, LOG_NOTICE,
+						      CFSTR("created directory for \"%s\""),
+						      prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+						goto retry;
+					} else if (errno == EROFS) {
+						goto locked;
+					}
+				}
+				break;
+			case EROFS :
+				// if read-only filesystem
 				goto locked;
-			}
+			case EWOULDBLOCK :
+				// if already locked (and we are not blocking)
+				sc_status = kSCStatusPrefsBusy;
+				goto error;
+			default :
+				break;
 		}
 
 		sc_status = errno;
@@ -271,25 +284,11 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 		goto error;
 	}
 
-	if (flock(prefsPrivate->lockFD, wait ? LOCK_EX : LOCK_EX|LOCK_NB) == -1) {
-		switch (errno) {
-			case EWOULDBLOCK :
-				// if already locked (and we are not blocking)
-				sc_status = kSCStatusPrefsBusy;
-				break;
-			default :
-				sc_status = errno;
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("SCPreferencesLock flock() failed: %s"),
-				      strerror(errno));
-				break;
-		}
-
-		goto error;
-	}
-
-	if (stat(prefsPrivate->lockPath, &statbuf) == -1) {
-		// if the lock file was unlinked
+	if ((stat(prefsPrivate->lockPath, &statBuf) == -1) ||
+	    (fstat(prefsPrivate->lockFD, &statBuf2) == -1) ||
+	    (statBuf.st_dev != statBuf2.st_dev) ||
+	    (statBuf.st_ino != statBuf2.st_ino)) {
+		// if the lock file was unlinked or re-created
 		close(prefsPrivate->lockFD);
 		prefsPrivate->lockFD = -1;
 		goto retry;
@@ -305,7 +304,6 @@ SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 	if (prefsPrivate->accessed) {
 		CFDataRef       currentSignature;
 		Boolean		match;
-		struct stat     statBuf;
 
 		/*
 		 * the preferences have been accessed since the

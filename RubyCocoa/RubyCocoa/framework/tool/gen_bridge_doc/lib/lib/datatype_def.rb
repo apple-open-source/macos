@@ -32,27 +32,30 @@ class CocoaRef::DataTypeDef < CocoaRef::MethodDef
       str += "\n"
     end
     
-    fields = OSX.const_get(@name).fields
-    
-    str += "  class #{@name}\n"
-    str += "    attr_accessor :#{fields.join(', :')}\n" unless fields.empty?
-    unless OSX.const_get(@name).opaque?
-      str += "    def initialize(#{fields.join(', ')})\n"
-      str += "    end\n\n"
+    begin
+      fields = OSX.const_get(@name).fields
+      str += "  class #{@name}\n"
+      str += "    attr_accessor :#{fields.join(', :')}\n" unless fields.empty?
+      unless OSX.const_get(@name).opaque?
+        str += "    def initialize(#{fields.join(', ')})\n"
+        str += "    end\n\n"
+        str += "    # :call-seq:\n"
+        str += "    #   to_a => [#{fields.join(', ')}]\n"
+        str += "    #\n"
+        str += "    # Returns the values of the fields as an Array.\n"
+        str += "    def to_a\n"
+        str += "    end\n\n"
+      end
       str += "    # :call-seq:\n"
-      str += "    #   to_a => [#{fields.join(', ')}]\n"
+      str += "    #   == => true or false\n"
       str += "    #\n"
-      str += "    # Returns the values of the fields as an Array.\n"
-      str += "    def to_a\n"
-      str += "    end\n\n"
+      str += "    # Compares the #{@name} instance to another #{@name} instance.\n"
+      str += "    def ==(other)\n"
+      str += "    end\n"
+      str += "  end\n\n"
+    rescue OSX::OCMessageSendException
+      str += "\n\n"
     end
-    str += "    # :call-seq:\n"
-    str += "    #   == => true or false\n"
-    str += "    #\n"
-    str += "    # Compares the #{@name} instance to another #{@name} instance.\n"
-    str += "    def ==(other)\n"
-    str += "    end\n"
-    str += "  end\n\n"
   
     return str
   end

@@ -1,5 +1,5 @@
 /* -*- C -*-
- * $Id: ptr.c 12039 2007-03-11 16:24:34Z knu $
+ * $Id: ptr.c 13200 2007-08-22 02:39:03Z shyouhei $
  */
 
 #include <ruby.h>
@@ -466,8 +466,9 @@ rb_dlptr_inspect(VALUE self)
   char str[1024];
 
   Data_Get_Struct(self, struct ptr_data, data);
-  snprintf(str, 1023, "#<%s:0x%x ptr=0x%x size=%ld free=0x%x>",
-	   rb_class2name(CLASS_OF(self)), data, data->ptr, data->size, data->free);
+  snprintf(str, 1023, "#<%s:0x%lx ptr=0x%lx size=%ld free=0x%lx>",
+	   rb_class2name(CLASS_OF(self)), data, data->ptr, data->size,
+	   (long)data->free);
   return rb_str_new2(str);
 }
 

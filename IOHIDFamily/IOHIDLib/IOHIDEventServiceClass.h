@@ -27,9 +27,6 @@
 #include <pthread.h>
 #include <IOKit/hid/IOHIDServicePlugIn.h>
 #include <IOKit/IODataQueueClient.h>
-#include <mach/mach.h>
-#include <mach/mach_time.h>
-
 #include "IOHIDIUnknown.h"
 
 class IOHIDEventServiceClass : public IOHIDIUnknown
@@ -70,7 +67,6 @@ protected:
     pthread_mutex_t                     _queueLock;
     pthread_cond_t                      _queueCondition;
     
-    CFRunLoopTimerRef                   _testTimer;
 
     static inline IOHIDEventServiceClass *getThis(void *self) { return (IOHIDEventServiceClass *)((InterfaceMap *) self)->obj; };
 
@@ -95,7 +91,6 @@ protected:
                                             mach_msg_header_t *         msg, 
                                             CFIndex                     size, 
                                             void *                      info);
-    static void             _timerEventSourceCallback(CFRunLoopTimerRef timer, void *info);
     void                    dispatchHIDEvent(IOHIDEventRef event, IOOptionBits options=0);
 
 public:

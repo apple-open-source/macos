@@ -663,6 +663,15 @@ do_prefs_quit(int argc, char **argv)
 }
 
 
+__private_extern__
+void
+do_prefs_synchronize(int argc, char **argv)
+{
+	SCPreferencesSynchronize(prefs);
+	return;
+}
+
+
 static CFComparisonResult
 sort_paths(const void *p1, const void *p2, void *context) {
 	CFStringRef path1 = (CFStringRef)p1;

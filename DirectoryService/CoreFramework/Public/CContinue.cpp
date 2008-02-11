@@ -30,6 +30,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Prevent weak references since this is in a public framework.
+#pragma GCC visibility push(hidden)
+#include <vector>
+using std::vector;
+#pragma GCC visibility pop
+
+
 //------------------------------------------------------------------------------------
 //	* CContinue
 //------------------------------------------------------------------------------------
@@ -199,8 +206,9 @@ SInt32 CContinue::RemoveItem ( void *inData )
 	SInt32			siResult	= eDSIndexNotFound;
 	UInt32			uiTmpRef	= 0;
 	UInt32			uiSlot		= 0;
-	sDSTableEntry	   *pCurrEntry	= nil;
-	sDSTableEntry	   *pPrevEntry	= nil;
+	sDSTableEntry	*pCurrEntry	= nil;
+	sDSTableEntry	*pPrevEntry	= nil;
+	void			*pData		= nil;
 
 	// nothing to do
 	if ( inData == NULL )
@@ -236,9 +244,9 @@ SInt32 CContinue::RemoveItem ( void *inData )
 
 			if ( (fDeallocProcPtr != nil) && (pCurrEntry->fData != nil) )
 			{
-				fMutex.SignalLock();
-				(fDeallocProcPtr)( pCurrEntry->fData );
-				fMutex.WaitLock();
+				// Save the data pointer so it can be freed later when
+				// mutex is unlocked to avoid deadlock.
+				pData = pCurrEntry->fData;
 			}
 			free( pCurrEntry );
 			pCurrEntry = nil;
@@ -257,6 +265,13 @@ SInt32 CContinue::RemoveItem ( void *inData )
 	}
 
 	fMutex.SignalLock();
+	
+	// Now the entry's data can be deleted
+	// without deadlocking.
+	if ( pData != nil )
+	{
+		(fDeallocProcPtr)( pData );
+	}
 
 	return( siResult );
 
@@ -275,9 +290,10 @@ SInt32 CContinue::RemoveItems ( UInt32 inRefNum )
 	bool			bGetNext	= true;
 	UInt32			i			= 0;
 	SInt32			siResult	= eDSIndexNotFound;
-	sDSTableEntry	   *pCurrEntry	= nil;
-	sDSTableEntry	   *pPrevEntry	= nil;
-	sDSTableEntry	   *pDeadEntry	= nil;
+	sDSTableEntry	*pCurrEntry	= nil;
+	sDSTableEntry	*pPrevEntry	= nil;
+	sDSTableEntry	*pDeadEntry	= nil;
+	vector<void*>	entryDataPendingDelete;
 
 	fMutex.WaitLock();
 
@@ -315,9 +331,9 @@ SInt32 CContinue::RemoveItems ( UInt32 inRefNum )
 
 				if ( (fDeallocProcPtr != nil) && (pDeadEntry->fData != nil) )
 				{
-					fMutex.SignalLock();
-					(fDeallocProcPtr)( pDeadEntry->fData );
-					fMutex.WaitLock();
+					// Save the data pointer so it can be freed later when
+					// mutex is unlocked to avoid deadlock.
+					entryDataPendingDelete.push_back( pDeadEntry->fData );
 				}
 				free( pDeadEntry );
 				pDeadEntry = nil;
@@ -338,6 +354,14 @@ SInt32 CContinue::RemoveItems ( UInt32 inRefNum )
 	}
 
 	fMutex.SignalLock();
+	
+	// Now the entry data can be deleted
+	// without deadlocking.
+	while ( entryDataPendingDelete.size() != 0 )
+	{
+		(fDeallocProcPtr)( entryDataPendingDelete.back() );
+		entryDataPendingDelete.pop_back();
+	}
 
 	return( siResult );
 

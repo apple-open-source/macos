@@ -31,16 +31,16 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kpi.unsupported</key>
-		<string>9.0.0d7</string>
+		<string>9.0.0</string>
 		<key>com.apple.kpi.mach</key>
-		<string>9.0.0d7</string>
+		<string>9.0.0</string>
 		<key>com.apple.kpi.libkern</key>
-		<string>9.0.0d7</string>
+		<string>9.0.0</string>
 		<key>com.apple.kpi.iokit</key>
-		<string>9.0.0d7</string>
+		<string>9.0.0</string>
 		#if DEBUG_LEVEL != 0
 		<key>com.apple.kpi.bsd</key>
-		<string>9.0.0d7</string>
+		<string>9.0.0</string>
 		#endif
 	</dict>
 	<key>OSBundleRequired</key>

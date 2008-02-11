@@ -73,14 +73,20 @@ unless ARGV[0].nil?
       output_dir = File.join(File.dirname(File.expand_path(__FILE__)), 'doc/')
     end
     
-    SUPPORTED_FRAMEWORKS = ['/Developer/ADC Reference Library/documentation/Cocoa/Reference/ApplicationKit/',
-                            '/Developer/ADC Reference Library/documentation/Cocoa/Reference/Foundation/',
-                            '/Developer/ADC Reference Library/documentation/Cocoa/Reference/WebKit/',
-                            '/Developer/ADC Reference Library/documentation/Cocoa/Reference/CoreDataFramework/',
-                            '/Developer/ADC Reference Library/documentation/QuickTime/Reference/QTKitFramework/',
-                            '/Developer/ADC Reference Library/documentation/UserExperience/Reference/AddressBook/',
-                            '/Developer/ADC Reference Library/documentation/AppleApplications/Reference/InstantMessageFrameworkRef/',
-                            '/Developer/ADC Reference Library/documentation/GraphicsImaging/Reference/QuartzFramework/']
+    DOCUMENTATION_PATH =
+      if `sw_vers -productVersion`.strip =~ /^10\.5/
+        '/Developer/Documentation/DocSets/com.apple.ADC_Reference_Library.CoreReference.docset/Contents/Resources/Documents/documentation'
+      else
+        '/Developer/ADC Reference Library/documentation'
+      end
+    SUPPORTED_FRAMEWORKS = ["#{DOCUMENTATION_PATH}/Cocoa/Reference/ApplicationKit/",
+                            "#{DOCUMENTATION_PATH}/Cocoa/Reference/Foundation/",
+                            "#{DOCUMENTATION_PATH}/Cocoa/Reference/WebKit/",
+                            "#{DOCUMENTATION_PATH}/Cocoa/Reference/CoreDataFramework/",
+                            "#{DOCUMENTATION_PATH}/QuickTime/Reference/QTKitFramework/",
+                            "#{DOCUMENTATION_PATH}/UserExperience/Reference/AddressBook/",
+                            "#{DOCUMENTATION_PATH}/AppleApplications/Reference/InstantMessageFrameworkRef/",
+                            "#{DOCUMENTATION_PATH}/GraphicsImaging/Reference/QuartzFramework/"]
 
     start_time = Time.now
     
@@ -92,12 +98,16 @@ unless ARGV[0].nil?
     SUPPORTED_FRAMEWORKS.each do |f|
       ruby "-I../../ext/rubycocoa -I../../lib gen_bridge_doc/rdocify_framework.rb #{options.join(' ')} '#{f}' #{output_dir}/ruby"
     end
-
+    
+    osx_additions = %w{oc_attachments.rb oc_attachments_appkit.rb oc_types.rb oc_types_appkit.rb ruby_addition.rb}.map do |file|
+      File.expand_path(file, '../src/ruby/osx/objc/')
+    end.join(' ')
+    
     # Create the rdoc files
     #system "rdoc  --line-numbers --inline-source --template gen_bridge_doc/allison/allison.rb gen_bridge_doc/output -o doc/html"
     Dir.chdir "#{output_dir}/ruby" do
-      rdoc ". -o #{output_dir}/html"
-      rdoc "--ri . -o #{output_dir}/ri"
+      rdoc ". -o #{output_dir}/html #{osx_additions}"
+      rdoc "--ri . -o #{output_dir}/ri #{osx_additions}"
     end
     
     puts ""

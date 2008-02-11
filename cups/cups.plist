@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-09-28</string>
+		<string>2007-12-07</string>
 		<key>OpenSourceLicense</key>
 		<string>GPL</string>
 		<key>OpenSourceLicenseFile</key>
@@ -13,6 +13,8 @@
 		<string></string>
 		<key>OpenSourceModifications</key>
 		<array>
+			<string>Imported CUPS 1.3svn-r7115</string>
+			<string>Imported CUPS 1.3svn-r7108</string>
 			<string>Imported CUPS 1.3.3</string>
 			<string>Imported CUPS 1.3.2</string>
 			<string>Imported CUPS 1.3.1</string>
@@ -34,9 +36,9 @@
 		<key>OpenSourceProject</key>
 		<string>CUPS</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.cups.org/software.php#SVN</string>
+		<string>http://www.cups.org/software.php</string>
 		<key>OpenSourceVersion</key>
-		<string>1.3.3</string>
+		<string>1.3.5</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.cups.org/</string>
 	</dict>

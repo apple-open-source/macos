@@ -99,10 +99,18 @@ protected:
     void    setManufactureDate(int date);
     int     manufactureDate(void);
 
+    void    setSerialNumber(uint16_t sernum);
+    uint16_t    serialNumber(void);
+    
+    void    setChargeStatus(const OSSymbol *sym);
+    const OSSymbol    *chargeStatus(void);
+
     // An OSData container of manufacturer specific data
     void    setManufacturerData(uint8_t *buffer, uint32_t bufferSize);
 
     void    oneTimeBatterySetup(void);
+    
+    void    constructAppleSerialNumber(void);
     
 public:
     static AppleSmartBattery *smartBattery(void);

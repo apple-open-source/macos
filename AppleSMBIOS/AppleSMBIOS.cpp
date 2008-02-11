@@ -197,15 +197,18 @@ bool AppleSMBIOS::start( IOService * provider )
     PE_parse_boot_arg("smbios", &fVerbose);
 
     memInfoSource = kNoMemoryInfo;
-    memSlotsData = OSData::withCapacity(kMemDataSize);
-    memTypesData = OSData::withCapacity(kMemDataSize);
-    memSizesData = OSData::withCapacity(kMemDataSize);
-    memSpeedData = OSData::withCapacity(kMemDataSize);
-    memInfoData  = OSData::withCapacity(kMemDataSize);
-    memSizeTotal = 0;
+    memSlotsData  = OSData::withCapacity(kMemDataSize);
+    memTypesData  = OSData::withCapacity(kMemDataSize);
+    memSizesData  = OSData::withCapacity(kMemDataSize);
+    memSpeedData  = OSData::withCapacity(kMemDataSize);
+    memInfoData   = OSData::withCapacity(kMemDataSize);
+    memManufData  = OSData::withCapacity(kMemDataSize);
+    memSerialData = OSData::withCapacity(kMemDataSize);
+    memPartData   = OSData::withCapacity(kMemDataSize);
+    memSizeTotal  = 0;
 
     if (!memSlotsData || !memTypesData || !memSizesData || !memSpeedData ||
-        !memInfoData)
+        !memInfoData || !memManufData || !memSerialData || !memPartData)
         return false;
 
 	if (!findSMBIOSTableEFI())
@@ -228,11 +231,14 @@ bool AppleSMBIOS::start( IOService * provider )
 
 void AppleSMBIOS::free( void )
 {
-    RELEASE( memSlotsData );
-    RELEASE( memTypesData );
-    RELEASE( memSizesData );
-    RELEASE( memSpeedData );
-    RELEASE( memInfoData  );
+    RELEASE( memSlotsData  );
+    RELEASE( memTypesData  );
+    RELEASE( memSizesData  );
+    RELEASE( memSpeedData  );
+    RELEASE( memInfoData   );
+    RELEASE( memManufData  );
+    RELEASE( memSerialData );
+    RELEASE( memPartData   );
     RELEASE( fDMIMemoryMap );
 
     if (fSlotQueueHead)
@@ -663,7 +669,7 @@ processSMBIOSStructure( const SMBBIOSInformation * bios,
 	}
     if (fROMNode)
     {
-        sprintf(location, "%x", bios->startSegment << 4);
+        snprintf(location, sizeof(location), "%x", bios->startSegment << 4);
         fROMNode->setLocation(location);
 
         strings->setDataProperty(fROMNode, "vendor", bios->vendor);
@@ -833,6 +839,8 @@ processSMBIOSStructure( const SMBMemoryDevice * memory,
     const char * deviceLocatorString;
     UInt8        bankLocatorLength;
     const char * bankLocatorString;
+    UInt8        stringLength;
+    const char * string;
     UInt8        memoryType;
 
     union {
@@ -849,6 +857,9 @@ processSMBIOSStructure( const SMBMemoryDevice * memory,
         memTypesData->initWithCapacity(kMemDataSize);
         memSizesData->initWithCapacity(kMemDataSize);
         memSpeedData->initWithCapacity(kMemDataSize);
+        memManufData->initWithCapacity(kMemDataSize);
+        memSerialData->initWithCapacity(kMemDataSize);
+        memPartData->initWithCapacity(kMemDataSize);
         memSizeTotal = 0;
     }
 
@@ -901,7 +912,6 @@ processSMBIOSStructure( const SMBMemoryDevice * memory,
     }
 #endif /* 0 */
 
-
 	memoryType = memory->memoryType;
 	if ( memoryType > kSMBMemoryDeviceTypeCount - 1 )
 		memoryType = 0x02; // unknown type
@@ -927,6 +937,15 @@ processSMBIOSStructure( const SMBMemoryDevice * memory,
 		snprintf(speedText, sizeof(speedText), "%u MHz", memory->memorySpeed);
 		memSpeedData->appendBytes(speedText, strlen(speedText) + 1);
     }
+
+    string = strings->stringAtIndex( memory->manufacturer, &stringLength );
+	memManufData->appendBytes( string, stringLength + 1 );
+
+    string = strings->stringAtIndex( memory->serialNumber, &stringLength );
+	memSerialData->appendBytes( string, stringLength + 1 );
+
+    string = strings->stringAtIndex( memory->partNumber, &stringLength );
+	memPartData->appendBytes( string, stringLength + 1 );
 
     // What about "available", "mem-info" prop?
 }
@@ -1107,8 +1126,17 @@ void AppleSMBIOS::updateDeviceTree( void )
             memInfoData->appendBytes(0, (memSizesData->getLength() / 8) * 128);
 		}
 
-		memoryNode->setProperty( "dimm-info", memInfoData );
-				
+		memoryNode->setProperty( "dimm-info",          memInfoData );
+
+		if (memManufData->getLength())
+			memoryNode->setProperty( "dimm-manufacturer",  memManufData );
+
+		if (memSerialData->getLength())
+			memoryNode->setProperty( "dimm-serial-number", memSerialData );
+
+		if (memPartData->getLength())
+			memoryNode->setProperty( "dimm-part-number",   memPartData );
+
         memoryNode->attachToParent( fRoot, gIODTPlane );
         memoryNode->release();
     }

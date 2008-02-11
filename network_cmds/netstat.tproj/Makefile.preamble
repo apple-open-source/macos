@@ -1,6 +1,0 @@
-CLEAN_ALL_SUBPROJECTS = YES
-OTHER_GENERATED_OFILES = $(VERS_OFILE)
-OTHER_CFLAGS += -DINET6 -DIPSEC -mdynamic-no-pic
-AFTER_INSTALL += install-man-page
--include ../Makefile.include
-vpath %.c `pwd`

@@ -72,11 +72,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>28</string>
+	<string>29</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>28</string>
+	<string>29</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>BootCache</key>

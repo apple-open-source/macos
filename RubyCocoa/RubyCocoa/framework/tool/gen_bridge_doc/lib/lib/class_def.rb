@@ -100,9 +100,12 @@ class CocoaRef::ClassDef
     @method_defs.each do |method|
       # check for setter methods for which the bridge adds more rubyesque methods,
       if method.is_setter?
-        puts method.name
+        #puts method.name
         @method_defs.push method.create_rubyesque_setter_variant
         #puts method.create_rubyesque_setter_variant.name
+      elsif method.is_question?
+        #puts method.name
+        @method_defs.push method.create_rubyesque_question_variant
       end
     end
   end

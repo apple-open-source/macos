@@ -356,8 +356,9 @@ void _setBatteryHealthConfidence(
        estimate of battery health ourselves.
 
        Our preferred formula says:
-            MaxCap / DesignCap >= 80% - Good Health
-                                < 80% - Fair Health
+            ratio = MaxCap / DesignCap 
+                    (ratio >= 80%) - Good Health
+                    (ratio < 80%) && (CycleCount < 300) - Fair Health
 
             A battery suffering permant battery failure will be labeled as 'Poor'
 
@@ -371,14 +372,32 @@ void _setBatteryHealthConfidence(
         double ratio =  ((double)b->maxCap + kSmartBattReserve_mAh)
                         /  (double)b->designCap;
 
-        /* HEALTH */
-        if ( 0.80 <= ratio ) 
+        // Hysteresis: a battery that has previously been marked as needing
+        // replacement will continue 
+        if (b->markedNeedsReplacement)
         {
-            CFDictionarySetValue(outDict, 
-                    CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSGoodValue));
+            if ((ratio <= 0.83) && (b->cycleCount < 300)) 
+            {
+                CFDictionarySetValue(outDict, 
+                        CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSFairValue));
+            } else {
+                b->markedNeedsReplacement = false;
+
+                CFDictionarySetValue(outDict, 
+                        CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSGoodValue));            
+            }
         } else {
-            CFDictionarySetValue(outDict, 
-                    CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSFairValue));
+
+            if ((ratio <= 0.80) && (b->cycleCount < 300))
+            {
+                b->markedNeedsReplacement = true;
+                CFDictionarySetValue(outDict, 
+                        CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSFairValue));
+            } else {
+                CFDictionarySetValue(outDict, 
+                        CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSGoodValue));
+            }
+
         }
     
         /* CONFIDENCE */
@@ -429,6 +448,12 @@ void _packageBatteryInfo(CFDictionaryRef *ret)
                         b->failureDetected);
         }
         
+        // Is there a charging problem?
+        if (b->chargeStatus) {
+            CFDictionarySetValue(mutDict,
+                        CFSTR(kIOPMPSBatteryChargeStatusKey),
+                        b->chargeStatus);
+        }
         
         // Set transport type to "Internal"
         CFDictionarySetValue(mutDict, 

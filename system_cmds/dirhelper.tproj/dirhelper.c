@@ -45,8 +45,7 @@
 #include <launch.h>
 #include <dirhelper_priv.h>
 
-#include "dirhelper.h"
-#include "dirhelperServer.h"
+#include "dirhelper_server.h"
 
 // globals for idle exit
 struct idle_globals {

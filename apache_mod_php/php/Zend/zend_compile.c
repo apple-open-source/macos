@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_compile.c,v 1.647.2.27.2.40 2007/05/18 13:12:03 dmitry Exp $ */
+/* $Id: zend_compile.c,v 1.647.2.27.2.41 2007/09/20 14:11:31 jani Exp $ */
 
 #include <zend_language_parser.h>
 #include "zend.h"
@@ -1552,11 +1552,11 @@ void zend_do_pass_param(znode *param, zend_uchar op, int offset TSRMLS_DC)
 	if (original_op==ZEND_SEND_REF
 		&& !CG(allow_call_time_pass_reference)) {
 		zend_error(E_COMPILE_WARNING,
-					"Call-time pass-by-reference has been deprecated;  "
+					"Call-time pass-by-reference has been deprecated; "
 					"If you would like to pass it by reference, modify the declaration of %s().  "
 					"If you would like to enable call-time pass-by-reference, you can set "
-					"allow_call_time_pass_reference to true in your INI file.  ",
-					(function_ptr?function_ptr->common.function_name:"[runtime function name]"));
+					"allow_call_time_pass_reference to true in your INI file",
+					(function_ptr ? function_ptr->common.function_name : "[runtime function name]"));
 	}
 
 	if (function_ptr) {

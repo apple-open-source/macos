@@ -211,6 +211,12 @@ Frame* FrameTree::find(const AtomicString& name) const
 
 bool FrameTree::isDescendantOf(const Frame* ancestor) const
 {
+    if (!ancestor)
+        return false;
+
+    if (m_thisFrame->page() != ancestor->page())
+        return false;
+
     for (Frame* frame = m_thisFrame; frame; frame = frame->tree()->parent())
         if (frame == ancestor)
             return true;
@@ -287,4 +293,15 @@ Frame* FrameTree::deepLastChild() const
     return result;
 }
 
+Frame* FrameTree::top() const
+{
+    if (Page* page = m_thisFrame->page())
+        return page->mainFrame();
+
+    Frame* frame = m_thisFrame;
+    while (Frame* parent = frame->tree()->parent())
+        frame = parent;
+    return frame;
 }
+
+} // namespace WebCore

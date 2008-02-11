@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509name.c 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: ossl_x509name.c 13176 2007-08-22 01:16:17Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001 Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -188,11 +188,11 @@ ossl_x509name_to_s(int argc, VALUE *argv, VALUE self)
 	return ossl_x509name_to_s_old(self);
     else iflag = NUM2ULONG(flag);
     if (!(out = BIO_new(BIO_s_mem())))
-	rb_raise(eX509NameError, NULL);
+	ossl_raise(eX509NameError, NULL);
     GetX509Name(self, name);
     if (!X509_NAME_print_ex(out, name, 0, iflag)){
 	BIO_free(out);
-	rb_raise(eX509NameError, NULL);
+	ossl_raise(eX509NameError, NULL);
     }
     str = ossl_membio2str(out);
 

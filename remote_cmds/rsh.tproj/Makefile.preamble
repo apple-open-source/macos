@@ -1,5 +1,0 @@
-#RLOGIN_CFILES = krcmd.c des_rw.c
-#OTHER_OFILES = $(RLOGIN_CFILES:.c=.o)
-OTHER_GENERATED_OFILES = $(VERS_OFILE)
-OTHER_CFLAGS = -D_PATH_RLOGIN=\"/usr/bin/rlogin\"
--include ../Makefile.include

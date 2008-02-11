@@ -52,6 +52,8 @@
 #include <mach/mach_port.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <notify.h>
 
 /* 
  * This is the command line interface to Energy Saver Preferences in
@@ -134,6 +136,7 @@
 #define ARG_PS              "ps"
 #define ARG_PSLOG           "pslog"
 #define ARG_PSRAW           "rawlog"
+#define ARG_THERMLOG        "thermlog"
 
 // special
 #define ARG_BOOT            "boot"
@@ -211,6 +214,11 @@ enum AssertionBitField {
 // ack port for sleep/wake callback
 static io_connect_t gPMAckPort = MACH_PORT_NULL;
 
+// thermal notification mach ports
+static CFMachPortRef   gPowerConstraintMachPort = NULL;
+static CFMachPortRef   gCPUPowerMachPort = NULL;    
+
+
 enum SleepCallbackBehavior {
     kLogSleepEvents = (1<<0),
     kCancelSleepEvents = (1<<1)
@@ -241,6 +249,7 @@ static void usage(void);
 static IOReturn setRootDomainProperty(CFStringRef key, CFTypeRef val);
 static IOReturn _pm_connect(mach_port_t *newConnection);
 static IOReturn _pm_disconnect(mach_port_t connection);
+
 static void show_pm_settings_dict(
         CFDictionaryRef d, 
         int indent, 
@@ -257,12 +266,14 @@ static void show_scheduled_events(void);
 static void show_active_assertions(uint32_t which);
 static void show_power_sources(int which);
 static bool prevent_idle_sleep(void);
+
 static void print_pretty_date(bool newline);
 static void sleepWakeCallback(
         void *refcon, 
         io_service_t y __unused,
         natural_t messageType,
         void * messageArgument);
+
 static void log_ps_change_handler(void *);
 static int log_power_source_changes(int which);
 static int log_raw_power_source_changes(void);
@@ -274,6 +285,16 @@ static void log_raw_battery_interest(
 static void log_raw_battery_match(
         void *refcon, 
         io_iterator_t b_iter);
+
+static void log_thermal_events(void);        
+static void log_thermal_callback(
+        CFMachPortRef port, 
+        void *msg,
+        CFIndex size,
+        void *info);
+static void show_thermal_warning_level(void);
+static void show_thermal_cpu_power_level(void);
+
 static void print_raw_battery_state(io_registry_entry_t b_reg);
 static void print_setting_value(CFTypeRef a, int divider);
 static void print_override_pids(CFStringRef assertion_type);
@@ -281,6 +302,7 @@ static void print_time_of_day_to_buf(int m, char *buf);
 static void print_days_to_buf(int d, char *buf);
 static void print_repeating_report(CFDictionaryRef repeat);
 static void print_scheduled_report(CFArrayRef events);
+
 static CFDictionaryRef getPowerEvent(int type, CFDictionaryRef events);
 static int getRepeatingDictionaryMinutes(CFDictionaryRef event);
 static int getRepeatingDictionaryDayMask(CFDictionaryRef event);
@@ -2004,6 +2026,175 @@ static int log_raw_power_source_changes(void)
     return 0;
 }
 
+
+
+static void log_thermal_events(void)
+{
+    /*
+     * Open listening mode
+     */
+
+    mach_port_t     powerConstraint_port = MACH_PORT_NULL;
+    mach_port_t     cpuPower_port = MACH_PORT_NULL;
+    int             powerConstraintNotifyToken = 0;
+    int             cpuPowerNotifyToken = 0;
+
+    CFRunLoopSourceRef      rls1, rls2;
+
+    uint32_t        status;
+    
+
+    status = notify_register_mach_port(kIOPMCPUPowerNotificationKey,
+                    &cpuPower_port, 0, /* flags */
+                    &cpuPowerNotifyToken);
+
+    if (NOTIFY_STATUS_OK != status) {
+        fprintf(stderr, "Registration failed for \"%s\" with (%u)\n",
+                        kIOPMCPUPowerNotificationKey, status);
+    }                        
+
+
+    status = notify_register_mach_port(kIOPMThermalWarningNotificationKey,
+                    &powerConstraint_port, 0, /* flags */
+                    &powerConstraintNotifyToken);
+
+    if (NOTIFY_STATUS_OK != status)
+    {
+        fprintf(stderr, "Registration failed for \"%s\" with (%u)\n",
+                        kIOPMThermalWarningNotificationKey, status);
+    }
+
+    // CFMachPorts!
+    gPowerConstraintMachPort = CFMachPortCreateWithPort(
+                    kCFAllocatorDefault, powerConstraint_port,
+                    log_thermal_callback, NULL, NULL);
+
+    gCPUPowerMachPort = CFMachPortCreateWithPort(
+                    kCFAllocatorDefault, cpuPower_port,
+                    log_thermal_callback, NULL, NULL);
+
+    rls1 = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, gPowerConstraintMachPort, 0);
+    if (rls1) {
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), rls1, kCFRunLoopDefaultMode);
+    }
+
+    rls2 = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, gCPUPowerMachPort, 0);
+    if (rls2) {
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), rls2, kCFRunLoopDefaultMode);
+    }
+
+    print_pretty_date(true);
+    printf("Logging thermal event messages...\n");
+
+    show_thermal_warning_level();
+    show_thermal_cpu_power_level();
+    
+    CFRunLoopRun();    
+    // should never return from CFRunLoopRun
+    return;
+}
+
+
+
+static void log_thermal_callback(
+        CFMachPortRef port, 
+        void *msg,
+        CFIndex size,
+        void *info)
+{
+    if (gCPUPowerMachPort == port) {
+        show_thermal_cpu_power_level();
+        return;
+    }
+
+    if (gPowerConstraintMachPort == port) { 
+        show_thermal_warning_level();
+        return;
+    }
+
+}
+
+static void show_thermal_warning_level(void)
+{
+    uint32_t                warn = -1;
+    IOReturn                ret;
+    
+    ret = IOPMGetThermalWarningLevel(&warn);
+
+    if (kIOReturnNotFound == ret) {
+        printf("Note: No thermal warning level has been recorded\n");
+        return;
+    }
+
+    if (kIOReturnSuccess != ret) 
+    {
+        printf("Error: No thermal warning level with error code 0x%08x\n", ret);
+        return;
+    }
+
+    // successfully found warning level
+    print_pretty_date(false);
+    printf("Thermal Warning Level = %d\n", warn);
+    return;
+}
+
+
+static void show_thermal_cpu_power_level(void)
+{
+    CFDictionaryRef         cpuStatus;
+    CFStringRef             *keys = NULL;
+    CFNumberRef             *vals = NULL;
+    int                     count = 0;
+    int                     i;
+    IOReturn                ret;
+
+    ret = IOPMCopyCPUPowerStatus(&cpuStatus);
+
+    if (kIOReturnNotFound == ret) {
+        printf("Note: No CPU power status has been recorded\n");
+        return;
+    }
+
+    if (!cpuStatus || (kIOReturnSuccess != ret)) 
+    {
+        printf("Error: No CPU power status with error code 0x%08x\n", ret);
+        return;
+    }
+
+    print_pretty_date(false);
+    fprintf(stderr, "CPU Power notify\n"), fflush(stderr);        
+    
+    count = CFDictionaryGetCount(cpuStatus);
+    keys = (CFStringRef *)malloc(count*sizeof(CFStringRef));
+    vals = (CFNumberRef *)malloc(count*sizeof(CFNumberRef));
+    if (!keys||!vals) 
+        goto exit;
+
+    CFDictionaryGetKeysAndValues(cpuStatus, 
+                    (const void **)keys, (const void **)vals);
+
+    for(i=0; i<count; i++) {
+        char strbuf[125];
+        int  valint;
+        
+        CFStringGetCString(keys[i], strbuf, 125, kCFStringEncodingUTF8);
+        CFNumberGetValue(vals[i], kCFNumberIntType, &valint);
+        printf("\t%s \t= %d\n", strbuf, valint);
+    }
+
+
+exit:    
+    if (keys)
+        free(keys);
+    if (vals)
+        free(vals);
+    if (cpuStatus);
+        CFRelease(cpuStatus);
+
+}
+
+
+
 /******************************************************************************/
 /*                                                                            */
 /*     BORING SETTINGS & PARSING                                              */
@@ -2726,6 +2917,12 @@ static int parseArgs(int argc,
                         // continuously log PS changes until user ctrl-c exits
                         // log via interest notes on the IOPMPowerSource nodes
                         return log_raw_power_source_changes();
+                    } else if(!strcmp(argv[i], ARG_THERMLOG))
+                    {
+                        // continuously log thermal events until user ctrl-c
+                        // exits
+                        log_thermal_events();
+                        return kParseSuccess;
                     } else {
                         return kParseBadArgs;
                     }

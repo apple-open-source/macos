@@ -2111,6 +2111,7 @@ clean_user_password(CFDictionaryRef dict)
 bool
 Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict)
 {
+    bool		change = FALSE;
     CFStringRef		config_id;
     CFDictionaryRef	eap_config = NULL;
 
@@ -2152,7 +2153,16 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict)
 
     /* update the list of EAP types we accept */
     EAPAcceptTypesInit(&supp->eap_accept, supp->config_dict);
-    return (S_set_user_password(supp));
+    if (S_set_user_password(supp)) {
+	change = TRUE;
+    }
+    if (EAPAcceptTypesIsSupportedType(&supp->eap_accept,
+				      eap_client_type(supp)) == FALSE) {
+	/* negotiated EAP type is no longer valid, start over */
+	eap_client_free(supp);
+	change = TRUE;
+    }
+    return (change);
 }
 
 static void 

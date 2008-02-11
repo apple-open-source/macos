@@ -442,7 +442,6 @@ onehalf:        .double     0.5
 onethird:       .quad       0x3fd5555555555555      // 1/3
 onequarter:     .double     0.25
 onefifth:       .double     0.2
-recip_log2:     .quad       0x3ff71547652b82feULL   // 1.0 / ln(2)
 log1p_amask:    .quad       0x7ffff00000000000ULL   // top 8 bits of mantissa
 exp_maskd:      .quad       0x7ff0000000000000ULL   // exponent bits / +Inf
 almost1:        .quad       0x3fefffffffffffffULL   // 1.0 - DBL_EPSILON/2

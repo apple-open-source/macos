@@ -1,5 +1,0 @@
-INSTALL_PERMISSIONS = 4555  # If set, 'install' chmod's executable to this
-install-man-page:
-	install -d "$(DSTROOT)/usr/share/man/man8"
-	install -c -m 644 ping6.8 "$(DSTROOT)/usr/share/man/man8/ping6.8"
-

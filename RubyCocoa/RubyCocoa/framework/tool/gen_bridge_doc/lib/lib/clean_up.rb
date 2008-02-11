@@ -60,6 +60,7 @@ class String
     
     # Convert italic style
     str = str.gsub(/<i>/, '_')
+    str = str.gsub(/<\/i>/, '_')
     return str
   end
   

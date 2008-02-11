@@ -114,6 +114,7 @@ begin
       end
     end
   end
+  RUBYNODE_LOADED = true
 rescue LoadError
   # We don't have a Ruby parser handy, let's evaluate/interpret the code as
   # a second alternative.
@@ -157,6 +158,7 @@ rescue LoadError
       end
     end
   end
+  RUBYNODE_LOADED = false 
 end
 
 class ClassesNibPlist
@@ -181,7 +183,7 @@ class ClassesNibPlist
     classes = @plist['IBClasses']
     if classes
       classes.each do |klass|
-        next unless klass['CLASS'].to_s == ruby_class
+        next unless klass['CLASS'].to_s == ruby_class.to_s
         ruby_class_plist = klass
       end
     else
@@ -251,6 +253,16 @@ class ClassesNibUpdater
 
   def update_superclass(ruby_class, ruby_class_plist)
     superklass = NSObject.subklasses[ruby_class][:super].to_s.sub(/^OSX::/, '')
+    unless RUBYNODE_LOADED
+      # If the class has a superclass which isn't defined in the classes in the nib/ib
+      # then the class will still not show up. Because we can assume that it will be a
+      # descendant of NSObject use that as a default if the superclass can't be found.
+      begin
+        Object.const_get(superklass)
+      rescue NameError
+        superklass = :NSObject
+      end
+    end
     ruby_class_plist.setObject_forKey(superklass, "SUPERCLASS")
   end
   
@@ -259,6 +271,7 @@ class ClassesNibUpdater
    
     [:outlets, :actions].each do |sym|
       cont = NSObject.subklasses[klass][sym]
+      next if cont.nil?
       unless sorted_plist
         hash = {}
         cont.each do |val|
@@ -267,7 +280,7 @@ class ClassesNibUpdater
         end 
         cont = hash
       end
-      ruby_class_plist[sym.to_s.upcase] = cont unless cont.nil? or cont.empty?
+      ruby_class_plist[sym.to_s.upcase] = cont unless cont.empty?
     end
   end
 end

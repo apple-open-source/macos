@@ -1432,7 +1432,7 @@ install/man_pages:
 
 install/custom_configs:
 	@echo "# `date +%Y/%m/%d\ %H:%M:%S` ChatServer: [staging]: ...copying Apple configuration files"
-	$(SILENT) $(MKDIR) -p -m 750 $(OBJROOT)/$(STAGING_DIR)/$(ETC_DIR)
+	$(SILENT) $(MKDIR) -p -m 755 $(OBJROOT)/$(STAGING_DIR)/$(ETC_DIR)
 	$(SILENT) $(CP) -r $(OBJROOT)/$(JABBERD2_INSTALL_DIR)/ppc/$(SYSCONFIG_DIR)/jabberd $(OBJROOT)/$(STAGING_DIR)/$(ETC_DIR)/
 	$(SILENT) $(RM) -rf $(OBJROOT)/$(JABBERD2_INSTALL_DIR)/ppc/$(SYSCONFIG_DIR)/jabberd
 	$(SILENT) $(RM) -rf $(OBJROOT)/$(STAGING_DIR)/$(SYSCONFIG_DIR)

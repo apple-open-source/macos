@@ -91,7 +91,6 @@ cupsCancelJob(const char *name,		/* I - Name of printer or class */
 		uri[HTTP_MAX_URI];	/* Printer URI */
   ipp_t		*request,		/* IPP request */
 		*response;		/* IPP response */
-  cups_lang_t	*language;		/* Language info */
   _cups_globals_t *cg = _cupsGlobals();	/* Pointer to library globals */
 
 
@@ -129,21 +128,7 @@ cupsCancelJob(const char *name,		/* I - Name of printer or class */
   *    [requesting-user-name]
   */
 
-  request = ippNew();
-
-  request->request.op.operation_id = IPP_CANCEL_JOB;
-  request->request.op.request_id   = 1;
-
-  language = cupsLangDefault();
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
-               "attributes-charset", NULL, cupsLangEncoding(language));
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
-               "attributes-natural-language", NULL,
-               language != NULL ? language->language : "C");
-
-  cupsLangFree(language);
+  request = ippNewRequest(IPP_CANCEL_JOB);
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
                NULL, uri);
@@ -205,7 +190,6 @@ cupsGetClasses(char ***classes)		/* O - Classes */
   ipp_t		*request,		/* IPP Request */
 		*response;		/* IPP Response */
   ipp_attribute_t *attr;		/* Current attribute */
-  cups_lang_t	*language;		/* Default language */
   char		**temp;			/* Temporary pointer */
   _cups_globals_t *cg = _cupsGlobals();	/* Pointer to library globals */
 
@@ -237,20 +221,7 @@ cupsGetClasses(char ***classes)		/* O - Classes */
   *    requested-attributes
   */
 
-  request = ippNew();
-
-  request->request.op.operation_id = CUPS_GET_CLASSES;
-  request->request.op.request_id   = 1;
-
-  language = cupsLangDefault();
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
-               "attributes-charset", NULL, cupsLangEncoding(language));
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
-               "attributes-natural-language", NULL, language->language);
-
-  cupsLangFree(language);
+  request = ippNewRequest(CUPS_GET_CLASSES);
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
                "requested-attributes", NULL, "printer-name");
@@ -371,7 +342,6 @@ cupsGetDefault2(http_t *http)		/* I - HTTP connection */
   ipp_t		*request,		/* IPP Request */
 		*response;		/* IPP Response */
   ipp_attribute_t *attr;		/* Current attribute */
-  cups_lang_t	*language;		/* Default language */
   const char	*var;			/* Environment variable */
   _cups_globals_t *cg = _cupsGlobals();	/* Pointer to library globals */
 
@@ -403,20 +373,7 @@ cupsGetDefault2(http_t *http)		/* I - HTTP connection */
   *    attributes-natural-language
   */
 
-  request = ippNew();
-
-  request->request.op.operation_id = CUPS_GET_DEFAULT;
-  request->request.op.request_id   = 1;
-
-  language = cupsLangDefault();
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
-               "attributes-charset", NULL, cupsLangEncoding(language));
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
-               "attributes-natural-language", NULL, language->language);
-
-  cupsLangFree(language);
+  request = ippNewRequest(CUPS_GET_DEFAULT);
 
  /*
   * Do the request and get back a response...
@@ -491,7 +448,6 @@ cupsGetJobs2(http_t     *http,		/* I - HTTP connection */
   ipp_t		*request,		/* IPP Request */
 		*response;		/* IPP Response */
   ipp_attribute_t *attr;		/* Current attribute */
-  cups_lang_t	*language;		/* Default language */
   cups_job_t	*temp;			/* Temporary pointer */
   int		id,			/* job-id */
 		priority,		/* job-priority */
@@ -564,20 +520,7 @@ cupsGetJobs2(http_t     *http,		/* I - HTTP connection */
   *    requested-attributes
   */
 
-  request = ippNew();
-
-  request->request.op.operation_id = IPP_GET_JOBS;
-  request->request.op.request_id   = 1;
-
-  language = cupsLangDefault();
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
-               "attributes-charset", NULL, cupsLangEncoding(language));
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
-               "attributes-natural-language", NULL, language->language);
-
-  cupsLangFree(language);
+  request = ippNewRequest(IPP_GET_JOBS);
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI,
                "printer-uri", NULL, uri);
@@ -957,7 +900,6 @@ cupsGetPrinters(char ***printers)	/* O - Printers */
   ipp_t		*request,		/* IPP Request */
 		*response;		/* IPP Response */
   ipp_attribute_t *attr;		/* Current attribute */
-  cups_lang_t	*language;		/* Default language */
   char		**temp;			/* Temporary pointer */
   _cups_globals_t *cg = _cupsGlobals();	/* Pointer to library globals */
 
@@ -989,20 +931,7 @@ cupsGetPrinters(char ***printers)	/* O - Printers */
   *    requested-attributes
   */
 
-  request = ippNew();
-
-  request->request.op.operation_id = CUPS_GET_PRINTERS;
-  request->request.op.request_id   = 1;
-
-  language = cupsLangDefault();
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
-               "attributes-charset", NULL, cupsLangEncoding(language));
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
-               "attributes-natural-language", NULL, language->language);
-
-  cupsLangFree(language);
+  request = ippNewRequest(CUPS_GET_PRINTERS);
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
                "requested-attributes", NULL, "printer-name");
@@ -1270,7 +1199,6 @@ cupsPrintFiles2(http_t        *http,	/* I - HTTP connection */
   ipp_t		*response;		/* IPP response */
   ipp_attribute_t *attr;		/* IPP job-id attribute */
   char		uri[HTTP_MAX_URI];	/* Printer URI */
-  cups_lang_t	*language;		/* Language to use */
   int		jobid;			/* New job ID */
   const char	*base;			/* Basename of current filename */
 
@@ -1303,33 +1231,17 @@ cupsPrintFiles2(http_t        *http,	/* I - HTTP connection */
   }
 
  /*
-  * Setup the request data...
-  */
-
-  language = cupsLangDefault();
-
- /*
   * Build a standard CUPS URI for the printer and fill the standard IPP
   * attributes...
   */
 
-  if ((request = ippNew()) == NULL)
+  if ((request = ippNewRequest(num_files == 1 ? IPP_PRINT_JOB :
+                                                IPP_CREATE_JOB)) == NULL)
   {
     _cupsSetError(IPP_INTERNAL_ERROR, NULL);
 
     return (0);
   }
-
-  request->request.op.operation_id = num_files == 1 ? IPP_PRINT_JOB :
-                                                      IPP_CREATE_JOB;
-  request->request.op.request_id   = 1;
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
-               "attributes-charset", NULL, cupsLangEncoding(language));
-
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
-               "attributes-natural-language", NULL,
-               language != NULL ? language->language : "C");
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
                NULL, uri);
@@ -1392,20 +1304,10 @@ cupsPrintFiles2(http_t        *http,	/* I - HTTP connection */
       * attributes...
       */
 
-      if ((request = ippNew()) == NULL)
+      if ((request = ippNewRequest(IPP_SEND_DOCUMENT)) == NULL)
 	return (0);
 
-      request->request.op.operation_id = IPP_SEND_DOCUMENT;
-      request->request.op.request_id   = 1;
-
       snprintf(uri, sizeof(uri), "ipp://localhost/jobs/%d", jobid);
-
-      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
-        	   "attributes-charset", NULL, cupsLangEncoding(language));
-
-      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
-        	   "attributes-natural-language", NULL,
-        	   language != NULL ? language->language : "C");
 
       ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "job-uri",
         	   NULL, uri);
@@ -1457,8 +1359,6 @@ cupsPrintFiles2(http_t        *http,	/* I - HTTP connection */
                                         files[i])) != NULL)
 	ippDelete(response);
     }
-
-  cupsLangFree(language);
 
   return (jobid);
 }

@@ -198,7 +198,7 @@ cupsdDeregisterPrinter(
   * Announce the deletion...
   */
 
-  if ((BrowseLocalProtocols & BROWSE_CUPS))
+  if ((BrowseLocalProtocols & BROWSE_CUPS) && BrowseSocket >= 0)
   {
     cups_ptype_t savedtype = p->type;	/* Saved printer type */
 
@@ -790,6 +790,7 @@ cupsdSendBrowseList(void)
   cupsd_printer_t	*p;		/* Current printer */
   time_t		ut,		/* Minimum update time */
 			to;		/* Timeout time */
+  int			write_printcap;	/* Write the printcap file? */
 
 
   if (!Browsing || !BrowseLocalProtocols || !Printers)
@@ -861,7 +862,7 @@ cupsdSendBrowseList(void)
 
 	p->browse_time = time(NULL);
 
-	if (BrowseLocalProtocols & BROWSE_CUPS)
+	if ((BrowseLocalProtocols & BROWSE_CUPS) && BrowseSocket >= 0)
           send_cups_browse(p);
 
 #ifdef HAVE_LIBSLP
@@ -887,7 +888,7 @@ cupsdSendBrowseList(void)
   * Loop through all of the printers and send local updates as needed...
   */
 
-  for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
+  for (p = (cupsd_printer_t *)cupsArrayFirst(Printers), write_printcap = 0;
        p;
        p = (cupsd_printer_t *)cupsArrayNext(Printers))
   {
@@ -912,9 +913,13 @@ cupsdSendBrowseList(void)
         cupsArraySave(Printers);
         cupsdDeletePrinter(p, 1);
         cupsArrayRestore(Printers);
+	write_printcap = 1;
       }
     }
   }
+
+  if (write_printcap)
+    cupsdWritePrintcap();
 }
 
 

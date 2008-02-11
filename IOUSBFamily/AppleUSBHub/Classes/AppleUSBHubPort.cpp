@@ -383,7 +383,11 @@ AppleUSBHubPort::AddDevice(void)
 	bool				resetActive;
 
     USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - start", this, _portNum, _hub);
-    do
+	if ((_hub->_powerStateChangingTo == kIOUSBHubPowerStateOff) || (_hub->_powerStateChangingTo == kIOUSBHubPowerStateRestart))
+	{
+		USBLog(1, "***** AppleUSBHubPort[%p]::AddDevice - hub[%p] changing to power state[%d] - aborting AddDevice", this, _hub, (int)_hub->_powerStateChangingTo);
+	}
+    else do
     {
          // Indicate that we are dealing with device zero, still
         if ( !_devZero )
@@ -521,7 +525,7 @@ AppleUSBHubPort::RemoveDevice(void)
 		}
 		else
 		{
-			USBLog(4, "AppleUSBHubPort[%p]::RemoveDevice - hub still active - terminating device[%p] asynchronously", this, cachedPortDevice);
+			USBLog(4, "AppleUSBHubPort[%p]::RemoveDevice - hub no longer active - terminating device[%p] asynchronously", this, cachedPortDevice);
 			cachedPortDevice->terminate(kIOServiceRequired);
 		}
 
@@ -717,6 +721,13 @@ AppleUSBHubPort::SuspendPort(bool suspend, bool fromDevice)
 			
 			// Set up a flag indicating that we are expecting a resume port status change
 			_resumePending = true;
+ 			USBLog(5, "AppleUSBHubPort[%p]::SuspendPort - RESUME - calling RaisePowerState on hub[%p]", this, _hub);
+			_hub->RaisePowerState();				// make sure that the hub is at a good power state until the resume is done
+			if (_lowerPowerStateOnResume)
+			{
+				USBLog(1, "AppleUSBHubPort[%p]::SuspendPort - RESUME - _lowerPowerStateOnResume already set - UNEXPECTED!", this);
+			}
+			_lowerPowerStateOnResume = true;
         }
     } while (false);
 
@@ -1731,8 +1742,17 @@ AppleUSBHubPort::HandleSuspendPortHandler(UInt16 changeFlags, UInt16 statusFlags
 	// Spec calls for 10ms of recovery time after a resume
 	IOSleep(10);
 	
-	// Clear our pending flag
-	_resumePending = false;
+	if (_resumePending)
+	{
+		// Clear our pending flag
+		_resumePending = false;
+		if (_lowerPowerStateOnResume)
+		{
+			_lowerPowerStateOnResume = false;
+			USBLog(5, "AppleUSBHubPort[%p]::HandleSuspendPortHandler - calling LowerPowerState on hub[%p]", this, _hub);
+			_hub->LowerPowerState();
+		}
+	}
 	
 	if (_portPMState == usbHPPMS_drvr_suspended)
 	{
@@ -1777,7 +1797,8 @@ AppleUSBHubPort::DefaultOverCrntChangeHandler(UInt16 changeFlags, UInt16 statusF
 
     if ( (err == kIOReturnSuccess) && (portStatus.changeFlags != 0x1f) )
     {
-        if ( (portStatus.statusFlags & kHubPortOverCurrent))
+		// check to see if either the overcurrent status is on or the port power status is off
+        if ( (portStatus.statusFlags & kHubPortOverCurrent) || ~(portStatus.statusFlags & kHubPortPower))
         {
             USBLog(1, "AppleUSBHubPort[%p]::DefaultOverCrntChangeHandler. OverCurrent condition in Port %d", this,  _portNum );
             hubDescriptor = _hub->GetCachedHubDescriptor();
@@ -1978,9 +1999,10 @@ AppleUSBHubPort::PortStatusChangedHandlerEntry(OSObject *target)
     }
         
     me->PortStatusChangedHandler();
-    me->release();
+	USBLog(5, "AppleUSBHubPort[%p]::PortStatusChangedHandlerEntry - calling LowerPowerState on hub[%p]", me, me->_hub);
 	me->_hub->LowerPowerState();								// as far as this thread is concerned, we can lower the state
 	me->_hub->DecrementOutstandingIO();							// this will rearm the interrupt read on the last call
+    me->release();
 }
 
 

@@ -1,4 +1,0 @@
-OTHER_GENERATED_OFILES = $(VERS_OFILE)
--include ../Makefile.include
-
-AFTER_INSTALL = after_install

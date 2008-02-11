@@ -15,7 +15,7 @@
   | Author: Georg Richter <georg@php.net>                                |
   +----------------------------------------------------------------------+
 
-  $Id: mysqli.c,v 1.72.2.16.2.16 2007/06/25 16:01:30 scottmac Exp $ 
+  $Id: mysqli.c,v 1.72.2.16.2.21 2007/10/22 10:35:33 andrey Exp $ 
 */
 
 #ifdef HAVE_CONFIG_H
@@ -125,8 +125,7 @@ void php_clear_stmt_bind(MY_STMT *stmt)
 /* {{{ php_clear_mysql */
 void php_clear_mysql(MY_MYSQL *mysql) {
 	if (mysql->li_read) {
-		efree(Z_STRVAL_P(mysql->li_read));
-		FREE_ZVAL(mysql->li_read);
+		zval_ptr_dtor(&(mysql->li_read));
 		mysql->li_read = NULL;
 	}
 }
@@ -495,6 +494,12 @@ PHP_MINIT_FUNCTION(mysqli)
 	
 	REGISTER_INI_ENTRIES();
 
+#if MYSQL_VERSION_ID >= 40000
+	if (mysql_server_init(0, NULL, NULL)) {
+		return FAILURE;
+	}
+#endif
+
 	memcpy(&mysqli_object_handlers, zend_get_std_object_handlers(), sizeof(zend_object_handlers));
 	mysqli_object_handlers.clone_obj = NULL;
 	mysqli_object_handlers.read_property = mysqli_read_property;
@@ -632,7 +637,7 @@ PHP_MINIT_FUNCTION(mysqli)
 	REGISTER_LONG_CONSTANT("MYSQLI_TYPE_BIT", FIELD_TYPE_BIT, CONST_CS | CONST_PERSISTENT);
 #endif
 
-
+	REGISTER_LONG_CONSTANT("MYSQLI_SET_CHARSET_NAME", MYSQL_SET_CHARSET_NAME, CONST_CS | CONST_PERSISTENT);
 
 	/* replication */
 	REGISTER_LONG_CONSTANT("MYSQLI_RPL_MASTER", MYSQL_RPL_MASTER, CONST_CS | CONST_PERSISTENT);
@@ -652,10 +657,6 @@ PHP_MINIT_FUNCTION(mysqli)
 	REGISTER_LONG_CONSTANT("MYSQLI_REPORT_ALL", MYSQLI_REPORT_ALL, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("MYSQLI_REPORT_OFF", 0, CONST_CS | CONST_PERSISTENT);
 
-	if (mysql_server_init(0, NULL, NULL)) {
-		return FAILURE;
-	}
-
 	return SUCCESS;
 }
 /* }}} */
@@ -664,14 +665,16 @@ PHP_MINIT_FUNCTION(mysqli)
  */
 PHP_MSHUTDOWN_FUNCTION(mysqli)
 {
+#if MYSQL_VERSION_ID >= 40000
 #ifdef PHP_WIN32
-	unsigned long client_ver = mysql_get_client_version;
+	unsigned long client_ver = mysql_get_client_version();
 	/* Can't call mysql_server_end() multiple times prior to 5.0.42 on Windows */
 	if ((client_ver > 50042 && client_ver < 50100) || client_ver > 50122) {
 		mysql_server_end();
 	}
 #else
 	mysql_server_end();
+#endif
 #endif
 
 	zend_hash_destroy(&mysqli_driver_properties);
@@ -690,7 +693,7 @@ PHP_MSHUTDOWN_FUNCTION(mysqli)
  */
 PHP_RINIT_FUNCTION(mysqli)
 {
-#ifdef ZTS
+#ifdef ZTS && MYSQL_VERSION_ID >= 40000
 	if (mysql_thread_init()) {
 		return FAILURE;
 	}
@@ -706,7 +709,7 @@ PHP_RINIT_FUNCTION(mysqli)
  */
 PHP_RSHUTDOWN_FUNCTION(mysqli)
 {
-#ifdef ZTS
+#ifdef ZTS && MYSQL_VERSION_ID >= 40000
 	mysql_thread_end();
 #endif
 	if (MyG(error_msg)) {

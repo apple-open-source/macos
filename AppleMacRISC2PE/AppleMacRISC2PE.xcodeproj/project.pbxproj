@@ -77,7 +77,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC2PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC2PE version 1.8.5, Copyright 2002-2007 Apple Inc.</string>
+	<string>AppleMacRISC2PE version 1.8.6, Copyright 2002-2007 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -89,11 +89,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.5</string>
+	<string>1.8.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.5d5</string>
+	<string>1.8.6d5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC2CPU</key>
@@ -561,12 +561,14 @@
 		<string>1.0.0</string>
 		<key>com.apple.iokit.IOPCIFamily</key>
 		<string>1.1</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
 		<key>com.apple.kernel.libkern</key>
 		<string>1.1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.7.2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.7.2</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>8.7.2</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
@@ -611,11 +613,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.5</string>
+	<string>1.8.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.5d5</string>
+	<string>1.8.6d5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PB5_1_PlatformMonitor</key>
@@ -684,11 +686,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.5</string>
+	<string>1.8.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.5d5</string>
+	<string>1.8.6d5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Portable2003_PlatformMonitor</key>
@@ -757,11 +759,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.5</string>
+	<string>1.8.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.5d5</string>
+	<string>1.8.6d5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Portable2004_PlatformMonitor</key>
@@ -832,11 +834,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.5</string>
+	<string>1.8.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.5d5</string>
+	<string>1.8.6d5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Portable_PlatformMonitor</key>
@@ -894,7 +896,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPlatformFunction</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPlatformVersion version 1.8.5, Copyright 2003-2007 Apple Inc.</string>
+	<string>IOPlatformVersion version 1.8.6, Copyright 2003-2007 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -906,11 +908,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.5</string>
+	<string>1.8.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.8.5d5</string>
+	<string>1.8.6d5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPlatformFunctionDriver</key>
@@ -1549,7 +1551,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOPlatformFunction;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
@@ -1579,7 +1581,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOPlatformFunction;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1606,7 +1608,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOPlatformFunction;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1636,7 +1638,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1664,7 +1666,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1689,7 +1691,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1718,7 +1720,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PB5_1_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "\U0001";
@@ -1746,7 +1748,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PB5_1_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "\U0001";
 				OTHER_REZFLAGS = "";
@@ -1771,7 +1773,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PB5_1_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "\U0001";
 				OTHER_REZFLAGS = "";
@@ -1800,7 +1802,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2003_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1828,7 +1830,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2003_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1853,7 +1855,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2003_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1882,7 +1884,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2004_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1910,7 +1912,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2004_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "\U0001";
@@ -1935,7 +1937,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2004_PlatformMonitor;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "\U0001";
@@ -1965,7 +1967,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
@@ -1995,7 +1997,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2022,7 +2024,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
-				MODULE_VERSION = 1.8.5d5;
+				MODULE_VERSION = 1.8.6d5;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

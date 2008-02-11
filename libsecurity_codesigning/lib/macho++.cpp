@@ -62,7 +62,12 @@ const char *Architecture::name() const
 {
 	if (const NXArchInfo *info = NXGetArchInfoFromCpuType(cpuType(), cpuSubtype()))
 		return info->name;
-	else
+	else if (cpuType() == CPU_TYPE_ARM)	 {	// work-around for non-ARM Leopard systems
+		if (cpuSubtype() == CPU_SUBTYPE_ARM_V6)
+			return "armv6";
+		else
+			return "arm";
+	} else
 		return NULL;
 }
 

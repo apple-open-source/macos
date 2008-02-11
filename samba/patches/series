@@ -1,3 +1,7 @@
+CVE-2007-5398-nmbd-buffer-overflow -p0
+CVE-2007-4138-idmap_ad-default-uid-bug -p0
+CVE-2007-4572-GETDC-buffer-overrun-in-nmbd -p0
+CVE-2007-6015-nmbd-send-send-mailslot-vulnerability -p0
 svn-rev23105 -p0
 svn-rev23106 -p0
 manpage-idmap-odsam -p0

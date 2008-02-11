@@ -189,11 +189,13 @@ extern void Debugger(char *);
  * held in the cache.  All values in bytes.
  */
 struct BC_cache_extent {
+	lck_mtx_t	ce_lock;
 	u_int64_t	ce_offset;	/* physical offset on device */
 	u_int64_t	ce_length;	/* data length */
 	caddr_t		ce_data;	/* pointer to base of data in buffer */
 	int		ce_flags;	/* low 8 bits mark the batch */ 
-#define CE_ABORTED	(1 << 8)	/* extent will not be read */
+#define CE_ABORTED	(1 << 9)	/* extent no longer has data */
+#define CE_IODONE	(1 << 10)	/* extent has been read */
 };
 
 /*
@@ -278,6 +280,7 @@ struct BC_cache_control {
 	u_int32_t	*c_blockmap;	/* blocks present in buffer */
 	u_int32_t	*c_pagemap;	/* pages present in buffer */
 	u_int32_t	*c_iopagemap;	/* pages with outstanding I/O */
+	lck_grp_t	*c_lckgrp;
 
 	/* history list, in reverse order */
 	struct BC_history_cluster *c_history;
@@ -384,6 +387,8 @@ struct BC_cache_control {
 		}							\
 	} while (0);
 
+#define LOCK_EXTENT(e)		lck_mtx_lock(&(e)->ce_lock)
+#define UNLOCK_EXTENT(e)	lck_mtx_unlock(&(e)->ce_lock)
 /*
  * Only one instance of the cache is supported.
  */
@@ -402,6 +407,7 @@ extern kmod_info_t kmod_info;
 static struct BC_playlist_header *BC_preloaded_playlist;
 static int	BC_preloaded_playlist_size;
 
+static int	BC_check_intersection(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length);
 static struct BC_cache_extent *BC_find_extent(u_int64_t offset, u_int64_t length, int contained);
 static int	BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length);
 static int	BC_blocks_present(int base, int nblk);
@@ -472,6 +478,19 @@ extern void	mapping_relpre(void);
 #include <mach-o/loader.h>
 extern void *getsectdatafromheader(struct mach_header *, char *, char *, int *);
 
+
+/*
+ * Test whether a given byte range on disk intersects with an extent's range.
+ */
+static inline int
+BC_check_intersection(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
+{
+	if ((offset < (ce->ce_offset + ce->ce_length)) &&
+			((offset + length) > ce->ce_offset))
+			return 1;
+	return 0;
+}
+
 /*
  * Find a cache extent containing or intersecting the offset/length.
  *
@@ -533,11 +552,8 @@ BC_find_extent(u_int64_t offset, u_int64_t length, int contained)
 	 */
 	for (lim = BC_cache->c_extent_count; lim != 0; lim >>= 1) {
 		p = base + (lim >> 1);
-		/*
-		 * Check for intersection with this extent.
-		 */
-		if ((offset < (p->ce_offset + p->ce_length)) &&
-		    ((offset + length) > p->ce_offset)) {
+
+		if (BC_check_intersection(p, offset, length)) {
 			/*
 			 * If we are checking for containment, verify that
 			 * here.
@@ -565,8 +581,10 @@ BC_find_extent(u_int64_t offset, u_int64_t length, int contained)
  *
  * This should be locked against anyone testing for !vacant pages.
  *
- * We returnt the number of blocks we marked unused. If the value is
+ * We return the number of blocks we marked unused. If the value is
  * zero, the offset/length did not overap this extent.
+ *
+ * Called with extent lock held.
  */
 static int
 BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
@@ -576,6 +594,9 @@ BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length
 
 	/* invariants */
 	assert(length > 0);
+#ifdef DEBUG
+	lck_mtx_assert(&ce->ce_lock, LCK_MTX_ASSERT_OWNED);
+#endif
 	
 	/*
 	 * Constrain offset and length to fit this extent, return immediately if
@@ -612,9 +633,7 @@ BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length
 	 * readahead is still taking place.
 	 */
 	reallyfree = 1;
-	if (BC_cache->c_batch < (ce->ce_flags & CE_BATCH_MASK) || 
-			((BC_cache->c_batch == (ce->ce_flags & CE_BATCH_MASK)) &&
-			 (BC_cache->c_extent_tail <= ce))) {
+	if (!(ce->ce_flags & (CE_IODONE | CE_ABORTED))) {
 		reallyfree = 0;
 	}
 	
@@ -705,7 +724,6 @@ BC_reader_thread(void *param0, wait_result_t param1)
 			  
 	/* we run under the kernel funnel */
 	funnel_state = thread_funnel_set(kernel_flock, TRUE);
-	BC_cache->c_flags |= BC_FLAG_IOBUSY;	/* should already be set */
 
 	BC_private_bp = buf_alloc(BC_cache->c_devvp);
 	bp = BC_private_bp;
@@ -728,6 +746,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 			buf_setcount(bp, 0);
 
 			BC_cache->c_extent_tail = ce;
+			LOCK_EXTENT(ce);
 
 			for (;;) {
 
@@ -860,10 +879,12 @@ BC_reader_thread(void *param0, wait_result_t param1)
 			 * Wake up anyone wanting this extent, as it is now ready for
 			 * use.
 			 */
+			ce->ce_flags |= CE_IODONE;
+			UNLOCK_EXTENT(ce);
 			wakeup(ce);
 		}
 		debug("batch %d done", BC_cache->c_batch);
-		/* Reset cache to read the next batch in: avoid a race with BC_strategy */
+		/* Reset cache to read the next batch in */
 		BC_cache->c_extent_tail = BC_cache->c_extents;	
 		BC_cache->c_batch++;
 		/* Measure times for the first 4 batches separately */
@@ -887,7 +908,9 @@ out:
 	 */
 	if (ce != NULL) {
 		struct BC_cache_extent *tmp = BC_cache->c_extents;
+		UNLOCK_EXTENT(ce);
 		while ((tmp - BC_cache->c_extents) < BC_cache->c_extent_count) {
+			LOCK_EXTENT(tmp);
 			/* abort any extent in a batch we haven't hit yet */
 			if (BC_cache->c_batch < (tmp->ce_flags & CE_BATCH_MASK)) {
 				tmp->ce_flags |= CE_ABORTED;
@@ -897,6 +920,7 @@ out:
 				tmp->ce_flags |= CE_ABORTED;
 			}
 			/* wake up anyone asleep on this extent */
+			UNLOCK_EXTENT(tmp);
 			wakeup(tmp);
 			tmp++;
 		}
@@ -1002,12 +1026,13 @@ BC_strategy_bypass(struct buf *bp)
 static void
 BC_strategy(struct buf *bp)
 {
-	struct BC_cache_extent *ce;
+	struct BC_cache_extent *ce = NULL;
 	boolean_t funnel_state;
 	int base, nblk;
 	caddr_t p, s;
 	int retry;
 	struct timeval blocktime, now, elapsed;
+	struct timespec timeout;
 	daddr64_t blkno;
 	int     bcount;
 	caddr_t	vaddr;
@@ -1019,6 +1044,10 @@ BC_strategy(struct buf *bp)
 
 	blkno = buf_blkno(bp);
 	bcount = buf_count(bp);
+
+	/* 1/10th of a second */
+	timeout.tv_sec = 0;
+	timeout.tv_nsec = 100 * 1000 * 1000;
 
 	/*
 	 * If the device doesn't match ours for some reason, pretend
@@ -1048,7 +1077,6 @@ BC_strategy(struct buf *bp)
 	 * release the funnel following the check for BC_FLAG_CACHEACTIVE.
 	 */
 	BC_cache->c_strategycalls++;
-	
 	BC_cache->c_stats.ss_strategy_calls++;
 
 	/* if it's not a read, pass it off */
@@ -1071,29 +1099,12 @@ BC_strategy(struct buf *bp)
 
 	/*
 	 * If the extent hasn't been read yet, sleep waiting for it.
-	 *
-	 * Note that this check must take into account which batch we 
-	 * are currently reading.
 	 */
+	LOCK_EXTENT(ce);
 	blocktime.tv_sec = 0;
 	for (retry = 0; ; retry++) {
-		/* reader thread is done? */
-		if (!(BC_cache->c_flags & BC_FLAG_IOBUSY))
-			break;
-		
-		/* has readahead finished this batch? */
-		if ((ce->ce_flags & CE_BATCH_MASK) < BC_cache->c_batch) {
-			break;
-		}
-
-		/* readahead is on this batch: has this extent been read? */
-		if(((ce->ce_flags & CE_BATCH_MASK) == BC_cache->c_batch) &&
-				ce < BC_cache->c_extent_tail) {
-			break;
-		}
-
-		/* check for abort while we were sleeping */
-		if (ce->ce_flags & CE_ABORTED)
+		/* has the reader thread made it to this extent? */
+		if (ce->ce_flags & (CE_ABORTED | CE_IODONE))
 			break;	/* don't go to bypass, record blocked time */
 
 		/* check for timeout */
@@ -1110,7 +1121,7 @@ BC_strategy(struct buf *bp)
 		}
 		
 		/* not ready, sleep */
-		tsleep(ce, PRIBIO, "BC_strategy", hz / 10);
+		msleep(ce, &ce->ce_lock, PRIBIO, "BC_strategy", &timeout);
 	}
 
 	/*
@@ -1142,12 +1153,15 @@ BC_strategy(struct buf *bp)
 	if ((BC_cache->c_flags & BC_FLAG_IOBUSY))
 		BC_cache->c_stats.ss_strategy_duringio++;
 #ifdef EMULATE_ONLY
-	/* we would have hit this request */
-	BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, BC_HE_HIT);
-
 	/* discard blocks we have touched */
 	BC_cache->c_stats.ss_hit_blocks +=
 	    BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
+
+	/* release the extent */
+	UNLOCK_EXTENT(ce);
+	
+	/* we would have hit this request */
+	BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, BC_HE_HIT);
 
 	/* bypass directly without updating statistics */
 	BC_cache->c_strategy(bp);
@@ -1195,6 +1209,7 @@ BC_strategy(struct buf *bp)
 	BC_cache->c_stats.ss_hit_blocks +=
 	BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
 
+	UNLOCK_EXTENT(ce);
 	/* record successful fulfilment (may block) */
 	BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, BC_HE_HIT);
 #endif
@@ -1210,6 +1225,8 @@ bypass:
 	 * bypass may try to terminate the cache (which will block and
 	 * ultimately fail if the busy count is not zero).
 	 */
+	if (ce != NULL)
+		UNLOCK_EXTENT(ce);
 	BC_cache->c_strategycalls--;
 	BC_strategy_bypass(bp);
 	(void) thread_funnel_set(kernel_flock, funnel_state);
@@ -1226,23 +1243,27 @@ BC_handle_write(struct buf *bp)
 	struct BC_cache_extent *ce, *p;
 	int count;
 	daddr64_t blkno;
+	u_int64_t offset;
 	int     bcount;
 
 	assert(bp != NULL);
 
 	blkno = buf_blkno(bp);
 	bcount = buf_count(bp);
+	offset = CB_BLOCK_TO_BYTE(BC_cache, blkno);
 
 	/*
 	 * Look for an extent that we overlap.
 	 */
-	if ((ce = BC_find_extent(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, 0)) == NULL)
+	if ((ce = BC_find_extent(offset, bcount, 0)) == NULL)
 		return;		/* doesn't affect us */
 
 	/*
 	 * Discard blocks in the matched extent.
 	 */
-	count = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
+	LOCK_EXTENT(ce);
+	count = BC_discard_blocks(ce, offset, bcount);
+	UNLOCK_EXTENT(ce);
 	BC_cache->c_stats.ss_write_discards += count;
 	assert(count != 0);
 
@@ -1250,16 +1271,22 @@ BC_handle_write(struct buf *bp)
 	 * Scan adjacent extents for possible overlap and discard there as well.
 	 */
 	p = ce - 1;
-	while (p >= BC_cache->c_extents) {
-		count = BC_discard_blocks(p, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
+	while (p >= BC_cache->c_extents && 
+			BC_check_intersection(p, offset, bcount)) {
+		LOCK_EXTENT(p);
+		count = BC_discard_blocks(p, offset, bcount);
+		UNLOCK_EXTENT(p);
 		if (count == 0)
 			break;
 		BC_cache->c_stats.ss_write_discards += count;
 		p--;
 	}
 	p = ce + 1;
-	while (p < (BC_cache->c_extents + BC_cache->c_extent_count)) {
-		count = BC_discard_blocks(p, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
+	while (p < (BC_cache->c_extents + BC_cache->c_extent_count) && 
+			BC_check_intersection(p, offset, bcount)) {
+		LOCK_EXTENT(p);
+		count = BC_discard_blocks(p, offset, bcount);
+		UNLOCK_EXTENT(p);
 		if (count == 0)
 			break;
 		BC_cache->c_stats.ss_write_discards += count;
@@ -1363,6 +1390,17 @@ BC_terminate_cache(void)
 	}
 	BC_cache->c_flags &= ~BC_FLAG_CACHEACTIVE;
 	debug("terminating cache...");
+
+	/*
+	 * Mark all extents as FREED. This will notify any sleepers in the 
+	 * strategy routine that the extent won't have data for them.
+	 */
+	for (i = 0; i < BC_cache->c_extent_count; i++) {
+		LOCK_EXTENT(BC_cache->c_extents + i);
+		BC_cache->c_extents[i].ce_flags |= CE_ABORTED;
+		UNLOCK_EXTENT(BC_cache->c_extents + i);
+		wakeup(BC_cache->c_extents + i);
+	}
 
 	/*
 	 * It is possible that one or more callers are asleep in the
@@ -1499,6 +1537,8 @@ BC_copyin_playlist(size_t length, void *uptr)
 		debug("using static playlist with %d entries", entries);
 		pce = (struct BC_playlist_entry *)uptr;
 		for (idx = 0; idx < entries; idx++) {
+			lck_mtx_init(&ce[idx].ce_lock, BC_cache->c_lckgrp,
+					LCK_ATTR_NULL);
 			ce[idx].ce_offset = pce[idx].pce_offset;
 			ce[idx].ce_length = pce[idx].pce_length;
 			ce[idx].ce_flags = pce[idx].pce_batch & CE_BATCH_MASK;
@@ -1538,6 +1578,8 @@ BC_copyin_playlist(size_t length, void *uptr)
 
 			/* unpack into our array */
 			for (idx = 0; idx < actual; idx++) {
+				lck_mtx_init(&ce[idx].ce_lock, BC_cache->c_lckgrp,
+						LCK_ATTR_NULL);
 				ce[idx].ce_offset = pce[idx].pce_offset;
 				ce[idx].ce_length = pce[idx].pce_length;
 				ce[idx].ce_flags = pce[idx].pce_batch & CE_BATCH_MASK;
@@ -1754,6 +1796,7 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	BC_cache->c_stats.ss_blocksize = BC_cache->c_blocksize;
 	debug("blocksize %lu bytes, filesystem %lu bytes",
 	    (unsigned long)BC_cache->c_blocksize, (unsigned long)BC_cache->c_devsize);
+	BC_cache->c_lckgrp = lck_grp_alloc_init("BootCache", LCK_GRP_ATTR_NULL);
 
 	/*
 	 * If we have playlist data, fetch it.
@@ -2023,7 +2066,7 @@ BC_auto_start(void)
 			      BC_preloaded_playlist->ph_blocksize);
 #endif /* STATIC_PLAYLIST */
 	if (error != 0)
-		printf("BootCache autostart failed: %d\n", error);
+		debug("BootCache autostart failed: %d", error);
 
 	/* set 'started' flag (cleared when we get history) */
 	BC_cache->c_flags |= BC_FLAG_STARTED;

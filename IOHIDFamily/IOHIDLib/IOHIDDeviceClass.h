@@ -32,7 +32,7 @@
 
 #include "IOHIDIUnknown.h"
 
-#define HIDLog(fmt, args...)
+#define HIDLog(fmt, args...) {}
 
 enum {
     kHIDSetElementValuePendEvent    = 0x00010000,
@@ -42,6 +42,7 @@ enum {
 };
 
 class IOHIDQueueClass;
+class IOHIDTransactionClass;
 
 class IOHIDDeviceClass : public IOHIDIUnknown
 {
@@ -246,7 +247,7 @@ class IOHIDObsoleteDeviceClass : public IOHIDDeviceClass
     
     void * fInputReportContext;
 
-    static void IOHIDObsoleteDeviceClass::_reportCallback(
+    static void _reportCallback(
                                         void *                  context, 
                                         IOReturn                result, 
                                         void *                  sender, 

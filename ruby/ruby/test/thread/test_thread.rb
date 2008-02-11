@@ -1,3 +1,4 @@
+# -*- ruby-indent-level: 4 -*-
 require 'thread'
 require 'test/unit'
 
@@ -62,6 +63,57 @@ class TC_Thread < Test::Unit::TestCase
 	thread.raise Interrupt, "interrupt a dead condition variable"
 	assert_raises(Interrupt) { thread.value }
 	assert(locked)
+    end
+
+    def test_local_barrier
+        dir = File.dirname(__FILE__)
+        lbtest = File.join(dir, "lbtest.rb")
+        $:.unshift File.join(File.dirname(dir), 'ruby')
+        require 'envutil'
+        $:.shift
+        10.times {
+            result = `#{EnvUtil.rubybin} #{lbtest}`
+            assert(!$?.coredump?, '[ruby-dev:30653]')
+            assert_equal("exit.", result[/.*\Z/], '[ruby-dev:30653]')
+        }
+    end
+
+    # This test checks that a thread in Mutex#lock which is raised is
+    # completely removed from the wait_list of the mutex
+    def test_mutex_exception_handling
+	m = Mutex.new
+	m.lock
+
+	sleeping = false
+	t = Thread.new do
+	    begin
+		m.lock
+	    rescue
+	    end
+
+	    sleeping = true
+	    # Keep that thread alive: if the thread returns, the test method
+	    # won't be able to check that +m+ has not been taken (dead mutex
+	    # owners are ignored)
+	    sleep
+	end
+
+	# Wait for t to wait for the mutex and raise it
+	while true
+	    sleep 0.1
+	    break if t.stop?
+	end
+	t.raise ArgumentError
+	assert(t.alive? || sleeping)
+
+	# Wait for +t+ to reach the sleep
+	while true
+	    sleep 0.1
+	    break if t.stop?
+	end
+
+	# Now unlock. The mutex should be free, so Mutex#unlock should return nil
+	assert(! m.unlock)
     end
 end
 

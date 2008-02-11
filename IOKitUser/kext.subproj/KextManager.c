@@ -1,4 +1,5 @@
 #include <mach/mach.h>
+#include <TargetConditionals.h>
 #include <mach/kmod.h>
 #include <sys/param.h>
 #include <mach/mach_error.h>
@@ -180,6 +181,7 @@ finish:
 }
 
 
+#if !TARGET_OS_EMBEDDED 
 void _KextManagerUserDidLogIn(uid_t euid, AuthorizationExternalForm authref)
 {
     kern_return_t kern_result = KERN_FAILURE;
@@ -199,6 +201,7 @@ void _KextManagerUserDidLogIn(uid_t euid, AuthorizationExternalForm authref)
 finish:
     return;
 }
+#endif /* !TARGET_OS_EMBEDDED */
 
 void _KextManagerUserWillLogOut(uid_t euid)
 {

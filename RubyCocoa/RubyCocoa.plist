@@ -4,15 +4,15 @@
         <key>OpenSourceProject</key>
         <string>RubyCocoa</string>
         <key>OpenSourceVersion</key>
-        <string>trunk</string>
+        <string>0.13.1</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://rubycocoa.sourceforge.net</string>
         <key>OpenSourceURL</key>
-        <string>TBD</string>
+        <string></string>
         <key>OpenSourceSHA1</key>
-        <string>TBD</string>
+        <string>c3b5bdbe03375e2b78f6d5d793880e28a182db0a</string>
         <key>OpenSourceImportDate</key>
-        <string>2006-07-10</string>
+        <string>2007-12-13</string>
         <key>OpenSourceLicense</key>
         <string>Other</string>
         <key>OpenSourceLicenseFile</key>

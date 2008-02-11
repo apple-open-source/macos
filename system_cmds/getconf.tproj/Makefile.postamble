@@ -1,6 +1,0 @@
-INSTALL_AS_USER = root
-
-after_install::
-	install -o $(INSTALL_AS_USER) -m 755 -d $(DSTROOT)/usr/share/man/man1
-	install -o $(INSTALL_AS_USER) -m 644 -c getconf.1 \
-		$(DSTROOT)/usr/share/man/man1

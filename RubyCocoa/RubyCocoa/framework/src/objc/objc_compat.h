@@ -29,6 +29,8 @@
     class_addMethods(klass, mlp);		\
   } \
   while (0)
+#define class_respondsToSelector(klass, sel) ((class_getClassMethod(klass, sel) ?: class_getInstanceMethod(klass, sel)) != NULL)
+#define class_conformsToProtocol(klass, prot) [(Class)klass conformsToProtocol:prot]
 
 #define method_getName(method) (((Method)(method))->method_name)
 #define method_getImplementation(method) (((Method)(method))->method_imp)

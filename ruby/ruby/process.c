@@ -3,7 +3,7 @@
   process.c -
 
   $Author: shyouhei $
-  $Date: 2007-05-23 07:32:16 +0900 (Wed, 23 May 2007) $
+  $Date: 2007-09-07 15:42:50 +0900 (Fri, 07 Sep 2007) $
   created at: Tue Aug 10 14:30:50 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -101,6 +101,13 @@ static VALUE S_Tms;
 #define BROKEN_SETREGID 1
 #endif
 
+#ifdef BROKEN_SETREUID
+#define setreuid ruby_setreuid
+#endif
+#ifdef BROKEN_SETREGID
+#define setregid ruby_setregid
+#endif
+
 #if defined(HAVE_44BSD_SETUID)
 #if !defined(USE_SETREUID) && !defined(BROKEN_SETREUID)
 #define OBSOLETE_SETREUID 1
@@ -109,6 +116,9 @@ static VALUE S_Tms;
 #define OBSOLETE_SETREGID 1
 #endif
 #endif
+
+#define preserving_errno(stmts) \
+	do {int saved_errno = errno; stmts; errno = saved_errno;} while (0)
 
 
 /*
@@ -838,23 +848,22 @@ proc_waitall()
 }
 
 static VALUE
-detach_process_watcher(pid_p)
-    int *pid_p;
+detach_process_watcher(arg)
+    void *arg;
 {
-    int cpid, status;
+    int pid = (int)arg, status;
 
-    for (;;) {
-	cpid = rb_waitpid(*pid_p, &status, WNOHANG);
-	if (cpid != 0) return Qnil;
+    while (rb_waitpid(pid, &status, WNOHANG) == 0) {
 	rb_thread_sleep(1);
     }
+    return Qnil;
 }
 
 VALUE
 rb_detach_process(pid)
     int pid;
 {
-    return rb_thread_create(detach_process_watcher, (void*)&pid);
+    return rb_thread_create(detach_process_watcher, (void*)pid);
 }
 
 
@@ -983,7 +992,7 @@ proc_exec_v(argv, prog)
     before_exec();
     rb_thread_cancel_timer();
     execv(prog, argv);
-    after_exec();
+    preserving_errno(after_exec());
     return -1;
 }
 
@@ -1052,7 +1061,7 @@ rb_proc_exec(str)
 #else
 	    before_exec();
 	    execl("/bin/sh", "sh", "-c", str, (char *)NULL);
-	    after_exec();
+	    preserving_errno(after_exec());
 #endif
 #endif
 	    return -1;
@@ -3670,8 +3679,8 @@ Init_process()
     rb_define_module_function(rb_mProcGID, "change_privilege", p_gid_change_privilege, 1);
     rb_define_module_function(rb_mProcUID, "grant_privilege", p_uid_grant_privilege, 1);
     rb_define_module_function(rb_mProcGID, "grant_privilege", p_gid_grant_privilege, 1);
-    rb_define_alias(rb_mProcUID, "eid=", "grant_privilege");
-    rb_define_alias(rb_mProcGID, "eid=", "grant_privilege");
+    rb_define_alias(rb_singleton_class(rb_mProcUID), "eid=", "grant_privilege");
+    rb_define_alias(rb_singleton_class(rb_mProcGID), "eid=", "grant_privilege");
     rb_define_module_function(rb_mProcUID, "re_exchange", p_uid_exchange, 0);
     rb_define_module_function(rb_mProcGID, "re_exchange", p_gid_exchange, 0);
     rb_define_module_function(rb_mProcUID, "re_exchangeable?", p_uid_exchangeable, 0);

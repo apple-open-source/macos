@@ -99,6 +99,9 @@
 	if ( err != 0 )
 		return err;
 	
+	// still not found
+	err = -1;
+	
 	// use text-based matching to avoid endian problems
 	pwsf_passwordRecRefToString( inOutRec, uidStr );
 	

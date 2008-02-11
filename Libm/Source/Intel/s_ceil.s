@@ -8,7 +8,7 @@
 #include "abi.h"
 
 //We play a few games with the sign here to get the sign of ceil( -1 < x < 0 ) to come out right
-
+/*
 ENTRY( ceill )
     xorl        %ecx,                       %ecx
     movw        8+FIRST_ARG_OFFSET(STACKP), %cx
@@ -31,7 +31,7 @@ ENTRY( ceill )
 	fld1									//{ 1, rintl(f) }
 	faddp		%ST(0), %ST(1)				//{ correct }
 1:	ret
-
+*/
 /*
 ENTRY(ceilf)
 #if defined( __LP64__ )

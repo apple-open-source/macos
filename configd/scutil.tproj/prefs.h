@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2005, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2005-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,6 +58,7 @@ void	do_prefs_unlock		(int argc, char **argv);
 void	do_prefs_commit		(int argc, char **argv);
 void	do_prefs_apply		(int argc, char **argv);
 void	do_prefs_close		(int argc, char **argv);
+void	do_prefs_synchronize	(int argc, char **argv);
 
 void	do_prefs_list		(int argc, char **argv);
 void	do_prefs_get		(int argc, char **argv);

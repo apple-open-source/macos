@@ -35,6 +35,10 @@
 #  install_name_tool is used to rewrite dyld load paths - this may not work
 #  depending on how your libraries have been compiled. I've not had any 
 #  issues with it yet though.
+#
+# Use ENV['RUBYCOCOA_STANDALONEIFYING?'] in your application to check if it's being standaloneified.
+
+# FIXME: Using evaluation is "evil", should use RubyNode instead. Eloy Duran.
 
 module Standaloneify
   MAGIC_ARGUMENT = '--standaloneify'
@@ -170,7 +174,12 @@ module Standaloneify
     end
   end
 
-  def self.get_dependencies(macos_d,resources_d)    
+  def self.get_dependencies(macos_d,resources_d)
+    # Set an environment variable that can be checked inside the application.
+    # This is useful because standaloneify uses evaluation, so it might be possible
+    # that the application does something which leads to problems while standaloneifying.
+    ENV['RUBYCOCOA_STANDALONEIFYING?'] = 'true'
+    
     dump_file = File.join(resources_d,"__require_dump")
     # Run the main Mac program
     mainprog = Dir[File.join(macos_d,"*")][0]
@@ -262,7 +271,7 @@ module Standaloneify
     lib_d = File.join(contents_d,"lib")
     macos_d = File.join(contents_d,"MacOS")
 
-    # Calculate paths to the to-be copied RubyCocoa framework        
+    # Calculate paths to the to-be copied RubyCocoa framework
     ruby_cocoa_d = File.join(frameworks_d,"RubyCocoa.framework")
     ruby_cocoa_inc = File.join(ruby_cocoa_d,"Resources","ruby")
     ruby_cocoa_lib = File.join(ruby_cocoa_d,"RubyCocoa")
@@ -309,7 +318,7 @@ module Standaloneify
         puts "Skipping RubyCocoa file " + feature.inspect
         next
         end
-        if File.exist?(File.join(resources_d,feature)) then
+        if path[0..(resources_d.length - 1)] == resources_d
           puts "Skipping existing Resource file " + feature.inspect
           next
         end
@@ -357,7 +366,7 @@ if $0 == __FILE__ then
   config.dest = nil
 
   ARGV.options do |opts|
-    opts.banner = "usage: #{File.basename(__FILE__)} -d DEST [options] APPLICATION"
+    opts.banner = "usage: #{File.basename(__FILE__)} -d DEST [options] APPLICATION\n\nUse ENV['RUBYCOCOA_STANDALONEIFYING?'] in your application to check if it's being standaloneified.\n"
     opts.on("-f","--force","Delete target app if it exists already") { |config.force| }
     opts.on("-d DEST","--dest","Place result at DEST (required)") {|config.dest|}
     opts.on("-l LIBRARY","--lib","Extra library to bundle") { |lib| config.extra_libs << lib }

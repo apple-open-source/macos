@@ -12,7 +12,7 @@
  */
 
 /*
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Date: 2007-09-07 16:10:17 +0900 (Fri, 07 Sep 2007) $
   modified for win32ole (ruby) by Masaki.Suketa <masaki.suketa@nifty.ne.jp>
  */
 
@@ -79,7 +79,7 @@
 
 #define WC2VSTR(x) ole_wc2vstr((x), TRUE)
 
-#define WIN32OLE_VERSION "0.7.1"
+#define WIN32OLE_VERSION "0.7.2"
 
 typedef HRESULT (STDAPICALLTYPE FNCOCREATEINSTANCEEX)
     (REFCLSID, IUnknown*, DWORD, COSERVERINFO*, DWORD, MULTI_QI*);
@@ -477,8 +477,9 @@ ole_wc2mb(pw)
     LPSTR pm;
     size = WideCharToMultiByte(cWIN32OLE_cp, 0, pw, -1, NULL, 0, NULL, NULL);
     if (size) {
-        pm = ALLOC_N(char, size);    
+        pm = ALLOC_N(char, size + 1);    
         WideCharToMultiByte(cWIN32OLE_cp, 0, pw, -1, pm, size, NULL, NULL);
+        pm[size] = '\0';
     }
     else {
         pm = ALLOC_N(char, 1);
@@ -497,7 +498,7 @@ ole_hresult2msg(hr)
     DWORD dwCount;
 
     char strhr[100];
-    sprintf(strhr, "    HRESULT error code:0x%08x\n      ", hr);
+    sprintf(strhr, "    HRESULT error code:0x%08lx\n      ", hr);
     msg = rb_str_new2(strhr);
 
     dwCount = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
@@ -1138,12 +1139,13 @@ reg_enum_key(hkey, i)
     HKEY hkey;
     DWORD i;
 {
-    char buf[BUFSIZ];
-    DWORD size_buf = sizeof(buf);
+    char buf[BUFSIZ + 1];
+    DWORD size_buf = sizeof(buf) - 1;
     FILETIME ft;
     LONG err = RegEnumKeyEx(hkey, i, buf, &size_buf,
                             NULL, NULL, NULL, &ft);
     if(err == ERROR_SUCCESS) {
+        buf[BUFSIZ] = '\0';
         return rb_str_new2(buf);
     }
     return Qnil;
@@ -1154,10 +1156,11 @@ reg_get_val(hkey, subkey)
     HKEY hkey;
     const char *subkey;
 {
-    char buf[BUFSIZ];
-    LONG size_buf = sizeof(buf);
+    char buf[BUFSIZ + 1];
+    LONG size_buf = sizeof(buf) - 1;
     LONG err = RegQueryValue(hkey, subkey, buf, &size_buf);
     if (err == ERROR_SUCCESS) {
+        buf[BUFSIZ] = '\0';
         return rb_str_new2(buf);
     }
     return Qnil;
@@ -3618,8 +3621,10 @@ ole_type_progid(pTypeInfo)
     if (FAILED(hr)) 
         return progid;
     hr = ProgIDFromCLSID(&pTypeAttr->guid, &pbuf);
-    if (SUCCEEDED(hr)) 
-        progid = WC2VSTR(pbuf);
+    if (SUCCEEDED(hr)) { 
+        progid = ole_wc2vstr(pbuf, FALSE);
+        CoTaskMemFree(pbuf);
+    }
     OLE_RELEASE_TYPEATTR(pTypeInfo, pTypeAttr);
     return progid;
 }
@@ -4033,7 +4038,8 @@ folevariable_name(self)
     return rb_ivar_get(self, rb_intern("name"));
 }
 
-static ole_variable_ole_type(pTypeInfo, var_index)
+static VALUE
+ole_variable_ole_type(pTypeInfo, var_index)
     ITypeInfo *pTypeInfo;
     UINT var_index;
 {
@@ -4077,7 +4083,8 @@ folevariable_ole_type(self)
     return ole_variable_ole_type(pvar->pTypeInfo, pvar->index);
 }
 
-static ole_variable_ole_type_detail(pTypeInfo, var_index)
+static VALUE
+ole_variable_ole_type_detail(pTypeInfo, var_index)
     ITypeInfo *pTypeInfo;
     UINT var_index;
 {
@@ -4113,7 +4120,8 @@ folevariable_ole_type_detail(self)
     return ole_variable_ole_type_detail(pvar->pTypeInfo, pvar->index);
 }
 
-static ole_variable_value(pTypeInfo, var_index)
+static VALUE
+ole_variable_value(pTypeInfo, var_index)
     ITypeInfo *pTypeInfo;
     UINT var_index;
 {
@@ -4159,7 +4167,8 @@ folevariable_value(self)
     return ole_variable_value(pvar->pTypeInfo, pvar->index);
 }
 
-static ole_variable_visible(pTypeInfo, var_index)
+static VALUE
+ole_variable_visible(pTypeInfo, var_index)
     ITypeInfo *pTypeInfo;
     UINT var_index;
 {
@@ -4631,7 +4640,8 @@ folemethod_visible(self)
     return ole_method_visible(pmethod->pTypeInfo, pmethod->index);
 }
 
-static ole_method_event(pTypeInfo, method_index, method_name)
+static VALUE
+ole_method_event(pTypeInfo, method_index, method_name)
     ITypeInfo *pTypeInfo;
     WORD method_index;
     VALUE method_name;

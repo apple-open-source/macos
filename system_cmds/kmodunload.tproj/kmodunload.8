@@ -1,0 +1,77 @@
+.\"
+.\" Copyright (c) 1997 Doug Rabson
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"	$Id: kmodunload.8,v 1.2 2002/04/15 20:28:33 lindak Exp $
+.\"
+.Dd April 8, 1999
+.Dt KMODUNLOAD 8
+.Os FreeBSD
+.Sh NAME
+.Nm kmodunload
+.Nd stops and unloads a kernel module
+.Sh SYNOPSIS
+.Nm kmodunload
+.Op Fl v
+.Fl i Ar id
+.Nm kmodunload
+.Op Fl v
+.Fl n Ar name
+.Sh DESCRIPTION
+.Nm kmodunload
+is deprecated; use
+.Xr kextunload 8 ,
+instead.
+.Pp
+The
+.Nm kmodunload
+utility stops and unloads a kernel module which was previously loaded with
+.Xr kmodload 8 .
+.Pp
+The following options are available:
+.Bl -tag -width indentXX
+.\" ==========
+.It Fl i Ar id
+Unload the kernel module with this ID.
+.\" ==========
+.It Fl n Ar name
+Unload the kernel module with this name.
+.\" ==========
+.It Fl v
+Be more verbose.
+.El
+.Sh DIAGNOSTICS
+The
+.Nm kmodunload
+utility exits with a status of 0 on success
+and with a nonzero status if an error occurs.
+.Sh SEE ALSO
+.Xr kmodload 8 ,
+.Xr kmodstat 8 ,
+.Xr kmodsyms 8
+.Sh HISTORY
+The
+.Nm kmodunload
+command is based on the command kldunload, written by
+.An Doug Rabson Aq dfr@FreeBSD.org

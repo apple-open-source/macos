@@ -196,7 +196,6 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, PLArenaPool *
 		goto loser;
 	    digest->Length = diglength;
 	    CSSM_DigestDataFinal(digobj, digest);
-	    digests[i] = digest;
 	    CSSM_DeleteContext(digobj);
 	}
 	else
@@ -204,7 +203,9 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, PLArenaPool *
 	    digest->Data = NULL;
 	    digest->Length = 0;
 	}
-    }
+	
+	digests[i] = digest;
+   }
     digests[i] = NULL;
     *digestsp = digests;
 

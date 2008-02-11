@@ -1,8 +1,0 @@
--include ../Makefile.include
-
-$(OBJROOT)/%.c: %.gperf
-	LC_ALL=C awk -f fake-gperf.awk $< > $@
-
-OTHER_CFLAGS += -include _fbsd_compat.h -DAPPLE_GETCONF_UNDERSCORE \
-		-DAPPLE_GETCONF_SPEC
-vpath %.c $(OBJROOT)

@@ -129,15 +129,32 @@ typedef struct _IOHIDProximityEventData {
     uint32_t        detectionMask;
 } IOHIDProximityEventData;
 
+typedef struct _IOHIDProgressEventData {
+    IOHIDEVENT_BASE;
+    uint32_t        eventType;
+    IOFixed         level;
+} IOHIDProgressEventData;
+
+
+#define IOHIDBUTTONEVENT_BASE           \
+    struct {                            \
+        uint32_t        buttonMask;     \
+        IOFixed         pressure;       \
+        uint8_t         buttonNumber;   \
+        uint8_t         clickState;     \
+    } button;
+
 typedef struct _IOHIDButtonEventData {
     IOHIDEVENT_BASE;
-
-    uint32_t        buttonMask;                 // Bit field representing the current button state
-    IOFixed         pressure;                   // Button pressure.  Unsure that this is required in a button event as the most likely producer of this event is a digitizer
-    uint8_t         buttonNumber;               // Button that generated the event ( 0 - 31 )
-    uint8_t         clickState;                 // click state of the button event
-    uint16_t        reserved;
+    IOHIDBUTTONEVENT_BASE;
 } IOHIDButtonEventData;
+
+typedef struct _IOHIDMouseEventData {
+    IOHIDEVENT_BASE;
+    IOHIDAXISEVENT_BASE;
+    IOHIDBUTTONEVENT_BASE;
+} IOHIDMouseEventData;
+
 
 typedef struct _IOHIDDigitizerEventData {
     IOHIDEVENT_BASE;                            // options = kIOHIDTransducerRange, kHIDTransducerTouch, kHIDTransducerInvert
@@ -174,6 +191,12 @@ typedef struct _IOHIDDigitizerEventData {
         } quality;
     }orientation;
 } IOHIDDigitizerEventData;
+
+typedef struct _IOHIDSwipeEventData {
+    IOHIDEVENT_BASE;                            
+    IOHIDSwipeMask swipeMask;
+} IOHIDSwipeEventData;
+
 
 /*!
     @typedef    IOHIDSystemQueueElement
@@ -241,6 +264,15 @@ typedef struct _IOHIDSystemQueueElement {
         case kIOHIDEventTypeTemperature:\
             size = sizeof(IOHIDTemperatureEventData);\
             break;                      \
+        case kIOHIDEventTypeSwipe:\
+            size = sizeof(IOHIDSwipeEventData);\
+            break;                      \
+        case kIOHIDEventTypeMouse:\
+            size = sizeof(IOHIDMouseEventData);\
+            break;                      \
+        case kIOHIDEventTypeProgress:\
+            size = sizeof(IOHIDProgressEventData);\
+            break;                      \
         default:                        \
             size = 0;                   \
             break;                      \
@@ -306,21 +338,72 @@ typedef struct _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
+        case kIOHIDEventTypeProgress:                     \
+            {                                           \
+                IOHIDProgressEventData * progress = (IOHIDProgressEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldProgressEventType): \
+                        value = progress->eventType;    \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldProgressLevel): \
+                        value = IOHIDEventValueFloat(progress->level); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
         case kIOHIDEventTypeButton:                     \
             {                                           \
                 IOHIDButtonEventData * button = (IOHIDButtonEventData*)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonMask): \
-                        value = button->buttonMask;     \
+                        value = button->button.buttonMask;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonNumber): \
-                        value = button->buttonNumber;   \
+                        value = button->button.buttonNumber;   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonClickCount): \
-                        value = button->clickState;     \
+                        value = button->button.clickState;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonPressure): \
-                        value = IOHIDEventValueFloat(button->pressure); \
+                        value = IOHIDEventValueFloat(button->button.pressure); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeMouse:                     \
+            {                                           \
+                IOHIDMouseEventData * mouse = (IOHIDMouseEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseX): \
+                        value = IOHIDEventValueFloat(mouse->position.x); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseY): \
+                        value = IOHIDEventValueFloat(mouse->position.y); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseZ): \
+                        value = IOHIDEventValueFloat(mouse->position.z); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseButtonMask): \
+                        value = mouse->button.buttonMask;     \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseNumber): \
+                        value = mouse->button.buttonNumber;   \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseClickCount): \
+                        value = mouse->button.clickState;     \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMousePressure): \
+                        value = IOHIDEventValueFloat(mouse->button.pressure); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeSwipe:                      \
+            {                                           \
+                IOHIDSwipeEventData * swipe = (IOHIDSwipeEventData *)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeMask):       \
+                        value = swipe->swipeMask;       \
                         break;                          \
                 };                                      \
             }                                           \
@@ -585,21 +668,72 @@ typedef struct _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
+        case kIOHIDEventTypeProgress:                     \
+            {                                           \
+                IOHIDProgressEventData * progress = (IOHIDProgressEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldProgressEventType): \
+                        progress->eventType = value;    \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldProgressLevel): \
+                        progress->level = IOHIDEventValueFixed(value); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
         case kIOHIDEventTypeButton:                     \
             {                                           \
                 IOHIDButtonEventData * button = (IOHIDButtonEventData*)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonMask): \
-                        button->buttonMask = value;     \
+                        button->button.buttonMask = value;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonNumber): \
-                        button->buttonNumber = value;   \
+                        button->button.buttonNumber = value;   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonClickCount): \
-                        button->clickState = value;     \
+                        button->button.clickState = value;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonPressure): \
-                        button->pressure = IOHIDEventValueFixed(value); \
+                        button->button.pressure = IOHIDEventValueFixed(value); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeMouse:                     \
+            {                                           \
+                IOHIDMouseEventData * mouse = (IOHIDMouseEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseX): \
+                        mouse->position.x = IOHIDEventValueFixed(value); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseY): \
+                        mouse->position.y = IOHIDEventValueFixed(value); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseZ): \
+                        mouse->position.z = IOHIDEventValueFixed(value); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseButtonMask): \
+                        mouse->button.buttonMask = value;     \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseNumber): \
+                        mouse->button.buttonNumber = value;   \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMouseClickCount): \
+                        mouse->button.clickState = value;     \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldMousePressure): \
+                        mouse->button.pressure = IOHIDEventValueFixed(value); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeSwipe:                      \
+            {                                           \
+                IOHIDSwipeEventData * swipe = (IOHIDSwipeEventData *)eventData; \
+                switch ( fieldOffset ) {                    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeMask):       \
+                        swipe->swipeMask = value;\
                         break;                          \
                 };                                      \
             }                                           \

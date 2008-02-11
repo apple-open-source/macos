@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.331.2.13.2.22 2007/08/22 22:40:29 iliaa Exp $ */
+/* $Id: pgsql.c,v 1.331.2.13.2.25 2007/10/03 23:31:58 iliaa Exp $ */
 
 #include <stdlib.h>
 
@@ -82,7 +82,7 @@
 #define CHECK_DEFAULT_LINK(x) if ((x) == -1) { php_error_docref(NULL TSRMLS_CC, E_WARNING, "No PostgreSQL link opened yet"); }
 
 #ifndef HAVE_PQFREEMEM
-#define PGfreemem free
+#define PQfreemem free
 #endif
 
 ZEND_DECLARE_MODULE_GLOBALS(pgsql)
@@ -5001,7 +5001,7 @@ PHP_PGSQL_API int php_pgsql_convert(PGconn *pg_link, const char *table_name, con
 							ZVAL_STRINGL(new_val, "NOW()", sizeof("NOW()")-1, 1);
 						} else {
 							/* FIXME: better regex must be used */
-							if (php_pgsql_convert_match(Z_STRVAL_PP(val), "^([0-9]{4}[/-][0-9]{1,2}[/-][0-9]{1,2})([ \\t]+(([0-9]{1,2}:[0-9]{1,2}){1}(:[0-9]{1,2}){0,1}(\\.[0-9]+){0,1}([ \\t]*([+-][0-9]{1,2}(:[0-9]{1,2}){0,1}|[a-zA-Z]{1,5})){0,1})){0,1}$", 1 TSRMLS_CC) == FAILURE) {
+							if (php_pgsql_convert_match(Z_STRVAL_PP(val), "^([0-9]{4}[/-][0-9]{1,2}[/-][0-9]{1,2})([ \\t]+(([0-9]{1,2}:[0-9]{1,2}){1}(:[0-9]{1,2}){0,1}(\\.[0-9]+){0,1}([ \\t]*([+-][0-9]{1,2}(:[0-9]{1,2}){0,1}|[-a-zA-Z_/+]{1,50})){0,1})){0,1}$", 1 TSRMLS_CC) == FAILURE) {
 								err = 1;
 							} else {
 								ZVAL_STRING(new_val, Z_STRVAL_PP(val), 1);
@@ -5366,7 +5366,11 @@ PHP_PGSQL_API int php_pgsql_insert(PGconn *pg_link, const char *table, zval *var
 	assert(Z_TYPE_P(var_array) == IS_ARRAY);
 
 	if (zend_hash_num_elements(Z_ARRVAL_P(var_array)) == 0) {
-		return FAILURE;
+		smart_str_appends(&querystr, "INSERT INTO ");
+		smart_str_appends(&querystr, table);
+		smart_str_appends(&querystr, " DEFAULT VALUES");
+
+		goto no_values;
 	}
 
 	/* convert input array if needed */
@@ -5424,6 +5428,9 @@ PHP_PGSQL_API int php_pgsql_insert(PGconn *pg_link, const char *table, zval *var
 	/* Remove the trailing "," */
 	querystr.len--;
 	smart_str_appends(&querystr, ");");
+
+no_values:
+
 	smart_str_0(&querystr);
 
 	if ((opt & (PGSQL_DML_EXEC|PGSQL_DML_ASYNC)) &&
@@ -5435,7 +5442,7 @@ PHP_PGSQL_API int php_pgsql_insert(PGconn *pg_link, const char *table, zval *var
 	}
 	
 cleanup:
-	if (!(opt & PGSQL_DML_NO_CONV)) {
+	if (!(opt & PGSQL_DML_NO_CONV) && converted) {
 		zval_dtor(converted);			
 		FREE_ZVAL(converted);
 	}

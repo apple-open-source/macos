@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: openssl.c,v 1.98.2.5.2.41 2007/08/08 06:29:46 pajoye Exp $ */
+/* $Id: openssl.c,v 1.98.2.5.2.42 2007/10/31 13:23:06 jani Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -45,6 +45,9 @@
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
 #include <openssl/pkcs12.h>
+
+/* Common */
+#include <time.h>
 
 #define DEFAULT_KEY_LENGTH	512
 #define MIN_KEY_LENGTH		384

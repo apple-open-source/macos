@@ -22,12 +22,16 @@
  */
 #define CFRUNLOOP_NEW_API 1
 
+#include <TargetConditionals.h>
+
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "IOUSBInterfaceClass.h"
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBUserClient.h>
+#if !TARGET_OS_EMBEDDED
+#endif
 
 #include <stdio.h>
 
@@ -954,6 +958,8 @@ IOUSBInterfaceClass::GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *at
     ret = IOConnectCallStructMethod(fConnection, kUSBInterfaceUserClientGetMicroFrameNumber, 0, 0, &frameInfo, &len);
     if(kIOReturnSuccess == ret)
     {
+#if !TARGET_OS_EMBEDDED
+#endif
 		{
 			*microFrame = frameInfo.frame;
 			*atTime = frameInfo.timeStamp;
@@ -986,6 +992,8 @@ IOUSBInterfaceClass::GetBusFrameNumber(UInt64 *frame, AbsoluteTime *atTime)
 
     if(kIOReturnSuccess == ret) 
     {
+#if !TARGET_OS_EMBEDDED
+#endif
 		{
 			*frame = frameInfo.frame;
 			*atTime = frameInfo.timeStamp;
@@ -1020,6 +1028,8 @@ IOUSBInterfaceClass::GetBusFrameNumberWithTime(UInt64 *frame, AbsoluteTime *atTi
     ret = IOConnectCallStructMethod(fConnection, kUSBInterfaceUserClientGetFrameNumberWithTime, 0, 0, (void *) &frameInfo, &len);
     if(kIOReturnSuccess == ret) 
     {
+#if !TARGET_OS_EMBEDDED
+#endif
 		{
 			*frame = frameInfo.frame;
 			*atTime = frameInfo.timeStamp;
@@ -1670,6 +1680,8 @@ IOUSBInterfaceClass::ReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameSt
     pb.fNumFrames = numFrames;
     pb.fFrameCounts = frameList;
 	
+#if !TARGET_OS_EMBEDDED
+#endif
 	DEBUGPRINT("IOUSBInterfaceClass[%p]::ReadIsochPipeAsync  pipe: %d, buf: %p, total: %" PRIu32 ", frameStart: 0x%qx, numFrames: %" PRIu32 ", frameListPtr: %p\n",
 			   this, pipeRef, buf, (uint32_t) total, frameStart, (uint32_t) numFrames, frameList);
 	
@@ -1726,6 +1738,8 @@ IOUSBInterfaceClass::WriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameS
     pb.fNumFrames = numFrames;
     pb.fFrameCounts = frameList;
 	
+#if !TARGET_OS_EMBEDDED
+#endif
 	DEBUGPRINT("IOUSBInterfaceClass[%p]::WriteIsochPipeAsync  pipe: %d, buf: %p, total: %" PRIu32 ", frameStart: 0x%qx, numFrames: %" PRIu32 ", frameListPtr: %p\n",
 			   this, pipeRef, buf, (uint32_t) total, frameStart, (uint32_t) numFrames, frameList);
 
@@ -1820,7 +1834,8 @@ IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt
 	DEBUGPRINT("IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync  pipe: %d, total: 0x%lx, frameStart: 0x%qx, numFrames: 0x%lx, updateFrequency: %ld, dataCookie: %ld, dataOffset: %ld, frameListCookie: %ld, frameListOffset: %ld\n", 
 			   pipeRef, total, frameStart, numFrames, updateFrequency, pb.fDataBufferCookie, pb.fDataBufferOffset, pb.fFrameListBufferCookie, pb.fFrameListBufferOffset);
 	
-	
+#if !TARGET_OS_EMBEDDED
+#endif
     asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t) callback;
     asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t) refCon;
 	
@@ -1907,6 +1922,8 @@ IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UIn
     pb.fNumFrames = numFrames;
     pb.fUpdateFrequency = updateFrequency;
 	
+#if !TARGET_OS_EMBEDDED
+#endif
 	
 	DEBUGPRINT("IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync  pipe: %d, total: 0x%lx, frameStart: 0x%qx, numFrames: 0x%lx, updateFrequency: %ld\n",
 			   pipeRef, total, frameStart, numFrames, updateFrequency);
@@ -2003,6 +2020,8 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
     bufferInfo->isPrepared = false;
     bufferInfo->nextBuffer = NULL;
     
+#if !TARGET_OS_EMBEDDED
+#endif
 	
     // OK, ready to call the kernel so that it does its thing with this buffer
     //
@@ -2015,7 +2034,8 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
     {
 		if ( useKernelBuffer )
 		{
-			
+#if !TARGET_OS_EMBEDDED
+#endif			
 			DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer Buffer: %p, mappedUHCIAddress now = 0x%qx\n", *buffer, output[0]);
 			bufferInfo->mappedUHCIAddress = (void *)output[0];
 			*buffer = bufferInfo->mappedUHCIAddress;
@@ -2024,11 +2044,14 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
 		}
 		else
 		{
+#if !TARGET_OS_EMBEDDED
+#endif
 		}
 
 		// We need to swap back all the fields in the bufferInfo so that they are added to our list correctly!  The bufferAddress field
 		// is swapped in the preceding if stmt
-
+#if !TARGET_OS_EMBEDDED
+#endif
         // Cool, we have a good buffer, add it to our list
         //
         AddDataBufferToList( bufferInfo );
@@ -2101,6 +2124,8 @@ IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
         goto ErrorExit;
     }
     
+#if !TARGET_OS_EMBEDDED
+#endif
 	
     if ( fConnection )
     {
@@ -2109,6 +2134,8 @@ IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
 		result = IOConnectCallStructMethod( fConnection, kUSBInterfaceUserClientLowLatencyReleaseBuffer,  (void *) bufferData, sizeof(LowLatencyUserBufferInfoV2), 0, 0);
     }
     
+#if !TARGET_OS_EMBEDDED
+#endif
 	
     // If there is an error, we still need to free our data
     // Now, free the memory

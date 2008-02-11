@@ -2064,7 +2064,10 @@ double complex cacos ( double complex z )
 		
 		// If z is big, then cacos(z) = -i * (log2 + log(z)) + terms smaller than half an ulp
 		else if ((x > 0x1p27) || (y > 0x1p27)) {
-			w = -I*(clog(x + I*y) + ln2);
+			w = clog(x + I*y) + ln2;
+			const double tmp = __real__ w;
+			__real__ w = __imag__ w;
+			__imag__ w = -tmp;
 		}
 		
 		/* Otherwise, use the expressions from Kahan's "Much ado about nothing's sign bit..."
@@ -2158,7 +2161,10 @@ float complex cacosf ( float complex z )
 		
 		// If z is big, then cacos(z) = -i * (log2 + log(z)) + terms smaller than half an ulp
 		else if ((x > 0x1p13f) || (y > 0x1p13f)) {
-			w = -I*(clogf(x + I*y) + ln2f);
+			w = clogf(x + I*y) + ln2f;
+			const float tmp = __real__ w;
+			__real__ w = __imag__ w;
+			__imag__ w = -tmp;
 		}
 		
 		/* Otherwise, use the expressions from Kahan's "Much ado about nothing's sign bit..."
@@ -2252,7 +2258,10 @@ long double complex cacosl ( long double complex z )
 		
 		// If z is big, then cacos(z) = -i * (log2 + log(z)) + terms smaller than half an ulp
 		else if ((x > 0x1p32l) || (y > 0x1p32l)) {
-			w = -I*(clogl(x + I*y) + ln2l);
+			w = clogl(x + I*y) + ln2l;
+			const long double tmp = __real__ w;
+			__real__ w = __imag__ w;
+			__imag__ w = -tmp;
 		}
 		
 		/* Otherwise, use the expressions from Kahan's "Much ado about nothing's sign bit..."

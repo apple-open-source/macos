@@ -75,11 +75,8 @@ typedef struct {
 
 struct sDNSLookup
 {
-    pthread_mutex_t     fMutex;
-    pthread_cond_t      fCondition;
     int32_t             fOutstanding;   // number of pending queries (expected)
     int                 fTotal;         // number of total actual queries initiated
-    bool                fDeleteEntry;   // request already should be deleted if fOutanding = 0
     uint16_t            fQueryTypes[10];
     uint16_t            fQueryClasses[10];
     char                *fQueryStrings[10];
@@ -89,10 +86,10 @@ struct sDNSLookup
     double              fAnswerTime[10];
     int32_t             fQueryFinished[10];
     pthread_t           fThreadID[10];
+	pthread_t           fAllocatedByThread;
     
     sDNSLookup( void )
     {
-        fDeleteEntry = false;
         fOutstanding = 0;
         fTotal = 0;
         bzero( fQueryTypes, sizeof(fQueryTypes) );
@@ -104,12 +101,23 @@ struct sDNSLookup
         bzero( fAnswerTime, sizeof(fAnswerTime) );
         bzero( fQueryFinished, sizeof(fQueryFinished) );
         bzero( fThreadID, sizeof(fThreadID) );
-        pthread_mutex_init( &fMutex, NULL );
-        pthread_cond_init( &fCondition, NULL );
+	    fAllocatedByThread = pthread_self();
     }
     
     ~sDNSLookup( void )
     {
+		// if there are still outstanding queries and we're being deleted,
+		// that's a bad thing.  Log and abort rather than risk using a freed
+		// pointer.
+		if ( fOutstanding != 0 )
+		{
+			DbgLog( kLogCritical,
+					"CCachePlugin::~sDNSLookup - destructor called by thread %X with %d outstanding queries.  Allocated by thread %X.  Aborting",
+					pthread_self(), fOutstanding, fAllocatedByThread );
+
+			abort();
+		}
+
         for( int ii = 0; ii < fTotal; ii++ )
         {
             if( fAnswers[ii] != NULL )
@@ -128,122 +136,11 @@ struct sDNSLookup
     
     void AddQuery( uint16_t inQueryClass, uint16_t inQueryType, char *inQueryString, uint16_t inAdditionalInfo = 0 )
     {
-        pthread_mutex_lock( &fMutex );
         fQueryClasses[fTotal] = inQueryClass;
         fQueryTypes[fTotal] = inQueryType;
         fQueryStrings[fTotal] = strdup( inQueryString );
         fAdditionalInfo[fTotal] = inAdditionalInfo;
         fTotal++;
-        pthread_mutex_unlock( &fMutex );
-    }
-    
-    void WaitUntilDone( int inIndexOfAReq )
-    {
-        int             milliSecs   = 0;
-        double          maxTime     = 0.0;
-        struct timeval	tvNow;
-        struct timespec	tsTimeout   = { 0 };
-        bool            bTimedOut   = false;
-        
-        pthread_mutex_lock( &fMutex );
-
-        if ( inIndexOfAReq >= 0 )
-            DbgLog( kLogDebug, "CCachePlugin::WaitUntilDone - Waiting (60 sec max) for first A response, Outstanding = %d, Total = %d", 
-                    fOutstanding, fTotal );
-        else
-            DbgLog( kLogDebug, "CCachePlugin::WaitUntilDone - Waiting (60 sec max), Outstanding = %d, Total = %d", fOutstanding, 
-                    fTotal );
-
-        gettimeofday( &tvNow, NULL );
-        TIMEVAL_TO_TIMESPEC ( &tvNow, &tsTimeout );
-        tsTimeout.tv_sec += 60; // only wait 60 seconds
-        
-        while ( fOutstanding > 0 )
-        {
-            if ( pthread_cond_timedwait( &fCondition, &fMutex, &tsTimeout ) == ETIMEDOUT ) {
-                // we'll only wait 60 seconds
-                DbgLog( kLogDebug, "CCachePlugin::WaitUntilDone - Giving up after 60 sec - Outstanding = %d, Total = %d", fOutstanding, 
-                        fTotal );
-                bTimedOut = true;
-                break;
-            }
-            
-            // if our IPv4 query finished we'll break out of this 60 second wait
-            if ( inIndexOfAReq >= 0 ) {
-                if ( fQueryFinished[inIndexOfAReq] == true )
-                    break;
-            } else if ( fOutstanding != fTotal ) {
-                // if any queries finished we'll break too
-                break;
-            }
-        } 
-        
-        // if we didn't timeout from the 60 seconds and we still have queries left
-        if ( bTimedOut == false && fOutstanding > 0 )
-        {
-            // if we are looking for an A request and got an answer, use that time as our calculation
-            if ( inIndexOfAReq >= 0 && fAnswers[inIndexOfAReq] != NULL )
-                maxTime = fAnswerTime[inIndexOfAReq]; // use the time of that request directly
-            
-            // if we still don't have a maxTime, see if we have answers and get the max time
-            if ( maxTime == 0.0 ) {
-                // find response with highest time and use that as our further delay
-                for ( int ii = 0; ii < fTotal; ii++ ) 
-                {
-                    // if the query is finished and we got an answer
-                    if ( fQueryFinished[ii] == true && fAnswers[ii] != NULL && fAnswerTime[ii] > maxTime )
-                        maxTime = fAnswerTime[ii];
-                }
-            }
-            
-            // only if we have a maxTime do we actually set a timeout
-            if ( maxTime > 0.0 ) {
-                if ( fOutstanding > 0 ) {
-                    milliSecs = (maxTime / 1000) * fTotal;
-                    DbgLog( kLogDebug, "CCachePlugin::WaitUntilDone - total timeout will be %d ms", milliSecs );
-                } else {
-                    DbgLog( kLogDebug, "CCachePlugin::WaitUntilDone - queries complete" );
-                    milliSecs = 0;
-                }
-            }
-            
-            if ( milliSecs > 0 )
-            {
-                struct timespec	tsWaitTime  = { 0 };
-                
-                DbgLog( kLogDebug, "CCachePlugin::WaitUntilDone - Waiting %d ms for remaining, Outstanding = %d, Total = %d", milliSecs, fOutstanding, 
-                        fTotal );
-                
-                gettimeofday( &tvNow, NULL );
-                TIMEVAL_TO_TIMESPEC ( &tvNow, &tsTimeout );
-                tsWaitTime.tv_sec = (milliSecs / 1000);
-                tsWaitTime.tv_nsec = ((milliSecs % 1000) * 1000000);
-                ADD_MACH_TIMESPEC( &tsTimeout, &tsWaitTime );
-                
-                while ( fOutstanding > 0 )
-                {
-                    if ( pthread_cond_timedwait(&fCondition, &fMutex, &tsTimeout) == ETIMEDOUT )
-                    {
-                        DbgLog( kLogDebug, "CCachePlugin::WaitUntilDone - Condition timeout, Outstanding = %d, Total = %d", fOutstanding, 
-                                fTotal );
-                        break;
-                    }
-                }
-            }
-        }
-        
-        pthread_mutex_unlock( &fMutex );
-    }
-    
-    void AbandonLookups( void );
-    
-    void SignalCondition( void )
-    {
-        pthread_mutex_lock( &fMutex );
-        DbgLog(  kLogDebug, "CCachePlugin::WaitUntilDone - Signalling, Outstanding = %d, Total = %d", fOutstanding, 
-                 fTotal );
-        pthread_cond_signal( &fCondition );
-        pthread_mutex_unlock( &fMutex );
     }
 };
 
@@ -400,6 +297,12 @@ private:
                                                   uint16_t inAdditionalInfo );
     void            InitiateDNSQuery            ( sDNSLookup *inLookup, 
                                                   bool inParallel );
+	void            IssueParallelDNSQueries     ( sDNSLookup      *inLookup );
+	void            WaitForDNSQueries           ( int              inndexOfAReq,
+												  sDNSLookup      *inLookup,
+												  pthread_mutex_t *dnsMutex,
+												  pthread_cond_t  *dnsCondition );
+	void            AbandonDNSQueries           ( sDNSLookup      *inLookup );
     kvbuf_t*        DSgethostbyname             ( kvbuf_t *inBuffer, 
                                                   pid_t inPID, 
                                                   bool inParallelQuery = false,

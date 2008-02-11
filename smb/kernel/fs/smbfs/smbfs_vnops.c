@@ -1787,18 +1787,21 @@ PRIVSYM int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t vfsc
 			 *
 			 * NOTE: The ready-only flags does not exactly follow the lock/immutable bit
 			 * also note the for directories its advisory only.
+			 *
+			 * We do not support the setting the read-only bit for folders if the server
+			 * does not support the new UNIX extensions.
+			 * 
+			 * See Radar 5582956 for more details.
 			 */
-			if (vap->va_flags & (SF_IMMUTABLE | UF_IMMUTABLE)) {
-				dosattr |= SMB_FA_RDONLY;				
-				vaflags |= EXT_IMMUTABLE;
-			} else
-				dosattr &= ~SMB_FA_RDONLY;
+			if (unix_extensions || (! vnode_isdir(vp))) {
+				if (vap->va_flags & (SF_IMMUTABLE | UF_IMMUTABLE)) {
+					dosattr |= SMB_FA_RDONLY;				
+					vaflags |= EXT_IMMUTABLE;				
+				} else
+					dosattr &= ~SMB_FA_RDONLY;
+			}
 			/*
-			 * NOTE: Two things here, when the server is not unix.
-			 * 1. Ignore immutable bit for directories. The ready-only flags does 
-			 *    not exactly follow the lock/immutable bit, but for directories it 
-			 *    is completely wrong. 
-			 * 2. Windows does not set ATTR_ARCHIVE bit for directories. 
+			 * NOTE: Windows does not set ATTR_ARCHIVE bit for directories. 
 			 */
 			if ((! unix_extensions) && (vnode_isdir(vp)))
 				dosattr &= ~SMB_FA_ARCHIVE;
@@ -3023,6 +3026,7 @@ static int smbfs_vnop_rename(struct vnop_rename_args *ap)
 	vnode_t 	fdvp = ap->a_fdvp;
 	vnode_t 	tdvp = ap->a_tdvp;
 	struct smbmount *smp = VFSTOSMBFS(vnode_mount(fvp));
+	struct smb_share *ssp = smp->sm_share;
 	struct componentname *tcnp = ap->a_tcnp;
 	struct componentname *fcnp = ap->a_fcnp;
 	proc_t p = vfs_context_proc(ap->a_context);
@@ -3036,6 +3040,7 @@ static int smbfs_vnop_rename(struct vnop_rename_args *ap)
 	struct smbnode * lock_order[4] = {NULL};
 	int	lock_cnt = 0;
 	int ii;
+	int unix_extensions = (UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP);
 	
 	/* Check for cross-device rename */
 	if ( (vnode_mount(fvp) != vnode_mount(tdvp)) || (tvp && (vnode_mount(fvp) != vnode_mount(tvp))) )
@@ -3125,11 +3130,11 @@ static int smbfs_vnop_rename(struct vnop_rename_args *ap)
 	 * Check to see if the SMB_FA_RDONLY/IMMUTABLE are set. If they are set
 	 * then do not allow the rename. See HFS and AFP code.
 	 */
-	 if (fnp->n_dosattr & SMB_FA_RDONLY) {
+	if ((unix_extensions || (!vnode_isdir(fvp))) && (fnp->n_dosattr & SMB_FA_RDONLY)) {
 		SMBWARNING( "Delete a locked file: Permissions error\n");
 		error = EPERM;
 		goto out;
-	 }
+	}
 	 
 	/*
 	 * Since there are no hard links (from our client point of view)
@@ -4318,15 +4323,32 @@ static int32_t smbfs_vnop_advlock(struct vnop_advlock_args *ap)
 			if (error)
 				goto exit;
 			MALLOC(np->f_smbflock, struct smbfs_flock *, sizeof *np->f_smbflock, M_LOCKF, M_WAITOK);
-			np->f_smbflock->refcnt = 0;
-			np->f_smbflock->fl_type = fl->l_type;
+			np->f_smbflock->refcnt = 1;
+			np->f_smbflock->fl_type = fl->l_type;	
 			np->f_smbflock->lck_pid = lck_pid;
 			np->f_smbflock->start = start;
 			np->f_smbflock->len = len;
-		}
-		else if (np->f_smbflock->fl_type != fl->l_type) {
+			np->f_smbflock->flck_pid = proc_pid(vfs_context_proc(ap->a_context));
+		} else if (np->f_smbflock->flck_pid == proc_pid(vfs_context_proc(ap->a_context))) {
+			/* First see if this is a upgrade or downgrade */
+			if ((np->f_smbflock->refcnt == 1) && (np->f_smbflock->fl_type != fl->l_type)) {
+					np->f_smbflock->fl_type = fl->l_type;
+					goto exit;
+			}
+			/* Trying to mismatch two different style of locks with the same process id bad! */
+			if (np->f_smbflock->fl_type != fl->l_type) {
+				error = ENOTSUP;
+				goto exit;
+			}
+			/* We know they have the same lock style  from above, but they are asking for two exclusive very bad. */
+			if (np->f_smbflock->fl_type == F_WRLCK) {
+				error = ENOTSUP;
+				goto exit;
+			}
+			np->f_smbflock->refcnt++;
+		} else {
 			/*
-			 * XXX
+			 * Radar 5572840
 			 * F_WAIT is set we should sleep until the other flock
 			 * gets free then to an upgrade or down grade. Not support
 			 * with SMB yet.
@@ -4334,16 +4356,6 @@ static int32_t smbfs_vnop_advlock(struct vnop_advlock_args *ap)
 			error = EWOULDBLOCK;
 			goto exit;
 		}
-		else if (np->f_smbflock->fl_type == F_WRLCK) {
-			/*
-			 * XXX
-			 * F_WAIT is set we should sleep until the other flock
-			 * gets free. Not support with SMB yet.
-			 */
-			error = EWOULDBLOCK;
-			goto exit;
-		}
-		np->f_smbflock->refcnt++;
 		break;
 	case F_UNLCK:
 		error = 0;

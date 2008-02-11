@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Revision: 1.28.2.2.2.1 $ */
+/* $Revision: 1.28.2.2.2.2 $ */
 
 #ifndef PHP_ICONV_H
 #define PHP_ICONV_H
@@ -78,6 +78,10 @@ ZEND_END_MODULE_GLOBALS(iconv)
 #define ICONV_INPUT_ENCODING "ISO-8859-1" 
 #define ICONV_OUTPUT_ENCODING "ISO-8859-1"
 #define ICONV_INTERNAL_ENCODING "ISO-8859-1" 
+
+#ifndef ICONV_CSNMAXLEN
+#define ICONV_CSNMAXLEN 64
+#endif
 
 /* {{{ typedef enum php_iconv_err_t */
 typedef enum _php_iconv_err_t {

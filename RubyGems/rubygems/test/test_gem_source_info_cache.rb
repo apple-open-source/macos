@@ -6,8 +6,7 @@
 #++
 
 require 'test/unit'
-require 'test/gemutilities'
-
+require File.join(File.expand_path(File.dirname(__FILE__)), 'gemutilities')
 require 'rubygems/source_info_cache'
 
 class Gem::SourceIndex
@@ -34,31 +33,48 @@ class TestGemSourceInfoCache < RubyGemTestCase
     Gem.sources.replace @original_sources
   end
 
-  def test_self_cache
+  def test_self_cache_refreshes
+    Gem.configuration.update_sources = true #true by default
     source_index = Gem::SourceIndex.new 'key' => 'sys'
-    @fetcher.data['http://gems.example.com/yaml'] = source_index.to_yaml
+    @fetcher.data["#{@gem_repo}/Marshal.#{@marshal_version}"] = source_index.dump
 
-    Gem.sources.replace %w[http://gems.example.com]
+    Gem.sources.replace %W[#{@gem_repo}]
 
-    use_ui MockGemUi.new do
+    use_ui @ui do
       assert_not_nil Gem::SourceInfoCache.cache
       assert_kind_of Gem::SourceInfoCache, Gem::SourceInfoCache.cache
       assert_equal Gem::SourceInfoCache.cache.object_id,
                    Gem::SourceInfoCache.cache.object_id
+      assert_match %r|Bulk updating|, @ui.output
+    end
+  end
+
+  def test_self_cache_skips_refresh_based_on_configuration
+    Gem.configuration.update_sources = false
+    source_index = Gem::SourceIndex.new 'key' => 'sys'
+    @fetcher.data["#{@gem_repo}/Marshal.#{@marshal_version}"] = source_index.dump
+
+    Gem.sources.replace %w[#{@gem_repo}]
+
+    use_ui @ui do
+      assert_not_nil Gem::SourceInfoCache.cache
+      assert_kind_of Gem::SourceInfoCache, Gem::SourceInfoCache.cache
+      assert_equal Gem::SourceInfoCache.cache.object_id,
+                   Gem::SourceInfoCache.cache.object_id
+      assert_no_match %r|Bulk updating|, @ui.output
     end
   end
 
   def test_self_cache_data
-    source = 'http://gems.example.com'
     source_index = Gem::SourceIndex.new 'key' => 'sys'
-    @fetcher.data["#{source}/yaml"] = source_index.to_yaml
+    @fetcher.data["#{@gem_repo}/Marshal.#{@marshal_version}"] = source_index.dump
 
     Gem::SourceInfoCache.instance_variable_set :@cache, nil
     sice = Gem::SourceInfoCacheEntry.new source_index, 0
 
-    use_ui MockGemUi.new do
+    use_ui @ui do
       assert_equal source_index.gems,
-                   Gem::SourceInfoCache.cache_data[source].source_index.gems
+                   Gem::SourceInfoCache.cache_data[@gem_repo].source_index.gems
     end
   end
 
@@ -77,9 +93,9 @@ class TestGemSourceInfoCache < RubyGemTestCase
   end
 
   def test_cache_data_irreparable
-    @fetcher.data['http://gems.example.com/yaml'] = @source_index.to_yaml
+    @fetcher.data["#{@gem_repo}/Marshal.#{@marshal_version}"] = @source_index.dump
 
-    data = { 'http://gems.example.com' => { 'totally' => 'borked' } }
+    data = { @gem_repo => { 'totally' => 'borked' } }
 
     [@sic.system_cache_file, @sic.user_cache_file].each do |fn|
       FileUtils.mkdir_p File.dirname(fn)
@@ -88,9 +104,9 @@ class TestGemSourceInfoCache < RubyGemTestCase
 
     @sic.instance_eval { @cache_data = nil }
 
-    fetched = use_ui MockGemUi.new do @sic.cache_data end
+    fetched = use_ui @ui do @sic.cache_data end
 
-    fetched_si = fetched['http://gems.example.com'].source_index
+    fetched_si = fetched["#{@gem_repo}"].source_index
 
     assert_equal @source_index.index_signature, fetched_si.index_signature
   end
@@ -115,7 +131,7 @@ class TestGemSourceInfoCache < RubyGemTestCase
 
   def test_cache_data_repair
     data = {
-        'http://www.example.com' => {
+        @gem_repo => {
           'cache' => Gem::SourceIndex.new,
           'size' => 0,
       }
@@ -128,7 +144,7 @@ class TestGemSourceInfoCache < RubyGemTestCase
     @sic.instance_eval { @cache_data = nil }
 
     expected = {
-        'http://www.example.com' =>
+        @gem_repo =>
           Gem::SourceInfoCacheEntry.new(Gem::SourceIndex.new, 0)
     }
     assert_equal expected, @sic.cache_data
@@ -177,10 +193,56 @@ class TestGemSourceInfoCache < RubyGemTestCase
 
   def test_search
     si = Gem::SourceIndex.new @gem1.full_name => @gem1
-    cache_data = { 'source_uri' => Gem::SourceInfoCacheEntry.new(si, nil) }
+    cache_data = {
+      @gem_repo => Gem::SourceInfoCacheEntry.new(si, nil)
+    }
     @sic.instance_variable_set :@cache_data, cache_data
 
     assert_equal [@gem1], @sic.search(//)
+  end
+
+  def test_search_dependency
+    si = Gem::SourceIndex.new @gem1.full_name => @gem1
+    cache_data = {
+      @gem_repo => Gem::SourceInfoCacheEntry.new(si, nil)
+    }
+    @sic.instance_variable_set :@cache_data, cache_data
+
+    dep = Gem::Dependency.new @gem1.name, @gem1.version
+
+    assert_equal [@gem1], @sic.search(dep)
+  end
+
+  def test_search_no_matches
+    si = Gem::SourceIndex.new @gem1.full_name => @gem1
+    cache_data = {
+      @gem_repo => Gem::SourceInfoCacheEntry.new(si, nil)
+    }
+    @sic.instance_variable_set :@cache_data, cache_data
+
+    assert_equal [], @sic.search(/nonexistent/)
+  end
+
+  def test_search_no_matches_in_source
+    si = Gem::SourceIndex.new @gem1.full_name => @gem1
+    cache_data = {
+      @gem_repo => Gem::SourceInfoCacheEntry.new(si, nil)
+    }
+    @sic.instance_variable_set :@cache_data, cache_data
+    Gem.sources.replace %w[more-gems.example.com]
+
+    assert_equal [], @sic.search(/nonexistent/)
+  end
+
+  def test_search_with_source
+    si = Gem::SourceIndex.new @gem1.full_name => @gem1
+    cache_data = {
+      @gem_repo => Gem::SourceInfoCacheEntry.new(si, nil)
+    }
+    @sic.instance_variable_set :@cache_data, cache_data
+
+    assert_equal [[@gem1, @gem_repo]],
+                 @sic.search_with_source(//)
   end
 
   def test_system_cache_file

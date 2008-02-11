@@ -389,8 +389,9 @@ IOUSBControllerV3::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned
 	{
 		if (stateNumber < kUSBPowerStateLowPower)
 		{
-			RootHubStopTimer();
+			// first mark _controllerAvailable as false so that if the RootHubTimerFired method does get called, it doesn't actually do anything 
 			_controllerAvailable = false;									// interrupts should have been disabled already
+			RootHubStopTimer();
 			EnableBusMastering(false);										// turn off bus mastering
 		}
 		else
@@ -1055,7 +1056,8 @@ IOUSBControllerV3::RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender
 	
     if (!me || me->isInactive() || !me->_controllerAvailable)
         return;
-		
+	
+	me->_rootHubTimerActive = true;	
 	if (me->_rootHubDevice && me->_rootHubDevice->GetPolicyMaker())
 	{
 		USBLog(7, "IOUSBControllerV3(%s)[%p]::RootHubTimerFired - PolicyMaker[%p] powerState[%d]", me->getName(), me, me->_rootHubDevice->GetPolicyMaker(), (int)me->_rootHubDevice->GetPolicyMaker()->getPowerState());
@@ -1067,8 +1069,10 @@ IOUSBControllerV3::RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender
     ret = me->CheckForRootHubChanges();
 	
 	// fire it up again
-    if (me->_rootHubPollingRate)
+    if (me->_rootHubPollingRate && !me->isInactive() && me->_controllerAvailable)
 		me->_rootHubTimer->setTimeoutMS(me->_rootHubPollingRate);
+	me->_rootHubTimerActive = false;	
+	
 }
 
 
@@ -1220,10 +1224,25 @@ IOUSBControllerV3::RootHubStartTimer(UInt8 pollingRate)
 IOReturn				
 IOUSBControllerV3::RootHubStopTimer(void)
 {
+	UInt32		retries = 20;
+	
+	// first of all, make sure that we are not currently inside of the RootHubTimerFired method before we cancel the timeout
+	// note that if we are not in it now, we won't get into it because at this point _controllerAvailavle is false
+	while (_rootHubTimerActive && retries--)
+	{
+		IOSleep(1);
+	}
+	if (_rootHubTimerActive)
+	{
+		USBLog(1, "USB Controller @ %p - unable to stop root hub timer", this);
+	}
+
+	// cancel the timer, which may or may not actually do anything
     if (_rootHubTimer)
     {
 		_rootHubTimer->cancelTimeout();
 	}
+	
 	return kIOReturnSuccess;
 }
 
@@ -1292,10 +1311,13 @@ IOUSBControllerV3::DeviceRequest(IOUSBDevRequest *request,  IOUSBCompletion *com
 {
 	IOReturn	kr;
 	
-	// use changePowerStateTo (as opposed to changePowerStateToPriv) to maintain the ON state 
-	// on behalf of some client from user space. If the hub is already active, then this is essentially a NOP
-	USBLog(4, "IOUSBControllerV3(%s)[%p]::DeviceRequest - current state (%d) _powerStateChangingTo(%d) - calling changePowerStateTo(4)", getName(), this, (int)_myPowerState, (int)_powerStateChangingTo);
-	changePowerStateTo(kUSBPowerStateOn);
+	if ((_powerStateChangingTo == kUSBPowerStateStable) || (_powerStateChangingTo > kUSBPowerStateSleep))
+	{
+		// use changePowerStateTo (as opposed to changePowerStateToPriv) to maintain the ON state 
+		// on behalf of some client from user space. If the hub is already active, then this is essentially a NOP
+		USBLog(4, "IOUSBControllerV3(%s)[%p]::DeviceRequest - current state (%d) _powerStateChangingTo(%d) - calling changePowerStateTo(4)", getName(), this, (int)_myPowerState, (int)_powerStateChangingTo);
+		changePowerStateTo(kUSBPowerStateOn);
+	}
 
 	kr = CheckPowerModeBeforeGatedCall((char *) "DeviceRequest");
 	if ( kr != kIOReturnSuccess )
@@ -1303,10 +1325,12 @@ IOUSBControllerV3::DeviceRequest(IOUSBDevRequest *request,  IOUSBCompletion *com
 
 	kr = IOUSBController::DeviceRequest(request, completion, address, epNum, noDataTimeout, completionTimeout);
 	
-	// now go back to the LowPower state if our child is still in LowPower state
-	USBLog(4, "IOUSBControllerV3(%s)[%p]::DeviceRequest done - current state (%d) - calling changePowerStateTo(3)", getName(), this, (int)_myPowerState);
-	changePowerStateTo(kUSBPowerStateLowPower);
-	
+	if ((_powerStateChangingTo == kUSBPowerStateStable) || (_powerStateChangingTo > kUSBPowerStateSleep))
+	{
+		// now go back to the LowPower state if our child is still in LowPower state
+		USBLog(4, "IOUSBControllerV3(%s)[%p]::DeviceRequest done - current state (%d) - calling changePowerStateTo(3)", getName(), this, (int)_myPowerState);
+		changePowerStateTo(kUSBPowerStateLowPower);
+	}
 	return kr;
 }
 
@@ -1519,6 +1543,7 @@ IOUSBControllerV3::SetTestMode(UInt32 mode, UInt32 port)
 {
 	IOReturn	kr;
 	
+	changePowerStateTo(kUSBPowerStateOn);							// this will leave it ON indefinitely, which is OK for Test Mode
 	kr = CheckPowerModeBeforeGatedCall((char *) "SetTestMode");
 	if ( kr != kIOReturnSuccess )
 		return kr;

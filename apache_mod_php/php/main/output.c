@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: output.c,v 1.167.2.3.2.3 2007/04/16 02:25:24 shire Exp $ */
+/* $Id: output.c,v 1.167.2.3.2.4 2007/09/21 13:08:00 tony2001 Exp $ */
 
 #include "php.h"
 #include "ext/standard/head.h"
@@ -430,6 +430,8 @@ static int php_ob_init_named(uint initial_size, uint block_size, char *handler_n
 	tmp_buf.chunk_size = chunk_size;
 	tmp_buf.status = 0;
 	tmp_buf.internal_output_handler = NULL;
+	tmp_buf.internal_output_handler_buffer = NULL;
+	tmp_buf.internal_output_handler_buffer_size = 0;
 	tmp_buf.handler_name = estrdup(handler_name&&handler_name[0]?handler_name:OB_DEFAULT_HANDLER_NAME);
 	tmp_buf.erase = erase;
 

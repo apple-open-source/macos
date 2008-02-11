@@ -22,6 +22,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+#include <TargetConditionals.h>
 #include <libkern/OSByteOrder.h>
 
 extern "C" {
@@ -32,7 +34,9 @@ extern "C" {
 #include <IOKit/IOMemoryCursor.h>
 #include <IOKit/IOMessage.h>
 
-#include <IOKit/pccard/IOPCCard.h>
+#if !TARGET_OS_EMBEDDED
+	#include <IOKit/pccard/IOPCCard.h>
+#endif
 
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -1683,6 +1687,7 @@ AppleUSBOHCI::ReturnOneTransaction(
 IOReturn 
 AppleUSBOHCI::message( UInt32 type, IOService * provider,  void * argument )
 {
+#if !TARGET_OS_EMBEDDED
     cs_event_t	pccardevent;
 	
     // Let our superclass decide handle this method
@@ -1702,6 +1707,7 @@ AppleUSBOHCI::message( UInt32 type, IOService * provider,  void * argument )
             IOSleep(5);
         }
     }
+#endif
 	
     USBLog(6, "AppleUSBOHCI[%p]::message type: 0x%lx, isInactive = %d", this, type, isInactive());
     return super::message( type, provider, argument );

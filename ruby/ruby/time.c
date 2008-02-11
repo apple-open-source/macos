@@ -2,8 +2,8 @@
 
   time.c -
 
-  $Author: knu $
-  $Date: 2007-03-06 19:12:12 +0900 (Tue, 06 Mar 2007) $
+  $Author: shyouhei $
+  $Date: 2007-08-22 10:28:12 +0900 (Wed, 22 Aug 2007) $
   created at: Tue Dec 28 14:31:59 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -1397,9 +1397,14 @@ time_succ(time)
     VALUE time;
 {
     struct time_object *tobj;
+    int gmt;
 
     GetTimeval(time, tobj);
-    return rb_time_new(tobj->tv.tv_sec + 1, tobj->tv.tv_usec);
+    gmt = tobj->gmt;
+    time = rb_time_new(tobj->tv.tv_sec + 1, tobj->tv.tv_usec);
+    GetTimeval(time, tobj);
+    tobj->gmt = gmt;
+    return time;
 }
 
 /*

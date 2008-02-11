@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_builtin_functions.c,v 1.277.2.12.2.24 2007/08/22 13:19:47 dmitry Exp $ */
+/* $Id: zend_builtin_functions.c,v 1.277.2.12.2.25 2007/08/30 07:43:21 sebastian Exp $ */
 
 #include "zend.h"
 #include "zend_API.h"
@@ -2093,15 +2093,17 @@ ZEND_API void zend_fetch_debug_backtrace(zval *return_value, int skip_last, int 
 /* }}} */
 
 
-/* {{{ proto array debug_backtrace(void)
+/* {{{ proto array debug_backtrace([bool provide_object])
    Return backtrace as array */
 ZEND_FUNCTION(debug_backtrace)
 {
-	if (ZEND_NUM_ARGS()) {
-		ZEND_WRONG_PARAM_COUNT();
+	zend_bool provide_object = 1;
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|b", &provide_object) == FAILURE) {
+		return;
 	}
 
-	zend_fetch_debug_backtrace(return_value, 1, 1 TSRMLS_CC);
+	zend_fetch_debug_backtrace(return_value, 1, provide_object TSRMLS_CC);
 }
 /* }}} */
 

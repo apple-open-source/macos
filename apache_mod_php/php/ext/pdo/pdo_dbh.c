@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: pdo_dbh.c,v 1.82.2.31.2.15 2007/07/16 18:00:18 iliaa Exp $ */
+/* $Id: pdo_dbh.c,v 1.82.2.31.2.17 2007/09/12 18:26:49 iliaa Exp $ */
 
 /* The PDO Database Handle Class */
 
@@ -1130,20 +1130,50 @@ static PHP_METHOD(PDO, getAvailableDrivers)
 }
 /* }}} */
 
+/* {{{ arginfo */
+ZEND_BEGIN_ARG_INFO_EX(arginfo_pdo___construct, 0, 0, 3)
+	ZEND_ARG_INFO(0, dsn)
+	ZEND_ARG_INFO(0, username)
+	ZEND_ARG_INFO(0, passwd)
+	ZEND_ARG_INFO(0, options) /* array */
+ZEND_END_ARG_INFO()
+ZEND_BEGIN_ARG_INFO_EX(arginfo_pdo_prepare, 0, 0, 1)
+	ZEND_ARG_INFO(0, statment)
+	ZEND_ARG_INFO(0, options) /* array */
+ZEND_END_ARG_INFO()
+ZEND_BEGIN_ARG_INFO(arginfo_pdo_setattribute, 0)
+	ZEND_ARG_INFO(0, attribute)
+	ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO()
+ZEND_BEGIN_ARG_INFO(arginfo_pdo_getattribute, 0)
+	ZEND_ARG_INFO(0, attribute)
+ZEND_END_ARG_INFO()
+ZEND_BEGIN_ARG_INFO(arginfo_pdo_exec, 0)
+	ZEND_ARG_INFO(0, query)
+ZEND_END_ARG_INFO()
+ZEND_BEGIN_ARG_INFO_EX(arginfo_pdo_lastinsertid, 0, 0, 0)
+	ZEND_ARG_INFO(0, seqname)
+ZEND_END_ARG_INFO()
+ZEND_BEGIN_ARG_INFO_EX(arginfo_pdo_quote, 0, 0, 1)
+	ZEND_ARG_INFO(0, string)
+	ZEND_ARG_INFO(0, paramtype)
+ZEND_END_ARG_INFO()
+/* }}} */
+
 zend_function_entry pdo_dbh_functions[] = {
-	ZEND_MALIAS(PDO, __construct, dbh_constructor,	NULL, 			ZEND_ACC_PUBLIC)
-	PHP_ME(PDO, prepare, 				NULL,			ZEND_ACC_PUBLIC)
+	ZEND_MALIAS(PDO, __construct, dbh_constructor,	arginfo_pdo___construct,	ZEND_ACC_PUBLIC)
+	PHP_ME(PDO, prepare, 				arginfo_pdo_prepare,		ZEND_ACC_PUBLIC)
 	PHP_ME(PDO, beginTransaction,		NULL,			ZEND_ACC_PUBLIC)
 	PHP_ME(PDO, commit,			NULL,					ZEND_ACC_PUBLIC)
 	PHP_ME(PDO, rollBack,		NULL,					ZEND_ACC_PUBLIC)
-	PHP_ME(PDO, setAttribute,	NULL,					ZEND_ACC_PUBLIC)
-	PHP_ME(PDO, exec,			NULL,					ZEND_ACC_PUBLIC)
+	PHP_ME(PDO, setAttribute,	arginfo_pdo_setattribute,	ZEND_ACC_PUBLIC)
+	PHP_ME(PDO, exec,			arginfo_pdo_exec,		ZEND_ACC_PUBLIC)
 	PHP_ME(PDO, query,			NULL,					ZEND_ACC_PUBLIC)
-	PHP_ME(PDO, lastInsertId,	NULL,					ZEND_ACC_PUBLIC)
+	PHP_ME(PDO, lastInsertId,	arginfo_pdo_lastinsertid,	ZEND_ACC_PUBLIC)
 	PHP_ME(PDO, errorCode,		NULL,					ZEND_ACC_PUBLIC)
 	PHP_ME(PDO, errorInfo,		NULL,					ZEND_ACC_PUBLIC)
-	PHP_ME(PDO, getAttribute,	NULL,					ZEND_ACC_PUBLIC)
-	PHP_ME(PDO, quote,			NULL,					ZEND_ACC_PUBLIC)
+	PHP_ME(PDO, getAttribute,	arginfo_pdo_getattribute,	ZEND_ACC_PUBLIC)
+	PHP_ME(PDO, quote,			arginfo_pdo_quote,		ZEND_ACC_PUBLIC)
 	PHP_ME(PDO, __wakeup,		NULL,					ZEND_ACC_PUBLIC|ZEND_ACC_FINAL)
 	PHP_ME(PDO, __sleep,		NULL,					ZEND_ACC_PUBLIC|ZEND_ACC_FINAL)
 	PHP_ME(PDO, getAvailableDrivers, NULL,				ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
@@ -1423,12 +1453,6 @@ static void dbh_free(pdo_dbh_t *dbh TSRMLS_DC)
 		}
 	}
 
-	if (dbh->properties) {
-		zend_hash_destroy(dbh->properties);
-		efree(dbh->properties);
-		dbh->properties = NULL;
-	}
-
 	pefree(dbh, dbh->is_persistent);
 }
 
@@ -1447,6 +1471,12 @@ static void pdo_dbh_free_storage(pdo_dbh_t *dbh TSRMLS_DC)
 	if (dbh->in_txn && dbh->methods && dbh->methods->rollback) {
 		dbh->methods->rollback(dbh TSRMLS_CC);
 		dbh->in_txn = 0;
+	}
+
+	if (dbh->properties) {
+		zend_hash_destroy(dbh->properties);
+		efree(dbh->properties);
+		dbh->properties = NULL;
 	}
 	
 	if (!dbh->is_persistent) {

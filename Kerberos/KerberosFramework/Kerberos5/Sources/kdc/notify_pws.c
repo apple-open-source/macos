@@ -15,6 +15,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <krb5.h>
+#include "adm.h"
+#include "adm_proto.h"
+#include "kdc_util.h"
 
 /* there may be value in copying the source for  readFromServer & writeToServer
 into this file and removing the link dependency on the password server framework.
@@ -45,7 +49,7 @@ extern int errno;
 #define noErr   0
 
 int kdc_contact_pws(void);
-int kdc_update_pws( const char *inPrinciple, int inError, int inCheck);
+int kdc_update_pws( const char *inPrinciple, int inError, int inCheck, krb5_db_entry server );
 
 #define kUpdateAuthMethod   "KERBEROS-LOGIN-CHECK"
 #define kPWSPort			106
@@ -75,9 +79,7 @@ enum {
 	kAuthPasswordHasGuessablePattern = -15
 };
 
-#define	KDC_ERR_POLICY	12
-
-int kdc_update_pws( const char *inPrinciple, int inError, int inCheck)
+int kdc_update_pws( const char *inPrinciple, int inError, int inCheck, krb5_db_entry server )
 {
 	char commandBuf[4096];
 	char replyBuf[4096];
@@ -109,19 +111,19 @@ int kdc_update_pws( const char *inPrinciple, int inError, int inCheck)
 	// get the reply
 	pwsReply = readFromServer(pwsFD, replyBuf, sizeof(replyBuf));
 
-
-	if(pwsReply.err != noErr)
-	{
-		if(pwsReply.err == kAuthUserDisabled)
-			reply = KDC_ERR_POLICY;
-		else if(pwsReply.err == kAuthUserNotSet) // not found in the db (not really an error)
-			reply = 0;
-		else if(pwsReply.err == kAuthPasswordNeedsChange) // password needs change (not really an error)
+	switch (pwsReply.err) {
+	case noErr:
+	case kAuthUserNotSet:
+		reply = 0;
+		break;
+	case kAuthPasswordNeedsChange:
+		if (isflagset(server.attributes, KRB5_KDB_PWCHANGE_SERVICE))
 			reply = 0;
 		else
-			reply = KDC_ERR_POLICY;
-	} else {
-		reply = 0;
+			reply = KRB5KDC_ERR_POLICY;
+		break;
+	default:
+		reply = KRB5KDC_ERR_POLICY;
 	}
 
 	snprintf(commandBuf, sizeof(commandBuf), "QUIT\r\n");

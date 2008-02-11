@@ -11,6 +11,8 @@
 #import "IOFireWireLibConfigDirectory.h"
 #import "IOFireWireLibDevice.h"
 
+#import <System/libkern/OSCrossEndian.h>
+
 namespace IOFireWireLib {
 
 	ConfigDirectoryCOM::Interface 	ConfigDirectoryCOM::sInterface = {
@@ -142,7 +144,15 @@ namespace IOFireWireLib {
 											 NULL,0,
 											 NULL,&outputCnt,
 											 & results,&outputStructSize);
-	
+		
+		ROSETTA_ONLY(
+			{
+				results.data = (UserObjectHandle)OSSwapInt32( (UInt32)results.data );
+				results.dataLength = OSSwapInt32( results.dataLength );
+				results.textLength = OSSwapInt32( results.textLength );
+			}
+		);
+			
 		if ( text && (kIOReturnSuccess == error))
 			error = mUserClient.CreateCFStringWithOSStringRef( results.text, results.textLength, text ) ;
 		if ( kIOReturnSuccess == error )
@@ -208,6 +218,15 @@ namespace IOFireWireLib {
 											 NULL,0,
 											 NULL,&outputCnt,
 											 & results,&outputStructSize);
+		ROSETTA_ONLY(
+			{
+				results.address.nodeID = OSSwapInt16( results.address.nodeID );
+				results.address.addressHi = OSSwapInt16( results.address.addressHi );
+				results.address.addressLo = OSSwapInt32( results.address.addressLo );
+				results.length = OSSwapInt32( results.length );
+			}
+		);
+		
 		value = results.address ;
 
 		if (text && (kIOReturnSuccess == error))
@@ -389,6 +408,14 @@ namespace IOFireWireLib {
 											 NULL,0,
 											 NULL,&outputCnt,
 											 & value,&outputStructSize);
+		ROSETTA_ONLY(
+			{
+				value.nodeID = OSSwapInt16( value.nodeID );
+				value.addressHi = OSSwapInt16( value.addressHi );
+				value.addressLo = OSSwapInt32( value.addressLo );
+			}
+		);
+		
 		return result ;
 	}
 		

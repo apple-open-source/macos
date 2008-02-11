@@ -21,6 +21,7 @@
  */
 
 #include <sys/cdefs.h>
+#include <TargetConditionals.h>
 
 #include "IOSystemConfiguration.h"
 #include <CoreFoundation/CoreFoundation.h>
@@ -644,8 +645,17 @@ exit:
         true if the given PM feature is supported on the given power source
         false if the feature is unsupported
  ***/
+#if TARGET_OS_EMBEDDED
+#define CACHE_FEATURES	1
+#else
+#define CACHE_FEATURES	0
+#endif /* TARGET_OS_EMBEDDED */
+
 bool IOPMFeatureIsAvailable(CFStringRef PMFeature, CFStringRef power_source)
 {
+#if CACHE_FEATURES
+    static
+#endif
     CFDictionaryRef             supportedFeatures = NULL;
     CFStringRef                 supportedString = NULL;
     CFTypeRef                   featureDetails = NULL;
@@ -654,14 +664,7 @@ bool IOPMFeatureIsAvailable(CFStringRef PMFeature, CFStringRef power_source)
     io_registry_entry_t         registry_entry = MACH_PORT_NULL;
     bool                        ret = false;
 
-    registry_entry = getPMRootDomainRef();
-    if(!registry_entry) goto exit;
-    
     if(!power_source) power_source = CFSTR(kIOPMACPowerKey);
-    
-    supportedFeatures = IORegistryEntryCreateCFProperty(
-                registry_entry, CFSTR("Supported Features"),
-                kCFAllocatorDefault, kNilOptions);
 
     /* Basic sleep timer settings are always available */    
     if(CFEqual(PMFeature, CFSTR(kIOPMDisplaySleepKey))
@@ -671,7 +674,7 @@ bool IOPMFeatureIsAvailable(CFStringRef PMFeature, CFStringRef power_source)
         ret = true;
         goto exit;
     }
-    
+
     /* TTY connection ability to prevent sleep is always available */
     if( CFEqual(PMFeature, CFSTR(kIOPMTTYSPreventSleepKey)) )
     {
@@ -679,12 +682,23 @@ bool IOPMFeatureIsAvailable(CFStringRef PMFeature, CFStringRef power_source)
         goto exit;
     }
 
+    if (!supportedFeatures)
+    {
+        registry_entry = getPMRootDomainRef();
+        if(!registry_entry) goto exit;
+        supportedFeatures = IORegistryEntryCreateCFProperty(
+                registry_entry, CFSTR("Supported Features"),
+                kCFAllocatorDefault, kNilOptions);
+    }
 
 // *********************************
 // Special case for PowerButtonSleep    
 
     if(CFEqual(PMFeature, CFSTR(kIOPMSleepOnPowerButtonKey)))
     {
+#if CACHE_FEATURES
+        ret = false;
+#else
         // Pressing the power button only causes sleep on desktop PowerMacs, 
         // cubes, and iMacs.
         // Therefore this feature is not supported on portables.
@@ -695,7 +709,8 @@ bool IOPMFeatureIsAvailable(CFStringRef PMFeature, CFStringRef power_source)
         {
             CFRelease(tmp_array);
             ret = false;
-        } else ret = true;        
+        } else ret = true;
+#endif
         goto exit;
     }
     
@@ -752,7 +767,9 @@ bool IOPMFeatureIsAvailable(CFStringRef PMFeature, CFStringRef power_source)
     
 
 exit:
+#if !CACHE_FEATURES
     if(supportedFeatures) CFRelease(supportedFeatures);
+#endif
     return ret;
 }
 
@@ -1635,7 +1652,12 @@ static int getAggressivenessFactorsFromProfile(
 static CFStringRef
 supportedNameForPMName( CFStringRef pm_name )
 {
+#if TARGET_OS_EMBEDDED
+    if( CFEqual(pm_name, CFSTR(kIOPMReduceBrightnessKey))
+        || CFEqual(pm_name, CFSTR(kIOPMDisplaySleepUsesDimKey)) )
+#else
     if(CFEqual(pm_name, CFSTR(kIOPMDisplaySleepUsesDimKey)))
+#endif /* TARGET_OS_EMBEDDED */
     {
         return CFSTR("DisplayDims");
     }
@@ -1658,7 +1680,7 @@ supportedNameForPMName( CFStringRef pm_name )
     {
         return CFSTR(kIOHibernateFeatureKey);
     }
-
+    
     return pm_name;
 }
 

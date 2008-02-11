@@ -29,6 +29,9 @@
  */
 /*
 	$Log: IOFWUserAsyncStreamListener.cpp,v $
+	Revision 1.5.6.1  2007/11/09 19:57:30  arulchan
+	.
+	
 	Revision 1.5  2007/02/16 19:03:43  arulchan
 	*** empty log message ***
 	
@@ -402,7 +405,7 @@ IOFWUserAsyncStreamListener::asyncStreamListenerHandler(
 	IOFWUserAsyncStreamListener*	me = (IOFWUserAsyncStreamListener*)refCon ;
 	ISOC_DATA_PKT *pkt = (ISOC_DATA_PKT*)buf;
 
-	me->doPacket( pkt->size, buf, IOFWPacketHeader::kIncomingPacket ) ;
+	me->doPacket( pkt->size+sizeof(ISOC_DATA_PKT), buf, IOFWPacketHeader::kIncomingPacket ) ;
 }
 
 void

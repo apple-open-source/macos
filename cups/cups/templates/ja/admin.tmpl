@@ -6,19 +6,15 @@
 <P>
 <A HREF="/admin?op=add-printer"><IMG
 SRC="/images/button-add-printer.gif" ALT="プリンタの追加" CLASS="button"></A>
+<A HREF="/admin?op=find-new-printers"><IMG
+SRC="/images/button-find-new-printers.gif"
+ALT="新しいプリンタの検索" CLASS="button"></A>
 <A HREF="/printers/"><IMG SRC="/images/button-manage-printers.gif"
 ALT="プリンタの管理" CLASS="button"></A>
 {have_samba?<A HREF="/admin/?op=export-samba"><IMG
 SRC="/images/button-export-samba.gif" ALT="プリンタをSambaにエキスポート"
 CLASS="button"></A>:}
 </P>
-
-{#device_uri=0?:<P><B>新しいプリンタが見つかりました:</B></P><UL>{[device_uri]
-<LI><A HREF="/admin?op=add-printer&amp;{device_options}"><IMG
-SRC="/images/button-add-this-printer.gif" ALT="このプリンタを追加"
-CLASS="button" ALIGN="MIDDLE"></A>
-{device_make_and_model} ({device_info})</LI>
-}</UL>}
 
 <H2 CLASS="title">クラス</H2>
 
@@ -63,9 +59,9 @@ CLASS="button"></A>
 <P><INPUT TYPE="HIDDEN" NAME="OP" VALUE="config-server">
 <INPUT TYPE="CHECKBOX" NAME="REMOTE_PRINTERS" {?remote_printers}> ほかのシステムで共有されているプリンタを表示<BR>
 <INPUT TYPE="CHECKBOX" NAME="SHARE_PRINTERS" {?share_printers}> このシステムに接続されている公開済みプリンタを共有<BR>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<INPUT TYPE="CHECKBOX" NAME="REMOTE_ANY" {?remote_any}> Allow printing from the Internet<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<INPUT TYPE="CHECKBOX" NAME="REMOTE_ANY" {?remote_any}> インターネットからの印刷を許可<BR>
 <INPUT TYPE="CHECKBOX" NAME="REMOTE_ADMIN" {?remote_admin}> リモート管理を許可<BR>
-{have_gssapi?<INPUT TYPE="CHECKBOX" NAME="KERBEROS" {?kerberos}> Use Kerberos authentication<BR>:}
+{have_gssapi?<INPUT TYPE="CHECKBOX" NAME="KERBEROS" {?kerberos}> Kerberos 認証を使用<BR>:}
 <INPUT TYPE="CHECKBOX" NAME="USER_CANCEL_ANY" {?user_cancel_any}> どのジョブであってもキャンセルすることを (たとえ所有者でなくても) ユーザに許可<BR>
 <INPUT TYPE="CHECKBOX" NAME="DEBUG_LOGGING" {?debug_logging}> トラブルシューティングのためにデバッグ情報を保存</P>
 
@@ -75,3 +71,16 @@ CLASS="button"></A>
 
 </TD></TR>
 </TABLE>
+
+<H2 CLASS="title">購読</H2>
+
+<P>
+<A HREF="/admin/?op=add-rss-subscription"><IMG SRC="/images/button-add-rss-subscription.gif" ALT="RSS購読の追加" CLASS="button"></A>
+</P>
+
+{notify_subscription_id?<TABLE WIDTH="100%" CELLSPACING="0" CELLPADDING="0" SUMMARY="RSS購読">
+<THEAD><TR CLASS="data"><TH>ID</TH><TH>名前</TH><TH>イベント</TH><TH>キュー</TH></TR></THEAD>
+<TBODY>{[notify_subscription_id]
+<TR><TD><A HREF="{notify_recipient_uri}">{notify_subscription_id}</A></TD><TD NOWRAP><A HREF="{notify_recipient_uri}">{notify_recipient_name}</A> <A HREF="/admin/?op=cancel-subscription&amp;notify_subscription_id={notify_subscription_id}"><IMG SRC="/images/button-cancel-subscription.gif" CLASS="button" ALT="RSS購読のキャンセル"></A>&nbsp;</TD><TD>{notify_events}</TD><TD NOWRAP>&nbsp;{notify_printer_name?{notify_printer_name}:すべてのキュー}</TD></TR>}
+</TBODY>
+</TABLE>:}

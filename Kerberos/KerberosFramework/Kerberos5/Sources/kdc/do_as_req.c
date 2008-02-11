@@ -40,18 +40,18 @@
 #endif	/* hpux */
 #endif /* HAVE_NETINET_IN_H */
 
-#ifndef APPLE_KDC_MODS
-#define APPLE_KDC_MODS
-#endif
-#ifdef APPLE_KDC_MODS
-int kdc_update_pws( const char *in_user_principle, int in_error, int inCheck);
-#endif
-
 #include "kdc_util.h"
 #include "policy.h"
 #include "adm.h"
 #include "adm_proto.h"
 #include "extern.h"
+
+#ifndef APPLE_KDC_MODS
+#define APPLE_KDC_MODS
+#endif
+#ifdef APPLE_KDC_MODS
+int kdc_update_pws( const char *in_user_principle, int in_error, int inCheck, krb5_db_entry server );
+#endif
 
 #define     AS_REQ_DEBUG    0
 #if	    AS_REQ_DEBUG
@@ -436,7 +436,7 @@ process_as_req(krb5_kdc_req *request, krb5_data *req_pkt,
 #ifdef APPLE_KDC_MODS
     /*  Add code that checks the pws for account validity LAW */
     if(kdc_notify_pws_apple){
-    	errcode = kdc_update_pws(cname, 0, 1);
+    	errcode = kdc_update_pws(cname, 0, 1, server);
     	if (errcode) {
 			status = "CHECK_PWS_ACCT";
 			goto errout;
@@ -474,7 +474,7 @@ errout:
     /* call code to notify PWS of the failure iff not NEEDS_Preauth   */
     if(kdc_notify_pws_apple){
       if((errcode != KRB5KDC_ERR_PREAUTH_REQUIRED ) && (errcode != KRB_AP_ERR_METHOD))
-              kdc_update_pws(cname, errcode, 0);
+              kdc_update_pws(cname, errcode, 0, server);
     }
 #endif
 

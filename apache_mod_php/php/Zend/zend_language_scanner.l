@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_scanner.l,v 1.131.2.11.2.12 2007/05/24 08:56:35 dmitry Exp $ */
+/* $Id: zend_language_scanner.l,v 1.131.2.11.2.13 2007/09/09 16:33:34 iliaa Exp $ */
 
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
@@ -817,6 +817,14 @@ static void zend_scan_escape_string(zval *zendlval, char *str, int len, char quo
 					break;
 				case 't':
 					*t++ = '\t';
+					zendlval->value.str.len--;
+					break;
+				case 'f':
+					*t++ = '\f';
+					zendlval->value.str.len--;
+					break;
+				case 'v':
+					*t++ = '\v';
 					zendlval->value.str.len--;
 					break;
 				case '"':

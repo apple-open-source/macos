@@ -23,11 +23,7 @@
  */
  
 #include "IOHIDEventServiceClass.h"
-
-#if EMBEDDED
 #include "IOHIDEventServiceUserClient.h"
-#endif
-
 #include "IOHIDEventData.h"
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/IOHIDServiceKeys.h>
@@ -100,7 +96,6 @@ IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInt
 
     _asyncPort                  = MACH_PORT_NULL;
     _asyncEventSource           = NULL;
-    _testTimer                  = NULL;
         
     _serviceProperties          = NULL;
     _servicePreferences         = NULL;
@@ -172,11 +167,6 @@ IOHIDEventServiceClass::~IOHIDEventServiceClass()
         _asyncEventSource = NULL;
     }
     
-    if ( _testTimer ) {
-        CFRelease(_testTimer);
-        _testTimer = NULL;
-    }
-    
     if ( _asyncPort ) {
         mach_port_deallocate(mach_task_self(), _asyncPort);
         _asyncPort = MACH_PORT_NULL;
@@ -242,22 +232,6 @@ void IOHIDEventServiceClass::_scheduleWithRunLoop(void *self, CFRunLoopRef runLo
 void IOHIDEventServiceClass::_unscheduleFromRunLoop(void *self, CFRunLoopRef runLoop, CFStringRef runLoopMode)
 {
     return getThis(self)->unscheduleFromRunLoop(runLoop, runLoopMode);
-}
-
-//------------------------------------------------------------------------------
-// IOHIDEventServiceClass::_timerEventSourceCallback
-//------------------------------------------------------------------------------
-void IOHIDEventServiceClass::_timerEventSourceCallback(CFRunLoopTimerRef timer, void *info)
-{
-    IOHIDEventServiceClass *eventService = (IOHIDEventServiceClass *)info;
-    IOHIDEventRef event = IOHIDEventCreateKeyboardEvent(kCFAllocatorDefault, mach_absolute_time(), 7, 4, 1, 0);
-    
-    if ( !event )
-        return;
-    
-    eventService->dispatchHIDEvent(event);
-    
-    CFRelease(event);
 }
 
 //------------------------------------------------------------------------------
@@ -466,7 +440,6 @@ IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable, io_service
         */
 
         // Establish connection with device
-#if EMBEDDED
         ret = IOServiceOpen(_service, mach_task_self(), 0, &_connect);
         if (ret != kIOReturnSuccess || !_connect)
             break;
@@ -501,7 +474,6 @@ IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable, io_service
         QUEUE_UNLOCK(this);
         
         QUEUE_SIGNAL(this);
-#endif
 
         return kIOReturnSuccess;
         
@@ -530,25 +502,36 @@ boolean_t IOHIDEventServiceClass::open(IOOptionBits options)
 {
     uint32_t len = 0;
     uint64_t input = options;
-    IOReturn ret;
+    IOReturn kr;
+    bool     ret = true;
     
-    if ( _isOpen )
-        return true;
+    QUEUE_LOCK(this);
+
+    if ( !_isOpen ) {
+            
+        do {
+            kr = IOConnectCallScalarMethod(_connect, kIOHIDEventServiceUserClientOpen, &input, 1, 0, &len);; 
+            if ( kr != kIOReturnSuccess ) {
+                ret = false;
+                break;
+            }
+
+            _isOpen = true;
+            
+            // drain the queue just in case
+            QUEUE_UNLOCK(this);
+
+            if ( _eventCallback )
+                _queueEventSourceCallback(NULL, NULL, 0, this);
+                
+            QUEUE_LOCK(this);
+            
+        } while ( 0 );
+    }
     
-#if EMBEDDED
-    ret = IOConnectCallScalarMethod(_connect, kIOHIDEventServiceUserClientOpen, &input, 1, 0, &len);; 
-          
-    if ( ret != kIOReturnSuccess )
-        return false;
-    
-    // drain the queue just in case
-    if ( _eventCallback )
-        _queueEventSourceCallback(NULL, NULL, 0, this);
-#endif
-        
-    _isOpen = true;
-                                            
-    return true;
+    QUEUE_UNLOCK(this);
+                                                    
+    return ret;
 }
 
 //---------------------------------------------------------------------------
@@ -559,11 +542,15 @@ void IOHIDEventServiceClass::close(IOOptionBits options)
     uint32_t len = 0;
     uint64_t input = options;
         
-#if EMBEDDED
-    (void) IOConnectCallScalarMethod(_connect, kIOHIDEventServiceUserClientClose, &input, 1, 0, &len); 
-    
-#endif
-    _isOpen = false;
+    QUEUE_LOCK(this);
+
+    if ( _isOpen ) {
+        (void) IOConnectCallScalarMethod(_connect, kIOHIDEventServiceUserClientClose, &input, 1, 0, &len); 
+        
+        _isOpen = false;
+    }
+
+    QUEUE_UNLOCK(this);
 }
 
 //---------------------------------------------------------------------------
@@ -594,9 +581,8 @@ CFTypeRef IOHIDEventServiceClass::getProperty(CFStringRef key)
 //---------------------------------------------------------------------------
 boolean_t IOHIDEventServiceClass::setProperty(CFStringRef key, CFTypeRef property)
 {
-#if EMBEDDED
     return IORegistryEntrySetCFProperty(_service, key, property) == kIOReturnSuccess;
-#endif
+
 /*    
     if (kIOReturnSuccess != IORegistryEntrySetCFProperty(_service, key, property))
         return;
@@ -614,9 +600,6 @@ boolean_t IOHIDEventServiceClass::setProperty(CFStringRef key, CFTypeRef propert
 //---------------------------------------------------------------------------
 IOHIDEventRef IOHIDEventServiceClass::copyEvent(IOHIDEventType eventType, IOHIDEventRef matching, IOOptionBits options)
 {
-    IOHIDEventRef       event           = NULL;
-#if EMBEDDED
-
     const UInt8 *       inputData       = NULL;
     size_t              inputDataSize   = 0;
     UInt8 *             outputData      = NULL;
@@ -624,6 +607,7 @@ IOHIDEventRef IOHIDEventServiceClass::copyEvent(IOHIDEventType eventType, IOHIDE
     size_t              eventDataSize   = 0;
     CFDataRef           fieldData       = NULL;
     CFMutableDataRef    eventData       = NULL;
+    IOHIDEventRef       event           = NULL;
     IOReturn            ret             = kIOReturnSuccess;
     
     if ( matching ) {
@@ -673,7 +657,7 @@ IOHIDEventRef IOHIDEventServiceClass::copyEvent(IOHIDEventType eventType, IOHIDE
 
     if ( eventData )
         CFRelease(eventData);
-#endif    
+    
     return event;
 }
 
@@ -687,10 +671,8 @@ void IOHIDEventServiceClass::setEventCallback(IOHIDServiceEventCallback callback
     _eventRefcon = refcon;
     
     // drain the queue just in case
-#if EMBEDDED
     if ( _eventCallback )
         _queueEventSourceCallback(NULL, NULL, 0, this);
-#endif
 }
 
 //---------------------------------------------------------------------------
@@ -698,7 +680,6 @@ void IOHIDEventServiceClass::setEventCallback(IOHIDServiceEventCallback callback
 //---------------------------------------------------------------------------
 void IOHIDEventServiceClass::scheduleWithRunLoop(CFRunLoopRef runLoop, CFStringRef runLoopMode)
 {
-#if EMBEDDED
     if ( !_asyncEventSource ) {
         CFMachPortRef       cfPort;
         CFMachPortContext   context;
@@ -737,19 +718,6 @@ void IOHIDEventServiceClass::scheduleWithRunLoop(CFRunLoopRef runLoop, CFStringR
     // kick him for good measure
     if ( _queueMappedMemory )
         CFRunLoopSourceSignal(_asyncEventSource);
-
-#else
-    if ( !_testTimer ) {
-        CFRunLoopTimerContext context = { 0, this, NULL, NULL, NULL };
-        
-        _testTimer = CFRunLoopTimerCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent()+1.0, 1.0, 0, 0, (CFRunLoopTimerCallBack)&(IOHIDEventServiceClass::_timerEventSourceCallback), &context);
-    }
-
-    CFRunLoopAddTimer(runLoop, _testTimer, runLoopMode);
-
-#endif
-
-
 }
 
 //---------------------------------------------------------------------------
@@ -757,11 +725,7 @@ void IOHIDEventServiceClass::scheduleWithRunLoop(CFRunLoopRef runLoop, CFStringR
 //---------------------------------------------------------------------------
 void IOHIDEventServiceClass::unscheduleFromRunLoop(CFRunLoopRef runLoop, CFStringRef runLoopMode)
 {
-#if EMBEDDED
     CFRunLoopRemoveSource(runLoop, _asyncEventSource, runLoopMode);
-#else
-    CFRunLoopRemoveTimer(runLoop, _testTimer, runLoopMode);
-#endif
 }
 
 //===========================================================================

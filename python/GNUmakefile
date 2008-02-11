@@ -142,6 +142,7 @@ $(OBJROOT)/$(PROJECT):
 	for i in `find $(PROJECT)/Lib -name __init__.py -size 0c`; do \
 	    echo '#' > $$i; \
 	done
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p1 -i $(FIX)/CVE-2007-4965-int-overflow.patch
 	cd '$(OBJROOT)/$(PROJECT)' && autoconf
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
 

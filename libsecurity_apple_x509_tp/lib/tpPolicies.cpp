@@ -135,6 +135,29 @@ static CSSM_RETURN iSignFetchExtension(
 }
 
 /*
+ * This function performs a check of an extension marked 'critical'
+ * to see if it's one we understand. Returns CSSM_OK if the extension
+ * is acceptable, CSSMERR_APPLETP_UNKNOWN_CRITICAL_EXTEN if unknown.
+ */
+static CSSM_RETURN iSignVerifyCriticalExtension(
+	CSSM_X509_EXTENSION	*cssmExt)
+{
+	if (!cssmExt || !cssmExt->extnId.Data)
+		return CSSMERR_TP_INVALID_FIELD_POINTER;
+	
+	if (!cssmExt->critical)
+		return CSSM_OK;
+
+	if (cssmExt->extnId.Length > APPLE_EXTENSION_OID_LENGTH &&
+		!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION.Data, APPLE_EXTENSION_OID_LENGTH)) {
+		/* This extension's OID is under the appleCertificateExtensions arc */
+		return CSSM_OK;
+	
+	}
+	return CSSMERR_APPLETP_UNKNOWN_CRITICAL_EXTEN;
+}
+
+/*
  * Search for all unknown extensions. If we find one which is flagged critical, 
  * flag certInfo->foundUnknownCritical. Only returns error on gross errors.  
  */
@@ -169,7 +192,7 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 		return CSSMERR_TP_UNKNOWN_FORMAT;
 	}
 	CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)fieldValue->Data;
-	if(cssmExt->critical) {
+	if(iSignVerifyCriticalExtension(cssmExt) != CSSM_OK) {
 		/* BRRZAPP! Found an unknown extension marked critical */
 		certInfo->foundUnknownCritical = CSSM_TRUE;
 		goto fini;
@@ -197,7 +220,7 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 			break;
 		}
 		CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)fieldValue->Data;
-		if(cssmExt->critical) {
+		if(iSignVerifyCriticalExtension(cssmExt) != CSSM_OK) {
 			/* BRRZAPP! Found an unknown extension marked critical */
 			certInfo->foundUnknownCritical = CSSM_TRUE;
 			break;
@@ -1410,7 +1433,7 @@ static CSSM_RETURN tp_verifySWUpdateSigningOpts(
 	unsigned numCerts = certGroup.numCerts();
 	const iSignCertInfo *isCertInfo;
 	TPCertInfo *tpCert;
-	const CE_BasicConstraints *bc;
+//	const CE_BasicConstraints *bc;		// currently unused
 	CE_ExtendedKeyUsage *eku;
 	CSSM_RETURN crtn = CSSM_OK;	
 

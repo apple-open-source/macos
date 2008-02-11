@@ -3,7 +3,7 @@
   file.c -
 
   $Author: shyouhei $
-  $Date: 2007-05-23 00:01:22 +0900 (Wed, 23 May 2007) $
+  $Date: 2007-09-07 16:38:51 +0900 (Fri, 07 Sep 2007) $
   created at: Mon Nov 15 12:24:34 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -815,6 +815,7 @@ rb_file_lstat(obj)
 #endif
 }
 
+#ifndef HAVE_GROUP_MEMBER
 static int
 group_member(gid)
     GETGROUPS_T gid;
@@ -844,6 +845,7 @@ group_member(gid)
 #endif
     return Qfalse;
 }
+#endif
 
 #ifndef S_IXUGO
 #  define S_IXUGO		(S_IXUSR | S_IXGRP | S_IXOTH)
@@ -2242,18 +2244,12 @@ rb_file_s_rename(klass, from, to)
     errno = 0;
 #endif
     if (rename(src, dst) < 0) {
-#if defined __CYGWIN__
-	extern unsigned long __attribute__((stdcall)) GetLastError(void);
-	if (errno == 0) {	/* This is a bug of old Cygwin */
-	    /* incorrect as cygwin errno, but the last resort */
-	    errno = GetLastError();
-	}
-#elif defined DOSISH && !defined _WIN32
-	if (errno == EEXIST
+#if defined DOSISH && !defined _WIN32
+	switch (errno) {
+	  case EEXIST:
 #if defined (__EMX__)
-	    || errno == EACCES
+	  case EACCES:
 #endif
-	    ) {
 	    if (chmod(dst, 0666) == 0 &&
 		unlink(dst) == 0 &&
 		rename(src, dst) == 0)
@@ -3132,8 +3128,10 @@ rb_file_truncate(obj, len)
 # endif
 
 #ifdef __CYGWIN__
-static int
 #include <winerror.h>
+extern unsigned long __attribute__((stdcall)) GetLastError(void);
+
+static int
 cygwin_flock(int fd, int op)
 {
     int old_errno = errno;

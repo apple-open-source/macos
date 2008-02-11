@@ -5,7 +5,7 @@
 CLUST_FREE	= 0
 CLUST_FIRST	= 2
 CLUST_MAX12	= 0x00000FFF
-CLUST_MAX16 = 0x0000FFFF
+CLUST_MAX16	= 0x0000FFFF
 CLUST_MAX32	= 0x0FFFFFFF
 CLUST_RSRVD	= 0xFFFFFFF6
 CLUST_BAD	= 0xFFFFFFF7
@@ -241,7 +241,8 @@ class msdosfs(object):
 			self.fatSectors = v
 		else:
 			self.fatSectors = struct.unpack("<I", bs[36:40])[0]
-
+		self.fsinfo = None
+		
 		#
 		# Figure out the bits per FAT entry, and create an object for the FAT
 		#
@@ -261,6 +262,9 @@ class msdosfs(object):
 			self.type = 32
 			self.fat = self.FAT32(self)
 			self.rootCluster = struct.unpack("<I", bs[44:48])[0]
+			fsinfo = struct.unpack("<H", bs[48:50])[0]
+			if fsinfo:
+				self.fsinfo = self.FSInfo(self, fsinfo)
 	
 	def ReadCluster(self, cluster, count=1):
 		"""Return the contents of cluster <cluster>"""
@@ -279,7 +283,24 @@ class msdosfs(object):
 	
 	def flush(self):
 		self.fat.flush()
+		if self.fsinfo:
+			self.fsinfo.flush()
 	
+	def allocate(self, count, start=CLUST_FIRST, last=CLUST_EOF):
+		"""
+		Allocate and create a chain of count clusters.
+		Searching begins at cluster #start.
+		The last cluster of the chain will point at cluster #last.
+		Returns the first cluster of the chain.
+		
+		Unlike FAT.allocate, this routine will adjust the free space in the
+		FSInfo sector (applies to FAT32 only).
+		"""
+		cluster = self.fat.chain(self.fat.find(count, start), last)
+		if cluster and self.fsinfo:
+			self.fsinfo.allocate(count)
+		return cluster
+
 	class FAT(object):
 		"""Base class to represent the File Allocation Table.  Do not
 		instantiate this class; use FAT12, FAT16 or FAT32 instead."""
@@ -966,6 +987,35 @@ class msdosfs(object):
 			return self.Directory(self, self.rootCluster)
 		else:
 			return self.FixedRootDir(self)
+
+	class FSInfo(object):
+		def __init__(self, volume, sector):
+			self.volume = volume
+			self.sector = sector
+			self.valid = False
+			self.dirty = False
+			self.free = 0xFFFFFFFF
+			self.nextFree= 0
+			
+			volume.dev.seek(volume.bytesPerSector * sector)
+			fsinfo = volume.dev.read(volume.bytesPerSector)
+			if fsinfo[0:4] == 'RRaA' and fsinfo[484:488] == 'rrAa':
+				self.valid = True
+				self.free, self.nextFree = struct.unpack("<II", fsinfo[488:496])
+		
+		def allocate(self, clusters):
+			if self.valid:
+				self.free -= clusters
+				self.dirty = True
+		
+		def flush(self):
+			if self.valid and self.dirty:
+				self.volume.dev.seek(self.volume.bytesPerSector * self.sector)
+				fsinfo = self.volume.dev.read(self.volume.bytesPerSector)
+				fsinfo = fsinfo[0:488] + struct.pack("<II", self.free, self.nextFree) + fsinfo[496:]
+				self.volume.dev.seek(self.volume.bytesPerSector * self.sector)
+				self.volume.dev.write(fsinfo)
+				self.dirty = False
 
 if __name__ == "__main__":
 	import sys

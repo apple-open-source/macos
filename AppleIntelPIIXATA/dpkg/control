@@ -1,6 +1,0 @@
-Package: appleintelpiixata
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Vendor: Apple Computer, Inc.
-Version: 1
-Description: ATA driver for Intel PIIX chipsets.
-Build-Depends: build-base, jam, xnu, ioatafamily, iokituser, ioatablockstorage

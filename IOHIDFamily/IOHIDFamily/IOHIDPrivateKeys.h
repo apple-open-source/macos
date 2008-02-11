@@ -36,7 +36,7 @@ __BEGIN_DECLS
     @discussion Keys that represent properties of a paticular element.  Can be added
         to your matching dictionary when refining searches for HID devices.
 */
-#define kIOHIDInputReportElementsKey                    "InputReportElements"
+#define kIOHIDInputReportElementsKey        "InputReportElements"
 
 /*!
     @defined HID Element Dictionary Keys
@@ -45,6 +45,12 @@ __BEGIN_DECLS
         when searching for elements via copyMatchingElements.  
 */
 #define kIOHIDElementCollectionCookieKey    "CollectionCookie"
+
+#define kIOHIDKeyboardCapsLockDelay         "CapsLockDelay"
+#define kIOHIDKeyboardEjectDelay            "EjectDelay"
+
+#define kIOHIDAbsoluteAxisBoundsRemovalPercentage   "AbsoluteAxisBoundsRemovalPercentage"
+
 __END_DECLS
 
 #endif /* !_IOKIT_HID_IOHIDPRIVATEKEYS_H_ */

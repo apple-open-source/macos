@@ -2050,14 +2050,14 @@ done:
 
 static void _gdImageFillTiled(gdImagePtr im, int x, int y, int nc)
 {
-	int l, x1, x2, dy;
+	int i, l, x1, x2, dy;
 	int oc;   /* old pixel value */
 	int tiled;
 	int wx2,wy2;
 	/* stack of filled segments */
 	struct seg *stack;
 	struct seg *sp;
-	char *pts;
+	char **pts;
 
 	if (!im->tile) {
 		return;
@@ -2067,7 +2067,11 @@ static void _gdImageFillTiled(gdImagePtr im, int x, int y, int nc)
 	tiled = nc==gdTiled;
 
 	nc =  gdImageTileGet(im,x,y);
-	pts = (char *) ecalloc(im->sy * im->sx, sizeof(char));
+
+	pts = (char **) ecalloc(im->sy + 1, sizeof(char *));
+	for (i = 0; i < im->sy + 1; i++) {
+		pts[i] = (char *) ecalloc(im->sx + 1, sizeof(char));
+	}
 
 	stack = (struct seg *)safe_emalloc(sizeof(struct seg), ((int)(im->sy*im->sx)/4), 1);
 	sp = stack;
@@ -2080,9 +2084,9 @@ static void _gdImageFillTiled(gdImagePtr im, int x, int y, int nc)
  	FILL_PUSH(y+1, x, x, -1);
 	while (sp>stack) {
 		FILL_POP(y, x1, x2, dy);
-		for (x=x1; x>=0 && (!pts[y + x*wx2] && gdImageGetPixel(im,x,y)==oc); x--) {
+		for (x=x1; x>=0 && (!pts[y][x] && gdImageGetPixel(im,x,y)==oc); x--) {
 			nc = gdImageTileGet(im,x,y);
-			pts[y + x*wx2]=1;
+			pts[y][x] = 1;
 			gdImageSetPixel(im,x, y, nc);
 		}
 		if (x>=x1) {
@@ -2096,9 +2100,9 @@ static void _gdImageFillTiled(gdImagePtr im, int x, int y, int nc)
 		}
 		x = x1+1;
 		do {
-			for (; x<wx2 && (!pts[y + x*wx2] && gdImageGetPixel(im,x, y)==oc) ; x++) {
+			for(; x<wx2 && (!pts[y][x] && gdImageGetPixel(im,x, y)==oc); x++) {
 				nc = gdImageTileGet(im,x,y);
-				pts[y + x*wx2]=1;
+				pts[y][x] = 1;
 				gdImageSetPixel(im, x, y, nc);
 			}
 			FILL_PUSH(y, l, x-1, dy);
@@ -2106,9 +2110,13 @@ static void _gdImageFillTiled(gdImagePtr im, int x, int y, int nc)
 			if (x>x2+1) {
 				FILL_PUSH(y, x2+1, x-1, -dy);
 			}
-skip:			for (x++; x<=x2 && (pts[y + x*wx2] || gdImageGetPixel(im,x, y)!=oc); x++);
+skip:		for(x++; x<=x2 && (pts[y][x] || gdImageGetPixel(im,x, y)!=oc); x++);
 			l = x;
 		} while (x<=x2);
+	}
+
+	for(i = 0; i < im->sy + 1; i++) {
+		efree(pts[i]);
 	}
 
 	efree(pts);
@@ -2123,6 +2131,11 @@ void gdImageRectangle (gdImagePtr im, int x1, int y1, int x2, int y2, int color)
 	int thick = im->thick;
 	int half1 = 1;
 	int t;
+
+	if (x1 == x2 && y1 == y2 && thick == 1) {
+		gdImageSetPixel(im, x1, y1, color);
+		return;
+	}
 
 	if (y2 < y1) {
 		t=y1;
@@ -3802,15 +3815,14 @@ int gdImageContrast(gdImagePtr src, double contrast)
 }
 
 
-int gdImageColor(gdImagePtr src, int red, int green, int blue)
+int gdImageColor(gdImagePtr src, const int red, const int green, const int blue, const int alpha)
 {
 	int x, y;
-	int r,g,b,a;
 	int new_pxl, pxl;
 	typedef int (*FuncPtr)(gdImagePtr, int, int);
 	FuncPtr f;
 
-	if (src==NULL || (red<-255||red>255) || (green<-255||green>255) || (blue<-255||blue>255)) {
+	if (src == NULL) {
 		return 0;
 	}
 
@@ -3818,6 +3830,8 @@ int gdImageColor(gdImagePtr src, int red, int green, int blue)
 
 	for (y=0; y<src->sy; ++y) {
 		for (x=0; x<src->sx; ++x) {
+			int r,g,b,a;
+
 			pxl = f(src, x, y);
 			r = gdImageRed(src, pxl);
 			g = gdImageGreen(src, pxl);
@@ -3827,14 +3841,16 @@ int gdImageColor(gdImagePtr src, int red, int green, int blue)
 			r = r + red;
 			g = g + green;
 			b = b + blue;
+			a = a + alpha;
 
-			r = (r > 255)? 255 : ((r < 0)? 0:r);
-			g = (g > 255)? 255 : ((g < 0)? 0:g);
-			b = (b > 255)? 255 : ((b < 0)? 0:b);
+			r = (r > 255)? 255 : ((r < 0)? 0 : r);
+			g = (g > 255)? 255 : ((g < 0)? 0 : g);
+			b = (b > 255)? 255 : ((b < 0)? 0 : b);
+			a = (a > 127)? 127 : ((a < 0)? 0 : a);
 
-			new_pxl = gdImageColorAllocateAlpha(src, (int)r, (int)g, (int)b, a);
+			new_pxl = gdImageColorAllocateAlpha(src, r, g, b, a);
 			if (new_pxl == -1) {
-				new_pxl = gdImageColorClosestAlpha(src, (int)r, (int)g, (int)b, a);
+				new_pxl = gdImageColorClosestAlpha(src, r, g, b, a);
 			}
 			gdImageSetPixel (src, x, y, new_pxl);
 		}

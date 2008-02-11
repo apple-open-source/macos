@@ -42,14 +42,6 @@ using namespace UnixPlusPlus;
 
 
 //
-// The allocation helper
-//
-static const char helperName[] = "codesign_allocate";
-static const char helperPath[] = "/usr/bin/codesign_allocate";
-static const size_t csAlign = 16;
-
-
-//
 // A helper for parsing out a CFDictionary signing-data specification
 //
 class SecCodeSigner::Parser : CFDictionary {

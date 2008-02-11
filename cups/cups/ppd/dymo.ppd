@@ -1,6 +1,6 @@
 *PPD-Adobe: "4.3"
 *% PPD file for Label Printer with CUPS.
-*% Created by the CUPS PPD Compiler v1.2.0.
+*% Created by the CUPS PPD Compiler v1.2.4.
 *% Copyright 2007 by Apple Inc.
 *% Copyright 1997-2007 by Easy Software Products.
 *% 
@@ -34,7 +34,7 @@
 *cupsModelNumber: 0
 *cupsManualCopies: False
 *cupsFilter: "application/vnd.cups-raster 50 rastertolabel"
-*cupsLanguages: "da de es fi fr it ja ko nl no pt pt_BR pt_PT sv zh zh_TW"
+*cupsLanguages: "en da de es fi fr it ja ko nl no pt pt_BR sv zh zh_TW"
 *OpenUI *PageSize/Media Size: PickOne
 *OrderDependency: 10 AnySetup *PageSize
 *DefaultPageSize: w81h252
@@ -262,7 +262,7 @@
 *ko.Translation ModelName/Dymo Label Printer: ""
 *ko.Translation ShortNickName/Dymo Label Printer: ""
 *ko.Translation NickName/Dymo Label Printer, 1.3: ""
-*ko.Translation PageSize/Media Size: ""
+*ko.Translation PageSize/Page Size: ""
 *ko.PageSize w81h252/Address - 1 1/8x3 1/2in: ""
 *ko.PageSize w101h252/Large Address - 1 4/10x3 1/2in: ""
 *ko.PageSize w54h144/Return Address - 3/4x2in: ""
@@ -373,29 +373,6 @@
 *pt_BR.cupsDarkness Medium/Medium: ""
 *pt_BR.cupsDarkness Normal/Normal: ""
 *pt_BR.cupsDarkness Dark/Dark: ""
-*pt_PT.Translation Manufacturer/Dymo: ""
-*pt_PT.Translation ModelName/Dymo Label Printer: ""
-*pt_PT.Translation ShortNickName/Dymo Label Printer: ""
-*pt_PT.Translation NickName/Dymo Label Printer, 1.3: ""
-*pt_PT.Translation PageSize/Media Size: ""
-*pt_PT.PageSize w81h252/Address - 1 1/8x3 1/2in: ""
-*pt_PT.PageSize w101h252/Large Address - 1 4/10x3 1/2in: ""
-*pt_PT.PageSize w54h144/Return Address - 3/4x2in: ""
-*pt_PT.PageSize w167h288/Shipping Address - 2 5/16x4in: ""
-*pt_PT.PageSize w162h540/Internet Postage 2-Part - 2 1/4x7 1/2in: ""
-*pt_PT.PageSize w162h504/Internet Postage 3-Part - 2 1/4x7in: ""
-*pt_PT.PageSize w41h248/File Folder - 9/16x3 7/16in: ""
-*pt_PT.PageSize w41h144/Hanging Folder - 9/16x2in: ""
-*pt_PT.PageSize w153h198/3.5" Disk - 2 1/8x2 3/4in: ""
-*pt_PT.Translation Resolution/Resolution: ""
-*pt_PT.Resolution 136dpi/136dpi: ""
-*pt_PT.Resolution 203dpi/203dpi: ""
-*pt_PT.Resolution 300dpi/300dpi: ""
-*pt_PT.Translation cupsDarkness/Darkness: ""
-*pt_PT.cupsDarkness Light/Light: ""
-*pt_PT.cupsDarkness Medium/Medium: ""
-*pt_PT.cupsDarkness Normal/Normal: ""
-*pt_PT.cupsDarkness Dark/Dark: ""
 *sv.Translation Manufacturer/Dymo: ""
 *sv.Translation ModelName/Dymo Label Printer: ""
 *sv.Translation ShortNickName/Dymo Label Printer: ""
@@ -423,7 +400,7 @@
 *zh.Translation ModelName/Dymo Label Printer: ""
 *zh.Translation ShortNickName/Dymo Label Printer: ""
 *zh.Translation NickName/Dymo Label Printer, 1.3: ""
-*zh.Translation PageSize/Media Size: ""
+*zh.Translation PageSize/Page Size: ""
 *zh.PageSize w81h252/Address - 1 1/8x3 1/2in: ""
 *zh.PageSize w101h252/Large Address - 1 4/10x3 1/2in: ""
 *zh.PageSize w54h144/Return Address - 3/4x2in: ""
@@ -446,7 +423,7 @@
 *zh_TW.Translation ModelName/Dymo Label Printer: ""
 *zh_TW.Translation ShortNickName/Dymo Label Printer: ""
 *zh_TW.Translation NickName/Dymo Label Printer, 1.3: ""
-*zh_TW.Translation PageSize/Media Size: ""
+*zh_TW.Translation PageSize/Page Size: ""
 *zh_TW.PageSize w81h252/Address - 1 1/8x3 1/2in: ""
 *zh_TW.PageSize w101h252/Large Address - 1 4/10x3 1/2in: ""
 *zh_TW.PageSize w54h144/Return Address - 3/4x2in: ""
@@ -501,4 +478,4 @@
 *Font Times-Roman: Standard "(1.05)" Standard ROM
 *Font ZapfChancery-MediumItalic: Standard "(1.05)" Standard ROM
 *Font ZapfDingbats: Special "(001.005)" Special ROM
-*% End of DYMO.PPD, 24761 bytes.
+*% End of DYMO.PPD, 23640 bytes.

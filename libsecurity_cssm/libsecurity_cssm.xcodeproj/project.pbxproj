@@ -272,7 +272,7 @@
 			productName = security_cssm;
 			productReference = 4C5635090540A52200DCF0C8 /* security_cssm.framework */;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
 <dict/>
 </plist>
@@ -476,7 +476,6 @@
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				4CA1FEBD052A3C8100F22E42 /* libsecurity_cssm */,
 				4C5635080540A52200DCF0C8 /* security_cssm */,
@@ -592,7 +591,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 31536;
+				CURRENT_PROJECT_VERSION = 32993;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -640,7 +639,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 31536;
+				CURRENT_PROJECT_VERSION = 32993;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
@@ -685,7 +684,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 31536;
+				CURRENT_PROJECT_VERSION = 32993;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)",

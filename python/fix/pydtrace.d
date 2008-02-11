@@ -2,8 +2,8 @@
 /* Python dtrace provider */
 
 provider python {
-    probe entry(char *, char *, int, int);
-    probe exit(char *, char *, char *);
+    probe function__entry(char *, char *, int, int);
+    probe function__return(char *, char *, char *);
 };
 
 /*
@@ -17,7 +17,7 @@ Entry
 	3. int    (line number, f->f_lineno)
 	4. int	  (argument count, f->f_code->co_argcount)
 
-Exit
+Return
 	1. char * (file name, f->f_code->co_filename->ob_sval)
 	2. char * (function name, f->f_code->co_name->ob_sval)
 	3. char * (object type char * , object->ob_type->tp_name)

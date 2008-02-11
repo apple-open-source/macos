@@ -125,9 +125,11 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/handy.h < fix/handy.h.ed && \
 	ed - $(PROJECT)/hints/darwin.sh < fix/darwin.sh.ed && \
 	ed - $(PROJECT)/lib/Pod/Perldoc.pm < fix/lib_Pod_Perldoc.pm.ed && \
+	ed - $(PROJECT)/patchlevel.h < fix/patchlevel.h.ed && \
 	ed - $(PROJECT)/perl.c < fix/perl.c.ed && \
 	ed - $(PROJECT)/util.c < fix/util.c.ed
 	dtrace -h -s $(FIX)/pldtrace.d -o '$(PLDTRACE_H)'
+	cd '$(OBJROOT)/$(PROJECT)' && patch -p0 -i $(FIX)/CVE-2007-5116-regcomp.diff
 
 PROG64 = a2p perl perl5.8.8
 fixup64:

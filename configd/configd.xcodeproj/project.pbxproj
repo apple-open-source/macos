@@ -16,6 +16,7 @@
 				1558480607550D470046C2E9 /* PBXTargetDependency */,
 				1558480807550D470046C2E9 /* PBXTargetDependency */,
 				1558480A07550D470046C2E9 /* PBXTargetDependency */,
+				150ECB3C0D0079280065E94D /* PBXTargetDependency */,
 			);
 			name = configd_executables;
 			productName = configd_executables;
@@ -319,6 +320,11 @@
 		15DAF2DC08466D4900D1B2BD /* SCHelper_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 15DAF2D808466D4900D1B2BD /* SCHelper_client.c */; };
 		15DAF2DF08466D4900D1B2BD /* helper_comm.h in Headers */ = {isa = PBXBuildFile; fileRef = 15DAF2D708466D4900D1B2BD /* helper_comm.h */; };
 		15DAF2E108466D4900D1B2BD /* SCHelper_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 15DAF2D908466D4900D1B2BD /* SCHelper_server.c */; };
+		15E517680CCFBCD0008FFE82 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15DAD6C807591A1A0084A6ED /* SystemConfiguration.framework */; };
+		15FC130B0CCEA59E0013872C /* monitor.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FC130A0CCEA59E0013872C /* monitor.c */; };
+		15FC13180CCF74740013872C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
+		15FEE80E0CCFD341001312F9 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FEE80D0CCFD341001312F9 /* ApplicationServices.framework */; };
+		15FEE81F0CD03E75001312F9 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 15FEE8180CD03CBB001312F9 /* Localizable.strings */; };
 		F95B8A430B03E07A00993BA3 /* SCNetworkSignature.c in Sources */ = {isa = PBXBuildFile; fileRef = F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */; };
 		F95B8A460B03E09300993BA3 /* SCNetworkSignature.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F95B8A470B03E09300993BA3 /* SCNetworkSignaturePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -326,6 +332,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		150ECB3B0D0079280065E94D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 151F5D990CCE98E50093AC3B /* SCMonitor */;
+			remoteInfo = SCMonitor;
+		};
 		1520A385084681350010B584 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
@@ -538,6 +551,7 @@
 		1514D76D05C08A5F00757DC9 /* config_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = config_types.h; path = SystemConfiguration.fproj/config_types.h; sourceTree = SOURCE_ROOT; };
 		151BDA2B05D9E28B00657BC7 /* SCPreferencesPathKey.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SCPreferencesPathKey.h; path = SystemConfiguration.fproj/SCPreferencesPathKey.h; sourceTree = SOURCE_ROOT; };
 		151BDA5D05D9E2ED00657BC7 /* SCPreferencesPathKey.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SCPreferencesPathKey.c; path = SystemConfiguration.fproj/SCPreferencesPathKey.c; sourceTree = SOURCE_ROOT; };
+		151F5D9A0CCE98E50093AC3B /* SCMonitor.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SCMonitor.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		151F63EC09328A3C0096DCC9 /* genSCPreferences */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = genSCPreferences; sourceTree = BUILT_PRODUCTS_DIR; };
 		1520A3DE0846B2DC0010B584 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		1521FC5C060F296A003B28F5 /* dnsinfo_create.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dnsinfo_create.c; path = dnsinfo/dnsinfo_create.c; sourceTree = SOURCE_ROOT; };
@@ -768,6 +782,8 @@
 		15DC346C0711D49400A3311C /* net_service.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = net_service.h; sourceTree = "<group>"; };
 		15DC346D0711D49400A3311C /* net_set.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = net_set.c; sourceTree = "<group>"; };
 		15DC346E0711D49400A3311C /* net_set.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = net_set.h; sourceTree = "<group>"; };
+		15FC12F20CCEA4F00013872C /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = SCMonitor/Info.plist; sourceTree = "<group>"; };
+		15FC130A0CCEA59E0013872C /* monitor.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = monitor.c; path = SCMonitor/monitor.c; sourceTree = "<group>"; };
 		15FCAACF05FD0EBF00CB79E6 /* shared_dns_info_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = shared_dns_info_types.h; path = dnsinfo/shared_dns_info_types.h; sourceTree = SOURCE_ROOT; };
 		15FCAAD005FD0EBF00CB79E6 /* shared_dns_info.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; name = shared_dns_info.defs; path = dnsinfo/shared_dns_info.defs; sourceTree = "<group>"; };
 		15FD71090754D628001CC321 /* Kicker.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Kicker.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -780,6 +796,8 @@
 		15FD73970754DE49001CC321 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
 		15FD73EE0754DE62001CC321 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
 		15FD743E0754DE7A001CC321 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		15FEE80D0CCFD341001312F9 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
+		15FEE8160CD03CA3001312F9 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = SCMonitor/English.lproj/Localizable.strings; sourceTree = "<group>"; };
 		23C1E2B4062DD2C700835B54 /* pppcontroller_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppcontroller_types.h; path = /usr/local/include/ppp/pppcontroller_types.h; sourceTree = "<absolute>"; };
 		23C1E2B8062DD45900835B54 /* pppcontroller.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; name = pppcontroller.defs; path = SystemConfiguration.fproj/pppcontroller.defs; sourceTree = "<group>"; };
 		23C1E2BE062DD5DB00835B54 /* pppcontroller.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppcontroller.h; path = configd.build/SystemConfiguration.framework.build/DerivedSources/pppcontroller.h; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -796,6 +814,16 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		151F5D980CCE98E50093AC3B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15FC13180CCF74740013872C /* CoreFoundation.framework in Frameworks */,
+				15E517680CCFBCD0008FFE82 /* SystemConfiguration.framework in Frameworks */,
+				15FEE80E0CCFD341001312F9 /* ApplicationServices.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1547001B08455B98006787CE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -926,6 +954,16 @@
 				15CB690505C0722A0099E85F /* preferences.xml */,
 			);
 			name = "Initial Preferences";
+			sourceTree = "<group>";
+		};
+		151F5DA80CCE995D0093AC3B /* SCMonitor */ = {
+			isa = PBXGroup;
+			children = (
+				15FC130A0CCEA59E0013872C /* monitor.c */,
+				15FC12F20CCEA4F00013872C /* Info.plist */,
+				15FEE8180CD03CBB001312F9 /* Localizable.strings */,
+			);
+			name = SCMonitor;
 			sourceTree = "<group>";
 		};
 		1547002E084561B4006787CE /* SCHelper */ = {
@@ -1156,6 +1194,7 @@
 				1582B36B05FD1A4D009C2750 /* DNSConfiguration */,
 				15CB690705C0722A0099E85F /* SystemConfiguration */,
 				1547002E084561B4006787CE /* SCHelper */,
+				151F5DA80CCE995D0093AC3B /* SCMonitor */,
 				15CB69C205C0722B0099E85F /* configd */,
 				15CB6A2205C0722B0099E85F /* scselect */,
 				15CB6A3705C0722B0099E85F /* scutil */,
@@ -1184,6 +1223,7 @@
 				15DAD6C807591A1A0084A6ED /* SystemConfiguration.framework */,
 				15DAD5EE075913CE0084A6ED /* libdnsinfo.a */,
 				1547001D08455B98006787CE /* SCHelper */,
+				151F5D9A0CCE98E50093AC3B /* SCMonitor.plugin */,
 				158ADCA60754ECC800124717 /* configd, scutil, scselect */,
 				158ADBFD0754ECB100124717 /* Plugins */,
 				151F63EC09328A3C0096DCC9 /* genSCPreferences */,
@@ -1464,6 +1504,7 @@
 			isa = PBXGroup;
 			children = (
 				158AD9F80754EA2F00124717 /* AppleTalk.framework */,
+				15FEE80D0CCFD341001312F9 /* ApplicationServices.framework */,
 				15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */,
 				1543636A0752D03C00A8EC6C /* IOKit.framework */,
 				1520A3DE0846B2DC0010B584 /* Security.framework */,
@@ -1690,6 +1731,23 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		151F5D990CCE98E50093AC3B /* SCMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 151F5D9F0CCE98E60093AC3B /* Build configuration list for PBXNativeTarget "SCMonitor" */;
+			buildPhases = (
+				151F5D960CCE98E50093AC3B /* Resources */,
+				151F5D970CCE98E50093AC3B /* Sources */,
+				151F5D980CCE98E50093AC3B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SCMonitor;
+			productName = SCMonitor;
+			productReference = 151F5D9A0CCE98E50093AC3B /* SCMonitor.plugin */;
+			productType = "com.apple.product-type.bundle";
+		};
 		151F63DA09328A3C0096DCC9 /* Schema */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 151F63DC09328A3C0096DCC9 /* Build configuration list for PBXNativeTarget "Schema" */;
@@ -2112,6 +2170,7 @@
 				151F63DA09328A3C0096DCC9 /* Schema */,
 				15DAD63F07591A1A0084A6ED /* SystemConfiguration.framework */,
 				1547001808455B98006787CE /* SCHelper */,
+				151F5D990CCE98E50093AC3B /* SCMonitor */,
 				159D549F07529FFF004F8947 /* configd */,
 				1558481207550EC10046C2E9 /* scselect */,
 				155847430754FDCD0046C2E9 /* scutil */,
@@ -2136,6 +2195,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		151F5D960CCE98E50093AC3B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15FEE81F0CD03E75001312F9 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		15828AE30753B5F900AD4710 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2319,6 +2386,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		151F5D970CCE98E50093AC3B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15FC130B0CCEA59E0013872C /* monitor.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1547001A08455B98006787CE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2555,6 +2630,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		150ECB3C0D0079280065E94D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 151F5D990CCE98E50093AC3B /* SCMonitor */;
+			targetProxy = 150ECB3B0D0079280065E94D /* PBXContainerItemProxy */;
+		};
 		1520A386084681350010B584 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 1547001808455B98006787CE /* SCHelper */;
@@ -2689,9 +2769,68 @@
 			name = Localizable.strings;
 			sourceTree = "<group>";
 		};
+		15FEE8180CD03CBB001312F9 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				15FEE8160CD03CA3001312F9 /* English */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		151F5D9C0CCE98E60093AC3B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "$(SRCROOT)/SCMonitor/Info.plist";
+				INSTALL_MODE_FLAG = "a-w,a+rX";
+				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PRODUCT_NAME = SCMonitor;
+				WRAPPER_EXTENSION = plugin;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		151F5D9D0CCE98E60093AC3B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = "$(SRCROOT)/SCMonitor/Info.plist";
+				INSTALL_MODE_FLAG = "a-w,a+rX";
+				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PRODUCT_NAME = SCMonitor;
+				WRAPPER_EXTENSION = plugin;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		151F5D9E0CCE98E60093AC3B /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = "$(SRCROOT)/SCMonitor/Info.plist";
+				INSTALL_MODE_FLAG = "a-w,a+rX";
+				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PRODUCT_NAME = SCMonitor;
+				VALID_ARCHS = "i386 ppc";
+				WRAPPER_EXTENSION = plugin;
+				ZERO_LINK = YES;
+			};
+			name = Default;
+		};
 		151F63DD09328A3C0096DCC9 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2749,7 +2888,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 204;
+				DYLIB_CURRENT_VERSION = 210;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_MODE_FLAG = "a-w,a+rX";
@@ -2770,7 +2909,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 204;
+				DYLIB_CURRENT_VERSION = 210;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_MODE_FLAG = "a-w,a+rX";
@@ -2790,7 +2929,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 204;
+				DYLIB_CURRENT_VERSION = 210;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH = /usr/local/lib;
@@ -2810,7 +2949,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 204;
+				DYLIB_CURRENT_VERSION = 210;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INFOPLIST_FILE = SystemConfiguration.fproj/Info.plist;
@@ -2842,7 +2981,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 204;
+				DYLIB_CURRENT_VERSION = 210;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INFOPLIST_FILE = SystemConfiguration.fproj/Info.plist;
@@ -2873,7 +3012,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 204;
+				DYLIB_CURRENT_VERSION = 210;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INFOPLIST_FILE = SystemConfiguration.fproj/Info.plist;
@@ -3879,7 +4018,7 @@
 		156EB63F0905594A00EEF749 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 204;
+				CURRENT_PROJECT_VERSION = 210;
 				DEAD_CODE_STRIPPING = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "u+s,ugo-w,o+rX";
@@ -3900,7 +4039,7 @@
 		156EB6400905594A00EEF749 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 204;
+				CURRENT_PROJECT_VERSION = 210;
 				DEAD_CODE_STRIPPING = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "u+s,ugo-w,o+rX";
@@ -3921,7 +4060,7 @@
 		156EB6410905594A00EEF749 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 204;
+				CURRENT_PROJECT_VERSION = 210;
 				DEAD_CODE_STRIPPING = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "u+s,ugo-w,o+rX";
@@ -4022,6 +4161,16 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		151F5D9F0CCE98E60093AC3B /* Build configuration list for PBXNativeTarget "SCMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				151F5D9C0CCE98E60093AC3B /* Development */,
+				151F5D9D0CCE98E60093AC3B /* Deployment */,
+				151F5D9E0CCE98E60093AC3B /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
 		151F63DC09328A3C0096DCC9 /* Build configuration list for PBXNativeTarget "Schema" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

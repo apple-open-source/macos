@@ -660,3 +660,6 @@ _fmin$fenv_access_off
 _log2$fenv_access_off
 _modff$fenv_access_off
 _remquo$fenv_access_off
+
+___Libm_version
+

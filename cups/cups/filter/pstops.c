@@ -889,7 +889,8 @@ copy_dsc(cups_file_t  *fp,		/* I - File to read from */
   * Finish up the last page(s)...
   */
 
-  if (number && is_not_last_page(number) && cupsArrayLast(doc->pages))
+  if (number && is_not_last_page(number) && cupsArrayLast(doc->pages) &&
+      check_range(doc, (number - 1) / doc->number_up + 1))
   {
     pageinfo = (pstops_page_t *)cupsArrayLast(doc->pages);
 
@@ -947,7 +948,12 @@ copy_dsc(cups_file_t  *fp,		/* I - File to read from */
     * Make the copies...
     */
 
-    for (copy = !doc->slow_order; copy < doc->copies; copy ++)
+    if (doc->slow_collate)
+      copy = !doc->slow_order;
+    else
+      copy = doc->copies - 1;
+
+    for (; copy < doc->copies; copy ++)
     {
       if (JobCanceled)
 	break;
@@ -1011,7 +1017,8 @@ copy_dsc(cups_file_t  *fp,		/* I - File to read from */
         number ++;
 
 	if (!ppd || !ppd->num_filters)
-	  fprintf(stderr, "PAGE: %d 1\n", number);
+	  fprintf(stderr, "PAGE: %d %d\n", number,
+	          doc->slow_collate ? 1 : doc->copies);
 
 	if (doc->number_up > 1)
 	{
@@ -2779,8 +2786,11 @@ start_nup(pstops_doc_t *doc,		/* I - Document information */
 		tx, ty;			/* Translation values for subpage */
   float		pagew,			/* Printable width of page */
 		pagel;			/* Printable height of page */
-  int		bboxw,			/* BoundingBox width */
+  int		bboxx,			/* BoundingBox X origin */
+		bboxy,			/* BoundingBox Y origin */
+		bboxw,			/* BoundingBox width */
 		bboxl;			/* BoundingBox height */
+  float		margin = 0;		/* Current margin for border */
 
 
   if (doc->number_up > 1)
@@ -2795,17 +2805,22 @@ start_nup(pstops_doc_t *doc,		/* I - Document information */
 
   if (doc->fitplot)
   {
+    bboxx = bounding_box[0];
+    bboxy = bounding_box[1];
     bboxw = bounding_box[2] - bounding_box[0];
     bboxl = bounding_box[3] - bounding_box[1];
   }
   else
   {
+    bboxx = 0;
+    bboxy = 0;
     bboxw = PageWidth;
     bboxl = PageLength;
   }
 
   fprintf(stderr, "DEBUG: pagew = %.1f, pagel = %.1f\n", pagew, pagel);
-  fprintf(stderr, "DEBUG: bboxw = %d, bboxl = %d\n", bboxw, bboxl);
+  fprintf(stderr, "DEBUG: bboxx = %d, bboxy = %d, bboxw = %d, bboxl = %d\n",
+          bboxx, bboxy, bboxw, bboxl);
   fprintf(stderr, "DEBUG: PageLeft = %.1f, PageRight = %.1f\n",
           PageLeft, PageRight);
   fprintf(stderr, "DEBUG: PageTop = %.1f, PageBottom = %.1f\n",
@@ -3123,8 +3138,7 @@ start_nup(pstops_doc_t *doc,		/* I - Document information */
   if (doc->page_border && show_border)
   {
     int		rects;			/* Number of border rectangles */
-    float	fscale,			/* Scaling value for points */
-		margin;			/* Current margin for borders */
+    float	fscale;			/* Scaling value for points */
 
 
     rects  = (doc->page_border & PSTOPS_BORDERDOUBLE) ? 2 : 1;
@@ -3147,10 +3161,10 @@ start_nup(pstops_doc_t *doc,		/* I - Document information */
     for (; rects > 0; rects --, margin += 2 * fscale)
       if (doc->number_up > 1)
 	doc_printf(doc, "%.1f %.1f %.1f %.1f ESPrs\n",
-		   margin - 2.25 * fscale,
-		   margin - 2.25 * fscale,
-		   bboxw + 4.5 * fscale - 2 * margin,
-		   bboxl + 4.5 * fscale - 2 * margin);
+		   margin,
+		   margin,
+		   bboxw - 2 * margin,
+		   bboxl - 2 * margin);
       else
 	doc_printf(doc, "%.1f %.1f %.1f %.1f ESPrs\n",
         	   PageLeft + margin,
@@ -3168,21 +3182,22 @@ start_nup(pstops_doc_t *doc,		/* I - Document information */
   if (doc->fitplot)
   {
    /*
-    * Clip the page that follows to the bounding box of the page...
+    * Offset the page by its bounding box...
     */
 
     doc_printf(doc, "%d %d translate\n", -bounding_box[0],
                -bounding_box[1]);
-    doc_printf(doc, "%d %d %d %d ESPrc\n", bounding_box[0], bounding_box[1],
-               bboxw, bboxl);
   }
-  else if (doc->number_up > 1)
+
+  if (doc->fitplot || doc->number_up > 1)
   {
    /*
-    * Clip the page that follows to the default page size...
+    * Clip the page to the page's bounding box...
     */
 
-    doc_printf(doc, "0 0 %d %d ESPrc\n", bboxw, bboxl);
+    doc_printf(doc, "%.1f %.1f %.1f %.1f ESPrc\n",
+               bboxx + margin, bboxy + margin,
+               bboxw - 2 * margin, bboxl - 2 * margin);
   }
 }
 

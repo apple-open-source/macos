@@ -58,8 +58,10 @@ public:
 	string path() const { return mPath; }
 	string dir() const { return mDir; }
 	string file() const { return mFile; }
+	string lockFileName() { return mLockFilePath; }
 
 	mode_t mode() const;
+	bool isOnLocalFileSystem() {return mIsLocalFileSystem;}
 
     enum OffsetType
 	{
@@ -73,9 +75,11 @@ public:
 	static int rclose(int fd);
 
 private:
+	bool mIsLocalFileSystem;
 	string mPath;
 	string mDir;
 	string mFile;
+	string mLockFilePath;
 };
 
 
@@ -171,6 +175,57 @@ private:
 };
 
 
+class FileLocker
+{
+public:
+	virtual ~FileLocker();
+	
+	virtual void lock(mode_t mode) = 0;
+	virtual void unlock() = 0;
+};
+
+
+
+class LocalFileLocker : public FileLocker
+{
+public:
+	LocalFileLocker(AtomicFile &inFile);
+	virtual ~LocalFileLocker();
+	
+	virtual void lock(mode_t mode);
+	virtual void unlock();
+
+private:
+	int mLockFile;
+	string mPath;
+};
+
+
+
+class NetworkFileLocker : public FileLocker
+{
+public:
+	NetworkFileLocker(AtomicFile &inFile);
+	virtual ~NetworkFileLocker();
+	
+	virtual void lock(mode_t mode);
+	virtual void unlock();
+
+private:
+	std::string unique(mode_t mode);
+	int rlink(const char *const old, const char *const newn, struct stat &sto);
+	int myrename(const char *const old, const char *const newn);
+	int xcreat(const char *const name, mode_t mode, time_t &tim);
+
+	// The directory in which we create the lock
+	string mDir;
+
+	// Complete path to the file
+	string mPath;
+};
+
+
+
 // The current lock being held.
 class AtomicLockedFile : public RefCount
 {
@@ -185,16 +240,7 @@ private:
 	void unlock() throw();
 
 private:
-	std::string unique(mode_t mode);
-	int rlink(const char *const old, const char *const newn, struct stat &sto);
-	int myrename(const char *const old, const char *const newn);
-	int xcreat(const char *const name, mode_t mode, time_t &tim);
-
-	// The directory in which we create the lock
-	string mDir;
-
-	// Complete path to the file
-	string mPath;
+	FileLocker* mFileLocker;
 };
 
 

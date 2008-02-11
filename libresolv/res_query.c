@@ -546,14 +546,17 @@ again:
 		return (n);
 	}
 
-	if (hp->rcode != ns_r_noerror || ntohs(hp->ancount) == 0)
+	if ((hp->rcode == ns_r_nxdomain) || ((hp->rcode == ns_r_noerror) && (ntohs(hp->ancount) == 0)))
 	{
 		if (min != NULL)
 		{
 			*min = res_soa_minimum(answer, anslen);
-			if (statp->options & RES_DEBUG) printf(";; res_nquery: SOA minimum = %d\n", *min);
+			if (statp->options & RES_DEBUG) printf(";; res_nquery: SOA minimum TTL = %d\n", *min);
 		}
+	}
 
+	if (hp->rcode != ns_r_noerror || ntohs(hp->ancount) == 0)
+	{
 #ifdef DEBUG
 		if (statp->options & RES_DEBUG) printf(";; rcode = %d, ancount=%d\n", hp->rcode, ntohs(hp->ancount));
 #endif

@@ -960,6 +960,8 @@ static int smbfs_unix_whoami(struct smb_share *ssp, struct smb_cred *scrp)
 	int error;
 	int ii;
 	u_int64_t other_gid;
+	u_int32_t reserved;
+	
 
 	
 	error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_QUERY_FS_INFORMATION, scrp, &t2p);
@@ -972,10 +974,9 @@ static int smbfs_unix_whoami(struct smb_share *ssp, struct smb_cred *scrp)
 	t2p->t2_maxpcount = 4;
 	t2p->t2_maxdcount = SSTOVC(ssp)->vc_txmax;
 	error = smb_t2_request(t2p);
-	if (error) {
-		smb_t2_done(t2p);
-		return error;
-	}
+	if (error) 
+		goto done;
+	
 	mdp = &t2p->t2_rdata;
 	/* Currently only tells us if we logged in as guest, we should already know this by now */
 	md_get_uint32le(mdp,  NULL); 	/* Mapping flags, currently only used for guest */
@@ -985,18 +986,29 @@ static int smbfs_unix_whoami(struct smb_share *ssp, struct smb_cred *scrp)
 	md_get_uint32le(mdp,  &smp->ntwrk_cnt_gid); /* number of supplementary GIDs */
 	md_get_uint32le(mdp,  NULL); /* number of SIDs */
 	md_get_uint32le(mdp,  NULL); /* SID list byte count */
-	md_get_uint32le(mdp,  NULL); /* Reserved (should be zero) */
+	error = md_get_uint32le(mdp,  &reserved); /* Reserved (should be zero) */
+	/* If we can't get the reserved field then the buffer is not big enough */
+	if (error || (reserved != 0)) {
+		if (! error)
+			error = EBADRPC;			
+		goto done;
+	}
 	SMBDEBUG("uid = %llx gid = %llx cnt  = %d\n", smp->ntwrk_uid, smp->ntwrk_gid, smp->ntwrk_cnt_gid);
 	MALLOC(smp->ntwrk_gids, u_int64_t *, sizeof(u_int64_t) * smp->ntwrk_cnt_gid, M_TEMP, M_WAITOK);
 
 	for (ii = 0; ii < smp->ntwrk_cnt_gid; ii++) {
-		md_get_uint64le(mdp,  &other_gid);
+		error = md_get_uint64le(mdp,  &other_gid);
+		if (error)
+			goto done;			
 		smp->ntwrk_gids[ii] = other_gid;
 		SMBDEBUG("other_gid[%d] = %llx\n", ii, smp->ntwrk_gids[ii]);
 	}
 	
+done:	
 	smb_t2_done(t2p);
-	return 0;
+	if (error == EBADRPC)
+		SMBERROR("Parsing error reading the message\n");		
+	return error;
 }
 
 /*

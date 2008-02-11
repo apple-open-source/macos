@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: spprintf.c,v 1.25.2.2.2.10 2007/08/03 14:31:28 tony2001 Exp $ */
+/* $Id: spprintf.c,v 1.25.2.2.2.11 2007/10/01 15:23:15 iliaa Exp $ */
 
 /* This is the spprintf implementation.
  * It has emerged from apache snprintf. See original header:
@@ -600,6 +600,7 @@ static void xbuf_format_converter(smart_str *xbuf, const char *fmt, va_list ap) 
 
 
 				case 'g':
+				case 'k':
 				case 'G':
 				case 'H':
 					switch(modifier) {
@@ -640,7 +641,7 @@ static void xbuf_format_converter(smart_str *xbuf, const char *fmt, va_list ap) 
 						lconv = localeconv();
 					}
 #endif
-					s = php_gcvt(fp_num, precision, *fmt=='H' ? '.' : LCONV_DECIMAL_POINT, (*fmt == 'G' || *fmt == 'H')?'E':'e', &num_buf[1]);
+					s = php_gcvt(fp_num, precision, (*fmt=='H' || *fmt == 'k') ? '.' : LCONV_DECIMAL_POINT, (*fmt == 'G' || *fmt == 'H')?'E':'e', &num_buf[1]);
 					if (*s == '-')
 						prefix_char = *s++;
 					else if (print_sign)

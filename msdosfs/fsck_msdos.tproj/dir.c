@@ -313,7 +313,7 @@ markDosDirChain(struct bootblock *boot, struct dosDirEntry *dir)
 	}
 	
 	dir->end = cluster;
-	dir->physicalSize = count * boot->ClusterSize;
+	dir->physicalSize = (u_int64_t)count * boot->ClusterSize;
 	if (cluster == CLUST_ERROR)
 		return FSFATAL;
 
@@ -532,7 +532,7 @@ checksize(boot, p, dir)
 	 * Check size on ordinary files
 	 */
 	if (dir->physicalSize < dir->size) {
-		pwarn("size of %s is %u, should at most be %u\n",
+		pwarn("size of %s is %u, should at most be %llu\n",
 		      fullpath(dir), dir->size, dir->physicalSize);
 		if (ask(1, "Truncate")) {
 			dir->size = dir->physicalSize;
@@ -544,12 +544,12 @@ checksize(boot, p, dir)
 		} else
 			return FSERROR;
 	} else if (dir->physicalSize - dir->size >= boot->ClusterSize) {
-		pwarn("%s has too many clusters allocated (logical=%u, physical=%u)\n",
+		pwarn("%s has too many clusters allocated (logical=%u, physical=%llu)\n",
 		      fullpath(dir), dir->size, dir->physicalSize);
 		if (ask(1, "Drop superfluous clusters")) {
 			int mod = 0;
 			cl_t cl, next;
-			u_int32_t sz = 0;
+			u_int64_t sz = 0;
 
 			if (dir->size == 0)
 			{

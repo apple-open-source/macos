@@ -561,7 +561,7 @@ AppleUSBHub::willTerminate( IOService * provider, IOOptionBits options )
         for (portIndex = 0; portIndex < _hubDescriptor.numPorts; portIndex++)
         {
 			portNum = portIndex + 1;
-            port = _ports[portIndex];
+ 			port = _ports ? _ports[portIndex] : NULL;
             if (port)
             {
                 if (port->_devZero)
@@ -1453,7 +1453,7 @@ AppleUSBHub::HubAreAllPortsDisconnectedOrSuspended()
 			returnValue = false;
 			break;
 		}
-        port = _ports[portIndex];
+		port = _ports ? _ports[portIndex] : NULL;
 		if (!port)
 		{
 			USBLog(3, "AppleUSBHub[%p]::HubAreAllPortsDisconnectedOrSuspended - no port at index (%d) - returning false", this, (int)portIndex);
@@ -1560,7 +1560,7 @@ AppleUSBHub::StartPorts(void)
     {
 		portNum = portIndex+1;
 		
-        port = _ports[portIndex];
+ 		port = _ports ? _ports[portIndex] : NULL;
 		if (port)
 		{
 			port->retain();
@@ -2203,13 +2203,14 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
 		}	
 		if ( err != kIOReturnSuccess )
 		{
+			USBLog(3,"AppleUSBHub[%p]::DoPortAction - err(%p) calling LowerPowerState", this, (void*)err);
 			LowerPowerState();
 		}
 	}
 
     if ((_ports == NULL ) && (err == kIOReturnSuccess))
 	{
-		USBLog(1,"AppleUSBHub[%p]::DoPortAction  _ports is NULL! - returning kIOReturnNoDevice", this);
+		USBLog(1,"AppleUSBHub[%p]::DoPortAction  _ports is NULL! - calling LowerPowerState and returning kIOReturnNoDevice", this);
 		LowerPowerState();								// we raised this above because there had been no error
 		err = kIOReturnNoDevice;
 	}
@@ -2353,11 +2354,13 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
 
 	// since a port action could have caused all the ports to now be suspended, spawn a thread to see
 	// we do this because the outstanding io might be 1, because we have an outstanding read which will 
-	// not complete in this case
-	if (!isInactive() && !_hubIsDead && !_checkPortsThreadActive)
+	// not complete in this case - JRH - 20071207 - only do this if we processed a suspend port
+	if (!isInactive() && !_hubIsDead && !_checkPortsThreadActive && (type == kIOUSBMessageHubSuspendPort))
 	{
+		_abandonCheckPorts = false;
 		_checkPortsThreadActive = true;
 		retain();											// in case we get terminated while the thread is still waiting to be scheduled
+		USBLog(5,"AppleUSBHub[%p]::DoPortAction - spawning _checkForActivePortsThread", this);
 		thread_call_enter(_checkForActivePortsThread);
 	}
 
@@ -2689,14 +2692,26 @@ AppleUSBHub::ProcessStatusChanged()
 					portNum = portIndex + 1;
                     if ((statusChangedBitmapPtr[portByte] & portMask) != 0)
                     {
-                        port = _ports[portIndex];
+						port = _ports ? _ports[portIndex] : NULL;
 						if ( port )
 						{
+							SInt32			retries = 200;
+
 							USBLog(5,"AppleUSBHub[%p]::ProcessStatusChanged port number %d, calling IncrementOutstandingIO and port->StatusChanged", this, portNum);
 							// note that the StatusChanged call below will happen on another thread
 							// which means that we will end up Rearming the interrupt read before it is actually done
 							IncrementOutstandingIO();					// once for each port which changes
-							RaisePowerState();							// same for this...
+							RaisePowerState();							// same for this...							
+							// if we are not in the On state, or we are in the process of swithing to LowPower, the we need to get to the On state..
+							while (((_myPowerState < kIOUSBHubPowerStateOn) || (_powerStateChangingTo == kIOUSBHubPowerStateLowPower)) && retries--)
+							{
+								USBLog(5,"AppleUSBHub[%p]::ProcessStatusChanged - waiting for power state to go up (onThread is %s)", this, _workLoop->onThread() ? "true" : "false");
+								IOSleep(10);
+							}
+							if (retries <= 0)
+							{
+								USBLog(3,"AppleUSBHub[%p]::ProcessStatusChanged - waited 2 seconds - _myPowerState(%d) _powerStateChangingTo(%d)", this, (int)_myPowerState, (int)_powerStateChangingTo);
+							}
 							portSuccess = port->StatusChanged();
 							if (! portSuccess )
 							{
@@ -2805,7 +2820,7 @@ AppleUSBHub::DoDeviceRequest(IOUSBDevRequest *request)
 {
     IOReturn err;
     
-	USBLog(5, "AppleUSBHub[%p]::DoDeviceRequest - _device[%p] _powerStateChangingTo[%d] _portSuspended[%s]", this, _device, (int)_powerStateChangingTo, _portSuspended ? "true" : "false");
+	USBLog(5, "AppleUSBHub[%p]::DoDeviceRequest - _device[%p](%s) _myPowerState[%d] _powerStateChangingTo[%d] _portSuspended[%s]", this, _device, _device->getName(), (int)_myPowerState, (int)_powerStateChangingTo, _portSuspended ? "true" : "false");
     // Paranoia:  if we don't have a device ('cause it was stop'ped), then don't send
     // the request.
     //
@@ -3108,10 +3123,15 @@ AppleUSBHub::CheckForActivePorts( )
 	// If this hub doesn't allow low power mode, then just return
 	if ( _dontAllowLowPower )
 		return;
-	
+
 	USBLog(7, "AppleUSBHub[%p]::CheckForActivePorts - checking for disconnected ports", this);
 	if (HubAreAllPortsDisconnectedOrSuspended())
 	{
+		if (_abandonCheckPorts)
+		{
+			USBLog(4, "AppleUSBHub[%p]::CheckForActivePorts - abandoning ship!!", this);
+			return;
+		}
 		USBLog(4, "AppleUSBHub[%p]::CheckForActivePorts - lowering power state", this);
 		_dozeEnabled = true;
 		changePowerStateToPriv(kIOUSBHubPowerStateLowPower);
@@ -3173,7 +3193,7 @@ AppleUSBHub::WaitForPortResumes( )
 			for (portIndex = 0; portIndex < _hubDescriptor.numPorts; portIndex++)
 			{
 				portNum = portIndex+1;
-				port = _ports[portIndex];
+				port = _ports ? _ports[portIndex] : NULL;
 				if (port)
 				{
 					if (port->_portPMState == usbHPPMS_pm_suspended)
@@ -3255,6 +3275,15 @@ AppleUSBHub::WaitForPortResumes( )
 								{
 									needToWait = true;					// to send us back up
 								}
+							}
+							else if (port->_resumePending)
+							{
+								USBLog(3, "AppleUSBHub[%p]::WaitForPortResumes - port number %d still has a pending resume in OUTER loop - going around again", this, portNum);
+								needToWait = true;
+							}
+							else
+							{
+								USBLog(1, "AppleUSBHub[%p]::WaitForPortResumes - not sure what is going on with port number %d in OUTER loop - terminating", this, portNum);
 							}
 						}
 					}
@@ -3434,8 +3463,10 @@ AppleUSBHub::DecrementOutstandingIO(void)
 				}
 				if (!_checkPortsThreadActive)
 				{
+					_abandonCheckPorts = false;
 					_checkPortsThreadActive = true;
 					retain();
+					USBLog(5,"AppleUSBHub[%p]::DecrementOutstandingIO(%d) - spawning _checkForActivePortsThread", this, localSerial);
 					thread_call_enter(_checkForActivePortsThread);
 				}
 			}
@@ -3705,7 +3736,7 @@ AppleUSBHub::EnterTestMode()
 		USBLog(1, "AppleUSBHub[%p]::EnterTestMode - external hub - suspending ports", this);    
         for (currentPort = 0; currentPort < _hubDescriptor.numPorts; currentPort++)
         {
-            port = _ports[currentPort];
+			port = _ports ? _ports[currentPort] : NULL;
             if (port)
             {
 				port->SuspendPort(true, false);
@@ -3883,6 +3914,10 @@ AppleUSBHub::SetPortPower(UInt16 port, UInt32 on)
 
 
 
+//================================================================================================
+//   HubMessageToString
+//================================================================================================
+
 const char *	
 AppleUSBHub::HubMessageToString(UInt32 message)
 {
@@ -3919,4 +3954,31 @@ AppleUSBHub::HubMessageToString(UInt32 message)
 		default:
 			return "UNKNOWN";
 	}
+}
+
+
+
+//================================================================================================
+//   EnsureUsability
+//		Override the IOUSBHubPolicymaker implementation in order to make sure that we 
+//		are not in the CheckForActivePorts thread when we get to the superclass method
+//================================================================================================
+
+IOReturn		
+AppleUSBHub::EnsureUsability(void)
+{
+	UInt32			retries = 200;
+	
+	USBLog(5, "AppleUSBHub[%p]::EnsureUsability - setting _abandonCheckPorts", this);
+	_abandonCheckPorts = true;
+	// wait up to 400 ms for us to complete the CheckForActivePorts
+	while (_checkPortsThreadActive && retries--)
+	{
+		// make sure that the CheckForActivePorts thread is not running. we have already told it to abandon ship
+		// but it may or may not have noticed that before lowering the power state. at any rate, once it is no longer
+		// active, then we can raise the power state and all should be well
+		USBLog(5, "AppleUSBHub[%p]::EnsureUsability - _checkPortsThreadActive, sleeping 2ms (retries %d)", this, (int)retries);
+		IOSleep(2);
+	}
+	return super::EnsureUsability();
 }

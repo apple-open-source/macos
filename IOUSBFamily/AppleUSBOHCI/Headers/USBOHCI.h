@@ -508,4 +508,3 @@ struct OHCIIsochTransferDescriptorShared
 
 #define	kOHCIStructureAllocationPhysicalMask	0x00000000FFFFF000ULL			// for use with inTaskWithPhysicalMask (below 4GB and 4K aligned)
 
-#endif

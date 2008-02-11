@@ -1003,7 +1003,9 @@ static int process_recipient(char *addr, struct namespace *namespace,
 //	else if ( config_getswitch( IMAPOPT_VIRTUAL_USER_LOOKUP ) && strrchr(ret->all, '@') )
 //	odGetUserOpts( ret->all, gUserOpts );
     } else if ( strrchr(ret->all, '@') ) {
-	odGetUserOpts( ret->user, gUserOpts );
+	// If an @ is contained in the user ID do the user lookup based on
+	//  fully qualified email address for virutal host support
+	odGetUserOpts( ret->all, gUserOpts );
 	if ( gUserOpts->fRecNamePtr != NULL ) {
 	    if (ret->virt) free(ret->virt);
 	    ret->virt = xstrdup( gUserOpts->fRecNamePtr );

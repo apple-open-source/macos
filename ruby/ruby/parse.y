@@ -2,8 +2,8 @@
 
   parse.y -
 
-  $Author: knu $
-  $Date: 2007-03-03 16:30:46 +0900 (Sat, 03 Mar 2007) $
+  $Author: shyouhei $
+  $Date: 2007-08-22 09:40:49 +0900 (Wed, 22 Aug 2007) $
   created at: Fri May 28 18:02:42 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -2143,6 +2143,7 @@ dsym		: tSYMBEG xstring_contents tSTRING_END
 		    {
 		        lex_state = EXPR_END;
 			if (!($$ = $2)) {
+			    $$ = NEW_NIL();
 			    yyerror("empty symbol literal");
 			}
 			else {
@@ -4349,6 +4350,7 @@ yylex()
 	    else {
 		rb_compile_error("`@@%c' is not allowed as a class variable name", c);
 	    }
+	    return 0;
 	}
 	if (!is_identchar(c)) {
 	    pushback(c);

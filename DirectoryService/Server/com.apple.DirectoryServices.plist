@@ -8,6 +8,8 @@
 		<array>
 			<string>/usr/sbin/DirectoryService</string>
 		</array>
+        <key>MachExceptionHandler</key>
+        <string>com.apple.ReportCrash.DirectoryService</string>
         <key>MachServices</key>
 		<dict>
 			<key>com.apple.DirectoryService</key>

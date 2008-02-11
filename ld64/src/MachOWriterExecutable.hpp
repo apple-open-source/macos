@@ -2383,7 +2383,10 @@ bool Writer<A>::makesExternalRelocatableReference(ObjectFile::Atom& target) cons
 		case ObjectFile::Atom::kAbsoluteSymbol:
 			return false;
 		case ObjectFile::Atom::kTentativeDefinition:
-			return (target.getScope() != ObjectFile::Atom::scopeTranslationUnit);
+			if ( fOptions.readerOptions().fMakeTentativeDefinitionsReal )
+				return false;
+			else
+				return (target.getScope() != ObjectFile::Atom::scopeTranslationUnit);
 		case ObjectFile::Atom::kExternalDefinition:
 		case ObjectFile::Atom::kExternalWeakDefinition:
 			return shouldExport(target);

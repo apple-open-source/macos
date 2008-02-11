@@ -375,6 +375,26 @@ isA_SCNetworkSet(CFTypeRef obj)
 Boolean
 SCNetworkSetEstablishDefaultConfiguration		(SCNetworkSetRef		set);
 
+/*!
+	@function SCNetworkSetEstablishDefaultInterfaceConfiguration
+	@discussion Updates a network set by adding services for
+		the specified network interface if is not currently
+		represented.
+		If the provided set contains one (or more) services, new
+		services will only be added for interfaces that are not
+		represented in *any* set.
+		Otherwise, new services will be added for interfaces that
+		are not represented in the provided set.
+		The new services are established with "default" configuration
+		options.
+	@param set The network set.
+	@param interface The network interface.
+	@result TRUE if the configuration was updated; FALSE if no
+		changes were required or if an error was encountered.
+ */
+Boolean
+SCNetworkSetEstablishDefaultInterfaceConfiguration	(SCNetworkSetRef		set,
+							 SCNetworkInterfaceRef		interface);
 
 __END_DECLS
 

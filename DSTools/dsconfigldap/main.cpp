@@ -46,7 +46,7 @@
 #include "dstools_version.h"
 
 #warning VERIFY the version string before each major OS build submission that changes the dsconfigldap tool
-const char *version = "10.5.0";	// Matches OS version
+const char *version = "10.5.1";	// Matches OS version
 	
 #pragma mark Prototypes
 
@@ -108,6 +108,41 @@ bool doAuthorization( char *inUsername, char *inPassword );
 #define kSecurityMask				(kSecNoClearTextAuthBit | kSecManInMiddleBit | kSecPacketSignBit | kSecEncryptionBit)
 
 //
+// m-lo: YBStatusCodes
+// these are our new exit codes that preserve the DS error resolution
+// bsd/posix exit codes are restricted to the domain 0x00-0x7f
+// darwin defines error exit codes in the range 0x00 - ELAST (currently 0x67)
+// we'll begin our exit codes after darwin's to avoid collisions
+// older versions only returned exit codes within the traditional posix domain (0x00 - 0x3f)
+//
+
+// these need a real home
+typedef enum YBStatusCode
+{
+	ybStatusOK						= 0x00,
+	ybStatusErrorCodeBegin			= ELAST + 0x07, // (err <= ybStatusErrorCodeBegin) != YBErrorCode
+	ybStatusInvalidArgErr			= ELAST + 0x08,
+	ybStatusAddRemoveErr			= ELAST + 0x09,
+	ybStatusAuthorizationErr		= ELAST + 0x0a,
+	ybNoAnonymousQueriesErr			= ELAST + 0x0b,
+	ybUnbindNeedsCredentialsErr		= ELAST + 0x0c,
+	ybInvalidCredentialsErr			= ELAST + 0x0d,
+	ybPermissionErrorErr			= ELAST + 0x0e,
+	ybDuplicateComputerNameErr		= ELAST + 0x0f,
+	ybInsufficientServerSecurityErr	= ELAST + 0x10,
+	ybMissingComputerNameErr		= ELAST + 0x11,
+	ybNoComputeMappingAvailableErr	= ELAST + 0x12,
+	ybCannotContactServerErr		= ELAST + 0x13,
+	ybCannotUseSuppliedMappingsErr	= ELAST + 0x14,
+	ybDSErrorHideErr				= ELAST + 0x15,
+	ybStatusErrorCodeEnd			= ELAST + 0x16, // (err >= ybStatusErrorCodeBegin) != YBErrorCode
+	ybRequestingCredentialsErr		= ELAST + 0x17  // client error -- conveniently add here for switch statements
+}YBStatusCode;
+
+#define YBErrorCode(statusCode)	(!(statusCode) || (((statusCode) > ybStatusErrorCodeBegin) && ((statusCode) < ybStatusErrorCodeEnd)))
+#define _EXIT_VALUE_ (bYBErrors ? ybStatus : status)
+
+//
 // End New Directory Binding functionality ---------------
 
 static AuthorizationRef		gAuthRef				= NULL;
@@ -117,6 +152,13 @@ static char					*kNetConfigAuthRight	= "system.preferences";
 #pragma mark -
 #pragma mark Functions
 
+// m-lo: library notes
+// don't build main for dylib/lib usage
+// the only symbols we need exported from here are AddServer and RemoveServer
+// the static gAuthRef may create problems for general library usage
+
+#ifndef _DYLIB_COMPATIBLE_
+
 int main(int argc, char *argv[])
 {
     int				ch;
@@ -125,6 +167,7 @@ int main(int argc, char *argv[])
 	bool			bForceBinding	= false;
 	bool			bInteractivePwd = false;
 	bool			bSSL			= false;
+	bool			bYBErrors		= false;
 	bool			bVerbose		= false;
 	bool			bSecureAuthOnly = false;
 	bool			bDefaultUser	= false;
@@ -140,17 +183,21 @@ int main(int argc, char *argv[])
 	char		   *localName		= nil;
 	char		   *localPassword   = nil;
 	int				status			= 0;
+	int				ybStatus		= ybStatusOK;
 	
 	if (argc < 2)
 	{
 		usage();
-		exit(EINVAL);
+		
+		status = EINVAL; ybStatus = ybStatusInvalidArgErr;
+		
+		exit(_EXIT_VALUE_);
 	}
 	
 	if ( strcmp(argv[1], "-appleversion") == 0 )
         dsToolAppleVersionExit( argv[0] );
 	
-    while ((ch = getopt(argc, argv, "fvisxgema:r:n:c:u:p:l:q:h")) != -1)
+    while ((ch = getopt(argc, argv, "fvisxgeyma:r:n:c:u:p:l:q:h")) != -1)
 	{
         switch (ch)
 		{
@@ -178,7 +225,10 @@ int main(int argc, char *argv[])
 		case 'x':
 			bSSL = true;
 			break;
-        case 'a':
+		case 'y':
+			bYBErrors = true;
+			break;
+		case 'a':
 			bAddServer = true;
 			if (serverName != nil)
 			{
@@ -215,7 +265,9 @@ int main(int argc, char *argv[])
         case 'h':
         default:
 			usage();
-			exit(EINVAL);
+			status = EINVAL; 
+			ybStatus = ybStatusInvalidArgErr;
+			exit(_EXIT_VALUE_);
         }
     }
 	
@@ -289,6 +341,7 @@ int main(int argc, char *argv[])
 		if ( (serverName != nil) && (serverNameDupe != nil) )
 			fprintf( stdout,"Two server names were given <%s> and <%s>.\n", serverName, serverNameDupe);
 		usage();
+		ybStatus = ybStatusAddRemoveErr;
 		status = EINVAL;
 	}
 	else
@@ -316,7 +369,9 @@ int main(int argc, char *argv[])
 					bAddServer		= false;
 					bRemoveServer   = false;
 
-					exit( EACCES );
+					ybStatus = ybStatusAuthorizationErr;
+					status = EACCES;
+					exit( _EXIT_VALUE_ );
 				}
 			}
 			
@@ -343,54 +398,68 @@ int main(int argc, char *argv[])
 			case eDSBogusServer:
 				fprintf( stderr, "Could not contact a server at that address.\n" );
 				status = ENOENT;
+				ybStatus = ybCannotContactServerErr;
 				break;
 				
 			case eDSInvalidNativeMapping:
 				fprintf( stderr, "Could not use mappings supplied to query directory.\n" );
 				status = EINVAL;
+				ybStatus = ybCannotUseSuppliedMappingsErr;
 				break;
 				
 			case eDSNoStdMappingAvailable:
 				fprintf( stderr, "No Computer Mapping available for binding to the directory.\n" );
 				status = EINVAL;
+				ybStatus = ybNoComputeMappingAvailableErr;
 				break;
 				
 			case eDSInvalidRecordName:
 				fprintf( stderr, "Missing a valid name for the Computer.\n" );
 				status = EINVAL;
+				ybStatus = ybMissingComputerNameErr;
 				break;
 				
 			case eDSAuthMethodNotSupported:
 				fprintf( stderr, "Server does not meet security requirements.\n" );
 				status = EINVAL;
+				ybStatus = ybInsufficientServerSecurityErr;
 				break;
 				
 			case eDSRecordAlreadyExists:
 				fprintf( stderr, "Computer with the name %s already exists\n", computerID );
 				status = EEXIST;
+				ybStatus = ybDuplicateComputerNameErr;
 				break;
 				
 			case eDSPermissionError:
 				fprintf( stderr, "Permission error\n" );
 				status = EACCES;
+				ybStatus = ybPermissionErrorErr;
 				break;
 				
 			case eDSAuthFailed:
 				fprintf( stderr, "Invalid credentials supplied %s server\n", (bAddServer ? "for binding to the" : "to remove the bound") );
 				status = EINVAL;
+				ybStatus = ybInvalidCredentialsErr;
 				break;
 				
 			case eDSAuthParameterError:
 				if ( bRemoveServer )
+				{
 					fprintf( stderr, "Bound need credentials to unbind\n" );
-				else
+					ybStatus = ybUnbindNeedsCredentialsErr;
+				}else
+				{
 					fprintf( stderr, "Directory is not allowing anonymous queries\n" );
+					ybStatus = ybNoAnonymousQueriesErr;
+				}
 				status = EINVAL;
 				break;
 				
 			default:
 				fprintf( stderr, "Error %d from DirectoryService\n", status );
 				status = EINVAL;
+				ybStatus = ybDSErrorHideErr;
 				break;
 		}
 		
@@ -415,8 +484,10 @@ int main(int argc, char *argv[])
 	if (localPassword)
 		free(localPassword);
 
-	exit( status );
+	exit(_EXIT_VALUE_);
 }
+
+#endif //_DYLIB_COMPATIBLE_
 
 void usage( void )
 {

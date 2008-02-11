@@ -104,7 +104,7 @@ public:
     UInt32								activeTDs;					// + when added to todo list, - when taken from done queue
     UInt32								onToDoList;					// + when added to todo list, - when taken from done queue
     UInt32								onDoneQueue;					// + when added to todo list, - when taken from done queue
-	UInt32								scheduledTDs;				// + when linked onto periodic list, - when unlinked
+	volatile SInt32						scheduledTDs;				// + when linked onto periodic list, - when unlinked
 	UInt32								deferredTDs;
 	UInt32								onProducerQ;
 	UInt32								onReversedList;

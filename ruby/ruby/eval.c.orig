@@ -3,7 +3,7 @@
   eval.c -
 
   $Author: shyouhei $
-  $Date: 2007-06-08 18:33:59 +0900 (Fri, 08 Jun 2007) $
+  $Date: 2007-09-23 09:01:50 +0900 (Sun, 23 Sep 2007) $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -1201,6 +1201,8 @@ error_pos()
     }
 }
 
+VALUE rb_check_backtrace(VALUE);
+
 static VALUE
 get_backtrace(info)
     VALUE info;
@@ -1208,7 +1210,7 @@ get_backtrace(info)
     if (NIL_P(info)) return Qnil;
     info = rb_funcall(info, rb_intern("backtrace"), 0);
     if (NIL_P(info)) return Qnil;
-    return rb_check_array_type(info);
+    return rb_check_backtrace(info);
 }
 
 static void
@@ -1569,15 +1571,14 @@ ruby_cleanup(ex)
     int ex;
 {
     int state;
-    VALUE err;
     volatile VALUE errs[2];
     int nerr;
 
-    errs[0] = ruby_errinfo;
-    ruby_safe_level = 0;
-    Init_stack((void*)&state);
-    ruby_finalize_0();
     errs[1] = ruby_errinfo;
+    ruby_safe_level = 0;
+    Init_stack((void *)&state);
+    ruby_finalize_0();
+    errs[0] = ruby_errinfo;
     PUSH_TAG(PROT_NONE);
     PUSH_ITER(ITER_NOT);
     if ((state = EXEC_TAG()) == 0) {
@@ -1588,13 +1589,16 @@ ruby_cleanup(ex)
 	ex = state;
     }
     POP_ITER();
-    ruby_errinfo = errs[0];
+    ruby_errinfo = errs[1];
     ex = error_handle(ex);
     ruby_finalize_1();
     POP_TAG();
 
-    for (nerr = sizeof(errs) / sizeof(errs[0]); nerr;) {
-	if (!(err = errs[--nerr])) continue;
+    for (nerr = 0; nerr < sizeof(errs) / sizeof(errs[0]); ++nerr) {
+	VALUE err = errs[nerr];
+
+	if (!RTEST(err)) continue;
+
 	if (rb_obj_is_kind_of(err, rb_eSystemExit)) {
 	    return sysexit_status(err);
 	}
@@ -1602,7 +1606,22 @@ ruby_cleanup(ex)
 	    VALUE sig = rb_iv_get(err, "signo");
 	    ruby_default_signal(NUM2INT(sig));
 	}
+	else if (ex == 0) {
+	    ex = 1;
+	}
     }
+
+#if EXIT_SUCCESS != 0 || EXIT_FAILURE != 1
+    switch (ex) {
+#if EXIT_SUCCESS != 0
+      case 0: return EXIT_SUCCESS;
+#endif
+#if EXIT_FAILURE != 1
+      case 1: return EXIT_FAILURE;
+#endif
+    }
+#endif
+
     return ex;
 }
 
@@ -5791,7 +5810,7 @@ rb_call0(klass, recv, id, oid, argc, argv, body, flags)
     volatile int safe = -1;
 
     if (NOEX_SAFE(flags) > ruby_safe_level &&
-	!(flags&NOEX_TAINTED) && ruby_safe_level == 0 && NOEX_SAFE(flags) > 2) {
+	ruby_safe_level == 0 && NOEX_SAFE(flags) > 2) {
 	rb_raise(rb_eSecurityError, "calling insecure method: %s",
 		 rb_id2name(id));
     }
@@ -6881,7 +6900,6 @@ rb_load(fname, wrap)
     volatile VALUE self = ruby_top_self;
     NODE *volatile last_node;
     NODE *saved_cref = ruby_cref;
-    TMP_PROTECT;
 
     if (wrap && ruby_safe_level >= 4) {
 	StringValue(fname);
@@ -9063,7 +9081,7 @@ mnew(klass, obj, id, mklass)
     data->body = body;
     data->rklass = rklass;
     data->oid = oid;
-    data->safe_level = NOEX_WITH_SAFE(0);
+    data->safe_level = NOEX_WITH_SAFE(noex);
     OBJ_INFECT(method, klass);
 
     return method;
@@ -11343,7 +11361,7 @@ rb_thread_run(thread)
 
 
 static void
-kill_thread(th, flags)
+rb_kill_thread(th, flags)
     rb_thread_t th;
     int flags;
 {
@@ -11378,7 +11396,7 @@ rb_thread_kill(thread)
 {
     rb_thread_t th = rb_thread_check(thread);
 
-    kill_thread(th, 0);
+    rb_kill_thread(th, 0);
     return thread;
 }
 
@@ -11401,7 +11419,7 @@ rb_thread_kill_bang(thread)
     VALUE thread;
 {
     rb_thread_t th = rb_thread_check(thread);
-    kill_thread(th, THREAD_NO_ENSURE);
+    rb_kill_thread(th, THREAD_NO_ENSURE);
     return thread;
 }
 
@@ -11902,6 +11920,12 @@ rb_thread_stop_timer()
 }
 
 void
+rb_child_atfork()
+{
+    time_thread_alive_p = 0;
+}
+
+void
 rb_thread_cancel_timer()
 {
 #ifdef _THREAD_SAFE
@@ -11995,6 +12019,7 @@ rb_thread_start_0(fn, arg, th)
 #ifdef _THREAD_SAFE
 	pthread_create(&time_thread, 0, thread_timer, 0);
         time_thread_alive_p = 1;
+        pthread_atfork(0, 0, rb_child_atfork);
 #else
 	rb_thread_start_timer();
 #endif

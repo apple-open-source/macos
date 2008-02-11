@@ -1,4 +1,4 @@
-// $Id: objc_test.m 1993 2007-08-10 15:24:22Z psychs $
+// $Id: objc_test.m 2126 2007-11-12 21:42:05Z psychs $
 //
 //   some tests require objc codes
 #import <Foundation/Foundation.h>
@@ -121,6 +121,21 @@
   return [[NSClassFromString(@"RBSubclass") alloc] init];
 }
 
++(int) rbNewCount
+{
+  int retainCount;
+  id obj;
+  obj = [NSClassFromString(@"RBSubclass") new];
+  retainCount = [obj retainCount];
+  [obj release];
+  return retainCount;
+}
+
++(id) rbNewObject
+{
+  return [NSClassFromString(@"RBSubclass") new];
+}
+
 @end
 
 // tc_uniqobj.rb
@@ -209,7 +224,7 @@
 
 @interface NSObject (TcSubclassFoo)
 
-- (int)calledFoo:(id)arg;
+- (long)calledFoo:(id)arg;
 
 @end
 
@@ -427,7 +442,7 @@
 
 @implementation TestMagicCookie
 + (BOOL)isKCFAllocatorUseContext:(id)ocid { 
-  return ((unsigned)ocid == (unsigned)kCFAllocatorUseContext);
+  return ((unsigned long)ocid == (unsigned long)kCFAllocatorUseContext);
 }
 @end
 
@@ -576,6 +591,68 @@ static BOOL TestThreadedCallbackDone = NO;
   [obj release];
   Class probe = [[NSBundle mainBundle] classNamed:@"RBCacheTestProbe"];
   return [probe findInOcidToRbobjCache:obj];
+}
+
+@end
+
+@interface OvmixArgRetained : NSObject
+@end
+
+@implementation OvmixArgRetained
+
++ (void)test:(id)obj
+{
+  NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+  NSObject *o = [[[NSObject alloc] init] autorelease]; 
+  [obj performSelector:@selector(setObject:) withObject:o];
+  if ([obj performSelector:@selector(getObject)] != o)
+    [NSException raise:@"OvmixArgRetained" format:@"assertion1 failed"];
+  [pool release];
+  if ([obj performSelector:@selector(getObject)] != o)
+    [NSException raise:@"OvmixArgRetained" format:@"assertion2 failed"];
+}
+
+@end
+
+@interface ObjcPtrTest : NSObject
+@end
+
+@implementation ObjcPtrTest
+
+- (void*)returnVoidPtrForArrayOfString
+{
+  NSString* str = [NSString stringWithUTF8String:"foobar"];
+  NSArray* ary = [NSArray arrayWithObject:str];
+  [ary retain];
+  return (void*)ary;
+}
+
+- (void*)returnVoidPtrForKCFBooleanTrue
+{
+  return (void*)kCFBooleanTrue;
+}
+
+- (void*)returnVoidPtrForKCFBooleanFalse
+{
+  return (void*)kCFBooleanFalse;
+}
+
+- (void*)returnVoidPtrForInt
+{
+  static int i = -2147483648U;
+  return (void*)&i;
+}
+
+- (void*)returnVoidPtrForUInt
+{
+  static unsigned int i = 4294967295U;
+  return (void*)&i;
+}
+
+- (void*)returnVoidPtrForCStr
+{
+  static const char* str = "foobar";
+  return (void*)str;
 }
 
 @end

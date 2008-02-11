@@ -1,5 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
-
-INSTALL_AS_USER     = root
-INSTALL_AS_GROUP    = wheel
-INSTALL_PERMISSIONS = 4555

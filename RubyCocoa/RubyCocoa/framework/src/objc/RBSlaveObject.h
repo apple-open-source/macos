@@ -15,3 +15,9 @@
 - initWithClass: (Class)occlass masterObject: master;
 - initWithRubyClass: (VALUE)rbclass masterObject: master;
 @end
+
+@interface RBObject(RBSlaveObjectPrivate)
+- (void)trackRetainReleaseOfRubyObject;
+- (void)releaseRubyObject;
+- (void)retainRubyObject;
+@end

@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: php_xmlwriter.c,v 1.20.2.12.2.15 2007/05/14 09:23:49 pajoye Exp $ */
+/* $Id: php_xmlwriter.c,v 1.20.2.12.2.16 2007/10/24 22:50:19 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -464,6 +464,9 @@ static void php_xmlwriter_end(INTERNAL_FUNCTION_PARAMETERS, xmlwriter_read_int_t
 	
 	if (this) {
 		XMLWRITER_FROM_OBJECT(intern, this);
+		if (ZEND_NUM_ARGS()) {
+			WRONG_PARAM_COUNT;
+		}
 	} else 
 #endif
 	{

@@ -1,3 +1,0 @@
-after_install::
-	mkdir -p $(DSTROOT)/usr/share/man/man8
-	cp vifs.8 $(DSTROOT)/usr/share/man/man8/

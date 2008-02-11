@@ -1,2 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common
-OTHER_CFLAGS = -DUSE_PAM

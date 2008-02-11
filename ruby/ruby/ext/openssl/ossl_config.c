@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_config.c 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: ossl_config.c 13192 2007-08-22 01:58:41Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -245,7 +245,10 @@ set_conf_section_i(VALUE i, VALUE *arg)
 static VALUE
 ossl_config_set_section(VALUE self, VALUE section, VALUE hash)
 {
-    VALUE arg[2] = { self, section };
+    VALUE arg[2];
+
+    arg[0] = self;
+    arg[1] = section;
     rb_iterate(rb_each, hash, set_conf_section_i, (VALUE)arg);
     return hash;
 }

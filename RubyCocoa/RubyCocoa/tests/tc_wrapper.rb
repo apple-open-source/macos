@@ -1,5 +1,5 @@
 #
-#  $Id: tc_wrapper.rb 1983 2007-07-31 13:42:01Z lrz $
+#  $Id: tc_wrapper.rb 2118 2007-11-10 22:58:03Z lrz $
 #
 #  Copyright (c) 2006 FUJIMOTO Hisakuni
 #  Copyright (c) 2006 kimura wataru
@@ -160,4 +160,14 @@ class TC_OCObjWrapper < Test::Unit::TestCase
     assert(ary.equalToArray?([1]))
     assert(!ary.equalToArray?([2]))
   end
+
+=begin
+  # Test disabled, because #ocm_conforms? has also been disabled.
+  def test_conforms_to_protocol
+    assert(NSString.ocm_conforms?('NSMutableCopying'))
+    assert(!NSObject.ocm_conforms?('NSMutableCopying'))
+    assert(NSProxy.ocm_conforms?('NSObject'))
+    assert_raises(ArgumentError) { NSObject.ocm_conforms?('Foo') }
+  end
+=end
 end

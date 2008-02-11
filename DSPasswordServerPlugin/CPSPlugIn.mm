@@ -866,7 +866,11 @@ CPSPlugIn::HandleFirstContact(
 		strlcpy(inContext->psPort, anEntry.port, 10);
 		
 		// close disconnected connections before opening new ones
+		// release the conn mutex so we don't get deadlocked in
+		// the ref table iterator
+		gPWSConnMutex->Signal();
 		gPSContextTable->DoOnAllItems( CPSPlugIn::ReleaseCloseWaitConnections );
+		gPWSConnMutex->Wait();
 		
 		siResult = BeginServerSession( inContext, sock, inUserKeyHash );
 		if ( siResult == eDSNoErr )

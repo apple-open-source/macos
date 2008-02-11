@@ -1,4 +1,0 @@
-install-man-page:
-	install -d "$(DSTROOT)/usr/share/man/man8"
-	install -c -m 644 ndp.8 "$(DSTROOT)/usr/share/man/man8/ndp.8"
-

@@ -107,6 +107,10 @@
 #define DEBUG 0
 #endif
 
+/*
+ * The maximum file size on FAT is 4GB-1, which is the largest value that fits
+ * in an unsigned 32-bit integer.
+ */
 #define	DOS_FILESIZE_MAX	0xffffffff
 
 #define	GENERIC_DIRSIZ(dp) \
@@ -529,7 +533,10 @@ msdosfs_setattr(struct vnop_setattr_args *ap)
 		}
 		if (dep->de_FileSize != vap->va_data_size) {
 			/* detrunc internally updates dep->de_FileSize and calls ubc_setsize. */
-			error = detrunc(dep, vap->va_data_size, 0, ap->a_context);
+			if (vap->va_data_size > DOS_FILESIZE_MAX)
+				error = EFBIG;
+			else
+				error = detrunc(dep, vap->va_data_size, vap->va_vaflags, ap->a_context);
 			if (error)
 				goto exit;
 		}
@@ -785,7 +792,10 @@ msdosfs_write(ap)
     if (offset + original_resid > original_size) {
         count = de_clcount(pmp, offset + original_resid) -
         		de_clcount(pmp, original_size);
-        error = extendfile(dep, count);
+		if ((ioflag & IO_UNIT) && (count > pmp->pm_freeclustercount))
+			error = ENOSPC;
+        else
+			error = extendfile(dep, count);
         if (error &&  (error != ENOSPC || (ioflag & IO_UNIT)))
             goto errexit;
 		filesize = offset + original_resid;

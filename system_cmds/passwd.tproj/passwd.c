@@ -23,8 +23,8 @@
 #include <TargetConditionals.h>
 
 #define INFO_FILE 1
-#define INFO_NIS 2
 #if !TARGET_OS_EMBEDDED
+#define INFO_NIS 2
 #define INFO_OPEN_DIRECTORY 3
 #endif
 
@@ -196,10 +196,12 @@ main(int argc, char *argv[])
 		case 'i':
 			if (!strcasecmp(optarg, "file")) {
 				infosystem = INFO_FILE;
+#ifdef INFO_NIS
 			} else if (!strcasecmp(optarg, "NIS")) {
 				infosystem = INFO_NIS;
 			} else if (!strcasecmp(optarg, "YP")) {
 				infosystem = INFO_NIS;
+#endif
 #ifdef INFO_OPEN_DIRECTORY
 			} else if (!strcasecmp(optarg, "opendirectory")) {
 				infosystem = INFO_OPEN_DIRECTORY;
@@ -259,9 +261,11 @@ main(int argc, char *argv[])
 		case INFO_FILE:
 			file_passwd(user, locn);
 			break;
+#ifdef INFO_NIS
 		case INFO_NIS:
 			nis_passwd(user, locn);
 			break;
+#endif
 #ifdef INFO_OPEN_DIRECTORY
 		case INFO_OPEN_DIRECTORY:
 			od_passwd(user, locn, auth);

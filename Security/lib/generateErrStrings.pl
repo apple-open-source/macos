@@ -280,6 +280,14 @@ void writeStrings(const char *stringsFileName)
 	NSData *rawstrings = [fh readDataToEndOfFile];
 	UInt32 encoding = CFStringConvertEncodingToNSStringEncoding (kCFStringEncodingUTF8);
 	NSString *instring = [[NSString alloc] initWithData:rawstrings encoding:(NSStringEncoding)encoding];
+	
+	/* temporary fix to avoid relocalization of two specific strings which have already been fixed in header files */
+	if (instring)
+	{
+		instring = [instring stringByReplacingOccurrencesOfString:@"\\\"-2147408896\\\" = \\\"Host name mismatch\\\"" withString:@"\\\"-2147408896\\\" = \\\"mismatch between Cert-s common name and app-specified host name\\\""];
+		instring = [instring stringByReplacingOccurrencesOfString:@"\\\"-2147408883\\\" = \\\"Cannot find appropriate CRL\\\"" withString:@"\\\"-2147408883\\\" = \\\"Can-t find appropriate CRL\\\""];
+	}
+
 
 	if (instring)
 	{

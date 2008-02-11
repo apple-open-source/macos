@@ -1,7 +1,0 @@
-VPATH += :../rlogin.tproj
-INSTALL_PERMISSIONS = 4555
-
-after_install::
-	$(CHFLAGS) schg $(DSTROOT)$(INSTALLDIR)/$(NAME)
-	install -d $(DSTROOT)/usr/share/man/man1
-	install -c -m 444 rsh.1 $(DSTROOT)/usr/share/man/man1/rsh.1

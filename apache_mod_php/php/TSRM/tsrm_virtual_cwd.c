@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.74.2.9.2.35 2007/08/10 09:09:46 tony2001 Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.74.2.9.2.36 2007/10/23 05:57:35 dmitry Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -489,6 +489,9 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 	int ret;
 	int use_cache;
 	int use_relative_path = 0;
+#ifdef TSRM_WIN32
+	int is_unc;
+#endif
 	TSRMLS_FETCH();
 
 	use_cache = ((use_realpath != CWD_EXPAND) && CWDG(realpath_cache_size_limit));
@@ -573,9 +576,6 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 		char *ptr, *path_copy, *free_path;
 		char *tok;
 		int ptr_length;
-#ifdef TSRM_WIN32
-		int is_unc;
-#endif
 no_realpath:
 
 #ifdef TSRM_WIN32
@@ -738,7 +738,12 @@ no_realpath:
 		}
 	}
 
+	/* Store existent file in realpath cache. */
+#ifdef TSRM_WIN32
+	if (use_cache && !is_unc) {
+#else
 	if (use_cache && (use_realpath == CWD_REALPATH)) {
+#endif
 		realpath_cache_add(path, path_length, state->cwd, state->cwd_length, t TSRMLS_CC);
 	}
 

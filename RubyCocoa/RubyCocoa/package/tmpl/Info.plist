@@ -1,7 +1,7 @@
 <%
   framework = "RubyCocoa"
   version = @config['rubycocoa-version']
-  version_short = version[0..4] # x.y.z
+  version_short = version[/\d+(?:\.\d+){1,2}/] # x.y.z
   system_version = @config['macosx-deployment-target']
  %>
 <?xml version="1.0" encoding="UTF-8"?>

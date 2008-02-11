@@ -8,4 +8,5 @@
 require 'osx/objc/oc_all.rb'
 require 'osx/objc/cocoa_macros'
 
-OSX.load_bridge_support_file('/System/Library/BridgeSupport/libSystem.bridgesupport')
+p = '/System/Library/BridgeSupport/libSystem.bridgesupport'
+OSX.load_bridge_support_file(p) if File.exist?(p)

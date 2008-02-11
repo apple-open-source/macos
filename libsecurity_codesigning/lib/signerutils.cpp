@@ -34,6 +34,12 @@
 #include <security_utilities/unixchild.h>
 #include <vector>
 
+// for helper validation
+#include "Code.h"
+#include "cfmunge.h"
+#include <sys/codesign.h>
+
+
 namespace Security {
 namespace CodeSigning {
 
@@ -43,6 +49,7 @@ namespace CodeSigning {
 //
 static const char helperName[] = "codesign_allocate";
 static const char helperPath[] = "/usr/bin/codesign_allocate";
+static const char helperOverride[] = "CODESIGN_ALLOCATE";
 static const size_t csAlign = 16;
 
 
@@ -135,6 +142,13 @@ MachOEditor::MachOEditor(DiskRep::Writer *w, Universal &code, std::string srcPat
 	: ArchEditor(code, w->attributes()), writer(w), sourcePath(srcPath), tempPath(srcPath + ".cstemp"),
 	  mNewCode(NULL), mTempMayExist(false)
 {
+	if (const char *path = getenv(helperOverride)) {
+		mHelperPath = path;
+		mHelperOverridden = true;
+	} else {
+		mHelperPath = helperPath;
+		mHelperOverridden = false;
+	}
 }
 
 MachOEditor::~MachOEditor()
@@ -142,6 +156,24 @@ MachOEditor::~MachOEditor()
 	delete mNewCode;
 	if (mTempMayExist)
 		::remove(tempPath.c_str());		// ignore error (can't do anything about it)
+
+	//@@@ this code should be in UnixChild::kill() -- migrate it there
+	if (state() == alive) {
+		this->kill(SIGTERM);		// shoot it once
+		checkChildren();			// check for quick death
+		if (state() == alive) {
+			usleep(500000);			// give it some grace
+			if (state() == alive) {	// could have been reaped by another thread
+				checkChildren();	// check again
+				if (state() == alive) {	// it... just... won't... die...
+					this->kill(SIGKILL); // take THAT!
+					checkChildren();
+					if (state() == alive) // stuck zombie
+						abandon();	// leave the body behind
+				}
+			}
+		}
+	}
 }
 
 
@@ -170,6 +202,23 @@ void MachOEditor::allocate()
 	mNewCode = new Universal(mFd);
 }
 
+static const unsigned char appleReq[] = {	// anchor apple
+	0xfa, 0xde, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03,
+};
+
+void MachOEditor::parentAction()
+{
+	if (mHelperOverridden) {
+		secdebug("machoedit", "validating alternate codesign_allocate at %s (pid=%d)", mHelperPath, this->pid());
+		// check code identity of an overridden allocation helper
+		SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(mHelperPath));
+		code->validateDirectory();
+		code->validateExecutable();
+		code->validateResources();
+		code->validateRequirements((const Requirement *)appleReq, errSecCSReqFailed);
+	}
+}
+
 void MachOEditor::childAction()
 {
 	vector<const char *> arguments;
@@ -183,13 +232,26 @@ void MachOEditor::childAction()
 		char *size;				// we'll leak this (execv is coming soon)
 		asprintf(&size, "%d", LowLevelMemoryUtilities::alignUp(it->second->blobSize, csAlign));
 		secdebug("machoedit", "preparing %s size=%s", it->first.name(), size);
-		arguments.push_back("-a");
-		arguments.push_back(it->first.name());
+
+		if (const char *arch = it->first.name()) {
+			arguments.push_back("-a");
+			arguments.push_back(arch);
+		} else {
+			arguments.push_back("-A");
+			char *anum;
+			asprintf(&anum, "%d", it->first.cpuType());
+			arguments.push_back(anum);
+			asprintf(&anum, "%d", it->first.cpuSubtype());
+			arguments.push_back(anum);
+		}
 		arguments.push_back(size);
 	}
 	arguments.push_back(NULL);
+	
+	if (mHelperOverridden)
+		::csops(0, CS_EXEC_SET_KILL, NULL, 0);		// force code integrity
 	::seteuid(0);	// activate privilege if caller has it; ignore error if not
-	execv(helperPath, (char * const *)&arguments[0]);
+	execv(mHelperPath, (char * const *)&arguments[0]);
 }
 
 void MachOEditor::reset(Arch &arch)

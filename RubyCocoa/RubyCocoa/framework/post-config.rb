@@ -20,7 +20,8 @@ end
 if @config['gen-bridge-support'] != 'no'
   # generate bridge support metadata files
   out_dir = File.join(Dir.pwd, 'bridge-support')
-  cflags = build_universal ? '-arch ppc -arch i386 -isysroot /Developer/SDKs/MacOSX10.4u.sdk' : ''
+  sdkroot = @config['sdkroot']
+  cflags = build_universal ? "-arch ppc -arch i386 -isysroot #{sdkroot}" : ''
   Dir.chdir('../misc/bridgesupport') do
     command("BSROOT=\"#{out_dir}\" CFLAGS=\"#{cflags}\" #{@config['ruby-prog']} build.rb")
   end

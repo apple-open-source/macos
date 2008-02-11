@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: php_soap.h,v 1.38.2.6.2.5 2007/04/02 13:43:08 dmitry Exp $ */
+/* $Id: php_soap.h,v 1.38.2.6.2.6 2007/09/05 11:20:45 dmitry Exp $ */
 
 #ifndef PHP_SOAP_H
 #define PHP_SOAP_H
@@ -106,6 +106,7 @@ struct _soapService {
 	HashTable *class_map;
 	int        features;
 	struct _soapHeader **soap_headers_ptr;
+	int send_errors;
 };
 
 #define SOAP_CLASS 1

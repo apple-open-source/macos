@@ -1460,7 +1460,7 @@ AppleUSBUHCI::UIMCheckForTimeouts(void)
 	
 	if (loopCount > 99)
 	{
-		USBError(1,"AppleUSBUHCI[%p]::UIMCheckForTimeouts  Too many loops around", this);
+		USBLog(1,"AppleUSBUHCI[%p]::UIMCheckForTimeouts  Too many loops around", this);
 	}
 	
 	if (logging)
@@ -1910,7 +1910,7 @@ AppleUSBUHCI::AddIsochFramesToSchedule(IOUSBControllerIsochEndpoint* pEP)
 		pTD = GetTDfromToDoList(pEP);
 		//USBLog(7, "AppleUSBUHCI[%p]::AddIsochFramesToSchedule - ignoring TD(%p) because it is too old (%Lx) vs (%Lx) ", this, pTD, pTD->_frameNumber, currFrame);
 		ret = pTD->UpdateFrameList(timeStamp);		// TODO - accumulate the return values
-		if (pEP->scheduledTDs)
+		if (pEP->scheduledTDs > 0)
 			PutTDonDeferredQueue(pEP, pTD);
 		else
 		{
@@ -1976,7 +1976,7 @@ AppleUSBUHCI::AddIsochFramesToSchedule(IOUSBControllerIsochEndpoint* pEP)
 			pTD->_logicalNext = _logicalFrameList[pEP->inSlot];
 			_logicalFrameList[pEP->inSlot] = pTD;
 			_frameList[pEP->inSlot] = HostToUSBLong(pTD->GetPhysicalAddrWithType());			
-			pEP->scheduledTDs++;
+			OSIncrementAtomic( &(pEP->scheduledTDs) );
 			//USBLog(7, "AppleUSBUHCI[%p]::AddIsochFramesToSchedule - _frameList[%x]:%x", this, pEP->inSlot, USBToHostLong(_frameList[pEP->inSlot]));
 		}
 		//		else
@@ -2118,7 +2118,7 @@ AppleUSBUHCI::AbortIsochEP(IOUSBControllerIsochEndpoint* pEP)
 						{
 							err = pTD->UpdateFrameList(timeStamp);
 						}
-						pEP->scheduledTDs--;
+						OSDecrementAtomic( &(pEP->scheduledTDs));
                         PutTDonDoneQueue(pEP, pTD, true	);
                     }
 					else if (pTD->_pEndpoint == NULL)
@@ -2159,7 +2159,7 @@ AppleUSBUHCI::AbortIsochEP(IOUSBControllerIsochEndpoint* pEP)
 		pTD = GetTDfromToDoList(pEP);
     }
 	
-	if (!pEP->scheduledTDs)
+	if (pEP->scheduledTDs == 0)
 	{
 		// since we have no Isoch xactions on the endpoint, we can reset the counter
 		pEP->firstAvailableFrame = 0;

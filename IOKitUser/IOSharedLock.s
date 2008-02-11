@@ -54,10 +54,13 @@ _symbol_:					 ;\
         mov     $(_address_), %rax		 ;\
         jmp    *%rax
 
+#elif defined (__arm__)
+#warn PWC_TODO see radar 4273615
 #else
 #error architecture not supported
 #endif
 
+#ifdef COMM_PAGE_BRANCH
     	.text
 	COMM_PAGE_BRANCH(_IOTrySpinLock, _COMM_PAGE_SPINLOCK_TRY)
 	COMM_PAGE_BRANCH(_ev_try_lock,   _COMM_PAGE_SPINLOCK_TRY)
@@ -65,4 +68,4 @@ _symbol_:					 ;\
 	COMM_PAGE_BRANCH(_ev_lock,       _COMM_PAGE_SPINLOCK_LOCK)
 	COMM_PAGE_BRANCH(_IOSpinUnlock,  _COMM_PAGE_SPINLOCK_UNLOCK)
 	COMM_PAGE_BRANCH(_ev_unlock,     _COMM_PAGE_SPINLOCK_UNLOCK)
-
+#endif

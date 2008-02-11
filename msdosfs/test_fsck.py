@@ -2,11 +2,11 @@
 # Run a variety of tests against fsck_msdos
 #
 # Usage:
-#	python test_fsck.py <tmp_dir> [<path_to_fsck>]
+#	python test_fsck.py [<fsck_msdos> [<tmp_dir>]]
 #
 # where <tmp_dir> is a path to a directory where disk images will be
 # temporarily created.  If <path_to_fsck> is specified, it is used instead
-# of 'fsck_msdos' to invode the fsck_msdos program (for example, to test
+# of 'fsck_msdos' to invoke the fsck_msdos program (for example, to test
 # a new build that has not been installed).
 #
 
@@ -16,7 +16,7 @@ import subprocess
 from msdosfs import *
 from HexDump import HexDump
 
-class LaunchError(EnvironmentError):
+class LaunchError(Exception):
 	def __init__(self, returncode):
 		self.returncode = returncode
 		if returncode < 0:
@@ -26,6 +26,12 @@ class LaunchError(EnvironmentError):
 	
 	def __str__(self):
 		return self.message
+
+class FailureExpected(Exception):
+	def __init__(self, s):
+		self.s = s
+	def __str__(self):
+		return self.s
 
 #
 # launch -- A helper to run another process and collect the standard output
@@ -55,22 +61,20 @@ def launch(args, **kwargs):
 #
 
 #
-# Run tests on 1GiB FAT32 image
+# Run tests on 20GiB FAT32 sparse disk image
 #
 def test_fat32(dir, fsck, newfs):	
 	#
-	# Create a 1GB disk image in @dir
+	# Create a 20GB disk image in @dir
 	#
-	dmg = os.path.join(dir, 'Test1GB.dmg')
-	f = file(dmg, "w")
-	f.truncate(1024*1024*1024)
-	f.close
-	newfs_opts = "-F 32 -b 4096 -v TEST1GB".split()
+	dmg = os.path.join(dir, 'Test20GB.sparseimage')
+	launch('hdiutil create -size 20g -type SPARSE -layout NONE'.split()+[dmg])
+	newfs_opts = "-F 32 -b 4096 -v TEST20GB".split()
 	
 	#
 	# Attach the image
 	#
-	disk = launch(['hdiutil', 'attach','-nomount', dmg], stdout=subprocess.PIPE)[0].rstrip()
+	disk = launch(['hdiutil', 'attach', '-nomount', dmg], stdout=subprocess.PIPE)[0].rstrip()
 	rdisk = disk.replace('/dev/disk', '/dev/rdisk')
 	
 	#
@@ -84,7 +88,7 @@ def test_fat32(dir, fsck, newfs):
 	#	larger directory
 	#
 	test_empty(rdisk, fsck, newfs, newfs_opts)
- 	orphan_clusters(rdisk, fsck, newfs, newfs_opts)
+	orphan_clusters(rdisk, fsck, newfs, newfs_opts)
 	file_excess_clusters(rdisk, fsck, newfs, newfs_opts)
 	file_bad_clusters(rdisk, fsck, newfs, newfs_opts)
 	dir_bad_start(rdisk, fsck, newfs, newfs_opts)
@@ -95,6 +99,8 @@ def test_fat32(dir, fsck, newfs):
 	past_end_of_dir(rdisk, fsck, newfs, newfs_opts)
 	fat_bad_0_or_1(rdisk, fsck, newfs, newfs_opts)
 	fat_mark_clean(rdisk, fsck, newfs, newfs_opts)
+	file_4GB(rdisk, fsck, newfs, newfs_opts)
+	file_4GB_excess_clusters(rdisk, fsck, newfs, newfs_opts)
 	
 	#
 	# Detach the image
@@ -122,7 +128,7 @@ def test_fat16(dir, fsck, newfs):
 	#
 	# Attach the image
 	#
-	disk = launch(['hdiutil', 'attach','-nomount', dmg], stdout=subprocess.PIPE)[0].rstrip()
+	disk = launch(['hdiutil', 'attach', '-nomount', dmg], stdout=subprocess.PIPE)[0].rstrip()
 	rdisk = disk.replace('/dev/disk', '/dev/rdisk')
 	
 	#
@@ -172,7 +178,7 @@ def test_fat12(dir, fsck, newfs):
 	#
 	# Attach the image
 	#
-	disk = launch(['hdiutil', 'attach','-nomount', dmg], stdout=subprocess.PIPE)[0].rstrip()
+	disk = launch(['hdiutil', 'attach', '-nomount', dmg], stdout=subprocess.PIPE)[0].rstrip()
 	rdisk = disk.replace('/dev/disk', '/dev/rdisk')
 	
 	#
@@ -230,10 +236,10 @@ def orphan_clusters(disk, fsck, newfs, newfs_opts):
 	#
 	f = file(disk, "r+")
 	v = msdosfs(f)
-	v.fat.allocate(7, 100)
-	v.fat.allocate(23, 150)
-	v.fat.allocate(1, 190)
-	v.fat.flush()
+	v.allocate(7, 100)
+	v.allocate(23, 150)
+	v.allocate(1, 190)
+	v.flush()
 	del v
 	f.close()
 	del f
@@ -264,9 +270,9 @@ def file_excess_clusters(disk, fsck, newfs, newfs_opts):
 	#
 	f = file(disk, "r+")
 	v = msdosfs(f)
-	head=v.fat.allocate(7)
+	head=v.allocate(7)
 	v.root().mkfile('FOO', head=head, length=6*v.bytesPerCluster)
-	head=v.fat.allocate(1)
+	head=v.allocate(1)
 	v.root().mkfile('BAR', head=head, length=0)
 	
 	#
@@ -281,14 +287,16 @@ def file_excess_clusters(disk, fsck, newfs, newfs_opts):
 	v.root().mkfile('LINK2', head=head, length=2*v.bytesPerCluster+3)
 	head = v.fat.allocate(5, last=clusters[8])
 	v.root().mkfile('LINK3', head=head, length=3*v.bytesPerCluster+5)
-	
+	if v.fsinfo:
+		v.fsinfo.allocate(9+3+5)
+
 	#
 	# FREE1 has its first excess cluster marked free
 	# BAD3 has its third excess cluster marked bad
 	#
-	head = v.fat.allocate(11, last=CLUST_BAD)
+	head = v.allocate(11, last=CLUST_BAD)
 	v.root().mkfile('BAD3', head=head, length=8*v.bytesPerCluster+300)
-	head = v.fat.allocate(8, last=CLUST_FREE)
+	head = v.allocate(8, last=CLUST_FREE)
 	v.root().mkfile('FREE1', head=head, length=6*v.bytesPerCluster+100)
 	
 	v.flush()
@@ -324,21 +332,29 @@ def file_bad_clusters(disk, fsck, newfs, newfs_opts):
 	to_free = clusters[2]
 	head = v.fat.chain(clusters)
 	v.root().mkfile('FILE1', head=head, length=6*v.bytesPerCluster+111)
+	if v.fsinfo:
+		v.fsinfo.allocate(5)
 	
 	clusters = v.fat.find(5)
 	head = v.fat.chain(clusters)
 	v.root().mkfile('FILE2', head=head, length=4*v.bytesPerCluster+222)
 	v.fat[clusters[2]] = CLUST_RSRVD
+	if v.fsinfo:
+		v.fsinfo.allocate(5)
 	
 	clusters = v.fat.find(5)
 	head = v.fat.chain(clusters)
 	v.root().mkfile('FILE3', head=head, length=4*v.bytesPerCluster+333)
 	v.fat[clusters[2]] = 1
+	if v.fsinfo:
+		v.fsinfo.allocate(5)
 	
 	clusters = v.fat.find(5)
 	head = v.fat.chain(clusters)
 	v.root().mkfile('FILE4', head=head, length=4*v.bytesPerCluster+44)
 	v.fat[clusters[2]] = clusters[1]
+	if v.fsinfo:
+		v.fsinfo.allocate(5)
 	
 	v.root().mkfile('FILE5', head=CLUST_FREE, length=4*v.bytesPerCluster+55)
 
@@ -346,7 +362,7 @@ def file_bad_clusters(disk, fsck, newfs, newfs_opts):
 
 	v.root().mkfile('FILE7', head=CLUST_RSRVD-1, length=4*v.bytesPerCluster+77)
 
-	head = v.fat.allocate(5)
+	head = v.allocate(5)
 	v.root().mkfile('FOO', head=head, length=4*v.bytesPerCluster+99)
 	v.root().mkfile('FILE8', head=head, length=4*v.bytesPerCluster+88)
 
@@ -709,7 +725,7 @@ def fat_mark_clean(disk, fsck, newfs, newfs_opts):
 		v.fat[1] = v.fat[1] & 0x7FFF
 	
 	# Allocate some clusters, so there is something to repair.
-	v.fat.allocate(3)
+	v.allocate(3)
 	
 	v.flush()
 	del v
@@ -739,6 +755,71 @@ def fat_mark_clean(disk, fsck, newfs, newfs_opts):
 	del f
 
 	launch(['/sbin/fsck_msdos', '-n', disk])
+
+#
+# Make a file whose physical size is 4GB.  The logical size is 4GB-100.
+# This is actually NOT corrupt; it's here to verify that fsck_hfs does not
+# try to truncate the file due to overflow of the physical size.  [4988133]
+#
+def file_4GB(disk, fsck, newfs, newfs_opts):
+	launch([newfs]+newfs_opts+[disk])
+
+	#
+	# Create a file whose size is 4GB-100.  That means its physical size will
+	# be rounded up to the next multiple of the cluster size, meaning the
+	# physical size will be 4GB.
+	#
+	f = file(disk, "r+")
+	v = msdosfs(f)
+	four_GB = 4*1024*1024*1024
+	clusters = four_GB / v.bytesPerCluster
+	head = v.allocate(clusters)
+	v.root().mkfile('4GB', head=head, length=four_GB-100)
+		
+	v.flush()
+	del v
+	f.close()
+	del f
+	
+	launch([fsck, '-n', disk])
+
+#
+# Make a file with excess clusters allocated: over 4GB worth of clusters
+#
+# TODO: What combination of files do we want to test with?
+# TODO: 	A smallish logical size
+# TODO: 	A logical size just under 4GB
+# TODO: 	Cross-linked files?
+# TODO: 		Cross linked beyond 4GB?
+# TODO: 		Cross linked before 4GB?
+#
+def file_4GB_excess_clusters(disk, fsck, newfs, newfs_opts):
+	launch([newfs]+newfs_opts+[disk])
+
+	#
+	# Create files with too many clusters for their size
+	#
+	f = file(disk, "r+")
+	v = msdosfs(f)
+	four_GB = 4*1024*1024*1024
+	clusters = four_GB / v.bytesPerCluster
+	head=v.allocate(clusters+7)
+	v.root().mkfile('FOO', head=head, length=5*v.bytesPerCluster-100)
+	head=v.allocate(clusters+3)
+	v.root().mkfile('BAR', head=head, length=four_GB-30)
+		
+	v.flush()
+	del v
+	f.close()
+	del f
+	
+	# TODO: Need a better way to assert that the disk is corrupt to start with
+	try:
+		launch([fsck, '-n', disk])
+	except LaunchError:
+		pass
+	launch([fsck, '-y', disk])
+	launch([fsck, '-n', disk])
 
 #
 # When run as a script, run the test suite.

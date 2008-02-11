@@ -1,5 +1,5 @@
 /*
- * $Id: ossl.h 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: ossl.h 13176 2007-08-22 01:16:17Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -202,6 +202,7 @@ void ossl_debug(const char *, ...);
 #include "ossl_ocsp.h"
 #include "ossl_pkcs12.h"
 #include "ossl_pkcs7.h"
+#include "ossl_pkcs5.h"
 #include "ossl_pkey.h"
 #include "ossl_rand.h"
 #include "ossl_ssl.h"

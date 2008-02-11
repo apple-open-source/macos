@@ -21,13 +21,15 @@ protected:
 	Mutex mMutex;
 	
 	u_int8_t* mSegment;
+	u_int8_t* mDataArea;
+	u_int8_t* mDataPtr;
+	u_int8_t* mDataMax;
 	
-	SegmentOffsetType mCurrentOffset;
-
 	SegmentOffsetType GetProducerCount ();
 	
-	bool ReadBytes (void* buffer, SegmentOffsetType offset, SegmentOffsetType bytesToRead);
-
+	void ReadData (void* buffer, SegmentOffsetType bytesToRead);
+	SegmentOffsetType ReadOffset ();
+	
 public:
 	SharedMemoryClient (const char* segmentName, SegmentOffsetType segmentSize);
 	virtual ~SharedMemoryClient ();

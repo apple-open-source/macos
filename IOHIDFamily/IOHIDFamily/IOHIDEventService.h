@@ -25,12 +25,18 @@
 #ifndef _IOKIT_HID_IOHIDEVENTSERVICE_H
 #define _IOKIT_HID_IOHIDEVENTSERVICE_H
 
+#include <TargetConditionals.h>
+
 #include <IOKit/IOService.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/hid/IOHIDInterface.h>
 #include <IOKit/hid/IOHIDElement.h>
+
+#if TARGET_OS_EMBEDDED
+    #include <IOKit/hid/IOHIDEvent.h>
+#endif
 
 enum 
 {
@@ -81,10 +87,23 @@ private:
 
 
     struct ExpansionData { 
+		IOService *				provider;
         IOWorkLoop *            workLoop;
+        UInt32                  ejectDelayMS;
         IOTimerEventSource 	*   ejectTimerEventSource;
         UInt32                  ejectState;
         IOOptionBits            ejectOptions;
+        UInt32                  capsDelayMS;
+        IOTimerEventSource 	*   capsTimerEventSource;
+        UInt32                  capsState;
+        IOOptionBits            capsOptions;
+        
+#if TARGET_OS_EMBEDDED
+        OSDictionary *          clientDict;
+        UInt32                  debuggerMask;
+        UInt32                  startDebuggerMask;
+        IOTimerEventSource *    debuggerTimerEventSource;
+#endif
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -119,11 +138,54 @@ private:
     static bool 			_publishNotificationHandler(void * target, void * ref, IOService * newService );
 
     void                    ejectTimerCallback(IOTimerEventSource *sender);
+
+    void                    capsTimerCallback(IOTimerEventSource *sender);
+    
+#if TARGET_OS_EMBEDDED
+    void                    debuggerTimerCallback(IOTimerEventSource *sender);
+#endif
     
 protected:
 
     virtual void            free();
         
+/*! @function handleOpen
+    @abstract Handle a client open on the interface.
+    @discussion This method is called by IOService::open() with the
+    arbitration lock held, and must return true to accept the client open.
+    This method will in turn call handleClientOpen() to qualify the client
+    requesting the open.
+    @param client The client object that requested the open.
+    @param options Options passed to IOService::open().
+    @param argument Argument passed to IOService::open().
+    @result true to accept the client open, false otherwise. */
+
+    virtual bool handleOpen(IOService *  client,
+                            IOOptionBits options,
+                            void *       argument);
+
+/*! @function handleClose
+    @abstract Handle a client close on the interface.
+    @discussion This method is called by IOService::close() with the
+    arbitration lock held. This method will in turn call handleClientClose()
+    to notify interested subclasses about the client close. If this represents
+    the last close, then the interface will also close the controller before
+    this method returns. The controllerWillClose() method will be called before
+    closing the controller. Subclasses should not override this method.
+    @param client The client object that requested the close.
+    @param options Options passed to IOService::close(). */
+
+    virtual void handleClose(IOService * client, IOOptionBits options);
+
+/*! @function handleIsOpen
+    @abstract Query whether a client has an open on the interface.
+    @discussion This method is always called by IOService with the
+    arbitration lock held. Subclasses should not override this method.
+    @result true if the specified client, or any client if none (0) is
+    specified, presently has an open on this object. */
+
+    virtual bool handleIsOpen(const IOService * client) const;
+
 /*! @function handleStart
     @abstract Prepare the hardware and driver to support I/O operations.
     @discussion IOHIDEventService will call this method from start() before
@@ -245,12 +307,43 @@ public:
     
     virtual IOReturn        setProperties( OSObject * properties );
     
+#if TARGET_OS_EMBEDDED
+    typedef void (*Action)(OSObject *target, OSObject * sender, void *context, OSObject *event, IOOptionBits options);
+
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  0);
+    virtual bool            open(
+                                IOService *                 client,
+                                IOOptionBits                options,
+                                void *                      context,
+                                Action                      action);
+                                
+protected:    
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  1);
+    virtual void            dispatchEvent(IOHIDEvent * event, IOOptionBits options=0);
+
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  2);
+    virtual UInt32          getPrimaryUsagePage();
+    
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  3);
+    virtual UInt32          getPrimaryUsage();
+    
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  4);
+    virtual UInt32          getReportInterval();
+
+public:    
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  5);
+    virtual IOHIDEvent *    copyEvent(
+                                IOHIDEventType              type, 
+                                IOHIDEvent *                matching = 0,
+                                IOOptionBits                options = 0);
+#else
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  0);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  1);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  2);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  3);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  4);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  5);
+#endif    
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  6);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  7);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  8);

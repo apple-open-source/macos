@@ -86,7 +86,6 @@ bool MacRISC4PE::start(IOService *provider)
     // Set the machine type.
     provider_name = provider->getName();  
 
-
 	machineType = kMacRISC4TypeUnknown;
 	if (provider_name != NULL) {
 		if (0 == strncmp(provider_name, "PowerMac", strlen("PowerMac")))
@@ -249,7 +248,8 @@ bool MacRISC4PE::start(IOService *provider)
     if (regEntry) {
 		u3IsHostMPIC = (regEntry->getProperty ("interrupts") == NULL);
 		regEntry->release();
-    }
+    } else
+    	u3IsHostMPIC = false;
 
 	/*
 	 * Call super::start *before* we create specialized child nubs.  Child drivers for these nubs

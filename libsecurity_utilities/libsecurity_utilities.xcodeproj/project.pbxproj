@@ -82,6 +82,9 @@
 		4CA684FD0525011E00233BF2 /* utilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CA684BD0525011E00233BF2 /* utilities.cpp */; };
 		4E4813D707739B0C0090D7C2 /* ccaudit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4E4813D507739B0C0090D7C2 /* ccaudit.cpp */; };
 		4E4813D907739B0C0090D7C2 /* ccaudit.h in Headers */ = {isa = PBXBuildFile; fileRef = 4E4813D607739B0C0090D7C2 /* ccaudit.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AAAA499A0CC587B50099E9D4 /* crc.c in Sources */ = {isa = PBXBuildFile; fileRef = AAAA49980CC587B50099E9D4 /* crc.c */; };
+		AAAA499B0CC587B50099E9D4 /* crc.h in Headers */ = {isa = PBXBuildFile; fileRef = AAAA49990CC587B50099E9D4 /* crc.h */; };
+		AAAA499C0CC587B50099E9D4 /* crc.h in Headers */ = {isa = PBXBuildFile; fileRef = AAAA49990CC587B50099E9D4 /* crc.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C200C0800731DEA300564CE0 /* trackingallocator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C200C07F0731DE8C00564CE0 /* trackingallocator.cpp */; };
 		C203477806B0450700984114 /* osxcode.h in Headers */ = {isa = PBXBuildFile; fileRef = C20A206A06B03FDC00979EF3 /* osxcode.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C20A206B06B03FDC00979EF3 /* osxcode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C20A206906B03FDC00979EF3 /* osxcode.cpp */; };
@@ -200,6 +203,8 @@
 		4CA684BF0525011E00233BF2 /* utility_config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = utility_config.h; sourceTree = "<group>"; };
 		4E4813D507739B0C0090D7C2 /* ccaudit.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ccaudit.cpp; sourceTree = "<group>"; };
 		4E4813D607739B0C0090D7C2 /* ccaudit.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ccaudit.h; sourceTree = "<group>"; };
+		AAAA49980CC587B50099E9D4 /* crc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = crc.c; sourceTree = "<group>"; };
+		AAAA49990CC587B50099E9D4 /* crc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crc.h; sourceTree = "<group>"; };
 		C200C07F0731DE8C00564CE0 /* trackingallocator.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = trackingallocator.cpp; path = lib/trackingallocator.cpp; sourceTree = SOURCE_ROOT; };
 		C20A206906B03FDC00979EF3 /* osxcode.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = osxcode.cpp; sourceTree = "<group>"; };
 		C20A206A06B03FDC00979EF3 /* osxcode.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = osxcode.h; sourceTree = "<group>"; };
@@ -297,6 +302,8 @@
 		4CA6847F0525011D00233BF2 /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				AAAA49980CC587B50099E9D4 /* crc.c */,
+				AAAA49990CC587B50099E9D4 /* crc.h */,
 				C2B1EBFE06D557B300F68F34 /* adornments.h */,
 				C2B1EBFD06D557B300F68F34 /* adornments.cpp */,
 				C27994F2052B5F77004B95B8 /* alloc.h */,
@@ -517,6 +524,7 @@
 				C2D382950A225B23005C63A2 /* hashing.h in Headers */,
 				C22551020A264BA0007D3358 /* blob.h in Headers */,
 				C2CBCF540A3E27CF0025C2F9 /* superblob.h in Headers */,
+				AAAA499C0CC587B50099E9D4 /* crc.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -524,6 +532,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AAAA499B0CC587B50099E9D4 /* crc.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -651,6 +660,7 @@
 				C2D382930A225B23005C63A2 /* hashing.cpp in Sources */,
 				C22551000A264BA0007D3358 /* blob.cpp in Sources */,
 				C2CBCF520A3E27CF0025C2F9 /* superblob.cpp in Sources */,
+				AAAA499A0CC587B50099E9D4 /* crc.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -721,7 +731,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32566;
+				CURRENT_PROJECT_VERSION = 32820;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -765,7 +775,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 32566;
+				CURRENT_PROJECT_VERSION = 32820;
 				GCC_DEBUGGING_SYMBOLS = default;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				LIBRARY_STYLE = STATIC;
@@ -804,7 +814,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 32566;
+				CURRENT_PROJECT_VERSION = 32820;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
@@ -844,7 +854,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 32566;
+				CURRENT_PROJECT_VERSION = 32820;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";

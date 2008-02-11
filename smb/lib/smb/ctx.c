@@ -282,15 +282,16 @@ int smb_ctx_setshare(struct smb_ctx *ctx, const char *share, int stype)
 }
 
 /*
- * Copy in the servers address
+ * Set the DNS name or Dot IP Notation that should be used for this NetBIOS name. The
+ * configuration file contian the DNS name to use when connecting. 
  */
-static int smb_ctx_setsrvaddr(struct smb_ctx *ctx, const char *addr)
+static int set_netbios_dns_name(struct smb_ctx *ctx, const char *addr)
 {
 	if (addr == NULL || addr[0] == 0)
 		return EINVAL;
-	if (ctx->ct_srvaddr)
-		free(ctx->ct_srvaddr);
-	if ((ctx->ct_srvaddr = strdup(addr)) == NULL)
+	if (ctx->netbios_dns_name)
+		free(ctx->netbios_dns_name);
+	if ((ctx->netbios_dns_name = strdup(addr)) == NULL)
 		return ENOMEM;
 	return 0;
 }
@@ -321,13 +322,19 @@ static int smb_ctx_readrcsection(struct rcfile *smb_rc, struct smb_ctx *ctx, con
 	if (level <= 1) {
 		int aflags;
 		rc_getstringptr(smb_rc, sname, "port445", &p);
-		if (p) { /* Default is to try both */
+		/* 
+		 * See if the configuration file wants us to use a specific port. Now if the
+		 * URL has a port in it then ignore the configuration file. 
+		 */
+		if (p && (ctx->ct_port_behavior != USE_THIS_PORT_ONLY)) {
 			if (strcmp(p, "netbios_only") == 0) {
 				ctx->ct_port_behavior = USE_THIS_PORT_ONLY;
 				ctx->ct_port = NBSS_TCP_PORT_139;
 			}
-			else if (strcmp(p, "no_netbios") == 0) 
+			else if (strcmp(p, "no_netbios") == 0) {
 				ctx->ct_port_behavior = USE_THIS_PORT_ONLY;
+				ctx->ct_port = SMB_TCP_PORT_445;
+			}
 		}
 		rc_getint(smb_rc, sname, "debug_level", &ctx->debug_level);
 		aflags = FALSE;
@@ -388,7 +395,7 @@ static int smb_ctx_readrcsection(struct rcfile *smb_rc, struct smb_ctx *ctx, con
 	if (level == 1) {
 		rc_getstringptr(smb_rc, sname, "addr", &p);
 		if (p) {
-			error = smb_ctx_setsrvaddr(ctx, p);
+			error = set_netbios_dns_name(ctx, p);
 			if (error) {
 				smb_log_info("invalid address specified in the section %s", ASL_LEVEL_ERR, error, sname);
 				return error;
@@ -433,7 +440,7 @@ static void smb_ctx_readrc(struct smb_ctx *ctx, int NoUserPreferences)
 		goto done;
 	
 	/*
-	 * The /var/run/smb.conf uses the global section header and we use 
+	 * The /var/db/smb.conf uses the global section header and we use 
 	 * default. They really mean the same thing. We should call the
 	 * smb_ctx_readrcsection routine here, but that cause an extra search
 	 * that we would like to avoid. So in the rc_addsect routine we check
@@ -525,7 +532,7 @@ static int smb_ctx_getnbname(struct smb_ctx *ctx, struct sockaddr *sap)
 			smb_ctx_setserver(ctx, server);
 	} else {
 		if (ctx->ct_ssn.ioc_srvname[0] == (char)0)
-			smb_ctx_setserver(ctx, "*SMBSERVER");
+			smb_ctx_setserver(ctx, NetBIOS_SMBSERVER);
 	}
 	return error;
 }
@@ -821,163 +828,166 @@ int smb_session_security(struct smb_ctx *ctx, char *clientpn, char *servicepn)
 }
 
 /*
- * Resolve the server NetBIOS name and address
+ * We should use Radar 3916980 and 3165159 to clean up this code. We only need ioc_local
+ * when connecting on port 139 and the way we pass it down is just stupid. We can't fix
+ * this yet, because the kernel will error out if ioc_local is null. 
  */
-static int smb_resolve_port_139(struct smb_ctx *ctx)
+static void smb_set_ioc_local(struct smb_ctx *ctx) 
 {
-	struct sockaddr *sap = NULL;
-	struct sockaddr_nb *saserver = NULL;
 	struct sockaddr_nb *salocal = NULL;
 	struct nb_name nn;
 	int error = 0;
-	int allow_local_conn = (ctx->ct_flags & SMBCF_MOUNTSMBFS);
 	
-	ctx->ct_flags &= ~SMBCF_RESOLVED;
-	
-	/* Get the inet addr need to resolve the NetBIOS name could be a broadcast address */
-	error = nb_ctx_resolve(&ctx->ct_nb);
-	if (error)
-		goto WeAreDone;
-	
-	/*
-	 * This is port 139, we need the server's address and its NetBIOS name. If this is Samba
-	 * or NT4 (are greater) then we could use "*SMBSERVER" if we cannot find the server's
-	 * NetBIOS name.
-	 *
-	 * If we have a "ct_srvaddr" then we have the servers address in the dot IP string form
-	 * of 192.0.0.1 and we should have been given there NetBIOS name. Look at the config file
-	 * for how this works.
-	 *
-	 * If we have the "ioc_srvname" assume its a NetBIOS name and try to resolve it using 
-	 * port 137. If this fails or we don't have a "ioc_srvname" and we do have a "ct_fullserver"
-	 * then try to resolve it using DNS and just use "*SMBSERVER" as the NetBIOS name.
-	 *
-	 * With support for 445 this code will be used less and less.
-	 */
-	if (ctx->ct_srvaddr)
-		error = nb_resolvehost_in(ctx->ct_srvaddr, &sap, NBSS_TCP_PORT_139, allow_local_conn);
-	else {
-		if (ctx->ct_ssn.ioc_srvname[0]) {
-			char * netbios_name = convert_utf8_to_wincs(ctx->ct_ssn.ioc_srvname);
-			
-			if (netbios_name == NULL)
-				netbios_name = ctx->ct_ssn.ioc_srvname;
-			error = nbns_resolvename(netbios_name, &ctx->ct_nb, ctx, &sap);
-			/* We have the convert name, if we resolved it then keep that name */
-			if (netbios_name != ctx->ct_ssn.ioc_srvname) {
-				if (!error)
-					smb_ctx_setserver(ctx, netbios_name);
-				free(netbios_name);
-			}
-		}
-		else
-			error = ENOTSUP;
-
-		if (error && ctx->ct_fullserver) {
-			error = nb_resolvehost_in(ctx->ct_fullserver, &sap, NBSS_TCP_PORT_139, allow_local_conn);
-			if (error == 0)
-				smb_ctx_getnbname(ctx, sap);
-		}
-	}
+	strlcpy((char *)nn.nn_name, ctx->LocalNetBIOSName, sizeof(nn.nn_name));
+	nn.nn_type = NBT_WKSTA;
+	nn.nn_scope = (u_char *)(ctx->ct_nb.nb_scope);
+	error = nb_sockaddr(NULL, &nn, &salocal);
+	/* We only need this for port 139 and the kernel will return an error if null */ 
 	if (error) 
-		goto WeAreDone;
+		smb_log_info("can't create local address", error, ASL_LEVEL_DEBUG);		
+	if (ctx->ct_ssn.ioc_local)
+		free(ctx->ct_ssn.ioc_local);		
+	ctx->ct_ssn.ioc_local = (struct sockaddr*)salocal;
+	ctx->ct_ssn.ioc_lolen = salocal->snb_len;
+	
+}
+
+/*
+ * We should use Radar 3916980 and 3165159 to clean up this code. We only need ioc_server
+ * when connecting on port 139 and the way we pass it down is just stupid. We can't fix
+ * this yet, because the kernel will error out if ioc_local is null. 
+ */
+static void smb_set_ioc_server(struct smb_ctx *ctx, char *netbiosname, struct sockaddr *sap)
+{
+	struct sockaddr_nb *saserver = NULL;
+	struct nb_name nn;
+	int error = 0;
 
 	/* See if they are using a scope, more code that is not the norm, but we still support */
 	nn.nn_scope = (u_char *)(ctx->ct_nb.nb_scope);
 	nn.nn_type = NBT_SERVER;
-	
-	/* We use strlcpy here now, because ioc_srvname can be up to 60 bytes while a NetBIOS name can only be 16 bytes. */ 
-	strlcpy((char *)(nn.nn_name), ctx->ct_ssn.ioc_srvname, sizeof(nn.nn_name));
+	strlcpy((char *)(nn.nn_name), netbiosname, sizeof(nn.nn_name));
 	/*
 	 * We no longer keep the server name in uppercase. When connecting on port 139 we need to 
 	 * uppercases netbios name that is used for the connection. So after we copy it in and before
 	 * we encode it we should make sure it gets uppercase.
 	 */
 	str_upper((char *)(nn.nn_name), (char *)(nn.nn_name));
-	error = nb_sockaddr(sap, &nn, &saserver);
-	free(sap);
-	sap = NULL;
+	error = nb_sockaddr(sap, &nn, &saserver);						
 	if (error) 
-		goto WeAreDone;
-
-	/* Get the host name, but only copy what will fit in the buffer.  */ 
-	strlcpy((char *)nn.nn_name, ctx->LocalNetBIOSName, sizeof(nn.nn_name));
-	nn.nn_type = NBT_WKSTA;
-	nn.nn_scope = (u_char *)(ctx->ct_nb.nb_scope);
-	error = nb_sockaddr(NULL, &nn, &salocal);
-	if (error) 
-		goto WeAreDone;
-
+		smb_log_info("can't create remote address", error, ASL_LEVEL_DEBUG);		
 	if (ctx->ct_ssn.ioc_server)
 		free(ctx->ct_ssn.ioc_server);		
-	if (ctx->ct_ssn.ioc_local)
-		free(ctx->ct_ssn.ioc_local);		
 	ctx->ct_ssn.ioc_server = (struct sockaddr*)saserver;
-	ctx->ct_ssn.ioc_local = (struct sockaddr*)salocal;
-	ctx->ct_ssn.ioc_lolen = salocal->snb_len;
 	ctx->ct_ssn.ioc_svlen = saserver->snb_len;
-	ctx->ct_flags |= SMBCF_RESOLVED;
+}
 
-WeAreDone:
-	if (error) {
-		if (sap)
-			free(sap);		
-		if (saserver)
-			free(saserver);		
-		if (salocal)
-			free(salocal);		
-		smb_log_info("can't resolve server address", error, ASL_LEVEL_DEBUG);		
+/*
+ * Resolve the name using NetBIOS. This should always return a IPv4 address.
+ *
+ * If we reolve the name then we know that we have a NetBIOS name. Set
+ * the SMBCF_RESOLVED_NetBIOS to tell everyone that ioc_srvname now has
+ * a NetBIOS name and there is no reason to look it up.
+ */
+static int smb_resolve_netbios_name(struct smb_ctx *ctx, u_int16_t port, struct sockaddr **sap)
+{
+	char * netbios_name = NULL;
+	int error = 0;
+	int allow_local_conn = (ctx->ct_flags & SMBCF_MOUNTSMBFS);
+	
+	/*
+	 * We really need to fix the use of ioc_srvname. Its just badly used and
+	 * name. Since this will required kernel changes, going to do this in
+	 * Radar 3916980 "Clean up server and client name/address information"
+	 */
+	if (ctx->ct_ssn.ioc_srvname[0])
+		netbios_name = convert_utf8_to_wincs(ctx->ct_ssn.ioc_srvname);
+	
+	/* Must have a NetBIOS name if we are going to resovle it using NetBIOS */
+	if ((netbios_name == NULL) || (strlen(netbios_name) > SMB_MAXNetBIOSNAMELEN)) {
+		error = EHOSTUNREACH;
+		goto WeAreDone;
 	}
+	
+	/*
+	 * If we have a "netbios_dns_name" then the configuration file contained the DNS name or 
+	 * DOT IP Notification address (192.0.0.1) that we should be using to connect to the server.
+	 *
+	 * When we add IPv6 address this will need to be changed. We will need a way to require the
+	 * lookup to only return an IPv4 address (See Radar 3165159).
+	 */
+	if (ctx->netbios_dns_name)
+		error = nb_resolvehost_in(ctx->netbios_dns_name, sap, port, allow_local_conn);
+	else {
+		/* Get the address need to resolve the NetBIOS name could be wins or a broadcast address */
+		error = nb_ctx_resolve(&ctx->ct_nb);
+		if (error == 0)
+			error = nbns_resolvename(netbios_name, &ctx->ct_nb, ctx, sap, allow_local_conn, port);
+	}
+	
+WeAreDone:
+	if (error == 0)
+		ctx->ct_flags |= SMBCF_RESOLVED; /* We are done no more resolving needed */
+		
+	if (netbios_name) {
+		/* 
+		 * We resolved it so ioc_server should contain the NetBIOS name. Needs
+		 * to be cleaned up with Radar 3916980.
+		 */
+		if (error == 0) {
+			ctx->ct_flags |= SMBCF_RESOLVED_NetBIOS; /* We have a NetBIOS name */
+			smb_ctx_setserver(ctx, netbios_name);
+		}
+		else 
+			smb_log_info("Couldn't resolve NetBIOS name %s", error, ASL_LEVEL_DEBUG, netbios_name);
+		free(netbios_name);
+	}	
 	return error;
 }
 
-#define SMB_BonjourServiceNameType "_smb._tcp."
 /*
- * Given a DNS or Bonjour name find the address of the server and assign the correct port
- * to use.
- *
- * %%%
- * Currently we only support one address per name. In the future we should return a list
- * of address to try. This list should include AF_INET6 and AF_INET address. Since we only
- * support AF_INET in Leopard this shouldn't be much of an issue.
+ * Resolve the name using Bonjour. This currently always returns a IPv4 address
+ * With Radar 3165159 "SMB should support IPv6" this routine will need some work.
+ * We always use the port supplied by Bonjour. Should never be port 139. We should
+ * never need a NetBIOS name in this case. If a NetBIOS name is required then this 
+ * is a design flaw.
  */
-static int smb_resolve_port(struct smb_ctx *ctx, u_int16_t port)
+static int smb_resolve_bonjour_name(struct smb_ctx *ctx, struct sockaddr **sap)
 {
-	struct sockaddr *sap = NULL;
-	struct sockaddr_nb *saserver = NULL;
-	struct sockaddr_nb *salocal = NULL;
-	int error = 0;
-	int allow_local_conn = (ctx->ct_flags & SMBCF_MOUNTSMBFS);
 	CFNetServiceRef theService = _CFNetServiceCreateFromURL(NULL, ctx->ct_url);
-
-	ctx->ct_flags &= ~SMBCF_RESOLVED;
+	CFStringRef serviceNameType;
+	CFStringRef displayServiceName;
+	CFStreamError debug_error = {(CFStreamErrorDomain)0, 0};
+	CFArrayRef retAddresses = NULL;
+	int32_t numAddresses = 0;
+	struct sockaddr *sockAddr = NULL;
+	int ii;
 	
-	/* Must be doing a Bonjour service name lookup */
-	if (theService) {
-		CFStringRef serviceNameType = CFNetServiceGetType(theService);
-		CFStringRef displayServiceName = CFNetServiceGetName(theService);
-		CFStreamError debug_error = {(CFStreamErrorDomain)0, 0};
-		CFArrayRef retAddresses = NULL;
-		int32_t numAddresses = 0;
-		struct sockaddr *sockAddr = NULL;
-		int ii;
+	/* Not a Bonjour Service Name, need to resolve with some other method */
+	if (theService == NULL)
+		return EHOSTUNREACH;
 		
-		/* Bonjour service name lookup, never fallback to NetBIOS name lookups. */
-		ctx->ct_port_behavior = USE_THIS_PORT_ONLY;
-		if (serviceNameType && (CFStringCompare(serviceNameType, CFSTR(SMB_BonjourServiceNameType), kCFCompareCaseInsensitive) != kCFCompareEqualTo)) {
-			const char *serviceNameTypeCString = CFStringGetCStringPtr(serviceNameType, kCFStringEncodingUTF8);
-			
-			smb_log_info("Wrong service type for smb, should be %s got %s", 0, ASL_LEVEL_ERR, 
-						 SMB_BonjourServiceNameType, (serviceNameTypeCString) ? serviceNameTypeCString : "NULL");
-		} else if (CFNetServiceResolveWithTimeout(theService, 30, &debug_error) == TRUE) {
-			retAddresses = CFNetServiceGetAddressing(theService);
-			numAddresses = (retAddresses) ? CFArrayGetCount(retAddresses) : 0;
-			smb_log_info("Bonjour lookup found %d address entries.", 0, ASL_LEVEL_DEBUG, numAddresses);			
-		}
-		else 
-			smb_log_info("Looking up Bonjour service name timeouted? error %d:%d", 0, ASL_LEVEL_DEBUG, debug_error.domain, debug_error.error);
+	ctx->ct_flags |= SMBCF_RESOLVED; /* Error or no error we are done no more resolving needed */
+	*sap = NULL;
+	/* Bonjour service name lookup, never fallback. */
+	ctx->ct_port_behavior = USE_THIS_PORT_ONLY;
+	serviceNameType = CFNetServiceGetType(theService);
+	displayServiceName = CFNetServiceGetName(theService);
+	
+	if (serviceNameType && (CFStringCompare(serviceNameType, CFSTR(SMB_BonjourServiceNameType), kCFCompareCaseInsensitive) != kCFCompareEqualTo)) {
+		const char *serviceNameTypeCString = CFStringGetCStringPtr(serviceNameType, kCFStringEncodingUTF8);
 		
-		if (retAddresses)	/* Shouldn't be needed, but just to be safe */
+		smb_log_info("Wrong service type for smb, should be %s got %s", 0, ASL_LEVEL_ERR, 
+					 SMB_BonjourServiceNameType, (serviceNameTypeCString) ? serviceNameTypeCString : "NULL");
+	} else if (CFNetServiceResolveWithTimeout(theService, 30, &debug_error) == TRUE) {
+		retAddresses = CFNetServiceGetAddressing(theService);
+		numAddresses = (retAddresses) ? CFArrayGetCount(retAddresses) : 0;
+		smb_log_info("Bonjour lookup found %d address entries.", 0, ASL_LEVEL_DEBUG, numAddresses);			
+	}
+	else 
+		smb_log_info("Looking up Bonjour service name timeouted? error %d:%d", 0, ASL_LEVEL_DEBUG, debug_error.domain, debug_error.error);
+	
+	if (retAddresses)	/* Shouldn't be needed, but just to be safe */
 		for (ii=0; ii<numAddresses; ii++) {
 			sockAddr = (struct sockaddr*) CFDataGetBytePtr ((CFDataRef) CFArrayGetValueAtIndex (retAddresses, ii));
 			if (sockAddr == NULL) {
@@ -988,85 +998,144 @@ static int smb_resolve_port(struct smb_ctx *ctx, u_int16_t port)
 				continue;			
 			} else if (sockAddr->sa_family == AF_INET) {
 				smb_log_info("Resolve for Bonjour found IPv4 sin_port = %d sap sin_addr = 0x%x", 0, ASL_LEVEL_DEBUG, 
-							 htons(((struct sockaddr_in *)sockAddr)->sin_port), htonl(((struct sockaddr_in *)sockAddr)->sin_addr.s_addr));				
-				sap = malloc(sizeof(struct sockaddr_in));
-				if (sap) {
+							 htons(((struct sockaddr_in *)sockAddr)->sin_port), htonl(((struct sockaddr_in *)sockAddr)->sin_addr.s_addr));	
+				*sap = malloc(sizeof(struct sockaddr_in));
+				if (*sap) {
 					ctx->ct_port = htons(((struct sockaddr_in *)sockAddr)->sin_port);
-					memcpy (sap, sockAddr, sizeof (struct sockaddr_in));
+					memcpy (*sap, sockAddr, sizeof (struct sockaddr_in));
 				}
 				break;
 			} else
 				smb_log_info("Unknown sa_family = %d sa_len = %d", 0, ASL_LEVEL_DEBUG, sockAddr->sa_family, sockAddr->sa_len);
 		}
-		
-		if (sap == NULL) /* Nothing founded */
-			error = EADDRNOTAVAIL;
-		if ((error == 0) && displayServiceName) {
-			if (ctx->serverDisplayName)
-				CFRelease(ctx->serverDisplayName);
-			ctx->serverDisplayName = CFStringCreateCopy(kCFAllocatorDefault, displayServiceName);
-		}
+	/*
+	 * Once we add IPv6 support (See Radar 3165159) we will need to
+	 * add some code here to find out which address to use. 
+	 */
+	if (*sap && displayServiceName) {
+		if (ctx->serverDisplayName)
+			CFRelease(ctx->serverDisplayName);
+		ctx->serverDisplayName = CFStringCreateCopy(kCFAllocatorDefault, displayServiceName);
+	}
+	
+	if (theService)
 		CFRelease(theService);
-	} else
-		error = nb_resolvehost_in(ctx->ct_fullserver, &sap, port, allow_local_conn);
-	
-	if (error) 
-		goto WeAreDone;
+	if (*sap == NULL) /* Nothing founded */
+		return EADDRNOTAVAIL;
+	return 0;
+}
 
-	/* If you don't allocate it big enough there are problems */
-	error = nb_snballoc(NB_ENCNAMELEN+2, &salocal);
-	if (error) 
-		goto WeAreDone;
-	
-	/* If you don't allocate it big enough there are problems */
-	error = nb_snballoc(NB_ENCNAMELEN+2, &saserver);
-	if (error) 
-		goto WeAreDone;
+/*
+ * Resolve the name using DNS. This currently always returns a IPv4 address
+ * With Radar 3165159 "SMB should support IPv6" this routine will need some work.
+ * We always use the port passed in. If the name is resolved in this case then
+ * we should be using port 445. In some cases we will fallback to port 139, but in
+ * those cases we should lookup the NetBIOS before we attempt the port 139 connection.
+*/
+static int smb_resolve_dns_name(struct smb_ctx *ctx, u_int16_t port, struct sockaddr **sap)
+{
+	int error = 0;
+	int allow_local_conn = (ctx->ct_flags & SMBCF_MOUNTSMBFS);
 
-	memcpy(&saserver->snb_addrin, sap, ((struct sockaddr_in *)sap)->sin_len);
-	if (ctx->ct_ssn.ioc_server)
-		free(ctx->ct_ssn.ioc_server);		
-	if (ctx->ct_ssn.ioc_local)
-		free(ctx->ct_ssn.ioc_local);		
-	ctx->ct_ssn.ioc_server = (struct sockaddr*)saserver; /* server sockaddr */
-	ctx->ct_ssn.ioc_local = (struct sockaddr*)salocal; /* and local socakaddr */
-	ctx->ct_ssn.ioc_lolen = salocal->snb_len;
-	ctx->ct_ssn.ioc_svlen = saserver->snb_len;
-	ctx->ct_flags |= SMBCF_RESOLVED;
-	
-WeAreDone:
-	if (sap)
-		free(sap);
-	
-	if (error) {
-		if (saserver)
-			free(saserver);		
-		if (salocal)
-			free(salocal);		
-		smb_log_info("can't resolve server address", error, ASL_LEVEL_DEBUG);		
+	error = nb_resolvehost_in(ctx->ct_fullserver, sap, port, allow_local_conn);
+	if (error == 0) {
+		if (*sap && (*sap)->sa_family == AF_INET6) {
+			/* No port 139 support with IPv6 address, should this be handled in nb_resolvehost_in?  */
+			if (ctx->ct_port == NBSS_TCP_PORT_139)
+				return EADDRNOTAVAIL;
+			ctx->ct_port_behavior = USE_THIS_PORT_ONLY;
+		}
+		ctx->ct_flags |= SMBCF_RESOLVED;
 	}
 	return error;
 }
 
+/* 
+ * We want to attempt to resolve the name using any available method. 
+ *	1.	Bonjour Lookup: We always check to see if the name is a Bonjour 
+ *		service name first. If it's a Bonjour name than we either resolve it or 
+ *		fail the whole connection. If we succeed then we always use the port give
+ *		to us by Bonjour.
+ *
+ *	2.	NetBIOS Lookup: If not a Bonjour name then by default attempt to resolve it
+ *		using NetBIOS. If we find it go ahead and set the NetBIOS name. Skip this lookup
+ *		if we are not trying both ports and the port the have set is not 139.
+ *
+ *	3.	DNS Lookup: If all else fails attempt to look it up with DNS. In this case the 
+ *		default is to try port 445 and if that fails attempt port 139. We will need to
+ *		find and set the NetBIOS name if the connection is on port 139.
+ *
+ * NOTE:	All of this will need to be re-looked at when we implement 
+ *			Radar 3165159 "SMB should support IPv6".
+ *	
+ */
 static int smb_resolve(struct smb_ctx *ctx)
 {
+	struct sockaddr *sap = NULL;
+	int error;
+	
 	/* We already resolved it nothing else to do here */
 	if (ctx->ct_flags & SMBCF_RESOLVED)
 		return 0;
-	if (ctx->ct_port == NBSS_TCP_PORT_139)
-		return smb_resolve_port_139(ctx);
-	else 
-		return smb_resolve_port(ctx, ctx->ct_port);
-}
+	
+	/* We always try Bonjour first and use the port if gave us. */
+	error = smb_resolve_bonjour_name(ctx, &sap);
+	/* We are done if Bonjour resolved it otherwise try the other methods. */
+	if (ctx->ct_flags & SMBCF_RESOLVED)
+		goto WeAreDone;
+	
+	/* We default to trying NetBIOS next unless they request us to use some other port */
+	if ((ctx->ct_port == NBSS_TCP_PORT_139) || (ctx->ct_port_behavior == TRY_BOTH_PORTS))
+		error = smb_resolve_netbios_name(ctx, ctx->ct_port, &sap);
+	
+	/* We found it with NetBIOS we are done. */
+	if (ctx->ct_flags & SMBCF_RESOLVED)
+		goto WeAreDone;
 
+	/* Last resort try DNS */
+	error = smb_resolve_dns_name(ctx, ctx->ct_port, &sap);
+	
+WeAreDone:
+	if (error == 0) {
+		/*
+		 * We should use Radar 3916980 and 3165159 to clean up this code. We only need ioc_local
+		 * when connecting on port 139 and the way we pass it down is just stupid. We can't fix
+		 * this yet, because the kernel will error out if ioc_local is null. We always have the
+		 * ioc_local information at this point so just fill it in.
+		 */
+		smb_set_ioc_local(ctx);
+		/*
+		 * We should use Radar 3916980 and 3165159 to clean up this code. We only need ioc_srvname
+		 * when connecting on port 139 and the way we pass it down is just stupid. We can't fix
+		 * this yet, because the kernel will error out if ioc_srvname is null. 
+		 */
+		if (ctx->ct_flags & SMBCF_RESOLVED_NetBIOS)
+			smb_set_ioc_server(ctx, ctx->ct_ssn.ioc_srvname, sap);
+		else {
+			/* They said to use port 139, try to find the NetBIOS name */
+			if (ctx->ct_port == NBSS_TCP_PORT_139) {
+				smb_ctx_getnbname(ctx, sap);
+				smb_set_ioc_server(ctx, ctx->ct_ssn.ioc_srvname, sap);			
+			} else 
+				smb_set_ioc_server(ctx, NetBIOS_SMBSERVER, sap);
+		}
+	}
+	if (sap)
+		free(sap);
+	return error;
+}
+/*
+ * First we reolsve the name, once we have it resolved then we are done.
+ */
 int smb_connect(struct smb_ctx *ctx)
 {
 	int error;
 	
 	ctx->ct_flags &= ~SMBCF_CONNECTED;
 	error = smb_resolve(ctx);
-	if (!error)
-		error = smb_negotiate(ctx);
+	if (error)
+		return error;
+	error = smb_negotiate(ctx);
 	if (error == ECANCELED)
 		return error;
 	
@@ -1075,20 +1144,23 @@ int smb_connect(struct smb_ctx *ctx)
 	 * the second port. This will cause problems with firewalls. If the first port is blocked then we will 
 	 * never connect to the second port, without a configuration change. This really shouldn't be that bad 
 	 * because we default to try port 445 first and port 139 second. So if they for some strange reason have 
-	 * 445 blocked and not port 139 they will need to change their configuration file to force us to use 139 first. 
+	 * 445 blocked and not port 139 they will need to change their configuration file to force us to use 139 first.
 	 *
-	 * If we get an ELOOP then we found it on a local addres, so don't look for it on the other port.
+	 * NOTE: We should never have TRY_BOTH_PORTS set if this is an IPV6 address. 
+	 *		 Radar 3165159 "SMB should support IPv6" need to confirm and test for this fact.
 	 */
-	if (error && (error != ETIMEDOUT) && (error != ELOOP) && (ctx->ct_port_behavior == TRY_BOTH_PORTS)) {
-		ctx->ct_flags &= ~SMBCF_RESOLVED;
+	if (error && (error != ETIMEDOUT) && (ctx->ct_port_behavior == TRY_BOTH_PORTS)) {
+		struct sockaddr_in * sap = &GET_IP_ADDRESS_FROM_NB((ctx->ct_ssn.ioc_server));
+		
+		sap->sin_port = htons(NBSS_TCP_PORT_139);
 		ctx->ct_port = NBSS_TCP_PORT_139;
-		/* Port 445 failed never try it agian */
 		ctx->ct_port_behavior = USE_THIS_PORT_ONLY;
-		error = smb_resolve(ctx);
-		if (!error)
-			error = smb_negotiate(ctx);		
-	} else	/* From now on use the same port */
-		ctx->ct_port_behavior = USE_THIS_PORT_ONLY;
+		if ((ctx->ct_flags & SMBCF_RESOLVED_NetBIOS) != SMBCF_RESOLVED_NetBIOS) {
+			smb_ctx_getnbname(ctx, (struct sockaddr *)sap);
+			smb_set_ioc_server(ctx, ctx->ct_ssn.ioc_srvname, (struct sockaddr *)sap);
+		}
+		error = smb_negotiate(ctx);		
+	}
 	if (error == 0)
 		ctx->ct_flags |= SMBCF_CONNECTED;
 	return error;
@@ -1790,7 +1862,7 @@ void *smb_create_ctx()
 	ctx->ct_port = SMB_TCP_PORT_445;
 	ctx->ct_fullserver = NULL;
 	ctx->serverDisplayName = NULL;
-	ctx->ct_srvaddr = NULL;
+	ctx->netbios_dns_name = NULL;
 	bzero(&ctx->ct_nb, sizeof(ctx->ct_nb));
 	bzero(&ctx->ct_ssn, sizeof(ctx->ct_ssn));
 	bzero(&ctx->ct_sh, sizeof(ctx->ct_sh));
@@ -1901,8 +1973,8 @@ void smb_ctx_done(void *inRef)
 		free(ctx->ct_ssn.ioc_server);
 	if (ctx->ct_ssn.ioc_local)
 		free(ctx->ct_ssn.ioc_local);
-	if (ctx->ct_srvaddr)
-		free(ctx->ct_srvaddr);
+	if (ctx->netbios_dns_name)
+		free(ctx->netbios_dns_name);
 	if (ctx->ct_kerbPrincipalName)
 		free(ctx->ct_kerbPrincipalName);
 	if (ctx->ct_origshare)

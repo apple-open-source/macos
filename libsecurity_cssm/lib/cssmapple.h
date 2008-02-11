@@ -401,7 +401,7 @@ enum
 /* Apple X509TP private error codes. */
 enum 
 {
-	/* mismatch between Cert's common name and app-specified host name */
+	/* Host name mismatch */
 	CSSMERR_APPLETP_HOSTNAME_MISMATCH =				CSSM_TP_PRIVATE_ERROR + 0,
 	/* Non-understood extension with Critical flag true */
 	CSSMERR_APPLETP_UNKNOWN_CRITICAL_EXTEN =		CSSM_TP_PRIVATE_ERROR + 1,
@@ -426,7 +426,7 @@ enum
 	/* CRL expired/not valid yet */
 	CSSMERR_APPLETP_CRL_EXPIRED =					CSSM_TP_PRIVATE_ERROR + 11,
 	CSSMERR_APPLETP_CRL_NOT_VALID_YET =				CSSM_TP_PRIVATE_ERROR + 12,
-	/* Can't find appropriate CRL */
+	/* Cannot find appropriate CRL */
 	CSSMERR_APPLETP_CRL_NOT_FOUND =					CSSM_TP_PRIVATE_ERROR + 13,
 	/* specified CRL server down */
 	CSSMERR_APPLETP_CRL_SERVER_DOWN =				CSSM_TP_PRIVATE_ERROR + 14,

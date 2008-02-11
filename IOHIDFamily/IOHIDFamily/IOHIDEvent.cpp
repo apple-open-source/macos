@@ -176,10 +176,12 @@ IOHIDEvent * IOHIDEvent::withEventData (
             
         case NX_KEYDOWN:
         case NX_KEYUP:
+            {
             uint32_t usage = hid_adb_2_usb_keymap[data->key.keyCode];
             
             if ( usage < kHIDUsage_KeyboardLeftControl || usage > kHIDUsage_KeyboardRightGUI || !data->key.repeat )
                 me = IOHIDEvent::keyboardEvent(timeStamp, kHIDPage_KeyboardOrKeypad, hid_adb_2_usb_keymap[data->key.keyCode], type==NX_KEYDOWN, options | (data->key.repeat ? kIOHIDKeyboardIsRepeat : 0));
+            }
             break;
         case NX_SCROLLWHEELMOVED:
             me = IOHIDEvent::scrollEvent(timeStamp, data->scrollWheel.pointDeltaAxis2<<16, data->scrollWheel.pointDeltaAxis1<<16, data->scrollWheel.pointDeltaAxis3<<16, options);
@@ -423,8 +425,8 @@ IOHIDEvent * IOHIDEvent::buttonEvent(
     }
     
     IOHIDButtonEventData * event = (IOHIDButtonEventData *)me->_data;
-    event->buttonMask = buttonMask;
-    event->pressure   = pressure;
+    event->button.buttonMask = buttonMask;
+    event->button.pressure   = pressure;
     
     return me;
 }

@@ -22,6 +22,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+#include <TargetConditionals.h>
+
 #include <libkern/OSByteOrder.h>
 #include <IOKit/IOMemoryCursor.h>
 #include <IOKit/IOMessage.h>
@@ -30,7 +33,11 @@
 
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
-#include <IOKit/pccard/IOPCCard.h>
+
+#if !TARGET_OS_EMBEDDED
+	#include <IOKit/pccard/IOPCCard.h>
+#endif
+
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 
 #include "AppleUSBEHCI.h"
@@ -1402,6 +1409,7 @@ AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 			return kIOReturnSuccess;  // this message was handled
 			break;
 			
+#if !TARGET_OS_EMBEDDED
 		case kIOPCCardCSEventMessage:
 			cs_event_t	pccardevent;
 			pccardevent = (UInt32) argument;
@@ -1415,6 +1423,8 @@ AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 			}
 			// let the super-class run as well...
 			break;
+#endif
+			
 	}
 	
 

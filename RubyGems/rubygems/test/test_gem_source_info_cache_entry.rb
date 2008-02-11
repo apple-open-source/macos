@@ -1,5 +1,6 @@
 require 'test/unit'
-require 'test/gemutilities'
+require File.join(File.expand_path(File.dirname(__FILE__)), 'gemutilities')
+require 'rubygems/source_info_cache_entry'
 
 class TestGemSourceInfoCacheEntry < RubyGemTestCase
 
@@ -9,20 +10,21 @@ class TestGemSourceInfoCacheEntry < RubyGemTestCase
     util_setup_fake_fetcher
 
     @si = Gem::SourceIndex.new @gem1.full_name => @gem1.name
-    @sic_e = Gem::SourceInfoCacheEntry.new @si, @si.to_yaml.length
+    @sic_e = Gem::SourceInfoCacheEntry.new @si, @si.dump.size
   end
 
   def test_refresh
-    @fetcher.data['http://gems.example.com/yaml.Z'] = proc { raise Exception }
-    @fetcher.data['http://gems.example.com/yaml'] = @si.to_yaml
+    @fetcher.data["#{@gem_repo}/Marshal.#{@marshal_version}.Z"] =
+      proc { raise Exception }
+    @fetcher.data["#{@gem_repo}/Marshal.#{@marshal_version}"] = @si.dump
 
     assert_nothing_raised do
-      @sic_e.refresh 'http://gems.example.com'
+      @sic_e.refresh @gem_repo
     end
   end
 
   def test_refresh_bad_uri
-    assert_raise ArgumentError do
+    assert_raise URI::BadURIError do
       @sic_e.refresh 'gems.example.com'
     end
   end
@@ -30,10 +32,10 @@ class TestGemSourceInfoCacheEntry < RubyGemTestCase
   def test_refresh_update
     si = Gem::SourceIndex.new @gem1.full_name => @gem1,
                               @gem2.full_name => @gem2
-    @fetcher.data['http://gems.example.com/yaml'] = si.to_yaml
+    @fetcher.data["#{@gem_repo}/Marshal.#{@marshal_version}"] = si.dump
 
-    use_ui MockGemUi.new do
-      @sic_e.refresh 'http://gems.example.com'
+    use_ui @ui do
+      @sic_e.refresh @gem_repo
     end
 
     new_gem = @sic_e.source_index.specification(@gem2.full_name)

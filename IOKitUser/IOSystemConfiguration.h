@@ -9,6 +9,7 @@
 #include <SystemConfiguration/SCPreferencesPrivate.h>
 #include <SystemConfiguration/SCDynamicStorePrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <TargetConditionals.h>
 
 #undef kSCCompAnyRegex
 #undef kSCDynamicStoreDomainState
@@ -89,6 +90,17 @@ SCPreferencesCreate		(
 				    CFStringRef			name,
 				    CFStringRef			prefsID
 				);
+
+#if TARGET_OS_EMBEDDED
+__private_extern__ SCPreferencesRef
+SCPreferencesCreateWithAuthorization	(
+					CFAllocatorRef		allocator,
+					CFStringRef		name,
+					CFStringRef		prefsID,
+					AuthorizationRef	authorization
+					);
+#endif /* TARGET_OS_EMBEDDED */
+
 __private_extern__ CFPropertyListRef
 SCPreferencesGetValue		(
 				    SCPreferencesRef		prefs,

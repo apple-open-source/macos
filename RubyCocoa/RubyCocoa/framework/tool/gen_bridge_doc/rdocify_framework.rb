@@ -30,6 +30,7 @@ def get_reference_files(framework_path)
     class_path = File.join(classes_dir, f)
     if File.directory?(class_path) and not f == '.' and not f == '..'
       ref_dir_path = File.join(class_path, 'Reference/')
+      ref_dir_path = File.join(class_path, 'Introduction/') unless File.exists?(ref_dir_path)
       Dir.entries(ref_dir_path).each do |rf|
         if File.extname(rf) == '.html'
           ref_path = File.join(ref_dir_path, rf)

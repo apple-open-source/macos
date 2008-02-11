@@ -1032,28 +1032,30 @@ IOFWUserAsyncStreamCommand::submit(
 	IOReturn	result		= kIOReturnSuccess;
 	Boolean		syncFlag 	= (params->flags & kFWCommandInterfaceSyncExecute) != 0;
 
-	
-	if ( fMem )	// whatever happens, we're going to need a new memory descriptor
+	if ( params->staleFlags & kFireWireCommandStale_Buffer )	// IOFWUserAsyncStreamCommand
 	{
-		fMem->complete() ;
-		fMem->release() ;
-	}
-	
-	if (NULL == (fMem = IOMemoryDescriptor::withAddressRange( params->newBuffer, 
-											params->newBufferSize, 
-											kIODirectionOut, 
-											fUserClient->getOwningTask())) )
-	{
-		result = kIOReturnNoMemory ;
-	}
-	else
-	{
-		result = fMem->prepare() ;
-		
-		if ( kIOReturnSuccess != result )
+		if ( fMem )	// whatever happens, we're going to need a new memory descriptor
 		{
+			fMem->complete() ;
 			fMem->release() ;
-			fMem = NULL ;
+		}
+	
+		if (NULL == (fMem = IOMemoryDescriptor::withAddressRange( params->newBuffer, 
+												params->newBufferSize, 
+												kIODirectionOut, 
+												fUserClient->getOwningTask())) )
+		{
+			result = kIOReturnNoMemory ;
+		}
+		else
+		{
+			result = fMem->prepare() ;
+			
+			if ( kIOReturnSuccess != result )
+			{
+				fMem->release() ;
+				fMem = NULL ;
+			}
 		}
 	}
 

@@ -1,6 +1,0 @@
-# This is modeled after the postamble script found in the
-# system_cmds/ktrace.tproj/Makefile.postamble script
-
-install-man-page:
-	install -d $(DSTROOT)/usr/share/man/man8
-	install -c -m 444 iostat.8 $(DSTROOT)/usr/share/man/man8/iostat.8

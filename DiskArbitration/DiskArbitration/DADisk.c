@@ -202,24 +202,19 @@ __private_extern__ DADiskRef _DADiskCreateFromVolumePath( CFAllocatorRef allocat
 
         if ( _path )
         {
-            char name[MAXPATHLEN];
+            struct statfs fs;
 
-            if ( realpath( _path, name ) )
+            if ( ___statfs( _path, &fs, MNT_NOWAIT ) == 0 )
             {
-                struct statfs fs;
+                char * id;
 
-                if ( ___statfs( name, &fs, MNT_NOWAIT ) == 0 )
+                id = _DAVolumeCopyID( &fs );
+
+                if ( id )
                 {
-                    char * id;
+                    disk = _DADiskCreate( allocator, session, id );
 
-                    id = _DAVolumeCopyID( &fs );
-
-                    if ( id )
-                    {
-                        disk = _DADiskCreate( allocator, session, id );
-
-                        free( id );
-                    }
+                    free( id );
                 }
             }
 

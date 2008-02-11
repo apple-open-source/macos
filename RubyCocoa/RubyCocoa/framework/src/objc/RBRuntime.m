@@ -32,7 +32,7 @@
 
 /* we cannot use the original DLOG here because it uses autoreleased objects */
 #undef DLOG
-#define DLOG(f,args...) do { if (rubycocoa_debug == Qtrue) printf(f, args); } while (0) 
+#define DLOG(f,args...) do { if (rubycocoa_debug == Qtrue) printf(f, args); } while (0)
 
 /* this function should be called from inside a NSAutoreleasePool */
 static NSBundle* bundle_for(Class klass)
@@ -252,6 +252,7 @@ static int notify_if_error(const char* api_name, VALUE err)
 - (void) __clearCacheAndDealloc
 {
   remove_from_oc2rb_cache(self);
+  release_slave(self);
   [self __dealloc];
 }
 
@@ -793,19 +794,20 @@ static void rb_cocoa_thread_restore_context(NSThread *thread,
 
   oldExcHandlers = NSTHREAD_excHandlers_get(thread);
   if (oldExcHandlers != ctx->excHandlers) {
-    DLOG("Restored excHandlers as %p\n", ctx->excHandlers);
+    DLOG("Restored excHandlers as %p (from %p)\n", ctx->excHandlers, oldExcHandlers);
     NSTHREAD_excHandlers_set(thread, ctx->excHandlers);
     if (ctx->excHandlers != NULL)
       assert(NSTHREAD_excHandlers_get(thread) == ctx->excHandlers);
   }
 
-  oldAutoreleasePool = NSTHREAD_autoreleasePool_get(thread);
-  if (oldAutoreleasePool != ctx->autoreleasePool) {
+  if (ctx->autoreleasePool != NULL) {
+    oldAutoreleasePool = NSTHREAD_autoreleasePool_get(thread);
+	
     NSTHREAD_autoreleasePool_set(thread, ctx->autoreleasePool);
-    DLOG("Restored autoreleasePool as %p (%d)\n", ctx->autoreleasePool, NSAutoreleasePoolCount());
-    //ctx->saveAutoreleasePool = YES;
-    if (ctx->autoreleasePool != NULL)
-      assert(NSTHREAD_autoreleasePool_get(thread) == ctx->autoreleasePool);
+	  DLOG("Restored autoreleasePool as %p (%d) from (%p)\n",
+			ctx->autoreleasePool, NSAutoreleasePoolCount(), oldAutoreleasePool);
+
+    ctx->autoreleasePool = NULL;
   }
 
   rb_cocoa_between_threads = NO;
@@ -822,8 +824,12 @@ static void rb_cocoa_thread_save_context(NSThread *thread,
   if (ctx->ignoreHooks)
     return;
 
-  if (rb_cocoa_between_threads)
+  if (rb_cocoa_between_threads) {
+    DLOG("Many concurrent save contexts (exc: %p -> %p), (pool: %p -> %p)\n",
+      ctx->excHandlers, NSTHREAD_excHandlers_get(thread),
+      ctx->autoreleasePool, NSTHREAD_autoreleasePool_get(thread));
     return;
+  }
 
   if (ctx->excHandlers == NULL) {
     ctx->excHandlers = NSTHREAD_excHandlers_get(thread);

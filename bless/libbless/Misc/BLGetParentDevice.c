@@ -63,63 +63,60 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * parti
 			 uint32_t *partitionNum,
 			BLPartitionType *partitionType) {
 
+    int                     result = 0;
     kern_return_t           kret;
-    mach_port_t             ourIOKitPort;
-    io_iterator_t           services;
-    io_iterator_t           parents;
-    io_registry_entry_t service;
-    io_iterator_t           grandparents;
-    io_registry_entry_t service2;
-    io_object_t             obj;
+    io_iterator_t           services = MACH_PORT_NULL;
+    io_iterator_t           parents = MACH_PORT_NULL;
+    io_registry_entry_t     service = MACH_PORT_NULL;
+    io_iterator_t           grandparents = MACH_PORT_NULL;
+    io_registry_entry_t     service2 = MACH_PORT_NULL;
+    io_object_t             obj = MACH_PORT_NULL;
+    CFNumberRef             pn = NULL;
+    CFStringRef             content = NULL;
 
     char par[MNAMELEN];
 
     parentDev[0] = '\0';
 
-    // Obtain the I/O Kit communication handle.
-    if((kret = IOMasterPort(bootstrap_port, &ourIOKitPort)) != KERN_SUCCESS) {
-      return 2;
-    }
-
-    kret = IOServiceGetMatchingServices(ourIOKitPort,
-					IOBSDNameMatching(ourIOKitPort,
+    kret = IOServiceGetMatchingServices(kIOMasterPortDefault,
+					IOBSDNameMatching(kIOMasterPortDefault,
 							  0,
 							  (char *)partitionDev + 5),
 					&services);
     if (kret != KERN_SUCCESS) {
-      return 3;
+      result = 3;
+      goto finish;
     }
 
     // Should only be one IOKit object for this volume. (And we only want one.)
     obj = IOIteratorNext(services);
     if (!obj) {
-      return 4;
-    }
+        result = 4;
+        goto finish;
+    }  
 
     // we have the IOMedia for the partition.
 
-    {
-      CFNumberRef pn = NULL;
-      pn = (CFNumberRef)IORegistryEntryCreateCFProperty(obj, CFSTR(kIOMediaPartitionIDKey),
-					   kCFAllocatorDefault, 0);
-
-      if(pn == NULL) {
-	return 4;
-      }
-
-      if(CFGetTypeID(pn) != CFNumberGetTypeID()) {
-	CFRelease(pn);
-	return 5;
-      }
-
-      CFNumberGetValue(pn, kCFNumberSInt32Type, partitionNum);
-      CFRelease(pn);
+    pn = (CFNumberRef)IORegistryEntryCreateCFProperty(obj, CFSTR(kIOMediaPartitionIDKey),
+        kCFAllocatorDefault, 0);
+    
+    if(pn == NULL) {
+        result = 4;
+        goto finish;
     }
-
+    
+    if (CFGetTypeID(pn) != CFNumberGetTypeID()) {
+        result = 5;
+        goto finish;
+    }
+    
+    CFNumberGetValue(pn, kCFNumberSInt32Type, partitionNum);
+    
     kret = IORegistryEntryGetParentIterator (obj, kIOServicePlane,
 					       &parents);
     if (kret) {
-      return 6;
+      result = 6;
+      goto finish;
       /* We'll never loop forever. */
     }
 
@@ -127,16 +124,25 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * parti
 
         kret = IORegistryEntryGetParentIterator (service, kIOServicePlane,
                                                 &grandparents);
+        IOObjectRelease(service);
+        service = MACH_PORT_NULL;
+
         if (kret) {
-        return 6;
-        /* We'll never loop forever. */
+            result = 6;
+            goto finish;
+            /* We'll never loop forever. */
         }
 
         while ( (service2 = IOIteratorNext(grandparents)) != 0 ) {
         
-            CFStringRef content = NULL;
-        
+            if (content) {
+                CFRelease(content);
+                content = NULL;
+            }
+
             if (!IOObjectConformsTo(service2, "IOMedia")) {
+                IOObjectRelease(service2);
+                service2 = MACH_PORT_NULL;
                 continue;
             }
         
@@ -147,8 +153,8 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * parti
             
             
             if(CFGetTypeID(content) != CFStringGetTypeID()) {
-                CFRelease(content);
-                return 2;
+                result = 2;
+                goto finish;
             }
             
             if(CFStringCompare(content, CFSTR("Apple_partition_scheme"), 0)
@@ -161,41 +167,48 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * parti
                       == kCFCompareEqualTo) {
                 if(partitionType) *partitionType = kBLPartitionType_GPT;
             } else {
-                CFRelease(content);
+                IOObjectRelease(service2);
+                service2 = MACH_PORT_NULL;
                 continue;
             }
             
-            CFRelease(content);
-        
             content = IORegistryEntryCreateCFProperty(service2, CFSTR(kIOBSDNameKey),
                                                         kCFAllocatorDefault, 0);
         
-        
             if(CFGetTypeID(content) != CFStringGetTypeID()) {
-                CFRelease(content);
-                return 3;
+                result = 3;
+                goto finish;
             }
         
             if(!CFStringGetCString(content, par, MNAMELEN, kCFStringEncodingASCII)) {
-                CFRelease(content);
-                return 4;
+                result = 4;
+                goto finish;
             }
 
-	    CFRelease(content);
-    
             sprintf(parentDev, "/dev/%s",par);
             break;
         }
 
-	if(parentDev[0] == '\0') {
-	    break;
-	}
+        if(parentDev[0] == '\0') {
+            break;
+        }
     }
 
     if(parentDev[0] == '\0') {
       // nothing found
-      return 8;
+      result = 8;
+      goto finish;
     }
 
-    return 0;
+finish:
+    if (services != MACH_PORT_NULL)     IOObjectRelease(services);
+    if (parents != MACH_PORT_NULL)      IOObjectRelease(parents);
+    if (service != MACH_PORT_NULL)      IOObjectRelease(service);
+    if (grandparents != MACH_PORT_NULL) IOObjectRelease(grandparents);
+    if (service2 != MACH_PORT_NULL)     IOObjectRelease(service2);
+    if (obj != MACH_PORT_NULL)          IOObjectRelease(obj);
+    if (pn)                             CFRelease(pn);
+    if (content)                        CFRelease(content);
+    
+    return result;
 }

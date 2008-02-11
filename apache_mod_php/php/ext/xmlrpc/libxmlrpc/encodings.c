@@ -41,7 +41,7 @@
 #include <stdlib.h>
 #endif
 
-static const char rcsid[] = "#(@) $Id: encodings.c,v 1.7 2004/03/08 23:04:33 abies Exp $";
+static const char rcsid[] = "#(@) $Id: encodings.c,v 1.7.6.1 2007/09/19 00:33:43 stas Exp $";
 
 #include <errno.h>
 
@@ -53,6 +53,10 @@ static const char rcsid[] = "#(@) $Id: encodings.c,v 1.7 2004/03/08 23:04:33 abi
 
 #include "encodings.h"
 
+#ifndef ICONV_CSNMAXLEN
+#define ICONV_CSNMAXLEN 64
+#endif
+
 static char* convert(const char* src, int src_len, int *new_len, const char* from_enc, const char* to_enc) {
    char* outbuf = 0;
 
@@ -60,9 +64,13 @@ static char* convert(const char* src, int src_len, int *new_len, const char* fro
       size_t outlenleft = src_len;
       size_t inlenleft = src_len;
       int outlen = src_len;
-      iconv_t ic = iconv_open(to_enc, from_enc);
+      iconv_t ic;
       char* out_ptr = 0;
 
+      if(strlen(to_enc) >= ICONV_CSNMAXLEN || strlen(from_enc) >= ICONV_CSNMAXLEN) {
+         return NULL;
+      }
+      ic = iconv_open(to_enc, from_enc);
       if(ic != (iconv_t)-1) {
          size_t st;
          outbuf = (char*)malloc(outlen + 1);

@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sockets.c,v 1.171.2.9.2.13 2007/07/24 11:35:08 jani Exp $ */
+/* $Id: sockets.c,v 1.171.2.9.2.14 2007/09/26 10:55:07 tony2001 Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -616,7 +616,7 @@ static int php_sock_array_from_fd_set(zval *sock_array, fd_set *fds TSRMLS_DC) /
 }
 /* }}} */
 
-/* {{{ proto int socket_select(array &read_fds, array &write_fds, &array except_fds, int tv_sec[, int tv_usec]) U
+/* {{{ proto int socket_select(array &read_fds, array &write_fds, array &except_fds, int tv_sec[, int tv_usec]) U
    Runs the select() system call on the sets mentioned with a timeout specified by tv_sec and tv_usec */
 PHP_FUNCTION(socket_select)
 {

@@ -22,6 +22,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
 #include <IOKit/IOLib.h>    // IOMalloc/IOFree
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/hidsystem/IOHIDSystem.h>
@@ -29,10 +31,15 @@
 #include "IOHIDElementPrivate.h"
 #include "IOHIDParserPriv.h"
 #include "IOHIDInterface.h"
-#include "IOHIKeyboard.h"
-#include "IOHIPointing.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDFamilyPrivate.h"
+#include "IOHIDLibUserClient.h"
+
+#if !TARGET_OS_EMBEDDED
+#include "IOHIKeyboard.h"
+#include "IOHIPointing.h"
+#endif
+
 
 //===========================================================================
 // IOHIDDevice class
@@ -101,7 +108,7 @@ struct IOHIDReportHandler
 static SInt32 g3DGameControllerCount = 0;
 // *** END GAME DEVICE HACK ***
 
-static IOService * gDisplayManager = 0;
+static IOService *  gDisplayManager = 0;
 
 //---------------------------------------------------------------------------
 // Notification handler to grab an instance of the IOHIDSystem
@@ -270,7 +277,6 @@ bool IOHIDDevice::start( IOService * provider )
 {
     IOMemoryDescriptor * reportDescriptor;
     IOReturn             ret;
-    // IOHIDPointing *	 tempNub;
 
     if ( super::start(provider) != true )
         return false;
@@ -554,12 +560,14 @@ bool IOHIDDevice::handleOpen(IOService *  client,
                     
             _seizedClient = client;
             
+#if !TARGET_OS_EMBEDDED
             IOHIKeyboard * keyboard = 0;
             IOHIPointing * pointing = 0;
             if ( keyboard = OSDynamicCast(IOHIKeyboard, getProvider()) )
                 keyboard->IOHIKeyboard::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
             else if ( pointing = OSDynamicCast(IOHIPointing, getProvider()) )
                 pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)true);
+#endif
         }
 
         accept = true;
@@ -598,12 +606,14 @@ void IOHIDDevice::handleClose(IOService * client, IOOptionBits options)
         {
             _seizedClient = 0;
             
+#if !TARGET_OS_EMBEDDED
             IOHIKeyboard * keyboard = 0;
             IOHIPointing * pointing = 0;
             if ( keyboard = OSDynamicCast(IOHIKeyboard, getProvider()) )
                 keyboard->IOHIKeyboard::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)false);
             else if ( pointing = OSDynamicCast(IOHIPointing, getProvider()) )
                 pointing->IOHIPointing::message(kIOHIDSystemDeviceSeizeRequestMessage, this, (void *)false);
+#endif
         }
         
         _performTickle = ShouldPostDisplayActivityTickles(this, _clientSet, _seizedClient);
@@ -631,8 +641,37 @@ IOReturn IOHIDDevice::newUserClient( task_t          owningTask,
                                      OSDictionary *  properties,
                                      IOUserClient ** handler )
 {
-    if ( properties )
-        properties->setObject(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
+    // RY: This is really skanky.  Apparently there are some subclasses out there
+    // that want all the benefits of IOHIDDevice w/o supporting the default HID 
+    // User Client.  I know!  Shocking!  Anyway, passing a type known only to the
+    // default hid clients to ensure that at least connect to our correct client.
+    if ( type == kIOHIDLibUserClientConnectManager ) {
+        if ( properties )
+            properties->setObject(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
+            
+        IOUserClient * client = new IOHIDLibUserClient;
+        
+        if ( !client->initWithTask(owningTask, security_id, type, properties) ) {
+            client->release();
+            return kIOReturnBadArgument;
+        }
+
+        if ( !client->attach(this) ) {
+            client->release();
+            return kIOReturnUnsupported;
+        }
+
+        if ( !client->start(this) ) {
+            client->detach(this);
+            client->release();
+            return kIOReturnUnsupported;
+        }
+
+        *handler = client;
+        
+        return kIOReturnSuccess;
+
+    }
         
     return super::newUserClient(owningTask, security_id, type, properties, handler);
 }
@@ -949,16 +988,41 @@ IOHIDDevice::createElementHierarchy( HIDPreparsedDataRef parseData )
 //---------------------------------------------------------------------------
 // Fetch the all the possible functions of the device
 
-OSArray * IOHIDDevice::newDeviceUsagePairs()
+static OSDictionary * CreateDeviceUsagePairFromElement(IOHIDElementPrivate * element)
 {
-    IOHIDElementPrivate *	element 	= 0;
-    OSArray *		functions 	= 0;
-    OSDictionary *	pair 		= 0;
+    OSDictionary *	pair		= 0;
     OSNumber *		usage 		= 0;
     OSNumber *		usagePage 	= 0;
     OSNumber *		type 		= 0;
-    UInt32 		elementCount 	= _elementArray->getCount();    
+	
+	pair		= OSDictionary::withCapacity(2);
+	usage		= OSNumber::withNumber(element->getUsage(), 32);
+	usagePage	= OSNumber::withNumber(element->getUsagePage(), 32);
+	type		= OSNumber::withNumber(element->getCollectionType(), 32);
+	
+	pair->setObject(kIOHIDDeviceUsageKey, usage);
+	pair->setObject(kIOHIDDeviceUsagePageKey, usagePage);
+	//pair->setObject(kIOHIDElementCollectionTypeKey, type);
+
+	usage->release();
+	usagePage->release();
+	type->release();
+	
+	return pair;
+ }
+
+OSArray * IOHIDDevice::newDeviceUsagePairs()
+{
+    IOHIDElementPrivate *	element			= 0;
+    OSArray *				functions		= 0;
+    OSDictionary *			pair			= 0;
+    UInt32					elementCount 	= _elementArray->getCount();    
     
+	if ( elementCount <= 1 ) // this include vitual collection
+		return NULL;
+		
+	functions = OSArray::withCapacity(2);
+	
     // starts at one to avoid the virtual collection
     for (unsigned i=1; i<elementCount; i++)
     {
@@ -967,17 +1031,8 @@ OSArray * IOHIDDevice::newDeviceUsagePairs()
         if ((element->getType() == kIOHIDElementTypeCollection) &&
             ((element->getCollectionType() == kIOHIDElementCollectionTypeApplication) ||
             (element->getCollectionType() == kIOHIDElementCollectionTypePhysical)))
-        {
-            if(!functions) functions = OSArray::withCapacity(2);
-            
-            pair 	= OSDictionary::withCapacity(2);
-            usage	= OSNumber::withNumber(element->getUsage(), 32);
-            usagePage	= OSNumber::withNumber(element->getUsagePage(), 32);
-            type	= OSNumber::withNumber(element->getCollectionType(), 32);
-            
-            pair->setObject(kIOHIDDeviceUsageKey, usage);
-            pair->setObject(kIOHIDDeviceUsagePageKey, usagePage);
-            //pair->setObject(kIOHIDElementCollectionTypeKey, type);
+        {            
+            pair = CreateDeviceUsagePairFromElement(element);
             
             UInt32 	pairCount = functions->getCount();
             bool 	found = false;
@@ -995,11 +1050,14 @@ OSArray * IOHIDDevice::newDeviceUsagePairs()
             }
             
             pair->release();
-            usage->release();
-            usagePage->release();
-            type->release();
         }
     }
+	
+	if ( ! functions->getCount() ) {
+		pair = CreateDeviceUsagePairFromElement((IOHIDElementPrivate *)_elementArray->getObject(1));
+		functions->setObject(pair);
+		pair->release();
+	}
 
     return functions;
 }

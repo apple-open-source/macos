@@ -27,6 +27,7 @@
 #include "IOHIDKeys.h"
 #include "IOHIDTypes.h"
 #include "AppleHIDUsageTables.h"
+#include "IOHIDPrivateKeys.h"
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/IOLib.h>
 #include <sys/kdebug.h>
@@ -508,6 +509,7 @@ void IOHIDEventDriver::handleInterruptReport (
                                 IOHIDReportType             reportType,
                                 UInt32                      reportID)
 {
+    OSNumber *      number;
     OSArray *       elements;
     IOHIDElement *  element;
     IOGBounds       bounds;
@@ -536,6 +538,7 @@ void IOHIDEventDriver::handleInterruptReport (
     SInt32          barrelPressureMin = 0;
     SInt32          barrelPressureMax = 0;
     SInt32          boundsDiff      = 0;
+    SInt32          absoluteAxisRemovalPercentage = 15;
     bool            absoluteAxis    = false;
     bool            pointingHandled = false;
     bool            tabletHandled   = false;
@@ -550,6 +553,9 @@ void IOHIDEventDriver::handleInterruptReport (
 
     if ( elements )
     {
+    
+        if ( number = OSDynamicCast(OSNumber, getProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage)) ) 
+            absoluteAxisRemovalPercentage = number->unsigned32BitValue();
     
         count = elements->getCount();
         
@@ -587,7 +593,7 @@ void IOHIDEventDriver::handleInterruptReport (
                             absoluteX       = element->getValue();
                             bounds.minx     = element->getLogicalMin();
                             bounds.maxx     = element->getLogicalMax();
-                            boundsDiff      = ((bounds.maxx - bounds.minx) * 15) / 200;
+                            boundsDiff      = ((bounds.maxx - bounds.minx) * absoluteAxisRemovalPercentage) / 200;
                             bounds.minx     += boundsDiff;
                             bounds.maxx     -= boundsDiff;
                         }
@@ -608,7 +614,7 @@ void IOHIDEventDriver::handleInterruptReport (
                             bounds.miny     = element->getLogicalMin();
                             bounds.maxy     = element->getLogicalMax();                            
                             bounds.maxy     = element->getLogicalMax();   
-                            boundsDiff      = ((bounds.maxy - bounds.miny) * 15) / 200;
+                            boundsDiff      = ((bounds.maxy - bounds.miny) * absoluteAxisRemovalPercentage) / 200;
                             bounds.miny     += boundsDiff;
                             bounds.maxy     -= boundsDiff;
                         }
@@ -865,7 +871,7 @@ void IOHIDEventDriver::setElementValue (
         element = _ledElements[usage - kHIDUsage_LED_NumLock];
 	
 	if (element)
-		element->setValue(value);
+		element->setValue(value);        
 }
 
 //====================================================================================================

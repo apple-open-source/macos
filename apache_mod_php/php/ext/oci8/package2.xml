@@ -27,8 +27,14 @@ the Oracle Call Interface (OCI8).
   <email>andi@zend.com</email>
   <active>yes</active>
  </lead>
- <date>2007-08-08</date>
- <time>19:00:00</time>
+ <lead>
+  <name>Christopher Jones</name>
+  <user>sixd</user>
+  <email>sixd@php.net</email>
+  <active>yes</active>
+ </lead>
+ <date>2007-09-01</date>
+ <time>15:00:00</time>
  <version>
   <release>1.2.4</release>
   <api>1.2.4</api>
@@ -38,7 +44,8 @@ the Oracle Call Interface (OCI8).
   <api>stable</api>
  </stability>
  <license uri="http://www.php.net/license">PHP</license>
- <notes>Fixed PECL bug #10194 (crash in Oracle client when memory limit reached in the callback).
+ <notes>Added Oracle 11g support.
+Fixed PECL bug #10194 (crash in Oracle client when memory limit reached in the callback).
 Fixed bug #42173 (oci_field_type fixes for INTERVAL and TIMESTAMP types).
 Fixed bug #42134 (oci_error() returns false after oci_new_collection() fails).
 Fixed bug #41917 (oci_field_precision and oci_field_scale datatypes fixed).
@@ -137,11 +144,6 @@ Various minor improvements.
     <file name="connect.inc" role="test" />
     <file name="connect_old.phpt" role="test" />
     <file name="connect.phpt" role="test" />
-    <file name="connect_with_charset_001.diff" role="test" />
-    <file name="connect_with_charset_001.exp" role="test" />
-    <file name="connect_with_charset_001.log" role="test" />
-    <file name="connect_with_charset_001.out" role="test" />
-    <file name="connect_with_charset_001.php" role="test" />
     <file name="connect_with_charset_001.phpt" role="test" />
     <file name="connect_without_oracle_home_old.phpt" role="test" />
     <file name="connect_without_oracle_home.phpt" role="test" />
@@ -227,11 +229,6 @@ Various minor improvements.
     <file name="lob_036.phpt" role="test" />
     <file name="lob_037.phpt" role="test" />
     <file name="lob_038.phpt" role="test" />
-    <file name="lob_039.diff" role="test" />
-    <file name="lob_039.exp" role="test" />
-    <file name="lob_039.log" role="test" />
-    <file name="lob_039.out" role="test" />
-    <file name="lob_039.php" role="test" />
     <file name="lob_039.phpt" role="test" />
     <file name="lob_040.phpt" role="test" />
     <file name="lob_aliases.phpt" role="test" />

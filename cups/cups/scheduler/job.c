@@ -250,7 +250,7 @@ cupsdCancelJob(cupsd_job_t  *job,	/* I - Job to cancel */
 
   job->current_file = 0;
 
-  if (!JobHistory || !JobFiles || purge || (job->dtype & CUPS_PRINTER_REMOTE))
+  if (!JobHistory || !JobFiles || purge)
   {
     for (i = 1; i <= job->num_files; i ++)
     {
@@ -270,7 +270,7 @@ cupsdCancelJob(cupsd_job_t  *job,	/* I - Job to cancel */
     }
   }
 
-  if (JobHistory && !purge && !(job->dtype & CUPS_PRINTER_REMOTE))
+  if (JobHistory && !purge)
   {
    /*
     * Save job state info...
@@ -318,6 +318,13 @@ cupsdCancelJobs(const char *dest,	/* I - Destination to cancel */
   for (job = (cupsd_job_t *)cupsArrayFirst(Jobs);
        job;
        job = (cupsd_job_t *)cupsArrayNext(Jobs))
+  {
+    if (!job->dest || !job->username)
+      cupsdLoadJob(job);
+
+    if (!job->dest || !job->username)
+      continue;
+
     if ((dest == NULL || !strcmp(job->dest, dest)) &&
         (username == NULL || !strcmp(job->username, username)))
     {
@@ -327,6 +334,7 @@ cupsdCancelJobs(const char *dest,	/* I - Destination to cancel */
 
       cupsdCancelJob(job, purge, IPP_JOB_CANCELED);
     }
+  }
 
   cupsdCheckJobs();
 }
@@ -878,6 +886,7 @@ cupsdHoldJob(cupsd_job_t *job)		/* I - Job data */
 
   job->state->values[0].integer = IPP_JOB_HELD;
   job->state_value              = IPP_JOB_HELD;
+  job->current_file             = 0;
 
   cupsdSaveJob(job);
 

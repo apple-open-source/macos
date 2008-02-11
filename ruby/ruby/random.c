@@ -3,7 +3,7 @@
   random.c -
 
   $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Date: 2007-08-22 09:54:43 +0900 (Wed, 22 Aug 2007) $
   created at: Fri Dec 24 16:39:21 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -310,8 +310,8 @@ random_seed()
  *     srand(number=0)    => old_seed
  *  
  *  Seeds the pseudorandom number generator to the value of
- *  <i>number</i>.<code>to_i.abs</code>. If <i>number</i> is omitted
- *  or zero, seeds the generator using a combination of the time, the
+ *  <i>number</i>.<code>to_i.abs</code>. If <i>number</i> is omitted,
+ *  seeds the generator using a combination of the time, the
  *  process id, and a sequence number. (This is also the behavior if
  *  <code>Kernel::rand</code> is called without previously calling
  *  <code>srand</code>, but without the sequence.) By setting the seed
@@ -481,6 +481,7 @@ rb_f_rand(argc, argv, obj)
       default:
 	vmax = rb_Integer(vmax);
 	if (TYPE(vmax) == T_BIGNUM) goto bignum;
+	/* fall through */
       case T_FIXNUM:
 	max = FIX2LONG(vmax);
 	break;

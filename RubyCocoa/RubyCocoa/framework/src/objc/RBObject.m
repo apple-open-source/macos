@@ -319,14 +319,36 @@ VALUE rbobj_call_ruby(id rbobj, SEL selector, VALUE args)
 
 - (VALUE) __rbobj__  { return m_rbobj; }
 
+- (void) trackRetainReleaseOfRubyObject
+{
+  RBOBJ_LOG("start tracking retain/release of Ruby object `%s'",  
+    RSTRING(rb_inspect(m_rbobj))->ptr);
+  m_rbobj_retain_release_track = YES;
+}
+
+- (void) retainRubyObject
+{
+  if (m_rbobj_retain_release_track && !m_rbobj_retained) {
+    RBOBJ_LOG("retaining Ruby object `%s'", RSTRING(rb_inspect(m_rbobj))->ptr);
+    rb_gc_register_address(&m_rbobj);
+    m_rbobj_retained = YES;
+  }
+}
+
+- (void) releaseRubyObject
+{
+  if (m_rbobj_retain_release_track && m_rbobj_retained) {
+    RBOBJ_LOG("releasing Ruby object `%s'", RSTRING(rb_inspect(m_rbobj))->ptr);
+    rb_gc_unregister_address(&m_rbobj);
+    m_rbobj_retained = NO;
+  }
+}
+
 - (void) dealloc
 {
   RBOBJ_LOG("deallocating RBObject %p", self);
   remove_from_rb2oc_cache(m_rbobj);
-  if (m_rbobj_retained) {
-    RBOBJ_LOG("releasing Ruby object %p", m_rbobj);
-    rb_gc_unregister_address(&m_rbobj);
-  }
+  [self releaseRubyObject];
   [super dealloc];
 }
 
@@ -334,6 +356,7 @@ VALUE rbobj_call_ruby(id rbobj, SEL selector, VALUE args)
 {
   m_rbobj = rbobj;
   m_rbobj_retained = flag;
+  m_rbobj_retain_release_track = NO;
   oc_master = nil;
   if (flag)
     rb_gc_register_address(&m_rbobj);
@@ -379,7 +402,7 @@ VALUE rbobj_call_ruby(id rbobj, SEL selector, VALUE args)
   RBOBJ_LOG("forwardInvocation(%@)", an_inv);
   if ([self rbobjRespondsToSelector: [an_inv selector]]) {
     RBOBJ_LOG("   -> forward to Ruby Object");
-    if (IS_MAIN_THREAD()) {
+    if (is_ruby_native_thread()) {
       [self rbobjForwardInvocation: an_inv];
     }
     else {
@@ -471,9 +494,11 @@ VALUE rbobj_call_ruby(id rbobj, SEL selector, VALUE args)
   return self;
 }
 
+extern NSThread *rubycocoaThread;
+
 - (void)dispatch
 {
-  [self performSelectorOnMainThread:@selector(syncDispatch) withObject:nil waitUntilDone:YES];
+  DISPATCH_ON_RUBYCOCOA_THREAD(self, @selector(syncDispatch));
   if (_returned_ocid != nil)
     [_returned_ocid autorelease];
 }

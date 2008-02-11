@@ -24,6 +24,8 @@
 static struct st_table *rb2ocCache;
 static struct st_table *oc2rbCache;
 
+static VALUE _ocid_to_rbobj (VALUE context_obj, id ocid, BOOL is_class);
+
 #if CACHE_LOCKING
 static pthread_mutex_t rb2ocCacheLock;
 static pthread_mutex_t oc2rbCacheLock;
@@ -340,7 +342,7 @@ ocdata_to_rbobj (VALUE context_obj, const char *octype_str, const void *ocdata, 
   switch (*octype_str) {
     case _C_ID:
     case _C_CLASS:
-      rbval = ocid_to_rbobj(context_obj, *(id*)ocdata);
+      rbval = _ocid_to_rbobj(context_obj, *(id*)ocdata, *octype_str == _C_CLASS);
       break;
 
     case _C_PTR:
@@ -437,16 +439,18 @@ ocdata_to_rbobj (VALUE context_obj, const char *octype_str, const void *ocdata, 
 static BOOL 
 rbary_to_nsary (VALUE rbary, id* nsary)
 {
-  long i;
-  long len = RARRAY(rbary)->len;
-  VALUE* items = RARRAY(rbary)->ptr;
-  NSMutableArray* result = [[[NSMutableArray alloc] init] autorelease];
-  for (i = 0; i < len; i++) {
-    id nsitem;
-    if (!rbobj_to_nsobj(items[i], &nsitem)) return NO;
-    [result addObject: nsitem];
-  }
-  *nsary = result;
+  long i, len;
+  id *objects;
+
+  len = RARRAY(rbary)->len;
+  objects = (id *)alloca(sizeof(id) * len);
+  ASSERT_ALLOC(objects);
+  
+  for (i = 0; i < len; i++)
+    if (!rbobj_to_nsobj(RARRAY(rbary)->ptr[i], &objects[i]))
+      return NO;
+  
+  *nsary = [[[NSMutableArray alloc] initWithObjects:objects count:len] autorelease];
   return YES;
 }
 
@@ -460,22 +464,26 @@ rbhash_to_nsdic (VALUE rbhash, id* nsdic)
   VALUE* keys;
   VALUE val;
   long i, len;
-  NSMutableDictionary* result;
-  id nskey, nsval;
+  id *nskeys, *nsvals;
 
   ary_keys = rb_funcall(rbhash, rb_intern("keys"), 0);
   len = RARRAY(ary_keys)->len;
   keys = RARRAY(ary_keys)->ptr;
 
-  result = [[[NSMutableDictionary alloc] init] autorelease];
+  nskeys = (id *)alloca(sizeof(id) * len);
+  ASSERT_ALLOC(nskeys);
+  nsvals = (id *)alloca(sizeof(id) * len);
+  ASSERT_ALLOC(nsvals);
 
   for (i = 0; i < len; i++) {
-    if (!rbobj_to_nsobj(keys[i], &nskey)) return NO;
+    if (!rbobj_to_nsobj(keys[i], &nskeys[i])) 
+      return NO;
     val = rb_hash_aref(rbhash, keys[i]);
-    if (!rbobj_to_nsobj(val, &nsval)) return NO;
-    [result setObject: nsval forKey: nskey];
+    if (!rbobj_to_nsobj(val, &nsvals[i])) 
+      return NO;
   }
-  *nsdic = result;
+
+  *nsdic = [[[NSMutableDictionary alloc] initWithObjects:nsvals forKeys:nskeys count:len] autorelease];
   return YES;
 }
 
@@ -519,13 +527,6 @@ rbtime_to_nsdate (VALUE rbval, id* nsval)
   return [(*nsval) isKindOfClass: [NSDate class]];
 }
 
-static void
-__slave_nsobj_free (void *p)
-{
-  DATACONV_LOG("releasing RBObject %p", p);
-  [(id)p release];
-}
-
 static BOOL 
 rbobj_convert_to_nsobj (VALUE obj, id* nsobj)
 {
@@ -565,19 +566,7 @@ rbobj_convert_to_nsobj (VALUE obj, id* nsobj)
       if (rb_obj_is_kind_of(obj, rb_cTime))
         return rbtime_to_nsdate(obj, nsobj);
 
-      if (!OBJ_FROZEN(obj)) {
-        *nsobj = [[RBObject alloc] _initWithRubyObject:obj retains:YES];
-        // Let's embed the ObjC object in a custom Ruby object that will 
-        // autorelease the ObjC object when collected by the Ruby GC, and
-        // put the Ruby object as an instance variable.
-        VALUE slave_nsobj;
-        slave_nsobj = Data_Wrap_Struct(rb_cData, NULL, __slave_nsobj_free, *nsobj);   
-        rb_ivar_set(obj, rb_intern("@__slave_nsobj__"), slave_nsobj);
-      }
-      else {
-        // Ruby object is frozen, so we can't do much now.
-        *nsobj = [[[RBObject alloc] initWithRubyObject:obj] autorelease];
-      }
+      *nsobj = [[[RBObject alloc] initWithRubyObject:obj] autorelease];
       return YES;
   }
   return YES;
@@ -608,7 +597,8 @@ rbobj_to_nsobj (VALUE obj, id* nsobj)
     *nsobj = rbobj_get_ocid(obj);
     if (*nsobj != nil || rbobj_convert_to_nsobj(obj, nsobj)) {
       BOOL  magic_cookie;
-
+      if (*nsobj == nil) return YES;
+      
       magic_cookie = find_magic_cookie_const_by_value(*nsobj) != NULL;
       if (magic_cookie || ([*nsobj isProxy] && [*nsobj isRBObject])) {
         CACHE_LOCK(&rb2ocCacheLock);
@@ -687,11 +677,12 @@ ocid_to_rbobj_cache_only (id ocid)
   return ok ? result : Qnil;
 }
 
-VALUE
-ocid_to_rbobj (VALUE context_obj, id ocid)
+static VALUE
+_ocid_to_rbobj (VALUE context_obj, id ocid, BOOL is_class)
 {
   VALUE result;
-  BOOL  ok;
+  BOOL  ok, shouldCache;
+  struct bsConst *  bs_const;
 
   if (ocid == nil) 
     return Qnil;
@@ -701,26 +692,39 @@ ocid_to_rbobj (VALUE context_obj, id ocid)
   //
   // We are locking the access to the cache twice (lookup + insert) as
   // ocobj_s_new is succeptible to call us again, to avoid a deadlock.
-  CACHE_LOCK(&oc2rbCacheLock);
-  ok = st_lookup(oc2rbCache, (st_data_t)ocid, (st_data_t *)&result);
-  CACHE_UNLOCK(&oc2rbCacheLock);
+
+  bs_const = find_magic_cookie_const_by_value(ocid);
+
+  if (bs_const == NULL 
+      && (is_class 
+          || [ocid isProxy] 
+          || find_bs_cf_type_by_type_id(CFGetTypeID(ocid)) != NULL)) {
+    // We don't cache CF-based objects because we don't have yet a reliable
+    // way to remove them from the cache.
+    ok = shouldCache = NO;
+  }
+  else {
+    CACHE_LOCK(&oc2rbCacheLock);
+    ok = st_lookup(oc2rbCache, (st_data_t)ocid, (st_data_t *)&result);
+    CACHE_UNLOCK(&oc2rbCacheLock);
+    shouldCache = context_obj != Qfalse;
+  }
 
   if (!ok) {
-    struct bsConst *  bs_const;
-
-    bs_const = find_magic_cookie_const_by_value(ocid);
     if (bs_const != NULL) {
       result = ocobj_s_new_with_class_name(ocid, bs_const->class_name);
     }
     else {
       result = ocid_get_rbobj(ocid);
       if (result == Qnil)
-        result = rbobj_get_ocid(context_obj) == ocid ? context_obj : ocobj_s_new(ocid);
+        result = rbobj_get_ocid(context_obj) == ocid 
+          ? context_obj : ocobj_s_new(ocid);
     }
 
-    if (context_obj != Qfalse) {
+    if (shouldCache) {
       CACHE_LOCK(&oc2rbCacheLock);
-      // Check out that the hash is still empty for us, to avoid a race condition.
+      // Check out that the hash is still empty for us, to avoid a race 
+      // condition.
       if (!st_lookup(oc2rbCache, (st_data_t)ocid, (st_data_t *)&result))
         st_insert(oc2rbCache, (st_data_t)ocid, (st_data_t)result);
       CACHE_UNLOCK(&oc2rbCacheLock);
@@ -728,6 +732,12 @@ ocid_to_rbobj (VALUE context_obj, id ocid)
   }
 
   return result;
+}
+
+VALUE
+ocid_to_rbobj (VALUE context_obj, id ocid)
+{
+  return _ocid_to_rbobj(context_obj, ocid, NO);
 }
 
 static SEL 
@@ -739,6 +749,9 @@ rbobj_to_cselstr (VALUE obj)
  
   str = rb_obj_is_kind_of(obj, rb_cString)
     ? obj : rb_obj_as_string(obj);
+
+  if (rb_ivar_defined(str, rb_intern("@__is_sel__")) == Qtrue)
+    return sel_registerName(RSTRING(str)->ptr);
 
   sel = (char *)alloca(RSTRING(str)->len);
   sel[0] = RSTRING(str)->ptr[0];
@@ -1113,7 +1126,7 @@ NSStringEncoding kcode_to_nsencoding (const char* kcode)
 id
 rbstr_to_ocstr(VALUE obj)
 {
-  return [[[NSString alloc] initWithData:[NSData dataWithBytes:RSTRING(obj)->ptr
+  return [[[NSMutableString alloc] initWithData:[NSData dataWithBytes:RSTRING(obj)->ptr
 			    			 length: RSTRING(obj)->len]
 			    encoding:KCODE_NSSTRENCODING] autorelease];
 }

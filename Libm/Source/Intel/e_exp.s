@@ -14,6 +14,7 @@
 
 
 /* e^x = 2^(x * log2(e)) */
+/*
 ENTRY(expl) 
 	SUBP	$LOCAL_STACK_SIZE, STACKP
     movl    $0xbe205c61, 20(STACKP)     // ln2 hi  (double, low 32-bits)
@@ -80,6 +81,7 @@ expl_special:  //handles +-Inf, QNaN, SNaN
 	fstp	 %ST(1)
 	ADDP	$LOCAL_STACK_SIZE,	STACKP
 	ret
+*/
 
 
 ENTRY(exp2l)    

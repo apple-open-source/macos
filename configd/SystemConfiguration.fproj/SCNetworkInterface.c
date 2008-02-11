@@ -1342,6 +1342,40 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 								interfacePrivate->localized_arg2 = port_name;
 							}
 						}
+					} else if (CFEqual(provider, CFSTR("IOUSBDevice"))) {
+						CFTypeRef	val;
+
+						// check if a "Product Name" has been provided
+						val = IORegistryEntrySearchCFProperty(interface,
+										      kIOServicePlane,
+										      CFSTR(kIOPropertyProductNameKey),
+										      NULL,
+										      kIORegistryIterateRecursively | kIORegistryIterateParents);
+						if (val != NULL) {
+							CFStringRef	productName;
+
+							productName = IOCopyCFStringValue(val);
+							CFRelease(val);
+
+							if (productName != NULL) {
+								if (CFStringGetLength(productName) > 0) {
+									// if we have a [somewhat reasonable?] product name
+									if (interfacePrivate->name != NULL) {
+										CFRelease(interfacePrivate->name);
+									}
+									interfacePrivate->name = CFRetain(productName);
+									if (interfacePrivate->localized_name != NULL) {
+										CFRelease(interfacePrivate->localized_name);
+									}
+									interfacePrivate->localized_name = copy_interface_string(bundle, productName, TRUE);
+								}
+
+								CFRelease(productName);
+							}
+						} else {
+							interfacePrivate->localized_key  = CFSTR("usb-ether");
+							interfacePrivate->localized_arg1 = IODictionaryCopyCFStringValue(interface_dict, CFSTR(kIOBSDNameKey));
+						}
 					}
 					CFRelease(provider);
 				}
@@ -1759,7 +1793,7 @@ processSerialInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 						if (interfacePrivate->localized_name != NULL) {
 							CFRelease(interfacePrivate->localized_name);
 						}
-						interfacePrivate->localized_name = CFRetain(productName);
+						interfacePrivate->localized_name = copy_interface_string(bundle, productName, TRUE);
 
 						// if not provided, also check if the product name
 						// matches a CCL script

@@ -29,6 +29,9 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
+	Revision 1.75.2.1  2007/11/30 04:49:17  collin
+	fix context allocation for the M86 workaround
+	
 	Revision 1.75  2007/08/31 20:29:06  collin
 	fixed 5437835
 	
@@ -719,7 +722,8 @@ typedef enum
 	kFWIsochPortDefaultOptions = 0,
 	kFWIsochPortUseSeparateKernelThread		= BIT(1),
 	kFWIsochEnableRobustness			= BIT(2),
-	kFWIsochBigEndianUpdates			= BIT(3)
+	kFWIsochBigEndianUpdates			= BIT(3),	// private
+	kFWIsochRequireLastContext			= BIT(4),	// private
 } IOFWIsochPortOptions ;
 
 // =================================================================

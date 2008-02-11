@@ -1,8 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
-
-OTHERSRCS += '[.1'
-
-after_install::
-	$(LINKPRODUCT) $(DSTROOT)$(INSTALLDIR)/[
-	mkdir -p "$(DSTROOT)/usr/share/man/man1"
-	ln -f "$(DSTROOT)/usr/share/man/man1/test.1" "$(DSTROOT)/usr/share/man/man1/[.1"

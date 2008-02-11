@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.640.2.23.2.53 2007/08/03 01:30:21 stas Exp $ */
+/* $Id: main.c,v 1.640.2.23.2.59 2007/10/18 13:11:30 dmitry Exp $ */
 
 /* {{{ includes
  */
@@ -218,7 +218,11 @@ static PHP_INI_MH(OnUpdateTimeout)
 static int php_get_display_errors_mode(char *value, int value_length)
 {
 	int mode;
-	
+
+	if (!value) {
+		return PHP_DISPLAY_ERRORS_STDOUT;
+	}
+
 	if (value_length == 2 && !strcasecmp("on", value)) {
 		mode = PHP_DISPLAY_ERRORS_STDOUT;
 	} else if (value_length == 3 && !strcasecmp("yes", value)) {
@@ -235,6 +239,7 @@ static int php_get_display_errors_mode(char *value, int value_length)
 			mode = PHP_DISPLAY_ERRORS_STDOUT;
 		}
 	}
+
 	return mode;
 }
 /* }}} */
@@ -317,6 +322,19 @@ static PHP_INI_MH(OnUpdateErrorLog)
 	return SUCCESS;
 }
 /* }}} */
+
+/* {{{ PHP_INI_MH
+ */
+static PHP_INI_MH(OnChangeMailForceExtra)
+{
+	/* Don't allow changing it in htaccess */
+	if (stage == PHP_INI_STAGE_HTACCESS) {
+			return FAILURE;
+	}
+	return SUCCESS;
+}
+/* }}} */
+
 
 /* Need to convert to strings and make use of:
  * PHP_SAFE_MODE
@@ -428,15 +446,16 @@ PHP_INI_BEGIN()
 	PHP_INI_ENTRY("precision",					"14",		PHP_INI_ALL,		OnSetPrecision)
 	PHP_INI_ENTRY("sendmail_from",				NULL,		PHP_INI_ALL,		NULL)
 	PHP_INI_ENTRY("sendmail_path",	DEFAULT_SENDMAIL_PATH,	PHP_INI_SYSTEM,		NULL)
-	PHP_INI_ENTRY("mail.force_extra_parameters",NULL,		PHP_INI_SYSTEM|PHP_INI_PERDIR,		NULL)
+	PHP_INI_ENTRY("mail.force_extra_parameters",NULL,		PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnChangeMailForceExtra)
 	PHP_INI_ENTRY("disable_functions",			"",			PHP_INI_SYSTEM,		NULL)
 	PHP_INI_ENTRY("disable_classes",			"",			PHP_INI_SYSTEM,		NULL)
 
-	STD_PHP_INI_BOOLEAN("allow_url_fopen",		"1",		PHP_INI_SYSTEM,		OnUpdateBool,			allow_url_fopen,			php_core_globals,	core_globals)
-	STD_PHP_INI_BOOLEAN("allow_url_include",		"0",		PHP_INI_SYSTEM,		OnUpdateBool,			allow_url_include,			php_core_globals,	core_globals)
-	STD_PHP_INI_BOOLEAN("always_populate_raw_post_data",		"0",		PHP_INI_SYSTEM|PHP_INI_PERDIR,		OnUpdateBool,			always_populate_raw_post_data,			php_core_globals,	core_globals)
-	STD_PHP_INI_ENTRY("realpath_cache_size", "16K", PHP_INI_SYSTEM, OnUpdateLong, realpath_cache_size_limit, virtual_cwd_globals, cwd_globals)
-	STD_PHP_INI_ENTRY("realpath_cache_ttl", "120", PHP_INI_SYSTEM, OnUpdateLong, realpath_cache_ttl, virtual_cwd_globals, cwd_globals)
+	STD_PHP_INI_BOOLEAN("allow_url_fopen",		"1",		PHP_INI_SYSTEM,		OnUpdateBool,		allow_url_fopen,		php_core_globals,	core_globals)
+	STD_PHP_INI_BOOLEAN("allow_url_include",	"0",		PHP_INI_SYSTEM,		OnUpdateBool,		allow_url_include,		php_core_globals,	core_globals)
+	STD_PHP_INI_BOOLEAN("always_populate_raw_post_data",	"0",	PHP_INI_SYSTEM|PHP_INI_PERDIR,	OnUpdateBool,	always_populate_raw_post_data,	php_core_globals,	core_globals)
+
+	STD_PHP_INI_ENTRY("realpath_cache_size",	"16K",		PHP_INI_SYSTEM,		OnUpdateLong,	realpath_cache_size_limit,	virtual_cwd_globals,	cwd_globals)
+	STD_PHP_INI_ENTRY("realpath_cache_ttl",		"120",		PHP_INI_SYSTEM,		OnUpdateLong,	realpath_cache_ttl,			virtual_cwd_globals,	cwd_globals)
 PHP_INI_END()
 /* }}} */
 
@@ -954,7 +973,8 @@ static void php_error_cb(int type, const char *error_filename, const uint error_
 		case E_USER_ERROR:
 			EG(exit_status) = 255;
 			if (module_initialized) {
-				if (!SG(headers_sent) &&
+				if (!PG(display_errors) &&
+				    !SG(headers_sent) &&
 					SG(sapi_headers).http_response_code == 200
 				) {
 					sapi_header_line ctr = {0};
@@ -1282,6 +1302,8 @@ int php_request_startup(TSRMLS_D)
 	} zend_catch {
 		retval = FAILURE;
 	} zend_end_try();
+
+	SG(sapi_started) = 1;
 
 	return retval;
 }

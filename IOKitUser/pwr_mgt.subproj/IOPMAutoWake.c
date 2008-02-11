@@ -20,11 +20,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include "IOSystemConfiguration.h"
 #include "IOPMKeys.h"
 #include "IOPMLib.h"
 #include "IOPMLibPrivate.h"
+#include <notify.h>
 
 enum {
     kIOPMMaxScheduledEntries = 1000
@@ -91,11 +93,24 @@ static CFComparisonResult compare_dates(
     return CFDateCompare(d1, d2, 0);
 }
 
+#if TARGET_OS_EMBEDDED
+#define ROUND_SCHEDULE_TIME	(5.0)
+#define MIN_SCHEDULE_TIME	(5.0)
+#else
+#define ROUND_SCHEDULE_TIME	(30.0)
+#define MIN_SCHEDULE_TIME	(30.0)
+#endif  /* TARGET_OS_EMBEDDED */
+
+
 static CFAbsoluteTime roundOffDate(CFAbsoluteTime time)
 {
-    // round time down to the closest multiple of 30 seconds
+    // round time down to the closest multiple of ROUND_SCHEDULE_TIME seconds
     // CFAbsoluteTimes are encoded as doubles
-    return (CFAbsoluteTime)nearbyint((time - fmod(time, (double)30.0)));
+#if TARGET_OS_EMBEDDED
+    return (CFAbsoluteTime) (trunc(time / ((double) ROUND_SCHEDULE_TIME)) * ((double) ROUND_SCHEDULE_TIME)); 
+#else
+    return (CFAbsoluteTime)nearbyint((time - fmod(time, (double)ROUND_SCHEDULE_TIME)));
+#endif /* TARGET_OS_EMBEDDED */
 }
 
 static CFDictionaryRef 
@@ -109,7 +124,7 @@ _IOPMCreatePowerOnDictionary(
 
     // make sure my_id is valid or NULL
     the_id = isA_CFString(the_id);        
-    // round wakeup time to last 30 second increment
+    // round wakeup time to last ROUND_SCHEDULE_TIME second increment
     the_time = roundOffDate(the_time);
     // package AbsoluteTime as a date for CFType purposes
     the_date = CFDateCreate(0, the_time);
@@ -492,7 +507,7 @@ IOReturn IOPMSchedulePowerEvent(
      */
 
     abs_time_to_wake = CFDateGetAbsoluteTime(time_to_wake);
-    if(abs_time_to_wake < (CFAbsoluteTimeGetCurrent() + 30.0))
+    if(abs_time_to_wake < (CFAbsoluteTimeGetCurrent() + MIN_SCHEDULE_TIME))
     {
         ret = kIOReturnNotReady;
         goto exit;
@@ -502,6 +517,12 @@ IOReturn IOPMSchedulePowerEvent(
     package = _IOPMCreatePowerOnDictionary(abs_time_to_wake, my_id, type);
 
     // Open the prefs file and grab the current array
+#if TARGET_OS_EMBEDDED
+    if (geteuid() != 0)
+        prefs = SCPreferencesCreateWithAuthorization(0, CFSTR("IOKit-AutoWake"), 
+                                CFSTR(kIOPMAutoWakePrefsPath), NULL);
+    else
+#endif /* TARGET_OS_EMBEDDED */
     prefs = SCPreferencesCreate( 0, CFSTR("IOKit-AutoWake"), 
                                  CFSTR(kIOPMAutoWakePrefsPath));
     if(!prefs || !SCPreferencesLock(prefs, true))
@@ -555,6 +576,11 @@ IOReturn IOPMSchedulePowerEvent(
     ret = kIOReturnSuccess;
 
 exit:
+    if (ret == kIOReturnSuccess)
+    {
+        notify_post(kIOPMSchedulePowerEventNotification);
+    }
+    
     if(package) CFRelease(package);
     if(prefs) SCPreferencesUnlock(prefs);
     if(prefs) CFRelease(prefs);
@@ -584,6 +610,12 @@ IOReturn IOPMCancelScheduledPowerEvent(
     if(!package) goto exit;
 
     // Open the prefs file and grab the current array
+#if TARGET_OS_EMBEDDED
+    if (geteuid() != 0)
+        prefs = SCPreferencesCreateWithAuthorization(0, CFSTR("IOKit-AutoWake"), 
+                                CFSTR(kIOPMAutoWakePrefsPath), NULL);
+    else
+#endif /* TARGET_OS_EMBEDDED */
     prefs = SCPreferencesCreate( 0, CFSTR("IOKit-AutoWake"), 
                                  CFSTR(kIOPMAutoWakePrefsPath));
     if(!prefs || !SCPreferencesLock(prefs, true)) 
@@ -628,7 +660,14 @@ CFArrayRef IOPMCopyScheduledPowerEvents(void)
     CFMutableArrayRef           new_arr;
     
     // Copy wakeup and restart arrays from SCPreferences
+#if TARGET_OS_EMBEDDED
+    if (geteuid() != 0)
+        prefs = SCPreferencesCreateWithAuthorization(0, CFSTR("IOKit-AutoWake"), 
+                                CFSTR(kIOPMAutoWakePrefsPath), NULL);
+    else
+#endif /* TARGET_OS_EMBEDDED */
     prefs = SCPreferencesCreate(0, CFSTR("IOKit-AutoWake"), CFSTR(kIOPMAutoWakePrefsPath));
+
     if(!prefs) return NULL;
 
     wake_arr = isA_CFArray(SCPreferencesGetValue(prefs, CFSTR(kIOPMAutoWake)));

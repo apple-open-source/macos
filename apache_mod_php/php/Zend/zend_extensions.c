@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_extensions.c,v 1.48.2.1.2.2 2007/01/01 09:35:46 sebastian Exp $ */
+/* $Id: zend_extensions.c,v 1.48.2.1.2.3 2007/09/18 09:24:04 jani Exp $ */
 
 #include "zend_extensions.h"
 
@@ -243,7 +243,7 @@ void *zend_mh_bundle_load(char* bundle_path)
 		return NULL;
 	}
 
-	bundle_handle = NSLinkModule(bundle_image, bundle_path, NSLINKMODULE_OPTION_PRIVATE);
+	bundle_handle = NSLinkModule(bundle_image, bundle_path, NSLINKMODULE_OPTION_NONE);
 	NSDestroyObjectFileImage(bundle_image);
 
 	/* call the init function of the bundle */

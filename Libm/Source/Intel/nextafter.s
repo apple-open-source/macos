@@ -24,11 +24,11 @@ ENTRY( nextafter )
 #endif
 
 	ucomisd	%xmm0,					%xmm1		// if( x == y || isnan(x) || isnan(y) )
-	je		2f									//		goto 4
+	je		2f									//		goto 2
 	
 	xorpd	%xmm2,					%xmm2		// 0.0f
 	ucomisd %xmm0,					%xmm2		// if( x == 0 )
-	je		1f									//		goto 3
+	je		1f									//		goto 1
 
 	// x != y. x != 0.0f. X and Y are numeric.
 	cmpltsd	%xmm0,					%xmm1		// y < x ? -1 : 0
@@ -77,9 +77,19 @@ ENTRY( nextafter )
 	ret
 	
 	// x == y || isnan(x) || isnan(y)
-2:	jnp		3f									// if( x == y ) goto 5
-	addsd	%xmm1,					%xmm0		// either x or y or both are nan, so add the two to silence and move to xmm0
-3:	// return result
+2:	jp		3f									// if( isnan(x) || isnan(y) ) goto 3
+
+    // x == y, return y
+#if defined( __i386__ )
+	movsd	%xmm1,					FRAME_SIZE( STACKP )
+	fldl	FRAME_SIZE( STACKP )
+#else
+    movsd   %xmm1,                  %xmm0
+#endif
+	ret
+    
+    // nan
+3:  addsd	%xmm1,					%xmm0		// either x or y or both are nan, so add the two to silence and move to xmm0
 #if defined( __i386__ )
 	movsd	%xmm0,					FRAME_SIZE( STACKP )
 	fldl	FRAME_SIZE( STACKP )

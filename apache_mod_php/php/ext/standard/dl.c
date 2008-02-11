@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dl.c,v 1.106.2.1.2.2 2007/02/23 00:37:35 iliaa Exp $ */
+/* $Id: dl.c,v 1.106.2.1.2.5 2007/09/18 20:19:34 stas Exp $ */
 
 #include "php.h"
 #include "dl.h"
@@ -73,6 +73,11 @@ PHP_FUNCTION(dl)
 		RETURN_FALSE;
 	}
 
+	if (Z_STRLEN_PP(file) >= MAXPATHLEN) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "File name exceeds the maximum allowed length of %d characters", MAXPATHLEN);
+		RETURN_FALSE;
+	}
+
 	if ((strncmp(sapi_module.name, "cgi", 3)!=0) && 
 		(strcmp(sapi_module.name, "cli")!=0) &&
 		(strncmp(sapi_module.name, "embed", 5)!=0)) {
@@ -124,6 +129,13 @@ void php_dl(zval *file, int type, zval *return_value, int start_now TSRMLS_DC)
 
 	if (extension_dir && extension_dir[0]){
 		int extension_dir_len = strlen(extension_dir);
+
+		if (type == MODULE_TEMPORARY) {
+			if (strchr(Z_STRVAL_P(file), '/') != NULL || strchr(Z_STRVAL_P(file), DEFAULT_SLASH) != NULL) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Temporary module name should contain only filename");
+				RETURN_FALSE;
+			}
+		}
 
 		if (IS_SLASH(extension_dir[extension_dir_len-1])) {
 			spprintf(&libpath, 0, "%s%s", extension_dir, Z_STRVAL_P(file));
@@ -189,8 +201,9 @@ void php_dl(zval *file, int type, zval *return_value, int start_now TSRMLS_DC)
 			int zend_api;
 			unsigned char zend_debug, zts;
 
-			if((  ((struct pre_4_1_0_module_entry *)module_entry)->zend_api > 20000000)
-			   &&(((struct pre_4_1_0_module_entry *)module_entry)->zend_api < 20010901)) {
+			if ((((struct pre_4_1_0_module_entry *)module_entry)->zend_api > 20000000) &&
+				(((struct pre_4_1_0_module_entry *)module_entry)->zend_api < 20010901)
+			) {
 				name       = ((struct pre_4_1_0_module_entry *)module_entry)->name;
 				zend_api   = ((struct pre_4_1_0_module_entry *)module_entry)->zend_api;
 				zend_debug = ((struct pre_4_1_0_module_entry *)module_entry)->zend_debug;

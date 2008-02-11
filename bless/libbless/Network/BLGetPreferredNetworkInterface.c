@@ -109,7 +109,28 @@ int BLGetPreferredNetworkInterface(BLContextPtr context,
         interface = getLinkUpInterface(context, iterator);
         IOObjectRelease(iterator);        
     }
-    
+
+	if(interface == IO_OBJECT_NULL) {
+        
+        matchingDict = IOServiceMatching(kIONetworkInterfaceClass);    
+        propDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                             &kCFTypeDictionaryKeyCallBacks,
+                                             &kCFTypeDictionaryValueCallBacks);
+        
+        CFDictionaryAddValue(matchingDict, CFSTR(kIOPropertyMatchKey), propDict);
+        CFRelease(propDict);
+        
+        kret = IOServiceGetMatchingServices(kIOMasterPortDefault, matchingDict,
+                                            &iterator);
+        if(kret) {
+            contextprintf(context, kBLLogLevelError, "Could not get interface iterator\n");
+            return 1;
+        }
+        
+        interface = getLinkUpInterface(context, iterator);
+        IOObjectRelease(iterator);        
+    }
+	
     if(interface != IO_OBJECT_NULL) {
         CFStringRef name;
 

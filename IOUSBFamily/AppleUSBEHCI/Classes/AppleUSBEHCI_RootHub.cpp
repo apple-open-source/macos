@@ -1014,6 +1014,7 @@ AppleUSBEHCI::UIMRootHubStatusChange(void)
     UInt32										hubStatus, statusBit, tempStatus;
     unsigned int								index, port, move;
 	bool										overCurrentReported = false;
+	IOReturn									retStatus;
     
 	USBLog(7, "AppleUSBEHCI[%p]::UIMRootHubStatusChange - USBIntr[%p] _myPowerState[%d]", this, (void*)USBToHostLong(_pEHCIRegisters->USBIntr), (int)_myPowerState);
 	/*
@@ -1043,7 +1044,12 @@ AppleUSBEHCI::UIMRootHubStatusChange(void)
         {
             statusBit <<= 1;    /* Next bit */
 			
-            GetRootHubPortStatus(&portStatus, port);
+            retStatus = GetRootHubPortStatus(&portStatus, port);
+			if (retStatus != kIOReturnSuccess)
+			{
+				USBLog(5, "AppleUSBEHCI[%p]::UIMRootHubStatusChange - got status (%p) from GetRootHubPortStatus for port (%d) - skipping", this, (void*)retStatus, (int)port);
+				continue;
+			}
             portStatus.changeFlags = USBToHostWord(portStatus.changeFlags);
             portStatus.statusFlags = USBToHostWord(portStatus.statusFlags);
 			
@@ -1252,6 +1258,7 @@ AppleUSBEHCI::RHResumePortTimer(UInt32 port)
 	// outside of the WL
 	if (!_commandGate)
 		return;
+
 	USBLog(5, "AppleUSBEHCI[%p]::RHResumePortTimer - timing the resume for port %d", this, (int)port);
 	IOSleep(20);								// wait 20 ms for the resume to complete
 	_commandGate->runAction(RHResumePortCompletionEntry, (void*)port);
@@ -1283,6 +1290,13 @@ AppleUSBEHCI::RHResumePortCompletion(UInt32 port)
 	if (!_rhPortBeingResumed[port-1])
 	{
 		USBLog(1, "AppleUSBEHCI[%p]::RHResumePortCompletion - port %d does not appear to be resuming!", this, (int)port);
+		return kIOReturnInternalError;
+	}
+	
+	if (!_controllerAvailable)
+	{
+		USBLog(5, "AppleUSBEHCI[%p]::RHResumePortCompletion - cannot finish resume on port %d because the controller is unavailable", this, (int)port);
+		_rhPortBeingResumed[port-1] = false;
 		return kIOReturnInternalError;
 	}
 	

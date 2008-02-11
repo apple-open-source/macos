@@ -500,6 +500,9 @@ MDSSession::terminate ()
     closeAll();
 }
 
+const char* kExceptionDeletePath = "messages";
+
+
 /*
  * Called by security server via MDS_Install().
  */
@@ -541,14 +544,16 @@ MDSSession::install ()
 		 * We own the whole MDS system. Clean everything out except for our lock
 		 * (and the directory it's in :-)
 		 */
+		
 		const char *savedFile = MDS_INSTALL_LOCK_NAME;
 		if(cleanDir(MDS_SYSTEM_DB_DIR, &savedFile, 1)) {
 			/* this should never happen - we're root */
 			Syslog::alert("MDS error: unable to clean %s", MDS_SYSTEM_DB_DIR);
 			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
 		}
-		savedFile = MDS_SYSTEM_DB_COMP;
-		if(cleanDir(MDS_BASE_DB_DIR, &savedFile, 1)) {
+		
+		const char *savedFiles[] = {MDS_SYSTEM_DB_COMP, kExceptionDeletePath};
+		if(cleanDir(MDS_BASE_DB_DIR, savedFiles, 2)) {
 			/* this should never happen - we're root */
 			Syslog::alert("MDS error: unable to clean %s", MDS_BASE_DB_DIR);
 			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);

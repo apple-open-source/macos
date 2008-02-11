@@ -1,3 +1,0 @@
-after_install:
-	install -o root -m 755 -d $(DSTROOT)/usr/share/man/man1
-	install -o root -m 644 -c domainname.1 $(DSTROOT)/usr/share/man/man1

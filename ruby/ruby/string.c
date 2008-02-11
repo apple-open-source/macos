@@ -3,7 +3,7 @@
   string.c -
 
   $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Date: 2007-09-07 16:40:27 +0900 (Fri, 07 Sep 2007) $
   created at: Mon Aug  9 17:12:58 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -1647,7 +1647,7 @@ rb_str_splice(str, beg, len, val)
 	}
 	beg += RSTRING(str)->len;
     }
-    if (RSTRING(str)->len < beg + len) {
+    if (RSTRING(str)->len < len || RSTRING(str)->len < beg + len) {
 	len = RSTRING(str)->len - beg;
     }
 

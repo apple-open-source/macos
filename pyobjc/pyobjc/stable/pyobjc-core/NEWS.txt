@@ -4,8 +4,51 @@ PyObjC NEWS
 
 An overview of the relevant changes in new, and older, releases.
 
-Version 2.0 (LEOPARD, post WWDC07)
-----------------------------------
+Version 2.0.1 (...)
+-------------------
+
+- BUGFIX: ``objc.inject`` works on Leopard (at least on Intel Macs, haven't
+  tested on PPC). 
+
+- BUGFIX: don't crash when printing CF objects that are magic cookies.
+
+- BUGFIX: It is now possible to override ``respondsToSelector:`` in Python.
+
+- BUGFIX: The wrappers for CoreFoundation types no longer create a new type 
+  in the Objective-C runtime, that type wasn't used anywhere and was an 
+  unwanted side-effect of how CoreFoundation types are wrapped.
+
+- Add support for interacting with '@synchronized' blocks in Objective-C.
+
+  The function ``object_lock(object)`` is a contextmanager that acquires and
+  releases the '@synchronized' mutex for an object, and can also be used
+  manually.
+
+  That is (as context manager)::
+  	from __future__ import with_statement
+
+	obj = NSObject.new()
+
+	with objc.object_lock(obj):
+	    # Perform work while owning the @synchronize lock
+	    pass
+
+   or (manually)::
+
+   	obj = NSObject.new()
+	mutex = objc.object_lock(obj)
+	mutex.lock()
+	try:
+	    # Perform work while owning the @synchronized lock
+	    pass
+	finally:
+	    mutex.unlock()
+
+   Note that the first version is slightly saver (see the documentation
+   for with-statements for the details).
+
+Version 2.0 (MacOS X 10.5.0)
+----------------------------
 
 - The basic infrastructure for playing nice in a GC host was added.
 
@@ -118,13 +161,6 @@ Version 2.0 (LEOPARD, post WWDC07)
           def updateDescription(self):
 	     self.description = 42
 
-
-
-Version 2.0 (LEOPARD)
----------------------
-
-- NOTE: most of pyobjc should be 64-bit safe, but I haven't tested this yet
-  and the included libffi probably doesn't work with 64-bit darwin.
 
 - PyObjC has been split into several smaller packages: ``pyobjc-core`` contains
   the core bridge and frameworks are wrapped as seperate setuptools packages.
