@@ -25,17 +25,19 @@
 #include "config.h"
 #include "PluginDocument.h"
 
+#include "DocumentLoader.h"
+#include "Element.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
-#include "Element.h"
+#include "HTMLEmbedElement.h"
 #include "HTMLNames.h"
+#include "MainResourceLoader.h"
 #include "Page.h"
 #include "RenderWidget.h"
 #include "SegmentedString.h"
 #include "Settings.h"
 #include "Text.h"
-#include "HTMLEmbedElement.h"
 #include "XMLTokenizer.h"
 
 namespace WebCore {
@@ -86,7 +88,7 @@ void PluginTokenizer::createDocumentStructure()
     m_embedElement->setAttribute(heightAttr, "100%");
     
     m_embedElement->setAttribute(nameAttr, "plugin");
-    m_embedElement->setSrc(m_doc->URL());
+    m_embedElement->setSrc(m_doc->url());
     m_embedElement->setType(m_doc->frame()->loader()->responseMIMEType());
     
     body->appendChild(embedElement, ec);    
@@ -102,8 +104,10 @@ bool PluginTokenizer::writeRawData(const char* data, int len)
             if (settings && settings->arePluginsEnabled()) {
                 m_doc->updateLayout();
             
-                if (RenderWidget* renderer = static_cast<RenderWidget*>(m_embedElement->renderer()))
+                if (RenderWidget* renderer = static_cast<RenderWidget*>(m_embedElement->renderer())) {
                     frame->loader()->client()->redirectDataToPlugin(renderer->widget());
+                    frame->loader()->activeDocumentLoader()->mainResourceLoader()->setShouldBufferData(false);
+                }
             
                 finish();
             }

@@ -55,16 +55,16 @@ static PassRefPtr<Element> createIndentBlockquoteElement(Document* document)
     return indentBlockquoteElement.release();
 }
 
-static bool isIndentBlockquote(Node* node)
+static bool isIndentBlockquote(const Node* node)
 {
     if (!node || !node->hasTagName(blockquoteTag) || !node->isElementNode())
         return false;
 
-    Element* elem = static_cast<Element*>(node);
+    const Element* elem = static_cast<const Element*>(node);
     return elem->getAttribute(classAttr) == indentBlockquoteString();
 }
 
-static bool isListOrIndentBlockquote(Node* node)
+static bool isListOrIndentBlockquote(const Node* node)
 {
     return node && (node->hasTagName(ulTag) || node->hasTagName(olTag) || isIndentBlockquote(node));
 }
@@ -80,10 +80,10 @@ Node* IndentOutdentCommand::prepareBlockquoteLevelForInsertion(VisiblePosition& 
     int currentBlockquoteLevel = 0;
     int lastBlockquoteLevel = 0;
     Node* node = currentParagraph.deepEquivalent().node();
-    while ((node = enclosingNodeOfType(node, &isIndentBlockquote)))
+    while ((node = enclosingNodeOfType(Position(node->parentNode(), 0), &isIndentBlockquote)))
         currentBlockquoteLevel++;
     node = *lastBlockquote;
-    while ((node = enclosingNodeOfType(node, &isIndentBlockquote)))
+    while ((node = enclosingNodeOfType(Position(node->parentNode(), 0), &isIndentBlockquote)))
         lastBlockquoteLevel++;
     while (currentBlockquoteLevel > lastBlockquoteLevel) {
         RefPtr<Node> newBlockquote = createIndentBlockquoteElement(document());
@@ -92,7 +92,7 @@ Node* IndentOutdentCommand::prepareBlockquoteLevelForInsertion(VisiblePosition& 
         lastBlockquoteLevel++;
     }
     while (currentBlockquoteLevel < lastBlockquoteLevel) {
-        *lastBlockquote = enclosingNodeOfType(*lastBlockquote, &isIndentBlockquote);
+        *lastBlockquote = enclosingNodeOfType(Position((*lastBlockquote)->parentNode(), 0), &isIndentBlockquote);
         lastBlockquoteLevel--;
     }
     RefPtr<Node> placeholder = createBreakElement(document());
@@ -102,31 +102,6 @@ Node* IndentOutdentCommand::prepareBlockquoteLevelForInsertion(VisiblePosition& 
     if (!isStartOfParagraph(visiblePos))
         insertNodeBefore(createBreakElement(document()).get(), placeholder.get());
     return placeholder.get();
-}
-
-// Splits the tree parent by parent until we reach the specified ancestor. We use VisiblePositions
-// to determine if the split is necessary. Returns the last split node.
-Node* IndentOutdentCommand::splitTreeToNode(Node* start, Node* end, bool splitAncestor)
-{
-    Node* node;
-    for (node = start; node && node->parent() != end; node = node->parent()) {
-        VisiblePosition positionInParent(Position(node->parent(), 0), DOWNSTREAM);
-        VisiblePosition positionInNode(Position(node, 0), DOWNSTREAM);
-        if (positionInParent != positionInNode)
-            applyCommandToComposite(new SplitElementCommand(static_cast<Element*>(node->parent()), node));
-    }
-    if (splitAncestor)
-        return splitTreeToNode(end, end->parent());
-    return node;
-}
-
-static int indexForVisiblePosition(VisiblePosition& visiblePosition)
-{
-    if (visiblePosition.isNull())
-        return 0;
-    Position p(visiblePosition.deepEquivalent());
-    RefPtr<Range> range = new Range(p.node()->document(), Position(p.node()->document(), 0), p);
-    return TextIterator::rangeLength(range.get());
 }
 
 void IndentOutdentCommand::indentRegion()
@@ -187,6 +162,8 @@ void IndentOutdentCommand::indentRegion()
             // this by splitting all parents of the current paragraph up to that point.
             RefPtr<Node> blockquote = createIndentBlockquoteElement(document());
             Position start = startOfParagraph(endOfCurrentParagraph).deepEquivalent();
+
+            // FIXME: This will break table structure.
             Node* startOfNewBlock = splitTreeToNode(start.node(), editableRootForPosition(start));
             insertNodeBefore(blockquote.get(), startOfNewBlock);
             newBlockquote = blockquote.get();
@@ -196,10 +173,10 @@ void IndentOutdentCommand::indentRegion()
         endOfCurrentParagraph = endOfNextParagraph;
     }
     
-    RefPtr<Range> startRange = TextIterator::rangeFromLocationAndLength(document()->documentElement(), 0, startIndex);
-    RefPtr<Range> endRange = TextIterator::rangeFromLocationAndLength(document()->documentElement(), 0, endIndex);
+    RefPtr<Range> startRange = TextIterator::rangeFromLocationAndLength(document()->documentElement(), startIndex, 0, true);
+    RefPtr<Range> endRange = TextIterator::rangeFromLocationAndLength(document()->documentElement(), endIndex, 0, true);
     if (startRange && endRange)
-        setEndingSelection(Selection(startRange->endPosition(), endRange->endPosition(), DOWNSTREAM));
+        setEndingSelection(Selection(startRange->startPosition(), endRange->startPosition(), DOWNSTREAM));
 }
 
 void IndentOutdentCommand::outdentParagraph()
@@ -207,7 +184,7 @@ void IndentOutdentCommand::outdentParagraph()
     VisiblePosition visibleStartOfParagraph = startOfParagraph(endingSelection().visibleStart());
     VisiblePosition visibleEndOfParagraph = endOfParagraph(visibleStartOfParagraph);
 
-    Node* enclosingNode = enclosingNodeOfType(visibleStartOfParagraph.deepEquivalent().node(), &isListOrIndentBlockquote);
+    Node* enclosingNode = enclosingNodeOfType(visibleStartOfParagraph.deepEquivalent(), &isListOrIndentBlockquote);
     if (!enclosingNode)
         return;
 

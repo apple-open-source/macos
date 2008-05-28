@@ -32,6 +32,7 @@
 
 #include <Security/Security.h>
 #include <security_utilities/hashing.h>
+#include <security_cdsa_utilities/cssmdata.h>
 
 
 namespace Security {
@@ -44,6 +45,13 @@ namespace CodeSigning {
 //
 void hashOfCertificate(const void *certData, size_t certLength, SHA1::Digest digest);
 void hashOfCertificate(SecCertificateRef cert, SHA1::Digest digest);
+
+
+//
+// Check to see if a certificate contains a particular field, by OID. This works for extensions,
+// even ones not recognized by the local CL. It does not return any value, only presence.
+//
+bool certificateHasField(SecCertificateRef cert, const CssmOid &oid);
 
 
 } // end namespace CodeSigning

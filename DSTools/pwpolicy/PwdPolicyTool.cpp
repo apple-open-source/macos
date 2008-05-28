@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <PasswordServer/AuthFile.h>
+#include "CAuthAuthority.h"
 #include "PwdPolicyTool.h"
 
 #define debugerr(ERR, A, args...)	if (gVerbose && (ERR)) {fprintf(stderr, (A), ##args);}
@@ -782,6 +783,7 @@ PwdPolicyTool::DoNodePWAuth(
 	tDataBuffer	   *pStepBuff		= nil;
 	tDataNode	   *pAuthType		= nil;
 	tDataNodePtr	recordTypeNode	= NULL;
+	tContextData	context			= 0;
 	
 	// kDSStdAuthNewUser
 	// "dsAuthMethodStandard:dsAuthNewUser"
@@ -834,7 +836,7 @@ PwdPolicyTool::DoNodePWAuth(
 		if ( error == eDSNoErr )
 		{
 			if ( inRecordType == NULL || strcmp(inRecordType, kDSStdRecordTypeUsers) == 0 )
-				error = dsDoDirNodeAuth( inNode, pAuthType, true, pAuthBuff, pStepBuff, nil );
+				error = dsDoDirNodeAuth( inNode, pAuthType, true, pAuthBuff, pStepBuff, &context );
 			else
 				error = dsDoDirNodeAuthOnRecordType( inNode, pAuthType, true, pAuthBuff, pStepBuff, nil, recordTypeNode );
 			if ( error == eDSNoErr )
@@ -1152,14 +1154,14 @@ PwdPolicyTool::ChangeAuthAuthorityToShadowHash( tRecordReference inRecordRef )
 {
     long						status				= eDSNoErr;
 	tAttributeValueEntry	   *pExistingAttrValue	= NULL;
-	UInt32					attrValIndex		= 0;
-    UInt32					attrValCount		= 0;
+	UInt32						attrValIndex		= 0;
+    UInt32						attrValCount		= 0;
     tDataNode				   *attrTypeNode		= nil;
     tAttributeEntryPtr			pAttrEntry			= nil;
-    char						*aaVersion			= nil;
-    char						*aaTag				= nil;
-    char						*aaData				= nil;
-    UInt32					attrValueIDToReplace = 0;
+    char						*aaString			= NULL;
+    char						*aaEnableString		= NULL;
+    UInt32						attrValueIDToReplace = 0;
+	CAuthAuthority				aaTank;
 	
     try
     {
@@ -1178,82 +1180,29 @@ PwdPolicyTool::ChangeAuthAuthorityToShadowHash( tRecordReference inRecordRef )
 			{
 				status = dsGetRecordAttributeValueByIndex( inRecordRef, attrTypeNode, attrValIndex, &pExistingAttrValue );
 				debugerr(status, "dsGetRecordAttributeValueByIndex = %ld\n", status);
-				if (status != eDSNoErr) continue;
-				
-				status = dsParseAuthAuthority( pExistingAttrValue->fAttributeValueData.fBufferData, &aaVersion, &aaTag, &aaData );
-				if (status != eDSNoErr) continue;
-				
-				if ( strcasecmp( aaTag, kDSTagAuthAuthorityDisabledUser ) == 0 )
-				{
-					attrValueIDToReplace = pExistingAttrValue->fAttributeValueID;
-					break;
-				}
+				if ( status == eDSNoErr )
+					aaTank.AddValue( pExistingAttrValue->fAttributeValueData.fBufferData );
 			}
 		}
 		
-		if ( status == eDSNoErr || status == eDSAttributeNotFound || status == eDSAttributeDoesNotExist )
+		int aaIndex = 0;
+		int aaCount = aaTank.GetValueCount();
+		
+		tDataListPtr dataList = dsDataListAllocate( 0 );
+		for ( aaIndex = 0; aaIndex < aaCount; aaIndex++ )
 		{
-			tDataNodePtr aaNode;
-			char *aaNewData = NULL;
-			tAttributeValueEntry *pNewPWAttrValue = NULL;
-			bool attributeExists = ( status == eDSNoErr );
-			
-			// set the auth authority
-			if ( strncasecmp( aaData, kDSValueAuthAuthorityShadowHash, sizeof(kDSValueAuthAuthorityShadowHash)-1 ) == 0 )
-			{
-				aaNewData = (char *) malloc( strlen(aaData) + 1 );
-				strcpy( aaNewData, aaData );
-			}
+			aaString = aaTank.GetValueAtIndex( aaIndex );
+			if ( strncasecmp(aaString, kDSValueAuthAuthorityDisabledUser, sizeof(kDSValueAuthAuthorityDisabledUser) - 1) == 0 )
+				aaEnableString = aaString + sizeof(kDSValueAuthAuthorityDisabledUser) - 1;
 			else
-			{
-				aaNewData = (char *) malloc( sizeof(kDSValueAuthAuthorityShadowHash) );
-				strcpy( aaNewData, kDSValueAuthAuthorityShadowHash );
-			}
+				aaEnableString = aaString;
 			
-			if ( pExistingAttrValue != nil )
-			{
-				pNewPWAttrValue = dsAllocAttributeValueEntry(fDSRef, attrValueIDToReplace, aaNewData, strlen(aaNewData));
-				if ( pNewPWAttrValue != nil )
-				{
-					status = dsSetAttributeValue( inRecordRef, attrTypeNode, pNewPWAttrValue );
-					dsDeallocAttributeValueEntry( fDSRef, pNewPWAttrValue );
-					pNewPWAttrValue = nil;
-				}
-			}
-			else
-			if ( attributeExists )
-			{
-				aaNode = dsDataNodeAllocateString( fDSRef, aaNewData );
-				if ( aaNode )
-				{
-					status = dsAddAttributeValue( inRecordRef, attrTypeNode, aaNode );
-					dsDataNodeDeAllocate( fDSRef, aaNode );
-				}
-			}
-			else
-			{
-				// no authority
-				aaNode = dsDataNodeAllocateString( fDSRef, aaNewData );
-				if ( aaNode )
-				{
-					status = dsAddAttribute( inRecordRef, attrTypeNode, NULL, aaNode );
-					dsDataNodeDeAllocate( fDSRef, aaNode );
-				}
-			}
-			
-			if ( aaNewData != NULL )
-			{
-				free( aaNewData );
-				aaNewData = NULL;
-			}
-			
-			debugerr( status, "status(1) = %ld.\n", status );
+			status = dsAppendStringToListAlloc(	0, dataList, aaEnableString );
 		}
-		else
-		{
-			debugerr(status, "ds error = %ld\n", status);
-		}
-    }
+		
+		status = dsSetAttributeValues( inRecordRef, attrTypeNode, dataList );
+		debugerr(status, "dsSetAttributeValues = %ld\n", status);
+	}
     catch(...)
 	{
 	}

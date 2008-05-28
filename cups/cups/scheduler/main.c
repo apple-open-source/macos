@@ -3,7 +3,7 @@
  *
  *   Scheduler main loop for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -133,10 +133,7 @@ main(int  argc,				/* I - Number of command-line args */
 			browse_time,	/* Next browse send time */
 			senddoc_time,	/* Send-Document time */
 			expire_time,	/* Subscription expire time */
-			mallinfo_time;	/* Malloc information time */
-  size_t		string_count,	/* String count */
-			alloc_bytes,	/* Allocated string bytes */
-			total_bytes;	/* Total string bytes */
+			report_time;	/* Malloc/client/job report time */
   long			timeout;	/* Timeout for cupsdDoSelect() */
   struct rlimit		limit;		/* Runtime limit */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
@@ -149,6 +146,8 @@ main(int  argc,				/* I - Number of command-line args */
 #ifdef __APPLE__
   int			run_as_child = 0;
 					/* Needed for Mac OS X fork/exec */
+#else
+  time_t		netif_time = 0;	/* Time since last network update */
 #endif /* __APPLE__ */
 #if HAVE_LAUNCHD
   int			launchd_idle_exit;
@@ -226,11 +225,22 @@ main(int  argc,				/* I - Number of command-line args */
 		* are passed a NULL pointer.
 	        */
 
-                current = malloc(1024);
-		getcwd(current, 1024);
+                if ((current = malloc(1024)) == NULL)
+		{
+		  _cupsLangPuts(stderr,
+		                _("cupsd: Unable to get current directory!\n"));
+                  return (1);
+		}
+
+		if (!getcwd(current, 1024))
+		{
+		  _cupsLangPuts(stderr,
+		                _("cupsd: Unable to get current directory!\n"));
+                  free(current);
+		  return (1);
+		}
 
 		cupsdSetStringf(&ConfigurationFile, "%s/%s", current, argv[i]);
-
 		free(current);
               }
 	      break;
@@ -632,11 +642,11 @@ main(int  argc,				/* I - Number of command-line args */
   * Loop forever...
   */
 
-  mallinfo_time = 0;
   browse_time   = time(NULL);
-  senddoc_time  = time(NULL);
   expire_time   = time(NULL);
   fds           = 1;
+  report_time   = 0;
+  senddoc_time  = time(NULL);
 
   while (!stop_scheduler)
   {
@@ -827,6 +837,18 @@ main(int  argc,				/* I - Number of command-line args */
 
     current_time = time(NULL);
 
+#ifndef __APPLE__
+   /*
+    * Update the network interfaces once a minute...
+    */
+
+    if ((current_time - netif_time) >= 60)
+    {
+      netif_time  = current_time;
+      NetIFUpdate = 1;
+    }
+#endif /* !__APPLE__ */
+
 #if HAVE_LAUNCHD
    /*
     * If no other work was scheduled and we're being controlled by launchd
@@ -903,7 +925,7 @@ main(int  argc,				/* I - Number of command-line args */
       */
 
       cupsdDeleteCert(0);
-      cupsdAddCert(0, "root");
+      cupsdAddCert(0, "root", NULL);
     }
 
    /*
@@ -951,30 +973,49 @@ main(int  argc,				/* I - Number of command-line args */
     }
 
    /*
-    * Log memory usage every minute...
+    * Log statistics at most once a minute when in debug mode...
     */
 
-    if ((current_time - mallinfo_time) >= 60 && LogLevel >= CUPSD_LOG_DEBUG2)
+    if ((current_time - report_time) >= 60 && LogLevel >= CUPSD_LOG_DEBUG)
     {
+      size_t		string_count,	/* String count */
+			alloc_bytes,	/* Allocated string bytes */
+			total_bytes;	/* Total string bytes */
 #ifdef HAVE_MALLINFO
-      struct mallinfo mem;		/* Malloc information */
+      struct mallinfo	mem;		/* Malloc information */
 
 
       mem = mallinfo();
-      cupsdLogMessage(CUPSD_LOG_DEBUG2,
-                      "mallinfo: arena = %d, used = %d, free = %d\n",
-                      mem.arena, mem.usmblks + mem.uordblks,
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "Report: malloc-arena=%lu", mem.arena);
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "Report: malloc-used=%lu",
+                      mem.usmblks + mem.uordblks);
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "Report: malloc-free=%lu",
 		      mem.fsmblks + mem.fordblks);
 #endif /* HAVE_MALLINFO */
 
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "Report: clients=%d",
+                      cupsArrayCount(Clients));
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "Report: jobs=%d",
+                      cupsArrayCount(Jobs));
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "Report: jobs-active=%d",
+                      cupsArrayCount(ActiveJobs));
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "Report: printers=%d",
+                      cupsArrayCount(Printers));
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "Report: printers-implicit=%d",
+                      cupsArrayCount(ImplicitPrinters));
+
       string_count = _cupsStrStatistics(&alloc_bytes, &total_bytes);
-      cupsdLogMessage(CUPSD_LOG_DEBUG2,
-                      "stringpool: " CUPS_LLFMT " strings, "
-		      CUPS_LLFMT " allocated, " CUPS_LLFMT " total bytes",
-		      CUPS_LLCAST string_count, CUPS_LLCAST alloc_bytes,
+      cupsdLogMessage(CUPSD_LOG_DEBUG,
+                      "Report: stringpool-string-count=" CUPS_LLFMT,
+		      CUPS_LLCAST string_count);
+      cupsdLogMessage(CUPSD_LOG_DEBUG,
+                      "Report: stringpool-alloc-bytes=" CUPS_LLFMT,
+		      CUPS_LLCAST alloc_bytes);
+      cupsdLogMessage(CUPSD_LOG_DEBUG,
+                      "Report: stringpool-total-bytes=" CUPS_LLFMT,
 		      CUPS_LLCAST total_bytes);
 
-      mallinfo_time = current_time;
+      report_time = current_time;
     }
 
    /*
@@ -1015,7 +1056,7 @@ main(int  argc,				/* I - Number of command-line args */
       * Reset the accumulated events...
       */
 
-      LastEvent     = CUPSD_EVENT_NONE;
+      LastEvent = CUPSD_EVENT_NONE;
     }
   }
 
@@ -1622,8 +1663,11 @@ process_children(void)
 	    else
  	      job->status = -status;	/* Backend failed */
 
-            if (job->printer && !(job->printer->type & CUPS_PRINTER_FAX))
+            if (job->printer && !(job->printer->type & CUPS_PRINTER_FAX) &&
+	        job->status_level > CUPSD_LOG_ERROR)
 	    {
+	      job->status_level = CUPSD_LOG_ERROR;
+
               snprintf(job->printer->state_message,
 	               sizeof(job->printer->state_message), "%s failed", name);
               cupsdAddPrinterHistory(job->printer);

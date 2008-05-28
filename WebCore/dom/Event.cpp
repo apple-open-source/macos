@@ -110,12 +110,24 @@ bool Event::isWheelEvent() const
     return false;
 }
 
+#if ENABLE(CROSS_DOCUMENT_MESSAGING)
+bool Event::isMessageEvent() const
+{
+    return false;
+}
+#endif
+
 bool Event::isBeforeTextInsertedEvent() const
 {
     return false;
 }
 
 bool Event::isOverflowEvent() const
+{
+    return false;
+}
+
+bool Event::isProgressEvent() const
 {
     return false;
 }

@@ -38,5 +38,6 @@
 #endif
 
 #define dotMacDebug(args...)		secdebug("dotMacDebug", ## args)
+#define dotMacLog(args...)			printf(args)
 
 #endif	/* _DOTMAC_TP_DEBUGGING_H_ */

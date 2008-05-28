@@ -81,6 +81,7 @@ DiskRep::Writer *DiskRep::writer()
 //
 DiskRep *DiskRep::bestGuess(const char *path)
 {
+	try {
     struct stat st;
     if (::stat(path, &st))
         UnixError::throwMe();
@@ -91,11 +92,19 @@ DiskRep *DiskRep::bestGuess(const char *path)
 	
 	// see if it's the main executable of a recognized bundle
 	if (CFRef<CFURLRef> pathURL = makeCFURL(path))
-		if (CFRef<CFBundleRef> bundle = _CFBundleCreateWithExecutableURLIfLooksLikeBundle(NULL, pathURL))
+		if (CFRef<CFBundleRef> bundle = _CFBundleCreateWithExecutableURLIfMightBeBundle(NULL, pathURL))
 				return new BundleDiskRep(bundle);
 	
 	// follow the file choosing rules
 	return bestFileGuess(path);
+	} catch (const CommonError &error) {
+		switch (error.unixError()) {
+		case ENOENT:
+			MacOSError::throwMe(errSecCSStaticCodeNotFound);
+		default:
+			throw;
+		}
+	}
 }
 
 
@@ -124,6 +133,11 @@ string DiskRep::resourcesRootPath()
 CFDictionaryRef DiskRep::defaultResourceRules()
 {
 	return NULL;	// none
+}
+
+void DiskRep::adjustResources(ResourceBuilder &builder)
+{
+	// do nothing
 }
 
 const Requirements *DiskRep::defaultRequirements(const Architecture *)

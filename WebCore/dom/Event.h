@@ -28,7 +28,7 @@
 
 #include "AtomicString.h"
 #include "EventTarget.h"
-#include "Shared.h"
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
@@ -37,12 +37,7 @@ namespace WebCore {
     // FIXME: this should probably defined elsewhere.
     typedef unsigned long long DOMTimeStamp;
 
-    // FIXME: these too should probably defined elsewhere.
-    const int EventExceptionOffset = 100;
-    const int EventExceptionMax = 199;
-    enum EventExceptionCode { UNSPECIFIED_EVENT_TYPE_ERR = EventExceptionOffset };
-
-    class Event : public Shared<Event> {
+    class Event : public RefCounted<Event> {
     public:
         enum PhaseType { 
             CAPTURING_PHASE     = 1, 
@@ -106,9 +101,13 @@ namespace WebCore {
         virtual bool isTextEvent() const;
         virtual bool isDragEvent() const; // a subset of mouse events
         virtual bool isClipboardEvent() const;
+#if ENABLE(CROSS_DOCUMENT_MESSAGING)
+        virtual bool isMessageEvent() const;
+#endif
         virtual bool isWheelEvent() const;
         virtual bool isBeforeTextInsertedEvent() const;
         virtual bool isOverflowEvent() const;
+        virtual bool isProgressEvent() const;
 #if ENABLE(SVG)
         virtual bool isSVGZoomEvent() const;
 #endif

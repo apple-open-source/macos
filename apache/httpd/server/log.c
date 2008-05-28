@@ -161,15 +161,26 @@ static apr_status_t clear_handle_list(void *v)
     return APR_SUCCESS;
 }
 
-/* remember to close this handle in the child process */
+/* remember to close this handle in the child process
+ *
+ * On Win32 this makes zero sense, because we don't
+ * take the parent process's child procs.
+ * If the win32 parent instead passed each and every
+ * logger write handle from itself down to the child,
+ * and the parent manages all aspects of keeping the 
+ * reliable pipe log children alive, this would still
+ * make no sense :)  Cripple it on Win32.
+ */
 static void close_handle_in_child(apr_pool_t *p, apr_file_t *f)
 {
+#ifndef WIN32
     read_handle_t *new_handle;
 
     new_handle = apr_pcalloc(p, sizeof(read_handle_t));
     new_handle->next = read_handles;
     new_handle->handle = f;
     read_handles = new_handle;
+#endif
 }
 
 void ap_logs_child_init(apr_pool_t *p, server_rec *s)
@@ -263,7 +274,7 @@ static int log_child(apr_pool_t *p, const char *progname,
     apr_status_t rc;
     apr_procattr_t *procattr;
     apr_proc_t *procnew;
-    apr_file_t *errfile;
+    apr_file_t *outfile, *errfile;
 
     if (((rc = apr_procattr_create(&procattr, p)) == APR_SUCCESS)
         && ((rc = apr_procattr_cmdtype_set(procattr,
@@ -282,8 +293,11 @@ static int log_child(apr_pool_t *p, const char *progname,
         pname = apr_pstrdup(p, args[0]);
         procnew = (apr_proc_t *)apr_pcalloc(p, sizeof(*procnew));
 
-        if (dummy_stderr) {
-            if ((rc = apr_file_open_stdout(&errfile, p)) == APR_SUCCESS)
+        if ((rc = apr_file_open_stdout(&outfile, p)) == APR_SUCCESS) {
+            rc = apr_procattr_child_out_set(procattr, outfile, NULL);
+            if (dummy_stderr)
+                rc = apr_procattr_child_err_set(procattr, outfile, NULL);
+            else if ((rc = apr_file_open_stderr(&errfile, p)) == APR_SUCCESS)
                 rc = apr_procattr_child_err_set(procattr, errfile, NULL);
         }
 
@@ -421,6 +435,16 @@ int ap_open_logs(apr_pool_t *pconf, apr_pool_t *p /* plog */,
                 apr_pool_destroy(stderr_pool);
             stderr_pool = stderr_p;
             replace_stderr = 0;
+            /*
+             * Now that we have dup'ed s_main->error_log to stderr_log
+             * close it and set s_main->error_log to stderr_log. This avoids
+             * this fd being inherited by the next piped logger who would
+             * keep open the writing end of the pipe that this one uses
+             * as stdin. This in turn would prevent the piped logger from
+             * exiting.
+             */
+             apr_file_close(s_main->error_log);
+             s_main->error_log = stderr_log;
         }
     }
     /* note that stderr may still need to be replaced with something
@@ -877,6 +901,12 @@ static apr_status_t piped_log_spawn(piped_log *pl)
     else {
         char **args;
         const char *pname;
+        apr_file_t *outfile, *errfile;
+
+        if ((status = apr_file_open_stdout(&outfile, pl->p)) == APR_SUCCESS)
+            status = apr_procattr_child_out_set(procattr, outfile, NULL);
+        if ((status = apr_file_open_stderr(&errfile, pl->p)) == APR_SUCCESS)
+            status = apr_procattr_child_err_set(procattr, errfile, NULL);
 
         apr_tokenize_to_argv(pl->program, &args, pl->p);
         pname = apr_pstrdup(pl->p, args[0]);

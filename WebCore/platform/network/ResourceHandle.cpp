@@ -34,6 +34,8 @@
 
 namespace WebCore {
 
+static bool portAllowed(const ResourceRequest&);
+
 ResourceHandle::ResourceHandle(const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading,
          bool shouldContentSniff, bool mightDownloadFromHandle)
     : d(new ResourceHandleInternal(this, request, client, defersLoading, shouldContentSniff, mightDownloadFromHandle))
@@ -45,8 +47,13 @@ PassRefPtr<ResourceHandle> ResourceHandle::create(const ResourceRequest& request
 {
     RefPtr<ResourceHandle> newHandle(new ResourceHandle(request, client, defersLoading, shouldContentSniff, mightDownloadFromHandle));
 
+    if (!request.url().isValid()) {
+        newHandle->scheduleFailure(InvalidURLFailure);
+        return newHandle.release();
+    }
+
     if (!portAllowed(request)) {
-        newHandle->scheduleBlockedFailure();
+        newHandle->scheduleFailure(BlockedFailure);
         return newHandle.release();
     }
         
@@ -56,17 +63,27 @@ PassRefPtr<ResourceHandle> ResourceHandle::create(const ResourceRequest& request
     return 0;
 }
 
-void ResourceHandle::scheduleBlockedFailure()
+void ResourceHandle::scheduleFailure(FailureType type)
 {
-    Timer<ResourceHandle>* blockedTimer = new Timer<ResourceHandle>(this, &ResourceHandle::fireBlockedFailure);
-    blockedTimer->startOneShot(0);
+    d->m_failureType = type;
+    d->m_failureTimer.startOneShot(0);
 }
 
-void ResourceHandle::fireBlockedFailure(Timer<ResourceHandle>* timer)
+void ResourceHandle::fireFailure(Timer<ResourceHandle>*)
 {
-    if (client())
-        client()->wasBlocked(this);
-    delete timer;
+    if (!client())
+        return;
+
+    switch (d->m_failureType) {
+        case BlockedFailure:
+            client()->wasBlocked(this);
+            return;
+        case InvalidURLFailure:
+            client()->cannotShowURL(this);
+            return;
+    }
+
+    ASSERT_NOT_REACHED();
 }
 
 ResourceHandleClient* ResourceHandle::client() const
@@ -94,7 +111,7 @@ void ResourceHandle::clearAuthentication()
     d->m_currentWebChallenge.nullify();
 }
 
-bool ResourceHandle::portAllowed(const ResourceRequest& request)
+static bool portAllowed(const ResourceRequest& request)
 {
     unsigned short port = request.url().port();
 
@@ -172,11 +189,11 @@ bool ResourceHandle::portAllowed(const ResourceRequest& request)
         return true;
 
     // Allow ports 21 and 22 for FTP URLs, as Mozilla does.
-    if ((port == 21 || port == 22) && request.url().url().startsWith("ftp:", false))
+    if ((port == 21 || port == 22) && request.url().deprecatedString().startsWith("ftp:", false))
         return true;
 
     // Allow any port number in a file URL, since the port number is ignored.
-    if (request.url().url().startsWith("file:", false))
+    if (request.url().deprecatedString().startsWith("file:", false))
         return true;
 
     return false;

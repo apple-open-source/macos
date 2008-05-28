@@ -1,7 +1,5 @@
 /*
- * This file is part of the theme implementation for form controls in WebCore.
- *
- * Copyright (C) 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +20,7 @@
 #import "config.h"
 #import "RenderThemeMac.h"
 
+#import "BitmapImage.h"
 #import "CSSStyleSelector.h"
 #import "CSSValueKeywords.h"
 #import "Document.h"
@@ -30,14 +29,22 @@
 #import "FrameView.h"
 #import "GraphicsContext.h"
 #import "HTMLInputElement.h"
+#import "HTMLMediaElement.h"
+#import "HTMLNames.h"
 #import "Image.h"
 #import "LocalCurrentGraphicsContext.h"
 #import "RenderSlider.h"
 #import "RenderView.h"
+#import "SharedBuffer.h"
 #import "WebCoreSystemInterface.h"
+#import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
 #import <wtf/RetainPtr.h>
 #import <math.h>
+
+#ifdef BUILDING_ON_TIGER
+typedef unsigned NSUInteger;
+#endif
 
 using std::min;
 
@@ -74,6 +81,8 @@ using std::min;
 @end
 
 namespace WebCore {
+
+using namespace HTMLNames;
 
 enum {
     topMargin,
@@ -131,7 +140,7 @@ Color RenderThemeMac::activeListBoxSelectionBackgroundColor() const
     return Color(static_cast<int>(255.0 * [color redComponent]), static_cast<int>(255.0 * [color greenComponent]), static_cast<int>(255.0 * [color blueComponent]));
 }
 
-void RenderThemeMac::systemFont(int propId, FontDescription& fontDescription) const
+void RenderThemeMac::systemFont(int cssValueId, FontDescription& fontDescription) const
 {
     static FontDescription systemFont;
     static FontDescription smallSystemFont;
@@ -143,7 +152,7 @@ void RenderThemeMac::systemFont(int propId, FontDescription& fontDescription) co
 
     FontDescription* cachedDesc;
     NSFont* font = nil;
-    switch (propId) {
+    switch (cssValueId) {
         case CSS_VAL_SMALL_CAPTION:
             cachedDesc = &smallSystemFont;
             if (!smallSystemFont.isAbsoluteSize())
@@ -392,7 +401,7 @@ void RenderThemeMac::setFontFromControlSize(CSSStyleSelector* selector, RenderSt
     style->setLineHeight(RenderStyle::initialLineHeight());
 
     if (style->setFontDescription(fontDescription))
-        style->font().update();
+        style->font().update(0);
 }
 
 NSControlSize RenderThemeMac::controlSizeForSystemFont(RenderStyle* style) const
@@ -666,6 +675,17 @@ bool RenderThemeMac::paintTextField(RenderObject* o, const RenderObject::PaintIn
 
 void RenderThemeMac::adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
+}
+
+bool RenderThemeMac::paintCapsLockIndicator(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    if (paintInfo.context->paintingDisabled())
+        return true;
+
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawCapsLockIndicator(paintInfo.context->platformContext(), r);
+    
+    return false;
 }
 
 bool RenderThemeMac::paintTextArea(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
@@ -1032,7 +1052,7 @@ bool RenderThemeMac::paintSliderTrack(RenderObject* o, const RenderObject::Paint
 {
     IntRect bounds = r;
 
-    if (o->style()->appearance() ==  SliderHorizontalAppearance) {
+    if (o->style()->appearance() ==  SliderHorizontalAppearance || o->style()->appearance() ==  MediaSliderAppearance) {
         bounds.setHeight(trackWidth);
         bounds.setY(r.y() + r.height() / 2 - trackWidth / 2);
     } else if (o->style()->appearance() == SliderVerticalAppearance) {
@@ -1120,12 +1140,17 @@ bool RenderThemeMac::paintSliderThumb(RenderObject* o, const RenderObject::Paint
 
 const int sliderThumbWidth = 15;
 const int sliderThumbHeight = 15;
+const int mediaSliderThumbWidth = 13;
+const int mediaSliderThumbHeight = 14;
 
 void RenderThemeMac::adjustSliderThumbSize(RenderObject* o) const
 {
     if (o->style()->appearance() == SliderThumbHorizontalAppearance || o->style()->appearance() == SliderThumbVerticalAppearance) {
         o->style()->setWidth(Length(sliderThumbWidth, Fixed));
         o->style()->setHeight(Length(sliderThumbHeight, Fixed));
+    } else if (o->style()->appearance() == MediaSliderThumbAppearance) {
+        o->style()->setWidth(Length(mediaSliderThumbWidth, Fixed));
+        o->style()->setHeight(Length(mediaSliderThumbHeight, Fixed));
     }
 }
 
@@ -1305,6 +1330,108 @@ bool RenderThemeMac::paintSearchFieldResultsButton(RenderObject* o, const Render
     NSRect bounds = [search searchButtonRectForBounds:NSRect(input->renderer()->absoluteBoundingBoxRect())];
     [[search searchButtonCell] drawWithFrame:bounds inView:o->view()->frameView()->getDocumentView()];
     [[search searchButtonCell] setControlView:nil];
+    return false;
+}
+
+bool RenderThemeMac::paintMediaFullscreenButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->element();
+    if (!node)
+        return false;
+
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawMediaFullscreenButton(paintInfo.context->platformContext(), r, node->active());
+    return false;
+}
+
+bool RenderThemeMac::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->element();
+    Node* mediaNode = node ? node->shadowAncestorNode() : 0;
+    if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
+        return false;
+
+    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(mediaNode);
+    if (!mediaElement)
+        return false;
+    
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    if (mediaElement->muted())
+        wkDrawMediaUnMuteButton(paintInfo.context->platformContext(), r, node->active());
+    else
+        wkDrawMediaMuteButton(paintInfo.context->platformContext(), r, node->active());        
+    return false;
+}
+
+bool RenderThemeMac::paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->element();
+    Node* mediaNode = node ? node->shadowAncestorNode() : 0;
+    if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
+        return false;
+
+    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(mediaNode);
+    if (!mediaElement)
+        return false;
+
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    if (mediaElement->canPlay())
+        wkDrawMediaPlayButton(paintInfo.context->platformContext(), r, node->active());
+    else
+        wkDrawMediaPauseButton(paintInfo.context->platformContext(), r, node->active());        
+    return false;
+}
+
+bool RenderThemeMac::paintMediaSeekBackButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->element();
+    if (!node)
+        return false;
+
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawMediaSeekBackButton(paintInfo.context->platformContext(), r, node->active());
+    return false;
+}
+
+bool RenderThemeMac::paintMediaSeekForwardButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->element();
+    if (!node)
+        return false;
+
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawMediaSeekForwardButton(paintInfo.context->platformContext(), r, node->active());
+    return false;
+}
+
+bool RenderThemeMac::paintMediaSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->element();
+    Node* mediaNode = node ? node->shadowAncestorNode() : 0;
+    if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
+        return false;
+
+    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(mediaNode);
+    if (!mediaElement)
+        return false;
+
+    float percentLoaded = 0;
+    if (MediaPlayer* player = mediaElement->player())
+        if (player->duration())
+            percentLoaded = player->maxTimeBuffered() / player->duration();
+
+    wkDrawMediaSliderTrack(paintInfo.context->platformContext(), r, percentLoaded);
+    return false;
+}
+
+bool RenderThemeMac::paintMediaSliderThumb(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->element();
+    if (!node)
+        return false;
+
+    LocalCurrentGraphicsContext localContext(paintInfo.context);
+    wkDrawMediaSliderThumb(paintInfo.context->platformContext(), r, node->active());
     return false;
 }
 

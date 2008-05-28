@@ -3,7 +3,9 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
+ *           (C) 2007 David Smith (catfish.man@gmail.com)
  * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ *           (C) 2007 Eric Seidel (eric@webkit.org)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,6 +27,8 @@
 #include "Element.h"
 
 #include "CSSStyleSelector.h"
+#include "ClassNames.h"
+#include "ClassNodeList.h"
 #include "Document.h"
 #include "Editor.h"
 #include "ExceptionCode.h"
@@ -35,6 +39,7 @@
 #include "HTMLNames.h"
 #include "KURL.h"
 #include "NamedAttrMap.h"
+#include "NodeList.h"
 #include "Page.h"
 #include "RenderBlock.h"
 #include "SelectionController.h"
@@ -93,6 +98,9 @@ void ElementRareData::resetComputedStyle(Element* element)
 Element::Element(const QualifiedName& qName, Document *doc)
     : ContainerNode(doc)
     , m_tagName(qName)
+    , m_isStyleAttributeValid(true)
+    , m_synchronizingStyleAttribute(false)
+    , m_parsingChildrenFinished(true)
 {
 }
 
@@ -166,6 +174,16 @@ void Element::setAttribute(const QualifiedName& name, const String &value)
     setAttribute(name, value.impl(), ec);
 }
 
+void Element::setBooleanAttribute(const QualifiedName& name, bool b)
+{
+    if (b)
+        setAttribute(name, name.localName());
+    else {
+        ExceptionCode ex;
+        removeAttribute(name, ex);
+    }
+}
+
 // Virtual function, defined in base class.
 NamedAttrMap *Element::attributes() const
 {
@@ -185,7 +203,7 @@ Node::NodeType Element::nodeType() const
     return ELEMENT_NODE;
 }
 
-const AtomicStringList* Element::getClassList() const
+const ClassNames* Element::getClassNames() const
 {
     return 0;
 }
@@ -405,14 +423,14 @@ int Element::scrollHeight()
     return 0;
 }
 
-static inline bool inHTMLDocument(const Element* e)
+static inline bool shouldIgnoreAttributeCase(const Element* e)
 {
-    return e && e->document()->isHTMLDocument();
+    return e && e->document()->isHTMLDocument() && e->isHTMLElement();
 }
 
 const AtomicString& Element::getAttribute(const String& name) const
 {
-    String localName = inHTMLDocument(this) ? name.lower() : name;
+    String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
     if (localName == styleAttr.localName())
         updateStyleAttributeIfNeeded();
     
@@ -435,7 +453,7 @@ void Element::setAttribute(const String& name, const String& value, ExceptionCod
         return;
     }
 
-    String localName = inHTMLDocument(this) ? name.lower() : name;
+    String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
 
     // allocate attributemap if necessary
     Attribute* old = attributes(false)->getAttributeItem(localName);
@@ -446,8 +464,7 @@ void Element::setAttribute(const String& name, const String& value, ExceptionCod
         return;
     }
     
-    if (inDocument())
-        document()->incDOMTreeVersion();
+    document()->incDOMTreeVersion();
 
     if (localName == idAttr.localName())
         updateId(old ? old->value() : nullAtom, value);
@@ -464,8 +481,7 @@ void Element::setAttribute(const String& name, const String& value, ExceptionCod
 
 void Element::setAttribute(const QualifiedName& name, StringImpl* value, ExceptionCode& ec)
 {
-    if (inDocument())
-        document()->incDOMTreeVersion();
+    document()->incDOMTreeVersion();
 
     // allocate attributemap if necessary
     Attribute* old = attributes(false)->getAttributeItem(name);
@@ -496,8 +512,7 @@ Attribute* Element::createAttribute(const QualifiedName& name, StringImpl* value
 
 void Element::setAttributeMap(NamedAttrMap* list)
 {
-    if (inDocument())
-        document()->incDOMTreeVersion();
+    document()->incDOMTreeVersion();
 
     // If setting the whole map changes the id attribute, we need to call updateId.
 
@@ -539,6 +554,7 @@ String Element::nodeNamePreservingCase() const
 
 void Element::setPrefix(const AtomicString &_prefix, ExceptionCode& ec)
 {
+    ec = 0;
     checkSetPrefix(_prefix, ec);
     if (ec)
         return;
@@ -551,13 +567,13 @@ String Element::baseURI() const
     KURL xmlbase(getAttribute(baseAttr).deprecatedString());
 
     if (!xmlbase.protocol().isEmpty())
-        return xmlbase.url();
+        return xmlbase.string();
 
     Node* parent = parentNode();
     if (parent)
-        return KURL(parent->baseURI().deprecatedString(), xmlbase.url()).url();
+        return KURL(parent->baseURI().deprecatedString(), xmlbase.deprecatedString()).string();
 
-    return xmlbase.url();
+    return xmlbase.string();
 }
 
 Node* Element::insertAdjacentElement(const String& where, Node* newChild, int& exception)
@@ -609,17 +625,23 @@ bool Element::isURLAttribute(Attribute *attr) const
     return false;
 }
 
-RenderStyle *Element::styleForRenderer(RenderObject *parentRenderer)
+const QualifiedName& Element::imageSourceAttributeName() const
+{
+    return srcAttr;
+}
+
+RenderStyle* Element::styleForRenderer(RenderObject* parentRenderer)
 {
     return document()->styleSelector()->styleForElement(this);
 }
 
-RenderObject *Element::createRenderer(RenderArena *arena, RenderStyle *style)
+RenderObject* Element::createRenderer(RenderArena* arena, RenderStyle* style)
 {
     if (document()->documentElement() == this && style->display() == NONE) {
         // Ignore display: none on root elements.  Force a display of block in that case.
         RenderBlock* result = new (arena) RenderBlock(this);
-        if (result) result->setStyle(style);
+        if (result)
+            result->setAnimatableStyle(style);
         return result;
     }
     return RenderObject::createObject(this, style);
@@ -679,9 +701,10 @@ void Element::detach()
 
 void Element::recalcStyle(StyleChange change)
 {
-    // ### should go away and be done in renderobject
-    RenderStyle* _style = renderStyle();
+    RenderStyle* currentStyle = renderStyle();
     bool hasParentStyle = parentNode() ? parentNode()->renderStyle() : false;
+    bool hasPositionalChildren = currentStyle && (currentStyle->childrenAffectedByFirstChildRules() || currentStyle->childrenAffectedByLastChildRules() ||
+                                                  currentStyle->childrenAffectedByForwardPositionalRules() || currentStyle->childrenAffectedByBackwardPositionalRules());
 
 #if ENABLE(SVG)
     if (!hasParentStyle && isShadowNode() && isSVGElement())
@@ -694,7 +717,7 @@ void Element::recalcStyle(StyleChange change)
     }
     if (hasParentStyle && (change >= Inherit || changed())) {
         RenderStyle *newStyle = document()->styleSelector()->styleForElement(this);
-        StyleChange ch = diff(_style, newStyle);
+        StyleChange ch = diff(currentStyle, newStyle);
         if (ch == Detach) {
             if (attached())
                 detach();
@@ -706,11 +729,30 @@ void Element::recalcStyle(StyleChange change)
             newStyle->deref(document()->renderArena());
             return;
         }
-        else if (ch != NoChange) {
+
+        if (currentStyle && newStyle) {
+            // Preserve "affected by" bits that were propagated to us from descendants in the case where we didn't do a full
+            // style change (e.g., only inline style changed).
+            if (currentStyle->affectedByHoverRules())
+                newStyle->setAffectedByHoverRules(true);
+            if (currentStyle->affectedByActiveRules())
+                newStyle->setAffectedByActiveRules(true);
+            if (currentStyle->affectedByDragRules())
+                newStyle->setAffectedByDragRules(true);
+            if (currentStyle->childrenAffectedByForwardPositionalRules())
+                newStyle->setChildrenAffectedByForwardPositionalRules();
+            if (currentStyle->childrenAffectedByBackwardPositionalRules())
+                newStyle->setChildrenAffectedByBackwardPositionalRules();
+            if (currentStyle->childrenAffectedByFirstChildRules())
+                newStyle->setChildrenAffectedByFirstChildRules();
+            if (currentStyle->childrenAffectedByLastChildRules())
+                newStyle->setChildrenAffectedByLastChildRules();
+        }
+
+        if (ch != NoChange) {
             if (newStyle)
                 setRenderStyle(newStyle);
-        }
-        else if (changed() && newStyle && (document()->usesSiblingRules() || document()->usesDescendantRules())) {
+        } else if (changed() && newStyle && (document()->usesSiblingRules() || document()->usesDescendantRules())) {
             // Although no change occurred, we use the new style so that the cousin style sharing code won't get
             // fooled into believing this style is the same.  This is only necessary if the document actually uses
             // sibling/descendant rules, since otherwise it isn't possible for ancestor styles to affect sharing of
@@ -724,7 +766,7 @@ void Element::recalcStyle(StyleChange change)
         newStyle->deref(document()->renderArena());
 
         if (change != Force) {
-            if (document()->usesDescendantRules() && styleChangeType() == FullStyleChange)
+            if ((document()->usesDescendantRules() || hasPositionalChildren) && styleChangeType() == FullStyleChange)
                 change = Force;
             else
                 change = ch;
@@ -754,6 +796,83 @@ bool Element::childTypeAllowed(NodeType type)
         default:
             return false;
     }
+}
+
+static void checkFirstChildRules(Element* e, RenderStyle* style)
+{
+    if (style->childrenAffectedByFirstChildRules()) {
+        // Check our first two children.  They need to be true and false respectively.
+        bool checkingFirstChild = true;
+        for (Node* n = e->firstChild(); n; n = n->nextSibling()) {
+            if (n->isElementNode()) {
+                if (checkingFirstChild) {
+                    if (n->attached() && n->renderStyle() && !n->renderStyle()->firstChildState())
+                        n->setChanged();
+                    checkingFirstChild = false;
+                } else {
+                    if (n->attached() && n->renderStyle() && n->renderStyle()->firstChildState())
+                        n->setChanged();
+                    break;
+                }
+            }
+        }
+    } 
+}
+
+static void checkLastChildRules(Element* e, RenderStyle* style)
+{
+    if (style->childrenAffectedByLastChildRules()) {
+        // Check our last two children.  They need to be true and false respectively.
+        bool checkingLastChild = true;
+        for (Node* n = e->lastChild(); n; n = n->previousSibling()) {
+            if (n->isElementNode()) {
+                if (checkingLastChild) {
+                    if (n->attached() && n->renderStyle() && !n->renderStyle()->lastChildState())
+                        n->setChanged();
+                    checkingLastChild = false;
+                } else {
+                    if (n->attached() && n->renderStyle() && n->renderStyle()->lastChildState())
+                        n->setChanged();
+                    break;
+                }
+            }
+        }
+    }
+}
+
+static bool checkEmptyRules(Element* e, RenderStyle* style)
+{
+    return style->affectedByEmpty() && (!style->emptyState() || e->hasChildNodes());
+}
+
+static void checkStyleRules(Element* e, RenderStyle* style, bool changedByParser)
+{
+    if (e->changed() || !style)
+        return;
+
+    if (style->childrenAffectedByBackwardPositionalRules() || 
+        (!changedByParser && style->childrenAffectedByForwardPositionalRules()) ||
+        checkEmptyRules(e, style)) {
+        e->setChanged();
+        return;
+    }
+
+    checkFirstChildRules(e, style);
+    checkLastChildRules(e, style);
+}
+
+void Element::childrenChanged(bool changedByParser)
+{
+    ContainerNode::childrenChanged(changedByParser);
+    if (!changedByParser)
+        checkStyleRules(this, renderStyle(), false);
+}
+
+void Element::finishParsingChildren()
+{
+    ContainerNode::finishParsingChildren();
+    m_parsingChildrenFinished = true;
+    checkStyleRules(this, renderStyle(), true);
 }
 
 void Element::dispatchAttrRemovalEvent(Attribute*)
@@ -930,7 +1049,7 @@ void Element::setAttributeNS(const String& namespaceURI, const String& qualified
 
 void Element::removeAttribute(const String& name, ExceptionCode& ec)
 {
-    String localName = inHTMLDocument(this) ? name.lower() : name;
+    String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
 
     if (namedAttrMap) {
         namedAttrMap->removeNamedItem(localName, ec);
@@ -949,7 +1068,7 @@ PassRefPtr<Attr> Element::getAttributeNode(const String& name)
     NamedAttrMap* attrs = attributes(true);
     if (!attrs)
         return 0;
-    String localName = inHTMLDocument(this) ? name.lower() : name;
+    String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
     return static_pointer_cast<Attr>(attrs->getNamedItem(localName));
 }
 
@@ -966,7 +1085,7 @@ bool Element::hasAttribute(const String& name) const
     NamedAttrMap* attrs = attributes(true);
     if (!attrs)
         return false;
-    String localName = inHTMLDocument(this) ? name.lower() : name;
+    String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
     return attrs->getAttributeItem(localName);
 }
 
@@ -1097,6 +1216,11 @@ void Element::cancelFocusAppearanceUpdate()
         rd->m_needsFocusAppearanceUpdateSoonAfterAttach = false;
     if (document()->focusedNode() == this)
         document()->cancelFocusAppearanceUpdate();
+}
+
+bool Element::virtualHasTagName(const QualifiedName& name) const
+{
+    return hasTagName(name);
 }
 
 }

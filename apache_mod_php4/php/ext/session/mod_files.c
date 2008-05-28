@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mod_files.c,v 1.83.2.9.2.8 2007/03/09 10:29:33 tony2001 Exp $ */
+/* $Id: mod_files.c,v 1.83.2.9.2.11 2007/12/31 07:22:51 sebastian Exp $ */
 
 #include "php.h"
 
@@ -264,6 +264,7 @@ PS_OPEN_FUNC(files)
 		}
 		save_path = p + 1;
 	}
+
 	data->basedir_len = strlen(save_path);
 	data->basedir = estrndup(save_path, data->basedir_len);
 	

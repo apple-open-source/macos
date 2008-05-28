@@ -2,8 +2,9 @@
  * This file is part of the WebKit project.
  *
  * Copyright (C) 2006 Apple Computer, Inc.
- * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com 
+ * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -33,19 +34,40 @@
 
 namespace WebCore {
 
-struct ThemeData {
-    ThemeData() : m_part(0), m_state(0) {}
-
-    unsigned m_part;
-    unsigned m_state;
-};
-
 class RenderThemeGtk : public RenderTheme {
 public:
     RenderThemeGtk();
 
     // A method asking if the theme's controls actually care about redrawing when hovered.
     virtual bool supportsHover(const RenderStyle* style) const { return true; }
+
+    // A method asking if the theme is able to draw the focus ring.
+    virtual bool supportsFocusRing(const RenderStyle*) const;
+
+    // A method asking if the control changes its tint when the window has focus or not.
+    virtual bool controlSupportsTints(const RenderObject*) const;
+
+    // A general method asking if any control tinting is supported at all.
+    virtual bool supportsControlTints() const { return true; }
+
+    // A method to obtain the baseline position for a "leaf" control.  This will only be used if a baseline
+    // position cannot be determined by examining child content. Checkboxes and radio buttons are examples of
+    // controls that need to do this.
+    virtual short baselinePosition(const RenderObject*) const;
+
+    // The platform selection color.
+    virtual Color platformActiveSelectionBackgroundColor() const;
+    virtual Color platformInactiveSelectionBackgroundColor() const;
+    virtual Color platformActiveSelectionForegroundColor() const;
+    virtual Color platformInactiveSelectionForegroundColor() const;
+
+    // List Box selection color
+    virtual Color activeListBoxSelectionBackgroundColor() const;
+    virtual Color activeListBoxSelectionForegroundColor() const;
+    virtual Color inactiveListBoxSelectionBackgroundColor() const;
+    virtual Color inactiveListBoxSelectionForegroundColor() const;
+
+    virtual double caretBlinkFrequency() const;
 
     // System fonts.
     virtual void systemFont(int propId, FontDescription&) const;
@@ -63,43 +85,43 @@ protected:
     virtual void adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
+    virtual void adjustTextAreaStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintTextArea(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
+    virtual void adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintMenuList(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+    virtual void adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintSearchFieldResultsDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+    virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+    virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+    virtual void adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintSearchFieldCancelButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+
 private:
-    void addIntrinsicMargins(RenderStyle*) const;
-    void close();
-
-    GtkStateType determineState(RenderObject*);
-    GtkShadowType determineShadow(RenderObject*);
-    bool supportsFocus(EAppearance);
-
-    ThemeData getThemeData(RenderObject*);
-
-
     /*
      * hold the state
      */
-    GtkWidget* gtkButton() const;
-    GtkWidget* gtkCheckbox() const;
-    GtkWidget* gtkRadioButton() const;
     GtkWidget* gtkEntry() const;
-    GtkWidget* gtkEditable() const;
+    GtkWidget* gtkTreeView() const;
 
     /*
      * unmapped GdkWindow having a container. This is holding all
      * our fake widgets
      */
-    GtkWidget* gtkWindowContainer() const;
+    GtkContainer* gtkContainer() const;
 
 private:
-    mutable GtkWidget* m_gtkButton;
-    mutable GtkWidget* m_gtkCheckbox;
-    mutable GtkWidget* m_gtkRadioButton;
+    mutable GtkWidget* m_gtkWindow;
+    mutable GtkContainer* m_gtkContainer;
     mutable GtkWidget* m_gtkEntry;
-    mutable GtkWidget* m_gtkEditable;
-
-    mutable GtkWidget* m_unmappedWindow;
-    mutable GtkWidget* m_container;
+    mutable GtkWidget* m_gtkTreeView;
 };
 
 }

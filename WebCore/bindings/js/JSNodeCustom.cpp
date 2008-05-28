@@ -60,48 +60,50 @@
 #include "SVGElement.h"
 #endif
 
+using namespace KJS;
+
 namespace WebCore {
 
 typedef int ExpectionCode;
 
-KJS::JSValue* JSNode::insertBefore(KJS::ExecState* exec, const KJS::List& args)
+JSValue* JSNode::insertBefore(ExecState* exec, const List& args)
 {
     ExceptionCode ec = 0;
     bool ok = impl()->insertBefore(toNode(args[0]), toNode(args[1]), ec);
-    KJS::setDOMException(exec, ec);
+    setDOMException(exec, ec);
     if (ok)
         return args[0];
-    return KJS::jsNull();
+    return jsNull();
 }
 
-KJS::JSValue* JSNode::replaceChild(KJS::ExecState* exec, const KJS::List& args)
+JSValue* JSNode::replaceChild(ExecState* exec, const List& args)
 {
     ExceptionCode ec = 0;
     bool ok = impl()->replaceChild(toNode(args[0]), toNode(args[1]), ec);
-    KJS::setDOMException(exec, ec);
+    setDOMException(exec, ec);
     if (ok)
         return args[1];
-    return KJS::jsNull();
+    return jsNull();
 }
 
-KJS::JSValue* JSNode::removeChild(KJS::ExecState* exec, const KJS::List& args)
+JSValue* JSNode::removeChild(ExecState* exec, const List& args)
 {
     ExceptionCode ec = 0;
     bool ok = impl()->removeChild(toNode(args[0]), ec);
-    KJS::setDOMException(exec, ec);
+    setDOMException(exec, ec);
     if (ok)
         return args[0];
-    return KJS::jsNull();
+    return jsNull();
 }
 
-KJS::JSValue* JSNode::appendChild(KJS::ExecState* exec, const KJS::List& args)
+JSValue* JSNode::appendChild(ExecState* exec, const List& args)
 {
     ExceptionCode ec = 0;
     bool ok = impl()->appendChild(toNode(args[0]), ec);
-    KJS::setDOMException(exec, ec);
+    setDOMException(exec, ec);
     if (ok)
         return args[0];
-    return KJS::jsNull();
+    return jsNull();
 }
 
 void JSNode::mark()
@@ -133,7 +135,7 @@ void JSNode::mark()
     // Mark the whole tree; use the global set of roots to avoid reentering.
     root->m_inSubtreeMark = true;
     for (Node* nodeToMark = root; nodeToMark; nodeToMark = nodeToMark->traverseNextNode()) {
-        JSNode* wrapper = KJS::ScriptInterpreter::getDOMNodeForDocument(m_impl->document(), nodeToMark);
+        JSNode* wrapper = ScriptInterpreter::getDOMNodeForDocument(m_impl->document(), nodeToMark);
         if (wrapper) {
             if (!wrapper->marked())
                 wrapper->mark();
@@ -153,15 +155,14 @@ void JSNode::mark()
     ASSERT(marked());
 }
 
-KJS::JSValue* toJS(KJS::ExecState* exec, PassRefPtr<Node> n)
+JSValue* toJS(ExecState* exec, PassRefPtr<Node> n)
 {
     Node* node = n.get(); 
     if (!node)
-        return KJS::jsNull();
+        return jsNull();
 
-    KJS::ScriptInterpreter* interp = static_cast<KJS::ScriptInterpreter*>(exec->dynamicInterpreter());
     Document* doc = node->document();
-    JSNode* ret = interp->getDOMNodeForDocument(doc, node);
+    JSNode* ret = ScriptInterpreter::getDOMNodeForDocument(doc, node);
     if (ret)
         return ret;
 
@@ -174,46 +175,46 @@ KJS::JSValue* toJS(KJS::ExecState* exec, PassRefPtr<Node> n)
                 ret = createJSSVGWrapper(exec, static_pointer_cast<SVGElement>(n));
 #endif
             else
-                ret = new JSElement(exec, static_cast<Element*>(node));
+                ret = new JSElement(JSElementPrototype::self(exec), static_cast<Element*>(node));
             break;
         case Node::ATTRIBUTE_NODE:
-            ret = new JSAttr(exec, static_cast<Attr*>(node));
+            ret = new JSAttr(JSAttrPrototype::self(exec), static_cast<Attr*>(node));
             break;
         case Node::TEXT_NODE:
-            ret = new JSText(exec, static_cast<Text*>(node));
+            ret = new JSText(JSTextPrototype::self(exec), static_cast<Text*>(node));
             break;
         case Node::CDATA_SECTION_NODE:
-            ret = new JSCDATASection(exec, static_cast<CDATASection*>(node));
+            ret = new JSCDATASection(JSCDATASectionPrototype::self(exec), static_cast<CDATASection*>(node));
             break;
         case Node::ENTITY_NODE:
-            ret = new JSEntity(exec, static_cast<Entity*>(node));
+            ret = new JSEntity(JSEntityPrototype::self(exec), static_cast<Entity*>(node));
             break;
         case Node::PROCESSING_INSTRUCTION_NODE:
-            ret = new JSProcessingInstruction(exec, static_cast<ProcessingInstruction*>(node));
+            ret = new JSProcessingInstruction(JSProcessingInstructionPrototype::self(exec), static_cast<ProcessingInstruction*>(node));
             break;
         case Node::COMMENT_NODE:
-            ret = new JSComment(exec, static_cast<Comment*>(node));
+            ret = new JSComment(JSCommentPrototype::self(exec), static_cast<Comment*>(node));
             break;
         case Node::DOCUMENT_NODE:
             // we don't want to cache the document itself in the per-document dictionary
             return toJS(exec, static_cast<Document*>(node));
         case Node::DOCUMENT_TYPE_NODE:
-            ret = new JSDocumentType(exec, static_cast<DocumentType*>(node));
+            ret = new JSDocumentType(JSDocumentTypePrototype::self(exec), static_cast<DocumentType*>(node));
             break;
         case Node::NOTATION_NODE:
-            ret = new JSNotation(exec, static_cast<Notation*>(node));
+            ret = new JSNotation(JSNotationPrototype::self(exec), static_cast<Notation*>(node));
             break;
         case Node::DOCUMENT_FRAGMENT_NODE:
-            ret = new JSDocumentFragment(exec, static_cast<DocumentFragment*>(node));
+            ret = new JSDocumentFragment(JSDocumentFragmentPrototype::self(exec), static_cast<DocumentFragment*>(node));
             break;
         case Node::ENTITY_REFERENCE_NODE:
-            ret = new JSEntityReference(exec, static_cast<EntityReference*>(node));
+            ret = new JSEntityReference(JSEntityReferencePrototype::self(exec), static_cast<EntityReference*>(node));
             break;
         default:
-            ret = new JSNode(exec, node);
+            ret = new JSNode(JSNodePrototype::self(exec), node);
     }
 
-    interp->putDOMNodeForDocument(doc, node, ret);
+    ScriptInterpreter::putDOMNodeForDocument(doc, node, ret);
 
     return ret;
 }

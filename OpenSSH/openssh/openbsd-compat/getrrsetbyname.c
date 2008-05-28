@@ -67,13 +67,9 @@ extern int h_errno;
 #endif
 #define _THREAD_PRIVATE(a,b,c) (c)
 
-/* to avoid conflicts where a platform already has _res */
-#ifdef _res
-# undef _res
-#endif
-#define _res	_compat_res
-
+#ifndef HAVE__RES_EXTERN
 struct __res_state _res;
+#endif
 
 /* Necessary functions and macros */
 
@@ -303,10 +299,12 @@ getrrsetbyname(const char *hostname, unsigned int rdclass,
 	}
 
 	/* allocate memory for signatures */
-	rrset->rri_sigs = calloc(rrset->rri_nsigs, sizeof(struct rdatainfo));
-	if (rrset->rri_sigs == NULL) {
-		result = ERRSET_NOMEMORY;
-		goto fail;
+	if (rrset->rri_nsigs > 0) {
+		rrset->rri_sigs = calloc(rrset->rri_nsigs, sizeof(struct rdatainfo));
+		if (rrset->rri_sigs == NULL) {
+			result = ERRSET_NOMEMORY;
+			goto fail;
+		}
 	}
 
 	/* copy answers & signatures */

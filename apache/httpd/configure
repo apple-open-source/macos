@@ -741,6 +741,7 @@ MOD_CASE_FILTER_IN_LDADD
 MOD_EXT_FILTER_LDADD
 MOD_INCLUDE_LDADD
 MOD_FILTER_LDADD
+MOD_SUBSTITUTE_LDADD
 MOD_CHARSET_LITE_LDADD
 MOD_DEFLATE_LDADD
 MOD_LDAP_LDADD
@@ -1499,6 +1500,7 @@ Optional Features:
   --enable-ext-filter     external filter module
   --disable-include       Server Side Includes
   --disable-filter        Smart Filtering
+  --enable-substitute     response content rewrite-like filtering
   --disable-charset-lite  character set translation
   --enable-charset-lite   character set translation
   --enable-deflate        Deflate transfer encoding support
@@ -2067,6 +2069,9 @@ fi
 ac_config_guess="$SHELL $ac_aux_dir/config.guess"  # Please don't use this var.
 ac_config_sub="$SHELL $ac_aux_dir/config.sub"  # Please don't use this var.
 ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
+
+
+
 
 
 
@@ -11161,6 +11166,99 @@ EOF
 
 
   APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_FILTER_LDADD"
+
+
+
+  fi
+
+
+  { echo "$as_me:$LINENO: checking whether to enable mod_substitute" >&5
+echo $ECHO_N "checking whether to enable mod_substitute... $ECHO_C" >&6; }
+    # Check whether --enable-substitute was given.
+if test "${enable_substitute+set}" = set; then
+  enableval=$enable_substitute;
+else
+  enable_substitute=most
+fi
+
+    _apmod_extra_msg=""
+      if test "$module_selection" = "most" -a "$enable_substitute" = "most"; then
+    _apmod_error_fatal="no"
+  else
+    _apmod_error_fatal="yes"
+  fi
+  if test "$enable_substitute" = "static"; then
+    enable_substitute=yes
+  elif test "$enable_substitute" = "yes"; then
+    enable_substitute=$module_default
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_substitute" = "most"; then
+    if test "$module_selection" = "most" -o "$module_selection" = "all"; then
+      enable_substitute=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    elif test "$enable_substitute" != "yes"; then
+      enable_substitute=no
+    fi
+  elif test "$enable_substitute" = "maybe-all"; then
+    if test "$module_selection" = "all"; then
+      enable_substitute=$module_default
+      _apmod_extra_msg=" (all)"
+    else
+      enable_substitute=no
+    fi
+  fi
+  if test "$enable_substitute" != "no"; then
+            :
+  fi
+  { echo "$as_me:$LINENO: result: $enable_substitute$_apmod_extra_msg" >&5
+echo "${ECHO_T}$enable_substitute$_apmod_extra_msg" >&6; }
+  if test "$enable_substitute" != "no"; then
+    case "$enable_substitute" in
+    shared*)
+      enable_substitute=`echo $enable_substitute|sed 's/shared,*//'`
+      sharedobjs=yes
+      shared=yes
+      DSO_MODULES="$DSO_MODULES substitute"
+      ;;
+    *)
+      MODLIST="$MODLIST substitute"
+      if test "substitute" = "so"; then
+          sharedobjs=yes
+      fi
+      shared="";;
+    esac
+
+
+  if test -z ""; then
+    objects="mod_substitute.lo"
+  else
+    objects=""
+  fi
+
+  if test -z "$module_standalone"; then
+    if test -z "$shared"; then
+      # The filename of a convenience library must have a "lib" prefix:
+      libname="libmod_substitute.la"
+      BUILTIN_LIBS="$BUILTIN_LIBS $modpath_current/$libname"
+      modpath_static="$modpath_static $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $objects
+	\$(MOD_LINK) $objects \$(MOD_SUBSTITUTE_LDADD)
+EOF
+    else
+      apache_need_shared=yes
+      libname="mod_substitute.la"
+      shobjects=`echo $objects | sed 's/\.lo/.slo/g'`
+      modpath_shared="$modpath_shared $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $shobjects
+	\$(SH_LINK) -rpath \$(libexecdir) -module -avoid-version  $objects \$(MOD_SUBSTITUTE_LDADD)
+EOF
+    fi
+  fi
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_SUBSTITUTE_LDADD"
 
 
 
@@ -23126,6 +23224,7 @@ MOD_CASE_FILTER_IN_LDADD!$MOD_CASE_FILTER_IN_LDADD$ac_delim
 MOD_EXT_FILTER_LDADD!$MOD_EXT_FILTER_LDADD$ac_delim
 MOD_INCLUDE_LDADD!$MOD_INCLUDE_LDADD$ac_delim
 MOD_FILTER_LDADD!$MOD_FILTER_LDADD$ac_delim
+MOD_SUBSTITUTE_LDADD!$MOD_SUBSTITUTE_LDADD$ac_delim
 MOD_CHARSET_LITE_LDADD!$MOD_CHARSET_LITE_LDADD$ac_delim
 MOD_DEFLATE_LDADD!$MOD_DEFLATE_LDADD$ac_delim
 MOD_LDAP_LDADD!$MOD_LDAP_LDADD$ac_delim
@@ -23177,7 +23276,6 @@ MOD_SUEXEC_LDADD!$MOD_SUEXEC_LDADD$ac_delim
 MOD_CGID_LDADD!$MOD_CGID_LDADD$ac_delim
 MOD_CGI_LDADD!$MOD_CGI_LDADD$ac_delim
 MOD_DAV_FS_LDADD!$MOD_DAV_FS_LDADD$ac_delim
-MOD_DAV_LOCK_LDADD!$MOD_DAV_LOCK_LDADD$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -23219,6 +23317,7 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
+MOD_DAV_LOCK_LDADD!$MOD_DAV_LOCK_LDADD$ac_delim
 MOD_VHOST_ALIAS_LDADD!$MOD_VHOST_ALIAS_LDADD$ac_delim
 MOD_NEGOTIATION_LDADD!$MOD_NEGOTIATION_LDADD$ac_delim
 MOD_DIR_LDADD!$MOD_DIR_LDADD$ac_delim
@@ -23302,7 +23401,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 81; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 82; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

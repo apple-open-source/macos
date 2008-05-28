@@ -62,11 +62,6 @@
 /*#define READ_HISTORY_ALL*/
 
 /*
- * Wire the cache buffer.
- */
-/*#define WIRE_BUFFER*/
-
-/*
  * Ignore the batches on playlist entries.
  */
 /*#define IGNORE_BATCH */
@@ -196,6 +191,7 @@ struct BC_cache_extent {
 	int		ce_flags;	/* low 8 bits mark the batch */ 
 #define CE_ABORTED	(1 << 9)	/* extent no longer has data */
 #define CE_IODONE	(1 << 10)	/* extent has been read */
+	u_int32_t	*ce_blockmap;	/* track valid blocks for this extent */
 };
 
 /*
@@ -259,27 +255,14 @@ struct BC_cache_control {
 	int		c_strategycalls;	/* count of busy strategy calls */
 	int		c_bypasscalls;		/* count of busy strategy bypasses */
 
-	int		c_batch;		/* current batch being read */
-	int		c_batch_count;		/* number of extent batches */
-	
 	/*
-	 * The cache buffer contains c_buffer_count blocks of disk data.
-	 * The c_blockmap field indicates which blocks are still valid
-	 * within the buffer; blocks are invalidated when read, and pages
-	 * released when all blocks in the page are invalid.
-	 * The c_pagemap field indicates which pages are still present.
-	 *
+	 * Each extent tracks the pages it owns in the buffer.
 	 * It is assumed that PAGE_SIZE is a multiple of c_blocksize.
 	 */
 	struct BC_cache_extent *c_extents; /* extent list */
 	int		c_extent_count;	/* total number of extents */
-	struct BC_cache_extent *c_extent_tail; /* next extent to be filled */
+	int		c_batch_count;		/* number of extent batches */
 	caddr_t		c_buffer;	/* base of buffer in memory */
-	int		c_buffer_pages;	/* total size of buffer in pages */
-	int		c_buffer_blocks;/* total size of buffer in blocks */
-	u_int32_t	*c_blockmap;	/* blocks present in buffer */
-	u_int32_t	*c_pagemap;	/* pages present in buffer */
-	u_int32_t	*c_iopagemap;	/* pages with outstanding I/O */
 	lck_grp_t	*c_lckgrp;
 
 	/* history list, in reverse order */
@@ -306,19 +289,19 @@ struct BC_cache_control {
  * The number of blocks per page; assumes that a page
  * will always be >= the size of a disk block.
  */
-#define CB_PAGEBLOCKS(c)		(PAGE_SIZE / (c)->c_blocksize)
+#define CB_PAGEBLOCKS			(PAGE_SIZE / BC_cache->c_blocksize)
 
 /*
  * Convert block offset to page offset and vice versa.
  */
-#define CB_BLOCK_TO_PAGE(c, block)	((block) / CB_PAGEBLOCKS(c))
-#define CB_PAGE_TO_BLOCK(c, page)	((page) * CB_PAGEBLOCKS(c))
-#define CB_BLOCK_TO_BYTE(c, block)	((block) * (c)->c_blocksize)
-#define CB_BYTE_TO_BLOCK(c, byte)	((byte) / (c)->c_blocksize)
+#define CB_BLOCK_TO_PAGE(block)		((block) / CB_PAGEBLOCKS)
+#define CB_PAGE_TO_BLOCK(page)		((page) * CB_PAGEBLOCKS)
+#define CB_BLOCK_TO_BYTE(block)		((block) * BC_cache->c_blocksize)
+#define CB_BYTE_TO_BLOCK(byte)		((byte) / BC_cache->c_blocksize)
 
 /*
- * The size of an addressable field in the block/page maps.
- * This reflects the u_int32_t type for the block/pagemap types.
+ * The size of an addressable field in the block map.
+ * This reflects the u_int32_t type for the blockmap type.
  */
 #define CB_MAPFIELDBITS			32
 #define CB_MAPFIELDBYTES		4
@@ -333,47 +316,21 @@ struct BC_cache_control {
 /*
  * Blockmap management.
  */
-#define CB_BLOCK_PRESENT(c, block) \
-	((c)->c_blockmap[CB_MAPIDX(block)] &   CB_MAPBIT(block))
-#define CB_MARK_BLOCK_PRESENT(c, block) \
-	((c)->c_blockmap[CB_MAPIDX(block)] |=  CB_MAPBIT(block))
-#define CB_MARK_BLOCK_VACANT(c, block) \
-	((c)->c_blockmap[CB_MAPIDX(block)] &= ~CB_MAPBIT(block))
-
-/*
- * Convert a pointer to a block offset in the buffer and vice versa.
- */
-#define CB_PTR_TO_BLOCK(c, ptr) \
-	((vm_offset_t)((caddr_t)(ptr) - (c)->c_buffer) / (c)->c_blocksize)
-#define CB_BLOCK_TO_PTR(c, block) \
-	((c)->c_buffer + ((block) * (c)->c_blocksize))
-
-/*
- * Pagemap management.
- */
-#define CB_PAGE_PRESENT(c, page)	((c)->c_pagemap[CB_MAPIDX(page)] &   CB_MAPBIT(page))
-#define CB_MARK_PAGE_PRESENT(c, page)	((c)->c_pagemap[CB_MAPIDX(page)] |=  CB_MAPBIT(page))
-#define CB_MARK_PAGE_VACANT(c, page)	((c)->c_pagemap[CB_MAPIDX(page)] &= ~CB_MAPBIT(page))
-
-#define CB_IOPAGE_BUSY(c, page)		((c)->c_iopagemap[CB_MAPIDX(page)] &   CB_MAPBIT(page))
-#define CB_MARK_IOPAGE_BUSY(c, page)	((c)->c_iopagemap[CB_MAPIDX(page)] |=  CB_MAPBIT(page))
-#define CB_MARK_IOPAGE_UNBUSY(c, page)	((c)->c_iopagemap[CB_MAPIDX(page)] &= ~CB_MAPBIT(page))
-
-
-/*
- * Convert a pointer to a page offset in the buffer and vice versa.
- */
-#define CB_PTR_TO_PAGE(c, ptr)		(((ptr) - (c)->c_buffer) / PAGE_SIZE)
-#define CB_PAGE_TO_PTR(c, page)		((c)->c_buffer + ((page) * PAGE_SIZE))
+#define CB_BLOCK_PRESENT(ce, block) \
+	((ce)->ce_blockmap[CB_MAPIDX(block)] &   CB_MAPBIT(block))
+#define CB_MARK_BLOCK_PRESENT(ce, block) \
+	((ce)->ce_blockmap[CB_MAPIDX(block)] |=  CB_MAPBIT(block))
+#define CB_MARK_BLOCK_VACANT(ce, block) \
+	((ce)->ce_blockmap[CB_MAPIDX(block)] &= ~CB_MAPBIT(block))
 
 /*
  * Determine whether a given page is vacant (all blocks are gone).
  * This takes advantage of the expectation that a page's blocks
  * will never cross the boundary of a field in the blockmap.
  */
-#define CB_PAGE_VACANT(c, page)							\
-	(!((c)->c_blockmap[CB_MAPIDX(CB_PAGE_TO_BLOCK((c), (page)))] &		\
-	 (((1 << CB_PAGEBLOCKS(c)) - 1) << (CB_PAGE_TO_BLOCK((c), (page)) %	\
+#define CB_PAGE_VACANT(ce, page)					\
+	(!((ce)->ce_blockmap[CB_MAPIDX(CB_PAGE_TO_BLOCK(page))] &	\
+	 (((1 << CB_PAGEBLOCKS) - 1) << (CB_PAGE_TO_BLOCK(page) %	\
 	     CB_MAPFIELDBITS))))
 
 /*
@@ -410,7 +367,7 @@ static int	BC_preloaded_playlist_size;
 static int	BC_check_intersection(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length);
 static struct BC_cache_extent *BC_find_extent(u_int64_t offset, u_int64_t length, int contained);
 static int	BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length);
-static int	BC_blocks_present(int base, int nblk);
+static int	BC_blocks_present(struct BC_cache_extent *ce, int base, int nblk);
 static void	BC_reader_thread(void *param0, wait_result_t param1);
 static void	BC_strategy_bypass(struct buf *bp);
 static void	BC_strategy(struct buf *bp);
@@ -418,6 +375,9 @@ static void	BC_handle_write(struct buf *bp);
 static int	BC_terminate_readahead(void);
 static int	BC_terminate_cache(void);
 static int	BC_terminate_history(void);
+static void	BC_next_valid_block_range(struct BC_cache_extent *ce, daddr64_t from, daddr64_t *next, u_int64_t *length);
+static u_int64_t BC_setup_extent(struct BC_cache_extent *ce, struct BC_playlist_entry *pce);
+static void	BC_teardown_extent(struct BC_cache_extent *ce);
 static int	BC_copyin_playlist(size_t length, void *uptr);
 static int	BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize);
 static void	BC_timeout_cache(void *);
@@ -454,7 +414,7 @@ extern void (* mountroot_post_hook)(void);
  */
 static int	BC_alloc_pagebuffer(size_t size);
 static void	BC_free_pagebuffer();
-static void	BC_free_page(int page);
+static void	BC_free_page(struct BC_cache_extent *ce, int page);
 /* Convert from a map entry port to a map (not prototyped elsewhere) */
 extern vm_map_t convert_port_entry_to_map(ipc_port_t port);
 extern vm_object_t convert_port_entry_to_object(ipc_port_t port);
@@ -590,7 +550,7 @@ static int
 BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length)
 {
 	u_int64_t estart, eend, dstart, dend;
-	int base, i, page, discarded, reallyfree, nblk;
+	int base, i, page, discarded, nblk;
 
 	/* invariants */
 	assert(length > 0);
@@ -619,23 +579,10 @@ BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length
 	if (dend > eend)
 		dend = eend;
 
-	xdebug("discard %lu-%lu within %lu-%lu",
-	    (unsigned long)dstart, (unsigned long)dend, (unsigned long)estart, (unsigned long)eend);
-
 	/*
 	 * Convert length in bytes to a block count.
 	 */
-	nblk = CB_BYTE_TO_BLOCK(BC_cache, dend - dstart);
-	
-	/*
-	 * Don't free pages if we have not yet read ahead into them.  This
-	 * can occur if we are invalidating blocks due to a write while
-	 * readahead is still taking place.
-	 */
-	reallyfree = 1;
-	if (!(ce->ce_flags & (CE_IODONE | CE_ABORTED))) {
-		reallyfree = 0;
-	}
+	nblk = CB_BYTE_TO_BLOCK(dend - dstart);
 	
 	/*
 	 * Mark blocks vacant.  For each vacated block, check whether the page
@@ -644,54 +591,67 @@ BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length
 	 * Note that this could be optimised to reduce the number of
 	 * page-freeable checks, but the logic would be more complex.
 	 */
-	base = CB_PTR_TO_BLOCK(BC_cache, ce->ce_data + (dstart - ce->ce_offset));
+	base = CB_BYTE_TO_BLOCK(dstart - ce->ce_offset);
 	assert(base >= 0);
 	discarded = 0;
 	for (i = 0; i < nblk; i++) {
-		assert((base + i) < BC_cache->c_buffer_blocks);
-		
+		assert((base + i) < howmany(ce->ce_length, BC_cache->c_blocksize));
+
 		/* this is a no-op if the block is already gone */
-		if (CB_BLOCK_PRESENT(BC_cache, base + i)) {
+		if (CB_BLOCK_PRESENT(ce, base + i)) {
 
 			/* mark the block as vacant */
-			CB_MARK_BLOCK_VACANT(BC_cache, base + i);
+			CB_MARK_BLOCK_VACANT(ce, base + i);
 			discarded++;
-
-			/* don't try to update the pagemap if we are not freeing */
-			if (!reallyfree)
-				continue;
 			
-			/* find the containing page, which must be present */
-			page = CB_BLOCK_TO_PAGE(BC_cache, base + i);
-			assert(CB_PAGE_PRESENT(BC_cache, page));
-
-			/*
-			 * If the page this block is in is now vacant, free the
-			 * page.  Only *really* free the page if we can be
-			 * certain we'll never try to touch it again.
-			 */
-			if ((CB_PAGE_PRESENT(BC_cache, page)) && CB_PAGE_VACANT(BC_cache, page)) {
-				CB_MARK_PAGE_VACANT(BC_cache, page);
-
-				BC_free_page(page);
-			}
+			page = CB_BLOCK_TO_PAGE(base + i);
+			if (CB_PAGE_VACANT(ce, page))
+				BC_free_page(ce, page);
 		}
 	}
 	return(discarded);
 }
 
 /*
+ * Find the next range of present blocks in extent ce after block
+ * 'from', and return in 'next' and 'length'.
+ */
+static void 
+BC_next_valid_block_range(struct BC_cache_extent *ce, daddr64_t from, 
+		daddr64_t *next, u_int64_t *length)
+{
+	int blk, nblks;
+	u_int32_t nfound = 0;
+	nblks = howmany(ce->ce_length, BC_cache->c_blocksize);
+	*next = -1;
+	for (blk = from; blk < nblks; blk++) {
+		if (CB_BLOCK_PRESENT(ce, blk)) {
+			if (nfound == 0) {
+				*next = blk;
+			}
+			nfound++;
+		} else {
+			if (nfound != 0)
+				break;
+		}
+	}
+	*length = nfound * BC_cache->c_blocksize;
+	return;
+}
+
+/*
  * Test for the presence of a range of blocks in the cache.
  */
 static int
-BC_blocks_present(int base, int nblk)
+BC_blocks_present(struct BC_cache_extent *ce, int base, int nblk)
 {
 	int	blk;
 	
+	assert((base + nblk) < howmany(ce->ce_length, BC_cache->c_blocksize));
+
 	for (blk = 0; blk < nblk; blk++) {
-		assert((base + blk) < BC_cache->c_buffer_blocks);
 		
-		if (!CB_BLOCK_PRESENT(BC_cache, base + blk)) {
+		if (!CB_BLOCK_PRESENT(ce, base + blk)) {
 			BC_cache->c_stats.ss_hit_blkmissing++;
 			/*
 			 * Note that we could optionally flush blocks that *are*
@@ -714,11 +674,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 	struct BC_cache_extent *ce = NULL;
 	boolean_t funnel_state;
 	struct buf *bp;
-	u_int64_t bytesdone;
-	int count;
-	int	i, x;
-	int	bcount;
-	uintptr_t bptr;
+	int count, batch;
 	uintptr_t offset_in_map;
 	kern_return_t kret;
 			  
@@ -730,29 +686,37 @@ BC_reader_thread(void *param0, wait_result_t param1)
 	
 	debug("reader thread started");
 
-	while (BC_cache->c_batch <= BC_cache->c_batch_count) {
-		debug("starting batch %d", BC_cache->c_batch);
+	for (batch = 0; batch <= BC_cache->c_batch_count; batch++) {
+		debug("starting batch %d", batch);
 
 		/* iterate over extents to populate */
 		for (ce = BC_cache->c_extents;
-				ce < (BC_cache->c_extents + BC_cache->c_extent_count);
-				ce++) {
+			ce < (BC_cache->c_extents + BC_cache->c_extent_count);
+			ce++) {
+
+			/* requested shutdown */
+			if (BC_cache->c_flags & BC_FLAG_SHUTDOWN)
+				goto out;
 
 			/* Only read extents marked for this batch. */
-			if ((ce->ce_flags & CE_BATCH_MASK) != BC_cache->c_batch)
+			if ((ce->ce_flags & CE_BATCH_MASK) != batch)
 				continue;
+
+			LOCK_EXTENT(ce);
+
+			/* Check for early extent termination */
+			if (ce->ce_flags & CE_ABORTED) {
+				UNLOCK_EXTENT(ce);
+				continue;
+			}
 
 			/* loop reading to fill this extent */
 			buf_setcount(bp, 0);
 
-			BC_cache->c_extent_tail = ce;
-			LOCK_EXTENT(ce);
-
 			for (;;) {
-
-				/* requested shutdown */
-				if (BC_cache->c_flags & BC_FLAG_SHUTDOWN)
-					goto out;
+				daddr64_t nextblk;
+				u_int64_t nextlength;
+				daddr64_t fromblk = 0;
 
 				/*
 				 * Fill the buf to perform the read.
@@ -762,31 +726,22 @@ BC_reader_thread(void *param0, wait_result_t param1)
 				 * use to detect this condition.
 				 */
 				if (buf_count(bp) != 0) {
-					/* continuing a partial read */
-					daddr64_t blkno;
-
-					blkno = buf_blkno(bp) + CB_BYTE_TO_BLOCK(BC_cache, buf_count(bp));
-					buf_setblkno(bp, blkno);
-					bytesdone = CB_BLOCK_TO_BYTE(BC_cache, blkno) - ce->ce_offset;
-					buf_setcount(bp, MIN(ce->ce_length - bytesdone, BC_MAX_READ));
-					buf_setdataptr(bp, (uintptr_t)(ce->ce_data + bytesdone));
-				} else {
-					/* starting a new extent */
-					buf_setblkno(bp, (daddr64_t)CB_BYTE_TO_BLOCK(BC_cache, ce->ce_offset));
-					buf_setcount(bp, MIN(ce->ce_length, BC_MAX_READ));
-					buf_setdataptr(bp, (uintptr_t)(ce->ce_data));
+					fromblk = buf_blkno(bp) + CB_BYTE_TO_BLOCK(buf_count(bp)) - 
+						CB_BYTE_TO_BLOCK(ce->ce_offset);
 				}
 
-				bcount = buf_count(bp);
-				bptr   = buf_dataptr(bp);
+				/*
+				 * Find the next set of blocks that haven't been invalidated
+				 * for this extent.
+				 */
+				BC_next_valid_block_range(ce, fromblk, &nextblk, &nextlength);
+				/* no more blocks to be read */
+				if (nextblk == -1)
+					break;
 
-				for (i = 0; i < bcount; ) {
-					CB_MARK_IOPAGE_BUSY(BC_cache, CB_PTR_TO_PAGE(BC_cache, (caddr_t)bptr));
-
-					x = 4096 - ((int)bptr & 4095);
-					bptr += x;
-					bcount -= x;
-				}
+				buf_setblkno(bp, nextblk + CB_BYTE_TO_BLOCK(ce->ce_offset));
+				buf_setcount(bp, MIN(nextlength, BC_MAX_READ));
+				buf_setdataptr(bp, (uintptr_t) ce->ce_data + CB_BLOCK_TO_BYTE(nextblk));
 
 				buf_setresid(bp, buf_count(bp));	/* ask for residual indication */
 				buf_reset(bp, B_READ);
@@ -809,24 +764,10 @@ BC_reader_thread(void *param0, wait_result_t param1)
 				/* wait for the bio to complete */
 				buf_biowait(bp);
 
-				if (kret == KERN_SUCCESS) {
-					kret = vm_map_unwire(BC_cache->c_map, (vm_map_offset_t)trunc_page(offset_in_map),
-							     (vm_map_offset_t)round_page(offset_in_map+buf_count(bp)), FALSE);
-					if (kret != KERN_SUCCESS)
-						panic("BootCache: vm_map_unwire returned %d\n", kret);
-				}
-
-				bcount = buf_count(bp);
-				bptr   = buf_dataptr(bp);
-
-				for (i = 0; i < bcount; ) {
-					CB_MARK_IOPAGE_UNBUSY(BC_cache, CB_PTR_TO_PAGE(BC_cache, (caddr_t)bptr));
-
-					x = 4096 - ((int)bptr & 4095);
-					bptr += x;
-					bcount -= x;
-				}
-				wakeup(&BC_cache->c_iopagemap);
+				kret = vm_map_unwire(BC_cache->c_map, (vm_map_offset_t)trunc_page(offset_in_map),
+						(vm_map_offset_t)round_page(offset_in_map+buf_count(bp)), FALSE);
+				if (kret != KERN_SUCCESS)
+					debug("vm_map_unwire returned %d\n", kret);
 
 				/*
 				 * If the read returned an error, invalidate the blocks
@@ -842,7 +783,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 							(long)buf_blkno(bp), (long)buf_count(bp),
 							buf_flags(bp), buf_resid(bp));
 
-					count = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, buf_blkno(bp)),
+					count = BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(buf_blkno(bp)),
 							buf_count(bp));
 					debug("read error: discarded %d blocks", count);
 					BC_cache->c_stats.ss_read_errors++;
@@ -864,16 +805,11 @@ BC_reader_thread(void *param0, wait_result_t param1)
 					}
 				}
 #endif
-				/*
-				 * Test whether we have completed reading this extent's data.
-				 */
-				if (((CB_BLOCK_TO_BYTE(BC_cache, buf_blkno(bp)) - ce->ce_offset) + buf_count(bp)) >= ce->ce_length)
-					break;
-
 			}
 
 			/* update stats */
-			BC_cache->c_stats.ss_read_blocks += CB_BYTE_TO_BLOCK(BC_cache, ce->ce_length);
+			BC_cache->c_stats.ss_read_blocks += CB_BYTE_TO_BLOCK(ce->ce_length);
+			BC_cache->c_stats.ss_batch_size[batch] += CB_BYTE_TO_BLOCK(ce->ce_length);
 
 			/*
 			 * Wake up anyone wanting this extent, as it is now ready for
@@ -883,12 +819,9 @@ BC_reader_thread(void *param0, wait_result_t param1)
 			UNLOCK_EXTENT(ce);
 			wakeup(ce);
 		}
-		debug("batch %d done", BC_cache->c_batch);
-		/* Reset cache to read the next batch in */
-		BC_cache->c_extent_tail = BC_cache->c_extents;	
-		BC_cache->c_batch++;
 		/* Measure times for the first 4 batches separately */
-		microtime(&BC_cache->c_stats.ss_batch_time[MIN(BC_cache->c_batch, STAT_BATCHMAX)]);
+		microtime(&BC_cache->c_stats.ss_batch_time[MIN((batch + 1), STAT_BATCHMAX)]);
+		debug("batch %d done", batch);
 
 		ce = NULL;
 	}
@@ -912,11 +845,11 @@ out:
 		while ((tmp - BC_cache->c_extents) < BC_cache->c_extent_count) {
 			LOCK_EXTENT(tmp);
 			/* abort any extent in a batch we haven't hit yet */
-			if (BC_cache->c_batch < (tmp->ce_flags & CE_BATCH_MASK)) {
+			if (batch < (tmp->ce_flags & CE_BATCH_MASK)) {
 				tmp->ce_flags |= CE_ABORTED;
 			}
 			/* abort extents in this batch that we haven't reached */
-			if ((tmp >= ce) && (BC_cache->c_batch == (tmp->ce_flags & CE_BATCH_MASK))) {
+			if ((tmp >= ce) && (batch == (tmp->ce_flags & CE_BATCH_MASK))) {
 				tmp->ce_flags |= CE_ABORTED;
 			}
 			/* wake up anyone asleep on this extent */
@@ -962,7 +895,7 @@ BC_strategy_bypass(struct buf *bp)
 
 	/* if here, and it's a read, we missed the cache */
 	if (buf_flags(bp) & B_READ) {
-		BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, buf_blkno(bp)), buf_count(bp), BC_HE_MISS);
+		BC_add_history(CB_BLOCK_TO_BYTE(buf_blkno(bp)), buf_count(bp), BC_HE_MISS);
 		isread = 1;
 	} else {
 		isread = 0;
@@ -1082,18 +1015,18 @@ BC_strategy(struct buf *bp)
 	/* if it's not a read, pass it off */
 	if ( !(buf_flags(bp) & B_READ)) {
 		BC_handle_write(bp);
-		BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, BC_HE_WRITE);
+		BC_add_history(CB_BLOCK_TO_BYTE(blkno), bcount, BC_HE_WRITE);
 		BC_cache->c_stats.ss_strategy_nonread++;
 		goto bypass;
 	}
 
-	BC_cache->c_stats.ss_requested_blocks += CB_BYTE_TO_BLOCK(BC_cache, bcount);
+	BC_cache->c_stats.ss_requested_blocks += CB_BYTE_TO_BLOCK(bcount);
 	
 	/*
 	 * Look for a cache extent containing this request.
 	 */
 	BC_cache->c_stats.ss_extent_lookups++;
-	if ((ce = BC_find_extent(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, 1)) == NULL)
+	if ((ce = BC_find_extent(CB_BLOCK_TO_BYTE(blkno), bcount, 1)) == NULL)
 		goto bypass;
 	BC_cache->c_stats.ss_extent_hits++;
 
@@ -1109,8 +1042,7 @@ BC_strategy(struct buf *bp)
 
 		/* check for timeout */
 		if (retry > (BC_wait_for_readahead * 10)) {
-			debug("timed out waiting for extent to be read (need %d, tail %d)",
-			    ce - BC_cache->c_extents, BC_cache->c_extent_tail - BC_cache->c_extents);
+			debug("timed out waiting for extent %p to be read", ce);
 			goto bypass;
 		}
 
@@ -1130,7 +1062,8 @@ BC_strategy(struct buf *bp)
 	if (blocktime.tv_sec != 0) {
 		microtime(&now);
 		timersub(&now, &blocktime, &elapsed);
-		timeradd(&elapsed, &BC_cache->c_stats.ss_wait_time, &BC_cache->c_stats.ss_wait_time);
+		timeradd(&elapsed, &BC_cache->c_stats.ss_wait_time, 
+				&BC_cache->c_stats.ss_wait_time);
 	}
 	
 	/*
@@ -1143,11 +1076,10 @@ BC_strategy(struct buf *bp)
 	 * Check that the requested blocks are in the buffer.
 	 */
 	/* XXX assumes cache block size == disk block size */
-	base = CB_PTR_TO_BLOCK(BC_cache, ce->ce_data) +
-	    (blkno - CB_BYTE_TO_BLOCK(BC_cache, ce->ce_offset));
-	nblk = CB_BYTE_TO_BLOCK(BC_cache, bcount);
+	base = blkno - CB_BYTE_TO_BLOCK(ce->ce_offset);
+	nblk = CB_BYTE_TO_BLOCK(bcount);
 	assert(base >= 0);
-	if (!BC_blocks_present(base, nblk))
+	if (!BC_blocks_present(ce, base, nblk))
 		goto bypass;
 
 	if ((BC_cache->c_flags & BC_FLAG_IOBUSY))
@@ -1155,13 +1087,13 @@ BC_strategy(struct buf *bp)
 #ifdef EMULATE_ONLY
 	/* discard blocks we have touched */
 	BC_cache->c_stats.ss_hit_blocks +=
-	    BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
+	    BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(blkno), bcount);
 
 	/* release the extent */
 	UNLOCK_EXTENT(ce);
 	
 	/* we would have hit this request */
-	BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, BC_HE_HIT);
+	BC_add_history(CB_BLOCK_TO_BYTE(blkno), bcount, BC_HE_HIT);
 
 	/* bypass directly without updating statistics */
 	BC_cache->c_strategy(bp);
@@ -1177,21 +1109,8 @@ BC_strategy(struct buf *bp)
 	}
 	p = vaddr;
 
-	/*
-	 * It is possible that buf_map will block, and during that
-	 * time we may have our cache blocks invalidated.  This shouldn't
-	 * happen, as the system will normally not allow overlapping I/O,
-	 * but it has been observed in practice.
-	 */
-	if (!BC_blocks_present(base, nblk)) {
-	        /* buf_unmap will take care of all cases */
-	        buf_unmap(bp);
-		BC_cache->c_stats.ss_strategy_stolen++;
-		goto bypass;
-	}
-	
 	/* find the source in our buffer */
-	s = CB_BLOCK_TO_PTR(BC_cache, base);
+	s = ce->ce_data + CB_BLOCK_TO_BYTE(base);
 
 	/* copy from cache to buf */
 	bcopy(s, p, bcount);
@@ -1207,11 +1126,11 @@ BC_strategy(struct buf *bp)
 
 	/* discard blocks we have touched */
 	BC_cache->c_stats.ss_hit_blocks +=
-	BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount);
+		BC_discard_blocks(ce, CB_BLOCK_TO_BYTE(blkno), bcount);
 
 	UNLOCK_EXTENT(ce);
 	/* record successful fulfilment (may block) */
-	BC_add_history(CB_BLOCK_TO_BYTE(BC_cache, blkno), bcount, BC_HE_HIT);
+	BC_add_history(CB_BLOCK_TO_BYTE(blkno), bcount, BC_HE_HIT);
 #endif
 
 	/* we are not busy anymore */
@@ -1250,7 +1169,7 @@ BC_handle_write(struct buf *bp)
 
 	blkno = buf_blkno(bp);
 	bcount = buf_count(bp);
-	offset = CB_BLOCK_TO_BYTE(BC_cache, blkno);
+	offset = CB_BLOCK_TO_BYTE(blkno);
 
 	/*
 	 * Look for an extent that we overlap.
@@ -1330,12 +1249,6 @@ BC_terminate_readahead(void)
 			if (!(BC_cache->c_flags & BC_FLAG_IOBUSY)) {
 				debug("but I/O has stopped!");
 			} else {
-				debug("doing extent %d of %d  %lu/%lu @ %p",
-				    BC_cache->c_extent_tail - BC_cache->c_extents,
-				    BC_cache->c_extent_count,
-				    (unsigned long)BC_cache->c_extent_tail->ce_offset,
-				    (unsigned long)BC_cache->c_extent_tail->ce_length,
-				    BC_cache->c_extent_tail->ce_data);
 				debug("current buf:");
 				if (BC_private_bp) {
 				  debug(" blkno %qd  bcount %d  resid %d  flags 0x%x  dataptr %p",
@@ -1375,7 +1288,7 @@ BC_terminate_readahead(void)
 static int
 BC_terminate_cache(void)
 {
-	int retry, i;
+	int retry, i, j;
 	
 	/* can't shut down if readahead is still active */
 	if (BC_cache->c_flags & BC_FLAG_IOBUSY) {
@@ -1396,10 +1309,21 @@ BC_terminate_cache(void)
 	 * strategy routine that the extent won't have data for them.
 	 */
 	for (i = 0; i < BC_cache->c_extent_count; i++) {
-		LOCK_EXTENT(BC_cache->c_extents + i);
-		BC_cache->c_extents[i].ce_flags |= CE_ABORTED;
-		UNLOCK_EXTENT(BC_cache->c_extents + i);
-		wakeup(BC_cache->c_extents + i);
+		struct BC_cache_extent *ce = BC_cache->c_extents + i;
+		LOCK_EXTENT(ce);
+		ce->ce_flags |= CE_ABORTED;
+		UNLOCK_EXTENT(ce);
+		wakeup(ce);
+
+		/* 
+		 * Track unused blocks 
+		 */
+		for (j = 0; j < howmany(ce->ce_length, BC_cache->c_blocksize); j++) {
+			if (CB_BLOCK_PRESENT(ce, j))
+				BC_cache->c_stats.ss_spurious_blocks++;
+		}
+			
+		BC_teardown_extent(ce);
 	}
 
 	/*
@@ -1426,29 +1350,11 @@ BC_terminate_cache(void)
 			return(EBUSY);	/* again really EWEDGED */
 		}
 	}
-	
-	/*
-	 * Check the block and page maps and report what's left.
-	 * Release any pages that we still hold.
-	 */
-	BC_cache->c_stats.ss_spurious_blocks = 0;
-	for (i = 0; i < BC_cache->c_buffer_blocks; i++)
-		if (CB_BLOCK_PRESENT(BC_cache, i))
-			BC_cache->c_stats.ss_spurious_blocks++;
-	BC_cache->c_stats.ss_spurious_pages = 0;
-	for (i = 0; i < BC_cache->c_buffer_pages; i++)
-		if (CB_PAGE_PRESENT(BC_cache, i)) {
-			BC_cache->c_stats.ss_spurious_pages++;
 
-			BC_free_page(i);
-		}
 	BC_free_pagebuffer();
 	
-	/* free memory held by extents, the pagemap and the blockmap */
+	/* free memory held by extents */
 	_FREE_ZERO(BC_cache->c_extents, M_TEMP);
-	_FREE_ZERO(BC_cache->c_pagemap, M_TEMP);
-	_FREE_ZERO(BC_cache->c_iopagemap, M_TEMP);
-	_FREE_ZERO(BC_cache->c_blockmap, M_TEMP);
 
 	return(0);
 }
@@ -1497,6 +1403,47 @@ BC_terminate_history(void)
 	return(0);
 }
 
+static u_int64_t 
+BC_setup_extent(struct BC_cache_extent *ce, struct BC_playlist_entry *pce)
+{
+	u_int64_t roundsize;
+	int numblocks, numpages;
+
+	roundsize = roundup(pce->pce_length, PAGE_SIZE);
+	numblocks = howmany(pce->pce_length, BC_cache->c_blocksize);
+	numpages = howmany(pce->pce_length, PAGE_SIZE);
+
+
+	lck_mtx_init(&ce->ce_lock, BC_cache->c_lckgrp,
+			LCK_ATTR_NULL);
+	ce->ce_offset = pce->pce_offset;
+	ce->ce_length = pce->pce_length;
+	ce->ce_flags = pce->pce_batch & CE_BATCH_MASK;
+#ifdef IGNORE_BATCH
+	ce->ce_flags &= ~CE_BATCH_MASK;
+#endif
+	ce->ce_data = NULL;
+	ce->ce_blockmap = _MALLOC(
+			howmany(numblocks, (CB_MAPFIELDBITS / CB_MAPFIELDBYTES)),
+			M_TEMP, M_WAITOK | M_ZERO);
+	if (!ce->ce_blockmap)
+		return 0;
+
+	/* track highest batch number for this playlist */
+	if (ce->ce_flags > BC_cache->c_batch_count) {
+		BC_cache->c_batch_count = ce->ce_flags;
+	}
+
+	return roundsize;
+}
+
+static void
+BC_teardown_extent(struct BC_cache_extent *ce)
+{
+	ce->ce_flags |= CE_ABORTED;
+	_FREE_ZERO(ce->ce_blockmap, M_TEMP);
+}
+
 /*
  * Fetch the playlist from userspace or the Mach-O segment where it
  * was preloaded.  Note that in the STATIC_PLAYLIST case the playlist
@@ -1509,7 +1456,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 	struct BC_cache_extent *ce;
 	int error, idx;
 	caddr_t p;
-	u_int64_t size;
+	u_int64_t size, esize;
 	int entries;
 	int actual;
 
@@ -1537,21 +1484,12 @@ BC_copyin_playlist(size_t length, void *uptr)
 		debug("using static playlist with %d entries", entries);
 		pce = (struct BC_playlist_entry *)uptr;
 		for (idx = 0; idx < entries; idx++) {
-			lck_mtx_init(&ce[idx].ce_lock, BC_cache->c_lckgrp,
-					LCK_ATTR_NULL);
-			ce[idx].ce_offset = pce[idx].pce_offset;
-			ce[idx].ce_length = pce[idx].pce_length;
-			ce[idx].ce_flags = pce[idx].pce_batch & CE_BATCH_MASK;
-#ifdef IGNORE_BATCH
-			ce[idx].ce_flags &= ~CE_BATCH_MASK;
-#endif
-			ce[idx].ce_data = NULL;
-			size += pce[idx].pce_length;	/* track total size */
-
-			/* track highest batch number for this playlist */
-			if (ce[idx].ce_flags > BC_cache->c_batch_count) {
-				BC_cache->c_batch_count = ce[idx].ce_flags;
+			esize = BC_setup_extent(ce + idx, pce + idx);
+			if (esize == 0) {
+				error = ENOMEM;
+				goto out;
 			}
+			size += esize;
 		}
 	} else {
 		/*
@@ -1578,20 +1516,12 @@ BC_copyin_playlist(size_t length, void *uptr)
 
 			/* unpack into our array */
 			for (idx = 0; idx < actual; idx++) {
-				lck_mtx_init(&ce[idx].ce_lock, BC_cache->c_lckgrp,
-						LCK_ATTR_NULL);
-				ce[idx].ce_offset = pce[idx].pce_offset;
-				ce[idx].ce_length = pce[idx].pce_length;
-				ce[idx].ce_flags = pce[idx].pce_batch & CE_BATCH_MASK;
-#ifdef IGNORE_BATCH
-				ce[idx].ce_flags &= ~CE_BATCH_MASK;
-#endif
-				ce[idx].ce_data = NULL;
-				size += pce[idx].pce_length;	/* track total size */
-				/* track highest batch number for this playlist */
-				if (ce[idx].ce_flags > BC_cache->c_batch_count) {
-					BC_cache->c_batch_count = ce[idx].ce_flags;
+				esize = BC_setup_extent(ce + idx, pce + idx);
+				if (esize == 0) {
+					error = ENOMEM;
+					goto out;
 				}
+				size += esize;
 			}
 			entries -= actual;
 			uptr = (struct BC_playlist_entry *)uptr + actual;
@@ -1621,92 +1551,44 @@ BC_copyin_playlist(size_t length, void *uptr)
 	 */
 	if (size > (mem_size / 2)) {
 		message("cache size (%lu bytes) too large for physical memory (%u bytes)",
-		    (unsigned long)size, mem_size);
-
-		/* undo everything we've done so far */
-		_FREE_ZERO(BC_cache->c_extents, M_TEMP);
-		BC_cache->c_extents = NULL;
-		BC_cache->c_extent_count = 0;
-		BC_cache->c_stats.ss_total_extents = 0;
-
-		return(0);	/* since this isn't really an error */
-	}
-	
-	/*
-	 * Allocate memory for the buffer and page maps.
-	 */
-	BC_cache->c_buffer_blocks = CB_BYTE_TO_BLOCK(BC_cache, size);
-	BC_cache->c_buffer_pages = CB_BLOCK_TO_PAGE(BC_cache, BC_cache->c_buffer_blocks);
-	if ((BC_cache->c_blockmap =
-		_MALLOC(BC_cache->c_buffer_blocks / (CB_MAPFIELDBITS / CB_MAPFIELDBYTES),
-		    M_TEMP, M_WAITOK)) == NULL) {
-		message("can't allocate %d bytes for blockmap",
-		    BC_cache->c_buffer_blocks / CB_MAPFIELDBYTES);
-		error = ENOMEM;
+				(unsigned long)size, mem_size);
 		goto out;
 	}
-	if ((BC_cache->c_pagemap =
-		_MALLOC(BC_cache->c_buffer_pages / (CB_MAPFIELDBITS / CB_MAPFIELDBYTES),
-		    M_TEMP, M_WAITOK)) == NULL) {
-		message("can't allocate %d bytes for pagemap",
-		    BC_cache->c_buffer_pages / CB_MAPFIELDBYTES);
-		error = ENOMEM;
-		goto out;
-	}
-
-	if ((BC_cache->c_iopagemap =
-		_MALLOC(BC_cache->c_buffer_pages / (CB_MAPFIELDBITS / CB_MAPFIELDBYTES),
-		    M_TEMP, M_WAITOK)) == NULL) {
-		message("can't allocate %d bytes for iopagemap",
-		    BC_cache->c_buffer_pages / CB_MAPFIELDBYTES);
-		error = ENOMEM;
-		goto out;
-	}
-	bzero(BC_cache->c_iopagemap, BC_cache->c_buffer_pages / (CB_MAPFIELDBITS / CB_MAPFIELDBYTES));
 
 	/*
 	 * Allocate the pagebuffer.
 	 */
-	if (BC_alloc_pagebuffer(BC_cache->c_buffer_pages * PAGE_SIZE) != 0) {
-		message("can't allocate %d bytes for cache buffer",
-		    BC_cache->c_buffer_pages * PAGE_SIZE);
+	if (BC_alloc_pagebuffer(size) != 0) {
+		message("can't allocate %lld bytes for cache buffer", size);
 		error = ENOMEM;
 		goto out;
 	}
-
-	/*
-	 * Note that we have to mark both pages and blocks present.
-	 * If we fail to mark blocks present, we encounter a race where
-	 * an incoming read that has been blocked against a readahead
-	 * will wake up and complete, discarding its blocks and then freeing
-	 * a page it shares with the following extent for which reahead is
-	 * still in progress.
-	 */
-	for (idx = 0; idx < BC_cache->c_buffer_pages; idx++)
-		CB_MARK_PAGE_PRESENT(BC_cache, idx);
-	for (idx = 0; idx < BC_cache->c_buffer_blocks; idx++)
-		CB_MARK_BLOCK_PRESENT(BC_cache, idx);
 
 	/*
 	 * Fix up the extent data pointers.
 	 */
 	p = BC_cache->c_buffer;
 	for (idx = 0; idx < BC_cache->c_extent_count; idx++) {
+		int length = BC_cache->c_extents[idx].ce_length;
+		int j;
 		(BC_cache->c_extents + idx)->ce_data = p;
-		p += BC_cache->c_extents[idx].ce_length;
+		p += roundup(length, PAGE_SIZE);
+
+		for (j = 0; j < howmany(length, BC_cache->c_blocksize); j++)
+			CB_MARK_BLOCK_PRESENT((BC_cache->c_extents + idx), j);
 	}
 
 	/* all done */
-	out:
+out:
 	if (error != 0) {
 		debug("cache setup failed, aborting");
 		if (BC_cache->c_buffer != NULL)
 			BC_free_pagebuffer();
-		_FREE_ZERO(BC_cache->c_blockmap, M_TEMP);
-		_FREE_ZERO(BC_cache->c_pagemap, M_TEMP);
-		_FREE_ZERO(BC_cache->c_iopagemap, M_TEMP);
+		for (idx = 0; idx < BC_cache->c_extent_count; idx++)
+			BC_teardown_extent(BC_cache->c_extents + idx);
 		_FREE_ZERO(BC_cache->c_extents, M_TEMP);
 		BC_cache->c_extent_count = 0;
+		BC_cache->c_stats.ss_total_extents = 0;
 	}
 	return(error);
 }
@@ -1774,11 +1656,10 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 		return(ENXIO);
 
 	BC_cache->c_devsw->d_ioctl(BC_cache->c_dev,	/* device */
-#warning SHOULD USE DKIOCGETBLOCKSIZE64
 	    DKIOCGETBLOCKSIZE,				/* cmd */
 	    (caddr_t)&blksize,				/* data */
 	    0,						/* fflag */
-	    NULL);					/* proc XXX NULL? */
+	    kernproc);					/* proc */
 	if (blksize == 0) {
 		message("can't determine device block size, defaulting to 512 bytes");
 		blksize = 512;
@@ -1787,7 +1668,7 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	    DKIOCGETBLOCKCOUNT,				/* cmd */
 	    (caddr_t)&blkcount,				/* data */
 	    0,						/* fflag */
-	    NULL);					/* proc XXX NULL? */
+	    kernproc);					/* proc */
 	if (blkcount == 0) {
 		message("can't determine device size, not checking");
 	}
@@ -1843,11 +1724,11 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
 #ifdef EMULATE_ONLY
-	/* we are emulating the cache but not doing reads */
-	BC_cache->c_extent_tail = BC_cache->c_extents + BC_cache->c_extent_count;
-	/* XXX need to fill the block map */
-	
-	debug("emulated complete cache fill");
+	{
+		int i;
+		for (i = 0; i < BC_cache->c_extent_count; i++)
+			BC_cache->c_extents[i].ce_flags |= CE_IODONE;
+	}
 #else
 	/*
 	 * Start the reader thread.
@@ -1855,7 +1736,6 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	if (BC_cache->c_extents != NULL) {
 		debug("starting readahead");
 		BC_cache->c_flags |= BC_FLAG_IOBUSY;
-		BC_cache->c_batch = 0;
 		kernel_thread_start(BC_reader_thread, NULL, &rthread);
 		thread_deallocate(rthread);
 	}
@@ -2269,21 +2149,6 @@ BC_alloc_pagebuffer(size_t size)
 		debug("vm_map failed - %d", kret);
 		return(ENOMEM);
 	}
-#ifdef WIRE_BUFFER
-	/*
-	 * Wire the pages into the kernel map.
-	 */
-	kret = vm_wire(host_priv_self(),	/* caller privilege */
-	    kernel_map,				/* map within which to wire */
-	    BC_cache->c_buffer,			/* offset to map from */
-	    BC_cache->c_mapsize,		/* size of region to map */
-	    VM_PROT_READ | VM_PROT_WRITE);	/* default memory protection */
-	if ((kret != KERN_SUCCESS) || (s != size)) {
-		debug("vm_wire failed - %d", kret);
-		return(ENOMEM);
-	}
-#endif /* WIRE_BUFFER */
-
 #ifdef __ppc__
 	/*
 	 * Tell the pmap that we are about to touch a *lot* of new memory.
@@ -2347,27 +2212,19 @@ BC_free_pagebuffer(void)
  * Release one page from the pagebuffer.
  */
 static void
-BC_free_page(int page)
+BC_free_page(struct BC_cache_extent *ce, int page)
 {
 
-	while (CB_IOPAGE_BUSY(BC_cache, page))
-   		tsleep(&BC_cache->c_iopagemap, PRIBIO, "BC_free_page", hz / 10);
-
-#ifdef WIRE_BUFFER
 	/*
-	 * Unwire the page.
+	 * Translate the page in the extent to the page in the buffer.
 	 */
-	vm_wire(host_priv_self(),			/* caller privilege */
-	    BC_cache->c_map,				/* map within which to wire */
-	    BC_cache->c_mapbase + (page * PAGE_SIZE),	/* offset to map from */
-	    PAGE_SIZE,					/* size of region to map */
-	    VM_PROT_NONE);				/* requests unwiring */
-#endif
+	int realpage = page + (((unsigned int) ce->ce_data) / PAGE_SIZE);
+
 	/*
 	 * Deallocate the page from our submap.
 	 */
 	vm_deallocate(BC_cache->c_map,			/* child map */
-	    BC_cache->c_mapbase + (page * PAGE_SIZE),	/* offset */
+	    BC_cache->c_mapbase + (realpage * PAGE_SIZE),/* offset */
 	    PAGE_SIZE);					/* length */
 
 	/*
@@ -2375,7 +2232,7 @@ BC_free_page(int page)
 	 */
 	mach_memory_entry_page_op(
 		BC_cache->c_entry_port,			/* handle */
-		(page * PAGE_SIZE),			/* offset */
+		(realpage * PAGE_SIZE),			/* offset */
 		UPL_POP_DUMP,				/* operation */
 		NULL,					/* phys_entry */
 		NULL);					/* flags */

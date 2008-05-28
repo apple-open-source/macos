@@ -436,6 +436,7 @@ main(int argc, char **argv)
 	if (argc == 0) {
 		char buf[MAXPATHLEN];
 		struct passwd *pw;
+		char *pw_dir;
 		struct stat st;
 		int count = 0;
 
@@ -446,8 +447,10 @@ main(int argc, char **argv)
 			goto done;
 		}
 
+		pw_dir = xstrdup(pw->pw_dir);
+
 		for (i = 0; default_files[i]; i++) {
-			snprintf(buf, sizeof(buf), "%s/%s", pw->pw_dir,
+			snprintf(buf, sizeof(buf), "%s/%s", pw_dir,
 			    default_files[i]);
 			if (stat(buf, &st) < 0)
 				continue;
@@ -458,6 +461,8 @@ main(int argc, char **argv)
 		}
 		if (count == 0)
 			ret = 1;
+
+		xfree(pw_dir);
 	} else {
 		for (i = 0; i < argc; i++) {
 			if (do_file(ac, deleting, keychain, argv[i]) == -1)

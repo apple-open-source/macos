@@ -2,6 +2,7 @@
  *  This file is part of the KDE libraries
  *  Copyright (C) 2004, 2006 Apple Computer, Inc.
  *  Copyright (C) 2005-2007 Alexey Proskuryakov <ap@webkit.org>
+ *  Copyright (C) 2007 Julien Chaffraix <julien.chaffraix@gmail.com>
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -24,8 +25,8 @@
 #include "CString.h"
 #include "Cache.h"
 #include "DOMImplementation.h"
-#include "TextResourceDecoder.h"
 #include "Event.h"
+#include "EventException.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "ExceptionCode.h"
@@ -42,6 +43,8 @@
 #include "Settings.h"
 #include "SubresourceLoader.h"
 #include "TextEncoding.h"
+#include "TextResourceDecoder.h"
+#include "XMLHttpRequestException.h"
 #include "kjs_binding.h"
 #include <kjs/protect.h>
 #include <wtf/Vector.h>
@@ -88,16 +91,19 @@ static void removeFromRequestsByDocument(Document* doc, XMLHttpRequest* req)
     }
 }
 
-static bool canSetRequestHeader(const String& name)
+static bool isSafeRequestHeader(const String& name)
 {
-    static HashSet<String, CaseInsensitiveHash<String> > forbiddenHeaders;
+    static HashSet<String, CaseFoldingHash> forbiddenHeaders;
+    static String proxyString("proxy-");
     
     if (forbiddenHeaders.isEmpty()) {
         forbiddenHeaders.add("accept-charset");
         forbiddenHeaders.add("accept-encoding");
+        forbiddenHeaders.add("connection");
         forbiddenHeaders.add("content-length");
-        forbiddenHeaders.add("expect");
+        forbiddenHeaders.add("content-transfer-encoding");
         forbiddenHeaders.add("date");
+        forbiddenHeaders.add("expect");
         forbiddenHeaders.add("host");
         forbiddenHeaders.add("keep-alive");
         forbiddenHeaders.add("referer");
@@ -108,7 +114,7 @@ static bool canSetRequestHeader(const String& name)
         forbiddenHeaders.add("via");
     }
     
-    return !forbiddenHeaders.contains(name);
+    return !forbiddenHeaders.contains(name) && !name.startsWith(proxyString, false);
 }
 
 // Determines if a string is a valid token, as defined by
@@ -145,12 +151,12 @@ XMLHttpRequestState XMLHttpRequest::getReadyState() const
     return m_state;
 }
 
-const KJS::UString& XMLHttpRequest::getResponseText() const
+const KJS::UString& XMLHttpRequest::getResponseText(ExceptionCode& ec) const
 {
     return m_responseText;
 }
 
-Document* XMLHttpRequest::getResponseXML() const
+Document* XMLHttpRequest::getResponseXML(ExceptionCode& ec) const
 {
     if (m_state != Loaded)
         return 0;
@@ -162,7 +168,7 @@ Document* XMLHttpRequest::getResponseXML() const
         } else {
             m_responseXML = m_doc->implementation()->createDocument(0);
             m_responseXML->open();
-            m_responseXML->setURL(m_url.url());
+            m_responseXML->setURL(m_url.deprecatedString());
             // FIXME: set Last-Modified and cookies (currently, those are only available for HTMLDocuments).
             m_responseXML->write(String(m_responseText));
             m_responseXML->finishParsing();
@@ -233,7 +239,7 @@ bool XMLHttpRequest::dispatchEvent(PassRefPtr<Event> evt, ExceptionCode& ec, boo
 {
     // FIXME: check for other error conditions enumerated in the spec.
     if (evt->type().isEmpty()) {
-        ec = UNSPECIFIED_EVENT_TYPE_ERR;
+        ec = EventException::UNSPECIFIED_EVENT_TYPE_ERR;
         return true;
     }
 
@@ -250,7 +256,6 @@ bool XMLHttpRequest::dispatchEvent(PassRefPtr<Event> evt, ExceptionCode& ec, boo
 XMLHttpRequest::XMLHttpRequest(Document* d)
     : m_doc(d)
     , m_async(true)
-    , m_loader(0)
     , m_state(Uninitialized)
     , m_responseText("")
     , m_createdDocument(false)
@@ -276,28 +281,30 @@ void XMLHttpRequest::changeState(XMLHttpRequestState newState)
 
 void XMLHttpRequest::callReadyStateChangeListener()
 {
-    if (m_doc && m_doc->frame() && m_onReadyStateChangeListener) {
-        RefPtr<Event> evt = new Event(readystatechangeEvent, true, true);
+    if (!m_doc || !m_doc->frame())
+        return;
+
+    RefPtr<Event> evt = new Event(readystatechangeEvent, false, false);
+    if (m_onReadyStateChangeListener) {
         evt->setTarget(this);
         evt->setCurrentTarget(this);
         m_onReadyStateChangeListener->handleEvent(evt.get(), false);
     }
+
+    ExceptionCode ec = 0;
+    dispatchEvent(evt.release(), ec, false);
+    ASSERT(!ec);
     
-    if (m_doc && m_doc->frame() && m_state == Loaded) {
+    if (m_state == Loaded) {
+        evt = new Event(loadEvent, false, false);
         if (m_onLoadListener) {
-            RefPtr<Event> evt = new Event(loadEvent, true, true);
             evt->setTarget(this);
             evt->setCurrentTarget(this);
             m_onLoadListener->handleEvent(evt.get(), false);
         }
         
-        ListenerVector listenersCopy = m_eventListeners.get(loadEvent.impl());
-        for (ListenerVector::const_iterator listenerIter = listenersCopy.begin(); listenerIter != listenersCopy.end(); ++listenerIter) {
-            RefPtr<Event> evt = new Event(loadEvent, true, true);
-            evt->setTarget(this);
-            evt->setCurrentTarget(this);
-            listenerIter->get()->handleEvent(evt.get(), false);
-        }
+        dispatchEvent(evt, ec, false);
+        ASSERT(!ec);
     }
 }
 
@@ -308,7 +315,7 @@ bool XMLHttpRequest::urlMatchesDocumentDomain(const KURL& url) const
         return true;
 
     // but a remote document can only load from the same port on the server
-    KURL documentURL = m_doc->URL();
+    KURL documentURL = m_doc->url();
     if (documentURL.protocol().lower() == url.protocol().lower()
             && documentURL.host().lower() == url.host().lower()
             && documentURL.port() == url.port())
@@ -332,10 +339,10 @@ void XMLHttpRequest::open(const String& method, const KURL& url, bool async, Exc
     m_createdDocument = false;
     m_responseXML = 0;
 
-    changeState(Uninitialized);
+    ASSERT(m_state == Uninitialized);
 
     if (!urlMatchesDocumentDomain(url)) {
-        ec = PERMISSION_DENIED;
+        ec = XMLHttpRequestException::PERMISSION_DENIED;
         return;
     }
 
@@ -344,14 +351,20 @@ void XMLHttpRequest::open(const String& method, const KURL& url, bool async, Exc
         return;
     }
     
-    m_url = url;
-
     // Method names are case sensitive. But since Firefox uppercases method names it knows, we'll do the same.
     String methodUpper(method.upper());
-    if (methodUpper == "CONNECT" || methodUpper == "COPY" || methodUpper == "DELETE" || methodUpper == "GET" || methodUpper == "HEAD"
-        || methodUpper == "INDEX" || methodUpper == "LOCK" || methodUpper == "M-POST" || methodUpper == "MKCOL" || methodUpper == "MOVE" 
+    
+    if (methodUpper == "TRACE" || methodUpper == "TRACK" || methodUpper == "CONNECT") {
+        ec = XMLHttpRequestException::PERMISSION_DENIED;
+        return;
+    }
+
+    m_url = url;
+
+    if (methodUpper == "COPY" || methodUpper == "DELETE" || methodUpper == "GET" || methodUpper == "HEAD"
+        || methodUpper == "INDEX" || methodUpper == "LOCK" || methodUpper == "M-POST" || methodUpper == "MKCOL" || methodUpper == "MOVE"
         || methodUpper == "OPTIONS" || methodUpper == "POST" || methodUpper == "PROPFIND" || methodUpper == "PROPPATCH" || methodUpper == "PUT" 
-        || methodUpper == "TRACE" || methodUpper == "UNLOCK")
+        || methodUpper == "UNLOCK")
         m_method = methodUpper.deprecatedString();
     else
         m_method = method.deprecatedString();
@@ -441,24 +454,28 @@ void XMLHttpRequest::send(const String& body, ExceptionCode& ec)
         if (error.isNull() || request.url().isLocalFile() || response.httpStatusCode() > 0)
             processSyncLoadResults(data, response);
         else
-            ec = NETWORK_ERR;
+            ec = XMLHttpRequestException::NETWORK_ERR;
 
         return;
     }
 
-    // Neither this object nor the JavaScript wrapper should be deleted while
-    // a request is in progress because we need to keep the listeners alive,
-    // and they are referenced by the JavaScript wrapper.
-    ref();
-    {
+    // SubresourceLoader::create can return null here, for example if we're no longer attached to a page.
+    // This is true while running onunload handlers.
+    // FIXME: We need to be able to send XMLHttpRequests from onunload, <http://bugs.webkit.org/show_bug.cgi?id=10904>.
+    // FIXME: Maybe create can return null for other reasons too?
+    // We need to keep content sniffing enabled for local files due to CFNetwork not providing a MIME type
+    // for local files otherwise, <rdar://problem/5671813>.
+    m_loader = SubresourceLoader::create(m_doc->frame(), this, request, false, true, request.url().isLocalFile());
+
+    if (m_loader) {
+        // Neither this object nor the JavaScript wrapper should be deleted while
+        // a request is in progress because we need to keep the listeners alive,
+        // and they are referenced by the JavaScript wrapper.
+        ref();
+
         KJS::JSLock lock;
-        gcProtectNullTolerant(KJS::ScriptInterpreter::getDOMObject(this));
+        KJS::gcProtectNullTolerant(KJS::ScriptInterpreter::getDOMObject(this));
     }
-  
-    // create can return null here, for example if we're no longer attached to a page.
-    // this is true while running onunload handlers
-    // FIXME: Maybe create can return false for other reasons too?
-    m_loader = SubresourceLoader::create(m_doc->frame(), this, request, false, true, false);
 }
 
 void XMLHttpRequest::abort()
@@ -476,6 +493,8 @@ void XMLHttpRequest::abort()
 
     if (hadLoader)
         dropProtection();
+
+    m_state = Uninitialized;
 }
 
 void XMLHttpRequest::dropProtection()        
@@ -520,7 +539,8 @@ void XMLHttpRequest::setRequestHeader(const String& name, const String& value, E
         return;
     }
         
-    if (!canSetRequestHeader(name)) {
+    // A privileged script (e.g. a Dashboard widget) can set any headers.
+    if (!m_doc->isAllowedToLoadLocalResources() && !isSafeRequestHeader(name)) {
         if (m_doc && m_doc->frame() && m_doc->frame()->page())
             m_doc->frame()->page()->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, "Refused to set unsafe header " + name, 1, String());
         return;
@@ -540,8 +560,13 @@ String XMLHttpRequest::getRequestHeader(const String& name) const
     return m_requestHeaders.get(name);
 }
 
-String XMLHttpRequest::getAllResponseHeaders() const
+String XMLHttpRequest::getAllResponseHeaders(ExceptionCode& ec) const
 {
+    if (m_state < Receiving) {
+        ec = INVALID_STATE_ERR;
+        return "";
+    }
+
     Vector<UChar> stringBuilder;
     String separator(": ");
 
@@ -550,14 +575,23 @@ String XMLHttpRequest::getAllResponseHeaders() const
         stringBuilder.append(it->first.characters(), it->first.length());
         stringBuilder.append(separator.characters(), separator.length());
         stringBuilder.append(it->second.characters(), it->second.length());
+        stringBuilder.append((UChar)'\r');
         stringBuilder.append((UChar)'\n');
     }
 
     return String::adopt(stringBuilder);
 }
 
-String XMLHttpRequest::getResponseHeader(const String& name) const
+String XMLHttpRequest::getResponseHeader(const String& name, ExceptionCode& ec) const
 {
+    if (m_state < Receiving) {
+        ec = INVALID_STATE_ERR;
+        return "";
+    }
+
+    if (!isValidToken(name))
+        return "";
+
     return m_response.httpHeaderField(name);
 }
 
@@ -566,7 +600,7 @@ String XMLHttpRequest::responseMIMEType() const
     String mimeType = extractMIMETypeFromMediaType(m_mimeTypeOverride);
     if (mimeType.isEmpty()) {
         if (m_response.isHTTP())
-            mimeType = extractMIMETypeFromMediaType(getResponseHeader("Content-Type"));
+            mimeType = extractMIMETypeFromMediaType(m_response.httpHeaderField("Content-Type"));
         else
             mimeType = m_response.mimeType();
     }
@@ -696,7 +730,7 @@ void XMLHttpRequest::didReceiveData(SubresourceLoader*, const char* data, int le
         else if (responseIsXML())
             m_decoder = new TextResourceDecoder("application/xml");
         else if (responseMIMEType() == "text/html")
-            m_decoder = new TextResourceDecoder("text/html");
+            m_decoder = new TextResourceDecoder("text/html", "UTF-8");
         else
             m_decoder = new TextResourceDecoder("text/plain", "UTF-8");
     }

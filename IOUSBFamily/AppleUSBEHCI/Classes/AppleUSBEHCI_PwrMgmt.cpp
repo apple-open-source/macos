@@ -641,7 +641,8 @@ AppleUSBEHCI::ResetControllerState(void)
 	_pEHCIRegisters->PeriodicListBase = 0;		// no periodic list as yet
 	_pEHCIRegisters->AsyncListAddr = 0;			// no async list as yet
 	IOSync();
-
+	_uimInitialized = false;
+	
 	showRegisters(2, "-ResetControllerState");
 	return kIOReturnSuccess;
 }
@@ -656,20 +657,23 @@ AppleUSBEHCI::RestartControllerFromReset(void)
 
 	USBLog(5, "AppleUSBEHCI[%p]::RestartControllerFromReset - restarting USB _uimInitialized(%s) _savedAsyncListAddr(%p)",  this, _uimInitialized ? "yes" : "no", (void*)_savedAsyncListAddr);
  
-	// set the reset bit
-	//
-	_pEHCIRegisters->USBCMD = HostToUSBLong(kEHCICMDHCReset);		
-	IOSync();
-	
-	for ( i = 0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBCMD) & kEHCICMDHCReset); i++ )
-		IOSleep(1);
-	
-	if ( i >= 100 )
+	if (!_uimInitialized)
 	{
-		USBError(1, "AppleUSBEHCI[%p]::RestartControllerFromReset - could not get chip to come out of reset within 100 ms",  this);
-		return kIOReturnInternalError;
+		// set the reset bit, but only if we are not currently initialized
+		//
+		_pEHCIRegisters->USBCMD = HostToUSBLong(kEHCICMDHCReset);		
+		IOSync();
+
+		for ( i = 0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBCMD) & kEHCICMDHCReset); i++ )
+			IOSleep(1);
+		
+		if ( i >= 100 )
+		{
+			USBError(1, "AppleUSBEHCI[%p]::RestartControllerFromReset - could not get chip to come out of reset within 100 ms",  this);
+			return kIOReturnInternalError;
+		}
+		
 	}
-	
 	// restore lists
 	_pEHCIRegisters->PeriodicListBase = _physPeriodicListBase;
 	IOSync();

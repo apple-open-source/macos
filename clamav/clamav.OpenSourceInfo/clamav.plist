@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2007-06-12</string>
+	<string>2008-02-02</string>
 	<key>OpenSourceLicense</key>
 	<string>GNU GPL</string>
 	<key>OpenSourceLicenseFile</key>
@@ -17,9 +17,9 @@
 	<key>OpenSourceSHA1</key>
 	<string></string>
 	<key>OpenSourceURL</key>
-	<string>http://freshmeat.net/redir/clamav/29355/url_tgz/clamav-0.90.3.tar.gz</string>
+	<string>http://freshmeat.net/redir/clamav/29355/url_tgz/clamav-0.92.1.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>clamav 0.90.3</string>
+	<string>clamav 0.92.1 </string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.clamav.net/</string>
 </dict>

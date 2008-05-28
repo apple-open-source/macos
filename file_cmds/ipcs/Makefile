@@ -24,7 +24,7 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-NEXTSTEP_PB_CFLAGS = -iquote /System/Library/Frameworks/System.framework/PrivateHeaders -iquote /System/Library/Frameworks/Kernel.framework/PrivateHeaders
+NEXTSTEP_PB_CFLAGS = -iquote "$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders" -iquote "$(SDKROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders"
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

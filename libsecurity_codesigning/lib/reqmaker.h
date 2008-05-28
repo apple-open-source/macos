@@ -55,10 +55,12 @@ public:
 	void put(const std::string &s) { putData(s.data(), s.size()); }
 	void put(const char *s) { putData(s, strlen(s)); }
 	void putData(const void *data, size_t length);
+	void putData(CFStringRef s) { put(cfString(s)); }
 	
 	void anchor(int slot, SHA1::Digest digest);			// given slot/digest
 	void anchor(int slot, const void *cert, size_t length); // given slot/cert
-	void anchor();										// canonical Apple anchor
+	void anchor();										// made-by-Apple
+	void anchorGeneric();								// anything drawn from the Apple anchor
 	
 	void trustedAnchor();
 	void trustedAnchor(int slot);
@@ -66,6 +68,10 @@ public:
 	void infoKey(const std::string &key, const std::string &value);
 	void ident(const std::string &identHash);
 	void cdhash(SHA1::Digest digest);
+	
+	void copy(const void *data, size_t length)
+		{ memcpy(this->alloc(length), data, length); }
+	void copy(const Requirement *req);				// inline expand
 	
 	//
 	// Keep labels into exprOp code, and allow for "shifting in"
@@ -81,6 +87,31 @@ public:
 	Endian<T> &insert(const Label &label, size_t length = sizeof(T))
 	{ return *reinterpret_cast<Endian<T>*>(insert(label, length)); }
 	
+	//
+	// Help with making operator chains (foo AND bar AND baz...).
+	// Note that the empty case (no elements at all) must be resolved by the caller.
+	//
+	class Chain : public Label {
+	public:
+		Chain(Maker &myMaker, ExprOp op)
+			: Label(myMaker), maker(myMaker), mJoiner(op), mCount(0) { }
+
+		void add()
+			{ if (mCount++) maker.insert<ExprOp>(*this) = mJoiner; }
+	
+		Maker &maker;
+		bool empty() const { return mCount == 0; }
+		unsigned count() const { return mCount; }
+
+	private:
+		ExprOp mJoiner;
+		unsigned mCount;
+	};
+	
+	
+	//
+	// Over-all construction management
+	//
 	void kind(Kind k) { mBuffer->kind(k); }
 	size_t length() const { return mPC; }
 	Requirement *make();

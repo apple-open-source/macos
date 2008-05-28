@@ -54,7 +54,7 @@ XCFLAGS		+= \
 # These defines will come after DEFINES
 #
 XDEFINES	+= \
-			-DAPU_HAVE_MYSQL \
+			-DAPU_HAVE_MYSQL=1 \
 			-DHAVE_MYSQL_H \
 			$(EOLIST)
 
@@ -128,12 +128,6 @@ NLM_NAME	= dbdmysql
 # If left blank, NLM_NAME will be used.
 #
 NLM_DESCRIPTION	= Apache Portability Runtime Library $(VERSION_STR) DBD MySQL Driver Module
-
-#
-# This is used by the link '-copy ' directive.
-# If left blank, the ASF copyright defined in NWGNUtail.inc will be used.
-#
-NLM_COPYRIGHT	= Copyright (c) 2003-2007 WebThing Ltd and other contributors 
 
 #
 # This is used by the '-threadname' directive.  If left blank,

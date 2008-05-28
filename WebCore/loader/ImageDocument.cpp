@@ -125,6 +125,7 @@ void ImageTokenizer::finish()
 #if PLATFORM(MAC)
         finishImageLoad(m_doc, cachedImage);
 #endif
+        m_doc->imageChanged();
     }
 
     m_doc->finishedParsing();
@@ -143,7 +144,7 @@ ImageDocument::ImageDocument(DOMImplementation* implementation, Frame* frame)
     , m_imageElement(0)
     , m_imageSizeIsKnown(false)
     , m_didShrinkImage(false)
-    , m_shouldShrinkImage(true)
+    , m_shouldShrinkImage(shouldShrinkToFit())
 {
     setParseMode(Compat);
 }
@@ -169,19 +170,16 @@ void ImageDocument::createDocumentStructure()
     
     imageElement->setAttribute(styleAttr, "-webkit-user-select: none");        
     imageElement->setLoadManually(true);
-    imageElement->setSrc(URL());
+    imageElement->setSrc(url());
     
     body->appendChild(imageElement, ec);
     
-    if (!shouldShrinkToFit()) {
-        m_imageElement = imageElement.get();
-        return;
+    if (shouldShrinkToFit()) {
+        // Add event listeners
+        RefPtr<EventListener> listener = new ImageEventListener(this);
+        addWindowEventListener("resize", listener, false);
+        imageElement->addEventListener("click", listener.release(), false);
     }
-    
-    // Add event listeners
-    RefPtr<EventListener> listener = new ImageEventListener(this);
-    addWindowEventListener("resize", listener, false);
-    imageElement->addEventListener("click", listener.release(), false);
 
     m_imageElement = imageElement.get();
 }
@@ -250,11 +248,10 @@ void ImageDocument::imageChanged()
     
     m_imageSizeIsKnown = true;
     
-    if (!shouldShrinkToFit())
-        return;
-    
-    // Force resizing of the image
-    windowSizeChanged();
+    if (shouldShrinkToFit()) {
+        // Force resizing of the image
+        windowSizeChanged();
+    }
 }
 
 void ImageDocument::restoreImageSize()

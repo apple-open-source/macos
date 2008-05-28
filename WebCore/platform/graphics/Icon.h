@@ -21,7 +21,7 @@
 #ifndef Icon_h
 #define Icon_h
 
-#include "Shared.h"
+#include <wtf/RefCounted.h>
 #include <wtf/Forward.h>
 
 #if PLATFORM(MAC)
@@ -35,6 +35,8 @@ class NSImage;
 typedef struct HICON__* HICON;
 #elif PLATFORM(QT)
 #include <QIcon>
+#elif PLATFORM(GTK)
+#include <gdk/gdk.h>
 #endif
 
 namespace WebCore {
@@ -43,7 +45,7 @@ class GraphicsContext;
 class IntRect;
 class String;
     
-class Icon : public Shared<Icon> {
+class Icon : public RefCounted<Icon> {
 public:
     Icon();
     ~Icon();
@@ -66,6 +68,8 @@ private:
     HICON m_hIcon;
 #elif PLATFORM(QT)
     QIcon m_icon;
+#elif PLATFORM(GTK)
+    GdkPixbuf* m_icon;
 #endif
 };
 

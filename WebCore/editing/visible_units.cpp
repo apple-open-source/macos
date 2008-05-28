@@ -459,10 +459,10 @@ VisiblePosition previousLinePosition(const VisiblePosition &visiblePosition, int
         while (n) {
             if (highestEditableRoot(Position(n, 0)) != highestRoot)
                 break;
-            Position pos(n, n->caretMinOffset());
+            Position pos(n, caretMinOffset(n));
             if (pos.isCandidate()) {
                 ASSERT(n->renderer());
-                box = n->renderer()->inlineBox(n->caretMaxOffset());
+                box = n->renderer()->inlineBox(caretMaxOffset(n));
                 if (box) {
                     // previous root line box found
                     root = box->root();
@@ -529,10 +529,10 @@ VisiblePosition nextLinePosition(const VisiblePosition &visiblePosition, int x)
         while (n) {
             if (highestEditableRoot(Position(n, 0)) != highestRoot)
                 break;
-            Position pos(n, n->caretMinOffset());
+            Position pos(n, caretMinOffset(n));
             if (pos.isCandidate()) {
                 ASSERT(n->renderer());
-                box = n->renderer()->inlineBox(n->caretMinOffset());
+                box = n->renderer()->inlineBox(caretMinOffset(n));
                 if (box) {
                     // next root line box found
                     root = box->root();
@@ -745,6 +745,17 @@ VisiblePosition endOfParagraph(const VisiblePosition &c)
     }
 
     return VisiblePosition(node, offset, DOWNSTREAM);
+}
+
+VisiblePosition startOfNextParagraph(const VisiblePosition& visiblePosition)
+{
+    VisiblePosition paragraphEnd(endOfParagraph(visiblePosition));
+    VisiblePosition afterParagraphEnd(paragraphEnd.next(true));
+    // The position after the last position in the last cell of a table
+    // is not the start of the next paragraph.
+    if (isFirstPositionAfterTable(afterParagraphEnd))
+        return afterParagraphEnd.next(true);
+    return afterParagraphEnd;
 }
 
 bool inSameParagraph(const VisiblePosition &a, const VisiblePosition &b)

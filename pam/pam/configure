@@ -3658,7 +3658,7 @@ echo "$as_me:$LINENO: result: $ac_cv_lib_c_NSCreateObjectFileImageFromFile" >&5
 echo "${ECHO_T}$ac_cv_lib_c_NSCreateObjectFileImageFromFile" >&6
 if test $ac_cv_lib_c_NSCreateObjectFileImageFromFile = yes; then
   cat >>confdefs.h <<\_ACEOF
-#define PAM_DYLD 1
+#undef PAM_DYLD
 _ACEOF
 
 fi

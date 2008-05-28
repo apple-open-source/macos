@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,32 +26,25 @@
 #ifndef CachedPage_h
 #define CachedPage_h
 
-#include "DocumentLoader.h"
-#include "Shared.h"
-#include <wtf/Forward.h>
-#include <wtf/RefPtr.h>
+#include "KURL.h"
 #include <wtf/OwnPtr.h>
 
-#if PLATFORM(MAC)
-#include <wtf/RetainPtr.h>
-typedef struct objc_object* id;
-#endif
-
-namespace KJS {
-    
-    class PausedTimeouts;
+namespace KJS {    
     class SavedBuiltins;
-    class SavedProperties;
+    struct SavedProperties;
 }
 
 namespace WebCore {
-
+    
+    class CachedPagePlatformData;
     class Document;
+    class DocumentLoader;
     class FrameView;
     class Node;
     class Page;
+    class PausedTimeouts;
 
-class CachedPage : public Shared<CachedPage> {
+class CachedPage : public RefCounted<CachedPage> {
 public:
     static PassRefPtr<CachedPage> create(Page*);
     ~CachedPage();
@@ -60,20 +53,17 @@ public:
     Document* document() const { return m_document.get(); }
     FrameView* view() const { return m_view.get(); }
     Node* mousePressNode() const { return m_mousePressNode.get(); }
-    const KURL& URL() const { return m_URL; }
+    const KURL& url() const { return m_URL; }
     void restore(Page*);
-    
-    void close();
-    
+        
     void setTimeStamp(double);
     void setTimeStampToNow();
     double timeStamp() const;
     void setDocumentLoader(PassRefPtr<DocumentLoader>);
     DocumentLoader* documentLoader();
-#if PLATFORM(MAC)
-    void setDocumentView(id);
-    id documentView();
-#endif
+
+    void setCachedPagePlatformData(CachedPagePlatformData*);
+    CachedPagePlatformData* cachedPagePlatformData();
 
 private:
     CachedPage(Page*);
@@ -86,13 +76,11 @@ private:
     KURL m_URL;
     OwnPtr<KJS::SavedProperties> m_windowProperties;
     OwnPtr<KJS::SavedProperties> m_locationProperties;
-    OwnPtr<KJS::SavedBuiltins> m_interpreterBuiltins;
-    OwnPtr<KJS::PausedTimeouts> m_pausedTimeouts;
-        
-#if PLATFORM(MAC)
-    RetainPtr<id> m_documentView;
-#endif
-}; // class CachedPage
+    OwnPtr<KJS::SavedProperties> m_windowLocalStorage;
+    OwnPtr<KJS::SavedBuiltins> m_windowBuiltins;
+    OwnPtr<PausedTimeouts> m_pausedTimeouts;
+    OwnPtr<CachedPagePlatformData> m_cachedPagePlatformData;
+};
 
 } // namespace WebCore
 

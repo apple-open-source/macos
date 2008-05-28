@@ -44,6 +44,8 @@
 
 #include "CLDAPConnectionManager.h"
 #include "CLDAPv3Configs.h"	//used to read the XML config data for each user defined LDAP server
+#include "CLDAPBindData.h"
+#include "DSAPIWrapper.h"
 
 #include <lber.h>
 #include <ldap.h>
@@ -52,23 +54,6 @@
 #define kLDAPReplicaHintFilePath	"/var/run/DirectoryService.ldap-replicas.plist"
 
 #define kMinTimeToWaitAfterNetworkTransitionForIdleTasksToProceed		60*USEC_PER_SEC
-
-typedef struct {
-    int					fLDAPMsgId;			//LDAP session call handle mainly used for searches
-	tDirNodeReference	fNodeRef;			//node reference associated with this context data
-	CLDAPConnection	   *fLDAPConnection;	//the LDAP connection for this continue data
-    LDAPMessage		   *fResult;			//LDAP message last result used for continued searches
-	LDAP			   *fRefLD;				//LDAP * of the original connection for LDAPMsgID, since msgids are invalid on previous LDs
-											//  should not be used directly, only for reference
-    UInt32				fRecNameIndex;		//index used to cycle through all requested Rec Names
-    UInt32				fRecTypeIndex;		//index used to cycle through all requested Rec Types
-    UInt32				fTotalRecCount;		//count of all retrieved records
-    UInt32				fLimitRecSearch;	//client specified limit of number of records to return
-    void				*fAuthHndl;
-	void				*fAuthHandlerProc;
-	char				*fAuthAuthorityData;
-    tContextData		fPassPlugContinueData;
-} sLDAPContinueData;
 
 typedef SInt32 (*LDAPv3AuthAuthorityHandlerProc) (tDirNodeReference inNodeRef,
 											tDataNodePtr inAuthMethod,
@@ -447,7 +432,7 @@ class CLDAPv3Plugin : public BaseDirectoryPlugin
 		
 		static bool			KDCHasNonLocalRealm			( sLDAPContextData *inContext );
 		
-		LDAP				*DoSimpleLDAPBind			( char *pServer,
+		LDAP				*DoSimpleLDAPBind			( const char *pServer,
 															bool bSSL,
 															bool bLDAPv2ReadOnly,
 															char *pUsername,
@@ -456,7 +441,9 @@ class CLDAPv3Plugin : public BaseDirectoryPlugin
 															SInt32 *outFailureCode = NULL );
 
 		CFArrayRef			GetSASLMethods				( LDAP *pLD );
-
+		bool				OverlaySupportsUniqueNameEnforcement
+														( const char *inServer, bool inSSL );
+		
 		CFMutableArrayRef   GetLDAPAttributeFromResult  ( LDAP *pLD, 
 															LDAPMessage *pMessage, 
 															char *pAttribute );
@@ -492,7 +479,28 @@ class CLDAPv3Plugin : public BaseDirectoryPlugin
 		SInt32				DoNewServerBind				( sDoPlugInCustomCall *inData );
 
 		SInt32				DoNewServerBind2			( sDoPlugInCustomCall *inData );
-
+		tDirStatus			DoNewServerBind2a			( 	sDoPlugInCustomCall *inData,
+															DSAPIWrapper &dsWrapper,
+															CLDAPBindData &serverInfo,
+															tRecordReference recRef,
+															tRecordReference recRefHost,
+															tRecordReference recRefLKDC,
+															const char *pComputerID,
+															const char *pCompPassword,
+															const char *hostnameDollar,
+															const char *localKDCRealmDollarStr );
+	
+		tDirStatus			DoNewServerBind2b			( sDoPlugInCustomCall *inData,
+															DSAPIWrapper &dsWrapper,
+															CLDAPBindData &serverInfo,
+															tRecordReference recRef,
+															tRecordReference recRefHost,
+															tRecordReference recRefLKDC,
+															const char *pComputerID,
+															const char *pCompPassword,
+															const char *hostnameDollar,
+															const char *localKDCRealmDollarStr );	
+	
 		SInt32				DoNewServerSetup			( sDoPlugInCustomCall *inData );
 		
 		SInt32				DoRemoveServer				( sDoPlugInCustomCall *inData );
@@ -540,13 +548,12 @@ class CLDAPv3Plugin : public BaseDirectoryPlugin
 													 	  tRecordReference	inLDKCCompRecRef );
 														
 		tDirStatus			SetComputerRecordKerberosAuthority
-														( tDirReference inDSRef,
-														  tDirNodeReference inDSNodeRef,
-														  char *inComputerPassword,
-														  tDataNodePtr inRecType,
-														  tDataNodePtr inRecName,
-														  CFMutableDictionaryRef inCFDict,
-														  char **outKerbIDStr );
+														(	DSAPIWrapper &dsWrapper,
+															char *inComputerPassword,
+															const char *inRecType,
+															const char *inRecName,
+															CFMutableDictionaryRef inCFDict,
+															char **outKerbIDStr );
 	
 	private:
 		CLDAPConnectionManager	*fLDAPConnectionMgr;

@@ -551,6 +551,7 @@ int smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, int nmlen, struc
 		lck_mtx_init(&np->rfrkMetaLock, smbfs_mutex_group, smbfs_lock_attr);
 		lck_mtx_init(&np->f_openDenyListLock, smbfs_mutex_group, smbfs_lock_attr);
 	}
+	lck_mtx_init(&np->f_ACLCacheLock, smbfs_mutex_group, smbfs_lock_attr);
 
 	/*
 	 * When the root vnode gets create there is no cahce information yet.

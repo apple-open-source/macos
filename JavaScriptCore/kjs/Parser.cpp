@@ -3,7 +3,7 @@
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2006 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2006, 2007 Apple Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -26,7 +26,6 @@
 #include "Parser.h"
 
 #include "lexer.h"
-#include "nodes.h"
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 
@@ -34,88 +33,59 @@ extern int kjsyyparse();
 
 namespace KJS {
 
-int Parser::sid = 0;
-
-static RefPtr<ProgramNode>* progNode;
-static HashSet<Node*>* nodeCycles;
-
-void Parser::noteNodeCycle(Node *node)
+Parser::Parser()
+    : m_sourceId(0)
 {
-    if (!nodeCycles)
-        nodeCycles = new HashSet<Node*>;
-    nodeCycles->add(node);
 }
 
-void Parser::removeNodeCycle(Node *node)
-{
-    ASSERT(nodeCycles);
-    nodeCycles->remove(node);
-}
-
-static void clearNewNodes()
-{
-    if (nodeCycles) {
-        for (HashSet<Node*>::iterator it = nodeCycles->begin(); it != nodeCycles->end(); ++it)
-            (*it)->breakCycle();
-        delete nodeCycles;
-        nodeCycles = 0;
-    }
-    Node::clearNewNodes();
-}
-
-PassRefPtr<ProgramNode> Parser::parse(const UString& sourceURL, int startingLineNumber,
+void Parser::parse(int startingLineNumber,
     const UChar* code, unsigned length,
     int* sourceId, int* errLine, UString* errMsg)
 {
+    ASSERT(!m_sourceElements);
+
     if (errLine)
         *errLine = -1;
     if (errMsg)
         *errMsg = 0;
-    if (!progNode)
-        progNode = new RefPtr<ProgramNode>;
+        
+    Lexer& lexer = KJS::lexer();
 
-    Lexer::curr()->setCode(sourceURL, startingLineNumber, code, length);
-    *progNode = 0;
-    sid++;
+    lexer.setCode(startingLineNumber, code, length);
+    m_sourceId++;
     if (sourceId)
-        *sourceId = sid;
-
-    // Enable this and the #define YYDEBUG in grammar.y to debug a parse error
-    //extern int kjsyydebug;
-    //kjsyydebug=1;
+        *sourceId = m_sourceId;
 
     int parseError = kjsyyparse();
-    bool lexError = Lexer::curr()->sawError();
-    Lexer::curr()->doneParsing();
-    PassRefPtr<ProgramNode> prog = progNode->release();
-    *progNode = 0;
+    bool lexError = lexer.sawError();
+    lexer.clear();
 
-    clearNewNodes();
+    ParserRefCounted::deleteNewObjects();
 
     if (parseError || lexError) {
-        int eline = Lexer::curr()->lineNo();
         if (errLine)
-            *errLine = eline;
+            *errLine = lexer.lineNo();
         if (errMsg)
             *errMsg = "Parse error";
-        return 0;
+        m_sourceElements.clear();
     }
-
-    return prog;
 }
 
-void Parser::accept(PassRefPtr<ProgramNode> prog)
+void Parser::didFinishParsing(SourceElements* sourceElements, ParserRefCountedData<DeclarationStacks::VarStack>* varStack, 
+                              ParserRefCountedData<DeclarationStacks::FunctionStack>* funcStack, int lastLine)
 {
-    *progNode = prog;
+    m_sourceElements = sourceElements ? sourceElements : new SourceElements;
+    m_varDeclarations = varStack;
+    m_funcDeclarations = funcStack;
+    m_lastLine = lastLine;
 }
 
-UString Parser::prettyPrint(const UString& code, int* errLine, UString* errMsg)
+Parser& parser()
 {
-    RefPtr<ProgramNode> progNode = parse(UString(), 0, code.data(), code.size(), 0, errLine, errMsg);
-    if (!progNode)
-        return 0;
-    
-    return progNode->toString();
+    ASSERT(JSLock::currentThreadIsHoldingLock());
+
+    static Parser& staticParser = *new Parser;
+    return staticParser;
 }
 
-}
+} // namespace KJS

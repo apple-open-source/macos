@@ -3,7 +3,7 @@
 #
 #   Common makefile definitions for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2008 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -23,7 +23,7 @@ CC		=	@LIBTOOL@ @CC@
 CXX		=	@LIBTOOL@ @CXX@
 DSO		=	@DSO@
 HTMLDOC		=	@HTMLDOC@
-INSTALL		=	@INSTALL@
+INSTALL		=	@INSTALL@ -o root -g wheel
 LD		=	@LD@
 LIBTOOL		=	@LIBTOOL@
 LN		=	@LN@ -sf
@@ -108,17 +108,17 @@ INSTALLSTATIC	=	@INSTALLSTATIC@
 #               for extra debug info)
 #
 
-ALL_CFLAGS	=	$(CFLAGS) $(SSLFLAGS) @LARGEFILE@ @PTHREAD_FLAGS@ \
-			$(OPTIONS)
+ALL_CFLAGS	=	-I.. -D_CUPS_SOURCE $(CFLAGS) $(SSLFLAGS) \
+			@LARGEFILE@ @PTHREAD_FLAGS@ $(OPTIONS)
+ALL_CXXFLAGS	=	-I.. -D_CUPS_SOURCE $(CXXFLAGS) $(SSLFLAGS) \
+			@LARGEFILE@ @PTHREAD_FLAGS@ $(OPTIONS)
 ARCHFLAGS	=	@ARCHFLAGS@
 ARFLAGS		=	@ARFLAGS@
 BACKLIBS	=	@BACKLIBS@
-CFLAGS		=	-I.. @CPPFLAGS@ @CFLAGS@ \
-			@LARGEFILE@ @PTHREAD_FLAGS@ $(OPTIONS)
+CFLAGS		=	@CPPFLAGS@ @CFLAGS@
 COMMONLIBS	=	@LIBS@
 CUPSDLIBS	=	@CUPSDLIBS@
-CXXFLAGS	=	-I.. $(SSLFLAGS) @CPPFLAGS@ @CXXFLAGS@ \
-			@LARGEFILE@ @PTHREAD_FLAGS@ $(OPTIONS)
+CXXFLAGS	=	@CPPFLAGS@ @CXXFLAGS@
 CXXLIBS		=	@CXXLIBS@
 DSOFLAGS	=	@DSOFLAGS@
 DSOLIBS		=	@DSOLIBS@ $(COMMONLIBS)
@@ -258,7 +258,7 @@ DBUSDIR		=	@DBUSDIR@
 
 .cxx.o:
 	echo Compiling $<...
-	$(CXX) $(ARCHFLAGS) $(OPTIM) $(CXXFLAGS) -c $<
+	$(CXX) $(ARCHFLAGS) $(OPTIM) $(ALL_CXXFLAGS) -c $<
 
 .man.1 .man.1m .man.5 .man.7 .man.8:
 	echo Linking $<...

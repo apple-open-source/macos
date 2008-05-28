@@ -51,5 +51,12 @@ void EmbeddedSignatureBlob::Maker::component(CodeDirectory::SpecialSlot slot, CF
 }
 
 
+CFDictionaryRef EntitlementBlob::entitlements() const
+{
+	return makeCFDictionaryFrom(this->at<const UInt8 *>(sizeof(EntitlementBlob)),
+		this->length() - sizeof(EntitlementBlob));
+}
+
+
 } // end namespace CodeSigning
 } // end namespace Security

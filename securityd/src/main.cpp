@@ -76,6 +76,7 @@ static PCSCMonitor::ServiceLevel scOptions(const char *optionString);
 
 
 static Port gMainServerPort;
+PCSCMonitor *gPCSC;
 
 
 //
@@ -237,8 +238,10 @@ int main(int argc, char *argv[])
         secdebug("SS", "Cannot handle SIGPIPE: errno=%d", errno);
 #if !defined(NDEBUG)
     if (signal(SIGUSR1, handleSignals) == SIG_ERR)
-        secdebug("SS", "Cannot handle SIGHUP: errno=%d", errno);
+        secdebug("SS", "Cannot handle SIGUSR1: errno=%d", errno);
 #endif //NDEBUG
+    if (signal(SIGUSR2, handleSignals) == SIG_ERR)
+        secdebug("SS", "Cannot handle SIGUSR2: errno=%d", errno);
 
 	// create an Authorization engine
 	Authority authority(authorizationConfig);
@@ -287,7 +290,7 @@ int main(int argc, char *argv[])
 #endif //NDEBUG
 
 	// create a smartcard monitor to manage external token devices
-	new PCSCMonitor(server, tokenCacheDir, scOptions(smartCardOptions));
+	gPCSC = new PCSCMonitor(server, tokenCacheDir, scOptions(smartCardOptions));
     
     // create the RootSession object (if -d, give it graphics and tty attributes)
     RootSession rootSession(server,

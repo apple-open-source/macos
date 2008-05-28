@@ -18,15 +18,13 @@
 		<Configuration
 			Name="Debug|Win32"
 			OutputDirectory="$(WebKitOutputDir)\lib"
-			IntermediateDirectory="$(WebKitOutputDir)\obj\$(ProjectName)\$(ConfigurationName)"
 			ConfigurationType="4"
-			InheritedPropertySheets=".\debug.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops"
 			CharacterSet="1"
-			DeleteExtensionsOnClean="*.obj;*.ilk;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;$(TargetPath)"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 0 set EnablePREfast=&quot;false&quot; else set EnablePREfast=&quot;true&quot;&#x0D;&#x0A;if ERRORLEVEL 0 set AnalyzeWithLargeStack=&quot;&quot; AnalyzeWithLargeStack=&quot;/analyze:65536&quot;&#x0D;&#x0A;bash build-generated-files.sh &quot;$(WebKitOutputDir)&quot; &quot;$(WebKitLibrariesDir)&quot;&#x0D;&#x0A;"
+				CommandLine="touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 0 set EnablePREfast=&quot;false&quot; else set EnablePREfast=&quot;true&quot;&#x0D;&#x0A;if ERRORLEVEL 0 set AnalyzeWithLargeStack=&quot;&quot; AnalyzeWithLargeStack=&quot;/analyze:65536&quot;&#x0D;&#x0A;exit /b&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -42,21 +40,11 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(ProjectDir)..\css&quot;;&quot;$(ProjectDir)..\css&quot;;&quot;$(ProjectDir)..\editing&quot;;&quot;$(ProjectDir)..\editing&quot;;&quot;$(ProjectDir)..\rendering&quot;;&quot;$(ProjectDir)..\rendering&quot;;&quot;$(ProjectDir)..\bindings\js&quot;;&quot;$(ProjectDir)..\bindings\js&quot;;&quot;$(ProjectDir)..\dom&quot;;&quot;$(ProjectDir)..\dom&quot;;&quot;$(ProjectDir)..\history&quot;;&quot;$(ProjectDir)..\html&quot;;&quot;$(ProjectDir)..\html&quot;;&quot;$(ProjectDir)..\bridge&quot;;&quot;$(ProjectDir)..\bridge&quot;;&quot;$(ProjectDir)..\bridge\win&quot;;&quot;$(ProjectDir)..\bridge\win&quot;;&quot;$(ProjectDir)..\loader&quot;;&quot;$(ProjectDir)..\loader&quot;;&quot;$(ProjectDir)..\loader\icon&quot;;&quot;$(ProjectDir)..\loader\icon&quot;;&quot;$(ProjectDir)..\page&quot;;&quot;$(ProjectDir)..\page&quot;;&quot;$(ProjectDir)..\platform&quot;;&quot;$(ProjectDir)..\platform\win&quot;;&quot;$(ProjectDir)..\platform\network&quot;;&quot;$(ProjectDir)..\platform\network\win&quot;;&quot;$(ProjectDir)..\platform&quot;;&quot;$(ProjectDir)..\platform\cf&quot;;&quot;$(ProjectDir)..\platform\network&quot;;&quot;$(ProjectDir)..\platform\network\cf&quot;;&quot;$(ProjectDir)..\platform\network\win&quot;;&quot;$(ProjectDir)..\platform\graphics&quot;;&quot;$(ProjectDir)..\platform\graphics&quot;;&quot;$(ProjectDir)..\platform\graphics\cairo&quot;;&quot;$(ProjectDir)..\platform\graphics\cairo&quot;;&quot;$(ProjectDir)..\platform\graphics\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\win&quot;;&quot;$(ProjectDir)..\platform\graphics\win&quot;;&quot;$(ProjectDir)..\platform\image-decoders&quot;;&quot;$(ProjectDir)..\platform\image-decoders&quot;;&quot;$(ProjectDir)..\platform\image-decoders\bmp&quot;;&quot;$(ProjectDir)..\platform\image-decoders\bmp&quot;;&quot;$(ProjectDir)..\platform\image-decoders\gif&quot;;&quot;$(ProjectDir)..\platform\image-decoders\gif&quot;;&quot;$(ProjectDir)..\platform\image-decoders\ico&quot;;&quot;$(ProjectDir)..\platform\image-decoders\ico&quot;;&quot;$(ProjectDir)..\platform\image-decoders\jpeg&quot;;&quot;$(ProjectDir)..\platform\image-decoders\jpeg&quot;;&quot;$(ProjectDir)..\platform\image-decoders\png&quot;;&quot;$(ProjectDir)..\platform\image-decoders\png&quot;;&quot;$(ProjectDir)..\platform\image-decoders\xbm&quot;;&quot;$(ProjectDir)..\platform\image-decoders\xbm&quot;;&quot;$(ProjectDir)..\platform\image-decoders\zlib&quot;;&quot;$(ProjectDir)..\platform\image-decoders\zlib&quot;;&quot;$(ProjectDir)..\xml&quot;;&quot;$(ProjectDir)..\xml&quot;;&quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources&quot;;&quot;$(ProjectDir)..\platform\win&quot;;&quot;$(ProjectDir)..\plugins\win&quot;;&quot;$(ProjectDir)..\platform\cairo\pixman\src&quot;;&quot;$(ProjectDir)..\platform\cairo\pixman\src&quot;;&quot;$(ProjectDir)..\platform\cairo\cairo\src&quot;;&quot;$(ProjectDir)..\platform\cairo\cairo\src&quot;;&quot;$(ProjectDir)..\platform\graphics\svg&quot;;&quot;$(ProjectDir)..\platform\graphics\svg\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\svg\filters&quot;;&quot;$(ProjectDir)..\kcanvas&quot;;&quot;$(ProjectDir)..\kcanvas\device&quot;;&quot;$(ProjectDir)..\kcanvas\device\quartz&quot;;&quot;$(ProjectDir)..\ksvg2&quot;;&quot;$(ProjectDir)..\ksvg2\css&quot;;&quot;$(ProjectDir)..\ksvg2\events&quot;;&quot;$(ProjectDir)..\ksvg2\misc&quot;;&quot;$(ProjectDir)..\ksvg2\svg&quot;;&quot;$(WebKitOutputDir)\include&quot;;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;&quot;$(WebKitLibrariesDir)\include\iconv&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitLibrariesDir)\include\sqlite&quot;;&quot;$(WebKitLibrariesDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility&quot;"
-				PreprocessorDefinitions="WIN32;__WIN32__;_SCL_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;ENABLE_XSLT;ENABLE_XPATH;ENABLE_SVG;WEBCORE_CONTEXT_MENUS;USE_SAFARI_THEME"
-				MinimalRebuild="true"
-				ExceptionHandling="0"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
-				RuntimeTypeInfo="false"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(ProjectDir)..\css&quot;;&quot;$(ProjectDir)..\editing&quot;;&quot;$(ProjectDir)..\rendering&quot;;&quot;$(ProjectDir)..\bindings\js&quot;;&quot;$(ProjectDir)..\dom&quot;;&quot;$(ProjectDir)..\history&quot;;&quot;$(ProjectDir)..\html&quot;;&quot;$(ProjectDir)..\bridge&quot;;&quot;$(ProjectDir)..\bridge\win&quot;;&quot;$(ProjectDir)..\loader&quot;;&quot;$(ProjectDir)..\loader\icon&quot;;&quot;$(ProjectDir)..\page&quot;;&quot;$(ProjectDir)..\platform&quot;;&quot;$(ProjectDir)..\platform\sql&quot;;&quot;$(ProjectDir)..\platform\win&quot;;&quot;$(ProjectDir)..\platform\network&quot;;&quot;$(ProjectDir)..\platform\network\win&quot;;&quot;$(ProjectDir)..\platform\cf&quot;;&quot;$(ProjectDir)..\platform\network\cf&quot;;&quot;$(ProjectDir)..\platform\graphics&quot;;&quot;$(ProjectDir)..\platform\text&quot;;&quot;$(ProjectDir)..\platform\graphics\cairo&quot;;&quot;$(ProjectDir)..\platform\graphics\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\win&quot;;&quot;$(ProjectDir)..\platform\image-decoders&quot;;&quot;$(ProjectDir)..\platform\image-decoders\bmp&quot;;&quot;$(ProjectDir)..\platform\image-decoders\gif&quot;;&quot;$(ProjectDir)..\platform\image-decoders\ico&quot;;&quot;$(ProjectDir)..\platform\image-decoders\jpeg&quot;;&quot;$(ProjectDir)..\platform\image-decoders\png&quot;;&quot;$(ProjectDir)..\platform\image-decoders\xbm&quot;;&quot;$(ProjectDir)..\platform\image-decoders\zlib&quot;;&quot;$(ProjectDir)..\xml&quot;;&quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources&quot;;&quot;$(ProjectDir)..\plugins&quot;;&quot;$(ProjectDir)..\plugins\win&quot;;&quot;$(ProjectDir)..\platform\cairo\pixman\src&quot;;&quot;$(ProjectDir)..\platform\cairo\cairo\src&quot;;&quot;$(ProjectDir)..\svg\graphics&quot;;&quot;$(ProjectDir)..\svg\graphics\cg&quot;;&quot;$(ProjectDir)..\svg\graphics\filters&quot;;&quot;$(ProjectDir)..\kcanvas&quot;;&quot;$(ProjectDir)..\kcanvas\device&quot;;&quot;$(ProjectDir)..\kcanvas\device\quartz&quot;;&quot;$(ProjectDir)..\svg&quot;;&quot;$(ProjectDir)..\storage&quot;;&quot;$(WebKitOutputDir)\include&quot;;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;&quot;$(WebKitLibrariesDir)\include\iconv&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitLibrariesDir)\include\sqlite&quot;;&quot;$(WebKitLibrariesDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility&quot;;$(WebKitOutputDir)\include\QtMovieWin"
+				PreprocessorDefinitions="__WIN32__;ENABLE_XSLT;ENABLE_XPATH;ENABLE_SVG;ENABLE_SVG_AS_IMAGE;ENABLE_SVG_USE;ENABLE_SVG_FOREIGN_OBJECT;ENABLE_SVG_FONTS;WEBCORE_CONTEXT_MENUS;USE_SAFARI_THEME;ENABLE_VIDEO"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="WebCorePrefix.h"
-				WarningLevel="4"
 				WarnAsError="false"
-				Detect64BitPortabilityProblems="false"
-				DebugInformationFormat="3"
-				DisableSpecificWarnings="4099;4100;4127;4138;4189;4244;4510;4512;4610;4706;4800;4996;4355;4291;4068;6011;6031;6211;6246;6255;6387"
 				ForcedIncludeFiles="WebCorePrefix.h"
 			/>
 			<Tool
@@ -70,7 +58,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -86,22 +73,20 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y &quot;$(ProjectDir)..\bridge\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\events\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\misc\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\scripts\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\kjs\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s &quot;$(ProjectDir)\..\page\inspector\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;"
+				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\sql\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\storage\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\kjs\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\page\inspector\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\English.lproj\InspectorLocalizedStrings.js&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
 			OutputDirectory="$(WebKitOutputDir)\lib"
-			IntermediateDirectory="$(WebKitOutputDir)\obj\$(ProjectName)\$(ConfigurationName)"
 			ConfigurationType="4"
-			InheritedPropertySheets=".\release.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops"
 			CharacterSet="1"
-			DeleteExtensionsOnClean="*.obj;*.ilk;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;$(TargetPath)"
 			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 0 set EnablePREfast=&quot;false&quot; else set EnablePREfast=&quot;true&quot;&#x0D;&#x0A;if ERRORLEVEL 0 set AnalyzeWithLargeStack=&quot;&quot; AnalyzeWithLargeStack=&quot;/analyze:65536&quot;&#x0D;&#x0A;bash build-generated-files.sh &quot;$(WebKitOutputDir)&quot; &quot;$(WebKitLibrariesDir)&quot;&#x0D;&#x0A;"
+				CommandLine="touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 0 set EnablePREfast=&quot;false&quot; else set EnablePREfast=&quot;true&quot;&#x0D;&#x0A;if ERRORLEVEL 0 set AnalyzeWithLargeStack=&quot;&quot; AnalyzeWithLargeStack=&quot;/analyze:65536&quot;&#x0D;&#x0A;exit /b&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -117,18 +102,11 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(ProjectDir)..\css&quot;;&quot;$(ProjectDir)..\css&quot;;&quot;$(ProjectDir)..\editing&quot;;&quot;$(ProjectDir)..\editing&quot;;&quot;$(ProjectDir)..\rendering&quot;;&quot;$(ProjectDir)..\rendering&quot;;&quot;$(ProjectDir)..\bindings\js&quot;;&quot;$(ProjectDir)..\bindings\js&quot;;&quot;$(ProjectDir)..\dom&quot;;&quot;$(ProjectDir)..\dom&quot;;&quot;$(ProjectDir)..\history&quot;;&quot;$(ProjectDir)..\html&quot;;&quot;$(ProjectDir)..\html&quot;;&quot;$(ProjectDir)..\bridge&quot;;&quot;$(ProjectDir)..\bridge&quot;;&quot;$(ProjectDir)..\bridge\win&quot;;&quot;$(ProjectDir)..\bridge\win&quot;;&quot;$(ProjectDir)..\loader&quot;;&quot;$(ProjectDir)..\loader&quot;;&quot;$(ProjectDir)..\loader\icon&quot;;&quot;$(ProjectDir)..\loader\icon&quot;;&quot;$(ProjectDir)..\page&quot;;&quot;$(ProjectDir)..\page&quot;;&quot;$(ProjectDir)..\platform&quot;;&quot;$(ProjectDir)..\platform\win&quot;;&quot;$(ProjectDir)..\platform\network&quot;;&quot;$(ProjectDir)..\platform\network\win&quot;;&quot;$(ProjectDir)..\platform&quot;;&quot;$(ProjectDir)..\platform\cf&quot;;&quot;$(ProjectDir)..\platform\network&quot;;&quot;$(ProjectDir)..\platform\network\cf&quot;;&quot;$(ProjectDir)..\platform\network\win&quot;;&quot;$(ProjectDir)..\platform\graphics&quot;;&quot;$(ProjectDir)..\platform\graphics&quot;;&quot;$(ProjectDir)..\platform\graphics\cairo&quot;;&quot;$(ProjectDir)..\platform\graphics\cairo&quot;;&quot;$(ProjectDir)..\platform\graphics\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\win&quot;;&quot;$(ProjectDir)..\platform\graphics\win&quot;;&quot;$(ProjectDir)..\platform\image-decoders&quot;;&quot;$(ProjectDir)..\platform\image-decoders&quot;;&quot;$(ProjectDir)..\platform\image-decoders\bmp&quot;;&quot;$(ProjectDir)..\platform\image-decoders\bmp&quot;;&quot;$(ProjectDir)..\platform\image-decoders\gif&quot;;&quot;$(ProjectDir)..\platform\image-decoders\gif&quot;;&quot;$(ProjectDir)..\platform\image-decoders\ico&quot;;&quot;$(ProjectDir)..\platform\image-decoders\ico&quot;;&quot;$(ProjectDir)..\platform\image-decoders\jpeg&quot;;&quot;$(ProjectDir)..\platform\image-decoders\jpeg&quot;;&quot;$(ProjectDir)..\platform\image-decoders\png&quot;;&quot;$(ProjectDir)..\platform\image-decoders\png&quot;;&quot;$(ProjectDir)..\platform\image-decoders\xbm&quot;;&quot;$(ProjectDir)..\platform\image-decoders\xbm&quot;;&quot;$(ProjectDir)..\platform\image-decoders\zlib&quot;;&quot;$(ProjectDir)..\platform\image-decoders\zlib&quot;;&quot;$(ProjectDir)..\xml&quot;;&quot;$(ProjectDir)..\xml&quot;;&quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources&quot;;&quot;$(ProjectDir)..\platform\win&quot;;&quot;$(ProjectDir)..\plugins\win&quot;;&quot;$(ProjectDir)..\platform\cairo\pixman\src&quot;;&quot;$(ProjectDir)..\platform\cairo\pixman\src&quot;;&quot;$(ProjectDir)..\platform\cairo\cairo\src&quot;;&quot;$(ProjectDir)..\platform\cairo\cairo\src&quot;;&quot;$(ProjectDir)..\platform\graphics\svg&quot;;&quot;$(ProjectDir)..\platform\graphics\svg\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\svg\filters&quot;;&quot;$(ProjectDir)..\kcanvas&quot;;&quot;$(ProjectDir)..\kcanvas\device&quot;;&quot;$(ProjectDir)..\kcanvas\device\quartz&quot;;&quot;$(ProjectDir)..\ksvg2&quot;;&quot;$(ProjectDir)..\ksvg2\css&quot;;&quot;$(ProjectDir)..\ksvg2\events&quot;;&quot;$(ProjectDir)..\ksvg2\misc&quot;;&quot;$(ProjectDir)..\ksvg2\svg&quot;;&quot;$(WebKitOutputDir)\include&quot;;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;&quot;$(WebKitLibrariesDir)\include\iconv&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitLibrariesDir)\include\sqlite&quot;;&quot;$(WebKitLibrariesDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility&quot;"
-				PreprocessorDefinitions="WIN32;__WIN32__;ENABLE_XSLT;ENABLE_XPATH;ENABLE_SVG;NDEBUG;WEBCORE_CONTEXT_MENUS;USE_SAFARI_THEME"
-				ExceptionHandling="0"
-				RuntimeLibrary="2"
-				RuntimeTypeInfo="false"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(ProjectDir)..\css&quot;;&quot;$(ProjectDir)..\editing&quot;;&quot;$(ProjectDir)..\rendering&quot;;&quot;$(ProjectDir)..\bindings\js&quot;;&quot;$(ProjectDir)..\dom&quot;;&quot;$(ProjectDir)..\history&quot;;&quot;$(ProjectDir)..\html&quot;;&quot;$(ProjectDir)..\bridge&quot;;&quot;$(ProjectDir)..\bridge\win&quot;;&quot;$(ProjectDir)..\loader&quot;;&quot;$(ProjectDir)..\loader\icon&quot;;&quot;$(ProjectDir)..\page&quot;;&quot;$(ProjectDir)..\platform&quot;;&quot;$(ProjectDir)..\platform\sql&quot;;&quot;$(ProjectDir)..\platform\win&quot;;&quot;$(ProjectDir)..\platform\network&quot;;&quot;$(ProjectDir)..\platform\network\win&quot;;&quot;$(ProjectDir)..\platform\cf&quot;;&quot;$(ProjectDir)..\platform\network\cf&quot;;&quot;$(ProjectDir)..\platform\graphics&quot;;&quot;$(ProjectDir)..\platform\text&quot;;&quot;$(ProjectDir)..\platform\graphics\cairo&quot;;&quot;$(ProjectDir)..\platform\graphics\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\win&quot;;&quot;$(ProjectDir)..\platform\image-decoders&quot;;&quot;$(ProjectDir)..\platform\image-decoders\bmp&quot;;&quot;$(ProjectDir)..\platform\image-decoders\gif&quot;;&quot;$(ProjectDir)..\platform\image-decoders\ico&quot;;&quot;$(ProjectDir)..\platform\image-decoders\jpeg&quot;;&quot;$(ProjectDir)..\platform\image-decoders\png&quot;;&quot;$(ProjectDir)..\platform\image-decoders\xbm&quot;;&quot;$(ProjectDir)..\platform\image-decoders\zlib&quot;;&quot;$(ProjectDir)..\xml&quot;;&quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources&quot;;&quot;$(ProjectDir)..\plugins&quot;;&quot;$(ProjectDir)..\plugins\win&quot;;&quot;$(ProjectDir)..\platform\cairo\pixman\src&quot;;&quot;$(ProjectDir)..\platform\cairo\cairo\src&quot;;&quot;$(ProjectDir)..\svg\graphics&quot;;&quot;$(ProjectDir)..\svg\graphics\cg&quot;;&quot;$(ProjectDir)..\svg\graphics\filters&quot;;&quot;$(ProjectDir)..\kcanvas&quot;;&quot;$(ProjectDir)..\kcanvas\device&quot;;&quot;$(ProjectDir)..\kcanvas\device\quartz&quot;;&quot;$(ProjectDir)..\svg&quot;;&quot;$(ProjectDir)..\storage&quot;;&quot;$(WebKitOutputDir)\include&quot;;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;&quot;$(WebKitLibrariesDir)\include\iconv&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitLibrariesDir)\include\sqlite&quot;;&quot;$(WebKitLibrariesDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility&quot;;$(WebKitOutputDir)\include\QtMovieWin"
+				PreprocessorDefinitions="__WIN32__;ENABLE_XSLT;ENABLE_XPATH;ENABLE_SVG;ENABLE_SVG_AS_IMAGE;ENABLE_SVG_USE;ENABLE_SVG_FOREIGN_OBJECT;ENABLE_SVG_FONTS;WEBCORE_CONTEXT_MENUS;USE_SAFARI_THEME;ENABLE_VIDEO"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="WebCorePrefix.h"
-				WarningLevel="4"
 				WarnAsError="false"
-				Detect64BitPortabilityProblems="false"
-				DebugInformationFormat="3"
-				DisableSpecificWarnings="4099;4100;4127;4138;4189;4244;4510;4512;4610;4706;4800;4996;4355;4291;4068;6011;6031;6211;6246;6255;6387"
 				ForcedIncludeFiles="WebCorePrefix.h"
 			/>
 			<Tool
@@ -142,7 +120,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -158,21 +135,19 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y &quot;$(ProjectDir)..\bridge\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\events\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\misc\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\scripts\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\kjs\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s &quot;$(ProjectDir)\..\page\inspector\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;"
+				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\sql\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\storage\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\kjs\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\page\inspector\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\English.lproj\InspectorLocalizedStrings.js&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Debug_Internal|Win32"
 			OutputDirectory="$(WebKitOutputDir)\lib"
-			IntermediateDirectory="$(WebKitOutputDir)\obj\$(ProjectName)\$(ConfigurationName)"
 			ConfigurationType="4"
-			InheritedPropertySheets=".\debug_internal.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops"
 			CharacterSet="1"
-			DeleteExtensionsOnClean="*.obj;*.ilk;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;$(TargetPath)"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 0 set EnablePREfast=&quot;false&quot; else set EnablePREfast=&quot;true&quot;&#x0D;&#x0A;if ERRORLEVEL 0 set AnalyzeWithLargeStack=&quot;&quot; AnalyzeWithLargeStack=&quot;/analyze:65536&quot;&#x0D;&#x0A;bash build-generated-files.sh &quot;$(WebKitOutputDir)&quot; &quot;$(WebKitLibrariesDir)&quot;&#x0D;&#x0A;"
+				CommandLine="touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 0 set EnablePREfast=&quot;false&quot; else set EnablePREfast=&quot;true&quot;&#x0D;&#x0A;if ERRORLEVEL 0 set AnalyzeWithLargeStack=&quot;&quot; AnalyzeWithLargeStack=&quot;/analyze:65536&quot;&#x0D;&#x0A;exit /b&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -188,21 +163,11 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(ProjectDir)..\css&quot;;&quot;$(ProjectDir)..\css&quot;;&quot;$(ProjectDir)..\editing&quot;;&quot;$(ProjectDir)..\editing&quot;;&quot;$(ProjectDir)..\rendering&quot;;&quot;$(ProjectDir)..\rendering&quot;;&quot;$(ProjectDir)..\bindings\js&quot;;&quot;$(ProjectDir)..\bindings\js&quot;;&quot;$(ProjectDir)..\dom&quot;;&quot;$(ProjectDir)..\dom&quot;;&quot;$(ProjectDir)..\history&quot;;&quot;$(ProjectDir)..\html&quot;;&quot;$(ProjectDir)..\html&quot;;&quot;$(ProjectDir)..\bridge&quot;;&quot;$(ProjectDir)..\bridge&quot;;&quot;$(ProjectDir)..\bridge\win&quot;;&quot;$(ProjectDir)..\bridge\win&quot;;&quot;$(ProjectDir)..\loader&quot;;&quot;$(ProjectDir)..\loader&quot;;&quot;$(ProjectDir)..\loader\icon&quot;;&quot;$(ProjectDir)..\loader\icon&quot;;&quot;$(ProjectDir)..\page&quot;;&quot;$(ProjectDir)..\page&quot;;&quot;$(ProjectDir)..\platform&quot;;&quot;$(ProjectDir)..\platform\win&quot;;&quot;$(ProjectDir)..\platform\network&quot;;&quot;$(ProjectDir)..\platform\network\win&quot;;&quot;$(ProjectDir)..\platform&quot;;&quot;$(ProjectDir)..\platform\cf&quot;;&quot;$(ProjectDir)..\platform\network&quot;;&quot;$(ProjectDir)..\platform\network\cf&quot;;&quot;$(ProjectDir)..\platform\network\win&quot;;&quot;$(ProjectDir)..\platform\graphics&quot;;&quot;$(ProjectDir)..\platform\graphics&quot;;&quot;$(ProjectDir)..\platform\graphics\cairo&quot;;&quot;$(ProjectDir)..\platform\graphics\cairo&quot;;&quot;$(ProjectDir)..\platform\graphics\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\win&quot;;&quot;$(ProjectDir)..\platform\graphics\win&quot;;&quot;$(ProjectDir)..\platform\image-decoders&quot;;&quot;$(ProjectDir)..\platform\image-decoders&quot;;&quot;$(ProjectDir)..\platform\image-decoders\bmp&quot;;&quot;$(ProjectDir)..\platform\image-decoders\bmp&quot;;&quot;$(ProjectDir)..\platform\image-decoders\gif&quot;;&quot;$(ProjectDir)..\platform\image-decoders\gif&quot;;&quot;$(ProjectDir)..\platform\image-decoders\ico&quot;;&quot;$(ProjectDir)..\platform\image-decoders\ico&quot;;&quot;$(ProjectDir)..\platform\image-decoders\jpeg&quot;;&quot;$(ProjectDir)..\platform\image-decoders\jpeg&quot;;&quot;$(ProjectDir)..\platform\image-decoders\png&quot;;&quot;$(ProjectDir)..\platform\image-decoders\png&quot;;&quot;$(ProjectDir)..\platform\image-decoders\xbm&quot;;&quot;$(ProjectDir)..\platform\image-decoders\xbm&quot;;&quot;$(ProjectDir)..\platform\image-decoders\zlib&quot;;&quot;$(ProjectDir)..\platform\image-decoders\zlib&quot;;&quot;$(ProjectDir)..\xml&quot;;&quot;$(ProjectDir)..\xml&quot;;&quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources&quot;;&quot;$(ProjectDir)..\platform\win&quot;;&quot;$(ProjectDir)..\plugins\win&quot;;&quot;$(ProjectDir)..\platform\cairo\pixman\src&quot;;&quot;$(ProjectDir)..\platform\cairo\pixman\src&quot;;&quot;$(ProjectDir)..\platform\cairo\cairo\src&quot;;&quot;$(ProjectDir)..\platform\cairo\cairo\src&quot;;&quot;$(ProjectDir)..\platform\graphics\svg&quot;;&quot;$(ProjectDir)..\platform\graphics\svg\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\svg\filters&quot;;&quot;$(ProjectDir)..\kcanvas&quot;;&quot;$(ProjectDir)..\kcanvas\device&quot;;&quot;$(ProjectDir)..\kcanvas\device\quartz&quot;;&quot;$(ProjectDir)..\ksvg2&quot;;&quot;$(ProjectDir)..\ksvg2\css&quot;;&quot;$(ProjectDir)..\ksvg2\events&quot;;&quot;$(ProjectDir)..\ksvg2\misc&quot;;&quot;$(ProjectDir)..\ksvg2\svg&quot;;&quot;$(WebKitOutputDir)\include&quot;;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;&quot;$(WebKitLibrariesDir)\include\iconv&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitLibrariesDir)\include\sqlite&quot;;&quot;$(WebKitLibrariesDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility&quot;"
-				PreprocessorDefinitions="WIN32;__WIN32__;_SCL_SECURE_NO_DEPRECATE;_CRT_SECURE_NO_DEPRECATE;ENABLE_XSLT;ENABLE_XPATH;ENABLE_SVG;WEBCORE_CONTEXT_MENUS;USE_SAFARI_THEME"
-				MinimalRebuild="true"
-				ExceptionHandling="0"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
-				RuntimeTypeInfo="false"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\&quot;;&quot;$(ProjectDir)..&quot;;&quot;$(ProjectDir)..\css&quot;;&quot;$(ProjectDir)..\editing&quot;;&quot;$(ProjectDir)..\rendering&quot;;&quot;$(ProjectDir)..\bindings\js&quot;;&quot;$(ProjectDir)..\dom&quot;;&quot;$(ProjectDir)..\history&quot;;&quot;$(ProjectDir)..\html&quot;;&quot;$(ProjectDir)..\bridge&quot;;&quot;$(ProjectDir)..\bridge\win&quot;;&quot;$(ProjectDir)..\loader&quot;;&quot;$(ProjectDir)..\loader\icon&quot;;&quot;$(ProjectDir)..\page&quot;;&quot;$(ProjectDir)..\platform&quot;;&quot;$(ProjectDir)..\platform\sql&quot;;&quot;$(ProjectDir)..\platform\win&quot;;&quot;$(ProjectDir)..\platform\network&quot;;&quot;$(ProjectDir)..\platform\network\win&quot;;&quot;$(ProjectDir)..\platform\cf&quot;;&quot;$(ProjectDir)..\platform\network\cf&quot;;&quot;$(ProjectDir)..\platform\graphics&quot;;&quot;$(ProjectDir)..\platform\text&quot;;&quot;$(ProjectDir)..\platform\graphics\cairo&quot;;&quot;$(ProjectDir)..\platform\graphics\cg&quot;;&quot;$(ProjectDir)..\platform\graphics\win&quot;;&quot;$(ProjectDir)..\platform\image-decoders&quot;;&quot;$(ProjectDir)..\platform\image-decoders\bmp&quot;;&quot;$(ProjectDir)..\platform\image-decoders\gif&quot;;&quot;$(ProjectDir)..\platform\image-decoders\ico&quot;;&quot;$(ProjectDir)..\platform\image-decoders\jpeg&quot;;&quot;$(ProjectDir)..\platform\image-decoders\png&quot;;&quot;$(ProjectDir)..\platform\image-decoders\xbm&quot;;&quot;$(ProjectDir)..\platform\image-decoders\zlib&quot;;&quot;$(ProjectDir)..\xml&quot;;&quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources&quot;;&quot;$(ProjectDir)..\plugins&quot;;&quot;$(ProjectDir)..\plugins\win&quot;;&quot;$(ProjectDir)..\platform\cairo\pixman\src&quot;;&quot;$(ProjectDir)..\platform\cairo\cairo\src&quot;;&quot;$(ProjectDir)..\svg\graphics&quot;;&quot;$(ProjectDir)..\svg\graphics\cg&quot;;&quot;$(ProjectDir)..\svg\graphics\filters&quot;;&quot;$(ProjectDir)..\kcanvas&quot;;&quot;$(ProjectDir)..\kcanvas\device&quot;;&quot;$(ProjectDir)..\kcanvas\device\quartz&quot;;&quot;$(ProjectDir)..\svg&quot;;&quot;$(ProjectDir)..\storage&quot;;&quot;$(WebKitOutputDir)\include&quot;;&quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;;&quot;$(ProjectDir)..\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\include&quot;;&quot;$(WebKitLibrariesDir)\include\icu&quot;;&quot;$(WebKitLibrariesDir)\include\iconv&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(WebKitLibrariesDir)\include\sqlite&quot;;&quot;$(WebKitLibrariesDir)\include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility&quot;;$(WebKitOutputDir)\include\QtMovieWin"
+				PreprocessorDefinitions="__WIN32__;ENABLE_XSLT;ENABLE_XPATH;ENABLE_SVG;ENABLE_SVG_AS_IMAGE;ENABLE_SVG_USE;ENABLE_SVG_FOREIGN_OBJECT;ENABLE_SVG_FONTS;WEBCORE_CONTEXT_MENUS;USE_SAFARI_THEME;ENABLE_VIDEO"
 				UsePrecompiledHeader="2"
 				PrecompiledHeaderThrough="WebCorePrefix.h"
-				WarningLevel="4"
 				WarnAsError="false"
-				Detect64BitPortabilityProblems="false"
-				DebugInformationFormat="3"
-				DisableSpecificWarnings="4099;4100;4127;4138;4189;4244;4510;4512;4610;4706;4800;4996;4355;4291;4068;6011;6031;6211;6246;6255;6387"
 				ForcedIncludeFiles="WebCorePrefix.h"
 			/>
 			<Tool
@@ -216,7 +181,6 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitConfigSuffix).lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -232,7 +196,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y &quot;$(ProjectDir)..\bridge\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\events\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\misc\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\scripts\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\ksvg2\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\kjs\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s &quot;$(ProjectDir)\..\page\inspector\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;"
+				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\sql\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\storage\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\kjs\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\kjs&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\page\inspector\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\English.lproj\InspectorLocalizedStrings.js&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>
@@ -409,6 +373,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSConsole.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSConsole.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSCounter.cpp"
 				>
 			</File>
@@ -521,6 +493,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDatabase.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDatabase.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDocument.cpp"
 				>
 			</File>
@@ -545,7 +525,11 @@
 				>
 			</File>
 			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMExceptionConstructor.lut.h"
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMCoreException.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMCoreException.h"
 				>
 			</File>
 			<File
@@ -613,7 +597,15 @@
 				>
 			</File>
 			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEventTargetNode.lut.h"
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEventException.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEventException.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEventTargetBase.lut.h"
 				>
 			</File>
 			<File
@@ -646,6 +638,14 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLAreaElement.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLAudioElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLAudioElement.h"
 				>
 			</File>
 			<File
@@ -909,6 +909,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLMediaElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLMediaElement.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLMenuElement.cpp"
 				>
 			</File>
@@ -1021,6 +1029,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLSourceElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLSourceElement.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLStyleElement.cpp"
 				>
 			</File>
@@ -1101,6 +1117,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLVideoElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHTMLVideoElement.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSKeyboardEvent.cpp"
 				>
 			</File>
@@ -1109,11 +1133,31 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSLocation.lut.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMediaError.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMediaError.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMediaList.cpp"
 				>
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMediaList.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMessageEvent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMessageEvent.h"
 				>
 			</File>
 			<File
@@ -1197,6 +1241,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSProgressEvent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSProgressEvent.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSRange.cpp"
 				>
 			</File>
@@ -1229,11 +1281,51 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSQLError.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSQLError.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSQLResultSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSQLResultSet.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSQLResultSetRowList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSQLResultSetRowList.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\WebCore\DerivedSources\JSSQLTransaction.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\WebCore\DerivedSources\JSSQLTransaction.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSStyleSheet.cpp"
 				>
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSStyleSheet.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSStyleSheetList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSStyleSheetList.h"
 				>
 			</File>
 			<File
@@ -1421,6 +1513,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGDefinitionSrcElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGDefinitionSrcElement.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGDefsElement.cpp"
 				>
 			</File>
@@ -1474,6 +1574,14 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGEllipseElement.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGException.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGException.h"
 				>
 			</File>
 			<File
@@ -1661,6 +1769,54 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontElement.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontFaceElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontFaceElement.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontFaceFormatElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontFaceFormatElement.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontFaceNameElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontFaceNameElement.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontFaceSrcElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontFaceSrcElement.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontFaceUriElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGFontFaceUriElement.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGForeignObjectElement.cpp"
 				>
 			</File>
@@ -1674,6 +1830,14 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGGElement.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGGlyphElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGGlyphElement.h"
 				>
 			</File>
 			<File
@@ -1754,6 +1918,14 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGMetadataElement.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGMissingGlyphElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGMissingGlyphElement.h"
 				>
 			</File>
 			<File
@@ -2117,6 +2289,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGTextPathElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGTextPathElement.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSSVGTextPositioningElement.cpp"
 				>
 			</File>
@@ -2213,6 +2393,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSTimeRanges.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSTimeRanges.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSTreeWalker.cpp"
 				>
 			</File>
@@ -2229,11 +2417,27 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSVoidCallback.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSVoidCallback.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSWheelEvent.cpp"
 				>
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSWheelEvent.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSXMLHttpRequestException.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSXMLHttpRequestException.h"
 				>
 			</File>
 			<File
@@ -2250,6 +2454,14 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSXPathEvaluator.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSXPathException.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSXPathException.h"
 				>
 			</File>
 			<File
@@ -2379,6 +2591,14 @@
 			Name="page"
 			>
 			<File
+				RelativePath="..\page\AnimationController.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\page\AnimationController.h"
+				>
+			</File>
+			<File
 				RelativePath="..\page\BarInfo.cpp"
 				>
 			</File>
@@ -2396,6 +2616,14 @@
 			</File>
 			<File
 				RelativePath="..\page\ChromeClient.h"
+				>
+			</File>
+			<File
+				RelativePath="..\page\Console.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\page\Console.h"
 				>
 			</File>
 			<File
@@ -2558,6 +2786,14 @@
 				RelativePath="..\page\Settings.h"
 				>
 			</File>
+			<File
+				RelativePath="..\page\WindowFeatures.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\page\WindowFeatures.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="loader"
@@ -2576,6 +2812,14 @@
 			</File>
 			<File
 				RelativePath="..\loader\CachedCSSStyleSheet.h"
+				>
+			</File>
+			<File
+				RelativePath="..\loader\CachedFont.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\loader\CachedFont.h"
 				>
 			</File>
 			<File
@@ -2833,38 +3077,6 @@
 					RelativePath="..\loader\icon\PageURLRecord.h"
 					>
 				</File>
-				<File
-					RelativePath="..\loader\icon\SQLDatabase.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\loader\icon\SQLDatabase.h"
-					>
-				</File>
-				<File
-					RelativePath="..\loader\icon\SQLStatement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\loader\icon\SQLStatement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\loader\icon\SQLTransaction.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\loader\icon\SQLTransaction.h"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="win"
-				>
-				<File
-					RelativePath="..\loader\win\NetscapePlugInStreamLoaderWin.cpp"
-					>
-				</File>
 			</Filter>
 		</Filter>
 		<Filter
@@ -2887,43 +3099,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\platform\AtomicString.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\AtomicString.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\AtomicStringImpl.h"
-				>
-			</File>
-			<File
 				RelativePath="..\platform\AutodrainedPool.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\Base64.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\Base64.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\BidiContext.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\BidiContext.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\BidiResolver.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\CharacterNames.h"
 				>
 			</File>
 			<File
@@ -2940,14 +3116,6 @@
 			</File>
 			<File
 				RelativePath="..\platform\CookieJar.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\CString.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\CString.h"
 				>
 			</File>
 			<File
@@ -3043,94 +3211,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\platform\Font.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalOptions="$(AnalyzeWithLargeStack)"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalOptions="$(AnalyzeWithLargeStack)"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Internal|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalOptions="$(AnalyzeWithLargeStack)"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\platform\Font.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\FontCache.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\FontCache.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\FontData.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\FontData.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\FontDescription.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\FontFallbackList.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\FontFallbackList.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\FontFamily.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\FontFamily.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\GlyphBuffer.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\GlyphPageTreeNode.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\GlyphPageTreeNode.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\GlyphWidthMap.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\GlyphWidthMap.h"
-				>
-			</File>
-			<File
 				RelativePath="..\platform\KURL.cpp"
 				>
 			</File>
@@ -3147,11 +3227,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\platform\Locker.h"
+				>
+			</File>
+			<File
 				RelativePath="..\platform\Logging.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\platform\Logging.h"
+				>
+			</File>
+			<File
+				RelativePath="..\platform\MessageQueue.h"
 				>
 			</File>
 			<File
@@ -3187,15 +3275,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\platform\PlatformString.h"
-				>
-			</File>
-			<File
 				RelativePath="..\platform\PlatformWheelEvent.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\PlugInInfoStore.h"
 				>
 			</File>
 			<File
@@ -3204,14 +3284,6 @@
 			</File>
 			<File
 				RelativePath="..\platform\PopupMenuClient.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\RegularExpression.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\RegularExpression.h"
 				>
 			</File>
 			<File
@@ -3235,15 +3307,11 @@
 				>
 			</File>
 			<File
-				RelativePath="..\platform\SegmentedString.cpp"
+				RelativePath="..\platform\SecurityOrigin.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\platform\SegmentedString.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\Shared.h"
+				RelativePath="..\platform\SecurityOrigin.h"
 				>
 			</File>
 			<File
@@ -3271,143 +3339,11 @@
 				>
 			</File>
 			<File
-				RelativePath="..\platform\String.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\StringHash.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\StringImpl.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\StringImpl.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\StringTruncator.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\StringTruncator.h"
-				>
-			</File>
-			<File
 				RelativePath="..\platform\SystemTime.h"
 				>
 			</File>
 			<File
-				RelativePath="..\platform\TextBoundaries.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextBreakIterator.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextBreakIteratorICU.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextBreakIteratorInternalICU.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextCodec.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextCodec.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextCodecICU.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalOptions="$(AnalyzeWithLargeStack)"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalOptions="$(AnalyzeWithLargeStack)"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Internal|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalOptions="$(AnalyzeWithLargeStack)"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="..\platform\TextCodecICU.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextCodecLatin1.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextCodecLatin1.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextCodecUTF16.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextCodecUTF16.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextDecoder.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextDecoder.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextDirection.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextEncoding.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextEncoding.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextEncodingRegistry.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextEncodingRegistry.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextStream.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextStream.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\TextStyle.h"
+				RelativePath="..\platform\text\TextStyle.h"
 				>
 			</File>
 			<File
@@ -3423,11 +3359,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\platform\UnicodeRange.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\UnicodeRange.h"
+				RelativePath="..\platform\TreeShared.h"
 				>
 			</File>
 			<File
@@ -3490,6 +3422,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\platform\win\DragImageCGWin.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\platform\win\DragImageWin.cpp"
 					>
 				</File>
@@ -3506,63 +3442,11 @@
 					>
 				</File>
 				<File
-					RelativePath="..\platform\win\FontCacheWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\win\FontDataWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\win\FontPlatformData.h"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\win\FontPlatformDataWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\win\FontWin.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							AdditionalOptions="$(AnalyzeWithLargeStack)"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							AdditionalOptions="$(AnalyzeWithLargeStack)"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							AdditionalOptions="$(AnalyzeWithLargeStack)"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
 					RelativePath="..\platform\win\GDIObjectCounter.cpp"
 					>
 				</File>
 				<File
 					RelativePath="..\platform\win\GDIObjectCounter.h"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\win\GlyphPageTreeNodeWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\win\GraphicsContextWin.cpp"
 					>
 				</File>
 				<File
@@ -3575,6 +3459,10 @@
 				</File>
 				<File
 					RelativePath="..\platform\win\MIMETypeRegistryWin.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\win\MutexWin.cpp"
 					>
 				</File>
 				<File
@@ -3618,6 +3506,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\platform\win\SoftLinking.h"
+					>
+				</File>
+				<File
 					RelativePath="..\platform\win\SoundWin.cpp"
 					>
 				</File>
@@ -3630,23 +3522,11 @@
 					>
 				</File>
 				<File
-					RelativePath="..\platform\win\TextBoundariesWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\win\TextBreakIteratorInternalICUWin.cpp"
+					RelativePath="..\platform\win\ThreadConditionWin.cpp"
 					>
 				</File>
 				<File
 					RelativePath="..\platform\win\ThreadingWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\win\UniscribeController.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\win\UniscribeController.h"
 					>
 				</File>
 				<File
@@ -3693,14 +3573,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\platform\win\WebCoreSystemInterface.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\win\WebCoreSystemInterface.h"
-					>
-				</File>
-				<File
 					RelativePath="..\platform\win\WebCoreTextRenderer.cpp"
 					>
 				</File>
@@ -3716,6 +3588,18 @@
 					RelativePath="..\platform\win\WidgetWin.cpp"
 					>
 				</File>
+				<File
+					RelativePath="..\platform\win\WindowMessageBroadcaster.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\win\WindowMessageBroadcaster.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\win\WindowMessageListener.h"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="cf"
@@ -3726,14 +3610,6 @@
 				</File>
 				<File
 					RelativePath="..\platform\cf\RetainPtr.h"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\cf\StringCF.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\cf\StringImplCF.cpp"
 					>
 				</File>
 			</Filter>
@@ -3797,6 +3673,98 @@
 					>
 				</File>
 				<File
+					RelativePath="..\platform\graphics\Font.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalOptions="$(AnalyzeWithLargeStack)"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalOptions="$(AnalyzeWithLargeStack)"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalOptions="$(AnalyzeWithLargeStack)"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\Font.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\FontCache.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\FontCache.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\FontData.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\FontData.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\FontDescription.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\FontFallbackList.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\FontFallbackList.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\FontFamily.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\FontFamily.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\FontSelector.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\GlyphBuffer.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\GlyphPageTreeNode.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\GlyphPageTreeNode.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\GlyphWidthMap.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\GlyphWidthMap.h"
+					>
+				</File>
+				<File
 					RelativePath="..\platform\graphics\GraphicsContext.cpp"
 					>
 				</File>
@@ -3822,10 +3790,6 @@
 				</File>
 				<File
 					RelativePath="..\platform\graphics\Image.h"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\graphics\ImageBuffer.cpp"
 					>
 				</File>
 				<File
@@ -3861,6 +3825,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\platform\graphics\MediaPlayer.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\MediaPlayer.h"
+					>
+				</File>
+				<File
 					RelativePath="..\platform\graphics\Path.cpp"
 					>
 				</File>
@@ -3884,6 +3856,22 @@
 					RelativePath="..\platform\graphics\Pen.h"
 					>
 				</File>
+				<File
+					RelativePath="..\platform\graphics\SegmentedFontData.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\SegmentedFontData.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\SimpleFontData.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\SimpleFontData.h"
+					>
+				</File>
 				<Filter
 					Name="win"
 					>
@@ -3892,7 +3880,83 @@
 						>
 					</File>
 					<File
+						RelativePath="..\platform\graphics\win\FontCacheWin.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\FontCGWin.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\FontCustomPlatformData.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\FontCustomPlatformData.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\FontDatabase.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\FontDatabase.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\FontPlatformData.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\FontPlatformDataWin.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\FontWin.cpp"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								AdditionalOptions="$(AnalyzeWithLargeStack)"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								AdditionalOptions="$(AnalyzeWithLargeStack)"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_Internal|Win32"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+								AdditionalOptions="$(AnalyzeWithLargeStack)"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\GlyphPageTreeNodeWin.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\GraphicsContextCGWin.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\GraphicsContextWin.cpp"
+						>
+					</File>
+					<File
 						RelativePath="..\platform\graphics\win\IconWin.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\win\ImageCGWin.cpp"
 						>
 					</File>
 					<File
@@ -3911,302 +3975,30 @@
 						RelativePath="..\platform\graphics\win\IntSizeWin.cpp"
 						>
 					</File>
-				</Filter>
-				<Filter
-					Name="svg"
-					>
 					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServer.cpp"
+						RelativePath="..\platform\graphics\win\MediaPlayerPrivateQuickTimeWin.cpp"
 						>
 					</File>
 					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServer.h"
+						RelativePath="..\platform\graphics\win\MediaPlayerPrivateQuickTimeWin.h"
 						>
 					</File>
 					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServerGradient.cpp"
+						RelativePath="..\platform\graphics\win\SimpleFontDataCGWin.cpp"
 						>
 					</File>
 					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServerGradient.h"
+						RelativePath="..\platform\graphics\win\SimpleFontDataWin.cpp"
 						>
 					</File>
 					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServerLinearGradient.cpp"
+						RelativePath="..\platform\graphics\win\UniscribeController.cpp"
 						>
 					</File>
 					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServerLinearGradient.h"
+						RelativePath="..\platform\graphics\win\UniscribeController.h"
 						>
 					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServerPattern.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServerPattern.h"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServerRadialGradient.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServerRadialGradient.h"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServerSolid.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGPaintServerSolid.h"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResource.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResource.h"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResourceClipper.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResourceClipper.h"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResourceFilter.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResourceFilter.h"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResourceListener.h"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResourceMarker.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResourceMarker.h"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResourceMasker.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\platform\graphics\svg\SVGResourceMasker.h"
-						>
-					</File>
-					<Filter
-						Name="cg"
-						>
-						<File
-							RelativePath="..\platform\graphics\svg\cg\CgSupport.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\cg\CgSupport.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\cg\RenderPathCg.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\cg\SVGPaintServerCg.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\cg\SVGPaintServerGradientCg.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\cg\SVGPaintServerPatternCg.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\cg\SVGPaintServerSolidCg.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\cg\SVGResourceClipperCg.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\cg\SVGResourceFilterCg.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\cg\SVGResourceMaskerCg.cpp"
-							>
-						</File>
-					</Filter>
-					<Filter
-						Name="filters"
-						>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGDistantLightSource.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEBlend.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEBlend.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEColorMatrix.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEColorMatrix.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEComponentTransfer.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEComponentTransfer.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEComposite.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEComposite.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEConvolveMatrix.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEConvolveMatrix.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEDiffuseLighting.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEDiffuseLighting.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEDisplacementMap.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEDisplacementMap.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEFlood.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEFlood.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEGaussianBlur.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEGaussianBlur.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEImage.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEImage.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEMerge.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEMerge.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEMorphology.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEMorphology.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEOffset.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFEOffset.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFESpecularLighting.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFESpecularLighting.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFETile.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFETurbulence.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFETurbulence.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFilterEffect.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGFilterEffect.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGLightSource.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGLightSource.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGPointLightSource.h"
-							>
-						</File>
-						<File
-							RelativePath="..\platform\graphics\svg\filters\SVGSpotLightSource.h"
-							>
-						</File>
-					</Filter>
 				</Filter>
 				<Filter
 					Name="cg"
@@ -4289,10 +4081,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\platform\network\win\CookieJarWin.cpp"
-					>
-				</File>
-				<File
 					RelativePath="..\platform\network\Credential.cpp"
 					>
 				</File>
@@ -4357,11 +4145,11 @@
 					>
 				</File>
 				<File
-					RelativePath="..\platform\network\ResourceResponse.cpp"
+					RelativePath="..\platform\network\ResourceResponseBase.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\platform\network\ResourceResponse.h"
+					RelativePath="..\platform\network\ResourceResponseBase.h"
 					>
 				</File>
 				<Filter
@@ -4404,11 +4192,311 @@
 						>
 					</File>
 					<File
+						RelativePath="..\platform\network\cf\ResourceResponse.h"
+						>
+					</File>
+					<File
 						RelativePath="..\platform\network\cf\ResourceResponseCFNet.cpp"
 						>
 					</File>
 					<File
 						RelativePath="..\platform\network\cf\ResourceResponseCFNet.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="win"
+					>
+					<File
+						RelativePath="..\platform\network\win\CookieJarWin.cpp"
+						>
+					</File>
+				</Filter>
+			</Filter>
+			<Filter
+				Name="sql"
+				>
+				<File
+					RelativePath="..\platform\sql\SQLiteAuthorizer.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\sql\SQLiteAuthorizer.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\sql\SQLiteDatabase.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\sql\SQLiteDatabase.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\sql\SQLiteStatement.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\sql\SQLiteStatement.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\sql\SQLiteTransaction.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\sql\SQLiteTransaction.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\sql\SQLValue.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\sql\SQLValue.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="text"
+				>
+				<File
+					RelativePath="..\platform\text\AtomicString.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\AtomicString.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\AtomicStringImpl.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\Base64.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\Base64.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\BidiContext.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\BidiContext.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\BidiResolver.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\CharacterNames.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\CString.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\CString.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\PlatformString.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\RegularExpression.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\RegularExpression.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\SegmentedString.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\SegmentedString.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\String.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\StringBuffer.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\StringHash.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\StringImpl.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\StringImpl.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\StringTruncator.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\graphics\StringTruncator.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextBoundaries.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextBoundariesICU.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextBreakIterator.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextBreakIteratorICU.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextBreakIteratorInternalICU.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextCodec.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextCodec.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextCodecICU.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalOptions="$(AnalyzeWithLargeStack)"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalOptions="$(AnalyzeWithLargeStack)"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							AdditionalOptions="$(AnalyzeWithLargeStack)"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextCodecICU.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextCodecLatin1.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextCodecLatin1.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextCodecUserDefined.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextCodecUserDefined.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextCodecUTF16.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextCodecUTF16.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextDecoder.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextDecoder.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextDirection.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextEncoding.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextEncoding.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextEncodingRegistry.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextEncodingRegistry.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextStream.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\TextStream.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\UnicodeRange.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\UnicodeRange.h"
+					>
+				</File>
+				<Filter
+					Name="cf"
+					>
+					<File
+						RelativePath="..\platform\text\cf\StringCF.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\text\cf\StringImplCF.cpp"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="win"
+					>
+					<File
+						RelativePath="..\platform\text\win\TextBreakIteratorInternalICUWin.cpp"
 						>
 					</File>
 				</Filter>
@@ -4454,11 +4542,43 @@
 				>
 			</File>
 			<File
+				RelativePath="..\css\CSSFontFace.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSFontFace.h"
+				>
+			</File>
+			<File
 				RelativePath="..\css\CSSFontFaceRule.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\css\CSSFontFaceRule.h"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSFontFaceSource.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSFontFaceSource.h"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSFontFaceSrcValue.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSFontFaceSrcValue.h"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSFontSelector.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSFontSelector.h"
 				>
 			</File>
 			<File
@@ -4582,6 +4702,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\css\CSSSegmentedFontFace.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSSegmentedFontFace.h"
+				>
+			</File>
+			<File
 				RelativePath="..\css\CSSSelector.cpp"
 				>
 			</File>
@@ -4623,6 +4751,30 @@
 			</File>
 			<File
 				RelativePath="..\css\CSSStyleSheet.h"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSTimingFunctionValue.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSTimingFunctionValue.h"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSTransformValue.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSTransformValue.h"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSUnicodeRangeValue.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSUnicodeRangeValue.h"
 				>
 			</File>
 			<File
@@ -4762,6 +4914,18 @@
 				>
 			</File>
 			<File
+				RelativePath="..\css\SVGCSSComputedStyleDeclaration.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\SVGCSSParser.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\SVGCSSStyleSelector.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\css\tokenizer.flex"
 				>
 			</File>
@@ -4883,6 +5047,22 @@
 			</File>
 			<File
 				RelativePath="..\rendering\ListMarkerBox.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\MediaControlElements.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\MediaControlElements.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\PointerEventsHitRules.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\PointerEventsHitRules.h"
 				>
 			</File>
 			<File
@@ -5070,6 +5250,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\rendering\RenderMedia.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\RenderMedia.h"
+				>
+			</File>
+			<File
 				RelativePath="..\rendering\RenderMenuList.cpp"
 				>
 			</File>
@@ -5190,6 +5378,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\rendering\RenderSVGRoot.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\RenderSVGRoot.h"
+				>
+			</File>
+			<File
 				RelativePath="..\rendering\RenderSVGText.cpp"
 				>
 			</File>
@@ -5198,11 +5394,31 @@
 				>
 			</File>
 			<File
+				RelativePath="..\rendering\RenderSVGTextPath.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\RenderSVGTextPath.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\RenderSVGTransformableContainer.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\RenderSVGTransformableContainer.h"
+				>
+			</File>
+			<File
 				RelativePath="..\rendering\RenderSVGTSpan.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\rendering\RenderSVGTSpan.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\RenderSVGViewportContainer.cpp"
 				>
 			</File>
 			<File
@@ -5294,6 +5510,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\rendering\RenderVideo.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\RenderVideo.h"
+				>
+			</File>
+			<File
 				RelativePath="..\rendering\RenderView.cpp"
 				>
 			</File>
@@ -5326,6 +5550,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\rendering\SVGCharacterLayoutInfo.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\SVGCharacterLayoutInfo.h"
+				>
+			</File>
+			<File
 				RelativePath="..\rendering\SVGInlineFlowBox.cpp"
 				>
 			</File>
@@ -5339,6 +5571,30 @@
 			</File>
 			<File
 				RelativePath="..\rendering\SVGInlineTextBox.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\SVGRenderStyle.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\SVGRenderStyle.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\SVGRenderStyleDefs.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\SVGRenderStyleDefs.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\SVGRenderSupport.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\SVGRenderSupport.h"
 				>
 			</File>
 			<File
@@ -5390,6 +5646,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\xml\XMLHttpRequestException.h"
+				>
+			</File>
+			<File
 				RelativePath="..\xml\XMLSerializer.cpp"
 				>
 			</File>
@@ -5403,6 +5663,10 @@
 			</File>
 			<File
 				RelativePath="..\xml\XPathEvaluator.h"
+				>
+			</File>
+			<File
+				RelativePath="..\xml\XPathException.h"
 				>
 			</File>
 			<File
@@ -5580,6 +5844,14 @@
 				RelativePath="..\xml\XSLTProcessor.h"
 				>
 			</File>
+			<File
+				RelativePath="..\xml\XSLTUnicodeSort.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\xml\XSLTUnicodeSort.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="dom"
@@ -5642,6 +5914,22 @@
 			</File>
 			<File
 				RelativePath="..\dom\ChildNodeList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\ClassNames.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\ClassNames.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\ClassNodeList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\ClassNodeList.h"
 				>
 			</File>
 			<File
@@ -5721,11 +6009,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\dom\DOMCoreException.h"
+				>
+			</File>
+			<File
 				RelativePath="..\dom\DOMImplementation.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\dom\DOMImplementation.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DynamicNodeList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DynamicNodeList.h"
 				>
 			</File>
 			<File
@@ -5769,6 +6069,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\dom\EventException.h"
+				>
+			</File>
+			<File
 				RelativePath="..\dom\EventListener.h"
 				>
 			</File>
@@ -5797,6 +6101,18 @@
 				>
 			</File>
 			<File
+				RelativePath="..\dom\ExceptionBase.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\ExceptionBase.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\ExceptionCode.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\dom\ExceptionCode.h"
 				>
 			</File>
@@ -5818,6 +6134,14 @@
 			</File>
 			<File
 				RelativePath="..\dom\MappedAttributeEntry.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\MessageEvent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\MessageEvent.h"
 				>
 			</File>
 			<File
@@ -5905,14 +6229,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\dom\NodeList.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\dom\NodeList.h"
-				>
-			</File>
-			<File
 				RelativePath="..\dom\Notation.cpp"
 				>
 			</File>
@@ -5953,6 +6269,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\dom\ProgressEvent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\ProgressEvent.h"
+				>
+			</File>
+			<File
 				RelativePath="..\dom\QualifiedName.cpp"
 				>
 			</File>
@@ -5981,6 +6305,22 @@
 				>
 			</File>
 			<File
+				RelativePath="..\dom\SelectorNodeList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\SelectorNodeList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\StaticNodeList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\StaticNodeList.h"
+				>
+			</File>
+			<File
 				RelativePath="..\dom\StyledElement.cpp"
 				>
 			</File>
@@ -5994,6 +6334,14 @@
 			</File>
 			<File
 				RelativePath="..\dom\StyleElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\TagNodeList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\TagNodeList.h"
 				>
 			</File>
 			<File
@@ -6080,21 +6428,13 @@
 				RelativePath="..\bridge\GlobalHistory.h"
 				>
 			</File>
-			<File
-				RelativePath="..\bridge\JavaScriptStatistics.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\bridge\JavaScriptStatistics.h"
-				>
-			</File>
-			<File
-				RelativePath="..\bridge\WindowFeatures.h"
-				>
-			</File>
 			<Filter
 				Name="win"
 				>
+				<File
+					RelativePath="..\bridge\win\FrameCGWin.cpp"
+					>
+				</File>
 				<File
 					RelativePath="..\bridge\win\FrameWin.cpp"
 					>
@@ -6138,14 +6478,6 @@
 			</File>
 			<File
 				RelativePath="..\editing\BreakBlockquoteCommand.h"
-				>
-			</File>
-			<File
-				RelativePath="..\editing\CommandByName.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\editing\CommandByName.h"
 				>
 			</File>
 			<File
@@ -6214,6 +6546,10 @@
 			</File>
 			<File
 				RelativePath="..\editing\Editor.h"
+				>
+			</File>
+			<File
+				RelativePath="..\editing\EditorCommand.cpp"
 				>
 			</File>
 			<File
@@ -6313,14 +6649,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\editing\JSEditor.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\editing\JSEditor.h"
-				>
-			</File>
-			<File
 				RelativePath="..\editing\markup.cpp"
 				>
 			</File>
@@ -6358,6 +6686,10 @@
 			</File>
 			<File
 				RelativePath="..\editing\RemoveCSSPropertyCommand.h"
+				>
+			</File>
+			<File
+				RelativePath="..\editing\RemoveFormatCommand.cpp"
 				>
 			</File>
 			<File
@@ -6574,6 +6906,14 @@
 			</File>
 			<File
 				RelativePath="..\html\HTMLAreaElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLAudioElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLAudioElement.h"
 				>
 			</File>
 			<File
@@ -6897,6 +7237,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\HTMLMediaElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLMediaElement.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\HTMLMenuElement.cpp"
 				>
 			</File>
@@ -7041,6 +7389,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\HTMLSourceElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLSourceElement.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\HTMLStyleElement.cpp"
 				>
 			</File>
@@ -7097,6 +7453,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\HTMLTableRowsCollection.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLTableRowsCollection.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\HTMLTableSectionElement.cpp"
 				>
 			</File>
@@ -7145,11 +7509,35 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\HTMLVideoElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLVideoElement.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\HTMLViewSourceDocument.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\html\HTMLViewSourceDocument.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\MediaError.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\TimeRanges.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\TimeRanges.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\VoidCallback.h"
 				>
 			</File>
 		</Filter>
@@ -7172,6 +7560,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\bindings\js\JSAudioConstructor.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSAudioConstructor.h"
+					>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSCanvasRenderingContext2DCustom.cpp"
 					>
 				</File>
@@ -7188,6 +7584,46 @@
 					>
 				</File>
 				<File
+					RelativePath="..\bindings\js\JSCustomSQLStatementCallback.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSCustomSQLStatementCallback.h"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSCustomSQLStatementErrorCallback.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSCustomSQLStatementErrorCallback.h"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSCustomSQLTransactionCallback.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSCustomSQLTransactionCallback.h"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSCustomSQLTransactionErrorCallback.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSCustomSQLTransactionErrorCallback.h"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSCustomVoidCallback.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSCustomVoidCallback.h"
+					>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSCustomXPathNSResolver.cpp"
 					>
 				</File>
@@ -7196,15 +7632,11 @@
 					>
 				</File>
 				<File
+					RelativePath="..\bindings\js\JSDatabaseCustom.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSDocumentCustom.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\bindings\js\JSDOMExceptionConstructor.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\bindings\js\JSDOMExceptionConstructor.h"
 					>
 				</File>
 				<File
@@ -7220,11 +7652,23 @@
 					>
 				</File>
 				<File
+					RelativePath="..\bindings\js\JSEventTargetBase.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSEventTargetBase.h"
+					>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSEventTargetNode.cpp"
 					>
 				</File>
 				<File
 					RelativePath="..\bindings\js\JSEventTargetNode.h"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSHistoryCustom.cpp"
 					>
 				</File>
 				<File
@@ -7308,6 +7752,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\bindings\js\JSLocation.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSLocation.h"
+					>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSNamedNodeMapCustom.cpp"
 					>
 				</File>
@@ -7344,7 +7796,19 @@
 					>
 				</File>
 				<File
+					RelativePath="..\bindings\js\JSSQLResultSetRowListCustom.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSSQLTransactionCustom.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSStyleSheetCustom.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSStyleSheetListCustom.cpp"
 					>
 				</File>
 				<File
@@ -7353,6 +7817,14 @@
 				</File>
 				<File
 					RelativePath="..\bindings\js\JSSVGElementWrapperFactory.h"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSSVGLazyEventListener.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSSVGLazyEventListener.h"
 					>
 				</File>
 				<File
@@ -7373,6 +7845,10 @@
 				</File>
 				<File
 					RelativePath="..\bindings\js\JSSVGPointListCustom.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSSVGTransformListCustom.cpp"
 					>
 				</File>
 				<File
@@ -7459,36 +7935,76 @@
 					RelativePath="..\bindings\js\kjs_window.h"
 					>
 				</File>
+				<File
+					RelativePath="..\bindings\js\PausedTimeouts.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\PausedTimeouts.h"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\ScheduledAction.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\ScheduledAction.h"
+					>
+				</File>
 			</Filter>
 		</Filter>
 		<Filter
 			Name="plugins"
 			>
+			<File
+				RelativePath="..\plugins\npapi.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\npfunctions.h"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\PluginDatabase.h"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\PluginDebug.h"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\PluginInfoStore.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\PluginInfoStore.h"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\PluginPackage.h"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\PluginQuirkSet.h"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\PluginStream.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\PluginStream.h"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\PluginView.h"
+				>
+			</File>
 			<Filter
 				Name="win"
 				>
 				<File
-					RelativePath="..\plugins\win\npapi.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\plugins\win\npfunctions.h"
-					>
-				</File>
-				<File
 					RelativePath="..\plugins\win\PluginDatabaseWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\plugins\win\PluginDatabaseWin.h"
-					>
-				</File>
-				<File
-					RelativePath="..\plugins\win\PluginDebug.h"
-					>
-				</File>
-				<File
-					RelativePath="..\plugins\win\PlugInInfoStoreWin.cpp"
 					>
 				</File>
 				<File
@@ -7496,1089 +8012,1413 @@
 					>
 				</File>
 				<File
-					RelativePath="..\plugins\win\PluginPackageWin.h"
-					>
-				</File>
-				<File
-					RelativePath="..\plugins\win\PluginStreamWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\plugins\win\PluginStreamWin.h"
-					>
-				</File>
-				<File
 					RelativePath="..\plugins\win\PluginViewWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\plugins\win\PluginViewWin.h"
 					>
 				</File>
 			</Filter>
 		</Filter>
 		<Filter
-			Name="ksvg2"
+			Name="svg"
 			>
+			<File
+				RelativePath="..\svg\ColorDistance.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\ColorDistance.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAngle.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAngle.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimateColorElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimateColorElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedPathData.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedPathData.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedPoints.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedPoints.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimatedTemplate.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimateElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimateElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimateMotionElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimateMotionElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimateTransformElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimateTransformElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimationElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGAnimationElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGCircleElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGCircleElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGClipPathElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGClipPathElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGColor.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGColor.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGComponentTransferFunctionElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGComponentTransferFunctionElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGCursorElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGCursorElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGDefinitionSrcElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGDefinitionSrcElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGDefsElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGDefsElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGDescElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGDescElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGDocument.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGDocument.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGDocumentExtensions.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGDocumentExtensions.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGElementInstance.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGElementInstance.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGElementInstanceList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGElementInstanceList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGEllipseElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGEllipseElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGException.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGExternalResourcesRequired.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGExternalResourcesRequired.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEBlendElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEBlendElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEColorMatrixElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEColorMatrixElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEComponentTransferElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEComponentTransferElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFECompositeElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFECompositeElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEDiffuseLightingElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEDiffuseLightingElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEDisplacementMapElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEDisplacementMapElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEDistantLightElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEDistantLightElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEFloodElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEFloodElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEFuncAElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEFuncAElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEFuncBElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEFuncBElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEFuncGElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEFuncGElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEFuncRElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEFuncRElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEGaussianBlurElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEGaussianBlurElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEImageElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEImageElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFELightElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFELightElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEMergeElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEMergeElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEMergeNodeElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEMergeNodeElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEOffsetElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEOffsetElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEPointLightElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFEPointLightElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFESpecularLightingElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFESpecularLightingElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFESpotLightElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFESpotLightElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFETileElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFETileElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFETurbulenceElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFETurbulenceElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFilterElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFilterElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFilterPrimitiveStandardAttributes.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFilterPrimitiveStandardAttributes.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFitToViewBox.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFitToViewBox.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFont.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontData.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontData.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontFaceElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontFaceElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontFaceFormatElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontFaceFormatElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontFaceNameElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontFaceNameElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontFaceSrcElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontFaceSrcElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontFaceUriElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGFontFaceUriElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGForeignObjectElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGForeignObjectElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGGElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGGElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGGlyphElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGGlyphElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGGradientElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGGradientElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGImageElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGImageElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGImageLoader.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGImageLoader.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLangSpace.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLangSpace.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLength.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLength.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLengthList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLengthList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLinearGradientElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLinearGradientElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLineElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLineElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGListTraits.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLocatable.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGLocatable.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGMarkerElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGMarkerElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGMaskElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGMaskElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGMetadataElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGMetadataElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGMissingGlyphElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGMissingGlyphElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGMPathElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGMPathElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGNumberList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGNumberList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPaint.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPaint.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGParserUtilities.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalOptions="$(AnalyzeWithLargeStack)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalOptions="$(AnalyzeWithLargeStack)"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						AdditionalOptions="$(AnalyzeWithLargeStack)"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\svg\SVGParserUtilities.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSeg.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegArc.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegArc.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegClosePath.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegClosePath.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegCurvetoCubic.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegCurvetoCubic.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegCurvetoCubicSmooth.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegCurvetoCubicSmooth.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegCurvetoQuadratic.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegCurvetoQuadratic.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegCurvetoQuadraticSmooth.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegCurvetoQuadraticSmooth.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegLineto.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegLineto.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegLinetoHorizontal.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegLinetoHorizontal.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegLinetoVertical.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegLinetoVertical.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegMoveto.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegMoveto.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPatternElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPatternElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPointList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPointList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPolyElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPolyElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPolygonElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPolygonElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPolylineElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPolylineElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPreserveAspectRatio.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPreserveAspectRatio.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGRadialGradientElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGRadialGradientElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGRectElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGRectElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGRenderingIntent.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGScriptElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGScriptElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGSetElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGSetElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStopElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStopElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStringList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStringList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStylable.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStylable.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStyledElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStyledElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStyledLocatableElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStyledLocatableElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStyledTransformableElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStyledTransformableElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStyleElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGStyleElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGSVGElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGSVGElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGSwitchElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGSwitchElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGSymbolElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGSymbolElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTests.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTests.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTextContentElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTextContentElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTextElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTextElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTextPathElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTextPathElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTextPositioningElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTextPositioningElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTimer.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTimer.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTitleElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTitleElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTransform.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTransform.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTransformable.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTransformable.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTransformDistance.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTransformDistance.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTransformList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTransformList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTRefElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTRefElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTSpanElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGTSpanElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGUnitTypes.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGURIReference.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGURIReference.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGUseElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGUseElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGViewElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGViewElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGViewSpec.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGViewSpec.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGZoomAndPan.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGZoomAndPan.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGZoomEvent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGZoomEvent.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\TimeScheduler.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\TimeScheduler.h"
+				>
+			</File>
 			<Filter
-				Name="svg"
+				Name="graphics"
 				>
 				<File
-					RelativePath="..\ksvg2\svg\ColorDistance.cpp"
+					RelativePath="..\svg\graphics\SVGImage.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\ColorDistance.h"
+					RelativePath="..\svg\graphics\SVGImage.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAElement.cpp"
+					RelativePath="..\svg\graphics\SVGPaintServer.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAElement.h"
+					RelativePath="..\svg\graphics\SVGPaintServer.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAngle.cpp"
+					RelativePath="..\svg\graphics\SVGPaintServerGradient.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAngle.h"
+					RelativePath="..\svg\graphics\SVGPaintServerGradient.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimateColorElement.cpp"
+					RelativePath="..\svg\graphics\SVGPaintServerLinearGradient.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimateColorElement.h"
+					RelativePath="..\svg\graphics\SVGPaintServerLinearGradient.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimatedPathData.cpp"
+					RelativePath="..\svg\graphics\SVGPaintServerPattern.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimatedPathData.h"
+					RelativePath="..\svg\graphics\SVGPaintServerPattern.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimatedPoints.cpp"
+					RelativePath="..\svg\graphics\SVGPaintServerRadialGradient.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimatedPoints.h"
+					RelativePath="..\svg\graphics\SVGPaintServerRadialGradient.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimatedTemplate.h"
+					RelativePath="..\svg\graphics\SVGPaintServerSolid.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimateElement.cpp"
+					RelativePath="..\svg\graphics\SVGPaintServerSolid.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimateElement.h"
+					RelativePath="..\svg\graphics\SVGResource.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimateMotionElement.cpp"
+					RelativePath="..\svg\graphics\SVGResource.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimateMotionElement.h"
+					RelativePath="..\svg\graphics\SVGResourceClipper.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimateTransformElement.cpp"
+					RelativePath="..\svg\graphics\SVGResourceClipper.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimateTransformElement.h"
+					RelativePath="..\svg\graphics\SVGResourceFilter.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimationElement.cpp"
+					RelativePath="..\svg\graphics\SVGResourceFilter.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGAnimationElement.h"
+					RelativePath="..\svg\graphics\SVGResourceListener.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGCircleElement.cpp"
+					RelativePath="..\svg\graphics\SVGResourceMarker.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGCircleElement.h"
+					RelativePath="..\svg\graphics\SVGResourceMarker.h"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGClipPathElement.cpp"
+					RelativePath="..\svg\graphics\SVGResourceMasker.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\ksvg2\svg\SVGClipPathElement.h"
+					RelativePath="..\svg\graphics\SVGResourceMasker.h"
 					>
 				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGColor.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGColor.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGComponentTransferFunctionElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGComponentTransferFunctionElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGCursorElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGCursorElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGDefsElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGDefsElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGDescElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGDescElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGDocument.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGDocument.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGElementInstance.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGElementInstance.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGElementInstanceList.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGElementInstanceList.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGEllipseElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGEllipseElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGException.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGExternalResourcesRequired.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGExternalResourcesRequired.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEBlendElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEBlendElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEColorMatrixElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEColorMatrixElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEComponentTransferElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEComponentTransferElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFECompositeElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFECompositeElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEDiffuseLightingElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEDiffuseLightingElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEDisplacementMapElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEDisplacementMapElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEDistantLightElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEDistantLightElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEFloodElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEFloodElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEFuncAElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEFuncAElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEFuncBElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEFuncBElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEFuncGElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEFuncGElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEFuncRElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEFuncRElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEGaussianBlurElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEGaussianBlurElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEImageElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEImageElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFELightElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFELightElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEMergeElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEMergeElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEMergeNodeElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEMergeNodeElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEOffsetElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEOffsetElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEPointLightElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFEPointLightElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFESpecularLightingElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFESpecularLightingElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFESpotLightElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFESpotLightElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFETileElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFETileElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFETurbulenceElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFETurbulenceElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFilterElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFilterElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFilterPrimitiveStandardAttributes.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFilterPrimitiveStandardAttributes.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFitToViewBox.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGFitToViewBox.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGForeignObjectElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGForeignObjectElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGGElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGGElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGGradientElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGGradientElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGImageElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGImageElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLangSpace.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLangSpace.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLength.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLength.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLengthList.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLengthList.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLinearGradientElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLinearGradientElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLineElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLineElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGList.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGListTraits.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLocatable.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGLocatable.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGMarkerElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGMarkerElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGMaskElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGMaskElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGMetadataElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGMetadataElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGMPathElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGMPathElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGNumberList.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGNumberList.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPaint.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPaint.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGParserUtilities.cpp"
+				<Filter
+					Name="cg"
 					>
-					<FileConfiguration
-						Name="Debug|Win32"
+					<File
+						RelativePath="..\svg\graphics\cg\CgSupport.cpp"
 						>
-						<Tool
-							Name="VCCLCompilerTool"
-							AdditionalOptions="$(AnalyzeWithLargeStack)"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
+					</File>
+					<File
+						RelativePath="..\svg\graphics\cg\CgSupport.h"
 						>
-						<Tool
-							Name="VCCLCompilerTool"
-							AdditionalOptions="$(AnalyzeWithLargeStack)"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
+					</File>
+					<File
+						RelativePath="..\svg\graphics\cg\RenderPathCg.cpp"
 						>
-						<Tool
-							Name="VCCLCompilerTool"
-							AdditionalOptions="$(AnalyzeWithLargeStack)"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGParserUtilities.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSeg.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegArc.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegArc.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegClosePath.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegClosePath.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegCurvetoCubic.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegCurvetoCubic.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegCurvetoCubicSmooth.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegCurvetoCubicSmooth.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegCurvetoQuadratic.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegCurvetoQuadratic.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegCurvetoQuadraticSmooth.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegCurvetoQuadraticSmooth.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegLineto.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegLineto.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegLinetoHorizontal.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegLinetoHorizontal.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegLinetoVertical.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegLinetoVertical.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegList.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegList.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegMoveto.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPathSegMoveto.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPatternElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPatternElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPointList.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPointList.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPolyElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPolyElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPolygonElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPolygonElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPolylineElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPolylineElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPreserveAspectRatio.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGPreserveAspectRatio.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGRadialGradientElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGRadialGradientElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGRectElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGRectElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGRenderingIntent.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGScriptElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGScriptElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGSetElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGSetElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStopElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStopElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStringList.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStringList.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStylable.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStylable.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStyledElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStyledElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStyledLocatableElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStyledLocatableElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStyledTransformableElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStyledTransformableElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStyleElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGStyleElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGSVGElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGSVGElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGSwitchElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGSwitchElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGSymbolElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGSymbolElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTests.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTests.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTextContentElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTextContentElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTextElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTextElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTextPositioningElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTextPositioningElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTitleElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTitleElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTransform.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTransform.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTransformable.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTransformable.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTransformDistance.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTransformDistance.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTransformList.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTransformList.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTRefElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTRefElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTSpanElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGTSpanElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGUnitTypes.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGURIReference.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGURIReference.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGUseElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGUseElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGViewElement.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGViewElement.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGZoomAndPan.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\svg\SVGZoomAndPan.h"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="css"
-				>
-				<File
-					RelativePath="..\ksvg2\css\SVGCSSParser.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\css\SVGCSSStyleSelector.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\css\SVGRenderStyle.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\css\SVGRenderStyle.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\css\SVGRenderStyleDefs.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\css\SVGRenderStyleDefs.h"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="events"
-				>
-				<File
-					RelativePath="..\ksvg2\events\JSSVGLazyEventListener.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\events\JSSVGLazyEventListener.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\events\SVGZoomEvent.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\events\SVGZoomEvent.h"
-					>
-				</File>
-			</Filter>
-			<Filter
-				Name="misc"
-				>
-				<File
-					RelativePath="..\ksvg2\misc\KCanvasRenderingStyle.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\KCanvasRenderingStyle.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\PointerEventsHitRules.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\PointerEventsHitRules.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\SVGDocumentExtensions.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\SVGDocumentExtensions.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\SVGImageLoader.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\SVGImageLoader.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\SVGTimer.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\SVGTimer.h"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\TimeScheduler.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\ksvg2\misc\TimeScheduler.h"
-					>
-				</File>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\cg\SVGPaintServerCg.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\cg\SVGPaintServerGradientCg.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\cg\SVGPaintServerPatternCg.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\cg\SVGPaintServerSolidCg.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\cg\SVGResourceClipperCg.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\cg\SVGResourceFilterCg.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\cg\SVGResourceMaskerCg.cpp"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="filters"
+					>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGDistantLightSource.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEBlend.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEBlend.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEColorMatrix.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEColorMatrix.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEComponentTransfer.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEComponentTransfer.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEComposite.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEComposite.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEConvolveMatrix.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEConvolveMatrix.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEDiffuseLighting.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEDiffuseLighting.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEDisplacementMap.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEDisplacementMap.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEFlood.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEFlood.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEGaussianBlur.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEGaussianBlur.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEImage.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEImage.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEMerge.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEMerge.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEMorphology.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEMorphology.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEOffset.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFEOffset.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFESpecularLighting.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFESpecularLighting.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFETile.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFETurbulence.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFETurbulence.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFilterEffect.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGFilterEffect.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGLightSource.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGLightSource.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGPointLightSource.h"
+						>
+					</File>
+					<File
+						RelativePath="..\svg\graphics\filters\SVGSpotLightSource.h"
+						>
+					</File>
+				</Filter>
 			</Filter>
 		</Filter>
 		<Filter
@@ -8593,6 +9433,10 @@
 				</File>
 				<File
 					RelativePath="..\ForwardingHeaders\wtf\Assertions.h"
+					>
+				</File>
+				<File
+					RelativePath="..\ForwardingHeaders\wtf\Deque.h"
 					>
 				</File>
 				<File
@@ -8810,6 +9654,134 @@
 			</File>
 			<File
 				RelativePath="..\history\PageCache.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="storage"
+			>
+			<File
+				RelativePath="..\storage\ChangeVersionWrapper.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\ChangeVersionWrapper.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\Database.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\Database.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DatabaseAuthorizer.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DatabaseAuthorizer.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DatabaseTask.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DatabaseTask.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DatabaseThread.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DatabaseThread.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DatabaseTracker.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DatabaseTracker.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\OriginQuotaManager.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\OriginQuotaManager.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\OriginUsageRecord.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\OriginUsageRecord.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLError.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLResultSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLResultSet.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLResultSetRowList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLResultSetRowList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLStatement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLStatement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLStatementCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLStatementErrorCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLTransaction.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLTransaction.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLTransactionCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLTransactionErrorCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\VersionChangeCallback.h"
 				>
 			</File>
 		</Filter>

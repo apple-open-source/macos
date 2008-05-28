@@ -31,6 +31,7 @@
 #endif
 #include "apr_arch_misc.h"
 #include "apr_arch_inherit.h"
+#include <io.h>
 
 #if APR_HAS_UNICODE_FS
 apr_status_t utf8_to_unicode_path(apr_wchar_t* retstr, apr_size_t retlen, 
@@ -227,25 +228,34 @@ apr_status_t file_cleanup(void *thefile)
 
     if (file->filehand != INVALID_HANDLE_VALUE) {
 
-        /* In order to avoid later segfaults with handle 'reuse',
-         * we must protect against the case that a dup2'ed handle
-         * is being closed, and invalidate the corresponding StdHandle 
-         */
-        if (file->filehand == GetStdHandle(STD_ERROR_HANDLE)) {
-            SetStdHandle(STD_ERROR_HANDLE, INVALID_HANDLE_VALUE);
-        }
-        if (file->filehand == GetStdHandle(STD_OUTPUT_HANDLE)) {
-            SetStdHandle(STD_OUTPUT_HANDLE, INVALID_HANDLE_VALUE);
-        }
-        if (file->filehand == GetStdHandle(STD_INPUT_HANDLE)) {
-            SetStdHandle(STD_INPUT_HANDLE, INVALID_HANDLE_VALUE);
-        }
-
         if (file->buffered) {
             /* XXX: flush here is not mutex protected */
             flush_rv = apr_file_flush((apr_file_t *)thefile);
         }
-        CloseHandle(file->filehand);
+
+        /* In order to avoid later segfaults with handle 'reuse',
+         * we must protect against the case that a dup2'ed handle
+         * is being closed, and invalidate the corresponding StdHandle 
+         * We also tell msvcrt when stdhandles are closed.
+         */
+        if (file->flags & APR_STD_FLAGS)
+        {
+            if ((file->flags & APR_STD_FLAGS) == APR_STDERR_FLAG) {
+                _close(2);
+                SetStdHandle(STD_ERROR_HANDLE, INVALID_HANDLE_VALUE);
+            }
+            else if ((file->flags & APR_STD_FLAGS) == APR_STDOUT_FLAG) {
+                _close(1);
+                SetStdHandle(STD_OUTPUT_HANDLE, INVALID_HANDLE_VALUE);
+            }
+            else if ((file->flags & APR_STD_FLAGS) == APR_STDIN_FLAG) {
+                _close(0);
+                SetStdHandle(STD_INPUT_HANDLE, INVALID_HANDLE_VALUE);
+            }
+        }
+        else
+            CloseHandle(file->filehand);
+
         file->filehand = INVALID_HANDLE_VALUE;
     }
     if (file->pOverlapped && file->pOverlapped->hEvent) {
@@ -574,15 +584,11 @@ APR_DECLARE(apr_status_t) apr_file_open_stderr(apr_file_t **thefile, apr_pool_t 
 
     apr_set_os_error(APR_SUCCESS);
     file_handle = GetStdHandle(STD_ERROR_HANDLE);
-    if (!file_handle || (file_handle == INVALID_HANDLE_VALUE)) {
-        apr_status_t rv = apr_get_os_error();
-        if (rv == APR_SUCCESS) {
-            return APR_EINVAL;
-        }
-        return rv;
-    }
+    if (!file_handle)
+        file_handle = INVALID_HANDLE_VALUE;
 
-    return apr_os_file_put(thefile, &file_handle, 0, pool);
+    return apr_os_file_put(thefile, &file_handle,
+                           APR_WRITE | APR_STDERR_FLAG, pool);
 #endif
 }
 
@@ -595,15 +601,11 @@ APR_DECLARE(apr_status_t) apr_file_open_stdout(apr_file_t **thefile, apr_pool_t 
 
     apr_set_os_error(APR_SUCCESS);
     file_handle = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (!file_handle || (file_handle == INVALID_HANDLE_VALUE)) {
-        apr_status_t rv = apr_get_os_error();
-        if (rv == APR_SUCCESS) {
-            return APR_EINVAL;
-        }
-        return rv;
-    }
+    if (!file_handle)
+        file_handle = INVALID_HANDLE_VALUE;
 
-    return apr_os_file_put(thefile, &file_handle, 0, pool);
+    return apr_os_file_put(thefile, &file_handle,
+                           APR_WRITE | APR_STDOUT_FLAG, pool);
 #endif
 }
 
@@ -616,15 +618,11 @@ APR_DECLARE(apr_status_t) apr_file_open_stdin(apr_file_t **thefile, apr_pool_t *
 
     apr_set_os_error(APR_SUCCESS);
     file_handle = GetStdHandle(STD_INPUT_HANDLE);
-    if (!file_handle || (file_handle == INVALID_HANDLE_VALUE)) {
-        apr_status_t rv = apr_get_os_error();
-        if (rv == APR_SUCCESS) {
-            return APR_EINVAL;
-        }
-        return rv;
-    }
+    if (!file_handle)
+        file_handle = INVALID_HANDLE_VALUE;
 
-    return apr_os_file_put(thefile, &file_handle, 0, pool);
+    return apr_os_file_put(thefile, &file_handle,
+                           APR_READ | APR_STDIN_FLAG, pool);
 #endif
 }
 

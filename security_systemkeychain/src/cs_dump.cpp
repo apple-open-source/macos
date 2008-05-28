@@ -35,6 +35,7 @@ using namespace UnixPlusPlus;
 // Local functions
 //
 static void dumpRequirements(CodeSigning::SecStaticCode *ondisk, FILE *output);
+static void extractCertificates(const char *prefix, CFArrayRef certChain);
 static string flagForm(uint32_t flags);
 
 
@@ -76,23 +77,30 @@ void dump(const char *target)
 		note(1, "CodeDirectory v=%x size=%d flags=%s hashes=%d+%d location=%s",
 			int(dir->version), dir->length(), flagForm(dir->flags).c_str(),
 			int(dir->nCodeSlots), int(dir->nSpecialSlots), cdLocation);
+		if (verbose > 2) {
+			SHA1 hash;
+			hash(dir, dir->length());
+			note(3, "CDHash=%s", hashString(hash).c_str());
+		}
 
 		// signature
 		if (dir->flags & kSecCodeSignatureAdhoc) {
 			note(1, "Signature=adhoc");
 		} else if (CFDataRef signature = code->signature()) {
 			note(1, "Signature size=%d", CFDataGetLength(signature));
+		CFArrayRef certChain = CFArrayRef(CFDictionaryGetValue(api, kSecCodeInfoCertificates));
 			if (verbose > 1) {
 				// dump cert chain
-				CFArrayRef certs = CFArrayRef(CFDictionaryGetValue(api, kSecCodeInfoCertificates));
-				CFIndex count = CFArrayGetCount(certs);
+			CFIndex count = CFArrayGetCount(certChain);
 				for (CFIndex n = 0; n < count; n++) {
-					SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(certs, n));
+				SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(certChain, n));
 					CFRef<CFStringRef> commonName;
 					MacOSError::check(SecCertificateCopyCommonName(cert, &commonName.aref()));
 					note(2, "Authority=%s", cfString(commonName).c_str());
 				}
 			}
+		if (extractCerts)
+			extractCertificates(extractCerts, certChain);
 			if (CFDateRef time = CFDateRef(CFDictionaryGetValue(api, kSecCodeInfoTime))) {
 				CFRef<CFLocaleRef> userLocale = CFLocaleCopyCurrent();
 				CFRef<CFDateFormatterRef> format = CFDateFormatterCreate(NULL, userLocale,
@@ -138,6 +146,9 @@ void dump(const char *target)
 			else
 				note(1, "Internal requirements=none");
 		}
+		
+		if (entitlements)
+			writeData(CFDataRef(CFDictionaryGetValue(api, kSecCodeInfoEntitlements)), entitlements, "a");
 
 		if (modifiedFiles)
 			writeFileList(CFArrayRef(CFDictionaryGetValue(api, kSecCodeInfoChangedFiles)), modifiedFiles, "a");
@@ -164,6 +175,25 @@ void dumpRequirements(SecStaticCode *ondisk, FILE *output)
 		} catch (...) {
 			fprintf(output, "# Unable to generate implicit designated requirement\n");
 		}
+	}
+}
+
+
+//
+// Extract the entire embedded certificate chain from a signature.
+// This generates DER-form certificate files, one cert per file, named
+// prefix_n (where prefix is specified by the caller).
+//
+void extractCertificates(const char *prefix, CFArrayRef certChain)
+{
+	CFIndex count = CFArrayGetCount(certChain);
+	for (CFIndex n = 0; n < count; n++) {
+		SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(certChain, n));
+		CSSM_DATA certData;
+		MacOSError::check(SecCertificateGetData(cert, &certData));
+		char name[PATH_MAX];
+		snprintf(name, sizeof(name), "%s%d", prefix, n);
+		AutoFileDesc(name, O_WRONLY | O_CREAT | O_TRUNC).writeAll(certData.Data, certData.Length);
 	}
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,16 +25,25 @@
 
 module window {
 
-    interface [LegacyParent=KJS::Window, DoNotCache, CheckDomainSecurity, GenerateNativeConverter, CustomGetOwnPropertySlot, CustomPutFunction] DOMWindow {
+    interface [
+        LegacyParent=KJS::Window,
+        DoNotCache,
+        CheckDomainSecurity,
+        GenerateNativeConverter,
+        CustomGetOwnPropertySlot,
+        CustomPutFunction,
+        CustomDeleteProperty,
+        CustomGetPropertyNames
+    ] DOMWindow {
         // DOM Level 0
         readonly attribute Screen screen;
         readonly attribute [DoNotCheckDomainSecurity] History history;
-        readonly attribute BarInfo locationbar;
-        readonly attribute BarInfo menubar;
-        readonly attribute BarInfo personalbar;
-        readonly attribute BarInfo scrollbars;
-        readonly attribute BarInfo statusbar;
-        readonly attribute BarInfo toolbar;
+        attribute [Replaceable] BarInfo locationbar;
+        attribute [Replaceable] BarInfo menubar;
+        attribute [Replaceable] BarInfo personalbar;
+        attribute [Replaceable] BarInfo scrollbars;
+        attribute [Replaceable] BarInfo statusbar;
+        attribute [Replaceable] BarInfo toolbar;
 
         DOMSelection getSelection();
 
@@ -47,9 +56,9 @@ module window {
         void print();
         void stop();
 
-        void alert(in [ConvertUndefinedOrNullToNullString] DOMString message);
-        boolean confirm(in [ConvertUndefinedOrNullToNullString] DOMString message);
-        [ConvertNullStringTo=Null] DOMString prompt(in [ConvertUndefinedOrNullToNullString] DOMString message,
+        void alert(in DOMString message);
+        boolean confirm(in DOMString message);
+        [ConvertNullStringTo=Null] DOMString prompt(in DOMString message,
                                                     in [ConvertUndefinedOrNullToNullString] DOMString defaultValue);
 
         boolean find(in DOMString string,
@@ -60,42 +69,50 @@ module window {
                      in boolean searchInFrames,
                      in boolean showDialog);
 
-        readonly attribute boolean offscreenBuffering;
+        attribute [Replaceable] boolean offscreenBuffering;
 
-        readonly attribute long outerHeight;
-        readonly attribute long outerWidth;
-        readonly attribute long innerHeight;
-        readonly attribute long innerWidth;
-        readonly attribute long screenX;
-        readonly attribute long screenY;
-        readonly attribute long screenLeft;
-        readonly attribute long screenTop;
-        readonly attribute long scrollX;
-        readonly attribute long scrollY;
+        attribute [Replaceable] long outerHeight;
+        attribute [Replaceable] long outerWidth;
+        attribute [Replaceable] long innerHeight;
+        attribute [Replaceable] long innerWidth;
+        attribute [Replaceable] long screenX;
+        attribute [Replaceable] long screenY;
+        attribute [Replaceable] long screenLeft;
+        attribute [Replaceable] long screenTop;
+        attribute [Replaceable] long scrollX;
+        attribute [Replaceable] long scrollY;
         readonly attribute long pageXOffset;
         readonly attribute long pageYOffset;
 
+        [RequiresAllArguments] void scrollBy(in long x, in long y);
+        [RequiresAllArguments] void scrollTo(in long x, in long y);
+        [RequiresAllArguments] void scroll(in long x, in long y);
+        [RequiresAllArguments] void moveBy(in float x, in float y); // FIXME: this should take longs not floats.
+        [RequiresAllArguments] void moveTo(in float x, in float y); // FIXME: this should take longs not floats.
+        [RequiresAllArguments] void resizeBy(in float x, in float y); // FIXME: this should take longs not floats.
+        [RequiresAllArguments] void resizeTo(in float width, in float height); // FIXME: this should take longs not floats.
+
         readonly attribute [DoNotCheckDomainSecurity] boolean closed;
 
-        readonly attribute [DoNotCheckDomainSecurity] unsigned long length;
+        attribute [Replaceable, DoNotCheckDomainSecurityOnGet] unsigned long length;
 
-                 attribute DOMString name;
+        attribute DOMString name;
 
-                 attribute DOMString status;
-                 attribute DOMString defaultStatus;
+        attribute DOMString status;
+        attribute DOMString defaultStatus;
 #if defined(LANGUAGE_JAVASCRIPT)
-                 // This attribute is an alias of defaultStatus and is necessary for legacy uses.
-                 attribute DOMString defaultstatus;
+        // This attribute is an alias of defaultStatus and is necessary for legacy uses.
+        attribute DOMString defaultstatus;
 #endif
 
         // Self referential attributes
-        readonly attribute [DoNotCheckDomainSecurity] DOMWindow self;
+        attribute [Replaceable, DoNotCheckDomainSecurityOnGet] DOMWindow self;
         readonly attribute [DoNotCheckDomainSecurity] DOMWindow window;
-        readonly attribute [DoNotCheckDomainSecurity] DOMWindow frames;
+        attribute [Replaceable, DoNotCheckDomainSecurityOnGet] DOMWindow frames;
 
-        readonly attribute [DoNotCheckDomainSecurity] DOMWindow opener;
-        readonly attribute [DoNotCheckDomainSecurity] DOMWindow parent;
-        readonly attribute [DoNotCheckDomainSecurity] DOMWindow top;
+        attribute [Replaceable, DoNotCheckDomainSecurityOnGet] DOMWindow opener;
+        attribute [Replaceable, DoNotCheckDomainSecurity] DOMWindow parent;
+        attribute [Replaceable, DoNotCheckDomainSecurity] DOMWindow top;
 
         // DOM Level 2 AbstractView Interface
         readonly attribute Document document;
@@ -108,7 +125,19 @@ module window {
         CSSRuleList getMatchedCSSRules(in Element element,
                                        in DOMString pseudoElement,
                                        in [Optional] boolean authorOnly);
-        readonly attribute double devicePixelRatio;
+        attribute [Replaceable] double devicePixelRatio;
+
+#if defined(ENABLE_DATABASE)
+        Database openDatabase(in DOMString name, in DOMString version, in DOMString displayName, in unsigned long estimatedSize)
+            raises(DOMException);
+#endif
+
+                 attribute [Replaceable] Console console;
+
+#if defined(ENABLE_CROSS_DOCUMENT_MESSAGING)
+        // cross-document messaging
+        [DoNotCheckDomainSecurity, Custom] void postMessage(in DOMString message);
+#endif
 
 #if defined(LANGUAGE_JAVASCRIPT)
         // Global constructors
@@ -132,9 +161,10 @@ module window {
         attribute CounterConstructor Counter;
         attribute CSSRuleListConstructor CSSRuleList;
         attribute RectConstructor Rect;
+        attribute StyleSheetListConstructor StyleSheetList;
 
         // FIXME: Implement the commented-out global constructors for interfaces listed in DOM Level 3 Core specification.
-//        attribute DOMExceptionConstructor DOMException;
+        attribute DOMCoreExceptionConstructor DOMException;
 //        attribute DOMStringListConstructor DOMStringList;
 //        attribute NameListConstructor NameList;
 //        attribute DOMImplementationListConstructor DOMImplementationList;
@@ -224,7 +254,15 @@ module window {
         attribute HTMLUListElementConstructor HTMLUListElement;
 
         attribute EventConstructor Event;
+        attribute KeyboardEventConstructor KeyboardEvent;
+        attribute MouseEventConstructor MouseEvent;
         attribute MutationEventConstructor MutationEvent;
+        attribute OverflowEventConstructor OverflowEvent;
+        attribute ProgressEventConstructor ProgressEvent;
+        attribute TextEventConstructor TextEvent;
+        attribute UIEventConstructor UIEvent;
+        attribute WheelEventConstructor WheelEvent;
+        attribute EventExceptionConstructor EventException;
 
         attribute NodeFilterConstructor NodeFilter;
         attribute RangeConstructor Range;
@@ -237,10 +275,55 @@ module window {
         attribute DOMParserConstructor DOMParser;
         attribute XMLSerializerConstructor XMLSerializer;
 
-#if ENABLE_XPATH
+        attribute XMLHttpRequestExceptionConstructor XMLHttpRequestException;
+
+#if defined(ENABLE_CROSS_DOCUMENT_MESSAGING)
+        attribute MessageEventConstructor MessageEvent;
+#endif
+
+#if defined(ENABLE_VIDEO)
+        attribute HTMLAudioElementConstructor HTMLAudioElement;
+        attribute HTMLMediaElementConstructor HTMLMediaElement;
+        attribute HTMLVideoElementConstructor HTMLVideoElement;
+        attribute MediaErrorConstructor MediaError;
+#endif
+
+#if defined(ENABLE_XPATH)
         attribute XPathEvaluatorConstructor XPathEvaluator;
         attribute XPathResultConstructor XPathResult;
+        attribute XPathExceptionConstructor XPathException;
 #endif
+
+#if defined(ENABLE_SVG)
+        attribute SVGAngleConstructor SVGAngle;
+        attribute SVGColorConstructor SVGColor;
+//      attribute SVGCSSRuleConstructor SVGCSSRule;
+        attribute SVGExceptionConstructor SVGException;
+        attribute SVGGradientElementConstructor SVGGradientElement;
+        attribute SVGLengthConstructor SVGLength;
+        attribute SVGMarkerElementConstructor SVGMarkerElement;
+        attribute SVGPaintConstructor SVGPaint;
+        attribute SVGPathSegConstructor SVGPathSeg;
+        attribute SVGPreserveAspectRatioConstructor SVGPreserveAspectRatio;
+        attribute SVGRenderingIntentConstructor SVGRenderingIntent;
+        attribute SVGTextContentElementConstructor SVGTextContentElement;
+        attribute SVGTextPathElementConstructor SVGTextPathElement;
+        attribute SVGTransformConstructor SVGTransform;
+        attribute SVGUnitTypesConstructor SVGUnitTypes;
+//      attribute SVGZoomAndPanConstructor SVGZoomAndPan;
+#endif
+
+#if defined(ENABLED_SVG_FILTERS)
+        attribute SVGComponentTransferFunctionElementConstructor SVGComponentTransferFunctionElement;
+        attribute SVGFEBlendElementConstructor SVGFEBlendElement;
+        attribute SVGFEColorMatrixElementConstructor SVGFEColorMatrixElement;
+        attribute SVGFECompositeElementConstructor SVGFECompositeElement;
+//      attribute SVGFEConvolveMatrixElementConstructor SVGFEConvolveMatrixElement;
+        attribute SVGFEDisplacementMapElementConstructor SVGFEDisplacementMapElement;
+//      attribute SVGFEMorphologyElementConstructor SVGFEMorphologyElement;
+        attribute SVGFETurbulenceElementConstructor SVGFETurbulenceElement;
+#endif
+
 #endif // defined(LANGUAGE_JAVASCRIPT)
     };
 

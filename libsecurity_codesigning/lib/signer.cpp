@@ -31,6 +31,7 @@
 #include <Security/SecIdentity.h>
 #include <Security/CMSEncoder.h>
 #include <Security/CMSPrivate.h>
+#include <CoreFoundation/CFBundlePriv.h>
 #include "renum.h"
 #include <security_utilities/unix++.h>
 #include <security_utilities/unixchild.h>
@@ -86,10 +87,24 @@ void SecCodeSigner::Signer::sign(SecCSFlags flags)
 	// prepare the resource directory, if any
 	string rpath = rep->resourcesRootPath();
 	if (!rpath.empty()) {
+		// explicitly given resource rules always win
 		CFCopyRef<CFDictionaryRef> resourceRules(state.mResourceRules);
+		
+		// embedded resource rules come next
+		if (!resourceRules)
+			if (CFTypeRef spec = CFDictionaryGetValue(infoDict, _kCFBundleResourceSpecificationKey))
+				if (CFGetTypeID(spec) == CFStringGetTypeID())
+					if (CFRef<CFDataRef> data = cfLoadFile(rpath + "/" + cfString(CFStringRef(spec))))
+						if (CFRef<CFDictionaryRef> dict = makeCFDictionaryFrom(data))
+							resourceRules = dict;
+
+		// finally, ask the DiskRep for its default
 		if (!resourceRules)
 			resourceRules.take(rep->defaultResourceRules());
+		
+		// build the resource directory
 		ResourceBuilder resources(rpath, cfget<CFDictionaryRef>(resourceRules, "rules"));
+		rep->adjustResources(resources);
 		CFRef<CFDictionaryRef> rdir = resources.build();
 		resourceDirectory.take(CFPropertyListCreateXMLData(NULL, rdir));
 	}
@@ -241,6 +256,12 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 			if (state.mApplicationData)
 				builder.special(slot, state.mApplicationData);
 #endif
+			break;
+		case cdEntitlementSlot:
+			if (state.mEntitlementData) {
+				writer.component(cdEntitlementSlot, state.mEntitlementData);
+				builder.special(slot, state.mEntitlementData);
+			}
 			break;
 		default:
 			if (CFDataRef data = rep->component(slot))

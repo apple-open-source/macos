@@ -4,7 +4,7 @@
 
 # TARGTYPE "Win32 (x86) Static Library" 0x0104
 
-CFG=xml - Win32 Debug
+CFG=xml - Win32 Release
 !MESSAGE This is not a valid makefile. To build this project using NMAKE,
 !MESSAGE use the Export Makefile command and run
 !MESSAGE 
@@ -13,12 +13,14 @@ CFG=xml - Win32 Debug
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "xml.mak" CFG="xml - Win32 Debug"
+!MESSAGE NMAKE /f "xml.mak" CFG="xml - Win32 Release"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
 !MESSAGE "xml - Win32 Release" (based on "Win32 (x86) Static Library")
 !MESSAGE "xml - Win32 Debug" (based on "Win32 (x86) Static Library")
+!MESSAGE "xml - x64 Release" (based on "Win32 (x86) Static Library")
+!MESSAGE "xml - x64 Debug" (based on "Win32 (x86) Static Library")
 !MESSAGE 
 
 # Begin Project
@@ -41,7 +43,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "LibR"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /FD /c
-# ADD CPP /nologo /MD /W3 /O2 /Oy- /Zi /I "." /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D VERSION=\"expat_1.95.2\" /Fd"LibR\xml_src" /FD /c
+# ADD CPP /nologo /MD /W3 /Zi /O2 /Oy- /I "." /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D VERSION=\"expat_1.95.2\" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /c
 # ADD BASE RSC /l 0x409
 # ADD RSC /l 0x409
 BSC32=bscmake.exe
@@ -49,7 +51,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LIB32=link.exe -lib
 # ADD BASE LIB32 /nologo
-# ADD LIB32 /nologo
+# ADD LIB32 /nologo /out:"LibR\xml.lib"
 
 !ELSEIF  "$(CFG)" == "xml - Win32 Debug"
 
@@ -64,8 +66,8 @@ LIB32=link.exe -lib
 # PROP Intermediate_Dir "LibD"
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
-# ADD BASE CPP /nologo /MDd /W3 /EHsc /Zi /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /FD /c
-# ADD CPP /nologo /MDd /W3 /EHsc /Zi /Od /I "." /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D VERSION=\"expat_1.95.2\" /Fd"LibD\xml_src" /FD /c
+# ADD BASE CPP /nologo /MDd /W3 /Zi /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /FD /EHsc /c
+# ADD CPP /nologo /MDd /W3 /Zi /Od /I "." /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D VERSION=\"expat_1.95.2\" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /EHsc /c
 # ADD BASE RSC /l 0x409
 # ADD RSC /l 0x409
 BSC32=bscmake.exe
@@ -73,7 +75,54 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LIB32=link.exe -lib
 # ADD BASE LIB32 /nologo
-# ADD LIB32 /nologo
+# ADD LIB32 /nologo /out:"LibD\xml.lib"
+
+!ELSEIF  "$(CFG)" == "xml - x64 Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "x64\LibR"
+# PROP BASE Intermediate_Dir "x64\LibR"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "x64\LibR"
+# PROP Intermediate_Dir "x64\LibR"
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /MD /W3 /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /FD /c
+# ADD CPP /nologo /MD /W3 /Zi /O2 /Oy- /I "." /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D VERSION=\"expat_1.95.2\" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /c
+# ADD BASE RSC /l 0x409
+# ADD RSC /l 0x409
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LIB32=link.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo /out:"x64\LibR\xml.lib"
+
+!ELSEIF  "$(CFG)" == "xml - x64 Debug"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 1
+# PROP BASE Output_Dir "x64\LibD"
+# PROP BASE Intermediate_Dir "x64\LibD"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 1
+# PROP Output_Dir "x64\LibD"
+# PROP Intermediate_Dir "x64\LibD"
+# PROP Ignore_Export_Lib 0
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /MDd /W3 /Zi /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /FD /EHsc /c
+# ADD CPP /nologo /MDd /W3 /Zi /Od /I "." /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D VERSION=\"expat_1.95.2\" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /EHsc /c
+# ADD BASE RSC /l 0x409
+# ADD RSC /l 0x409
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LIB32=link.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo /out:"x64\LibD\xml.lib"
 
 !ENDIF 
 
@@ -81,6 +130,8 @@ LIB32=link.exe -lib
 
 # Name "xml - Win32 Release"
 # Name "xml - Win32 Debug"
+# Name "xml - x64 Release"
+# Name "xml - x64 Debug"
 # Begin Group "Source Files"
 
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
@@ -182,6 +233,26 @@ InputPath=.\expat.h.in
 	
 # End Custom Build
 
+!ELSEIF  "$(CFG)" == "xml - x64 Release"
+
+# Begin Custom Build - Creating expat.h from expat.h.in 
+InputPath=.\expat.h.in
+
+".\expat.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\expat.h.in > .\expat.h
+	
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "xml - x64 Debug"
+
+# Begin Custom Build - Creating expat.h from expat.h.in 
+InputPath=.\expat.h.in
+
+".\expat.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\expat.h.in > .\expat.h
+	
+# End Custom Build
+
 !ENDIF 
 
 # End Source File
@@ -200,6 +271,26 @@ InputPath=.\winconfig.h
 # End Custom Build
 
 !ELSEIF  "$(CFG)" == "xml - Win32 Debug"
+
+# Begin Custom Build - Creating config.h from winconfig.h 
+InputPath=.\winconfig.h
+
+".\config.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\winconfig.h > .\config.h
+	
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "xml - x64 Release"
+
+# Begin Custom Build - Creating config.h from winconfig.h 
+InputPath=.\winconfig.h
+
+".\config.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\winconfig.h > .\config.h
+	
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "xml - x64 Debug"
 
 # Begin Custom Build - Creating config.h from winconfig.h 
 InputPath=.\winconfig.h

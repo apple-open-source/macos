@@ -60,7 +60,7 @@ public:
 
 	// different forms of Requirements. Right now, we only support exprForm ("opExprs")
 	enum Kind {
-		exprForm = 1			// postfix expr form
+		exprForm = 1			// prefix expr form
 	};
 	
 	void kind(Kind k) { mKind = k; }
@@ -98,11 +98,12 @@ private:
 // An interpretation context
 //
 struct Requirement::Context {
-	Context(CFArrayRef certChain, CFDictionaryRef infoDict, const CodeDirectory *dir)
-		: certs(certChain), info(infoDict), directory(dir) { }
+	Context(CFArrayRef certChain, CFDictionaryRef infoDict, CFDictionaryRef entitlementDict, const CodeDirectory *dir)
+		: certs(certChain), info(infoDict), entitlements(entitlementDict), directory(dir) { }
 	
 	const CFArrayRef certs;
 	const CFDictionaryRef info;
+	const CFDictionaryRef entitlements;
 	const CodeDirectory * const directory;
 
 	SecCertificateRef cert(int ix) const;		// get a cert from the cert chain
@@ -135,7 +136,7 @@ enum ExprOp {
 	opFalse,						// unconditionally false
 	opTrue,							// unconditionally true
 	opIdent,						// match canonical code [string]
-	opAppleAnchor,					// match apple anchor
+	opAppleAnchor,					// signed by Apple as Apple's product
 	opAnchorHash,					// match anchor [cert hash]
 	opInfoKeyValue,					// *legacy* match Info.plist field [key; value]
 	opAnd,							// binary prefix expr AND expr
@@ -146,6 +147,9 @@ enum ExprOp {
 	opCertField,					// Certificate field [cert index; field name; match suffix]
 	opTrustedCert,					// require trust settings to approve one particular cert [cert index]
 	opTrustedCerts,					// require trust settings to approve the cert chain
+	opCertGeneric,					// Certificate component by OID [cert index; oid; match suffix]
+	opAppleGenericAnchor,			// signed by Apple in any capacity
+	opEntitlementField,				// entitlement dictionary field [string; match suffix]
 	exprOpCount						// (total opcode count in use)
 };
 
@@ -154,6 +158,12 @@ enum MatchOperation {
 	matchExists,					// anything but explicit "false" - no value stored
 	matchEqual,						// equal (CFEqual)
 	matchContains,					// partial match (substring)
+	matchBeginsWith,				// partial match (initial substring)
+	matchEndsWith,					// partial match (terminal substring)
+	matchLessThan,					// less than (string with numeric comparison)
+	matchGreaterThan,				// greater than (string with numeric comparison)
+	matchLessEqual,					// less or equal (string with numeric comparison)
+	matchGreaterEqual,				// greater or equal (string with numeric comparison)
 };
 
 

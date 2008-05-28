@@ -68,16 +68,6 @@ bool Image::setData(PassRefPtr<SharedBuffer> data, bool allDataReceived)
     int length = m_data->size();
     if (!length)
         return true;
-
-#ifdef kImageBytesCutoff
-    // This is a hack to help with testing display of partially-loaded images.
-    // To enable it, define kImageBytesCutoff to be a size smaller than that of the image files
-    // being loaded. They'll never finish loading.
-    if (length > kImageBytesCutoff) {
-        length = kImageBytesCutoff;
-        allDataReceived = false;
-    }
-#endif
     
     return dataChanged(allDataReceived);
 }
@@ -137,6 +127,11 @@ void Image::drawTiled(GraphicsContext* ctxt, const FloatRect& destRect, const Fl
     }
 
     FloatSize intrinsicTileSize = size();
+    if (hasRelativeWidth())
+        intrinsicTileSize.setWidth(scaledTileSize.width());
+    if (hasRelativeHeight())
+        intrinsicTileSize.setHeight(scaledTileSize.height());
+
     FloatSize scale(scaledTileSize.width() / intrinsicTileSize.width(),
                     scaledTileSize.height() / intrinsicTileSize.height());
     AffineTransform patternTransform = AffineTransform().scale(scale.width(), scale.height());

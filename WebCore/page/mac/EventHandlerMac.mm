@@ -50,6 +50,7 @@
 #include "PlatformScrollBar.h"
 #include "PlatformWheelEvent.h"
 #include "RenderWidget.h"
+#include "Settings.h"
 #include "WebCoreFrameBridge.h"
 
 namespace WebCore {
@@ -87,7 +88,11 @@ PassRefPtr<KeyboardEvent> EventHandler::currentKeyboardEvent() const
     if (!event)
         return 0;
     switch ([event type]) {
-        case NSKeyDown:
+        case NSKeyDown: {
+            PlatformKeyboardEvent platformEvent(event);
+            platformEvent.disambiguateKeyDownEvent(PlatformKeyboardEvent::RawKeyDown);
+            return new KeyboardEvent(platformEvent, m_frame->document() ? m_frame->document()->defaultView() : 0);
+        }
         case NSKeyUp:
             return new KeyboardEvent(event, m_frame->document() ? m_frame->document()->defaultView() : 0);
         default:
@@ -126,6 +131,29 @@ bool EventHandler::tabsToAllControls(KeyboardEvent* event) const
         return !handlingOptionTab;
     
     return handlingOptionTab;
+}
+
+bool EventHandler::needsKeyboardEventDisambiguationQuirks() const
+{
+    static BOOL checkedSafari = NO;
+    static BOOL isSafari = NO;
+
+    if (!checkedSafari) {
+        isSafari = [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.Safari"];
+        checkedSafari = YES;
+    }
+    
+    Document* document = m_frame->document();
+    if (!document)
+        return false;
+
+    // RSS view needs arrow key keypress events.
+    if (isSafari && document->url().startsWith("feed:", false) || document->url().startsWith("feeds:", false))
+        return true;
+    Settings* settings = m_frame->settings();
+    if (!settings)
+        return false;
+    return settings->usesDashboardBackwardCompatibilityMode() || settings->needsKeyboardEventDisambiguationQuirks();
 }
 
 bool EventHandler::keyEvent(NSEvent *event)
@@ -215,37 +243,16 @@ bool EventHandler::passMouseDownEventToWidget(Widget* widget)
     ASSERT(nodeView);
     ASSERT([nodeView superview]);
     NSView *view = [nodeView hitTest:[[nodeView superview] convertPoint:[currentEvent().get() locationInWindow] fromView:nil]];
-    if (!view)
+    if (!view) {
         // We probably hit the border of a RenderWidget
         return true;
+    }
     
-    if ([m_frame->bridge() firstResponder] == view) {
-        // In the case where we just became first responder, we should send the mouseDown:
-        // to the NSTextField, not the NSTextField's editor. This code makes sure that happens.
-        // If we don't do this, we see a flash of selected text when clicking in a text field.
-        // FIXME: This is the only caller of textViewWasFirstResponderAtMouseDownTime. When we
-        // eliminate all use of NSTextField/NSTextView in form fields we can eliminate this code,
-        // and textViewWasFirstResponderAtMouseDownTime:, and the instance variable WebHTMLView
-        // keeps solely to support textViewWasFirstResponderAtMouseDownTime:.
-        if ([view isKindOfClass:[NSTextView class]] && ![m_frame->bridge() textViewWasFirstResponderAtMouseDownTime:(NSTextView *)view]) {
-            NSView *superview = view;
-            while (superview != nodeView) {
-                superview = [superview superview];
-                ASSERT(superview);
-                if ([superview isKindOfClass:[NSControl class]]) {
-                    NSControl *control = static_cast<NSControl*>(superview);
-                    if ([control currentEditor] == view)
-                        view = superview;
-                    break;
-                }
-            }
-        }
-    } else {
+    if ([m_frame->bridge() firstResponder] != view) {
         // Normally [NSWindow sendEvent:] handles setting the first responder.
         // But in our case, the event was sent to the view representing the entire web page.
-        if ([currentEvent().get() clickCount] <= 1 && [view acceptsFirstResponder] && [view needsPanelToBecomeKey]) {
+        if ([currentEvent().get() clickCount] <= 1 && [view acceptsFirstResponder] && [view needsPanelToBecomeKey])
             [m_frame->bridge() makeFirstResponder:view];
-        }
     }
 
     // We need to "defer loading" while tracking the mouse, because tearing down the
@@ -463,7 +470,6 @@ void EventHandler::mouseDown(NSEvent *event)
     m_frame->loader()->resetMultipleFormSubmissionProtection();
 
     m_mouseDownView = nil;
-    dragState().m_dragSrc = 0;
     
     RetainPtr<NSEvent> oldCurrentEvent = currentEvent();
     currentEvent() = event;

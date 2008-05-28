@@ -230,15 +230,19 @@ int mbr_sid_to_uuid(const nt_sid_t *sid, uuid_t uu)
 	int status;
 
 	request.el_seqno = 1;
-	request.el_flags = KAUTH_EXTLOOKUP_VALID_GSID | KAUTH_EXTLOOKUP_WANT_GGUID;
+	request.el_flags = KAUTH_EXTLOOKUP_VALID_GSID | KAUTH_EXTLOOKUP_WANT_GGUID | KAUTH_EXTLOOKUP_VALID_USID | KAUTH_EXTLOOKUP_WANT_UGUID;
 	memset(&request.el_gsid, 0, sizeof(ntsid_t));
 	memcpy(&request.el_gsid, sid, KAUTH_NTSID_SIZE(sid));
+	memset(&request.el_usid, 0, sizeof(ntsid_t));
+	memcpy(&request.el_usid, sid, KAUTH_NTSID_SIZE(sid));
 
 	status = _mbr_MembershipCall(&request);
 	if (status != 0) return status;
-	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_GGUID) == 0) return ENOENT;
 
-	memcpy(uu, &request.el_gguid, sizeof(guid_t));
+	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_GGUID) != 0) memcpy(uu, &request.el_gguid, sizeof(guid_t));
+	else if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_UGUID) != 0) memcpy(uu, &request.el_uguid, sizeof(guid_t));
+	else return ENOENT;
+
 	return 0;
 }
 
@@ -470,7 +474,7 @@ int mbr_string_to_sid(const char *string, nt_sid_t *sid)
 	while (*current != '\0' && count < NTSID_MAX_AUTHORITIES)
 	{
 		current++;
-		sid->sid_authorities[count] = strtol(current, &current, 10);
+		sid->sid_authorities[count] = (u_int32_t)strtoll(current, &current, 10);
 		count++;
 	}
 

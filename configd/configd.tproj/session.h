@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2005, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,7 +58,8 @@ __BEGIN_DECLS
 
 serverSessionRef	getSession	(mach_port_t	server);
 
-serverSessionRef	addSession	(CFMachPortRef	server);
+serverSessionRef	addSession	(mach_port_t	server,
+					 CFStringRef	(*copyDescription)(const void *info));
 
 void			removeSession	(mach_port_t	server);
 

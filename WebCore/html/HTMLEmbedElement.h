@@ -33,8 +33,6 @@
 
 namespace WebCore {
 
-class SVGDocument;
-
 class HTMLEmbedElement : public HTMLPlugInElement {
 public:
     HTMLEmbedElement(Document*);
@@ -56,6 +54,9 @@ public:
     
     virtual bool isURLAttribute(Attribute*) const;
 
+    virtual void updateWidget();
+    void setNeedWidgetUpdate(bool needWidgetUpdate) { m_needWidgetUpdate = needWidgetUpdate; }
+
 #if USE(JAVASCRIPTCORE_BINDINGS)
     virtual KJS::Bindings::Instance* getInstance() const;
 #endif
@@ -65,14 +66,11 @@ public:
 
     String type() const;
     void setType(const String&);
-    
-#if ENABLE(SVG)
-    SVGDocument* getSVGDocument(ExceptionCode&) const;
-#endif
 
     DeprecatedString url;
     String m_pluginPage;
     String m_serviceType;
+    bool m_needWidgetUpdate;
 };
 
 }

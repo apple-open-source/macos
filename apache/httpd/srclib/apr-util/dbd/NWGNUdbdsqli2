@@ -54,7 +54,7 @@ XCFLAGS		+= \
 # These defines will come after DEFINES
 #
 XDEFINES	+= \
-			-DAPU_HAVE_SQLITE2 \
+			-DAPU_HAVE_SQLITE2=1 \
 			$(EOLIST)
 
 #
@@ -120,7 +120,7 @@ endif
 # This is used by the link 'name' directive to name the nlm.  If left blank
 # TARGET_nlm (see below) will be used.
 #
-NLM_NAME	= dbdsqli3
+NLM_NAME	= dbdsqli2
 
 #
 # This is used by the link '-desc ' directive.
@@ -132,7 +132,7 @@ NLM_DESCRIPTION	= Apache Portability Runtime Library $(VERSION_STR) DBD SQLite2 
 # This is used by the '-threadname' directive.  If left blank,
 # NLM_NAME Thread will be used.
 #
-NLM_THREAD_NAME	= dbdsqli3
+NLM_THREAD_NAME	= dbdsqli2
 
 #
 # If this is specified, it will override VERSION value in

@@ -203,16 +203,6 @@ sub finish
     my $object = shift;
 }
 
-# Uppercase the first letter, while respecting WebKit style guidelines. 
-# E.g., xmlEncoding becomes XMLEncoding, but xmlllang becomes Xmllang.
-sub WK_ucfirst
-{
-    my $param = shift;
-    my $ret = ucfirst($param);
-    $ret =~ s/Xml/XML/ if $ret =~ /^Xml[^a-z]/;
-    return $ret;
-}
-
 sub ReadPublicInterfaces
 {
     my $class = shift;
@@ -386,6 +376,9 @@ sub GetParentAndProtocols
         my $firstParent = $codeGenerator->StripModule(shift(@parents));
         if (IsProtocolType($firstParent)) {
             push(@protocols, "DOM" . $firstParent);
+            if (!$isProtocol) {
+                $parent = "DOMObject";
+            }
         } else {
             $parent = "DOM" . $firstParent;
         }
@@ -884,7 +877,10 @@ sub GenerateHeader
         push(@headerContent, "\@end\n");
     }
 
-    if (@privateHeaderAttributes > 0 or @privateHeaderFunctions > 0) {
+    my %alwaysGenerateForNoSVGBuild = map { $_ => 1 } qw(DOMHTMLEmbedElement DOMHTMLObjectElement);
+
+    if (@privateHeaderAttributes > 0 or @privateHeaderFunctions > 0
+            or exists $alwaysGenerateForNoSVGBuild{$className}) {
         # - Private category @interface
         @privateHeaderContentHeader = split("\r", $headerLicenceTemplate);
         push(@headerContentHeader, "\n");
@@ -928,7 +924,7 @@ sub GenerateImplementation
     my $podTypeWithNamespace;
 
     if ($podType) {
-        $podTypeWithNamespace = ($podType eq "double") ? "$podType" : "WebCore::$podType";
+        $podTypeWithNamespace = ($podType eq "float") ? "$podType" : "WebCore::$podType";
     }
 
     # - Add default header template.
@@ -956,7 +952,7 @@ sub GenerateImplementation
         if (!$podType) {
             $implIncludes{"$implClassName.h"} = 1;
         } else {
-            $implIncludes{"$podType.h"} = 1 unless $podType eq "double";
+            $implIncludes{"$podType.h"} = 1 unless $podType eq "float";
         }
     } 
 
@@ -1059,11 +1055,11 @@ sub GenerateImplementation
             # - GETTER
             my $getterSig = "- ($attributeType)$attributeInterfaceName\n";
             my $hasGetterException = @{$attribute->getterExceptions};
-            my $getterContentHead = "IMPL->$attributeName(";
+            my $getterContentHead = "IMPL->" . $codeGenerator->WK_lcfirst($attributeName) . "(";
             my $getterContentTail = ")";
 
             # Special case for DOMSVGNumber
-            if ($podType and $podType eq "double") {
+            if ($podType and $podType eq "float") {
                 $getterContentHead = "*IMPL";
                 $getterContentTail = "";
             }
@@ -1157,7 +1153,7 @@ sub GenerateImplementation
                 # Exception handling
                 my $hasSetterException = @{$attribute->setterExceptions};
 
-                $attributeName = "set" . WK_ucfirst($attributeName);
+                $attributeName = "set" . $codeGenerator->WK_ucfirst($attributeName);
                 my $setterName = "set" . ucfirst($attributeInterfaceName);
                 my $argName = "new" . ucfirst($attributeInterfaceName);
                 my $arg = GetObjCTypeGetter($argName, $idlType);
@@ -1180,7 +1176,7 @@ sub GenerateImplementation
 
                 if ($podType) {
                     # Special case for DOMSVGNumber
-                    if ($podType eq "double") {
+                    if ($podType eq "float") {
                         push(@implContent, "    *IMPL = $arg;\n");
                     } else {
                         push(@implContent, "    IMPL->$attributeName($arg);\n");
@@ -1289,20 +1285,20 @@ sub GenerateImplementation
             my $svgMatrixInverse = ($podType and $podType eq "AffineTransform" and $functionName eq "inverse");
 
             push(@parameterNames, "ec") if $raisesExceptions and !($svgMatrixRotateFromVector || $svgMatrixInverse);
-            my $content = $caller . "->" . $functionName . "(" . join(", ", @parameterNames) . ")"; 
+            my $content = $caller . "->" . $codeGenerator->WK_lcfirst($functionName) . "(" . join(", ", @parameterNames) . ")"; 
 
             if ($svgMatrixRotateFromVector) {
                 # Special case with rotateFromVector & SVGMatrix        
                 push(@functionContent, "    $exceptionInit\n");
                 push(@functionContent, "    if (x == 0.0 || y == 0.0)\n");
-                push(@functionContent, "        ec = WebCore::SVG_INVALID_VALUE_ERR;\n");
+                push(@functionContent, "        ec = WebCore::SVGException::SVG_INVALID_VALUE_ERR;\n");
                 push(@functionContent, "    $exceptionRaiseOnError\n");
                 push(@functionContent, "    return [DOMSVGMatrix _wrapSVGMatrix:$content];\n");
             } elsif ($svgMatrixInverse) {
                 # Special case with inverse & SVGMatrix
                 push(@functionContent, "    $exceptionInit\n");
                 push(@functionContent, "    if (!$caller->isInvertible())\n");
-                push(@functionContent, "        ec = WebCore::SVG_MATRIX_NOT_INVERTABLE;\n");
+                push(@functionContent, "        ec = WebCore::SVGException::SVG_MATRIX_NOT_INVERTABLE;\n");
                 push(@functionContent, "    $exceptionRaiseOnError\n");
                 push(@functionContent, "    return [DOMSVGMatrix _wrapSVGMatrix:$content];\n");
             } elsif ($returnType eq "void") {
@@ -1443,7 +1439,7 @@ sub GenerateImplementation
     if ($codeGenerator->IsSVGAnimatedType($interfaceName)) {
         push(@internalHeaderContent, "#import <WebCore/SVGAnimatedTemplate.h>\n\n");
     } else {
-        if ($podType and $podType ne "double") {
+        if ($podType and $podType ne "float") {
             push(@internalHeaderContent, "\nnamespace WebCore { class $podType; }\n\n");
         } elsif ($interfaceName eq "Node") {
             push(@internalHeaderContent, "\nnamespace WebCore { class Node; class EventTarget; }\n\n");

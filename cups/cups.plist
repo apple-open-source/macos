@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-12-07</string>
+		<string>2008-02-15</string>
 		<key>OpenSourceLicense</key>
 		<string>GPL</string>
 		<key>OpenSourceLicenseFile</key>
@@ -13,32 +13,18 @@
 		<string></string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Imported CUPS 1.3svn-r7115</string>
-			<string>Imported CUPS 1.3svn-r7108</string>
-			<string>Imported CUPS 1.3.3</string>
-			<string>Imported CUPS 1.3.2</string>
-			<string>Imported CUPS 1.3.1</string>
-			<string>Imported CUPS 1.3.0</string>
-			<string>Imported CUPS 1.3svn-r6781</string>
-			<string>Imported CUPS 1.3svn-r6758</string>
-			<string>Imported CUPS 1.3svn-r6739</string>
-			<string>Imported CUPS 1.3svn-r6695</string>
-			<string>pap backend fixes</string>
-			<string>Move to cups 1.2svn</string>
-			<string>Updated Makefiles</string>
-			<string>Imported CUPS 1.2.5</string>
-			<string>Imported CUPS 1.2.6</string>
-			<string>Imported CUPS 1.2.7</string>
-			<string>Imported CUPS 1.2.8</string>
-			<string>Imported CUPS 1.3svn-r6446</string>
-			<string>Imported CUPS 1.3svn-r6686</string>
+			<string>CVE-2008-1373: CUPS GIF image filter overflow</string>
+			<string>CUPS STR #2729: cgiCompileSearch buffer overflow</string>
+			<string>CUPS STR #2751: Information disclosure in CUPS 1.3.6</string>
+			<string>rdar://5807337: Printing to Windows SMB printers fails after installing Security Update 2008-002</string>
+			<string>CUPS STR #2715: job-sheets attribute not treated as multivalue</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>CUPS</string>
 		<key>OpenSourceURL</key>
 		<string>http://www.cups.org/software.php</string>
 		<key>OpenSourceVersion</key>
-		<string>1.3.5</string>
+		<string>1.3.6</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.cups.org/</string>
 	</dict>

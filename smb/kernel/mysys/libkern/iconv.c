@@ -42,6 +42,8 @@
 
 #include "iconv_converter_if.h"
 
+extern lck_mtx_t  * iconv_lck;
+
 SYSCTL_DECL(_net_smb_fs);
 SYSCTL_DECL(_net_smb_fs_iconv);
 
@@ -235,12 +237,16 @@ iconv_open(const char *to, const char *from, void **handle)
 	const char *cnvname;
 	int error;
 
+	/* Stop any other opens or close from happen until we are done */
+	lck_mtx_lock(iconv_lck);
 	/*
 	 * First, lookup fully qualified cspairs
 	 */
 	error = iconv_lookupcs(to, from, &csp);
-	if (error == 0)
-		return ICONV_CONVERTER_OPEN(csp->cp_dcp, csp, NULL, handle);
+	if (error == 0) {
+		error = ICONV_CONVERTER_OPEN(csp->cp_dcp, csp, NULL, handle);
+		goto done;
+	}
 
 	/*
 	 * Well, nothing found. Now try to construct a composite conversion
@@ -248,8 +254,10 @@ iconv_open(const char *to, const char *from, void **handle)
 	 */
 	TAILQ_FOREACH(dcp, &iconv_converters, cc_link) {
 		cnvname = ICONV_CONVERTER_NAME(dcp);
-		if (cnvname == NULL)
+		if (cnvname == NULL) {
+			error = ENOENT;			
 			continue;
+		}
 		error = iconv_lookupcs(cnvname, from, &cspfrom);
 		if (error)
 			continue;
@@ -259,15 +267,26 @@ iconv_open(const char *to, const char *from, void **handle)
 		/*
 		 * Fine, we're found a pair which can be combined together
 		 */
-		return ICONV_CONVERTER_OPEN(dcp, cspto, cspfrom, handle);
+		error = ICONV_CONVERTER_OPEN(dcp, cspto, cspfrom, handle);
+		goto done;
 	}
-	return ENOENT;
+done:
+	/* Remove the lock so other opens and closes can happen */
+	lck_mtx_unlock(iconv_lck);
+	return error;
 }
 
 PRIVSYM int
 iconv_close(void *handle)
 {
-	return ICONV_CONVERTER_CLOSE(handle);
+	int error;
+	
+	/* Stop any other opens or close from happen until we are done */
+	lck_mtx_lock(iconv_lck);
+	error = ICONV_CONVERTER_CLOSE(handle);
+	/* Remove the lock so other opens and closes can happen */
+	lck_mtx_unlock(iconv_lck);
+	return error;
 }
 
 PRIVSYM int

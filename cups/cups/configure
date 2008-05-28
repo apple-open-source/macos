@@ -684,15 +684,14 @@ LIBPAPER
 GREP
 EGREP
 ARFLAGS
-FONTS
-LEGACY_BACKENDS
-PKGCONFIG
-CUPS_DEFAULT_PRINTADMIN_AUTH
-CUPS_SYSTEM_AUTHKEY
 BACKLIBS
 CUPSDLIBS
+PKGCONFIG
 DBUSDIR
-DEFAULT_IPP_PORT
+CUPS_DEFAULT_PRINTADMIN_AUTH
+CUPS_SYSTEM_AUTHKEY
+FONTS
+LEGACY_BACKENDS
 INITDIR
 INITDDIR
 RCLEVELS
@@ -798,6 +797,7 @@ CUPS_MAX_COPIES
 DEFAULT_RAW_PRINTING
 CUPS_SNMP_ADDRESS
 CUPS_SNMP_COMMUNITY
+DEFAULT_IPP_PORT
 PAP
 PDFTOPS
 JAVA
@@ -1434,7 +1434,6 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-dbusdir          set DBUS configuration directory
-  --with-ipp-port         set default port number for IPP
   --with-rcdir            set path for rc scripts
   --with-rclevels         set run levels for rc scripts
   --with-rcstart          set start number for rc scripts
@@ -1456,7 +1455,6 @@ Optional Packages:
   --with-libcupsorder     libcups secorder file, default=libcups.order
   --with-libcupsimagesorder
                           libcupsimage secorder file, default=libcupsimage.order
-  --with-maxfiles=N       set maximum number of file descriptors for scheduler
   --with-domainsocket     set unix domain socket name
   --with-openslp-libs     set directory for OpenSLP library
   --with-openslp-includes set directory for OpenSLP includes
@@ -1480,6 +1478,7 @@ Optional Packages:
   --with-max-copies       set max copies value, default=100
   --with-snmp-address     set SNMP query address, default=auto
   --with-snmp-community   set SNMP community, default=public
+  --with-ipp-port         set default port number for IPP
   --with-java             set Java interpreter for web interfaces
   --with-perl             set Perl interpreter for web interfaces
   --with-php              set PHP interpreter for web interfaces
@@ -1944,11 +1943,8 @@ esac
 ac_config_headers="$ac_config_headers config.h"
 
 
-CUPS_VERSION="1.3.5"
+CUPS_VERSION="1.3.6"
 CUPS_REVISION=""
-#if test -z "$CUPS_REVISION" -a -d .svn; then
-#	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
-#fi
 
 
 
@@ -7470,9 +7466,105 @@ esac
 
 BACKLIBS=""
 CUPSDLIBS=""
-DBUSDIR=""
-CUPS_DEFAULT_PRINTADMIN_AUTH="@SYSTEM"
-CUPS_SYSTEM_AUTHKEY=""
+
+
+
+SAVELIBS="$LIBS"
+LIBS=""
+{ echo "$as_me:$LINENO: checking for library containing acl_init" >&5
+echo $ECHO_N "checking for library containing acl_init... $ECHO_C" >&6; }
+if test "${ac_cv_search_acl_init+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char acl_init ();
+int
+main ()
+{
+return acl_init ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' acl; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_search_acl_init=$ac_res
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext
+  if test "${ac_cv_search_acl_init+set}" = set; then
+  break
+fi
+done
+if test "${ac_cv_search_acl_init+set}" = set; then
+  :
+else
+  ac_cv_search_acl_init=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_search_acl_init" >&5
+echo "${ECHO_T}$ac_cv_search_acl_init" >&6; }
+ac_res=$ac_cv_search_acl_init
+if test "$ac_res" != no; then
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+  cat >>confdefs.h <<\_ACEOF
+#define HAVE_ACL_INIT 1
+_ACEOF
+
+fi
+
+CUPSDLIBS="$CUPSDLIBS $LIBS"
+LIBS="$SAVELIBS"
+
+if test -d /etc/dbus-1; then
+	DBUSDIR="/etc/dbus-1"
+else
+	DBUSDIR=""
+fi
 
 # Check whether --enable-dbus was given.
 if test "${enable_dbus+set}" = set; then
@@ -7480,32 +7572,155 @@ if test "${enable_dbus+set}" = set; then
 fi
 
 
+# Check whether --with-dbusdir was given.
+if test "${with_dbusdir+set}" = set; then
+  withval=$with_dbusdir; DBUSDIR="$withval"
+fi
+
+
+if test "x$enable_dbus" != xno; then
+	# Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+if test "${ac_cv_path_PKGCONFIG+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  case $PKGCONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKGCONFIG="$PKGCONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_path_PKGCONFIG="$as_dir/$ac_word$ac_exec_ext"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+PKGCONFIG=$ac_cv_path_PKGCONFIG
+if test -n "$PKGCONFIG"; then
+  { echo "$as_me:$LINENO: result: $PKGCONFIG" >&5
+echo "${ECHO_T}$PKGCONFIG" >&6; }
+else
+  { echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+fi
+
+
+	if test "x$PKGCONFIG" != x; then
+		{ echo "$as_me:$LINENO: checking for DBUS" >&5
+echo $ECHO_N "checking for DBUS... $ECHO_C" >&6; }
+		if $PKGCONFIG --exists dbus-1; then
+			{ echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6; }
+			cat >>confdefs.h <<\_ACEOF
+#define HAVE_DBUS 1
+_ACEOF
+
+			CFLAGS="$CFLAGS `$PKGCONFIG --cflags dbus-1` -DDBUS_API_SUBJECT_TO_CHANGE"
+			CUPSDLIBS="$CUPSDLIBS `$PKGCONFIG --libs dbus-1`"
+			{ echo "$as_me:$LINENO: checking for dbus_message_iter_init_append in -ldbus-1" >&5
+echo $ECHO_N "checking for dbus_message_iter_init_append in -ldbus-1... $ECHO_C" >&6; }
+if test "${ac_cv_lib_dbus_1_dbus_message_iter_init_append+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldbus-1  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char dbus_message_iter_init_append ();
+int
+main ()
+{
+return dbus_message_iter_init_append ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_lib_dbus_1_dbus_message_iter_init_append=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_dbus_1_dbus_message_iter_init_append=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_dbus_1_dbus_message_iter_init_append" >&5
+echo "${ECHO_T}$ac_cv_lib_dbus_1_dbus_message_iter_init_append" >&6; }
+if test $ac_cv_lib_dbus_1_dbus_message_iter_init_append = yes; then
+  cat >>confdefs.h <<\_ACEOF
+#define HAVE_DBUS_MESSAGE_ITER_INIT_APPEND 1
+_ACEOF
+
+fi
+
+		else
+			{ echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+			DBUSDIR=""
+		fi
+	fi
+fi
+
+
+
+CUPS_DEFAULT_PRINTADMIN_AUTH="@SYSTEM"
+CUPS_SYSTEM_AUTHKEY=""
 FONTS="fonts"
-
 LEGACY_BACKENDS="parallel scsi"
-
 
 case $uname in
         Darwin*)
 		FONTS=""
 		LEGACY_BACKENDS=""
-                BACKLIBS="-framework IOKit"
-                CUPSDLIBS="-sectorder __TEXT __text cupsd.order -e start -framework IOKit -framework SystemConfiguration"
+                BACKLIBS="$BACKLIBS -framework IOKit"
+                CUPSDLIBS="$CUPSDLIBS -sectorder __TEXT __text cupsd.order -e start -framework IOKit -framework SystemConfiguration"
                 LIBS="-framework CoreFoundation $LIBS"
-
-				{ echo "$as_me:$LINENO: checking for CFLocaleCreateCanonicalLocaleIdentifierFromString" >&5
-echo $ECHO_N "checking for CFLocaleCreateCanonicalLocaleIdentifierFromString... $ECHO_C" >&6; }
-		if test "$uname" = "Darwin" -a $uversion -ge 70; then
-			cat >>confdefs.h <<\_ACEOF
-#define HAVE_CF_LOCALE_ID 1
-_ACEOF
-
-			{ echo "$as_me:$LINENO: result: yes" >&5
-echo "${ECHO_T}yes" >&6; }
-		else
-			{ echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
-		fi
 
 				if test "${ac_cv_header_CoreFoundation_CoreFoundation_h+set}" = set; then
   { echo "$as_me:$LINENO: checking for CoreFoundation/CoreFoundation.h" >&5
@@ -8900,145 +9115,6 @@ fi
 
 
                 ;;
-
-	Linux*)
-				if test "x$enable_dbus" != xno; then
-			# Extract the first word of "pkg-config", so it can be a program name with args.
-set dummy pkg-config; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
-if test "${ac_cv_path_PKGCONFIG+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PKGCONFIG in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PKGCONFIG="$PKGCONFIG" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_path_PKGCONFIG="$as_dir/$ac_word$ac_exec_ext"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-PKGCONFIG=$ac_cv_path_PKGCONFIG
-if test -n "$PKGCONFIG"; then
-  { echo "$as_me:$LINENO: result: $PKGCONFIG" >&5
-echo "${ECHO_T}$PKGCONFIG" >&6; }
-else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
-fi
-
-
-			if test "x$PKGCONFIG" != x; then
-				{ echo "$as_me:$LINENO: checking for DBUS" >&5
-echo $ECHO_N "checking for DBUS... $ECHO_C" >&6; }
-				if $PKGCONFIG --exists dbus-1; then
-					{ echo "$as_me:$LINENO: result: yes" >&5
-echo "${ECHO_T}yes" >&6; }
-					cat >>confdefs.h <<\_ACEOF
-#define HAVE_DBUS 1
-_ACEOF
-
-					CFLAGS="$CFLAGS `$PKGCONFIG --cflags dbus-1` -DDBUS_API_SUBJECT_TO_CHANGE"
-					CUPSDLIBS="`$PKGCONFIG --libs dbus-1`"
-
-# Check whether --with-dbusdir was given.
-if test "${with_dbusdir+set}" = set; then
-  withval=$with_dbusdir; dbusdir="$withval"
-else
-  dbusdir="/etc/dbus-1"
-fi
-
-					DBUSDIR="$dbusdir"
-					{ echo "$as_me:$LINENO: checking for dbus_message_iter_init_append in -ldbus-1" >&5
-echo $ECHO_N "checking for dbus_message_iter_init_append in -ldbus-1... $ECHO_C" >&6; }
-if test "${ac_cv_lib_dbus_1_dbus_message_iter_init_append+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-ldbus-1  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char dbus_message_iter_init_append ();
-int
-main ()
-{
-return dbus_message_iter_init_append ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_link") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest$ac_exeext &&
-       $as_test_x conftest$ac_exeext; then
-  ac_cv_lib_dbus_1_dbus_message_iter_init_append=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	ac_cv_lib_dbus_1_dbus_message_iter_init_append=no
-fi
-
-rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_dbus_1_dbus_message_iter_init_append" >&5
-echo "${ECHO_T}$ac_cv_lib_dbus_1_dbus_message_iter_init_append" >&6; }
-if test $ac_cv_lib_dbus_1_dbus_message_iter_init_append = yes; then
-  cat >>confdefs.h <<\_ACEOF
-#define HAVE_DBUS_MESSAGE_ITER_INIT_APPEND 1
-_ACEOF
-
-fi
-
-				else
-					{ echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
-				fi
-			fi
-		fi
-		;;
 esac
 
 
@@ -9048,114 +9124,6 @@ _ACEOF
 
 
 
-SAVELIBS="$LIBS"
-LIBS=""
-{ echo "$as_me:$LINENO: checking for library containing acl_init" >&5
-echo $ECHO_N "checking for library containing acl_init... $ECHO_C" >&6; }
-if test "${ac_cv_search_acl_init+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_func_search_save_LIBS=$LIBS
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char acl_init ();
-int
-main ()
-{
-return acl_init ();
-  ;
-  return 0;
-}
-_ACEOF
-for ac_lib in '' acl; do
-  if test -z "$ac_lib"; then
-    ac_res="none required"
-  else
-    ac_res=-l$ac_lib
-    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
-  fi
-  rm -f conftest.$ac_objext conftest$ac_exeext
-if { (ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_link") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest$ac_exeext &&
-       $as_test_x conftest$ac_exeext; then
-  ac_cv_search_acl_init=$ac_res
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-
-fi
-
-rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
-      conftest$ac_exeext
-  if test "${ac_cv_search_acl_init+set}" = set; then
-  break
-fi
-done
-if test "${ac_cv_search_acl_init+set}" = set; then
-  :
-else
-  ac_cv_search_acl_init=no
-fi
-rm conftest.$ac_ext
-LIBS=$ac_func_search_save_LIBS
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_search_acl_init" >&5
-echo "${ECHO_T}$ac_cv_search_acl_init" >&6; }
-ac_res=$ac_cv_search_acl_init
-if test "$ac_res" != no; then
-  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
-  cat >>confdefs.h <<\_ACEOF
-#define HAVE_ACL_INIT 1
-_ACEOF
-
-fi
-
-CUPSDLIBS="$CUPSDLIBS $LIBS"
-LIBS="$SAVELIBS"
-
-
-
-
-
-
-# Check whether --with-ipp-port was given.
-if test "${with_ipp_port+set}" = set; then
-  withval=$with_ipp_port; DEFAULT_IPP_PORT="$withval"
-else
-  DEFAULT_IPP_PORT="631"
-fi
-
-
-
-cat >>confdefs.h <<_ACEOF
-#define CUPS_DEFAULT_IPP_PORT $DEFAULT_IPP_PORT
-_ACEOF
 
 
 
@@ -10148,36 +10116,143 @@ if test -n "$GCC"; then
 		fi
 	fi
 
+	# Generate position-independent code as needed...
 	if test $PICFLAG = 1 -a $uname != AIX; then
     		OPTIM="-fPIC $OPTIM"
 	fi
 
-	case $uname in
-		Linux*)
-			if test x$enable_pie = xyes; then
-				PIEFLAGS="-pie -fPIE"
-			fi
+	# The -fstack-protector option is available with some versions of
+	# GCC and adds "stack canaries" which detect when the return address
+	# has been overwritten, preventing many types of exploit attacks.
+	{ echo "$as_me:$LINENO: checking if GCC supports -fstack-protector" >&5
+echo $ECHO_N "checking if GCC supports -fstack-protector... $ECHO_C" >&6; }
+	OLDCFLAGS="$CFLAGS"
+	CFLAGS="$CFLAGS -fstack-protector"
+	cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
 
-			if test x$enable_relro = xyes; then
-				RELROFLAGS="-Wl,-z,relro"
-			fi
-			;;
+int
+main ()
+{
 
-		*)
-			if test x$enable_pie = xyes; then
-				echo "Sorry, --enable-pie is not supported on this OS!"
-			fi
-			;;
-	esac
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  OPTIM="$OPTIM -fstack-protector"
+		{ echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6; }
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	{ echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	CFLAGS="$OLDCFLAGS"
+
+	# The -pie option is available with some versions of GCC and adds
+	# randomization of addresses, which avoids another class of exploits
+	# that depend on a fixed address for common functions.
+	if test x$enable_pie = xyes; then
+		{ echo "$as_me:$LINENO: checking if GCC supports -pie" >&5
+echo $ECHO_N "checking if GCC supports -pie... $ECHO_C" >&6; }
+		OLDCFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -pie -fPIE"
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  PIEFLAGS="-pie -fPIE"
+			{ echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6; }
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	{ echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+		CFLAGS="$OLDCFLAGS"
+	fi
 
 	if test "x$with_optim" = x; then
 		# Add useful warning options for tracking down problems...
 		OPTIM="-Wall -Wno-format-y2k $OPTIM"
-		# Additional warning options for alpha testing...
-		OPTIM="-Wshadow -Wunused $OPTIM"
+		# Additional warning options for development testing...
+		if test -d .svn; then
+			OPTIM="-Wshadow -Wunused $OPTIM"
+		fi
 	fi
 
 	case "$uname" in
+		Darwin*)
+			# -D_FORTIFY_SOURCE=2 adds additional object size
+			# checking, basically wrapping all string functions
+			# with buffer-limited ones.  Not strictly needed for
+			# CUPS since we already use buffer-limited calls, but
+			# this will catch any additions that are broken.
+			CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=2"
+
+			if test x$enable_pie = xyes; then
+				# GCC 4 on Mac OS X needs -Wl,-pie as well
+				LDFLAGS="$LDFLAGS -Wl,-pie"
+			fi
+			;;
+
 		HP-UX*)
 			if test "x$enable_32bit" = xyes; then
 				# Build 32-bit libraries, 64-bit base...
@@ -10251,6 +10326,12 @@ if test -n "$GCC"; then
 			;;
 
 		Linux*)
+			# The -z relro option is provided by the Linux linker command to
+			# make relocatable data read-only.
+			if test x$enable_relro = xyes; then
+				RELROFLAGS="-Wl,-z,relro"
+			fi
+
 			if test "x$enable_32bit" = xyes; then
 				# Build 32-bit libraries, 64-bit base...
 				if test -z "$with_arch32flags"; then
@@ -10518,8 +10599,8 @@ else
 			# cups-support@cups.org...
 			echo "Building CUPS with default compiler optimizations; contact"
 			echo "cups-bugs@cups.org with uname and compiler options needed"
-			echo "for your platform, or set the CFLAGS and CXXFLAGS"
-			echo "environment variable before running configure."
+			echo "for your platform, or set the CFLAGS, CXXFLAGS, and LDFLAGS"
+			echo "environment variables before running configure."
 			;;
 	esac
 fi
@@ -12475,31 +12556,6 @@ _ACEOF
 
 fi
 
-
-
-if test "$uname" = "SunOS"; then
-	case "$uversion" in
-		55* | 56*)
-			maxfiles=1024
-			;;
-		*)
-			maxfiles=4096
-			;;
-	esac
-else
-	maxfiles=4096
-fi
-
-
-# Check whether --with-maxfiles was given.
-if test "${with_maxfiles+set}" = set; then
-  withval=$with_maxfiles; maxfiles=$withval
-fi
-
-
-cat >>confdefs.h <<_ACEOF
-#define CUPS_MAX_FDS $maxfiles
-_ACEOF
 
 
 CUPS_DEFAULT_DOMAINSOCKET=""
@@ -17864,6 +17920,21 @@ fi
 
 
 
+# Check whether --with-ipp-port was given.
+if test "${with_ipp_port+set}" = set; then
+  withval=$with_ipp_port; DEFAULT_IPP_PORT="$withval"
+else
+  DEFAULT_IPP_PORT="631"
+fi
+
+
+
+cat >>confdefs.h <<_ACEOF
+#define CUPS_DEFAULT_IPP_PORT $DEFAULT_IPP_PORT
+_ACEOF
+
+
+
 
 # Currently the PAP backend is only supported on MacOS X with the AppleTalk
 # SDK installed...
@@ -19072,15 +19143,14 @@ LIBPAPER!$LIBPAPER$ac_delim
 GREP!$GREP$ac_delim
 EGREP!$EGREP$ac_delim
 ARFLAGS!$ARFLAGS$ac_delim
-FONTS!$FONTS$ac_delim
-LEGACY_BACKENDS!$LEGACY_BACKENDS$ac_delim
-PKGCONFIG!$PKGCONFIG$ac_delim
-CUPS_DEFAULT_PRINTADMIN_AUTH!$CUPS_DEFAULT_PRINTADMIN_AUTH$ac_delim
-CUPS_SYSTEM_AUTHKEY!$CUPS_SYSTEM_AUTHKEY$ac_delim
 BACKLIBS!$BACKLIBS$ac_delim
 CUPSDLIBS!$CUPSDLIBS$ac_delim
+PKGCONFIG!$PKGCONFIG$ac_delim
 DBUSDIR!$DBUSDIR$ac_delim
-DEFAULT_IPP_PORT!$DEFAULT_IPP_PORT$ac_delim
+CUPS_DEFAULT_PRINTADMIN_AUTH!$CUPS_DEFAULT_PRINTADMIN_AUTH$ac_delim
+CUPS_SYSTEM_AUTHKEY!$CUPS_SYSTEM_AUTHKEY$ac_delim
+FONTS!$FONTS$ac_delim
+LEGACY_BACKENDS!$LEGACY_BACKENDS$ac_delim
 INITDIR!$INITDIR$ac_delim
 INITDDIR!$INITDDIR$ac_delim
 RCLEVELS!$RCLEVELS$ac_delim
@@ -19099,6 +19169,7 @@ CUPS_REQUESTS!$CUPS_REQUESTS$ac_delim
 CUPS_SERVERBIN!$CUPS_SERVERBIN$ac_delim
 INSTALL_SYSV!$INSTALL_SYSV$ac_delim
 CUPS_SERVERROOT!$CUPS_SERVERROOT$ac_delim
+CUPS_STATEDIR!$CUPS_STATEDIR$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -19140,7 +19211,6 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
-CUPS_STATEDIR!$CUPS_STATEDIR$ac_delim
 AMANDIR!$AMANDIR$ac_delim
 PMANDIR!$PMANDIR$ac_delim
 MAN1EXT!$MAN1EXT$ac_delim
@@ -19227,6 +19297,7 @@ CUPS_MAX_COPIES!$CUPS_MAX_COPIES$ac_delim
 DEFAULT_RAW_PRINTING!$DEFAULT_RAW_PRINTING$ac_delim
 CUPS_SNMP_ADDRESS!$CUPS_SNMP_ADDRESS$ac_delim
 CUPS_SNMP_COMMUNITY!$CUPS_SNMP_COMMUNITY$ac_delim
+DEFAULT_IPP_PORT!$DEFAULT_IPP_PORT$ac_delim
 PAP!$PAP$ac_delim
 PDFTOPS!$PDFTOPS$ac_delim
 JAVA!$JAVA$ac_delim

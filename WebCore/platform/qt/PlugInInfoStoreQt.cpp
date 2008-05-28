@@ -19,17 +19,20 @@
     This class provides all functionality needed for loading images, style sheets and html
     pages from the web. It has a memory cache for these objects.
 */
-#include "PlugInInfoStore.h"
-#include "qwebobjectplugin_p.h"
-#include "NotImplemented.h"
+#include "PluginInfoStore.h"
 #include "qdebug.h"
+#if QT_VERSION < 0x040400
+#include "qwebobjectplugin_p.h"
+#endif
+#include "NotImplemented.h"
 
 namespace WebCore {
 
-PluginInfo* PlugInInfoStore::createPluginInfoForPluginAtIndex(unsigned i)
+PluginInfo* PluginInfoStore::createPluginInfoForPluginAtIndex(unsigned i)
 {
-    //qDebug() << ">>>>>>>>>>> PlugInInfoStore::createPluginInfoForPluginAtIndex(" << i << ")";
+    //qDebug() << ">>>>>>>>>>> PluginInfoStore::createPluginInfoForPluginAtIndex(" << i << ")";
 
+#if QT_VERSION < 0x040400
     QWebFactoryLoader *loader = QWebFactoryLoader::self();
     if (i > loader->m_pluginInfo.count())
         return 0;
@@ -46,18 +49,36 @@ PluginInfo* PlugInInfoStore::createPluginInfoForPluginAtIndex(unsigned i)
         info->mimes.append(mime);
     }
     return info;
+#else
+    return 0; // ### FIXME
+#endif
 }
 
-unsigned PlugInInfoStore::pluginCount() const
+unsigned PluginInfoStore::pluginCount() const
 {
-    //qDebug() << ">>>>>>>>>>> PlugInInfoStore::count =" << QWebFactoryLoader::self()->keys().count();
+#if QT_VERSION < 0x040400
+    //qDebug() << ">>>>>>>>>>> PluginInfoStore::count =" << QWebFactoryLoader::self()->keys().count();
     return QWebFactoryLoader::self()->keys().count();
+#else
+    return 0;
+#endif
 }
 
-bool PlugInInfoStore::supportsMIMEType(const WebCore::String& string)
+String PluginInfoStore::pluginNameForMIMEType(const String& mimeType)
 {
+    // FIXME: This method is stubbed out and should really return the name of a plug-in package for
+    // a given MIME type.
+    return String();
+}
+    
+bool PluginInfoStore::supportsMIMEType(const WebCore::String& string)
+{
+#if QT_VERSION < 0x040400
     bool supports = QWebFactoryLoader::self()->supportsMimeType(string);
-    //qDebug() << ">>>>>>>>>>> PlugInInfoStore::supportsMIMEType(" << string << ") =" << supports;
+#else
+    bool supports = false;
+#endif
+    //qDebug() << ">>>>>>>>>>> PluginInfoStore::supportsMIMEType(" << string << ") =" << supports;
     return supports;
 }
 

@@ -33,6 +33,7 @@
 #include "ScrollView.h"
 #include "FrameView.h"
 #include "FloatRect.h"
+#include "FocusController.h"
 #include "IntPoint.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
@@ -45,6 +46,10 @@
 #include <QDebug>
 #include <QWidget>
 #include <QPainter>
+
+#ifdef Q_WS_MAC
+#include <Carbon/Carbon.h>
+#endif
 
 #include "qwebframe.h"
 #include "qwebpage.h"
@@ -65,8 +70,6 @@ public:
       , m_vScrollbarMode(ScrollbarAuto)
       , m_hScrollbarMode(ScrollbarAuto)
     {
-        setHasHorizontalScrollbar(true);
-        setHasVerticalScrollbar(true);
     }
 
     ~ScrollViewPrivate()
@@ -80,6 +83,7 @@ public:
 
     virtual void valueChanged(Scrollbar*);
     virtual IntRect windowClipRect() const;
+    virtual bool isActive() const;
 
     void scrollBackingStore(const IntSize& scrollDelta);
 
@@ -94,7 +98,6 @@ public:
     ScrollbarMode m_hScrollbarMode;
     RefPtr<PlatformScrollbar> m_vBar;
     RefPtr<PlatformScrollbar> m_hBar;
-    QRegion m_dirtyRegion;
     HashSet<Widget*> m_children;
 };
 
@@ -160,8 +163,10 @@ void ScrollView::ScrollViewPrivate::scrollBackingStore(const IntSize& scrollDelt
        m_view->scrollBackingStore(-scrollDelta.width(), -scrollDelta.height(),
                                   scrollViewRect, clipRect);
     } else  {
-       // We need to go ahead and repaint the entire backing store.
-       m_view->update();
+       // We need to go ahead and repaint the entire backing store.  Do it now before moving the
+       // plugins.
+       m_view->addToDirtyRegion(updateRect);
+       m_view->updateBackingStore();
     }
 
     m_view->geometryChanged();
@@ -170,6 +175,12 @@ void ScrollView::ScrollViewPrivate::scrollBackingStore(const IntSize& scrollDelt
 IntRect ScrollView::ScrollViewPrivate::windowClipRect() const
 {
     return static_cast<const FrameView*>(m_view)->windowClipRect(false);
+}
+
+bool ScrollView::ScrollViewPrivate::isActive() const
+{
+    Page* page = static_cast<const FrameView*>(m_view)->frame()->page();
+    return page && page->focusController()->isActive();
 }
 
 ScrollView::ScrollView()
@@ -201,41 +212,21 @@ void ScrollView::updateContents(const IntRect& rect, bool now)
     IntRect containingWindowRect = rect;
     containingWindowRect.setLocation(windowPoint);
 
-    //In QWebPage::paintEvent we paint the ev->region().rects()
-    //individually.  Unfortunately, webkit expects we'll draw the
-    //boundingrect of all update rects instead.  This is unfortunate,
-    //because if we want to draw the scrollbar rects along with the update
-    //rects this results in redrawing the entire page for a 1px scroll.
-    //In light of this we cache the update rects that webkit sends us here
-    //and send the bound along to QWebPage.  The cache is cleared everytime
-    //an actual paint occurs in ScrollView::paint...
-
-    QRect r(containingWindowRect);
-    QWidget *container = containingWindow();
-    r = r.intersect(container->rect());
-    if (r.isEmpty())
-        return;
     // Cache the dirty spot.
-    if (!m_data->m_dirtyRegion.isEmpty())
-        m_data->m_dirtyRegion = m_data->m_dirtyRegion.united(QRegion(r));
-    else
-        m_data->m_dirtyRegion = QRegion(r);
+    addToDirtyRegion(containingWindowRect);
 
-    bool painting = containingWindow()->testAttribute(Qt::WA_WState_InPaintEvent);
-    if (painting && now) {
-        QWebPage *page = qobject_cast<QWebPage*>(containingWindow());
-        QPainter p(page);
-        page->mainFrame()->render(&p, m_data->m_dirtyRegion.boundingRect());
-    } else if (now) {
-        containingWindow()->repaint(m_data->m_dirtyRegion.boundingRect());
-    } else {
-        containingWindow()->update(m_data->m_dirtyRegion.boundingRect());
-    }
+    if (now)
+        updateBackingStore();
 }
 
 void ScrollView::update()
 {
-    containingWindow()->update(frameGeometry());
+    QWidget* native = nativeWidget();
+    if (native) {
+        native->update();
+        return;
+    }
+    updateContents(IntRect(0, 0, width(), height()));
 }
 
 int ScrollView::visibleWidth() const
@@ -289,6 +280,11 @@ void ScrollView::setFrameGeometry(const IntRect& newGeometry)
     }
 
     geometryChanged();
+}
+
+HashSet<Widget*>* ScrollView::children()
+{
+    return &(m_data->m_children);
 }
 
 void ScrollView::geometryChanged() const
@@ -375,7 +371,6 @@ void ScrollView::scrollRectIntoViewRecursively(const IntRect& r)
 {
     IntPoint p(max(0, r.x()), max(0, r.y()));
     ScrollView* view = this;
-    ScrollView* oldView = view;
     while (view) {
         view->setContentsPos(p.x(), p.y());
         p.move(view->x() - view->scrollOffset().width(), view->y() - view->scrollOffset().height());
@@ -519,7 +514,30 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
     IntSize maxScrollPosition(contentsWidth() - visibleWidth(), contentsHeight() - visibleHeight());
     IntSize scroll = desiredOffset.shrunkTo(maxScrollPosition);
     scroll.clampNegativeToZero();
- 
+
+    QPoint scrollbarOffset;
+#ifdef Q_WS_MAC
+    // On Mac, offset the scrollbars so they don't cover the grow box. Check if the window 
+    // has a grow box, and then check if the bottom-right corner of the scroll view 
+    // intersercts it. The calculations are done in global coordinates.
+    QWidget* contentWidget = containingWindow();
+    if (contentWidget) {
+        QWidget* windowWidget = contentWidget->window();
+        if (windowWidget) {
+            HIViewRef growBox = 0;
+            HIViewFindByID(HIViewGetRoot(HIViewGetWindow(HIViewRef(contentWidget->winId()))), kHIViewWindowGrowBoxID, &growBox);
+            const QPoint contentBr = contentWidget->mapToGlobal(QPoint(0,0)) + contentWidget->size();
+            const QPoint windowBr = windowWidget->mapToGlobal(QPoint(0,0)) + windowWidget->size();
+            const QPoint contentOffset = (windowBr - contentBr);
+            const int growBoxSize = 15;
+            const bool enableOffset = (growBox != 0 && contentOffset.x() >= 0 && contentOffset. y() >= 0);
+            scrollbarOffset = enableOffset ? QPoint(growBoxSize - qMin(contentOffset.x(), growBoxSize),
+                                                    growBoxSize - qMin(contentOffset.y(), growBoxSize))
+                                           : QPoint(0,0);
+        }
+    }
+#endif
+
     if (m_data->m_hBar) {
         int clientWidth = visibleWidth();
         m_data->m_hBar->setEnabled(contentsWidth() > clientWidth);
@@ -528,15 +546,19 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
         IntRect oldRect(m_data->m_hBar->frameGeometry());
         IntRect hBarRect = IntRect(0,
                                    height() - m_data->m_hBar->height(),
-                                   width() - (m_data->m_vBar ? m_data->m_vBar->width() : 0),
+                                   width() - (m_data->m_vBar ? m_data->m_vBar->width() : scrollbarOffset.x()),
                                    m_data->m_hBar->height());
         m_data->m_hBar->setRect(hBarRect);
         if (!m_data->m_scrollbarsSuppressed && oldRect != m_data->m_hBar->frameGeometry())
             m_data->m_hBar->invalidate();
 
+        if (m_data->m_scrollbarsSuppressed)
+            m_data->m_hBar->setSuppressInvalidation(true);
         m_data->m_hBar->setSteps(LINE_STEP, pageStep);
         m_data->m_hBar->setProportion(clientWidth, contentsWidth());
         m_data->m_hBar->setValue(scroll.width());
+        if (m_data->m_scrollbarsSuppressed)
+            m_data->m_hBar->setSuppressInvalidation(false); 
     } 
 
     if (m_data->m_vBar) {
@@ -548,14 +570,18 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
         IntRect vBarRect = IntRect(width() - m_data->m_vBar->width(), 
                                    0,
                                    m_data->m_vBar->width(),
-                                   height() - (m_data->m_hBar ? m_data->m_hBar->height() : 0));
+                                   height() - (m_data->m_hBar ? m_data->m_hBar->height() : scrollbarOffset.y()));
         m_data->m_vBar->setRect(vBarRect);
         if (!m_data->m_scrollbarsSuppressed && oldRect != m_data->m_vBar->frameGeometry())
             m_data->m_vBar->invalidate();
 
+        if (m_data->m_scrollbarsSuppressed)
+            m_data->m_vBar->setSuppressInvalidation(true);
         m_data->m_vBar->setSteps(LINE_STEP, pageStep);
         m_data->m_vBar->setProportion(clientHeight, contentsHeight());
         m_data->m_vBar->setValue(scroll.height());
+        if (m_data->m_scrollbarsSuppressed)
+            m_data->m_vBar->setSuppressInvalidation(false);
     }
 
     if (oldHasVertical != (m_data->m_vBar != 0) || oldHasHorizontal != (m_data->m_hBar != 0))
@@ -586,60 +612,38 @@ PlatformScrollbar* ScrollView::scrollbarUnderMouse(const PlatformMouseEvent& mou
 
 void ScrollView::addChild(Widget* child)
 {
-    QWidget* w = child->qwidget();
-    if (w) {
-        m_data->m_children.add(child);
-    }
-
     child->setParent(this);
+    m_data->m_children.add(child);
 }
 
 void ScrollView::removeChild(Widget* child)
 {
     child->setParent(0);
     child->hide();
-    QWidget* w = child->qwidget();
-    if (w) {
-        m_data->m_children.remove(child);
-    }
+    m_data->m_children.remove(child);
 }
 
 void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
 {
-    Q_ASSERT(isFrameView());
-
-    m_data->m_dirtyRegion = QRegion(); //clear the cache...
+    // FIXME: This code is here so we don't have to fork FrameView.h/.cpp.
+    // In the end, FrameView should just merge with ScrollView.
+    ASSERT(isFrameView());
 
     if (context->paintingDisabled())
         return;
 
     IntRect documentDirtyRect = rect;
 
-    QPainter *p = context->platformContext();
-
     context->save();
 
-    QRect canvasRect = frameGeometry();
-    documentDirtyRect.intersect(canvasRect);
-    context->translate(canvasRect.x(), canvasRect.y());
-    documentDirtyRect.move(-canvasRect.x(), -canvasRect.y());
+    context->translate(x(), y());
+    documentDirtyRect.move(-x(), -y());
 
     context->translate(-contentsX(), -contentsY());
     documentDirtyRect.move(contentsX(), contentsY());
 
-    IntRect clipRect = enclosingIntRect(visibleContentRect());
-
-    context->clip(clipRect);
-
-#ifdef DEBUG_SCROLLVIEW
-    qDebug() << "ScrollView::paint --> "
-             << "isSubframe" << (qwebframe() != qwebframe()->page()->mainFrame() ? "true" : "false")
-             << "rect" << rect
-             << "canvasRect" << canvasRect
-             << "clipRect" << clipRect
-             << "documentDirtyRect" << documentDirtyRect
-             << endl;
-#endif
+    documentDirtyRect.intersect(enclosingIntRect(visibleContentRect()));
+    context->clip(documentDirtyRect);
 
     static_cast<const FrameView*>(this)->frame()->paint(context, documentDirtyRect);
 
@@ -648,13 +652,10 @@ void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
     // Now paint the scrollbars.
     if (!m_data->m_scrollbarsSuppressed && (m_data->m_hBar || m_data->m_vBar)) {
         context->save();
-
         IntRect scrollViewDirtyRect = rect;
-        scrollViewDirtyRect.intersect(canvasRect);
-
-        context->translate(canvasRect.x(), canvasRect.y());
-        scrollViewDirtyRect.move(-canvasRect.x(), -canvasRect.y());
-
+        scrollViewDirtyRect.intersect(frameGeometry());
+        context->translate(x(), y());
+        scrollViewDirtyRect.move(-x(), -y());
         if (m_data->m_hBar)
             m_data->m_hBar->paint(context, scrollViewDirtyRect);
         if (m_data->m_vBar)
@@ -697,12 +698,16 @@ void ScrollView::wheelEvent(PlatformWheelEvent& e)
     scrollBy(-e.deltaX() * LINE_STEP, -e.deltaY() * LINE_STEP);
 }
 
-void ScrollView::scroll(ScrollDirection direction, ScrollGranularity granularity)
+bool ScrollView::scroll(ScrollDirection direction, ScrollGranularity granularity)
 {
-    if  ((direction == ScrollUp || direction == ScrollDown) && m_data->m_vBar)
-        m_data->m_vBar->scroll(direction, granularity);
-    else if (m_data->m_hBar)
-        m_data->m_hBar->scroll(direction, granularity);
+    if (direction == ScrollUp || direction == ScrollDown) {
+        if (m_data->m_vBar)
+            return m_data->m_vBar->scroll(direction, granularity);
+    } else {
+        if (m_data->m_hBar)
+            return m_data->m_hBar->scroll(direction, granularity);
+    }
+    return false;
 }
 
 IntRect ScrollView::windowResizerRect()

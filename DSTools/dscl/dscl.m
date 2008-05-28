@@ -52,7 +52,7 @@
 #define forever for(;;)
 
 #warning VERIFY the version string before each major OS build submission
-#define DSCL_VERSION "10.5.0"
+#define DSCL_VERSION "10.5.3"
 
 static char			myname[256];
 PathManager		   *engine			= nil;

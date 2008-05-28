@@ -183,10 +183,10 @@ ENTRY( log10 )
 	// free(%rax)
 	// free(%rdx)
 #if FENVON
-	movq		LOCAL_STACK_SIZE+FRAME_SIZE(STACKP),	%rdx	// Original x encoding
+	movd		%xmm0,					%rdx	// Original x encoding
 	shrq		$(53-4),				%rdx	// 16*k = k << 4. k = key >> 53 = the top 6 of bottom 7 bits of exponent of x
         andq		$0x3f,					%rdx	// key = _mm_and_pd(vx,log10_key_mask);
-	movq		(LOCAL_STACK_SIZE)+FRAME_SIZE(STACKP),	%rax	// Original x encoding
+	movd		%xmm0,					%rax	// Original x encoding
 	lea		REL_ADDR(isPowerOf10),			%rcx	// Get base of table
 	cmp		(%rcx,%rdx,1),				%rax	// if(isPowerOf10[k][0] == x) {return  isPowerOf10[k][1];}
 	je		8f

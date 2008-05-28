@@ -1,3 +1,0 @@
-OTHER_CFLAGS = -mdynamic-no-pic
-
-include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

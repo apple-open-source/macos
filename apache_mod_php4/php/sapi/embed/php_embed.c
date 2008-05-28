@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Edin Kadribasic <edink@php.net>                              |
    +----------------------------------------------------------------------+
 */
-/* $Id: php_embed.c,v 1.1.2.5.2.2 2007/01/01 09:46:52 sebastian Exp $ */
+/* $Id: php_embed.c,v 1.1.2.5.2.5 2007/12/31 07:22:55 sebastian Exp $ */
 
 #include "php_embed.h"
 
@@ -137,11 +137,7 @@ int php_embed_init(int argc, char **argv PTSRMLS_DC)
 {
 	zend_llist global_vars;
 #ifdef ZTS
-	zend_compiler_globals *compiler_globals;
-	zend_executor_globals *executor_globals;
-	php_core_globals *core_globals;
-	sapi_globals_struct *sapi_globals;
-	void ***tsrm_ls;
+	void ***tsrm_ls = NULL;
 #endif
 
 #ifdef HAVE_SIGNAL_H
@@ -164,27 +160,20 @@ int php_embed_init(int argc, char **argv PTSRMLS_DC)
 
 #ifdef ZTS
   tsrm_startup(1, 1, 0, NULL);
-#endif
-
-#ifdef ZTS
-  compiler_globals = ts_resource(compiler_globals_id);
-  executor_globals = ts_resource(executor_globals_id);
-  core_globals = ts_resource(core_globals_id);
-  sapi_globals = ts_resource(sapi_globals_id);
   tsrm_ls = ts_resource(0);
   *ptsrm_ls = tsrm_ls;
 #endif
 
   sapi_startup(&php_embed_module);
 
-  if (php_embed_module.startup(&php_embed_module)==FAILURE) {
-	  return FAILURE;
-  }
- 
   if (argv) {
 	php_embed_module.executable_location = argv[0];
   }
 
+  if (php_embed_module.startup(&php_embed_module)==FAILURE) {
+	  return FAILURE;
+  }
+ 
   zend_llist_init(&global_vars, sizeof(char *), NULL, 0);  
 
   /* Set some Embedded PHP defaults */

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pspell.c,v 1.28.8.5.4.5 2007/01/01 09:46:46 sebastian Exp $ */
+/* $Id: pspell.c,v 1.28.8.5.4.6 2007/12/31 07:22:51 sebastian Exp $ */
 
 #define IS_EXT_MODULE
 

@@ -38,12 +38,6 @@ public:
 
     virtual bool isHTMLDocument() const { return true; }
 
-    String lastModified() const;
-    String cookie() const;
-    void setCookie(const String&);
-
-    void setBody(HTMLElement*, ExceptionCode&);
-
     int width();
     int height();
 
@@ -52,6 +46,8 @@ public:
 
     String designMode() const;
     void setDesignMode(const String&);
+
+    String compatMode() const;
 
     String bgColor();
     void setBgColor(const String&);

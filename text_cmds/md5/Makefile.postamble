@@ -1,3 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
-
-#LOCAL_CFLAGS = -I/usr/local/include/openssl

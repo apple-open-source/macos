@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -28,8 +28,6 @@
 #if PLATFORM(DARWIN)
 
 #define HAVE_ERRNO_H 1
-#define HAVE_FUNC_ISINF 1
-#define HAVE_FUNC_ISNAN 1
 #define HAVE_MMAP 1
 #define HAVE_MERGESORT 1
 #define HAVE_SBRK 1
@@ -45,11 +43,14 @@
 #define max max
 #define min min
 
+#if !COMPILER(MSVC7)
 // We need to define this before the first #include of stdlib.h or it won't contain rand_s.
+#ifndef _CRT_RAND_S
 #define _CRT_RAND_S
+#endif
+#endif
 
 #define HAVE_FLOAT_H 1
-#define HAVE_FUNC__FINITE 1
 #define HAVE_SYS_TIMEB_H 1
 #define HAVE_VIRTUALALLOC 1
 
@@ -58,8 +59,6 @@
 /* FIXME: is this actually used or do other platforms generate their own config.h? */
 
 #define HAVE_ERRNO_H 1
-#define HAVE_FUNC_ISINF 1
-#define HAVE_FUNC_ISNAN 1
 #define HAVE_MMAP 1
 #define HAVE_SBRK 1
 #define HAVE_STRINGS_H 1
@@ -68,7 +67,9 @@
 
 #endif
 
-#define HAVE_PCREPOSIX 1
+#if PLATFORM(FREEBSD)
+#define HAVE_PTHREAD_NP_H 1
+#endif
 
 /* FIXME: if all platforms have these, do they really need #defines? */
 #define HAVE_STDINT_H 1
@@ -80,4 +81,11 @@
 #undef new
 #undef delete
 #include <wtf/FastMalloc.h>
+#endif
+
+// this breaks compilation of <QFontDatabase>, at least, so turn it off for now
+// Also generates errors on wx on Windows, because these functions
+// are used from wx headers. 
+#if !PLATFORM(QT) && !PLATFORM(WX)
+#include <wtf/DisallowCType.h>
 #endif

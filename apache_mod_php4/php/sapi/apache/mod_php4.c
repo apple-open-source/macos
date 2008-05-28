@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    | PHP 4.0 patches by Zeev Suraski <zeev@zend.com>                      |
    +----------------------------------------------------------------------+
  */
-/* $Id: mod_php4.c,v 1.146.2.15.2.4 2007/01/01 09:46:51 sebastian Exp $ */
+/* $Id: mod_php4.c,v 1.146.2.15.2.6 2007/12/31 07:22:55 sebastian Exp $ */
 
 #include "php_apache_http.h"
 #include "http_conf_globals.h"
@@ -728,9 +728,15 @@ static void *php_create_dir(pool *p, char *dummy)
  */
 static void *php_merge_dir(pool *p, void *basev, void *addv)
 {
-	/* This function *must* return addv, and not modify basev */
-	zend_hash_merge_ex((HashTable *) addv, (HashTable *) basev, (copy_ctor_func_t) copy_per_dir_entry, sizeof(php_per_dir_entry), (zend_bool (*)(void *, void *)) should_overwrite_per_dir_entry);
-	return addv;
+	/* This function *must* not modify addv or basev */
+	HashTable *new;
+
+	/* need a copy of addv to merge */
+	new = php_create_dir(p, "php_merge_dir");
+	zend_hash_copy(new, (HashTable *) addv, (copy_ctor_func_t) copy_per_dir_entry, NULL, sizeof(php_per_dir_entry));
+
+	zend_hash_merge_ex(new, (HashTable *) basev, (copy_ctor_func_t) copy_per_dir_entry, sizeof(php_per_dir_entry), (zend_bool (*)(void *, void *)) should_overwrite_per_dir_entry);
+	return new;
 }
 /* }}} */
 

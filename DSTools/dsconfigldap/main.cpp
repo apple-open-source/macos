@@ -46,7 +46,7 @@
 #include "dstools_version.h"
 
 #warning VERIFY the version string before each major OS build submission that changes the dsconfigldap tool
-const char *version = "10.5.1";	// Matches OS version
+const char *version = "10.5.3";	// Matches OS version
 	
 #pragma mark Prototypes
 

@@ -1,7 +1,6 @@
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2007 Apple Computer, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -23,168 +22,97 @@
 #ifndef KJS_LIST_H
 #define KJS_LIST_H
 
-#include "value.h"
+#include <kjs/value.h>
+#include <wtf/HashSet.h>
+#include <wtf/Noncopyable.h>
+#include <wtf/Vector.h>
 
 namespace KJS {
 
-    struct ListImpBase {
-        int size;
-        int refCount;
-        int valueRefCount; // FIXME: Get rid of this.
-    };
+    class JSValue;
+    class List;
     
-    class ListIterator;
+    class List : Noncopyable {
+    private:
+        typedef Vector<JSValue*, 8> VectorType;
+        typedef HashSet<List*> ListSet;
 
-    /**
-     * @short Native list type.
-     *
-     * List is a native ECMAScript type. List values are only used for
-     * intermediate results of expression evaluation and cannot be stored
-     * as properties of objects.
-     *
-     * The list is explicitly shared. Note that while copyTail() returns a
-     * copy of the list the referenced objects are still shared.
-     */
-    class List {
     public:
-        List();
-        ~List() { deref(); }
+        typedef VectorType::iterator iterator;
+        typedef VectorType::const_iterator const_iterator;
 
-        List(const List &b) : _impBase(b._impBase) {
-            ++_impBase->refCount; 
-            ++_impBase->valueRefCount; 
+        List()
+            : m_isInMarkSet(false)
+        {
         }
-        List &operator=(const List &);
 
-        /**
-         * Append an object to the end of the list.
-         *
-         * @param val Pointer to object.
-         */
-        void append(JSValue *val);
-        /**
-         * Remove all elements from the list.
-         */
-        void clear();
+        ~List()
+        {
+            if (m_isInMarkSet)
+                markSet().remove(this);
+        }
 
-        void reset() { deref(); ++(_impBase = empty()._impBase)->refCount; }
+        size_t size() const { return m_vector.size(); }
+        bool isEmpty() const { return m_vector.isEmpty(); }
 
-        /**
-         * Make a copy of the list
-         */
-        List copy() const;
+        JSValue* at(size_t i) const
+        {
+            if (i < m_vector.size())
+                return m_vector.at(i);
+            return jsUndefined();
+        }
 
-        /**
-         * Copy all elements from the second list here
-         */
-        void copyFrom(const List& other);
+        JSValue* operator[](int i) const { return at(i); }
 
-        /**
-         * Make a copy of the list, omitting the first element.
-         */
-        List copyTail() const;
-    
-        /**
-         * @return true if the list is empty. false otherwise.
-         */
-        bool isEmpty() const { return _impBase->size == 0; }
-        /**
-         * @return the current size of the list.
-         */
-        int size() const { return _impBase->size; }
-        /**
-         * @return A KJS::ListIterator pointing to the first element.
-         */
-        ListIterator begin() const;
-        /**
-         * @return A KJS::ListIterator pointing to the last element.
-         */
-        ListIterator end() const;
-        
-        /**
-         * Retrieve an element at an indexed position. If you want to iterate
-         * trough the whole list using KJS::ListIterator will be faster.
-         *
-         * @param i List index.
-         * @return Return the element at position i. KJS::Undefined if the
-         * index is out of range.
-         */
-        JSValue *at(int i) const;
-        /**
-         * Equivalent to at.
-         */
-        JSValue *operator[](int i) const { return at(i); }
-    
-        /**
-         * Returns a pointer to a static instance of an empty list. Useful if a
-         * function has a KJS::List parameter.
-         */
-        static const List &empty();
-        
-        static void markProtectedLists();
-    private:
-        ListImpBase *_impBase;
-        
-        void deref() { --_impBase->valueRefCount; if (--_impBase->refCount == 0) release(); }
+        void clear() { m_vector.clear(); }
 
-        void release();
-        void markValues();
-    };
-  
-    /**
-     * @short Iterator for KJS::List objects.
-     */
-    class ListIterator {
-    public:
-        /**
-         * Construct an iterator that points to the first element of the list.
-         * @param l The list the iterator will operate on.
-         */
-        ListIterator(const List &l) : _list(&l), _i(0) { }
-        ListIterator(const List &l, int index) : _list(&l), _i(index) { }
-        /**
-         * Dereference the iterator.
-         * @return A pointer to the element the iterator operates on.
-         */
-        JSValue *operator->() const { return _list->at(_i); }
-        JSValue *operator*() const { return _list->at(_i); }
-        /**
-         * Prefix increment operator.
-         * @return The element after the increment.
-         */
-        JSValue *operator++() { return _list->at(++_i); }
-        /**
-         * Postfix increment operator.
-         */
-        JSValue *operator++(int) { return _list->at(_i++); }
-        /**
-         * Prefix decrement operator.
-         */
-        JSValue *operator--() { return _list->at(--_i); }
-        /**
-         * Postfix decrement operator.
-         */
-        JSValue *operator--(int) { return _list->at(_i--); }
-        /**
-         * Compare the iterator with another one.
-         * @return True if the two iterators operate on the same list element.
-         * False otherwise.
-         */
-        bool operator==(const ListIterator &it) const { return _i == it._i; }
-        /**
-         * Check for inequality with another iterator.
-         * @return True if the two iterators operate on different list elements.
-         */
-        bool operator!=(const ListIterator &it) const { return _i != it._i; }
+        void append(JSValue* v)
+        {
+            if (m_vector.size() < m_vector.capacity())
+                m_vector.uncheckedAppend(v);
+            else
+                // Putting the slow "expand and append" case all in one 
+                // function measurably improves the performance of the fast 
+                // "just append" case.
+                expandAndAppend(v);
+        }
+
+        void getSlice(int startIndex, List& result) const;
+
+        iterator begin() { return m_vector.begin(); }
+        iterator end() { return m_vector.end(); }
+
+        const_iterator begin() const { return m_vector.begin(); }
+        const_iterator end() const { return m_vector.end(); }
+
+        static void markProtectedLists()
+        {
+            if (!markSet().size())
+                return;
+            markProtectedListsSlowCase();
+        }
 
     private:
-        const List *_list;
-        int _i;
-    };
+        static ListSet& markSet();
+        static void markProtectedListsSlowCase();
 
-    inline ListIterator List::begin() const { return ListIterator(*this); }
-    inline ListIterator List::end() const { return ListIterator(*this, size()); }
- 
+        void expandAndAppend(JSValue*);
+
+        VectorType m_vector;
+        bool m_isInMarkSet;
+
+    private:
+        // Prohibits new / delete, which would break GC.
+        void* operator new(size_t);
+        void operator delete(void*);
+
+        void* operator new[](size_t);
+        void operator delete[](void*);
+
+        void* operator new(size_t, void*);
+        void operator delete(void*, size_t);
+    };
+    
 } // namespace KJS
 
 #endif // KJS_LIST_H

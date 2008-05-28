@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com 
+ * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,7 +22,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -34,17 +34,26 @@ namespace WebCore {
 
 PlatformWheelEvent::PlatformWheelEvent(GdkEventScroll* event)
 {
+    static const float delta = 1;
+
     m_deltaX = 0;
     m_deltaY = 0;
 
-    if (event->direction == GDK_SCROLL_UP)
-        m_deltaY = -120;
-    else if (event->direction == GDK_SCROLL_LEFT)
-        m_deltaX = -120;
-    else if (event->direction == GDK_SCROLL_RIGHT)
-        m_deltaX = 120;
-    else
-        m_deltaY = 120;
+    // Docs say an upwards scroll (away from the user) has a positive delta
+    switch (event->direction) {
+        case GDK_SCROLL_UP:
+            m_deltaY = delta;
+            break;
+        case GDK_SCROLL_DOWN:
+            m_deltaY = -delta;
+            break;
+        case GDK_SCROLL_LEFT:
+            m_deltaX = -delta;
+            break;
+        case GDK_SCROLL_RIGHT:
+            m_deltaX = delta;
+            break;
+    }
 
     m_position = IntPoint((int)event->x, (int)event->y);
     m_globalPosition = IntPoint((int)event->x_root, (int)event->y_root);

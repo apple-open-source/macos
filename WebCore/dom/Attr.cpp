@@ -51,7 +51,7 @@ void Attr::createTextChild()
 {
     ASSERT(refCount());
     if (!m_attribute->value().isEmpty()) {
-        RefPtr<Text> textNode = document()->createTextNode(m_attribute->value().impl());
+        RefPtr<Text> textNode = document()->createTextNode(m_attribute->value().domString());
 
         // This does everything appendChild() would do in this situation (assuming m_ignoreChildrenChanged was set),
         // but much more efficiently.
@@ -88,6 +88,7 @@ const AtomicString& Attr::prefix() const
 
 void Attr::setPrefix(const AtomicString &_prefix, ExceptionCode& ec)
 {
+    ec = 0;
     checkSetPrefix(_prefix, ec);
     if (ec)
         return;
@@ -115,7 +116,7 @@ void Attr::setValue( const String& v, ExceptionCode& ec)
     int e = 0;
     m_ignoreChildrenChanged++;
     removeChildren();
-    appendChild(document()->createTextNode(v.impl()), e);
+    appendChild(document()->createTextNode(v), e);
     m_ignoreChildrenChanged--;
     
     m_attribute->setValue(v.impl());
@@ -148,9 +149,9 @@ bool Attr::childTypeAllowed(NodeType type)
     }
 }
 
-void Attr::childrenChanged()
+void Attr::childrenChanged(bool changedByParser)
 {
-    Node::childrenChanged();
+    Node::childrenChanged(changedByParser);
     
     if (m_ignoreChildrenChanged > 0)
         return;

@@ -15,6 +15,7 @@
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>MacOSX Build fixes</string>
+		<string>CVE-2007-6109.diff from http://cvs.savannah.gnu.org/viewvc/emacs/emacs/src/editfns.c?r1=1.439.2.3&amp;r2=1.439.2.9&amp;view=patch</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>

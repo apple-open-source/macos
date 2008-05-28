@@ -25,7 +25,10 @@
 
 module html {
 
-    interface CanvasRenderingContext2D {
+    interface [
+        InterfaceUUID=98fb48ae-7216-489c-862b-8e1217fc4443,
+        ImplementationUUID=ab4f0781-152f-450e-9546-5b3987491a54
+    ] CanvasRenderingContext2D {
 
         // Web Applications 1.0 draft
 
@@ -37,6 +40,7 @@ module html {
         void scale(in float sx, in float sy);
         void rotate(in float angle);
         void translate(in float tx, in float ty);
+        void transform(in float m11, in float m12, in float m21, in float m22, in float dx, in float dy);
 
         attribute float globalAlpha;
         attribute [ConvertNullToNullString] DOMString globalCompositeOperation;
@@ -69,11 +73,12 @@ module html {
             raises (DOMException);
         void rect(in float x, in float y, in float width, in float height)
             raises (DOMException);
-        void arc(in float x, in float y, in float radius, in float startAngle, in float endAngle, in boolean clockwise)
+        void arc(in float x, in float y, in float radius, in float startAngle, in float endAngle, in boolean anticlockwise)
             raises (DOMException);
         void fill();
         void stroke();
         void clip();
+        boolean isPointInPath(in float x, in float y);
 
         // other
 

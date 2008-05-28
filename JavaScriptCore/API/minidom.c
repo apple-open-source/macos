@@ -1,6 +1,7 @@
 // -*- mode: c++; c-basic-offset: 4 -*-
 /*
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,7 +25,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#include "JSContextRef.h"
 #include "JSNode.h"
+#include "JSObjectRef.h"
+#include "JSStringRef.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <wtf/Assertions.h>
 #include <wtf/UnusedParam.h>
 
 static char* createStringWithContentsOfFile(const char* fileName);
@@ -55,9 +62,11 @@ int main(int argc, char* argv[])
     else {
         printf("FAIL: Test script threw exception:\n");
         JSStringRef exceptionIString = JSValueToStringCopy(context, exception, NULL);
-        CFStringRef exceptionCF = JSStringCopyCFString(kCFAllocatorDefault, exceptionIString);
-        CFShow(exceptionCF);
-        CFRelease(exceptionCF);
+        size_t exceptionUTF8Size = JSStringGetMaximumUTF8CStringSize(exceptionIString);
+        char* exceptionUTF8 = (char*)malloc(exceptionUTF8Size);
+        JSStringGetUTF8CString(exceptionIString, exceptionUTF8, exceptionUTF8Size);
+        printf("%s\n", exceptionUTF8);
+        free(exceptionUTF8);
         JSStringRelease(exceptionIString);
     }
     JSStringRelease(script);
@@ -72,8 +81,11 @@ int main(int argc, char* argv[])
 
 static JSValueRef print(JSContextRef context, JSObjectRef object, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+    UNUSED_PARAM(object);
+    UNUSED_PARAM(thisObject);
+
     if (argumentCount > 0) {
-        JSStringRef string = JSValueToStringCopy(context, arguments[0], NULL);
+        JSStringRef string = JSValueToStringCopy(context, arguments[0], exception);
         size_t numChars = JSStringGetMaximumUTF8CStringSize(string);
         char stringUTF8[numChars];
         JSStringGetUTF8CString(string, stringUTF8, numChars);
@@ -102,10 +114,10 @@ static char* createStringWithContentsOfFile(const char* fileName)
         if (buffer_size == buffer_capacity) { // guarantees space for trailing '\0'
             buffer_capacity *= 2;
             buffer = (char*)realloc(buffer, buffer_capacity);
-            assert(buffer);
+            ASSERT(buffer);
         }
         
-        assert(buffer_size < buffer_capacity);
+        ASSERT(buffer_size < buffer_capacity);
     }
     fclose(f);
     buffer[buffer_size] = '\0';

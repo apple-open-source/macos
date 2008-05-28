@@ -3,7 +3,7 @@
  *
  *   Directory services routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -325,7 +325,7 @@ cupsdLoadRemoteCache(void)
       {
         cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-        return;
+        break;
       }
     }
     else if (!strcasecmp(line, "<Class") ||
@@ -366,7 +366,7 @@ cupsdLoadRemoteCache(void)
       {
         cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-        return;
+        break;
       }
     }
     else if (!strcasecmp(line, "</Printer>") ||
@@ -386,14 +386,14 @@ cupsdLoadRemoteCache(void)
       {
         cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-        return;
+        break;
       }
     }
     else if (!p)
     {
       cupsdLogMessage(CUPSD_LOG_ERROR,
                       "Syntax error on line %d of remote.cache.", linenum);
-      return;
+      break;
     }
     else if (!strcasecmp(line, "Info"))
     {
@@ -426,7 +426,7 @@ cupsdLoadRemoteCache(void)
       {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-	return;
+	break;
       }
     }
     else if (!strcasecmp(line, "Option") && value)
@@ -462,7 +462,7 @@ cupsdLoadRemoteCache(void)
       {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-	return;
+	break;
       }
     }
     else if (!strcasecmp(line, "StateMessage"))
@@ -494,7 +494,7 @@ cupsdLoadRemoteCache(void)
       {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-	return;
+	break;
       }
     }
     else if (!strcasecmp(line, "Type"))
@@ -505,7 +505,7 @@ cupsdLoadRemoteCache(void)
       {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-	return;
+	break;
       }
     }
     else if (!strcasecmp(line, "BrowseTime"))
@@ -521,7 +521,7 @@ cupsdLoadRemoteCache(void)
       {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-	return;
+	break;
       }
     }
     else if (!strcasecmp(line, "JobSheets"))
@@ -556,7 +556,7 @@ cupsdLoadRemoteCache(void)
       {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-	return;
+	break;
       }
     }
     else if (!strcasecmp(line, "AllowUser"))
@@ -570,7 +570,7 @@ cupsdLoadRemoteCache(void)
       {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-	return;
+	break;
       }
     }
     else if (!strcasecmp(line, "DenyUser"))
@@ -584,7 +584,7 @@ cupsdLoadRemoteCache(void)
       {
 	cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Syntax error on line %d of remote.cache.", linenum);
-	return;
+	break;
       }
     }
     else
@@ -1793,9 +1793,9 @@ process_browse_data(
     if (hptr && !*hptr)
       *hptr = '.';			/* Resource FQDN */
 
-    if ((p = cupsdFindClass(name)) == NULL && BrowseShortNames)
+    if ((p = cupsdFindDest(name)) == NULL && BrowseShortNames)
     {
-      if ((p = cupsdFindClass(resource + 9)) != NULL)
+      if ((p = cupsdFindDest(resource + 9)) != NULL)
       {
         if (p->hostname && strcasecmp(p->hostname, host))
 	{
@@ -1900,9 +1900,9 @@ process_browse_data(
     if (hptr && !*hptr)
       *hptr = '.';			/* Resource FQDN */
 
-    if ((p = cupsdFindPrinter(name)) == NULL && BrowseShortNames)
+    if ((p = cupsdFindDest(name)) == NULL && BrowseShortNames)
     {
-      if ((p = cupsdFindPrinter(resource + 10)) != NULL)
+      if ((p = cupsdFindDest(resource + 10)) != NULL)
       {
         if (p->hostname && strcasecmp(p->hostname, host))
 	{
@@ -3629,7 +3629,7 @@ update_cups_browse(void)
       * Access from localhost (127.0.0.1) is always allowed...
       */
 
-      auth = AUTH_ALLOW;
+      auth = CUPSD_AUTH_ALLOW;
     }
     else
     {
@@ -3640,39 +3640,39 @@ update_cups_browse(void)
       switch (BrowseACL->order_type)
       {
         default :
-	    auth = AUTH_DENY;	/* anti-compiler-warning-code */
+	    auth = CUPSD_AUTH_DENY;	/* anti-compiler-warning-code */
 	    break;
 
-	case AUTH_ALLOW : /* Order Deny,Allow */
-            auth = AUTH_ALLOW;
+	case CUPSD_AUTH_ALLOW : /* Order Deny,Allow */
+            auth = CUPSD_AUTH_ALLOW;
 
             if (cupsdCheckAuth(address, srcname, len,
 	        	  BrowseACL->num_deny, BrowseACL->deny))
-	      auth = AUTH_DENY;
+	      auth = CUPSD_AUTH_DENY;
 
             if (cupsdCheckAuth(address, srcname, len,
 	        	  BrowseACL->num_allow, BrowseACL->allow))
-	      auth = AUTH_ALLOW;
+	      auth = CUPSD_AUTH_ALLOW;
 	    break;
 
-	case AUTH_DENY : /* Order Allow,Deny */
-            auth = AUTH_DENY;
+	case CUPSD_AUTH_DENY : /* Order Allow,Deny */
+            auth = CUPSD_AUTH_DENY;
 
             if (cupsdCheckAuth(address, srcname, len,
 	        	  BrowseACL->num_allow, BrowseACL->allow))
-	      auth = AUTH_ALLOW;
+	      auth = CUPSD_AUTH_ALLOW;
 
             if (cupsdCheckAuth(address, srcname, len,
 	        	  BrowseACL->num_deny, BrowseACL->deny))
-	      auth = AUTH_DENY;
+	      auth = CUPSD_AUTH_DENY;
 	    break;
       }
     }
   }
   else
-    auth = AUTH_ALLOW;
+    auth = CUPSD_AUTH_ALLOW;
 
-  if (auth == AUTH_DENY)
+  if (auth == CUPSD_AUTH_DENY)
   {
     cupsdLogMessage(CUPSD_LOG_DEBUG,
                     "update_cups_browse: Refused %d bytes from %s", bytes,

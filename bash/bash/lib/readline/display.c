@@ -443,11 +443,11 @@ init_line_structures (minsize)
     {
       /* should be enough. */
       inv_lbsize = vis_lbsize = 256;
-      inv_lbreaks = (int *)xmalloc (inv_lbsize * sizeof (int));
-      vis_lbreaks = (int *)xmalloc (vis_lbsize * sizeof (int));
 #if defined (HANDLE_MULTIBYTE)
       _rl_wrapped_line = (int *)xmalloc (vis_lbsize * sizeof (int));
 #endif
+      inv_lbreaks = (int *)xmalloc (inv_lbsize * sizeof (int));
+      vis_lbreaks = (int *)xmalloc (vis_lbsize * sizeof (int));
       inv_lbreaks[0] = vis_lbreaks[0] = 0;
     }
 }

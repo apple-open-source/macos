@@ -1016,11 +1016,20 @@ kern_return_t memberdDSmig_do_GetAllGroups(mach_port_t server, uint32_t uid, uin
 	mig_spawnonceifnecessary();
 	
 	GIDList tempList = NULL;
+	
+	(*gids) = NULL;
+	(*gidsCnt) = 0;
     
 	result = Mbrd_ProcessGetAllGroups(uid, numGroups, &tempList);
-	if ( (*numGroups) > 0 && tempList != NULL )
+	if ( result == KERN_SUCCESS && (*numGroups) > 0 && tempList != NULL )
 	{
-		vm_read( mach_task_self(), (vm_address_t) tempList, ((*numGroups) * sizeof(gid_t)), (vm_offset_t *) gids, gidsCnt );
+		result = vm_read( mach_task_self(), (vm_address_t) tempList, ((*numGroups) * sizeof(gid_t)), (vm_offset_t *) gids, gidsCnt );
+		if ( result == KERN_SUCCESS )
+		{
+			// need to set the value to count not length of bytes
+			(*gidsCnt) = (*numGroups);
+		}
+		
 		DSFree( tempList );
 	}
 	

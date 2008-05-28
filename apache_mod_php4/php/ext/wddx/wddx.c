@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: wddx.c,v 1.96.2.6.2.10 2007/01/09 15:21:08 iliaa Exp $ */
+/* $Id: wddx.c,v 1.96.2.6.2.12 2007/12/31 07:22:54 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -986,22 +986,7 @@ static void php_wddx_pop_element(void *user_data, const XML_Char *name)
 						/* Clean up class name var entry */
 						zval_ptr_dtor(&ent1->data);
 					} else {
-						long l;  
-						double d;
-				
-						switch (is_numeric_string(ent1->varname, strlen(ent1->varname), &l, &d, 0)) {
-							case IS_DOUBLE:
-								if (d > INT_MAX) {
-									goto bigint;
-								}
-								l = (long) d;
-							case IS_LONG:
-								zend_hash_index_update(target_hash, l, &ent1->data, sizeof(zval *), NULL);
-								break;
-							default:
-bigint:
-								zend_hash_update(target_hash,ent1->varname, strlen(ent1->varname)+1, &ent1->data, sizeof(zval *), NULL);
-						}
+						zend_hash_update(target_hash, ent1->varname, strlen(ent1->varname)+1, &ent1->data, sizeof(zval *), NULL);
 					}
 					efree(ent1->varname);
 				} else	{

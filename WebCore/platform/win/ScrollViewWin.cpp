@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
- * Copyright (C) 2006 Justin Haygood <jhaygood@spsu.edu>.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,17 +29,17 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "FloatRect.h"
-
+#include "FocusController.h"
 #include "Frame.h"
 #include "FrameView.h"
-#include "RenderTheme.h" 
-
 #include "GraphicsContext.h"
 #include "IntRect.h"
+#include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformScrollBar.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
+#include "RenderTheme.h" 
 #include "ScrollBar.h"
 #include <algorithm>
 #include <winsock2.h>
@@ -62,6 +61,8 @@ public:
         , m_scrollbarsAvoidingResizer(0)
         , m_vScrollbarMode(ScrollbarAuto)
         , m_hScrollbarMode(ScrollbarAuto)
+        , m_visible(false)
+        , m_attachedToWindow(false)
     {
     }
 
@@ -76,6 +77,7 @@ public:
 
     virtual void valueChanged(Scrollbar*);
     virtual IntRect windowClipRect() const;
+    virtual bool isActive() const;
 
     void scrollBackingStore(const IntSize& scrollDelta);
 
@@ -95,6 +97,8 @@ public:
     RefPtr<PlatformScrollbar> m_hBar;
     HRGN m_dirtyRegion;
     HashSet<Widget*> m_children;
+    bool m_visible;
+    bool m_attachedToWindow;
 };
 
 void ScrollView::ScrollViewPrivate::setHasHorizontalScrollbar(bool hasBar)
@@ -141,8 +145,8 @@ void ScrollView::ScrollViewPrivate::valueChanged(Scrollbar* bar)
     if (m_scrollbarsSuppressed)
         return;
 
-    scrollBackingStore(scrollDelta);
     static_cast<FrameView*>(m_view)->frame()->sendScrollEvent();
+    scrollBackingStore(scrollDelta);
 }
 
 void ScrollView::ScrollViewPrivate::scrollBackingStore(const IntSize& scrollDelta)
@@ -201,6 +205,12 @@ IntRect ScrollView::ScrollViewPrivate::windowClipRect() const
     return static_cast<const FrameView*>(m_view)->windowClipRect(false);
 }
 
+bool ScrollView::ScrollViewPrivate::isActive() const
+{
+    Page* page = static_cast<const FrameView*>(m_view)->frame()->page();
+    return page && page->focusController()->isActive();
+}
+
 ScrollView::ScrollView()
     : m_data(new ScrollViewPrivate(this))
 {
@@ -239,12 +249,12 @@ void ScrollView::update()
 
 int ScrollView::visibleWidth() const
 {
-    return width() - (m_data->m_vBar ? m_data->m_vBar->width() : 0);
+    return max(0, width() - (m_data->m_vBar ? m_data->m_vBar->width() : 0));
 }
 
 int ScrollView::visibleHeight() const
 {
-    return height() - (m_data->m_hBar ? m_data->m_hBar->height() : 0);
+    return max(0, height() - (m_data->m_hBar ? m_data->m_hBar->height() : 0));
 }
 
 FloatRect ScrollView::visibleContentRect() const
@@ -596,7 +606,7 @@ void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
     // In the end, FrameView should just merge with ScrollView.
     ASSERT(isFrameView());
 
-    if (context->paintingDisabled())
+    if (context->paintingDisabled() && !context->updatingControlTints())
         return;
 
     IntRect documentDirtyRect = rect;
@@ -661,15 +671,18 @@ void ScrollView::themeChanged()
 
 void ScrollView::wheelEvent(PlatformWheelEvent& e)
 {
+    if (!m_data->allowsScrolling())
+        return;
+
     // Determine how much we want to scroll.  If we can move at all, we will accept the event.
     IntSize maxScrollDelta = maximumScroll();
     if ((e.deltaX() < 0 && maxScrollDelta.width() > 0) ||
         (e.deltaX() > 0 && scrollOffset().width() > 0) ||
         (e.deltaY() < 0 && maxScrollDelta.height() > 0) ||
-        (e.deltaY() > 0 && scrollOffset().height() > 0))
+        (e.deltaY() > 0 && scrollOffset().height() > 0)) {
         e.accept();
-
-    scrollBy(-e.deltaX() * LINE_STEP, -e.deltaY() * LINE_STEP);
+        scrollBy(-e.deltaX() * LINE_STEP, -e.deltaY() * LINE_STEP);
+    }
 }
 
 HashSet<Widget*>* ScrollView::children()
@@ -684,12 +697,16 @@ void ScrollView::geometryChanged() const
         (*current)->geometryChanged();
 }
 
-void ScrollView::scroll(ScrollDirection direction, ScrollGranularity granularity)
+bool ScrollView::scroll(ScrollDirection direction, ScrollGranularity granularity)
 {
-    if  ((direction == ScrollUp || direction == ScrollDown) && m_data->m_vBar)
-        m_data->m_vBar->scroll(direction, granularity);
-    else if (m_data->m_hBar)
-        m_data->m_hBar->scroll(direction, granularity);
+    if (direction == ScrollUp || direction == ScrollDown) {
+        if (m_data->m_vBar)
+            return m_data->m_vBar->scroll(direction, granularity);
+    } else {
+        if (m_data->m_hBar)
+            return m_data->m_hBar->scroll(direction, granularity);
+    }
+    return false;
 }
 
 IntRect ScrollView::windowResizerRect()
@@ -730,6 +747,67 @@ void ScrollView::setParent(ScrollView* parentView)
     Widget::setParent(parentView);
 }
 
+void ScrollView::attachToWindow()
+{
+    if (m_data->m_attachedToWindow)
+        return;
+
+    m_data->m_attachedToWindow = true;
+
+    if (m_data->m_visible) {
+        HashSet<Widget*>::iterator end = m_data->m_children.end();
+        for (HashSet<Widget*>::iterator it = m_data->m_children.begin(); it != end; ++it)
+            (*it)->attachToWindow();
+    }
+}
+
+void ScrollView::detachFromWindow()
+{
+    if (!m_data->m_attachedToWindow)
+        return;
+
+    if (m_data->m_visible) {
+        HashSet<Widget*>::iterator end = m_data->m_children.end();
+        for (HashSet<Widget*>::iterator it = m_data->m_children.begin(); it != end; ++it)
+            (*it)->detachFromWindow();
+    }
+
+    m_data->m_attachedToWindow = false;
+}
+
+void ScrollView::show()
+{
+    if (!m_data->m_visible) {
+        m_data->m_visible = true;
+        if (isAttachedToWindow()) {
+            HashSet<Widget*>::iterator end = m_data->m_children.end();
+            for (HashSet<Widget*>::iterator it = m_data->m_children.begin(); it != end; ++it)
+                (*it)->attachToWindow();
+        }
+    }
+
+    Widget::show();
+}
+
+void ScrollView::hide()
+{
+    if (m_data->m_visible) {
+        if (isAttachedToWindow()) {
+            HashSet<Widget*>::iterator end = m_data->m_children.end();
+            for (HashSet<Widget*>::iterator it = m_data->m_children.begin(); it != end; ++it)
+                (*it)->detachFromWindow();
+        }
+        m_data->m_visible = false;
+    }
+
+    Widget::hide();
+}
+
+bool ScrollView::isAttachedToWindow() const
+{
+    return m_data->m_attachedToWindow;
+}
+
 void ScrollView::addToDirtyRegion(const IntRect& containingWindowRect)
 {
     ASSERT(isFrameView());
@@ -768,6 +846,13 @@ void ScrollView::setAllowsScrolling(bool flag)
 bool ScrollView::allowsScrolling() const
 {
     return m_data->allowsScrolling();
+}
+
+bool ScrollView::inWindow() const
+{
+    // Needed for back/forward cache. 
+    notImplemented();
+    return true;
 }
 
 } // namespace WebCore

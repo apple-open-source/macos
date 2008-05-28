@@ -36,6 +36,9 @@
 #include <sys/mman.h>
 #include "Mbrd_MembershipResolver.h"
 
+#include <vector>
+using std::vector;
+
 #define kSQLBeginTransactionCmd		"BEGIN TRANSACTION"
 #define kSQLEndTransactionCmd		"END TRANSACTION"
 #define kSQLCommit					"COMMIT"
@@ -50,6 +53,7 @@
 
 const char *kDatabaseDirectory		= "/var/db/DirectoryService";
 const char *kFlatFileNameDB			= "/var/db/DirectoryService/flatfile.db";
+const char *kFlatFileNameDBJournal	= "/var/db/DirectoryService/flatfile.db-journal";
 
 struct sSearchState
 {
@@ -71,11 +75,17 @@ DSMutexSemaphore		FlatFileNode::fFlatFileLock("FlatFileNode::fFlatFileLock");
 DSMutexSemaphore		FlatFileNode::fSQLDatabaseLock("FlatFileNode::fSQLDatabaseLock");
 pthread_mutex_t			FlatFileNode::fWatchFilesLock			= PTHREAD_MUTEX_INITIALIZER;
 sqlite3					*FlatFileNode::fSQLDatabase				= NULL;
+bool					FlatFileNode::fProperShutdown			= false;
+bool					FlatFileNode::fSafeBoot					= false;
 int						FlatFileNode::fKqueue					= 0;
 static bool				gUseSQLIndex							= true;
 
 extern dsBool			gDSInstallDaemonMode;
 extern dsBool			gDSLocalOnlyMode;
+extern dsBool			gProperShutdown;
+extern dsBool			gSafeBoot;
+
+extern bool IntegrityCheckDB( sqlite3 *inDatabase );
 
 FlatFileNode::FlatFileNode( CFStringRef inNodeName, uid_t inUID, uid_t inEffectiveUID ) : BDPIVirtualNode( inNodeName, inUID, inEffectiveUID )
 {
@@ -87,6 +97,8 @@ FlatFileNode::FlatFileNode( CFStringRef inNodeName, uid_t inUID, uid_t inEffecti
 	{
 		if ( fSQLDatabase == NULL )
 		{
+			fProperShutdown = gProperShutdown;
+			fSafeBoot = gSafeBoot;
 			OpenOrCreateDatabase();
 		}
 	}
@@ -566,8 +578,9 @@ SInt32 FlatFileNode::FetchMatchingRecords( sBDPISearchRecordsContext *inContext,
 
 			snprintf( query, sizeof(query), queryFmt, attribute, stateInfo->fMapping->fRecordType, attribute );
 			
-			int				filelineno[20];
-			int				lineCount	= 0;
+			vector<int>		filelineno;
+			filelineno.reserve(20);
+
 			sqlite3_stmt	*pStmt		= NULL;
 			
 			fSQLDatabaseLock.WaitLock();
@@ -600,8 +613,7 @@ SInt32 FlatFileNode::FetchMatchingRecords( sBDPISearchRecordsContext *inContext,
 					{
 						if ( sqlite3_column_type(pStmt, 0) == SQLITE_INTEGER )
 						{
-							filelineno[lineCount] = sqlite3_column_int( pStmt, 0 );
-							lineCount++;
+							filelineno.push_back( sqlite3_column_int( pStmt, 0 ) );
 						}
 					}
 				} while (status == SQLITE_ROW);
@@ -609,7 +621,8 @@ SInt32 FlatFileNode::FetchMatchingRecords( sBDPISearchRecordsContext *inContext,
 				status = sqlite3_finalize( pStmt );
 			}
 			
-			for ( int zz = 0; zz < lineCount && (inContext->fMaxRecCount == 0 || inContext->fIndex < inContext->fMaxRecCount); zz++ )
+			uint lineCount = filelineno.size();
+			for ( uint zz = 0; zz < lineCount && (inContext->fMaxRecCount == 0 || inContext->fIndex < inContext->fMaxRecCount); zz++ )
 			{
 				const unsigned char *text = NULL;
 				
@@ -911,26 +924,37 @@ SInt32 FlatFileNode::FetchAllRecords( sBDPISearchRecordsContext *inContext, BDPI
 void FlatFileNode::FreeSearchState( void *inState )
 {
 	sSearchState	*theState = (sSearchState *) inState;
+    
+    if ( theState == NULL )
+    {
+        return;
+    }
+    
+    if ( theState->fSearchContext != NULL )
+    {
+        DbgLog( kLogPlugin, "FlatFileNode::FreeSearchState - called with fSearchContext != NULL - SearchRecords is in progress" );
+        theState->fSearchContext = NULL;
+    }
 	
 	if ( theState->fStmt != NULL )
 	{
 		sqlite3_finalize( theState->fStmt );
+        theState->fStmt = NULL;
 	}
 	
 	if ( theState->fFileData != NULL )
 	{
+        DbgLog( kLogPlugin, "FlatFileNode::FreeSearchState - called with fFileData != NULL - SearchRecords is in progress" );
 		munmap( theState->fFileData, theState->fFileMapSize );
+        theState->fFileData = NULL;
+        theState->fFileMapSize = 0;
 	}
 
 	if ( theState->fFileFD != -1 )
 	{
 		close( theState->fFileFD );
+        theState->fFileFD = -1;
 	}
-	
-	theState->fFileMapSize = 0;
-	theState->fFileFD = -1;
-	theState->fFileData = NULL;
-	theState->fSearchContext = NULL;
 	
 	DSCFRelease( theState->fPendingResults );
 	
@@ -970,14 +994,47 @@ void FlatFileNode::OpenOrCreateDatabase( void )
 		return;
 	}
 	
-	if ( lstat(kFlatFileNameDB, &fileStat) != 0 || fileStat.st_size == 0 )
+	if ( lstat(kFlatFileNameDB, &fileStat) != 0 || fileStat.st_size == 0 || fSafeBoot == true || fProperShutdown == false )
 	{
 		unlink( kFlatFileNameDB );
+		unlink( kFlatFileNameDBJournal );
 		bRecreate = true;
+
+		// we clear the flag so we don't get into a loop
+		fProperShutdown = true; 
+		fSafeBoot = false;
 	}
+	
+retry:
 	
 	if ( sqlite3_open(kFlatFileNameDB, &fSQLDatabase) == SQLITE_OK )
 	{
+		// let's check integrity, if we aren't recreating
+		if ( bRecreate == false ) {
+			
+			// let's change the default cache for the DB to 50 x 1.5k = 75k
+			sqlExecSync( "PRAGMA cache_size = 50" );
+			
+			if ( IntegrityCheckDB(fSQLDatabase) == false ) {
+				DbgLog( kLogCritical, "FlatFileNode::OpenOrCreateDatabase - index failed integrity check - rebuilding" );
+				sqlite3_close( fSQLDatabase );
+				fSQLDatabase = NULL;
+				
+				unlink( kFlatFileNameDB );
+				unlink( kFlatFileNameDBJournal );
+				
+				bRecreate = true;
+				
+				goto retry;
+			}
+			else {
+				SrvrLog( kLogApplication, "BSD Plugin - index passed integrity check" );
+			}
+		}
+		
+		// let's change the default cache for the DB to 500 x 1.5k = 750k
+		sqlExecSync( "PRAGMA cache_size = 500" );
+
 		if ( bRecreate )
 			sqlExecSync( kSQLCreateTimestampTable );
 		
@@ -1404,9 +1461,12 @@ bool FlatFileNode::CheckPassword( CFStringRef cfUserPassword, CFStringRef cfChec
 
 CFMutableDictionaryRef FlatFileNode::CreateRecordDictionary( CFStringRef inRecordType, const char *inRecordName )
 {
+	CFStringRef				cfRecordName	= CFStringCreateWithCString( kCFAllocatorDefault, inRecordName, kCFStringEncodingUTF8 );
+	if ( cfRecordName == NULL )
+		return NULL;
+	
 	CFMutableDictionaryRef	newRecord		= CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
 																		 &kCFTypeDictionaryValueCallBacks );
-	CFStringRef				cfRecordName	= CFStringCreateWithCString( kCFAllocatorDefault, inRecordName, kCFStringEncodingUTF8 );
 	CFMutableDictionaryRef	cfAttributes	= CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
 																		 &kCFTypeDictionaryValueCallBacks );
 	CFMutableArrayRef		cfRecordNames	= CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
@@ -1460,6 +1520,7 @@ void FlatFileNode::AddAttributeToRecord( CFMutableDictionaryRef inRecord, CFStri
 static int tokenize_line_extended( char ***outTokens, char *inTokenString, char *inData )
 {
 	int		iMax			= 10;
+    int     iTokenMax       = iMax - 1;  // Save room at end for NULL
 	char	**tokensTemp	= (char **) calloc( iMax, sizeof(char *) );
 	char	*strtokContext	= NULL;
 	int		iCount			= 0;
@@ -1480,9 +1541,10 @@ static int tokenize_line_extended( char ***outTokens, char *inTokenString, char 
 		tokensTemp[iCount++] = begin;
 		tempToken = strtok_r( NULL, inTokenString, &strtokContext );
 		
-		if ( iCount >= iMax )
+		if ( iCount >= iTokenMax )
 		{
 			iMax += 10;
+            iTokenMax = iMax - 1;
 			tokensTemp = (char **) reallocf( tokensTemp, iMax * sizeof(char *) );
 			if ( tokensTemp == NULL )
 			{
@@ -1500,14 +1562,15 @@ static int tokenize_line_extended( char ***outTokens, char *inTokenString, char 
 
 static int tokenize_line( char **inTokens, char *inTokenString, int iMax, char *inData, bool bSkipDuplicates = true )
 {
-	int		iCount			= 0;
+	int         iCount			= 0;
+    const int   iTokenMax       = iMax - 1;  // save room at end for NULL.
 
 	if ( bSkipDuplicates )
 	{
 		char	*strtokContext	= NULL;
 		
 		char *tempToken = strtok_r( inData, inTokenString, &strtokContext );
-		while (tempToken != NULL && iCount < iMax)
+		while (tempToken != NULL && iCount < iTokenMax)
 		{
 			// trim whitespace from front
 			char *begin = tempToken;
@@ -1534,7 +1597,7 @@ static int tokenize_line( char **inTokens, char *inTokenString, int iMax, char *
 	{
 		char	*token;
 		
-        while ((token = strsep(&inData, inTokenString)) != NULL && iCount < iMax)
+        while ((token = strsep(&inData, inTokenString)) != NULL && iCount < iTokenMax)
 		{
 			inTokens[iCount] = token;
 			iCount++;
@@ -1551,8 +1614,9 @@ CFMutableDictionaryRef FlatFileNode::parse_user( sqlite3 *inDatabase, bool inGen
 	if ( inData == NULL )
 		return NULL;
 	
-	char	*tokens[12]	= { NULL };
-	int		iCount		= tokenize_line( tokens, ":", 12, inData, false );
+    const int   MAX_TOKENS          = 13;  // 12 plus terminating NULL.
+	char        *tokens[MAX_TOKENS]	= { NULL };
+	int         iCount              = tokenize_line( tokens, ":", MAX_TOKENS, inData, false );
 	
 	// if we don't have enough tokens or we have + sign for NIS
 	if ( iCount < 4 || tokens[0][0] == '+' )
@@ -1571,35 +1635,37 @@ CFMutableDictionaryRef FlatFileNode::parse_user( sqlite3 *inDatabase, bool inGen
 			offset = 3;
 
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeUsers), tokens[0] );
-	
-		// we'll add the marker if the password field is a * or + or x as it signifies shadow anyway
-		char cFirstChar = tokens[1][0];
-		if ( (cFirstChar == '*' || cFirstChar == '+' || cFirstChar == 'x') && tokens[1][1] == '\0' )
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPassword), kDSValueNonCryptPasswordMarker );		
-		else
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPassword), tokens[1] );		
-		
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrUniqueID), tokens[2] );
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPrimaryGroupID), tokens[3] );
-
-		if ( offset == 3 )
+		if ( cfRecord != NULL )
 		{
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrChange), tokens[5] );
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrExpire), tokens[6] );
+			// we'll add the marker if the password field is a * or + or x as it signifies shadow anyway
+			char cFirstChar = tokens[1][0];
+			if ( (cFirstChar == '*' || cFirstChar == '+' || cFirstChar == 'x') && tokens[1][1] == '\0' )
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPassword), kDSValueNonCryptPasswordMarker );		
+			else
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPassword), tokens[1] );		
+			
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrUniqueID), tokens[2] );
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPrimaryGroupID), tokens[3] );
+
+			if ( offset == 3 )
+			{
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrChange), tokens[5] );
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrExpire), tokens[6] );
+			}
+			
+			char **gecos	= NULL;
+			int gecosCnt = tokenize_line_extended( &gecos, ",", tokens[4+offset] );
+			
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrDistinguishedName), (gecosCnt > 0 ? gecos[0] : NULL) );
+			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrBuilding), (gecosCnt > 1 ? gecos[1] : NULL) );
+			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrPhoneNumber), (gecosCnt > 2 ? gecos[2] : NULL) );
+			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrHomePhoneNumber), (gecosCnt > 3 ? gecos[3] : NULL) );
+			
+			DSFree( gecos );
+			
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrNFSHomeDirectory), tokens[5+offset] );
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrUserShell), tokens[6+offset] );
 		}
-		
-		char **gecos	= NULL;
-		int gecosCnt = tokenize_line_extended( &gecos, ",", tokens[4+offset] );
-		
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrDistinguishedName), (gecosCnt > 0 ? gecos[0] : NULL) );
-		AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrBuilding), (gecosCnt > 1 ? gecos[1] : NULL) );
-		AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrPhoneNumber), (gecosCnt > 2 ? gecos[2] : NULL) );
-		AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrHomePhoneNumber), (gecosCnt > 3 ? gecos[3] : NULL) );
-		
-		DSFree( gecos );
-		
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrNFSHomeDirectory), tokens[5+offset] );
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrUserShell), tokens[6+offset] );
 	}
 	
 	// if we have a database, insert the entry into the table
@@ -1618,10 +1684,11 @@ CFMutableDictionaryRef FlatFileNode::parse_group( sqlite3 *inDatabase, bool inGe
 	if ( inData == NULL )
 		return NULL;
 	
-	char	*tokens[6]	= { NULL };
-	char	**members	= NULL;
-	int		mbrCnt		= 0;
-	int		iCount		= tokenize_line( tokens, ":", 6, inData, false );
+    const int   MAX_TOKENS          = 7; // 6 plus terminating NULL
+	char        *tokens[MAX_TOKENS]	= { NULL };
+	char        **members           = NULL;
+	int         mbrCnt              = 0;
+	int         iCount              = tokenize_line( tokens, ":", MAX_TOKENS, inData, false );
 
 	// if we don't have enough tokens or we have + sign for NIS
 	if ( iCount < 3 || tokens[0][0] == '+' )
@@ -1639,13 +1706,15 @@ CFMutableDictionaryRef FlatFileNode::parse_group( sqlite3 *inDatabase, bool inGe
 	if ( inGenDictionary )
 	{
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeGroups), tokens[0] );
-
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPassword), tokens[1] );
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPrimaryGroupID), tokens[2] );
-		
-		for (int ii = 0; ii < mbrCnt; ii++)
+		if ( cfRecord != NULL )
 		{
-			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrGroupMembership), members[ii] );
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPassword), tokens[1] );
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPrimaryGroupID), tokens[2] );
+			
+			for (int ii = 0; ii < mbrCnt; ii++)
+			{
+				AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrGroupMembership), members[ii] );
+			}
 		}
 	}
 		
@@ -1672,8 +1741,9 @@ CFMutableDictionaryRef FlatFileNode::parse_host( sqlite3 *inDatabase, bool inGen
 	if ( inData == NULL )
 		return NULL;
 	
-	char	*tokenCmt[3] = { NULL };
-	if ( tokenize_line(tokenCmt, "#", 3, inData, true) == 0 )
+    const int   MAX_TOKEN_CMT               = 4;  // 3 plus terminating NULL
+	char        *tokenCmt[MAX_TOKEN_CMT]    = { NULL };
+	if ( tokenize_line(tokenCmt, "#", MAX_TOKEN_CMT, inData, true) == 0 )
 		return NULL;
 
 	char	**tokens	= NULL;
@@ -1685,7 +1755,7 @@ CFMutableDictionaryRef FlatFileNode::parse_host( sqlite3 *inDatabase, bool inGen
 		DSFree( tokens );
 		return NULL;
 	}
-	
+		
 	uint32_t    tempFamily  = AF_UNSPEC;
 	char        buffer[16];		// IPv6 is 128 bit so max 16 bytes
 	char		canonical[INET6_ADDRSTRLEN];
@@ -1713,16 +1783,18 @@ CFMutableDictionaryRef FlatFileNode::parse_host( sqlite3 *inDatabase, bool inGen
 	if ( inGenDictionary )
 	{
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeHosts), tokens[1] );
-
-		AddAttributeToRecord( cfRecord, (tempFamily == AF_INET ? CFSTR(kDSNAttrIPAddress) : CFSTR(kDSNAttrIPv6Address)), canonical );
-		
-		for (int ii = 2; ii < iCount; ii++)
+		if ( cfRecord != NULL )
 		{
-			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrRecordName), tokens[ii] );
+			AddAttributeToRecord( cfRecord, (tempFamily == AF_INET ? CFSTR(kDSNAttrIPAddress) : CFSTR(kDSNAttrIPv6Address)), canonical );
+			
+			for (int ii = 2; ii < iCount; ii++)
+			{
+				AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrRecordName), tokens[ii] );
+			}
+			
+			if ( tokenCmt[1] != NULL )
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
 		}
-		
-		if ( tokenCmt[1] != NULL )
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
 	}
 	
 	// if we have a database, insert the entry into the table
@@ -1746,8 +1818,9 @@ CFMutableDictionaryRef FlatFileNode::parse_network( sqlite3 *inDatabase, bool in
 	if ( inData == NULL )
 		return NULL;
 	
-	char	*tokenCmt[3] = { NULL };
-	if ( tokenize_line(tokenCmt, "#", 3, inData, true) == 0 )
+    const int   MAX_TOKEN_CMT               = 4;  // 3 plus terminating NULL
+	char        *tokenCmt[MAX_TOKEN_CMT]    = { NULL };
+	if ( tokenize_line(tokenCmt, "#", MAX_TOKEN_CMT, inData, true) == 0 )
 		return NULL;
 
 	char	**tokens	= NULL;
@@ -1765,16 +1838,18 @@ CFMutableDictionaryRef FlatFileNode::parse_network( sqlite3 *inDatabase, bool in
 	if ( inGenDictionary )
 	{
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeNetworks), tokens[0] );
-	
-		AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:address"), tokens[1] );
-		
-		for (int ii = 2; ii < iCount; ii++)
+		if ( cfRecord != NULL )
 		{
-			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrRecordName), tokens[ii] );
-		}
+			AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:address"), tokens[1] );
+			
+			for (int ii = 2; ii < iCount; ii++)
+			{
+				AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrRecordName), tokens[ii] );
+			}
 
-		if ( tokenCmt[1] != NULL )
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
+			if ( tokenCmt[1] != NULL )
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
+		}
 	}
 	
 	// if we have a database, insert the entry into the table
@@ -1799,8 +1874,9 @@ CFMutableDictionaryRef FlatFileNode::parse_service( sqlite3 *inDatabase, bool in
 		return NULL;
 	
 	// first split comments
-	char	*tokenCmt[3] = { NULL };
-	if ( tokenize_line(tokenCmt, "#", 3, inData, true) == 0 )
+    const int   MAX_TOKEN_CMT               = 4;  // 3 plus terminating NULL
+	char        *tokenCmt[MAX_TOKEN_CMT]    = { NULL };
+	if ( tokenize_line(tokenCmt, "#", MAX_TOKEN_CMT, inData, true) == 0 )
 		return NULL;
 	
 	char	**tokens	= NULL;
@@ -1827,18 +1903,20 @@ CFMutableDictionaryRef FlatFileNode::parse_service( sqlite3 *inDatabase, bool in
 	if ( inGenDictionary )
 	{
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeServices), tokens[0] );
-		
-		AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:PortAndProtocol"), portAndProt );
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPort), tokens[1] );
-		AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrProtocols), slash );
-		
-		for (int ii = 2; ii < iCount; ii++)
+		if ( cfRecord != NULL )
 		{
-			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrRecordName), tokens[ii] );
+			AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:PortAndProtocol"), portAndProt );
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrPort), tokens[1] );
+			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrProtocols), slash );
+			
+			for (int ii = 2; ii < iCount; ii++)
+			{
+				AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrRecordName), tokens[ii] );
+			}
+			
+			if ( tokenCmt[1] != NULL )
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
 		}
-		
-		if ( tokenCmt[1] != NULL )
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
 	}
 	
 	// if we have a database, insert the entry into the table
@@ -1863,8 +1941,9 @@ CFMutableDictionaryRef FlatFileNode::parse_protocol( sqlite3 *inDatabase, bool i
 		return NULL;
 	
 	// first split comments
-	char	*tokenCmt[3] = { NULL };
-	if ( tokenize_line(tokenCmt, "#", 3, inData, true) == 0 )
+    const int   MAX_TOKEN_CMT               = 4;  // 3 plus terminating NULL
+	char        *tokenCmt[MAX_TOKEN_CMT]    = { NULL };
+	if ( tokenize_line(tokenCmt, "#", MAX_TOKEN_CMT, inData, true) == 0 )
 		return NULL;
 	
 	char	**tokens	= NULL;
@@ -1882,15 +1961,17 @@ CFMutableDictionaryRef FlatFileNode::parse_protocol( sqlite3 *inDatabase, bool i
 	if ( inGenDictionary )
 	{
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeProtocols), tokens[0] );
-	
-		AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:number"), tokens[1] );
-		
-		if ( tokenCmt[1] != NULL )
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
-
-		for (int ii = 2; ii < iCount; ii++)
+		if ( cfRecord != NULL )
 		{
-			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrRecordName), tokens[ii] );
+			AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:number"), tokens[1] );
+			
+			if ( tokenCmt[1] != NULL )
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
+
+			for (int ii = 2; ii < iCount; ii++)
+			{
+				AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrRecordName), tokens[ii] );
+			}
 		}
 	}
 	
@@ -1915,8 +1996,9 @@ CFMutableDictionaryRef FlatFileNode::parse_rpc( sqlite3 *inDatabase, bool inGenD
 	if ( inData == NULL )
 		return NULL;
 	
-	char	*tokenCmt[3]	= { NULL };
-	if ( tokenize_line(tokenCmt, "#", 3, inData, true) == 0 )
+    const int   MAX_TOKEN_CMT               = 4;  // 3 plus terminating NULL
+	char        *tokenCmt[MAX_TOKEN_CMT]    = { NULL };
+	if ( tokenize_line(tokenCmt, "#", MAX_TOKEN_CMT, inData, true) == 0 )
 		return NULL;
 
 	char	**tokens	= NULL;
@@ -1934,16 +2016,18 @@ CFMutableDictionaryRef FlatFileNode::parse_rpc( sqlite3 *inDatabase, bool inGenD
 	if ( inGenDictionary )
 	{
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeRPC), tokens[0] );
-	
-		AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:number"), tokens[1] );
-		
-		for (int ii = 2; ii < iCount; ii++)
+		if ( cfRecord != NULL )
 		{
-			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrRecordName), tokens[ii] );
+			AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:number"), tokens[1] );
+			
+			for (int ii = 2; ii < iCount; ii++)
+			{
+				AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrRecordName), tokens[ii] );
+			}
+			
+			if ( tokenCmt[1] != NULL )
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
 		}
-		
-		if ( tokenCmt[1] != NULL )
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
 	}
 	
 	// if we have a database, insert the entry into the table
@@ -1967,8 +2051,9 @@ CFMutableDictionaryRef FlatFileNode::parse_mount( sqlite3 *inDatabase, bool inGe
 	if ( inData == NULL )
 		return NULL;
 	
-	char	*tokens[8]	= { NULL };
-	int		iCount		= tokenize_line( tokens, " \t", 8, inData );
+    const int   MAX_TOKENS          = 9;  // 8 plus terminating NULL
+	char        *tokens[MAX_TOKENS] = { NULL };
+	int         iCount              = tokenize_line( tokens, " \t", MAX_TOKENS, inData );
 	
 	// if we don't have enough tokens or we have + sign for NIS
 	if ( iCount < 6 || tokens[0][0] == '+' )
@@ -1981,25 +2066,27 @@ CFMutableDictionaryRef FlatFileNode::parse_mount( sqlite3 *inDatabase, bool inGe
 	if ( inGenDictionary )
 	{
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeMounts), tokens[0] );
-	
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSLinkDir), tokens[1] );
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSType), tokens[2] );
-	
-		char *pVFSOpts = strdup( tokens[3] );
-		
-		char **vfsopts	= NULL;
-		int vfsoptCnt = tokenize_line_extended( &vfsopts, ",", tokens[3] );
-		for (int ii = 0; ii < vfsoptCnt; ii++)
+		if ( cfRecord != NULL )
 		{
-			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrVFSOpts), vfsopts[ii] );
-		}
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSLinkDir), tokens[1] );
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSType), tokens[2] );
 		
-		DSFree( vfsopts );
-		
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSDumpFreq), tokens[4] );
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSPassNo), tokens[5] );
+			char *pVFSOpts = strdup( tokens[3] );
+			
+			char **vfsopts	= NULL;
+			int vfsoptCnt = tokenize_line_extended( &vfsopts, ",", tokens[3] );
+			for (int ii = 0; ii < vfsoptCnt; ii++)
+			{
+				AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrVFSOpts), vfsopts[ii] );
+			}
+			
+			DSFree( vfsopts );
+			
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSDumpFreq), tokens[4] );
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrVFSPassNo), tokens[5] );
 
-		DSFreeString( pVFSOpts );
+			DSFreeString( pVFSOpts );
+		}
 	}
 	
 	// if we have a database, insert the entry into the table
@@ -2061,12 +2148,13 @@ CFMutableDictionaryRef FlatFileNode::parse_alias( sqlite3 *inDatabase, bool inGe
 	if ( inData == NULL )
 		return NULL;
 	
-	char	*tokenCmt[3] = { NULL };
-	if ( tokenize_line(tokenCmt, "#", 3, inData, true) == 0 )
+    const int   MAX_TOKENS               = 4;  // 3 plus terminating NULL
+	char        *tokenCmt[MAX_TOKENS]    = { NULL };
+	if ( tokenize_line(tokenCmt, "#", MAX_TOKENS, inData, true) == 0 )
 		return NULL;
 
-	char	*tokens[3]	= { NULL };
-	int		iCount		= tokenize_line( tokens, ":", 3, tokenCmt[0] );
+	char	*tokens[MAX_TOKENS]	= { NULL };
+	int		iCount              = tokenize_line( tokens, ":", MAX_TOKENS, tokenCmt[0] );
 	
 	// if we don't have enough tokens or we have + sign for NIS
 	if ( iCount < 2 || tokens[0][0] == '+' )
@@ -2079,18 +2167,20 @@ CFMutableDictionaryRef FlatFileNode::parse_alias( sqlite3 *inDatabase, bool inGe
 	if ( inGenDictionary )
 	{
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeAliases), tokens[0] );
-	
-		char **aliases	= NULL;
-		int aliasCount = tokenize_line_extended( &aliases, ", \t", tokens[1] );
-		for (int ii = 0; ii < aliasCount; ii++)
+		if ( cfRecord != NULL )
 		{
-			AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:members"), aliases[ii] );
-		}
-		
-		if ( tokenCmt[1] != NULL )
-			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
+			char **aliases	= NULL;
+			int aliasCount = tokenize_line_extended( &aliases, ", \t", tokens[1] );
+			for (int ii = 0; ii < aliasCount; ii++)
+			{
+				AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:members"), aliases[ii] );
+			}
+			
+			if ( tokenCmt[1] != NULL )
+				AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrComment), tokenCmt[1] );
 
-		DSFree( aliases );
+			DSFree( aliases );
+		}
 	}
 	
 	// if we have a database, insert the entry into the table
@@ -2109,8 +2199,9 @@ CFMutableDictionaryRef FlatFileNode::parse_ethernet( sqlite3 *inDatabase, bool i
 	if ( inData == NULL )
 		return NULL;
 	
-	char	*tokens[3]	= { NULL };
-	int		iCount		= tokenize_line( tokens, " \t", 3, inData );
+    const int   MAX_TOKENS          = 4;  // 3 plus terminating NULL
+	char        *tokens[MAX_TOKENS] = { NULL };
+	int         iCount              = tokenize_line( tokens, " \t", MAX_TOKENS, inData );
 	
 	// if we don't have enough tokens or we have + sign for NIS
 	if ( iCount < 2 || tokens[0][0] == '+' )
@@ -2123,8 +2214,10 @@ CFMutableDictionaryRef FlatFileNode::parse_ethernet( sqlite3 *inDatabase, bool i
 	if ( inGenDictionary )
 	{
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeEthernets), tokens[1] );
-	
-		AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrENetAddress), tokens[0] );
+		if ( cfRecord != NULL )
+		{
+			AddAttributeToRecord( cfRecord, CFSTR(kDS1AttrENetAddress), tokens[0] );
+		}
 	}
 	
 	// if we have a database, insert the entry into the table
@@ -2160,10 +2253,13 @@ CFMutableDictionaryRef FlatFileNode::parse_netgroup( sqlite3 *inDatabase, bool i
 			cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeNetGroups), inName );
 		else
 			cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeNetGroups), tokens[0] );
-	
-		for (int ii = (inName != NULL ? 0 : 1); ii < iCount; ii++)
+
+		if ( cfRecord != NULL )
 		{
-			AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:triplet"), tokens[ii] );
+			for (int ii = (inName != NULL ? 0 : 1); ii < iCount; ii++)
+			{
+				AddAttributeToRecord( cfRecord, CFSTR("dsAttrTypeNative:triplet"), tokens[ii] );
+			}
 		}
 	}
 	
@@ -2183,8 +2279,9 @@ CFMutableDictionaryRef FlatFileNode::parse_automounts( sqlite3 *inDatabase, bool
 	if ( inData == NULL )
 		return NULL;
 	
-	char	*tokenCmt[3] = { NULL };
-	if ( tokenize_line(tokenCmt, "#", 3, inData, true) == 0 )
+    const int   MAX_TOKEN_CMT               = 4;  // 3 plus terminating NULL
+	char        *tokenCmt[MAX_TOKEN_CMT]    = { NULL };
+	if ( tokenize_line(tokenCmt, "#", MAX_TOKEN_CMT, inData, true) == 0 )
 		return NULL;
 
 	// we tokenize special here since there are only 2 values
@@ -2202,11 +2299,13 @@ CFMutableDictionaryRef FlatFileNode::parse_automounts( sqlite3 *inDatabase, bool
 	if ( inGenDictionary )
 	{
 		cfRecord = CreateRecordDictionary( CFSTR(kDSStdRecordTypeAutomount), mapName );
-		
-		AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrAutomountInformation), mapInfo );
-		
-		if ( tokenCmt[1] != NULL )
-			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrAutomountInformation), tokenCmt[1] );
+		if ( cfRecord != NULL )
+		{
+			AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrAutomountInformation), mapInfo );
+			
+			if ( tokenCmt[1] != NULL )
+				AddAttributeToRecord( cfRecord, CFSTR(kDSNAttrAutomountInformation), tokenCmt[1] );
+		}
 	}
 	
 	return cfRecord; 

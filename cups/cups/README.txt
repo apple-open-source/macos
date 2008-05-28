@@ -1,4 +1,4 @@
-README - CUPS v1.3.2 - 2007-09-18
+README - CUPS v1.3.6 - 2008-02-15
 ---------------------------------
 
 Looking for compile instructions?  Read the file "INSTALL.txt"
@@ -153,9 +153,9 @@ PRINTING FILES
 
 LEGAL STUFF
 
-    CUPS is Copyright 2007 by Apple Inc.  CUPS, the CUPS logo, and
-    the Common UNIX Printing System are the trademark property of
-    Apple Inc.
+    CUPS is Copyright 2007-2008 Apple Inc.  All Rights Reserved.
+    CUPS, the CUPS logo, and the Common UNIX Printing System are
+    trademarks of Apple Inc.
 
     The MD5 Digest code is Copyright 1999 Aladdin Enterprises.
 

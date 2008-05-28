@@ -435,8 +435,6 @@ int Mbrd_ProcessGetGroups(uint32_t uid, uint32_t* numGroups, GIDArray gids)
 	uint64_t microsec = GetElapsedMicroSeconds();
 	int result = KERN_SUCCESS;
 
-	SetThreadFlags( kUseLoginTimeOutMask );
-
 	gMbrGlobalMutex.WaitLock();
 
 	UserGroup* user = GetUserWithUID(uid);
@@ -458,8 +456,6 @@ int Mbrd_ProcessGetGroups(uint32_t uid, uint32_t* numGroups, GIDArray gids)
 
 	gMbrGlobalMutex.SignalLock();
 
-	SetThreadFlags( 0 );
-
 	return result;
 }
 
@@ -467,9 +463,7 @@ int Mbrd_ProcessGetAllGroups(uint32_t uid, uint32_t *numGroups, GIDList *gids )
 {
 	uint64_t microsec = GetElapsedMicroSeconds();
 	int result = KERN_SUCCESS;
-	
-	SetThreadFlags( kUseLoginTimeOutMask );
-	
+		
 	gMbrGlobalMutex.WaitLock();
 	
 	UserGroup* user = GetUserWithUID(uid);
@@ -490,9 +484,7 @@ int Mbrd_ProcessGetAllGroups(uint32_t uid, uint32_t *numGroups, GIDList *gids )
 	AddToAverage(&gStatBlock->fAverageuSecPerCall, &gStatBlock->fTotalCallsHandled, (uint32_t)microsec);
 	
 	gMbrGlobalMutex.SignalLock();
-	
-	SetThreadFlags( 0 );
-	
+		
 	return result;
 }
 

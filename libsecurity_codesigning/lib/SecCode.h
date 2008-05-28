@@ -291,17 +291,19 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		regardless; you may specify kSecCSDefaultFlags for just those.
 	@param information A CFDictionary containing information about the code is stored
 		here on successful completion. The contents of the dictionary depend on
-		the flags passed. Regardless of flags, the kSecCodeInfoIdentifier key is always present
-		if the code is signed, and absent if the code is entirely unsigned.
+		the flags passed. Regardless of flags, the kSecCodeInfoIdentifier key is
+		always present if the code is signed, and always absent if the code is
+		unsigned.
 	@result On success, noErr. On error, an OSStatus value
 	documented in CSCommon.h or certain other Security framework headers.
 	
 	@constant kSecCSSigningInformation Return cryptographic signing information,
-		including the certificate chain and CMS data.
+		including the certificate chain and CMS data (if any). For ad-hoc signed
+		code, there are no certificates and the CMS data is empty.
 	@constant kSecCSRequirementInformation Return information about internal code
-		requirements embedded in the code.
+		requirements embedded in the code. This includes the Designated Requirement.
 	@constant kSecCSInternalInformation Return internal code signing information.
-		This information is for use by Apple, and is subject to change.
+		This information is for use by Apple, and is subject to change without notice.
 		It will not be further documented here.
 	@constant kSecCSDynamicInformation Return dynamic validity information about
 		the Code. The subject code must be a SecCodeRef (not a SecStaticCodeRef).
@@ -324,12 +326,14 @@ extern const CFStringRef kSecCodeInfoChangedFiles;	/* Content */
 extern const CFStringRef kSecCodeInfoCMS;			/* Signing */
 extern const CFStringRef kSecCodeInfoTime;			/* Signing */
 extern const CFStringRef kSecCodeInfoDesignatedRequirement; /* Requirement */
+extern const CFStringRef kSecCodeInfoEntitlements;	/* Requirement */
 extern const CFStringRef kSecCodeInfoFormat;		/* generic */
 extern const CFStringRef kSecCodeInfoIdentifier;	/* generic */
 extern const CFStringRef kSecCodeInfoImplicitDesignatedRequirement; /* Requirement */
 extern const CFStringRef kSecCodeInfoMainExecutable; /* generic */
 extern const CFStringRef kSecCodeInfoPList;			/* generic */
 extern const CFStringRef kSecCodeInfoRequirements;	/* Requirement */
+extern const CFStringRef kSecCodeInfoRequirementData; /* Requirement */
 extern const CFStringRef kSecCodeInfoStatus;		/* Dynamic */
 extern const CFStringRef kSecCodeInfoTrust;			/* Signing */
 

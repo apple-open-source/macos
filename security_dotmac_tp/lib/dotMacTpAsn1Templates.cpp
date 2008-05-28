@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,7 @@ const SecAsn1Template DotMacTpPendingRequestTemplate[] = {
     { SEC_ASN1_SEQUENCE, 0, NULL, sizeof(DotMacTpPendingRequest) },
     { SEC_ASN1_UTF8_STRING, offsetof(DotMacTpPendingRequest, userName) },
     { SEC_ASN1_INTEGER,		offsetof(DotMacTpPendingRequest, certTypeTag) },
+    { SEC_ASN1_UTF8_STRING, offsetof(DotMacTpPendingRequest, domainName) },
     { 0 }
 };
 

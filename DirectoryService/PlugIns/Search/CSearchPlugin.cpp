@@ -4229,6 +4229,7 @@ SInt32 CSearchPlugin::GetNextNodeRef ( tDirNodeReference inNodeRef, tDirNodeRefe
 	sSearchList		   *pNodeList		= nil;
 	tDirNodeReference	aNodeRef		= inNodeRef;
 	UInt32				nodeIndex		= 0;
+	bool				bFailedToOpen	= false;
 
 	pNodeList = (sSearchList *)inContext->fSearchNodeList;
 	
@@ -4274,6 +4275,7 @@ SInt32 CSearchPlugin::GetNextNodeRef ( tDirNodeReference inNodeRef, tDirNodeRefe
 				{
 					siResult = keSearchNodeListEnd;
 					fSomeNodeFailedToOpen = true;
+					bFailedToOpen = true;
 				}
 			}
 			else
@@ -4285,6 +4287,10 @@ SInt32 CSearchPlugin::GetNextNodeRef ( tDirNodeReference inNodeRef, tDirNodeRefe
 		}
 		pNodeList = pNodeList->fNext;
 	}
+	
+	// if something failed to open, lets ensure the thread to check is running
+	if ( bFailedToOpen == true )
+		EnsureCheckNodesThreadIsRunning( (tDirPatternMatch) inContext->fSearchConfigKey );
 	
 	return( siResult );
 
@@ -4674,7 +4680,7 @@ SInt32 CSearchPlugin::AddDataToOutBuff ( sSearchContinueData *inContinue, CBuff 
 				}	
 				
 				augNodeAttrList = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
-				if (anArray != NULL)
+				if ( anArray != NULL && realNodeAttrList != NULL )
 				{
 					for (CFIndex arrayIndex = 0; arrayIndex < CFArrayGetCount(anArray); arrayIndex++)
 					{
@@ -4682,7 +4688,7 @@ SInt32 CSearchPlugin::AddDataToOutBuff ( sSearchContinueData *inContinue, CBuff 
 						if (anItem != NULL)
 						{
 							//is it not found already in the real node
-							if ( !CFArrayContainsValue(realNodeAttrList, CFRangeMake( 0, ::CFArrayGetCount( realNodeAttrList ) ), anItem) )
+							if ( CFArrayContainsValue(realNodeAttrList, CFRangeMake(0, CFArrayGetCount(realNodeAttrList)), anItem) == FALSE )
 							{
 								if (bReqAll)
 								{
@@ -5006,7 +5012,7 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 		aRequest = inData->fInRequestCode;
 		bufLen = inData->fInRequestData->fBufferLength;
 		
-		if (aRequest != eDSCustomCallSearchSubNodesUnreachable)
+		if (aRequest != eDSCustomCallSearchSubNodesUnreachable && aRequest != eDSCustomCallSearchCheckForAugmentRecord)
 		{
 			if ( pContext->fEffectiveUID == 0 )
 			{
@@ -5125,6 +5131,12 @@ SInt32 CSearchPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 #endif
 					}
 					break;
+					
+#if AUGMENT_RECORDS
+				case eDSCustomCallSearchCheckForAugmentRecord:
+					CheckForAugmentConfig( (tDirPatternMatch) aSearchConfig->fSearchConfigKey );
+					break;
+#endif
 
 					//here we accept an XML blob to replace the current custom search path nodes
 				case eDSCustomCallSearchSetCustomNodeList:

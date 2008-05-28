@@ -26,8 +26,6 @@
 #ifndef XMLTokenizer_h
 #define XMLTokenizer_h
 
-#include "config.h"
-
 #include "CachedResourceClient.h"
 #include "SegmentedString.h"
 #include "StringHash.h"
@@ -86,7 +84,7 @@ namespace WebCore {
 
 #ifndef USE_QXMLSTREAM
         // callbacks from parser SAX
-        void error(ErrorType, const char* message, va_list args);
+        void error(ErrorType, const char* message, va_list args) WTF_ATTRIBUTE_PRINTF(3, 0); 
         void startElementNs(const xmlChar* xmlLocalName, const xmlChar* xmlPrefix, const xmlChar* xmlURI, int nb_namespaces,
                             const xmlChar** namespaces, int nb_attributes, int nb_defaulted, const xmlChar** libxmlAttributes);
         void endElementNs();
@@ -96,6 +94,7 @@ namespace WebCore {
         void comment(const xmlChar* s);
         void startDocument(const xmlChar* version, const xmlChar* encoding, int standalone);
         void internalSubset(const xmlChar* name, const xmlChar* externalID, const xmlChar* systemID);
+        void endDocument();
 #else
         void parse();
         void startDocument();
@@ -133,6 +132,7 @@ namespace WebCore {
 
 #ifdef USE_QXMLSTREAM
         QXmlStreamReader m_stream;
+        bool m_wroteText;
 #else
         xmlParserCtxtPtr m_context;
 #endif
@@ -164,12 +164,13 @@ namespace WebCore {
         PrefixForNamespaceMap m_prefixToNamespaceMap;
 #ifndef USE_QXMLSTREAM
         OwnPtr<PendingCallbacks> m_pendingCallbacks;
+        Vector<xmlChar> m_bufferedText;
 #endif
         SegmentedString m_pendingSrc;
     };
 
 #if ENABLE(XSLT)
-void* xmlDocPtrForString(DocLoader*, const String& source, const DeprecatedString& URL);
+void* xmlDocPtrForString(DocLoader*, const String& source, const DeprecatedString& url);
 void setLoaderForLibXMLCallbacks(DocLoader*);
 #endif
 

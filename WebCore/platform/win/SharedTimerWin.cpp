@@ -30,7 +30,19 @@
 #include "SystemTime.h"
 #include "Widget.h"
 #include <wtf/Assertions.h>
+
+// Note: wx headers set defines that affect the configuration of windows.h
+// so we must include the wx header first to get unicode versions of functions,
+// etc.
+#if PLATFORM(WX)
+#include <wx/wx.h>
+#endif
+
 #include <windows.h>
+
+#if PLATFORM(WIN)
+#include "PluginView.h"
+#endif
 
 namespace WebCore {
 
@@ -41,14 +53,28 @@ static HWND timerWindowHandle = 0;
 static UINT timerFiredMessage = 0;
 const LPCWSTR kTimerWindowClassName = L"TimerWindowClass";
 static bool processingCustomTimerMessage = false;
+const int sharedTimerID = 1000;
 
 LRESULT CALLBACK TimerWindowWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+#if PLATFORM(WIN)
+    // Windows Media Player has a modal message loop that will deliver messages
+    // to us at inappropriate times and we will crash if we handle them when
+    // they are delivered. We repost all messages so that we will get to handle
+    // them once the modal loop exits.
+    if (PluginView::isCallingPlugin()) {
+        PostMessage(hWnd, message, wParam, lParam);
+        return 0;
+    }
+#endif
+
     if (message == timerFiredMessage) {
         processingCustomTimerMessage = true;
         sharedTimerFiredFunction();
         processingCustomTimerMessage = false;
-    } else
+    } else if (message == WM_TIMER && wParam == sharedTimerID)
+        sharedTimerFiredFunction();
+    else
         return DefWindowProc(hWnd, message, wParam, lParam);
     return 0;
 }
@@ -74,11 +100,6 @@ static void initializeOffScreenTimerWindow()
 void setSharedTimerFiredFunction(void (*f)())
 {
     sharedTimerFiredFunction = f;
-}
-
-static void CALLBACK timerFired(HWND, UINT, UINT_PTR, DWORD)
-{
-    sharedTimerFiredFunction();
 }
 
 void setSharedTimerFireTime(double fireTime)
@@ -107,13 +128,13 @@ void setSharedTimerFireTime(double fireTime)
     // user input > WM_PAINT/WM_TIMER.)
     // In addition, if the queue contains input events that have been there since the last call to
     // GetQueueStatus, PeekMessage or GetMessage we favor timers.
+    initializeOffScreenTimerWindow();
     if (intervalInMS < USER_TIMER_MINIMUM && !processingCustomTimerMessage && 
         !LOWORD(::GetQueueStatus(QS_ALLINPUT))) {
         // Windows SetTimer does not allow timeouts smaller than 10ms (USER_TIMER_MINIMUM)
-        initializeOffScreenTimerWindow();
         PostMessage(timerWindowHandle, timerFiredMessage, 0, 0);
     } else
-        timerID = SetTimer(0, 0, intervalInMS, timerFired);
+        timerID = SetTimer(timerWindowHandle, sharedTimerID, intervalInMS, 0);
 }
 
 void stopSharedTimer()

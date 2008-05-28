@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,18 +97,10 @@ _configopen(mach_port_t			server,
 	    int				*sc_status,
 	    audit_token_t		audit_token)
 {
-	CFMachPortContext		context		= { 0
-							  , (void *)1
-							  , NULL
-							  , NULL
-							  , openMPCopyDescription
-							  };
 	CFDictionaryRef			info;
-	CFMachPortRef			mp;
 	serverSessionRef		mySession;
 	CFStringRef			name		= NULL;	/* name (un-serialized) */
 	CFMutableDictionaryRef		newInfo;
-	serverSessionRef		newSession;
 	mach_port_t			oldNotify;
 	CFDictionaryRef			options		= NULL;	/* options (un-serialized) */
 	CFStringRef			sessionKey;
@@ -158,7 +150,7 @@ _configopen(mach_port_t			server,
 	}
 
 	mySession = getSession(server);
-	if (mySession->store != NULL) {
+	if ((mySession != NULL) && (mySession->store != NULL)) {
 #ifdef	DEBUG
 		SCLog(TRUE, LOG_DEBUG, CFSTR("_configopen(): session is already open."));
 #endif	/* DEBUG */
@@ -166,23 +158,18 @@ _configopen(mach_port_t			server,
 		goto done;
 	}
 
-	/* Create the server port for this session */
-	mp = CFMachPortCreate(NULL, configdCallback, &context, NULL);
-
-	/* return the newly allocated port to be used for this session */
-	*newServer = CFMachPortGetPort(mp);
-
 	/*
 	 * establish the new session
 	 */
-	newSession = addSession(mp);
+	mySession = addSession(MACH_PORT_NULL, openMPCopyDescription);
+	*newServer = mySession->key;
 
 	/*
 	 * get the credentials associated with the caller.
 	 */
 	audit_token_to_au32(audit_token,
 			    NULL,			// auidp
-			    &newSession->callerEUID,	// euid
+			    &mySession->callerEUID,	// euid
 			    NULL,			// egid
 			    NULL,			// ruid
 			    NULL,			// rgid
@@ -191,9 +178,9 @@ _configopen(mach_port_t			server,
 			    NULL);			// tid
 
 	/* Create and add a run loop source for the port */
-	newSession->serverRunLoopSource = CFMachPortCreateRunLoopSource(NULL, mp, 0);
+	mySession->serverRunLoopSource = CFMachPortCreateRunLoopSource(NULL, mySession->serverPort, 0);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(),
-			   newSession->serverRunLoopSource,
+			   mySession->serverRunLoopSource,
 			   kCFRunLoopDefaultMode);
 
 	if (_configd_trace) {
@@ -203,8 +190,8 @@ _configopen(mach_port_t			server,
 			name);
 	}
 
-	*sc_status = __SCDynamicStoreOpen(&newSession->store, name);
-	storePrivate = (SCDynamicStorePrivateRef)newSession->store;
+	*sc_status = __SCDynamicStoreOpen(&mySession->store, name);
+	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
 
 	/*
 	 * Make the server port accessible to the framework routines.

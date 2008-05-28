@@ -55,6 +55,7 @@ fi
 /usr/sbin/postconf -e setgid_group=_postdrop
 
 # Run postfix upgrade scripts
-/usr/sbin/postfix upgrade-configuration >> "$MAIL_LOG" 2 >> "$MAIL_LOG
-/usr/sbin/postfix check >> "$MAIL_LOG" 2 >> "$MAIL_LOG
+/usr/sbin/postfix upgrade-configuration >> "$_mail_log" 
+/usr/sbin/postfix check >> "$_mail_log"
+
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -141,7 +141,10 @@ IOSCSIParallelInterfaceDevice::SetInitialTargetProperties (
 	
 	value = properties->getObject ( kIOPropertySASAddressKey );
 	SetTargetProperty ( kIOPropertySASAddressKey, value );
-
+	
+	value = properties->getObject ( kIOPropertyRetryCountKey );
+	SetTargetProperty ( kIOPropertyRetryCountKey, value );
+	
 	result = true;
 	
 	
@@ -171,6 +174,9 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
 	fController = OSDynamicCast ( IOSCSIParallelInterfaceController, provider );
 	require_nonzero ( fController, PROVIDER_CAST_FAILURE );
 	
+	// Retain the controller.
+	fController->retain ( );
+	
 	// Execute the inherited start
 	result = super::start ( provider );
 	require ( result, PROVIDER_START_FAILURE );
@@ -191,6 +197,7 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
 		
 		protocolDict = ( OSDictionary * ) copyDict->copyCollection ( );
 		copyDict->release ( );
+		copyDict = NULL;
 		
 	}
 	
@@ -260,11 +267,10 @@ bool
 IOSCSIParallelInterfaceDevice::finalize ( IOOptionBits options )
 {
 	
-	if ( fController != NULL )
+	if ( ( fController != NULL ) && ( fController->isOpen ( this ) == true ) )
 	{
 		
 		fController->close ( this );
-		fController = NULL;
 		
 	}
 	
@@ -308,6 +314,14 @@ IOSCSIParallelInterfaceDevice::free ( void )
 		// Free the SCSI Task queue access lock.
 		IOSimpleLockFree ( fResendQueueLock );
 		fResendQueueLock = NULL;
+		
+	}
+	
+	if ( fController != NULL )
+	{
+		
+		fController->release ( );
+		fController = NULL;
 		
 	}
 	
@@ -1004,6 +1018,16 @@ IOSCSIParallelInterfaceDevice::SetTargetProperty (
 		
 	}
 	
+	else if ( strcmp ( key, kIOPropertyRetryCountKey ) == 0 )
+	{
+		
+		OSNumber * number = OSDynamicCast ( OSNumber, value );
+		
+		require_nonzero ( number, ErrorExit );
+		result = protocolDict->setObject ( key, value );
+		
+	}
+	
 	setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
 	protocolDict->release ( );
 	protocolDict = NULL;
@@ -1328,6 +1352,9 @@ IOSCSIParallelInterfaceDevice::IsProtocolServiceSupported (
 	
 	bool	isSupported = false;
 	
+	require ( ( isInactive ( ) == false ), ErrorExit );
+	require_nonzero ( fController, ErrorExit );
+	
 	switch ( feature )
 	{
 		
@@ -1360,6 +1387,10 @@ IOSCSIParallelInterfaceDevice::IsProtocolServiceSupported (
 		break;
 		
 	}
+	
+	
+ErrorExit:
+	
 	
 	return isSupported;
 	

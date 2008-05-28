@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,20 +31,72 @@
 #include "CSSRuleList.h"
 #include "CSSStyleSelector.h"
 #include "Chrome.h"
+#include "Console.h"
 #include "DOMSelection.h"
 #include "Document.h"
 #include "Element.h"
+#include "FloatRect.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "History.h"
+#include "MessageEvent.h"
 #include "Page.h"
 #include "PlatformScreen.h"
 #include "PlatformString.h"
 #include "Screen.h"
+#include <algorithm>
+#include <wtf/MathExtras.h>
+
+#if ENABLE(DATABASE)
+#include "Database.h"
+#endif
+
+using std::min;
+using std::max;
 
 namespace WebCore {
+
+// This function:
+// 1) Validates the pending changes are not changing to NaN
+// 2) Constrains the window rect to no smaller than 100 in each dimension and no
+//    bigger than the the float rect's dimensions.
+// 3) Constrain window rect to within the top and left boundaries of the screen rect
+// 4) Constraint the window rect to within the bottom and right boundaries of the
+//    screen rect.
+// 5) Translate the window rect coordinates to be within the coordinate space of
+//    the screen rect.
+void DOMWindow::adjustWindowRect(const FloatRect& screen, FloatRect& window, const FloatRect& pendingChanges)
+{
+    // Make sure we're in a valid state before adjusting dimensions.
+    ASSERT(isfinite(screen.x()));
+    ASSERT(isfinite(screen.y()));
+    ASSERT(isfinite(screen.width()));
+    ASSERT(isfinite(screen.height()));
+    ASSERT(isfinite(window.x()));
+    ASSERT(isfinite(window.y()));
+    ASSERT(isfinite(window.width()));
+    ASSERT(isfinite(window.height()));
+    
+    // Update window values if new requested values are not NaN.
+    if (!isnan(pendingChanges.x()))
+        window.setX(pendingChanges.x());
+    if (!isnan(pendingChanges.y()))
+        window.setY(pendingChanges.y());
+    if (!isnan(pendingChanges.width()))
+        window.setWidth(pendingChanges.width());
+    if (!isnan(pendingChanges.height()))
+        window.setHeight(pendingChanges.height());
+    
+    // Resize the window to between 100 and the screen width and height.
+    window.setWidth(min(max(100.0f, window.width()), screen.width()));
+    window.setHeight(min(max(100.0f, window.height()), screen.height()));
+    
+    // Constrain the window position to the screen.
+    window.setX(max(screen.x(), min(window.x(), screen.right() - window.width())));
+    window.setY(max(screen.y(), min(window.y(), screen.bottom() - window.height())));
+}
 
 DOMWindow::DOMWindow(Frame* frame)
     : m_frame(frame)
@@ -98,6 +150,10 @@ void DOMWindow::clear()
     if (m_toolbar)
         m_toolbar->disconnectFrame();
     m_toolbar = 0;
+
+    if (m_console)
+        m_console->disconnectFrame();
+    m_console = 0;
 }
 
 Screen* DOMWindow::screen() const
@@ -155,6 +211,21 @@ BarInfo* DOMWindow::toolbar() const
         m_toolbar = new BarInfo(m_frame, BarInfo::Toolbar);
     return m_toolbar.get();
 }
+
+Console* DOMWindow::console() const
+{
+    if (!m_console)
+        m_console = new Console(m_frame);
+    return m_console.get();
+}
+
+#if ENABLE(CROSS_DOCUMENT_MESSAGING)
+void DOMWindow::postMessage(const String& message, const String& domain, const String& uri, DOMWindow* source) const
+{
+   ExceptionCode ec;
+   document()->dispatchEvent(new MessageEvent(message, domain, uri, source), ec, true);
+}
+#endif
 
 DOMSelection* DOMWindow::getSelection()
 {
@@ -436,26 +507,26 @@ String DOMWindow::status() const
     return m_frame->jsStatusBarText();
 }
 
-void DOMWindow::setStatus(const String& string)
-{
-    if (!m_frame)
-        return;
+void DOMWindow::setStatus(const String& string) 
+{ 
+    if (!m_frame) 
+        return; 
 
-    m_frame->setJSStatusBarText(string);
-}
-
+    m_frame->setJSStatusBarText(string); 
+} 
+    
 String DOMWindow::defaultStatus() const
 {
     if (!m_frame)
         return String();
 
     return m_frame->jsDefaultStatusBarText();
-}
+} 
 
-void DOMWindow::setDefaultStatus(const String& string)
-{
-    if (!m_frame)
-        return;
+void DOMWindow::setDefaultStatus(const String& string) 
+{ 
+    if (!m_frame) 
+        return; 
 
     m_frame->setJSDefaultStatusBarText(string);
 }
@@ -547,6 +618,123 @@ double DOMWindow::devicePixelRatio() const
         return 0.0;
 
     return page->chrome()->scaleFactor();
+}
+
+#if ENABLE(DATABASE)
+PassRefPtr<Database> DOMWindow::openDatabase(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, ExceptionCode& ec)
+{
+    if (!m_frame)
+        return 0;
+
+    Document* doc = m_frame->document();
+    ASSERT(doc);
+    if (!doc)
+        return 0;
+
+    return Database::openDatabase(doc, name, version, displayName, estimatedSize, ec);
+}
+#endif
+
+void DOMWindow::scrollBy(int x, int y) const
+{
+    if (!m_frame)
+        return;
+
+    Document* doc = m_frame->document();
+    ASSERT(doc);
+    if (doc)
+        doc->updateLayoutIgnorePendingStylesheets();
+
+    FrameView* view = m_frame->view();
+    if (!view)
+        return;
+
+    view->scrollBy(x, y);
+}
+
+void DOMWindow::scrollTo(int x, int y) const
+{
+    if (!m_frame)
+        return;
+
+    Document* doc = m_frame->document();
+    ASSERT(doc);
+    if (doc)
+        doc->updateLayoutIgnorePendingStylesheets();
+
+    FrameView* view = m_frame->view();
+    if (!view)
+        return;
+
+    view->setContentsPos(x, y);
+}
+
+void DOMWindow::moveBy(float x, float y) const
+{
+    if (!m_frame)
+        return;
+
+    Page* page = m_frame->page();
+    if (!page)
+        return;
+
+    FloatRect fr = page->chrome()->windowRect();
+    FloatRect update = fr;
+    update.move(x, y);
+    // Security check (the spec talks about UniversalBrowserWrite to disable this check...)
+    adjustWindowRect(screenAvailableRect(page->mainFrame()->view()), fr, update);
+    page->chrome()->setWindowRect(fr);
+}
+
+void DOMWindow::moveTo(float x, float y) const
+{
+    if (!m_frame)
+        return;
+
+    Page* page = m_frame->page();
+    if (!page)
+        return;
+
+    FloatRect fr = page->chrome()->windowRect();
+    FloatRect sr = screenAvailableRect(page->mainFrame()->view());
+    fr.setLocation(sr.location());
+    FloatRect update = fr;
+    update.move(x, y);     
+    // Security check (the spec talks about UniversalBrowserWrite to disable this check...)
+    adjustWindowRect(sr, fr, update);
+    page->chrome()->setWindowRect(fr);
+}
+
+void DOMWindow::resizeBy(float x, float y) const
+{
+    if (!m_frame)
+        return;
+
+    Page* page = m_frame->page();
+    if (!page)
+        return;
+
+    FloatRect fr = page->chrome()->windowRect();
+    FloatSize dest = fr.size() + FloatSize(x, y);
+    FloatRect update(fr.location(), dest);
+    adjustWindowRect(screenAvailableRect(page->mainFrame()->view()), fr, update);
+    page->chrome()->setWindowRect(fr);
+}
+
+void DOMWindow::resizeTo(float width, float height) const
+{
+    if (!m_frame)
+        return;
+
+    Page* page = m_frame->page();
+    if (!page)
+        return;
+
+    FloatRect fr = page->chrome()->windowRect();
+    FloatSize dest = FloatSize(width, height);
+    FloatRect update(fr.location(), dest);
+    adjustWindowRect(screenAvailableRect(page->mainFrame()->view()), fr, update);
+    page->chrome()->setWindowRect(fr);
 }
 
 } // namespace WebCore

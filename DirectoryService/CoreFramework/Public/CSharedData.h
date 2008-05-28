@@ -96,6 +96,7 @@ typedef enum {
 	eDSCustomCallSearchReadDHCPLDAPData				= 556,
 	eDSCustomCallSearchWriteDHCPLDAPData			= 557,
 	eDSCustomCallSearchSubNodesUnreachable			= 666,
+	eDSCustomCallSearchCheckForAugmentRecord		= 777,
 
 // Configure Plugin Request Codes
 	eDSCustomCallConfigureGetAuthRef				= 111,

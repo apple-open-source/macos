@@ -1,4 +1,4 @@
-/* $OpenBSD: auth2.c,v 1.113 2006/08/03 03:34:41 deraadt Exp $ */
+/* $OpenBSD: auth2.c,v 1.115 2007/04/14 22:01:58 stevesk Exp $ */
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
  *
@@ -98,10 +98,6 @@ int user_key_allowed(struct passwd *, Key *);
 void
 do_authentication2(Authctxt *authctxt)
 {
-	/* challenge-response is implemented via keyboard interactive */
-	if (options.challenge_response_authentication)
-		options.kbd_interactive_authentication = 1;
-
 	dispatch_init(&dispatch_protocol_error);
 	dispatch_set(SSH2_MSG_SERVICE_REQUEST, &input_service_request);
 	dispatch_run(DISPATCH_BLOCK, &authctxt->success, authctxt);
@@ -289,8 +285,6 @@ userauth_finish(Authctxt *authctxt, int authenticated, char *method)
 		xfree(methods);
 	}
 }
-
-#define	DELIM	","
 
 static char *
 authmethods_get(void)

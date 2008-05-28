@@ -65,18 +65,14 @@ void Step::evaluate(Node* context, NodeSet& nodes) const
         if (!nodes.isSorted())
             newNodes.markSorted(false);
 
-        evaluationContext.size = nodes.size();
-        evaluationContext.position = 1;
         for (unsigned j = 0; j < nodes.size(); j++) {
             Node* node = nodes[j];
 
             Expression::evaluationContext().node = node;
-            EvaluationContext backupCtx = evaluationContext;
+            evaluationContext.size = nodes.size();
+            evaluationContext.position = j + 1;
             if (predicate->evaluate())
                 newNodes.append(node);
-
-            evaluationContext = backupCtx;
-            ++evaluationContext.position;
         }
 
         nodes.swap(newNodes);
@@ -124,7 +120,7 @@ void Step::nodesInAxis(Node* context, NodeSet& nodes) const
             for (n = n->parentNode(); n; n = n->parentNode())
                 if (nodeMatches(n))
                     nodes.append(n);
-            nodes.reverse();
+            nodes.markSorted(false);
             return;
         }
         case FollowingSiblingAxis:
@@ -145,7 +141,7 @@ void Step::nodesInAxis(Node* context, NodeSet& nodes) const
                 if (nodeMatches(n))
                     nodes.append(n);
 
-            nodes.reverse();
+            nodes.markSorted(false);
             return;
         case FollowingAxis:
             if (context->isAttributeNode()) {
@@ -165,21 +161,20 @@ void Step::nodesInAxis(Node* context, NodeSet& nodes) const
                 }
             }
             return;
-        case PrecedingAxis:
+        case PrecedingAxis: {
             if (context->isAttributeNode())
                 context = static_cast<Attr*>(context)->ownerElement();
 
-            for (Node* p = context; !isRootDomNode(p); p = p->parentNode()) {
-                for (Node* n = p->previousSibling(); n ; n = n->previousSibling()) {
+            Node* n = context;
+            while (Node* parent = n->parent()) {
+                for (n = n->traversePreviousNode(); n != parent; n = n->traversePreviousNode())
                     if (nodeMatches(n))
                         nodes.append(n);
-                    for (Node* c = n->firstChild(); c; c = c->traverseNextNode(n))
-                        if (nodeMatches(c))
-                            nodes.append(c);
-                }
+                n = parent;
             }
             nodes.markSorted(false);
             return;
+        }
         case AttributeAxis: {
             if (context->nodeType() != Node::ELEMENT_NODE)
                 return;
@@ -233,7 +228,7 @@ void Step::nodesInAxis(Node* context, NodeSet& nodes) const
                 if (nodeMatches(n))
                     nodes.append(n);
 
-            nodes.reverse();
+            nodes.markSorted(false);
             return;
         }
     }

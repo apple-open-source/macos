@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -79,13 +79,15 @@ APU_DECLARE(apr_status_t) apr_dbd_get_driver(apr_pool_t *pool, const char *name,
  *  function as a filename to be opened (check SQLite3 documentation for more
  *  details).
  *  @remarks MySQL: the params can have "host", "port", "user", "pass",
- *  "dbname", "sock", "flags" and "fldsz" keys, each followed by an equal sign
- *  and a value. Such key/value pairs can be delimited by space, CR, LF, tab,
- *  semicolon, vertical bar or comma. For now, "flags" can only recognise
- *  CLIENT_FOUND_ROWS (check MySQL manual for details). The value associated
- *  with "fldsz" determines maximum amount of memory (in bytes) for each of
- *  the fields in the result set of prepared statements. By default, this
- *  value is 1 MB.
+ *  "dbname", "sock", "flags" "fldsz" and "group" keys, each followed by an
+ *  equal sign and a value. Such key/value pairs can be delimited by space,
+ *  CR, LF, tab, semicolon, vertical bar or comma. For now, "flags" can only
+ *  recognise CLIENT_FOUND_ROWS (check MySQL manual for details). The value
+ *  associated with "fldsz" determines maximum amount of memory (in bytes) for
+ *  each of the fields in the result set of prepared statements. By default,
+ *  this value is 1 MB. The value associated with "group" determines which
+ *  group from configuration file to use (see MYSQL_READ_DEFAULT_GROUP option
+ *  of mysql_options() in MySQL manual).
  */
 APU_DECLARE(apr_status_t) apr_dbd_open(const apr_dbd_driver_t *driver,
                                        apr_pool_t *pool, const char *params,

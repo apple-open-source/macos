@@ -123,7 +123,7 @@ JSValue* ObjcField::valueFromInstance(ExecState* exec, const Instance* instance)
 
 static id convertValueToObjcObject(ExecState* exec, JSValue* value)
 {
-    RefPtr<RootObject> rootObject = findRootObject(exec->dynamicInterpreter());
+    RefPtr<RootObject> rootObject = findRootObject(exec->dynamicGlobalObject());
     if (!rootObject)
         return nil;
     return [webScriptObjectClass() _convertValueToObjcValue:value originRootObject:rootObject.get() rootObject:rootObject.get()];
@@ -196,7 +196,7 @@ unsigned int ObjcArray::getLength() const
     return [_array.get() count];
 }
 
-const ClassInfo ObjcFallbackObjectImp::info = {"ObjcFallbackObject", 0, 0, 0};
+const ClassInfo ObjcFallbackObjectImp::info = { "ObjcFallbackObject", 0, 0 };
 
 ObjcFallbackObjectImp::ObjcFallbackObjectImp(ObjcInstance* i, const KJS::Identifier propertyName)
 : _instance(i)

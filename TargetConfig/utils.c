@@ -134,6 +134,22 @@ dictionaryGetSortedKeys(CFDictionaryRef dictionary) {
         return sortedKeys;
 }
 
+void
+dictionaryApplyFunctionSorted(CFDictionaryRef dict,
+	CFDictionaryApplierFunction applier,
+	void* context) {
+	CFArrayRef keys = dictionaryGetSortedKeys(dict);
+	if (keys) {
+		CFIndex i, count = CFArrayGetCount(keys);
+		for (i = 0; i < count; ++i) {
+			CFTypeRef key = CFArrayGetValueAtIndex(keys, i);
+			CFTypeRef val = CFDictionaryGetValue(dict, key);
+			applier(key, val, context);
+		}
+		CFRelease(keys);
+	}
+}
+
 int
 writePlist(FILE* f, CFPropertyListRef p, int tabs) {
 		int result = 0;

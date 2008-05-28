@@ -1,7 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4 -*-
 /*
- *  This file is part of the KDE libraries
- *  Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ *  Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -24,88 +23,89 @@
 #define KJS_PROPERTY_MAP_H_
 
 #include "identifier.h"
+#include "protect.h"
 #include <wtf/OwnArrayPtr.h>
 
 namespace KJS {
 
-    class PropertyNameArray;
     class JSObject;
     class JSValue;
+    class PropertyNameArray;
     
-    class SavedProperty;
-    
+    struct PropertyMapEntry;
     struct PropertyMapHashTable;
-    
-/**
-* Saved Properties
-*/
-    class SavedProperties {
-    friend class PropertyMap;
+
+    class SavedProperty : Noncopyable {
     public:
+        // Since we use this in arrays, we allocate it uninitialized
+        // and then explicitly initialize. This means we can allocate
+        // the array without initializing every saved property in the
+        // array twice. To accomplish this, the class uses data members
+        // with types that don't have constructors.
+        SavedProperty();
+        void init(UString::Rep* name, JSValue*, unsigned attributes);
+        ~SavedProperty();
+
+        UString::Rep* name() const;
+        JSValue* value() const;
+        unsigned attributes() const;
+
+    private:
+        UString::Rep* m_name;
+        JSValue* m_value;
+        unsigned m_attributes;
+    };
+
+    struct SavedProperties {
         SavedProperties();
         ~SavedProperties();
         
-    private:
-        int _count;
-        OwnArrayPtr<SavedProperty> _properties;
-    };
-    
-/**
-* A hashtable entry for the @ref PropertyMap.
-*/
-    struct PropertyMapHashTableEntry
-    {
-        PropertyMapHashTableEntry() : key(0) { }
-        UString::Rep *key;
-        JSValue *value;
-        int attributes;
-        int index;
+        unsigned count;
+        OwnArrayPtr<SavedProperty> properties;
     };
 
-/**
-* Javascript Property Map.
-*/
-    class PropertyMap {
+    class PropertyMap : Noncopyable {
     public:
         PropertyMap();
         ~PropertyMap();
-
+        
         void clear();
         
-        void put(const Identifier &name, JSValue *value, int attributes, bool roCheck = false);
-        void remove(const Identifier &name);
-        JSValue *get(const Identifier &name) const;
-        JSValue *get(const Identifier &name, unsigned &attributes) const;
-        JSValue **getLocation(const Identifier &name);
+        void put(const Identifier&, JSValue*, unsigned attributes, bool checkReadOnly = false);
+        void remove(const Identifier&);
+        JSValue* get(const Identifier&) const;
+        JSValue* get(const Identifier&, unsigned& attributes) const;
+        JSValue** getLocation(const Identifier& name);
 
         void mark() const;
         void getEnumerablePropertyNames(PropertyNameArray&) const;
-        void getSparseArrayPropertyNames(PropertyNameArray&) const;
 
-        void save(SavedProperties &) const;
-        void restore(const SavedProperties &p);
+        void save(SavedProperties&) const;
+        void restore(const SavedProperties&);
 
         bool hasGetterSetterProperties() const { return m_getterSetterFlag; }
         void setHasGetterSetterProperties(bool f) { m_getterSetterFlag = f; }
 
         bool containsGettersOrSetters() const;
+
     private:
-        static bool keysMatch(const UString::Rep *, const UString::Rep *);
+        typedef PropertyMapEntry Entry;
+        typedef PropertyMapHashTable Table;
+
+        static bool keysMatch(const UString::Rep*, const UString::Rep*);
         void expand();
         void rehash();
-        void rehash(int newTableSize);
+        void rehash(unsigned newTableSize);
+        void createTable();
         
-        void insert(UString::Rep *, JSValue *value, int attributes, int index);
+        void insert(const Entry&);
         
         void checkConsistency();
         
-        typedef PropertyMapHashTableEntry Entry;
-        typedef PropertyMapHashTable Table;
-
         UString::Rep* m_singleEntryKey;
         union {
-          JSValue* singleEntryValue;
-          Table* table;
+            JSValue* singleEntryValue;
+            Table* table;
         } m_u;
 
         short m_singleEntryAttributes;
@@ -119,6 +119,64 @@ namespace KJS {
         , m_usingTable(false)
 
     {
+    }
+
+    inline SavedProperty::SavedProperty()
+#ifndef NDEBUG
+        : m_name(0)
+        , m_value(0)
+        , m_attributes(0)
+#endif
+    {
+    }
+
+    inline void SavedProperty::init(UString::Rep* name, JSValue* value, unsigned attributes)
+    {
+        ASSERT(name);
+        ASSERT(value);
+
+        ASSERT(!m_name);
+        ASSERT(!m_value);
+        ASSERT(!m_attributes);
+
+        m_name = name;
+        m_value = value;
+        m_attributes = attributes;
+        name->ref();
+        gcProtect(value);
+    }
+
+    inline SavedProperty::~SavedProperty()
+    {
+        ASSERT(m_name);
+        ASSERT(m_value);
+
+        m_name->deref();
+        gcUnprotect(m_value);
+    }
+
+    inline UString::Rep* SavedProperty::name() const
+    {
+        ASSERT(m_name);
+        ASSERT(m_value);
+
+        return m_name;
+    }
+
+    inline JSValue* SavedProperty::value() const
+    {
+        ASSERT(m_name);
+        ASSERT(m_value);
+
+        return m_value;
+    }
+
+    inline unsigned SavedProperty::attributes() const
+    {
+        ASSERT(m_name);
+        ASSERT(m_value);
+
+        return m_attributes;
     }
 
 } // namespace

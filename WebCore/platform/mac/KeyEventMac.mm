@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,11 +27,41 @@
 #import "PlatformKeyboardEvent.h"
 
 #import "Logging.h"
+#import <Carbon/Carbon.h>
+#import <wtf/ASCIICType.h>
+
+using namespace WTF;
 
 namespace WebCore {
 
 static String keyIdentifierForKeyEvent(NSEvent* event)
 {
+    if ([event type] == NSFlagsChanged) 
+        switch ([event keyCode]) {
+            case 54: // Right Command
+            case 55: // Left Command
+                return "Meta";
+                
+            case 57: // Capslock
+                return "CapsLock";
+                
+            case 56: // Left Shift
+            case 60: // Right Shift
+                return "Shift";
+                
+            case 58: // Left Alt
+            case 61: // Right Alt
+                return "Alt";
+                
+            case 59: // Left Ctrl
+            case 62: // Right Ctrl
+                return "Control";
+                
+            default:
+                ASSERT_NOT_REACHED();
+                return "";
+        }
+    
     NSString *s = [event charactersIgnoringModifiers];
     if ([s length] != 1) {
         LOG(Events, "received an unexpected number of characters in key event: %u", [s length]);
@@ -322,7 +352,7 @@ static String keyIdentifierForKeyEvent(NSEvent* event)
             // FIXME: We should use something other than the vendor-area Unicode values for the above keys.
             // For now, just fall through to the default.
         default:
-            return String::format("U+%04X", toupper(c));
+            return String::format("U+%04X", toASCIIUpper(c));
     }
 }
 
@@ -363,12 +393,39 @@ static bool isKeypadEvent(NSEvent* event)
      return false;
 }
 
-static int WindowsKeyCodeForKeyEvent(NSEvent* event)
+static int windowsKeyCodeForKeyEvent(NSEvent* event)
 {
     switch ([event keyCode]) {
         // VK_TAB (09) TAB key
         case 48: return 0x09;
 
+        // VK_APPS (5D) Right windows/meta key
+        case 54: // Right Command
+            return 0x5D;
+            
+        // VK_LWIN (5B) Left windows/meta key
+        case 55: // Left Command
+            return 0x5B;
+            
+        // VK_CAPITAL (14) caps locks key
+        case 57: // Capslock
+            return 0x14;
+            
+        // VK_SHIFT (10) either shift key
+        case 56: // Left Shift
+        case 60: // Right Shift
+            return 0x10;
+            
+        // VK_MENU (12) either alt key
+        case 58: // Left Alt
+        case 61: // Right Alt
+            return 0x12;
+            
+        // VK_CONTROL (11) either ctrl key
+        case 59: // Left Ctrl
+        case 62: // Right Ctrl
+            return 0x11;
+            
         // VK_CLEAR (0C) CLEAR key
         case 71: return 0x0C;
 
@@ -704,13 +761,60 @@ static int WindowsKeyCodeForKeyEvent(NSEvent* event)
     return 0;
 }
 
-PlatformKeyboardEvent::PlatformKeyboardEvent(NSEvent *event, bool forceAutoRepeat)
-    : m_text([event characters])
-    , m_unmodifiedText([event charactersIgnoringModifiers])
+static inline bool isKeyUpEvent(NSEvent *event)
+{
+    if ([event type] != NSFlagsChanged)
+        return [event type] == NSKeyUp;
+    // FIXME: This logic fails if the user presses both Shift keys at once, for example:
+    // we treat releasing one of them as keyDown.
+    switch ([event keyCode]) {
+        case 54: // Right Command
+        case 55: // Left Command
+            return ([event modifierFlags] & NSCommandKeyMask) == 0;
+            
+        case 57: // Capslock
+            return ([event modifierFlags] & NSAlphaShiftKeyMask) == 0;
+            
+        case 56: // Left Shift
+        case 60: // Right Shift
+            return ([event modifierFlags] & NSShiftKeyMask) == 0;
+            
+        case 58: // Left Alt
+        case 61: // Right Alt
+            return ([event modifierFlags] & NSAlternateKeyMask) == 0;
+            
+        case 59: // Left Ctrl
+        case 62: // Right Ctrl
+            return ([event modifierFlags] & NSControlKeyMask) == 0;
+            
+        case 63: // Function
+            return ([event modifierFlags] & NSFunctionKeyMask) == 0;
+    }
+    return false;
+}
+
+static inline String textFromEvent(NSEvent* event)
+{
+    if ([event type] == NSFlagsChanged)
+        return "";
+    return [event characters];
+}
+    
+    
+static inline String unmodifiedTextFromEvent(NSEvent* event)
+{
+    if ([event type] == NSFlagsChanged)
+        return "";
+    return [event charactersIgnoringModifiers];
+}
+
+PlatformKeyboardEvent::PlatformKeyboardEvent(NSEvent *event)
+    : m_type(isKeyUpEvent(event) ? PlatformKeyboardEvent::KeyUp : PlatformKeyboardEvent::KeyDown)
+    , m_text(textFromEvent(event))
+    , m_unmodifiedText(unmodifiedTextFromEvent(event))
     , m_keyIdentifier(keyIdentifierForKeyEvent(event))
-    , m_isKeyUp([event type] == NSKeyUp)
-    , m_autoRepeat(forceAutoRepeat || [event isARepeat])
-    , m_WindowsKeyCode(WindowsKeyCodeForKeyEvent(event))
+    , m_autoRepeat(([event type] != NSFlagsChanged) && [event isARepeat])
+    , m_windowsVirtualKeyCode(windowsKeyCodeForKeyEvent(event))
     , m_isKeypad(isKeypadEvent(event))
     , m_shiftKey([event modifierFlags] & NSShiftKeyMask)
     , m_ctrlKey([event modifierFlags] & NSControlKeyMask)
@@ -718,16 +822,54 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(NSEvent *event, bool forceAutoRepea
     , m_metaKey([event modifierFlags] & NSCommandKeyMask)
     , m_macEvent(event)
 {
+    // Always use 13 for Enter/Return -- we don't want to use AppKit's different character for Enter.
+    if (m_windowsVirtualKeyCode == '\r') {
+        m_text = "\r";
+        m_unmodifiedText = "\r";
+    }
+
+    // The adjustments below are only needed in backward compatibility mode, but we cannot tell what mode we are in from here.
+
     // Turn 0x7F into 8, because backspace needs to always be 8.
     if (m_text == "\x7F")
         m_text = "\x8";
     if (m_unmodifiedText == "\x7F")
         m_unmodifiedText = "\x8";
     // Always use 9 for tab -- we don't want to use AppKit's different character for shift-tab.
-    if (m_WindowsKeyCode == 9) {
+    if (m_windowsVirtualKeyCode == 9) {
         m_text = "\x9";
         m_unmodifiedText = "\x9";
     }
+}
+
+void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCompatibilityMode)
+{
+    // Can only change type from KeyDown to RawKeyDown or Char, as we lack information for other conversions.
+    ASSERT(m_type == KeyDown);
+    ASSERT(type == RawKeyDown || type == Char);
+    m_type = type;
+    if (backwardCompatibilityMode)
+        return;
+
+    if (type == RawKeyDown) {
+        m_text = String();
+        m_unmodifiedText = String();
+    } else {
+        m_keyIdentifier = String();
+        m_windowsVirtualKeyCode = 0;
+        if (m_text.length() == 1 && (m_text[0U] >= 0xF700 && m_text[0U] <= 0xF7FF)) {
+            // According to NSEvents.h, OpenStep reserves the range 0xF700-0xF8FF for function keys. However, some actual private use characters
+            // happen to be in this range, e.g. the Apple logo (Option+Shift+K).
+            // 0xF7FF is an arbitrary cut-off.
+            m_text = String();
+            m_unmodifiedText = String();
+        }
+    }
+}
+
+bool PlatformKeyboardEvent::currentCapsLockState()
+{
+    return GetCurrentKeyModifiers() & alphaLock;
 }
 
 }

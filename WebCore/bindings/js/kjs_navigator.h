@@ -31,17 +31,22 @@ namespace KJS {
 
   class Navigator : public DOMObject {
   public:
-    Navigator(ExecState *exec, WebCore::Frame *p);
+    Navigator(JSObject* prototype, WebCore::Frame*);
+
     virtual bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
     JSValue *getValueProperty(ExecState *exec, int token) const;
     virtual const ClassInfo* classInfo() const { return &info; }
     static const ClassInfo info;
     enum { AppCodeName, AppName, AppVersion, Language, UserAgent, Platform,
-           _Plugins, _MimeTypes, Product, ProductSub, Vendor, VendorSub, CookieEnabled, JavaEnabled };
+           _Plugins, _MimeTypes, Product, ProductSub, Vendor, VendorSub, CookieEnabled };
     WebCore::Frame *frame() const { return m_frame; }
   private:
     WebCore::Frame *m_frame;
   };
+
+  // Functions
+  JSValue* navigatorProtoFuncJavaEnabled(ExecState*, JSObject*, const List&);
+
 } // namespace
 
 #endif

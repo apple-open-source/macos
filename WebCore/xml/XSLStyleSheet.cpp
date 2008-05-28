@@ -27,12 +27,16 @@
 #include "CString.h"
 #include "DocLoader.h"
 #include "Document.h"
-#include "Node.h"
-#include "XSLImportRule.h"
 #include "loader.h"
+#include "Node.h"
+#include "Page.h"
 #include "XMLTokenizer.h"
+#include "XSLImportRule.h"
+#include "XSLTProcessor.h"
+
 #include <libxml/uri.h>
 #include <libxslt/xsltutils.h>
+
 #if PLATFORM(MAC)
 #include "SoftLinking.h"
 #endif
@@ -47,9 +51,6 @@ SOFT_LINK(libxslt, xsltLoadStylesheetPI, xsltStylesheetPtr, (xmlDocPtr doc), (do
 
 namespace WebCore {
 
-#define IS_BLANK_NODE(n)                                                \
-    (((n)->type == XML_TEXT_NODE) && (xsltIsBlank((n)->content)))
-    
 XSLStyleSheet::XSLStyleSheet(XSLImportRule* parentRule, const String& href)
     : StyleSheet(parentRule, href)
     , m_ownerDocument(0)
@@ -137,11 +138,20 @@ bool XSLStyleSheet::parseString(const String& string, bool strict)
     if (!m_stylesheetDocTaken)
         xmlFreeDoc(m_stylesheetDoc);
     m_stylesheetDocTaken = false;
+
+    Chrome* chrome = 0;
+    if (Page* page = ownerDocument()->page())
+        chrome = page->chrome();
+    xmlSetStructuredErrorFunc(chrome, XSLTProcessor::parseErrorFunc);
+
     m_stylesheetDoc = xmlReadMemory(reinterpret_cast<const char*>(string.characters()), string.length() * sizeof(UChar),
-        m_ownerDocument->URL().ascii(),
+        href().utf8().data(),
         BOMHighByte == 0xFF ? "UTF-16LE" : "UTF-16BE", 
-        XML_PARSE_NOENT | XML_PARSE_DTDATTR | XML_PARSE_NOERROR | XML_PARSE_NOWARNING | XML_PARSE_NOCDATA);
+        XML_PARSE_NOENT | XML_PARSE_DTDATTR | XML_PARSE_NOWARNING | XML_PARSE_NOCDATA);
     loadChildSheets();
+
+    xmlSetStructuredErrorFunc(0, 0);
+
     setLoaderForLibXMLCallbacks(0);
     return m_stylesheetDoc;
 }
@@ -174,11 +184,11 @@ void XSLStyleSheet::loadChildSheets()
         // Imports must occur first.
         xmlNodePtr curr = stylesheetRoot->children;
         while (curr) {
-            if (IS_BLANK_NODE(curr)) {
+            if (curr->type != XML_ELEMENT_NODE) {
                 curr = curr->next;
                 continue;
             }
-            if (curr->type == XML_ELEMENT_NODE && IS_XSLT_ELEM(curr) && IS_XSLT_NAME(curr, "import")) {
+            if (IS_XSLT_ELEM(curr) && IS_XSLT_NAME(curr, "import")) {
                 xmlChar* uriRef = xsltGetNsProp(curr, (const xmlChar*)"href", XSLT_NAMESPACE);                
                 loadChildSheet(DeprecatedString::fromUtf8((const char*)uriRef));
                 xmlFree(uriRef);

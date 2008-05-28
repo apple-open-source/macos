@@ -53,6 +53,7 @@
 #include "SelectionController.h"
 #include "TextBreakIterator.h"
 #include "TextEvent.h"
+#include "TextIterator.h"
 
 using namespace std;
 
@@ -69,7 +70,7 @@ const int maxSavedResults = 256;
 // this, even when just clicking in the text field.
 static const int cMaxLen = 524288;
 
-static int numGraphemeClusters(const StringImpl* s)
+static int numGraphemeClusters(StringImpl* s)
 {
     if (!s)
         return 0;
@@ -83,7 +84,7 @@ static int numGraphemeClusters(const StringImpl* s)
     return num;
 }
 
-static int numCharactersInGraphemeClusters(const StringImpl* s, int numGraphemeClusters)
+static int numCharactersInGraphemeClusters(StringImpl* s, int numGraphemeClusters)
 {
     if (!s)
         return 0;
@@ -111,7 +112,6 @@ HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* doc, 
 
 void HTMLInputElement::init()
 {
-    m_imageLoader = 0;
     m_type = TEXT;
     m_maxLen = cMaxLen;
     m_size = 20;
@@ -141,11 +141,13 @@ void HTMLInputElement::init()
 HTMLInputElement::~HTMLInputElement()
 {
     if (inputType() == PASSWORD)
-        document()->unregisterForDidRestoreFromCacheCallback(this);
+        document()->unregisterForCacheCallbacks(this);
 
     document()->checkedRadioButtons().removeButton(this);
-    
-    delete m_imageLoader;
+
+    // Need to remove this from the form while it is still an HTMLInputElement,
+    // so can't wait for the base class's destructor to do it.
+    removeFromForm();
 }
 
 const AtomicString& HTMLInputElement::name() const
@@ -319,9 +321,9 @@ void HTMLInputElement::setInputType(const String& t)
                 recheckValue();
 
             if (wasPasswordField && !isPasswordField)
-                document()->unregisterForDidRestoreFromCacheCallback(this);
+                document()->unregisterForCacheCallbacks(this);
             else if (!wasPasswordField && isPasswordField)
-                document()->registerForDidRestoreFromCacheCallback(this);
+                document()->registerForCacheCallbacks(this);
 
             if (didRespectHeightAndWidth != willRespectHeightAndWidth) {
                 NamedMappedAttrMap* map = mappedAttributes();
@@ -341,10 +343,8 @@ void HTMLInputElement::setInputType(const String& t)
     }
     m_haveType = true;
 
-    if (inputType() != IMAGE && m_imageLoader) {
-        delete m_imageLoader;
-        m_imageLoader = 0;
-    }
+    if (inputType() != IMAGE && m_imageLoader)
+        m_imageLoader.clear();
 }
 
 const AtomicString& HTMLInputElement::type() const
@@ -611,7 +611,7 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
     } else if (attr->name() == srcAttr) {
         if (renderer() && inputType() == IMAGE) {
             if (!m_imageLoader)
-                m_imageLoader = new HTMLImageLoader(this);
+                m_imageLoader.set(new HTMLImageLoader(this));
             m_imageLoader->updateFromElement();
         }
     } else if (attr->name() == usemapAttr ||
@@ -731,7 +731,7 @@ void HTMLInputElement::attach()
 
     if (inputType() == IMAGE) {
         if (!m_imageLoader)
-            m_imageLoader = new HTMLImageLoader(this);
+            m_imageLoader.set(new HTMLImageLoader(this));
         m_imageLoader->updateFromElement();
         if (renderer()) {
             RenderImage* imageObj = static_cast<RenderImage*>(renderer());
@@ -863,6 +863,8 @@ void HTMLInputElement::setChecked(bool nowChecked, bool sendChangeEvent)
 {
     if (checked() == nowChecked)
         return;
+
+    checkedRadioButtons(this).removeButton(this);
 
     m_useDefaultChecked = false;
     m_checked = nowChecked;
@@ -1120,8 +1122,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         }
     }
 
-    // Before calling the base class defaultEventHandler, which will call handleKeypress, call doTextFieldCommandFromEvent.
-    if (isTextField() && evt->type() == keypressEvent && evt->isKeyboardEvent() && focused() && document()->frame()
+    if (isTextField() && evt->type() == keydownEvent && evt->isKeyboardEvent() && focused() && document()->frame()
                 && document()->frame()->doTextFieldCommandFromEvent(this, static_cast<KeyboardEvent*>(evt))) {
         evt->setDefaultHandled();
         return;
@@ -1171,39 +1172,10 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     if (evt->type() == keypressEvent && evt->isKeyboardEvent()) {
         bool clickElement = false;
 
-        String key = static_cast<KeyboardEvent*>(evt)->keyIdentifier();
+        int charCode = static_cast<KeyboardEvent*>(evt)->charCode();
 
-        if (key == "U+0020") {
+        if (charCode == '\r') {
             switch (inputType()) {
-                case BUTTON:
-                case CHECKBOX:
-                case FILE:
-                case IMAGE:
-                case RESET:
-                case SUBMIT:
-                    // Simulate mouse click for spacebar for these types of elements.
-                    // The AppKit already does this for some, but not all, of them.
-                    clickElement = true;
-                    break;
-                case RADIO:
-                    // If an unselected radio is tabbed into (because the entire group has nothing
-                    // checked, or because of some explicit .focus() call), then allow space to check it.
-                    if (!checked())
-                        clickElement = true;
-                    break;
-                case HIDDEN:
-                case ISINDEX:
-                case PASSWORD:
-                case RANGE:
-                case SEARCH:
-                case TEXT:
-                    break;
-            }
-        }
-
-        if (key == "Enter") {
-            switch (inputType()) {
-                case BUTTON:
                 case CHECKBOX:
                 case HIDDEN:
                 case ISINDEX:
@@ -1214,6 +1186,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                     // Simulate mouse click on the default form button for enter for these types of elements.
                     clickDefaultFormButton = true;
                     break;
+                case BUTTON:
                 case FILE:
                 case IMAGE:
                 case RESET:
@@ -1223,6 +1196,48 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                     break;
                 case RADIO:
                     break; // Don't do anything for enter on a radio button.
+            }
+        } else if (charCode == ' ') {
+            switch (inputType()) {
+                case BUTTON:
+                case CHECKBOX:
+                case FILE:
+                case IMAGE:
+                case RESET:
+                case SUBMIT:
+                case RADIO:
+                    // Prevent scrolling down the page.
+                    evt->setDefaultHandled();
+                    return;
+                default:
+                    break;
+            }
+        }
+
+        if (clickElement) {
+            dispatchSimulatedClick(evt);
+            evt->setDefaultHandled();
+            return;
+        }
+    }
+
+    if (evt->type() == keydownEvent && evt->isKeyboardEvent()) {
+        String key = static_cast<KeyboardEvent*>(evt)->keyIdentifier();
+
+        if (key == "U+0020") {
+            switch (inputType()) {
+                case BUTTON:
+                case CHECKBOX:
+                case FILE:
+                case IMAGE:
+                case RESET:
+                case SUBMIT:
+                case RADIO:
+                    setActive(true, true);
+                    // No setDefaultHandled() - IE dispatches a keypress in this case.
+                    return;
+                default:
+                    break;
             }
         }
 
@@ -1260,9 +1275,44 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                 }
             }
         }
+    }
+
+    if (evt->type() == keyupEvent && evt->isKeyboardEvent()) {
+        bool clickElement = false;
+
+        String key = static_cast<KeyboardEvent*>(evt)->keyIdentifier();
+
+        if (key == "U+0020") {
+            switch (inputType()) {
+                case BUTTON:
+                case CHECKBOX:
+                case FILE:
+                case IMAGE:
+                case RESET:
+                case SUBMIT:
+                    // Simulate mouse click for spacebar for these types of elements.
+                    // The AppKit already does this for some, but not all, of them.
+                    clickElement = true;
+                    break;
+                case RADIO:
+                    // If an unselected radio is tabbed into (because the entire group has nothing
+                    // checked, or because of some explicit .focus() call), then allow space to check it.
+                    if (!checked())
+                        clickElement = true;
+                    break;
+                case HIDDEN:
+                case ISINDEX:
+                case PASSWORD:
+                case RANGE:
+                case SEARCH:
+                case TEXT:
+                    break;
+            }
+        }
 
         if (clickElement) {
-            dispatchSimulatedClick(evt);
+            if (active())
+                dispatchSimulatedClick(evt);
             evt->setDefaultHandled();
             return;
         }        
@@ -1277,7 +1327,10 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         RenderObject* r = renderer();
         if (r && r->isTextField() && r->isEdited()) {
             onChange();
-            r->setEdited(false);
+            // Refetch the renderer since arbitrary JS code run during onchange can do anything, including destroying it.
+            r = renderer();
+            if (r)
+                r->setEdited(false);
         }
         // Form may never have been present, or may have been destroyed by the change event.
         if (form())
@@ -1290,7 +1343,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         // Make sure that the text to be inserted will not violate the maxLength.
         int oldLen = numGraphemeClusters(value().impl());
         ASSERT(oldLen <= maxLength());
-        int selectionLen = numGraphemeClusters(document()->frame()->selectionController()->toString().impl());
+        int selectionLen = numGraphemeClusters(plainText(document()->frame()->selectionController()->selection().toRange().get()).impl());
         ASSERT(oldLen >= selectionLen);
         int maxNewLen = maxLength() - (oldLen - selectionLen);
 
@@ -1307,7 +1360,13 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         if (evt->isMouseEvent() && evt->type() == mousedownEvent && static_cast<MouseEvent*>(evt)->button() == LeftButton) {
             MouseEvent* mEvt = static_cast<MouseEvent*>(evt);
             if (!slider->mouseEventIsInThumb(mEvt)) {
-                slider->setValueForPosition(slider->positionForOffset(IntPoint(mEvt->offsetX(), mEvt->offsetY())));
+                IntPoint eventOffset(mEvt->offsetX(), mEvt->offsetY());
+                if (mEvt->target() != this) {
+                    IntRect rect = renderer()->absoluteBoundingBoxRect();
+                    eventOffset.setX(mEvt->pageX() - rect.x());
+                    eventOffset.setY(mEvt->pageY() - rect.y());
+                }
+                slider->setValueForPosition(slider->positionForOffset(eventOffset));
             }
         }
         if (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent())
@@ -1472,7 +1531,7 @@ void HTMLInputElement::didRestoreFromCache()
 void HTMLInputElement::willMoveToNewOwnerDocument()
 {
     if (inputType() == PASSWORD)
-        document()->unregisterForDidRestoreFromCacheCallback(this);
+        document()->unregisterForCacheCallbacks(this);
         
     document()->checkedRadioButtons().removeButton(this);
     
@@ -1482,7 +1541,7 @@ void HTMLInputElement::willMoveToNewOwnerDocument()
 void HTMLInputElement::didMoveToNewOwnerDocument()
 {
     if (inputType() == PASSWORD)
-        document()->registerForDidRestoreFromCacheCallback(this);
+        document()->registerForCacheCallbacks(this);
         
     HTMLFormControlElementWithState::didMoveToNewOwnerDocument();
 }

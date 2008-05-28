@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.333.2.52.2.11 2007/03/26 10:28:28 tony2001 Exp $ */
+/* $Id: string.c,v 1.333.2.52.2.18 2007/12/31 07:22:53 sebastian Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -234,8 +234,12 @@ static void php_spn_common_handler(INTERNAL_FUNCTION_PARAMETERS, int behavior)
 		}
 	}
 	
-	if (((unsigned) start + (unsigned) len) > len1) {
+	if (len > len1 - start) {
 		len = len1 - start;
+	}
+
+	if(len == 0) {
+		RETURN_LONG(0);
 	}
 
 	s = s22;
@@ -640,6 +644,11 @@ PHP_FUNCTION(wordwrap)
 
 	if (textlen == 0) {
 		RETURN_EMPTY_STRING();
+	}
+
+	if (breakcharlen == 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Break string cannot be empty");
+		RETURN_FALSE;
 	}
 
 	if (linelength == 0 && docut) {
@@ -1511,11 +1520,25 @@ static PHP_ATTRIBUTE_MALLOC char *php_chunk_split(char *src, int srclen, char *e
 	char *p, *q;
 	int chunks; /* complete chunks! */
 	int restlen;
+	int out_len;
 
 	chunks = srclen / chunklen;
 	restlen = srclen - chunks * chunklen; /* srclen % chunklen */
 
-	dest = safe_emalloc(sizeof(char), (srclen + (chunks + 1) * endlen + 1), 0);
+	if(chunks > INT_MAX - 1) {
+		return NULL;
+	}
+	out_len = chunks + 1;
+	if(endlen != 0 && out_len > INT_MAX/endlen) {
+		return NULL;
+	}
+	out_len *= endlen;
+	if(out_len > INT_MAX - srclen - 1) {
+		return NULL;
+	}
+	out_len += srclen + 1;
+
+	dest = safe_emalloc(out_len, sizeof(char), 0);
 
 	for (p = src, q = dest; p < (src + srclen - chunklen + 1); ) {
 		memcpy(q, p, chunklen);
@@ -2375,7 +2398,8 @@ PHPAPI char *php_addcslashes(char *str, int length, int *new_length, int should_
 
 	php_charmask(what, wlength, flags TSRMLS_CC);
 
-	for (source = str, end = source+length, target = new_str; (c=*source) || (source < end); source++) {
+	for (source = str, end = source+length, target = new_str; source < end; source++) {
+		c = *source;
 		if (flags[(unsigned char)c]) {
 			if ((unsigned char)c<32 || (unsigned char)c>126) {
 				*target++ = '\\';
@@ -4087,12 +4111,27 @@ PHP_FUNCTION(str_word_count)
 
 PHP_FUNCTION(money_format) {
 	int format_len = 0, str_len;
-	char *format, *str;
+	char *format, *str, *p, *e;
 	double value;
+	zend_bool check = 0;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sd",
 							  &format, &format_len, &value) == FAILURE) {
 		return;
+	}
+
+	p = format;
+	e = p + format_len;
+	while ((p = memchr(p, '%', (e - p)))) {
+		if (*(p + 1) == '%') {
+			p += 2;	
+		} else if (!check) {
+			check = 1;
+			p++;
+		} else {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Only a single %%i or %%n token can be used");
+			RETURN_FALSE;
+		}
 	}
 
 	str_len = format_len + 1024;

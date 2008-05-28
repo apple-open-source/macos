@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: output.c,v 1.142.2.16.2.6 2007/02/12 17:13:22 tony2001 Exp $ */
+/* $Id: output.c,v 1.142.2.16.2.8 2007/12/31 07:22:54 sebastian Exp $ */
 
 #include "php.h"
 #include "ext/standard/head.h"
@@ -432,10 +432,10 @@ static int php_ob_init_named(uint initial_size, uint block_size, char *handler_n
 		}
 		zend_stack_push(&OG(ob_buffers), &OG(active_ob_buffer), sizeof(php_ob_buffer));
 	}
+	OG(active_ob_buffer).buffer = (char *) emalloc(initial_size+1);
 	OG(ob_nesting_level)++;
 	OG(active_ob_buffer).block_size = block_size;
 	OG(active_ob_buffer).size = initial_size;
-	OG(active_ob_buffer).buffer = (char *) emalloc(initial_size+1);
 	OG(active_ob_buffer).text_length = 0;
 	OG(active_ob_buffer).output_handler = output_handler;
 	OG(active_ob_buffer).chunk_size = chunk_size;

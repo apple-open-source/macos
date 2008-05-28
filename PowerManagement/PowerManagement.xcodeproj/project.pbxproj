@@ -1664,6 +1664,7 @@
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/SystemConfiguration;
 				OTHER_LDFLAGS = "";
+				OTHER_MIGFLAGS = "-F$(SDKROOT)/System/Library/Frameworks";
 				PREBINDING = NO;
 				PRODUCT_NAME = PowerManagement;
 				WRAPPER_EXTENSION = bundle;
@@ -1704,6 +1705,7 @@
 				INFOPLIST_FILE = "pmconfigd/Resources/Power Management Bundle-Info.plist";
 				INSTALL_PATH = /System/Library/SystemConfiguration;
 				OTHER_LDFLAGS = "";
+				OTHER_MIGFLAGS = "-F$(SDKROOT)/System/Library/Frameworks";
 				PREBINDING = NO;
 				PRODUCT_NAME = PowerManagement;
 				WRAPPER_EXTENSION = bundle;

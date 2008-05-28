@@ -845,7 +845,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 		return err;
 	}
 	USBLog(7, "%s[%p]::IsocIO(LL) - putting buffer %p into dmaCommand %p which has getMemoryDescriptor %p", getName(), this, buffer, command->GetDMACommand(), command->GetDMACommand()->getMemoryDescriptor());
-	err = command->GetDMACommand()->setMemoryDescriptor(buffer);								// this automatically calls prepare()
+	err = dmaCommand->setMemoryDescriptor(buffer);								// this automatically calls prepare()
 	if (err)
 	{
 		USBLog(1, "%s[%p]::IsocIO(LL) - dmaCommand[%p]->setMemoryDescriptor(%p) failed with status (%p)", getName(), this, command->GetDMACommand(), buffer, (void*)err);

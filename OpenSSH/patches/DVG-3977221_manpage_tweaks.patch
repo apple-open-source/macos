@@ -1,21 +1,22 @@
-diff -Naur ../openssh-4.4p1.orig/sshd.0 ./sshd.0
---- ../openssh-4.4p1.orig/sshd.0	2006-09-26 04:03:46.000000000 -0700
-+++ ./sshd.0	2006-10-19 18:32:10.000000000 -0700
-@@ -526,8 +526,7 @@
+diff -uNr ../openssh-4.7p1.orig/sshd.0 ./sshd.0
+--- ../openssh-4.7p1.orig/sshd.0	2007-09-03 23:50:10.000000000 -0700
++++ ./sshd.0	2007-09-05 20:44:16.000000000 -0700
+@@ -527,8 +527,8 @@
  
  SEE ALSO
       scp(1), sftp(1), ssh(1), ssh-add(1), ssh-agent(1), ssh-keygen(1),
--     chroot(2), hosts_access(5), login.conf(5), moduli(5), sshd_config(5),
--     inetd(8), sftp-server(8)
-+     chroot(2), hosts_access(5), sshd_config(5), sftp-server(8)
+-     ssh-keyscan(1), chroot(2), hosts_access(5), login.conf(5), moduli(5),
+-     sshd_config(5), inetd(8), sftp-server(8)
++     ssh-keyscan(1), chroot(2), hosts_access(5), sshd_config(5)
++     sftp-server(8)
  
  AUTHORS
       OpenSSH is a derivative of the original and free ssh 1.2.12 release by
-diff -Naur ../openssh-4.4p1.orig/sshd.8 ./sshd.8
---- ../openssh-4.4p1.orig/sshd.8	2006-08-29 18:07:01.000000000 -0700
-+++ ./sshd.8	2006-10-19 18:32:40.000000000 -0700
-@@ -828,10 +828,7 @@
- .Xr ssh-keygen 1 ,
+diff -uNr ../openssh-4.7p1.orig/sshd.8 ./sshd.8
+--- ../openssh-4.7p1.orig/sshd.8	2007-08-16 16:42:33.000000000 -0700
++++ ./sshd.8	2007-09-05 20:43:10.000000000 -0700
+@@ -833,10 +833,7 @@
+ .Xr ssh-keyscan 1 ,
  .Xr chroot 2 ,
  .Xr hosts_access 5 ,
 -.Xr login.conf 5 ,
@@ -25,9 +26,9 @@ diff -Naur ../openssh-4.4p1.orig/sshd.8 ./sshd.8
  .Xr sftp-server 8
  .Sh AUTHORS
  OpenSSH is a derivative of the original and free
-diff -Naur ../openssh-4.4p1.orig/sshd_config.0 ./sshd_config.0
---- ../openssh-4.4p1.orig/sshd_config.0	2006-09-26 04:03:48.000000000 -0700
-+++ ./sshd_config.0	2006-10-19 18:35:10.000000000 -0700
+diff -uNr ../openssh-4.7p1.orig/sshd_config.0 ./sshd_config.0
+--- ../openssh-4.7p1.orig/sshd_config.0	2007-09-03 23:50:11.000000000 -0700
++++ ./sshd_config.0	2007-09-05 20:44:58.000000000 -0700
 @@ -84,8 +84,7 @@
  
       ChallengeResponseAuthentication
@@ -38,10 +39,10 @@ diff -Naur ../openssh-4.4p1.orig/sshd_config.0 ./sshd_config.0
  
       Ciphers
               Specifies the ciphers allowed for protocol version 2.  Multiple
-diff -Naur ../openssh-4.4p1.orig/sshd_config.5 ./sshd_config.5
---- ../openssh-4.4p1.orig/sshd_config.5	2006-08-29 18:06:34.000000000 -0700
-+++ ./sshd_config.5	2006-10-19 18:35:45.000000000 -0700
-@@ -169,9 +169,6 @@
+diff -uNr ../openssh-4.7p1.orig/sshd_config.5 ./sshd_config.5
+--- ../openssh-4.7p1.orig/sshd_config.5	2007-06-10 21:07:13.000000000 -0700
++++ ./sshd_config.5	2007-09-05 20:45:25.000000000 -0700
+@@ -167,9 +167,6 @@
  By default, no banner is displayed.
  .It Cm ChallengeResponseAuthentication
  Specifies whether challenge-response authentication is allowed.

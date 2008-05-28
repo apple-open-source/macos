@@ -35,15 +35,15 @@ namespace WebCore {
 
 using namespace KJS;
 
-const ClassInfo JSNamedNodesCollection::info = { "Collection", 0, 0, 0 };
+const ClassInfo JSNamedNodesCollection::info = { "Collection", 0, 0 };
 
 // Such a collection is usually very short-lived, it only exists
 // for constructs like document.forms.<name>[1],
 // so it shouldn't be a problem that it's storing all the nodes (with the same name). (David)
-JSNamedNodesCollection::JSNamedNodesCollection(ExecState* exec, const Vector<RefPtr<Node> >& nodes)
-    : m_nodes(nodes)
+JSNamedNodesCollection::JSNamedNodesCollection(KJS::JSObject* prototype, const Vector<RefPtr<Node> >& nodes)
+    : KJS::DOMObject(prototype)
+    , m_nodes(nodes)
 {
-    setPrototype(exec->lexicalInterpreter()->builtinObjectPrototype());
 }
 
 JSValue* JSNamedNodesCollection::lengthGetter(ExecState* exec, JSObject* originalObject, const Identifier& propertyName, const PropertySlot& slot)

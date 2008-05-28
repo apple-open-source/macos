@@ -93,7 +93,7 @@ DESCRIPTION
              Download the RSA public key stored in the smartcard in reader.
 
      -e      This option will read a private or public OpenSSH key file and
-             print the key in a `SECSH Public Key File Format' to stdout.
+             print the key in RFC 4716 SSH Public Key File Format to stdout.
              This option allows exporting keys for use by several commercial
              SSH implementations.
 
@@ -124,9 +124,9 @@ DESCRIPTION
 
      -i      This option will read an unencrypted private (or public) key file
              in SSH2-compatible format and print an OpenSSH compatible private
-             (or public) key to stdout.  ssh-keygen also reads the `SECSH
-             Public Key File Format'.  This option allows importing keys from
-             several commercial SSH implementations.
+             (or public) key to stdout.  ssh-keygen also reads the RFC 4716
+             SSH Public Key File Format.  This option allows importing keys
+             from several commercial SSH implementations.
 
      -l      Show fingerprint of specified public key file.  Private RSA1 keys
              are also supported.  For RSA and DSA keys ssh-keygen tries to
@@ -275,8 +275,7 @@ FILES
 SEE ALSO
      ssh(1), ssh-add(1), ssh-agent(1), moduli(5), sshd(8)
 
-     J. Galbraith and R. Thayer, SECSH Public Key File Format, draft-ietf-
-     secsh-publickeyfile-01.txt, March 2001, work in progress material.
+     The Secure Shell (SSH) Public Key File Format, RFC 4716, 2006.
 
 AUTHORS
      OpenSSH is a derivative of the original and free ssh 1.2.12 release by
@@ -285,4 +284,4 @@ AUTHORS
      created OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 4.0                   September 25, 1999                             5
+OpenBSD 4.2                      June 5, 2007                                5

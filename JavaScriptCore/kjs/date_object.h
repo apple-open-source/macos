@@ -23,6 +23,7 @@
 
 #include "function.h"
 #include "JSWrapperObject.h"
+#include "lookup.h"
 
 namespace KJS {
 
@@ -59,29 +60,59 @@ namespace KJS {
     };
 
     /**
-        * @internal
+     * @internal
      *
-     * Class to implement all methods that are properties of the
+     * Functions to implement all methods that are properties of the
      * Date.prototype object
      */
-    class DateProtoFunc : public InternalFunctionImp {
-    public:
-        DateProtoFunc(ExecState *, int i, int len, const Identifier& date);
+    
+    // Non-normative properties (Appendix B)
+    // GetYear, SetYear, ToGMTString
 
-        virtual JSValue *callAsFunction(ExecState *, JSObject *thisObj, const List &args);
-
-        enum { ToString, ToDateString, ToTimeString, ToLocaleString,
-            ToLocaleDateString, ToLocaleTimeString, ValueOf, GetTime,
-            GetFullYear, GetMonth, GetDate, GetDay, GetHours, GetMinutes,
-            GetSeconds, GetMilliSeconds, GetTimezoneOffset, SetTime,
-            SetMilliSeconds, SetSeconds, SetMinutes, SetHours, SetDate,
-            SetMonth, SetFullYear, ToUTCString,
-            // non-normative properties (Appendix B)
-            GetYear, SetYear, ToGMTString };
-    private:
-        int id;
-        bool utc;
-    };
+    JSValue* dateProtoFuncToString(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncToUTCString(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncToDateString(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncToTimeString(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncToLocaleString(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncToLocaleDateString(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncToLocaleTimeString(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncValueOf(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetTime(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetFullYear(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetUTCFullYear(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncToGMTString(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetMonth(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetUTCMonth(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetDate(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetUTCDate(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetDay(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetUTCDay(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetHours(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetUTCHours(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetMinutes(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetUTCMinutes(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetSeconds(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetUTCSeconds(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetMilliSeconds(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetUTCMilliseconds(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetTimezoneOffset(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetTime(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetMilliSeconds(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetUTCMilliseconds(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetSeconds(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetUTCSeconds(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetMinutes(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetUTCMinutes(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetHours(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetUTCHours(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetDate(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetUTCDate(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetMonth(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetUTCMonth(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetFullYear(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetUTCFullYear(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncSetYear(ExecState*, JSObject*, const List&);
+    JSValue* dateProtoFuncGetYear(ExecState*, JSObject*, const List&);
 
     /**
      * @internal
@@ -96,7 +127,6 @@ namespace KJS {
         virtual JSObject *construct(ExecState *, const List &args);
         virtual JSValue *callAsFunction(ExecState *, JSObject *thisObj, const List &args);
 
-        Completion execute(const List &);
         JSObject *construct(const List &);
     };
 

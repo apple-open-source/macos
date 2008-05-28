@@ -102,7 +102,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleGPIO;
-				MODULE_VERSION = 1.2.0;
+				MODULE_VERSION = 1.3.0;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -130,7 +130,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleGPIO</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleGPIO version 1.2.0, Copyright 2002-2007 Apple Inc.</string>
+	<string>AppleGPIO version 1.3.0, Copyright 2002-2007 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -142,11 +142,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0d0</string>
+	<string>1.3.0d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleGPIO-IOI2C</key>
@@ -406,7 +406,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CDriveBayGPIO;
-				MODULE_VERSION = 1.2.0;
+				MODULE_VERSION = 1.3.0;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -431,7 +431,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CDriveBayGPIO</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CDriveBayGPIO version 1.2.0, Copyright 2002-2007 Apple Inc.</string>
+	<string>IOI2CDriveBayGPIO version 1.3.0, Copyright 2002-2007 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -443,11 +443,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0d0</string>
+	<string>1.3.0d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CDriveBayGPIO</key>
@@ -758,7 +758,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.MacIOGPIO;
-				MODULE_VERSION = 1.2.0;
+				MODULE_VERSION = 1.3.0;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -783,7 +783,7 @@
 	<key>CFBundleExecutable</key>
 	<string>MacIOGPIO</string>
 	<key>CFBundleGetInfoString</key>
-	<string>MacIOGPIO version 1.2.0, Copyright 2002-2007 Apple Inc.</string>
+	<string>MacIOGPIO version 1.3.0, Copyright 2002-2007 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -795,11 +795,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0d0</string>
+	<string>1.3.0d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacIOGPIO</key>
@@ -900,7 +900,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.I2CGPIO;
-				MODULE_VERSION = 1.2.0;
+				MODULE_VERSION = 1.3.0;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -925,7 +925,7 @@
 	<key>CFBundleExecutable</key>
 	<string>I2CGPIO</string>
 	<key>CFBundleGetInfoString</key>
-	<string>I2CGPIO version 1.2.0, Copyright 2002-2007 Apple Inc.</string>
+	<string>I2CGPIO version 1.3.0, Copyright 2002-2007 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -937,11 +937,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0d0</string>
+	<string>1.3.0d0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>I2CGPIO</key>

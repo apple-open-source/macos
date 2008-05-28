@@ -17,7 +17,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = apache1
-AEP_Version    = 1.3.39
+AEP_Version    = 1.3.41
 AEP_ProjVers   = apache_$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -30,7 +30,7 @@ AEP_Patches    = NLS_current_apache.patch \
 #mod_ssl
 mod_ssl_Project = apache_mod_ssl
 AEP_mod_ssl_Project = mod_ssl
-AEP_mod_ssl_Version = 2.8.30
+AEP_mod_ssl_Version = 2.8.31
 AEP_mod_ssl_ProjVers   = $(AEP_mod_ssl_Project)-$(AEP_mod_ssl_Version)-$(AEP_Version)
 AEP_mod_ssl_Filename   = $(AEP_mod_ssl_ProjVers).tar.gz
 AEP_mod_ssl_ExtractDir = $(AEP_mod_ssl_ProjVers)

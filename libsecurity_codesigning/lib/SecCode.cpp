@@ -199,6 +199,7 @@ const CFStringRef kSecCodeInfoCertificates =	CFSTR("certificates");
 const CFStringRef kSecCodeInfoChangedFiles =	CFSTR("changed-files");
 const CFStringRef kSecCodeInfoCMS =				CFSTR("cms");
 const CFStringRef kSecCodeInfoDesignatedRequirement = CFSTR("designated-requirement");
+const CFStringRef kSecCodeInfoEntitlements =	CFSTR("entitlements");
 const CFStringRef kSecCodeInfoTime =			CFSTR("signing-time");
 const CFStringRef kSecCodeInfoFormat =			CFSTR("format");
 const CFStringRef kSecCodeInfoIdentifier =		CFSTR("identifier");
@@ -206,6 +207,7 @@ const CFStringRef kSecCodeInfoImplicitDesignatedRequirement = CFSTR("implicit-re
 const CFStringRef kSecCodeInfoMainExecutable =	CFSTR("main-executable");
 const CFStringRef kSecCodeInfoPList =			CFSTR("info-plist");
 const CFStringRef kSecCodeInfoRequirements =	CFSTR("requirements");
+const CFStringRef kSecCodeInfoRequirementData =	CFSTR("requirement-data");
 const CFStringRef kSecCodeInfoStatus =			CFSTR("status");
 const CFStringRef kSecCodeInfoTrust =			CFSTR("trust");
 

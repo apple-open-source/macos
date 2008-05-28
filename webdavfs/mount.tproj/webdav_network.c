@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,7 @@
 #include <SystemConfiguration/SCDynamicStoreKey.h>
 #include <CoreServices/CoreServices.h>
 #include <CoreServices/CoreServicesPriv.h>
+#include <sched.h>
 #include <sys/mount.h>
 #include <sys/sysctl.h>
 #include <Security/Security.h>
@@ -43,13 +44,7 @@
 
 /******************************************************************************/
 
-/*
- * BODY_BUFFER_SIZE is the initial size of the buffer used to read an
- * HTTP entity body. The largest bodies are typically the XML data
- * returned by the PROPFIND method for a large collection (directory).
- * 64K is large enough to handle directories with 100-150 items.
- */
-#define BODY_BUFFER_SIZE 0x10000	/* 64K */
+#define WEBDAV_WRITESEQ_RSP_TIMEOUT 60  /* in seconds */
 
 #define kSSLClientPropTLSServerCertificateChain CFSTR("TLSServerCertificateChain") /* array[data] */
 #define kSSLClientPropTLSTrustClientStatus	CFSTR("TLSTrustClientStatus") /* CFNumberRef of kCFNumberSInt32Type (errSSLxxxx) */
@@ -3040,6 +3035,281 @@ int network_server_ping(u_int32_t delay)
 
 /******************************************************************************/
 
+void writeseqReadResponseCallback(CFReadStreamRef str, CFStreamEventType event, void* arg)
+{
+	struct stream_put_ctx *ctx;
+	CFStreamError streamError;
+	CFIndex bytesRead;
+	CFTypeRef theResponsePropertyRef;
+	CFHTTPMessageRef responseMessage;
+	UInt32 statusCode;
+	int error;
+
+	ctx = (struct stream_put_ctx *)arg;
+
+	switch(event)
+	{
+		case kCFStreamEventHasBytesAvailable:
+			bytesRead = CFReadStreamRead(str, ctx->rspBuf + ctx->totalRead, WEBDAV_WRITESEQ_RSPBUF_LEN - ctx->totalRead);
+			
+			if (bytesRead < 0 ) {
+				streamError = CFReadStreamGetError(str);
+				if (!(ctx->is_retry) &&
+					((streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE) ||
+					 (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)))
+				{
+					/*
+					 * We got an EPIPE or HTTP Connection Lost error from the stream.  We retry the PUT request
+					 * for these errors conditions
+					 */
+					syslog(LOG_DEBUG,"writeseqReadResponseCallback:EventHasBytesAvailable CFStreamError: domain %ld, error %ld (retrying)",
+						streamError.domain, streamError.error);
+					pthread_mutex_lock(&ctx->ctx_lock);
+					ctx->finalStatus = EAGAIN;
+					ctx->finalStatusValid = true;
+					pthread_mutex_unlock(&ctx->ctx_lock);
+				}
+				else
+				{
+					if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
+					{
+						syslog(LOG_DEBUG,"writeseqReadResponseCallback:EventHasBytesAvailable CFStreamError: domain %ld, error %ld",
+							streamError.domain, streamError.error);
+					}
+					set_connectionstate(WEBDAV_CONNECTION_DOWN);
+					pthread_mutex_lock(&ctx->ctx_lock);
+					ctx->finalStatus = stream_error_to_errno(&streamError);
+					ctx->finalStatusValid = true;
+					pthread_mutex_unlock(&ctx->ctx_lock);
+				}
+				goto out1;
+			}
+		
+			ctx->totalRead += bytesRead;
+		break;
+		
+		case kCFStreamEventOpenCompleted:
+			// syslog(LOG_DEBUG,"writeseqReadResponseCallback: kCFStreamEventOpenCompleted\n");
+		break;
+		
+		case kCFStreamEventErrorOccurred:
+			streamError = CFReadStreamGetError(str);
+							
+			if (!(ctx->is_retry) &&
+				((streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE) ||
+					 (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)))
+			{
+				/*
+				 * We got an EPIPE or HTTP Connection Lost error from the stream.  We retry the PUT request
+				 * for these errors conditions
+				 */
+				syslog(LOG_DEBUG,"writeseqReadResponseCallback:EventHasErrorOccurred CFStreamError: domain %ld, error %ld (retrying)",
+					streamError.domain, streamError.error);
+					pthread_mutex_lock(&ctx->ctx_lock);
+					ctx->finalStatus = EAGAIN;
+					ctx->finalStatusValid = true;
+					pthread_mutex_unlock(&ctx->ctx_lock);
+			}
+			else
+			{
+				if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
+				{
+					syslog(LOG_DEBUG,"writeseqReadResponseCallback:EventErrorOccurred CFStreamError: domain %ld, error %ld",
+						streamError.domain, streamError.error);
+				}
+				set_connectionstate(WEBDAV_CONNECTION_DOWN);
+				pthread_mutex_lock(&ctx->ctx_lock);
+				ctx->finalStatus = stream_error_to_errno(&streamError);
+				ctx->finalStatusValid = true;
+				pthread_mutex_unlock(&ctx->ctx_lock);
+			}
+		break;
+		
+		case kCFStreamEventEndEncountered:
+			// syslog(LOG_DEBUG,"writeseqReadResponseCallback: kCFStreamEventEndEncountered\n");
+
+			/* get the response header */
+			theResponsePropertyRef = CFReadStreamCopyProperty(str, kCFStreamPropertyHTTPResponseHeader);
+			if (theResponsePropertyRef == NULL)
+			{
+				syslog(LOG_DEBUG,"writeseqReadResponseCallback:EventEndEncountered failed to obtain response header");
+				pthread_mutex_lock(&ctx->ctx_lock);
+				ctx->finalStatus = EIO;
+				ctx->finalStatusValid = true;
+				pthread_mutex_unlock(&ctx->ctx_lock);
+				goto out1;		
+			}
+			
+			/* fun with casting a "const void *" CFTypeRef away */
+			responseMessage = *((CFHTTPMessageRef*)((void*)&theResponsePropertyRef));			
+			statusCode = CFHTTPMessageGetResponseStatusCode(responseMessage);
+			error = translate_status_to_error(statusCode);
+
+			pthread_mutex_lock(&ctx->ctx_lock);
+			ctx->finalStatus = error;
+			ctx->finalStatusValid = true;
+			pthread_mutex_unlock(&ctx->ctx_lock);
+			
+			// syslog(LOG_ERR,"WRITESEQ: writeSeqRspReadCB: finalStatus: %d\n", error);
+		break;
+		
+		default:		
+		break;
+	}
+
+out1:;
+
+}
+
+/******************************************************************************/
+
+void writeseqWriteCallback(CFWriteStreamRef str, 
+								   CFStreamEventType event, 
+								   void* arg) 
+{
+	struct stream_put_ctx *ctx;
+	CFStreamError streamError;
+
+	
+	ctx = (struct stream_put_ctx *)arg;
+	
+	// Let's see what's going on here
+	switch(event)
+	{
+		case kCFStreamEventCanAcceptBytes:
+			// syslog(LOG_DEBUG,"WRITESEQ: writeSeqWriteCB: kCFStreamEventCanAcceptBytes\n");
+			pthread_mutex_lock(&ctx->ctx_lock);
+			ctx->canAcceptBytesEvents++;
+			pthread_mutex_unlock(&ctx->ctx_lock);
+		break;
+
+		case kCFStreamEventOpenCompleted:
+			// syslog(LOG_DEBUG,"WRITESEQ: writeSeqWriteCB: kCFStreamEventOpenCompleted\n");
+			pthread_mutex_lock(&ctx->ctx_lock);
+			ctx->writeStreamOpenEventReceived = true;
+			pthread_mutex_unlock(&ctx->ctx_lock);
+		break;
+		
+		case kCFStreamEventErrorOccurred:
+			streamError = CFWriteStreamGetError(str);
+			
+			pthread_mutex_lock(&ctx->ctx_lock);
+			if (!(ctx->is_retry) &&
+				((streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE) ||
+					 (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)))
+			{
+				/*
+				 * We got an EPIPE or HTTP Connection Lost error from the stream.  We retry the PUT request
+				 * for these errors conditions
+				 */
+				syslog(LOG_DEBUG,"writeSeqWriteCB:EventErrorOccurred CFStreamError: domain %ld, error %ld (retrying)",
+					streamError.domain, streamError.error);
+					ctx->finalStatus = EAGAIN;
+					ctx->finalStatusValid = true;
+					pthread_mutex_unlock(&ctx->ctx_lock);
+			}
+			else
+			{
+				if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
+				{			
+					syslog(LOG_ERR,"writeSeqWriteCB:EventErrorOccurred CFStreamError: domain %ld, error %ld",
+						streamError.domain, streamError.error);
+				}
+				set_connectionstate(WEBDAV_CONNECTION_DOWN);
+				ctx->finalStatus = EIO;
+				ctx->finalStatusValid = 1;
+				pthread_mutex_unlock(&ctx->ctx_lock);
+			}
+		break;
+
+		case kCFStreamEventEndEncountered:
+			// syslog(LOG_ERR,"writeSeqWriteCB:EventEndEncountered");
+		break;
+		
+		default:
+		break;
+	}
+}
+
+/******************************************************************************/
+
+CFDataRef managerMessagePortCallback(CFMessagePortRef local, SInt32 msgid, CFDataRef data, void *info)
+{	
+  	#pragma unused(local,msgid,data,info)
+		
+	// Callback does nothing. Just used to wakeup writemgr thread
+
+	return NULL;
+}
+
+/******************************************************************************/
+
+int cleanup_seq_write(struct stream_put_ctx *ctx) 
+{
+	struct timespec timeout;
+	struct seqwrite_mgr_req mgr_req;
+	int error;
+	
+	if ( ctx == NULL ) {
+		syslog(LOG_ERR, "%s: context passed in was NULL", __FUNCTION__);
+	}
+	
+	timeout.tv_sec = time(NULL) + WEBDAV_WRITESEQ_RSP_TIMEOUT;		/* time out in seconds */
+	timeout.tv_nsec = 0;
+
+	// If mgr is running, tell it to close down
+	pthread_mutex_lock(&ctx->ctx_lock);
+	if (ctx->mgr_status == WR_MGR_RUNNING) {
+		mgr_req.type = SEQWRITE_CLOSE;
+		// queue request
+		queue_writemgr_request_locked(ctx, &mgr_req);
+	}
+	
+	while (ctx->mgr_status != WR_MGR_DONE) {
+		error = pthread_cond_timedwait(&ctx->ctx_condvar, &ctx->ctx_lock, &timeout);
+		if ((error != 0) && (error != ETIMEDOUT)) {
+			syslog(LOG_ERR, "%s: pthread_cond_timewait error %d\n", __FUNCTION__, error);
+			ctx->finalStatus = EIO;
+			ctx->finalStatusValid = true;
+			break;
+		} else {
+			// recalc timeout
+			timeout.tv_sec = time(NULL) + WEBDAV_WRITESEQ_RSP_TIMEOUT;		/* time out in seconds */
+			timeout.tv_nsec = 0;
+		}
+	}
+	
+	error = ctx->finalStatus;
+	pthread_mutex_unlock(&ctx->ctx_lock);
+	
+	/* clean up the streams */	
+	if (ctx->wrStreamRef != NULL) {
+		CFRelease(ctx->wrStreamRef);
+		ctx->wrStreamRef = NULL;
+	}
+	
+	if (ctx->rdStreamRef != NULL) {
+		CFReadStreamClose(ctx->rdStreamRef);
+		CFRelease(ctx->rdStreamRef);
+		ctx->rdStreamRef = NULL;
+	}
+	
+	if (ctx->rspStreamRef != NULL) {
+		CFReadStreamClose(ctx->rspStreamRef);
+		CFRelease(ctx->rspStreamRef);
+		ctx->rspStreamRef = NULL;
+	}
+
+	if (ctx->mgrPort != NULL)
+		CFRelease(ctx->mgrPort);
+
+	if (ctx->mgr_rl != NULL)
+		CFRelease(ctx->mgr_rl);
+	return (error);
+}
+
+/******************************************************************************/
+
 int network_open(
 	uid_t uid,					/* -> uid of the user making the request */
 	struct node_entry *node,	/* -> node to open */
@@ -3426,6 +3696,600 @@ create_cfurl_from_node:
 
 /******************************************************************************/
 
+static void create_http_request_message(CFHTTPMessageRef *message_p, CFURLRef urlRef, off_t file_len) {
+	CFStringRef expectedLengthString = NULL;
+
+	/* release message if left from previous loop */
+	if ( *message_p != NULL )
+	{
+		CFRelease(*message_p);
+		*message_p = NULL;
+	}
+	/* create a CFHTTP message object */
+	*message_p = CFHTTPMessageCreateRequest(kCFAllocatorDefault, CFSTR("PUT"), urlRef, kCFHTTPVersion1_1);
+	/* require_action(message != NULL, CFHTTPMessageCreateRequest, error = EIO); */ 
+	if (*message_p != NULL) {
+		if (gIsMicrosoftIISServer) {
+			/* translate flag and no-cache only for Microsoft IIS Server */
+			CFHTTPMessageSetHeaderFieldValue(*message_p, CFSTR("translate"), CFSTR("f"));
+			CFHTTPMessageSetHeaderFieldValue(*message_p, CFSTR("Pragma"), CFSTR("no-cache"));
+		}
+		
+		/* Change the User-Agent header */
+		CFHTTPMessageSetHeaderFieldValue(*message_p, CFSTR("User-Agent"), userAgentHeaderValue);
+		
+		/* add the X-Source-Id header if needed */
+		if ( X_Source_Id_HeaderValue != NULL )
+		{
+			CFHTTPMessageSetHeaderFieldValue(*message_p, CFSTR("X-Source-Id"), X_Source_Id_HeaderValue);
+		}
+	
+		/* add other HTTP headers */
+		CFHTTPMessageSetHeaderFieldValue(*message_p, CFSTR("Accept"), CFSTR("*/*"));
+		
+		if ( file_len != 0 ) {
+			expectedLengthString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%qi"), file_len);
+			if ( expectedLengthString != NULL )
+			{
+				CFHTTPMessageSetHeaderFieldValue(*message_p, CFSTR("X-Expected-Entity-Length"), expectedLengthString);
+				CFRelease(expectedLengthString);
+			}
+		}
+	}
+}
+
+/******************************************************************************/
+
+static void add_last_mod_etag(CFHTTPMessageRef responseRef, time_t *file_last_modified, char *file_entity_tag) {
+	CFStringRef headerRef;
+	const char *field_value;
+	char buffer[4096];
+	
+	headerRef = CFHTTPMessageCopyHeaderFieldValue(responseRef, CFSTR("Last-Modified"));
+	if ( headerRef )
+	{
+		*file_last_modified = DateStringToTime(headerRef);
+		CFRelease(headerRef);
+	}
+	headerRef = CFHTTPMessageCopyHeaderFieldValue(responseRef, CFSTR("ETag"));
+	if ( headerRef )
+	{
+		field_value = CFStringGetCStringPtr(headerRef, kCFStringEncodingUTF8);
+		if ( field_value == NULL )
+		{
+			if ( CFStringGetCString(headerRef, buffer, 4096, kCFStringEncodingUTF8) )
+			{
+				field_value = buffer;
+			}
+		}
+		if ( field_value != NULL )
+		{
+			file_entity_tag = malloc(strlen(field_value) + 1);
+			if ( file_entity_tag != NULL )
+			{
+				strcpy(file_entity_tag, field_value);
+			}
+		}
+		CFRelease(headerRef);
+	}
+}
+
+/******************************************************************************/
+
+static void close_socket_pair(int sockfd[2]) 
+{
+	close(sockfd[0]);
+	close(sockfd[1]);
+}
+
+/******************************************************************************/
+
+static bool create_bound_streams(struct stream_put_ctx *ctx) {
+	/*  **************************** */	
+	  if ( socketpair(AF_UNIX, SOCK_STREAM, 0, ctx->sockfd) < 0) {
+		syslog(LOG_ERR,"%s: socketpair creation failed.", __FUNCTION__);
+		return false;
+	}
+	
+	/*  Create CFStreams for the raw sockets */
+	CFStreamCreatePairWithSocket(kCFAllocatorDefault, ctx->sockfd[0], &ctx->rdStreamRef, NULL);
+	CFStreamCreatePairWithSocket(kCFAllocatorDefault, ctx->sockfd[1], NULL, &ctx->wrStreamRef);
+	
+	if ( (ctx->rdStreamRef == NULL) || (ctx->wrStreamRef == NULL) )
+	{
+		syslog(LOG_ERR, "%s: Null Stream Pair: rdStreamRef %p  wrStreamRef %p.", __FUNCTION__, ctx->rdStreamRef, ctx->wrStreamRef );
+		close_socket_pair(ctx->sockfd);
+		
+		return false;
+	}
+
+	/* Ensure that the underlying sockets get closed when the streams are closed. */
+    if ( CFReadStreamSetProperty(ctx->rdStreamRef, kCFStreamPropertyShouldCloseNativeSocket, kCFBooleanTrue) == false ||
+		 CFWriteStreamSetProperty(ctx->wrStreamRef, kCFStreamPropertyShouldCloseNativeSocket, kCFBooleanTrue) == false ) 
+	{
+		syslog(LOG_ERR, "%s: failed to set kCFStreamPropertyShouldCloseNativeSocket.", __FUNCTION__);
+		close_socket_pair(ctx->sockfd);
+		/* Caller is responsible for closing rd & wr streams */
+		
+		return false;
+	}
+
+	/*  Open the read stream of the pair */
+	if (CFReadStreamOpen (ctx->rdStreamRef) == false) {
+		syslog(LOG_ERR, "%s: couldn't open read stream.", __FUNCTION__);
+		return false;
+	}
+	return true;
+}
+
+/******************************************************************************/
+
+int setup_seq_write(
+	uid_t uid,				  /* -> uid of the user making the request */
+	struct node_entry *node,  /* -> node we're writing  */
+	off_t file_length)        /* -> file length hint sent from the kernel */
+{
+	int error;
+	CFURLRef urlRef = NULL;
+	CFHTTPMessageRef message;
+	UInt32 statusCode;
+	CFHTTPMessageRef responseRef;
+	AuthRequestContext auth_ctx;
+	CFStringRef lockTokenRef;
+	char *file_entity_tag;
+	pthread_mutexattr_t mutexattr;
+	(void) uid;
+	struct timespec timeout;
+
+	error = 0;
+	file_entity_tag = NULL;
+	message = NULL;
+	responseRef = NULL;
+	statusCode = 0;
+	auth_ctx.count = 0;
+	auth_ctx.generation = 0;
+	
+	// **********************
+	// *** setup put_ctx ****
+	// **********************
+	node->put_ctx = (struct stream_put_ctx *) malloc (sizeof(struct stream_put_ctx));
+	if (node->put_ctx == NULL) {
+		syslog(LOG_ERR, "%s: failed to alloc ctx", __FUNCTION__);
+		error = ENOMEM;
+		return (error);
+	}
+	
+	/* initialize structs */
+	memset(node->put_ctx,0,sizeof(struct stream_put_ctx));
+	
+	error = pthread_mutexattr_init(&mutexattr);
+	if (error) {
+		syslog(LOG_ERR, "%s: init ctx mutexattr failed, error %d", __FUNCTION__, error);
+		error = EIO;
+		return (error);
+	}
+	
+	error = pthread_mutex_init(&node->put_ctx->ctx_lock, &mutexattr);
+	if (error) {
+		syslog(LOG_ERR, "%s: init ctx_lock failed, error %d", __FUNCTION__, error);
+		error = EIO;
+		return (error);
+	}
+	
+	error = pthread_cond_init(&node->put_ctx->ctx_condvar, NULL);
+	if (error) {
+		syslog(LOG_ERR, "%s: init ctx_condvar failed, error %d", __FUNCTION__, error);
+		error = EIO;
+		return (error);
+	}
+	
+	/* create a CFURL to the node */
+	urlRef = create_cfurl_from_node(node, NULL, 0);
+	if (urlRef == NULL)
+	{
+		syslog(LOG_ERR, "%s: create_cfurl_from_node failed", __FUNCTION__);
+		error = EIO;
+		return (error);	
+	}
+	
+	create_http_request_message(&message, urlRef, file_length); /* can this be moved outside the loop? */
+	
+	if (message == NULL)
+	{
+		syslog(LOG_ERR, "%s: create_http_request_message failed", __FUNCTION__);
+		error = EIO;
+		return (error);		
+	}
+	
+	/* is there a lock token? */
+	if ( node->file_locktoken != NULL )
+	{
+		/* in the unlikely event that this fails, the PUT may fail */
+		lockTokenRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("(<%s>)"), node->file_locktoken);
+		if ( lockTokenRef != NULL )
+		{
+			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("If"), lockTokenRef );
+			CFRelease(lockTokenRef);
+			lockTokenRef = NULL;
+		}
+	}
+	else
+	{
+		lockTokenRef = NULL;
+	}
+	
+	/* apply credentials (if any) */
+	/*
+	 * statusCode will be 401 or 407 will not be NULL if we've already been through the loop;
+	 * statusCode will be 0 and responseRef will be NULL if this is the first time through.
+	 */
+	error = authcache_apply(uid, message, statusCode, responseRef, &auth_ctx);
+	if ( error != 0 )
+	{
+		syslog(LOG_ERR, "%s: authcache_apply, error %d", __FUNCTION__, error);
+		goto out1;
+	}
+	
+
+	if(create_bound_streams(node->put_ctx) == false) {
+		syslog(LOG_ERR, "%s: failed to create bound streams", __FUNCTION__);
+		error = EIO;
+		goto out1;
+	}
+
+	// ***************************************
+	// *** CREATE THE RESPONSE READ STREAM ***
+	// ***************************************
+	// Create the response read stream, passing the Read stream of the pair
+	node->put_ctx->rspStreamRef = CFReadStreamCreateForStreamedHTTPRequest(kCFAllocatorDefault, 
+																		  message, 
+																		  node->put_ctx->rdStreamRef);
+	if (node->put_ctx->rspStreamRef == NULL) {
+		syslog(LOG_ERR,"%s: CFReadStreamCreateForStreamedHTTPRequest failed\n", __FUNCTION__);
+		goto out1;
+	}
+	
+	// Fire up the manager thread now
+	requestqueue_enqueue_seqwrite_manager(node->put_ctx);
+	
+	// Wait for manager to start running
+	timeout.tv_sec = time(NULL) + WEBDAV_MANAGER_STARTUP_TIMEOUT;
+	timeout.tv_nsec = 0;
+	pthread_mutex_lock(&node->put_ctx->ctx_lock);
+	while (node->put_ctx->mgr_status == WR_MGR_VIRGIN) {
+		error = pthread_cond_timedwait(&node->put_ctx->ctx_condvar, &node->put_ctx->ctx_lock, &timeout);	
+
+		if (error != 0) {
+			syslog(LOG_ERR, "%s: pthread_cond_timedwait returned error %d", __FUNCTION__, error);
+			node->put_ctx->finalStatus = EIO;
+			node->put_ctx->finalStatusValid = true;
+			error = EIO;
+			pthread_mutex_unlock(&node->put_ctx->ctx_lock);
+			goto out1;
+		} else {
+			// recalc timeout value
+			timeout.tv_sec = time(NULL) + WEBDAV_WRITESEQ_REQUEST_TIMEOUT;
+			timeout.tv_nsec = 0;		
+		}
+	}
+	
+	pthread_mutex_unlock(&node->put_ctx->ctx_lock);
+	
+out1:
+	CFRelease(message);
+	return ( error );
+}
+
+void network_seqwrite_manager(struct stream_put_ctx *ctx)
+{
+	CFMessagePortRef localPort;
+	CFRunLoopSourceRef runLoopSource;
+	CFStreamError streamError;
+	CFIndex bytesWritten, len;
+	struct seqwrite_mgr_req *curr_req = NULL;
+
+	localPort = NULL;
+	runLoopSource = NULL;
+
+	pthread_mutex_lock(&ctx->ctx_lock);
+	ctx->mgr_rl = CFRunLoopGetCurrent();
+	CFRetain(ctx->mgr_rl);
+	pthread_mutex_unlock(&ctx->ctx_lock);
+
+	// *************************************
+	// *** Schedule CFMessagePort Source ***
+	// *************************************
+	localPort = CFMessagePortCreateLocal(kCFAllocatorDefault, CFSTR(WRITE_MGR_MSG_PORT_NAME),
+										managerMessagePortCallback, NULL, NULL);
+		
+	if (localPort == NULL) {
+		syslog(LOG_ERR, "%s: CFMessagePortCreateLocal failed\n", __FUNCTION__);
+		pthread_mutex_lock(&ctx->ctx_lock);
+		ctx->finalStatusValid = true;
+		ctx->finalStatus = EIO;
+		ctx->mgr_status = WR_MGR_DONE;
+		pthread_cond_signal(&ctx->ctx_condvar);  // signal setup thread
+		pthread_mutex_unlock(&ctx->ctx_lock);
+		goto out1;
+	}
+
+	runLoopSource = CFMessagePortCreateRunLoopSource( kCFAllocatorDefault, localPort, 0);
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
+	
+	// Init a remote port so other threads can send to our Message Port
+	ctx->mgrPort = CFMessagePortCreateRemote(kCFAllocatorDefault, CFSTR(WRITE_MGR_MSG_PORT_NAME));
+		
+	if (ctx->mgrPort == NULL) {
+		syslog(LOG_ERR, "%s: CFMessagePortCreateRemote failed\n", __FUNCTION__);
+		pthread_mutex_lock(&ctx->ctx_lock);
+		ctx->finalStatusValid = true;
+		ctx->finalStatus = EIO;
+		ctx->mgr_status = WR_MGR_DONE;
+		pthread_cond_signal(&ctx->ctx_condvar);  // signal setup thread
+		pthread_mutex_unlock(&ctx->ctx_lock);
+		goto out1;
+	}
+
+	// Setup our client context
+	CFStreamClientContext mgrContext = {0, ctx, NULL, NULL, NULL};
+
+	// *****************************
+	// *** Schedule Write stream ***
+	// *****************************
+	CFWriteStreamSetClient (ctx->wrStreamRef,
+							kCFStreamEventCanAcceptBytes |
+							kCFStreamEventErrorOccurred |
+							kCFStreamEventOpenCompleted |
+							kCFStreamEventEndEncountered,
+							writeseqWriteCallback,
+							&mgrContext);
+							
+	CFWriteStreamScheduleWithRunLoop(ctx->wrStreamRef,
+									 ctx->mgr_rl,
+									 kCFRunLoopDefaultMode);
+									 
+	if (CFWriteStreamOpen(ctx->wrStreamRef) != true) {
+		syslog(LOG_ERR, "%s: failed to open write stream\n", __FUNCTION__);
+		pthread_mutex_lock(&ctx->ctx_lock);
+		ctx->finalStatusValid = true;
+		ctx->finalStatus = EIO;
+		ctx->mgr_status = WR_MGR_DONE;
+		pthread_cond_signal(&ctx->ctx_condvar);  // signal setup thread
+		pthread_mutex_unlock(&ctx->ctx_lock);
+		goto out1;
+	}
+
+	// ********************************
+	// *** Schedule Response stream ***
+	// ********************************
+	if ( !CFReadStreamSetClient(ctx->rspStreamRef,
+						  kCFStreamEventHasBytesAvailable |
+                          kCFStreamEventErrorOccurred |
+                          kCFStreamEventOpenCompleted | 
+                          kCFStreamEventEndEncountered,
+						  writeseqReadResponseCallback, &mgrContext) ) 
+	{
+		syslog(LOG_ERR, "%s: failed to set response stream client", __FUNCTION__);
+		pthread_mutex_lock(&ctx->ctx_lock);
+		ctx->finalStatus = EIO;
+		ctx->finalStatusValid = true;
+		ctx->mgr_status = WR_MGR_DONE;
+		pthread_cond_signal(&ctx->ctx_condvar);  // signal setup thread
+		pthread_mutex_unlock(&ctx->ctx_lock);
+		goto out1;					
+	}
+
+	CFReadStreamScheduleWithRunLoop(ctx->rspStreamRef, ctx->mgr_rl, kCFRunLoopDefaultMode);
+	
+	/* open the read stream */
+	if ( CFReadStreamOpen(ctx->rspStreamRef) == FALSE ) 
+	{
+		syslog(LOG_ERR, "%s: failed to open response stream", __FUNCTION__);
+		CFReadStreamUnscheduleFromRunLoop(ctx->rspStreamRef, ctx->mgr_rl, kCFRunLoopDefaultMode);
+		pthread_mutex_lock(&ctx->ctx_lock);
+		ctx->finalStatus = EIO;
+		ctx->finalStatusValid = true;
+		ctx->mgr_status = WR_MGR_DONE;
+		pthread_cond_signal(&ctx->ctx_condvar);  // signal setup thread
+		pthread_mutex_unlock(&ctx->ctx_lock);
+		goto out1;
+	}
+
+	// Everything is initalized, so we
+	// can say we're running now
+	pthread_mutex_lock(&ctx->ctx_lock);
+	ctx->mgr_status = WR_MGR_RUNNING;
+	pthread_cond_signal(&ctx->ctx_condvar);  // signal setup thread
+	pthread_mutex_unlock(&ctx->ctx_lock);
+
+	// Run the Runloop and handle callbacks
+	while(1)
+	{
+		pthread_mutex_lock(&ctx->ctx_lock);
+		// Are we all done?
+		if (ctx->req_head != NULL) {
+			if (ctx->req_head->type == SEQWRITE_CLOSE) {
+				// syslog(LOG_DEBUG, "%s: SEQWRITE_CLOSE, closing write stream", __FUNCTION__);
+				ctx->req_head = NULL;
+				ctx->req_tail = NULL;
+
+				CFWriteStreamClose(ctx->wrStreamRef);
+				ctx->canAcceptBytesEvents--;
+			}
+		}
+		
+		if (ctx->finalStatusValid == true) {
+			// syslog(LOG_DEBUG, "%s: finalStatusValid is true, exiting now", __FUNCTION__);
+			ctx->mgr_status = WR_MGR_DONE;
+			pthread_cond_signal(&ctx->ctx_condvar);  // signal setup thread
+			pthread_mutex_unlock(&ctx->ctx_lock);
+			break;
+		}
+		
+		// Can we Write?
+		if (ctx->canAcceptBytesEvents) {
+			// Is there a current write request we're working on?
+			if (curr_req == NULL) {
+				// No, check the queue for a new request
+				if (ctx->req_head != NULL) {
+					// dequeue the request and write the data
+					curr_req = ctx->req_head;
+					if (ctx->req_head == ctx->req_tail) {
+						// only one in queue
+						curr_req = ctx->req_head;
+						ctx->req_head = NULL;
+						ctx->req_tail = NULL;
+					} else {
+						curr_req = ctx->req_head;
+						ctx->req_head = ctx->req_head->next;
+						ctx->req_head->prev = NULL;
+					}
+				}
+			}
+			pthread_mutex_unlock(&ctx->ctx_lock);
+			
+			if (curr_req) {
+				// Now write the data
+				len =curr_req->chunkLen - curr_req->chunkWritten;
+				if (len == 0) {
+					// syslog(LOG_DEBUG,"%s: chunk written succesfully",__FUNCTION__);
+						
+					// wake thread sleeping on this request
+					pthread_mutex_lock(&curr_req->req_lock);
+					curr_req->error = 0;
+					curr_req->request_done = true;
+					pthread_cond_signal(&curr_req->req_condvar);
+					pthread_mutex_unlock(&curr_req->req_lock);
+					curr_req = NULL;
+					continue;
+				} else {
+					// syslog(LOG_DEBUG,"%s: chunkWritten: %u len: %ld\n",
+					//	__FUNCTION__, curr_req->chunkWritten, len);
+
+					pthread_mutex_lock(&ctx->ctx_lock);
+					ctx->canAcceptBytesEvents--;
+					pthread_mutex_unlock(&ctx->ctx_lock);
+					bytesWritten = CFWriteStreamWrite(ctx->wrStreamRef, (UInt8*)(curr_req->data + curr_req->chunkWritten), len);
+					
+					if (bytesWritten < 0 ) {
+						// bad
+						streamError = CFWriteStreamGetError(ctx->wrStreamRef);
+						if (!(ctx->is_retry) &&
+							((streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE) ||
+							(streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)))						
+						{
+							/*
+							 * We got an EPIPE or HTTP Connection Lost error from the stream.  We retry the PUT request
+							 * for these errors conditions
+							 */						
+							syslog(LOG_DEBUG,"%s: bytesWritten < 0, CFStreamError: domain %ld, error %ld (retrying)",
+								__FUNCTION__, streamError.domain, streamError.error);
+
+							// wake thread sleeping on this request
+							pthread_mutex_lock(&curr_req->req_lock);
+							curr_req->error = EAGAIN;
+							curr_req->request_done = true;
+							pthread_cond_signal(&curr_req->req_condvar);
+							pthread_mutex_unlock(&curr_req->req_lock);
+						}
+						else
+						{						
+							if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
+							{
+								syslog(LOG_DEBUG,"%s: CFStreamError: domain %ld, error %ld",
+								__FUNCTION__, streamError.domain, streamError.error);
+							}
+							set_connectionstate(WEBDAV_CONNECTION_DOWN);							
+							
+							// wake thread sleeping on this request
+							pthread_mutex_lock(&curr_req->req_lock);
+							curr_req->error = EIO;
+							curr_req->request_done = true;
+							pthread_cond_signal(&curr_req->req_condvar);
+							pthread_mutex_unlock(&curr_req->req_lock);
+						}
+					}
+					else
+						curr_req->chunkWritten += bytesWritten;
+				}
+			}
+		}		
+		else
+			pthread_mutex_unlock(&ctx->ctx_lock);
+		
+		pthread_mutex_lock(&ctx->ctx_lock);
+		if ( (ctx->canAcceptBytesEvents == 0) || (curr_req == NULL && ctx->req_head == NULL)) {
+ 			/* filesystem_write_seq will stop this runloop and exit with ETIMEDOUT
+			 * if it takes longer than WEBDAV_WRITESEQ_REQUEST_TIMEOUT seconds.
+			 * We would use CFRunLoopRun(void) here, but that doesn't allow us to
+			 * specify returnAfterSourceHandled, which we need.
+			 */
+			pthread_mutex_unlock(&ctx->ctx_lock);
+			CFRunLoopRunInMode(kCFRunLoopDefaultMode, DBL_MAX, TRUE);
+		} else {
+			pthread_mutex_unlock(&ctx->ctx_lock);
+		}
+	}
+
+out1:
+	if (localPort != NULL) {
+		CFMessagePortInvalidate(localPort);
+		CFRelease(localPort);
+	}
+	if (ctx->mgrPort != NULL)
+		CFMessagePortInvalidate(localPort);
+	if (runLoopSource != NULL)
+		CFRelease(runLoopSource);
+	return;
+}
+
+/******************************************************************************/
+
+// Note: ctx->lock must be held before calling this routine
+int queue_writemgr_request_locked(struct stream_put_ctx *ctx, struct seqwrite_mgr_req *req)
+{
+	SInt32 status;
+
+	if (ctx == NULL) {
+		syslog(LOG_ERR, "%s: NULL ctx arg", __FUNCTION__);
+		return (-1);
+	}
+	
+	if (req == NULL) {
+		syslog(LOG_ERR, "%s: NULL request arg", __FUNCTION__);
+		return (-1);
+	}
+	
+	// queue request
+	if (ctx->req_head == NULL) {
+		ctx->req_head = req;
+		ctx->req_tail = req;
+		req->prev = NULL;
+		req->next = NULL;
+	} else {
+		ctx->req_tail->next = req;
+		req->prev = ctx->req_tail;
+		req->next = NULL;
+		ctx->req_tail = req;
+	}
+	
+	// fire manager's runloop source
+	status = CFMessagePortSendRequest(
+		ctx->mgrPort,
+		(SInt32) WRITE_MGR_NEW_REQUEST_ID,
+		NULL,
+		WRITE_MGR_MSG_PORTSEND_TIMEOUT,
+		WRITE_MGR_MSG_PORTSEND_TIMEOUT,
+		NULL, NULL);
+		
+	if (status != kCFMessagePortSuccess)
+		return (-1);
+	else
+		return (0);
+}
+
+/******************************************************************************/
+
 int network_fsync(
 	uid_t uid,					/* -> uid of the user making the request */
 	struct node_entry *node,	/* -> node to sync with server */
@@ -3460,33 +4324,8 @@ int network_fsync(
 	/* the transaction/authentication loop */
 	do
 	{
-		/* release message if left from previous loop */
-		if ( message != NULL )
-		{
-			CFRelease(message);
-			message = NULL;
-		}
-		/* create a CFHTTP message object */
-		message = CFHTTPMessageCreateRequest(kCFAllocatorDefault, CFSTR("PUT"), urlRef, kCFHTTPVersion1_1);
+		create_http_request_message(&message, urlRef, 0);
 		require_action(message != NULL, CFHTTPMessageCreateRequest, error = EIO);
-		
-		if (gIsMicrosoftIISServer) {
-			/* translate flag and no-cache only for Microsoft IIS Server */
-			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("translate"), CFSTR("f"));
-			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("Pragma"), CFSTR("no-cache"));
-		}
-
-		/* Change the User-Agent header */
-		CFHTTPMessageSetHeaderFieldValue(message, CFSTR("User-Agent"), userAgentHeaderValue);
-		
-		/* add the X-Source-Id header if needed */
-		if ( X_Source_Id_HeaderValue != NULL )
-		{
-			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("X-Source-Id"), X_Source_Id_HeaderValue);
-		}
-		
-		/* add other HTTP headers */
-		CFHTTPMessageSetHeaderFieldValue(message, CFSTR("Accept"), CFSTR("*/*"));
 		
 		/* is there a lock token? */
 		if ( node->file_locktoken != NULL )
@@ -3530,16 +4369,16 @@ int network_fsync(
 			statusCode = 0;
 			/* responseRef will be left NULL on retries */
 		}
+		else if ( error != 0 )
+		{
+			break;
+		}
 		else
 		{
-			if ( error != 0 )
-			{
-				break;
-			}
-			
 			/* get the status code */
 			statusCode = CFHTTPMessageGetResponseStatusCode(responseRef);
 		}
+
 	} while ( error == EAGAIN || statusCode == 401 || statusCode == 407 );
 
 CFHTTPMessageCreateRequest:
@@ -3556,39 +4395,7 @@ CFHTTPMessageCreateRequest:
 			 * another transaction updated the authcache element after we got it.
 			 */
 			(void) authcache_valid(uid, message, &ctx);
-			{
-				CFStringRef headerRef;
-				const char *field_value;
-				char buffer[4096];
-				
-				headerRef = CFHTTPMessageCopyHeaderFieldValue(responseRef, CFSTR("Last-Modified"));
-				if ( headerRef )
-				{
-					*file_last_modified = DateStringToTime(headerRef);
-					CFRelease(headerRef);
-				}
-				headerRef = CFHTTPMessageCopyHeaderFieldValue(responseRef, CFSTR("ETag"));
-				if ( headerRef )
-				{
-					field_value = CFStringGetCStringPtr(headerRef, kCFStringEncodingUTF8);
-					if ( field_value == NULL )
-					{
-						if ( CFStringGetCString(headerRef, buffer, 4096, kCFStringEncodingUTF8) )
-						{
-							field_value = buffer;
-						}
-					}
-					if ( field_value != NULL )
-					{
-						file_entity_tag = malloc(strlen(field_value) + 1);
-						if ( file_entity_tag != NULL )
-						{
-							strcpy(file_entity_tag, field_value);
-						}
-					}
-					CFRelease(headerRef);
-				}
-			}
+			add_last_mod_etag(responseRef, file_last_modified, file_entity_tag);
 		}
 	}
 	

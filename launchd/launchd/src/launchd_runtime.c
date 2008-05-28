@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23459 $";
+static const char *const __rcs_file_version__ = "$Revision: 23528 $";
 
 #include "config.h"
 #include "launchd_runtime.h"
@@ -275,7 +275,6 @@ reboot_flags_to_C_names(unsigned int flags)
 		FLAGIF(RB_ASKNAME)
 		else FLAGIF(RB_SINGLE)
 		else FLAGIF(RB_NOSYNC)
-		else FLAGIF(RB_KDB)
 		else FLAGIF(RB_HALT)
 		else FLAGIF(RB_INITNAME)
 		else FLAGIF(RB_DFLTROOT)

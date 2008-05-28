@@ -249,7 +249,7 @@ void sBucketList::DeleteItem( const char *inKey, sCacheEntry *inEntry )
 #pragma mark -
 #pragma mark sCacheEntry structure
 
-sCacheEntry::sCacheEntry( uint32_t inTTL, time_t inTimeStamp, uint32_t inFlags, kvbuf_t *inBuffer )
+sCacheEntry::sCacheEntry( int32_t inTTL, time_t inTimeStamp, uint32_t inFlags, kvbuf_t *inBuffer )
 {
     fNext = fPrev = NULL;
     fValidation = NULL;
@@ -397,7 +397,7 @@ bool sCacheEntry::Validate( time_t inNow )
 #pragma mark -
 #pragma mark Cache Entry public routines
 
-CCache::CCache( uint32_t inMaxSize, uint32_t inBuckets, time_t inMRAWindow, time_t inTTL, uint32_t inPolicyFlags ) : fCacheLock("CCache::fCacheLock")
+CCache::CCache( uint32_t inMaxSize, uint32_t inBuckets, time_t inMRAWindow, int32_t inTTL, uint32_t inPolicyFlags ) : fCacheLock("CCache::fCacheLock")
 {
 	fHead = fTail = NULL;
 	fBucketCount = inBuckets;
@@ -414,7 +414,7 @@ CCache::~CCache( void )
 	free( fBuckets );
 }
 
-sCacheEntry *CCache::AddEntry( kvbuf_t *inBuffer, const char *inKey, time_t inTTL, uint32_t inFlags )
+sCacheEntry *CCache::AddEntry( kvbuf_t *inBuffer, const char *inKey, int32_t inTTL, uint32_t inFlags )
 {
 	sCacheEntry	*out	= NULL;
 	
@@ -426,10 +426,11 @@ sCacheEntry *CCache::AddEntry( kvbuf_t *inBuffer, const char *inKey, time_t inTT
         if ( (inFlags & CACHE_ENTRY_TYPE_REPLACE) == CACHE_ENTRY_TYPE_REPLACE )
             RemoveKey( inKey ); // force remove the key
         
-		if ( RemoveCollision(inKey) == true )
+        // remove the key, but also only cache if TTL > 0
+		if ( RemoveCollision(inKey) == true && inTTL > 0 )
 		{
-			// 0 means default TTL, if TTL provided is larger than our default, cap it to the default
-			if ( inTTL == 0 || inTTL > fCacheTTL )
+			// if TTL provided is larger than our default, cap it to the default
+			if ( inTTL > fCacheTTL )
 				inTTL = fCacheTTL;
 
 			out = new sCacheEntry( inTTL, time(NULL), inFlags, inBuffer );
@@ -590,7 +591,7 @@ void CCache::RemoveKey( const char *inKey )
     }
 }
 
-kvbuf_t *CCache::Fetch( sKeyList *inKeys, bool inMatchAll, uint32_t *outLowestTTL )
+kvbuf_t *CCache::Fetch( sKeyList *inKeys, bool inMatchAll, int32_t *outLowestTTL )
 {
     kvbuf_t     *out    = NULL;
 	
@@ -598,7 +599,7 @@ kvbuf_t *CCache::Fetch( sKeyList *inKeys, bool inMatchAll, uint32_t *outLowestTT
 	{
 		sEntryList	*expired    = new sEntryList;
         time_t      now         = time(NULL);
-        uint32_t    lowestTTL   = fCacheTTL; // start with the max since it's the highest it can be
+        int32_t     lowestTTL   = fCacheTTL; // start with the max since it's the highest it can be
 
         fCacheLock.WaitLock();
 

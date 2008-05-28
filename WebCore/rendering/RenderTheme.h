@@ -1,7 +1,7 @@
 /*
  * This file is part of the theme implementation for form controls in WebCore.
  *
- * Copyright (C) 2005 Apple Computer, Inc.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -103,6 +103,8 @@ public:
     Color activeSelectionBackgroundColor() const;
     Color inactiveSelectionBackgroundColor() const;
 
+    virtual Color platformTextSearchHighlightColor() const;
+
     // The platform selection color.
     virtual Color platformActiveSelectionBackgroundColor() const;
     virtual Color platformInactiveSelectionBackgroundColor() const;
@@ -117,14 +119,17 @@ public:
 
     void platformColorsDidChange();
 
+    virtual double caretBlinkFrequency() const { return 0.5; }
+
     // System fonts.
-    virtual void systemFont(int propId, FontDescription&) const = 0;
+    virtual void systemFont(int cssValueId, FontDescription&) const = 0;
 
     virtual int minimumMenuListSize(RenderStyle*) const { return 0; }
 
     virtual void adjustSliderThumbSize(RenderObject*) const;
 
     // Methods for state querying
+    bool isActive(const RenderObject*) const;
     bool isChecked(const RenderObject*) const;
     bool isIndeterminate(const RenderObject*) const;
     bool isEnabled(const RenderObject*) const;
@@ -137,6 +142,9 @@ public:
     virtual int popupInternalPaddingRight(RenderStyle*) const { return 0; }
     virtual int popupInternalPaddingTop(RenderStyle*) const { return 0; }
     virtual int popupInternalPaddingBottom(RenderStyle*) const { return 0; }
+    
+    // Method for painting the caps lock indicator
+    virtual bool paintCapsLockIndicator(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return 0; };
 
 protected:
     // Methods for each appearance value.
@@ -184,6 +192,14 @@ protected:
 
     virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+
+    virtual bool paintMediaFullscreenButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaMuteButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaSeekBackButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaSeekForwardButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
+    virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return true; }
 
 private:
     mutable Color m_activeSelectionColor;

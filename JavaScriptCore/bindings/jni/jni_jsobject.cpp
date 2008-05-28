@@ -27,15 +27,15 @@
 #include "identifier.h"
 #include "internal.h"
 #include "interpreter.h"
-#include "list.h"
 #include "jni_jsobject.h"
 #include "jni_runtime.h"
 #include "jni_utility.h"
+#include "JSGlobalObject.h"
+#include "list.h"
 #include "runtime_object.h"
 #include "runtime_root.h"
-
 #include <CoreFoundation/CoreFoundation.h>
-#include <assert.h>
+#include <wtf/Assertions.h>
 
 using namespace KJS::Bindings;
 using namespace KJS;
@@ -79,7 +79,7 @@ jvalue JavaJSObject::invoke (JSObjectCallContext *context)
         }
         else {
             JSObject *imp = jlong_to_impptr(nativeHandle);
-            if (!findRootObject(imp)) {
+            if (!findProtectingRootObject(imp)) {
                 fprintf (stderr, "%s:%d:  Attempt to access JavaScript from destroyed applet, type %d.\n", __FILE__, __LINE__, context->type);
                 return result;
             }
@@ -147,7 +147,7 @@ JavaJSObject::JavaJSObject(jlong nativeJSObject)
     _imp = jlong_to_impptr(nativeJSObject);
     
     ASSERT(_imp);
-    _rootObject = findRootObject(_imp);
+    _rootObject = findProtectingRootObject(_imp);
     ASSERT(_rootObject);
 }
 
@@ -165,7 +165,7 @@ jobject JavaJSObject::call(jstring methodName, jobjectArray args) const
         return 0;
     
     // Lookup the function object.
-    ExecState* exec = rootObject->interpreter()->globalExec();
+    ExecState* exec = rootObject->globalObject()->globalExec();
     JSLock lock;
     
     Identifier identifier(JavaString(methodName).ustring());
@@ -176,10 +176,11 @@ jobject JavaJSObject::call(jstring methodName, jobjectArray args) const
     // Call the function object.
     JSObject *funcImp = static_cast<JSObject*>(func);
     JSObject *thisObj = const_cast<JSObject*>(_imp);
-    List argList = listFromJArray(args);
-    rootObject->interpreter()->startTimeoutCheck();
+    List argList;
+    getListFromJArray(args, argList);
+    rootObject->globalObject()->startTimeoutCheck();
     JSValue *result = funcImp->call(exec, thisObj, argList);
-    rootObject->interpreter()->stopTimeoutCheck();
+    rootObject->globalObject()->stopTimeoutCheck();
 
     return convertValueToJObject(result);
 }
@@ -197,9 +198,9 @@ jobject JavaJSObject::eval(jstring script) const
     if (!rootObject)
         return 0;
 
-    rootObject->interpreter()->startTimeoutCheck();
-    Completion completion = rootObject->interpreter()->evaluate(UString(), 0, JavaString(script).ustring(),thisObj);
-    rootObject->interpreter()->stopTimeoutCheck();
+    rootObject->globalObject()->startTimeoutCheck();
+    Completion completion = Interpreter::evaluate(rootObject->globalObject()->globalExec(), UString(), 0, JavaString(script).ustring(),thisObj);
+    rootObject->globalObject()->stopTimeoutCheck();
     ComplType type = completion.complType();
     
     if (type == Normal) {
@@ -220,7 +221,7 @@ jobject JavaJSObject::getMember(jstring memberName) const
     if (!rootObject)
         return 0;
 
-    ExecState* exec = rootObject->interpreter()->globalExec();
+    ExecState* exec = rootObject->globalObject()->globalExec();
     
     JSLock lock;
     JSValue *result = _imp->get (exec, Identifier (JavaString(memberName).ustring()));
@@ -236,7 +237,7 @@ void JavaJSObject::setMember(jstring memberName, jobject value) const
     if (!rootObject)
         return;
 
-    ExecState* exec = rootObject->interpreter()->globalExec();
+    ExecState* exec = rootObject->globalObject()->globalExec();
     JSLock lock;
     _imp->put(exec, Identifier (JavaString(memberName).ustring()), convertJObjectToValue(value));
 }
@@ -250,7 +251,7 @@ void JavaJSObject::removeMember(jstring memberName) const
     if (!rootObject)
         return;
 
-    ExecState* exec = rootObject->interpreter()->globalExec();
+    ExecState* exec = rootObject->globalObject()->globalExec();
     JSLock lock;
     _imp->deleteProperty(exec, Identifier (JavaString(memberName).ustring()));
 }
@@ -268,7 +269,7 @@ jobject JavaJSObject::getSlot(jint index) const
     if (!rootObject)
         return 0;
 
-    ExecState* exec = rootObject->interpreter()->globalExec();
+    ExecState* exec = rootObject->globalObject()->globalExec();
 
     JSLock lock;
     JSValue *result = _imp->get (exec, (unsigned)index);
@@ -289,7 +290,7 @@ void JavaJSObject::setSlot(jint index, jobject value) const
     if (!rootObject)
         return;
 
-    ExecState* exec = rootObject->interpreter()->globalExec();
+    ExecState* exec = rootObject->globalObject()->globalExec();
     JSLock lock;
     _imp->put(exec, (unsigned)index, convertJObjectToValue(value));
 }
@@ -305,7 +306,7 @@ jstring JavaJSObject::toString() const
 
     JSLock lock;
     JSObject *thisObj = const_cast<JSObject*>(_imp);
-    ExecState* exec = rootObject->interpreter()->globalExec();
+    ExecState* exec = rootObject->globalObject()->globalExec();
     
     return (jstring)convertValueToJValue (exec, thisObj, object_type, "java.lang.String").l;
 }
@@ -325,7 +326,7 @@ jlong JavaJSObject::createNative(jlong nativeHandle)
     if (nativeHandle == UndefinedHandle)
         return nativeHandle;
 
-    if (findRootObject(jlong_to_impptr(nativeHandle)))
+    if (findProtectingRootObject(jlong_to_impptr(nativeHandle)))
         return nativeHandle;
 
     CreateRootObjectFunction createRootObject = RootObject::createRootObject();
@@ -338,7 +339,7 @@ jlong JavaJSObject::createNative(jlong nativeHandle)
     // otherwise we are being called after creating a JavaJSObject in
     // JavaJSObject::convertValueToJObject().
     if (rootObject) {
-        JSObject* globalObject = rootObject->interpreter()->globalObject();
+        JSObject* globalObject = rootObject->globalObject();
         // We call gcProtect here to get the object into the root object's "protect set" which
         // is used to test if a native handle is valid as well as getting the root object given the handle.
         rootObject->gcProtect(globalObject);
@@ -356,7 +357,7 @@ jobject JavaJSObject::convertValueToJObject (JSValue *value) const
     if (!rootObject)
         return 0;
 
-    ExecState* exec = rootObject->interpreter()->globalExec();
+    ExecState* exec = rootObject->globalObject()->globalExec();
     JNIEnv *env = getJNIEnv();
     jobject result = 0;
     
@@ -468,21 +469,18 @@ JSValue *JavaJSObject::convertJObjectToValue (jobject theObject) const
 
     JSLock lock;
     JavaInstance* javaInstance = new JavaInstance(theObject, _rootObject);
-    RuntimeObjectImp* newImp = new RuntimeObjectImp(javaInstance);
-
-    return newImp;
+    return KJS::Bindings::Instance::createRuntimeObject(javaInstance);
 }
 
-List JavaJSObject::listFromJArray(jobjectArray jArray) const
+void JavaJSObject::getListFromJArray(jobjectArray jArray, List& list) const
 {
     JNIEnv *env = getJNIEnv();
     int i, numObjects = jArray ? env->GetArrayLength (jArray) : 0;
-    List aList;
     
     for (i = 0; i < numObjects; i++) {
         jobject anObject = env->GetObjectArrayElement ((jobjectArray)jArray, i);
         if (anObject) {
-            aList.append (convertJObjectToValue(anObject));
+            list.append(convertJObjectToValue(anObject));
             env->DeleteLocalRef (anObject);
         }
         else {
@@ -490,7 +488,6 @@ List JavaJSObject::listFromJArray(jobjectArray jArray) const
             env->ExceptionClear();
         }
     }
-    return aList;
 }
 
 extern "C" {

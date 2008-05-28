@@ -32,24 +32,35 @@
 #include "Chrome.h"
 #include <JavaScriptCore/JSContextRef.h>
 #include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
+class Database;
 class DocumentLoader;
+class GraphicsContext;
 class InspectorClient;
 class Node;
 class ResourceResponse;
 class ResourceError;
 
 struct ConsoleMessage;
+struct InspectorDatabaseResource;
 struct InspectorResource;
-struct ResourceRequest;
+class ResourceRequest;
 
 class InspectorController {
 public:
     typedef HashMap<long long, RefPtr<InspectorResource> > ResourcesMap;
     typedef HashMap<RefPtr<Frame>, ResourcesMap*> FrameResourcesMap;
+    typedef HashSet<RefPtr<InspectorDatabaseResource> > DatabaseResourcesSet;
+
+    typedef enum {
+        FocusedNodeDocumentPanel,
+        ConsolePanel,
+        TimelinePanel
+    } SpecialPanels;
 
     InspectorController(Page*, InspectorClient*);
     ~InspectorController();
@@ -60,9 +71,16 @@ public:
 
     Page* inspectedPage() const { return m_inspectedPage; }
 
+    String localizedStringsURL();
+
     void inspect(Node*);
     void highlight(Node*);
     void hideHighlight();
+
+    void show();
+    void showConsole();
+    void showTimeline();
+    void close();
 
     bool windowVisible();
     void setWindowVisible(bool visible = true);
@@ -78,7 +96,6 @@ public:
     void windowScriptObjectAvailable();
 
     void scriptObjectReady();
-    void windowUnloading();
 
     void populateScriptResources();
     void clearScriptResources();
@@ -95,7 +112,15 @@ public:
     void didFinishLoading(DocumentLoader*, unsigned long identifier);
     void didFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&);
 
+#if ENABLE(DATABASE)
+    void didOpenDatabase(Database*, const String& domain, const String& name, const String& version);
+#endif
+
     const ResourcesMap& resources() const { return m_resources; }
+
+    void moveWindowBy(float x, float y) const;
+
+    void drawNodeHighlight(GraphicsContext&) const;
 
 private:
     void focusNode();
@@ -104,6 +129,7 @@ private:
     void clearScriptConsoleMessages();
 
     void clearNetworkTimeline();
+    void clearDatabaseScriptResources();
 
     void addResource(InspectorResource*);
     void removeResource(InspectorResource*);
@@ -121,6 +147,11 @@ private:
     void pruneResources(ResourcesMap*, DocumentLoader* loaderToKeep = 0);
     void removeAllResources(ResourcesMap* map) { pruneResources(map); }
 
+#if ENABLE(DATABASE)
+    JSObjectRef addDatabaseScriptResource(InspectorDatabaseResource*);
+    void removeDatabaseScriptResource(InspectorDatabaseResource*);
+#endif
+
     Page* m_inspectedPage;
     InspectorClient* m_client;
     Page* m_page;
@@ -129,11 +160,16 @@ private:
     ResourcesMap m_resources;
     FrameResourcesMap m_frameResources;
     Vector<ConsoleMessage*> m_consoleMessages;
+#if ENABLE(DATABASE)
+    DatabaseResourcesSet m_databaseResources;
+#endif
     JSObjectRef m_scriptObject;
     JSObjectRef m_controllerScriptObject;
     JSContextRef m_scriptContext;
     bool m_windowVisible;
+    SpecialPanels m_showAfterVisible;
     long long m_nextIdentifier;
+    RefPtr<Node> m_highlightedNode;
 };
 
 } // namespace WebCore

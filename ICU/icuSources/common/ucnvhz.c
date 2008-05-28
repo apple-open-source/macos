@@ -1,6 +1,6 @@
 /*  
 **********************************************************************
-*   Copyright (C) 2000-2006, International Business Machines
+*   Copyright (C) 2000-2006, 2008 International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  ucnvhz.c
@@ -59,6 +59,7 @@ typedef struct{
     UBool isEscapeAppended;
     UBool isStateDBCS;
     UBool isTargetUCharDBCS;
+    UBool isEmptySegment;
 }UConverterDataHZ;
 
 
@@ -98,6 +99,7 @@ _HZReset(UConverter *cnv, UConverterResetChoice choice){
         cnv->mode=0;
         if(cnv->extraInfo != NULL){
             ((UConverterDataHZ*)cnv->extraInfo)->isStateDBCS = FALSE;
+            ((UConverterDataHZ*)cnv->extraInfo)->isEmptySegment = FALSE;
         }
     }
     if(choice!=UCNV_RESET_TO_UNICODE) {
@@ -163,12 +165,14 @@ UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
                         
                     }
                     *(myTarget++)=(UChar)mySourceChar;
+                    myData->isEmptySegment = FALSE;
                     continue;
             
                 case UCNV_TILDE:
                     if(args->converter->mode ==UCNV_TILDE){
                         *(myTarget++)=(UChar)mySourceChar;
                         args->converter->mode=0;
+                        myData->isEmptySegment = FALSE;
                         continue;
                         
                     }
@@ -186,6 +190,7 @@ UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
                     if(args->converter->mode == UCNV_TILDE){
                         args->converter->mode=0;
                         myData->isStateDBCS = TRUE;
+                        myData->isEmptySegment = TRUE;
                         continue;
                     }
                     else{
@@ -197,6 +202,15 @@ UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
                     if(args->converter->mode == UCNV_TILDE){
                         args->converter->mode=0;
                          myData->isStateDBCS = FALSE;
+                         if (myData->isEmptySegment) {
+                            myData->isEmptySegment = FALSE;	/* we are handling it, reset to avoid future spurious errors */
+                            *err = U_PARSE_ERROR;	/* temporary err to flag empty segment, will be reset to U_ILLEGAL_ESCAPE_SEQUENCE in _toUnicodeWithCallback */
+                            args->converter->toUBytes[0] = UCNV_TILDE;
+                            args->converter->toUBytes[1] = mySourceChar;
+                            args->converter->toULength = 2;
+                         	goto EXIT;
+                         }
+                         myData->isEmptySegment = TRUE;
                         continue;
                     }
                     else{
@@ -210,6 +224,7 @@ UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
                     if(args->converter->mode == UCNV_TILDE){
                         args->converter->mode=0;
                         mySourceChar= (UChar)(((UCNV_TILDE+0x80) << 8) | ((mySourceChar & 0x00ff)+0x80));
+                        myData->isEmptySegment = FALSE;	/* different error here, reset this to avoid spurious future error */
                         goto SAVE_STATE;
                     }
                     
@@ -217,6 +232,7 @@ UConverter_toUnicode_HZ_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
 
             }
              
+            myData->isEmptySegment = FALSE;	/* the segment has something, either valid or will produce a different error, so reset this */
             if(myData->isStateDBCS){
                 if(args->converter->toUnicodeStatus == 0x00){
                     args->converter->toUnicodeStatus = (UChar) mySourceChar;
@@ -281,7 +297,7 @@ SAVE_STATE:
             break;
         }
     }
-
+EXIT:
     args->target = myTarget;
     args->source = mySource;
 }

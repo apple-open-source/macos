@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: ssldoc.patch
 ## Copyright (c) 1998-2007 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 12-Sep-2007
+## Created on: 08-Feb-2008
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be

@@ -21,7 +21,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -77,7 +77,7 @@ ImageDecoder* createDecoder(const Vector<char>& data)
     if (!memcmp(contents, "\000\000\001\000", 4) ||
         !memcmp(contents, "\000\000\002\000", 4))
         return new ICOImageDecoder();
-   
+
     // XBMs require 8 bytes of info.
     if (length >= 8 && strncmp(contents, "#define ", 8) == 0)
         return new XBMImageDecoder();
@@ -112,10 +112,12 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     // This method will examine the data and instantiate an instance of the appropriate decoder plugin.
     // If insufficient bytes are available to determine the image type, no decoder plugin will be
     // made.
-    delete m_decoder;
-    m_decoder = createDecoder(data->buffer());
+    if (!m_decoder)
+        m_decoder = createDecoder(data->buffer());
+
     if (!m_decoder)
         return;
+
     m_decoder->setData(data, allDataReceived);
 }
 
@@ -157,6 +159,11 @@ NativeImagePtr ImageSource::createFrameAtIndex(size_t index)
     if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
         return 0;
 
+    // Cairo does not like zero height images.
+    // If we have a zero height image, just pretend we don't have enough data yet.
+    if (!buffer->height())
+        return 0;
+
     return cairo_image_surface_create_for_data((unsigned char*)buffer->bytes().data(),
                                                CAIRO_FORMAT_ARGB32,
                                                size().width(),
@@ -193,14 +200,15 @@ float ImageSource::frameDurationAtIndex(size_t index)
 
 bool ImageSource::frameHasAlphaAtIndex(size_t index)
 {
-    if (!m_decoder || !m_decoder->supportsAlpha())
-        return false;
+    // When a frame has not finished decoding, always mark it as having alpha,
+    // so we don't get a black background for the undecoded sections.
+    // TODO: A better solution is probably to have the underlying buffer's
+    // hasAlpha() return true in these cases, since it is, in fact, technically
+    // true.
+    if (!frameIsCompleteAtIndex(index))
+        return true;
 
-    RGBA32Buffer* buffer = m_decoder->frameBufferAtIndex(index);
-    if (!buffer || buffer->status() == RGBA32Buffer::FrameEmpty)
-        return false;
-
-    return buffer->hasAlpha();
+    return m_decoder->frameBufferAtIndex(index)->hasAlpha();
 }
 
 }

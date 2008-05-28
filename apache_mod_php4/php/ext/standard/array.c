@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -22,7 +22,7 @@
 */
 
 
-/* $Id: array.c,v 1.199.2.44.2.16 2007/03/16 20:08:25 stas Exp $ */
+/* $Id: array.c,v 1.199.2.44.2.17 2007/12/31 07:22:51 sebastian Exp $ */
 
 #include "php.h"
 #include "php_ini.h"

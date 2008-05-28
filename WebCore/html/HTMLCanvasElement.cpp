@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +44,8 @@
 #if PLATFORM(QT)
 #include <QPainter>
 #include <QPixmap>
+#elif PLATFORM(CAIRO)
+#include <cairo.h>
 #endif
 
 namespace WebCore {
@@ -65,6 +68,8 @@ HTMLCanvasElement::HTMLCanvasElement(Document* doc)
     , m_data(0)
 #if PLATFORM(QT)
     , m_painter(0)
+#elif PLATFORM(CAIRO)
+    , m_surface(0)
 #endif
     , m_drawingContext(0)
 {
@@ -79,6 +84,9 @@ HTMLCanvasElement::~HTMLCanvasElement()
 #elif PLATFORM(QT)
     delete m_painter;
     delete m_data;
+#elif PLATFORM(CAIRO)
+    if (m_surface)
+        cairo_surface_destroy(m_surface);
 #endif
     delete m_drawingContext;
 }
@@ -141,14 +149,19 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type)
     return 0;
 }
 
-void HTMLCanvasElement::willDraw(const FloatRect&)
+void HTMLCanvasElement::willDraw(const FloatRect& rect)
 {
-    // FIXME: Change to repaint just the dirty rect for speed.
-    // Until we start doing this, we won't know if the rects passed in are
-    // accurate. Also don't forget to take into account the transform
-    // on the context when determining what needs to be repainted.
-    if (renderer())
-        renderer()->repaint();
+    if (RenderObject* ro = renderer()) {
+#ifdef CANVAS_INCREMENTAL_REPAINT
+        // Handle CSS triggered scaling
+        float widthScale = static_cast<float>(ro->width()) / static_cast<float>(m_size.width());
+        float heightScale = static_cast<float>(ro->height()) / static_cast<float>(m_size.height());
+        FloatRect r(rect.x() * widthScale, rect.y() * heightScale, rect.width() * widthScale, rect.height() * heightScale);
+        ro->repaintRectangle(enclosingIntRect(r));
+#else
+        ro->repaint();
+#endif
+    }
 }
 
 void HTMLCanvasElement::reset()
@@ -172,6 +185,10 @@ void HTMLCanvasElement::reset()
     delete m_painter;
     m_painter = 0;
     delete m_data;
+#elif PLATFORM(CAIRO)
+    if (m_surface)
+        cairo_surface_destroy(m_surface);
+    m_surface = 0;
 #endif
     m_data = 0;
     delete m_drawingContext;
@@ -211,6 +228,17 @@ void HTMLCanvasElement::paint(GraphicsContext* p, const IntRect& r)
         m_painter->setBrush(currentBrush);
         m_painter->setOpacity(currentOpacity);
         m_painter->setBackground(currentBackground);
+    }
+#elif PLATFORM(CAIRO)
+    if (cairo_surface_t* image = createPlatformImage()) {
+        cairo_t* cr = p->platformContext();
+        cairo_save(cr);
+        cairo_translate(cr, r.x(), r.y());
+        cairo_set_source_surface(cr, image, 0, 0);
+        cairo_surface_destroy(image);
+        cairo_rectangle(cr, 0, 0, r.width(), r.height());
+        cairo_fill(cr);
+        cairo_restore(cr);
     }
 #endif
 }
@@ -255,6 +283,14 @@ void HTMLCanvasElement::createDrawingContext() const
     m_painter->setBackground(QBrush(Qt::transparent));
     m_painter->fillRect(0, 0, w, h, QColor(Qt::transparent));
     m_drawingContext = new GraphicsContext(m_painter);
+#elif PLATFORM(CAIRO)
+    m_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
+    // m_data is owned by m_surface
+    m_data = cairo_image_surface_get_data(m_surface);
+    cairo_t* cr = cairo_create(m_surface);
+    cairo_scale(cr, w / unscaledWidth, h / unscaledHeight);
+    m_drawingContext = new GraphicsContext(cr);
+    cairo_destroy(cr);
 #endif
 }
 
@@ -289,6 +325,22 @@ QImage HTMLCanvasElement::createPlatformImage() const
     if (m_data)
         return *m_data;
     return QImage();
+}
+
+#elif PLATFORM(CAIRO)
+
+cairo_surface_t* HTMLCanvasElement::createPlatformImage() const
+{
+    if (!m_surface)
+        return 0;
+
+    // Note that unlike CG, our returned image is not a copy or
+    // copy-on-write, but the original. This is fine, since it is only
+    // ever used as a source.
+
+    cairo_surface_flush(m_surface);
+    cairo_surface_reference(m_surface);
+    return m_surface;
 }
 
 #endif

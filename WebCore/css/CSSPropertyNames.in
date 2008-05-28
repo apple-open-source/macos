@@ -106,6 +106,7 @@ scrollbar-highlight-color
 scrollbar-shadow-color
 scrollbar-track-color
 size
+src
 table-layout
 text-align
 text-decoration
@@ -130,6 +131,7 @@ text-underline-style
 text-underline-width
 top
 unicode-bidi
+unicode-range
 vertical-align
 visibility
 white-space
@@ -139,7 +141,11 @@ word-break
 word-spacing
 word-wrap
 z-index
-
+-webkit-transition
+-webkit-transition-duration
+-webkit-transition-property
+-webkit-transition-repeat-count
+-webkit-transition-timing-function
 -webkit-appearance
 -webkit-background-clip
 -webkit-background-composite
@@ -202,6 +208,10 @@ z-index
 -webkit-text-stroke
 -webkit-text-stroke-color
 -webkit-text-stroke-width
+-webkit-transform
+-webkit-transform-origin
+-webkit-transform-origin-x
+-webkit-transform-origin-y
 -webkit-user-drag
 -webkit-user-modify
 -webkit-user-select

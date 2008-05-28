@@ -34,17 +34,13 @@
 #include "HTMLNames.h"
 #include "RenderPartObject.h"
 
-#if ENABLE(SVG)
-#include "ExceptionCode.h"
-#include "SVGDocument.h"
-#endif
-
 namespace WebCore {
 
 using namespace HTMLNames;
 
 HTMLEmbedElement::HTMLEmbedElement(Document* doc)
     : HTMLPlugInElement(embedTag, doc)
+    , m_needWidgetUpdate(false)
 {
 }
 
@@ -153,10 +149,9 @@ RenderObject *HTMLEmbedElement::createRenderer(RenderArena *arena, RenderStyle *
 
 void HTMLEmbedElement::attach()
 {
+    m_needWidgetUpdate = true;
+    queuePostAttachCallback(&HTMLPlugInElement::updateWidgetCallback, this);
     HTMLPlugInElement::attach();
-
-    if (renderer())
-        static_cast<RenderPartObject*>(renderer())->updateWidget(true);
 }
 
 void HTMLEmbedElement::detach()
@@ -165,6 +160,12 @@ void HTMLEmbedElement::detach()
     m_instance = 0;
 #endif
     HTMLPlugInElement::detach();
+}
+
+void HTMLEmbedElement::updateWidget()
+{
+    if (m_needWidgetUpdate && renderer())
+        static_cast<RenderPartObject*>(renderer())->updateWidget(true);
 }
 
 void HTMLEmbedElement::insertedIntoDocument()
@@ -238,17 +239,5 @@ void HTMLEmbedElement::setType(const String& value)
 {
     setAttribute(typeAttr, value);
 }
-
-#if ENABLE(SVG)
-SVGDocument* HTMLEmbedElement::getSVGDocument(ExceptionCode& ec) const
-{
-    Document* doc = contentDocument();
-    if (doc && doc->isSVGDocument())
-        return static_cast<SVGDocument*>(doc);
-    // Spec: http://www.w3.org/TR/SVG/struct.html#InterfaceGetSVGDocument
-    ec = NOT_SUPPORTED_ERR;
-    return 0;
-}
-#endif
 
 }

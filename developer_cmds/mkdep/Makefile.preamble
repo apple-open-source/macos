@@ -1,3 +1,0 @@
-SHELLTOOL = mkdep.gcc.sh
-
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common

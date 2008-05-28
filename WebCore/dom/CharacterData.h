@@ -1,9 +1,7 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -37,9 +35,9 @@ public:
 
     // DOM methods & attributes for CharacterData
 
-    String data() const { return str; }
+    String data() const { return m_data; }
     void setData(const String&, ExceptionCode&);
-    unsigned length() const { return str->length(); }
+    unsigned length() const { return m_data->length(); }
     String substringData(unsigned offset, unsigned count, ExceptionCode&);
     void appendData(const String&, ExceptionCode&);
     void insertData(unsigned offset, const String&, ExceptionCode&);
@@ -47,36 +45,30 @@ public:
     void replaceData(unsigned offset, unsigned count, const String &arg, ExceptionCode&);
 
     bool containsOnlyWhitespace() const;
-    bool containsOnlyWhitespace(unsigned from, unsigned len) const;
-    
-    // DOM methods overridden from  parent classes
+
+    // DOM methods overridden from parent classes
 
     virtual String nodeValue() const;
     virtual void setNodeValue(const String&, ExceptionCode&);
-    virtual bool isCharacterDataNode() const { return true; }
     
     // Other methods (not part of DOM)
 
-    StringImpl* string() { return str; }
+    virtual bool isCharacterDataNode() const { return true; }
+    virtual int maxCharacterOffset() const;
+    StringImpl* string() { return m_data.get(); }
     virtual void checkCharDataOperation(unsigned offset, ExceptionCode&);
 
-    virtual int maxOffset() const;
-    virtual int caretMinOffset() const;
-    virtual int caretMaxOffset() const;
-    virtual unsigned caretMaxRenderedOffset() const;
     virtual bool offsetInCharacters() const;
     virtual bool rendererIsNeeded(RenderStyle*);
     
 #ifndef NDEBUG
-    virtual void dump(TextStream*, DeprecatedString ind = "") const;
+    virtual void dump(TextStream*, DeprecatedString indent = "") const;
 #endif
 
 protected:
-    // note: since DOMStrings are shared, str should always be copied when making
-    // a change or returning a string
-    StringImpl* str;
+    RefPtr<StringImpl> m_data;
 
-    void dispatchModifiedEvent(StringImpl* prevValue);
+    void dispatchModifiedEvent(StringImpl* oldValue);
 };
 
 } // namespace WebCore

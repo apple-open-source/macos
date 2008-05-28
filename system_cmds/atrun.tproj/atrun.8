@@ -29,13 +29,12 @@
 .\"
 .\"	$Id: atrun.8,v 1.1 1999/05/02 04:21:19 wsanchez Exp $
 .\"
-.Dd December 5, 1993
+.Dd March 9, 2008
 .Dt ATRUN 8
-.Os NetBSD 0.9a
+.Os "Mac OS X"
 .Sh NAME
 .Nm atrun
 .Nd run jobs queued for later execution
-.\"
 .Sh SYOPSIS
 .Nm atrun
 .Sh DESCRIPTION
@@ -43,9 +42,21 @@ The
 .Nm atrun
 utility runs commands queued by
 .Xr at 1 .
-It is usually invoked by
-.Xr crond 8
-every ten minutes.
+It is invoked periodically by
+.Xr launchd 8
+as specified in the 
+.Pa com.apple.atrun.plist
+property list.
+By default the property list contains the
+.Em Disabled 
+key set to true, so
+.Nm atrun 
+is never invoked.
+.Pp
+Execute the following command as root to enable
+.Nm atrun :
+.Dl "launchctl load -w /System/Library/LaunchDaemons/com.apple.atrun.plist"
+.Pp
 .Sh FILES
 .Bl -tag -width /var/at/lockfile -compact
 .It Pa /var/at/jobs
@@ -57,21 +68,8 @@ Job-creation lock file.
 .El
 .Sh SEE ALSO
 .Xr at 1 ,
-.Xr crond 8
+.Xr launchd 8
 .Sh AUTHOR
 .Bl -tag
 Thomas Koenig, ig25@rz.uni-karlsruhe.de
 .El
-.Sh BUGS
-The functionality of
-.Nm atrun
-should arguably be merged into
-.Xr crond 8 .
-.Sh CAVEATS
-Because the default configuration causes
-.Nm atrun
-to be invoked every ten minutes,
-commands queued by
-.Xr at 1
-may end up being executed up to nine minutes
-later than would be otherwise expected.

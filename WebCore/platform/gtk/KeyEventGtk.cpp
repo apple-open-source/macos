@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
- * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com 
+ * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * All rights reserved.
  *
@@ -23,7 +23,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -31,6 +31,7 @@
 
 #include "DeprecatedString.h"
 #include "KeyboardCodes.h"
+#include "NotImplemented.h"
 #include "TextEncoding.h"
 
 #include <gdk/gdk.h>
@@ -58,6 +59,7 @@ static String keyIdentifierForGdkKeyCode(guint keyCode)
             // "Enter"
         case GDK_ISO_Enter:
         case GDK_KP_Enter:
+        case GDK_Return:
             return "Enter";
         case GDK_Execute:
             return "Execute";
@@ -134,6 +136,8 @@ static String keyIdentifierForGdkKeyCode(guint keyCode)
             // Standard says that DEL becomes U+007F.
         case GDK_Delete:
             return "U+007F";
+        case GDK_ISO_Left_Tab:
+        case GDK_3270_BackTab:
         case GDK_Tab:
             return "U+0009";
         default:
@@ -177,6 +181,8 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
 
         case GDK_BackSpace:
             return VK_BACK; // (08) BACKSPACE key
+        case GDK_ISO_Left_Tab:
+        case GDK_3270_BackTab:
         case GDK_Tab:
             return VK_TAB; // (09) TAB key
         case GDK_Clear:
@@ -461,25 +467,57 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
 
 }
 
-static inline String singleCharacterString(guint val)
+static String singleCharacterString(guint val)
 {
-    val = gdk_keyval_to_unicode(val);
-    return String((UChar*)&val, 1);
+    glong nwc;
+    String retVal;
+    gunichar c = gdk_keyval_to_unicode(val);
+    gunichar2* uchar16 = g_ucs4_to_utf16(&c, 1, 0, &nwc, 0);
+
+    if (uchar16)
+        retVal = String((UChar*)uchar16, nwc);
+    else
+        retVal = String();
+
+    g_free(uchar16);
+
+    return retVal;
 }
 
 PlatformKeyboardEvent::PlatformKeyboardEvent(GdkEventKey* event)
-    : m_text(singleCharacterString(event->keyval))
+    : m_type((event->type == GDK_KEY_RELEASE) ? KeyUp : KeyDown)
+    , m_text(singleCharacterString(event->keyval))
     , m_unmodifiedText(singleCharacterString(event->keyval))
     , m_keyIdentifier(keyIdentifierForGdkKeyCode(event->keyval))
-    , m_isKeyUp(event->type == GDK_KEY_RELEASE)
     , m_autoRepeat(false)
-    , m_WindowsKeyCode(windowsKeyCodeForKeyEvent(event->keyval))
+    , m_windowsVirtualKeyCode(windowsKeyCodeForKeyEvent(event->keyval))
     , m_isKeypad(false)
-    , m_shiftKey(event->state & GDK_SHIFT_MASK != 0)
-    , m_ctrlKey(event->state & GDK_CONTROL_MASK != 0)
-    , m_altKey(event->state & GDK_MOD1_MASK != 0)
-    , m_metaKey(event->state & GDK_MOD2_MASK != 0)
+    , m_shiftKey((event->state & GDK_SHIFT_MASK) || (event->keyval == GDK_3270_BackTab))
+    , m_ctrlKey(event->state & GDK_CONTROL_MASK)
+    , m_altKey(event->state & GDK_MOD1_MASK)
+    , m_metaKey(event->state & GDK_MOD2_MASK)
 {
+}
+
+void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool)
+{
+    // Can only change type from KeyDown to RawKeyDown or Char, as we lack information for other conversions.
+    ASSERT(m_type == KeyDown);
+    m_type = type;
+
+    if (type == RawKeyDown) {
+        m_text = String();
+        m_unmodifiedText = String();
+    } else {
+        m_keyIdentifier = String();
+        m_windowsVirtualKeyCode = 0;
+    }
+}
+
+bool PlatformKeyboardEvent::currentCapsLockState()
+{
+    notImplemented();
+    return false;
 }
 
 }

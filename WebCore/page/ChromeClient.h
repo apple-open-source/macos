@@ -1,6 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006-2007 Apple, Inc.
+ * Copyright (C) 2006, 2007, 2008 Apple, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,10 +33,10 @@ namespace WebCore {
     class String;
     
     struct FrameLoadRequest;
+    struct WindowFeatures;
     
     class ChromeClient {
     public:
-        virtual ~ChromeClient() {  }
         virtual void chromeDestroyed() = 0;
         
         virtual void setWindowRect(const FloatRect&) = 0;
@@ -56,8 +56,7 @@ namespace WebCore {
         // Frame wants to create the new Page.  Also, the newly created window
         // should not be shown to the user until the ChromeClient of the newly
         // created Page has its show method called.
-        virtual Page* createWindow(Frame*, const FrameLoadRequest&) = 0;
-        virtual Page* createModalDialog(Frame*, const FrameLoadRequest&) = 0;
+        virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&) = 0;
         virtual void show() = 0;
 
         virtual bool canRunModal() = 0;
@@ -102,7 +101,12 @@ namespace WebCore {
         virtual void setToolTip(const String&) = 0;
 
         virtual void print(Frame*) = 0;
-};
+
+        virtual void exceededDatabaseQuota(Frame*, const String& databaseName) = 0;
+
+    protected:
+        virtual ~ChromeClient() { }
+    };
 
 }
 

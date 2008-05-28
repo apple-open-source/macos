@@ -1,7 +1,7 @@
-/* $OpenBSD: gss-genr.c,v 1.17 2006/08/29 12:02:30 dtucker Exp $ */
+/* $OpenBSD: gss-genr.c,v 1.19 2007/06/12 11:56:15 dtucker Exp $ */
 
 /*
- * Copyright (c) 2001-2006 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2007 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -395,8 +395,8 @@ ssh_gssapi_checkmic(Gssctxt *ctx, gss_buffer_t gssbuf, gss_buffer_t gssmic)
 
 	ctx->major = gss_verify_mic(&ctx->minor, ctx->context,
 	    gssbuf, gssmic, NULL);
-
-	return (ctx->major);
+ 
+ 	return (ctx->major);
 }
 
 void
@@ -439,7 +439,7 @@ ssh_gssapi_check_mechanism(Gssctxt **ctx, gss_OID oid, const char *host)
 			    GSS_C_NO_BUFFER);
 	}
 
-	if (GSS_ERROR(major) || intctx != NULL) 
+	if (GSS_ERROR(major) || intctx != NULL)
 		ssh_gssapi_delete_ctx(ctx);
 
 	return (!GSS_ERROR(major));

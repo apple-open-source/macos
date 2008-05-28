@@ -37,7 +37,7 @@ typedef const struct OpaqueJSContext* JSContextRef;
 /*! @typedef JSGlobalContextRef A global JavaScript execution context. A JSGlobalContext is a JSContext. */
 typedef struct OpaqueJSContext* JSGlobalContextRef;
 
-/*! @typedef JSString A UTF16 character buffer. The fundamental string representation in JavaScript. */
+/*! @typedef JSStringRef A UTF16 character buffer. The fundamental string representation in JavaScript. */
 typedef struct OpaqueJSString* JSStringRef;
 
 /*! @typedef JSClassRef A JavaScript class. Used with JSObjectMake to construct objects with custom behavior. */
@@ -58,6 +58,19 @@ typedef const struct OpaqueJSValue* JSValueRef;
 /*! @typedef JSObjectRef A JavaScript object. A JSObject is a JSValue. */
 typedef struct OpaqueJSValue* JSObjectRef;
 
+/* JavaScript symbol exports */
+
+#undef JS_EXPORT
+#if defined(__GNUC__)
+    #define JS_EXPORT __attribute__((visibility("default")))
+#elif defined(WIN32) || defined(_WIN32)
+    // TODO: Export symbols with JS_EXPORT when using MSVC.
+    // See http://bugs.webkit.org/show_bug.cgi?id=16227
+    #define JS_EXPORT
+#else
+    #define JS_EXPORT
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -75,7 +88,7 @@ extern "C" {
 @param exception A pointer to a JSValueRef in which to store an exception, if any. Pass NULL if you do not care to store an exception.
 @result The JSValue that results from evaluating script, or NULL if an exception is thrown.
 */
-JSValueRef JSEvaluateScript(JSContextRef ctx, JSStringRef script, JSObjectRef thisObject, JSStringRef sourceURL, int startingLineNumber, JSValueRef* exception);
+JS_EXPORT JSValueRef JSEvaluateScript(JSContextRef ctx, JSStringRef script, JSObjectRef thisObject, JSStringRef sourceURL, int startingLineNumber, JSValueRef* exception);
 
 /*!
 @function JSCheckScriptSyntax
@@ -87,7 +100,7 @@ JSValueRef JSEvaluateScript(JSContextRef ctx, JSStringRef script, JSObjectRef th
 @param exception A pointer to a JSValueRef in which to store a syntax error exception, if any. Pass NULL if you do not care to store a syntax error exception.
 @result true if the script is syntactically correct, otherwise false.
 */
-bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourceURL, int startingLineNumber, JSValueRef* exception);
+JS_EXPORT bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourceURL, int startingLineNumber, JSValueRef* exception);
 
 /*!
 @function
@@ -103,7 +116,7 @@ bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourc
  At that point, a garbage collection can free the objects still referenced by the 
  JSGlobalContextRef's global object, along with the global object itself.
 */
-void JSGarbageCollect(JSContextRef ctx);
+JS_EXPORT void JSGarbageCollect(JSContextRef ctx);
 
 #ifdef __cplusplus
 }

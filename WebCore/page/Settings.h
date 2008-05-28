@@ -29,6 +29,7 @@
 
 #include "AtomicString.h"
 #include "KURL.h"
+#include "FontDescription.h"
 
 namespace WebCore {
 
@@ -99,7 +100,7 @@ namespace WebCore {
         const String& defaultTextEncodingName() const { return m_defaultTextEncodingName; }
 
         void setUserStyleSheetLocation(const KURL&);
-        KURL userStyleSheetLocation() const { return m_userStyleSheetLocation; }
+        const KURL& userStyleSheetLocation() const { return m_userStyleSheetLocation; }
 
         void setShouldPrintBackgrounds(bool);
         bool shouldPrintBackgrounds() const { return m_shouldPrintBackgrounds; }
@@ -115,7 +116,10 @@ namespace WebCore {
         
         void setNeedsAdobeFrameReloadingQuirk(bool);
         bool needsAcrobatFrameReloadingQuirk() const { return m_needsAdobeFrameReloadingQuirk; }
-        
+
+        void setNeedsKeyboardEventDisambiguationQuirks(bool);
+        bool needsKeyboardEventDisambiguationQuirks() const { return m_needsKeyboardEventDisambiguationQuirks; }
+
         void setDOMPasteAllowed(bool);
         bool isDOMPasteAllowed() const { return m_isDOMPasteAllowed; }
         
@@ -137,6 +141,15 @@ namespace WebCore {
         void setDeveloperExtrasEnabled(bool);
         bool developerExtrasEnabled() const { return m_developerExtrasEnabled; }
         
+        void setAuthorAndUserStylesEnabled(bool);
+        bool authorAndUserStylesEnabled() const { return m_authorAndUserStylesEnabled; }
+        
+        void setFontRenderingMode(FontRenderingMode mode);
+        FontRenderingMode fontRenderingMode() const;
+
+        void setNeedsSiteSpecificQuirks(bool);
+        bool needsSiteSpecificQuirks() const { return m_needsSiteSpecificQuirks; }
+
     private:
         Page* m_page;
         
@@ -164,12 +177,16 @@ namespace WebCore {
         bool m_textAreasAreResizable : 1;
         bool m_usesDashboardBackwardCompatibilityMode : 1;
         bool m_needsAdobeFrameReloadingQuirk : 1;
+        bool m_needsKeyboardEventDisambiguationQuirks : 1;
         bool m_isDOMPasteAllowed : 1;
         bool m_shrinksStandaloneImagesToFit : 1;
         bool m_usesPageCache: 1;
         bool m_showsURLsInToolTips : 1;
         bool m_forceFTPDirectoryListings : 1;
         bool m_developerExtrasEnabled : 1;
+        bool m_authorAndUserStylesEnabled : 1;
+        bool m_needsSiteSpecificQuirks : 1;
+        unsigned m_fontRenderingMode : 1;
     };
 
 } // namespace WebCore

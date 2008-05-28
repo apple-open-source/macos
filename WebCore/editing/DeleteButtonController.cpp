@@ -61,7 +61,7 @@ DeleteButtonController::DeleteButtonController(Frame* frame)
 {
 }
 
-static bool isDeletableElement(Node* node)
+static bool isDeletableElement(const Node* node)
 {
     if (!node || !node->isHTMLElement() || !node->inDocument() || !node->isContentEditable())
         return false;
@@ -115,13 +115,7 @@ static HTMLElement* enclosingDeletableElement(const Selection& selection)
     if (!container->isContentEditable())
         return 0;
 
-    // enclosingNodeOfType only looks at ancestor nodes, we also consider the container for deletion
-    if (isDeletableElement(container)) {
-        ASSERT(container->isHTMLElement());
-        return static_cast<HTMLElement*>(container);
-    }
-
-    Node* element = enclosingNodeOfType(container, &isDeletableElement);
+    Node* element = enclosingNodeOfType(Position(container, 0), &isDeletableElement);
     if (!element)
         return 0;
 
@@ -201,7 +195,11 @@ void DeleteButtonController::createDeletionUI()
     style->setProperty(CSS_PROP_WIDTH, String::number(buttonWidth) + "px");
     style->setProperty(CSS_PROP_HEIGHT, String::number(buttonHeight) + "px");
 
-    button->setCachedImage(new CachedImage(Image::loadPlatformResource("deleteButton")));
+    Image* buttonImage = Image::loadPlatformResource("deleteButton");
+    if (buttonImage->isNull())
+        return;
+    
+    button->setCachedImage(new CachedImage(buttonImage));
 
     container->appendChild(button.get(), ec);
     ASSERT(ec == 0);

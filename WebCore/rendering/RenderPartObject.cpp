@@ -120,7 +120,8 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
 
       HTMLObjectElement* o = static_cast<HTMLObjectElement*>(element());
 
-      if (!o->isComplete())
+      o->setNeedWidgetUpdate(false);
+      if (!o->isFinishedParsingChildren())
         return;
       // Check for a child EMBED tag.
       HTMLEmbedElement* embed = 0;
@@ -149,7 +150,7 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
       if (serviceType.isEmpty())
           serviceType = o->m_serviceType;
       
-      HashSet<StringImpl*, CaseInsensitiveHash<StringImpl*> > uniqueParamNames;
+      HashSet<StringImpl*, CaseFoldingHash> uniqueParamNames;
       
       // Scan the PARAM children.
       // Get the URL and type from the params if we don't already have them.
@@ -204,9 +205,6 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
       if (serviceType.isEmpty() && !o->m_classId.isEmpty())
           mapClassIdToServiceType(o->m_classId, serviceType);
       
-      // If no URL and type, abort.
-      if (url.isEmpty() && serviceType.isEmpty())
-          return;
       if (!isURLAllowed(document(), url))
           return;
 
@@ -232,6 +230,7 @@ void RenderPartObject::updateWidget(bool onlyCreateNonNetscapePlugins)
           o->renderFallbackContent();
   } else if (element()->hasTagName(embedTag)) {
       HTMLEmbedElement *o = static_cast<HTMLEmbedElement*>(element());
+      o->setNeedWidgetUpdate(false);
       url = o->url;
       serviceType = o->m_serviceType;
 

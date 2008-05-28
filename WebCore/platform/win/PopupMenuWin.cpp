@@ -23,7 +23,7 @@
 
 #include "Document.h"
 #include "FloatRect.h"
-#include "FontData.h"
+#include "FontSelector.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
@@ -34,7 +34,7 @@
 #include "PlatformScrollBar.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
-#include "TextStyle.h"
+#include "SimpleFontData.h"
 #include <tchar.h>
 #include <windows.h>
 
@@ -57,6 +57,12 @@ const int popupWindowBorderWidth = 1;
 static LPCTSTR kPopupWindowClassName = _T("PopupWindowClass");
 static ATOM registerPopup();
 static LRESULT CALLBACK PopupWndProc(HWND, UINT, WPARAM, LPARAM);
+
+// FIXME: Remove this as soon as practical.
+static inline bool isASCIIPrintable(unsigned c)
+{
+    return c >= 0x20 && c <= 0x7E;
+}
 
 PopupMenu::PopupMenu(PopupMenuClient* client)
     : m_popupClient(client)
@@ -191,17 +197,17 @@ void PopupMenu::calculatePositionAndSize(const IntRect& r, FrameView* v)
     // Add padding to align the popup text with the <select> text
     // Note: We can't add paddingRight() because that value includes the width
     // of the dropdown button, so we must use our own endOfLinePadding constant.
-    popupWidth += endOfLinePadding + client()->clientPaddingLeft();
+    popupWidth += max(0, endOfLinePadding - client()->clientInsetRight()) + max(0, client()->clientPaddingLeft() - client()->clientInsetLeft());
 
     // Leave room for the border
     popupWidth += 2 * popupWindowBorderWidth;
     popupHeight += 2 * popupWindowBorderWidth;
 
     // The popup should be at least as wide as the control on the page
-    popupWidth = max(rScreenCoords.width(), popupWidth);
+    popupWidth = max(rScreenCoords.width() - client()->clientInsetLeft() - client()->clientInsetRight(), popupWidth);
 
     // Always left-align items in the popup.  This matches popup menus on the mac.
-    int popupX = rScreenCoords.x();
+    int popupX = rScreenCoords.x() + client()->clientInsetLeft();
 
     IntRect popupRect(popupX, rScreenCoords.bottom(), popupWidth, popupHeight);
 
@@ -405,6 +411,8 @@ void PopupMenu::updateFromElement()
     if (!m_popup)
         return;
 
+    m_focusedIndex = client()->selectedIndex();
+
     ::InvalidateRect(m_popup, 0, TRUE);
     if (!scrollToRevealSelection())
         ::UpdateWindow(m_popup);
@@ -501,8 +509,7 @@ void PopupMenu::paint(const IntRect& damageRect, HDC hdc)
             
         unsigned length = itemText.length();
         const UChar* string = itemText.characters();
-        TextStyle textStyle(0, 0, 0, itemText.defaultWritingDirection() == WTF::Unicode::RightToLeft);
-        TextRun textRun(string, length);
+        TextRun textRun(string, length, false, 0, 0, itemText.defaultWritingDirection() == WTF::Unicode::RightToLeft);
 
         context.setFillColor(optionTextColor);
         
@@ -511,15 +518,15 @@ void PopupMenu::paint(const IntRect& damageRect, HDC hdc)
             FontDescription d = itemFont.fontDescription();
             d.setBold(true);
             itemFont = Font(d, itemFont.letterSpacing(), itemFont.wordSpacing());
-            itemFont.update();
+            itemFont.update(m_popupClient->fontSelector());
         }
         context.setFont(itemFont);
         
         // Draw the item text
         if (itemStyle->visibility() != HIDDEN) {
-            int textX = client()->clientPaddingLeft();
+            int textX = max(0, client()->clientPaddingLeft() - client()->clientInsetLeft());
             int textY = itemRect.y() + itemFont.ascent() + (itemRect.height() - itemFont.height()) / 2;
-            context.drawBidiText(textRun, IntPoint(textX, textY), textStyle);
+            context.drawBidiText(textRun, IntPoint(textX, textY));
         }
     }
 
@@ -672,9 +679,9 @@ static LRESULT CALLBACK PopupWndProc(HWND hWnd, UINT message, WPARAM wParam, LPA
                         popup->client()->hidePopup();
                         break;
                     default:
-                        if (isprint(::MapVirtualKey(LOWORD(wParam), 2)))
-                            // Send the keydown to the WebView so it can be used for type-ahead find
-                            ::SendMessage(popup->client()->clientDocument()->view()->containingWindow(), message, wParam, lParam);
+                        if (isASCIIPrintable(wParam))
+                            // Send the keydown to the WebView so it can be used for type-to-select.
+                            ::PostMessage(popup->client()->clientDocument()->view()->containingWindow(), message, wParam, lParam);
                         else
                             lResult = 1;
                         break;

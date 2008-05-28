@@ -1,4 +1,4 @@
-/* $OpenBSD: session.c,v 1.220 2006/10/09 23:36:11 djm Exp $ */
+/* $OpenBSD: session.c,v 1.221 2007/01/21 01:41:54 stevesk Exp $ */
 /*
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
  *                    All rights reserved
@@ -1310,7 +1310,7 @@ do_setusercontext(struct passwd *pw)
 # ifdef USE_PAM
 		if (options.use_pam) {
 			do_pam_session();
-			do_pam_setcred(0);
+			do_pam_setcred(use_privsep);
 		}
 # endif /* USE_PAM */
 		if (setusercontext(lc, pw, pw->pw_uid,
@@ -1352,7 +1352,7 @@ do_setusercontext(struct passwd *pw)
 		 */
 		if (options.use_pam) {
 			do_pam_session();
-			do_pam_setcred(0);
+			do_pam_setcred(use_privsep);
 		}
 # endif /* USE_PAM */
 # if defined(WITH_IRIX_PROJECT) || defined(WITH_IRIX_JOBS) || defined(WITH_IRIX_ARRAY)
@@ -1361,11 +1361,11 @@ do_setusercontext(struct passwd *pw)
 # ifdef _AIX
 		aix_usrinfo(pw);
 # endif /* _AIX */
-#if defined(HAVE_LIBIAF)  &&  !defined(BROKEN_LIBIAF)
+#ifdef USE_LIBIAF
 		if (set_id(pw->pw_name) != 0) {
 			exit(1);
 		}
-#endif /* HAVE_LIBIAF  && !BROKEN_LIBIAF */
+#endif /* USE_LIBIAF */
 		/* Permanently switch to the desired uid. */
 		permanently_set_uid(pw);
 #endif
@@ -2029,7 +2029,7 @@ session_input_channel_req(Channel *c, const char *rtype)
 		} else if (strcmp(rtype, "exec") == 0) {
 			success = session_exec_req(s);
 		} else if (strcmp(rtype, "pty-req") == 0) {
-			success =  session_pty_req(s);
+			success = session_pty_req(s);
 		} else if (strcmp(rtype, "x11-req") == 0) {
 			success = session_x11_req(s);
 		} else if (strcmp(rtype, "auth-agent-req@openssh.com") == 0) {
@@ -2156,7 +2156,7 @@ session_close_single_x11(int id, void *arg)
 
 	debug3("session_close_single_x11: channel %d", id);
 	channel_cancel_cleanup(id);
-	if ((s  = session_by_x11_channel(id)) == NULL)
+	if ((s = session_by_x11_channel(id)) == NULL)
 		fatal("session_close_single_x11: no x11 channel %d", id);
 	for (i = 0; s->x11_chanids[i] != -1; i++) {
 		debug("session_close_single_x11: session %d: "
@@ -2482,8 +2482,19 @@ do_cleanup(Authctxt *authctxt)
 		return;
 	called = 1;
 
-	if (authctxt == NULL || !authctxt->authenticated)
+	if (authctxt == NULL)
 		return;
+
+#ifdef USE_PAM
+	if (options.use_pam) {
+		sshpam_cleanup();
+		sshpam_thread_cleanup();
+	}
+#endif
+
+	if (!authctxt->authenticated)
+		return;
+
 #ifdef KRB5
 	if (options.kerberos_ticket_cleanup &&
 	    authctxt->krb5_ctx)
@@ -2493,13 +2504,6 @@ do_cleanup(Authctxt *authctxt)
 #ifdef GSSAPI
 	if (compat20 && options.gss_cleanup_creds)
 		ssh_gssapi_cleanup_creds();
-#endif
-
-#ifdef USE_PAM
-	if (options.use_pam) {
-		sshpam_cleanup();
-		sshpam_thread_cleanup();
-	}
 #endif
 
 	/* remove agent socket */

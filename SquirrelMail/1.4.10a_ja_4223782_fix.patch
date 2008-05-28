@@ -1,0 +1,197 @@
+Index: class/deliver/Deliver.class.php
+===================================================================
+459c459,463
+<         $header[] = 'Subject: '.encodeHeader($rfc822_header->subject) . $rn;
+---
+>         if (strtolower($default_charset) == 'iso-2022-jp' && mb_detect_encoding($rfc822_header->subject) == 'JIS') {
+>             $header[] = 'Subject: ' . mb_convert_encoding($rfc822_header->subject, 'JIS') . $rn;
+>         } else {
+>             $header[] = 'Subject: ' . encodeHeader($rfc822_header->subject) . $rn;
+>         }
+Index: functions/i18n.php
+===================================================================
+167c167
+< function charset_decode ($charset, $string, $force_decode=false, $save_html=false) {
+---
+> function charset_decode ($charset, $string, $force_decode=false, $save_html=false, $charset_converted = false) {
+170,172c170,177
+<     if (isset($languages[$squirrelmail_language]['XTRA_CODE']) &&
+<         function_exists($languages[$squirrelmail_language]['XTRA_CODE'])) {
+<         $string = $languages[$squirrelmail_language]['XTRA_CODE']('decode', $string);
+---
+>     $charset = strtolower($charset);
+> 
+>     if (!$charset_converted) {
+>         if ($charset == 'iso-2022-jp' || $charset == 'shift_jis' || $charset == 'euc-jp' ||
+>             ($squirrelmail_language == 'ja_JP' &&
+>              ($charset == 'utf-8' || $charset == '' || $charset == 'us-ascii'))) {
+>             $string = $languages['ja_JP']['XTRA_CODE']('decode', $string);
+>         }
+177d181
+<     $charset = strtolower($charset);
+395a400
+>         mb_detect_order('ASCII,JIS,EUC-JP,UTF-8,SJIS');
+557,563c562,571
+<             $detect_encoding = @mb_detect_encoding($ret);
+<             if ($detect_encoding == 'JIS' ||
+<                 $detect_encoding == 'EUC-JP' ||
+<                 $detect_encoding == 'SJIS' ||
+<                 $detect_encoding == 'UTF-8') {
+< 
+<                 $ret = mb_convert_kana(mb_convert_encoding($ret, 'EUC-JP', 'AUTO'), "KV");
+---
+>             if (strpos($ret, chr(27)) !== false) {
+>                 $ret = mb_convert_kana(mb_convert_encoding($ret, 'EUC-JP', 'JIS'), "KV");
+>             } else {
+>                 $detect_encoding = strtolower(@mb_detect_encoding($ret));
+>                 if ($detect_encoding == 'jis' ||
+>                     $detect_encoding == 'sjis' ||
+>                     $detect_encoding == 'utf-8') {
+>                     
+>                     $ret = mb_convert_kana(mb_convert_encoding($ret, 'EUC-JP', $detect_encoding), "KV");
+>                 }
+567,573c575,580
+<             $detect_encoding = @mb_detect_encoding($ret);
+<             if ($detect_encoding == 'JIS' ||
+<                 $detect_encoding == 'EUC-JP' ||
+<                 $detect_encoding == 'SJIS' ||
+<                 $detect_encoding == 'UTF-8') {
+< 
+<                 $ret = mb_convert_encoding(mb_convert_kana($ret, "KV"), 'JIS', 'AUTO');
+---
+>             $detect_encoding = strtolower(@mb_detect_encoding($ret));
+>             if ($detect_encoding == 'euc-jp' ||
+>                 $detect_encoding == 'sjis' ||
+>                 $detect_encoding == 'utf-8') {
+>                 
+>                 $ret = mb_convert_encoding(mb_convert_kana($ret, "KV"), 'JIS', $detect_encoding);
+582,605c589,594
+<             if (strlen($ret) > 0) {
+<                 $tmpstr = mb_substr($ret, 0, 1);
+<                 $prevcsize = strlen($tmpstr);
+<                 for ($i = 1; $i < mb_strlen($ret); $i++) {
+<                     $tmp = mb_substr($ret, $i, 1);
+<                     if (strlen($tmp) == $prevcsize) {
+<                         $tmpstr .= $tmp;
+<                     } else {
+<                         if ($prevcsize == 1) {
+<                             $result .= $tmpstr;
+<                         } else {
+<                             $result .= str_replace(' ', '',
+<                                                    mb_encode_mimeheader($tmpstr,'iso-2022-jp','B',''));
+<                         }
+<                         $tmpstr = $tmp;
+<                         $prevcsize = strlen($tmp);
+<                     }
+<                 }
+<                 if (strlen($tmpstr)) {
+<                     if (strlen(mb_substr($tmpstr, 0, 1)) == 1)
+<                         $result .= $tmpstr;
+<                     else
+<                         $result .= str_replace(' ', '',
+<                                                mb_encode_mimeheader($tmpstr,'iso-2022-jp','B',''));
+---
+>             $ret = mb_convert_kana($ret, "KV");
+>             if (@mb_detect_encoding($ret) != 'ASCII') {
+>                 if (preg_match('/^([[:print:]]+)(.*)/', $ret, $regs)) {
+>                     $ret = $regs[1] . mb_encode_mimeheader($regs[2], 'iso-2022-jp', 'B', '');
+>                 } else {
+>                     $ret = mb_encode_mimeheader($ret, 'iso-2022-jp', 'B', '');
+608d596
+<             $ret = $result;
+611,612c599
+<             $ret = str_replace("\t", "", $ret);
+<             if (eregi('=\\?([^?]+)\\?(q|b)\\?([^?]+)\\?=', $ret))
+---
+>             if (eregi('=\\?([^?]+)\\?(q|b)\\?([^?]+)\\?=', $ret)) {
+614c601,603
+<             $ret = @mb_convert_encoding($ret, 'EUC-JP', 'AUTO');
+---
+>             } elseif (strpos($ret, chr(27)) !== false) {
+>                 $ret = mb_convert_kana(mb_convert_encoding($ret, 'EUC-JP', 'JIS'), "KV");
+>             }
+620c609
+<                 $ret = mb_convert_encoding($ret, 'SJIS', 'AUTO');
+---
+>                 $ret = @mb_convert_encoding($ret, 'SJIS', 'AUTO');
+622,623c611,612
+<                 $ret = mb_convert_encoding($ret, 'EUC-JP', 'AUTO');
+< }
+---
+>                 $ret = @mb_convert_encoding($ret, 'EUC-JP', 'AUTO');
+>             }
+Index: functions/imap_messages.php
+===================================================================
+640,641c640,641
+<                 /* First we replace all \r\n by \n, and unfold the header */
+<                 $hdr = trim(str_replace(array("\r\n", "\n\t", "\n "),array("\n", ' ', ' '), $header));
+---
+>                 /* First we unfold the header */
+>                 $hdr = trim(preg_replace("/\r\n\s+/", '',$header));
+762,764c762,764
+<         $r = str_replace(array("\r\n", "\n\t","\n\s"),array("\n",'',''),$r);
+<         /*
+<          * now we can make a new header array with each element representing
+---
+>         $r = trim(preg_replace("/\r\n\s+/",'',$r));
+>         /* 
+>          * now we can make a new header array with each element representing 
+Index: functions/imap_search.php
+===================================================================
+52c52
+<                 $multi_search_part = mb_convert_encoding($multi_search_part, 'JIS', 'auto');
+---
+>                 $multi_search_part = mb_convert_encoding($multi_search_part, 'JIS', 'EUC-JP');
+60c60
+<                 $multi_search_part = mb_convert_encoding($multi_search_part, 'JIS', 'auto');
+---
+>                 $multi_search_part = mb_convert_encoding($multi_search_part, 'JIS', 'EUC-JP');
+Index: functions/mime.php
+===================================================================
+249c249
+< function translateText(&$body, $wrap_at, $charset) {
+---
+> function translateText(&$body, $wrap_at, $charset, $charset_converted = false) {
+251a252
+>     global $languages, $squirrelmail_language;
+254a256,264
+>     if (!$charset_converted) {
+>         if ($charset == 'iso-2022-jp' || $charset == 'shift_jis'  || $charset == 'euc-jp' ||
+>             ($squirrelmail_language == 'ja_JP' && 
+>              ($charset == 'utf-8' ||  $charset == '' || $charset == 'us-ascii'))) {
+>             $body = $languages['ja_JP']['XTRA_CODE']('decode', $body);
+>             $charset_converted = true;
+>         }
+>     }
+> 
+261c271,272
+<         $line = charset_decode($charset, $line);
+---
+>         $line = charset_decode($charset, $line, false, false, $charset_converted);
+> 
+326,327c337,340
+<         if (isset($languages[$squirrelmail_language]['XTRA_CODE']) &&
+<                 function_exists($languages[$squirrelmail_language]['XTRA_CODE'])) {
+---
+>         $charset_converted = false;
+>         if (strtolower($body_message->header->getParameter('charset')) == 'iso-2022-jp' &&
+>             isset($languages[$squirrelmail_language]['XTRA_CODE']) &&
+>             function_exists($languages[$squirrelmail_language]['XTRA_CODE'])) {
+619a633,637
+>         if ($htmlsave) {
+>             return htmlspecialchars($string);
+>         } else {
+>             return $string;
+>         }
+1380a1399,1404
+>         /*
+>          * Remove \r \n \t \0 " " "\\"
+>          */
+>         $attvalue = str_replace(Array("\r", "\n", "\t", "\0", " ", "\\"), 
+>                                 Array('', '','','','',''), $attvalue);
+> 
+Index: functions/url_parser.php
+===================================================================
+78a79,80
+> for ($chr = 0xa1; $chr <= 0xfe; $chr++)  // EUC-JP 1st byte
+>      $url_parser_poss_ends[] = chr($chr);

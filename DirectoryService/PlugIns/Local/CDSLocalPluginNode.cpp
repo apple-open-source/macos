@@ -42,7 +42,6 @@
 #include <pwd.h>
 #include <list>
 #include <map>
-#include <sys/sysctl.h>
 #include <libkern/OSAtomic.h>
 #include <syslog.h>
 #include "COSUtils.h"
@@ -68,11 +67,45 @@ struct _sIndexMapping
 
 extern CFRunLoopRef	gPluginRunLoop;
 extern dsBool		gDSInstallDaemonMode;
+extern dsBool		gProperShutdown;
+extern dsBool		gSafeBoot;
 
 #endif
 
 #define kNonURLCharactersNotToEncode		" "
 #define kURLCharactersToEncode				"/"
+
+#pragma mark -
+#pragma mark Support Routine
+
+bool IntegrityCheckDB( sqlite3 *inDatabase )
+{
+	sqlite3_stmt	*pStmt		= NULL;
+	bool			bValidDB	= false;	// default to invalid DB
+	int				status;
+	
+	status = sqlite3_prepare( inDatabase, "pragma integrity_check", -1, &pStmt, NULL );	
+	if ( status == SQLITE_OK )
+	{
+		status = sqlite3_step( pStmt );
+		
+		// we will loop looking for "ok", in case SQL decides to add some verbosity for good DBs
+		while ( status == SQLITE_ROW ) {
+			if ( sqlite3_column_type(pStmt, 0) == SQLITE_TEXT ) {
+				const char *text = (const char *) sqlite3_column_text( pStmt, 0 );
+				if ( strcmp(text, "ok") == 0 ) {
+					bValidDB = true;
+				}
+			}
+			
+			status = sqlite3_step( pStmt );
+		}
+		
+		sqlite3_finalize( pStmt );
+	}
+	
+	return bValidDB;
+}
 
 #pragma mark -
 #pragma mark Class Routines
@@ -96,7 +129,10 @@ CDSLocalPluginNode::CDSLocalPluginNode( CFStringRef inNodeDirFilePath, CDSLocalP
 #if FILE_ACCESS_INDEXING
 	mFileAccessIndexPtr = NULL;
 	mUseIndex = false;
+	mIndexLoading = false;
 	mIndexPath = NULL;
+	mProperShutdown = gProperShutdown;
+	mSafeBoot = gSafeBoot;
 	
 	AddIndexMapping( kDSStdRecordTypeUsers, kDSNAttrRecordName, kDS1AttrDistinguishedName, kDS1AttrUniqueID, kDS1AttrGeneratedUID, NULL );
 	AddIndexMapping( kDSStdRecordTypeComputers, kDSNAttrRecordName, kDS1AttrUniqueID, kDS1AttrENetAddress, kDSNAttrIPAddress, 
@@ -162,6 +198,7 @@ void *CDSLocalPluginNode::LoadIndexAsynchronously( void *inPtr )
 	// retrieve the index from disk
 	pClassPtr->LoadFileAccessIndex();
 	pClassPtr->mIndexLoaded.PostEvent();
+	OSAtomicCompareAndSwap32Barrier( true, false, &pClassPtr->mIndexLoading );
 #endif
 	
 	return NULL;
@@ -2622,14 +2659,19 @@ void CDSLocalPluginNode::AddIndexMapping( const char *inRecordType, ... )
 
 struct sIndexContext
 {
-	sqlite3_stmt	*pStmt;
-	const char		*pAttrib;
-	const char		*pFileName;
+	CDSLocalPluginNode	*pNode;
+	sqlite3_stmt		*pStmt;
+	const char			*pAttrib;
+	const char			*pFileName;
 };
 
-static void IndexObject( const void *inValue, void *inContext )
+void CDSLocalPluginNode::IndexObject( const void *inValue, void *inContext )
 {
 	sIndexContext	*pContext = (sIndexContext *) inContext;
+	
+	// if we don't have a pointer, then we are forcing an index rebuild
+	if ( pContext->pNode == NULL )
+		return;
 	
 	if ( CFGetTypeID(inValue) == CFStringGetTypeID() )
 	{
@@ -2644,11 +2686,44 @@ static void IndexObject( const void *inValue, void *inContext )
 		if ( status == SQLITE_OK )
 			sqlite3_step( pContext->pStmt );
 		
-		if ( status == SQLITE_OK )
-			DbgLog( kLogDebug, "CDSLocalPluginNode::AddRecordIndex - added <%s> to table <%s> for <%s>", pValue, pContext->pAttrib, 
+		if ( status == SQLITE_OK ) {
+			DbgLog( kLogDebug, "CDSLocalPluginNode::IndexObject - added <%s> to table <%s> for <%s>", pValue, pContext->pAttrib, 
 				    pContext->pFileName );
+		}
+		else if ( status == SQLITE_CORRUPT && pContext->pNode != NULL ) {
+			pContext->pNode->DatabaseCorrupt();
+			DbgLog( kLogCritical, "CDSLocalPluginNode::IndexObject - failed to add <%s> to table <%s> for <%s> - DB corrupt detected, will rebuild", pValue, 
+				    pContext->pAttrib, pContext->pFileName );
+			pContext->pNode = NULL; // we NULL this so we know we can't fire off another index thread.
+		}
 		
 		DSFree( cStr );
+	}
+}
+
+void CDSLocalPluginNode::DatabaseCorrupt( void )
+{
+	if ( OSAtomicCompareAndSwap32Barrier(false, true, &mIndexLoading) == TRUE )
+	{
+		pthread_t       loadIndexThread;
+		pthread_attr_t	defaultAttrs;
+		
+		fDBLock.WaitLock();
+		
+		CloseDatabase();
+		RemoveIndex();
+		
+		fDBLock.SignalLock();
+		
+		pthread_attr_init( &defaultAttrs );
+		pthread_attr_setdetachstate( &defaultAttrs, PTHREAD_CREATE_DETACHED );
+		
+		mIndexLoaded.ResetEvent();
+		pthread_create( &loadIndexThread, &defaultAttrs, LoadIndexAsynchronously, (void *) this );
+		if ( mIndexLoaded.WaitForEvent(10 * kMilliSecsPerSec) == false )
+			DbgLog( kLogPlugin, "CDSLocalPluginNode::DatabaseCorrupt - timed out waiting for index to load continuing without until available" );
+		
+		pthread_attr_destroy( &defaultAttrs );	
 	}
 }
 
@@ -2665,8 +2740,8 @@ void CDSLocalPluginNode::AddRecordIndex( const char *inRecordType, const char *i
 	snprintf( sPath, sizeof(sPath), "%s%s/%s", mNodeDirFilePathCStr, mapping->fRecordNativeType, inFileName );
 	
 	fDBLock.WaitLock();
-
-	if ( lstat(sPath, &statBuffer) == 0 && (aFileData = CreateCFDataFromFile(sPath, statBuffer.st_size)) != NULL )
+	
+	if ( mFileAccessIndexPtr != NULL && lstat(sPath, &statBuffer) == 0 && (aFileData = CreateCFDataFromFile(sPath, statBuffer.st_size)) != NULL )
 	{
 		CFDictionaryRef recordDict = (CFDictionaryRef) CFPropertyListCreateFromXMLData( kCFAllocatorDefault, aFileData, kCFPropertyListImmutable, NULL );
 		DSCFRelease( aFileData );
@@ -2692,21 +2767,31 @@ void CDSLocalPluginNode::AddRecordIndex( const char *inRecordType, const char *i
 				// first delete all entries with this file in it
 				snprintf( command, sizeof(command), "DELETE FROM '%s' WHERE filename='%s' AND recordtype='%s';", pAttrib, inFileName, 
 						 mapping->fRecordNativeType );
+				
 				int status = sqlExecSync( command );
-				if ( status == SQLITE_ERROR )
+				if ( status == SQLITE_CORRUPT )
+					break;
+				
+				if ( status != SQLITE_OK )
 				{
 					snprintf( command, sizeof(command), "CREATE TABLE '%s' ('filename' TEXT, 'recordtype' TEXT, 'value' TEXT);", pAttrib );
-					sqlExecSync( command );
+					if ( sqlExecSync(command) == SQLITE_CORRUPT )
+						break;
 					
 					snprintf( command, sizeof(command), "CREATE INDEX '%s.index' on '%s' ('value');", pAttrib, pAttrib );
-					sqlExecSync( command );
+					if ( sqlExecSync(command) == SQLITE_CORRUPT )
+						break;
 					
 					DbgLog( kLogDebug, "CDSLocalPluginNode::AddRecordIndex - created table for attribute %s", pAttrib );
+					
+					status = SQLITE_OK;
 				}
 				
-				snprintf( command, sizeof(command), "INSERT INTO '%s' ('filename','recordtype','value') VALUES (?,?,?);", pAttrib );
+				if ( status == SQLITE_OK ) {
+					snprintf( command, sizeof(command), "INSERT INTO '%s' ('filename','recordtype','value') VALUES (?,?,?);", pAttrib );
+					status = sqlite3_prepare_v2( mFileAccessIndexPtr, command, -1, &pStmt, NULL );
+				}
 				
-				status = sqlite3_prepare( mFileAccessIndexPtr, command, -1, &pStmt, NULL );
 				if ( status == SQLITE_OK )
 					status = sqlite3_bind_text( pStmt, 1, inFileName, strlen(inFileName), SQLITE_STATIC );
 				
@@ -2719,7 +2804,7 @@ void CDSLocalPluginNode::AddRecordIndex( const char *inRecordType, const char *i
 				{
 					CFMutableSetRef	cfSet		= CFSetCreateMutable( kCFAllocatorDefault, 0, &kCFTypeSetCallBacks );
 					CFIndex			iAttrCnt	= CFArrayGetCount( cfAttribute );
-					sIndexContext	sContext	= { pStmt, pAttrib, inFileName };
+					sIndexContext	sContext	= { this, pStmt, pAttrib, inFileName };
 					
 					for ( CFIndex zz = 0; zz < iAttrCnt; zz++ )
 						CFSetAddValue( cfSet, CFArrayGetValueAtIndex(cfAttribute, zz) );
@@ -2768,10 +2853,12 @@ void CDSLocalPluginNode::DeleteRecordIndex( const char *inRecordType, const char
 		// first delete all entries with this file in it
 		snprintf( command, sizeof(command), "DELETE FROM '%s' WHERE filename='%s' AND recordtype='%s';", (*attribs), inFileName, 
 				  mapping->fRecordNativeType );
-		sqlExecSync( command );
+		if ( sqlExecSync(command) == SQLITE_CORRUPT )
+			break;
 		
 		snprintf( command, sizeof(command), "DELETE FROM '%s' WHERE filename='%s';", mapping->fRecordNativeType, inFileName );
-		sqlExecSync( command );
+		if ( sqlExecSync(command) == SQLITE_CORRUPT )
+			break;
 		
 		attribs++;
 	}
@@ -2784,24 +2871,21 @@ void CDSLocalPluginNode::DeleteRecordIndex( const char *inRecordType, const char
 	fDBLock.SignalLock();
 }
 
-bool CDSLocalPluginNode::SafeBootMode( void )
+void CDSLocalPluginNode::RemoveIndex( void )
 {
-	int			sbmib[] = { CTL_KERN, KERN_SAFEBOOT };
-	uint32_t	sb = 0;
-	size_t		sbsz = sizeof(sb);
+	char	journalPath[PATH_MAX];
 	
-	if ( sysctl(sbmib, 2, &sb, &sbsz, NULL, 0) == -1 )
-		return false;
+	strlcpy( journalPath, mIndexPath, sizeof(journalPath) );
+	strlcat( journalPath, "-journal", sizeof(journalPath) );
 	
-	if ( sb == true )
-		DbgLog( kLogPlugin, "CDSLocalPluginNode::SafeBootMode - safeboot is enabled, index will be removed" );
-	
-	return (bool)sb;
+	unlink( mIndexPath );
+	unlink( journalPath );
 }
 
 void CDSLocalPluginNode::LoadFileAccessIndex( void )
 {
 	struct stat statBuffer	= { 0 };
+	bool		bRecreate	= false;
 	
 	// we don't load the index on the install only daemon
 	if ( gDSInstallDaemonMode == true )
@@ -2809,19 +2893,48 @@ void CDSLocalPluginNode::LoadFileAccessIndex( void )
 
 	fDBLock.WaitLock();
 	
-	if ( (stat(mIndexPath, &statBuffer) == 0 && statBuffer.st_size == 0) || SafeBootMode() == true )
-		dsRemove( mIndexPath );
+	if ( (stat(mIndexPath, &statBuffer) == 0 && statBuffer.st_size == 0) || mSafeBoot == true || mProperShutdown == false ) {
+		mProperShutdown = true;
+		mSafeBoot = false;
+		RemoveIndex();
+		bRecreate = true;
+	}
+	
+TryAgain:
 	
 	// if it fails to open here, we'll remove the file and attempt to open it again in the next if
 	int status = sqlite3_open( mIndexPath, &mFileAccessIndexPtr );
-	if ( status != SQLITE_OK )
-		dsRemove( mIndexPath );
+	if ( status != SQLITE_OK ) {
+		RemoveIndex();
+		bRecreate = true;
+	}
 
 	// we either opened it successfully or it was deleted and we'll try to open again
 	if ( status == SQLITE_OK || sqlite3_open(mIndexPath, &mFileAccessIndexPtr) == SQLITE_OK )
 	{
 		LocalNodeIndexMapI	iter	= mIndexMap.begin();
 		
+		if ( false == bRecreate ) {
+			
+			// lower cache size especially before integrity check because it pages in the whole DB
+			sqlExecSync( "PRAGMA cache_size = 50" );	// 50 * 1.5k = 75k
+			
+			if ( IntegrityCheckDB(mFileAccessIndexPtr) == false ) {
+				sqlite3_close( mFileAccessIndexPtr );
+				mFileAccessIndexPtr = NULL;
+				DbgLog( kLogCritical, "CDSLocalPluginNode::LoadFileAccessIndex - index failed integrity check - rebuilding" );
+				RemoveIndex();
+				bRecreate = true;
+				goto TryAgain;
+			}
+			else {
+				SrvrLog( kLogApplication, "Local Plugin - index passed integrity check" );
+			}
+		}
+
+		// let's change the default cache for the DB to 500 x 1.5k = 750k
+		sqlExecSync( "PRAGMA cache_size = 500" );
+
 		while( iter != mIndexMap.end() )
 		{
 			IndexMapping	*mapping	= iter->second;
@@ -2832,7 +2945,14 @@ void CDSLocalPluginNode::LoadFileAccessIndex( void )
 			DbgLog( kLogDebug, "CDSLocalPluginNode::LoadFileAccessIndex - Checking index for path %s", sPath );
 			
 			snprintf( command, sizeof(command), "CREATE TABLE '%s' ('filetime' INTEGER, 'filename' TEXT UNIQUE);", mapping->fRecordNativeType );
-			sqlExecSync( command );
+			if ( sqlExecSync(command) == SQLITE_CORRUPT ) {
+				sqlite3_close( mFileAccessIndexPtr );
+				mFileAccessIndexPtr = NULL;
+				DbgLog( kLogDebug, "CDSLocalPluginNode::LoadFileAccessIndex - database is corrupted attempting to create table, deleting" );
+				RemoveIndex();
+				bRecreate = true;
+				goto TryAgain;
+			}
 			
 			DIR *directory	= opendir( sPath );
 			if ( directory != NULL )
@@ -2853,7 +2973,7 @@ void CDSLocalPluginNode::LoadFileAccessIndex( void )
 					{
 						snprintf( command, sizeof(command), "SELECT filetime FROM '%s' WHERE filename='%s';", mapping->fRecordNativeType, entry->d_name );
 						
-						status = sqlite3_prepare( mFileAccessIndexPtr, command, -1, &pStmt, NULL );
+						status = sqlite3_prepare_v2( mFileAccessIndexPtr, command, -1, &pStmt, NULL );
 						if ( status == SQLITE_OK )
 							status = sqlite3_step( pStmt );
 
@@ -2941,7 +3061,7 @@ char** CDSLocalPluginNode::GetFileAccessIndex( CFStringRef inNativeRecType, tDir
 
 		fDBLock.WaitLock();
 
-		int status = sqlite3_prepare( mFileAccessIndexPtr, command, -1, &pStmt, NULL );
+		int status = sqlite3_prepare_v2( mFileAccessIndexPtr, command, -1, &pStmt, NULL );
 		if ( status == SQLITE_OK )
 		{
 			if ( CFGetTypeID(inPatternToMatch) == CFStringGetTypeID() )
@@ -3005,11 +3125,19 @@ int CDSLocalPluginNode::sqlExecSync(const char *command, UInt32 length)
 	sqlite3_stmt	*pStmt	= NULL;
 
 	fDBLock.WaitLock();
-	status = sqlite3_prepare( mFileAccessIndexPtr, command, length, &pStmt, NULL );
-	if (status == SQLITE_OK)
+	if ( mFileAccessIndexPtr != NULL )
 	{
-		status = sqlite3_step( pStmt );
-		sqlite3_finalize( pStmt );
+		status = sqlite3_prepare_v2( mFileAccessIndexPtr, command, length, &pStmt, NULL );
+		if (status == SQLITE_OK)
+		{
+			status = sqlite3_step( pStmt );
+			sqlite3_finalize( pStmt );
+			
+			if ( status == SQLITE_CORRUPT ) {
+				DbgLog( kLogCritical, "CDSLocalPluginNode::sqlExecSync - SQL database corruption detected, rebuilding" );
+				DatabaseCorrupt();
+			}
+		}
 	}
 	fDBLock.SignalLock();
 	

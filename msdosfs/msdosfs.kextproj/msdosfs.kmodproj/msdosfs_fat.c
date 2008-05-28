@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -856,10 +856,15 @@ pcbmap_internal(
 	 */
 	if ((cn | ~pmp->pm_fatmask) >= CLUST_RSRVD)
 	    goto hiteof;
-	if (DEBUG)
+	
+	/*
+	 * Stop and return an error if we hit an out-of-range cluster number.
+	 */
+	if (cn < CLUST_FIRST || cn > pmp->pm_maxcluster)
 	{
-	    if (cn < CLUST_FIRST || cn > pmp->pm_maxcluster)
+	    if (DEBUG)
 		panic("pcbmap_internal: invalid cluster: cn=%lu, name='%11.11s'", cn, dep->de_Name);
+	    return EIO;
 	}
 	
 	/*

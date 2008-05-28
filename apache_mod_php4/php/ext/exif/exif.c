@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: exif.c,v 1.118.2.37.2.7 2007/01/09 11:38:04 tony2001 Exp $ */
+/* $Id: exif.c,v 1.118.2.37.2.8 2007/12/31 07:22:46 sebastian Exp $ */
 
 /*  ToDos
  *
@@ -107,7 +107,7 @@ function_entry exif_functions[] = {
 };
 /* }}} */
 
-#define EXIF_VERSION "1.4 $Id: exif.c,v 1.118.2.37.2.7 2007/01/09 11:38:04 tony2001 Exp $"
+#define EXIF_VERSION "1.4 $Id: exif.c,v 1.118.2.37.2.8 2007/12/31 07:22:46 sebastian Exp $"
 
 /* {{{ PHP_MINFO_FUNCTION
  */

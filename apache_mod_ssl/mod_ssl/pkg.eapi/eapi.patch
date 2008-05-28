@@ -7,7 +7,7 @@
 ## 
 ## Annotated patch file: eapi.patch
 ## Copyright (c) 1998-2007 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 12-Sep-2007
+## Created on: 08-Feb-2008
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -56,8 +56,8 @@ Index: src/Configuration.tmpl
 | Patch in implementation of the EAPI rule.
 +---------------------------------------------------------------------------
 Index: src/Configure
---- src/Configure	10 Sep 2007 20:30:32 -0000	1.1.1.30
-+++ src/Configure	10 Sep 2007 20:33:10 -0000	1.33
+--- src/Configure	8 Feb 2008 11:15:36 -0000	1.1.1.31
++++ src/Configure	8 Feb 2008 11:17:39 -0000	1.34
 @@ -1868,6 +1868,72 @@
  fi
  
@@ -379,8 +379,8 @@ Index: src/include/http_conf_globals.h
 | function.
 +---------------------------------------------------------------------------
 Index: src/include/httpd.h
---- src/include/httpd.h	10 Sep 2007 20:30:33 -0000	1.1.1.30
-+++ src/include/httpd.h	10 Sep 2007 20:33:10 -0000	1.40
+--- src/include/httpd.h	8 Feb 2008 11:15:38 -0000	1.1.1.31
++++ src/include/httpd.h	8 Feb 2008 11:17:39 -0000	1.41
 @@ -28,7 +28,19 @@
  /* Headers in which EVERYONE has an interest... */
  
@@ -1120,8 +1120,8 @@ Index: src/main/http_config.c
 | is added plus the initialization of one more `ctx' variable.
 +---------------------------------------------------------------------------
 Index: src/main/http_main.c
---- src/main/http_main.c	10 Sep 2007 20:30:35 -0000	1.1.1.27
-+++ src/main/http_main.c	10 Sep 2007 20:33:10 -0000	1.50
+--- src/main/http_main.c	8 Feb 2008 11:15:39 -0000	1.1.1.28
++++ src/main/http_main.c	8 Feb 2008 11:17:39 -0000	1.51
 @@ -243,6 +243,9 @@
  
  int ap_dump_settings = 0;
@@ -1132,7 +1132,7 @@ Index: src/main/http_main.c
  
  /*
   * The max child slot ever assigned, preserved across restarts.  Necessary
-@@ -471,6 +474,30 @@
+@@ -479,6 +482,30 @@
      }
  }
  
@@ -1163,7 +1163,7 @@ Index: src/main/http_main.c
  #ifndef NETWARE
  static APACHE_TLS int volatile exit_after_unblock = 0;
  #endif
-@@ -1586,6 +1613,9 @@
+@@ -1594,6 +1621,9 @@
  	}
  
  	ap_bsetflag(save_req->connection->client, B_EOUT, 1);
@@ -1173,7 +1173,7 @@ Index: src/main/http_main.c
  	ap_bclose(save_req->connection->client);
  	
  	if (!ap_standalone)
-@@ -1594,6 +1624,9 @@
+@@ -1602,6 +1632,9 @@
      }
      else {			/* abort the connection */
  	ap_bsetflag(current_conn->client, B_EOUT, 1);
@@ -1183,7 +1183,7 @@ Index: src/main/http_main.c
  	ap_bclose(current_conn->client);
  	current_conn->aborted = 1;
      }
-@@ -1915,10 +1948,16 @@
+@@ -1923,10 +1956,16 @@
      /* Send any leftover data to the client, but never try to again */
  
      if (ap_bflush(r->connection->client) == -1) {
@@ -1200,7 +1200,7 @@ Index: src/main/http_main.c
      ap_bsetflag(r->connection->client, B_EOUT, 1);
  
      /* Close our half of the connection --- send the client a FIN */
-@@ -2617,6 +2656,9 @@
+@@ -2625,6 +2664,9 @@
      /* Clear the pool - including any registered cleanups */
      ap_destroy_pool(pglobal);
  #endif
@@ -1210,7 +1210,7 @@ Index: src/main/http_main.c
      exit(code);
  }
  
-@@ -3711,6 +3753,24 @@
+@@ -3722,6 +3764,24 @@
      conn->remote_addr = *remaddr;
      conn->remote_ip = ap_pstrdup(conn->pool,
  			      inet_ntoa(conn->remote_addr.sin_addr));
@@ -1235,7 +1235,7 @@ Index: src/main/http_main.c
  
      return conn;
  }
-@@ -4221,6 +4281,15 @@
+@@ -4232,6 +4292,15 @@
      printf("Server's Module Magic Number: %u:%u\n",
  	   MODULE_MAGIC_NUMBER_MAJOR, MODULE_MAGIC_NUMBER_MINOR);
      printf("Server compiled with....\n");
@@ -1251,10 +1251,10 @@ Index: src/main/http_main.c
  #ifdef TPF
      show_os_specific_compile_settings();
  #endif
-@@ -4396,6 +4465,22 @@
+@@ -4407,6 +4476,23 @@
+     ap_server_pre_read_config  = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_post_read_config = ap_make_array(pcommands, 1, sizeof(char *));
      ap_server_config_defines   = ap_make_array(pcommands, 1, sizeof(char *));
-     pid_table                  = ap_make_table(pglobal, HARD_SERVER_LIMIT);
 +
 +#ifdef EAPI
 +    ap_hook_init();
@@ -1271,10 +1271,11 @@ Index: src/main/http_main.c
 +
 +    ap_global_ctx = ap_ctx_new(NULL);
 +#endif /* EAPI */
- }
- 
- #ifndef MULTITHREAD
-@@ -4892,6 +4977,9 @@
++
+     /* overkill since static */
+     for (i = 0; i < HARD_SERVER_LIMIT; i++) {
+         pid_table[i] = 0;
+@@ -4907,6 +4993,9 @@
  
  	    ap_sync_scoreboard_image();
  	    if (ap_scoreboard_image->global.running_generation != ap_my_generation) {
@@ -1284,7 +1285,7 @@ Index: src/main/http_main.c
  		ap_bclose(conn_io);
  		clean_child_exit(0);
  	    }
-@@ -4920,6 +5008,9 @@
+@@ -4935,6 +5024,9 @@
  	 */
  
  #ifdef NO_LINGCLOSE
@@ -1294,7 +1295,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -4930,6 +5021,9 @@
+@@ -4945,6 +5037,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1304,7 +1305,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -5730,16 +5824,31 @@
+@@ -5745,16 +5840,31 @@
  	    usage(argv[0]);
  	}
      }
@@ -1336,7 +1337,7 @@ Index: src/main/http_main.c
      }
  
      child_timeouts = !ap_standalone || one_process;
-@@ -5887,6 +5996,10 @@
+@@ -5902,6 +6012,10 @@
  	    ap_destroy_pool(r->pool);
  	}
  
@@ -1347,7 +1348,7 @@ Index: src/main/http_main.c
  	ap_bclose(cio);
      }
      exit(0);
-@@ -6263,6 +6376,9 @@
+@@ -6278,6 +6392,9 @@
  	ap_kill_cleanups_for_socket(ptrans, csd);
  
  #ifdef NO_LINGCLOSE
@@ -1357,7 +1358,7 @@ Index: src/main/http_main.c
  	ap_bclose(conn_io);	/* just close it */
  #else
  	if (r && r->connection
-@@ -6273,6 +6389,9 @@
+@@ -6288,6 +6405,9 @@
  	    lingering_close(r);
  	}
  	else {
@@ -1367,7 +1368,7 @@ Index: src/main/http_main.c
  	    ap_bsetflag(conn_io, B_EOUT, 1);
  	    ap_bclose(conn_io);
  	}
-@@ -7848,6 +7967,10 @@
+@@ -7863,6 +7983,10 @@
      if (!conf_specified)
          ap_cpystrn(ap_server_confname, SERVER_CONFIG_FILE, sizeof(ap_server_confname));
  
@@ -1378,7 +1379,7 @@ Index: src/main/http_main.c
      if (!ap_os_is_path_absolute(ap_server_confname))
          ap_cpystrn(ap_server_confname,
                     ap_server_root_relative(pcommands, ap_server_confname),
-@@ -7888,6 +8011,9 @@
+@@ -7903,6 +8027,9 @@
  #else /* ndef WIN32 */
      server_conf = ap_read_config(pconf, ptrans, ap_server_confname);
  #endif
@@ -1596,9 +1597,9 @@ Index: src/modules/standard/mod_rewrite.c
 | the status HTML page.
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_status.c
---- src/modules/standard/mod_status.c	10 Sep 2007 20:30:37 -0000	1.1.1.18
-+++ src/modules/standard/mod_status.c	12 Sep 2007 05:32:20 -0000
-@@ -698,6 +735,12 @@
+--- src/modules/standard/mod_status.c	8 Feb 2008 11:15:41 -0000	1.1.1.19
++++ src/modules/standard/mod_status.c	8 Feb 2008 11:17:39 -0000	1.16
+@@ -696,6 +733,12 @@
  #endif
  	}
  

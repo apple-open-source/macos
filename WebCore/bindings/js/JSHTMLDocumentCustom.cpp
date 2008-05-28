@@ -27,7 +27,6 @@
 #include "JSHTMLDocument.h"
 
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "HTMLBodyElement.h"
 #include "HTMLCollection.h"
 #include "HTMLDocument.h"
@@ -65,7 +64,7 @@ JSValue* JSHTMLDocument::nameGetter(ExecState* exec, JSObject* originalObject, c
 
         Frame* frame;
         if (node->hasTagName(iframeTag) && (frame = static_cast<HTMLIFrameElement*>(node)->contentFrame()))
-            return Window::retrieve(frame);
+            return KJS::Window::retrieve(frame);
 
         return toJS(exec, node);
     } 
@@ -90,35 +89,6 @@ void JSHTMLDocument::setAll(ExecState*, JSValue* value)
     putDirect("all", value);
 }
 
-JSValue* JSHTMLDocument::location(ExecState* exec) const
-{
-    Frame* frame = static_cast<HTMLDocument*>(impl())->frame();
-    if (!frame)
-        return jsNull();
-
-    Window* win = Window::retrieveWindow(frame);
-    ASSERT(win);
-    return win->location();
-}
-
-void JSHTMLDocument::setLocation(ExecState* exec, JSValue* value)
-{
-    Frame* frame = static_cast<HTMLDocument*>(impl())->frame();
-    if (!frame)
-        return;
-
-    String str = value->toString(exec);
-
-    // When assigning location, IE and Mozilla both resolve the URL
-    // relative not the target frame.
-    Frame* activeFrame = static_cast<ScriptInterpreter*>(exec->dynamicInterpreter())->frame();
-    if (activeFrame)
-        str = activeFrame->document()->completeURL(str);
-
-    bool userGesture = static_cast<ScriptInterpreter*>(exec->dynamicInterpreter())->wasRunByUserGesture();
-    frame->loader()->scheduleLocationChange(str, activeFrame->loader()->outgoingReferrer(), false, userGesture);
-}
-
 // Custom functions
 
 JSValue* JSHTMLDocument::open(ExecState* exec, const List& args)
@@ -127,7 +97,7 @@ JSValue* JSHTMLDocument::open(ExecState* exec, const List& args)
     if (args.size() > 2) {
         Frame* frame = static_cast<HTMLDocument*>(impl())->frame();
         if (frame) {
-            Window* window = Window::retrieveWindow(frame);
+            KJS::Window* window = KJS::Window::retrieveWindow(frame);
             if (window) {
                 JSObject* functionObject = window->get(exec, "open")->getObject();
                 if (!functionObject || !functionObject->implementsCall())
@@ -148,7 +118,7 @@ static String writeHelper(ExecState* exec, const List& args)
     // DOM only specifies single string argument, but NS & IE allow multiple
     // or no arguments.
     String str = "";
-    for (int i = 0; i < args.size(); ++i)
+    for (unsigned int i = 0; i < args.size(); ++i)
         str += args[i]->toString(exec);
     return str;
 }

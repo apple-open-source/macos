@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -21,14 +21,15 @@
 /* @file apu.h
  * @brief APR-Utility main file
  */
+
+#ifdef NETWARE
+#ifndef APU_H
+#define APU_H
 /**
  * @defgroup APR_Util APR Utility Functions
  * @{
  */
 
-
-#ifndef APU_H
-#define APU_H
 
 /**
  * APU_DECLARE_EXPORT is defined when building the APR-UTIL dynamic library,
@@ -71,22 +72,13 @@
  * we always have SDBM (it's in our codebase)
  */
 #define APU_HAVE_SDBM   1
+#define APU_HAVE_NDBM   0
 #define APU_HAVE_GDBM   0
 #define APU_HAVE_DB     0
 
-
-#define HAVE_ICONV_H           1
 #define APU_HAVE_APR_ICONV     0
 #define APU_HAVE_ICONV         1
 #define APR_HAS_XLATE          (APU_HAVE_APR_ICONV || APU_HAVE_ICONV)
-
-/*
- * check for newer NDKs which use now correctly 'const char*' with iconv.
- */
-#include <ndkvers.h>
-#if (CURRENT_NDK_THRESHOLD >= 705110000)
-#define APU_ICONV_INBUF_CONST
-#endif
 
 /* 
  * Hack to enable dynamic loads within apr_dbd
@@ -94,4 +86,5 @@
 #define APR_DSO_BUILD APR_HAS_DSO
 
 #endif /* APU_H */
-/** @} */
+#endif /* NETWARE */
+

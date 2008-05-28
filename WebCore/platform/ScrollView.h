@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,10 @@ typedef struct _GtkAdjustment GtkAdjustment;
 
 #if PLATFORM(WIN)
 typedef struct HRGN__* HRGN;
+#endif
+
+#if PLATFORM(WX)
+class wxScrollWinEvent;
 #endif
 
 namespace WebCore {
@@ -110,7 +114,7 @@ namespace WebCore {
         // (like Windows), we need this method in order to do the scroll ourselves.
         void wheelEvent(PlatformWheelEvent&);
 
-        void scroll(ScrollDirection, ScrollGranularity);
+        bool scroll(ScrollDirection, ScrollGranularity);
 
 #if PLATFORM(MAC)
         NSView* getDocumentView() const;
@@ -134,6 +138,13 @@ namespace WebCore {
         void adjustOverlappingScrollbarCount(int overlapDelta);
         
         virtual void setParent(ScrollView*);
+
+        virtual void attachToWindow();
+        virtual void detachFromWindow();
+        bool isAttachedToWindow() const;
+
+        virtual void show();
+        virtual void hide();
 
         void addToDirtyRegion(const IntRect&);
         void scrollBackingStore(int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect);
@@ -203,9 +214,24 @@ namespace WebCore {
         PlatformScrollbar *horizontalScrollBar() const;
         PlatformScrollbar *verticalScrollBar() const;
 
+        HashSet<Widget*>* children();
+
     private:
         void updateScrollbars(const IntSize& desiredOffset);
         IntSize maximumScroll() const;
+        class ScrollViewPrivate;
+        ScrollViewPrivate* m_data;
+#endif
+#if PLATFORM(WX)
+        ScrollView();
+        ~ScrollView();
+        HashSet<Widget*>* children();
+        virtual void setNativeWindow(wxWindow* window);
+
+    private:
+        void adjustScrollbars(int x = -1, int y = -1, bool refresh = true);
+        IntSize maximumScroll() const;
+
         class ScrollViewPrivate;
         ScrollViewPrivate* m_data;
 #endif

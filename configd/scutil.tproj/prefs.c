@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -427,13 +427,12 @@ get_LocalHostName(int argc, char **argv)
 					SCErrorString(SCError()));
 				break;
 		}
-		_prefs_close();
 		exit (1);
 	}
 
 	SCPrint(TRUE, stdout, CFSTR("%@\n"), hostname);
 	CFRelease(hostname);
-	_prefs_close();
+
 	exit(0);
 }
 

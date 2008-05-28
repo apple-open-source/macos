@@ -35,6 +35,7 @@
 #include <CoreFoundation/CFURLAccess.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustPriv.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/CMSPrivate.h>
 #include <Security/SecCmsContentInfo.h>
 #include <Security/SecCmsSignerInfo.h>
@@ -162,6 +163,7 @@ void SecStaticCode::resetValidity()
 	for (unsigned n = 0; n < cdSlotCount; n++)
 		mCache[n] = NULL;
 	mInfoDict = NULL;
+	mEntitlements = NULL;
 	mResourceDict = NULL;
 	mDesignatedReq = NULL;
 	mTrust = NULL;
@@ -491,6 +493,7 @@ void SecStaticCode::validateResources()
 	// scan through the resources on disk, checking each against the resourceDirectory
 	CollectingContext ctx(*this);		// collect all failures in here
 	ResourceBuilder resources(cfString(this->resourceBase()), rules);
+	mRep->adjustResources(resources);
 	string path;
 	ResourceBuilder::Rule *rule;
 
@@ -537,6 +540,23 @@ CFDictionaryRef SecStaticCode::infoDictionary()
 		secdebug("staticCode", "%p loaded InfoDict %p", this, mInfoDict.get());
 	}
 	return mInfoDict;
+}
+
+CFDictionaryRef SecStaticCode::entitlements()
+{
+	if (!mEntitlements) {
+		validateDirectory();
+		if (CFDataRef entitlementData = component(cdEntitlementSlot)) {
+			validateComponent(cdEntitlementSlot);
+			const EntitlementBlob *blob = reinterpret_cast<const EntitlementBlob *>(CFDataGetBytePtr(entitlementData));
+			if (blob->validateBlob()) {
+				mEntitlements.take(blob->entitlements());
+				secdebug("staticCode", "%p loaded Entitlements %p", this, mEntitlements.get());
+			}
+			// we do not consider a different blob type to be an error. We think it's a new format we don't understand
+		}
+	}
+	return mEntitlements;
 }
 
 CFDictionaryRef SecStaticCode::resourceDictionary()
@@ -727,17 +747,84 @@ const Requirement *SecStaticCode::defaultDesignatedRequirement()
 #if	defined(TEST_APPLE_ANCHOR)
 			|| !memcmp(anchorHash, Requirement::testAppleAnchorHash(), SHA1::digestLength)
 #endif
-			) {
-			maker.anchor();		// canonical Apple anchor
-		} else {
-			// we don't know anything more, so we'll (conservatively) pick the leaf
-			SHA1::Digest leafHash;
-			hashOfCertificate(cert(Requirement::leafCert), leafHash);
-			maker.anchor(Requirement::leafCert, leafHash);
-		}
+			)
+			defaultDesignatedAppleAnchor(maker);
+		else
+			defaultDesignatedNonAppleAnchor(maker);
 	}
 		
 	return maker();
+}
+
+static const uint8_t adcSdkMarker[] = { APPLE_EXTENSION_OID, 2, 1 };
+static const CSSM_DATA adcSdkMarkerOID = { sizeof(adcSdkMarker), (uint8_t *)adcSdkMarker };
+
+void SecStaticCode::defaultDesignatedAppleAnchor(Requirement::Maker &maker)
+{
+	if (isAppleSDKSignature()) {
+		// get the Common Name DN element for the leaf
+		CFRef<CFStringRef> leafCN;
+		MacOSError::check(SecCertificateCopySubjectComponent(cert(Requirement::leafCert),
+			&CSSMOID_CommonName, &leafCN.aref()));
+		
+		// apple anchor generic and ...
+		maker.put(opAnd);
+		maker.anchorGeneric();			// apple generic anchor and...
+		// ... leaf[subject.CN] = <leaf's subject> and ...
+		maker.put(opAnd);
+		maker.put(opCertField);			// certificate
+		maker.put(0);					// leaf
+		maker.put("subject.CN");		// [subject.CN]
+		maker.put(matchEqual);			// =
+		maker.putData(leafCN);			// <leaf CN>
+		// ... cert 1[field.<marker>] exists
+		maker.put(opCertGeneric);		// certificate
+		maker.put(1);					// 1
+		maker.putData(adcSdkMarkerOID.Data, adcSdkMarkerOID.Length); // [field.<marker>]
+		maker.put(matchExists);			// exists
+		return;
+	}
+
+	// otherwise, claim this program for Apple
+	maker.anchor();
+}
+
+bool SecStaticCode::isAppleSDKSignature()
+{
+	if (CFArrayRef certChain = certificates())		// got cert chain
+		if (CFArrayGetCount(certChain) == 3)		// leaf, one intermediate, anchor
+			if (SecCertificateRef intermediate = cert(1)) // get intermediate
+				if (certificateHasField(intermediate, CssmOid::overlay(adcSdkMarkerOID)))
+					return true;
+	return false;
+}
+
+
+void SecStaticCode::defaultDesignatedNonAppleAnchor(Requirement::Maker &maker)
+{
+	// get the Organization DN element for the leaf
+	CFRef<CFStringRef> leafOrganization;
+	MacOSError::check(SecCertificateCopySubjectComponent(cert(Requirement::leafCert),
+		&CSSMOID_OrganizationName, &leafOrganization.aref()));
+
+	// now step up the cert chain looking for the first cert with a different one
+	int slot = Requirement::leafCert;						// start at leaf
+	if (leafOrganization) {
+		while (SecCertificateRef ca = cert(slot+1)) {		// NULL if you over-run the anchor slot
+			CFRef<CFStringRef> caOrganization;
+			MacOSError::check(SecCertificateCopySubjectComponent(ca, &CSSMOID_OrganizationName, &caOrganization.aref()));
+			if (CFStringCompare(leafOrganization, caOrganization, 0) != kCFCompareEqualTo)
+				break;
+			slot++;
+		}
+		if (slot == CFArrayGetCount(mCertChain) - 1)		// went all the way to the anchor...
+			slot = Requirement::anchorCert;					// ... so say that
+	}
+		
+	// nail the last cert with the leaf's Organization value
+	SHA1::Digest authorityHash;
+	hashOfCertificate(cert(slot), authorityHash);
+	maker.anchor(slot, authorityHash);
 }
 
 
@@ -768,7 +855,7 @@ void SecStaticCode::validateRequirements(const Requirement *req, OSStatus failur
 {
 	assert(req);
 	validateDirectory();
-	req->validate(Requirement::Context(mCertChain, infoDictionary(), codeDirectory()), failure);
+	req->validate(Requirement::Context(mCertChain, infoDictionary(), entitlements(), codeDirectory()), failure);
 }
 
 
@@ -783,10 +870,11 @@ SecCertificateRef SecStaticCode::cert(int ix)
 {
 	validateDirectory();		// need cert chain
 	if (mCertChain) {
+		CFIndex length = CFArrayGetCount(mCertChain);
 		if (ix < 0)
-			ix += CFArrayGetCount(mCertChain);
-		if (CFTypeRef element = CFArrayGetValueAtIndex(mCertChain, ix))
-			return SecCertificateRef(element);
+			ix += length;
+		if (ix >= 0 && ix < length)
+			return SecCertificateRef(CFArrayGetValueAtIndex(mCertChain, ix));
 	}
 	return NULL;
 }
@@ -852,10 +940,11 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 		if (const Requirements *reqs = internalRequirements()) {
 			CFDictionaryAddValue(dict, kSecCodeInfoRequirements,
 				CFTempString(Dumper::dump(reqs)));
+			CFDictionaryAddValue(dict, kSecCodeInfoRequirementData, CFTempData(*reqs));
 		}
+		const Requirement *dreq = designatedRequirement();
 		const Requirement *ddreq = defaultDesignatedRequirement();
 		CFRef<SecRequirementRef> ddreqRef = (new SecRequirement(ddreq))->handle();
-		const Requirement *dreq = designatedRequirement();
 		if (dreq == ddreq) {
 			CFDictionaryAddValue(dict, kSecCodeInfoDesignatedRequirement, ddreqRef);
 			CFDictionaryAddValue(dict, kSecCodeInfoImplicitDesignatedRequirement, ddreqRef);
@@ -864,6 +953,9 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 				CFRef<SecRequirementRef>((new SecRequirement(dreq))->handle()));
 			CFDictionaryAddValue(dict, kSecCodeInfoImplicitDesignatedRequirement, ddreqRef);
 		}
+		
+		if (CFDataRef ent = component(cdEntitlementSlot))
+			CFDictionaryAddValue(dict, kSecCodeInfoEntitlements, ent);
 	}
 	
 	//
@@ -875,7 +967,9 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	if (flags & kSecCSInternalInformation) {
 		if (mDir)
 			CFDictionaryAddValue(dict, CFSTR("CodeDirectory"), mDir);
-			CFDictionaryAddValue(dict, CFSTR("CodeOffset"), CFTempNumber(mRep->signingBase()));
+		CFDictionaryAddValue(dict, CFSTR("CodeOffset"), CFTempNumber(mRep->signingBase()));
+		if (CFDictionaryRef resources = resourceDictionary())
+			CFDictionaryAddValue(dict, CFSTR("ResourceDirectory"), resources);
 	}
 	
 	

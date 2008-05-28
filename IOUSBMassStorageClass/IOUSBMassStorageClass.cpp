@@ -195,6 +195,12 @@ IOUSBMassStorageClass::start( IOService * provider )
 			fPreferredProtocol = preferredProtocol->unsigned32BitValue();
 		}
 		
+		// Check if this device is known not to support the bulk-only USB reset.
+        if ( characterDict->getObject( kIOUSBMassStorageDoNotOperate ) != NULL )
+        {
+            goto abortStart;
+        }
+		
         // Check if this device is known not to support the bulk-only USB reset.
         if ( characterDict->getObject( kIOUSBMassStorageUseStandardUSBReset ) != NULL )
         {
@@ -1715,6 +1721,9 @@ IOUSBMassStorageClass::sResetDevice( void * refcon )
 			driver->fWaitingForReconfigurationMessage = false;
 			driver->fDeviceAttached = false;
 			
+            // Let the clients know that the device is gone.
+            driver->SendNotification_DeviceRemoved( );
+        
 		}
 		
 		goto ErrorExit;

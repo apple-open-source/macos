@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -240,18 +240,16 @@ static int MRepair( SGlobPtr GPtr )
 		GPtr->CBTStat |= S_BTH;  									// leaf record count may change - 2913311
 	}
 
-	/* Some minor repairs are created by looking at file/folder record
-	 * while iterating catalog btree (independent of thread records).
-	 * If the repair for minor repair failed because of missing thread 
-	 * record, try repairing the remaining minor repairs again after 
-	 * incorrect number of thread records is repaired.  Before repair, 
-	 * clear bit for incorrect number of thread record so that we are 
-	 * not stuck in a loop forever. 
+	/* Some minor repairs would have failed at the first 
+	 * attempt because of missing thread record or missing 
+	 * file/folder record because of ordering of repairs 
+	 * (example, deletion of file/folder before setting 
+	 * the flag).  If any minor repairs orders are left, 
+	 * try to repair them again after fixing incorrect 
+	 * number of thread records.
 	 */
-	if (GPtr->minorRepairAfterThreadRec) {
-		GPtr->CBTStat &= ~S_Orphan;
+	if (GPtr->MinorRepairsP) {
 		err = DoMinorOrders(GPtr);
-		GPtr->CBTStat |= S_Orphan;
 		ReturnIfError( err );
 	}
 
@@ -780,8 +778,12 @@ OSErr FixBadLinkChainFirst(SGlobPtr GPtr, RepairOrderPtr p)
 	ClearMemory(&iterator, sizeof(iterator));
 	retval = GetCatalogRecordByID(GPtr, (UInt32)p->parid, true, (CatalogKey*)&iterator.key, &rec, &recsize);
 	if (retval != 0) {
-		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
-			GPtr->minorRepairAfterThreadRec = true;
+		if (retval == btNotFound) {
+			/* If the record was not found because either the thread 
+			 * record is missing or the file/folder record was deleted by 
+			 * another repair order, return false success to retry again 
+			 * after thread repair code.
+			 */
 		 	GPtr->minorRepairFalseSuccess = true;
 			retval = 0;
 		}
@@ -867,8 +869,12 @@ static OSErr FixPrivDirBadPerms(SGlobPtr GPtr, RepairOrderPtr p)
 	retval = GetCatalogRecordByID(GPtr, (UInt32)p->parid, true, &key, &rec, &recsize);
 
 	if (retval != 0) {
-		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
-			GPtr->minorRepairAfterThreadRec = true;
+		if (retval == btNotFound) {
+			/* If the record was not found because either the thread 
+			 * record is missing or the file/folder record was deleted by 
+			 * another repair order, return false success to retry again 
+			 * after thread repair code.
+			 */
 		 	GPtr->minorRepairFalseSuccess = true;
 			retval = 0;
 		}
@@ -903,7 +909,20 @@ Output:		function returns -
 -------------------------------------------------------------------------------*/
 static OSErr FixOrphanLink(SGlobPtr GPtr, RepairOrderPtr p)
 { 
-	return DeleteCatalogRecordByID(GPtr, p->parid, false);
+	int retval;
+
+	retval = DeleteCatalogRecordByID(GPtr, p->parid, false);
+	if (retval == btNotFound) {
+		/* If the record was not found because either the thread 
+		 * record is missing or the file/folder record was deleted by 
+		 * another repair order, return false success to retry again 
+		 * after thread repair code.
+		 */
+		GPtr->minorRepairFalseSuccess = true;
+		retval = 0;
+	}
+
+	return retval;
 }
 
 /*------------------------------------------------------------------------------
@@ -934,6 +953,15 @@ static OSErr FixOrphanInode(SGlobPtr GPtr, RepairOrderPtr p)
 	}
 
 	retval = MoveCatalogRecordByID(GPtr, p->parid, lost_found_id);
+	if (retval == btNotFound) {
+		/* If the record was not found because either the thread 
+		 * record is missing or the file/folder record was deleted by 
+		 * another repair order, return false success to retry again 
+		 * after thread repair code.
+		 */
+		GPtr->minorRepairFalseSuccess = true;
+		retval = 0;
+	}
 	if (msg_display == 0) {
 		PrintStatus(GPtr, M_Look, 0);
 		msg_display = 1;
@@ -965,8 +993,12 @@ static OSErr FixDirLinkOwnerFlags(SGlobPtr GPtr, RepairOrderPtr p)
 
 	retval = GetCatalogRecordByID(GPtr, p->parid, true, &key, &rec, &recsize);
 	if (retval != 0) {
-		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
-			GPtr->minorRepairAfterThreadRec = true;
+		if (retval == btNotFound) {
+			/* If the record was not found because either the thread 
+			 * record is missing or the file/folder record was deleted by 
+			 * another repair order, return false success to retry again 
+			 * after thread repair code.
+			 */
 		 	GPtr->minorRepairFalseSuccess = true;
 			retval = 0;
 		}
@@ -1004,8 +1036,12 @@ static OSErr FixBadFlags(SGlobPtr GPtr, RepairOrderPtr p)
 
 	retval = GetCatalogRecordByID(GPtr, p->parid, true, &key, &rec, &recsize);
 	if (retval != 0) {
-		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
-			GPtr->minorRepairAfterThreadRec = true;
+		if (retval == btNotFound) {
+			/* If the record was not found because either the thread 
+			 * record is missing or the file/folder record was deleted by 
+			 * another repair order, return false success to retry again 
+			 * after thread repair code.
+			 */
 		 	GPtr->minorRepairFalseSuccess = true;
 			retval = 0;
 		}
@@ -1013,18 +1049,18 @@ static OSErr FixBadFlags(SGlobPtr GPtr, RepairOrderPtr p)
 	}
 
 	if (p->type == E_DirInodeBadFlags) {
-		if (rec.hfsPlusFolder.flags != p->incorrect) {
-			fplog(stderr, "* * * FixBadFlags (folder):  old = %#x, incorrect = %#x, correct = %#x\n", rec.hfsPlusFolder.flags, (int)p->incorrect, (int)p->correct);
+		if ((rec.hfsPlusFolder.flags != p->incorrect) && (GPtr->logLevel >= kDebugLog)) {
+			fplog(stderr, "\tFixBadFlags (folder):  old = %#x, incorrect = %#x, correct = %#x\n", rec.hfsPlusFolder.flags, (int)p->incorrect, (int)p->correct);
 		}
 		rec.hfsPlusFolder.flags = p->correct;
 	} else if (p->type == E_DirLinkAncestorFlags) {
-		if (rec.hfsPlusFolder.flags != p->incorrect) {
-			fplog(stderr, "* * * FixBadFlag (parent folder):  old = %#x, incorrect = %#x, correct = %#x\n", rec.hfsPlusFolder.flags, (int)p->incorrect, (int)p->correct);
+		if ((rec.hfsPlusFolder.flags != p->incorrect) && (GPtr->logLevel >= kDebugLog)) {
+			fplog(stderr, "\tFixBadFlags (parent folder):  old = %#x, incorrect = %#x, correct = %#x\n", rec.hfsPlusFolder.flags, (int)p->incorrect, (int)p->correct);
 		}
 		rec.hfsPlusFolder.flags = p->correct;
 	} else {
-		if (rec.hfsPlusFolder.flags != p->incorrect) {
-			fplog(stderr, "* * * FixBadFlags (file):  old = %#x, incorrect = %#x, correct = %#x\n", rec.hfsPlusFolder.flags, (int)p->incorrect, (int)p->correct);
+		if ((rec.hfsPlusFolder.flags != p->incorrect) && (GPtr->logLevel >= kDebugLog)) {
+			fplog(stderr, "\tFixBadFlags (file):  old = %#x, incorrect = %#x, correct = %#x\n", rec.hfsPlusFolder.flags, (int)p->incorrect, (int)p->correct);
 		}
 		rec.hfsPlusFile.flags = p->correct;
 	}
@@ -1071,22 +1107,25 @@ OSErr UpdFolderCount( SGlobPtr GPtr, RepairOrderPtr p)
 	BuildCatalogKey( p->parid, NULL, true, &key);
 	result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint,
 		&foundKey, &record, &recSize, &hint);
-
-	if (result /*== btNotFound*/) {
-		// If a thread record was deleted, it should be recreated later
-		DPRINT(stderr, "UpdFolderCount:  first SearchBTreeRecord failed, bailing out without complaint\n");
-		return 0;
-	}
-
 	if (result) {
-		DPRINT(stderr, "UpdFolderCount:  first SearchBTreeRecord failed, parid = %u, result = %d\n", p->parid, result);
-		return IntError(GPtr, R_IntErr);
+		if (result == btNotFound) {
+			/* If the record was not found because either the thread 
+			 * record is missing or the file/folder record was deleted by 
+			 * another repair order, return false success to retry again 
+			 * after thread repair code.
+			 */
+		 	GPtr->minorRepairFalseSuccess = true;
+			return 0;
+		} else {
+			DPRINT(stderr, "\tUpdFolderCount: first SearchBTreeRecord failed, parid = %u, result = %d\n", p->parid, result);
+			return IntError(GPtr, R_IntErr);
+		}
 	}
 
-	if ((record.recordType != kHFSPlusFolderThreadRecord) &&
-	    (record.recordType != kHFSPlusFileThreadRecord)) {
-		DPRINT(stderr, "UpdFolderCount:  recordType (%d) is not a thread record\n", record.recordType);
-		return IntError(GPtr, R_IntErr);
+	if (record.recordType != kHFSPlusFolderThreadRecord) {
+		GPtr->CBTStat |= S_Orphan;
+		GPtr->minorRepairFalseSuccess = true;
+		return 0;
 	}
 
 	BuildCatalogKey( record.hfsPlusThread.parentID, (const CatalogName *)&record.hfsPlusThread.nodeName, true, &key);
@@ -1150,12 +1189,24 @@ OSErr UpdHasFolderCount( SGlobPtr GPtr, RepairOrderPtr p)
 		&foundKey, &record, &recSize, &hint);
 
 	if (result) {
-		return IntError(GPtr, R_IntErr);
+		if (result == btNotFound) {
+			/* If the record was not found because either the thread 
+			 * record is missing or the file/folder record was deleted by 
+			 * another repair order, return false success to retry again 
+			 * after thread repair code.
+			 */
+		 	GPtr->minorRepairFalseSuccess = true;
+			return 0;
+		} else {
+			return IntError(GPtr, R_IntErr);
+		}
 	}
 
 	/* If it's not a folder thread record, we've got a problem */
 	if (record.recordType != kHFSPlusFolderThreadRecord) {
-		return IntError(GPtr, R_IntErr);
+		GPtr->CBTStat |= S_Orphan;
+		GPtr->minorRepairFalseSuccess = true;
+		return 0;
 	}
 
 	BuildCatalogKey( record.hfsPlusThread.parentID, (const CatalogName *)&record.hfsPlusThread.nodeName, true, &key);
@@ -1346,9 +1397,19 @@ static	OSErr	DoMinorOrders( SGlobPtr GPtr )				//	the globals
 			plog ("\tDoMinorRepair: Repair for type=%d failed (err=%d).\n", p->type, err);
 		}	
 
-		/* If repair order returned false success, do not free it up.
-		 * Instead add it to global minor repair list so that we can
-		 * try to repair it again later.
+		/* A repair order can return false success if lookup of a 
+		 * record failed --- which can happen if the corresponding 
+		 * thread record is missing or a file/folder record was 
+		 * deleted as part of another repair order.  If repair 
+		 * order returned false success, do not free it up, instead 
+		 * add it back to the global minor repair list to retry 
+		 * repair after repairing incorrect number of thread records.
+		 * Note:  We do not return error when repair of minor 
+		 * repair orders fail second time due to missing record 
+		 * because if we did not find the catalog record second time,
+		 * it is already deleted and the minor repair order is invalid.
+		 * The minor repair order list is later freed up in clean up 
+		 * for the scavenger.
 		 */
 		if (GPtr->minorRepairFalseSuccess == true) {
 			p->link = GPtr->MinorRepairsP;
@@ -1711,8 +1772,12 @@ static OSErr FixHardLinkFinderInfo(SGlobPtr GPtr, RepairOrderPtr p)
 
 	retval = GetCatalogRecordByID(GPtr, (UInt32)p->parid, true, &key, &rec, &recsize);
 	if (retval != 0) {
-		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
-			GPtr->minorRepairAfterThreadRec = true;
+		if (retval == btNotFound) {
+			/* If the record was not found because either the thread 
+			 * record is missing or the file/folder record was deleted by 
+			 * another repair order, return false success to retry again 
+			 * after thread repair code.
+			 */
 		 	GPtr->minorRepairFalseSuccess = true;
 			retval = 0;
 		}
@@ -1766,7 +1831,17 @@ FixLinkChainPrev(SGlobPtr GPtr, RepairOrderPtr p)
 	result = SearchBTreeRecord( fcb, &key, kNoHint, &foundKey, &rec, &recSize, &hint );
 
 	if (result) {
-		return IntError(GPtr, R_IntErr);
+		if (result == btNotFound) {
+			/* If the record was not found because either the thread 
+			 * record is missing or the file/folder record was deleted by 
+			 * another repair order, return false success to retry again 
+			 * after thread repair code.
+			 */
+		 	GPtr->minorRepairFalseSuccess = true;
+			return 0;
+		} else {
+			return IntError(GPtr, R_IntErr);
+		}
 	}
 
 	if (rec.recordType != kHFSPlusFileThreadRecord) {
@@ -1821,7 +1896,17 @@ FixLinkChainNext(SGlobPtr GPtr, RepairOrderPtr p)
 	result = SearchBTreeRecord( fcb, &key, kNoHint, &foundKey, &rec, &recSize, &hint );
 
 	if (result) {
-		return IntError(GPtr, R_IntErr);
+		if (result == btNotFound) {
+			/* If the record was not found because either the thread 
+			 * record is missing or the file/folder record was deleted by 
+			 * another repair order, return false success to retry again 
+			 * after thread repair code.
+			 */
+		 	GPtr->minorRepairFalseSuccess = true;
+			return 0;
+		} else {
+			return IntError(GPtr, R_IntErr);
+		}
 	}
 
 	if (rec.recordType != kHFSPlusFileThreadRecord) {
@@ -1874,8 +1959,12 @@ FixLinkCount(SGlobPtr GPtr, RepairOrderPtr p)
 
 	result = GetCatalogRecordByID(GPtr, p->parid, isHFSPlus, &key, &rec, &recSize);
 	if (result) {
-		if ((result == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
-			GPtr->minorRepairAfterThreadRec = true;
+		if (result == btNotFound) {
+			/* If the record was not found because either the thread 
+			 * record is missing or the file/folder record was deleted by 
+			 * another repair order, return false success to retry again 
+			 * after thread repair code.
+			 */
 		 	GPtr->minorRepairFalseSuccess = true;
 			result = 0;
 		}
@@ -5914,11 +6003,6 @@ static int DeleteCatalogRecordByID(SGlobPtr GPtr, uint32_t id, Boolean for_renam
 	/* Lookup the catalog record to move */
 	retval = GetCatalogRecordByID(GPtr, id, isHFSPlus, &key, &rec, &recsize);
 	if (retval) {
-		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
-			GPtr->minorRepairAfterThreadRec = true;
-		 	GPtr->minorRepairFalseSuccess = true;
-			retval = 0;
-		}
 		goto out;
 	}
 
@@ -5969,11 +6053,6 @@ static int MoveCatalogRecordByID(SGlobPtr GPtr, uint32_t id, uint32_t new_parent
 	/* Lookup the catalog record to move */
 	retval = GetCatalogRecordByID(GPtr, id, true, &key, &rec, &recsize);
 	if (retval) {
-		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
-			GPtr->minorRepairAfterThreadRec = true;
-		 	GPtr->minorRepairFalseSuccess = true;
-			retval = 0;
-		}
 		goto out;
 	}
 

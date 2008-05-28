@@ -26,7 +26,10 @@
 
 #include "config.h"
 
+#include "qwebpage.h"
 #include "RenderThemeQt.h"
+#include "ChromeClientQt.h"
+#include "NotImplemented.h"
 
 #include <QApplication>
 #include <QColor>
@@ -39,6 +42,7 @@
 
 #include "Color.h"
 #include "Document.h"
+#include "Page.h"
 #include "Font.h"
 #include "RenderTheme.h"
 #include "GraphicsContext.h"
@@ -227,7 +231,8 @@ bool RenderThemeQt::paintButton(RenderObject* o, const RenderObject::PaintInfo& 
         return true;
 
     QStyleOptionButton option;
-    option.initFrom(widget);
+    if (widget)
+        option.initFrom(widget);
     option.rect = r;
 
     // Get the correct theme data for a button
@@ -236,9 +241,9 @@ bool RenderThemeQt::paintButton(RenderObject* o, const RenderObject::PaintInfo& 
     if(appearance == PushButtonAppearance || appearance == ButtonAppearance)
         style->drawControl(QStyle::CE_PushButton, &option, painter);
     else if(appearance == RadioAppearance)
-        style->drawControl(QStyle::CE_RadioButton, &option, painter);
+        style->drawPrimitive(QStyle::PE_IndicatorRadioButton, &option, painter, widget);
     else if(appearance == CheckboxAppearance)
-        style->drawControl(QStyle::CE_CheckBox, &option, painter);
+        style->drawPrimitive(QStyle::PE_IndicatorCheckBox, &option, painter, widget);
 
     return false;
 }
@@ -258,15 +263,15 @@ bool RenderThemeQt::paintTextField(RenderObject* o, const RenderObject::PaintInf
         return true;
 
     QStyleOptionFrameV2 panel;
-    
-    panel.initFrom(widget);
+    if (widget)
+        panel.initFrom(widget);
     panel.rect = r;
     panel.state |= QStyle::State_Sunken;
     panel.features = QStyleOptionFrameV2::None;
 
     // Get the correct theme data for a button
     EAppearance appearance = applyTheme(panel, o);
-    Q_ASSERT(appearance == TextFieldAppearance);
+    Q_ASSERT(appearance == TextFieldAppearance || appearance == SearchFieldAppearance);
 
     // Now paint the text field.
     style->drawPrimitive(QStyle::PE_PanelLineEdit, &panel, painter, widget);
@@ -310,7 +315,8 @@ bool RenderThemeQt::paintMenuList(RenderObject* o, const RenderObject::PaintInfo
         return true;
 
     QStyleOptionComboBox opt;
-    opt.initFrom(widget);
+    if (widget)
+        opt.initFrom(widget);
     EAppearance appearance = applyTheme(opt, o);
     const QPoint topLeft = r.topLeft();
     painter->translate(topLeft);
@@ -328,72 +334,84 @@ bool RenderThemeQt::paintMenuList(RenderObject* o, const RenderObject::PaintInfo
 bool RenderThemeQt::paintMenuListButton(RenderObject* o, const RenderObject::PaintInfo& pi,
                                         const IntRect& r)
 {
+    notImplemented();
     return RenderTheme::paintMenuListButton(o, pi, r);
 }
 
 void RenderThemeQt::adjustMenuListButtonStyle(CSSStyleSelector* selector, RenderStyle* style,
                                               Element* e) const
 {
+    notImplemented();
     RenderTheme::adjustMenuListButtonStyle(selector, style, e);
 }
 
 bool RenderThemeQt::paintSliderTrack(RenderObject* o, const RenderObject::PaintInfo& pi,
                                      const IntRect& r)
 {
+    notImplemented();
     return RenderTheme::paintSliderTrack(o, pi, r);
 }
 
 bool RenderThemeQt::paintSliderThumb(RenderObject* o, const RenderObject::PaintInfo& pi,
                                      const IntRect& r)
 {
+    notImplemented();
     return RenderTheme::paintSliderThumb(o, pi, r);
 }
 
 bool RenderThemeQt::paintSearchField(RenderObject* o, const RenderObject::PaintInfo& pi,
                                      const IntRect& r)
 {
-    return RenderTheme::paintSearchField(o, pi, r);
+    paintTextField(o, pi, r);
+    return false;
 }
 
 void RenderThemeQt::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderStyle* style,
                                            Element* e) const
 {
+    notImplemented();
     RenderTheme::adjustSearchFieldStyle(selector, style, e);
 }
 
 void RenderThemeQt::adjustSearchFieldCancelButtonStyle(CSSStyleSelector* selector, RenderStyle* style,
                                                        Element* e) const
 {
+    notImplemented();
     RenderTheme::adjustSearchFieldCancelButtonStyle(selector, style, e);
 }
 
 bool RenderThemeQt::paintSearchFieldCancelButton(RenderObject* o, const RenderObject::PaintInfo& pi,
                                                  const IntRect& r)
 {
+    notImplemented();
     return RenderTheme::paintSearchFieldCancelButton(o, pi, r);
 }
 
 void RenderThemeQt::adjustSearchFieldDecorationStyle(CSSStyleSelector* selector, RenderStyle* style,
                                                      Element* e) const
 {
+    notImplemented();
     RenderTheme::adjustSearchFieldDecorationStyle(selector, style, e);
 }
 
 bool RenderThemeQt::paintSearchFieldDecoration(RenderObject* o, const RenderObject::PaintInfo& pi,
                                                const IntRect& r)
 {
+    notImplemented();
     return RenderTheme::paintSearchFieldDecoration(o, pi, r);
 }
 
 void RenderThemeQt::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector* selector, RenderStyle* style,
                                                             Element* e) const
 {
+    notImplemented();
     RenderTheme::adjustSearchFieldResultsDecorationStyle(selector, style, e);
 }
 
 bool RenderThemeQt::paintSearchFieldResultsDecoration(RenderObject* o, const RenderObject::PaintInfo& pi,
                                                       const IntRect& r)
 {
+    notImplemented();
     return RenderTheme::paintSearchFieldResultsDecoration(o, pi, r);
 }
 
@@ -416,10 +434,15 @@ bool RenderThemeQt::getStylePainterAndWidgetFromPaintInfo(const RenderObject::Pa
                                                           QPainter*& painter, QWidget*& widget) const
 {
     painter = (i.context ? static_cast<QPainter*>(i.context->platformContext()) : 0);
-    widget = (painter ? static_cast<QWidget*>(painter->device()) : 0);
-    style = (widget ? widget->style() : 0);
+    widget = 0;
+    QPaintDevice* dev = 0;
+    if (painter)
+        dev = painter->device();
+    if (dev && dev->devType() == QInternal::Widget)
+        widget = static_cast<QWidget*>(dev);
+    style = (widget ? widget->style() : QApplication::style());
 
-    return (painter && widget && style);
+    return (painter && style);
 }
 
 EAppearance RenderThemeQt::applyTheme(QStyleOption& option, RenderObject* o) const
@@ -467,6 +490,14 @@ EAppearance RenderThemeQt::applyTheme(QStyleOption& option, RenderObject* o) con
 
     if(result == RadioAppearance || result == CheckboxAppearance)
         option.state |= (isChecked(o) ? QStyle::State_On : QStyle::State_Off);
+
+    // If the webview has a custom palette, use it
+    Page* page = o->document()->page();
+    if (page) {
+        QWidget* view = static_cast<ChromeClientQt*>(page->chrome()->client())->m_webPage->view();
+        if (view)
+            option.palette = view->palette();
+    }
 
     return result;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,7 @@
 #include "HTMLNames.h"
 #include "InlineTextBox.h"
 #include "InsertIntoTextNodeCommand.h"
+#include "InsertLineBreakCommand.h"
 #include "InsertNodeBeforeCommand.h"
 #include "InsertParagraphSeparatorCommand.h"
 #include "InsertTextCommand.h"
@@ -122,6 +123,11 @@ void CompositeEditCommand::insertParagraphSeparator(bool useDefaultParagraphElem
     applyCommandToComposite(new InsertParagraphSeparatorCommand(document(), useDefaultParagraphElement));
 }
 
+void CompositeEditCommand::insertLineBreak()
+{
+    applyCommandToComposite(new InsertLineBreakCommand(document()));
+}
+
 void CompositeEditCommand::insertNodeBefore(Node* insertChild, Node* refChild)
 {
     ASSERT(!refChild->hasTagName(bodyTag));
@@ -156,9 +162,9 @@ void CompositeEditCommand::insertNodeAt(Node* insertChild, const Position& editi
             insertNodeBefore(insertChild, child);
         else
             appendNode(insertChild, refChild);
-    } else if (refChild->caretMinOffset() >= offset) {
+    } else if (caretMinOffset(refChild) >= offset) {
         insertNodeBefore(insertChild, refChild);
-    } else if (refChild->isTextNode() && refChild->caretMaxOffset() > offset) {
+    } else if (refChild->isTextNode() && caretMaxOffset(refChild) > offset) {
         splitTextNode(static_cast<Text *>(refChild), offset);
         insertNodeBefore(insertChild, refChild);
     } else {
@@ -262,9 +268,29 @@ void CompositeEditCommand::joinTextNodes(Text *text1, Text *text2)
 
 void CompositeEditCommand::inputText(const String &text, bool selectInsertedText)
 {
-    RefPtr<InsertTextCommand> command = new InsertTextCommand(document());
-    applyCommandToComposite(command);
-    command->input(text, selectInsertedText);
+    int offset = 0;
+    int length = text.length();
+    RefPtr<Range> startRange = new Range(document(), Position(document()->documentElement(), 0), endingSelection().start());
+    int startIndex = TextIterator::rangeLength(startRange.get());
+    int newline;
+    do {
+        newline = text.find('\n', offset);
+        if (newline != offset) {
+            RefPtr<InsertTextCommand> command = new InsertTextCommand(document());
+            applyCommandToComposite(command);
+            int substringLength = newline == -1 ? length - offset : newline - offset;
+            command->input(text.substring(offset, substringLength), false);
+        }
+        if (newline != -1)
+            insertLineBreak();
+            
+        offset = newline + 1;
+    } while (newline != -1 && offset != length);
+    
+    if (selectInsertedText) {
+        RefPtr<Range> selectedRange = TextIterator::rangeFromLocationAndLength(document()->documentElement(), startIndex, length);
+        setEndingSelection(Selection(selectedRange.get()));
+    }
 }
 
 void CompositeEditCommand::insertTextIntoNode(Text *node, int offset, const String &text)
@@ -290,10 +316,10 @@ Position CompositeEditCommand::positionOutsideTabSpan(const Position& pos)
     
     Node* tabSpan = tabSpanNode(pos.node());
     
-    if (pos.offset() <= pos.node()->caretMinOffset())
+    if (pos.offset() <= caretMinOffset(pos.node()))
         return positionBeforeNode(tabSpan);
         
-    if (pos.offset() >= pos.node()->caretMaxOffset())
+    if (pos.offset() >= caretMaxOffset(pos.node()))
         return positionAfterNode(tabSpan);
 
     splitTextNodeContainingElement(static_cast<Text *>(pos.node()), pos.offset());
@@ -411,7 +437,7 @@ void CompositeEditCommand::prepareWhitespaceAtPositionForSplit(Position& positio
     position = upstreamPos.downstream();
 
     VisiblePosition visiblePos(position);
-    VisiblePosition previousVisiblePos(visiblePos.next());
+    VisiblePosition previousVisiblePos(visiblePos.previous());
     Position previous(previousVisiblePos.deepEquivalent());
     
     if (isCollapsibleWhitespace(previousVisiblePos.characterAfter()) && previous.node()->isTextNode() && !previous.node()->hasTagName(brTag))
@@ -450,7 +476,7 @@ void CompositeEditCommand::deleteInsignificantText(Text* textNode, int start, in
 
     int removed = 0;
     InlineTextBox* prevBox = 0;
-    RefPtr<StringImpl> str;
+    String str;
 
     // This loop structure works to process all gaps preceding a box,
     // and also will look at the gap after the last box.
@@ -466,10 +492,10 @@ void CompositeEditCommand::deleteInsignificantText(Text* textNode, int start, in
         if (indicesIntersect && gapLen > 0) {
             gapStart = max(gapStart, start);
             gapEnd = min(gapEnd, end);
-            if (!str)
+            if (str.isNull())
                 str = textNode->string()->substring(start, end - start);
             // remove text in the gap
-            str->remove(gapStart - start - removed, gapLen);
+            str.remove(gapStart - start - removed, gapLen);
             removed += gapLen;
         }
         
@@ -478,11 +504,11 @@ void CompositeEditCommand::deleteInsignificantText(Text* textNode, int start, in
             box = box->nextTextBox();
     }
 
-    if (str) {
+    if (!str.isNull()) {
         // Replace the text between start and end with our pruned version.
-        if (str->length() > 0) {
-            replaceTextInNode(textNode, start, end - start, str.get());
-        } else {
+        if (!str.isEmpty())
+            replaceTextInNode(textNode, start, end - start, str);
+        else {
             // Assert that we are not going to delete all of the text in the node.
             // If we were, that should have been done above with the call to 
             // removeNode and return.
@@ -885,13 +911,27 @@ Position CompositeEditCommand::positionAvoidingSpecialElementBoundary(const Posi
     return result;
 }
 
+// Splits the tree parent by parent until we reach the specified ancestor. We use VisiblePositions
+// to determine if the split is necessary. Returns the last split node.
+Node* CompositeEditCommand::splitTreeToNode(Node* start, Node* end, bool splitAncestor)
+{
+    Node* node;
+    for (node = start; node && node->parent() != end; node = node->parent()) {
+        VisiblePosition positionInParent(Position(node->parent(), 0), DOWNSTREAM);
+        VisiblePosition positionInNode(Position(node, 0), DOWNSTREAM);
+        if (positionInParent != positionInNode)
+            applyCommandToComposite(new SplitElementCommand(static_cast<Element*>(node->parent()), node));
+    }
+    if (splitAncestor)
+        return splitTreeToNode(end, end->parent());
+    return node;
+}
+
 PassRefPtr<Element> createBlockPlaceholderElement(Document* document)
 {
     ExceptionCode ec = 0;
     RefPtr<Element> breakNode = document->createElementNS(xhtmlNamespaceURI, "br", ec);
     ASSERT(ec == 0);
-    static String classString = "webkit-block-placeholder";
-    breakNode->setAttribute(classAttr, classString);
     return breakNode.release();
 }
 

@@ -26,8 +26,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ResourceCategory = function(title)
+WebInspector.ResourceCategory = function(title, name)
 {
+    this.name = name;
     this.title = title;
     this.resources = [];
     this.listItem = new WebInspector.ResourceCategoryTreeElement(this);
@@ -47,8 +48,12 @@ WebInspector.ResourceCategory.prototype = {
         var resourcesLength = this.resources.length;
         for (var i = 0; i < resourcesLength; ++i) {
             var b = this.resources[i];
-            if (a._lastPathComponentLowerCase < b._lastPathComponentLowerCase)
-                break;
+            if (a._lastPathComponentLowerCase && b._lastPathComponentLowerCase)
+                if (a._lastPathComponentLowerCase < b._lastPathComponentLowerCase)
+                    break;
+            else if (a.name && b.name)
+                if (a.name < b.name)
+                    break;
         }
 
         this.resources.splice(i, 0, resource);
@@ -89,7 +94,12 @@ WebInspector.ResourceCategory.prototype = {
 
 WebInspector.ResourceCategoryTreeElement = function(category)
 {
-    var item = new TreeElement(category.title, category, true);
-    item.selectable = false;
-    return item;
+    TreeElement.call(this, category.title, category, true);
 }
+
+WebInspector.ResourceCategoryTreeElement.prototype = {
+    selectable: false,
+    arrowToggleWidth: 20
+}
+
+WebInspector.ResourceCategoryTreeElement.prototype.__proto__ = TreeElement.prototype;

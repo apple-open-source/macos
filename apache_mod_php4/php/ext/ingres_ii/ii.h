@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ii.h,v 1.11.8.2.8.2 2007/01/01 09:46:43 sebastian Exp $ */
+/* $Id: ii.h,v 1.11.8.2.8.3 2007/12/31 07:22:48 sebastian Exp $ */
 
 #ifndef II_H
 #define II_H

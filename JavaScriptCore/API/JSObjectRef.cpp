@@ -1,6 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,21 +24,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#include "config.h"
+#include "JSObjectRef.h"
+
 #include <wtf/Platform.h>
 #include "APICast.h"
 #include "JSValueRef.h"
-#include "JSObjectRef.h"
 #include "JSCallbackConstructor.h"
 #include "JSCallbackFunction.h"
 #include "JSCallbackObject.h"
 #include "JSClassRef.h"
+#include "JSGlobalObject.h"
 
-#include "identifier.h"
+#include "PropertyNameArray.h"
 #include "function.h"
-#include "nodes.h"
+#include "function_object.h"
+#include "identifier.h"
 #include "internal.h"
 #include "object.h"
-#include "PropertyNameArray.h"
+#include "object_object.h"
 
 using namespace KJS;
 
@@ -55,15 +59,14 @@ JSClassRef JSClassCreate(const JSClassDefinition* definition)
 JSClassRef JSClassRetain(JSClassRef jsClass)
 {
     JSLock lock;
-    ++jsClass->refCount;
+    jsClass->ref();
     return jsClass;
 }
 
 void JSClassRelease(JSClassRef jsClass)
 {
     JSLock lock;
-    if (--jsClass->refCount == 0)
-        delete jsClass;
+    jsClass->deref();
 }
 
 JSObjectRef JSObjectMake(JSContextRef ctx, JSClassRef jsClass, void* data)
@@ -72,13 +75,13 @@ JSObjectRef JSObjectMake(JSContextRef ctx, JSClassRef jsClass, void* data)
     ExecState* exec = toJS(ctx);
 
     if (!jsClass)
-        return toRef(new JSObject(exec->lexicalInterpreter()->builtinObjectPrototype())); // slightly more efficient
+        return toRef(new JSObject(exec->lexicalGlobalObject()->objectPrototype())); // slightly more efficient
 
     JSValue* jsPrototype = jsClass->prototype(ctx);
     if (!jsPrototype)
-        jsPrototype = exec->lexicalInterpreter()->builtinObjectPrototype();
+        jsPrototype = exec->lexicalGlobalObject()->objectPrototype();
 
-    return toRef(new JSCallbackObject(exec, jsClass, jsPrototype, data));
+    return toRef(new JSCallbackObject<JSObject>(exec, jsClass, jsPrototype, data));
 }
 
 JSObjectRef JSObjectMakeFunctionWithCallback(JSContextRef ctx, JSStringRef name, JSObjectCallAsFunctionCallback callAsFunction)
@@ -97,10 +100,10 @@ JSObjectRef JSObjectMakeConstructor(JSContextRef ctx, JSClassRef jsClass, JSObje
     
     JSValue* jsPrototype = jsClass 
         ? jsClass->prototype(ctx)
-        : exec->dynamicInterpreter()->builtinObjectPrototype();
+        : exec->dynamicGlobalObject()->objectPrototype();
     
-    JSObject* constructor = new JSCallbackConstructor(exec, jsClass, callAsConstructor);
-    constructor->put(exec, exec->propertyNames().prototype, jsPrototype, DontEnum|DontDelete|ReadOnly);
+    JSCallbackConstructor* constructor = new JSCallbackConstructor(exec, jsClass, callAsConstructor);
+    constructor->putDirect(exec->propertyNames().prototype, jsPrototype, DontEnum | DontDelete | ReadOnly);
     return toRef(constructor);
 }
 
@@ -119,7 +122,7 @@ JSObjectRef JSObjectMakeFunction(JSContextRef ctx, JSStringRef name, unsigned pa
         args.append(jsString(UString(toJS(parameterNames[i]))));
     args.append(jsString(UString(bodyRep)));
 
-    JSObject* result = exec->dynamicInterpreter()->builtinFunction()->construct(exec, args, nameID, UString(sourceURLRep), startingLineNumber);
+    JSObject* result = exec->dynamicGlobalObject()->functionConstructor()->construct(exec, args, nameID, UString(sourceURLRep), startingLineNumber);
     if (exec->hadException()) {
         if (exception)
             *exception = toRef(exec->exception());
@@ -236,8 +239,10 @@ void* JSObjectGetPrivate(JSObjectRef object)
 {
     JSObject* jsObject = toJS(object);
     
-    if (jsObject->inherits(&JSCallbackObject::info))
-        return static_cast<JSCallbackObject*>(jsObject)->getPrivate();
+    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::info))
+        return static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->getPrivate();
+    else if (jsObject->inherits(&JSCallbackObject<JSObject>::info))
+        return static_cast<JSCallbackObject<JSObject>*>(jsObject)->getPrivate();
     
     return 0;
 }
@@ -246,8 +251,11 @@ bool JSObjectSetPrivate(JSObjectRef object, void* data)
 {
     JSObject* jsObject = toJS(object);
     
-    if (jsObject->inherits(&JSCallbackObject::info)) {
-        static_cast<JSCallbackObject*>(jsObject)->setPrivate(data);
+    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::info)) {
+        static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->setPrivate(data);
+        return true;
+    } else if (jsObject->inherits(&JSCallbackObject<JSObject>::info)) {
+        static_cast<JSCallbackObject<JSObject>*>(jsObject)->setPrivate(data);
         return true;
     }
         
@@ -268,7 +276,7 @@ JSValueRef JSObjectCallAsFunction(JSContextRef ctx, JSObjectRef object, JSObject
     JSObject* jsThisObject = toJS(thisObject);
 
     if (!jsThisObject)
-        jsThisObject = exec->dynamicInterpreter()->globalObject();
+        jsThisObject = exec->dynamicGlobalObject();
     
     List argList;
     for (size_t i = 0; i < argumentCount; i++)

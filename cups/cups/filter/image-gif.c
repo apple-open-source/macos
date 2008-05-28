@@ -3,7 +3,7 @@
  *
  *   GIF image routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -37,6 +37,7 @@
 
 #define GIF_INTERLACE	0x40
 #define GIF_COLORMAP	0x80
+#define GIF_MAX_BITS	12
 
 typedef cups_ib_t	gif_cmap_t[256][4];
 typedef short		gif_table_t[4096];
@@ -462,8 +463,14 @@ gif_read_image(FILE         *fp,	/* I - Input file */
   pass      = 0;
   code_size = getc(fp);
 
-  if (gif_read_lzw(fp, 1, code_size) < 0)
+  if (code_size > GIF_MAX_BITS || !pixels)
     return (-1);
+
+  if (gif_read_lzw(fp, 1, code_size) < 0)
+  {
+    free(pixels);
+    return (-1);
+  }
 
   temp = pixels;
   while ((pixel = gif_read_lzw(fp, 0, code_size)) >= 0)

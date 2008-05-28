@@ -76,6 +76,10 @@ void RenderBox::setStyle(RenderStyle* newStyle)
     bool wasFloating = isFloating();
     bool hadOverflowClip = hasOverflowClip();
 
+    RenderStyle* oldStyle = style();
+    if (oldStyle)
+        oldStyle->ref();
+
     RenderObject::setStyle(newStyle);
 
     // The root and the RenderView always paint their backgrounds/borders.
@@ -111,6 +115,8 @@ void RenderBox::setStyle(RenderStyle* newStyle)
         }
     }
 
+    setHasTransform(newStyle->hasTransform());
+
     if (requiresLayer()) {
         if (!m_layer) {
             if (wasFloating && isFloating())
@@ -126,6 +132,7 @@ void RenderBox::setStyle(RenderStyle* newStyle)
         RenderLayer* layer = m_layer;
         m_layer = 0;
         setHasLayer(false);
+        setHasTransform(false); // Either a transform wasn't specified or the object doesn't support transforms, so just null out the bit.
         layer->removeOnlyThisLayer();
         if (wasFloating && isFloating())
             setChildNeedsLayout(true);
@@ -140,6 +147,9 @@ void RenderBox::setStyle(RenderStyle* newStyle)
 
     if (style()->outlineWidth() > 0 && style()->outlineSize() > maximalOutlineSize(PaintPhaseOutline))
         static_cast<RenderView*>(document()->renderer())->setMaximalOutlineSize(style()->outlineSize());
+
+    if (oldStyle)
+        oldStyle->deref(renderArena());
 }
 
 RenderBox::~RenderBox()
@@ -148,24 +158,17 @@ RenderBox::~RenderBox()
 
 void RenderBox::destroy()
 {
-    // A lot of the code in this funtion is just pasted into
+    // A lot of the code in this function is just pasted into
     // RenderWidget::destroy. If anything in this function changes,
     // be sure to fix RenderWidget::destroy() as well.
-    
     if (hasOverrideSize())
         gOverrideSizeMap->remove(this);
 
-    RenderLayer* layer = m_layer;
-    RenderArena* arena = renderArena();
-
     // This must be done before we destroy the RenderObject.
-    if (layer)
-        layer->clearClipRect();
+    if (m_layer)
+        m_layer->clearClipRect();
 
     RenderObject::destroy();
-
-    if (layer)
-        layer->destroy(arena);
 }
 
 int RenderBox::minPrefWidth() const
@@ -276,7 +279,7 @@ bool RenderBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result
 
     // Check our bounds next. For this purpose always assume that we can only be hit in the
     // foreground phase (which is true for replaced elements like images).
-    if (action == HitTestForeground && IntRect(tx, ty, m_width, m_height).contains(x, y)) {
+    if (style()->visibility() == VISIBLE && action == HitTestForeground && IntRect(tx, ty, m_width, m_height).contains(x, y)) {
         updateHitTestResult(result, IntPoint(x - tx, y - ty));
         return true;
     }
@@ -408,50 +411,52 @@ void RenderBox::paintBackground(GraphicsContext* context, const Color& c, const 
     paintBackgroundExtended(context, c, bgLayer, clipY, clipH, tx, ty, width, height);
 }
 
-static void cacluateBackgroundSize(const BackgroundLayer* bgLayer, int& scaledWidth, int& scaledHeight)
+IntSize RenderBox::calculateBackgroundSize(const BackgroundLayer* bgLayer, int scaledWidth, int scaledHeight) const
 {
     CachedImage* bg = bgLayer->backgroundImage();
+    bg->setImageContainerSize(IntSize(m_width, m_height));
 
     if (bgLayer->isBackgroundSizeSet()) {
+        int w = scaledWidth;
+        int h = scaledHeight;
         Length bgWidth = bgLayer->backgroundSize().width;
         Length bgHeight = bgLayer->backgroundSize().height;
 
         if (bgWidth.isPercent())
-            scaledWidth = bgWidth.calcValue(scaledWidth);
+            w = bgWidth.calcValue(scaledWidth);
         else if (bgWidth.isFixed())
-            scaledWidth = bgWidth.value();
+            w = bgWidth.value();
         else if (bgWidth.isAuto()) {
             // If the width is auto and the height is not, we have to use the appropriate
             // scale to maintain our aspect ratio.
             if (bgHeight.isPercent()) {
                 int scaledH = bgHeight.calcValue(scaledHeight);
-                scaledWidth = bg->imageSize().width() * scaledH / bg->imageSize().height();
+                w = bg->imageSize().width() * scaledH / bg->imageSize().height();
             } else if (bgHeight.isFixed())
-                scaledWidth = bg->imageSize().width() * bgHeight.value() / bg->imageSize().height();
+                w = bg->imageSize().width() * bgHeight.value() / bg->imageSize().height();
         }
 
         if (bgHeight.isPercent())
-            scaledHeight = bgHeight.calcValue(scaledHeight);
+            h = bgHeight.calcValue(scaledHeight);
         else if (bgHeight.isFixed())
-            scaledHeight = bgHeight.value();
+            h = bgHeight.value();
         else if (bgHeight.isAuto()) {
             // If the height is auto and the width is not, we have to use the appropriate
             // scale to maintain our aspect ratio.
             if (bgWidth.isPercent())
-                scaledHeight = bg->imageSize().height() * scaledWidth / bg->imageSize().width();
+                h = bg->imageSize().height() * scaledWidth / bg->imageSize().width();
             else if (bgWidth.isFixed())
-                scaledHeight = bg->imageSize().height() * bgWidth.value() / bg->imageSize().width();
+                h = bg->imageSize().height() * bgWidth.value() / bg->imageSize().width();
             else if (bgWidth.isAuto()) {
                 // If both width and height are auto, we just want to use the image's
                 // intrinsic size.
-                scaledWidth = bg->imageSize().width();
-                scaledHeight = bg->imageSize().height();
+                w = bg->imageSize().width();
+                h = bg->imageSize().height();
             }
         }
-    } else {
-        scaledWidth = bg->imageSize().width();
-        scaledHeight = bg->imageSize().height();
-    }
+        return IntSize(max(1, w), max(1, h));
+    } else
+        return bg->imageSize();
 }
 
 void RenderBox::imageChanged(CachedImage* image)
@@ -550,10 +555,10 @@ void RenderBox::calculateBackgroundImageGeometry(const BackgroundLayer* bgLayer,
     int sy = 0;
     int cw;
     int ch;
-    int scaledImageWidth = pw;
-    int scaledImageHeight = ph;
 
-    cacluateBackgroundSize(bgLayer, scaledImageWidth, scaledImageHeight);
+    IntSize scaledImageSize = calculateBackgroundSize(bgLayer, pw, ph);
+    int scaledImageWidth = scaledImageSize.width();
+    int scaledImageHeight = scaledImageSize.height();
 
     EBackgroundRepeat backgroundRepeat = bgLayer->backgroundRepeat();
     
@@ -916,6 +921,9 @@ void RenderBox::deleteLineBoxWrapper()
 
 IntRect RenderBox::absoluteClippedOverflowRect()
 {
+    if (style()->visibility() != VISIBLE && !enclosingLayer()->hasVisibleContent())
+        return IntRect();
+
     IntRect r = overflowRect(false);
 
     if (RenderView* v = view())
@@ -980,6 +988,15 @@ void RenderBox::computeAbsoluteRepaintRect(IntRect& rect, bool fixed)
             y += offset.height();
         }
 
+        // We are now in our parent container's coordinate space.  Apply our transform to obtain a bounding box
+        // in the parent's coordinate space that encloses us.
+        if (m_layer && m_layer->transform()) {
+            fixed = false;
+            rect = m_layer->transform()->mapRect(rect);
+            x = rect.x() + m_x;
+            y = rect.y() + m_y;
+        }
+
         // FIXME: We ignore the lightweight clipping rect that controls use, since if |o| is in mid-layout,
         // its controlClipRect will be wrong. For overflow clip we use the values cached by the layer.
         if (o->hasOverflowClip()) {
@@ -996,6 +1013,7 @@ void RenderBox::computeAbsoluteRepaintRect(IntRect& rect, bool fixed)
             rect.setX(x);
             rect.setY(y);
         }
+        
         o->computeAbsoluteRepaintRect(rect, fixed);
     }
 }
@@ -1057,7 +1075,7 @@ void RenderBox::calcWidth()
     }
 
     // If layout is limited to a subtree, the subtree root's width does not change.
-    if (node() && view()->frameView() && view()->frameView()->layoutRoot() == node())
+    if (node() && view()->frameView() && view()->frameView()->layoutRoot(true) == this)
         return;
 
     // The parent box is flexing us, so it has increased or decreased our
@@ -1070,7 +1088,7 @@ void RenderBox::calcWidth()
 
     bool inVerticalBox = parent()->isFlexibleBox() && (parent()->style()->boxOrient() == VERTICAL);
     bool stretching = (parent()->style()->boxAlign() == BSTRETCH);
-    bool treatAsReplaced = isReplaced() && !isInlineBlockOrInlineTable() && (!inVerticalBox || !stretching);
+    bool treatAsReplaced = shouldCalculateSizeAsReplaced() && (!inVerticalBox || !stretching);
 
     Length width = (treatAsReplaced) ? Length(calcReplacedWidth(), Fixed) : style()->width();
 
@@ -1242,7 +1260,7 @@ void RenderBox::calcHeight()
         Length h;
         bool inHorizontalBox = parent()->isFlexibleBox() && parent()->style()->boxOrient() == HORIZONTAL;
         bool stretching = parent()->style()->boxAlign() == BSTRETCH;
-        bool treatAsReplaced = isReplaced() && !isInlineBlockOrInlineTable() && (!inHorizontalBox || !stretching);
+        bool treatAsReplaced = shouldCalculateSizeAsReplaced() && (!inHorizontalBox || !stretching);
         bool checkMinMaxHeight = false;
 
         // The parent box is flexing us, so it has increased or decreased our height.  We have to
@@ -1447,9 +1465,13 @@ int RenderBox::calcReplacedHeightUsing(Length height) const
             // It is necessary to use the border-box to match WinIE's broken
             // box model.  This is essential for sizing inside
             // table cells using percentage heights.
-            if (cb->isTableCell() && (cb->style()->height().isAuto() || cb->style()->height().isPercent()))
+            if (cb->isTableCell() && (cb->style()->height().isAuto() || cb->style()->height().isPercent())) {
+                // Don't let table cells squeeze percent-height replaced elements
+                // <http://bugs.webkit.org/show_bug.cgi?id=15359>
+                availableHeight = max(availableHeight, intrinsicSize().height());
                 return height.calcValue(availableHeight - (borderTop() + borderBottom()
                     + paddingTop() + paddingBottom()));
+            }
 
             return calcContentBoxHeight(height.calcValue(availableHeight));
         }
@@ -1552,7 +1574,7 @@ int RenderBox::containingBlockWidthForPositioned(const RenderObject* containingB
         return max(0, (fromRight - fromLeft));
     }
 
-    return containingBlock->width() - containingBlock->borderLeft() - containingBlock->borderRight();
+    return containingBlock->width() - containingBlock->borderLeft() - containingBlock->borderRight() - containingBlock->verticalScrollbarWidth();
 }
 
 int RenderBox::containingBlockHeightForPositioned(const RenderObject* containingBlock) const

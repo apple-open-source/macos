@@ -118,10 +118,12 @@ public:
 	void *at(off_t offset, size_t size) const	// length-checking version
 	{ assert(offset >= 0 && (CSSM_SIZE)offset + size <= Length); return Data + offset; }
 	
-    unsigned char operator [] (size_t pos) const
-    { assert(pos < Length); return Data[pos]; }
-	unsigned char &operator [] (size_t pos)
-	{ assert(pos < Length); return Data[pos]; }
+	template <class T> T *at(off_t offset) const { return reinterpret_cast<T *>(at(offset)); }
+	template <class T> T *at(off_t offset, size_t size) const
+	{ return reinterpret_cast<T *>(at(offset, size)); }
+	
+	unsigned char byte(off_t offset) const { return *at<unsigned char>(offset); }
+	unsigned char &byte(off_t offset) { return *at<unsigned char>(offset); }
 	
     void *use(size_t taken)			// logically remove some bytes
     { assert(taken <= Length); void *r = Data; Length -= taken; Data += taken; return r; }
@@ -131,6 +133,7 @@ public:
 
     string toString () const;	// convert to string type (no trailing null)
 	string toHex() const;		// hex string of binary blob
+	string toOid() const;		// standard OID string encoding (1.2.3...)
 	void fromHex(const char *digits); // fill myself with hex data (no allocation)
 
     operator bool () const { return Data != NULL; }
@@ -367,6 +370,9 @@ public:
 	void operator = (const CSSM_DATA &source) { copy(source); }
 	
 	CssmData &get() const throw();
+	
+public:
+	void fromOid(const char *oid);		// fill from text OID form (1.2.3...)
 	
 protected:
 	CssmData &referent;

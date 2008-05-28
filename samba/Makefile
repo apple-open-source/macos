@@ -111,6 +111,7 @@ install-directories:
 	$(INSTALL) -d -m 755 $(OPENSOURCE_VERSIONS)
 	$(INSTALL) -d -m 755 $(SYSTEM_CONFIGURATION)
 	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_CONFDIR)
+	$(INSTALL) -d -m 755 $(DSTROOT)$(ETCDIR)/pam.d
 	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_LOGDIR)
 	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_LIBEXEC)
 	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_LOCKDIR)/shares
@@ -164,6 +165,9 @@ install-config:
 	$(INSTALL) -b -c -m 644 -o root -g wheel \
 		$(SRCROOT)/config/smb.conf.template \
 		$(DSTROOT)$(SMB_CONFDIR)/smb.conf
+	$(INSTALL) -b -c -m 644 -o root -g wheel \
+		$(SRCROOT)/config/samba.pam \
+		$(DSTROOT)/$(ETCDIR)/pam.d/samba
 	$(INSTALL) -c -m 644 -o root -g wheel \
 		$(SRCROOT)/samba.plist $(OPENSOURCE_VERSIONS)
 

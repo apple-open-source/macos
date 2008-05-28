@@ -43,7 +43,9 @@
 #endif
 
 
-extern FILE *gLogFileDesc;
+__BEGIN_DECLS
+    extern FILE *gLogFileDesc;
+__END_DECLS
 
 typedef enum SetupActionType {
 	kSetupActionGeneral = 0,
@@ -52,12 +54,11 @@ typedef enum SetupActionType {
 };
 
 
-extern "C"
-{
+__BEGIN_DECLS
 	extern void		get_myaddress		( struct sockaddr_in* server_addr );
 	pid_t			ProcessRunning		( const char *inProcName );
 	char *			ProcessName			( pid_t inPID );
-}
+__END_DECLS
 
 void		nest_log_time( FILE *inFile );
 void		UpdateReplicaList(const char *inOldIP, const char* inNewIP);

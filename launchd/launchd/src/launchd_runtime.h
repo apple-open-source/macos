@@ -50,6 +50,9 @@ struct ldcred {
 
 #define launchd_assert(e)	if (__builtin_constant_p(e)) { char __compile_time_assert__[e ? 1 : -1] __attribute__((unused)); } else if (!launchd_assumes(e)) { abort(); }
 
+#define likely(x)       __builtin_expect((bool)(x), true)
+#define unlikely(x)     __builtin_expect((bool)(x), false)
+
 void _log_launchd_bug(const char *rcs_rev, const char *path, unsigned int line, const char *test);
 
 typedef void (*kq_callback)(void *, struct kevent *);

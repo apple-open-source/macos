@@ -100,7 +100,7 @@ routine GetAllGroups
 			server			: mach_port_t;
 			uid				: uint32_t;
 	out		numGroups		: uint32_t;
-	out		gids			: GIDList;
+	out		gids			: GIDList, dealloc;
 
 		AuditToken atoken	: audit_token_t
 );

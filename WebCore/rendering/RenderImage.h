@@ -41,9 +41,9 @@ public:
 
     virtual bool isImage() const { return true; }
     
-    virtual void paint(PaintInfo&, int tx, int ty);
+    virtual void paintReplaced(PaintInfo& paintInfo, int tx, int ty);
 
-    virtual void layout();
+    virtual int minimumReplacedHeight() const;
 
     virtual void imageChanged(CachedImage*);
     
@@ -70,6 +70,8 @@ public:
 
 protected:
     Image* image() { return m_cachedImage ? m_cachedImage->image() : nullImage(); }
+    
+    bool errorOccurred() const { return m_cachedImage && m_cachedImage->errorOccurred(); }
 
 private:
     int calcAspectRatioWidth() const;
@@ -77,8 +79,6 @@ private:
 
     bool isWidthSpecified() const;
     bool isHeightSpecified() const;
-
-    bool errorOccurred() const { return m_cachedImage && m_cachedImage->errorOccurred(); }
 
     // The image we are rendering.
     CachedImage* m_cachedImage;

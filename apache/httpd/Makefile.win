@@ -16,7 +16,9 @@
 #   INSTDIR     \Apache22
 #   PORT        80
 #   SSLPORT     443
-#   SERVERNAME  localhost
+#   DOMAINNAME  example.com
+#   SERVERNAME  www.example.com
+#   SERVERNAME  admin@example.com
 #
 #   ALL         (unset)     Includes additional modules for build testing
 #
@@ -124,8 +126,14 @@ _tryzlib:
 !IF "$(INSTDIR)" == ""
 INSTDIR=\Apache22
 !ENDIF
+!IF "$(DOMAINNAME)" == ""
+DOMAINNAME=example.com
+!ENDIF 
 !IF "$(SERVERNAME)" == ""
-SERVERNAME=localhost
+SERVERNAME=www.$(DOMAINNAME)
+!ENDIF
+!IF "$(SERVERADMIN)" == ""
+SERVERADMIN=admin@$(DOMAINNAME)
 !ENDIF
 !IF "$(PORT)" == ""
 PORT=80
@@ -136,11 +144,13 @@ SSLPORT=443
 
 !IF "$(LONG)" == ""
 !MESSAGE
-!MESSAGE INSTDIR    = $(INSTDIR)
-!MESSAGE SERVERNAME = $(SERVERNAME)
-!MESSAGE PORT       = $(PORT)
+!MESSAGE INSTDIR     = $(INSTDIR)
+!MESSAGE DOMAINNAME  = $(DOMAINNAME)
+!MESSAGE SERVERNAME  = $(SERVERNAME)
+!MESSAGE SERVERADMIN = $(SERVERADMIN)
+!MESSAGE PORT        = $(PORT)
 !IF EXIST("srclib\openssl")
-!MESSAGE SSLPORT    = $(SSLPORT)
+!MESSAGE SSLPORT     = $(SSLPORT)
 !ENDIF
 !MESSAGE
 !MESSAGE To change these options use 'nmake -f Makefile.win [option=value]'
@@ -297,6 +307,7 @@ _build:
 	 $(MAKE) $(MAKEOPT) -f mod_ext_filter.mak  CFG="mod_ext_filter - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	 $(MAKE) $(MAKEOPT) -f mod_filter.mak      CFG="mod_filter - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	 $(MAKE) $(MAKEOPT) -f mod_include.mak     CFG="mod_include - Win32 $(LONG)" RECURSE=0 $(CTARGET)
+	 $(MAKE) $(MAKEOPT) -f mod_substitute.mak  CFG="mod_substitute - Win32 $(LONG)" RECURSE=0 $(CTARGET)
 	cd ..\..
 	cd modules\generators
 	 $(MAKE) $(MAKEOPT) -f mod_asis.mak        CFG="mod_asis - Win32 $(LONG)" RECURSE=0 $(CTARGET)
@@ -432,6 +443,9 @@ _copybin:
 	copy srclib\apr\$(LONG)\libapr-1.$(src_dll) 		"$(inst_dll)" <.y
 	copy srclib\apr-iconv\$(LONG)\libapriconv-1.$(src_dll) 	"$(inst_dll)" <.y
 	copy srclib\apr-util\$(LONG)\libaprutil-1.$(src_dll) 	"$(inst_dll)" <.y
+!IF EXIST("srclib\zlib\zlib1.$(src_dll)")
+	copy srclib\zlib\zlib1.$(src_dll)		 	"$(inst_dll)" <.y
+!ENDIF
 	copy modules\aaa\$(LONG)\mod_auth_basic.$(src_so) 	"$(inst_so)" <.y
 	copy modules\aaa\$(LONG)\mod_auth_digest.$(src_so) 	"$(inst_so)" <.y
 	copy modules\aaa\$(LONG)\mod_authn_alias.$(src_so) 	"$(inst_so)" <.y
@@ -469,13 +483,11 @@ _copybin:
 	copy modules\filters\$(LONG)\mod_charset_lite.$(src_so)	"$(inst_so)" <.y
 !IF EXIST("srclib\zlib")
 	copy modules\filters\$(LONG)\mod_deflate.$(src_so) 	"$(inst_so)" <.y
-!IF EXIST("srclib\zlib\zlib1.$(src_dll)")
-	copy srclib\zlib\zlib1.$(src_dll)		 	"$(inst_dll)" <.y
-!ENDIF
 !ENDIF
 	copy modules\filters\$(LONG)\mod_ext_filter.$(src_so) 	"$(inst_so)" <.y
 	copy modules\filters\$(LONG)\mod_filter.$(src_so) 	"$(inst_so)" <.y
 	copy modules\filters\$(LONG)\mod_include.$(src_so) 	"$(inst_so)" <.y
+	copy modules\filters\$(LONG)\mod_substitute.$(src_so)	"$(inst_so)" <.y
 	copy modules\generators\$(LONG)\mod_asis.$(src_so) 	"$(inst_so)" <.y
 	copy modules\generators\$(LONG)\mod_autoindex.$(src_so) "$(inst_so)" <.y
 	copy modules\generators\$(LONG)\mod_cgi.$(src_so) 	"$(inst_so)" <.y
@@ -512,14 +524,13 @@ _copybin:
 	copy modules\proxy\$(LONG)\mod_proxy_ftp.$(src_so) 	"$(inst_so)" <.y
 	copy modules\proxy\$(LONG)\mod_proxy_http.$(src_so) 	"$(inst_so)" <.y
 !IF EXIST("srclib\openssl")
-	copy modules\ssl\$(LONG)\mod_ssl.$(src_so) 			"$(inst_so)" <.y
-	$(quiet)copy srclib\openssl\$(SSLBIN)\openssl.$(src_exe) 	"$(inst_exe)" <.y
-	$(quiet)copy srclib\openssl\$(SSLBIN)\libeay32.$(src_dll) 	"$(inst_dll)" <.y
-	$(quiet)copy srclib\openssl\$(SSLBIN)\ssleay32.$(src_dll) 	"$(inst_dll)" <.y
-	copy support\$(LONG)\abs.$(src_exe) 	"$(inst_exe)\ab.$(src_exe)" <.y
-!ELSE
-	copy support\$(LONG)\ab.$(src_exe) 				"$(inst_exe)" <.y
+	copy modules\ssl\$(LONG)\mod_ssl.$(src_so) 		"$(inst_so)" <.y
+	-copy srclib\openssl\$(SSLBIN)\libeay32.$(src_dll) 	"$(inst_dll)" <.y
+	-copy srclib\openssl\$(SSLBIN)\ssleay32.$(src_dll) 	"$(inst_dll)" <.y
+	-copy srclib\openssl\$(SSLBIN)\openssl.$(src_exe) 	"$(inst_exe)" <.y
+	copy support\$(LONG)\abs.$(src_exe) 			"$(inst_exe)" <.y
 !ENDIF
+	copy support\$(LONG)\ab.$(src_exe) 			"$(inst_exe)" <.y
 	copy support\$(LONG)\htcacheclean.$(src_exe)		"$(inst_exe)" <.y
 	copy support\$(LONG)\htdbm.$(src_exe) 			"$(inst_exe)" <.y
 	copy support\$(LONG)\htdigest.$(src_exe) 		"$(inst_exe)" <.y
@@ -546,6 +557,8 @@ _install:
 	-mkdir "$(INSTDIR)\cgi-bin"
 	-mkdir "$(INSTDIR)\conf"
 	-mkdir "$(INSTDIR)\conf\extra"
+	-mkdir "$(INSTDIR)\conf\original"
+	-mkdir "$(INSTDIR)\conf\original\extra"
 	-mkdir "$(INSTDIR)\error"
 	-mkdir "$(INSTDIR)\htdocs"
 	-mkdir "$(INSTDIR)\manual"
@@ -554,7 +567,6 @@ _install:
 	-mkdir "$(INSTDIR)\lib"
 	-mkdir "$(INSTDIR)\logs"
 	-mkdir "$(INSTDIR)\modules"
-	-mkdir "$(INSTDIR)\proxy"
 	-mkdir "$(INSTDIR)\symbols"
 	-mkdir "$(INSTDIR)\symbols\exe"
 	-mkdir "$(INSTDIR)\symbols\dll"
@@ -566,7 +578,7 @@ _install:
 	copy NOTICE       "$(INSTDIR)\NOTICE.txt" <.y
 	copy README       "$(INSTDIR)\README.txt" <.y
 !IF EXIST("srclib\openssl")
-	copy srclib\openssl\apps\openssl.cnf "$(INSTDIR)\conf\openssl.cnf" <.y
+	-copy srclib\openssl\apps\openssl.cnf "$(INSTDIR)\conf\openssl.cnf" <.y
 	type << >> "$(INSTDIR)\NOTICE.txt"
 
   This binary distribution includes cryptographic software written by
@@ -577,14 +589,14 @@ _install:
 	-awk -f <<script.awk < "srclib\openssl\LICENSE" >> "$(INSTDIR)\LICENSE.txt"
 BEGIN {
     print "";
-    print "For the libeay32.dll, ssleay32.dll and certtool.exe components:";
+    print "For the libeay32.dll, ssleay32.dll and openssl.exe components:";
     print "";
     while ( getline > 0 ) {
 	print $$0;
    }
 }
 <<
-	copy << + srclib\openssl\NEWS "$(INSTDIR)\OPENSSL-NEWS.txt" <.y
+	copy << "$(INSTDIR)\OPENSSL-NEWS.txt" <.y
 
  Apache HTTP Server 2.2 Limited OpenSSL Distribution
 
@@ -599,15 +611,18 @@ BEGIN {
  support for the patented encryption methods IDEA, MDC-2 or RC5.
 
 --------------------------------------------------------------------------------
+
 <<
-	copy << + srclib\openssl\README "$(INSTDIR)\OPENSSL-README.txt" <.y
+	-copy "$(INSTDIR)\OPENSSL-NEWS.txt" \
+	    + srclib\openssl\NEWS "$(INSTDIR)\OPENSSL-NEWS.txt"
+	copy << "$(INSTDIR)\OPENSSL-README.txt" <.y
 
  Apache HTTP Server 2.2 Limited OpenSSL Distribution
 
  This binary installation of OpenSSL is a limited distribution of the
  files derived from the OpenSSL project:
 
-   OPENSSL-LICENSE.txt
+   LICENSE.txt (includes openssl LICENSE)
    OPENSSL-NEWS.txt
    OPENSSL-README.txt
    conf\openssl.cnf
@@ -634,6 +649,8 @@ BEGIN {
 
 --------------------------------------------------------------------------------
 <<
+	-copy "$(INSTDIR)\OPENSSL-README.txt" \
+	    + srclib\openssl\README "$(INSTDIR)\OPENSSL-README.txt"
 !ENDIF
 !IF EXIST("srclib\zlib")
 	type << >> "$(INSTDIR)\NOTICE.txt"
@@ -664,7 +681,7 @@ BEGIN {
 		inst_dll="$(INSTDIR)\bin"                              \
 		inst_so="$(INSTDIR)\modules"
 	$(MAKE) $(MAKEOPT) -f Makefile.win SHORT=$(SHORT) LONG=$(LONG) \
-		_copybin src_exe=pdb src_dll=pdb src_so=pdb quiet="-"  \
+		_copybin src_exe=pdb src_dll=pdb src_so=pdb            \
 		inst_exe="$(INSTDIR)\bin"                              \
 		inst_dll="$(INSTDIR)\bin"                              \
 		inst_so="$(INSTDIR)\modules"
@@ -691,16 +708,30 @@ BEGIN {
 	xcopy docs\docroot 	"$(INSTDIR)\htdocs" /d < .a
 	xcopy docs\icons 	"$(INSTDIR)\icons" /s /d < .a
 	xcopy docs\manual 	"$(INSTDIR)\manual" /s /d < .a
-	xcopy srclib\apr-util\xml\expat\lib\expat.h 	"$(INSTDIR)\include" /d < .a
-	xcopy srclib\apr\include\*.h 			"$(INSTDIR)\include" /d < .a
-	xcopy srclib\apr-util\include\*.h 		"$(INSTDIR)\include" /d < .a
-	xcopy include\*.h 				"$(INSTDIR)\include" /d < .a
-	copy srclib\apr\Lib$(SHORT)\apr-1.lib 		"$(INSTDIR)\lib" <.y
-	copy srclib\apr\Lib$(SHORT)\apr_src.pdb 	"$(INSTDIR)\lib" <.y
-	copy srclib\apr-util\Lib$(SHORT)\aprutil-1.lib 	"$(INSTDIR)\lib" <.y
-	copy srclib\apr-util\Lib$(SHORT)\aprutil_src.pdb "$(INSTDIR)\lib" <.y
+	for %f in ( \
+		srclib\apr-util\xml\expat\lib\expat.h \
+		srclib\apr\include\*.h \
+		srclib\apr-util\include\*.h \
+		include\*.h \
+		os\win32\os.h \
+		server\mpm\winnt\mpm*.h \
+		modules\aaa\mod_auth.h \
+		modules\database\mod_dbd.h \
+		modules\dav\main\mod_dav.h \
+		modules\filters\mod_include.h \
+		modules\generators\mod_cgi.h \
+		modules\generators\mod_status.h \
+		modules\loggers\mod_log_config.h \
+		modules\http\mod_core.h \
+		modules\proxy\mod_proxy.h \
+		modules\ssl\mod_ssl.h ) do \
+	    @copy %f "$(INSTDIR)\include" < .y > nul
+	copy srclib\apr\Lib$(SHORT)\apr-1.lib		"$(INSTDIR)\lib" <.y
+	copy srclib\apr\Lib$(SHORT)\apr-1.pdb		"$(INSTDIR)\lib" <.y
+	copy srclib\apr-util\Lib$(SHORT)\aprutil-1.lib	"$(INSTDIR)\lib" <.y
+	copy srclib\apr-util\Lib$(SHORT)\aprutil-1.pdb	"$(INSTDIR)\lib" <.y
 	copy srclib\apr-util\xml\expat\lib\Lib$(SHORT)\xml.lib "$(INSTDIR)\lib" <.y
-	copy srclib\apr-util\xml\expat\lib\Lib$(SHORT)\xml_src.pdb "$(INSTDIR)\lib" <.y
+	copy srclib\apr-util\xml\expat\lib\Lib$(SHORT)\xml.pdb "$(INSTDIR)\lib" <.y
 	copy srclib\apr\$(LONG)\libapr-1.lib 		"$(INSTDIR)\lib" <.y
 	copy srclib\apr\$(LONG)\libapr-1.exp 		"$(INSTDIR)\lib" <.y
 	copy srclib\apr-iconv\$(LONG)\libapriconv-1.lib	"$(INSTDIR)\lib" <.y
@@ -711,65 +742,10 @@ BEGIN {
 	copy $(LONG)\libhttpd.lib 			"$(INSTDIR)\lib" <.y
 	copy modules\dav\main\$(LONG)\mod_dav.exp 	"$(INSTDIR)\lib" <.y
 	copy modules\dav\main\$(LONG)\mod_dav.lib 	"$(INSTDIR)\lib" <.y
-	echo Y >.y
 	for %f in ( charset.conv magic mime.types ) do ( \
-	  copy docs\conf\%f "$(INSTDIR)\conf\%f.default" <.y && \
-	  if not exist "$(INSTDIR)\conf\%f" \
-	    copy "$(INSTDIR)\conf\%f.default" "$(INSTDIR)\conf\%f" \
-	)
-	copy docs\conf\httpd-win.conf "$(INSTDIR)\conf\httpd.conf.default" <.y
-	-awk -f <<script.awk "docs/conf/httpd-win.conf" "$(INSTDIR)" > "$(INSTDIR)\conf\httpd.conf.default"
-    BEGIN { 
-	serverroot = ARGV[2];
-	delete ARGV[2];
-	gsub( /\\/, "/", serverroot );
-	"cd" | getline root;
-	gsub( /^\//, substr( root, 1, 2 ) "/", serverroot );
-    }
-    {
-	gsub( /@@ServerRoot@@/, serverroot );
-	gsub( /@@ServerName@@/, "$(SERVERNAME)" );
-	gsub( /@@Port@@/, "$(PORT)" );
-	print $$0;
-    }
-<<
-	if not exist "$(INSTDIR)\conf\httpd.conf" \
-	    copy "$(INSTDIR)\conf\httpd.conf.default" "$(INSTDIR)\conf\httpd.conf"
-	for %f in ( docs\conf\extra\*.in ) do ( \
-	  copy %f "$(INSTDIR)\conf\extra\%~nf.default" <.y && \
-	  awk -f <<script.awk "docs/conf/extra/%~nf.in" "$(INSTDIR)" > "$(INSTDIR)\conf\extra\%~nf.default" )
-    BEGIN { 
-	serverroot = ARGV[2];
-	delete ARGV[2];
-	gsub( /\\/, "/", serverroot );
-	"cd" | getline root;
-	gsub( /^\//, substr( root, 1, 2 ) "/", serverroot );
-    }
-    {
-	gsub( /SSLMutex  file:@exp_runtimedir@\/ssl_mutex/, "SSLMutex default" );
-	gsub( /@@ServerRoot@@/,   serverroot );
-	gsub( /@exp_cgidir@/,     serverroot "/cgi-bin" );
-	gsub( /@exp_sysconfdir@/, serverroot "/conf" );
-	gsub( /@exp_errordir@/,   serverroot "/error" );
-	gsub( /@exp_htdocsdir@/,  serverroot "/htdocs" );
-	gsub( /@exp_iconsdir@/,   serverroot "/icons" );
-	gsub( /@exp_logfiledir@/, serverroot "/logs" );
-	gsub( /@exp_runtimedir@/, serverroot "/logs" );
-	gsub( /@exp_manualdir@/,  serverroot "/manual" );
-	gsub( /@rel_runtimedir@/, "logs" );
-	gsub( /@rel_logfiledir@/, "logs" );
-	gsub( /\/home\/\*\/public_html/, "\"C:/Documents and Settings/*/My Documents/My Website\"" );
-	gsub( /UserDir public_html/, "UserDir \"My Documents/My Website\"" );
-	gsub( /@@ServerName@@/, "$(SERVERNAME)" );
-	gsub( /@@Port@@/, "$(PORT)" );
-	gsub( /443/, "$(SSLPORT)" );
-	print $$0;
-    }
-<<
-	for %f in ( docs\conf\extra\*.in ) do ( \
-	  if not exist "$(INSTDIR)\conf\extra\%~nf" \
-	    copy "$(INSTDIR)\conf\extra\%~nf.default" "$(INSTDIR)\conf\extra\%~nf" \
-	)
+	  copy docs\conf\%f "$(INSTDIR)\conf\original\%f" <.y )
+	awk -f build\installwinconf.awk $(DOMAINNAME) $(SERVERNAME) \
+	    $(SERVERADMIN) $(PORT) $(SSLPORT) "$(INSTDIR) " docs/conf/ 
 	copy "support\dbmmanage.in" "$(INSTDIR)\bin\dbmmanage.pl"
 	-awk -f <<script.awk "support/dbmmanage.in" >"$(INSTDIR)\bin\dbmmanage.pl"
     { if ( $$0 ~ /^BEGIN \{ @AnyDBM_File::/ ) {

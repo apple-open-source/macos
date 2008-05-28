@@ -2,6 +2,7 @@
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
+ *  Copyright (C) 2007 Apple Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -20,29 +21,23 @@
  *
  */
 
-#ifndef _KJSLEXER_H_
-#define _KJSLEXER_H_
+#ifndef Lexer_h
+#define Lexer_h
 
 #include "ustring.h"
-
+#include <wtf/Vector.h>
 
 namespace KJS {
 
   class Identifier;
-
   class RegExp;
 
-  class Lexer {
+  class Lexer : Noncopyable {
   public:
-    Lexer();
-    ~Lexer();
-    static Lexer *curr();
-
-    void setCode(const UString &sourceURL, int startingLineNumber, const UChar *c, unsigned int len);
+    void setCode(int startingLineNumber, const UChar *c, unsigned int len);
     int lex();
 
     int lineNo() const { return yylineno; }
-    UString sourceURL() const { return m_sourceURL; }
 
     bool prevTerminator() const { return terminator; }
 
@@ -51,8 +46,10 @@ namespace KJS {
                  Identifier,
                  InIdentifierOrKeyword,
                  InIdentifier,
-                 InIdentifierUnicodeEscapeStart,
-                 InIdentifierUnicodeEscape,
+                 InIdentifierStartUnicodeEscapeStart,
+                 InIdentifierStartUnicodeEscape,
+                 InIdentifierPartUnicodeEscapeStart,
+                 InIdentifierPartUnicodeEscape,
                  InSingleLineComment,
                  InMultiLineComment,
                  InNum,
@@ -75,16 +72,28 @@ namespace KJS {
                  Bad };
 
     bool scanRegExp();
-    UString pattern, flags;
+    const UString& pattern() const { return m_pattern; }
+    const UString& flags() const { return m_flags; }
+
+    static unsigned char convertHex(int);
+    static unsigned char convertHex(int c1, int c2);
+    static UChar convertUnicode(int c1, int c2, int c3, int c4);
+    static bool isIdentStart(int);
+    static bool isIdentPart(int);
+    static bool isHexDigit(int);
+
+    bool sawError() const { return error; }
+
+    void clear();
 
   private:
+    friend Lexer& lexer();
+    Lexer();
+
     int yylineno;
-    UString m_sourceURL;
     bool done;
-    char *buffer8;
-    UChar *buffer16;
-    unsigned int size8, size16;
-    unsigned int pos8, pos16;
+    Vector<char> m_buffer8;
+    Vector<UChar> m_buffer16;
     bool terminator;
     bool restrKeyword;
     // encountered delimiter like "'" and "}" on last run
@@ -109,57 +118,32 @@ namespace KJS {
     int matchPunctuator(int c1, int c2, int c3, int c4);
     static unsigned short singleEscape(unsigned short);
     static unsigned short convertOctal(int c1, int c2, int c3);
-  public:
-    static unsigned char convertHex(int);
-    static unsigned char convertHex(int c1, int c2);
-    static UChar convertUnicode(int c1, int c2, int c3, int c4);
-    static bool isIdentStart(int);
-    static bool isIdentPart(int);
-    static bool isHexDigit(int);
-
-#ifdef KJS_DEBUG_MEM
-    /**
-     * Clear statically allocated resources
-     */
-    static void globalClear();
-#endif
-
-    bool sawError() const { return error; }
-    void doneParsing();
-
-  private:
 
     void record8(int);
     void record16(int);
     void record16(UChar);
 
-    KJS::Identifier *makeIdentifier(UChar *buffer, unsigned int pos);
-    UString *makeUString(UChar *buffer, unsigned int pos);
+    KJS::Identifier* makeIdentifier(const Vector<UChar>& buffer);
+    UString* makeUString(const Vector<UChar>& buffer);
 
-    const UChar *code;
+    const UChar* code;
     unsigned int length;
     int yycolumn;
-#ifndef KJS_PURE_ECMA
-    int bol;     // begin of line
-#endif
+    int atLineStart;
     bool error;
 
     // current and following unicode characters (int to allow for -1 for end-of-file marker)
     int current, next1, next2, next3;
 
-    UString **strings;
-    unsigned int numStrings;
-    unsigned int stringsCapacity;
-
-    KJS::Identifier **identifiers;
-    unsigned int numIdentifiers;
-    unsigned int identifiersCapacity;
-
-    // for future extensions
-    class LexerPrivate;
-    LexerPrivate *priv;
+    Vector<UString*> m_strings;
+    Vector<KJS::Identifier*> m_identifiers;
+    
+    UString m_pattern;
+    UString m_flags;
   };
+  
+  Lexer& lexer(); // Returns the singletone JavaScript lexer.
 
-} // namespace
+} // namespace KJS
 
-#endif
+#endif // Lexer_h

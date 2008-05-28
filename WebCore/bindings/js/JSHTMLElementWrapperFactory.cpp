@@ -22,6 +22,7 @@
 #include "HTMLAnchorElement.h"
 #include "HTMLAppletElement.h"
 #include "HTMLAreaElement.h"
+#include "HTMLAudioElement.h"
 #include "HTMLBRElement.h"
 #include "HTMLBaseElement.h"
 #include "HTMLBaseFontElement.h"
@@ -65,6 +66,7 @@
 #include "HTMLQuoteElement.h"
 #include "HTMLScriptElement.h"
 #include "HTMLSelectElement.h"
+#include "HTMLSourceElement.h"
 #include "HTMLStyleElement.h"
 #include "HTMLTableCaptionElement.h"
 #include "HTMLTableCellElement.h"
@@ -75,6 +77,7 @@
 #include "HTMLTextAreaElement.h"
 #include "HTMLTitleElement.h"
 #include "HTMLUListElement.h"
+#include "HTMLVideoElement.h"
 
 #include "HTMLNames.h"
 
@@ -134,6 +137,12 @@
 #include "JSHTMLTextAreaElement.h"
 #include "JSHTMLTitleElement.h"
 #include "JSHTMLUListElement.h"
+
+#if ENABLE(VIDEO)
+#include "JSHTMLAudioElement.h"
+#include "JSHTMLSourceElement.h"
+#include "JSHTMLVideoElement.h"
+#endif
 
 #include "kjs_html.h"
 
@@ -206,12 +215,28 @@ typedef JSNode* (*CreateHTMLElementWrapperFunction)(ExecState*, PassRefPtr<HTMLE
     macro(ul, UList) \
     // end of macro
 
+#define FOR_EACH_MEDIA_TAG(macro) \
+    macro(audio, Audio) \
+    macro(source, Source) \
+    macro(video, Video) \
+    // end of macro
+
 #define CREATE_WRAPPER_FUNCTION(tag, name) \
 static JSNode* create##name##Wrapper(ExecState* exec, PassRefPtr<HTMLElement> element) \
 { \
-    return new JSHTML##name##Element(exec, static_cast<HTML##name##Element*>(element.get())); \
+    return new JSHTML##name##Element(JSHTML##name##ElementPrototype::self(exec), static_cast<HTML##name##Element*>(element.get())); \
+}
+#define CREATE_MEDIA_WRAPPER_FUNCTION(tag, name) \
+static JSNode* create##name##Wrapper(ExecState* exec, PassRefPtr<HTMLElement> element) \
+{ \
+    if (!MediaPlayer::isAvailable()) \
+        return new JSHTMLElement(JSHTMLElementPrototype::self(exec), element.get()); \
+    return new JSHTML##name##Element(JSHTML##name##ElementPrototype::self(exec), static_cast<HTML##name##Element*>(element.get())); \
 }
 FOR_EACH_TAG(CREATE_WRAPPER_FUNCTION)
+#if ENABLE(VIDEO)
+    FOR_EACH_MEDIA_TAG(CREATE_MEDIA_WRAPPER_FUNCTION)
+#endif
 #undef CREATE_WRAPPER_FUNCTION
 
 JSNode* createJSHTMLWrapper(ExecState* exec, PassRefPtr<HTMLElement> element)
@@ -220,6 +245,9 @@ JSNode* createJSHTMLWrapper(ExecState* exec, PassRefPtr<HTMLElement> element)
     if (map.isEmpty()) {
 #define ADD_TO_HASH_MAP(tag, name) map.set(tag##Tag.localName().impl(), create##name##Wrapper);
 FOR_EACH_TAG(ADD_TO_HASH_MAP)
+#if ENABLE(VIDEO)
+FOR_EACH_MEDIA_TAG(ADD_TO_HASH_MAP)
+#endif
 #undef ADD_TO_HASH_MAP
         map.set(colgroupTag.localName().impl(), createTableColWrapper);
         map.set(h2Tag.localName().impl(), createHeadingWrapper);
@@ -239,7 +267,7 @@ FOR_EACH_TAG(ADD_TO_HASH_MAP)
     CreateHTMLElementWrapperFunction createWrapperFunction = map.get(element->localName().impl());
     if (createWrapperFunction)
         return createWrapperFunction(exec, element);
-    return new JSHTMLElement(exec, element.get());
+    return new JSHTMLElement(JSHTMLElementPrototype::self(exec), element.get());
 }
 
 } // namespace WebCore

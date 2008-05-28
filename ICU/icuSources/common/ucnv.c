@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1998-2006, International Business Machines
+*   Copyright (C) 1998-2006,2008 International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -1429,7 +1429,8 @@ _toUnicodeWithCallback(UConverterToUnicodeArgs *pArgs, UErrorCode *err) {
                      e!=U_ILLEGAL_CHAR_FOUND &&
                      e!=U_TRUNCATED_CHAR_FOUND &&
                      e!=U_ILLEGAL_ESCAPE_SEQUENCE &&
-                     e!=U_UNSUPPORTED_ESCAPE_SEQUENCE)
+                     e!=U_UNSUPPORTED_ESCAPE_SEQUENCE &&
+                     e!=U_PARSE_ERROR)	/* temporary err to flag empty segment, will be reset to U_ILLEGAL_ESCAPE_SEQUENCE below */
                 ) {
                     /*
                      * the callback did not or cannot resolve the error:
@@ -1473,11 +1474,18 @@ _toUnicodeWithCallback(UConverterToUnicodeArgs *pArgs, UErrorCode *err) {
             cnv->toULength=0;
 
             /* call the callback function */
-            cnv->fromCharErrorBehaviour(cnv->toUContext, pArgs,
-                cnv->invalidCharBuffer, errorInputLength,
-                (*err==U_INVALID_CHAR_FOUND || *err==U_UNSUPPORTED_ESCAPE_SEQUENCE) ?
-                    UCNV_UNASSIGNED : UCNV_ILLEGAL,
-                err);
+            {
+                UConverterCallbackReason reason;
+                if (*err == U_PARSE_ERROR) {	/* Here U_PARSE_ERROR indicates empty segment */
+                    *err = U_ILLEGAL_ESCAPE_SEQUENCE;
+                    reason = UCNV_IRREGULAR;
+                } else {
+                	reason = (*err==U_INVALID_CHAR_FOUND || *err==U_UNSUPPORTED_ESCAPE_SEQUENCE) ?
+                                 UCNV_UNASSIGNED : UCNV_ILLEGAL;
+                }
+                cnv->fromCharErrorBehaviour(cnv->toUContext, pArgs,
+                    cnv->invalidCharBuffer, errorInputLength, reason, err);
+            }
 
             /*
              * loop back to the offset handling

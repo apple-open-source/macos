@@ -22,7 +22,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -32,26 +32,86 @@
 #include "KURL.h"
 #include "PlatformString.h"
 
+#if QT_VERSION >= 0x040400
+#include "Document.h"
+#include "qwebpage.h"
+#include "qwebframe.h"
+#include "FrameLoaderClientQt.h"
+#include <QNetworkAccessManager>
+#include <QNetworkCookie>
+#else
 #include <qcookiejar.h>
+#endif
 
 namespace WebCore {
 
-void setCookies(const KURL& url, const KURL& policyURL, const String& value)
+#if QT_VERSION >= 0x040400
+static QNetworkCookieJar *cookieJar(const Document *document)
 {
-    QUrl u((QString)url.url());
-    QUrl p((QString)policyURL.url());
+    Frame *frame = document->frame();
+    if (!frame)
+        return 0;
+    FrameLoader *loader = frame->loader();
+    if (!loader)
+        return 0;
+    QWebFrame* webFrame = static_cast<FrameLoaderClientQt*>(loader->client())->webFrame();
+    QWebPage* page = webFrame->page();
+    QNetworkAccessManager* manager = page->networkAccessManager();
+    QNetworkCookieJar* jar = manager->cookieJar();
+    return jar;
+}
+#endif
+
+void setCookies(Document* document, const KURL& url, const KURL& policyURL, const String& value)
+{
+    QUrl u(url);
+    QUrl p(policyURL);
+#if QT_VERSION >= 0x040400
+    QNetworkCookieJar* jar = cookieJar(document);
+    if (!jar)
+        return;
+
+    QList<QNetworkCookie> cookies = QNetworkCookie::parseCookies(QString(value).toAscii());
+    jar->setCookiesFromUrl(cookies, p);
+#else
     QCookieJar::cookieJar()->setCookies(u, p, (QString)value);
+#endif
 }
 
-String cookies(const KURL& url)
+String cookies(const Document* document, const KURL& url)
 {
-    QUrl u((QString)url.url());
-    return (String)QCookieJar::cookieJar()->cookies(u);
+    QUrl u(url);
+#if QT_VERSION >= 0x040400
+    QNetworkCookieJar* jar = cookieJar(document);
+    if (!jar)
+        return String();
+
+    QList<QNetworkCookie> cookies = jar->cookiesForUrl(u);
+    if (cookies.isEmpty())
+        return String();
+
+    QStringList resultCookies;
+    foreach (QNetworkCookie networkCookie, cookies)
+        resultCookies.append(networkCookie.toRawForm(QNetworkCookie::NameAndValueOnly));
+
+    return resultCookies.join(QLatin1String("; "));
+#else
+    QString cookies = QCookieJar::cookieJar()->cookies(u);
+    int idx = cookies.indexOf(QLatin1Char(';'));
+    if (idx > 0)
+        cookies = cookies.left(idx);
+    return cookies;
+#endif
 }
 
-bool cookiesEnabled()
+bool cookiesEnabled(const Document* document)
 {
+#if QT_VERSION >= 0x040400
+    QNetworkCookieJar* jar = cookieJar(document);
+    return (jar != 0);
+#else
     return QCookieJar::cookieJar()->isEnabled();
+#endif
 }
 
 }

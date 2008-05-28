@@ -26,12 +26,14 @@
 #include "config.h"
 #include "object.h"
 
+#include "date_object.h"
 #include "error_object.h"
 #include "lookup.h"
 #include "nodes.h"
 #include "operations.h"
 #include "PropertyNameArray.h"
 #include <math.h>
+#include <wtf/Assertions.h>
 
 // maximum global call stack size. Protects against accidental or
 // malicious infinite recursions. Define to -1 if you want no limit.
@@ -64,10 +66,10 @@ namespace KJS {
 
 JSValue *JSObject::call(ExecState *exec, JSObject *thisObj, const List &args)
 {
-  assert(implementsCall());
+  ASSERT(implementsCall());
 
 #if KJS_MAX_STACK > 0
-  static int depth = 0; // sum of all concurrent interpreters
+  static int depth = 0; // sum of all extant function calls
 
 #if JAVASCRIPT_CALL_TRACING
     static bool tracing = false;
@@ -204,9 +206,8 @@ static void throwSetterError(ExecState *exec)
 // ECMA 8.6.2.2
 void JSObject::put(ExecState* exec, const Identifier &propertyName, JSValue *value, int attr)
 {
-  assert(value);
+  ASSERT(value);
 
-  // non-standard netscape extension
   if (propertyName == exec->propertyNames().underscoreProto) {
     JSObject* proto = value->getObject();
     while (proto) {
@@ -219,17 +220,9 @@ void JSObject::put(ExecState* exec, const Identifier &propertyName, JSValue *val
     return;
   }
 
-  /* TODO: check for write permissions directly w/o this call */
-  /* Doesn't look very easy with the PropertyMap API - David */
-  // putValue() is used for JS assignemnts. It passes no attribute.
-  // Assume that a C++ implementation knows what it is doing
-  // and let it override the canPut() check.
-  if ((attr == None || attr == DontDelete) && !canPut(exec,propertyName)) {
-#ifdef KJS_VERBOSE
-    fprintf( stderr, "WARNING: canPut %s said NO\n", propertyName.ascii() );
-#endif
-    return;
-  }
+  // The put calls from JavaScript execution either have no attributes set, or in some cases
+  // have DontDelete set. For those calls, respect the ReadOnly flag.
+  bool checkReadOnly = !(attr & ~DontDelete);
 
   // Check if there are any setters or getters in the prototype chain
   JSObject *obj = this;
@@ -247,6 +240,9 @@ void JSObject::put(ExecState* exec, const Identifier &propertyName, JSValue *val
   }
   
   if (hasGettersOrSetters) {
+    if (checkReadOnly && !canPut(exec, propertyName))
+      return;
+
     obj = this;
     while (true) {
       unsigned attributes;
@@ -278,7 +274,7 @@ void JSObject::put(ExecState* exec, const Identifier &propertyName, JSValue *val
     }
   }
   
-  _prop.put(propertyName,value,attr);
+  _prop.put(propertyName, value, attr, checkReadOnly);
 }
 
 void JSObject::put(ExecState *exec, unsigned propertyName,
@@ -294,11 +290,13 @@ bool JSObject::canPut(ExecState *, const Identifier &propertyName) const
     
   // Don't look in the prototype here. We can always put an override
   // in the object, even if the prototype has a ReadOnly property.
+  // Also, there is no need to check the static property table, as this
+  // would have been done by the subclass already.
 
-  if (!getPropertyAttributes(propertyName, attributes))
+  if (!_prop.get(propertyName, attributes))
     return true;
-  else
-    return !(attributes & ReadOnly);
+
+  return !(attributes & ReadOnly);
 }
 
 // ECMA 8.6.2.4
@@ -335,6 +333,12 @@ bool JSObject::deleteProperty(ExecState* /*exec*/, const Identifier &propertyNam
   return true;
 }
 
+bool JSObject::hasOwnProperty(ExecState* exec, const Identifier& propertyName) const
+{
+    PropertySlot slot;
+    return const_cast<JSObject*>(this)->getOwnPropertySlot(exec, propertyName, slot);
+}
+
 bool JSObject::deleteProperty(ExecState *exec, unsigned propertyName)
 {
   return deleteProperty(exec, Identifier::from(propertyName));
@@ -346,7 +350,7 @@ static ALWAYS_INLINE JSValue *tryGetAndCallProperty(ExecState *exec, const JSObj
     JSObject *o = static_cast<JSObject*>(v);
     if (o->implementsCall()) { // spec says "not primitive type" but ...
       JSObject *thisObj = const_cast<JSObject*>(object);
-      JSValue *def = o->call(exec, thisObj, List::empty());
+      JSValue* def = o->call(exec, thisObj, exec->emptyList());
       JSType defType = def->type();
       ASSERT(defType != GetterSetterType);
       if (defType != ObjectType)
@@ -356,25 +360,28 @@ static ALWAYS_INLINE JSValue *tryGetAndCallProperty(ExecState *exec, const JSObj
   return NULL;
 }
 
+bool JSObject::getPrimitiveNumber(ExecState* exec, double& number, JSValue*& result)
+{
+    result = defaultValue(exec, NumberType);
+    number = result->toNumber(exec);
+    return !result->isString();
+}
+
 // ECMA 8.6.2.6
 JSValue* JSObject::defaultValue(ExecState* exec, JSType hint) const
 {
-  Identifier firstPropertyName;
-  Identifier secondPropertyName;
   /* Prefer String for Date objects */
-  if ((hint == StringType) || (hint != StringType) && (hint != NumberType) && (_proto == exec->lexicalInterpreter()->builtinDatePrototype())) {
-    firstPropertyName = exec->propertyNames().toString;
-    secondPropertyName = exec->propertyNames().valueOf;
+  if ((hint == StringType) || (hint != NumberType && _proto == exec->lexicalGlobalObject()->datePrototype())) {
+    if (JSValue* v = tryGetAndCallProperty(exec, this, exec->propertyNames().toString))
+      return v;
+    if (JSValue* v = tryGetAndCallProperty(exec, this, exec->propertyNames().valueOf))
+      return v;
   } else {
-    firstPropertyName = exec->propertyNames().valueOf;
-    secondPropertyName = exec->propertyNames().toString;
+    if (JSValue* v = tryGetAndCallProperty(exec, this, exec->propertyNames().valueOf))
+      return v;
+    if (JSValue* v = tryGetAndCallProperty(exec, this, exec->propertyNames().toString))
+      return v;
   }
-
-  JSValue *v;
-  if ((v = tryGetAndCallProperty(exec, this, firstPropertyName)))
-    return v;
-  if ((v = tryGetAndCallProperty(exec, this, secondPropertyName)))
-    return v;
 
   if (exec->hadException())
     return exec->exception();
@@ -432,7 +439,7 @@ bool JSObject::implementsConstruct() const
 
 JSObject* JSObject::construct(ExecState*, const List& /*args*/)
 {
-  assert(false);
+  ASSERT(false);
   return NULL;
 }
 
@@ -448,7 +455,7 @@ bool JSObject::implementsCall() const
 
 JSValue *JSObject::callAsFunction(ExecState* /*exec*/, JSObject* /*thisObj*/, const List &/*args*/)
 {
-  assert(false);
+  ASSERT(false);
   return NULL;
 }
 
@@ -598,25 +605,25 @@ JSObject *Error::create(ExecState *exec, ErrorType errtype, const UString &messa
   JSObject *cons;
   switch (errtype) {
   case EvalError:
-    cons = exec->lexicalInterpreter()->builtinEvalError();
+    cons = exec->lexicalGlobalObject()->evalErrorConstructor();
     break;
   case RangeError:
-    cons = exec->lexicalInterpreter()->builtinRangeError();
+    cons = exec->lexicalGlobalObject()->rangeErrorConstructor();
     break;
   case ReferenceError:
-    cons = exec->lexicalInterpreter()->builtinReferenceError();
+    cons = exec->lexicalGlobalObject()->referenceErrorConstructor();
     break;
   case SyntaxError:
-    cons = exec->lexicalInterpreter()->builtinSyntaxError();
+    cons = exec->lexicalGlobalObject()->syntaxErrorConstructor();
     break;
   case TypeError:
-    cons = exec->lexicalInterpreter()->builtinTypeError();
+    cons = exec->lexicalGlobalObject()->typeErrorConstructor();
     break;
   case URIError:
-    cons = exec->lexicalInterpreter()->builtinURIError();
+    cons = exec->lexicalGlobalObject()->URIErrorConstructor();
     break;
   default:
-    cons = exec->lexicalInterpreter()->builtinError();
+    cons = exec->lexicalGlobalObject()->errorConstructor();
     break;
   }
 
@@ -636,18 +643,6 @@ JSObject *Error::create(ExecState *exec, ErrorType errtype, const UString &messa
     err->put(exec, "sourceURL", jsString(sourceURL));
  
   return err;
-
-/*
-#ifndef NDEBUG
-  const char *msg = err->get(messagePropertyName)->toString().value().ascii();
-  if (l >= 0)
-      fprintf(stderr, "KJS: %s at line %d. %s\n", estr, l, msg);
-  else
-      fprintf(stderr, "KJS: %s. %s\n", estr, msg);
-#endif
-
-  return err;
-*/
 }
 
 JSObject *Error::create(ExecState *exec, ErrorType type, const char *message)

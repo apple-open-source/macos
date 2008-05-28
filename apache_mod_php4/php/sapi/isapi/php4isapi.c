@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |          Ben Mansell <ben@zeus.com> (Zeus Support)                   |
    +----------------------------------------------------------------------+
  */
-/* $Id: php4isapi.c,v 1.92.2.13.2.3 2007/03/05 22:04:54 stas Exp $ */
+/* $Id: php4isapi.c,v 1.92.2.13.2.4 2007/12/31 07:22:56 sebastian Exp $ */
 
 #ifdef PHP_WIN32
 # include <windows.h>

@@ -32,15 +32,11 @@
 #include "JSBase.h"
 #include "JSUtils.h"
 
-class JSInterpreter : public Interpreter {
+class JSGlueGlobalObject : public JSGlobalObject {
     public:
-        JSInterpreter(JSObject *global, JSFlags flags) : Interpreter(global), fJSFlags(flags) { }
-        JSInterpreter(JSObject *global) : Interpreter(global), fJSFlags(kJSFlagNone) { }
-        JSInterpreter() : Interpreter(), fJSFlags(kJSFlagNone) { }
+        JSGlueGlobalObject(JSFlags flags) : fJSFlags(flags) { }
+        JSGlueGlobalObject() : fJSFlags(kJSFlagNone) { }
         JSFlags Flags() const { return fJSFlags; }
-
-    protected:
-        virtual JSInterpreter::~JSInterpreter() { } // only deref on the base class should delete us
 
     private:
         JSFlags fJSFlags;
@@ -52,15 +48,13 @@ class JSRun : public JSBase {
         virtual ~JSRun();
 
         UString GetSource() const;
-        JSObject *GlobalObject() const;
-        JSInterpreter* GetInterpreter();
+        JSGlobalObject* GlobalObject() const;
         Completion Evaluate();
         bool CheckSyntax();
         JSFlags Flags() const;
     private:
         UString fSource;
-        ProtectedPtr<JSObject> fGlobalObject;
-        RefPtr<JSInterpreter> fInterpreter;
+        ProtectedPtr<JSGlobalObject> fGlobalObject;
         JSFlags fFlags;
 };
 

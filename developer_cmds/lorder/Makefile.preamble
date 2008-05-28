@@ -1,3 +1,0 @@
-SHELLTOOL = lorder.sh
-
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common

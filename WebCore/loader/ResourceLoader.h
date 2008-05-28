@@ -33,7 +33,7 @@
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "ResourceLoader.h"
-#include "Shared.h"
+#include <wtf/RefCounted.h>
 #include "AuthenticationChallenge.h"
 #include "KURL.h"
 
@@ -47,7 +47,7 @@ namespace WebCore {
     class ResourceHandle;
     class SharedBuffer;
     
-    class ResourceLoader : public Shared<ResourceLoader>, protected ResourceHandleClient {
+    class ResourceLoader : public RefCounted<ResourceLoader>, protected ResourceHandleClient {
     public:
         virtual ~ResourceLoader();
 
@@ -61,6 +61,7 @@ namespace WebCore {
         virtual void cancel(const ResourceError&);
         ResourceError cancelledError();
         ResourceError blockedError();
+        ResourceError cannotShowURLError();
         
         virtual void setDefersLoading(bool);
 
@@ -80,9 +81,8 @@ namespace WebCore {
         void willStopBufferingData(const char*, int);
         virtual void didFinishLoading();
         virtual void didFail(const ResourceError&);
-        virtual void wasBlocked();
 
-        void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
+        virtual void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
         void didCancelAuthenticationChallenge(const AuthenticationChallenge&);
         virtual void receivedCancellation(const AuthenticationChallenge&);
 
@@ -93,6 +93,7 @@ namespace WebCore {
         virtual void didFinishLoading(ResourceHandle*);
         virtual void didFail(ResourceHandle*, const ResourceError&);
         virtual void wasBlocked(ResourceHandle*);
+        virtual void cannotShowURL(ResourceHandle*);
         virtual void willStopBufferingData(ResourceHandle*, const char* data, int length) { willStopBufferingData(data, length); } 
         virtual void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) { didReceiveAuthenticationChallenge(challenge); } 
         virtual void didCancelAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) { didCancelAuthenticationChallenge(challenge); } 
@@ -105,7 +106,7 @@ namespace WebCore {
         ResourceHandle* handle() const { return m_handle.get(); }
         bool sendResourceLoadCallbacks() const { return m_sendResourceLoadCallbacks; }
 
-        void setShouldBufferData(bool shouldBufferData) { m_shouldBufferData = shouldBufferData; }
+        void setShouldBufferData(bool shouldBufferData);
 
     protected:
         ResourceLoader(Frame*, bool sendResourceLoadCallbacks, bool shouldContentSniff);

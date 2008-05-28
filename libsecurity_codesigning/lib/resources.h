@@ -27,10 +27,12 @@
 #ifndef _H_RSIGN
 #define _H_RSIGN
 
-#include "CodeSigner.h"
 #include "renum.h"
 #include <security_utilities/utilities.h>
+#include <security_utilities/cfutilities.h>
+#include <security_utilities/hashing.h>
 #include "regex.h"
+#include <CoreFoundation/CoreFoundation.h>
 #include <vector>
 
 namespace Security {
@@ -53,6 +55,7 @@ public:
 	enum Action {
 		optional = 0x01,				// may be absent at runtime
 		omitted = 0x02,					// do not seal even if present
+		exclusion = 0x04,				// overriding exclusion (stop looking)
 	};
 	
 	typedef unsigned int Weight;
@@ -69,6 +72,7 @@ public:
 		const uint32_t flags;
 	};
 	void addRule(Rule *rule) { mRules.push_back(rule); }
+	void addExclusion(const std::string &pattern) { mRules.insert(mRules.begin(), new Rule(pattern, 0, exclusion)); }
 	
 	FTSENT *next(std::string &path, Rule * &rule);	// enumerate next file and match rule
 

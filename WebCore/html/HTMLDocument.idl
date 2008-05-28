@@ -20,53 +20,27 @@
 
 module html {
 
-    interface [GenerateConstructor, HasOverridingNameGetter] HTMLDocument : Document {
-                 attribute [ConvertNullToNullString] DOMString title;
-        readonly attribute DOMString referrer;
-#if defined(LANGUAGE_JAVASCRIPT)
-                 attribute DOMString domain;
-#else
-        readonly attribute DOMString domain;
-#endif
-        readonly attribute DOMString URL;
-                
-        // FIXME: the DOM spec does NOT have this attribute
-        // raising an exception.
-                 attribute HTMLElement body
-                     setter raises (DOMException);
-                     
-        readonly attribute HTMLCollection images;
-        readonly attribute HTMLCollection applets;
-        readonly attribute HTMLCollection links;
-        readonly attribute HTMLCollection forms;
-        readonly attribute HTMLCollection anchors;
-        
-        // FIXME: the DOM spec states that this attribute can 
-        // raise an exception on setting.
-                 attribute [ConvertNullToNullString] DOMString cookie
-                     /*setter raises (DOMException)*/;
-
+    interface [
+        GenerateConstructor,
+        HasOverridingNameGetter,
+        InterfaceUUID=a183339c-8d74-412a-933d-6f6a4ad6266e,
+        ImplementationUUID=d0f7d966-033c-4cbf-847c-1461dacc2f6a
+    ] HTMLDocument : Document {
         [Custom] void open();
         void close();
         [Custom] void write(in DOMString text);
         [Custom] void writeln(in DOMString text);
-        NodeList getElementsByName(in DOMString elementName);
-
-        // Extensions
-        Element getElementById(in DOMString elementId);
 
         readonly attribute HTMLCollection embeds;
         readonly attribute HTMLCollection plugins;
         readonly attribute HTMLCollection scripts;
 
-        readonly attribute DOMString lastModified;
+        // Extensions
 
 #if defined(LANGUAGE_JAVASCRIPT)
         // FIXME: These should eventually be available (if they are wanted) for all languages.
 
                  attribute [Custom, Deletable] HTMLCollection all;
-
-                 attribute [Custom] Location location;
 
         [Custom] void clear();
 #endif
@@ -78,6 +52,7 @@ module html {
         readonly attribute long height;
                  attribute [ConvertNullToNullString] DOMString dir;
                  attribute [ConvertNullToNullString] DOMString designMode;
+        readonly attribute DOMString compatMode;
 
         // Deprecated attributes
                  attribute [ConvertNullToNullString] DOMString bgColor;

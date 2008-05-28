@@ -136,7 +136,7 @@ struct sCacheEntry
 	sCacheEntry         *fNext;
 	sKeyList            fKeyList;
 	sCacheValidation	*fValidation;
-	uint32_t			fTTL;
+	int32_t             fTTL;
 	time_t				fBestBefore;
     time_t				fLastAccess;	// used to age out entries under memory pressure
 	uint32_t			fHits;			// used to move the item up the store list when it is hit
@@ -145,7 +145,7 @@ struct sCacheEntry
 	kvbuf_t				*fBuffer;
     
     // Functions
-                        sCacheEntry     ( uint32_t inTTL, time_t inTimeStamp, uint32_t inFlags, kvbuf_t *inBuffer );
+                        sCacheEntry     ( int32_t inTTL, time_t inTimeStamp, uint32_t inFlags, kvbuf_t *inBuffer );
     
             void        Isolate         ( void );
             void        InsertAfter     ( sCacheEntry *inAfter );
@@ -245,22 +245,22 @@ class CCache
         DSMutexSemaphore    fCacheLock;
         uint32_t            fBucketCount;
         sBucketList         **fBuckets;
-        time_t              fCacheTTL;
+        int32_t             fCacheTTL;
         time_t              fMRAWindow;
         uint32_t            fMaxSize;
         uint32_t            fPolicyFlags;
     
     public:
-                    CCache              ( uint32_t inMaxSize, uint32_t inBuckets, time_t inMRAWindow, time_t inTTL, uint32_t inPolicyFlags );
+                    CCache              ( uint32_t inMaxSize, uint32_t inBuckets, time_t inMRAWindow, int32_t inTTL, uint32_t inPolicyFlags );
                     ~CCache             ( void );
     
-        sCacheEntry *AddEntry           ( kvbuf_t *inBuffer, const char *inKey, time_t inTTL, uint32_t inFlags );
+        sCacheEntry *AddEntry           ( kvbuf_t *inBuffer, const char *inKey, int32_t inTTL, uint32_t inFlags );
         void        RemoveEntry         ( sCacheEntry *inEntry );
 
         bool        AddKeyToEntry       ( sCacheEntry *inEntry, const char *inKey, bool inUnique );
         void        RemoveKey           ( const char *inKey );
 	
-        kvbuf_t     *Fetch              ( sKeyList *inKeys, bool inMatchAll = false, uint32_t *outLowestTTL = NULL );
+        kvbuf_t     *Fetch              ( sKeyList *inKeys, bool inMatchAll = false, int32_t *outLowestTTL = NULL );
 
         void        Flush               ( void );
         int         Sweep               ( uint32_t inEntryType, bool inCheckDate );

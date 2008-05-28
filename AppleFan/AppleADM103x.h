@@ -145,9 +145,9 @@ class AppleADM103x : public IOService
 		bool doI2CRead(UInt8 sub, UInt8 *bytes, UInt16 len);
 		bool doI2CWrite(UInt8 sub, UInt8 *bytes, UInt16 len);
 
-		IOReturn AppleADM103x::getLocalTemp(SInt32 *temperature);
-		IOReturn AppleADM103x::getRemote1Temp(SInt32 *temperature);
-		IOReturn AppleADM103x::getRemote2Temp(SInt32 *temperature);
+		IOReturn getLocalTemp(SInt32 *temperature);
+		IOReturn getRemote1Temp(SInt32 *temperature);
+		IOReturn getRemote2Temp(SInt32 *temperature);
 
 	public:
 		virtual IOService *probe(IOService *provider, SInt32 *score);

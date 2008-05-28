@@ -117,11 +117,11 @@ NSSearchPathEnumerationState NSGetNextSearchPathEnumeration(NSSearchPathEnumerat
 
     // Get NEXT_ROOT, if necessary.
     if (domainInfo[curDomain].needsRootPrepended && nextRoot == 0) {
-	nextRoot = getenv("NEXT_ROOT");
+	if (!issetugid() && (nextRoot = getenv("NEXT_ROOT")) != NULL) {
+	    nextRoot = strdup(nextRoot);
+	}
         if (nextRoot == NULL) {
             nextRoot = "";
-        } else {
-            strcpy(malloc(strlen(nextRoot) + 1), nextRoot);    // Be safe...
         }
     }
 

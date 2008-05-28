@@ -60,8 +60,10 @@ CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent, const CS
     : CSSStyleDeclaration(parent)
     , m_node(0)
 {
-    for (int i = 0; i < numProperties; ++i)
+    for (int i = 0; i < numProperties; ++i) {
+        ASSERT(properties[i]);
         m_values.append(*properties[i]);
+    }
     // FIXME: This allows duplicate properties.
 }
 
@@ -414,7 +416,7 @@ static void initShorthandMap(HashMap<int, PropertyLonghand>& shorthandMap)
     #undef SET_SHORTHAND_MAP_ENTRY
 }
 
-String CSSMutableStyleDeclaration::removeProperty(int propertyID, bool notifyChanged, ExceptionCode& ec)
+String CSSMutableStyleDeclaration::removeProperty(int propertyID, bool notifyChanged, bool returnText, ExceptionCode& ec)
 {
     ec = 0;
 
@@ -434,7 +436,8 @@ String CSSMutableStyleDeclaration::removeProperty(int propertyID, bool notifyCha
     DeprecatedValueListIterator<CSSProperty> end;
     for (DeprecatedValueListIterator<CSSProperty> it = m_values.fromLast(); it != end; --it) {
         if (propertyID == (*it).m_id) {
-            value = (*it).value()->cssText();
+            if (returnText)
+                value = (*it).value()->cssText();
             m_values.remove(it);
             if (notifyChanged)
                 setChanged();
@@ -508,7 +511,7 @@ void CSSMutableStyleDeclaration::setProperty(int propertyID, const String& value
 
 String CSSMutableStyleDeclaration::removeProperty(int propertyID, ExceptionCode& ec)
 {
-    return removeProperty(propertyID, true, ec);
+    return removeProperty(propertyID, true, true, ec);
 }
 
 bool CSSMutableStyleDeclaration::setProperty(int propertyID, const String& value, bool important, bool notifyChanged, ExceptionCode& ec)
@@ -518,7 +521,7 @@ bool CSSMutableStyleDeclaration::setProperty(int propertyID, const String& value
     // Setting the value to an empty string just removes the property in both IE and Gecko.
     // Setting it to null seems to produce less consistent results, but we treat it just the same.
     if (value.isEmpty()) {
-        removeProperty(propertyID, notifyChanged, ec);
+        removeProperty(propertyID, notifyChanged, false, ec);
         return ec == 0;
     }
 
@@ -572,6 +575,7 @@ void CSSMutableStyleDeclaration::addParsedProperties(const CSSProperty * const *
         // Only add properties that have no !important counterpart present
         if (!getPropertyPriority(properties[i]->id()) || properties[i]->isImportant()) {
             removeProperty(properties[i]->id(), false);
+            ASSERT(properties[i]);
             m_values.append(*properties[i]);
         }
     }

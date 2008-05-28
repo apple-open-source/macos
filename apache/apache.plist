@@ -6,15 +6,15 @@
 		<key>OpenSourceProject</key>
 		<string>apache</string>
 		<key>OpenSourceVersion</key>
-		<string>2.2.6</string>
+		<string>2.2.8</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://httpd.apache.org/</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.apache.org/dist/httpd/httpd-2.2.6.tar.bz2</string>
+		<string>http://www.apache.org/dist/httpd/httpd-2.2.8.tar.bz2</string>
 		<key>OpenSourceSHA1</key>
-		<string>e6ef926ecd1f9a412af8c266239f0a6f58c63854</string>
+		<string>5074904435d3d942ce2dc96c44b07294b8eaca77</string>
 		<key>OpenSourceImportDate</key>
-		<string>2007-09-13</string>
+		<string>2008-01-24</string>
 		<key>OpenSourceModifications</key>
 		<array>
 		</array>

@@ -3,7 +3,7 @@
  *
  *   Administration CGI for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -1333,12 +1333,12 @@ do_config_server(http_t *http)		/* I - HTTP connection */
 			*remote_printers,
 					/* REMOTE_PRINTERS value */
 			*share_printers,/* SHARE_PRINTERS value */
-#ifdef HAVE_GSSAPI
-			*default_auth_type,
-					/* DefaultAuthType value */
-#endif /* HAVE_GSSAPI */
 			*user_cancel_any;
 					/* USER_CANCEL_ANY value */
+#ifdef HAVE_GSSAPI
+    char		default_auth_type[255];
+					/* DefaultAuthType value */
+#endif /* HAVE_GSSAPI */
 
 
    /*
@@ -1373,13 +1373,16 @@ do_config_server(http_t *http)		/* I - HTTP connection */
     */
 
     if (cgiGetVariable("KERBEROS"))
-      default_auth_type = "Negotiate";
+      strlcpy(default_auth_type, "Negotiate", sizeof(default_auth_type));
     else
     {
-      default_auth_type = cupsGetOption("DefaultAuthType", num_settings,
-                                        settings);
-      if (!strcasecmp(default_auth_type, "Negotiate"))
-        default_auth_type = "Basic";
+      const char *val = cupsGetOption("DefaultAuthType", num_settings,
+                                      settings);
+
+      if (val && !strcasecmp(val, "Negotiate"))
+        strlcpy(default_auth_type, "Basic", sizeof(default_auth_type));
+      else
+        strlcpy(default_auth_type, val, sizeof(default_auth_type));
     }
 
     fprintf(stderr, "DEBUG: DefaultAuthType %s\n", default_auth_type);
@@ -1647,13 +1650,14 @@ do_config_server(http_t *http)		/* I - HTTP connection */
     * Allocate memory and load the file into a string buffer...
     */
 
-    buffer = calloc(1, info.st_size + 1);
+    if ((buffer = calloc(1, info.st_size + 1)) != NULL)
+    {
+      cupsFileRead(cupsd, buffer, info.st_size);
+      cgiSetVariable("CUPSDCONF", buffer);
+      free(buffer);
+    }
 
-    cupsFileRead(cupsd, buffer, info.st_size);
     cupsFileClose(cupsd);
-
-    cgiSetVariable("CUPSDCONF", buffer);
-    free(buffer);
 
    /*
     * Then get the default cupsd.conf file and put that into a string as
@@ -1665,37 +1669,39 @@ do_config_server(http_t *http)		/* I - HTTP connection */
     if (!stat(filename, &info) && info.st_size < (1024 * 1024) &&
         (cupsd = cupsFileOpen(filename, "r")) != NULL)
     {
-      buffer = calloc(1, 2 * info.st_size + 1);
-      bufend = buffer + 2 * info.st_size - 1;
-
-      for (bufptr = buffer;
-           bufptr < bufend && (ch = cupsFileGetChar(cupsd)) != EOF;)
+      if ((buffer = calloc(1, 2 * info.st_size + 1)) != NULL)
       {
-        if (ch == '\\' || ch == '\"')
+	bufend = buffer + 2 * info.st_size - 1;
+
+	for (bufptr = buffer;
+	     bufptr < bufend && (ch = cupsFileGetChar(cupsd)) != EOF;)
 	{
-	  *bufptr++ = '\\';
-	  *bufptr++ = ch;
+	  if (ch == '\\' || ch == '\"')
+	  {
+	    *bufptr++ = '\\';
+	    *bufptr++ = ch;
+	  }
+	  else if (ch == '\n')
+	  {
+	    *bufptr++ = '\\';
+	    *bufptr++ = 'n';
+	  }
+	  else if (ch == '\t')
+	  {
+	    *bufptr++ = '\\';
+	    *bufptr++ = 't';
+	  }
+	  else if (ch >= ' ')
+	    *bufptr++ = ch;
 	}
-	else if (ch == '\n')
-	{
-	  *bufptr++ = '\\';
-	  *bufptr++ = 'n';
-	}
-	else if (ch == '\t')
-	{
-	  *bufptr++ = '\\';
-	  *bufptr++ = 't';
-	}
-	else if (ch >= ' ')
-	  *bufptr++ = ch;
+
+	*bufptr = '\0';
+
+	cgiSetVariable("CUPSDCONF_DEFAULT", buffer);
+	free(buffer);
       }
 
-      *bufptr = '\0';
-
       cupsFileClose(cupsd);
-
-      cgiSetVariable("CUPSDCONF_DEFAULT", buffer);
-      free(buffer);
     }
 
    /*
@@ -3084,7 +3090,7 @@ do_set_options(http_t *http,		/* I - HTTP connection */
     * Binary protocol support...
     */
 
-    if (ppd->protocols && strstr(ppd->protocols, "BCP"))
+    if (ppd && ppd->protocols && strstr(ppd->protocols, "BCP"))
     {
       protocol = ppdFindAttr(ppd, "cupsProtocol", NULL);
 

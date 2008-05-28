@@ -59,6 +59,10 @@
 #include "xstrlcpy.h"
 #include "xstrlcat.h"
 
+#ifdef APPLE_OS_X_SERVER
+# include <dirent.h>
+#endif
+
 extern void fatal(const char *, int);
 
 /* --- cut here --- */
@@ -103,6 +107,19 @@ static void db_panic(DB_ENV *dbenv __attribute__((unused)),
 		     int errno __attribute__((unused)))
 {
     syslog(LOG_CRIT, "DBERROR: critical database situation");
+
+#ifdef APPLE_OS_X_SERVER
+	FILE *panic_file = 0;
+	panic_file = fopen("/var/imap/db/db_alert", "w+");
+	if ( panic_file != 0 )
+	{
+		rewind( panic_file );
+		fprintf( panic_file, "%d", time(NULL) );
+		fflush( panic_file );
+		fclose( panic_file );
+	}
+#endif
+
     /* but don't bounce mail */
     exit(EC_TEMPFAIL);
 }
@@ -138,6 +155,40 @@ static int init(const char *dbdir, int myflags)
     int opt;
 
     if (dbinit++) return 0;
+
+
+#ifdef APPLE_OS_X_SERVER
+	struct stat file_stat;
+
+	if ( (stat( "/var/imap/db/db_alert", &file_stat ) == 0) && (file_stat.st_mode & S_IFREG) )
+	{
+        int				dir_fd;
+		DIR				*dir_p;
+		struct dirent	*dir_ent;
+
+		syslog( LOG_CRIT, "cleaning up corrupted database files in: %s", dbdir );
+
+		dir_p = opendir( dbdir );
+		if ( dir_p != NULL )
+		{
+			chdir( dbdir );
+			while ( (dir_ent = readdir( dir_p ) ) != NULL )
+			{
+				if ( (strncmp( dir_ent->d_name, "__db", 4 ) == 0) || (strncmp( dir_ent->d_name, "log.", 4 ) == 0) )
+				{
+					unlink( dir_ent->d_name );
+					syslog( LOG_CRIT, "----: removed file: %s", dir_ent->d_name );
+				}
+			}
+			closedir( dir_p );
+
+			/* remove alert file */
+			unlink( "/var/imap/db/db_alert" );
+		}
+	}
+
+#endif
+
 
     vstr = db_version(&maj, &min, &patch);
     if (maj != DB_VERSION_MAJOR || min != DB_VERSION_MINOR ||

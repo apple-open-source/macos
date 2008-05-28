@@ -947,6 +947,7 @@ SInt32 CLDAPv3Configs::WriteServerMappings( char *userName, char *password, CFDa
 					{
 						siResult = eDSBogusServer;
 					}
+					DSFree( ourXMLBlob );
 				} //if ( (siResult == eDSRecordNotFound) || (siResult == eDSNoErr) )
 			} // if ( (serverHost != NULL) && (mapSearchBase != NULL) )
 		} // inMappings != NULL

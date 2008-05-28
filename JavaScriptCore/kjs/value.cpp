@@ -1,8 +1,7 @@
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2007, 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -26,12 +25,57 @@
 
 #include "error_object.h"
 #include "nodes.h"
-#include "operations.h"
 #include <stdio.h>
 #include <string.h>
 #include <wtf/MathExtras.h>
 
 namespace KJS {
+
+#if defined NAN && defined INFINITY
+
+extern const double NaN = NAN;
+extern const double Inf = INFINITY;
+
+#else // !(defined NAN && defined INFINITY)
+
+// The trick is to define the NaN and Inf globals with a different type than the declaration.
+// This trick works because the mangled name of the globals does not include the type, although
+// I'm not sure that's guaranteed. There could be alignment issues with this, since arrays of
+// characters don't necessarily need the same alignment doubles do, but for now it seems to work.
+// It would be good to figure out a 100% clean way that still avoids code that runs at init time.
+
+// Note, we have to use union to ensure alignment. Otherwise, NaN_Bytes can start anywhere,
+// while NaN_double has to be 4-byte aligned for 32-bits.
+// With -fstrict-aliasing enabled, unions are the only safe way to do type masquerading.
+
+static const union {
+    struct {
+        unsigned char NaN_Bytes[8];
+        unsigned char Inf_Bytes[8];
+    } bytes;
+    
+    struct {
+        double NaN_Double;
+        double Inf_Double;
+    } doubles;
+    
+} NaNInf = { {
+#if PLATFORM(BIG_ENDIAN)
+    { 0x7f, 0xf8, 0, 0, 0, 0, 0, 0 },
+    { 0x7f, 0xf0, 0, 0, 0, 0, 0, 0 }
+#elif PLATFORM(MIDDLE_ENDIAN)
+    { 0, 0, 0xf8, 0x7f, 0, 0, 0, 0 },
+    { 0, 0, 0xf0, 0x7f, 0, 0, 0, 0 }
+#else
+    { 0, 0, 0, 0, 0, 0, 0xf8, 0x7f },
+    { 0, 0, 0, 0, 0, 0, 0xf0, 0x7f }
+#endif
+} } ;
+
+extern const double NaN = NaNInf.doubles.NaN_Double;
+extern const double Inf = NaNInf.doubles.Inf_Double;
+ 
+#endif // !(defined NAN && defined INFINITY)
 
 static const double D16 = 65536.0;
 static const double D32 = 4294967296.0;
@@ -41,7 +85,17 @@ void *JSCell::operator new(size_t size)
     return Collector::allocate(size);
 }
 
-bool JSCell::getUInt32(unsigned&) const
+bool JSCell::getUInt32(uint32_t&) const
+{
+    return false;
+}
+
+bool JSCell::getTruncatedInt32(int32_t&) const
+{
+    return false;
+}
+
+bool JSCell::getTruncatedUInt32(uint32_t&) const
 {
     return false;
 }
@@ -49,83 +103,67 @@ bool JSCell::getUInt32(unsigned&) const
 // ECMA 9.4
 double JSValue::toInteger(ExecState *exec) const
 {
-    uint32_t i;
-    if (getUInt32(i))
+    int32_t i;
+    if (getTruncatedInt32(i))
         return i;
-    return roundValue(exec, const_cast<JSValue*>(this));
+    double d = toNumber(exec);
+    return isnan(d) ? 0.0 : trunc(d);
 }
 
-int32_t JSValue::toInt32(ExecState* exec) const
+double JSValue::toIntegerPreserveNaN(ExecState *exec) const
 {
-    bool ok;
-    return toInt32(exec, ok);
+    int32_t i;
+    if (getTruncatedInt32(i))
+        return i;
+    return trunc(toNumber(exec));
 }
 
-int32_t JSValue::toInt32(ExecState* exec, bool& ok) const
+int32_t JSValue::toInt32SlowCase(double d, bool& ok)
 {
     ok = true;
 
-    uint32_t i;
-    if (getUInt32(i))
-        return i;
+    if (d >= -D32 / 2 && d < D32 / 2)
+        return static_cast<int32_t>(d);
 
-    double d = roundValue(exec, const_cast<JSValue*>(this));
-    if (isNaN(d) || isInf(d)) {
+    if (isnan(d) || isinf(d)) {
         ok = false;
         return 0;
     }
-    double d32 = fmod(d, D32);
 
+    double d32 = fmod(trunc(d), D32);
     if (d32 >= D32 / 2)
         d32 -= D32;
     else if (d32 < -D32 / 2)
         d32 += D32;
-
     return static_cast<int32_t>(d32);
 }
 
-uint32_t JSValue::toUInt32(ExecState* exec) const
+int32_t JSValue::toInt32SlowCase(ExecState* exec, bool& ok) const
 {
-    bool ok;
-    return toUInt32(exec, ok);
+    return JSValue::toInt32SlowCase(toNumber(exec), ok);
 }
 
-uint32_t JSValue::toUInt32(ExecState* exec, bool& ok) const
+uint32_t JSValue::toUInt32SlowCase(double d, bool& ok)
 {
     ok = true;
 
-    uint32_t i;
-    if (getUInt32(i))
-        return i;
+    if (d >= 0.0 && d < D32)
+        return static_cast<uint32_t>(d);
 
-    double d = roundValue(exec, const_cast<JSValue*>(this));
-    if (isNaN(d) || isInf(d)) {
+    if (isnan(d) || isinf(d)) {
         ok = false;
         return 0;
     }
-    double d32 = fmod(d, D32);
 
+    double d32 = fmod(trunc(d), D32);
     if (d32 < 0)
         d32 += D32;
-
     return static_cast<uint32_t>(d32);
 }
 
-uint16_t JSValue::toUInt16(ExecState *exec) const
+uint32_t JSValue::toUInt32SlowCase(ExecState* exec, bool& ok) const
 {
-    uint32_t i;
-    if (getUInt32(i))
-        return static_cast<uint16_t>(i);
-
-    double d = roundValue(exec, const_cast<JSValue*>(this));
-    if (isNaN(d) || isInf(d))
-        return 0;
-    double d16 = fmod(d, D16);
-
-    if (d16 < 0)
-        d16 += D16;
-
-    return static_cast<uint16_t>(d16);
+    return JSValue::toUInt32SlowCase(toNumber(exec), ok);
 }
 
 float JSValue::toFloat(ExecState* exec) const

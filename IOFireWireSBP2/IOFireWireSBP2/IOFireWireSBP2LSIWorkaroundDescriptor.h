@@ -75,6 +75,7 @@
     - It is expected that the original memory descriptor has been prepared (wired)
 */
 
+class IOFireWireSBP2LSIRange;
 class IOFireWireSBP2LSIWorkaroundDescriptor : public IOGeneralMemoryDescriptor
 {
 	OSDeclareDefaultStructors(IOFireWireSBP2LSIWorkaroundDescriptor)

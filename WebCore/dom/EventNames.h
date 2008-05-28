@@ -54,6 +54,7 @@ namespace WebCore { namespace EventNames {
     macro(keypress) \
     macro(keyup) \
     macro(load) \
+    macro(message) \
     macro(mousedown) \
     macro(mousemove) \
     macro(mouseout) \
@@ -84,9 +85,30 @@ namespace WebCore { namespace EventNames {
     macro(DOMNodeRemoved) \
     macro(DOMNodeRemovedFromDocument) \
     macro(DOMSubtreeModified) \
+    macro(DOMContentLoaded) \
     \
     macro(webkitBeforeTextInserted) \
     macro(webkitEditableContentChanged) \
+    \
+    macro(canshowcurrentframe) \
+    macro(canplay) \
+    macro(canplaythrough) \
+    macro(dataunavailable) \
+    macro(durationchange) \
+    macro(emptied) \
+    macro(ended) \
+    macro(loadedfirstframe) \
+    macro(loadedmetadata) \
+    macro(pause) \
+    macro(play) \
+    macro(ratechange) \
+    macro(timeupdate) \
+    macro(volumechange) \
+    macro(waiting) \
+    \
+    macro(begin) \
+    macro(progress) \
+    macro(stalled) \
     \
 // end of DOM_EVENT_NAMES_FOR_EACH
 

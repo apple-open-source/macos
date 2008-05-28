@@ -93,6 +93,9 @@ struct node_entry
 	char					*file_entity_tag;		/* The entity-tag from the ETag response-header or from the getetag property */
 	uid_t					file_locktoken_uid;		/* the uid associated with the locktoken (filesystem_close and filesystem_lock need it to renew locks and to unlock). */
 	char					*file_locktoken;		/* the lock token, or NULL */
+	
+	/* Context for sequential writes */
+	struct stream_put_ctx* put_ctx;
 };
 
 #define WEBDAV_DOWNLOAD_NEVER		0
@@ -120,7 +123,6 @@ enum
 #define FILE_VALIDATION_TIMEOUT		60		/* Number of seconds file is valid from file_validated_time */
 #define FILE_CACHE_TIMEOUT			3600	/* 1 hour */
 #define FILE_RECENTLY_CREATED_TIMEOUT	1	/* Maximum number of seconds to skip GETs on opens after a create */
-#define DIRECTORY_NEGCACHE_TIMEOUT	60		/* Maximum number of seconds directory negative cache is valid */
 
 #define NODE_IS_DELETED(node)		(((node)->flags & nodeDeletedMask) != 0)
 
@@ -140,9 +142,6 @@ int node_attributes_valid(
 #define NODE_FILE_RECENTLY_CREATED(node) ( ((node)->node_time != 0) && \
 									  (((node)->flags & nodeRecentMask) != 0) && \
 									  (time(NULL) <= ((node)->node_time + FILE_RECENTLY_CREATED_TIMEOUT)) )
-#define NODE_DIRECTORY_RECENTLY_READ(node) ( ((node)->node_time != 0) && \
-									  (((node)->flags & nodeRecentMask) != 0) && \
-									  (time(NULL) <= ((node)->node_time + DIRECTORY_NEGCACHE_TIMEOUT)) )
 
 /*****************************************************************************/
 

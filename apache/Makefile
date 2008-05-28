@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.2.6
+Version    = 2.2.8
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = patch-config.layout \
@@ -38,12 +38,12 @@ install_source::
 	$(RMDIR) $(Sources)
 	$(MV) $(SRCROOT)/$(Project)-$(Version) $(Sources)
 	for patch in $(Patch_List); do \
-		cd $(Sources) && patch -p0 < $(SRCROOT)/patches/$${patch}; \
+		(cd $(Sources) && patch -p0 < $(SRCROOT)/patches/$${patch}) || exit 1; \
 	done
 
 build::
 	cd $(BuildDirectory) && $(Sources)/configure $(Configure_Flags)
-	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS)"
+	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -D_FORTIFY_SOURCE=2"
 
 install::
 	cd $(BuildDirectory) && make install DESTDIR=$(DSTROOT)

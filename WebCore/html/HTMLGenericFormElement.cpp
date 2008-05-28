@@ -216,6 +216,14 @@ HTMLFormElement* HTMLGenericFormElement::virtualForm() const
     return m_form;
 }
 
+void HTMLGenericFormElement::removeFromForm()
+{
+    if (!m_form)
+        return;
+    m_form->removeFormElement(this);
+    m_form = 0;
+}
+
 HTMLFormControlElementWithState::HTMLFormControlElementWithState(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
     : HTMLGenericFormElement(tagName, doc, f)
 {
@@ -239,8 +247,9 @@ void HTMLFormControlElementWithState::didMoveToNewOwnerDocument()
     HTMLGenericFormElement::didMoveToNewOwnerDocument();
 }
 
-void HTMLFormControlElementWithState::finishedParsing()
+void HTMLFormControlElementWithState::finishParsingChildren()
 {
+    HTMLGenericFormElement::finishParsingChildren();
     Document* doc = document();
     if (doc->hasStateForNewFormElements()) {
         String state;

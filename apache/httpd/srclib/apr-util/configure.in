@@ -40,6 +40,16 @@ AC_CANONICAL_SYSTEM
 
 AC_PROG_INSTALL
 
+# Use -no-install to link the test programs on all platforms
+# but Darwin, where it would cause the programs to be linked
+# against installed versions of libapr instead of those just
+# built.
+case $host in
+*-apple-darwin*) LT_NO_INSTALL="" ;;
+*) LT_NO_INSTALL="-no-install" ;;
+esac
+AC_SUBST(LT_NO_INSTALL)
+
 dnl
 dnl compute the top directory of the build
 dnl note: this is needed for LIBTOOL and exporting the bundled Expat

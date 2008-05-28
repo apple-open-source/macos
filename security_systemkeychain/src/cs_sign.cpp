@@ -37,11 +37,12 @@ using namespace UnixPlusPlus;
 //
 // One-time preparation
 //
+static CFMutableDictionaryRef parameters;		// common signing parameters
 static SecCodeSignerRef signerRef;				// global signer object
 
 void prepareToSign()
 {
-	CFRef<CFMutableDictionaryRef> parameters =
+	parameters =
 		makeCFMutableDictionary(1,
 			kSecCodeSignerIdentity, signer
 		);
@@ -82,6 +83,16 @@ void prepareToSign()
 			fail("%s: cannot read resources", resourceRules);
 	}
 	
+	if (entitlements) {
+		AutoFileDesc fd(entitlements);
+		BlobCore *blob = BlobCore::readBlob(fd);
+		if (!blob)
+			fail("%s: cannot read entitlements", entitlements);
+		if (blob->length() != fd.fileSize())
+			fail("%s: invalid length in entitlement blob", entitlements);
+		CFDictionaryAddValue(parameters, kSecCodeSignerEntitlements, CFTempData(*blob));
+	}
+	
 	if (dryrun)
 		CFDictionaryAddValue(parameters, kSecCodeSignerDryRun, kCFBooleanTrue);
 	
@@ -101,31 +112,46 @@ void sign(const char *target)
 		&code.aref()));
 	
 	CFRef<CFDictionaryRef> dict;
-	switch (OSStatus rc = SecCodeCopySigningInformation(code, kSecCSDefaultFlags, &dict.aref())) {
+	switch (OSStatus rc = SecCodeCopySigningInformation(code,
+		preserveMetadata ? SecCSFlags(kSecCSRequirementInformation) : kSecCSDefaultFlags,
+		&dict.aref())) {
 	case noErr:
 		if (CFDictionaryGetValue(dict, kSecCodeInfoIdentifier)) {	// binary is signed
 			if (detached)
 				note(0, "%s: not disturbing embedded signature", target);
 			else if (force)
 				note(0, "%s: replacing existing signature", target);
-			else
+			else if (signer)
 				fail("%s: is already signed", target);
 		}
 		break;
 	case errSecCSSignatureFailed:	// signed but signature invalid
+	case CSSMERR_TP_NOT_TRUSTED:	// cert chain invalid
 		if (detached)
 			note(0, "%s: ignoring invalid embedded signature", target);
 		else if (force)
 			note(0, "%s: replacing invalid existing signature", target);
-		else
+		else if (signer)
 			fail("%s: is already signed", target);
 		break;
 	default:
 		MacOSError::throwMe(rc);
 	}
 	
+	CFRef<SecCodeSignerRef> currentSigner = signerRef;			// the one we prepared during setup
+	if (preserveMetadata) {
+		CFRef<CFMutableDictionaryRef> param = CFDictionaryCreateMutableCopy(NULL, 0, parameters);
+		if (!CFDictionaryGetValue(param, kSecCodeSignerRequirements))
+			if (CFTypeRef ireqs = CFDictionaryGetValue(dict, kSecCodeInfoRequirementData))
+				CFDictionaryAddValue(param, kSecCodeSignerRequirements, ireqs);
+		if (!CFDictionaryGetValue(param, kSecCodeSignerEntitlements))
+			if (CFTypeRef entitlements = CFDictionaryGetValue(dict, kSecCodeInfoEntitlements))
+				CFDictionaryAddValue(param, kSecCodeSignerEntitlements, entitlements);
+		MacOSError::check(SecCodeSignerCreate(param, kSecCSDefaultFlags, &currentSigner.aref()));
+	}
+	
 	ErrorCheck check;
-	check(SecCodeSignerAddSignatureWithErrors(signerRef, code, kSecCSDefaultFlags, check));
+	check(SecCodeSignerAddSignatureWithErrors(currentSigner, code, kSecCSDefaultFlags, check));
 
 	SecCSFlags flags = kSecCSDefaultFlags;
 	if (modifiedFiles)

@@ -1,9 +1,9 @@
-/**
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  *           (C) 2004 Allan Sandfeld Jensen (kde@carewolf.com)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,6 +27,7 @@
 
 #include "AXObjectCache.h"
 #include "AffineTransform.h"
+#include "AnimationController.h"
 #include "CSSStyleSelector.h"
 #include "CachedImage.h"
 #include "Chrome.h"
@@ -58,6 +59,7 @@
 #include "RenderText.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
+#include "SelectionController.h"
 #include "TextResourceDecoder.h"
 #include "TextStream.h"
 #include <algorithm>
@@ -173,6 +175,9 @@ RenderObject::RenderObject(Node* node)
     , m_parent(0)
     , m_previous(0)
     , m_next(0)
+#ifndef NDEBUG
+    , m_hasAXObject(false)
+#endif
     , m_verticalPosition(PositionUndefined)
     , m_needsLayout(false)
     , m_normalChildNeedsLayout(false)
@@ -189,6 +194,7 @@ RenderObject::RenderObject(Node* node)
     , m_isDragging(false)
     , m_hasLayer(false)
     , m_hasOverflowClip(false)
+    , m_hasTransform(false)
     , m_hasOverrideSize(false)
     , m_hasCounterNodeMap(false)
 {
@@ -199,7 +205,9 @@ RenderObject::RenderObject(Node* node)
 
 RenderObject::~RenderObject()
 {
+    ASSERT(!node() || documentBeingDestroyed() || !document()->frame()->view() || document()->frame()->view()->layoutRoot() != this);
 #ifndef NDEBUG
+    ASSERT(!m_hasAXObject);
     --RenderObjectCounter::count;
 #endif
 }
@@ -492,7 +500,7 @@ RenderLayer* RenderObject::enclosingLayer() const
 
 bool RenderObject::requiresLayer()
 {
-    return isRoot() || isPositioned() || isRelPositioned() || isTransparent() || hasOverflowClip();
+    return isRoot() || isPositioned() || isRelPositioned() || isTransparent() || hasOverflowClip() || hasTransform();
 }
 
 RenderBlock* RenderObject::firstLineBlock() const
@@ -704,15 +712,34 @@ void RenderObject::setChildNeedsLayout(bool b, bool markParents)
     }
 }
 
-void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout)
+static inline bool objectIsRelayoutBoundary(const RenderObject *obj) 
 {
+    // FIXME: In future it may be possible to broaden this condition in order to improve performance 
+    return obj->isTextField() || obj->isTextArea()
+        || obj->hasOverflowClip() && !obj->style()->width().isIntrinsicOrAuto() && !obj->style()->height().isIntrinsicOrAuto() && !obj->style()->height().isPercent()
+#if ENABLE(SVG)
+           || obj->isSVGRoot()
+#endif
+           ;
+}
+    
+void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, RenderObject* newRoot)
+{
+    ASSERT(!scheduleRelayout || !newRoot);
+
     RenderObject* o = container();
     RenderObject* last = this;
 
     while (o) {
         if (!last->isText() && (last->style()->position() == FixedPosition || last->style()->position() == AbsolutePosition)) {
-            if (last->hasStaticY())
-                last->parent()->setChildNeedsLayout(true);
+            if (last->hasStaticY()) {
+                RenderObject* parent = last->parent();
+                if (!parent->normalChildNeedsLayout()) {
+                    parent->setChildNeedsLayout(true, false);
+                    if (parent != newRoot)
+                        parent->markContainingBlocksForLayout(scheduleRelayout, newRoot);
+                }
+            }
             if (o->m_posChildNeedsLayout)
                 return;
             o->m_posChildNeedsLayout = true;
@@ -722,8 +749,11 @@ void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout)
             o->m_normalChildNeedsLayout = true;
         }
 
+        if (o == newRoot)
+            return;
+
         last = o;
-        if (scheduleRelayout && (last->isTextField() || last->isTextArea()))
+        if (scheduleRelayout && objectIsRelayoutBoundary(last))
             break;
         o = o->container();
     }
@@ -746,10 +776,10 @@ RenderBlock* RenderObject::containingBlock() const
 
     RenderObject* o = parent();
     if (!isText() && m_style->position() == FixedPosition) {
-        while (o && !o->isRenderView())
+        while (o && !o->isRenderView() && !o->hasTransform())
             o = o->parent();
     } else if (!isText() && m_style->position() == AbsolutePosition) {
-        while (o && (o->style()->position() == StaticPosition || (o->isInline() && !o->isReplaced())) && !o->isRenderView()) {
+        while (o && (o->style()->position() == StaticPosition || (o->isInline() && !o->isReplaced())) && !o->isRenderView() && !o->hasTransform()) {
             // For relpositioned inlines, we return the nearest enclosing block.  We don't try
             // to return the inline itself.  This allows us to avoid having a positioned objects
             // list in all RenderInlines and lets us return a strongly-typed RenderBlock* result
@@ -761,9 +791,9 @@ RenderBlock* RenderObject::containingBlock() const
         }
     } else {
         while (o && ((o->isInline() && !o->isReplaced()) || o->isTableRow() || o->isTableSection()
-                     || o->isTableCol() || o->isFrameSet()
+                     || o->isTableCol() || o->isFrameSet() || o->isMedia()
 #if ENABLE(SVG)
-                     || o->isSVGContainer()
+                     || o->isSVGContainer() || o->isSVGRoot()
 #endif
                      ))
             o = o->parent();
@@ -1125,6 +1155,7 @@ bool RenderObject::paintBorderImage(GraphicsContext* graphicsContext, int tx, in
         clipped = true;
     }
 
+    borderImage->setImageContainerSize(IntSize(w, h));
     int imageWidth = borderImage->image()->width();
     int imageHeight = borderImage->image()->height();
 
@@ -2013,7 +2044,7 @@ Color RenderObject::selectionBackgroundColor() const
         if (pseudoStyle && pseudoStyle->backgroundColor().isValid())
             color = pseudoStyle->backgroundColor().blendWithWhite();
         else
-            color = document()->frame()->isActive() ?
+            color = document()->frame()->selectionController()->isFocusedAndActive() ?
                     theme()->activeSelectionBackgroundColor() :
                     theme()->inactiveSelectionBackgroundColor();
     }
@@ -2031,7 +2062,7 @@ Color RenderObject::selectionForegroundColor() const
             if (!color.isValid())
                 color = pseudoStyle->color();
         } else
-            color = document()->frame()->isActive() ?
+            color = document()->frame()->selectionController()->isFocusedAndActive() ?
                     theme()->platformActiveSelectionForegroundColor() :
                     theme()->platformInactiveSelectionForegroundColor();
     }
@@ -2123,6 +2154,17 @@ void RenderObject::handleDynamicFloatPositionChange()
             box->appendChildNode(parent()->removeChildNode(this));
         }
     }
+}
+
+void RenderObject::setAnimatableStyle(RenderStyle* style)
+{
+    if (!isText() && m_style && style) {
+        if (!m_style->transitions())
+            animationController()->cancelImplicitAnimations(this);
+        else
+            style = animationController()->updateImplicitAnimations(this, style);
+    }
+    setStyle(style);
 }
 
 void RenderObject::setStyle(RenderStyle* style)
@@ -2244,6 +2286,7 @@ void RenderObject::setStyle(RenderStyle* style)
         }
         m_paintBackground = false;
         m_hasOverflowClip = false;
+        m_hasTransform = false;
     }
 
     if (view()->frameView()) {
@@ -2356,10 +2399,7 @@ int RenderObject::paddingTop() const
     Length padding = m_style->paddingTop();
     if (padding.isPercent())
         w = containingBlock()->availableWidth();
-    w = padding.calcMinValue(w);
-    if (isTableCell() && padding.isAuto())
-        w = static_cast<const RenderTableCell*>(this)->table()->cellPadding();
-    return w;
+    return padding.calcMinValue(w);
 }
 
 int RenderObject::paddingBottom() const
@@ -2368,10 +2408,7 @@ int RenderObject::paddingBottom() const
     Length padding = style()->paddingBottom();
     if (padding.isPercent())
         w = containingBlock()->availableWidth();
-    w = padding.calcMinValue(w);
-    if (isTableCell() && padding.isAuto())
-        w = static_cast<const RenderTableCell*>(this)->table()->cellPadding();
-    return w;
+    return padding.calcMinValue(w);
 }
 
 int RenderObject::paddingLeft() const
@@ -2380,10 +2417,7 @@ int RenderObject::paddingLeft() const
     Length padding = style()->paddingLeft();
     if (padding.isPercent())
         w = containingBlock()->availableWidth();
-    w = padding.calcMinValue(w);
-    if (isTableCell() && padding.isAuto())
-        w = static_cast<const RenderTableCell*>(this)->table()->cellPadding();
-    return w;
+    return padding.calcMinValue(w);
 }
 
 int RenderObject::paddingRight() const
@@ -2392,10 +2426,7 @@ int RenderObject::paddingRight() const
     Length padding = style()->paddingRight();
     if (padding.isPercent())
         w = containingBlock()->availableWidth();
-    w = padding.calcMinValue(w);
-    if (isTableCell() && padding.isAuto())
-        w = static_cast<const RenderTableCell*>(this)->table()->cellPadding();
-    return w;
+    return padding.calcMinValue(w);
 }
 
 RenderView* RenderObject::view() const
@@ -2432,13 +2463,13 @@ RenderObject* RenderObject::container() const
         // as we can.  If we're in the tree, we'll get the root.  If we
         // aren't we'll get the root of our little subtree (most likely
         // we'll just return 0).
-        while (o && o->parent())
+        while (o && o->parent() && !o->hasTransform())
             o = o->parent();
     } else if (pos == AbsolutePosition) {
         // Same goes here.  We technically just want our containing block, but
         // we may not have one if we're part of an uninstalled subtree.  We'll
         // climb as high as we can though.
-        while (o && o->style()->position() == StaticPosition && !o->isRenderView())
+        while (o && o->style()->position() == StaticPosition && !o->isRenderView() && !o->hasTransform())
             o = o->parent();
     }
 
@@ -2500,13 +2531,20 @@ void RenderObject::destroy()
     if (AXObjectCache::accessibilityEnabled())
         document()->axObjectCache()->remove(this);
 
+    animationController()->cancelImplicitAnimations(this);
+
     // By default no ref-counting. RenderWidget::destroy() doesn't call
     // this function because it needs to do ref-counting. If anything
     // in this function changes, be sure to fix RenderWidget::destroy() as well.
 
     remove();
 
-    arenaDelete(document()->renderArena(), this);
+    RenderArena* arena = renderArena();
+
+    if (hasLayer())
+        layer()->destroy(arena);
+
+    arenaDelete(arena, this);
 }
 
 void RenderObject::arenaDelete(RenderArena* arena, void* base)
@@ -2553,25 +2591,25 @@ void RenderObject::updateDragState(bool dragOn)
         continuation()->updateDragState(dragOn);
 }
 
-bool RenderObject::hitTest(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestFilter hitTestFilter)
+bool RenderObject::hitTest(const HitTestRequest& request, HitTestResult& result, const IntPoint& point, int tx, int ty, HitTestFilter hitTestFilter)
 {
     bool inside = false;
     if (hitTestFilter != HitTestSelf) {
         // First test the foreground layer (lines and inlines).
-        inside = nodeAtPoint(request, result, x, y, tx, ty, HitTestForeground);
+        inside = nodeAtPoint(request, result, point.x(), point.y(), tx, ty, HitTestForeground);
 
         // Test floats next.
         if (!inside)
-            inside = nodeAtPoint(request, result, x, y, tx, ty, HitTestFloat);
+            inside = nodeAtPoint(request, result, point.x(), point.y(), tx, ty, HitTestFloat);
 
         // Finally test to see if the mouse is in the background (within a child block's background).
         if (!inside)
-            inside = nodeAtPoint(request, result, x, y, tx, ty, HitTestChildBlockBackgrounds);
+            inside = nodeAtPoint(request, result, point.x(), point.y(), tx, ty, HitTestChildBlockBackgrounds);
     }
 
     // See if the mouse is inside us but not any of our descendants
     if (hitTestFilter != HitTestDescendants && !inside)
-        inside = nodeAtPoint(request, result, x, y, tx, ty, HitTestBlockBackground);
+        inside = nodeAtPoint(request, result, point.x(), point.y(), tx, ty, HitTestBlockBackground);
 
     return inside;
 }
@@ -2643,8 +2681,6 @@ short RenderObject::getVerticalPosition(bool firstLine) const
         vpos = PositionTop;
     else if (va == BOTTOM)
         vpos = PositionBottom;
-    else if (va == LENGTH)
-        vpos = -style()->verticalAlignLength().calcValue(lineHeight(firstLine));
     else {
         bool checkParent = parent()->isInline() && !parent()->isInlineBlockOrInlineTable() && parent()->style()->verticalAlign() != TOP && parent()->style()->verticalAlign() != BOTTOM;
         vpos = checkParent ? parent()->verticalPositionHint(firstLine) : 0;
@@ -2669,6 +2705,8 @@ short RenderObject::getVerticalPosition(bool firstLine) const
                 vpos -= style(firstLine)->font().descent();
         } else if (va == BASELINE_MIDDLE)
             vpos += -lineHeight(firstLine) / 2 + baselinePosition(firstLine);
+        else if (va == LENGTH)
+            vpos -= style()->verticalAlignLength().calcValue(lineHeight(firstLine));
     }
 
     return vpos;
@@ -2706,7 +2744,7 @@ void RenderObject::scheduleRelayout()
     } else if (parent()) {
         FrameView* v = view() ? view()->frameView() : 0;
         if (v)
-            v->scheduleRelayoutOfSubtree(node());
+            v->scheduleRelayoutOfSubtree(this);
     }
 }
 
@@ -2762,7 +2800,7 @@ RenderStyle* RenderObject::firstLineStyle() const
 
 RenderStyle* RenderObject::getPseudoStyle(RenderStyle::PseudoId pseudo, RenderStyle* parentStyle) const
 {
-    if (!style()->hasPseudoStyle(pseudo))
+    if (pseudo < RenderStyle::FIRST_INTERNAL_PSEUDOID && !style()->hasPseudoStyle(pseudo))
         return 0;
 
     if (!parentStyle)
@@ -2917,7 +2955,7 @@ bool RenderObject::shrinkToAvoidFloats() const
     // FIXME: Technically we should be able to shrink replaced elements on a line, but this is difficult to accomplish, since this
     // involves doing a relayout during findNextLineBreak and somehow overriding the containingBlockWidth method to return the
     // current remaining width on a line.
-    if (isInline() || !avoidsFloats())
+    if (isInline() && !isHTMLMarquee() || !avoidsFloats())
         return false;
 
     // All auto-width objects that avoid floats should always use lineWidth.
@@ -3038,6 +3076,11 @@ bool RenderObject::isScrollable() const
     return l && (l->verticalScrollbar() || l->horizontalScrollbar());
 }
 
+AnimationController* RenderObject::animationController() const
+{
+    return document()->frame()->animationController();
+}
+
 #if ENABLE(SVG)
 
 FloatRect RenderObject::relativeBBox(bool) const
@@ -3048,11 +3091,6 @@ FloatRect RenderObject::relativeBBox(bool) const
 AffineTransform RenderObject::localTransform() const
 {
     return AffineTransform(1, 0, 0, 1, xPos(), yPos());
-}
-
-void RenderObject::setLocalTransform(const AffineTransform&)
-{
-    ASSERT(false);
 }
 
 AffineTransform RenderObject::absoluteTransform() const

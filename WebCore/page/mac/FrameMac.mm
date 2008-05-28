@@ -45,7 +45,6 @@
 #import "Event.h"
 #import "EventNames.h"
 #import "FloatRect.h"
-#import "FontData.h"
 #import "FoundationExtras.h"
 #import "FrameLoadRequest.h"
 #import "FrameLoader.h"
@@ -79,8 +78,10 @@
 #import "RenderView.h"
 #import "ResourceHandle.h"
 #import "Settings.h"
+#import "SimpleFontData.h"
 #import "SystemTime.h"
 #import "TextResourceDecoder.h"
+#import "UserStyleSheetLoader.h"
 #import "WebCoreFrameBridge.h"
 #import "WebCoreSystemInterface.h"
 #import "WebCoreViewFactory.h"
@@ -298,7 +299,7 @@ NSString* Frame::matchLabelsAgainstElement(NSArray* labels, Element* element)
 {
     DeprecatedString name = element->getAttribute(nameAttr).deprecatedString();
     // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
-    name.replace(RegularExpression("[[:digit:]]"), " ");
+    name.replace(RegularExpression("\\d"), " ");
     name.replace('_', ' ');
     
     RegularExpression* regExp = regExpForLabels(labels);
@@ -497,11 +498,6 @@ void Frame::issuePasteCommand()
     [d->m_bridge issuePasteCommand];
 }
 
-void Frame::issueTransposeCommand()
-{
-    [d->m_bridge issueTransposeCommand];
-}
-
 const short enableRomanKeyboardsOnly = -23;
 void Frame::setUseSecureKeyboardEntry(bool enable)
 {
@@ -575,11 +571,6 @@ void Frame::willPopupMenu(NSMenu * menu)
     [d->m_bridge willPopupMenu:menu];
 }
 
-void Frame::setNeedsReapplyStyles()
-{
-    [d->m_bridge setNeedsReapplyStyles];
-}
-
 FloatRect Frame::customHighlightLineRect(const AtomicString& type, const FloatRect& lineRect, Node* node)
 {
     return [d->m_bridge customHighlightRect:type forLine:lineRect representedNode:node];
@@ -647,8 +638,7 @@ KJS::Bindings::Instance* Frame::createScriptInstanceForWidget(WebCore::Widget* w
 
 WebScriptObject* Frame::windowScriptObject()
 {
-    Settings* settings = this->settings();
-    if (!settings || !settings->isJavaScriptEnabled())
+    if (!scriptProxy()->isEnabled())
         return 0;
 
     if (!d->m_windowScriptObject) {
@@ -667,6 +657,22 @@ void Frame::clearPlatformScriptObjects()
         KJS::Bindings::RootObject* root = bindingRootObject();
         [d->m_windowScriptObject.get() _setOriginRootObject:root andRootObject:root];
     }
+}
+
+void Frame::setUserStyleSheetLocation(const KURL& url)
+{
+    delete d->m_userStyleSheetLoader;
+    d->m_userStyleSheetLoader = 0;
+    if (d->m_doc && d->m_doc->docLoader())
+        d->m_userStyleSheetLoader = new UserStyleSheetLoader(d->m_doc, url.string());
+}
+
+void Frame::setUserStyleSheet(const String& styleSheet)
+{
+    delete d->m_userStyleSheetLoader;
+    d->m_userStyleSheetLoader = 0;
+    if (d->m_doc)
+        d->m_doc->setUserStyleSheet(styleSheet);
 }
 
 } // namespace WebCore

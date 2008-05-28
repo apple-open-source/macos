@@ -45,5 +45,6 @@ extern int requestqueue_enqueue_download(
 			struct ReadStreamRec *readStreamRecPtr); /* the ReadStreamRec */
 extern int requestqueue_enqueue_server_ping(u_int32_t delay);
 extern int requestqueue_purge_cache_files(void);
+extern int requestqueue_enqueue_seqwrite_manager(struct stream_put_ctx *);
 
 #endif

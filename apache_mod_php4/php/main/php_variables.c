@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.45.2.13.2.10 2007/04/13 00:42:48 stas Exp $ */
+/* $Id: php_variables.c,v 1.45.2.13.2.14 2007/12/31 07:22:55 sebastian Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -66,6 +66,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 	zval *gpc_element, **gpc_element_p;
 	zend_bool is_array;
 	HashTable *symtable1=NULL;
+	int nest_level = 0;
 
 	assert(var != NULL);
 	
@@ -128,6 +129,24 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 			char *escaped_index = NULL, *index_s;
 			int new_idx_len = 0;
 
+			if(++nest_level > PG(max_input_nesting_level)) {
+				HashTable *ht;
+  				/* too many levels of nesting */
+
+				if (track_vars_array) {
+					ht = Z_ARRVAL_P(track_vars_array);
+				} else if (PG(register_globals)) {
+					ht = EG(active_symbol_table);
+				}
+
+				zend_hash_del(ht, var, var_len + 1);
+				zval_dtor(val);
+
+				if (!PG(display_errors)) {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Input variable nesting level exceeded %ld. To increase the limit change max_input_nesting_level in php.ini.", PG(max_input_nesting_level));
+				}
+				return;
+			}
 			ip++;
 			index_s = ip;
 			if (isspace(*ip)) {
@@ -141,9 +160,9 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 					/* PHP variables cannot contain '[' in their names, so we replace the character with a '_' */
 					*(index_s - 1) = '_';
 					
-					index_len = var_len = 0;
+					index_len = 0;
 					if (index) {
-						index_len = var_len = strlen(index);
+						index_len = strlen(index);
 					}
 					goto plain_var;
 					return;

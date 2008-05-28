@@ -35,10 +35,6 @@
 #include <QtGui/QImageReader>
 #include <qdebug.h>
 
-#if !defined(Q_OS_WIN)
-Q_IMPORT_PLUGIN(qtwebico) //For ico format...
-#endif
-
 namespace {
     const  QImage::Format DesiredFormat = QImage::Format_ARGB32;
     const  bool debugImageDecoderQt = false;
@@ -72,6 +68,8 @@ public:
     // a few images might have been read.
     ReadResult read(bool allDataReceived);
 
+    QImageReader *reader() { return &m_reader; }
+
 private:
     enum IncrementalReadResult { IncrementalReadFailed, IncrementalReadPartial, IncrementalReadComplete };
     // Incrementally read an image
@@ -91,13 +89,13 @@ private:
 
 };
 
-ImageDecoderQt::ReadContext::ReadContext(const IncomingData & data, LoadMode loadMode, ImageList &target) :
-    m_loadMode(loadMode),
-    m_data(data.data(), data.size()),
-    m_buffer(&m_data),
-    m_reader(&m_buffer),
-    m_target(target),
-    m_dataFormat(QImage::Format_Invalid)
+ImageDecoderQt::ReadContext::ReadContext(const IncomingData & data, LoadMode loadMode, ImageList &target)
+    : m_loadMode(loadMode)
+    , m_data(data.data(), data.size())
+    , m_buffer(&m_data)
+    , m_reader(&m_buffer)
+    , m_target(target)
+    , m_dataFormat(QImage::Format_Invalid)
 {
     m_buffer.open(QIODevice::ReadOnly);
 }
@@ -201,13 +199,14 @@ void ImageDecoderQt::reset()
     m_imageList.clear();
     m_pixmapCache.clear();
     m_sizeAvailable = false;
+    m_loopCount = cAnimationNone;
     m_size = IntSize(-1, -1);
 }
 
 void ImageDecoderQt::setData(const IncomingData &data, bool allDataReceived)
 {
     reset();
-    ReadContext readContext(data, ReadContext::LoadComplete, m_imageList);
+    ReadContext readContext(data, ReadContext::LoadIncrementally, m_imageList);
 
     if (debugImageDecoderQt)
         qDebug() << " setData " << data.size() << " image bytes, complete=" << allDataReceived;
@@ -228,6 +227,13 @@ void ImageDecoderQt::setData(const IncomingData &data, bool allDataReceived)
         if (hasFirstImageHeader()) {
             m_sizeAvailable = true;
             m_size = m_imageList[0].m_image.size();
+
+            if (readContext.reader()->supportsAnimation()) {
+                if (readContext.reader()->loopCount() != -1)
+                    m_loopCount = readContext.reader()->loopCount();
+                else
+                    m_loopCount = 0; //loop forever
+            }
         }
         break;
     }
@@ -243,14 +249,17 @@ bool ImageDecoderQt::isSizeAvailable() const
 
 int ImageDecoderQt::frameCount() const
 {
+    if (debugImageDecoderQt)
+        qDebug() << " ImageDecoderQt::frameCount() returns" << m_imageList.size();
     return m_imageList.size();
 }
 
 
 int ImageDecoderQt::repetitionCount() const
 {
-    // TODO: Am I Moses?!
-    return cAnimationNone;
+    if (debugImageDecoderQt)
+        qDebug() << " ImageDecoderQt::repetitionCount() returns" << m_loopCount;
+    return m_loopCount;
 }
 
 
@@ -272,7 +281,7 @@ RGBA32Buffer* ImageDecoderQt::frameBufferAtIndex(size_t index)
     return 0;
 }
 
-const QPixmap* ImageDecoderQt::imageAtIndex(size_t index) const
+QPixmap* ImageDecoderQt::imageAtIndex(size_t index) const
 {
     if (debugImageDecoderQt)
         qDebug() << "ImageDecoderQt::imageAtIndex(" << index << ')';

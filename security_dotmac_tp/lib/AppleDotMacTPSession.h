@@ -122,7 +122,7 @@ public:
          CSSM_TUPLEGROUP_PTR &TupleGroup);
 	void SubmitArchiveRequest(
 		DotMacArchiveType archiveType,					// OID preparsed
-		const CSSM_DATA *altHost,						// optional
+		const CSSM_DATA &hostName,						// required
 		CSSM_TP_AUTHORITY_REQUEST_TYPE RequestType,
 		const CSSM_TP_REQUEST_SET &RequestInput,
 		const CSSM_TP_CALLERAUTH_CONTEXT *CallerAuthContext,

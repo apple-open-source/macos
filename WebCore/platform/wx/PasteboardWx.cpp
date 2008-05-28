@@ -24,13 +24,13 @@
  */
 
 #include "config.h"
-#include "Pasteboard.h"
 
+#include "Pasteboard.h"
 #include "DocumentFragment.h"
 #include "Editor.h"
+#include "KURL.h"
 #include "markup.h"
 #include "PlatformString.h"
-#include "KURL.h"
 
 #include <wx/defs.h>
 #include <wx/dataobj.h>
@@ -80,7 +80,7 @@ void Pasteboard::writeURL(const KURL& url, const String&, Frame*)
 {
     if (wxTheClipboard->Open())
     {
-        wxTheClipboard->SetData( new wxTextDataObject( url.url() ) );
+        wxTheClipboard->SetData( new wxTextDataObject( url.string() ) );
         wxTheClipboard->Close();
     }
 }
@@ -90,7 +90,7 @@ void Pasteboard::clear()
     wxTheClipboard->Clear();
 }
 
-void Pasteboard::writeImage(const HitTestResult&)
+void Pasteboard::writeImage(Node*, const KURL&, const String& title)
 {
 }
     

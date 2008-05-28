@@ -4,7 +4,7 @@
  *   Authentication certificate definitions for the Common UNIX
  *   Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -24,6 +24,9 @@ typedef struct cupsd_cert_s
   int		pid;			/* Process ID (0 for root certificate) */
   char		certificate[33];	/* 32 hex characters, or 128 bits */
   char		username[33];		/* Authenticated username */
+#ifdef HAVE_GSSAPI
+  krb5_ccache	ccache;			/* Kerberos credential cache */
+#endif /* HAVE_GSSAPI */
 } cupsd_cert_t;
 
 
@@ -31,15 +34,18 @@ typedef struct cupsd_cert_s
  * Globals...
  */
 
-VAR cupsd_cert_t	*Certs;		/* List of certificates */
-VAR time_t		RootCertTime;	/* Root certificate update time */
+VAR cupsd_cert_t	*Certs		/* List of certificates */
+				VALUE(NULL);
+VAR time_t		RootCertTime	/* Root certificate update time */
+				VALUE(0);
 
 
 /*
  * Prototypes...
  */
 
-extern void		cupsdAddCert(int pid, const char *username);
+extern void		cupsdAddCert(int pid, const char *username,
+			             void *ccache);
 extern void		cupsdDeleteCert(int pid);
 extern void		cupsdDeleteAllCerts(void);
 extern const char	*cupsdFindCert(const char *certificate);

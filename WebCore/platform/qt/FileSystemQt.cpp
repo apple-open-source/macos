@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2007 Staikos Computing Services Inc.
+ * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2008 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +28,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <PlatformString.h>
+#include "NotImplemented.h"
+#include "PlatformString.h"
 #include <QFile>
+#include <QFileInfo>
+#include <QDir>
 
 namespace WebCore {
 
@@ -40,6 +45,34 @@ bool fileExists(const String& path)
 bool deleteFile(const String& path)
 {
     return QFile::remove(path);
+}
+
+bool deleteEmptyDirectory(const String& path)
+{
+    return QDir::root().rmdir(path);
+}
+
+bool getFileSize(const String& path, long long& result)
+{
+    QFileInfo info(path);
+    result = info.size();
+    return info.exists(); 
+}
+
+bool getFileModificationTime(const String&, time_t&)
+{
+    notImplemented();
+    return false;
+}
+
+bool makeAllDirectories(const String& path)
+{
+    return QDir::root().mkpath(path);
+}
+
+String pathByAppendingComponent(const String& path, const String& component)
+{
+    return QDir(path).filePath(component);
 }
 
 }

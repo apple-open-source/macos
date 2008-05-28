@@ -3,7 +3,7 @@ dnl "$Id: cups-compiler.m4 6976 2007-09-18 20:39:31Z mike $"
 dnl
 dnl   Compiler stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 2007 by Apple Inc.
+dnl   Copyright 2007-2008 by Apple Inc.
 dnl   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -98,36 +98,61 @@ if test -n "$GCC"; then
 		fi
 	fi
 
+	# Generate position-independent code as needed...
 	if test $PICFLAG = 1 -a $uname != AIX; then
     		OPTIM="-fPIC $OPTIM"
 	fi
 
-	case $uname in
-		Linux*)
-			if test x$enable_pie = xyes; then
-				PIEFLAGS="-pie -fPIE"
-			fi
+	# The -fstack-protector option is available with some versions of
+	# GCC and adds "stack canaries" which detect when the return address
+	# has been overwritten, preventing many types of exploit attacks.
+	AC_MSG_CHECKING(if GCC supports -fstack-protector)
+	OLDCFLAGS="$CFLAGS"
+	CFLAGS="$CFLAGS -fstack-protector"
+	AC_TRY_COMPILE(,,
+		OPTIM="$OPTIM -fstack-protector"
+		AC_MSG_RESULT(yes),
+		AC_MSG_RESULT(no))
+	CFLAGS="$OLDCFLAGS"
 
-			if test x$enable_relro = xyes; then
-				RELROFLAGS="-Wl,-z,relro"
-			fi
-			;;
-
-		*)
-			if test x$enable_pie = xyes; then
-				echo "Sorry, --enable-pie is not supported on this OS!"
-			fi
-			;;
-	esac
+	# The -pie option is available with some versions of GCC and adds
+	# randomization of addresses, which avoids another class of exploits
+	# that depend on a fixed address for common functions.
+	if test x$enable_pie = xyes; then
+		AC_MSG_CHECKING(if GCC supports -pie)
+		OLDCFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -pie -fPIE"
+		AC_TRY_COMPILE(,,
+			PIEFLAGS="-pie -fPIE"
+			AC_MSG_RESULT(yes),
+			AC_MSG_RESULT(no, ignoring --enable-pie))
+		CFLAGS="$OLDCFLAGS"
+	fi
 
 	if test "x$with_optim" = x; then
 		# Add useful warning options for tracking down problems...
 		OPTIM="-Wall -Wno-format-y2k $OPTIM"
-		# Additional warning options for alpha testing...
-		OPTIM="-Wshadow -Wunused $OPTIM"
+		# Additional warning options for development testing...
+		if test -d .svn; then
+			OPTIM="-Wshadow -Wunused $OPTIM"
+		fi
 	fi
 
 	case "$uname" in
+		Darwin*)
+			# -D_FORTIFY_SOURCE=2 adds additional object size
+			# checking, basically wrapping all string functions
+			# with buffer-limited ones.  Not strictly needed for
+			# CUPS since we already use buffer-limited calls, but
+			# this will catch any additions that are broken.		
+			CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=2"
+
+			if test x$enable_pie = xyes; then
+				# GCC 4 on Mac OS X needs -Wl,-pie as well
+				LDFLAGS="$LDFLAGS -Wl,-pie"
+			fi
+			;;
+
 		HP-UX*)
 			if test "x$enable_32bit" = xyes; then
 				# Build 32-bit libraries, 64-bit base...
@@ -201,6 +226,12 @@ if test -n "$GCC"; then
 			;;
 
 		Linux*)
+			# The -z relro option is provided by the Linux linker command to
+			# make relocatable data read-only.
+			if test x$enable_relro = xyes; then
+				RELROFLAGS="-Wl,-z,relro"
+			fi
+
 			if test "x$enable_32bit" = xyes; then
 				# Build 32-bit libraries, 64-bit base...
 				if test -z "$with_arch32flags"; then
@@ -468,8 +499,8 @@ else
 			# cups-support@cups.org...
 			echo "Building CUPS with default compiler optimizations; contact"
 			echo "cups-bugs@cups.org with uname and compiler options needed"
-			echo "for your platform, or set the CFLAGS and CXXFLAGS"
-			echo "environment variable before running configure."
+			echo "for your platform, or set the CFLAGS, CXXFLAGS, and LDFLAGS"
+			echo "environment variables before running configure."
 			;;
 	esac
 fi

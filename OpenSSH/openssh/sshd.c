@@ -1,4 +1,4 @@
-/* $OpenBSD: sshd.c,v 1.348 2006/11/06 21:25:28 markus Exp $ */
+/* $OpenBSD: sshd.c,v 1.351 2007/05/22 10:18:52 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -309,6 +309,7 @@ sighup_restart(void)
 	logit("Received SIGHUP; restarting.");
 	close_listen_socks();
 	close_startup_pipes();
+	alarm(0);  /* alarm timer persists across exec */
 	execv(saved_argv[0], saved_argv);
 	logit("RESTART FAILED: av[0]='%.100s', error: %.100s.", saved_argv[0],
 	    strerror(errno));
@@ -1423,6 +1424,10 @@ main(int ac, char **av)
 
 	/* Fill in default values for those options not explicitly set. */
 	fill_default_server_options(&options);
+
+	/* challenge-response is implemented via keyboard interactive */
+	if (options.challenge_response_authentication)
+		options.kbd_interactive_authentication = 1;
 
 	/* set default channel AF */
 	channel_set_af(options.address_family);

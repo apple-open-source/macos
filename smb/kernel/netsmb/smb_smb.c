@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -105,7 +105,7 @@ static struct smb_dialect smb_dialects[] = {
 #define WINDOWS_LARGEX_READ_CAP_SIZE	60*1024
 #define WINDOWS_LARGEX_WRITE_CAP_SIZE	60*1024
 
-static u_int32_t smb_vc_maxread(struct smb_vc *vcp, u_int32_t maxtx)
+static u_int32_t smb_vc_maxread(const struct smb_vc *vcp)
 {
 	/*
 	 * SNIA Specs say up to 64k data bytes, but it is wrong. Windows traffic
@@ -118,16 +118,22 @@ static u_int32_t smb_vc_maxread(struct smb_vc *vcp, u_int32_t maxtx)
 	 * more on this issue.
 	 */
 	if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_READX) {
-		if (UNIX_SERVER(vcp) && (maxtx > WINDOWS_LARGEX_READ_CAP_SIZE))
+		if (UNIX_SERVER(vcp) && (vcp->vc_sopt.sv_maxtx > WINDOWS_LARGEX_READ_CAP_SIZE))
 			return (MAX_LARGEX_READ_CAP_SIZE); 	
 		else 
 			return (WINDOWS_LARGEX_READ_CAP_SIZE);
 	}
+	else if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_FILES)
+		return (vcp->vc_sopt.sv_maxtx - SMB_HDRLEN - SMB_READANDX_HDRLEN);
 	else
-		return (vcp->vc_sopt.sv_maxtx);
+		return (vcp->vc_sopt.sv_maxtx - SMB_HDRLEN - SMB_READ_COM_HDRLEN);
 }
 
-static u_int32_t smb_vc_maxwrite(struct smb_vc *vcp, u_int32_t maxtx)
+/*
+ * 
+ Figure out the largest write we can do to the server.
+ */
+static u_int32_t smb_vc_maxwrite(const struct smb_vc *vcp)
 {
 	/*
 	 * SNIA Specs say up to 64k data bytes, but it is wrong. Windows traffic
@@ -147,15 +153,18 @@ static u_int32_t smb_vc_maxwrite(struct smb_vc *vcp, u_int32_t maxtx)
 	 *		 in both cases.
 	 */
 	if ((vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) && (! UNIX_SERVER(vcp)))
-		return (vcp->vc_sopt.sv_maxtx);
+		return (vcp->vc_sopt.sv_maxtx - SMB_HDRLEN - SMB_WRITEANDX_HDRLEN);
 	else  if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_WRITEX) {
-		if (UNIX_SERVER(vcp) && (maxtx > WINDOWS_LARGEX_WRITE_CAP_SIZE))
+		if (UNIX_SERVER(vcp) && (vcp->vc_sopt.sv_maxtx > WINDOWS_LARGEX_WRITE_CAP_SIZE))
 			return (MAX_LARGEX_WRITE_CAP_SIZE);
 		else 
 			return (WINDOWS_LARGEX_WRITE_CAP_SIZE);
 	}
+	else if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_FILES)
+		return (vcp->vc_sopt.sv_maxtx - SMB_HDRLEN - SMB_WRITEANDX_HDRLEN);
 	else
-		return (vcp->vc_sopt.sv_maxtx);
+		return (vcp->vc_sopt.sv_maxtx - SMB_HDRLEN - SMB_WRITE_COM_HDRLEN);
+		
 }
 
 static int
@@ -168,7 +177,7 @@ smb_smb_nomux(struct smb_vc *vcp, struct smb_cred *scred, const char *name)
 }
 
 int
-smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred, struct smb_cred *user_scred)
+smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred, struct smb_cred *user_scred, int inReconnect)
 {
 	struct smb_dialect *dp;
 	struct smb_sopt *sp = NULL;
@@ -179,10 +188,9 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred, struct smb_cred *u
 	u_int16_t dindex, bc;
 	int error, maxqsz;
 	char *servercs;
-	void *servercshandle = NULL;
-	void *localcshandle = NULL;
 	u_int16_t toklen;
 	u_char		security_mode;
+	u_int32_t	original_caps;
 
 	if (smb_smb_nomux(vcp, scred, __FUNCTION__) != 0)
 		return EINVAL;
@@ -190,7 +198,7 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred, struct smb_cred *u
 	/* Leave SMB_FLAGS2_UNICODE "off" - no need to do anything */ 
 	vcp->vc_hflags2 |= SMB_FLAGS2_ERR_STATUS;
 	sp = &vcp->vc_sopt;
-	bzero(sp, sizeof(struct smb_sopt));
+	original_caps = sp->sv_caps;
 	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_NEGOTIATE, scred, &rqp);
 	if (error)
 		return error;
@@ -198,10 +206,15 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred, struct smb_cred *u
 	smb_rq_wstart(rqp);
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
-	/* Currently we only support one dialect; leave this in just in case we decide to add some dialects */
+	/*
+	 * Currently we only support one dialect; leave this in just in case we 
+	 * decide to add the SMB2 dialect. The dialects are never in UNICODE, so
+	 * just put the strings in by hand. 
+	 */
 	for(dp = smb_dialects; dp->d_id != -1; dp++) {
 		mb_put_uint8(mbp, SMB_DT_DIALECT);
-		smb_put_dstring(mbp, vcp, dp->d_name, NO_SFM_CONVERSIONS);
+		mb_put_mem(mbp, dp->d_name, strlen(dp->d_name), MB_MSYSTEM);
+		mb_put_uint8(mbp, 0);
 	}
 	smb_rq_bend(rqp);
 	error = smb_rq_simple(rqp);
@@ -332,9 +345,9 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred, struct smb_cred *u
 
 	sp->sv_maxtx = min(sp->sv_maxtx, 63*1024 + SMB_HDRLEN + 16);
 	SMB_TRAN_GETPARAM(vcp, SMBTP_RCVSZ, &maxqsz);
-	vcp->vc_rxmax = min(smb_vc_maxread(vcp, sp->sv_maxtx), maxqsz - 1024);
+	vcp->vc_rxmax = min(smb_vc_maxread(vcp), maxqsz - 1024);
 	SMB_TRAN_GETPARAM(vcp, SMBTP_SNDSZ, &maxqsz);
-	vcp->vc_wxmax = min(smb_vc_maxwrite(vcp, sp->sv_maxtx), maxqsz - 1024);
+	vcp->vc_wxmax = min(smb_vc_maxwrite(vcp), maxqsz - 1024);
 	vcp->vc_txmax = min(sp->sv_maxtx, maxqsz);
 	SMBSDEBUG("TZ = %d\n", sp->sv_tz);
 	SMBSDEBUG("CAPS = %x\n", sp->sv_caps);
@@ -342,27 +355,42 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred, struct smb_cred *u
 	SMBSDEBUG("MAXVCS = %d\n", sp->sv_maxvcs);
 	SMBSDEBUG("MAXRAW = %d\n", sp->sv_maxraw);
 	SMBSDEBUG("MAXTX = %d\n", sp->sv_maxtx);
+	
 
-	/* If the server supports Unicode, set up to use Unicode when talking to them.  Othewise, use code page 437. */
-	if (sp->sv_caps & SMB_CAP_UNICODE)
-		servercs = "ucs-2";
-	else 
-		servercs = "cp437";
-
-	error = iconv_open(servercs, "utf-8", &servercshandle);
-	if (error != 0)
-		goto bad;
-	error = iconv_open("utf-8", servercs, &localcshandle);
-	if (error != 0) {
-		iconv_close(servercshandle);
-		goto bad;
+	/* When doing a reconnect we never allow them to change the encode */
+	if (inReconnect) {
+		DBG_ASSERT(vcp->vc_toserver);
+		DBG_ASSERT(vcp->vc_tolocal);
+		if (original_caps != sp->sv_caps)
+			SMBWARNING("Reconnecting with different sv_caps %x != %x\n", original_caps, sp->sv_caps);
+		if ((sp->sv_caps & SMB_CAP_UNICODE) != (original_caps & SMB_CAP_UNICODE)) {
+			SMBERROR("Server changed ecoding on us durring reconnect: abort reconnect\n");
+			error = ENOTSUP;
+			goto bad;
+		}
+	} else {
+		DBG_ASSERT(vcp->vc_toserver == NULL);
+		DBG_ASSERT(vcp->vc_tolocal == NULL);
+		/* 
+		 * If the server supports Unicode, set up to use Unicode when talking 
+		 * to them.  Othewise, use code page 437. 
+		 */
+		if (sp->sv_caps & SMB_CAP_UNICODE)
+			servercs = "ucs-2";
+		else 
+			servercs = "cp437";
+		
+		error = iconv_open(servercs, "utf-8", &vcp->vc_toserver);
+		if (error != 0)
+			goto bad;
+		error = iconv_open("utf-8", servercs, &vcp->vc_tolocal);
+		if (error != 0) {
+			iconv_close(vcp->vc_toserver);
+			vcp->vc_toserver = NULL;
+			goto bad;
+		}
 	}
-	if (vcp->vc_toserver)
-		iconv_close(vcp->vc_toserver);
-	if (vcp->vc_tolocal)
-		iconv_close(vcp->vc_tolocal);
-	vcp->vc_toserver = servercshandle;
-	vcp->vc_tolocal  = localcshandle;
+		
 	if (sp->sv_caps & SMB_CAP_UNICODE)
 		vcp->vc_hflags2 |= SMB_FLAGS2_UNICODE;
 bad:
@@ -477,8 +505,8 @@ make_ntlmv2_blob(struct smb_vc *vcp, char *dom, u_int64_t client_nonce, size_t *
 	blobnames = blob + sizeof (struct ntlmv2_blobhdr);
 	blobnames = add_name_to_blob(blobnames, vcp, (u_char *)dom, domainlen,
 				     NAMETYPE_DOMAIN_NB, 1);
-	blobnames = add_name_to_blob(blobnames, vcp, (u_char *)vcp->vc_srvname,
-				     srvlen, NAMETYPE_MACHINE_NB, 1);
+//	blobnames = add_name_to_blob(blobnames, vcp, (u_char *)vcp->vc_srvname,
+//				     srvlen, NAMETYPE_MACHINE_NB, 1);
 	blobnames = add_name_to_blob(blobnames, vcp, NULL, 0, NAMETYPE_EOL, 0);
 	*bloblen = blobnames - blob;
 	return (blob);
@@ -609,8 +637,6 @@ smb_smb_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred)
 	u_int32_t caps;
 	u_int16_t bl; /* BLOB length */
 	u_int16_t stringlen;
-	u_short	saveflags2 = vcp->vc_hflags2;
-	void *	savetoserver = vcp->vc_toserver;
 	u_int16_t action;
 	u_int16_t osnamelen;  
 
@@ -629,12 +655,6 @@ smb_smb_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred)
 		return EAUTH;
 	}
 	caps = smb_vc_caps(vcp);
-		
-	/* No unicode unless server supports password encryption */
-	if ((vcp->vc_flags & SMBV_ENCRYPT_PASSWORD) != SMBV_ENCRYPT_PASSWORD) {
-		vcp->vc_hflags2 &= ~SMB_FLAGS2_UNICODE;
-		vcp->vc_toserver = 0;
-	}
 
 	if (vcp->vc_flags & SMBV_ENCRYPT_PASSWORD)
 		state = STATE_NTLMV2;	/* try NTLMv2 first */
@@ -943,9 +963,6 @@ bad:
 ssn_exit:
 	if (error)
 		SMBWARNING("SetupAndX failed error = %d\n", error);
-	/* Restore things we changed and return */
-	vcp->vc_hflags2 = saveflags2;
-	vcp->vc_toserver = savetoserver;
 	return (error);
 }
 
@@ -1016,26 +1033,13 @@ smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred)
 	char *pp, *pbuf, *encpass;
 	int error, plen, srvnamelen;
 	int upper = 0;
-	u_int16_t save_hflags2;
-	void *save_toserver;
 	char serverstring[SMB_MAXNetBIOSNAMELEN+1];	/* Inlude the null byte */
 	struct sockaddr_in *sockaddr_ptr;
 
-        vcp = SSTOVC(ssp);
+	vcp = SSTOVC(ssp);
       
-	save_hflags2 = vcp->vc_hflags2;
-	save_toserver = vcp->vc_toserver;
  again:
 	sockaddr_ptr = (struct sockaddr_in*)(&vcp->vc_paddr->sa_data[2]);
- 	/* 
-	 * If we are using port 139 then we need to use the vcp->vc_srvname. The generic server name might 
-	 * cause problems with unicode. Note that byte order in sock structure is big-endean.  
-	 */
-	if (((betohs(sockaddr_ptr->sin_port)) == NBSS_TCP_PORT_139)
-	        && !strncmp(vcp->vc_srvname,"*SMBSERVER", SMB_MAX_DNS_SRVNAMELEN+1)) {
-		vcp->vc_hflags2 &= ~SMB_FLAGS2_UNICODE;
-		vcp->vc_toserver = 0;
-	}
  
 	ssp->ss_tid = SMB_TID_UNKNOWN;
 	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_TREE_CONNECT_ANDX, scred, &rqp);
@@ -1152,8 +1156,6 @@ bad:
 	if (error && upper == 1)
 		goto again;
 treeconnect_exit:
-	vcp->vc_hflags2 = save_hflags2;
-	vcp->vc_toserver = save_toserver;
 	return error;
 }
 
@@ -1275,12 +1277,9 @@ smb_smb_writex(struct smb_share *ssp, u_int16_t fid, user_ssize_t *len,
 	u_int8_t wc;
 	u_int16_t resid;
 
-	if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_WRITEX) {
-		*len = min(*len, vcp->vc_wxmax);
-	} else {
-		*len = min(*len, min(0xffff, SSTOVC(ssp)->vc_txmax - SMB_HDRLEN - 34));
-		/* (data starts 18 bytes further in than SMB_COM_WRITE) */
-	}
+	/* vc_wxmax now holds the max buffer size the server supports for writes */
+	*len = min(*len, vcp->vc_wxmax);
+
 	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_WRITE_ANDX, scred, &rqp);
 	if (error)
 		return (error);
@@ -1354,7 +1353,7 @@ smb_smb_read(struct smb_share *ssp, u_int16_t fid, user_ssize_t *len,
 	if (error)
 		return error;
 
-	*len = rlen = min(*len, min(0xffff, SSTOVC(ssp)->vc_txmax - SMB_HDRLEN - 16));
+	*len = rlen = min(SSTOVC(ssp)->vc_rxmax, *len);
 
 	smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);
@@ -1440,7 +1439,8 @@ smb_smb_write(struct smb_share *ssp, u_int16_t fid, user_ssize_t *len,
 	if (error)
 		return error;
 
-	resid = min(*len, min(0xffff, SSTOVC(ssp)->vc_txmax - SMB_HDRLEN - 16));
+	/* vc_wxmax now holds the max buffer size the server supports for writes */
+	resid = min(*len, SSTOVC(ssp)->vc_wxmax);
 	*len = resid;
 
 	smb_rq_getrequest(rqp, &mbp);

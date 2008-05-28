@@ -103,6 +103,8 @@ class CLDAPConnection : public CObject<CLDAPConnection>
 		int32_t			ConnectionStatus		( void ) { return fConnectionStatus; }
 		void			SetConnectionStatus		( int32_t inStatus );
 
+		void			CloseConnectionIfPossible	( void );
+
 		static void		ReachabilityCallback	( SCNetworkReachabilityRef inTarget, SCNetworkConnectionFlags inFlags, void *inInfo );
 		static void		LDAPFrameworkCallback	( LDAP *inLD, int inDesc, int inOpening, void *inParams );
 

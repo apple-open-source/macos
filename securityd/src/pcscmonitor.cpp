@@ -66,11 +66,11 @@ PCSCMonitor::PCSCMonitor(Server &server, const char* pathToCache, ServiceLevel l
 	: Listener(kNotificationDomainPCSC, SecurityServer::kNotificationAllEvents),
 	  MachServer::Timer(true), // "heavy" timer task
 	  server(server),
-	  cache (NULL),
-	  cachePath (pathToCache),
 	  mServiceLevel(level),
 	  mTimerAction(&PCSCMonitor::initialSetup),
-	  mGoingToSleep(false)
+	  mGoingToSleep(false),
+	  mCachePath(pathToCache),
+	  mTokenCache(NULL)
 {
 	// do all the smartcard-related work once the event loop has started
 	server.setTimer(this, Time::now());		// ASAP
@@ -132,48 +132,60 @@ void PCSCMonitor::pollReaders()
 			// accounted for this reader
 			current.erase(reader);
 		} else {
-			RefPointer<Reader> newReader = new Reader(getTokenCache (), state);
+			RefPointer<Reader> newReader = new Reader(tokenCache(), state);
 			mReaders.insert(make_pair(state.name(), newReader));
 			Syslog::notice("Token reader %s inserted into system", state.name());
 			newReader->update(state);		// initial state setup
 		}
 	}
 	
-	// now deal with vanished readers
+	// now deal with known readers that PCSC did not report
 	for (ReaderSet::iterator it = current.begin(); it != current.end(); it++) {
-		secdebug("pcsc", "removing reader %s", (*it)->name().c_str());
-		Syslog::notice("Token reader %s removed from system", (*it)->name().c_str());
-		(*it)->kill();						// prepare to die
-		mReaders.erase((*it)->name());		// remove from reader map
+		switch ((*it)->type()) {
+		case Reader::pcsc:
+			// previous PCSC reader - was removed from system
+			secdebug("pcsc", "removing reader %s", (*it)->name().c_str());
+			Syslog::notice("Token reader %s removed from system", (*it)->name().c_str());
+			(*it)->kill();						// prepare to die
+			mReaders.erase((*it)->name());		// remove from reader map
+			break;
+		case Reader::software:
+			// previous software reader - keep
+			break;
+		}
 	}
 }
+
+
+//
+// Remove some types of readers
+//
+void PCSCMonitor::clearReaders(Reader::Type type)
+{
+	if (!mReaders.empty()) {
+		secdebug("pcsc", "%ld readers present - clearing type %d", mReaders.size(), type);
+		for (ReaderMap::iterator it = mReaders.begin(); it != mReaders.end(); ) {
+			ReaderMap::iterator cur = it++;
+			Reader *reader = cur->second;
+			if (reader->isType(type)) {
+				secdebug("pcsc", "removing reader %s", reader->name().c_str());
+				reader->kill();						// prepare to die
+				mReaders.erase(cur);
+			}
+		}
+	}
+}
+
 
 //
 // Poll PCSC for smartcard status.
 // We are enumerating all readers on each call.
 //
-void PCSCMonitor::clearReaders()
+TokenCache& PCSCMonitor::tokenCache()
 {
-	if (!mReaders.empty()) {
-		// uh-oh. We had readers connected when pcscd suddenly left
-		secdebug("pcsc", "%ld readers were present when pcscd died", mReaders.size());
-		for (ReaderMap::const_iterator it = mReaders.begin(); it != mReaders.end(); it++) {
-			Reader *reader = it->second;
-			secdebug("pcsc", "removing reader %s", reader->name().c_str());
-			reader->kill();						// prepare to die
-		}
-		mReaders.erase(mReaders.begin(), mReaders.end());
-		secdebug("pcsc", "orphaned readers cleared");
-	}
-}
-
-TokenCache& PCSCMonitor::getTokenCache ()
-{
-	if (cache == NULL) {
-		cache = new TokenCache(cachePath.c_str ());
-	}
-	
-	return *cache;
+	if (mTokenCache == NULL)
+		mTokenCache = new TokenCache(mCachePath.c_str());
+	return *mTokenCache;
 }
 
 
@@ -233,10 +245,7 @@ void PCSCMonitor::notifyMe(Notification *message)
 	StLock<Mutex> _(*this);
 	assert(mServiceLevel == externalDaemon || Child::state() == alive);
 	if (message->event == kNotificationPCSCInitialized)
-	{
-		clearReaders();
-//		mSession.close();
-	}
+		clearReaders(Reader::pcsc);
 	pollReaders();
 	scheduleTimer(mReaders.empty() && !mGoingToSleep);
 }
@@ -304,10 +313,12 @@ void PCSCMonitor::initialSetup()
 	case forcedOn:
 		secdebug("pcsc", "pcscd launch is forced on");
 		launchPcscd();
+		startSoftTokens();
 		break;
 
 	case externalDaemon:
 		secdebug("pcsc", "using external pcscd (if any); no launch operations");
+		startSoftTokens();
 		break;
 	
 	default:
@@ -330,6 +341,10 @@ void PCSCMonitor::initialSetup()
 			IOKit::DeviceMatch customUsbSelector(::IOServiceMatching("IOUSBDevice"));
 			mIOKitNotifier.add(customUsbSelector, *this);	// ditto for custom USB devices
 		}
+		
+		// find and start software tokens
+		startSoftTokens();
+
 		break;
 	}
 	
@@ -459,6 +474,60 @@ void PCSCMonitor::dying()
 	Server::active().longTermActivity();
 	StLock<Mutex> _(*this);
 	assert(Child::state() == dead);
-	clearReaders();
+	clearReaders(Reader::pcsc);
 	//@@@ this is where we would attempt a restart, if we wanted to...
+}
+
+
+//
+// Software token support
+//
+void PCSCMonitor::startSoftTokens()
+{
+	// clear all software readers. This will kill the respective TokenDaemons
+	clearReaders(Reader::software);
+
+	// scan for new ones
+	CodeRepository<Bundle> candidates("Security/tokend", ".tokend", "TOKENDAEMONPATH", false);
+	candidates.update();
+	for (CodeRepository<Bundle>::iterator it = candidates.begin(); it != candidates.end(); ++it) {
+		if (CFTypeRef type = (*it)->infoPlistItem("TokendType"))
+			if (CFEqual(type, CFSTR("software")))
+				loadSoftToken(*it);
+	}
+}
+
+void PCSCMonitor::loadSoftToken(Bundle *tokendBundle)
+{
+	try {
+		string bundleName = tokendBundle->identifier();
+		
+		// prepare a virtual reader, removing any existing one (this would kill a previous tokend)
+		assert(mReaders.find(bundleName) == mReaders.end());	// not already present
+		RefPointer<Reader> reader = new Reader(tokenCache(), bundleName);
+
+		// now launch the tokend
+		RefPointer<TokenDaemon> tokend = new TokenDaemon(tokendBundle,
+			reader->name(), reader->pcscState(), reader->cache);
+		
+		if (tokend->state() == ServerChild::dead) {	// ah well, this one's no good
+			secdebug("pcsc", "softtoken %s tokend launch failed", bundleName.c_str());
+			Syslog::notice("Software token %s failed to run", tokendBundle->canonicalPath().c_str());
+			return;
+		}
+		
+		// probe the (single) tokend
+		if (!tokend->probe()) {		// non comprende...
+			secdebug("pcsc", "softtoken %s probe failed", bundleName.c_str());
+			Syslog::notice("Software token %s refused operation", tokendBundle->canonicalPath().c_str());
+			return;
+		}
+		
+		// okay, this seems to work. Set it up
+		mReaders.insert(make_pair(reader->name(), reader));
+		reader->insertToken(tokend);
+		Syslog::notice("Software token %s activated", bundleName.c_str());
+	} catch (...) {
+		secdebug("pcsc", "exception loading softtoken %s - continuing", tokendBundle->identifier().c_str());
+	}
 }

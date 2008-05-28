@@ -32,6 +32,7 @@
 #include "config.h"
 
 #include "AXObjectCache.h"
+#include "CString.h"
 #include "CachedResource.h"
 #include "CookieJar.h"
 #include "Cursor.h"
@@ -58,8 +59,9 @@
 #include "NotImplemented.h"
 #include "Path.h"
 #include "PlatformMouseEvent.h"
-#include "PlugInInfoStore.h"
+#include "PluginInfoStore.h"
 #include "RenderTheme.h"
+#include "SharedBuffer.h"
 #include "SystemTime.h"
 #include "TextBoundaries.h"
 #include "Widget.h"
@@ -68,19 +70,21 @@
 
 using namespace WebCore;
 
-void Frame::setNeedsReapplyStyles() { notImplemented(); }
-
-void FrameView::updateBorder() { notImplemented(); }
-
-bool AXObjectCache::gAccessibilityEnabled = false;
-
 namespace WebCore {
 
 Vector<String> supportedKeySizes() { notImplemented(); return Vector<String>(); }
 String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String &challengeString, const KURL &url) { return String(); }
 
+CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle) { notImplemented(); handle = invalidPlatformFileHandle; return 0; }
+void closeFile(PlatformFileHandle&) { notImplemented(); };
+int writeToFile(PlatformFileHandle, const char* data, int length) { return -1; };
+
+#if !defined(Q_OS_WIN)
+// defined in win/SystemTimeWin.cpp, which is compiled for the Qt/Windows port
 float userIdleTime() { notImplemented(); return 0.0; }
-bool fileSize(const String& path, long long& result) { notImplemented(); return false; }
+#endif
+
+PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&) { notImplemented(); return 0; }
 
 }
 

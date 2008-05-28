@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2006, 2007 Apple Inc. All right reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All right reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -438,7 +438,7 @@ static void addMidpoint(const BidiIterator& midpoint)
         return;
 
     if (smidpoints->size() <= sNumMidpoints)
-        smidpoints->resize(sNumMidpoints + 10);
+        smidpoints->grow(sNumMidpoints + 10);
 
     BidiIterator* midpoints = smidpoints->data();
     midpoints[sNumMidpoints++] = midpoint;
@@ -645,12 +645,11 @@ void RenderBlock::computeHorizontalPositionsForLine(RootInlineBox* lineBox, bool
         if (r->obj->isText()) {
             RenderText* rt = static_cast<RenderText*>(r->obj);
             int textWidth = rt->width(r->m_start, r->m_stop - r->m_start, totWidth, m_firstLine);
-            int effectiveWidth = textWidth;
             int rtLength = rt->textLength();
             if (rtLength != 0) {
-                if (!r->m_start && needsWordSpacing && DeprecatedChar(rt->characters()[r->m_start]).isSpace())
-                    effectiveWidth += rt->style(m_firstLine)->font().wordSpacing();
-                needsWordSpacing = !DeprecatedChar(rt->characters()[r->m_stop - 1]).isSpace() && r->m_stop == rtLength;          
+                if (!r->compact && !r->m_start && needsWordSpacing && isSpaceOrNewline(rt->characters()[r->m_start]))
+                    totWidth += rt->style(m_firstLine)->font().wordSpacing();
+                needsWordSpacing = !isSpaceOrNewline(rt->characters()[r->m_stop - 1]) && r->m_stop == rtLength;          
             }
             r->box->setWidth(textWidth);
         } else if (!r->obj->isInlineFlow()) {
@@ -902,11 +901,16 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
             }
         }
 
-        BidiContext* startEmbed;
-        if (style()->direction() == LTR)
+        BidiContext *startEmbed;
+        if (style()->direction() == LTR
+#if ENABLE(SVG)   
+            || (style()->unicodeBidi() == UBNormal && isSVGText())
+#endif
+           ) {
             startEmbed = new BidiContext(0, LeftToRight, style()->unicodeBidi() == Override);
-        else
+        } else {
             startEmbed = new BidiContext(1, RightToLeft, style()->unicodeBidi() == Override);
+        }
 
         bidi.setLastStrongDir(startEmbed->dir());
         bidi.setLastDir(startEmbed->dir());
@@ -985,6 +989,11 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
         
                         // Now position our text runs vertically.
                         computeVerticalPositionsForLine(lineBox);
+
+#if ENABLE(SVG)
+                        // Special SVG text layout code
+                        lineBox->computePerCharacterLayoutInformation();
+#endif
 
 #if PLATFORM(MAC)
                         // Highlight acts as an overflow inflation.
@@ -1095,7 +1104,7 @@ RootInlineBox* RenderBlock::determineStartPosition(bool fullLayout, BidiIterator
             ASSERT(!firstLineBox() && !lastLineBox());
         }
     } else {
-        for (curr = firstRootBox(); curr && !curr->isDirty(); curr = curr->nextRootBox());
+        for (curr = firstRootBox(); curr && !curr->isDirty(); curr = curr->nextRootBox()) { }
         if (curr) {
             // We have a dirty line.
             if (RootInlineBox* prevRootBox = curr->prevRootBox()) {
@@ -1235,10 +1244,32 @@ static inline bool shouldPreserveNewline(RenderObject* object)
     return object->style()->preserveNewline();
 }
 
+static bool inlineFlowRequiresLineBox(RenderObject* flow)
+{
+    // FIXME: Right now, we only allow line boxes for inlines that are truly empty.
+    // We need to fix this, though, because at the very least, inlines with only text
+    // children that is all whitespace should should also have line boxes. 
+    if (!flow->isInlineFlow() || flow->firstChild())
+        return false;
+
+    bool hasPaddingOrMargin = !(flow->paddingLeft() == 0 && flow->paddingRight() == 0
+        && flow->paddingTop() == 0 && flow->paddingBottom() == 0 
+        && flow->marginLeft() == 0 && flow->marginRight() == 0
+        && flow->marginTop() == 0 && flow->marginBottom() == 0);
+    if (flow->hasBoxDecorations() || hasPaddingOrMargin)
+        return true;
+
+    return false;
+}
+
 static inline bool requiresLineBox(BidiIterator& it)
 {
-    if (it.obj->isFloatingOrPositioned() || it.obj->isInlineFlow())
+    if (it.obj->isFloatingOrPositioned())
         return false;
+
+    if (it.obj->isInlineFlow() && !inlineFlowRequiresLineBox(it.obj))
+        return false;
+
     if (!shouldCollapseWhiteSpace(it.obj->style()) || it.obj->isBR())
         return true;
 
@@ -1311,6 +1342,24 @@ int RenderBlock::skipWhitespace(BidiIterator &it, BidiState &bidi)
     return w;
 }
 
+// This is currently just used for list markers and inline flows that have line boxes. Neither should 
+// have an effect on whitespace at the start of the line. 
+static bool shouldSkipWhitespaceAfterStartObject(RenderBlock* block, RenderObject* o, BidiState &bidi)
+{
+    RenderObject* next = bidiNext(block, o, bidi);
+    if (next && !next->isBR() && next->isText() && static_cast<RenderText*>(next)->textLength() > 0) {
+        RenderText* nextText = static_cast<RenderText*>(next);
+        UChar nextChar = nextText->characters()[0];
+        if (nextText->style()->isCollapsibleWhiteSpace(nextChar)) {
+            BidiIterator endMid(0, o, 0);
+            addMidpoint(endMid);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 BidiIterator RenderBlock::findNextLineBreak(BidiIterator &start, BidiState &bidi)
 {
     // eliminate spaces at beginning of line
@@ -1346,6 +1395,11 @@ BidiIterator RenderBlock::findNextLineBreak(BidiIterator &start, BidiState &bidi
 
     bool autoWrapWasEverTrueOnLine = false;
     
+    // Firefox and Opera will allow a table cell to grow to fit an image inside it under
+    // very specific cirucumstances (in order to match common WinIE renderings). 
+    // Not supporting the quirk has caused us to mis-render some real sites. (See Bugzilla 10517.) 
+    bool allowImagesToBreak = !style()->htmlHacks() || !isTableCell() || !style()->width().isIntrinsicOrAuto();
+
     EWhiteSpace currWS = style()->whiteSpace();
     EWhiteSpace lastWS = currWS;
     while (o) {
@@ -1439,8 +1493,28 @@ BidiIterator RenderBlock::findNextLineBreak(BidiIterator &start, BidiState &bidi
                 }
             }
         } else if (o->isInlineFlow()) {
-            // Only empty inlines matter.  We treat those similarly to replaced elements.
+            // Right now, we should only encounter empty inlines here.
             ASSERT(!o->firstChild());
+    
+            // Now that some inline flows have line boxes, if we are already ignoring spaces, we need 
+            // to make sure that we stop to include this object and then start ignoring spaces again. 
+            // If this object is at the start of the line, we need to behave like list markers and 
+            // start ignoring spaces.
+            if (inlineFlowRequiresLineBox(o)) {
+                if (ignoringSpaces) {
+                    trailingSpaceObject = 0;
+                    addMidpoint(BidiIterator(0, o, 0)); // Stop ignoring spaces.
+                    addMidpoint(BidiIterator(0, o, 0)); // Start ignoring again.
+                } else if (style()->collapseWhiteSpace() && start.obj == o
+                    && shouldSkipWhitespaceAfterStartObject(start.block, o, bidi)) {
+                    // Like with list markers, we start ignoring spaces to make sure that any 
+                    // additional spaces we see will be discarded.
+                    currentCharacterIsSpace = true;
+                    currentCharacterIsWS = true;
+                    ignoringSpaces = true;
+                }
+            }
+
             if (static_cast<RenderFlow*>(o)->isWordBreak()) {
                 w += tmpW;
                 tmpW = 0;
@@ -1451,7 +1525,7 @@ BidiIterator RenderBlock::findNextLineBreak(BidiIterator &start, BidiState &bidi
                     o->marginRight() + o->borderRight() + o->paddingRight();
         } else if (o->isReplaced()) {
             // Break on replaced elements if either has normal white-space.
-            if (autoWrap || RenderStyle::autoWrap(lastWS)) {
+            if ((autoWrap || RenderStyle::autoWrap(lastWS)) && (!o->isImage() || allowImagesToBreak)) {
                 w += tmpW;
                 tmpW = 0;
                 lBreak.obj = o;
@@ -1468,24 +1542,15 @@ BidiIterator RenderBlock::findNextLineBreak(BidiIterator &start, BidiState &bidi
             currentCharacterIsWS = false;
             trailingSpaceObject = 0;
             
+            // Optimize for a common case. If we can't find whitespace after the list
+            // item, then this is all moot. -dwh
             if (o->isListMarker() && !static_cast<RenderListMarker*>(o)->isInside()) {
-                // The marker must not have an effect on whitespace at the start
-                // of the line.  We start ignoring spaces to make sure that any additional
-                // spaces we see will be discarded. 
-                //
-                // Optimize for a common case. If we can't find whitespace after the list
-                // item, then this is all moot. -dwh
-                RenderObject* next = bidiNext(start.block, o, bidi);
-                if (style()->collapseWhiteSpace() && next && !next->isBR() && next->isText() && static_cast<RenderText*>(next)->textLength() > 0) {
-                    RenderText *nextText = static_cast<RenderText*>(next);
-                    UChar nextChar = nextText->characters()[0];
-                    if (nextText->style()->isCollapsibleWhiteSpace(nextChar)) {
-                        currentCharacterIsSpace = true;
-                        currentCharacterIsWS = true;
-                        ignoringSpaces = true;
-                        BidiIterator endMid( 0, o, 0 );
-                        addMidpoint(endMid);
-                    }
+                if (style()->collapseWhiteSpace() && shouldSkipWhitespaceAfterStartObject(start.block, o, bidi)) {
+                    // Like with inline flows, we start ignoring spaces to make sure that any 
+                    // additional spaces we see will be discarded.
+                    currentCharacterIsSpace = true;
+                    currentCharacterIsWS = true;
+                    ignoringSpaces = true;
                 }
             } else
                 tmpW += o->width() + o->marginLeft() + o->marginRight() + inlineWidth(o);
@@ -1814,7 +1879,7 @@ BidiIterator RenderBlock::findNextLineBreak(BidiIterator &start, BidiState &bidi
             previous = o;
         o = next;
 
-        if (!last->isFloatingOrPositioned() && last->isReplaced() && autoWrap && 
+        if (!last->isFloatingOrPositioned() && last->isReplaced() && autoWrap && (!last->isImage() || allowImagesToBreak) &&
             (!last->isListMarker() || static_cast<RenderListMarker*>(last)->isInside())) {
             w += tmpW;
             tmpW = 0;

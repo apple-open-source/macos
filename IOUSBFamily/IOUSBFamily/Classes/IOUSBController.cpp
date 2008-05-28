@@ -135,6 +135,7 @@ bool						IOUSBController::gUsedBusIDs[kMaxNumberUSBBusses];
 #define _addressPending					_expansionData->_addressPending
 #define _provider						_expansionData->_provider
 #define _controllerCanSleep				_expansionData->_controllerCanSleep
+#define _needToClose					_expansionData->_needToClose
 
 //================================================================================================
 //
@@ -747,6 +748,7 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
     UInt8					sent, back, todo;
     Boolean					in = false;
     IOUSBController			*me = (IOUSBController *)target;
+	bool					isSyncTransfer;
 	
     USBLog(7,"%s[%p]::ControlPacketHandler lParam=%lx  status=0x%x bufferSizeRemaining=0x%x", me->getName(), me, (UInt32)parameter, status, (unsigned int)bufferSizeRemaining);
 	
@@ -889,12 +891,14 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
 			USBLog(2, "%s[%p]::ControlPacketHandler, returning status of %x", me->getName(), me, command->GetStatus());
 		}
         
+		isSyncTransfer = command->GetIsSyncTransfer();
+		
         // Call the clients handler
         me->Complete(command->GetClientCompletion(), command->GetStatus(), command->GetDataRemaining());
 		
 		// Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
 		//
-		if ( !command->GetIsSyncTransfer() )
+		if ( !isSyncTransfer )
 		{			
 			IOUSBCommand			*aBufferCommand = command->GetBufferUSBCommand();
 
@@ -946,6 +950,7 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
     IOUSBController 	*me = (IOUSBController *)target;
     AbsoluteTime		timeStart, timeNow;
     UInt64				timeElapsed;
+	bool				isSyncTransfer;
 	
     if (command == 0)
         return;
@@ -968,6 +973,8 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
 		// memDesc->release();					should i do this?
 	}
 	
+	isSyncTransfer = command->GetIsSyncTransfer();
+	
     /* Call the clients handler */
     if ( command->GetUseTimeStamp() )
     {
@@ -987,7 +994,7 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
 	
     // Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
 	//
-	if ( !command->GetIsSyncTransfer() )
+	if ( !isSyncTransfer )
 	{
 		me->_freeUSBCommandPool->returnCommand(command);
 	}
@@ -1033,7 +1040,7 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
     IOUSBCommand *			command = (IOUSBCommand *)parameter;
 	IODMACommand *			dmaCommand = command->GetDMACommand();
 	IOMemoryDescriptor *	memDesc = dmaCommand ? (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor() : NULL;
-	
+	bool					isSyncTransfer;
     
     if (command == 0)
         return;
@@ -1054,12 +1061,14 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
 	
 	command->SetStatus(status);
 	
+	isSyncTransfer = command->GetIsSyncTransfer();
+	
 	/* Call the clients handler */
     me->Complete(command->GetClientCompletion(), status, bufferSizeRemaining);
 	
     // Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
 	//
-	if ( !command->GetIsSyncTransfer() )
+	if ( !isSyncTransfer )
 	{
 		me->_freeUSBCommandPool->returnCommand(command);
 	}
@@ -1210,6 +1219,7 @@ IOUSBController::IsocCompletionHandler(OSObject *target, void *parameter, IORetu
     IOUSBController	*		me = OSDynamicCast(IOUSBController, target);
 	IODMACommand *			dmaCommand = command->GetDMACommand();
 	IOMemoryDescriptor *	memDesc = dmaCommand ? (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor() : NULL;
+	bool					isSyncTransfer;
 	
     if (command == NULL)
         return;
@@ -1230,6 +1240,9 @@ IOUSBController::IsocCompletionHandler(OSObject *target, void *parameter, IORetu
 		// memDesc->release();						should i do this?
 	}
 	
+	// Remember if this was a sync transfer
+	isSyncTransfer = command->GetIsSyncTransfer();
+	
     /* Call the clients handler */
     IOUSBIsocCompletion completion = command->GetCompletion();
     if (completion.action)  
@@ -1240,7 +1253,7 @@ IOUSBController::IsocCompletionHandler(OSObject *target, void *parameter, IORetu
 	
     // Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
 	//
-	if ( !command->GetIsSyncTransfer() )
+	if ( !isSyncTransfer )
 	{
 		USBLog(7, "%s[%p]::IsocCompletionHandler - returning command %p", me->getName(), me, command);
 		me->_freeUSBIsocCommandPool->returnCommand(command);
@@ -1985,6 +1998,22 @@ IOUSBController::message( UInt32 type, IOService * provider,  void * argument )
 }
 
 
+bool
+IOUSBController::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
+{
+    USBLog(5, "IOUSBController(%s)[%p]::didTerminate isInactive[%s]", getName(), this, isInactive() ? "true" : "false");
+    
+	if ( _rootHubDevice )
+	{
+		_needToClose = true;
+	}
+	else
+	{
+		_provider->close(this);
+	}
+	
+	return super::didTerminate(provider, options, defer);
+}
 
 void 
 IOUSBController::stop( IOService * provider )
@@ -2076,8 +2105,6 @@ IOUSBController::stop( IOService * provider )
 	if ( _workLoop && _commandGate)
 		_workLoop->removeEventSource( _commandGate );
 
-	_provider->close(this);
-	
     USBLog(5,"-%s[%p]::stop (0x%lx)", getName(), this, (UInt32) provider);
     
 }
@@ -2175,7 +2202,7 @@ IOUSBController::TerminatePCCard(OSObject *target)
 {
     IOUSBController *	me = OSDynamicCast(IOUSBController, target);
     bool	ok;
-    
+
     if (!me)
         return;
 	
@@ -2189,6 +2216,9 @@ IOUSBController::TerminatePCCard(OSObject *target)
     me->_rootHubDevice->detachAll(gIOUSBPlane);
     me->_rootHubDevice->release();
     me->_rootHubDevice = NULL;
+	
+	if ( me->_needToClose )
+		me->_provider->close(me);
 }
 
 //=============================================================================================

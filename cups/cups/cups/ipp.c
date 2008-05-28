@@ -4,7 +4,7 @@
  *   Internet Printing Protocol support functions for the Common UNIX
  *   Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -361,7 +361,12 @@ ippAddOctetString(ipp_t      *ipp,	/* I - IPP message */
 
   if (data)
   {
-    attr->values[0].unknown.data = malloc(datalen);
+    if ((attr->values[0].unknown.data = malloc(datalen)) == NULL)
+    {
+      ippDeleteAttribute(ipp, attr);
+      return (NULL);
+    }
+
     memcpy(attr->values[0].unknown.data, data, datalen);
   }
 
@@ -1014,7 +1019,7 @@ ippReadIO(void       *src,		/* I - Data source */
           ipp_t      *ipp)		/* I - IPP data */
 {
   int			n;		/* Length of data */
-  unsigned char		buffer[IPP_MAX_LENGTH],
+  unsigned char		buffer[IPP_MAX_LENGTH + 1],
 					/* Data buffer */
 			string[IPP_MAX_NAME],
 					/* Small string buffer */
@@ -1182,17 +1187,15 @@ ippReadIO(void       *src,		/* I - Data source */
 
 	      attr->value_tag = tag;
 	    }
-	    else if (value_tag == IPP_TAG_STRING ||
-    		     (value_tag >= IPP_TAG_TEXTLANG &&
-		      value_tag <= IPP_TAG_MIMETYPE))
+	    else if (value_tag >= IPP_TAG_TEXTLANG &&
+		     value_tag <= IPP_TAG_MIMETYPE)
             {
 	     /*
 	      * String values can sometimes come across in different
 	      * forms; accept sets of differing values...
 	      */
 
-	      if (tag != IPP_TAG_STRING &&
-    		  (tag < IPP_TAG_TEXTLANG || tag > IPP_TAG_MIMETYPE))
+	      if (tag < IPP_TAG_TEXTLANG || tag > IPP_TAG_MIMETYPE)
 	        return (IPP_ERROR);
             }
 	    else if (value_tag != tag)
@@ -1277,7 +1280,11 @@ ippReadIO(void       *src,		/* I - Data source */
             if (ipp->current)
 	      ipp->prev = ipp->current;
 
-	    attr = ipp->current = _ippAddAttr(ipp, 1);
+	    if ((attr = ipp->current = _ippAddAttr(ipp, 1)) == NULL)
+	    {
+	      DEBUG_puts("ippReadIO: unable to allocate attribute!");
+	      return (IPP_ERROR);
+	    }
 
 	    DEBUG_printf(("ippReadIO: name=\'%s\', ipp->current=%p, ipp->prev=%p\n",
 	                  buffer, ipp->current, ipp->prev));
@@ -1325,6 +1332,7 @@ ippReadIO(void       *src,		/* I - Data source */
 
                 value->integer = n;
 	        break;
+
 	    case IPP_TAG_BOOLEAN :
 		if (n != 1)
 		{
@@ -1340,10 +1348,10 @@ ippReadIO(void       *src,		/* I - Data source */
 
                 value->boolean = buffer[0];
 	        break;
+
 	    case IPP_TAG_TEXT :
 	    case IPP_TAG_NAME :
 	    case IPP_TAG_KEYWORD :
-	    case IPP_TAG_STRING :
 	    case IPP_TAG_URI :
 	    case IPP_TAG_URISCHEME :
 	    case IPP_TAG_CHARSET :
@@ -1366,6 +1374,7 @@ ippReadIO(void       *src,		/* I - Data source */
 		DEBUG_printf(("ippReadIO: value = \'%s\'\n",
 		              value->string.text));
 	        break;
+
 	    case IPP_TAG_DATE :
 		if (n != 11)
 		{
@@ -1379,6 +1388,7 @@ ippReadIO(void       *src,		/* I - Data source */
 		  return (IPP_ERROR);
 		}
 	        break;
+
 	    case IPP_TAG_RESOLUTION :
 		if (n != 9)
 		{
@@ -1401,6 +1411,7 @@ ippReadIO(void       *src,		/* I - Data source */
                 value->resolution.units =
 		    (ipp_res_t)buffer[8];
 	        break;
+
 	    case IPP_TAG_RANGE :
 		if (n != 8)
 		{
@@ -1421,6 +1432,7 @@ ippReadIO(void       *src,		/* I - Data source */
 		    (((((buffer[4] << 8) | buffer[5]) << 8) | buffer[6]) << 8) |
 		    buffer[7];
 	        break;
+
 	    case IPP_TAG_TEXTLANG :
 	    case IPP_TAG_NAMELANG :
 	        if (n >= sizeof(buffer) || n < 4)
@@ -1538,7 +1550,7 @@ ippReadIO(void       *src,		/* I - Data source */
 		break;
 
             default : /* Other unsupported values */
-		if (n > sizeof(buffer))
+		if (n > IPP_MAX_LENGTH)
 		{
 		  DEBUG_printf(("ippReadIO: bad value length %d!\n", n));
 		  return (IPP_ERROR);
@@ -1547,7 +1559,12 @@ ippReadIO(void       *src,		/* I - Data source */
                 value->unknown.length = n;
 	        if (n > 0)
 		{
-		  value->unknown.data = malloc(n);
+		  if ((value->unknown.data = malloc(n)) == NULL)
+		  {
+		    DEBUG_puts("ippReadIO: Unable to allocate value");
+		    return (IPP_ERROR);
+		  }
+
 	          if ((*cb)(src, value->unknown.data, n) < n)
 		  {
 	            DEBUG_puts("ippReadIO: Unable to read unsupported value!");
@@ -1941,7 +1958,6 @@ ippWriteIO(void       *dst,		/* I - Destination */
 	    case IPP_TAG_TEXT :
 	    case IPP_TAG_NAME :
 	    case IPP_TAG_KEYWORD :
-	    case IPP_TAG_STRING :
 	    case IPP_TAG_URI :
 	    case IPP_TAG_URISCHEME :
 	    case IPP_TAG_CHARSET :
@@ -2399,7 +2415,8 @@ ippWriteIO(void       *dst,		/* I - Destination */
 	    return (IPP_ERROR);
 	  }
 
-          DEBUG_printf(("ippWriteIO: wrote %d bytes\n", bufptr - buffer));
+          DEBUG_printf(("ippWriteIO: wrote %d bytes\n",
+	                (int)(bufptr - buffer)));
 
 	 /*
           * If blocking is disabled, stop here...
@@ -2507,7 +2524,6 @@ _ippFreeAttr(ipp_attribute_t *attr)	/* I - Attribute to free */
     case IPP_TAG_TEXT :
     case IPP_TAG_NAME :
     case IPP_TAG_KEYWORD :
-    case IPP_TAG_STRING :
     case IPP_TAG_URI :
     case IPP_TAG_URISCHEME :
     case IPP_TAG_CHARSET :
@@ -2545,6 +2561,13 @@ _ippFreeAttr(ipp_attribute_t *attr)	/* I - Attribute to free */
 	     i ++, value ++)
           ippDelete(value->collection);
 	break;
+
+    case IPP_TAG_STRING :
+	for (i = 0, value = attr->values;
+	     i < attr->num_values;
+	     i ++, value ++)
+	  free(value->unknown.data);
+        break;
 
     default :
         if (!((int)attr->value_tag & IPP_TAG_COPY))
@@ -2634,7 +2657,6 @@ ipp_length(ipp_t *ipp,			/* I - IPP message or collection */
       case IPP_TAG_TEXT :
       case IPP_TAG_NAME :
       case IPP_TAG_KEYWORD :
-      case IPP_TAG_STRING :
       case IPP_TAG_URI :
       case IPP_TAG_URISCHEME :
       case IPP_TAG_CHARSET :
@@ -2722,7 +2744,7 @@ ipp_read_http(http_t      *http,	/* I - Client connection */
   
 
   DEBUG_printf(("ipp_read_http(http=%p, buffer=%p, length=%d)\n",
-                http, buffer, length));
+                http, buffer, (int)length));
 
  /*
   * Loop until all bytes are read...

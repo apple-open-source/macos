@@ -29,6 +29,7 @@
 
 #include "ResourceRequest.h"
 #include "AuthenticationChallenge.h"
+#include "Timer.h"
 
 #if USE(CFNETWORK)
 #include <CFNetwork/CFURLConnectionPriv.h>
@@ -37,7 +38,6 @@
 #if USE(WININET)
 #include <winsock2.h>
 #include <windows.h>
-#include "Timer.h"
 #endif
 
 #if USE(CURL)
@@ -47,6 +47,9 @@
 #if PLATFORM(QT)
 class QWebFrame;
 class QWebNetworkJob;
+namespace WebCore {
+class QNetworkReplyHandler;
+}
 #endif
 
 #if PLATFORM(MAC)
@@ -93,8 +96,11 @@ namespace WebCore {
 #if USE(CURL)
             , m_handle(0)
             , m_url(0)
-            , m_fileName(0)
             , m_customHeaders(0)
+            , m_cancelled(false)
+            , m_file(0)
+            , m_formDataElementIndex(0)
+            , m_formDataElementDataOffset(0)
 #endif
 #if PLATFORM(QT)
             , m_job(0)
@@ -105,6 +111,7 @@ namespace WebCore {
 #elif USE(CFNETWORK)
             , m_currentCFChallenge(0)
 #endif
+            , m_failureTimer(loader, &ResourceHandle::fireFailure)
         {
         }
         
@@ -145,14 +152,22 @@ namespace WebCore {
 #if USE(CURL)
         CURL* m_handle;
         char* m_url;
-        char* m_fileName;
         struct curl_slist* m_customHeaders;        
-        Vector<char> m_postBytes;
         ResourceResponse m_response;
+        bool m_cancelled;
+
+        FILE* m_file;
+        size_t m_formDataElementIndex;
+        size_t m_formDataElementDataOffset;
+        Vector<char> m_postBytes;
 #endif
 #if PLATFORM(QT)
-        QWebNetworkJob *m_job;
-        QWebFrame *m_frame;
+#if QT_VERSION < 0x040400
+        QWebNetworkJob* m_job;
+#else
+        QNetworkReplyHandler* m_job;
+#endif
+        QWebFrame* m_frame;
 #endif
 #if PLATFORM(MAC)
         NSURLAuthenticationChallenge *m_currentMacChallenge;
@@ -161,6 +176,9 @@ namespace WebCore {
         CFURLAuthChallengeRef m_currentCFChallenge;
 #endif
         AuthenticationChallenge m_currentWebChallenge;
+
+        ResourceHandle::FailureType m_failureType;
+        Timer<ResourceHandle> m_failureTimer;
     };
 
 } // namespace WebCore

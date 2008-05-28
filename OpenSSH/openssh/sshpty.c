@@ -57,18 +57,17 @@ int
 pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, size_t namebuflen)
 {
 	/* openpty(3) exists in OSF/1 and some other os'es */
-	/*
-	 * ttyname() may fail due to different sshd code paths.  However,
-	 * we can just get the tty name from openpty() and avoid ttyname().
-	 */
-	char name[64];
+	char *name;
 	int i;
 
-	i = openpty(ptyfd, ttyfd, name, NULL, NULL);
+	i = openpty(ptyfd, ttyfd, NULL, NULL, NULL);
 	if (i < 0) {
 		error("openpty: %.100s", strerror(errno));
 		return 0;
 	}
+	name = ttyname(*ttyfd);
+	if (!name)
+		fatal("openpty returns device for which ttyname fails.");
 
 	strlcpy(namebuf, name, namebuflen);	/* possible truncation */
 	return 1;

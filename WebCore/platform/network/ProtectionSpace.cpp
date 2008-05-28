@@ -25,6 +25,12 @@
 #include "config.h"
 #include "ProtectionSpace.h"
 
+#if PLATFORM(CF) && !PLATFORM(MAC)
+#include "AuthenticationCF.h"
+#include <CFNetwork/CFURLProtectionSpacePriv.h>
+#include <wtf/RetainPtr.h>
+#endif
+
 namespace WebCore {
 
 // Need to enforce empty, non-null strings due to the pickiness of the String == String operator
@@ -41,7 +47,7 @@ ProtectionSpace::ProtectionSpace(const String& host, int port, ProtectionSpaceSe
     : m_host(host.length() ? host : "")
     , m_port(port)
     , m_serverType(serverType)
-    , m_realm(realm.length() ? host : "")
+    , m_realm(realm.length() ? realm : "")
     , m_authenticationScheme(authenticationScheme)
 {    
 }
@@ -81,10 +87,15 @@ ProtectionSpaceAuthenticationScheme ProtectionSpace::authenticationScheme() cons
 
 bool ProtectionSpace::receivesCredentialSecurely() const
 {
-    return (m_serverType == ProtectionSpaceServerHTTPS ||
-            m_serverType == ProtectionSpaceServerFTPS ||
-            m_serverType == ProtectionSpaceProxyHTTPS ||
-            m_authenticationScheme == ProtectionSpaceAuthenticationSchemeHTTPDigest);
+#if PLATFORM(CF) && !PLATFORM(MAC)
+    RetainPtr<CFURLProtectionSpaceRef> cfSpace(AdoptCF, createCF(*this));
+    return cfSpace && CFURLProtectionSpaceReceivesCredentialSecurely(cfSpace.get());
+#else
+    return (m_serverType == ProtectionSpaceServerHTTPS || 
+            m_serverType == ProtectionSpaceServerFTPS || 
+            m_serverType == ProtectionSpaceProxyHTTPS || 
+            m_authenticationScheme == ProtectionSpaceAuthenticationSchemeHTTPDigest); 
+#endif
 }
 
 bool operator==(const ProtectionSpace& a, const ProtectionSpace& b)

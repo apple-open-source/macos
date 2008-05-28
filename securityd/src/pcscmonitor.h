@@ -37,6 +37,7 @@
 #include <security_utilities/powerwatch.h>
 #include <security_utilities/pcsc++.h>
 #include <security_utilities/iodevices.h>
+#include <security_utilities/coderepository.h>
 #include <set>
 
 
@@ -65,12 +66,10 @@ public:
 
 protected:
 	void pollReaders();
-	void clearReaders();
+	void clearReaders(Reader::Type type);
 
 	Server &server;
-	TokenCache *cache;
-	std::string cachePath;
-	TokenCache& getTokenCache ();
+	TokenCache& tokenCache();
 
 protected:
 	// Listener
@@ -95,6 +94,10 @@ protected:
 	void scheduleTimer(bool enable);
 	void initialSetup();
 	void noDeviceTimeout();
+	
+public: //@@@@
+	void startSoftTokens();
+	void loadSoftToken(Bundle *tokendBundle);
 
 	enum DeviceSupport {
 		impossible,				// certain this is not a smartcard
@@ -108,6 +111,9 @@ private:
 	ServiceLevel mServiceLevel;	// level of service requested/determined
 	void (PCSCMonitor::*mTimerAction)(); // what to do when our timer fires	
 	bool mGoingToSleep;			// between sleep and wakeup; special timer handling
+	
+	std::string mCachePath;		// path to cache directory
+	TokenCache *mTokenCache;	// cache object (lazy)
 
 	PCSC::Session mSession;		// PCSC client session
 	IOKit::MachPortNotificationPort mIOKitNotifier; // IOKit connection

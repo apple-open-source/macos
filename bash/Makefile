@@ -39,7 +39,8 @@ AEP_Patches    = bash32-001 bash32-002 bash32-003 bash32-004 bash32-005 \
 	bash32-006 bash32-007 bash32-008 bash32-009 bash32-010 bash32-011 \
 	bash32-012 bash32-013 bash32-014 bash32-015 bash32-016 bash32-017 \
 	doc_Makefile.in.diff shell.c.diff execute_cmd.c.diff \
-	jobs.c.diff text.c.diff setid.diff shell-_BASH_IMPLICIT_DASH_PEE.c.diff
+	jobs.c.diff text.c.diff setid.diff shell-_BASH_IMPLICIT_DASH_PEE.c.diff \
+	display.c.diff
 
 # Extract the source.
 install_source::

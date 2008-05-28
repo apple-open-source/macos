@@ -1,4 +1,4 @@
-// Copyright (c) 2005, Google Inc.
+// Copyright (c) 2005, 2006, Google Inc.
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without
@@ -33,9 +33,7 @@
 #ifndef TCMALLOC_INTERNAL_SPINLOCK_H__
 #define TCMALLOC_INTERNAL_SPINLOCK_H__
 
-#include "config.h"
-
-#if (PLATFORM(X86) || PLATFORM(PPC)) && COMPILER(GCC)
+#if (PLATFORM(X86) || PLATFORM(PPC)) && (COMPILER(GCC) || COMPILER(MSVC))
 
 #include <time.h>       /* For nanosleep() */
 
@@ -50,25 +48,29 @@
 #endif
 #include <stdlib.h>     /* for abort() */
 
+#if COMPILER(MSVC)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 static void TCMalloc_SlowLock(volatile unsigned int* lockword);
 
 // The following is a struct so that it can be initialized at compile time
 struct TCMalloc_SpinLock {
-  volatile unsigned int private_lockword_;
 
-  inline void Init() { private_lockword_ = 0; }
-  inline void Finalize() { }
-    
   inline void Lock() {
     int r;
+#if COMPILER(GCC)
 #if PLATFORM(X86)
     __asm__ __volatile__
       ("xchgl %0, %1"
-       : "=r"(r), "=m"(private_lockword_)
-       : "0"(1), "m"(private_lockword_)
+       : "=r"(r), "=m"(lockword_)
+       : "0"(1), "m"(lockword_)
        : "memory");
 #else
-    volatile unsigned int *lockword_ptr = &private_lockword_;
+    volatile unsigned int *lockword_ptr = &lockword_;
     __asm__ __volatile__
         ("1: lwarx %0, 0, %1\n\t"
          "stwcx. %2, 0, %1\n\t"
@@ -78,32 +80,56 @@ struct TCMalloc_SpinLock {
          : "r" (1), "1" (lockword_ptr)
          : "memory");
 #endif
-    if (r) TCMalloc_SlowLock(&private_lockword_);
+#elif COMPILER(MSVC)
+    __asm {
+        mov eax, this    ; store &lockword_ (which is this+0) in eax
+        mov ebx, 1       ; store 1 in ebx
+        xchg [eax], ebx  ; exchange lockword_ and 1
+        mov r, ebx       ; store old value of lockword_ in r
+    }
+#endif
+    if (r) TCMalloc_SlowLock(&lockword_);
   }
 
   inline void Unlock() {
+#if COMPILER(GCC)
 #if PLATFORM(X86)
     __asm__ __volatile__
       ("movl $0, %0"
-       : "=m"(private_lockword_)
-       : "m" (private_lockword_)
+       : "=m"(lockword_)
+       : "m" (lockword_)
        : "memory");
 #else
     __asm__ __volatile__
       ("isync\n\t"
        "eieio\n\t"
        "stw %1, %0"
-       : "=o" (private_lockword_) 
+#if PLATFORM(DARWIN)
+       : "=o" (lockword_)
+#else
+       : "=m" (lockword_) 
+#endif
        : "r" (0)
        : "memory");
 #endif
-  }
-
-#ifdef WTF_CHANGES  
-  inline bool IsLocked() {
-    return private_lockword_ != 0;
-  }
+#elif COMPILER(MSVC)
+      __asm {
+          mov eax, this  ; store &lockword_ (which is this+0) in eax
+          mov [eax], 0   ; set lockword_ to 0
+      }
 #endif
+  }
+    // Report if we think the lock can be held by this thread.
+    // When the lock is truly held by the invoking thread
+    // we will always return true.
+    // Indended to be used as CHECK(lock.IsHeld());
+    inline bool IsHeld() const {
+        return lockword_ != 0;
+    }
+
+    inline void Init() { lockword_ = 0; }
+
+    volatile unsigned int lockword_;
 };
 
 #define SPINLOCK_INITIALIZER { 0 }
@@ -112,6 +138,7 @@ static void TCMalloc_SlowLock(volatile unsigned int* lockword) {
   sched_yield();        // Yield immediately since fast path failed
   while (true) {
     int r;
+#if COMPILER(GCC)
 #if PLATFORM(X86)
     __asm__ __volatile__
       ("xchgl %0, %1"
@@ -130,6 +157,14 @@ static void TCMalloc_SlowLock(volatile unsigned int* lockword) {
          : "r" (tmp), "1" (lockword)
          : "memory");
 #endif
+#elif COMPILER(MSVC)
+    __asm {
+        mov eax, lockword     ; assign lockword into eax
+        mov ebx, 1            ; assign 1 into ebx
+        xchg [eax], ebx       ; exchange *lockword and 1
+        mov r, ebx            ; store old value of *lockword in r
+    }
+#endif
     if (!r) {
       return;
     }
@@ -144,10 +179,14 @@ static void TCMalloc_SlowLock(volatile unsigned int* lockword) {
     // from taking 30 seconds to 16 seconds.
 
     // Sleep for a few milliseconds
+#if COMPILER(MSVC)
+    Sleep(2);
+#else
     struct timespec tm;
     tm.tv_sec = 0;
     tm.tv_nsec = 2000001;
     nanosleep(&tm, NULL);
+#endif
   }
 }
 

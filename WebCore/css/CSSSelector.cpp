@@ -3,7 +3,7 @@
  *               1999 Waldo Bastian (bastian@kde.org)
  *               2001 Andreas Schlapbach (schlpbch@iam.unibe.ch)
  *               2001-2003 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2002, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2002, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -84,12 +84,28 @@ void CSSSelector::extractPseudoType() const
     static AtomicString firstLetter("first-letter");
     static AtomicString firstLine("first-line");
     static AtomicString firstOfType("first-of-type");
+    static AtomicString nthChild("nth-child(");
+    static AtomicString nthOfType("nth-of-type(");
+    static AtomicString nthLastChild("nth-last-child(");
+    static AtomicString nthLastOfType("nth-last-of-type(");
     static AtomicString focus("focus");
     static AtomicString hover("hover");
     static AtomicString indeterminate("indeterminate");
+    static AtomicString lastChild("last-child");
+    static AtomicString lastOfType("last-of-type");
     static AtomicString link("link");
     static AtomicString lang("lang(");
+    static AtomicString mediaControlsPanel("-webkit-media-controls-panel");
+    static AtomicString mediaControlsMuteButton("-webkit-media-controls-mute-button");
+    static AtomicString mediaControlsPlayButton("-webkit-media-controls-play-button");
+    static AtomicString mediaControlsTimeDisplay("-webkit-media-controls-time-display");
+    static AtomicString mediaControlsTimeline("-webkit-media-controls-timeline");
+    static AtomicString mediaControlsSeekBackButton("-webkit-media-controls-seek-back-button");
+    static AtomicString mediaControlsSeekForwardButton("-webkit-media-controls-seek-forward-button");
+    static AtomicString mediaControlsFullscreenButton("-webkit-media-controls-fullscreen-button");
     static AtomicString notStr("not(");
+    static AtomicString onlyChild("only-child");
+    static AtomicString onlyOfType("only-of-type");
     static AtomicString root("root");
     static AtomicString searchCancelButton("-webkit-search-cancel-button");
     static AtomicString searchDecoration("-webkit-search-decoration");
@@ -133,6 +149,14 @@ void CSSSelector::extractPseudoType() const
         m_pseudoType = PseudoEmpty;
     else if (m_value == firstChild)
         m_pseudoType = PseudoFirstChild;
+    else if (m_value == lastChild)
+        m_pseudoType = PseudoLastChild;
+    else if (m_value == lastOfType)
+        m_pseudoType = PseudoLastOfType;
+    else if (m_value == onlyChild)
+        m_pseudoType = PseudoOnlyChild;
+    else if (m_value == onlyOfType)
+        m_pseudoType = PseudoOnlyOfType;
     else if (m_value == firstLetter) {
         m_pseudoType = PseudoFirstLetter;
         element = true;
@@ -153,8 +177,40 @@ void CSSSelector::extractPseudoType() const
         m_pseudoType = PseudoLink;
     else if (m_value == lang)
         m_pseudoType = PseudoLang;
-    else if (m_value == notStr)
+    else if (m_value == mediaControlsPanel) {
+        m_pseudoType = PseudoMediaControlsPanel;
+        element = true;
+    } else if (m_value == mediaControlsMuteButton) {
+        m_pseudoType = PseudoMediaControlsMuteButton;
+        element = true;
+    } else if (m_value == mediaControlsPlayButton) {
+        m_pseudoType = PseudoMediaControlsPlayButton;
+        element = true;
+    } else if (m_value == mediaControlsTimeDisplay) {
+        m_pseudoType = PseudoMediaControlsTimeDisplay;
+        element = true;
+    } else if (m_value == mediaControlsTimeline) {
+        m_pseudoType = PseudoMediaControlsTimeline;
+        element = true;
+    } else if (m_value == mediaControlsSeekBackButton) {
+        m_pseudoType = PseudoMediaControlsSeekBackButton;
+        element = true;
+    } else if (m_value == mediaControlsSeekForwardButton) {
+        m_pseudoType = PseudoMediaControlsSeekForwardButton;
+        element = true;
+    } else if (m_value == mediaControlsFullscreenButton) {
+        m_pseudoType = PseudoMediaControlsFullscreenButton;
+        element = true;
+    } else if (m_value == notStr)
         m_pseudoType = PseudoNot;
+    else if (m_value == nthChild)
+        m_pseudoType = PseudoNthChild;
+    else if (m_value == nthOfType)
+        m_pseudoType = PseudoNthOfType;
+    else if (m_value == nthLastChild)
+        m_pseudoType = PseudoNthLastChild;
+    else if (m_value == nthLastOfType)
+        m_pseudoType = PseudoNthLastOfType;
     else if (m_value == root)
         m_pseudoType = PseudoRoot;
     else if (m_value == searchCancelButton) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002, 2004-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2002, 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -251,7 +251,7 @@ HardLinkCheckBegin(SGlobPtr gp, void** cookie)
 	CatalogRecord rec;
 	UInt32 folderID;
 
-	if (GetPrivateDir(gp, &rec) == 0 && rec.hfsPlusFolder.valence != 0) {
+	if (GetPrivateDir(gp, &rec) == 0) {
 		folderID = rec.hfsPlusFolder.folderID;
 	} else {
 		folderID = 0;

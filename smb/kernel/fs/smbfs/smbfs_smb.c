@@ -4280,9 +4280,9 @@ done:
 
 int
 smbfs_smb_getsec(struct smb_share *ssp, u_int16_t fid, struct smb_cred *scrp,
-	u_int32_t selector, struct ntsecdesc **res)
+	u_int32_t selector, struct ntsecdesc **res, int *seclen)
 {
-	int error, olen, seclen;
+	int error, olen;
 	/*
 	 * We were using a hard code 500 byte request here. We now use the
 	 * max transmit buffer size. This will correct the second part of Radar
@@ -4290,11 +4290,10 @@ smbfs_smb_getsec(struct smb_share *ssp, u_int16_t fid, struct smb_cred *scrp,
 	 * we would end up making two request. Using the max transmit buffer 
 	 * size should prevent this from happening.
 	 */
-	olen = seclen = SSTOVC(ssp)->vc_txmax;
-	error = smbfs_smb_getsec_int(ssp, fid, scrp, selector, res, &seclen);
-	if (error && seclen > olen)
-		error = smbfs_smb_getsec_int(ssp, fid, scrp, selector, res,
-					     &seclen);
+	olen = *seclen = SSTOVC(ssp)->vc_txmax;
+	error = smbfs_smb_getsec_int(ssp, fid, scrp, selector, res, seclen);
+	if (error && (*seclen > olen))
+		error = smbfs_smb_getsec_int(ssp, fid, scrp, selector, res, seclen);
 	return (error);
 }
 

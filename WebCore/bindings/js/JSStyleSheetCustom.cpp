@@ -30,24 +30,25 @@
 #include "JSCSSStyleSheet.h"
 #include "StyleSheet.h"
 
+using namespace KJS;
+
 namespace WebCore {
 
-KJS::JSValue* toJS(KJS::ExecState* exec, StyleSheet* styleSheet)
+JSValue* toJS(ExecState* exec, StyleSheet* styleSheet)
 {
     if (!styleSheet)
-        return KJS::jsNull();
+        return jsNull();
 
-    KJS::ScriptInterpreter* interp = static_cast<KJS::ScriptInterpreter*>(exec->dynamicInterpreter());
-    KJS::DOMObject* ret = interp->getDOMObject(styleSheet);
+    DOMObject* ret = ScriptInterpreter::getDOMObject(styleSheet);
     if (ret)
         return ret;
 
     if (styleSheet->isCSSStyleSheet())
-        ret = new JSCSSStyleSheet(exec, static_cast<CSSStyleSheet*>(styleSheet));
+        ret = new JSCSSStyleSheet(JSCSSStyleSheetPrototype::self(exec), static_cast<CSSStyleSheet*>(styleSheet));
     else
-        ret = new JSStyleSheet(exec, styleSheet);
+        ret = new JSStyleSheet(JSStyleSheetPrototype::self(exec), styleSheet);
 
-    interp->putDOMObject(styleSheet, ret);
+    ScriptInterpreter::putDOMObject(styleSheet, ret);
     return ret;
 }
 

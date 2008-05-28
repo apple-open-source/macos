@@ -31,7 +31,7 @@
 
 #include "IconDatabase.h"
 #include "NavigationAction.h"
-#include "Shared.h"
+#include <wtf/RefCounted.h>
 #include "PlatformString.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
@@ -56,7 +56,7 @@ namespace WebCore {
     typedef HashSet<RefPtr<ResourceLoader> > ResourceLoaderSet;
     typedef Vector<ResourceResponse> ResponseVector;
 
-    class DocumentLoader : public Shared<DocumentLoader> {
+    class DocumentLoader : public RefCounted<DocumentLoader> {
     public:
         DocumentLoader(const ResourceRequest&, const SubstituteData&);
         virtual ~DocumentLoader();
@@ -68,6 +68,7 @@ namespace WebCore {
         virtual void detachFromFrame();
 
         FrameLoader* frameLoader() const;
+        MainResourceLoader* mainResourceLoader() const { return m_mainResourceLoader.get(); }
         PassRefPtr<SharedBuffer> mainResourceData() const;
 
         const ResourceRequest& originalRequest() const;
@@ -82,16 +83,13 @@ namespace WebCore {
 
         const SubstituteData& substituteData() const { return m_substituteData; }
 
-        const KURL& URL() const;
+        const KURL& url() const;
         const KURL& unreachableURL() const;
 
         KURL originalURL() const;
         KURL requestURL() const;
         KURL responseURL() const;
         String responseMIMEType() const;
-        
-        // FIXME: After we have a ResourceResponse in the mix, this method can go away and we can use it directly
-        bool getResponseModifiedHeader(String& modified) const;
         
         void replaceRequestURLForAnchorScroll(const KURL&);
         bool isStopping() const;

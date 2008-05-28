@@ -89,6 +89,7 @@ dsBool	gDSDebugMode			= false;
 dsBool	gDSLocalOnlyMode		= false;
 dsBool	gDSInstallDaemonMode	= false;
 dsBool	gProperShutdown			= false;
+dsBool	gSafeBoot				= false;
 CFAbsoluteTime	gSunsetTime		= 0;
 
 #if HAVE_CORE_SERVER
@@ -108,7 +109,7 @@ DSEventSemaphore	gPluginRunLoopEvent;
 extern CDSLocalPlugin	*gLocalNode;
 
 #warning VERIFY the version string before each software release
-const char* gStrDaemonAppleVersion = "5.2"; //match this with x.y in 10.x.y
+const char* gStrDaemonAppleVersion = "5.3"; //match this with x.y in 10.x.y
 
 const char* gStrDaemonBuildVersion = "unlabeled/engineering";
 
@@ -680,28 +681,30 @@ int main ( int argc, char * const *argv )
 		}
 
 		// if not properly shut down, the SQL index for the local node needs to be deleted
-		// we look for the pid or the special file since /var/run gets cleaned at boot
+		// we look for the pid and the special file since /var/run gets cleaned at boot
 		// and we could have crashed just as we were shutting down
-		if (gDSLocalOnlyMode || gDSInstallDaemonMode || stat(kDSPIDFile, &statResult) != 0 || 
-			stat(kDSRunningFile, &statResult) != 0)
+		if ( gDSLocalOnlyMode || gDSInstallDaemonMode || (stat(kDSPIDFile, &statResult) != 0 &&
+			stat(kDSRunningFile, &statResult) != 0) )
 		{
 			// file not present, last shutdown was normal
 			gProperShutdown = true;
+		}
 			
-			if ( !gDSLocalOnlyMode && !gDSInstallDaemonMode )
+		if ( !gDSLocalOnlyMode && !gDSInstallDaemonMode )
+		{
+			// create pid file
+			char pidStr[256];
+			int fd = open( kDSPIDFile, (O_CREAT | O_TRUNC | O_WRONLY | O_EXLOCK), 0644 );
+			if ( fd != -1 )
 			{
-				// create pid file
-				char pidStr[256];
-				int fd = open( kDSPIDFile, (O_CREAT | O_TRUNC | O_WRONLY | O_EXLOCK), 0644 );
-				if ( fd != -1 )
-				{
-					snprintf( pidStr, sizeof(pidStr), "%d", getpid() );
-					write( fd, pidStr, strlen(pidStr) );
-					close( fd );
-				}
-				
-				dsTouch( kDSRunningFile );
+				snprintf( pidStr, sizeof(pidStr), "%d", getpid() );
+				write( fd, pidStr, strlen(pidStr) );
+				close( fd );
 			}
+			
+			// let's not log if the file is there
+			if ( stat(kDSRunningFile, &statResult) != 0 )
+				dsTouch( kDSRunningFile );
 		}
 		
 		if (!gDebugLogging && stat( "/Library/Preferences/DirectoryService/.DSLogDebugAtStart", &statResult ) == eDSNoErr)
@@ -714,6 +717,7 @@ int main ( int argc, char * const *argv )
 		{
 			debugOpts |= kLogDebugHeader;
 		}
+		
 		// Open the log files
 		CLog::Initialize( kLogEverything, kLogEverything, debugOpts, profileOpts, gDebugLogging, bProfiling, gDSLocalOnlyMode );
 
@@ -721,6 +725,23 @@ int main ( int argc, char * const *argv )
 		SrvrLog( kLogApplication,	"DirectoryService %s (v%s) starting up...",
                                     gStrDaemonAppleVersion,
                                     gStrDaemonBuildVersion );
+		
+		if ( gProperShutdown == false ) {
+			DbgLog( kLogCritical, "Improper shutdown detected" );
+			syslog( LOG_NOTICE, "Improper shutdown detected" );
+		}
+		
+		int			sbmib[] = { CTL_KERN, KERN_SAFEBOOT };
+		uint32_t	sb = 0;
+		size_t		sbsz = sizeof(sb);
+		
+		if ( sysctl(sbmib, 2, &sb, &sbsz, NULL, 0) == -1 )
+			gSafeBoot = false;
+		
+		if ( sb == true ) {
+			gSafeBoot = true;
+			SrvrLog( kLogApplication, "Safe Boot is enabled" );
+		}
 		
 		mach_port_limits_t	limits = { 1 };
 		CFMachPortRef		port;
@@ -790,6 +811,8 @@ int main ( int argc, char * const *argv )
 		
 		if ( !gDSLocalOnlyMode && !gDSInstallDaemonMode )
 		{
+			fcntl( 0, F_FULLFSYNC ); // ensure FS is flushed before we remove the PID files
+			
 			dsRemove( kDSRunningFile );
 			dsRemove( kDSPIDFile );
 		}

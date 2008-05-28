@@ -26,32 +26,36 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-Object.describe = function(obj, abbreviated)
+Object.type = function(obj)
 {
-    if (obj === undefined)
-        return "undefined";
     if (obj === null)
         return "null";
 
-    var type1 = typeof obj;
-    var type2 = "";
-    if (type1 == "object" || type1 == "function") {
-        if (obj instanceof String)
-            type1 = "string";
-        else if (obj instanceof Array)
-            type1 = "array";
-        else if (obj instanceof Boolean)
-            type1 = "boolean";
-        else if (obj instanceof Number)
-            type1 = "number";
-        else if (obj instanceof Date)
-            type1 = "date";
-        else if (obj instanceof RegExp)
-            type1 = "regexp";
-        else if (obj instanceof Error)
-            type1 = "error";
-        type2 = Object.prototype.toString.call(obj).replace(/^\[object (.*)\]$/i, "$1");
-    }
+    var type = typeof obj;
+    if (type !== "object" && type !== "function")
+        return type;
+
+    if (obj instanceof String)
+        return "string";
+    if (obj instanceof Array)
+        return "array";
+    if (obj instanceof Boolean)
+        return "boolean";
+    if (obj instanceof Number)
+        return "number";
+    if (obj instanceof Date)
+        return "date";
+    if (obj instanceof RegExp)
+        return "regexp";
+    if (obj instanceof Error)
+        return "error";
+    return type;
+}
+
+Object.describe = function(obj, abbreviated)
+{
+    var type1 = Object.type(obj);
+    var type2 = Object.prototype.toString.call(obj).replace(/^\[object (.*)\]$/i, "$1");
 
     switch (type1) {
     case "object":
@@ -79,29 +83,47 @@ Object.describe = function(obj, abbreviated)
 Object.sortedProperties = function(obj)
 {
     var properties = [];
-    for (var prop in obj) {
+    for (var prop in obj)
         properties.push(prop);
-    }
-
     properties.sort();
     return properties;
 }
 
+Function.prototype.bind = function(thisObject)
+{
+    var func = this;
+    var args = Array.prototype.slice.call(arguments, 1);
+    return function() { return func.apply(thisObject, args.concat(Array.prototype.slice.call(arguments, 0))) };
+}
+
 Element.prototype.removeStyleClass = function(className) 
 {
-    if (this.hasStyleClass(className))
-        this.className = this.className.replace(className, "");
+    // Test for the simple case before using a RegExp.
+    if (this.className === className) {
+        this.className = "";
+        return;
+    }
+
+    var regex = new RegExp("(^|\\s+)" + className.escapeForRegExp() + "($|\\s+)");
+    if (regex.test(this.className))
+        this.className = this.className.replace(regex, " ");
 }
 
 Element.prototype.addStyleClass = function(className) 
 {
-    if (!this.hasStyleClass(className))
+    if (className && !this.hasStyleClass(className))
         this.className += (this.className.length ? " " + className : className);
 }
 
 Element.prototype.hasStyleClass = function(className) 
 {
-    return this.className.indexOf(className) !== -1;
+    if (!className)
+        return false;
+    // Test for the simple case before using a RegExp.
+    if (this.className === className)
+        return true;
+    var regex = new RegExp("(^|\\s)" + className.escapeForRegExp() + "($|\\s)");
+    return regex.test(this.className);
 }
 
 Element.prototype.scrollToElement = function(element)
@@ -127,7 +149,6 @@ Node.prototype.firstParentOrSelfWithNodeName = function(nodeName)
     for (var node = this; node && (node !== document); node = node.parentNode)
         if (node.nodeName.toLowerCase() === nodeName.toLowerCase())
             return node;
-
     return null;
 }
 
@@ -136,7 +157,6 @@ Node.prototype.firstParentOrSelfWithClass = function(className)
     for (var node = this; node && (node !== document); node = node.parentNode)
         if (node.nodeType === Node.ELEMENT_NODE && node.hasStyleClass(className))
             return node;
-
     return null;
 }
 
@@ -144,7 +164,6 @@ Node.prototype.firstParentWithClass = function(className)
 {
     if (!this.parentNode)
         return null;
-
     return this.parentNode.firstParentOrSelfWithClass(className);
 }
 
@@ -242,6 +261,82 @@ String.prototype.trimURL = function(baseURLDomain)
     if (baseURLDomain)
         result = result.replace(new RegExp("^" + baseURLDomain.escapeForRegExp(), "i"), "");
     return result;
+}
+
+CSSStyleDeclaration.prototype.getShorthandValue = function(shorthandProperty)
+{
+    var value = this.getPropertyValue(shorthandProperty);
+    if (!value) {
+        // Some shorthands (like border) return a null value, so compute a shorthand value.
+        // FIXME: remove this when http://bugs.webkit.org/show_bug.cgi?id=15823 is fixed.
+
+        var foundProperties = {};
+        for (var i = 0; i < this.length; ++i) {
+            var individualProperty = this[i];
+            if (individualProperty in foundProperties || this.getPropertyShorthand(individualProperty) !== shorthandProperty)
+                continue;
+
+            var individualValue = this.getPropertyValue(individualProperty);
+            if (this.isPropertyImplicit(individualProperty) || individualValue === "initial")
+                continue;
+
+            foundProperties[individualProperty] = true;
+
+            if (!value)
+                value = "";
+            else if (value.length)
+                value += " ";
+            value += individualValue;
+        }
+    }
+    return value;
+}
+
+CSSStyleDeclaration.prototype.getShorthandPriority = function(shorthandProperty)
+{
+    var priority = this.getPropertyPriority(shorthandProperty);
+    if (!priority) {
+        for (var i = 0; i < this.length; ++i) {
+            var individualProperty = this[i];
+            if (this.getPropertyShorthand(individualProperty) !== shorthandProperty)
+                continue;
+            priority = this.getPropertyPriority(individualProperty);
+            break;
+        }
+    }
+    return priority;
+}
+
+CSSStyleDeclaration.prototype.getLonghandProperties = function(shorthandProperty)
+{
+    var properties = [];
+    var foundProperties = {};
+
+    for (var i = 0; i < this.length; ++i) {
+        var individualProperty = this[i];
+        if (individualProperty in foundProperties || this.getPropertyShorthand(individualProperty) !== shorthandProperty)
+            continue;
+        foundProperties[individualProperty] = true;
+        properties.push(individualProperty);
+    }
+
+    return properties;
+}
+
+CSSStyleDeclaration.prototype.getUniqueProperties = function()
+{
+    var properties = [];
+    var foundProperties = {};
+
+    for (var i = 0; i < this.length; ++i) {
+        var property = this[i];
+        if (property in foundProperties)
+            continue;
+        foundProperties[property] = true;
+        properties.push(property);
+    }
+
+    return properties;
 }
 
 function isNodeWhitespace()
@@ -501,7 +596,7 @@ function onlyTextChild(ignoreWhitespace)
 
 function nodeTitleInfo(hasChildren, linkify)
 {
-    var info = {title: '', hasChildren: hasChildren};
+    var info = {title: "", hasChildren: hasChildren};
 
     switch (this.nodeType) {
         case Node.DOCUMENT_NODE:
@@ -592,63 +687,104 @@ Number.bytesToString = function(bytes)
     return (Math.round(megabytes * 1000) / 1000) + "MB";
 }
 
+Number.constrain = function(num, min, max)
+{
+    if (num < min)
+        num = min;
+    else if (num > max)
+        num = max;
+    return num;
+}
+
 HTMLTextAreaElement.prototype.moveCursorToEnd = function()
 {
     var length = this.value.length;
     this.setSelectionRange(length, length);
 }
 
-// This code is in the public domain. Feel free to link back to http://jan.moesen.nu/
-String.sprintf = function()
+String.sprintf = function(format)
 {
-        if (!arguments || arguments.length < 1 || !RegExp)
-        {
-                return;
-        }
-        var str = arguments[0];
-        var re = /([^%]*)%('.|0|\x20)?(-)?(\d+)?(\.\d+)?(%|b|c|d|u|f|o|s|x|X)(.*)/;
-        var a = b = [], numSubstitutions = 0, numMatches = 0;
-        while (a = re.exec(str))
-        {
-                var leftpart = a[1], pPad = a[2], pJustify = a[3], pMinLength = a[4];
-                var pPrecision = a[5], pType = a[6], rightPart = a[7];
+    return String.vsprintf(format, Array.prototype.slice.call(arguments, 1));
+}
 
-                //alert(a + '\n' + [a[0], leftpart, pPad, pJustify, pMinLength, pPrecision);
+String.vsprintf = function(format, substitutions)
+{
+    if (!format || !substitutions || !substitutions.length)
+        return format;
 
-                numMatches++;
-                if (pType == '%')
-                {
-                        subst = '%';
-                }
-                else
-                {
-                        numSubstitutions++;
-                        if (numSubstitutions >= arguments.length)
-                        {
-                                alert('Error! Not enough function arguments (' + (arguments.length - 1) + ', excluding the string)\nfor the number of substitution parameters in string (' + numSubstitutions + ' so far).');
-                        }
-                        var param = arguments[numSubstitutions];
-                        var pad = '';
-                               if (pPad && pPad.substr(0,1) == "'") pad = leftpart.substr(1,1);
-                          else if (pPad) pad = pPad;
-                        var justifyRight = true;
-                               if (pJustify && pJustify === "-") justifyRight = false;
-                        var minLength = -1;
-                               if (pMinLength) minLength = parseInt(pMinLength);
-                        var precision = -1;
-                               if (pPrecision && pType == 'f') precision = parseInt(pPrecision.substring(1));
-                        var subst = param;
-                               if (pType == 'b') subst = parseInt(param).toString(2);
-                          else if (pType == 'c') subst = String.fromCharCode(parseInt(param));
-                          else if (pType == 'd') subst = parseInt(param) ? parseInt(param) : 0;
-                          else if (pType == 'u') subst = Math.abs(param);
-                          else if (pType == 'f') subst = (precision > -1) ? Math.round(parseFloat(param) * Math.pow(10, precision)) / Math.pow(10, precision): parseFloat(param);
-                          else if (pType == 'o') subst = parseInt(param).toString(8);
-                          else if (pType == 's') subst = param;
-                          else if (pType == 'x') subst = ('' + parseInt(param).toString(16)).toLowerCase();
-                          else if (pType == 'X') subst = ('' + parseInt(param).toString(16)).toUpperCase();
-                }
-                str = leftpart + subst + rightPart;
+    var result = "";
+    var substitutionIndex = 0;
+
+    var index = 0;
+    for (var precentIndex = format.indexOf("%", index); precentIndex !== -1; precentIndex = format.indexOf("%", index)) {
+        result += format.substring(index, precentIndex);
+        index = precentIndex + 1;
+
+        if (format[index] === "%") {
+            result += "%";
+            ++index;
+            continue;
         }
-        return str;
+
+        if (!isNaN(format[index])) {
+            // The first character is a number, it might be a substitution index.
+            var number = parseInt(format.substring(index));
+            while (!isNaN(format[index]))
+                ++index;
+            // If the number is greater than zero and ends with a "$",
+            // then this is a substitution index.
+            if (number > 0 && format[index] === "$") {
+                substitutionIndex = (number - 1);
+                ++index;
+            }
+        }
+
+        var precision = -1;
+        if (format[index] === ".") {
+            // This is a precision specifier. If no digit follows the ".",
+            // then the precision should be zero.
+            ++index;
+            precision = parseInt(format.substring(index));
+            if (isNaN(precision))
+                precision = 0;
+            while (!isNaN(format[index]))
+                ++index;
+        }
+
+        if (substitutionIndex >= substitutions.length) {
+            // If there are not enough substitutions for the current substitutionIndex
+            // just output the format specifier literally and move on.
+            console.error("String.vsprintf(\"" + format + "\", \"" + substitutions.join("\", \"") + "\"): not enough substitution arguments. Had " + substitutions.length + " but needed " + (substitutionIndex + 1) + ", so substitution was skipped.");
+            index = precentIndex + 1;
+            result += "%";
+            continue;
+        }
+
+        switch (format[index]) {
+        case "d":
+            var substitution = parseInt(substitutions[substitutionIndex]);
+            result += (!isNaN(substitution) ? substitution : 0);
+            break;
+        case "f":
+            var substitution = parseFloat(substitutions[substitutionIndex]);
+            if (substitution && precision > -1)
+                substitution = substitution.toFixed(precision);
+            result += (!isNaN(substitution) ? substitution : (precision > -1 ? Number(0).toFixed(precision) : 0));
+            break;
+        default:
+            // Encountered an unsupported format character, treat as a string.
+            console.warn("String.vsprintf(\"" + format + "\", \"" + substitutions.join("\", \"") + "\"): unsupported format character \u201C" + format[index] + "\u201D. Treating as a string.");
+            // Fall through to treat this like a string.
+        case "s":
+            result += substitutions[substitutionIndex];
+            break;
+        }
+
+        ++substitutionIndex;
+        ++index;
+    }
+
+    result += format.substring(index);
+
+    return result;
 }

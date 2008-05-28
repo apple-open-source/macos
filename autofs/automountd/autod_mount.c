@@ -483,10 +483,11 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 	}
 
 	/*
-	 * Make sure we flag it as automounted.
+	 * Make sure we flag it as automounted and as not to show up
+	 * as a "mounted volume" in the Finder/File Manager sense.
 	 */
 	newargv[i++] = "-o";
-	newargv[i++] = "automounted";
+	newargv[i++] = "automounted,nobrowse";
 
 	/*
 	 * XXX - not all our mount commands support "--" as an

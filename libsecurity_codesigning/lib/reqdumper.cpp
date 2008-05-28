@@ -25,6 +25,7 @@
 // reqdumper - Requirement un-parsing (disassembly)
 //
 #include "reqdumper.h"
+#include <security_cdsa_utilities/cssmdata.h>	// OID encoder
 #include <cstdarg>
 
 namespace Security {
@@ -142,6 +143,9 @@ void Dumper::expr(SyntaxLevel level)
 	case opAppleAnchor:
 		print("anchor apple");
 		break;
+	case opAppleGenericAnchor:
+		print("anchor apple generic");
+		break;
 	case opAnchorHash:
 		print("anchor"); certSlot(); print(" = "); hashData();
 		break;
@@ -179,8 +183,20 @@ void Dumper::expr(SyntaxLevel level)
 	case opInfoKeyField:
 		print("info["); dotString(); print("]"); match();
 		break;
+	case opEntitlementField:
+		print("entitlement["); dotString(); print("]"); match();
+		break;
 	case opCertField:
 		print("certificate"); certSlot(); print("["); dotString(); print("]"); match();
+		break;
+	case opCertGeneric:
+		print("certificate"); certSlot(); print("[");
+		{
+			const unsigned char *data; size_t length;
+			getData(data, length);
+			print("field.%s", CssmOid((unsigned char *)data, length).toOid().c_str());
+		}
+		print("]"); match();
 		break;
 	case opTrustedCert:
 		print("certificate"); certSlot(); print("trusted");
@@ -221,13 +237,31 @@ void Dumper::match()
 {
 	switch (MatchOperation op = MatchOperation(get<uint32_t>())) {
 	case matchExists:
-		print(" /* exists */");
+		print(" exists");
 		break;
 	case matchEqual:
 		print(" = "); data();
 		break;
 	case matchContains:
 		print(" ~ "); data();
+		break;
+	case matchBeginsWith:
+		print(" = "); data(); print("*");
+		break;
+	case matchEndsWith:
+		print(" = *"); data();
+		break;
+	case matchLessThan:
+		print(" < "); data();
+		break;
+	case matchGreaterEqual:
+		print(" >= "); data();
+		break;
+	case matchLessEqual:
+		print(" <= "); data();
+		break;
+	case matchGreaterThan:
+		print(" > "); data();
 		break;
 	default:
 		print("MATCH OPCODE %d NOT UNDERSTOOD", op);
@@ -259,9 +293,10 @@ void Dumper::data(PrintMode bestMode /* = isSimple */, bool dotOkay /* = false *
 			bestMode = isBinary;
 			break;		// pessimal
 		}
+	
 	if (length == 0 && bestMode == isSimple)
-		bestMode = isPrintable;		// force quotes for empty string
-		
+		bestMode = isPrintable;     // force quotes for empty string
+
 	switch (bestMode) {
 	case isSimple:
 		print("%.*s", length, data);

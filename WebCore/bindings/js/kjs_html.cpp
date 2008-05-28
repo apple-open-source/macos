@@ -34,9 +34,9 @@ namespace WebCore {
 using namespace KJS;
 
 ImageConstructorImp::ImageConstructorImp(ExecState* exec, Document* doc)
-    : m_doc(doc)
+    : DOMObject(exec->lexicalGlobalObject()->objectPrototype())
+    , m_doc(doc)
 {
-    setPrototype(exec->lexicalInterpreter()->builtinObjectPrototype());
 }
 
 JSObject* ImageConstructorImp::construct(ExecState*  exec, const List& list)
@@ -58,6 +58,13 @@ JSObject* ImageConstructorImp::construct(ExecState*  exec, const List& list)
         height = h->toInt32(exec);
     }
 
+    // Calling toJS on the document causes the JS document wrapper to be
+    // added to the window object. This is done to ensure that JSDocument::mark
+    // will be called (which will cause the image element to be marked if necessary).
+    // This is only a problem for elements created using the Image constructor since all
+    // other elements are created through the document, using document.createElement for example.
+    toJS(exec, m_doc.get());
+    
     HTMLImageElement* image = new HTMLImageElement(m_doc.get());
     JSObject* result = static_cast<JSObject*>(toJS(exec, image));
 
@@ -123,8 +130,7 @@ bool runtimeObjectImplementsCall(HTMLElement* thisImp)
     Frame* frame = thisImp->document()->frame();
     if (!frame)
         return false;
-    KJSProxy* proxy = frame->scriptProxy();
-    ExecState* exec = proxy->interpreter()->globalExec();
+    ExecState* exec = frame->scriptProxy()->globalObject()->globalExec();
     if (JSValue* runtimeObject = getRuntimeObject(exec, thisImp))
         return static_cast<JSObject*>(runtimeObject)->implementsCall();
 

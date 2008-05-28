@@ -1,9 +1,7 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -53,7 +51,7 @@ Text::~Text()
 {
 }
 
-Text *Text::splitText(unsigned offset, ExceptionCode& ec)
+PassRefPtr<Text> Text::splitText(unsigned offset, ExceptionCode& ec)
 {
     ec = 0;
 
@@ -61,7 +59,7 @@ Text *Text::splitText(unsigned offset, ExceptionCode& ec)
     
     // INDEX_SIZE_ERR: Raised if the specified offset is negative or greater than
     // the number of 16-bit units in data.
-    if (offset > str->length()) {
+    if (offset > m_data->length()) {
         ec = INDEX_SIZE_ERR;
         return 0;
     }
@@ -72,29 +70,21 @@ Text *Text::splitText(unsigned offset, ExceptionCode& ec)
         return 0;
     }
 
-    StringImpl *oldStr = str;
-    Text *newText = createNew(str->substring(offset, str->length()-offset));
-    str = str->copy();
-    str->ref();
-    str->remove(offset, str->length()-offset);
+    RefPtr<StringImpl> oldStr = m_data;
+    RefPtr<Text> newText = createNew(oldStr->substring(offset));
+    m_data = oldStr->substring(0, offset);
 
-    dispatchModifiedEvent(oldStr);
-    oldStr->deref();
+    dispatchModifiedEvent(oldStr.get());
 
     if (parentNode())
-        parentNode()->insertBefore(newText,nextSibling(), ec);
+        parentNode()->insertBefore(newText.get(), nextSibling(), ec);
     if (ec)
         return 0;
 
     if (renderer())
-        static_cast<RenderText*>(renderer())->setText(str);
+        static_cast<RenderText*>(renderer())->setText(m_data);
 
-    return newText;
-}
-
-const AtomicString& Text::localName() const
-{
-    return textAtom;
+    return newText.release();
 }
 
 String Text::nodeName() const
@@ -109,7 +99,7 @@ Node::NodeType Text::nodeType() const
 
 PassRefPtr<Node> Text::cloneNode(bool /*deep*/)
 {
-    return document()->createTextNode(str);
+    return document()->createTextNode(m_data);
 }
 
 bool Text::rendererIsNeeded(RenderStyle *style)
@@ -158,10 +148,10 @@ RenderObject *Text::createRenderer(RenderArena *arena, RenderStyle *style)
 {
 #if ENABLE(SVG)
     if (parentNode()->isSVGElement())
-        return new (arena) RenderSVGInlineText(this, str);
+        return new (arena) RenderSVGInlineText(this, m_data);
 #endif // ENABLE(SVG)
     
-    return new (arena) RenderText(this, str);
+    return new (arena) RenderText(this, m_data);
 }
 
 void Text::attach()
@@ -176,7 +166,7 @@ void Text::recalcStyle( StyleChange change )
         if (renderer())
             renderer()->setStyle(parentNode()->renderer()->style());
     if (changed() && renderer() && renderer()->isText())
-        static_cast<RenderText*>(renderer())->setText(str);
+        static_cast<RenderText*>(renderer())->setText(m_data);
     setChanged(NoStyleChange);
 }
 
@@ -186,9 +176,9 @@ bool Text::childTypeAllowed(NodeType)
     return false;
 }
 
-Text *Text::createNew(StringImpl *_str)
+PassRefPtr<Text> Text::createNew(PassRefPtr<StringImpl> string)
 {
-    return new Text(document(), _str);
+    return new Text(document(), string);
 }
 
 String Text::toString() const

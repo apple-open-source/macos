@@ -1,4 +1,34 @@
                                                      -*- coding: utf-8 -*-
+
+Changes with APR-util 1.2.12
+
+  *) Wakeup threads waiting for a reslist resource after a resource was
+     invalidated. [Ruediger Pluem]
+
+  *) Fix GMT offset for several date formats and add a new format.
+     [Maxime Petazzoni <maxime.petazzoni bulix.org>]
+
+  *) Numerous fixes to the test/ framework, including better handling of
+     long size_t comparisons and more consistent Makefile.(in|win) setup
+     for authoring new tests.  [William Rowe]
+
+  *) Win32 build fixes including a Makefile.win scheme, fixes for 64P
+     model x86_64 compiles and VC8 builds.  [William Rowe]
+
+  *) Type mismatch between apr_datum_t and GDBM's datum type could
+     yield a corrupt apr_datum_t when reading from a GDBM database.
+     PR 43025.  [Björn Wiberg <Bjorn.Wiberg its.uu.se>, Davi Arnaut]
+
+  *) Add the #define APR_LDAP_SIZELIMIT that is set appropriately
+     for the LDAP SDK that is being used. Also include ZOS as an
+     LDAP Platform.
+     PR 37814.  [David Jones <oscaremma gmail com>, Davi Arnaut]
+
+  *) Fix exported LDFLAGS with new expat detection.  PR 43337.
+     [Justin Erenkrantz]
+
+  *) Add MySQL DBD driver [Nick Kew, Bojan Smojver]
+
 Changes with APR-util 1.2.10
 
   *) Support BerkeleyDB 4.6.  [Arfrever Frehtes Taifersar Arahesis]

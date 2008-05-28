@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_output.h,v 1.47.2.1.8.3 2007/02/12 17:13:22 tony2001 Exp $ */
+/* $Id: php_output.h,v 1.47.2.1.8.4 2007/12/31 07:22:54 sebastian Exp $ */
 
 #ifndef PHP_OUTPUT_H
 #define PHP_OUTPUT_H

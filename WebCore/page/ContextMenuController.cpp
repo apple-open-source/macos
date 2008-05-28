@@ -54,6 +54,7 @@
 #include "SelectionController.h"
 #include "Settings.h"
 #include "TextIterator.h"
+#include "WindowFeatures.h"
 #include "markup.h"
 
 namespace WebCore {
@@ -107,15 +108,17 @@ void ContextMenuController::handleContextMenuEvent(Event* event)
 
 static void openNewWindow(const KURL& urlToLoad, Frame* frame)
 {
-    if (Page* oldPage = frame->page())
+    if (Page* oldPage = frame->page()) {
+        WindowFeatures features;
         if (Page* newPage = oldPage->chrome()->createWindow(frame,
-                FrameLoadRequest(ResourceRequest(urlToLoad, frame->loader()->outgoingReferrer()))))
+                FrameLoadRequest(ResourceRequest(urlToLoad, frame->loader()->outgoingReferrer())), features))
             newPage->chrome()->show();
+    }
 }
 
 void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
 {
-    ASSERT(item->type() == ActionType);
+    ASSERT(item->type() == ActionType || item->type() == CheckableActionType);
 
     if (item->action() >= ContextMenuItemBaseApplicationTag) {
         m_client->contextMenuItemSelected(item, m_contextMenu.get());
@@ -153,7 +156,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
         case ContextMenuItemTagOpenFrameInNewWindow: {
             KURL url = frame->loader()->documentLoader()->unreachableURL();
             if (frame && url.isEmpty())
-                url = frame->loader()->documentLoader()->URL();
+                url = frame->loader()->documentLoader()->url();
             openNewWindow(url, frame);
             break;
         }
@@ -178,6 +181,14 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
         case ContextMenuItemTagPaste:
             frame->editor()->paste();
             break;
+#if PLATFORM(GTK)
+        case ContextMenuItemTagDelete:
+            frame->editor()->performDelete();
+            break;
+        case ContextMenuItemTagSelectAll:
+            frame->editor()->command("SelectAll").execute();
+            break;
+#endif
         case ContextMenuItemTagSpellingGuess:
             ASSERT(frame->selectedText().length());
             if (frame->editor()->shouldInsertText(item->title(), frame->selectionController()->toRange().get(),
@@ -211,10 +222,10 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
                 openNewWindow(result.absoluteLinkURL(), frame);
             break;
         case ContextMenuItemTagBold:
-            frame->editor()->execCommand("ToggleBold");
+            frame->editor()->command("ToggleBold").execute();
             break;
         case ContextMenuItemTagItalic:
-            frame->editor()->execCommand("ToggleItalic");
+            frame->editor()->command("ToggleItalic").execute();
             break;
         case ContextMenuItemTagUnderline:
             frame->editor()->toggleUnderline();

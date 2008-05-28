@@ -209,7 +209,7 @@ void ssl_hook_NewConnection(conn_rec *conn)
     SSL_set_tmp_dh_callback(ssl,  ssl_callback_TmpDH);
     if (sc->nLogLevel >= SSL_LOG_DEBUG) {
         BIO_set_callback(SSL_get_rbio(ssl), ssl_io_data_cb);
-        BIO_set_callback_arg(SSL_get_rbio(ssl), ssl);
+        BIO_set_callback_arg(SSL_get_rbio(ssl), (void *)ssl);
     }
 
     /*

@@ -25,7 +25,7 @@
 #include "PlatformString.h"
 #include "kjs_dom.h"
 #include "kjs_html.h"
-
+#include <kjs/protect.h>
 
 namespace KJS {
     class Window;
@@ -57,7 +57,7 @@ namespace WebCore {
         virtual KJS::JSObject* listenerObj() const;
         virtual KJS::Window* windowObj() const;
         void clearWindowObj();
-        virtual void mark();
+        void mark();
     private:
         KJS::JSObject* m_listener;
         KJS::Window* m_win;
@@ -99,7 +99,7 @@ namespace WebCore {
 
     class JSClipboard : public KJS::DOMObject {
     public:
-        JSClipboard(KJS::ExecState*, Clipboard*);
+        JSClipboard(KJS::JSObject* prototype, Clipboard*);
         virtual ~JSClipboard();
 
         virtual bool getOwnPropertySlot(KJS::ExecState*, const KJS::Identifier&, KJS::PropertySlot&);
@@ -120,6 +120,12 @@ namespace WebCore {
 
     KJS::JSValue* toJS(KJS::ExecState*, Clipboard*);
     Clipboard* toClipboard(KJS::JSValue*);
+
+    // Functions
+    KJS::JSValue* jsClipboardPrototypeFunctionClearData(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
+    KJS::JSValue* jsClipboardPrototypeFunctionGetData(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
+    KJS::JSValue* jsClipboardPrototypeFunctionSetData(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
+    KJS::JSValue* jsClipboardPrototypeFunctionSetDragImage(KJS::ExecState*, KJS::JSObject*, const KJS::List&);
 
 } // namespace WebCore
 

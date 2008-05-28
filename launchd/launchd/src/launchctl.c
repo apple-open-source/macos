@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23457 $";
+static const char *const __rcs_file_version__ = "$Revision: 23566 $";
 
 #include "liblaunch_public.h"
 #include "liblaunch_private.h"
@@ -30,7 +30,7 @@ static const char *const __rcs_file_version__ = "$Revision: 23457 $";
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFPriv.h>
 #include <TargetConditionals.h>
-#if !TARGET_OS_EMBEDDED
+#if HAVE_SECURITY
 #include <Security/Security.h>
 #include <Security/AuthSession.h>
 #endif
@@ -313,10 +313,17 @@ void
 read_launchd_conf(void)
 {
 	char s[1000], *c, *av[100];
+	const char *file;
 	size_t len, i;
 	FILE *f;
 
-	if (!(f = fopen("/etc/launchd.conf", "r"))) {
+	if (getppid() == 1) {
+		file = "/etc/launchd.conf";
+	} else {
+		file = "/etc/launchd-user.conf";
+	}
+
+	if (!(f = fopen(file, "r"))) {
 		return;
 	}
 
@@ -1431,10 +1438,12 @@ system_specific_bootstrap(bool sflag)
 		assumes(acct("/var/account/acct") != -1);
 	}
 
+#if !TARGET_OS_EMBEDDED
 	if (path_check("/etc/fstab")) {
 		const char *mount_tool[] = { "mount", "-vat", "nonfs", NULL };
 		assumes(fwexec(mount_tool, true) != -1);
 	}
+#endif
 
 	if (path_check("/etc/rc.installer_cleanup")) {
 		const char *rccleanup_tool[] = { _PATH_BSHELL, "/etc/rc.installer_cleanup", "multiuser", NULL };
@@ -1464,7 +1473,11 @@ system_specific_bootstrap(bool sflag)
 
 	_vproc_set_global_on_demand(true);
 
-	char *load_launchd_items[] = { "load", "-D", "all", "/etc/mach_init.d", NULL };
+	char *load_launchd_items[] = { "load", "-D", "all", "/etc/mach_init.d",
+#if TARGET_OS_EMBEDDED
+		"/var/mobile/Library/LaunchAgents",
+#endif
+		NULL };
 
 	if (is_safeboot()) {
 		load_launchd_items[2] = "system";
@@ -1533,9 +1546,9 @@ system_specific_bootstrap(bool sflag)
 void
 do_BootCache_magic(BootCache_action_t what)
 {
-	const char *bcc_tool[] = { "BootCacheControl", "-f", "/var/db/BootCache.playlist", NULL, NULL };
+	const char *bcc_tool[] = { "/usr/sbin/BootCacheControl", "-f", "/var/db/BootCache.playlist", NULL, NULL };
 
-	if (is_safeboot()) {
+	if (is_safeboot() || !path_check(bcc_tool[0])) {
 		return;
 	}
 
@@ -1612,11 +1625,12 @@ bootstrap_cmd(int argc, char *const argv[])
 			the_argc += 1;
 		}
 
-#if !TARGET_OS_EMBEDDED
 		if (strcasecmp(session_type, VPROCMGR_SESSION_BACKGROUND) == 0) {
+			read_launchd_conf();
+#if HAVE_SECURITY
 			assumes(SessionCreate(sessionKeepCurrentBootstrap, 0) == 0);
-		}
 #endif
+		}
 
 		return load_and_unload_cmd(the_argc, load_launchd_items);
 	}
@@ -2768,7 +2782,13 @@ do_potential_fsck(void)
 	fprintf(stderr, "fsck failed!\n");
 
 	/* someday, we should keep booting read-only, but as of today, other sub-systems cannot handle that scenario */
+#if TARGET_OS_EMBEDDED
+	const char *nvram_tool[] = { "/usr/sbin/nvram", "auto-boot=false", NULL };
+	assumes(fwexec(nvram_tool, true) != -1);
+	assumes(reboot(RB_AUTOBOOT) != -1);
+#else
 	assumes(reboot(RB_HALT) != -1);
+#endif
 
 	return;
 out:
@@ -2782,7 +2802,15 @@ out:
 	 * assumes(mount(sfs.f_fstypename, "/", MNT_UPDATE, NULL) != -1);
 	 */
 
-	assumes(fwexec(remount_tool, true) != -1);
+#if TARGET_OS_EMBEDDED
+	if (path_check("/etc/fstab")) {
+		const char *mount_tool[] = { "mount", "-vat", "nonfs", NULL };
+		assumes(fwexec(mount_tool, true) != -1);
+	} else
+#endif
+	{
+		assumes(fwexec(remount_tool, true) != -1);
+	}
 
 	fix_bogus_file_metadata();
 }

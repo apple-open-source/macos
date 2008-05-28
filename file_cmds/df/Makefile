@@ -47,4 +47,4 @@ include $(MAKEFILEDIR)/$(MAKEFILE)
 
 -include Makefile.dependencies
 
-ALL_CFLAGS += -I/System/Library/Frameworks/System.framework/PrivateHeaders -D_DARWIN_USE_64_BIT_INODE
+ALL_CFLAGS += -I "$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders" -D_DARWIN_USE_64_BIT_INODE

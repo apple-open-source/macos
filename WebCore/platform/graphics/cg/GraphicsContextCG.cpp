@@ -27,14 +27,13 @@
 #include "config.h"
 #include "GraphicsContext.h"
 
-#if PLATFORM(CG)
-
 #include "AffineTransform.h"
+#include "FloatConversion.h"
+#include "GraphicsContextPlatformPrivateCG.h"
 #include "KURL.h"
 #include "Path.h"
+#include <CoreGraphics/CGPDFContext.h>
 #include <wtf/MathExtras.h>
-
-#include <GraphicsContextPlatformPrivate.h> // FIXME: Temporary.
 
 using namespace std;
 
@@ -72,18 +71,6 @@ GraphicsContext::~GraphicsContext()
     delete m_data;
 }
 
-void GraphicsContext::setFocusRingClip(const IntRect& r)
-{
-    // This method only exists to work around bugs in Mac focus ring clipping.
-    m_data->m_focusRingClip = r;
-}
-
-void GraphicsContext::clearFocusRingClip()
-{
-    // This method only exists to work around bugs in Mac focus ring clipping.
-    m_data->m_focusRingClip = IntRect();
-}
-
 CGContextRef GraphicsContext::platformContext() const
 {
     ASSERT(!paintingDisabled());
@@ -94,7 +81,7 @@ CGContextRef GraphicsContext::platformContext() const
 void GraphicsContext::savePlatformState()
 {
     // Note: Do not use this function within this class implementation, since we want to avoid the extra
-    // save of the secondary context (in GraphicsContextPlatformPrivate.h).
+    // save of the secondary context (in GraphicsContextPlatformPrivateCG.h).
     CGContextSaveGState(platformContext());
     m_data->save();
 }
@@ -102,9 +89,10 @@ void GraphicsContext::savePlatformState()
 void GraphicsContext::restorePlatformState()
 {
     // Note: Do not use this function within this class implementation, since we want to avoid the extra
-    // restore of the secondary context (in GraphicsContextPlatformPrivate.h).
+    // restore of the secondary context (in GraphicsContextPlatformPrivateCG.h).
     CGContextRestoreGState(platformContext());
     m_data->restore();
+    m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
 // Draws a filled rectangle with a stroked border.
@@ -320,8 +308,6 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
         default:
             break;
     }
-
-    CGContextSaveGState(context);
     
     if (patWidth) {
         // Example: 80 pixels with a width of 30 pixels.
@@ -362,7 +348,6 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
     }
 
     CGContextStrokePath(context);
-    CGContextRestoreGState(context);
     
     CGContextRestoreGState(context);
 }
@@ -502,6 +487,7 @@ void GraphicsContext::beginTransparencyLayer(float opacity)
     CGContextSetAlpha(context, opacity);
     CGContextBeginTransparencyLayer(context, 0);
     m_data->beginTransparencyLayer();
+    m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
 void GraphicsContext::endTransparencyLayer()
@@ -512,6 +498,7 @@ void GraphicsContext::endTransparencyLayer()
     CGContextEndTransparencyLayer(context);
     CGContextRestoreGState(context);
     m_data->endTransparencyLayer();
+    m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
 void GraphicsContext::setShadow(const IntSize& size, int blur, const Color& color)
@@ -521,15 +508,32 @@ void GraphicsContext::setShadow(const IntSize& size, int blur, const Color& colo
 
     if (paintingDisabled())
         return;
+    CGContextRef context = platformContext();
+
+    CGFloat width = size.width();
+    CGFloat height = size.height();
+
+    // Work around <rdar://problem/5539388> by ensuring that the offsets will get truncated
+    // to the desired integer.
+    static const CGFloat extraShadowOffset = narrowPrecisionToCGFloat(1.0 / 128);
+    if (width > 0)
+        width += extraShadowOffset;
+    else if (width < 0)
+        width -= extraShadowOffset;
+
+    if (height > 0)
+        height += extraShadowOffset;
+    else if (height < 0)
+        height -= extraShadowOffset;
+
     // Check for an invalid color, as this means that the color was not set for the shadow
     // and we should therefore just use the default shadow color.
-    CGContextRef context = platformContext();
     if (!color.isValid())
-        CGContextSetShadow(context, CGSizeMake(size.width(), -size.height()), blur); // y is flipped.
+        CGContextSetShadow(context, CGSizeMake(width, -height), blur); // y is flipped.
     else {
         CGColorRef colorCG = cgColor(color);
         CGContextSetShadowWithColor(context,
-                                    CGSizeMake(size.width(), -size.height()), // y is flipped.
+                                    CGSizeMake(width, -height), // y is flipped.
                                     blur, 
                                     colorCG);
         CGColorRelease(colorCG);
@@ -643,6 +647,7 @@ void GraphicsContext::scale(const FloatSize& size)
         return;
     CGContextScaleCTM(platformContext(), size.width(), size.height());
     m_data->scale(size);
+    m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
 void GraphicsContext::rotate(float angle)
@@ -651,6 +656,7 @@ void GraphicsContext::rotate(float angle)
         return;
     CGContextRotateCTM(platformContext(), angle);
     m_data->rotate(angle);
+    m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
 void GraphicsContext::translate(float x, float y)
@@ -659,6 +665,7 @@ void GraphicsContext::translate(float x, float y)
         return;
     CGContextTranslateCTM(platformContext(), x, y);
     m_data->translate(x, y);
+    m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
 void GraphicsContext::concatCTM(const AffineTransform& transform)
@@ -667,6 +674,12 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
         return;
     CGContextConcatCTM(platformContext(), transform);
     m_data->concatCTM(transform);
+    m_data->m_userToDeviceTransformKnownToBeIdentity = false;
+}
+
+AffineTransform GraphicsContext::getCTM() const
+{
+    return CGContextGetCTM(platformContext());
 }
 
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
@@ -675,9 +688,15 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
     // affine transform matrix to device space can mess with this conversion if we have a
     // rotating image like the hands of the world clock widget. We just need the scale, so 
     // we get the affine transform matrix and extract the scale.
-    CGAffineTransform deviceMatrix = CGContextGetUserSpaceToDeviceSpaceTransform(platformContext());
-    if (CGAffineTransformIsIdentity(deviceMatrix))
+
+    if (m_data->m_userToDeviceTransformKnownToBeIdentity)
         return rect;
+
+    CGAffineTransform deviceMatrix = CGContextGetUserSpaceToDeviceSpaceTransform(platformContext());
+    if (CGAffineTransformIsIdentity(deviceMatrix)) {
+        m_data->m_userToDeviceTransformKnownToBeIdentity = true;
+        return rect;
+    }
 
     float deviceScaleX = sqrtf(deviceMatrix.a * deviceMatrix.a + deviceMatrix.b * deviceMatrix.b);
     float deviceScaleY = sqrtf(deviceMatrix.c * deviceMatrix.c + deviceMatrix.d * deviceMatrix.d);
@@ -842,6 +861,67 @@ void GraphicsContext::setPlatformFillColor(const Color& color)
     setCGFillColor(platformContext(), color);
 }
 
+void GraphicsContext::setUseAntialiasing(bool enable)
+{
+    if (paintingDisabled())
+        return;
+    CGContextSetShouldAntialias(platformContext(), enable);
 }
 
-#endif // PLATFORM(CG)
+#ifndef BUILDING_ON_TIGER // Tiger's setCompositeOperation() is defined in GraphicsContextMac.mm.
+void GraphicsContext::setCompositeOperation(CompositeOperator mode)
+{   
+    if (paintingDisabled())
+        return;
+
+    CGBlendMode target = kCGBlendModeNormal;   
+    switch (mode) {
+        case CompositeClear:
+            target = kCGBlendModeClear;
+            break;
+        case CompositeCopy:
+            target = kCGBlendModeCopy;
+            break;
+        case CompositeSourceOver:
+            //kCGBlendModeNormal
+            break;
+        case CompositeSourceIn:
+            target = kCGBlendModeSourceIn;
+            break;
+        case CompositeSourceOut:
+            target = kCGBlendModeSourceOut;
+            break;
+        case CompositeSourceAtop:
+            target = kCGBlendModeSourceAtop; 
+            break;
+        case CompositeDestinationOver:
+            target = kCGBlendModeDestinationOver;
+            break;
+        case CompositeDestinationIn:
+            target = kCGBlendModeDestinationIn;
+            break;
+        case CompositeDestinationOut:
+            target = kCGBlendModeDestinationOut;
+            break;
+        case CompositeDestinationAtop:
+            target = kCGBlendModeDestinationAtop;
+            break;
+        case CompositeXOR:
+            target = kCGBlendModeXOR;
+            break;
+        case CompositePlusDarker:
+            target = kCGBlendModePlusDarker;
+            break;
+        case CompositeHighlight:
+            // currently unsupported
+            break;
+        case CompositePlusLighter:
+            target = kCGBlendModePlusLighter;
+            break;
+    }
+    CGContextSetBlendMode(platformContext(), target);
+}
+#endif
+    
+}
+

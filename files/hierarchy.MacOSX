@@ -1,0 +1,4 @@
+0775	root	admin	Library/Logs
+0755	root	admin	Users
+1777	root	wheel	Users/Shared
+1777	root	wheel	private/tmp

@@ -1,9 +1,9 @@
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -28,6 +28,12 @@
 #if APR_HAVE_SYS_UIO_H
 #include <sys/uio.h>
 #endif
+
+/* TODO: ~((apr_size_t)0) appears to be the best way to quickly 
+ * represent  MAX_APR_SIZE_T for any CPU we support.  Move this
+ * out as APR_MAX_SIZE_T to our public headers...
+ */
+#define MAX_APR_SIZE_T (~((apr_size_t)0))
 
 static apr_status_t brigade_cleanup(void *data) 
 {
@@ -114,7 +120,10 @@ APU_DECLARE(apr_status_t) apr_brigade_partition(apr_bucket_brigade *b,
          e != APR_BRIGADE_SENTINEL(b);
          e = APR_BUCKET_NEXT(e))
     {
-        if ((e->length == (apr_size_t)(-1)) && (point > (apr_size_t)(-1))) {
+        /* For an unknown length bucket, while 'point' is beyond the possible
+         * size contained in apr_size_t, read and continue...
+         */
+        if ((e->length == (apr_size_t)(-1)) && (point > MAX_APR_SIZE_T)) {
             /* point is too far out to simply split this bucket,
              * we must fix this bucket's size and keep going... */
             rv = apr_bucket_read(e, &s, &len, APR_BLOCK_READ);
@@ -123,9 +132,12 @@ APU_DECLARE(apr_status_t) apr_brigade_partition(apr_bucket_brigade *b,
                 return rv;
             }
         }
-        if ((point < e->length) || (e->length == (apr_size_t)(-1))) {
-            /* We already checked e->length -1 above, so we now
-             * trust e->length < MAX_APR_SIZE_T.
+        else if (((apr_size_t)point < e->length) || (e->length == (apr_size_t)(-1))) {
+            /* We already consumed buckets where point is beyond 
+             * our interest ( point > MAX_APR_SIZE_T ), above.
+             * Here point falls between 0 and MAX_APR_SIZE_T 
+             * and is within this bucket, or this bucket's len
+             * is undefined, so now we are ready to split it.
              * First try to split the bucket natively... */
             if ((rv = apr_bucket_split(e, (apr_size_t)point)) 
                     != APR_ENOTIMPL) {
@@ -144,7 +156,7 @@ APU_DECLARE(apr_status_t) apr_brigade_partition(apr_bucket_brigade *b,
             /* this assumes that len == e->length, which is okay because e
              * might have been morphed by the apr_bucket_read() above, but
              * if it was, the length would have been adjusted appropriately */
-            if (point < e->length) {
+            if ((apr_size_t)point < e->length) {
                 rv = apr_bucket_split(e, (apr_size_t)point);
                 *after_point = APR_BUCKET_NEXT(e);
                 return rv;
@@ -342,7 +354,7 @@ APU_DECLARE(apr_status_t) apr_brigade_to_iovec(apr_bucket_brigade *b,
         ++vec;
     }
 
-    *nvec = vec - orig;
+    *nvec = (int)(vec - orig);
     return APR_SUCCESS;
 }
 

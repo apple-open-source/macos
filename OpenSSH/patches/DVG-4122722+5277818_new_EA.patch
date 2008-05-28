@@ -1,6 +1,6 @@
-diff -Naur ../openssh-4.4p1.orig/config.h.in ./config.h.in
---- ../openssh-4.4p1.orig/config.h.in	2006-09-26 04:03:33.000000000 -0700
-+++ ./config.h.in	2006-10-19 17:37:13.000000000 -0700
+diff -ruN ../openssh-4.7p1/config.h.in ./config.h.in
+--- ../openssh-4.7p1/config.h.in	2007-09-03 23:50:04.000000000 -0700
++++ ./config.h.in	2007-10-01 20:02:51.000000000 -0700
 @@ -56,6 +56,18 @@
  /* Define if your snprintf is busted */
  #undef BROKEN_SNPRINTF
@@ -20,10 +20,10 @@ diff -Naur ../openssh-4.4p1.orig/config.h.in ./config.h.in
  /* updwtmpx is broken (if present) */
  #undef BROKEN_UPDWTMPX
  
-diff -Naur ../openssh-4.4p1.orig/configure ./configure
---- ../openssh-4.4p1.orig/configure	2006-09-26 04:03:41.000000000 -0700
-+++ ./configure	2006-10-19 17:42:00.000000000 -0700
-@@ -32166,6 +32166,259 @@
+diff -ruN ../openssh-4.7p1/configure ./configure
+--- ../openssh-4.7p1/configure	2007-09-03 23:50:09.000000000 -0700
++++ ./configure	2007-10-01 20:02:51.000000000 -0700
+@@ -28390,6 +28390,259 @@
  CFLAGS="$CFLAGS $werror_flags"
  
  
@@ -283,10 +283,10 @@ diff -Naur ../openssh-4.4p1.orig/configure ./configure
  ac_config_files="$ac_config_files Makefile buildpkg.sh opensshd.init openssh.xml openbsd-compat/Makefile openbsd-compat/regress/Makefile scard/Makefile ssh_prng_cmds survey.sh"
  
  cat >confcache <<\_ACEOF
-diff -Naur ../openssh-4.4p1.orig/configure.ac ./configure.ac
---- ../openssh-4.4p1.orig/configure.ac	2006-09-24 12:08:59.000000000 -0700
-+++ ./configure.ac	2006-10-19 17:42:56.000000000 -0700
-@@ -3916,6 +3916,9 @@
+diff -ruN ../openssh-4.7p1/configure.ac ./configure.ac
+--- ../openssh-4.7p1/configure.ac	2007-08-09 21:36:12.000000000 -0700
++++ ./configure.ac	2007-10-01 20:02:51.000000000 -0700
+@@ -3982,6 +3982,9 @@
  dnl Add now.
  CFLAGS="$CFLAGS $werror_flags"
  
@@ -296,9 +296,9 @@ diff -Naur ../openssh-4.4p1.orig/configure.ac ./configure.ac
  AC_EXEEXT
  AC_CONFIG_FILES([Makefile buildpkg.sh opensshd.init openssh.xml \
  	openbsd-compat/Makefile openbsd-compat/regress/Makefile \
-diff -Naur ../openssh-4.4p1.orig/scp.1 ./scp.1
---- ../openssh-4.4p1.orig/scp.1	2006-07-23 21:04:36.000000000 -0700
-+++ ./scp.1	2006-10-19 17:43:58.000000000 -0700
+diff -ruN ../openssh-4.7p1/scp.1 ./scp.1
+--- ../openssh-4.7p1/scp.1	2007-08-07 21:29:58.000000000 -0700
++++ ./scp.1	2007-10-01 20:02:51.000000000 -0700
 @@ -20,7 +20,7 @@
  .Sh SYNOPSIS
  .Nm scp
@@ -317,10 +317,10 @@ diff -Naur ../openssh-4.4p1.orig/scp.1 ./scp.1
  .It Fl c Ar cipher
  Selects the cipher to use for encrypting the data transfer.
  This option is directly passed to
-diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
---- ../openssh-4.4p1.orig/scp.c	2006-08-04 19:39:40.000000000 -0700
-+++ ./scp.c	2006-10-19 18:06:48.000000000 -0700
-@@ -104,6 +104,11 @@
+diff -ruN ../openssh-4.7p1/scp.c ./scp.c
+--- ../openssh-4.7p1/scp.c	2007-08-07 21:29:58.000000000 -0700
++++ ./scp.c	2007-10-01 20:29:54.000000000 -0700
+@@ -107,6 +107,11 @@
  #include "misc.h"
  #include "progressmeter.h"
  
@@ -332,7 +332,7 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  extern char *__progname;
  
  int do_cmd(char *host, char *remuser, char *cmd, int *fdin, int *fdout);
-@@ -131,6 +136,12 @@
+@@ -134,6 +139,12 @@
  /* This is used to store the pid of ssh_program */
  pid_t do_cmd_pid = -1;
  
@@ -345,7 +345,7 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  static void
  killchild(int signo)
  {
-@@ -310,7 +321,11 @@
+@@ -313,7 +324,11 @@
  	addargs(&args, "-oClearAllForwardings yes");
  
  	fflag = tflag = 0;
@@ -357,7 +357,7 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  		switch (ch) {
  		/* User-visible flags. */
  		case '1':
-@@ -356,6 +371,11 @@
+@@ -359,6 +374,11 @@
  			showprogress = 0;
  			break;
  
@@ -369,7 +369,7 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  		/* Server options. */
  		case 'd':
  			targetshouldbedirectory = 1;
-@@ -405,7 +425,12 @@
+@@ -408,7 +428,12 @@
  	remin = remout = -1;
  	do_cmd_pid = -1;
  	/* Command to be executed on remote system using "ssh". */
@@ -382,9 +382,9 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  	    verbose_mode ? " -v" : "",
  	    iamrecursive ? " -r" : "", pflag ? " -p" : "",
  	    targetshouldbedirectory ? " -d" : "");
-@@ -584,6 +609,10 @@
+@@ -587,6 +612,10 @@
  	int fd = -1, haderr, indx;
- 	char *last, *name, buf[2048];
+ 	char *last, *name, buf[2048], encname[MAXPATHLEN];
  	int len;
 +#if HAVE_COPYFILE
 +	char md_name[MAXPATHLEN];
@@ -393,10 +393,10 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  
  	for (indx = 0; indx < argc; ++indx) {
  		name = argv[indx];
-@@ -596,6 +625,17 @@
- 			    name);
- 			goto next;
- 		}
+@@ -594,12 +623,26 @@
+ 		len = strlen(name);
+ 		while (len > 1 && name[len-1] == '/')
+ 			name[--len] = '\0';
 +#if HAVE_COPYFILE
 +md_next:
 +		statbytes = 0;
@@ -406,12 +406,21 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
 +		    free(md_tmp);
 +		    if (fd < 0)
 +			goto syserr;
-+		} else
++		} else {
 +#endif
- 		if ((fd = open(name, O_RDONLY, 0)) < 0)
+ 		if ((fd = open(name, O_RDONLY|O_NONBLOCK, 0)) < 0)
  			goto syserr;
+ 		if (strchr(name, '\n') != NULL) {
+ 			strnvis(encname, name, sizeof(encname), VIS_NL);
+ 			name = encname;
+ 		}
++#if HAVE_COPYFILE
++		}
++#endif
  		if (fstat(fd, &stb) < 0) {
-@@ -685,6 +725,36 @@
+ syserr:			run_err("%s: %s", name, strerror(errno));
+ 			goto next;
+@@ -688,6 +731,36 @@
  		else
  			run_err("%s: %s", name, strerror(haderr));
  		(void) response();
@@ -448,7 +457,7 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  	}
  }
  
-@@ -833,6 +903,10 @@
+@@ -836,6 +909,10 @@
  	if (stat(targ, &stb) == 0 && S_ISDIR(stb.st_mode))
  		targisdir = 1;
  	for (first = 1;; first = 0) {
@@ -459,7 +468,7 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  		cp = buf;
  		if (atomicio(read, remin, cp, 1) != 1)
  			return;
-@@ -966,6 +1040,32 @@
+@@ -969,6 +1046,32 @@
  		}
  		omode = mode;
  		mode |= S_IWRITE;
@@ -492,7 +501,7 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  		if ((ofd = open(np, O_WRONLY|O_CREAT, mode)) < 0) {
  bad:			run_err("%s: %s", np, strerror(errno));
  			continue;
-@@ -1053,6 +1153,21 @@
+@@ -1057,6 +1160,21 @@
  			wrerrno = errno;
  		}
  		(void) response();
@@ -514,7 +523,7 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  		if (setimes && wrerr == NO) {
  			setimes = 0;
  			if (utimes(np, tv) < 0) {
-@@ -1114,7 +1229,11 @@
+@@ -1118,7 +1236,11 @@
  usage(void)
  {
  	(void) fprintf(stderr,
@@ -524,5 +533,5 @@ diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
  	    "usage: scp [-1246BCpqrv] [-c cipher] [-F ssh_config] [-i identity_file]\n"
 +#endif
  	    "           [-l limit] [-o ssh_option] [-P port] [-S program]\n"
- 	    "           [[user@]host1:]file1 [...] [[user@]host2:]file2\n");
+ 	    "           [[user@]host1:]file1 ... [[user@]host2:]file2\n");
  	exit(1);

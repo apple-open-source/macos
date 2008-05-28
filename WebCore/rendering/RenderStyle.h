@@ -1,10 +1,8 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -36,17 +34,21 @@
  * and produce invaliud results.
  */
 
+#include "AffineTransform.h"
+#include "CSSHelper.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSValueList.h"
 #include "Color.h"
 #include "CSSCursorImageValue.h"
+#include "CSSTransformValue.h"
 #include "DataRef.h"
 #include "Font.h"
+#include "FloatPoint.h"
 #include "GraphicsTypes.h"
 #include "IntRect.h"
 #include "Length.h"
 #include "Pair.h"
-#include "Shared.h"
+#include <wtf/RefCounted.h>
 #include "TextDirection.h"
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
@@ -311,7 +313,7 @@ public:
 
 enum EMarginCollapse { MCOLLAPSE, MSEPARATE, MDISCARD };
 
-class StyleSurroundData : public Shared<StyleSurroundData> {
+class StyleSurroundData : public RefCounted<StyleSurroundData> {
 public:
     StyleSurroundData();
     StyleSurroundData(const StyleSurroundData& o);
@@ -333,7 +335,7 @@ public:
 
 enum EBoxSizing { CONTENT_BOX, BORDER_BOX };
 
-class StyleBoxData : public Shared<StyleBoxData> {
+class StyleBoxData : public RefCounted<StyleBoxData> {
 public:
     StyleBoxData();
     StyleBoxData(const StyleBoxData& o);
@@ -412,7 +414,7 @@ enum EUnicodeBidi {
     UBNormal, Embed, Override
 };
 
-class StyleVisualData : public Shared<StyleVisualData> {
+class StyleVisualData : public RefCounted<StyleVisualData> {
 public:
     StyleVisualData();
     ~StyleVisualData();
@@ -465,7 +467,7 @@ public:
     CompositeOperator backgroundComposite() const { return static_cast<CompositeOperator>(m_bgComposite); }
     LengthSize backgroundSize() const { return m_backgroundSize; }
 
-    BackgroundLayer* next() const { return m_next; }
+    const BackgroundLayer* next() const { return m_next; }
     BackgroundLayer* next() { return m_next; }
 
     bool isBackgroundImageSet() const { return m_imageSet; }
@@ -550,7 +552,7 @@ public:
     BackgroundLayer* m_next;
 };
 
-class StyleBackgroundData : public Shared<StyleBackgroundData> {
+class StyleBackgroundData : public RefCounted<StyleBackgroundData> {
 public:
     StyleBackgroundData();
     ~StyleBackgroundData() {}
@@ -572,7 +574,7 @@ public:
 enum EMarqueeBehavior { MNONE, MSCROLL, MSLIDE, MALTERNATE };
 enum EMarqueeDirection { MAUTO = 0, MLEFT = 1, MRIGHT = -1, MUP = 2, MDOWN = -2, MFORWARD = 3, MBACKWARD = -3 };
 
-class StyleMarqueeData : public Shared<StyleMarqueeData> {
+class StyleMarqueeData : public RefCounted<StyleMarqueeData> {
 public:
     StyleMarqueeData();
     StyleMarqueeData(const StyleMarqueeData& o);
@@ -593,7 +595,7 @@ public:
   
 // CSS3 Multi Column Layout
 
-class StyleMultiColData : public Shared<StyleMultiColData> {
+class StyleMultiColData : public RefCounted<StyleMultiColData> {
 public:
     StyleMultiColData();
     StyleMultiColData(const StyleMultiColData& o);
@@ -622,6 +624,214 @@ public:
     unsigned m_breakInside : 2; // EPageBreak
 };
 
+// CSS Transforms (may become part of CSS3)
+
+class TransformOperation : public RefCounted<TransformOperation>
+{
+public:
+    virtual ~TransformOperation() {}
+    
+    virtual bool operator==(const TransformOperation&) const = 0;
+    bool operator!=(const TransformOperation& o) const { return !(*this == o); }
+
+    virtual void apply(AffineTransform&, const IntSize& borderBoxSize) = 0;
+    
+    virtual TransformOperation* blend(const TransformOperation* from, double progress, bool blendToIdentity = false) = 0;
+    
+    virtual bool isScaleOperation() const { return false; }
+    virtual bool isRotateOperation() const { return false; }
+    virtual bool isSkewOperation() const { return false; }
+    virtual bool isTranslateOperation() const { return false; }
+    virtual bool isMatrixOperation() const { return false; }
+};
+
+class ScaleTransformOperation : public TransformOperation
+{
+public:
+    ScaleTransformOperation(double sx, double sy)
+    : m_x(sx), m_y(sy)
+    {}
+        
+    virtual bool isScaleOperation() const { return true; }
+
+    virtual bool operator==(const TransformOperation& o) const
+    {
+        if (o.isScaleOperation()) {
+            const ScaleTransformOperation* s = static_cast<const ScaleTransformOperation*>(&o);
+            return m_x == s->m_x && m_y == s->m_y;
+        }
+        return false;
+    }
+
+    virtual void apply(AffineTransform& transform, const IntSize& borderBoxSize)
+    {
+        transform.scale(m_x, m_y);
+    }
+
+    virtual TransformOperation* blend(const TransformOperation* from, double progress, bool blendToIdentity = false);
+
+private:
+    double m_x;
+    double m_y;
+};
+
+class RotateTransformOperation : public TransformOperation
+{
+public:
+    RotateTransformOperation(double angle)
+    : m_angle(angle)
+    {}
+
+    virtual bool isRotateOperation() const { return true; }
+
+    virtual bool operator==(const TransformOperation& o) const
+    {
+        if (o.isRotateOperation()) {
+            const RotateTransformOperation* r = static_cast<const RotateTransformOperation*>(&o);
+            return m_angle == r->m_angle;
+        }
+        return false;
+    }
+    
+    virtual void apply(AffineTransform& transform, const IntSize& borderBoxSize)
+    {
+        transform.rotate(m_angle);
+    }
+
+    virtual TransformOperation* blend(const TransformOperation* from, double progress, bool blendToIdentity = false);
+    
+private:
+    double m_angle;
+};
+
+class SkewTransformOperation : public TransformOperation
+{
+public:
+    SkewTransformOperation(double angleX, double angleY)
+    : m_angleX(angleX), m_angleY(angleY)
+    {}
+    
+    virtual bool isSkewOperation() const { return true; }
+
+    virtual bool operator==(const TransformOperation& o) const
+    {
+        if (o.isSkewOperation()) {
+            const SkewTransformOperation* s = static_cast<const SkewTransformOperation*>(&o);
+            return m_angleX == s->m_angleX && m_angleY == s->m_angleY;
+        }
+        return false;
+    }
+
+    virtual void apply(AffineTransform& transform, const IntSize& borderBoxSize)
+    {
+        transform.skew(m_angleX, m_angleY);
+    }
+
+    virtual TransformOperation* blend(const TransformOperation* from, double progress, bool blendToIdentity = false);
+    
+private:
+    double m_angleX;
+    double m_angleY;
+};
+
+class TranslateTransformOperation : public TransformOperation
+{
+public:
+    TranslateTransformOperation(const Length& tx, const Length& ty)
+    : m_x(tx), m_y(ty)
+    {}
+    
+    virtual bool isTranslateOperation() const { return true; }
+
+    virtual bool operator==(const TransformOperation& o) const
+    {
+        if (o.isTranslateOperation()) {
+            const TranslateTransformOperation* t = static_cast<const TranslateTransformOperation*>(&o);
+            return m_x == t->m_x && m_y == t->m_y;
+        }
+        return false;
+    }
+
+    virtual void apply(AffineTransform& transform, const IntSize& borderBoxSize)
+    {
+        transform.translate(m_x.calcValue(borderBoxSize.width()), m_y.calcValue(borderBoxSize.height()));
+    }
+
+    virtual TransformOperation* blend(const TransformOperation* from, double progress, bool blendToIdentity = false);
+
+private:
+    Length m_x;
+    Length m_y;
+};
+
+class MatrixTransformOperation : public TransformOperation
+{
+public:
+    MatrixTransformOperation(double a, double b, double c, double d, double e, double f)
+    : m_a(a), m_b(b), m_c(c), m_d(d), m_e(e), m_f(f)
+    {}
+    
+    virtual bool isMatrixOperation() const { return true; }
+
+    virtual bool operator==(const TransformOperation& o) const
+    {
+        if (o.isMatrixOperation()) {
+            const MatrixTransformOperation* m = static_cast<const MatrixTransformOperation*>(&o);
+            return m_a == m->m_a && m_b == m->m_b && m_c == m->m_c && m_d == m->m_d && m_e == m->m_e && m_f == m->m_f;
+        }
+        return false;
+    }
+
+    virtual void apply(AffineTransform& transform, const IntSize& borderBoxSize)
+    {
+        AffineTransform matrix(m_a, m_b, m_c, m_d, m_e, m_f);
+        transform = matrix * transform;
+    }
+
+    virtual TransformOperation* blend(const TransformOperation* from, double progress, bool blendToIdentity = false);
+    
+private:
+    double m_a;
+    double m_b;
+    double m_c;
+    double m_d;
+    double m_e;
+    double m_f;
+};
+
+class TransformOperations
+{
+public:
+    bool operator==(const TransformOperations&) const;
+    bool operator!=(const TransformOperations& o) const {
+        return !(*this == o);
+    }
+    
+    bool isEmpty() const { return m_operations.isEmpty(); }
+    unsigned size() const { return m_operations.size(); }
+    const RefPtr<TransformOperation>& operator[](size_t i) const { return m_operations.at(i); }
+
+    void append(const RefPtr<TransformOperation>& op) { return m_operations.append(op); }
+
+private:
+    Vector<RefPtr<TransformOperation> > m_operations;
+};
+
+class StyleTransformData : public RefCounted<StyleTransformData> {
+public:
+    StyleTransformData();
+    StyleTransformData(const StyleTransformData&);
+
+    bool operator==(const StyleTransformData&) const;
+    bool operator!=(const StyleTransformData& o) const {
+        return !(*this == o);
+    }
+
+    TransformOperations m_operations;
+    Length m_x;
+    Length m_y;
+};
+
 //------------------------------------------------
 // CSS3 Flexible Box Properties
 
@@ -630,7 +840,7 @@ enum EBoxOrient { HORIZONTAL, VERTICAL };
 enum EBoxLines { SINGLE, MULTIPLE };
 enum EBoxDirection { BNORMAL, BREVERSE };
 
-class StyleFlexibleBoxData : public Shared<StyleFlexibleBoxData> {
+class StyleFlexibleBoxData : public RefCounted<StyleFlexibleBoxData> {
 public:
     StyleFlexibleBoxData();
     StyleFlexibleBoxData(const StyleFlexibleBoxData& o);
@@ -744,8 +954,10 @@ enum EResize {
 
 enum EAppearance {
     NoAppearance, CheckboxAppearance, RadioAppearance, PushButtonAppearance, SquareButtonAppearance, ButtonAppearance,
-    ButtonBevelAppearance, ListboxAppearance, ListItemAppearance, MenulistAppearance,
-    MenulistButtonAppearance, MenulistTextAppearance, MenulistTextFieldAppearance,
+    ButtonBevelAppearance, ListboxAppearance, ListItemAppearance, 
+    MediaFullscreenButtonAppearance, MediaMuteButtonAppearance, MediaPlayButtonAppearance,
+    MediaSeekBackButtonAppearance, MediaSeekForwardButtonAppearance, MediaSliderAppearance, MediaSliderThumbAppearance,
+    MenulistAppearance, MenulistButtonAppearance, MenulistTextAppearance, MenulistTextFieldAppearance,
     ScrollbarButtonUpAppearance, ScrollbarButtonDownAppearance, 
     ScrollbarButtonLeftAppearance, ScrollbarButtonRightAppearance,
     ScrollbarTrackHorizontalAppearance, ScrollbarTrackVerticalAppearance,
@@ -817,10 +1029,103 @@ struct ContentData : Noncopyable {
 
 enum EBorderFit { BorderFitBorder, BorderFitLines };
 
+enum ETimingFunctionType { LinearTimingFunction, CubicBezierTimingFunction };
+
+struct TimingFunction
+{
+    TimingFunction()
+    : m_type(CubicBezierTimingFunction)
+    , m_x1(.25)
+    , m_y1(.1)
+    , m_x2(.25)
+    , m_y2(1.0)
+    {}
+
+    TimingFunction(ETimingFunctionType timingFunction, double x1 = .0, double y1 = .0, double x2 = .0, double y2 = .0)
+    : m_type(timingFunction)
+    , m_x1(x1)
+    , m_y1(y1)
+    , m_x2(x2)
+    , m_y2(y2)
+    {
+    }
+
+    bool operator==(const TimingFunction& o) const { return m_type == o.m_type && m_x1 == o.m_x1 && m_y1 == o.m_y1 && m_x2 == o.m_x2 && m_y2 == o.m_y2; }
+
+    double x1() const { return m_x1; }
+    double y1() const { return m_y1; }
+    double x2() const { return m_x2; }
+    double y2() const { return m_y2; }
+
+    ETimingFunctionType type() const { return m_type; }
+
+private:
+    ETimingFunctionType m_type;
+
+    double m_x1;
+    double m_y1;
+    double m_x2;
+    double m_y2;
+};
+
+struct Transition {
+public:
+    Transition();
+    ~Transition();
+
+    Transition* next() const { return m_next; }
+    Transition* next() { return m_next; }
+
+    bool isTransitionDurationSet() const { return m_durationSet; }
+    bool isTransitionRepeatCountSet() const { return m_repeatCountSet; }
+    bool isTransitionTimingFunctionSet() const { return m_timingFunctionSet; }
+    bool isTransitionPropertySet() const { return m_propertySet; }
+    
+    bool isEmpty() const { return !m_durationSet && !m_repeatCountSet && !m_timingFunctionSet && !m_propertySet; }
+    void clearTransitionDuration() { m_durationSet = false; }
+    void clearTransitionRepeatCount() { m_repeatCountSet = false; }
+    void clearTransitionTimingFunction() { m_timingFunctionSet = false; }
+    void clearTransitionProperty() { m_propertySet = false; }
+
+    int transitionDuration() const { return m_duration; }
+    int transitionRepeatCount() const { return m_repeatCount; }
+    const TimingFunction& transitionTimingFunction() const { return m_timingFunction; }
+    int transitionProperty() const { return m_property; }
+    
+    void setTransitionDuration(int d) { m_duration = d; m_durationSet = true; }
+    void setTransitionRepeatCount(int c) { m_repeatCount = c; m_repeatCountSet = true; }
+    void setTransitionTimingFunction(const TimingFunction& f) { m_timingFunction = f; m_timingFunctionSet = true; }
+    void setTransitionProperty(int t) { m_property = t; m_propertySet = true; }
+
+    void setNext(Transition* n) { if (m_next != n) { delete m_next; m_next = n; } }
+
+    Transition& operator=(const Transition& o);    
+    Transition(const Transition& o);
+
+    bool operator==(const Transition& o) const;
+    bool operator!=(const Transition& o) const {
+        return !(*this == o);
+    }
+
+    void fillUnsetProperties();
+
+    int m_duration;
+    int m_repeatCount;
+    TimingFunction m_timingFunction;
+    int m_property;
+
+    bool m_durationSet;
+    bool m_repeatCountSet;
+    bool m_timingFunctionSet;
+    bool m_propertySet;
+
+    Transition* m_next;
+};
+
 // This struct is for rarely used non-inherited CSS3, CSS2, and WebKit-specific properties.
 // By grouping them together, we save space, and only allocate this object when someone
 // actually uses one of these properties.
-class StyleRareNonInheritedData : public Shared<StyleRareNonInheritedData> {
+class StyleRareNonInheritedData : public RefCounted<StyleRareNonInheritedData> {
 public:
     StyleRareNonInheritedData();
     ~StyleRareNonInheritedData();
@@ -834,6 +1139,7 @@ public:
     bool operator!=(const StyleRareNonInheritedData& o) const { return !(*this == o); }
  
     bool shadowDataEquivalent(const StyleRareNonInheritedData& o) const;
+    bool transitionDataEquivalent(const StyleRareNonInheritedData&) const;
 
     int lineClamp; // An Apple extension.
     Vector<StyleDashboardRegion> m_dashboardRegions;
@@ -842,6 +1148,7 @@ public:
     DataRef<StyleFlexibleBoxData> flexibleBox; // Flexible box properties 
     DataRef<StyleMarqueeData> marquee; // Marquee properties
     DataRef<StyleMultiColData> m_multiCol; //  CSS3 multicol properties
+    DataRef<StyleTransformData> m_transform; // Transform properties (rotate, scale, skew, etc.)
 
     ContentData* m_content;
     CounterDirectiveMap* m_counterDirectives;
@@ -855,6 +1162,8 @@ public:
     unsigned m_borderFit : 1; // EBorderFit
     ShadowData* m_boxShadow;  // For box-shadow decorations.
     
+    Transition* m_transition;
+
 #if ENABLE(XBL)
     BindingURI* bindingURI; // The XBL binding URI list.
 #endif
@@ -863,7 +1172,7 @@ public:
 // This struct is for rarely used inherited CSS3, CSS2, and WebKit-specific properties.
 // By grouping them together, we save space, and only allocate this object when someone
 // actually uses one of these properties.
-class StyleRareInheritedData : public Shared<StyleRareInheritedData> {
+class StyleRareInheritedData : public RefCounted<StyleRareInheritedData> {
 public:
     StyleRareInheritedData();
     ~StyleRareInheritedData();
@@ -916,7 +1225,7 @@ enum EPageBreak {
     PBAUTO, PBALWAYS, PBAVOID
 };
 
-class StyleInheritedData : public Shared<StyleInheritedData> {
+class StyleInheritedData : public RefCounted<StyleInheritedData> {
 public:
     StyleInheritedData();
     ~StyleInheritedData();
@@ -984,14 +1293,14 @@ struct CursorData {
     String cursorFragmentId; // only used for SVGCursorElement, a direct pointer would get stale
 };
 
-class CursorList : public Shared<CursorList> {
+class CursorList : public RefCounted<CursorList> {
 public:
     const CursorData& operator[](int i) const {
         return m_vector[i];
     }
 
-    bool operator==(const CursorList&) const;
-    bool operator!=(const CursorList& o) const { return !(*this == o); }
+    bool operator==(const CursorList& o) const { return m_vector == o.m_vector; }
+    bool operator!=(const CursorList& o) const { return m_vector != o.m_vector; }
 
     size_t size() const { return m_vector.size(); }
     void append(const CursorData& cursorData) { m_vector.append(cursorData); }
@@ -1016,7 +1325,10 @@ class RenderStyle {
 public:
     // static pseudo styles. Dynamic ones are produced on the fly.
     enum PseudoId { NOPSEUDO, FIRST_LINE, FIRST_LETTER, BEFORE, AFTER, SELECTION, FIRST_LINE_INHERITED, FILE_UPLOAD_BUTTON, SLIDER_THUMB, 
-                    SEARCH_CANCEL_BUTTON, SEARCH_DECORATION, SEARCH_RESULTS_DECORATION, SEARCH_RESULTS_BUTTON };
+                    SEARCH_CANCEL_BUTTON, SEARCH_DECORATION, SEARCH_RESULTS_DECORATION, SEARCH_RESULTS_BUTTON, MEDIA_CONTROLS_PANEL,
+                    MEDIA_CONTROLS_PLAY_BUTTON, MEDIA_CONTROLS_MUTE_BUTTON, MEDIA_CONTROLS_TIMELINE, MEDIA_CONTROLS_TIME_DISPLAY,
+                    MEDIA_CONTROLS_SEEK_BACK_BUTTON, MEDIA_CONTROLS_SEEK_FORWARD_BUTTON , MEDIA_CONTROLS_FULLSCREEN_BUTTON };
+    static const int FIRST_INTERNAL_PSEUDOID = FILE_UPLOAD_BUTTON;
 
     void ref() { m_ref++;  }
     void deref(RenderArena* arena) { 
@@ -1075,7 +1387,7 @@ protected:
         unsigned _text_align : 4; // ETextAlign
         unsigned _text_transform : 2; // ETextTransform
         unsigned _text_decorations : 4;
-        unsigned _cursor_style : 5; // ECursor
+        unsigned _cursor_style : 6; // ECursor
         unsigned _direction : 1; // TextDirection
         bool _border_collapse : 1 ;
         unsigned _white_space : 3; // EWhiteSpace
@@ -1128,11 +1440,11 @@ protected:
         unsigned _page_break_before : 2; // EPageBreak
         unsigned _page_break_after : 2; // EPageBreak
 
-        unsigned _styleType : 4; // PseudoId
+        unsigned _styleType : 5; // PseudoId
         bool _affectedByHover : 1;
         bool _affectedByActive : 1;
         bool _affectedByDrag : 1;
-        unsigned _pseudoBits : 12;
+        unsigned _pseudoBits : 6;
         unsigned _unicodeBidi : 2; // EUnicodeBidi
     } noninherited_flags;
 
@@ -1149,10 +1461,25 @@ protected:
     
 // list of associated pseudo styles
     RenderStyle* pseudoStyle;
-    
+
     unsigned m_pseudoState : 3; // PseudoState
     bool m_affectedByAttributeSelectors : 1;
     bool m_unique : 1;
+    
+    // Bits for dynamic child matching.
+    bool m_affectedByEmpty : 1;
+    bool m_emptyState : 1;
+    
+    // We optimize for :first-child and :last-child.  The other positional child selectors like nth-child or
+    // *-child-of-type, we will just give up and re-evaluate whenever children change at all.
+    bool m_childrenAffectedByFirstChildRules : 1;
+    bool m_childrenAffectedByLastChildRules  : 1;
+    bool m_childrenAffectedByForwardPositionalRules : 1;
+    bool m_childrenAffectedByBackwardPositionalRules : 1;
+    bool m_firstChildState : 1;
+    bool m_lastChildState : 1;
+    unsigned m_childIndex : 19; // Plenty of bits to cache an index.
+
     int m_ref;
     
 #if ENABLE(SVG)
@@ -1486,9 +1813,16 @@ public:
     EPageBreak columnBreakBefore() const { return static_cast<EPageBreak>(rareNonInheritedData->m_multiCol->m_breakBefore); }
     EPageBreak columnBreakInside() const { return static_cast<EPageBreak>(rareNonInheritedData->m_multiCol->m_breakInside); }
     EPageBreak columnBreakAfter() const { return static_cast<EPageBreak>(rareNonInheritedData->m_multiCol->m_breakAfter); }
+    const TransformOperations& transform() const { return rareNonInheritedData->m_transform->m_operations; }
+    Length transformOriginX() const { return rareNonInheritedData->m_transform->m_x; }
+    Length transformOriginY() const { return rareNonInheritedData->m_transform->m_y; }
+    bool hasTransform() const { return !rareNonInheritedData->m_transform->m_operations.isEmpty(); }
+    void applyTransform(AffineTransform&, const IntSize& borderBoxSize) const;
     // End CSS3 Getters
 
     // Apple-specific property getter methods
+    Transition* accessTransitions();
+    const Transition* transitions() const { return rareNonInheritedData->m_transition; }
     int lineClamp() const { return rareNonInheritedData->lineClamp; }
     bool textSizeAdjust() const { return rareInheritedData->textSizeAdjust; }
     ETextSecurity textSecurity() const { return static_cast<ETextSecurity>(rareInheritedData->textSecurity); }
@@ -1728,9 +2062,15 @@ public:
     void setColumnBreakBefore(EPageBreak p) { SET_VAR(rareNonInheritedData.access()->m_multiCol, m_breakBefore, p); }
     void setColumnBreakInside(EPageBreak p) { SET_VAR(rareNonInheritedData.access()->m_multiCol, m_breakInside, p); }
     void setColumnBreakAfter(EPageBreak p) { SET_VAR(rareNonInheritedData.access()->m_multiCol, m_breakAfter, p); }
+    void setTransform(const TransformOperations& ops) { SET_VAR(rareNonInheritedData.access()->m_transform, m_operations, ops); }
+    void setTransformOriginX(Length l) { SET_VAR(rareNonInheritedData.access()->m_transform, m_x, l); }
+    void setTransformOriginY(Length l) { SET_VAR(rareNonInheritedData.access()->m_transform, m_y, l); }
     // End CSS3 Setters
    
     // Apple-specific property setters
+    void clearTransitions() { delete rareNonInheritedData.access()->m_transition; rareNonInheritedData.access()->m_transition = 0; }
+    void inheritTransitions(const Transition* parent) { clearTransitions(); if (parent) rareNonInheritedData.access()->m_transition = new Transition(*parent); }
+    void adjustTransitions();
     void setLineClamp(int c) { SET_VAR(rareNonInheritedData, lineClamp, c); }
     void setTextSizeAdjust(bool b) { SET_VAR(rareInheritedData, textSizeAdjust, b); }
     void setTextSecurity(ETextSecurity aTextSecurity) { SET_VAR(rareInheritedData, textSecurity, aTextSecurity); } 
@@ -1781,6 +2121,25 @@ public:
 
     bool unique() const { return m_unique; }
     void setUnique() { m_unique = true; }
+    
+    // Methods for indicating the style is affected by dynamic updates (e.g., children changing, our position changing in our sibling list, etc.)
+    bool affectedByEmpty() const { return m_affectedByEmpty; }
+    bool emptyState() const { return m_emptyState; }
+    void setEmptyState(bool b) { m_affectedByEmpty = true; m_unique = true; m_emptyState = b; }
+    bool childrenAffectedByFirstChildRules() const { return m_childrenAffectedByFirstChildRules; }
+    void setChildrenAffectedByFirstChildRules() { m_childrenAffectedByFirstChildRules = true; }
+    bool childrenAffectedByLastChildRules() const { return m_childrenAffectedByLastChildRules; }
+    void setChildrenAffectedByLastChildRules() { m_childrenAffectedByLastChildRules = true; }
+    bool childrenAffectedByForwardPositionalRules() const { return m_childrenAffectedByForwardPositionalRules; }
+    void setChildrenAffectedByForwardPositionalRules() { m_childrenAffectedByForwardPositionalRules = true; }
+    bool childrenAffectedByBackwardPositionalRules() const { return m_childrenAffectedByBackwardPositionalRules; }
+    void setChildrenAffectedByBackwardPositionalRules() { m_childrenAffectedByBackwardPositionalRules = true; }
+    bool firstChildState() const { return m_firstChildState; }
+    void setFirstChildState() { m_firstChildState = true; }
+    bool lastChildState() const { return m_lastChildState; }
+    void setLastChildState() { m_lastChildState = true; }
+    unsigned childIndex() const { return m_childIndex; }
+    void setChildIndex(unsigned index) { m_childIndex = index; }
 
     // Initial values for all the properties
     static bool initialBackgroundAttachment() { return true; }
@@ -1825,7 +2184,7 @@ public:
     static Length initialMaxSize() { return Length(undefinedLength, Fixed); }
     static Length initialOffset() { return Length(); }
     static Length initialMargin() { return Length(Fixed); }
-    static Length initialPadding() { return Length(Auto); }
+    static Length initialPadding() { return Length(Fixed); }
     static Length initialTextIndent() { return Length(Fixed); }
     static EVerticalAlign initialVerticalAlign() { return BASELINE; }
     static int initialWidows() { return 2; }
@@ -1867,8 +2226,15 @@ public:
     static bool initialVisuallyOrdered() { return false; }
     static float initialTextStrokeWidth() { return 0; }
     static unsigned short initialColumnCount() { return 1; }
-
+    static const TransformOperations& initialTransform() { static TransformOperations ops; return ops; }
+    static Length initialTransformOriginX() { return Length(50.0, Percent); }
+    static Length initialTransformOriginY() { return Length(50.0, Percent); }
+    
     // Keep these at the end.
+    static int initialTransitionDuration() { return 0; }
+    static int initialTransitionRepeatCount() { return 1; }
+    static TimingFunction initialTransitionTimingFunction() { return TimingFunction(); }
+    static int initialTransitionProperty() { return cAnimateAll; }
     static int initialLineClamp() { return -1; }
     static bool initialTextSizeAdjust() { return true; }
     static ETextSecurity initialTextSecurity() { return TSNONE; }

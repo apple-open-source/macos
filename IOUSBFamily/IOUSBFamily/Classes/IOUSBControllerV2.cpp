@@ -749,7 +749,7 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
     err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
     if (kIOReturnSuccess == err)
 	{
-		bool isSyncTransfer = command->GetIsSyncTransfer();
+		bool	isSyncTransfer = command->GetIsSyncTransfer();
 		
         err = _commandGate->runAction(DoIOTransfer, command);
 		

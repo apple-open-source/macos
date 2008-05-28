@@ -32,59 +32,70 @@
 #include "Clipboard.h"
 #include "Event.h"
 #include "JSKeyboardEvent.h"
+#include "JSMessageEvent.h"
 #include "JSMouseEvent.h"
 #include "JSMutationEvent.h"
 #include "JSOverflowEvent.h"
+#include "JSProgressEvent.h"
 #include "JSTextEvent.h"
 #include "JSUIEvent.h"
 #include "JSWheelEvent.h"
 #include "KeyboardEvent.h"
+#include "MessageEvent.h"
 #include "MouseEvent.h"
 #include "MutationEvent.h"
 #include "OverflowEvent.h"
+#include "ProgressEvent.h"
 #include "TextEvent.h"
 #include "UIEvent.h"
 #include "WheelEvent.h"
 #include "kjs_events.h"
 
+using namespace KJS;
+
 namespace WebCore {
 
-KJS::JSValue* JSEvent::clipboardData(KJS::ExecState* exec) const
+JSValue* JSEvent::clipboardData(ExecState* exec) const
 {
-    return impl()->isClipboardEvent() ? toJS(exec, impl()->clipboardData()) : KJS::jsUndefined();
+    return impl()->isClipboardEvent() ? toJS(exec, impl()->clipboardData()) : jsUndefined();
 }
 
-KJS::JSValue* toJS(KJS::ExecState* exec, Event* event)
+JSValue* toJS(ExecState* exec, Event* event)
 {
-    KJS::JSLock lock;
+    JSLock lock;
 
     if (!event)
-        return KJS::jsNull();
+        return jsNull();
 
-    KJS::ScriptInterpreter* interp = static_cast<KJS::ScriptInterpreter*>(exec->dynamicInterpreter());
 
-    KJS::DOMObject* ret = interp->getDOMObject(event);
+    DOMObject* ret = ScriptInterpreter::getDOMObject(event);
     if (ret)
         return ret;
 
     if (event->isKeyboardEvent())
-        ret = new JSKeyboardEvent(exec, static_cast<KeyboardEvent*>(event));
+        ret = new JSKeyboardEvent(JSKeyboardEventPrototype::self(exec), static_cast<KeyboardEvent*>(event));
     else if (event->isTextEvent())
-        ret = new JSTextEvent(exec, static_cast<TextEvent*>(event));
+        ret = new JSTextEvent(JSTextEventPrototype::self(exec), static_cast<TextEvent*>(event));
     else if (event->isMouseEvent())
-        ret = new JSMouseEvent(exec, static_cast<MouseEvent*>(event));
+        ret = new JSMouseEvent(JSMouseEventPrototype::self(exec), static_cast<MouseEvent*>(event));
     else if (event->isWheelEvent())
-        ret = new JSWheelEvent(exec, static_cast<WheelEvent*>(event));
+        ret = new JSWheelEvent(JSWheelEventPrototype::self(exec), static_cast<WheelEvent*>(event));
     else if (event->isUIEvent())
-        ret = new JSUIEvent(exec, static_cast<UIEvent*>(event));
+        ret = new JSUIEvent(JSUIEventPrototype::self(exec), static_cast<UIEvent*>(event));
     else if (event->isMutationEvent())
-        ret = new JSMutationEvent(exec, static_cast<MutationEvent*>(event));
+        ret = new JSMutationEvent(JSMutationEventPrototype::self(exec), static_cast<MutationEvent*>(event));
     else if (event->isOverflowEvent())
-        ret = new JSOverflowEvent(exec, static_cast<OverflowEvent*>(event));
+        ret = new JSOverflowEvent(JSOverflowEventPrototype::self(exec), static_cast<OverflowEvent*>(event));
+#if ENABLE(CROSS_DOCUMENT_MESSAGING)
+    else if (event->isMessageEvent())
+        ret = new JSMessageEvent(JSMessageEventPrototype::self(exec), static_cast<MessageEvent*>(event));
+#endif
+    else if (event->isProgressEvent())
+        ret = new JSProgressEvent(JSProgressEventPrototype::self(exec), static_cast<ProgressEvent*>(event));
     else
-        ret = new JSEvent(exec, event);
+        ret = new JSEvent(JSEventPrototype::self(exec), event);
 
-    interp->putDOMObject(event, ret);
+    ScriptInterpreter::putDOMObject(event, ret);
     return ret;
 }
 

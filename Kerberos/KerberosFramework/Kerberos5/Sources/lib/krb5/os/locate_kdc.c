@@ -613,8 +613,15 @@ module_locate_server (krb5_context ctx, const krb5_data *realm,
     void **ptrs;
     int i;
     struct module_callback_data cbdata = { 0, };
+    char *realmc = NULL;
 
     Tprintf("in module_locate_server\n");
+    realmc = malloc(realm->length+1);
+    if (NULL == realmc)
+	    return ENOMEM;
+    memcpy(realmc, realm->data, realm->length);
+    realmc[realm->length] = '\0';
+
     cbdata.lp = addrlist;
     if (!PLUGIN_DIR_OPEN (&ctx->libkrb5_plugins)) {
         
@@ -644,7 +651,7 @@ module_locate_server (krb5_context ctx, const krb5_data *realm,
 	if (code)
 	    continue;
 
-	code = vtbl->lookup(blob, svc, realm->data, socktype, family,
+	code = vtbl->lookup(blob, svc, realmc, socktype, family,
 			    module_callback, &cbdata);
 	vtbl->fini(blob);
 	if (code == KRB5_PLUGIN_NO_HANDLE) {
@@ -658,6 +665,7 @@ module_locate_server (krb5_context ctx, const krb5_data *realm,
 	    Tprintf("plugin lookup routine returned error %d: %s\n",
 		    code, error_message(code));
 	    krb5int_free_plugin_dir_data (ptrs);
+	    free(realmc);
 	    return code;
 	}
 	break;
@@ -665,6 +673,7 @@ module_locate_server (krb5_context ctx, const krb5_data *realm,
     if (ptrs[i] == NULL) {
 	Tprintf("ran off end of plugin list\n");
 	krb5int_free_plugin_dir_data (ptrs);
+	free(realmc);
 	return KRB5_PLUGIN_NO_HANDLE;
     }
     Tprintf("stopped with plugin #%d, res=%p\n", i, res);
@@ -673,6 +682,7 @@ module_locate_server (krb5_context ctx, const krb5_data *realm,
     Tprintf("now have %d addrs in list %p\n", addrlist->naddrs, addrlist);
     print_addrlist(addrlist);
     krb5int_free_plugin_dir_data (ptrs);
+    free(realmc);
     return 0;
 }
 

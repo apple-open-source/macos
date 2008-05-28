@@ -160,16 +160,21 @@ class CDSLocalPluginNode
 		int						sqlExecSync( const char *command, UInt32 commandLength = -1 );
 	
 		int						EnsureDirs( const char *inPath, mode_t inPathMode, mode_t inFinalMode );
-		bool					SafeBootMode( void );
 		static void *			LoadIndexAsynchronously( void *inPtr );
+		void					RemoveIndex( void );
+		void					DatabaseCorrupt( void );
+		static void				IndexObject( const void *inValue, void *inContext );
 
 	private:
 		DSMutexSemaphore			fDBLock;
 		sqlite3*					mFileAccessIndexPtr;
 		char*						mIndexPath;
 		int32_t						mUseIndex;
+		int32_t						mIndexLoading;
 		LocalNodeIndexMap			mIndexMap;
 		DSEventSemaphore			mIndexLoaded;
+		bool						mProperShutdown;
+		bool						mSafeBoot;
 #endif
 		
 		CDSLocalPlugin*				mPlugin;

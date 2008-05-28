@@ -32,6 +32,10 @@
 #include "PageCache.h"
 #include "HistoryItem.h"
 
+#if ENABLE(DATABASE)
+#include "DatabaseTracker.h"
+#endif
+
 namespace WebCore {
 
 static void setNeedsReapplyStylesInAllFrames(Page* page)
@@ -57,12 +61,16 @@ Settings::Settings(Page* page)
     , m_textAreasAreResizable(false)
     , m_usesDashboardBackwardCompatibilityMode(false)
     , m_needsAdobeFrameReloadingQuirk(false)
+    , m_needsKeyboardEventDisambiguationQuirks(false)
     , m_isDOMPasteAllowed(false)
     , m_shrinksStandaloneImagesToFit(true)
     , m_usesPageCache(false)
     , m_showsURLsInToolTips(false)
     , m_forceFTPDirectoryListings(false)
     , m_developerExtrasEnabled(false)
+    , m_authorAndUserStylesEnabled(true)
+    , m_needsSiteSpecificQuirks(false)
+    , m_fontRenderingMode(0)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -200,6 +208,8 @@ void Settings::setUserStyleSheetLocation(const KURL& userStyleSheetLocation)
         return;
 
     m_userStyleSheetLocation = userStyleSheetLocation;
+
+    m_page->userStyleSheetLocationChanged();
     setNeedsReapplyStylesInAllFrames(m_page);
 }
 
@@ -232,6 +242,14 @@ void Settings::setUsesDashboardBackwardCompatibilityMode(bool usesDashboardBackw
 void Settings::setNeedsAdobeFrameReloadingQuirk(bool shouldNotReloadIFramesForUnchangedSRC)
 {
     m_needsAdobeFrameReloadingQuirk = shouldNotReloadIFramesForUnchangedSRC;
+}
+
+// This is a quirk we are pro-actively applying to old applications. It changes keyboard event dispatching,
+// making keyIdentifier available on keypress events, making charCode available on keydown/keyup events,
+// and getting keypress dispatched in more cases.
+void Settings::setNeedsKeyboardEventDisambiguationQuirks(bool needsQuirks)
+{
+    m_needsKeyboardEventDisambiguationQuirks = needsQuirks;
 }
 
 void Settings::setDOMPasteAllowed(bool DOMPasteAllowed)
@@ -276,6 +294,33 @@ void Settings::setForceFTPDirectoryListings(bool force)
 void Settings::setDeveloperExtrasEnabled(bool developerExtrasEnabled)
 {
     m_developerExtrasEnabled = developerExtrasEnabled;
+}
+
+void Settings::setAuthorAndUserStylesEnabled(bool authorAndUserStylesEnabled)
+{
+    if (m_authorAndUserStylesEnabled == authorAndUserStylesEnabled)
+        return;
+
+    m_authorAndUserStylesEnabled = authorAndUserStylesEnabled;
+    setNeedsReapplyStylesInAllFrames(m_page);
+}
+
+void Settings::setFontRenderingMode(FontRenderingMode mode)
+{
+    if (fontRenderingMode() == mode)
+        return;
+    m_fontRenderingMode = mode;
+    setNeedsReapplyStylesInAllFrames(m_page);
+}
+
+FontRenderingMode Settings::fontRenderingMode() const
+{
+    return static_cast<FontRenderingMode>(m_fontRenderingMode);
+}
+
+void Settings::setNeedsSiteSpecificQuirks(bool needsQuirks)
+{
+    m_needsSiteSpecificQuirks = needsQuirks;
 }
 
 } // namespace WebCore

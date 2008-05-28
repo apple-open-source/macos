@@ -1,6 +1,6 @@
 --- docs/conf/mime.types.orig	2007-09-13 15:11:28.000000000 -0700
 +++ docs/conf/mime.types	2007-09-13 15:16:33.000000000 -0700
-@@ -94,7 +94,7 @@
+@@ -98,7 +98,7 @@
  application/nss
  application/ocsp-request
  application/ocsp-response
@@ -9,7 +9,7 @@
  application/oda					oda
  application/oebps-package+xml
  application/ogg					ogg
-@@ -618,6 +618,7 @@
+@@ -640,6 +640,7 @@
  application/x-gtar				gtar
  application/x-gzip
  application/x-hdf				hdf
@@ -17,7 +17,7 @@
  application/x-latex				latex
  application/x-ms-wmd				wmd
  application/x-ms-wmz				wmz
-@@ -720,7 +721,7 @@
+@@ -742,7 +743,7 @@
  audio/midi					mid midi kar rmi
  audio/mobile-xmf
  audio/mp4					mp4a
@@ -26,7 +26,7 @@
  audio/mpa
  audio/mpa-robust
  audio/mpeg					mpga mp2 mp2a mp3 m2a m3a
-@@ -789,11 +790,12 @@
+@@ -812,11 +813,12 @@
  image/g3fax					g3
  image/gif					gif
  image/ief					ief
@@ -40,10 +40,10 @@
  image/png					png
  image/prs.btif					btif
  image/prs.pti
-@@ -825,12 +827,14 @@
+@@ -848,12 +850,14 @@
  image/x-cmu-raster				ras
  image/x-cmx					cmx
- image/x-icon
+ image/x-icon					ico
 +image/x-macpaint		pntg pnt mac
  image/x-pcx					pcx
  image/x-pict					pic pct
@@ -55,7 +55,7 @@
  image/x-rgb					rgb
  image/x-xbitmap					xbm
  image/x-xpixmap					xpm
-@@ -944,7 +948,7 @@
+@@ -970,7 +974,7 @@
  video/mp1s
  video/mp2p
  video/mp2t
@@ -64,7 +64,7 @@
  video/mp4v-es
  video/mpeg					mpeg mpg mpe m1v m2v
  video/mpeg4-generic
-@@ -972,6 +976,7 @@
+@@ -999,6 +1003,7 @@
  video/vnd.sealed.swf
  video/vnd.sealedmedia.softseal.mov
  video/vnd.vivo					viv

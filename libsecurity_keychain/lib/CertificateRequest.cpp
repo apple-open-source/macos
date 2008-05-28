@@ -55,6 +55,14 @@
 #define DOT_MAC_REF_ID_KEY	"refId"
 #define DOT_MAC_CERT_KEY	"certificate"
 
+/* Domain for .mac cert requests */
+#define DOT_MAC_DOMAIN_KEY  "domain"
+#define DOT_MAC_DOMAIN      "mac.com"
+
+/* Hosts for .mac cert requests */
+#define DOT_MAC_MGMT_HOST   "certmgmt"
+#define DOT_MAC_INFO_HOST   "certinfo"
+
 /*
  * Compare two CSSM_DATAs (or two CSSM_OIDs), return true if identical.
  */
@@ -92,6 +100,34 @@ static bool attrBoolValue(
 	}
 }
 
+static void tokenizeName(
+		const CSSM_DATA		*inName,    /* required */
+		CSSM_DATA			*outName,   /* required */
+		CSSM_DATA			*outDomain) /* optional */
+{
+    if (!inName || !outName) return;
+    CSSM_SIZE idx = 0;
+    CSSM_SIZE stopIdx = inName->Length;
+    uint8 *p = inName->Data;
+    *outName = *inName;
+    if (outDomain) {
+        outDomain->Length = idx;
+        outDomain->Data = p;
+    }
+    if (!p) return;
+    while (idx < stopIdx) {
+        if (*p++ == '@') {
+            outName->Length = idx;
+            if (outDomain) {
+                outDomain->Length = inName->Length - (idx + 1);
+                outDomain->Data = p;
+            }
+            break;
+        }
+        idx++;
+    }
+}
+
 using namespace KeychainCore;
 
 CertificateRequest::CertificateRequest(const CSSM_OID &policy,	
@@ -116,6 +152,7 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 			mUserName(mAlloc),
 			mPassword(mAlloc),
 			mHostName(mAlloc),
+			mDomain(mAlloc),
 			mDoRenew(false),
 			mIsAsync(false)
 {
@@ -151,7 +188,15 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 			MacOSError::throwMe(paramErr);
 		}
 		if(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_VALUE_USERNAME, &attr->oid)) {
-			mUserName.copy(attr->value);
+            CSSM_DATA userName = { 0, NULL };
+            CSSM_DATA domainName = { 0, NULL };
+            tokenizeName(&attr->value, &userName, &domainName);
+            if (!domainName.Length || !domainName.Data) {
+                domainName.Length = strlen(DOT_MAC_DOMAIN);
+                domainName.Data = (uint8*) DOT_MAC_DOMAIN;
+            }
+			mUserName.copy(userName);
+            mDomain.copy(domainName);
 		}
 		else if(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_VALUE_PASSWORD, &attr->oid)) {
 			mPassword.copy(attr->value);
@@ -289,11 +334,12 @@ void CertificateRequest::submitDotMac(
 	tvp.valueType = BER_TAG_PKIX_UTF8_STRING;
 	CssmAutoData fullUserName(mAlloc);
 	unsigned nameLen = mUserName.length();
-	unsigned addLen = strlen("@mac.com");
-	fullUserName.malloc(nameLen + addLen);
+	unsigned domainLen = mDomain.length();
+	fullUserName.malloc(nameLen + 1 + domainLen);
 	tvp.value = fullUserName.get();
 	memmove(tvp.value.Data, mUserName.data(), nameLen);
-	memmove(tvp.value.Data + nameLen, "@mac.com", addLen);
+	memmove(tvp.value.Data + nameLen, "@", 1);
+	memmove(tvp.value.Data + nameLen + 1, mDomain.data(), domainLen);
 	
 	/* Fill in the CSSM_APPLE_DOTMAC_TP_CERT_REQUEST */
 	memset(&certReq, 0, sizeof(certReq));
@@ -329,13 +375,21 @@ void CertificateRequest::submitDotMac(
 		MacOSError::throwMe(ortn);
 	}
 
+	CssmAutoData hostName(mAlloc);
+    tpAuthority.AuthorityCert = NULL;
+    tpAuthority.AuthorityLocation = &tpNetAddrs;
+    tpNetAddrs.AddressType = CSSM_ADDR_NAME;
 	if(mHostName.data() != NULL) {
-		tpAuthority.AuthorityCert = NULL;
-		tpAuthority.AuthorityLocation = &tpNetAddrs;
-		tpNetAddrs.AddressType = CSSM_ADDR_NAME;
 		tpNetAddrs.Address = mHostName.get();
-		tpAuthPtr = &tpAuthority;
-	}
+	} else {
+        unsigned hostLen = strlen(DOT_MAC_MGMT_HOST);
+        hostName.malloc(hostLen + 1 + domainLen);
+        tpNetAddrs.Address = hostName.get();
+        memmove(tpNetAddrs.Address.Data, DOT_MAC_MGMT_HOST, hostLen);
+        memmove(tpNetAddrs.Address.Data + hostLen, ".", 1);
+        memmove(tpNetAddrs.Address.Data + hostLen + 1, mDomain.data(), domainLen);
+    }
+    tpAuthPtr = &tpAuthority;
 
 	/* go */
 	crtn = CSSM_TP_SubmitCredRequest(mTP->handle(),
@@ -374,7 +428,7 @@ void CertificateRequest::submitDotMac(
 			/* return success - this crtn is not visible at API */
 			crtn = CSSM_OK;
 			if(!mIsAsync) {
-				/* store in prefs if not running in async modce */
+				/* store in prefs if not running in async mode */
 				ortn = storeResults(&refId, NULL);
 				if(ortn) {
 					crtn = ortn;
@@ -573,6 +627,7 @@ OSStatus CertificateRequest::storeResults(
 {
 	assert(mPolicy.data() != NULL);
 	assert(mUserName.data() != NULL);
+	assert(mDomain.data() != NULL);
 	
 	bool deleteEntry = ((refId == NULL) && (certData == NULL));
 	
@@ -598,6 +653,10 @@ OSStatus CertificateRequest::storeResults(
 	else {
 		/* get a mutable copy of the dictionary for this user, or a fresh empty one */
 		MutableDictionary *userDict = policyDict->copyMutableDictValue(userKey);
+        
+        CFStringRef domainKey = CFStringCreateWithBytes(NULL, (UInt8 *)mDomain.data(), mDomain.length(), kCFStringEncodingUTF8, false);
+        userDict->setValue(CFSTR(DOT_MAC_DOMAIN_KEY), domainKey);
+        CFRelease(domainKey);
 	
 		/* write refId and/or cert --> user dictionary */
 		if(refId) {
@@ -606,7 +665,7 @@ OSStatus CertificateRequest::storeResults(
 		if(certData) {
 			userDict->setDataValue(CFSTR(DOT_MAC_CERT_KEY), certData->Data, certData->Length);
 		}
-	
+
 		/* new user dictionary --> policy dictionary */
 		policyDict->setValue(userKey, userDict->dict());
 		delete userDict;

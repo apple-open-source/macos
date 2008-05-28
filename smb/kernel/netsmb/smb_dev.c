@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -364,7 +364,7 @@ nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, struct proc *p)
 		error = smb_usr_tcon((struct smbioc_treeconn*)data, &scred, vcp, &ssp);
 		if (error)
 			break;
-		smb_vc_put(vcp, &scred);
+		smb_vc_rele(vcp, &scred);
 		if (ssp) {
 			sdp->sd_share = ssp;
 			smb_share_unlock(ssp);

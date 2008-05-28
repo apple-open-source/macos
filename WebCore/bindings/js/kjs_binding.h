@@ -1,8 +1,6 @@
-// -*- c-basic-offset: 4 -*-
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Samuel Weinig <sam@webkit.org>
  *
  *  This library is free software; you can redistribute it and/or
@@ -24,6 +22,7 @@
 #define kjs_binding_h
 
 #include <kjs/function.h>
+#include <kjs/interpreter.h>
 #include <kjs/lookup.h>
 #include <wtf/Noncopyable.h>
 
@@ -41,35 +40,37 @@ namespace WebCore {
     class JSNode;
 
     typedef int ExceptionCode;
+
+#if ENABLE(SVG)
+    class SVGElement;
+#endif
 }
 
 namespace KJS {
 
     /**
-     * Base class for all objects in this binding.
+     * Base class for all objects in this binding EXCEPT Window
      */
     class DOMObject : public JSObject {
     protected:
-        DOMObject()
+        explicit DOMObject(JSValue* prototype) // FIXME: this should take a JSObject once JSLocation has a real prototype
+            : JSObject(prototype)
         {
             // DOMObject destruction is not thread-safe because DOMObjects wrap 
             // unsafe WebCore DOM data structures.
             Collector::collectOnMainThreadOnly(this);
         }
+
 #ifndef NDEBUG
         virtual ~DOMObject();
 #endif
+
+    private:
+        DOMObject();
     };
 
-    /**
-     * We inherit from Interpreter, to save a pointer to the HTML part
-     * that the interpreter runs for.
-     * The interpreter also stores the DOM object -> KJS::DOMObject cache.
-     */
     class ScriptInterpreter : public Interpreter {
     public:
-        ScriptInterpreter(JSObject* global, WebCore::Frame*);
-
         static DOMObject* getDOMObject(void* objectHandle);
         static void putDOMObject(void* objectHandle, DOMObject*);
         static void forgetDOMObject(void* objectHandle);
@@ -80,54 +81,37 @@ namespace KJS {
         static void forgetAllDOMNodesForDocument(WebCore::Document*);
         static void updateDOMNodeDocument(WebCore::Node*, WebCore::Document* oldDoc, WebCore::Document* newDoc);
         static void markDOMNodesForDocument(WebCore::Document*);
-
-        WebCore::Frame* frame() const { return m_frame; }
-
-        /**
-         * Set the event that is triggering the execution of a script, if any
-         */
-        void setCurrentEvent(WebCore::Event* event) { m_currentEvent = event; }
-        void setInlineCode(bool inlineCode) { m_inlineCode = inlineCode; }
-        void setProcessingTimerCallback(bool timerCallback) { m_timerCallback = timerCallback; }
-
-        /**
-         * "Smart" window.open policy
-         */
-        bool wasRunByUserGesture() const;
-
-        virtual ExecState* globalExec();
-
-        WebCore::Event* getCurrentEvent() const { return m_currentEvent; }
-
-        virtual bool isGlobalObject(JSValue*);
-        virtual Interpreter* interpreterForGlobalObject(const JSValue*);
-        virtual bool isSafeScript(const Interpreter* target);
-
-        virtual bool shouldInterruptScript() const;
-
-    private:
-        virtual ~ScriptInterpreter() { } // only deref on the base class should delete us
-    
-        WebCore::Frame* m_frame;
-        WebCore::Event* m_currentEvent;
-        bool m_inlineCode;
-        bool m_timerCallback;
     };
 
     /**
-     * Retrieve from cache, or create, a KJS object around a DOM object
+     * Retrieve from cache, or create, a JS object around a DOM object
      */
-    template<class DOMObj, class KJSDOMObj> inline JSValue *cacheDOMObject(ExecState* exec, DOMObj* domObj)
+    template<class DOMObj, class JSDOMObj, class JSDOMObjPrototype> inline JSValue* cacheDOMObject(ExecState* exec, DOMObj* domObj)
     {
         if (!domObj)
             return jsNull();
-        ScriptInterpreter* interp = static_cast<ScriptInterpreter*>(exec->dynamicInterpreter());
-        if (DOMObject* ret = interp->getDOMObject(domObj))
+        if (DOMObject* ret = ScriptInterpreter::getDOMObject(domObj))
             return ret;
-        DOMObject* ret = new KJSDOMObj(exec, domObj);
-        interp->putDOMObject(domObj, ret);
+        DOMObject* ret = new JSDOMObj(JSDOMObjPrototype::self(exec), domObj);
+        ScriptInterpreter::putDOMObject(domObj, ret);
         return ret;
     }
+
+#if ENABLE(SVG)
+    /**
+     * Retrieve from cache, or create, a JS object around a SVG DOM object
+     */
+    template<class DOMObj, class JSDOMObj, class JSDOMObjPrototype> inline JSValue* cacheSVGDOMObject(ExecState* exec, DOMObj* domObj, WebCore::SVGElement* context)
+    {
+        if (!domObj)
+            return jsNull();
+        if (DOMObject* ret = ScriptInterpreter::getDOMObject(domObj))
+            return ret;
+        DOMObject* ret = new JSDOMObj(JSDOMObjPrototype::self(exec), domObj, context);
+        ScriptInterpreter::putDOMObject(domObj, ret);
+        return ret;
+    }
+#endif
 
     // Convert a DOM implementation exception code into a JavaScript exception in the execution state.
     void setDOMException(ExecState*, WebCore::ExceptionCode);
@@ -156,6 +140,20 @@ namespace KJS {
 
     template <typename T> inline JSValue* toJS(ExecState* exec, PassRefPtr<T> ptr) { return toJS(exec, ptr.get()); }
 
-} // namespace
+} // namespace KJS
 
-#endif
+namespace WebCore {
+
+    // Helpers for Window, History, and Location classes to implement cross-domain policy.
+    // Besides the cross-domain check, they need non-caching versions of staticFunctionGetter for
+    // because we do not want current property values involved at all.
+    bool allowsAccessFromFrame(KJS::ExecState*, Frame*);
+    bool allowsAccessFromFrame(KJS::ExecState*, Frame*, String& message);
+    void printErrorMessageForFrame(Frame*, const String& message);
+
+    KJS::JSValue* nonCachingStaticFunctionGetter(KJS::ExecState*, KJS::JSObject*, const KJS::Identifier& propertyName, const KJS::PropertySlot&);
+    KJS::JSValue* objectToStringFunctionGetter(KJS::ExecState*, KJS::JSObject*, const KJS::Identifier& propertyName, const KJS::PropertySlot&);
+
+} // namespace WebCore
+
+#endif // kjs_binding_h

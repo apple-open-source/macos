@@ -151,18 +151,6 @@ bool HTMLPlugInElement::checkDTD(const Node* newChild)
     return newChild->hasTagName(paramTag) || HTMLFrameOwnerElement::checkDTD(newChild);
 }
 
-void HTMLPlugInElement::willRemove()
-{
-    if (Frame* parentFrame = document()->frame()) {
-        if (Frame* contentFrame = parentFrame->tree()->child(m_frameName)) {
-            contentFrame->disconnectOwnerElement();
-            contentFrame->loader()->frameDetached();
-        }
-    }
-
-    HTMLFrameOwnerElement::willRemove();
-}
-
 void HTMLPlugInElement::defaultEventHandler(Event* event)
 {
     RenderObject* r = renderer();
@@ -192,19 +180,19 @@ NPObject* HTMLPlugInElement::createNPObject()
     }
 
     // Can't create NPObjects when JavaScript is disabled
-    if (!settings->isJavaScriptEnabled())
+    if (!frame->scriptProxy()->isEnabled())
         return _NPN_CreateNoScriptObject();
     
     // Create a JSObject bound to this element
     JSLock lock;
-    ExecState *exec = frame->scriptProxy()->interpreter()->globalExec();
+    ExecState *exec = frame->scriptProxy()->globalObject()->globalExec();
     JSValue* jsElementValue = toJS(exec, this);
     if (!jsElementValue || !jsElementValue->isObject())
         return _NPN_CreateNoScriptObject();
 
     // Wrap the JSObject in an NPObject
     RootObject* rootObject = frame->bindingRootObject();
-    return _NPN_CreateScriptObject(0, jsElementValue->getObject(), rootObject, rootObject);
+    return _NPN_CreateScriptObject(0, jsElementValue->getObject(), rootObject);
 }
 
 NPObject* HTMLPlugInElement::getNPObject()
@@ -215,5 +203,10 @@ NPObject* HTMLPlugInElement::getNPObject()
 }
 
 #endif /* USE(NPOBJECT) */
+
+void HTMLPlugInElement::updateWidgetCallback(Node* n)
+{
+    static_cast<HTMLPlugInElement*>(n)->updateWidget();
+}
 
 }

@@ -548,6 +548,201 @@ int webdav_lookup(struct vnop_lookup_args *ap, struct webdav_reply_lookup *reply
 
 /*****************************************************************************/
 
+/*
+ * webdav_getattr_common
+ *
+ * Common routine for returning the most up-to-date vattr information.
+ * It is called by webdav_vnop_getattr(), and also needed by webdav_vnop_lookup() for dealing
+ * with negative name caching.
+ *
+ * Note: This routine does not lock the webdavnode associated with vp.
+ *       A shared lock MUST be held on the webdavnode 'vp' before calling this routine.
+ *
+ * results:
+ *	0		Success.
+ *	EIO		A physical I/O error has occurred, or this error was generated for
+ *			implementation-defined reasons.
+ */
+static int webdav_getattr_common(vnode_t vp, struct vnode_attr *vap, vfs_context_t a_context)
+{
+	vnode_t cachevp;
+	struct vnode_attr cache_vap;
+	struct webdavnode *pt;
+	struct webdavmount *fmp;
+	int error;
+	int server_error;
+	int cache_vap_valid;
+	int callServer;
+	struct webdav_request_getattr request_getattr;
+	struct webdav_reply_getattr reply_getattr;
+		
+	START_MARKER("webdav_getattr");
+
+	fmp = VFSTOWEBDAV(vnode_mount(vp));
+	pt = VTOWEBDAV(vp);
+	
+	cachevp = pt->pt_cache_vnode;
+	error = server_error = 0;
+	
+	/* get everything we need out of vp and related structures before
+	 * making any blocking calls where vp could go away.
+	 */
+	/* full access for owner only - the server decides what can really be done */
+	VATTR_RETURN(vap, va_mode, S_IRWXU |	/* owner */
+				   (vnode_isdir(vp) ? S_IFDIR : S_IFREG));
+	/* Why 1 for va_nlink?
+	 * Getting the real link count for directories is expensive.
+	 * Setting it to 1 lets FTS(3) (and other utilities that assume
+	 * 1 means a file system doesn't support link counts) work.
+	 */
+	VATTR_RETURN(vap, va_nlink, 1);
+	VATTR_RETURN(vap, va_uid, UNKNOWNUID);
+	VATTR_RETURN(vap, va_gid, UNKNOWNUID);
+	VATTR_RETURN(vap, va_fsid, vfs_statfs(vnode_mount(vp))->f_fsid.val[0]);
+	VATTR_RETURN(vap, va_fileid, pt->pt_fileid);
+	VATTR_RETURN(vap, va_access_time, pt->pt_atime);
+	VATTR_RETURN(vap, va_modify_time, pt->pt_mtime);
+	VATTR_RETURN(vap, va_change_time, pt->pt_ctime);
+	VATTR_RETURN(vap, va_gen, 0);
+	VATTR_RETURN(vap, va_flags, 0);
+	VATTR_RETURN(vap, va_rdev, 0);
+	VATTR_RETURN(vap, va_filerev, 0);
+	
+	bzero(&reply_getattr, sizeof(struct webdav_reply_getattr));
+	
+	if ( (vnode_isreg(vp)) && (cachevp != NULLVP) )
+	{
+		/* vp is a file and there's a cache file.
+		 * Get the cache file's information since it is the latest.
+		 */
+		VATTR_INIT(&cache_vap);
+		VATTR_WANTED(&cache_vap, va_flags);
+		VATTR_WANTED(&cache_vap, va_data_size);
+		VATTR_WANTED(&cache_vap, va_total_alloc);
+		VATTR_WANTED(&cache_vap, va_iosize);
+		VATTR_WANTED(&cache_vap, va_access_time);
+		VATTR_WANTED(&cache_vap, va_modify_time);
+		VATTR_WANTED(&cache_vap, va_change_time);
+		error = vnode_getattr(cachevp, &cache_vap, a_context);
+		if (error)
+		{
+			printf("webdav_getattr: cachevp: %d\n", error);
+			goto bad;
+		}
+				
+		cache_vap_valid = TRUE;
+		
+		/* if the cache file is not complete or the download failed, we still need to call the server */
+		if ( (cache_vap.va_flags & UF_NODUMP) || (cache_vap.va_flags & UF_APPEND) )
+		{
+			callServer = !(pt->pt_status & WEBDAV_DELETED);
+		}
+		else
+		{
+			callServer = FALSE;
+		}
+	}
+	else
+	{
+		cache_vap_valid = FALSE;
+		callServer = !(pt->pt_status & WEBDAV_DELETED);
+	}
+	
+	if ( callServer )
+	{
+		/* get the server file's information */
+		webdav_copy_creds(a_context, &request_getattr.pcr);
+		request_getattr.obj_id = pt->pt_obj_id;
+		
+		error = webdav_sendmsg(WEBDAV_GETATTR, fmp,
+			&request_getattr, sizeof(struct webdav_request_getattr), 
+			NULL, 0, 
+			&server_error, &reply_getattr, sizeof(struct webdav_reply_getattr));
+		if ( (error == 0) && (server_error != 0) )
+		{
+			if ( server_error == ESTALE )
+			{
+				/*
+				 * The object id(s) passed to userland are invalid.
+				 * Purge the vnode(s) and restart the request.
+				 */
+				webdav_purge_stale_vnode(vp);
+				error = ERESTART;
+			}
+			else
+			{
+				error = server_error;
+			}
+		}
+		if (error)
+		{
+			goto bad;
+		}
+		
+		/* use the server file's size info */
+		VATTR_RETURN(vap, va_data_size, reply_getattr.obj_attr.st_size);
+		VATTR_RETURN(vap, va_total_alloc, reply_getattr.obj_attr.st_blocks * S_BLKSIZE);
+		VATTR_RETURN(vap, va_iosize, reply_getattr.obj_attr.st_blksize);
+	}
+	else
+	{
+		/* use the cache file's size info */
+		VATTR_RETURN(vap, va_data_size, cache_vap.va_data_size);
+		VATTR_RETURN(vap, va_total_alloc, cache_vap.va_total_alloc);
+		VATTR_RETURN(vap, va_iosize, cache_vap.va_iosize);
+	}
+	
+	if ( cache_vap_valid )
+	{
+		/* use the time stamps from the cache file if needed */
+		if ( pt->pt_status & WEBDAV_DIRTY )
+		{
+			VATTR_RETURN(vap, va_access_time, cache_vap.va_access_time);
+			VATTR_RETURN(vap, va_modify_time, cache_vap.va_modify_time);
+			VATTR_RETURN(vap, va_change_time, cache_vap.va_change_time);
+		}
+		else if ( (pt->pt_status & WEBDAV_ACCESSED) )
+		{
+			/* Though we have not dirtied the file, we have accessed it so
+			 * grab the cache file's access time.
+			 */
+			VATTR_RETURN(vap, va_access_time, cache_vap.va_access_time);
+		}
+	}
+	else
+	{
+		/* no cache file, so use reply_getattr.obj_attr for times if possible */
+		if ( reply_getattr.obj_attr.st_atimespec.tv_sec != 0 )
+		{
+			/* use the server times if they were returned (if the getlastmodified
+			 * property isn't returned by the server, reply_getattr.obj_attr.va_atime will be 0)
+			 */
+			VATTR_RETURN(vap, va_access_time, reply_getattr.obj_attr.st_atimespec);
+			VATTR_RETURN(vap, va_modify_time, reply_getattr.obj_attr.st_mtimespec);
+			VATTR_RETURN(vap, va_change_time, reply_getattr.obj_attr.st_ctimespec);
+		}
+		else
+		{
+			/* otherwise, use the current time */
+			nanotime(&vap->va_access_time);
+			VATTR_SET_SUPPORTED(vap, va_access_time);
+			VATTR_RETURN(vap, va_modify_time, vap->va_access_time);
+			VATTR_RETURN(vap, va_change_time, vap->va_access_time);
+		}
+	}
+	
+	/* update node timestamp cache */
+	pt->pt_atime = vap->va_access_time;
+	pt->pt_mtime = vap->va_modify_time;
+	pt->pt_ctime = vap->va_change_time;
+	nanotime(&pt->pt_timestamp_refresh);
+
+bad:
+    return (error);
+}
+
+/*****************************************************************************/
+
 __private_extern__
 int webdav_get(
 	struct mount *mp,			/* mount point */
@@ -624,6 +819,8 @@ int webdav_get(
 	new_pt->pt_atime = obj_atime;
 	new_pt->pt_mtime = obj_mtime;
 	new_pt->pt_ctime = obj_ctime;
+	new_pt->pt_mtime_old = obj_mtime;
+	nanotime(&new_pt->pt_timestamp_refresh);
 	new_pt->pt_filesize = obj_filesize;
 	new_pt->pt_opencount = 0;
 		
@@ -702,6 +899,8 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 	vnode_t *vpp;
 	struct componentname *cnp;
 	struct webdavmount *fmp;
+	struct timespec curr;		/* for negative name caching */
+	struct vnode_attr vap;		/* for negative name caching */
 	struct webdavnode *pt_dvp;
 	int islastcn;
 	int isdotdot;
@@ -765,6 +964,33 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 	}
 	else
 	{
+		/*
+		 * If dvp has negncache entries, we first determine if dvp has been modified by checking
+		 * the "modified" timestamp attribute.  If dvp has been modified, then we
+		 * purge the negncache for dvp before the normal cache_lookup.
+		 */
+		 
+		webdav_lock(pt_dvp, WEBDAV_SHARED_LOCK);
+		if (pt_dvp->pt_status & WEBDAV_NEGNCENTRIES)
+		{
+			/* check if we need to fetch the latest dvp attributes from the server (to update pt_mtime) */
+			nanotime(&curr);
+			if ( (curr.tv_sec - pt_dvp->pt_timestamp_refresh.tv_sec) > TIMESTAMP_CACHE_TIMEOUT)
+			{
+				/* fetch latest attributes from the server. */
+				webdav_getattr_common(dvp, &vap, ap->a_context);
+			}
+
+			/* If dvp has been modified on the server since we last checked */
+			if (pt_dvp->pt_mtime.tv_sec != pt_dvp->pt_mtime_old.tv_sec)
+			{
+				cache_purge_negatives(dvp);
+				pt_dvp->pt_status &= ~WEBDAV_NEGNCENTRIES;
+				pt_dvp->pt_mtime_old.tv_sec = pt_dvp->pt_mtime.tv_sec;
+			}
+		}
+		webdav_unlock(pt_dvp);
+
 		error = cache_lookup(dvp, vpp, cnp);
 		switch ( error )
 		{
@@ -793,8 +1019,6 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 					pt_dvp->pt_lastvop = webdav_vnop_lookup;
 					
 					error = webdav_lookup(ap, &reply_lookup);
-				
-					webdav_unlock(pt_dvp);
 					
 					if ( error != 0 )
 					{
@@ -813,13 +1037,22 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 							{
 								/* the lookup failed, return ENOENT */
 								error = ENOENT;
+								if ((cnp->cn_flags & MAKEENTRY) &&
+									(cnp->cn_nameiop != CREATE))
+								{
+									/* add a negative entry in the name cache */
+									cache_enter(dvp, NULL, cnp);
+									pt_dvp->pt_status |= WEBDAV_NEGNCENTRIES;
+								}
 							}
 						}
 						
+						webdav_unlock(pt_dvp);
 						break;	/* break with error != 0 */
 					}
+					webdav_unlock(pt_dvp);
 				}
-				
+								
 				/* the lookup was OK or wasn't needed (dot or dotdot) */
 
 				if ( (nameiop == DELETE) && islastcn )
@@ -900,8 +1133,6 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 				break;
 				
 			case ENOENT: /* negative match */
-				/* we don't use negative caching so break with error */
-				printf("webdav_vnop_lookup: ENOENT response from cache_lookup\n");
 				break;
 				
 			default: /* unexpected error */
@@ -942,6 +1173,20 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 	webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
 	pt->pt_lastvop = webdav_vnop_open;
 	
+	/* If we're already open for a sequential write and another writer comes in,
+	 * kick him out and return EBUSY.  We'd like to kick out readers too, but
+	 * Finder opens for read before it opens for write, which means it wouldn't
+	 * be able to perform a sequential write in its current state.
+	 */
+	if (pt->pt_writeseq_enabled && pt->pt_opencount_write && (ap->a_mode & FWRITE)) 
+	{
+#if DEBUG
+		printf("KWRITESEQ: Write sequential is enabled and another writer came in.\n");
+#endif
+		webdav_unlock(pt);
+		return ( EBUSY );
+	}
+		
 	/* If it is already open then just ref the node
 	 * and go on about our business. Make sure to set
 	 * the write status if this is read/write open
@@ -957,6 +1202,11 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 			webdav_unlock(pt);
 			return ( ENFILE );
 		}
+	
+		/* increment the "open for writing count" */
+		if (ap->a_mode & FWRITE)
+			++pt->pt_opencount_write;
+			
 		/* Set the "dir not loaded" bit if this is a directory, that way
 		 * readdir will know that it needs to force a directory download
 		 * even if the first call turns out not to be in the middle of the
@@ -1028,6 +1278,9 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 
 		/* set the open count */
 		pt->pt_opencount = 1;
+		
+		if (ap->a_mode & FWRITE)
+			pt->pt_opencount_write = 1;
 		
 		/* Set the "dir not loaded" bit if this is a directory, that way
 		 * readdir will know that it needs to force a directory download
@@ -1314,12 +1567,13 @@ int webdav_close_mnomap(vnode_t vp, vfs_context_t context, int force_fsync)
 	if ( pt->pt_cache_vnode != NULLVP )
 	{
 		/*
-		 * If this is a file, synchronize the file with the server (if needed).
+		 * If this is a file synchronize the file with the server (if needed).
+		 * Skip the fsync if file is in sequential write mode.
 		 * Always call webdav_fsync on close requests with write access (force_fsync)
 		 * and when the file is not open (at last close, and from mnomap after
 		 * last close).
 		 */
-		if ( vnode_isreg(vp) && (force_fsync || (pt->pt_opencount == 0)) )
+		if ( vnode_isreg(vp) && (pt->pt_writeseq_enabled == 0) && (force_fsync || (pt->pt_opencount == 0)) )
 		{
 			struct vnop_fsync_args fsync_args;
 			
@@ -1426,12 +1680,21 @@ static int webdav_vnop_close(struct vnop_close_args *ap)
 	 * close because this is the last chance we have to return an error to
 	 * the file system client.
 	 */
-	force_fsync = (((ap->a_fflag & FWRITE) != 0) && vnode_isreg(ap->a_vp));
+	force_fsync = (((ap->a_fflag & FWRITE) != 0) && vnode_isreg(ap->a_vp) && (pt->pt_writeseq_enabled == 0));
 	
 	/* decrement the open count */
 	--pt->pt_opencount;
-	
+		
 	error = webdav_close_mnomap(ap->a_vp, ap->a_context, force_fsync);
+
+	// We do this after calling webdav_close_mnomap(), because
+	// webdav_close_mnomap() will cause an fsync if pt_opencount_write
+	// is not set.
+	if (ap->a_fflag & FWRITE) {
+		/* decrement open for writing count */
+		--pt->pt_opencount_write;
+		pt->pt_writeseq_enabled = 0;
+	}
 	webdav_unlock(pt);
 	
 	RET_ERR("webdav_vnop_close", error);
@@ -2096,15 +2359,159 @@ static int webdav_vnop_write(struct vnop_write_args *ap)
 {
 	struct webdavnode *pt;
 	int error;
+	struct webdav_request_writeseq *req = NULL;
+	struct webdav_reply_writeseq reply;	
+	vnode_t cachevp, vp;
+	uio_t in_uio;
+	struct vnode_attr vattr;
+	struct webdavmount *fmp;
+	int server_error;
 	
 	START_MARKER("webdav_vnop_write");
 	pt = VTOWEBDAV(ap->a_vp);	
 	webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
-	pt->pt_lastvop = webdav_vnop_write;
 	
-	error = webdav_rdwr((struct vnop_read_args *)ap);
+	vp = ap->a_vp;
+	/* make sure this is not a directory */
+	if ( vnode_isdir(vp) )
+	{
+		error = EISDIR;
+		goto out1;
+	}
+	
+	if (!pt->pt_writeseq_enabled)
+	{
+		pt->pt_lastvop = webdav_vnop_write;
+	
+		error = webdav_rdwr((struct vnop_read_args *)ap);
+		webdav_unlock(pt);
+		goto out2;
+	}
+	
+	/* write sequential mode */
+	MALLOC(req, void *, sizeof(struct webdav_request_writeseq), M_TEMP, M_WAITOK);
+	if (req == NULL) {
+		error = ENOMEM;
+		webdav_unlock(pt);
+		goto out2;	
+	}
+	
+	fmp = VFSTOWEBDAV(vnode_mount(vp));
+	cachevp = pt->pt_cache_vnode;
+	in_uio = ap->a_uio;
+
+#if DEBUG
+	printf("KWRITESEQ: vnop_write: sequential write -> uio_offset: %llu uio_resid %llu\n",
+		uio_offset(in_uio), (uint64_t)uio_resid(in_uio));
+#endif
+		
+	/* setup request before messing with uio */
+	webdav_copy_creds(ap->a_context, &req->pcr);
+	req->obj_id = pt->pt_obj_id;
+	req->offset = uio_offset(in_uio);
+	req->count = uio_resid(in_uio);
+	req->file_len = pt->pt_writeseq_len;
+	
+	/* reset uio to original state, before writing to the cache file */
+	
+	/******************************************************/
+	/*** Step 1. Write the data chunk to the cache file ***/
+	/******************************************************/
+
+	/* make sure this is the offset we're expecting */
+	if (pt->pt_writeseq_offset != uio_offset(in_uio))
+	{
+		printf("KWRITESEQ: vnop_write: wrong offset. uio_offset: %llu, expected: %llu\n",
+			uio_offset(in_uio), pt->pt_writeseq_offset);
+		error = EINVAL;
+		goto out1;	
+	}
+
+	/* make sure there's a cache file vnode associated with the webdav vnode */
+	if ( cachevp == NULLVP )
+	{
+		printf("KWRITESEQ: vnop_write: cache vnode is NULL\n");
+		error = EIO;
+		goto out1;
+	}	
+	
+	/* pass the write along to the underlying cache file */
+	error = VNOP_WRITE(cachevp, in_uio, 0, ap->a_context);
+	if (error)
+	{
+		printf("KWRITESEQ: vnop_write: VNOP_WRITE failed, errno %d\n", error);
+		goto out1;
+	}
+
+	/* update the size of the cache file */
+	VATTR_INIT(&vattr);
+	VATTR_SET(&vattr, va_data_size, uio_offset(in_uio));
+	error = vnode_setattr(cachevp, &vattr, ap->a_context);
+	
+	if (error)
+	{
+		printf("KWRITESEQ: vnop_write: vnop_setattr failed, errno %d\n", error);
+		goto out1;
+	}
+	
+	/* let the UBC know the new size */
+	(void) ubc_setsize(vp, uio_offset(in_uio)); /* ignore failures - nothing can be done */
+	
+	/*************************************************/
+	/*** Step 2. Send the data chunk to the server ***/
+	/*************************************************/
+	error = webdav_sendmsg(WEBDAV_WRITESEQ, fmp,
+			req, sizeof(struct webdav_request_writeseq), 
+			NULL, 0, 
+			&server_error, &reply, sizeof(struct webdav_reply_writeseq));
+	
+	if ( (server_error == 0) && (error == 0) )
+	{
+		// update write sequential offset
+		pt->pt_writeseq_offset += req->count;
+#if DEBUG
+		printf("KWRITESEQ: Success for offset:%llu len: %lu\n", req->offset, req->count); 
+#endif
+		goto out1;
+	} else {
+		/* Otherwise, no error will be returned if server_error != EAGAIN even
+		 * though we have an error at this point
+		 */
+		error = EIO;
+	}
+	
+	/*************************************************************/
+	/*** EAGAIN,  Retry the PUT request one time from the start ***/
+	/*************************************************************/	
+	if ( server_error == EAGAIN ) {
+		req->is_retry = 1;
+		req->offset = 0;
+		req->count = pt->pt_writeseq_offset + req->count;
+#if DEBUG
+		printf("KWRITESEQ: Retrying PUT request of %lu bytes, server_error: %d error: %d\n", req->count, server_error, error);
+#endif
+		error = webdav_sendmsg(WEBDAV_WRITESEQ, fmp,
+							   req, sizeof(struct webdav_request_writeseq), 
+							   NULL, 0, 
+							   &server_error, &reply, sizeof(struct webdav_reply_writeseq));
+		
+		if ( (server_error == 0) && (error == 0))
+		{
+			// update write sequential offset
+			pt->pt_writeseq_offset += req->count;
+#if DEBUG
+			printf("KWRITESEQ: Retry was successfull, count:%lu\n", req->count);
+#endif
+		} else {
+			printf("KWRITESEQ: Retry failed, server_error %d, error %d\n", server_error, error);
+			error = EIO;
+		}
+	}
+
+out1:
 	webdav_unlock(pt);
-	
+	FREE((caddr_t)req, M_TEMP);
+out2:
 	RET_ERR("webdav_vnop_write", error);
 }
 
@@ -2131,178 +2538,20 @@ static int webdav_vnop_getattr(struct vnop_getattr_args *ap)
 */
 {
 	vnode_t vp;
-	vnode_t cachevp;
-	struct vnode_attr *vap;
-	struct vnode_attr cache_vap;
 	struct webdavnode *pt;
-	struct webdavmount *fmp;
 	int error;
-	int server_error;
-	int cache_vap_valid;
-	int callServer;
-	struct webdav_request_getattr request_getattr;
-	struct webdav_reply_getattr reply_getattr;
 		
 	START_MARKER("webdav_vnop_getattr");
 
 	vp = ap->a_vp;
-	vap = ap->a_vap;
-	fmp = VFSTOWEBDAV(vnode_mount(vp));
 	pt = VTOWEBDAV(vp);
 	
 	webdav_lock(pt, WEBDAV_SHARED_LOCK);
 	pt->pt_lastvop = webdav_vnop_getattr;
-	cachevp = pt->pt_cache_vnode;
-	error = server_error = 0;
 	
-	/* get everything we need out of vp and related structures before
-	 * making any blocking calls where vp could go away.
-	 */
-	/* full access for owner only - the server decides what can really be done */
-	VATTR_RETURN(vap, va_mode, S_IRWXU |	/* owner */
-				   (vnode_isdir(vp) ? S_IFDIR : S_IFREG));
-	/* Why 1 for va_nlink?
-	 * Getting the real link count for directories is expensive.
-	 * Setting it to 1 lets FTS(3) (and other utilities that assume
-	 * 1 means a file system doesn't support link counts) work.
-	 */
-	VATTR_RETURN(vap, va_nlink, 1);
-	VATTR_RETURN(vap, va_uid, UNKNOWNUID);
-	VATTR_RETURN(vap, va_gid, UNKNOWNUID);
-	VATTR_RETURN(vap, va_fsid, vfs_statfs(vnode_mount(vp))->f_fsid.val[0]);
-	VATTR_RETURN(vap, va_fileid, pt->pt_fileid);
-	VATTR_RETURN(vap, va_access_time, pt->pt_atime);
-	VATTR_RETURN(vap, va_modify_time, pt->pt_mtime);
-	VATTR_RETURN(vap, va_change_time, pt->pt_ctime);
-	VATTR_RETURN(vap, va_gen, 0);
-	VATTR_RETURN(vap, va_flags, 0);
-	VATTR_RETURN(vap, va_rdev, 0);
-	VATTR_RETURN(vap, va_filerev, 0);
+	/* call the common routine */
+	error = webdav_getattr_common(vp, ap->a_vap, ap->a_context);
 	
-	bzero(&reply_getattr, sizeof(struct webdav_reply_getattr));
-	
-	if ( (vnode_isreg(vp)) && (cachevp != NULLVP) )
-	{
-		/* vp is a file and there's a cache file.
-		 * Get the cache file's information since it is the latest.
-		 */
-		VATTR_INIT(&cache_vap);
-		VATTR_WANTED(&cache_vap, va_flags);
-		VATTR_WANTED(&cache_vap, va_data_size);
-		VATTR_WANTED(&cache_vap, va_total_alloc);
-		VATTR_WANTED(&cache_vap, va_iosize);
-		VATTR_WANTED(&cache_vap, va_access_time);
-		VATTR_WANTED(&cache_vap, va_modify_time);
-		VATTR_WANTED(&cache_vap, va_change_time);
-		error = vnode_getattr(cachevp, &cache_vap, ap->a_context);
-		if (error)
-		{
-			printf("webdav_vnop_getattr: cachevp: %d\n", error);
-			goto bad;
-		}
-				
-		cache_vap_valid = TRUE;
-		
-		/* if the cache file is not complete or the download failed, we still need to call the server */
-		if ( (cache_vap.va_flags & UF_NODUMP) || (cache_vap.va_flags & UF_APPEND) )
-		{
-			callServer = !(pt->pt_status & WEBDAV_DELETED);
-		}
-		else
-		{
-			callServer = FALSE;
-		}
-	}
-	else
-	{
-		cache_vap_valid = FALSE;
-		callServer = !(pt->pt_status & WEBDAV_DELETED);
-	}
-	
-	if ( callServer )
-	{
-		/* get the server file's information */
-		webdav_copy_creds(ap->a_context, &request_getattr.pcr);
-		request_getattr.obj_id = pt->pt_obj_id;
-		
-		error = webdav_sendmsg(WEBDAV_GETATTR, fmp,
-			&request_getattr, sizeof(struct webdav_request_getattr), 
-			NULL, 0, 
-			&server_error, &reply_getattr, sizeof(struct webdav_reply_getattr));
-		if ( (error == 0) && (server_error != 0) )
-		{
-			if ( server_error == ESTALE )
-			{
-				/*
-				 * The object id(s) passed to userland are invalid.
-				 * Purge the vnode(s) and restart the request.
-				 */
-				webdav_purge_stale_vnode(vp);
-				error = ERESTART;
-			}
-			else
-			{
-				error = server_error;
-			}
-		}
-		if (error)
-		{
-			goto bad;
-		}
-		
-		/* use the server file's size info */
-		VATTR_RETURN(vap, va_data_size, reply_getattr.obj_attr.st_size);
-		VATTR_RETURN(vap, va_total_alloc, reply_getattr.obj_attr.st_blocks * S_BLKSIZE);
-		VATTR_RETURN(vap, va_iosize, reply_getattr.obj_attr.st_blksize);
-	}
-	else
-	{
-		/* use the cache file's size info */
-		VATTR_RETURN(vap, va_data_size, cache_vap.va_data_size);
-		VATTR_RETURN(vap, va_total_alloc, cache_vap.va_total_alloc);
-		VATTR_RETURN(vap, va_iosize, cache_vap.va_iosize);
-	}
-	
-	if ( cache_vap_valid )
-	{
-		/* use the time stamps from the cache file if needed */
-		if ( pt->pt_status & WEBDAV_DIRTY )
-		{
-			VATTR_RETURN(vap, va_access_time, cache_vap.va_access_time);
-			VATTR_RETURN(vap, va_modify_time, cache_vap.va_modify_time);
-			VATTR_RETURN(vap, va_change_time, cache_vap.va_change_time);
-		}
-		else if ( (pt->pt_status & WEBDAV_ACCESSED) )
-		{
-			/* Though we have not dirtied the file, we have accessed it so
-			 * grab the cache file's access time.
-			 */
-			VATTR_RETURN(vap, va_access_time, cache_vap.va_access_time);
-		}
-	}
-	else
-	{
-		/* no cache file, so use reply_getattr.obj_attr for times if possible */
-		if ( reply_getattr.obj_attr.st_atimespec.tv_sec != 0 )
-		{
-			/* use the server times if they were returned (if the getlastmodified
-			 * property isn't returned by the server, reply_getattr.obj_attr.va_atime will be 0)
-			 */
-			VATTR_RETURN(vap, va_access_time, reply_getattr.obj_attr.st_atimespec);
-			VATTR_RETURN(vap, va_modify_time, reply_getattr.obj_attr.st_mtimespec);
-			VATTR_RETURN(vap, va_change_time, reply_getattr.obj_attr.st_ctimespec);
-		}
-		else
-		{
-			/* otherwise, use the current time */
-			nanotime(&vap->va_access_time);
-			VATTR_SET_SUPPORTED(vap, va_access_time);
-			VATTR_RETURN(vap, va_modify_time, vap->va_access_time);
-			VATTR_RETURN(vap, va_change_time, vap->va_access_time);
-		}
-	}
-
-bad:
 	webdav_unlock(pt);
 
 	RET_ERR("webdav_vnop_getattr", error);
@@ -2405,6 +2654,13 @@ static int webdav_vnop_remove(struct vnop_remove_args *ap)
 	{
 		goto bad;
 	}
+	
+	/* parent directory just changed, flush negative name cache entries */
+	if (VTOWEBDAV(dvp)->pt_status & WEBDAV_NEGNCENTRIES)
+	{
+		VTOWEBDAV(dvp)->pt_status &= ~WEBDAV_NEGNCENTRIES;
+		cache_purge_negatives(dvp);
+	}
 
 	/* Get the node off of the cache so that other lookups
 	 * won't find it and think the file still exists
@@ -2505,6 +2761,13 @@ static int webdav_vnop_rmdir(struct vnop_rmdir_args *ap)
 		goto bad;
 	}
 
+	/* parent directory just changed, flush negative name cache entries */
+	if (VTOWEBDAV(dvp)->pt_status & WEBDAV_NEGNCENTRIES)
+	{
+		VTOWEBDAV(dvp)->pt_status &= ~WEBDAV_NEGNCENTRIES;
+		cache_purge_negatives(dvp);
+	}
+
 	/* Get the node off of the cache so that other lookups
 	 * won't find it and think the file still exists
 	 */
@@ -2599,6 +2862,13 @@ static int webdav_vnop_create(struct vnop_create_args *ap)
 	
 	/* parent directory changed so force readdir to reload */
 	VTOWEBDAV(dvp)->pt_status |= WEBDAV_DIR_NOT_LOADED;
+	
+	/* parent directory just changed, flush negative name cache entries */
+	if (VTOWEBDAV(dvp)->pt_status & WEBDAV_NEGNCENTRIES)
+	{
+		VTOWEBDAV(dvp)->pt_status &= ~WEBDAV_NEGNCENTRIES;
+		cache_purge_negatives(dvp);
+	}
 
 	microtime(&tv);
 	TIMEVAL_TO_TIMESPEC(&tv, &ts);
@@ -2656,7 +2926,7 @@ static int webdav_vnop_rename(struct vnop_rename_args *ap)
 		tpt = VTOWEBDAV(tvp);
 	else
 		tpt = NULL;
-
+	
 	/*
 	 * Determine parent-child locking order and store in lock_arr.
 	 */
@@ -2780,6 +3050,13 @@ static int webdav_vnop_rename(struct vnop_rename_args *ap)
 	/* parent directories may have changed (even if error) so force readdir to reload */
 	VTOWEBDAV(fdvp)->pt_status |= WEBDAV_DIR_NOT_LOADED;
 	VTOWEBDAV(tdvp)->pt_status |= WEBDAV_DIR_NOT_LOADED;
+	
+	/* Purge negative cache entries in the destination directory */
+	if (VTOWEBDAV(tdvp)->pt_status & WEBDAV_NEGNCENTRIES)
+	{
+		VTOWEBDAV(tdvp)->pt_status &= ~WEBDAV_NEGNCENTRIES;
+		cache_purge_negatives(tdvp);		
+	}
 
 done:
 	/* Unlock all nodes in reverse order */
@@ -2869,6 +3146,13 @@ static int webdav_vnop_mkdir(struct vnop_mkdir_args *ap)
 
 	/* parent directory changed so force readdir to reload */
 	VTOWEBDAV(dvp)->pt_status |= WEBDAV_DIR_NOT_LOADED;
+	
+	/* parent directory changed so flush negative name cache */
+	if (pt_dvp->pt_status & WEBDAV_NEGNCENTRIES)
+	{
+		pt_dvp->pt_status &= ~WEBDAV_NEGNCENTRIES;
+		cache_purge_negatives(dvp);
+	}
 
 	microtime(&tv);
 	TIMEVAL_TO_TIMESPEC(&tv, &ts);
@@ -3819,6 +4103,8 @@ static int webdav_vnop_ioctl(struct vnop_ioctl_args *ap)
 {
 	int error;
 	vnode_t vp;
+	struct webdavnode *pt;
+	struct WebdavWriteSequential *wrseq_ptr;
 	
 	START_MARKER("webdav_vnop_ioctl");
 
@@ -3851,13 +4137,39 @@ static int webdav_vnop_ioctl(struct vnop_ioctl_args *ap)
 			}
 		}
 		break;
+		case WEBDAV_WRITE_SEQUENTIAL:
+			wrseq_ptr = (struct WebdavWriteSequential *)ap->a_data;
+			pt = VTOWEBDAV(vp);
+			
+			webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+			if (pt->pt_writeseq_enabled) {
+#if DEBUG
+				printf("KWRITESEQ: webdav_ioctl: writeseq mode already enabled\n");
+#endif
+				error = 0;
+			} else if (pt->pt_opencount_write > 1) {
+#if DEBUG
+				printf("KWRITESEQ: webdav_ioctl: pt_opencount_write too high: %u\n", pt->pt_opencount_write);
+#endif
+				error = EBUSY;
+			} else {
+#if DEBUG
+				printf("KWRITESEQ: webdav_ioctl: writesequential mode enabled, file_len %llu\n", wrseq_ptr->file_len);
+#endif
+				pt->pt_writeseq_enabled = 1;
+				pt->pt_writeseq_len = wrseq_ptr->file_len;
+				pt->pt_writeseq_offset = 0; 
+				error = 0;
+			}
+			webdav_unlock(pt);
+		break;
 	
-default:
+		default:
 
 		error = EINVAL;
 		break;
 	}
-
+	
 	RET_ERR("webdav_vnop_ioctl", error);
 }
 

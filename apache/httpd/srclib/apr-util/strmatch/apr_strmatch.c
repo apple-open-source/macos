@@ -1,9 +1,9 @@
-/* Copyright 2002-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -36,7 +36,7 @@ static const char *match_boyer_moore_horspool(
                                const char *s, apr_size_t slen)
 {
     const char *s_end = s + slen;
-    int *shift = (int *)(this_pattern->context);
+    apr_size_t *shift = (apr_size_t *)(this_pattern->context);
     const char *s_next = s + this_pattern->length - 1;
     const char *p_start = this_pattern->pattern;
     const char *p_end = p_start + this_pattern->length - 1;
@@ -60,7 +60,7 @@ static const char *match_boyer_moore_horspool_nocase(
                                const char *s, apr_size_t slen)
 {
     const char *s_end = s + slen;
-    int *shift = (int *)(this_pattern->context);
+    apr_size_t *shift = (apr_size_t *)(this_pattern->context);
     const char *s_next = s + this_pattern->length - 1;
     const char *p_start = this_pattern->pattern;
     const char *p_end = p_start + this_pattern->length - 1;
@@ -85,7 +85,7 @@ APU_DECLARE(const apr_strmatch_pattern *) apr_strmatch_precompile(
 {
     apr_strmatch_pattern *pattern;
     apr_size_t i;
-    int *shift;
+    apr_size_t *shift;
 
     pattern = apr_palloc(p, sizeof(*pattern));
     pattern->pattern = s;
@@ -96,7 +96,7 @@ APU_DECLARE(const apr_strmatch_pattern *) apr_strmatch_precompile(
         return pattern;
     }
 
-    shift = (int *)apr_palloc(p, sizeof(int) * NUM_CHARS);
+    shift = (apr_size_t *)apr_palloc(p, sizeof(apr_size_t) * NUM_CHARS);
     for (i = 0; i < NUM_CHARS; i++) {
         shift[i] = pattern->length;
     }

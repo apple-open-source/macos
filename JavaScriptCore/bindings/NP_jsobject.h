@@ -28,7 +28,7 @@
 
 #if !PLATFORM(DARWIN) || !defined(__LP64__)
 
-#include "npruntime.h"
+#include "npruntime_internal.h"
 #include <wtf/Forward.h>
 
 namespace KJS {
@@ -44,11 +44,10 @@ struct JavaScriptObject
 {
     NPObject object;
     KJS::JSObject* imp;
-    KJS::Bindings::RootObject* originRootObject;
     KJS::Bindings::RootObject* rootObject;
 };
 
-NPObject* _NPN_CreateScriptObject(NPP npp, KJS::JSObject*, PassRefPtr<KJS::Bindings::RootObject> originRootObject, PassRefPtr<KJS::Bindings::RootObject> rootObject);
+NPObject* _NPN_CreateScriptObject(NPP npp, KJS::JSObject*, PassRefPtr<KJS::Bindings::RootObject> rootObject);
 NPObject* _NPN_CreateNoScriptObject(void);
 
 #endif

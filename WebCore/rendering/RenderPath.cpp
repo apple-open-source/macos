@@ -1,7 +1,7 @@
 /*
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005 Rob Buis <buis@kde.org>
-                  2005 Eric Seidel <eric.seidel@kdemail.net>
+                  2005, 2007 Eric Seidel <eric@webkit.org>
 
     This file is part of the KDE project
 
@@ -30,15 +30,15 @@
 
 #include "FloatPoint.h"
 #include "GraphicsContext.h"
-#include "KCanvasRenderingStyle.h"
 #include "PointerEventsHitRules.h"
 #include "RenderSVGContainer.h"
 #include "SVGPaintServer.h"
-#include "SVGResourceClipper.h"
+#include "SVGRenderSupport.h"
 #include "SVGResourceFilter.h"
 #include "SVGResourceMarker.h"
 #include "SVGResourceMasker.h"
-#include "SVGStyledElement.h"
+#include "SVGStyledTransformableElement.h"
+#include "SVGTransformList.h"
 #include "SVGURIReference.h"
 
 #include <wtf/MathExtras.h>
@@ -46,10 +46,11 @@
 namespace WebCore {
 
 // RenderPath
-RenderPath::RenderPath(RenderStyle* style, SVGStyledElement* node)
+RenderPath::RenderPath(RenderStyle* style, SVGStyledTransformableElement* node)
     : RenderObject(node)
 {
     ASSERT(style != 0);
+    ASSERT(static_cast<SVGElement*>(node)->isStyledTransformable());
 }
 
 RenderPath::~RenderPath()
@@ -58,12 +59,7 @@ RenderPath::~RenderPath()
 
 AffineTransform RenderPath::localTransform() const
 {
-    return m_matrix;
-}
-
-void RenderPath::setLocalTransform(const AffineTransform& matrix)
-{
-    m_matrix = matrix;
+    return m_localTransform;
 }
 
 FloatPoint RenderPath::mapAbsolutePointToLocal(const FloatPoint& point) const
@@ -81,7 +77,7 @@ bool RenderPath::fillContains(const FloatPoint& point, bool requiresFill) const
     if (m_path.isEmpty())
         return false;
 
-    if (requiresFill && !KSVGPainterFactory::fillPaintServer(style(), this))
+    if (requiresFill && !SVGPaintServer::fillPaintServer(style(), this))
         return false;
 
     return m_path.contains(point, style()->svgStyle()->fillRule());
@@ -117,24 +113,33 @@ const Path& RenderPath::path() const
     return m_path;
 }
 
+bool RenderPath::calculateLocalTransform()
+{
+    AffineTransform oldTransform = m_localTransform;
+    m_localTransform = static_cast<SVGStyledTransformableElement*>(element())->animatedLocalTransform();
+    return (m_localTransform != oldTransform);
+}
+
 void RenderPath::layout()
 {
     IntRect oldBounds;
     IntRect oldOutlineBox;
-    bool checkForRepaint = checkForRepaintDuringLayout();
-    if (selfNeedsLayout() && checkForRepaint) {
+    bool checkForRepaint = checkForRepaintDuringLayout() && selfNeedsLayout();
+    if (checkForRepaint) {
         oldBounds = m_absoluteBounds;
         oldOutlineBox = absoluteOutlineBox();
     }
+        
+    calculateLocalTransform();
 
-    setPath(static_cast<SVGStyledElement*>(element())->toPathData());
+    setPath(static_cast<SVGStyledTransformableElement*>(element())->toPathData());
 
     m_absoluteBounds = absoluteClippedOverflowRect();
 
     setWidth(m_absoluteBounds.width());
     setHeight(m_absoluteBounds.height());
 
-    if (selfNeedsLayout() && checkForRepaint)
+    if (checkForRepaint)
         repaintAfterLayoutIfNeeded(oldBounds, oldOutlineBox);
 
     setNeedsLayout(false);
@@ -147,7 +152,7 @@ IntRect RenderPath::absoluteClippedOverflowRect()
     // Markers can expand the bounding box
     repaintRect.unite(m_markerBounds);
 
-#if ENABLE(SVG_EXPERIMENTAL_FEATURES)
+#if ENABLE(SVG_FILTERS)
     // Filters can expand the bounding box
     SVGResourceFilter* filter = getFilterById(document(), SVGURIReference::getTarget(style()->svgStyle()->filter()));
     if (filter)
@@ -175,96 +180,81 @@ short RenderPath::baselinePosition(bool b, bool isRootLineBox) const
     return static_cast<short>(relativeBBox(true).height());
 }
 
+static inline void fillAndStrokePath(const Path& path, GraphicsContext* context, RenderStyle* style, RenderPath* object)
+{
+    context->beginPath();
+
+    SVGPaintServer* fillPaintServer = SVGPaintServer::fillPaintServer(style, object);
+    if (fillPaintServer) {
+        context->addPath(path);
+        fillPaintServer->draw(context, object, ApplyToFillTargetType);
+    }
+    
+    SVGPaintServer* strokePaintServer = SVGPaintServer::strokePaintServer(style, object);
+    if (strokePaintServer) {
+        context->addPath(path); // path is cleared when filled.
+        strokePaintServer->draw(context, object, ApplyToStrokeTargetType);
+    }
+}
+
 void RenderPath::paint(PaintInfo& paintInfo, int, int)
 {
-    if (paintInfo.context->paintingDisabled() || (paintInfo.phase != PaintPhaseForeground) || style()->visibility() == HIDDEN || m_path.isEmpty())
+    if (paintInfo.context->paintingDisabled() || style()->visibility() == HIDDEN || m_path.isEmpty())
         return;
-
+            
     paintInfo.context->save();
     paintInfo.context->concatCTM(localTransform());
 
-    FloatRect strokeBBox = relativeBBox(true);
+    SVGResourceFilter* filter = 0;
 
-    SVGElement* svgElement = static_cast<SVGElement*>(element());
-    ASSERT(svgElement && svgElement->document() && svgElement->isStyled());
+    FloatRect boundingBox = relativeBBox(true);
+    if (paintInfo.phase == PaintPhaseForeground) {
+        PaintInfo savedInfo(paintInfo);
 
-    SVGStyledElement* styledElement = static_cast<SVGStyledElement*>(svgElement);
-    const SVGRenderStyle* svgStyle = style()->svgStyle();
+        prepareToRenderSVGContent(this, paintInfo, boundingBox, filter);
+        if (style()->svgStyle()->shapeRendering() == SR_CRISPEDGES)
+            paintInfo.context->setUseAntialiasing(false);
+        fillAndStrokePath(m_path, paintInfo.context, style(), this);
 
-    AtomicString filterId(SVGURIReference::getTarget(svgStyle->filter()));
-    AtomicString clipperId(SVGURIReference::getTarget(svgStyle->clipPath()));
-    AtomicString maskerId(SVGURIReference::getTarget(svgStyle->maskElement()));
+        if (static_cast<SVGStyledElement*>(element())->supportsMarkers())
+            m_markerBounds = drawMarkersIfNeeded(paintInfo.context, paintInfo.rect, m_path);
 
-#if ENABLE(SVG_EXPERIMENTAL_FEATURES)
-    SVGResourceFilter* filter = getFilterById(document(), filterId);
-#endif
-    SVGResourceClipper* clipper = getClipperById(document(), clipperId);
-    SVGResourceMasker* masker = getMaskerById(document(), maskerId);
-
-#if ENABLE(SVG_EXPERIMENTAL_FEATURES)
-    if (filter)
-        filter->prepareFilter(paintInfo.context, strokeBBox);
-    else if (!filterId.isEmpty())
-        svgElement->document()->accessSVGExtensions()->addPendingResource(filterId, styledElement);
-#endif
-
-    if (clipper) {
-        clipper->addClient(styledElement);
-        clipper->applyClip(paintInfo.context, strokeBBox);
-    } else if (!clipperId.isEmpty())
-        svgElement->document()->accessSVGExtensions()->addPendingResource(clipperId, styledElement);
-
-    if (masker) {
-        masker->addClient(styledElement);
-        masker->applyMask(paintInfo.context, strokeBBox);
-    } else if (!maskerId.isEmpty())
-        svgElement->document()->accessSVGExtensions()->addPendingResource(maskerId, styledElement);
-
-    paintInfo.context->beginPath();
-
-    SVGPaintServer* fillPaintServer = KSVGPainterFactory::fillPaintServer(style(), this);
-    if (fillPaintServer) {
-        paintInfo.context->addPath(m_path);
-        fillPaintServer->draw(paintInfo.context, this, ApplyToFillTargetType);
+        finishRenderSVGContent(this, paintInfo, boundingBox, filter, savedInfo.context);
     }
 
-    SVGPaintServer* strokePaintServer = KSVGPainterFactory::strokePaintServer(style(), this);
-    if (strokePaintServer) {
-        paintInfo.context->addPath(m_path); // path is cleared when filled.
-        strokePaintServer->draw(paintInfo.context, this, ApplyToStrokeTargetType);
-    }
-
-    if (styledElement->supportsMarkers())
-        m_markerBounds = drawMarkersIfNeeded(paintInfo.context, paintInfo.rect, m_path);
-
-#if ENABLE(SVG_EXPERIMENTAL_FEATURES)
-    // actually apply the filter
-    if (filter)
-        filter->applyFilter(paintInfo.context, strokeBBox);
-#endif
-
+    if ((paintInfo.phase == PaintPhaseOutline || paintInfo.phase == PaintPhaseSelfOutline) && style()->outlineWidth())
+        paintOutline(paintInfo.context, static_cast<int>(boundingBox.x()), static_cast<int>(boundingBox.y()),
+            static_cast<int>(boundingBox.width()), static_cast<int>(boundingBox.height()), style());
+    
     paintInfo.context->restore();
 }
 
-void RenderPath::absoluteRects(Vector<IntRect>& rects, int _tx, int _ty, bool)
+void RenderPath::addFocusRingRects(GraphicsContext* graphicsContext, int, int) 
+{
+    graphicsContext->addFocusRingRect(enclosingIntRect(relativeBBox(true)));
+}
+
+void RenderPath::absoluteRects(Vector<IntRect>& rects, int, int, bool)
 {
     rects.append(absoluteClippedOverflowRect());
 }
 
-bool RenderPath::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int _tx, int _ty, HitTestAction hitTestAction)
+bool RenderPath::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int _x, int _y, int, int, HitTestAction hitTestAction)
 {
     // We only draw in the forground phase, so we only hit-test then.
     if (hitTestAction != HitTestForeground)
         return false;
+    
+    IntPoint absolutePoint(_x, _y);
 
     PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_PATH_HITTESTING, style()->svgStyle()->pointerEvents());
 
     bool isVisible = (style()->visibility() == VISIBLE);
     if (isVisible || !hitRules.requireVisible) {
-        FloatPoint hitPoint = mapAbsolutePointToLocal(FloatPoint(_x, _y));
+        FloatPoint hitPoint = mapAbsolutePointToLocal(absolutePoint);
         if ((hitRules.canHitStroke && (style()->svgStyle()->hasStroke() || !hitRules.requireStroke) && strokeContains(hitPoint, hitRules.requireStroke))
             || (hitRules.canHitFill && (style()->svgStyle()->hasFill() || !hitRules.requireFill) && fillContains(hitPoint, hitRules.requireFill))) {
-            updateHitTestResult(result, IntPoint(_x, _y));
+            updateHitTestResult(result, absolutePoint);
             return true;
         }
     }
@@ -316,9 +306,8 @@ static void drawMarkerWithData(GraphicsContext* context, MarkerData &data)
     FloatPoint inslopeChange = data.inslopePoints[1] - FloatSize(data.inslopePoints[0].x(), data.inslopePoints[0].y());
     FloatPoint outslopeChange = data.outslopePoints[1] - FloatSize(data.outslopePoints[0].x(), data.outslopePoints[0].y());
 
-    static const double deg2rad = piDouble / 180.0;
-    double inslope = atan2(inslopeChange.y(), inslopeChange.x()) / deg2rad;
-    double outslope = atan2(outslopeChange.y(), outslopeChange.x()) / deg2rad;
+    double inslope = rad2deg(atan2(inslopeChange.y(), inslopeChange.x()));
+    double outslope = rad2deg(atan2(outslopeChange.y(), outslopeChange.x()));
 
     double angle = 0.0;
     switch (data.type) {
@@ -429,7 +418,7 @@ FloatRect RenderPath::drawMarkersIfNeeded(GraphicsContext* context, const FloatR
     if (!startMarker && !midMarker && !endMarker)
         return FloatRect();
 
-    double strokeWidth = KSVGPainterFactory::cssPrimitiveToLength(this, svgStyle->strokeWidth(), 1.0);
+    double strokeWidth = SVGRenderStyle::cssPrimitiveToLength(this, svgStyle->strokeWidth(), 1.0f);
     DrawMarkersData data(context, startMarker, midMarker, strokeWidth);
 
     path.apply(&data, drawStartAndMidMarkers);
@@ -455,11 +444,6 @@ FloatRect RenderPath::drawMarkersIfNeeded(GraphicsContext* context, const FloatR
     return bounds;
 }
 
-bool RenderPath::hasRelativeValues() const
-{
-    return static_cast<SVGStyledElement*>(element())->hasRelativeValues();
-}
- 
 }
 
 #endif // ENABLE(SVG)

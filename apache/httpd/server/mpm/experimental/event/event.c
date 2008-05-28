@@ -623,6 +623,15 @@ static int process_socket(apr_pool_t * p, apr_socket_t * sock,
         c->sbh = sbh;
     }
 
+    if (c->clogging_input_filters && !c->aborted) {
+        /* Since we have an input filter which 'cloggs' the input stream,
+         * like mod_ssl, lets just do the normal read from input filters,
+         * like the Worker MPM does.
+         */
+        ap_run_process_connection(c);
+        cs->state = CONN_STATE_LINGER;
+    }
+
     if (cs->state == CONN_STATE_READ_REQUEST_LINE) {
         if (!c->aborted) {
             ap_run_process_connection(c);
@@ -639,7 +648,6 @@ static int process_socket(apr_pool_t * p, apr_socket_t * sock,
 
     if (cs->state == CONN_STATE_LINGER) {
         ap_lingering_close(c);
-        apr_bucket_alloc_destroy(cs->bucket_alloc);
         apr_pool_clear(p);
         ap_push_pool(worker_queue_info, p);
         return 1;
@@ -1020,12 +1028,19 @@ static void *listener_thread(apr_thread_t * thd, void *dummy)
         cs = APR_RING_FIRST(&timeout_head);
         timeout_time = time_now + TIMEOUT_FUDGE_FACTOR;
         while (!APR_RING_EMPTY(&timeout_head, conn_state_t, timeout_list)
-               && cs->expiration_time < timeout_time
-               && get_worker(&have_idle_worker)) {
+               && cs->expiration_time < timeout_time) {
 
             cs->state = CONN_STATE_LINGER;
 
             APR_RING_REMOVE(cs, timeout_list);
+            apr_thread_mutex_unlock(timeout_mutex);
+
+            if (!get_worker(&have_idle_worker)) {
+                apr_thread_mutex_lock(timeout_mutex);
+                APR_RING_INSERT_HEAD(&timeout_head, cs,
+                                     conn_state_t, timeout_list);
+                break;
+            }
 
             rc = push2worker(&cs->pfd, event_pollset);
 
@@ -1038,6 +1053,7 @@ static void *listener_thread(apr_thread_t * thd, void *dummy)
                  */
             }
             have_idle_worker = 0;
+            apr_thread_mutex_lock(timeout_mutex);
             cs = APR_RING_FIRST(&timeout_head);
         }
         apr_thread_mutex_unlock(timeout_mutex);

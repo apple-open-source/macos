@@ -35,6 +35,7 @@
 namespace WebCore {
 
 class AffineTransform;
+class AnimationController;
 class Color;
 class Document;
 class Element;
@@ -126,6 +127,7 @@ typedef HashSet<RenderFlow*> RenderFlowSequencedSet;
 // Base class for all rendering tree objects.
 class RenderObject : public CachedResourceClient {
     friend class RenderContainer;
+    friend class RenderSVGContainer;
 public:
     // Anonymous objects should pass the document as their node, and they will then automatically be
     // marked as anonymous in the constructor.
@@ -173,6 +175,11 @@ public:
 
     virtual bool isEdited() const { return false; }
     virtual void setEdited(bool) { }
+
+#ifndef NDEBUG
+    void setHasAXObject(bool flag) { m_hasAXObject = flag; }
+    bool hasAXObject() const { return m_hasAXObject; }
+#endif
 
     // Obtains the nearest enclosing block (including this block) that contributes a first-line style to our inline
     // children.
@@ -272,6 +279,7 @@ public:
     virtual bool isMenuList() const { return false; }
     virtual bool isListBox() const { return false; }
     virtual bool isSlider() const { return false; }
+    virtual bool isMedia() const { return false; }
 
     bool isRoot() const { return document()->documentElement() == node(); }
     bool isBody() const;
@@ -285,14 +293,15 @@ public:
     virtual RenderFlow* continuation() const;
 
 #if ENABLE(SVG)
+    virtual bool isSVGRoot() const { return false; }
     virtual bool isSVGContainer() const { return false; }
+    virtual bool isSVGHiddenContainer() const { return false; }
     virtual bool isRenderPath() const { return false; }
     virtual bool isSVGText() const { return false; }
 
     virtual FloatRect relativeBBox(bool includeStroke = true) const;
 
     virtual AffineTransform localTransform() const;
-    virtual void setLocalTransform(const AffineTransform&);
     virtual AffineTransform absoluteTransform() const;
 #endif
 
@@ -342,6 +351,9 @@ public:
 
     virtual int verticalScrollbarWidth() const;
     virtual int horizontalScrollbarHeight() const;
+    
+    bool hasTransform() const { return m_hasTransform; }
+
 private:
     bool includeVerticalScrollbarSize() const { return hasOverflowClip() && (style()->overflowY() == OSCROLL || style()->overflowY() == OAUTO); }
     bool includeHorizontalScrollbarSize() const { return hasOverflowClip() && (style()->overflowX() == OSCROLL || style()->overflowX() == OAUTO); }
@@ -370,7 +382,7 @@ public:
     RenderObject* hoverAncestor() const;
 
     virtual void markAllDescendantsWithFloatsForLayout(RenderObject* floatToRemove = 0);
-    void markContainingBlocksForLayout(bool scheduleRelayout = true);
+    void markContainingBlocksForLayout(bool scheduleRelayout = true, RenderObject* newRoot = 0);
     void setNeedsLayout(bool b, bool markParents = true);
     void setChildNeedsLayout(bool b, bool markParents = true);
 
@@ -392,6 +404,7 @@ public:
     void setReplaced(bool b = true) { m_replaced = b; }
     void setHasOverflowClip(bool b = true) { m_hasOverflowClip = b; }
     void setHasLayer(bool b = true) { m_hasLayer = b; }
+    void setHasTransform(bool b = true) { m_hasTransform = b; }
 
     void scheduleRelayout();
 
@@ -503,7 +516,7 @@ public:
         IntRect m_repaintRect;
     };
 
-    bool hitTest(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestFilter = HitTestAll);
+    bool hitTest(const HitTestRequest&, HitTestResult&, const IntPoint&, int tx, int ty, HitTestFilter = HitTestAll);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
     void updateHitTestResult(HitTestResult&, const IntPoint&);
 
@@ -511,6 +524,11 @@ public:
     VisiblePosition positionForPoint(const IntPoint& point) { return positionForCoordinates(point.x(), point.y()); }
 
     virtual void dirtyLinesFromChangedChild(RenderObject*);
+
+    // Called to update a style that is allowed to trigger animations.
+    // FIXME: Right now this will typically be called only when updating happens from the DOM on explicit elements.
+    // We don't yet handle generated content animation such as first-letter or before/after (we'll worry about this later).
+    void setAnimatableStyle(RenderStyle*);
 
     // Set the style of the object and update the state of the object accordingly.
     virtual void setStyle(RenderStyle*);
@@ -850,6 +868,10 @@ public:
     void invalidateVerticalPosition() { m_verticalPosition = PositionUndefined; }
     
     virtual void removeLeftoverAnonymousBlock(RenderBlock* child);
+    
+    virtual void capsLockStateMayHaveChanged() { }
+
+    AnimationController* animationController() const;
 
 protected:
     virtual void printBoxDecorations(GraphicsContext*, int /*x*/, int /*y*/, int /*w*/, int /*h*/, int /*tx*/, int /*ty*/) { }
@@ -871,6 +893,9 @@ private:
     RenderObject* m_previous;
     RenderObject* m_next;
 
+#ifndef NDEBUG
+    bool m_hasAXObject;
+#endif
     mutable short m_verticalPosition : 15;
 
     bool m_needsLayout               : 1;
@@ -892,6 +917,7 @@ private:
 
     bool m_hasLayer                  : 1;
     bool m_hasOverflowClip           : 1;
+    bool m_hasTransform              : 1;
 
     bool m_hasOverrideSize           : 1;
     

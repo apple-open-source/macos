@@ -536,6 +536,10 @@
 		AAEE21070A1D226C0084866D /* DirServicesUtilsPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = AAEE21050A1D226C0084866D /* DirServicesUtilsPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		AAEE21F20A1D3FBA0084866D /* CLDAPv3PluginAuthentication.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAEE21F00A1D3FBA0084866D /* CLDAPv3PluginAuthentication.cpp */; };
 		AAEE21F30A1D3FBA0084866D /* CLDAPv3PluginNewServerSetup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAEE21F10A1D3FBA0084866D /* CLDAPv3PluginNewServerSetup.cpp */; };
+		B050AAD50D77317400BF5DCD /* CLDAPBindData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B050AAD10D77317300BF5DCD /* CLDAPBindData.cpp */; };
+		B050AAD60D77317400BF5DCD /* CLDAPBindData.h in Headers */ = {isa = PBXBuildFile; fileRef = B050AAD20D77317400BF5DCD /* CLDAPBindData.h */; };
+		B050AAD70D77317400BF5DCD /* DSAPIWrapper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B050AAD30D77317400BF5DCD /* DSAPIWrapper.cpp */; };
+		B050AAD80D77317400BF5DCD /* DSAPIWrapper.h in Headers */ = {isa = PBXBuildFile; fileRef = B050AAD40D77317400BF5DCD /* DSAPIWrapper.h */; };
 		B08721B00C4D9A690058BF78 /* _atsserver.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B08721AF0C4D9A490058BF78 /* _atsserver.plist */; };
 		B0D6165E0BD3E7BA00FA22EA /* CDSAuthParams.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B0D6165C0BD3E7BA00FA22EA /* CDSAuthParams.cpp */; };
 		B0D6165F0BD3E7BA00FA22EA /* CDSAuthParams.h in Headers */ = {isa = PBXBuildFile; fileRef = B0D6165D0BD3E7BA00FA22EA /* CDSAuthParams.h */; };
@@ -1070,7 +1074,7 @@
 		6B23F1470762BA8B00209EB1 /* DirectoryServiceMIG.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = DirectoryServiceMIG.defs; sourceTree = "<group>"; usesTabs = 0; };
 		6B25A3EF0766EEF000F0D609 /* libDirectoryServiceMIG.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libDirectoryServiceMIG.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B281F4D0B5229910016A21E /* crypt-md5.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = "crypt-md5.cpp"; path = "PlugIns/BSD/crypt-md5.cpp"; sourceTree = "<group>"; };
-		6B2925A9099BD2AA00AA8E0B /* CCachePlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCachePlugin.cpp; sourceTree = "<group>"; usesTabs = 1; };
+		6B2925A9099BD2AA00AA8E0B /* CCachePlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CCachePlugin.cpp; sourceTree = "<group>"; usesTabs = 0; };
 		6B2925AB099BD2BD00AA8E0B /* cache.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cache.h; sourceTree = "<group>"; usesTabs = 0; };
 		6B2925AC099BD2BD00AA8E0B /* CCachePlugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CCachePlugin.h; sourceTree = "<group>"; usesTabs = 0; };
 		6B2925AF099BD2CA00AA8E0B /* cache.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cache.cpp; sourceTree = "<group>"; usesTabs = 0; };
@@ -1214,6 +1218,10 @@
 		AAEE21F10A1D3FBA0084866D /* CLDAPv3PluginNewServerSetup.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CLDAPv3PluginNewServerSetup.cpp; path = PlugIns/LDAPv3/CLDAPv3PluginNewServerSetup.cpp; sourceTree = "<group>"; };
 		AAFFB32A06AC6F9A007B2F3C /* digestmd5.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = digestmd5.c; path = PlugIns/Common/digestmd5.c; sourceTree = "<group>"; };
 		AAFFB33306AC6FBD007B2F3C /* digestmd5.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = digestmd5.h; path = PlugIns/Common/digestmd5.h; sourceTree = "<group>"; };
+		B050AAD10D77317300BF5DCD /* CLDAPBindData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CLDAPBindData.cpp; path = PlugIns/LDAPv3/CLDAPBindData.cpp; sourceTree = "<group>"; };
+		B050AAD20D77317400BF5DCD /* CLDAPBindData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CLDAPBindData.h; path = PlugIns/LDAPv3/CLDAPBindData.h; sourceTree = "<group>"; };
+		B050AAD30D77317400BF5DCD /* DSAPIWrapper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DSAPIWrapper.cpp; path = PlugIns/LDAPv3/DSAPIWrapper.cpp; sourceTree = "<group>"; };
+		B050AAD40D77317400BF5DCD /* DSAPIWrapper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DSAPIWrapper.h; path = PlugIns/LDAPv3/DSAPIWrapper.h; sourceTree = "<group>"; };
 		B08721AF0C4D9A490058BF78 /* _atsserver.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = _atsserver.plist; sourceTree = "<group>"; };
 		B0D6165C0BD3E7BA00FA22EA /* CDSAuthParams.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CDSAuthParams.cpp; path = PlugIns/Common/CDSAuthParams.cpp; sourceTree = "<group>"; };
 		B0D6165D0BD3E7BA00FA22EA /* CDSAuthParams.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CDSAuthParams.h; path = PlugIns/Common/CDSAuthParams.h; sourceTree = "<group>"; };
@@ -1862,13 +1870,15 @@
 		61ADDD0403F74CB000BD54C7 /* Headers */ = {
 			isa = PBXGroup;
 			children = (
-				6B021AC60BBEE82D00526183 /* CLDAPReplicaInfo.h */,
+				B050AAD20D77317400BF5DCD /* CLDAPBindData.h */,
 				6B021A9F0BBEAE3500526183 /* CLDAPConnection.h */,
-				6B021AF20BBF554A00526183 /* CLDAPNodeConfig.h */,
 				6B0DF80E0BC1A6FF004F7A54 /* CLDAPConnectionManager.h */,
 				6B021B5D0BBF6E4400526183 /* CLDAPDefines.h */,
+				6B021AF20BBF554A00526183 /* CLDAPNodeConfig.h */,
+				6B021AC60BBEE82D00526183 /* CLDAPReplicaInfo.h */,
 				61ADDD0903F74CDB00BD54C7 /* CLDAPv3Configs.h */,
 				61ADDD1003F74D2300BD54C7 /* CLDAPv3Plugin.h */,
+				B050AAD40D77317400BF5DCD /* DSAPIWrapper.h */,
 				610AB66906768FD000DE2E35 /* DSLDAPUtils.h */,
 				AAD627360B93747E00FE19D0 /* LDAPv3SupportFunctions.h */,
 			);
@@ -1878,14 +1888,16 @@
 		61ADDD0503F74CBA00BD54C7 /* Classes */ = {
 			isa = PBXGroup;
 			children = (
-				6B021AC70BBEE82D00526183 /* CLDAPReplicaInfo.cpp */,
+				B050AAD10D77317300BF5DCD /* CLDAPBindData.cpp */,
 				6B021AA00BBEAE3500526183 /* CLDAPConnection.cpp */,
-				6B021AF30BBF554A00526183 /* CLDAPNodeConfig.cpp */,
 				6B0DF80F0BC1A6FF004F7A54 /* CLDAPConnectionManager.cpp */,
+				6B021AF30BBF554A00526183 /* CLDAPNodeConfig.cpp */,
+				6B021AC70BBEE82D00526183 /* CLDAPReplicaInfo.cpp */,
 				61ADDD0803F74CDB00BD54C7 /* CLDAPv3Configs.cpp */,
 				61ADDD0E03F74D1300BD54C7 /* CLDAPv3Plugin.cpp */,
 				AAEE21F00A1D3FBA0084866D /* CLDAPv3PluginAuthentication.cpp */,
 				AAEE21F10A1D3FBA0084866D /* CLDAPv3PluginNewServerSetup.cpp */,
+				B050AAD30D77317400BF5DCD /* DSAPIWrapper.cpp */,
 			);
 			name = Classes;
 			sourceTree = "<group>";
@@ -2360,6 +2372,8 @@
 				6B125C9D0C0DAED00049BEE3 /* idna.h in Headers */,
 				6BC645110C309E18003833A7 /* CDSLocalConfigureNode.h in Headers */,
 				B0E3A89D0C8F186D007D3FC5 /* pps.h in Headers */,
+				B050AAD60D77317400BF5DCD /* CLDAPBindData.h in Headers */,
+				B050AAD80D77317400BF5DCD /* DSAPIWrapper.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2914,6 +2928,8 @@
 				6B125C790C0DAB2B0049BEE3 /* idna.c in Sources */,
 				6BC645120C309E18003833A7 /* CDSLocalConfigureNode.cpp in Sources */,
 				B0E3A89C0C8F186D007D3FC5 /* pps.c in Sources */,
+				B050AAD50D77317400BF5DCD /* CLDAPBindData.cpp in Sources */,
+				B050AAD70D77317400BF5DCD /* DSAPIWrapper.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

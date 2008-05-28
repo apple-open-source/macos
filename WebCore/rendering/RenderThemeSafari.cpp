@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.
+ * Copyright (C) 2007, 2008 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,12 +26,16 @@
 #include "CSSValueKeywords.h"
 #include "Document.h"
 #include "Element.h"
+#include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLInputElement.h"
+#include "HTMLMediaElement.h"
+#include "HTMLNames.h"
 #include "RenderSlider.h"
 #include "RenderView.h"
 #include "RetainPtr.h"
+#include "SoftLinking.h"
 #include "cssstyleselector.h"
 #include <CoreGraphics/CoreGraphics.h>
  
@@ -41,6 +45,7 @@ using std::min;
  
 namespace WebCore {
 
+using namespace HTMLNames;
 using namespace SafariTheme;
 
 enum {
@@ -63,11 +68,22 @@ RenderTheme* theme()
     return &safariTheme;
 }
 
-static paintThemePartPtr paintThemePart;
+#if !defined(NDEBUG) && defined(USE_DEBUG_SAFARI_THEME)
+SOFT_LINK_DEBUG_LIBRARY(SafariTheme)
+#else
+SOFT_LINK_LIBRARY(SafariTheme)
+#endif
+
+SOFT_LINK(SafariTheme, paintThemePart, void, __stdcall, (ThemePart part, CGContextRef context, const CGRect& rect, NSControlSize size, ThemeControlState state), (part, context, rect, size, state))
+#if defined(SAFARI_THEME_VERSION) && SAFARI_THEME_VERSION >= 2
+SOFT_LINK(SafariTheme, STPaintProgressIndicator, void, APIENTRY, (ProgressIndicatorType type, CGContextRef context, const CGRect& rect, NSControlSize size, ThemeControlState state, float value), (type, context, rect, size, state, value))
+#endif
 
 ThemeControlState RenderThemeSafari::determineState(RenderObject* o) const
 {
     ThemeControlState result = 0;
+    if (isActive(o))
+        result |= SafariTheme::ActiveState;
     if (isEnabled(o) && !isReadOnlyControl(o))
         result |= SafariTheme::EnabledState;
     if (isPressed(o))
@@ -92,23 +108,11 @@ static NSControlSize controlSizeFromRect(const IntRect& rect, const IntSize size
 }
 
 RenderThemeSafari::RenderThemeSafari()
-    : m_themeDLL(0)
 {
-    m_themeDLL = ::LoadLibrary(SAFARITHEMEDLL);
-    if (m_themeDLL) {
-        paintThemePart = (paintThemePartPtr)GetProcAddress(m_themeDLL, "paintThemePart");
-    }
 }
 
 RenderThemeSafari::~RenderThemeSafari()
 {
-    if (!m_themeDLL)
-        return;
-
-    // we don't need to close the themes here because uxtheme should do that for us
-    // anyway (and we could crash if uxtheme has done cleanup already)
-
-    ::FreeLibrary(m_themeDLL);
 }
 
 Color RenderThemeSafari::platformActiveSelectionBackgroundColor() const
@@ -197,6 +201,10 @@ void RenderThemeSafari::systemFont(int propId, FontDescription& fontDescription)
 bool RenderThemeSafari::isControlStyled(const RenderStyle* style, const BorderData& border,
                                      const BackgroundLayer& background, const Color& backgroundColor) const
 {
+    // If we didn't find SafariTheme.dll we won't be able to paint any themed controls.
+    if (!SafariThemeLibrary())
+        return true;
+
     if (style->appearance() == TextFieldAppearance || style->appearance() == TextAreaAppearance || style->appearance() == ListboxAppearance)
         return style->border() != border;
     return RenderTheme::isControlStyled(style, border, background, backgroundColor);
@@ -334,7 +342,7 @@ void RenderThemeSafari::setFontFromControlSize(CSSStyleSelector* selector, Rende
     style->setLineHeight(RenderStyle::initialLineHeight());
 
     if (style->setFontDescription(fontDescription))
-        style->font().update();
+        style->font().update(selector->fontSelector());
 }
 
 NSControlSize RenderThemeSafari::controlSizeForSystemFont(RenderStyle* style) const
@@ -349,6 +357,8 @@ NSControlSize RenderThemeSafari::controlSizeForSystemFont(RenderStyle* style) co
 
 bool RenderThemeSafari::paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    ASSERT(SafariThemeLibrary());
+
     NSControlSize controlSize = controlSizeForFont(o->style());
 
     IntRect inflatedRect = inflateRect(r, checkboxSizes()[controlSize], checkboxMargins(controlSize));  
@@ -386,6 +396,8 @@ void RenderThemeSafari::setCheckboxSize(RenderStyle* style) const
 
 bool RenderThemeSafari::paintRadio(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    ASSERT(SafariThemeLibrary());
+
     NSControlSize controlSize = controlSizeForFont(o->style());
  
     IntRect inflatedRect = inflateRect(r, radioSizes()[controlSize], radioMargins(controlSize));    
@@ -508,6 +520,8 @@ void RenderThemeSafari::setButtonSize(RenderStyle* style) const
 
 bool RenderThemeSafari::paintButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    ASSERT(SafariThemeLibrary());
+
     // We inflate the rect as needed to account for padding included in the cell to accommodate the button
     // shadow.  We don't consider this part of the bounds of the control in WebKit.
 
@@ -539,6 +553,8 @@ bool RenderThemeSafari::paintButton(RenderObject* o, const RenderObject::PaintIn
 
 bool RenderThemeSafari::paintTextField(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    ASSERT(SafariThemeLibrary());
+
     paintThemePart(TextFieldPart, paintInfo.context->platformContext(), r, (NSControlSize)0, determineState(o) & ~FocusedState);
     return false;
 }
@@ -547,8 +563,26 @@ void RenderThemeSafari::adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, El
 {
 }
 
+bool RenderThemeSafari::paintCapsLockIndicator(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{    
+#if defined(SAFARI_THEME_VERSION) && SAFARI_THEME_VERSION >= 1
+    ASSERT(SafariThemeLibrary());
+
+    if (paintInfo.context->paintingDisabled())
+        return true;
+
+    paintThemePart(CapsLockPart, paintInfo.context->platformContext(), r, (NSControlSize)0, (ThemeControlState)0);
+
+    return false;
+#else
+    return true;
+#endif
+}
+
 bool RenderThemeSafari::paintTextArea(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    ASSERT(SafariThemeLibrary());
+
     paintThemePart(TextAreaPart, paintInfo.context->platformContext(), r, (NSControlSize)0, determineState(o) & ~FocusedState);
     return false;
 }
@@ -587,6 +621,8 @@ const int* RenderThemeSafari::popupButtonPadding(NSControlSize size) const
 
 bool RenderThemeSafari::paintMenuList(RenderObject* o, const RenderObject::PaintInfo& info, const IntRect& r)
 {
+    ASSERT(SafariThemeLibrary());
+
     NSControlSize controlSize = controlSizeFromRect(r, popupButtonSizes());
     IntRect inflatedRect = r;
     IntSize size = popupButtonSizes()[controlSize];
@@ -865,7 +901,8 @@ bool RenderThemeSafari::paintSliderTrack(RenderObject* o, const RenderObject::Pa
 {
     IntRect bounds = r;
 
-    if (o->style()->appearance() ==  SliderHorizontalAppearance) {
+    if (o->style()->appearance() ==  SliderHorizontalAppearance || 
+        o->style()->appearance() == MediaSliderAppearance) {
         bounds.setHeight(trackWidth);
         bounds.setY(r.y() + r.height() / 2 - trackWidth / 2);
     } else if (o->style()->appearance() == SliderVerticalAppearance) {
@@ -906,6 +943,8 @@ const float verticalSliderHeightPadding = 0.1f;
 
 bool RenderThemeSafari::paintSliderThumb(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    ASSERT(SafariThemeLibrary());
+
     ASSERT(o->parent()->isSlider());
 
     bool pressed = static_cast<RenderSlider*>(o->parent())->inDragMode();
@@ -920,17 +959,25 @@ bool RenderThemeSafari::paintSliderThumb(RenderObject* o, const RenderObject::Pa
 
 const int sliderThumbWidth = 15;
 const int sliderThumbHeight = 15;
+const int mediaSliderThumbWidth = 13;
+const int mediaSliderThumbHeight = 14;
 
 void RenderThemeSafari::adjustSliderThumbSize(RenderObject* o) const
 {
     if (o->style()->appearance() == SliderThumbHorizontalAppearance || o->style()->appearance() == SliderThumbVerticalAppearance) {
         o->style()->setWidth(Length(sliderThumbWidth, Fixed));
         o->style()->setHeight(Length(sliderThumbHeight, Fixed));
+    } else if (o->style()->appearance() == MediaSliderThumbAppearance) {
+        o->style()->setWidth(Length(mediaSliderThumbWidth, Fixed));
+        o->style()->setHeight(Length(mediaSliderThumbHeight, Fixed));
     }
+
 }
 
 bool RenderThemeSafari::paintSearchField(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    ASSERT(SafariThemeLibrary());
+
     paintThemePart(SearchFieldPart, paintInfo.context->platformContext(), r, controlSizeFromRect(r, searchFieldSizes()), determineState(o));
     return false;
 }
@@ -982,6 +1029,8 @@ void RenderThemeSafari::adjustSearchFieldStyle(CSSStyleSelector* selector, Rende
 
 bool RenderThemeSafari::paintSearchFieldCancelButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect&)
 {
+    ASSERT(SafariThemeLibrary());
+
     Node* input = o->node()->shadowAncestorNode();
     ASSERT(input);
     RenderObject* renderer = input->renderer();
@@ -1034,6 +1083,8 @@ void RenderThemeSafari::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector
 
 bool RenderThemeSafari::paintSearchFieldResultsDecoration(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect&)
 {
+    ASSERT(SafariThemeLibrary());
+
     Node* input = o->node()->shadowAncestorNode();
     ASSERT(input);
     RenderObject* renderer = input->renderer();
@@ -1055,6 +1106,8 @@ void RenderThemeSafari::adjustSearchFieldResultsButtonStyle(CSSStyleSelector* se
 
 bool RenderThemeSafari::paintSearchFieldResultsButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect&)
 {
+    ASSERT(SafariThemeLibrary());
+
     Node* input = o->node()->shadowAncestorNode();
     ASSERT(input);
     RenderObject* renderer = input->renderer();
@@ -1065,6 +1118,109 @@ bool RenderThemeSafari::paintSearchFieldResultsButton(RenderObject* o, const Ren
     paintThemePart(SearchFieldResultsButtonPart, paintInfo.context->platformContext(), searchRect, controlSizeFromRect(searchRect, searchFieldSizes()), determineState(o));
     return false;
 }
+#if ENABLE(VIDEO)
+bool RenderThemeSafari::paintMediaFullscreenButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+#if defined(SAFARI_THEME_VERSION) && SAFARI_THEME_VERSION >= 2
+    ASSERT(SafariThemeLibrary());
+    paintThemePart(MediaFullscreenButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+#endif
+
+    return false;
+}
+
+bool RenderThemeSafari::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->element();
+    Node* mediaNode = node ? node->shadowAncestorNode() : 0;
+    if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
+        return false;
+
+    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(mediaNode);
+    if (!mediaElement)
+        return false;
+
+#if defined(SAFARI_THEME_VERSION) && SAFARI_THEME_VERSION >= 2
+    ASSERT(SafariThemeLibrary());
+    paintThemePart(mediaElement->muted() ? MediaUnMuteButtonPart : MediaMuteButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+#endif
+
+    return false;
+}
+
+bool RenderThemeSafari::paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->element();
+    Node* mediaNode = node ? node->shadowAncestorNode() : 0;
+    if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
+        return false;
+
+    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(mediaNode);
+    if (!mediaElement)
+        return false;
+
+#if defined(SAFARI_THEME_VERSION) && SAFARI_THEME_VERSION >= 2
+    ASSERT(SafariThemeLibrary());
+    paintThemePart(mediaElement->canPlay() ? MediaPlayButtonPart : MediaPauseButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+#endif
+
+    return false;
+}
+
+bool RenderThemeSafari::paintMediaSeekBackButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+#if defined(SAFARI_THEME_VERSION) && SAFARI_THEME_VERSION >= 2
+    ASSERT(SafariThemeLibrary());
+    paintThemePart(MediaSeekBackButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+#endif
+
+    return false;
+}
+
+bool RenderThemeSafari::paintMediaSeekForwardButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+#if defined(SAFARI_THEME_VERSION) && SAFARI_THEME_VERSION >= 2
+    ASSERT(SafariThemeLibrary());
+    paintThemePart(MediaSeekForwardButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+#endif
+
+    return false;
+}
+
+bool RenderThemeSafari::paintMediaSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    Node* node = o->element();
+    Node* mediaNode = node ? node->shadowAncestorNode() : 0;
+    if (!mediaNode || (!mediaNode->hasTagName(videoTag) && !mediaNode->hasTagName(audioTag)))
+        return false;
+
+    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(mediaNode);
+    if (!mediaElement)
+        return false;
+
+    float percentLoaded = 0;
+    if (MediaPlayer* player = mediaElement->player())
+        if (player->duration())
+            percentLoaded = player->maxTimeBuffered() / player->duration();
+
+#if defined(SAFARI_THEME_VERSION) && SAFARI_THEME_VERSION >= 2
+    ASSERT(SafariThemeLibrary());
+    STPaintProgressIndicator(SafariTheme::MediaType, paintInfo.context->platformContext(), r, NSRegularControlSize, 0, percentLoaded);
+#endif
+    return false;
+}
+
+bool RenderThemeSafari::paintMediaSliderThumb(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+{
+    ASSERT(SafariThemeLibrary());
+
+#if defined(SAFARI_THEME_VERSION) && SAFARI_THEME_VERSION >= 2
+    paintThemePart(MediaSliderThumbPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+#endif
+
+    return false;
+}
+#endif
 
 } // namespace WebCore
 

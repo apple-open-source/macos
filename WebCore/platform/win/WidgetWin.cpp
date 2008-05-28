@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -100,7 +100,11 @@ void Widget::setFrameGeometry(const IntRect &rect)
 
 void Widget::setParent(ScrollView* v)
 {
+    if (!v || !v->isAttachedToWindow())
+        detachFromWindow();
     data->parent = v;
+    if (v && v->isAttachedToWindow())
+        attachToWindow();
 }
 
 ScrollView* Widget::parent() const
@@ -241,6 +245,10 @@ void Widget::invalidateRect(const IntRect& r)
 }
 
 void Widget::setFocus()
+{
+}
+
+void Widget::setIsSelected(bool)
 {
 }
 

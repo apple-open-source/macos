@@ -62,6 +62,15 @@ __FBSDID("$FreeBSD: src/usr.bin/wc/wc.c,v 1.21 2004/12/27 22:27:56 josef Exp $")
 #include <wchar.h>
 #include <wctype.h>
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_EMBEDDED
+// MAXBSIZE is too big for embedded
+#undef MAXBSIZE
+#define MAXBSIZE (128*1024)
+#endif /* TARGET_OS_EMBEDDED */
+#endif /* __APPLE__ */
+
 uintmax_t tlinect, twordct, tcharct;
 int doline, doword, dochar, domulti;
 

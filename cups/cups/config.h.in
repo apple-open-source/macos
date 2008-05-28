@@ -77,13 +77,6 @@
 
 
 /*
- * Maximum number of file descriptors to support.
- */
-
-#define CUPS_MAX_FDS		4096
-
-
-/*
  * Do we have domain socket support?
  */
 
@@ -443,13 +436,6 @@
 #undef HAVE_COREFOUNDATION_H
 #undef HAVE_CFPRIV_H
 #undef HAVE_CFBUNDLEPRIV_H
-
-
-/*
- * Do we have CFLocaleCreateCanonicalLocaleIdentifierFromString()?
- */
-
-#undef HAVE_CF_LOCALE_ID
 
 
 /*

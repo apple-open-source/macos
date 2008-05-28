@@ -67,6 +67,14 @@ void procinfo(const char *target)
 			if (flags & ~(CS_VALID|CS_HARD|CS_KILL|CS_EXEC_SET_HARD|CS_EXEC_SET_KILL))
 				printf(" (0x%x)", flags);
 		}
+		
+		SHA1::Digest hash;
+		int rchash = ::csops(pid, CS_OPS_CDHASH, hash, sizeof(hash));
+		if (rchash == -1)
+			printf(" [cdhash:%s]", strerror(errno));
+		else
+			printf(" cdhash=%s", hashString(hash).c_str());
+
 		printf("\n");
 	} else {
 		fail("%s: not a numeric process id", target);

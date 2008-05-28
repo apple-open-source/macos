@@ -1,8 +1,6 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,13 +26,11 @@
 #include "CSSPropertyNames.h"
 #include "CSSRule.h"
 #include "DeprecatedValueList.h"
-#include "ksvgcssproperties.h"
-#include <ctype.h>
+#include <wtf/ASCIICType.h>
+
+using namespace WTF;
 
 namespace WebCore {
-
-// Defined in CSSGrammar.y, but not in any header, so just declare it here for now.
-int getPropertyID(const char* str, int len);
 
 static int propertyID(const String& s)
 {
@@ -48,15 +44,10 @@ static int propertyID(const String& s)
         UChar c = s[i];
         if (c == 0 || c >= 0x7F)
             return 0; // illegal character
-        buffer[i] = tolower(c);
+        buffer[i] = toASCIILower(c);
     }
 
-    int propID = getPropertyID(buffer, len);
-#if ENABLE(SVG)
-    if (!propID)
-        propID = SVG::getSVGCSSPropertyID(buffer, len);
-#endif
-    return propID;
+    return getPropertyID(buffer, len);
 }
 
 CSSStyleDeclaration::CSSStyleDeclaration(CSSRule* parent)

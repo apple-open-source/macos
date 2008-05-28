@@ -31,12 +31,12 @@
    documentation and/or software.
  */
 
-/* Copyright 2000-2005 The Apache Software Foundation or its licensors, as
- * applicable.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+/* Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -686,7 +686,7 @@ APU_DECLARE(apr_status_t) apr_password_validate(const char *passwd,
         apr_md5_encode(passwd, hash, sample, sizeof(sample));
     }
     else if (!strncmp(hash, APR_SHA1PW_ID, APR_SHA1PW_IDLEN)) {
-         apr_sha1_base64(passwd, strlen(passwd), sample);
+         apr_sha1_base64(passwd, (int)strlen(passwd), sample);
     }
     else {
         /*

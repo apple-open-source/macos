@@ -25,6 +25,7 @@ namespace WebCore {
 
 class Color;
 class Document;
+class FontSelector;
 class String;
 class RenderStyle;
 
@@ -39,6 +40,8 @@ public:
     virtual RenderStyle* itemStyle(unsigned listIndex) const = 0;
     virtual RenderStyle* clientStyle() const = 0;
     virtual Document* clientDocument() const = 0;
+    virtual int clientInsetLeft() const = 0;
+    virtual int clientInsetRight() const = 0;
     virtual int clientPaddingLeft() const = 0;
     virtual int clientPaddingRight() const = 0;
     virtual int listSize() const = 0;
@@ -50,6 +53,7 @@ public:
     virtual bool shouldPopOver() const = 0;
     virtual bool valueShouldChangeOnHotTrack() const = 0;
     virtual void setTextFromItem(unsigned listIndex) = 0;
+    virtual FontSelector* fontSelector() const = 0;
 };
 
 }

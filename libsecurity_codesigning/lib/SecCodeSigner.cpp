@@ -41,6 +41,7 @@ using namespace CodeSigning;
 const CFStringRef kSecCodeSignerApplicationData = CFSTR("application-specific");
 const CFStringRef kSecCodeSignerDetached =		CFSTR("detached");
 const CFStringRef kSecCodeSignerDryRun =		CFSTR("dryrun");
+const CFStringRef kSecCodeSignerEntitlements =	CFSTR("entitlements");
 const CFStringRef kSecCodeSignerFlags =			CFSTR("flags");
 const CFStringRef kSecCodeSignerIdentifier =	CFSTR("identifier");
 const CFStringRef kSecCodeSignerIdentifierPrefix = CFSTR("identifier-prefix");

@@ -1,4 +1,4 @@
-dnl ## $Id: configure.in,v 1.396.2.164.2.45 2007/05/03 13:49:17 derick Exp $ -*- sh -*-
+dnl ## $Id: configure.in,v 1.396.2.164.2.49 2008/01/03 08:21:22 derick Exp $ -*- sh -*-
 dnl ## Process this file with autoconf to produce a configure script.
 
 divert(1)
@@ -37,7 +37,7 @@ AC_CONFIG_HEADER(main/php_config.h)
 
 MAJOR_VERSION=4
 MINOR_VERSION=4
-RELEASE_VERSION=7
+RELEASE_VERSION=8
 EXTRA_VERSION=""
 VERSION="$MAJOR_VERSION.$MINOR_VERSION.$RELEASE_VERSION$EXTRA_VERSION"
 

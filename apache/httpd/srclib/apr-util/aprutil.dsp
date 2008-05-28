@@ -4,7 +4,7 @@
 
 # TARGTYPE "Win32 (x86) Static Library" 0x0104
 
-CFG=aprutil - Win32 Debug
+CFG=aprutil - Win32 Release
 !MESSAGE This is not a valid makefile. To build this project using NMAKE,
 !MESSAGE use the Export Makefile command and run
 !MESSAGE 
@@ -13,12 +13,14 @@ CFG=aprutil - Win32 Debug
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "aprutil.mak" CFG="aprutil - Win32 Debug"
+!MESSAGE NMAKE /f "aprutil.mak" CFG="aprutil - Win32 Release"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
 !MESSAGE "aprutil - Win32 Release" (based on "Win32 (x86) Static Library")
 !MESSAGE "aprutil - Win32 Debug" (based on "Win32 (x86) Static Library")
+!MESSAGE "aprutil - x64 Release" (based on "Win32 (x86) Static Library")
+!MESSAGE "aprutil - x64 Debug" (based on "Win32 (x86) Static Library")
 !MESSAGE 
 
 # Begin Project
@@ -41,7 +43,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "LibR"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /FD /c
-# ADD CPP /nologo /MD /W3 /O2 /Oy- /Zi /I "./include" /I "../apr/include" /I "./include/private" /I "../apr-iconv/include" /I "./dbm/sdbm" /I "./xml/expat/lib" /D "NDEBUG" /D "APR_DECLARE_STATIC" /D "APU_DECLARE_STATIC" /D "API_DECLARE_STATIC" /D "APU_USE_SDBM" /D "XML_STATIC" /D "WIN32" /D "_WINDOWS" /Fd"LibR\aprutil_src" /FD /c
+# ADD CPP /nologo /MD /W3 /O2 /Oy- /Zi /I "./include" /I "../apr/include" /I "./include/private" /I "../apr-iconv/include" /I "./dbm/sdbm" /I "./xml/expat/lib" /D "NDEBUG" /D "APR_DECLARE_STATIC" /D "APU_DECLARE_STATIC" /D "API_DECLARE_STATIC" /D "APU_USE_SDBM" /D "XML_STATIC" /D "WIN32" /D "_WINDOWS" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\aprutil-1" /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -65,7 +67,7 @@ LIB32=link.exe -lib
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MDd /W3 /EHsc /Zi /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /FD /c
-# ADD CPP /nologo /MDd /W3 /EHsc /Zi /Od /I "./include" /I "../apr/include" /I "./include/private" /I "../apr-iconv/include" /I "./dbm/sdbm" /I "./xml/expat/lib" /D "_DEBUG" /D "APR_DECLARE_STATIC" /D "APU_DECLARE_STATIC" /D "API_DECLARE_STATIC" /D "APU_USE_SDBM" /D "XML_STATIC" /D "WIN32" /D "_WINDOWS" /Fd"LibD\aprutil_src" /FD /c
+# ADD CPP /nologo /MDd /W3 /EHsc /Zi /Od /I "./include" /I "../apr/include" /I "./include/private" /I "../apr-iconv/include" /I "./dbm/sdbm" /I "./xml/expat/lib" /D "_DEBUG" /D "APR_DECLARE_STATIC" /D "APU_DECLARE_STATIC" /D "API_DECLARE_STATIC" /D "APU_USE_SDBM" /D "XML_STATIC" /D "WIN32" /D "_WINDOWS" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\aprutil-1" /FD /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -75,12 +77,61 @@ LIB32=link.exe -lib
 # ADD BASE LIB32 /nologo
 # ADD LIB32 /nologo /out:"LibD\aprutil-1.lib"
 
+!ELSEIF  "$(CFG)" == "aprutil - x64 Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "x64\LibR"
+# PROP BASE Intermediate_Dir "x64\LibR"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "x64\LibR"
+# PROP Intermediate_Dir "x64\LibR"
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /MD /W3 /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /FD /c
+# ADD CPP /nologo /MD /W3 /Zi /O2 /Oy- /I "./include" /I "../apr/include" /I "./include/private" /I "../apr-iconv/include" /I "./dbm/sdbm" /I "./xml/expat/lib" /D "NDEBUG" /D "APR_DECLARE_STATIC" /D "APU_DECLARE_STATIC" /D "API_DECLARE_STATIC" /D "APU_USE_SDBM" /D "XML_STATIC" /D "WIN32" /D "_WINDOWS" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\aprutil-1" /FD /c
+# ADD BASE RSC /l 0x409 /d "NDEBUG"
+# ADD RSC /l 0x409 /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LIB32=link.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo /out:"x64\LibR\aprutil-1.lib"
+
+!ELSEIF  "$(CFG)" == "aprutil - x64 Debug"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 1
+# PROP BASE Output_Dir "x64\LibD"
+# PROP BASE Intermediate_Dir "x64\LibD"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 1
+# PROP Output_Dir "x64\LibD"
+# PROP Intermediate_Dir "x64\LibD"
+# PROP Ignore_Export_Lib 0
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /MDd /W3 /Zi /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /FD /EHsc /c
+# ADD CPP /nologo /MDd /W3 /Zi /Od /I "./include" /I "../apr/include" /I "./include/private" /I "../apr-iconv/include" /I "./dbm/sdbm" /I "./xml/expat/lib" /D "_DEBUG" /D "APR_DECLARE_STATIC" /D "APU_DECLARE_STATIC" /D "API_DECLARE_STATIC" /D "APU_USE_SDBM" /D "XML_STATIC" /D "WIN32" /D "_WINDOWS" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\aprutil-1" /FD /EHsc /c
+# ADD BASE RSC /l 0x409 /d "_DEBUG"
+# ADD RSC /l 0x409 /d "_DEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+LIB32=link.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo /out:"x64\LibD\aprutil-1.lib"
+
 !ENDIF 
 
 # Begin Target
 
 # Name "aprutil - Win32 Release"
 # Name "aprutil - Win32 Debug"
+# Name "aprutil - x64 Release"
+# Name "aprutil - x64 Debug"
 # Begin Group "Source Files"
 
 # PROP Default_Filter ""
@@ -169,6 +220,10 @@ SOURCE=.\crypto\uuid.c
 # Begin Source File
 
 SOURCE=.\dbd\apr_dbd.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\dbd\apr_dbd_mysql.c
 # End Source File
 # Begin Source File
 
@@ -359,6 +414,26 @@ InputPath=.\include\apr_ldap.hw
 
 # End Custom Build
 
+!ELSEIF  "$(CFG)" == "aprutil - x64 Release"
+
+# Begin Custom Build - Creating apr_ldap.h from apr_ldap.hw
+InputPath=.\include\apr_ldap.hw
+
+".\include\apr_ldap.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\include\apr_ldap.hw > .\include\apr_ldap.h
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "aprutil - x64 Debug"
+
+# Begin Custom Build - Creating apr_ldap.h from apr_ldap.hw
+InputPath=.\include\apr_ldap.hw
+
+".\include\apr_ldap.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\include\apr_ldap.hw > .\include\apr_ldap.h
+
+# End Custom Build
+
 !ENDIF 
 
 # End Source File
@@ -385,6 +460,26 @@ InputPath=.\include\apu.hw
 # End Custom Build
 
 !ELSEIF  "$(CFG)" == "aprutil - Win32 Debug"
+
+# Begin Custom Build - Creating apu.h from apu.hw
+InputPath=.\include\apu.hw
+
+".\include\apu.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\include\apu.hw > .\include\apu.h
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "aprutil - x64 Release"
+
+# Begin Custom Build - Creating apu.h from apu.hw
+InputPath=.\include\apu.hw
+
+".\include\apu.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\include\apu.hw > .\include\apu.h
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "aprutil - x64 Debug"
 
 # Begin Custom Build - Creating apu.h from apu.hw
 InputPath=.\include\apu.hw
@@ -425,6 +520,26 @@ InputPath=.\include\private\apu_config.hw
 
 # End Custom Build
 
+!ELSEIF  "$(CFG)" == "aprutil - x64 Release"
+
+# Begin Custom Build - Creating apu_config.h from apu_config.hw
+InputPath=.\include\private\apu_config.hw
+
+".\include\private\apu_config.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\include\private\apu_config.hw > .\include\private\apu_config.h
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "aprutil - x64 Debug"
+
+# Begin Custom Build - Creating apu_config.h from apu_config.hw
+InputPath=.\include\private\apu_config.hw
+
+".\include\private\apu_config.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\include\private\apu_config.hw > .\include\private\apu_config.h
+
+# End Custom Build
+
 !ENDIF 
 
 # End Source File
@@ -447,6 +562,26 @@ InputPath=.\include\private\apu_select_dbm.hw
 # End Custom Build
 
 !ELSEIF  "$(CFG)" == "aprutil - Win32 Debug"
+
+# Begin Custom Build - Creating apu_select_dbm.h from apu_select_dbm.hw
+InputPath=.\include\private\apu_select_dbm.hw
+
+".\include\private\apu_select_dbm.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\include\private\apu_select_dbm.hw > .\include\private\apu_select_dbm.h
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "aprutil - x64 Release"
+
+# Begin Custom Build - Creating apu_select_dbm.h from apu_select_dbm.hw
+InputPath=.\include\private\apu_select_dbm.hw
+
+".\include\private\apu_select_dbm.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\include\private\apu_select_dbm.hw > .\include\private\apu_select_dbm.h
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "aprutil - x64 Debug"
 
 # Begin Custom Build - Creating apu_select_dbm.h from apu_select_dbm.hw
 InputPath=.\include\private\apu_select_dbm.hw
@@ -482,6 +617,26 @@ InputPath=.\include\apu_want.hw
 # End Custom Build
 
 !ELSEIF  "$(CFG)" == "aprutil - Win32 Debug"
+
+# Begin Custom Build - Creating apu_want.h from apu_want.hw
+InputPath=.\include\apu_want.hw
+
+".\include\apu_want.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\include\apu_want.hw > .\include\apu_want.h
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "aprutil - x64 Release"
+
+# Begin Custom Build - Creating apu_want.h from apu_want.hw
+InputPath=.\include\apu_want.hw
+
+".\include\apu_want.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	type .\include\apu_want.hw > .\include\apu_want.h
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "aprutil - x64 Debug"
 
 # Begin Custom Build - Creating apu_want.h from apu_want.hw
 InputPath=.\include\apu_want.hw
@@ -581,6 +736,10 @@ SOURCE=.\include\apr_xlate.h
 # Begin Source File
 
 SOURCE=.\include\apr_xml.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\include\apu_version.h
 # End Source File
 # End Group
 # End Target

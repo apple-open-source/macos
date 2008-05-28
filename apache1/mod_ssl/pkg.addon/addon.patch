@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: addon.patch
 ## Copyright (c) 1998-2007 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 12-Sep-2007
+## Created on: 08-Feb-2008
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -40,9 +40,9 @@ Index: src/Configuration.tmpl
 | Add more beautiful optic to the status page table..
 +---------------------------------------------------------------------------
 Index: src/modules/standard/mod_status.c
---- src/modules/standard/mod_status.c	10 Sep 2007 20:30:37 -0000	1.1.1.18
-+++ src/modules/standard/mod_status.c	12 Sep 2007 05:32:20 -0000
-@@ -442,12 +442,33 @@
+--- src/modules/standard/mod_status.c	8 Feb 2008 11:15:41 -0000	1.1.1.19
++++ src/modules/standard/mod_status.c	8 Feb 2008 11:17:39 -0000	1.16
+@@ -440,12 +440,33 @@
  	    if (no_table_report)
  		ap_rputs("<p><hr><h2>Server Details</h2>\n\n", r);
  	    else
@@ -76,7 +76,7 @@ Index: src/modules/standard/mod_status.c
  	}
  
  	for (i = 0; i < HARD_SERVER_LIMIT; ++i) {
-@@ -576,6 +597,11 @@
+@@ -574,6 +595,11 @@
  				vhost->server_hostname) : "(unavailable)");
  		    }
  		    else {		/* !no_table_report */
@@ -88,7 +88,7 @@ Index: src/modules/standard/mod_status.c
  			if (score_record.status == SERVER_DEAD)
  #ifdef TPF
                              if (kill(ps_record.pid, 0) == 0) {
-@@ -588,12 +614,12 @@
+@@ -586,12 +612,12 @@
                              } else
  #endif /* TPF */
  			    ap_rprintf(r,
@@ -103,7 +103,7 @@ Index: src/modules/standard/mod_status.c
  				i, (int) ps_record.generation,
  				(int) ps_record.pid, (int) conn_lres,
  				my_lres, lres);
-@@ -653,6 +679,16 @@
+@@ -651,6 +677,16 @@
  			    ap_rprintf(r,
  			     "<td>?<td nowrap>?<td nowrap>..reading.. </tr>\n\n");
  			else
@@ -120,7 +120,7 @@ Index: src/modules/standard/mod_status.c
  			    ap_rprintf(r,
  			     "<td>%s<td nowrap>%s<td nowrap>%s</tr>\n\n",
  			     ap_escape_html(r->pool, score_record.client),
-@@ -660,6 +696,7 @@
+@@ -658,6 +694,7 @@
  				vhost->server_hostname) : "(unavailable)",
  			     ap_escape_html(r->pool,
                                              ap_escape_logitem(r->pool, score_record.request)));

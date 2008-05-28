@@ -1,6 +1,6 @@
-diff -uNr ../openssh-4.5p1.orig/ssh-agent.c ./ssh-agent.c
---- ../openssh-4.5p1.orig/ssh-agent.c	2006-10-23 10:01:16.000000000 -0700
-+++ ./ssh-agent.c	2006-12-21 16:08:56.000000000 -0800
+diff -ru ../openssh-4.7p1.old/ssh-agent.c ./ssh-agent.c
+--- ../openssh-4.7p1.old/ssh-agent.c	2007-03-21 02:45:07.000000000 -0700
++++ ./ssh-agent.c	2007-10-01 01:01:39.000000000 -0700
 @@ -64,6 +64,9 @@
  #include <time.h>
  #include <string.h>
@@ -11,7 +11,7 @@ diff -uNr ../openssh-4.5p1.orig/ssh-agent.c ./ssh-agent.c
  
  #include "xmalloc.h"
  #include "ssh.h"
-@@ -1015,7 +1018,11 @@
+@@ -1031,7 +1034,11 @@
  int
  main(int ac, char **av)
  {
@@ -20,10 +20,10 @@ diff -uNr ../openssh-4.5p1.orig/ssh-agent.c ./ssh-agent.c
 +#else
  	int c_flag = 0, d_flag = 0, k_flag = 0, s_flag = 0;
 +#endif
- 	int sock, fd, ch;
+ 	int sock, fd, ch, result, saved_errno;
  	u_int nalloc;
  	char *shell, *format, *pidstr, *agentsocket = NULL;
-@@ -1048,7 +1055,11 @@
+@@ -1065,7 +1072,11 @@
  	init_rng();
  	seed_rng();
  
@@ -35,7 +35,7 @@ diff -uNr ../openssh-4.5p1.orig/ssh-agent.c ./ssh-agent.c
  		switch (ch) {
  		case 'c':
  			if (s_flag)
-@@ -1058,6 +1069,11 @@
+@@ -1075,6 +1086,11 @@
  		case 'k':
  			k_flag++;
  			break;
@@ -47,7 +47,7 @@ diff -uNr ../openssh-4.5p1.orig/ssh-agent.c ./ssh-agent.c
  		case 's':
  			if (c_flag)
  				usage();
-@@ -1084,7 +1100,11 @@
+@@ -1101,7 +1117,11 @@
  	ac -= optind;
  	av += optind;
  
@@ -59,7 +59,7 @@ diff -uNr ../openssh-4.5p1.orig/ssh-agent.c ./ssh-agent.c
  		usage();
  
  	if (ac == 0 && !c_flag && !s_flag) {
-@@ -1140,6 +1160,53 @@
+@@ -1157,6 +1177,53 @@
  	 * Create socket early so it will exist before command gets run from
  	 * the parent.
  	 */
@@ -113,7 +113,7 @@ diff -uNr ../openssh-4.5p1.orig/ssh-agent.c ./ssh-agent.c
  	sock = socket(AF_UNIX, SOCK_STREAM, 0);
  	if (sock < 0) {
  		perror("socket");
-@@ -1161,6 +1228,9 @@
+@@ -1178,6 +1245,9 @@
  		perror("listen");
  		cleanup_exit(1);
  	}
@@ -123,7 +123,7 @@ diff -uNr ../openssh-4.5p1.orig/ssh-agent.c ./ssh-agent.c
  
  	/*
  	 * Fork, and have the parent execute the command, if any, or present
-@@ -1174,6 +1244,12 @@
+@@ -1191,6 +1261,12 @@
  		printf("echo Agent pid %ld;\n", (long)parent_pid);
  		goto skip;
  	}
@@ -136,11 +136,11 @@ diff -uNr ../openssh-4.5p1.orig/ssh-agent.c ./ssh-agent.c
  	pid = fork();
  	if (pid == -1) {
  		perror("fork");
-@@ -1229,6 +1305,7 @@
+@@ -1246,6 +1322,7 @@
  
  skip:
  	new_socket(AUTH_SOCKET, sock);
 +skip2:
- 	if (ac > 0) {
- 		mysignal(SIGALRM, check_parent_exists);
- 		alarm(10);
+ 	if (ac > 0)
+ 		parent_alive_interval = 10;
+ 	idtab_init();

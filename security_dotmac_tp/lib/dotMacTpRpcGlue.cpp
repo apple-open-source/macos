@@ -488,7 +488,10 @@ proceedQueued:
 			 * The estimated availability time is returned in the 
 			 * resultsBody as a string value.
 			 */
-			ortn = dotMacEncodeRefId(userName, certType, coder, resultBodyData);
+            CSSM_DATA host = { 0, NULL };
+            CSSM_DATA domain = { 0, NULL };
+            dotMacTokenizeHostName(hostName, host, domain);
+			ortn = dotMacEncodeRefId(userName, domain, certType, coder, resultBodyData);
 			if(ortn == noErr) {
 				ortn = CSSMERR_APPLE_DOTMAC_REQ_QUEUED;
 			}
@@ -716,9 +719,9 @@ OSStatus dotMacPostArchiveReq(
 	if(pfxIn) {
 		pfxInStr = cDataToCfstr(*pfxIn);
 	}
-	CFStringRef arhiveNameStr = NULL;
+	CFStringRef archiveNameStr = NULL;
 	if(archiveName) {
-		arhiveNameStr = cDataToCfstr(*archiveName);
+		archiveNameStr = cDataToCfstr(*archiveName);
 	}
 	CFStringRef timeStringStr = NULL;
 	if(timeString) {
@@ -779,12 +782,12 @@ OSStatus dotMacPostArchiveReq(
 		case DMAT_Store:
 			method = kMethodArchiveSave;
 			/* parameters: name, pfx, certType, date, serialNumber */
-			assert(arhiveNameStr != NULL);
+			assert(archiveNameStr != NULL);
 			assert(timeStringStr != NULL);
 			assert(pfxInStr != NULL);
 			assert(serialNumberStr != NULL);
 			assert(certTypeStr != NULL);
-			CFDictionaryAddValue(argDict, kP1, arhiveNameStr);
+			CFDictionaryAddValue(argDict, kP1, archiveNameStr);
 			CFArrayAppendValue(argOrder, kP1);
 			CFDictionaryAddValue(argDict, kP2, pfxInStr);
 			CFArrayAppendValue(argOrder, kP2);
@@ -798,15 +801,15 @@ OSStatus dotMacPostArchiveReq(
 		case DMAT_Fetch:
 			method = kMethodArchiveFetch;
 			/* parameters: name */
-			assert(arhiveNameStr != NULL);
-			CFDictionaryAddValue(argDict, kP1, arhiveNameStr);
+			assert(archiveNameStr != NULL);
+			CFDictionaryAddValue(argDict, kP1, archiveNameStr);
 			CFArrayAppendValue(argOrder, kP1);
 			break;
 		case DMAT_Remove:
 			method = kMethodArchiveRemove;
 			/* parameters: name */
-			assert(arhiveNameStr != NULL);
-			CFDictionaryAddValue(argDict, kP1, arhiveNameStr);
+			assert(archiveNameStr != NULL);
+			CFDictionaryAddValue(argDict, kP1, archiveNameStr);
 			CFArrayAppendValue(argOrder, kP1);
 			break;
 		default:
@@ -897,7 +900,7 @@ errOut:
 	CFRELEASE(userStr);
 	CFRELEASE(pwdStr);
 	CFRELEASE(pfxInStr);
-	CFRELEASE(arhiveNameStr);
+	CFRELEASE(archiveNameStr);
 	CFRELEASE(timeStringStr);
 	CFRELEASE(argDict);
 	CFRELEASE(argOrder);

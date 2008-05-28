@@ -27,6 +27,7 @@
 #define KURL_h
 
 #include "DeprecatedString.h"
+#include "PlatformString.h"
 #include <wtf/Platform.h>
 
 #if PLATFORM(CF)
@@ -40,11 +41,13 @@ typedef const struct __CFURL * CFURLRef;
 class NSURL;
 #endif
 #endif
+#if PLATFORM(QT)
+class QUrl;
+#endif
 
 namespace WebCore {
 
     class KURL;
-    class String;
     class TextEncoding;
 
     bool operator==(const KURL&, const KURL&);
@@ -65,10 +68,19 @@ public:
 #if PLATFORM(CF)
     KURL(CFURLRef);
 #endif
-    bool isEmpty() const { return urlString.isEmpty(); } 
+#if PLATFORM(QT)
+    KURL(const QUrl&);
+#endif
+
+    bool isNull() const { return urlString.isNull(); }
+    bool isEmpty() const { return urlString.isEmpty(); }
+
+    bool isValid() const { return m_isValid; }
+
     bool hasPath() const;
 
-    DeprecatedString url() const { return urlString; }
+    String string() const { return urlString; }
+    const DeprecatedString& deprecatedString() const { return urlString; }
 
     DeprecatedString protocol() const;
     DeprecatedString host() const;
@@ -101,8 +113,12 @@ public:
 #if PLATFORM(MAC)
     NSURL *getNSURL() const;
 #endif
+#if PLATFORM(QT)
+    operator QUrl() const;
+#endif
 
     bool isLocalFile() const;
+    String fileSystemPath() const;
 
     static DeprecatedString decode_string(const DeprecatedString&);
     static DeprecatedString decode_string(const DeprecatedString&, const TextEncoding&);

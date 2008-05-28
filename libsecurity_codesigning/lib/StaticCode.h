@@ -100,6 +100,7 @@ public:
 	std::string format() const { return mRep->format(); }
 	CFDataRef component(CodeDirectory::SpecialSlot slot);
 	CFDictionaryRef infoDictionary();
+	CFDictionaryRef entitlements();
 
 	CFDictionaryRef resourceDictionary();
 	CFURLRef resourceBase();
@@ -138,6 +139,10 @@ protected:
 	bool verifySignature();
 	SecPolicyRef verificationPolicy();
 
+	void defaultDesignatedAppleAnchor(Requirement::Maker &maker);
+	void defaultDesignatedNonAppleAnchor(Requirement::Maker &maker);
+	bool isAppleSDKSignature();
+
 	static void checkOptionalResource(CFTypeRef key, CFTypeRef value, void *context);
 
 private:
@@ -160,6 +165,7 @@ private:
 	
 	// alternative cache forms (storage may depend on cached contents above)
 	CFRef<CFDictionaryRef> mInfoDict;	// derived from mCache slot
+	CFRef<CFDictionaryRef> mEntitlements; // derived from mCache slot
 	CFRef<CFDictionaryRef> mResourceDict; // derived from mCache slot
 	const Requirement *mDesignatedReq;	// cached designated req if we made one up
 	

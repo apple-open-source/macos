@@ -50,10 +50,11 @@ void HTMLStyleElement::parseMappedAttribute(MappedAttribute *attr)
         HTMLElement::parseMappedAttribute(attr);
 }
 
-void HTMLStyleElement::finishedParsing()
+void HTMLStyleElement::finishParsingChildren()
 {
-    StyleElement::process(this);
-    HTMLElement::finishedParsing();
+    StyleElement::sheet(this);
+    m_createdByParser = false;
+    HTMLElement::finishParsingChildren();
 }
 
 void HTMLStyleElement::insertedIntoDocument()
@@ -70,9 +71,10 @@ void HTMLStyleElement::removedFromDocument()
     StyleElement::removedFromDocument(document());
 }
 
-void HTMLStyleElement::childrenChanged()
+void HTMLStyleElement::childrenChanged(bool changedByParser)
 {
     StyleElement::process(this);
+    HTMLElement::childrenChanged(changedByParser);
 }
 
 StyleSheet* HTMLStyleElement::sheet()

@@ -42,15 +42,12 @@ namespace KJS {
 
 class JSXSLTProcessor : public DOMObject {
 public:
-    JSXSLTProcessor(ExecState *exec);
+    JSXSLTProcessor(JSObject* prototype);
     ~JSXSLTProcessor();
     
     virtual const ClassInfo *classInfo() const { return &info; }
     static const ClassInfo info;
-    
-    enum { ImportStylesheet, TransformToFragment, TransformToDocument, SetParameter,
-            GetParameter, RemoveParameter, ClearParameters, Reset };
-    
+
     WebCore::XSLTProcessor *impl() const { return m_impl.get(); }
 private:
     RefPtr<WebCore::XSLTProcessor> m_impl;
@@ -58,10 +55,20 @@ private:
 
 class XSLTProcessorConstructorImp : public DOMObject {
 public:
-    XSLTProcessorConstructorImp(ExecState *);
-    virtual bool implementsConstruct() const { return true; }
-    virtual JSObject *construct(ExecState *exec, const List &args) { return new JSXSLTProcessor(exec); }
+    XSLTProcessorConstructorImp(ExecState*);
+
+    virtual bool implementsConstruct() const;
+    virtual JSObject* construct(ExecState*, const List&);
 };
+
+JSValue* jsXSLTProcessorPrototypeFunctionImportStylesheet(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionTransformToFragment(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionTransformToDocument(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionSetParameter(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionGetParameter(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionRemoveParameter(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionClearParameters(ExecState*, JSObject*, const List&);
+JSValue* jsXSLTProcessorPrototypeFunctionReset(ExecState*, JSObject*, const List&);
 
 } // namespace KJS
 

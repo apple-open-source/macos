@@ -47,13 +47,19 @@ svg, symbol, marker, pattern {
 }
 
 text, foreignObject {
-    display: block !important
+    display: block
 }
 
-text, tspan {
+text, tspan, textPath {
    white-space: nowrap
 }
 
 text, tspan, tref {
    -webkit-text-size-adjust: none;
+}
+
+/* states */
+
+:focus {
+    outline: auto 5px -webkit-focus-ring-color
 }

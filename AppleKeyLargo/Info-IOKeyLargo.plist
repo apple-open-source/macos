@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOKeyLargo</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOKeyLargo version 1.7.1, Copyright 2002-2007 Apple Inc.</string>
+	<string>IOKeyLargo version 1.7.2, Copyright 2002-2007 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.1</string>
+	<string>1.7.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.1f3</string>
+	<string>1.7.2f1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0</string>
 	<key>OSBundleLibraries</key>

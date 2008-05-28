@@ -68,6 +68,7 @@ make_amavisd_install : $(DSTROOT)$(ETC_DIR) $(DSTROOT)$(USR_BIN)
 	# install launchd plist
 	install -d -m 0755 "$(DSTROOT)$(LAUNCHD_DIR)"
 	install -m 0644 "$(SRCROOT)$(LAUNCHD_SRC_DIR)/org.amavis.amavisd.plist" "$(DSTROOT)/$(LAUNCHD_DIR)/org.amavis.amavisd.plist"
+	install -m 0644 "$(SRCROOT)$(LAUNCHD_SRC_DIR)/org.amavis.amavisd_cleanup.plist" "$(DSTROOT)/$(LAUNCHD_DIR)/org.amavis.amavisd_cleanup.plist"
 
 	# install amavis config and scripts
 	install -m 0644 "$(SRCROOT)/$(AMAVIS_CONF_DIR)/amavisd.conf" "$(DSTROOT)/$(ETC_DIR)/amavisd.conf"
@@ -94,6 +95,7 @@ make_amavisd_install : $(DSTROOT)$(ETC_DIR) $(DSTROOT)$(USR_BIN)
 	install -d -m 0755 "$(DSTROOT)$(UPGRADE_EXTRAS_DST_DIR)"
 	install -m 0755 "$(SRCROOT)$)/$(SETUP_EXTRAS_SRC_DIR)/amavisd_new_setup" "$(DSTROOT)/$(SETUP_EXTRAS_DST_DIR)/amavisd_new_setup"
 	install -m 0755 "$(SRCROOT)$)/$(SETUP_EXTRAS_SRC_DIR)/amavisd_new_upgrade" "$(DSTROOT)/$(UPGRADE_EXTRAS_DST_DIR)/amavisd_new_upgrade"
+	install -o _amavisd -m 0755 "$(SRCROOT)$)/$(SETUP_EXTRAS_SRC_DIR)/amavisd_cleanup" "$(DSTROOT)/$(AMAVIS_DIR)/amavisd_cleanup"
 
 	install -d -m 0755 "$(DSTROOT)$(USR_OS_VERSION)"
 	install -d -m 0755 "$(DSTROOT)$(USR_OS_LICENSE)"

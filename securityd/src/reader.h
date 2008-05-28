@@ -40,8 +40,16 @@
 //
 class Reader : public PerGlobal {
 public:
-	Reader(TokenCache &cache, const PCSC::ReaderState &state);
+	Reader(TokenCache &cache, const PCSC::ReaderState &state);	// PCSC managed
+	Reader(TokenCache &cache, const std::string &name);			// software
 	~Reader();
+	
+	enum Type {
+		pcsc,				// represents PCSC-managed reader
+		software			// software (virtual) reader,
+	};
+	Type type() const { return mType; }
+	bool isType(Type type) const;
 	
 	TokenCache &cache;
 	
@@ -50,16 +58,17 @@ public:
 	string name() const { return mName; }
 	string printName() const { return mPrintName; }
 	const PCSC::ReaderState &pcscState() const { return mState; }
-	
+
+	void insertToken(TokenDaemon *tokend);
 	void update(const PCSC::ReaderState &state);
+	void removeToken();
 	
 	IFDUMP(void dumpNode());
 	
 protected:
-	void insertToken();
-	void removeToken();
 	
 private:
+	Type mType;
 	string mName;			// PCSC reader name
 	string mPrintName;		// human readable name of reader
 	PCSC::ReaderState mState; // name field not valid (use mName)

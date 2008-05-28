@@ -74,8 +74,8 @@
     what went wrong and how to fix it.</p>
 
     <p>The error log is usually written to a file (typically
-    <code>error_log</code> on unix systems and
-    <code>error.log</code> on Windows and OS/2). On unix systems it
+    <code>error_log</code> on Unix systems and
+    <code>error.log</code> on Windows and OS/2). On Unix systems it
     is also possible to have the server send errors to
     <code>syslog</code> or <a href="#piped">pipe them to a
     program</a>.</p>
@@ -92,11 +92,11 @@
     </code></p></div>
 
     <p>The first item in the log entry is the date and time of the
-    message. The second entry lists the severity of the error being
+    message. The second item lists the severity of the error being
     reported. The <code class="directive"><a href="./mod/core.html#loglevel">LogLevel</a></code>
     directive is used to control the types of errors that are sent
     to the error log by restricting the severity level. The third
-    entry gives the IP address of the client that generated the
+    item gives the IP address of the client that generated the
     error. Beyond that is the message itself, which in this case
     indicates that the server has been configured to deny the
     client access. The server reports the file-system path (as
@@ -117,7 +117,7 @@
     file.</p>
 
     <p>During testing, it is often useful to continuously monitor
-    the error log for any problems. On unix systems, you can
+    the error log for any problems. On Unix systems, you can
     accomplish this using:</p>
 
     <div class="example"><p><code>
@@ -239,7 +239,7 @@
         code for the request (see below) is 401, then this value
         should not be trusted because the user is not yet
         authenticated. If the document is not password protected,
-        this entry will be "<code>-</code>" just like the previous
+        this part will be "<code>-</code>" just like the previous
         one.</dd>
 
         <dt><code>[10/Oct/2000:13:55:36 -0700]</code>
@@ -292,7 +292,7 @@
 
         <dt><code>2326</code> (<code>%b</code>)</dt>
 
-        <dd>The last entry indicates the size of the object returned
+        <dd>The last part indicates the size of the object returned
         to the client, not including the response headers. If no
         content was returned to the client, this value will be
         "<code>-</code>". To log "<code>0</code>" for no content, use
@@ -540,7 +540,7 @@
 
     <table class="related"><tr><th>Related Modules</th><th>Related Directives</th></tr><tr><td><ul><li><code class="module"><a href="./mod/mod_logio.html">mod_logio</a></code></li><li><code class="module"><a href="./mod/mod_log_forensic.html">mod_log_forensic</a></code></li><li><code class="module"><a href="./mod/mod_cgi.html">mod_cgi</a></code></li><li><code class="module"><a href="./mod/mod_rewrite.html">mod_rewrite</a></code></li></ul></td><td><ul><li><code class="directive"><a href="./mod/mod_log_config.html#logformat">LogFormat</a></code></li><li><code class="directive"><a href="./mod/mod_log_forensic.html#forensiclog">ForensicLog</a></code></li><li><code class="directive"><a href="./mod/mpm_common.html#pidfile">PidFile</a></code></li><li><code class="directive"><a href="./mod/mod_rewrite.html#rewritelog">RewriteLog</a></code></li><li><code class="directive"><a href="./mod/mod_rewrite.html#rewriteloglevel">RewriteLogLevel</a></code></li><li><code class="directive"><a href="./mod/mod_cgi.html#scriptlog">ScriptLog</a></code></li><li><code class="directive"><a href="./mod/mod_cgi.html#scriptlogbuffer">ScriptLogBuffer</a></code></li><li><code class="directive"><a href="./mod/mod_cgi.html#scriptloglength">ScriptLogLength</a></code></li></ul></td></tr></table>
 
-    <h3>Logging actual bytes sent and recieved</h3>
+    <h3>Logging actual bytes sent and received</h3>
       
 
       <p><code class="module"><a href="./mod/mod_logio.html">mod_logio</a></code> adds in two additional

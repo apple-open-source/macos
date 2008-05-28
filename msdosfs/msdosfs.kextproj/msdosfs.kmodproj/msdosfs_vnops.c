@@ -466,11 +466,11 @@ msdosfs_getattr(ap)
 	VATTR_RETURN(vap, va_mode, ALLPERMS & pmp->pm_mask);
 	if (VATTR_IS_ACTIVE(vap, va_flags)) {
 		vap->va_flags = 0;
-		/* MSDOS does not set ATTR_ARCHIVE bit for directories. */
+		/* MSDOS does not set ATTR_ARCHIVE or ATTR_READONLY bits for directories. */
 		if ((dep->de_Attributes & (ATTR_ARCHIVE | ATTR_DIRECTORY)) == 0)	// DOS: flag set means "needs to be archived"
 			vap->va_flags |= SF_ARCHIVED;				// BSD: flag set means "has been archived"
-		if (dep->de_Attributes & ATTR_READONLY)			// DOS read-only becomes user immutable
-			vap->va_flags |= UF_IMMUTABLE;
+		if ((dep->de_Attributes & (ATTR_READONLY | ATTR_DIRECTORY)) == ATTR_READONLY)
+			vap->va_flags |= UF_IMMUTABLE;				// DOS read-only becomes BSD user immutable
 		if (dep->de_Attributes & ATTR_HIDDEN)
 			vap->va_flags |= UF_HIDDEN;
 		VATTR_SET_SUPPORTED(vap, va_flags);

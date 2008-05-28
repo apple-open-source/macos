@@ -1,3 +1,219 @@
+2008-02-29  Mark Rowe  <mrowe@apple.com>
+
+        Merge r30677 to Safari-3-1-branch.
+
+    2008-02-29  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by David Harrison.
+        
+        Fixed <rdar://problem/5765063> TOT REGRESSION: Software Update crash in
+        KJS::Collector::collect() (missing JSLock)
+
+        * JSValueWrapper.cpp:
+        (unprotectGlobalObject): Added missing JSLock.
+
+2008-02-05  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Update versioning to support the mysterious future.
+
+        * Configurations/Version.xcconfig: Add SYSTEM_VERSION_PREFIX_1060.
+
+2008-01-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by darin.
+        
+        Add icu headers to JSG in preparation for depending on ::UChar.
+
+        * Configurations/Base.xcconfig:
+        * ForwardingHeaders/wtf/unicode: Added.
+        * ForwardingHeaders/wtf/unicode/Unicode.h: Added.
+        * ForwardingHeaders/wtf/unicode/icu: Added.
+        * ForwardingHeaders/wtf/unicode/icu/UnicodeIcu.h: Added.
+        * icu: Copied from ../JavaScriptCore/icu.
+
+2007-12-19  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix.
+
+        * ForwardingHeaders/wtf/VectorTraits.h: Added.
+
+2007-12-10  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        <rdar://problem/5639463> Bundle versions on Tiger should be 4523.x not 523.x
+
+        * Configurations/Version.xcconfig: Some Tiger versions of Xcode don't set MAC_OS_X_VERSION_MAJOR,
+          so assume Tiger and use a 4 for the SYSTEM_VERSION_PREFIX.
+
+2007-12-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Third step in refactoring JSGlobalObject: Moved data members and data
+        member access from Interpreter to JSGlobalObject. Replaced JSInterpreter
+        subclass with JSGlobalObject subclass.
+        
+        * JSRun.cpp:
+        (JSRun::JSRun):
+        (JSRun::Evaluate):
+        (JSRun::CheckSyntax):
+        * JSRun.h:
+        (JSGlueGlobalObject::JSGlueGlobalObject):
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal):
+        * JSValueWrapper.cpp:
+        (getThreadGlobalExecState):
+
+2007-12-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Updated to match the JavaScriptCore change to move virtual methods from
+        Interpreter to JSGlobalObject.
+        
+        * JSRun.cpp:
+        * JSRun.h:
+        * JSValueWrapper.cpp:
+        (getThreadGlobalExecState):
+        * JavaScriptGlue.cpp:
+        (JSRunCopyGlobalObject):
+        (JSRunEvaluate):
+
+2007-11-30  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Beth Dakin.
+        
+        Modified to follow new JSGlobalObject/Interpreter ownership rules 
+        in JavaScriptCore.
+
+        * JSRun.cpp:
+        (JSRun::JSRun):
+        (JSRun::GetInterpreter):
+        (JSRun::Evaluate):
+        (JSRun::CheckSyntax):
+        * JSRun.h:
+        * JSValueWrapper.cpp:
+        (unprotectGlobalObject):
+        (initializeGlobalObjectKey):
+        (getThreadGlobalExecState):
+
+2007-11-29  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Maciej.
+
+        Fix REGRESSION(r27885): Installer hits assertion failure in JavaScriptGlue.
+
+        * JSValueWrapper.cpp:
+        (getThreadGlobalExecState): Set the global object on the Interpreter before using it.
+
+2007-11-27  Anders Carlsson  <andersca@apple.com>
+        
+        Build fix.
+        
+        * JSUtils.cpp:
+        (KJSValueToCFTypeInternal):
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+
+2007-11-21  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Eric.
+
+        Fix JavaScriptGlue to build without warnings using GCC 4.2.
+
+        * Configurations/Base.xcconfig:
+        * JSRun.h:
+
+2007-11-17  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Fix: <rdar://problem/5607032> REGRESSION: testapi exits with assertion failure in debug build
+             <rdar://problem/5440659> JSGlobalContextCreate throws away globalObjectClass's prototype
+             http://bugs.webkit.org/show_bug.cgi?id=16033
+
+        Update for changes in Interpreter method signatures.
+
+        * JSRun.h:
+
+2007-11-13  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Renamed Shared to RefCounted.
+
+        * ForwardingHeaders/wtf/RefCounted.h: Copied from JavaScriptGlue/ForwardingHeaders/wtf/Shared.h.
+        * ForwardingHeaders/wtf/Shared.h: Removed.
+
+2007-11-13  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Moved Shared.h into wtf so it could be used in more places.
+
+        * ForwardingHeaders/wtf/Shared.h: Added.
+
+2007-11-08  Mark Rowe  <mrowe@apple.com>
+
+        Build fix.
+
+        * ForwardingHeaders/wtf/MathExtras.h: Copied from WebCore/ForwardingHeaders/wtf/MathExtras.h.
+
+2007-11-05  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix.
+
+        * ForwardingHeaders/kjs/value.h: Added.
+
+2007-11-03  Sam Weinig  <sam@webkit.org>
+
+        Build-fix.
+
+        * UserObjectImp.cpp:
+
+2007-11-03  David D. Kilzer  <ddkilzer@webkit.org>
+
+        Sort files(...); sections of Xcode project files.
+
+        Rubber-stamped by Darin.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2007-10-25  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Geoff.
+        
+        Make JSG build again after JSGlobalObject change.
+
+        * JSRun.cpp:
+        (JSRun::JSRun):
+        (JSRun::GlobalObject):
+        * JSRun.h:
+        (JSInterpreter::JSInterpreter):
+        * JSUtils.h:
+
+2007-10-11  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        Fix for <rdar://problem/5488678>.  Disable debugging symbols in production builds for 10.4
+        PowerPC to prevent a huge STABS section from being generated.
+
+        * Configurations/Base.xcconfig:
+
+2007-10-04  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver.
+
+        Switch to default level of debugging symbols to resolve <rdar://problem/5488678>.
+        The "full" level appears to offer no observable benefits even though the documentation
+        suggests it be used for dead code stripping.  This should also decrease link times.
+
+        * Configurations/Base.xcconfig:
+
 2007-09-03  Mark Rowe  <mrowe@apple.com>
 
         Reviewed by Tim Hatcher.

@@ -43,9 +43,23 @@
 #include <libkern/OSByteOrder.h>
 #include <membership.h>
 
+#include <TargetConditionals.h>
+#if !TARGET_OS_EMBEDDED
 #include <quarantine.h>
 
 #define	XATTR_QUARANTINE_NAME qtn_xattr_name
+#else /* TARGET_OS_EMBEDDED */
+#define qtn_file_t void *
+#define QTN_SERIALIZED_DATA_MAX 0
+static void * qtn_file_alloc(void) { return NULL; }
+static int qtn_file_init_with_fd(void *x, int y) { return -1; }
+static void qtn_file_free(void *x) { return; }
+static int qtn_file_apply_to_fd(void *x, int y) { return -1; }
+static char *qtn_error(int x) { return NULL; }
+static int qtn_file_to_data(void *x, char *y, size_t z) { return -1; }
+static void *qtn_file_clone(void *x) { return NULL; }
+#define	XATTR_QUARANTINE_NAME "figgledidiggledy"
+#endif /* TARGET_OS_EMBEDDED */
 
 #include "copyfile.h"
 

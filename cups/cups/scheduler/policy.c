@@ -3,7 +3,7 @@
  *
  *   Policy routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -105,7 +105,7 @@ cupsdAddPolicyOp(cupsd_policy_t   *p,	/* I - Policy */
     p->num_ops ++;
 
     temp->op    = op;
-    temp->limit = AUTH_LIMIT_IPP;
+    temp->limit = CUPSD_AUTH_LIMIT_IPP;
 
     if (po)
     {
@@ -125,12 +125,12 @@ cupsdAddPolicyOp(cupsd_policy_t   *p,	/* I - Policy */
       for (i = 0; i < po->num_allow; i ++)
         switch (po->allow[i].type)
 	{
-	  case AUTH_IP :
+	  case CUPSD_AUTH_IP :
 	      cupsdAllowIP(temp, po->allow[i].mask.ip.address,
 	              po->allow[i].mask.ip.netmask);
 	      break;
 
-          case AUTH_INTERFACE :
+          case CUPSD_AUTH_INTERFACE :
 	      snprintf(name, sizeof(name), "@IF(%s)",
 	               po->allow[i].mask.name.name);
               cupsdAllowHost(temp, name);
@@ -144,12 +144,12 @@ cupsdAddPolicyOp(cupsd_policy_t   *p,	/* I - Policy */
       for (i = 0; i < po->num_deny; i ++)
         switch (po->deny[i].type)
 	{
-	  case AUTH_IP :
+	  case CUPSD_AUTH_IP :
 	      cupsdDenyIP(temp, po->deny[i].mask.ip.address,
 	              po->deny[i].mask.ip.netmask);
 	      break;
 
-          case AUTH_INTERFACE :
+          case CUPSD_AUTH_INTERFACE :
 	      snprintf(name, sizeof(name), "@IF(%s)",
 	               po->deny[i].mask.name.name);
               cupsdDenyHost(temp, name);

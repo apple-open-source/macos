@@ -29,9 +29,19 @@
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
 
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) || (PLATFORM(WX) && PLATFORM(WIN_OS)) 
 typedef struct HINSTANCE__* HINSTANCE;
 #endif
+
+typedef enum TextCaseSensitivity {
+    TextCaseSensitive,
+    TextCaseInsensitive
+};
+
+typedef enum FindDirection {
+    FindDirectionForward,
+    FindDirectionBackward
+};
 
 namespace WebCore {
 
@@ -98,7 +108,11 @@ namespace WebCore {
         
         void setTabKeyCyclesThroughElements(bool b) { m_tabKeyCyclesThroughElements = b; }
         bool tabKeyCyclesThroughElements() const { return m_tabKeyCyclesThroughElements; }
-        
+
+        bool findString(const String&, TextCaseSensitivity, FindDirection, bool shouldWrap);
+        unsigned int markAllMatchesForText(const String&, TextCaseSensitivity, bool shouldHighlight, unsigned);
+        void unmarkAllTextMatches();
+
         const Selection& selection() const;
 
         void setDefersLoading(bool);
@@ -109,7 +123,10 @@ namespace WebCore {
         bool inLowQualityImageInterpolationMode() const;
         void setInLowQualityImageInterpolationMode(bool = true);
 
-#if PLATFORM(WIN)
+        void userStyleSheetLocationChanged();
+        const String& userStyleSheet() const;
+
+#if PLATFORM(WIN) || (PLATFORM(WX) && PLATFORM(WIN_OS))
         // The global DLL or application instance used for all windows.
         static void setInstanceHandle(HINSTANCE instanceHandle) { s_instanceHandle = instanceHandle; }
         static HINSTANCE instanceHandle() { return s_instanceHandle; }
@@ -141,7 +158,12 @@ namespace WebCore {
     
         InspectorController* m_parentInspectorController;
 
-#if PLATFORM(WIN)
+        String m_userStyleSheetPath;
+        mutable String m_userStyleSheet;
+        mutable bool m_didLoadUserStyleSheet;
+        mutable time_t m_userStyleSheetModificationTime;
+
+#if PLATFORM(WIN) || (PLATFORM(WX) && defined(__WXMSW__))
         static HINSTANCE s_instanceHandle;
 #endif
     };

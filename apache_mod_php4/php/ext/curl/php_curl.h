@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_curl.h,v 1.29.2.2.2.2 2007/01/01 09:46:40 sebastian Exp $ */
+/* $Id: php_curl.h,v 1.29.2.2.2.3 2007/12/31 07:22:45 sebastian Exp $ */
 
 #ifndef _PHP_CURL_H
 #define _PHP_CURL_H

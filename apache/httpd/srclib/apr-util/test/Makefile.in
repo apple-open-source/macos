@@ -1,26 +1,64 @@
+srcdir = @srcdir@
 VPATH = @srcdir@
+
+# PROGRAMS includes all test programs built on this platform.
+# STDTEST_PORTABLE
+#   test programs invoked via standard user interface, run on all platforms
+# ALL_TESTS
+#   test modules invoked through the abts suite (./testall)
+# OTHER_PROGRAMS
+#   programs such as sockperf, that have to be invoked in a special sequence
+#   or with special parameters
 
 INCLUDES = @APRUTIL_PRIV_INCLUDES@ @APR_INCLUDES@ @APRUTIL_INCLUDES@
 
-PROGRAMS = testall testdbm testdate testxml testrmm \
-	   testreslist testqueue testxlate dbd
+STDTEST_PORTABLE = testall dbd
+
+TESTS = teststrmatch.lo testuri.lo testuuid.lo testbuckets.lo testpass.lo \
+	testmd4.lo testmd5.lo testldap.lo testdate.lo testdbm.lo testdbd.lo \
+	testxml.lo testrmm.lo testreslist.lo testqueue.lo testxlate.lo
+
+OTHER_PROGRAMS = 
+
+PROGRAMS = $(STDTEST_PORTABLE) $(OTHER_PROGRAMS)
+
 TARGETS = $(PROGRAMS)
 
-APRUTIL_DOTTED_VERSION=@APRUTIL_DOTTED_VERSION@
-APRUTIL_MAJOR_VERSION=@APRUTIL_MAJOR_VERSION@
-TARGET_LIB_PATH = ../lib@APRUTIL_LIBNAME@.la
+LOCAL_LIBS = ../lib@APRUTIL_LIBNAME@@APRUTIL_MAJOR_VERSION@.la
 
 CLEAN_TARGETS = manyfile.bin testfile.txt data/sqlite*.db
 
 # bring in rules.mk for standard functionality
 @INCLUDE_RULES@
-PROGRAM_DEPENDENCIES = @APRUTIL_LIBS@
-APRUTIL_LDFLAGS = -no-install @APRUTIL_LDFLAGS@
+APRUTIL_LIBS = @APRUTIL_LIBS@
+APRUTIL_LDFLAGS = $(ALL_LDFLAGS) @LT_NO_INSTALL@ @APRUTIL_LDFLAGS@
 
-all: $(PROGRAMS)
+# link programs using -no-install to get real executables not
+# libtool wrapper scripts which link an executable when first run.
+LINK_PROG = $(LIBTOOL) $(LTFLAGS) --mode=link $(LT_LDFLAGS) $(COMPILE) \
+	    $(APRUTIL_LDFLAGS) -o $@
 
-check: $(PROGRAMS)
-	for prog in $(PROGRAMS); do \
+# STDTEST_PORTABLE;
+
+abts.lo: $(srcdir)/abts.c $(srcdir)/abts.h $(srcdir)/abts_tests.h \
+	 $(srcdir)/testutil.h
+
+testutil.lo: $(srcdir)/abts.c $(srcdir)/abts.h $(srcdir)/abts_tests.h \
+	     $(srcdir)/testutil.h
+
+OBJECTS_testall = abts.lo testutil.lo $(TESTS) $(LOCAL_LIBS)
+testall: $(OBJECTS_testall)
+	$(LINK_PROG) $(OBJECTS_testall) $(APRUTIL_LIBS)
+# For VPATH builds; where we have no ./data, copy us some data
+# if we wait until 'make check', then 'make; ./testall' fails;
+	if test ! -d "./data"; then cp -r $(srcdir)/data data; fi
+
+OBJECTS_dbd = dbd.lo $(LOCAL_LIBS)
+dbd: $(OBJECTS_dbd)
+	$(LINK_PROG) $(OBJECTS_dbd) $(APRUTIL_LIBS)
+
+check: $(TESTALL_COMPONENTS) $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE)
+	for prog in $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE); do \
 	        if test "$$prog" = 'dbd'; then \
 			for driver in sqlite2 sqlite3; do \
 				./$$prog $$driver; \
@@ -38,54 +76,4 @@ check: $(PROGRAMS)
 		fi; \
 	done
 
-testdbm_OBJECTS = testdbm.lo
-testdbm_LDADD =  $(TARGET_LIB_PATH)
-testdbm: $(testdbm_OBJECTS) $(testdbm_LDADD)
-	$(LINK) $(APRUTIL_LDFLAGS) $(testdbm_OBJECTS) $(testdbm_LDADD) $(PROGRAM_DEPENDENCIES)
-
-dbd_OBJECTS = dbd.lo
-dbd_LDADD =  $(TARGET_LIB_PATH)
-dbd: $(dbd_OBJECTS) $(dbd_LDADD)
-	$(LINK) $(APRUTIL_LDFLAGS) $(dbd_OBJECTS) $(dbd_LDADD) $(PROGRAM_DEPENDENCIES)
-
-testdbd_OBJECTS = testdbd.lo
-testdbd_LDADD =  $(TARGET_LIB_PATH)
-testdbd: $(testdbd_OBJECTS) $(testdbd_LDADD)
-	$(LINK) $(APRUTIL_LDFLAGS) $(testdbd_OBJECTS) $(testdbd_LDADD) $(PROGRAM_DEPENDENCIES)
-
-testdate_OBJECTS = testdate.lo
-testdate_LDADD =  $(TARGET_LIB_PATH)
-testdate: $(testdate_OBJECTS) $(testdate_LDADD)
-	$(LINK) $(APRUTIL_LDFLAGS) $(testdate_OBJECTS) $(testdate_LDADD) $(PROGRAM_DEPENDENCIES)
-
-testxml_OBJECTS = testxml.lo
-testxml_LDADD =  $(TARGET_LIB_PATH)
-testxml: $(testxml_OBJECTS) $(testxml_LDADD)
-	$(LINK) $(APRUTIL_LDFLAGS) $(testxml_OBJECTS) $(testxml_LDADD) $(PROGRAM_DEPENDENCIES)
-
-testrmm_OBJECTS = testrmm.lo
-testrmm_LDADD =  $(TARGET_LIB_PATH)
-testrmm: $(testrmm_OBJECTS) $(testrmm_LDADD)
-	$(LINK) $(APRUTIL_LDFLAGS) $(testrmm_OBJECTS) $(testrmm_LDADD) $(PROGRAM_DEPENDENCIES)
-
-testreslist_OBJECTS = testreslist.lo
-testreslist_LDADD =  $(TARGET_LIB_PATH)
-testreslist: $(testreslist_OBJECTS) $(testreslist_LDADD)
-	$(LINK) $(APRUTIL_LDFLAGS) $(testreslist_OBJECTS) $(testreslist_LDADD) $(PROGRAM_DEPENDENCIES)
-
-testqueue_OBJECTS = testqueue.lo
-testqueue_LDADD =  $(TARGET_LIB_PATH)
-testqueue: $(testqueue_OBJECTS) $(testqueue_LDADD)
-	$(LINK) $(APRUTIL_LDFLAGS) $(testqueue_OBJECTS) $(testqueue_LDADD) $(PROGRAM_DEPENDENCIES)
-
-testxlate_OBJECTS = testxlate.lo
-testxlate_LDADD =  $(TARGET_LIB_PATH)
-testxlate: $(testxlate_OBJECTS) $(testxlate_LDADD)
-	$(LINK) $(APRUTIL_LDFLAGS) $(testxlate_OBJECTS) $(testxlate_LDADD) $(PROGRAM_DEPENDENCIES)
-
-testall_OBJECTS = teststrmatch.lo testuri.lo testuuid.lo abts.lo testutil.lo \
-	testbuckets.lo testpass.lo testmd4.lo testmd5.lo testldap.lo testdbd.lo
-testall_LDADD =  $(TARGET_LIB_PATH)
-testall: $(testall_OBJECTS) $(testall_LDADD)
-	$(LINK) $(APRUTIL_LDFLAGS) $(testall_OBJECTS) $(testall_LDADD) $(PROGRAM_DEPENDENCIES)
-
+# DO NOT REMOVE

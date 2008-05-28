@@ -34,7 +34,10 @@
 #include "Page.h"
 #include "ResourceHandle.h"
 #include "Settings.h"
+#include "WindowFeatures.h"
 #include "kjs_window.h"
+#include "PausedTimeouts.h"
+#include "SecurityOrigin.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
@@ -42,7 +45,6 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-using namespace KJS;
 using namespace std;
 
 class PageGroupLoadDeferrer : Noncopyable {
@@ -107,15 +109,10 @@ void Chrome::takeFocus(FocusDirection direction) const
 {
     m_client->takeFocus(direction);
 }
-
-Page* Chrome::createWindow(Frame* frame, const FrameLoadRequest& request) const
+    
+Page* Chrome::createWindow(Frame* frame, const FrameLoadRequest& request, const WindowFeatures& features) const
 {
-    return m_client->createWindow(frame, request);
-}
-
-Page* Chrome::createModalDialog(Frame* frame, const FrameLoadRequest& request) const
-{
-    return m_client->createModalDialog(frame, request);
+    return m_client->createWindow(frame, request, features);
 }
 
 void Chrome::show() const
@@ -197,11 +194,10 @@ void Chrome::setResizable(bool b) const
 
 void Chrome::addMessageToConsole(MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID)
 {
-    if (source == JSMessageSource && level == ErrorMessageLevel)
+    if (source == JSMessageSource)
         m_client->addMessageToConsole(message, lineNumber, sourceID);
 
-    if (InspectorController* inspector = m_page->inspectorController())
-        inspector->addMessageToConsole(source, level, message, lineNumber, sourceID);
+    m_page->inspectorController()->addMessageToConsole(source, level, message, lineNumber, sourceID);
 }
 
 bool Chrome::canRunBeforeUnloadConfirmPanel()
@@ -332,7 +328,7 @@ void Chrome::setToolTip(const HitTestResult& result)
         // Get tooltip representing link's URL
         if (toolTip.isEmpty())
             // FIXME: Need to pass this URL through userVisibleString once that's in WebCore
-            toolTip = result.absoluteLinkURL().url();
+            toolTip = result.absoluteLinkURL().string();
     }
 
     // Lastly we'll consider a tooltip for element with "title" attribute
@@ -363,7 +359,7 @@ PageGroupLoadDeferrer::PageGroupLoadDeferrer(Page* page, bool deferSelf)
 
 #if !PLATFORM(MAC)
             for (Frame* frame = otherPage->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
-                if (Window* window = Window::retrieveWindow(frame)) {
+                if (KJS::Window* window = KJS::Window::retrieveWindow(frame)) {
                     PausedTimeouts* timeouts = window->pauseTimeouts();
 
                     m_pausedTimeouts.append(make_pair(frame, timeouts));
@@ -390,7 +386,7 @@ PageGroupLoadDeferrer::~PageGroupLoadDeferrer()
     count = m_pausedTimeouts.size();
 
     for (size_t i = 0; i < count; i++) {
-        Window* window = Window::retrieveWindow(m_pausedTimeouts[i].first.get());
+        KJS::Window* window = KJS::Window::retrieveWindow(m_pausedTimeouts[i].first.get());
         if (window)
             window->resumeTimeouts(m_pausedTimeouts[i].second);
         delete m_pausedTimeouts[i].second;

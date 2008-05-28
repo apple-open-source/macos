@@ -3,7 +3,7 @@
  *
  *   Job management routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -113,7 +113,8 @@ cupsdAddJob(int        priority,	/* I - Job priority */
   cupsd_job_t	*job;			/* New job record */
 
 
-  job = calloc(sizeof(cupsd_job_t), 1);
+  if ((job = calloc(sizeof(cupsd_job_t), 1)) == NULL)
+    return (NULL);
 
   job->id              = NextJobId ++;
   job->priority        = priority;
@@ -351,6 +352,7 @@ cupsdCheckJobs(void)
   cupsd_job_t		*job;		/* Current job in queue */
   cupsd_printer_t	*printer,	/* Printer destination */
 			*pclass;	/* Printer class destination */
+  ipp_attribute_t	*attr;		/* Job attribute */
 
 
   DEBUG_puts("cupsdCheckJobs()");
@@ -376,10 +378,25 @@ cupsdCheckJobs(void)
 	job->hold_until < time(NULL))
     {
       if (job->pending_timeout)
-        cupsdTimeoutJob(job);		/* Add trailing banner as needed */
+      {
+       /* Add trailing banner as needed */
+        if (cupsdTimeoutJob(job))
+	  continue;
+      }
 
       job->state->values[0].integer = IPP_JOB_PENDING;
       job->state_value              = IPP_JOB_PENDING;
+
+      if ((attr = ippFindAttribute(job->attrs, "job-hold-until",
+				   IPP_TAG_KEYWORD)) == NULL)
+	attr = ippFindAttribute(job->attrs, "job-hold-until", IPP_TAG_NAME);
+
+      if (attr)
+      {
+	attr->value_tag = IPP_TAG_KEYWORD;
+	cupsdSetString(&(attr->values[0].string.text), "no-hold");
+	cupsdSaveJob(job);
+      }
     }
 
    /*
@@ -438,9 +455,6 @@ cupsdCheckJobs(void)
 	  * Add/update a job-actual-printer-uri attribute for this job
 	  * so that we know which printer actually printed the job...
 	  */
-
-          ipp_attribute_t	*attr;	/* job-actual-printer-uri attribute */
-
 
           if ((attr = ippFindAttribute(job->attrs, "job-actual-printer-uri",
 	                               IPP_TAG_URI)) != NULL)
@@ -1812,6 +1826,7 @@ free_job(cupsd_job_t *job)		/* I - Job */
   cupsdClearString(&job->auth_username);
   cupsdClearString(&job->auth_domain);
   cupsdClearString(&job->auth_password);
+
 #ifdef HAVE_GSSAPI
  /*
   * Destroy the credential cache and clear the KRB5CCNAME env var string.
@@ -2445,7 +2460,7 @@ start_job(cupsd_job_t     *job,		/* I - Job ID */
 			title[IPP_MAX_NAME],
 					/* Job title string */
 			copies[255],	/* # copies string */
-			*envp[MAX_ENV + 15],
+			*envp[MAX_ENV + 16],
 					/* Environment variables */
 			charset[255],	/* CHARSET env variable */
 			class_name[255],/* CLASS env variable */
@@ -2458,6 +2473,10 @@ start_job(cupsd_job_t     *job,		/* I - Job ID */
 			final_content_type[1024],
 					/* FINAL_CONTENT_TYPE env variable */
 			lang[255],	/* LANG env variable */
+#ifdef __APPLE__
+			apple_language[255],
+					/* APPLE_LANGUAGE env variable */
+#endif /* __APPLE__ */
 			ppd[1024],	/* PPD env variable */
 			printer_name[255],
 					/* PRINTER env variable */
@@ -2514,7 +2533,7 @@ start_job(cupsd_job_t     *job,		/* I - Job ID */
                       "[Job %d] Unable to convert file %d to printable format!",
 	              job->current_file, job->id);
       cupsdLogMessage(CUPSD_LOG_INFO,
-                      "Hint: Do you have ESP Ghostscript installed?");
+                      "Hint: Do you have Ghostscript installed?");
 
       if (LogLevel < CUPSD_LOG_DEBUG)
         cupsdLogMessage(CUPSD_LOG_INFO,
@@ -2964,6 +2983,17 @@ start_job(cupsd_job_t     *job,		/* I - Job ID */
   else
     argv = calloc(8, sizeof(char *));
 
+  if (!argv)
+  {
+    cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to allocate argument array!");
+    cupsArrayDelete(filters);
+
+    FilterLevel -= job->cost;
+
+    cupsdStopPrinter(printer, 0);
+    return;
+  }
+
   sprintf(jobid, "%d", job->id);
 
   argv[0] = printer->name;
@@ -2999,6 +3029,12 @@ start_job(cupsd_job_t     *job,		/* I - Job ID */
 
   attr = ippFindAttribute(job->attrs, "attributes-natural-language",
                           IPP_TAG_LANGUAGE);
+
+#ifdef __APPLE__
+  strcpy(apple_language, "APPLE_LANGUAGE=");
+  _cupsAppleLanguage(attr->values[0].string.text,
+		     apple_language + 15, sizeof(apple_language) - 15);
+#endif /* __APPLE__ */
 
   switch (strlen(attr->values[0].string.text))
   {
@@ -3060,6 +3096,9 @@ start_job(cupsd_job_t     *job,		/* I - Job ID */
 
   envp[envc ++] = charset;
   envp[envc ++] = lang;
+#ifdef __APPLE__
+  envp[envc ++] = apple_language;
+#endif /* __APPLE__ */
   envp[envc ++] = ppd;
   envp[envc ++] = rip_max_cache;
   envp[envc ++] = content_type;
@@ -3321,7 +3360,7 @@ start_job(cupsd_job_t     *job,		/* I - Job ID */
 
   if (strncmp(printer->device_uri, "file:", 5) != 0)
   {
-    if (job->current_file == 1)
+    if (job->current_file == 1 || printer->remote)
     {
       sscanf(printer->device_uri, "%254[^:]", method);
       snprintf(command, sizeof(command), "%s/backend/%s", ServerBin, method);
@@ -3538,7 +3577,7 @@ update_job(cupsd_job_t *job)		/* I - Job to check */
       * job sheet count...
       */
 
-      if (job->sheets != NULL)
+      if (job->sheets)
       {
         if (!strncasecmp(message, "total ", 6))
 	{
@@ -3583,8 +3622,9 @@ update_job(cupsd_job_t *job)		/* I - Job to check */
 
       cupsdLogPage(job, message);
 
-      cupsdAddEvent(CUPSD_EVENT_JOB_PROGRESS, job->printer, job,
-                    "Printed %d page(s).", job->sheets->values[0].integer);
+      if (job->sheets)
+	cupsdAddEvent(CUPSD_EVENT_JOB_PROGRESS, job->printer, job,
+		      "Printed %d page(s).", job->sheets->values[0].integer);
     }
     else if (loglevel == CUPSD_LOG_STATE)
     {
@@ -3597,7 +3637,7 @@ update_job(cupsd_job_t *job)		/* I - Job to check */
       {
 	cupsdSetPrinterReasons(job->printer, message);
 	cupsdAddPrinterHistory(job->printer);
-	event |= CUPSD_EVENT_PRINTER_STATE_CHANGED;
+	event |= CUPSD_EVENT_PRINTER_STATE;
       }
 
       update_job_attrs(job);
@@ -3626,14 +3666,42 @@ update_job(cupsd_job_t *job)		/* I - Job to check */
       if ((attr = cupsGetOption("printer-alert", num_attrs, attrs)) != NULL)
       {
         cupsdSetString(&job->printer->alert, attr);
-	event |= CUPSD_EVENT_PRINTER_STATE_CHANGED;
+	event |= CUPSD_EVENT_PRINTER_STATE;
       }
 
       if ((attr = cupsGetOption("printer-alert-description", num_attrs,
                                 attrs)) != NULL)
       {
         cupsdSetString(&job->printer->alert_description, attr);
-	event |= CUPSD_EVENT_PRINTER_STATE_CHANGED;
+	event |= CUPSD_EVENT_PRINTER_STATE;
+      }
+
+      if ((attr = cupsGetOption("marker-colors", num_attrs, attrs)) != NULL)
+      {
+        cupsdSetPrinterAttr(job->printer, "marker-colors", (char *)attr);
+	job->printer->marker_time = time(NULL);
+	event |= CUPSD_EVENT_PRINTER_STATE;
+      }
+
+      if ((attr = cupsGetOption("marker-levels", num_attrs, attrs)) != NULL)
+      {
+        cupsdSetPrinterAttr(job->printer, "marker-levels", (char *)attr);
+	job->printer->marker_time = time(NULL);
+	event |= CUPSD_EVENT_PRINTER_STATE;
+      }
+
+      if ((attr = cupsGetOption("marker-names", num_attrs, attrs)) != NULL)
+      {
+        cupsdSetPrinterAttr(job->printer, "marker-names", (char *)attr);
+	job->printer->marker_time = time(NULL);
+	event |= CUPSD_EVENT_PRINTER_STATE;
+      }
+
+      if ((attr = cupsGetOption("marker-types", num_attrs, attrs)) != NULL)
+      {
+        cupsdSetPrinterAttr(job->printer, "marker-types", (char *)attr);
+	job->printer->marker_time = time(NULL);
+	event |= CUPSD_EVENT_PRINTER_STATE;
       }
 
       cupsFreeOptions(num_attrs, attrs);
@@ -3650,7 +3718,7 @@ update_job(cupsd_job_t *job)		/* I - Job to check */
 
       cupsdSetString(&job->printer->recoverable, ptr);
       cupsdAddPrinterHistory(job->printer);
-      event |= CUPSD_EVENT_PRINTER_STATE_CHANGED;
+      event |= CUPSD_EVENT_PRINTER_STATE;
     }
     else if (!strncmp(message, "recovered:", 10))
     {
@@ -3663,7 +3731,7 @@ update_job(cupsd_job_t *job)		/* I - Job to check */
 
       cupsdSetString(&job->printer->recoverable, ptr);
       cupsdAddPrinterHistory(job->printer);
-      event |= CUPSD_EVENT_PRINTER_STATE_CHANGED;
+      event |= CUPSD_EVENT_PRINTER_STATE;
     }
 #endif /* __APPLE__ */
     else if (loglevel <= job->status_level)
@@ -3678,7 +3746,7 @@ update_job(cupsd_job_t *job)		/* I - Job to check */
       strlcpy(job->printer->state_message, message,
               sizeof(job->printer->state_message));
       cupsdAddPrinterHistory(job->printer);
-      event |= CUPSD_EVENT_PRINTER_STATE_CHANGED;
+      event |= CUPSD_EVENT_PRINTER_STATE;
 
       update_job_attrs(job);
     }
@@ -3687,8 +3755,8 @@ update_job(cupsd_job_t *job)		/* I - Job to check */
       break;
   }
 
-  if ((event & CUPSD_EVENT_PRINTER_STATE_CHANGED))
-    cupsdAddEvent(CUPSD_EVENT_PRINTER_STATE_CHANGED, job->printer, NULL,
+  if (event & CUPSD_EVENT_PRINTER_STATE)
+    cupsdAddEvent(CUPSD_EVENT_PRINTER_STATE, job->printer, NULL,
 		  (job->printer->type & CUPS_PRINTER_CLASS) ?
 		      "Class \"%s\" state changed." :
 		      "Printer \"%s\" state changed.",

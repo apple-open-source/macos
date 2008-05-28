@@ -18,7 +18,7 @@ HFILES = Timer.h FDHandler.h Supplicant.h EAPOLSocket.h ndrv_socket.h\
 CFILES = EAPOLSocket.c FDHandler.c main.c mylog.c ndrv_socket.c\
          Supplicant.c Timer.c wireless.c Dialogue.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble Info.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

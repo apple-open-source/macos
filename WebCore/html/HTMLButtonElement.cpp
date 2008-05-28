@@ -91,18 +91,29 @@ void HTMLButtonElement::defaultEventHandler(Event* evt)
             form()->reset();
     }
 
-    if (evt->type() == keypressEvent && evt->isKeyboardEvent()) {
-        String key = static_cast<KeyboardEvent*>(evt)->keyIdentifier();
-
-        // Do the same things <input type=button/reset/submit> would do.
-        if (key == "Enter" && m_type == BUTTON) {
-            if (form())
-                form()->submitClick(evt);
-            evt->setDefaultHandled();
+    if (evt->isKeyboardEvent()) {
+        if (evt->type() == keydownEvent && static_cast<KeyboardEvent*>(evt)->keyIdentifier() == "U+0020") {
+            setActive(true, true);
+            // No setDefaultHandled() - IE dispatches a keypress in this case.
             return;
         }
-        if (key == "Enter" || key == "U+0020") {
-            dispatchSimulatedClick(evt);
+        if (evt->type() == keypressEvent) {
+            switch (static_cast<KeyboardEvent*>(evt)->charCode()) {
+                case '\r':
+                    dispatchSimulatedClick(evt);
+                    evt->setDefaultHandled();
+                    return;
+                case ' ':
+                    // Prevent scrolling down the page.
+                    evt->setDefaultHandled();
+                    return;
+                default:
+                    break;
+            }
+        }
+        if (evt->type() == keyupEvent && static_cast<KeyboardEvent*>(evt)->keyIdentifier() == "U+0020") {
+            if (active())
+                dispatchSimulatedClick(evt);
             evt->setDefaultHandled();
             return;
         }
@@ -138,6 +149,7 @@ bool HTMLButtonElement::appendFormData(FormDataList& formData, bool)
 
 void HTMLButtonElement::accessKeyAction(bool sendToAnyElement)
 {   
+    focus();
     // send the mouse button events iff the caller specified sendToAnyElement
     dispatchSimulatedClick(0, sendToAnyElement);
 }

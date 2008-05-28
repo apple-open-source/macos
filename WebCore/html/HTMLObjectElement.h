@@ -24,18 +24,15 @@
 #define HTMLObjectElement_h
 
 #include "HTMLPlugInElement.h"
+#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
 class HTMLImageLoader;
 
-#if ENABLE(SVG)
-class SVGDocument;
-#endif
-
 class HTMLObjectElement : public HTMLPlugInElement {
 public:
-    HTMLObjectElement(Document*);
+    HTMLObjectElement(Document*, bool createdByParser);
     ~HTMLObjectElement();
 
     virtual int tagPriority() const { return 5; }
@@ -45,15 +42,19 @@ public:
     virtual void attach();
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual void finishedParsing();
+    virtual void finishParsingChildren();
     virtual void detach();
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
     
     virtual void recalcStyle(StyleChange);
-    virtual void childrenChanged();
+    virtual void childrenChanged(bool changedByParser = false);
 
     virtual bool isURLAttribute(Attribute*) const;
+    virtual const QualifiedName& imageSourceAttributeName() const;
+
+    virtual void updateWidget();
+    void setNeedWidgetUpdate(bool needWidgetUpdate) { m_needWidgetUpdate = needWidgetUpdate; }
 
     bool isImageType();
 
@@ -101,28 +102,20 @@ public:
     int vspace() const;
     void setVspace(int);
 
-    bool isComplete() const { return m_complete; }
-    void setComplete(bool complete);
-    
     bool isDocNamedItem() const { return m_docNamedItem; }
 
     bool containsJavaApplet() const;
-
-#if ENABLE(SVG)
-    SVGDocument* getSVGDocument(ExceptionCode&) const;
-#endif
 
     String m_serviceType;
     String m_url;
     String m_classId;
     bool m_needWidgetUpdate : 1;
     bool m_useFallbackContent : 1;
-    HTMLImageLoader* m_imageLoader;
+    OwnPtr<HTMLImageLoader> m_imageLoader;
 
 private:
     void updateDocNamedItem();
     String oldIdAttr;
-    bool m_complete;
     bool m_docNamedItem;
 };
 

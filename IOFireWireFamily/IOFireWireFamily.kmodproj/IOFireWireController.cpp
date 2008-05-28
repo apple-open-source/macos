@@ -1954,8 +1954,6 @@ void IOFireWireController::processSelfIDs(UInt32 *IDs, int numIDs, UInt32 *ownID
 
 	FWKLOG(( "IOFireWireController::processSelfIDs entered\n" ));
 
-	suspendBus();
-
 #if (DEBUGGING_LEVEL > 0)
 for(i=0; i<numIDs; i++)
     IOLog("ID %d: 0x%x <-> 0x%x\n", i, IDs[2*i], ~IDs[2*i+1]);
@@ -1972,6 +1970,8 @@ for(i=0; i<numOwnIDs; i++)
     }
 	
 	// we should now be in the kWaitingSelfIDs state
+
+	suspendBus();
 	
 	if( fBusState != kWaitingSelfIDs )
 	{
@@ -2376,8 +2376,8 @@ void IOFireWireController::startBusScan()
         irmAllocationfound->handleBusReset(fBusGeneration);
     }
 	
-    fNumROMReads = 0;
-    for(i=0; i<=fRootNodeID; i++) {
+	fNumROMReads = fRootNodeID+1;
+	for(i=0; i<=fRootNodeID; i++) {
         UInt16 nodeID;
         UInt32 id;
         id = OSSwapBigToHostInt32(*fNodeIDs[i]);
@@ -2385,15 +2385,17 @@ void IOFireWireController::startBusScan()
         nodeID = (id & kFWSelfIDPhyID) >> kFWSelfIDPhyIDPhase;
         nodeID |= kFWLocalBusAddress>>kCSRNodeIDPhase;
         if(nodeID == fLocalNodeID)
-            continue;	// Skip ourself!
-
+ {
+			fNumROMReads--;
+			continue;	// Skip ourself!
+		}
+		
 		// ??? maybe we should add an fwdebug bit to be strict on scanning only nodes with link bit?
 	
         // Read ROM header if link is active (MacOS8 turns link on, why?)
         if(true) { //id & kFWSelfID0L) {
             IOFWNodeScan *scan;
             scan = (IOFWNodeScan *)IOMalloc(sizeof(*scan));
-            fNumROMReads++;
 
             scan->fControl = this;
             scan->fAddr.nodeID = nodeID;
@@ -3553,8 +3555,12 @@ void IOFireWireController::buildTopology(bool doFWPlane)
 					// our parent is the hub
 					parent_level->node->setProperty( "Built-in Hub", true );
 				}
-                node->attachToParent( parent_level->node, gIOFireWirePlane );
-            }
+  			
+				if( (node != NULL) && (parent_level->node != NULL) )
+				{
+					node->attachToParent( parent_level->node, gIOFireWirePlane );
+				}
+			}
            	else
            	{
 				for (scanNodeNum = i + 1; scanNodeNum <= fRootNodeID; scanNodeNum++)

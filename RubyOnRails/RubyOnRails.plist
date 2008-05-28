@@ -62,13 +62,13 @@
         <key>OpenSourceProject</key>
         <string>mongrel</string>
         <key>OpenSourceVersion</key>
-        <string>1.0.1</string>
+        <string>1.1.4</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://mongrel.rubyforge.org</string>
         <key>OpenSourceSHA1</key>
-        <string>9efda5fd0f989cba6ebf342985bf8a6b4c5fd056</string>
+        <string>129e801e98d8ac6372c7d104072c716ab8c7dc03</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-01-23</string>
+        <string>2008-03-20</string>
         <key>OpenSourceLicense</key>
         <string>Other</string>
         <key>OpenSourceLicenseFile</key>

@@ -1,10 +1,10 @@
 dnl -------------------------------------------------------- -*- autoconf -*-
-dnl Copyright 2002-2005 The Apache Software Foundation, or its licensors, as
-dnl applicable.
-dnl
-dnl Licensed under the Apache License, Version 2.0 (the "License");
-dnl you may not use this file except in compliance with the License.
-dnl You may obtain a copy of the License at
+dnl Licensed to the Apache Software Foundation (ASF) under one or more
+dnl contributor license agreements.  See the NOTICE file distributed with
+dnl this work for additional information regarding copyright ownership.
+dnl The ASF licenses this file to You under the Apache License, Version 2.0
+dnl (the "License"); you may not use this file except in compliance with
+dnl the License.  You may obtain a copy of the License at
 dnl
 dnl     http://www.apache.org/licenses/LICENSE-2.0
 dnl
@@ -35,21 +35,30 @@ AC_DEFUN([APU_FIND_ICONV], [
 
 apu_iconv_dir="unknown"
 have_apr_iconv="0"
+want_iconv="1"
 AC_ARG_WITH(iconv,[  --with-iconv[=DIR]        path to iconv installation],
   [ apu_iconv_dir="$withval"
-    if test "$apu_iconv_dir" != "yes"; then
-      APR_ADDTO(CPPFLAGS,[-I$apu_iconv_dir/include])
-      APR_ADDTO(LDFLAGS,[-L$apu_iconv_dir/lib])
-    fi
-    if test -f "$apu_iconv_dir/include/api_version.h"; then
-      have_apr_iconv="1"
+    if test "$apu_iconv_dir" = "no"; then
+      have_apr_iconv="0"
       have_iconv="0"
-      APR_REMOVEFROM(LIBS,[-lapriconv])
-      AC_MSG_RESULT("Using apr-iconv")
+      want_iconv="0"
+    elif test "$apu_iconv_dir" != "yes"; then
+      if test -f "$apu_iconv_dir/include/apr-1/api_version.h"; then
+        have_apr_iconv="1"
+        have_iconv="0"
+        APR_ADDTO(APRUTIL_INCLUDES,[-I$apu_iconv_dir/include/apr-1])
+        APR_ADDTO(APRUTIL_LIBS,[$apu_iconv_dir/lib/libapriconv-1.la])
+        AC_MSG_RESULT(using apr-iconv)
+      elif test -f "$apu_iconv_dir/include/iconv.h"; then
+        have_apr_iconv="0"
+        have_iconv="1"
+        APR_ADDTO(CPPFLAGS,[-I$apu_iconv_dir/include])
+        APR_ADDTO(LDFLAGS,[-L$apu_iconv_dir/lib])
+      fi
     fi
   ])
 
-if test "$have_apr_iconv" != "1"; then
+if test "$want_iconv" = "1" -a "$have_apr_iconv" != "1"; then
   AC_CHECK_HEADER(iconv.h, [
     APU_TRY_ICONV([ have_iconv="1" ], [
 
@@ -67,7 +76,7 @@ if test "$have_apr_iconv" != "1"; then
   ], [ have_iconv="0" ])
 fi
 
-if test "$apu_iconv_dir" != "unknown"; then
+if test "$want_iconv" = "1" -a "$apu_iconv_dir" != "unknown"; then
   if test "$have_iconv" != "1"; then
     if test "$have_apr_iconv" != "1"; then 
       AC_MSG_ERROR([iconv support requested, but not found])

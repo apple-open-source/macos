@@ -13,7 +13,6 @@ ToolType              = Services
 Extra_LD_Flags	      = -lresolv
 Extra_Configure_Flags = --with-apxs=/usr/sbin/apxs-1.3 --with-ldap=/usr --with-kerberos=/usr --enable-cli --with-zlib-dir=/usr --enable-trans-sid --with-xml --enable-exif --enable-ftp --enable-mbstring --enable-mbregex --enable-dbx --enable-sockets --with-iodbc=/usr --with-curl=/usr --with-config-file-path=/etc --sysconfdir=$(ETCDIR) \
                         --with-mysql=/usr --with-mysql-sock=/var/mysql/mysql.sock
-Extra_CC_Flags        = -no-cpp-precomp
 Environment += LEX=/usr/local/bin/lex-2.5.4
 
 GnuAfterInstall       = strip mode install-ini install-plist install-cleanup
@@ -68,7 +67,7 @@ install-cleanup:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 4.4.7
+AEP_Version    = 4.4.8
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -77,7 +76,6 @@ AEP_Patches    = TSRM__build.mk.diff TSRM__buildconf.diff \
                  ext__mbstring__libmbfl__buildconf.diff \
                  ext__mbstring__libmbfl__config.h.diff \
 		 NLS_remove_BIND8.patch \
-		 ext__session__sessiou.c.diff \
                  Makefile.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)

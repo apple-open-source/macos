@@ -29,6 +29,7 @@
 
 #include <security_codesigning/reqreader.h>
 #include <Security/SecTrustSettings.h>
+#include <security_cdsa_utilities/cssmdata.h>	// CssmOid
 
 namespace Security {
 namespace CodeSigning {
@@ -49,7 +50,11 @@ protected:
 	public:
 		Match(Interpreter &interp);		// reads match postfix from interp
 		Match(CFStringRef value, MatchOperation op) : mValue(value), mOp(op) { } // explicit
+		Match() : mValue(NULL), mOp(matchExists) { } // explict test for presence
 		bool operator () (CFTypeRef candidate) const; // match to candidate
+		
+	protected:
+		bool inequality(CFTypeRef candidate, CFStringCompareFlags flags, CFComparisonResult outcome, bool negate) const;
 		
 	private:
 		CFCopyRef<CFStringRef> mValue;	// match value
@@ -58,13 +63,17 @@ protected:
 	
 protected:
 	bool infoKeyValue(const std::string &key, const Match &match);
+	bool entitlementValue(const std::string &key, const Match &match);
 	bool certFieldValue(const string &key, const Match &match, SecCertificateRef cert);
+	bool certFieldGeneric(const string &key, const Match &match, SecCertificateRef cert);
+	bool certFieldGeneric(const CssmOid &oid, const Match &match, SecCertificateRef cert);
 	bool verifyAnchor(SecCertificateRef cert, const unsigned char *digest);
 	bool appleSigned();
+	bool appleAnchored();
 	bool trustedCerts();
 	bool trustedCert(int slot);
 	
-	SecTrustSettingsResult trustSetting(SecCertificateRef cert, bool isAnchor);
+	static SecTrustSettingsResult trustSetting(SecCertificateRef cert, bool isAnchor);
 	
 private:
 	const Context * const mContext;

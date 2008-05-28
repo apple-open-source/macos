@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -94,6 +94,8 @@ typedef struct {
 
 	/* target host name */
 	const char			*name;
+	const char			*serv;
+	struct addrinfo			hints;
 	CFArrayRef			resolvedAddress;	/* CFArray[CFData] */
 	int				resolvedAddressError;
 
@@ -971,7 +973,14 @@ __SCNetworkReachabilityCopyDescription(CFTypeRef cf)
 			break;
 		}
 		case reachabilityTypeName : {
-			CFStringAppendFormat(result, NULL, CFSTR("name = %s"), targetPrivate->name);
+			if ((targetPrivate->name != NULL)) {
+				CFStringAppendFormat(result, NULL, CFSTR("name = %s"), targetPrivate->name);
+			}
+			if ((targetPrivate->serv != NULL)) {
+				CFStringAppendFormat(result, NULL, CFSTR("%sserv = %s"),
+						     targetPrivate->name != NULL ? ", " : "",
+						     targetPrivate->serv);
+			}
 			if ((targetPrivate->resolvedAddress != NULL) || (targetPrivate->resolvedAddressError != NETDB_SUCCESS)) {
 				if (targetPrivate->resolvedAddress != NULL) {
 					if (isA_CFArray(targetPrivate->resolvedAddress)) {
@@ -1030,6 +1039,9 @@ __SCNetworkReachabilityDeallocate(CFTypeRef cf)
 	if (targetPrivate->name != NULL)
 		CFAllocatorDeallocate(NULL, (void *)targetPrivate->name);
 
+	if (targetPrivate->serv != NULL)
+		CFAllocatorDeallocate(NULL, (void *)targetPrivate->serv);
+
 	if (targetPrivate->resolvedAddress != NULL)
 		CFRelease(targetPrivate->resolvedAddress);
 
@@ -1077,6 +1089,12 @@ __SCNetworkReachabilityCreatePrivate(CFAllocatorRef	allocator)
 	pthread_mutex_init(&targetPrivate->lock, NULL);
 
 	targetPrivate->name				= NULL;
+	targetPrivate->serv				= NULL;
+	bzero(&targetPrivate->hints, sizeof(targetPrivate->hints));
+	targetPrivate->hints.ai_flags = AI_ADDRCONFIG;
+#ifdef	AI_PARALLEL
+	targetPrivate->hints.ai_flags |= AI_PARALLEL;
+#endif	/* AI_PARALLEL */
 
 	targetPrivate->resolvedAddress			= NULL;
 	targetPrivate->resolvedAddressError		= NETDB_SUCCESS;
@@ -1239,6 +1257,74 @@ SCNetworkReachabilityCreateWithName(CFAllocatorRef	allocator,
 }
 
 
+SCNetworkReachabilityRef
+SCNetworkReachabilityCreateWithOptions(CFAllocatorRef	allocator,
+				       CFDictionaryRef	options)
+{
+	CFDataRef			data;
+	struct addrinfo			*hints	= NULL;
+	CFStringRef			nodename;
+	CFStringRef			servname;
+	SCNetworkReachabilityPrivateRef	targetPrivate;
+
+	if (!isA_CFDictionary(options)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	nodename = CFDictionaryGetValue(options, kSCNetworkReachabilityOptionNodeName);
+	if ((nodename != NULL) &&
+	    (!isA_CFString(nodename) || (CFStringGetLength(nodename) == 0))) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+	servname = CFDictionaryGetValue(options, kSCNetworkReachabilityOptionServName);
+	if ((servname != NULL) &&
+	    (!isA_CFString(servname) || (CFStringGetLength(servname) == 0))) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+	data = CFDictionaryGetValue(options, kSCNetworkReachabilityOptionHints);
+	if (data != NULL) {
+		if (!isA_CFData(data) || (CFDataGetLength(data) != sizeof(targetPrivate->hints))) {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return NULL;
+		}
+
+		hints = (struct addrinfo *)CFDataGetBytePtr(data);
+		if ((hints->ai_addrlen   != 0)    ||
+		    (hints->ai_addr      != NULL) ||
+		    (hints->ai_canonname != NULL) ||
+		    (hints->ai_next      != NULL)) {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return NULL;
+		}
+	}
+	if ((nodename == NULL) && (servname == NULL)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	targetPrivate = __SCNetworkReachabilityCreatePrivate(allocator);
+	if (targetPrivate == NULL) {
+		return NULL;
+	}
+	targetPrivate->type = reachabilityTypeName;
+	targetPrivate->flags |= kSCNetworkFlagsFirstResolvePending;
+	if (nodename != NULL) {
+		targetPrivate->name = _SC_cfstring_to_cstring(nodename, NULL, 0, kCFStringEncodingUTF8);
+	}
+	if (servname != NULL) {
+		targetPrivate->serv = _SC_cfstring_to_cstring(servname, NULL, 0, kCFStringEncodingUTF8);
+	}
+	if (hints != NULL) {
+		bcopy(hints, &targetPrivate->hints, sizeof(targetPrivate->hints));
+	}
+
+	return (SCNetworkReachabilityRef)targetPrivate;
+}
+
+
 CFTypeID
 SCNetworkReachabilityGetTypeID(void)
 {
@@ -1268,7 +1354,7 @@ SCNetworkReachabilityCopyResolvedAddress(SCNetworkReachabilityRef	target,
 	}
 
 	if ((targetPrivate->resolvedAddress != NULL) || (targetPrivate->resolvedAddressError != NETDB_SUCCESS)) {
-		if (targetPrivate->resolvedAddress != NULL) {
+		if (isA_CFArray(targetPrivate->resolvedAddress)) {
 			return CFRetain(targetPrivate->resolvedAddress);
 		} else {
 			/* if status is known but no resolved addresses to return */
@@ -1630,10 +1716,11 @@ dns_configuration_unwatch()
 
 
 Boolean
-_SC_checkResolverReachability(SCDynamicStoreRef		*storeP,
-			      SCNetworkConnectionFlags	*flags,
-			      Boolean			*haveDNS,
-			      const char *		nodename)
+_SC_checkResolverReachability(SCDynamicStoreRef			*storeP,
+			      SCNetworkConnectionFlags		*flags,
+			      Boolean				*haveDNS,
+			      const char *			nodename,
+			      const char *			servname)
 {
 	dns_resolver_t		*default_resolver;
 	dns_configuration_t	*dns;
@@ -1655,10 +1742,12 @@ _SC_checkResolverReachability(SCDynamicStoreRef		*storeP,
 	*flags   = kSCNetworkFlagsReachable;
 	*haveDNS = FALSE;
 
-	len = strlen(fqdn);
+	len = (nodename != NULL) ? strlen(nodename) : 0;
 	if (len == 0) {
-		// if no nodename, return not reachable
-		*flags = 0;
+		if ((servname == NULL) || (strlen(servname) == 0)) {
+			// if no nodename or servname, return not reachable
+			*flags = 0;
+		}
 		return ok;
 	}
 
@@ -1853,7 +1942,7 @@ _SC_checkResolverReachabilityByAddress(SCDynamicStoreRef	*storeP,
 			goto done;
 	}
 
-	ok = _SC_checkResolverReachability(storeP, flags, haveDNS, ptr_name);
+	ok = _SC_checkResolverReachability(storeP, flags, haveDNS, ptr_name, NULL);
 
     done :
 
@@ -1869,8 +1958,12 @@ replyMPCopyDescription(const void *info)
 
 	return CFStringCreateWithFormat(NULL,
 					NULL,
-					CFSTR("<getaddrinfo_async_start reply MP> {name = %s, target = %p}"),
-					targetPrivate->name ? targetPrivate->name : "?",
+					CFSTR("<getaddrinfo_async_start reply MP> {%s%s%s%s%s, target = %p}"),
+					targetPrivate->name != NULL ? "name = " : "",
+					targetPrivate->name != NULL ? targetPrivate->name : "",
+					targetPrivate->name != NULL && targetPrivate->serv != NULL ? ", " : "",
+					targetPrivate->serv != NULL ? "serv = " : "",
+					targetPrivate->serv != NULL ? targetPrivate->serv : "",
 					target);
 }
 
@@ -1884,7 +1977,6 @@ startAsyncDNSQuery(SCNetworkReachabilityRef target) {
 							  , replyMPCopyDescription
 							  };
 	int				error;
-	struct addrinfo			hints;
 	CFIndex				i;
 	CFIndex				n;
 	mach_port_t			port;
@@ -1892,16 +1984,10 @@ startAsyncDNSQuery(SCNetworkReachabilityRef target) {
 
 	(void) gettimeofday(&targetPrivate->dnsQueryStart, NULL);
 
-	bzero(&hints, sizeof(hints));
-	hints.ai_flags = AI_ADDRCONFIG;
-#ifdef	AI_PARALLEL
-	hints.ai_flags |= AI_PARALLEL;
-#endif	/* AI_PARALLEL */
-
 	error = getaddrinfo_async_start(&port,
 					targetPrivate->name,
-					NULL,
-					&hints,
+					targetPrivate->serv,
+					&targetPrivate->hints,
 					__SCNetworkReachabilityCallbackSetResolvedAddress,
 					(void *)target);
 	if (error != 0) {
@@ -1999,7 +2085,6 @@ __SCNetworkReachabilityGetFlags(SCDynamicStoreRef		*storeP,
 		case reachabilityTypeName : {
 			struct timeval			dnsQueryStart;
 			int				error;
-			struct addrinfo			hints;
 			SCNetworkConnectionFlags	ns_flags;
 			struct addrinfo			*res;
 
@@ -2013,7 +2098,8 @@ __SCNetworkReachabilityGetFlags(SCDynamicStoreRef		*storeP,
 			ok = _SC_checkResolverReachability(storeP,
 							   &ns_flags,
 							   &targetPrivate->haveDNS,
-							   targetPrivate->name);
+							   targetPrivate->name,
+							   targetPrivate->serv);
 			if (!ok) {
 				/* if we could not get DNS server info */
 				goto error;
@@ -2059,7 +2145,13 @@ __SCNetworkReachabilityGetFlags(SCDynamicStoreRef		*storeP,
 					break;
 				}
 
-				SCLog(_sc_debug, LOG_INFO, CFSTR("start DNS query for \"%s\""), targetPrivate->name);
+				SCLog(_sc_debug, LOG_INFO,
+				      CFSTR("start DNS query for %s%s%s%s%s"),
+				      targetPrivate->name != NULL ? "name = " : "",
+				      targetPrivate->name != NULL ? targetPrivate->name : "",
+				      targetPrivate->name != NULL && targetPrivate->serv != NULL ? ", " : "",
+				      targetPrivate->serv != NULL ? "serv = " : "",
+				      targetPrivate->serv != NULL ? targetPrivate->serv : "");
 
 				/*
 				 * initiate an async DNS query
@@ -2073,7 +2165,13 @@ __SCNetworkReachabilityGetFlags(SCDynamicStoreRef		*storeP,
 				break;
 			}
 
-			SCLog(_sc_debug, LOG_INFO, CFSTR("check DNS for \"%s\""), targetPrivate->name);
+			SCLog(_sc_debug, LOG_INFO,
+			      CFSTR("check DNS for %s%s%s%s%s"),
+			      targetPrivate->name != NULL ? "name = " : "",
+			      targetPrivate->name != NULL ? targetPrivate->name : "",
+			      targetPrivate->name != NULL && targetPrivate->serv != NULL ? ", " : "",
+			      targetPrivate->serv != NULL ? "serv = " : "",
+			      targetPrivate->serv != NULL ? targetPrivate->serv : "");
 
 			/*
 			 * OK, all of the DNS name servers are available.  Let's
@@ -2083,13 +2181,10 @@ __SCNetworkReachabilityGetFlags(SCDynamicStoreRef		*storeP,
 				(void) gettimeofday(&dnsQueryStart, NULL);
 			}
 
-			bzero(&hints, sizeof(hints));
-			hints.ai_flags = AI_ADDRCONFIG;
-#ifdef	AI_PARALLEL
-			hints.ai_flags |= AI_PARALLEL;
-#endif	/* AI_PARALLEL */
-
-			error = getaddrinfo(targetPrivate->name, NULL, &hints, &res);
+			error = getaddrinfo(targetPrivate->name,
+					    targetPrivate->serv,
+					    &targetPrivate->hints,
+					    &res);
 
 			__log_query_time(((error == 0) && (res != NULL)),// if successful query
 					 FALSE,				// sync
@@ -2357,7 +2452,8 @@ __SCNetworkReachabilityReachabilityHandleChanges(SCDynamicStoreRef	store,
 				ok = _SC_checkResolverReachability(&store,
 								   &ns_flags,
 								   &targetPrivate->haveDNS,
-								   targetPrivate->name);
+								   targetPrivate->name,
+								   targetPrivate->serv);
 				if (!ok || (rankReachability(ns_flags) < 2)) {
 					/* if DNS servers are not reachable */
 					dnsChanged = TRUE;

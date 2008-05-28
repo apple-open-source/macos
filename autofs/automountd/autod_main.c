@@ -902,7 +902,7 @@ do_mount_trigger(autofs_pathname mntpt, autofs_pathname submntpt,
 	mnt_args.direct = direct;
 	mnt_args.trigger = 1;		/* special trigger submount */
 
-	if (mount(MNTTYPE_AUTOFS, mntpt, flags|MNT_AUTOMOUNTED,
+	if (mount(MNTTYPE_AUTOFS, mntpt, flags|MNT_AUTOMOUNTED|MNT_DONTBROWSE,
 	    &mnt_args) == -1)
 		return (errno);
 	/*

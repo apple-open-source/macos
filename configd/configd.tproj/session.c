@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,10 +72,10 @@ getSession(mach_port_t server)
 
 __private_extern__
 serverSessionRef
-addSession(CFMachPortRef server)
+addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 {
-	int	i;
-	int	n = -1;
+	CFMachPortContext	context	= { 0, NULL, NULL, NULL, NULL };
+	int			n = -1;
 
 	if (nSessions <= 0) {
 		/* new session (actually, the first) found */
@@ -83,10 +83,13 @@ addSession(CFMachPortRef server)
 		n = 0;
 		nSessions = 1;
 	} else {
+		int	i;
+
 		for (i = 0; i < nSessions; i++) {
 			if (sessions[i] == NULL) {
 				/* found an empty slot, use it */
 				n = i;
+				break;
 			}
 		}
 		/* new session identified */
@@ -99,10 +102,30 @@ addSession(CFMachPortRef server)
 
 	// allocate a new session for this server
 	sessions[n] = malloc(sizeof(serverSession));
-	sessions[n]->key                 = CFMachPortGetPort(server);
-	sessions[n]->serverPort          = server;
-	sessions[n]->serverRunLoopSource = NULL;
-	sessions[n]->store		 = NULL;
+	bzero(sessions[n], sizeof(serverSession));
+
+	// create server port
+	context.info		= sessions[n];
+	context.copyDescription	= copyDescription;
+
+	if (server == MACH_PORT_NULL) {
+		// SCDynamicStore client ports 
+		(void) mach_port_allocate(mach_task_self(),
+					  MACH_PORT_RIGHT_RECEIVE,
+					  &server);
+		(void) mach_port_insert_right(mach_task_self(),
+					      server,
+					      server,
+					      MACH_MSG_TYPE_MAKE_SEND);
+	}
+	sessions[n]->key		 = server;
+	sessions[n]->serverPort		 = CFMachPortCreateWithPort(NULL,
+								    server,
+								    configdCallback,
+								    &context,
+								    NULL);
+//	sessions[n]->serverRunLoopSource = NULL;
+//	sessions[n]->store		 = NULL;
 	sessions[n]->callerEUID          = 1;		/* not "root" */
 
 	return sessions[n];
@@ -184,6 +207,15 @@ cleanupSession(mach_port_t server)
 			 */
 			(void) __SCDynamicStoreClose(&thisSession->store, TRUE);
 
+			/*
+			 * Our send right has already been removed. Remove our
+			 * receive right.
+			 */
+			mach_port_mod_refs(mach_task_self(),
+					   thisSession->key,
+					   MACH_PORT_RIGHT_RECEIVE,
+					   -1);
+			
 			/*
 			 * Lastly, remove the session entry.
 			 */

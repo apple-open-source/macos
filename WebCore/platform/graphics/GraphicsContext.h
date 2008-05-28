@@ -41,6 +41,25 @@ typedef struct _cairo PlatformGraphicsContext;
 #elif PLATFORM(QT)
 class QPainter;
 typedef QPainter PlatformGraphicsContext;
+#elif PLATFORM(WX)
+class wxGCDC;
+class wxWindowDC;
+
+// wxGraphicsContext allows us to support Path, etc. 
+// but on some platforms, e.g. Linux, it requires fairly 
+// new software.
+#if USE(WXGC)
+// On OS X, wxGCDC is just a typedef for wxDC, so use wxDC explicitly to make
+// the linker happy.
+#ifdef __APPLE__
+    class wxDC;
+    typedef wxDC PlatformGraphicsContext;
+#else
+    typedef wxGCDC PlatformGraphicsContext;
+#endif
+#else
+    typedef wxWindowDC PlatformGraphicsContext;
+#endif
 #else
 typedef void PlatformGraphicsContext;
 #endif
@@ -67,7 +86,6 @@ namespace WebCore {
     class KURL;
     class Path;
     class TextRun;
-    class TextStyle;
 
     // These bits can be ORed together for a total of 8 possible text drawing modes.
     const int cTextInvisible = 0;
@@ -146,17 +164,12 @@ namespace WebCore {
         void clipOutEllipseInRect(const IntRect&);
         void clipOutRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight);
 
-        // Functions to work around bugs in focus ring clipping on Mac.
-        void setFocusRingClip(const IntRect&);
-        void clearFocusRingClip();
-
         int textDrawingMode();
         void setTextDrawingMode(int);
 
         void drawText(const TextRun&, const IntPoint&, int from = 0, int to = -1);
-        void drawText(const TextRun&, const IntPoint&, const TextStyle&, int from = 0, int to = -1);
-        void drawBidiText(const TextRun&, const IntPoint&, const TextStyle&);
-        void drawHighlightForText(const TextRun&, const IntPoint&, int h, const TextStyle&, const Color& backgroundColor, int from = 0, int to = -1);
+        void drawBidiText(const TextRun&, const IntPoint&);
+        void drawHighlightForText(const TextRun&, const IntPoint&, int h, const Color& backgroundColor, int from = 0, int to = -1);
 
         FloatRect roundToDevicePixels(const FloatRect&);
         
@@ -203,11 +216,15 @@ namespace WebCore {
         void setURLForRect(const KURL&, const IntRect&);
 
         void concatCTM(const AffineTransform&);
+        AffineTransform getCTM() const;
+
+        void setUseAntialiasing(bool = true);
 
 #if PLATFORM(WIN)
         GraphicsContext(HDC); // FIXME: To be removed.
-        HDC getWindowsContext(bool supportAlphaBlend = false, const IntRect* = 0); // The passed in rect is used to create a bitmap for compositing inside transparency layers.
-        void releaseWindowsContext(HDC, bool supportAlphaBlend = false, const IntRect* = 0);    // The passed in HDC should be the one handed back by getWindowsContext.
+        bool inTransparencyLayer() const;
+        HDC getWindowsContext(const IntRect&, bool supportAlphaBlend = true); // The passed in rect is used to create a bitmap for compositing inside transparency layers.
+        void releaseWindowsContext(HDC, const IntRect&, bool supportAlphaBlend = true);    // The passed in HDC should be the one handed back by getWindowsContext.
 #endif
 
 #if PLATFORM(QT)

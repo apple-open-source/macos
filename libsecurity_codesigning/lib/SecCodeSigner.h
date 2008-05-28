@@ -61,6 +61,7 @@ CFTypeID SecCodeSignerGetTypeID(void);
 extern const CFStringRef kSecCodeSignerApplicationData;
 extern const CFStringRef kSecCodeSignerDetached;
 extern const CFStringRef kSecCodeSignerDryRun;
+extern const CFStringRef kSecCodeSignerEntitlements;
 extern const CFStringRef kSecCodeSignerFlags;
 extern const CFStringRef kSecCodeSignerIdentifier;
 extern const CFStringRef kSecCodeSignerIdentifierPrefix;

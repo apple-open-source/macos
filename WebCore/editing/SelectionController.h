@@ -57,7 +57,7 @@ public:
 
     const Selection& selection() const { return m_sel; }
     void setSelection(const Selection&, bool closeTyping = true, bool clearTypingStyle = true, bool userTriggered = false);
-    void setSelectedRange(Range*, EAffinity, bool closeTyping, ExceptionCode&);
+    bool setSelectedRange(Range*, EAffinity, bool closeTyping);
     void selectAll();
     void clear();
     
@@ -103,47 +103,6 @@ public:
     
     void nodeWillBeRemoved(Node*);
 
-    // Safari Selection Object API
-    // These methods return the valid equivalents of internal editing positions.
-    Node* baseNode() const;
-    Node* extentNode() const;
-    int baseOffset() const;
-    int extentOffset() const;
-    String type() const;
-    void setBaseAndExtent(Node* baseNode, int baseOffset, Node* extentNode, int extentOffset, ExceptionCode&);
-    void setPosition(Node*, int offset, ExceptionCode&);
-    bool modify(const String& alterString, const String& directionString, const String& granularityString, bool userTriggered = false);
-    
-    // Mozilla Selection Object API
-    // In FireFox, anchor/focus are the equal to the start/end of the selection,
-    // but reflect the direction in which the selection was made by the user.  That does
-    // not mean that they are base/extent, since the base/extent don't reflect
-    // expansion.
-    // These methods return the valid equivalents of internal editing positions.
-    Node* anchorNode() const;
-    int anchorOffset() const;
-    Node* focusNode() const;
-    int focusOffset() const;
-    bool isCollapsed() const { return !isRange(); }
-    String toString() const;
-    void collapse(Node*, int offset, ExceptionCode&);
-    void collapseToEnd();
-    void collapseToStart();
-    void extend(Node*, int offset, ExceptionCode&);
-    PassRefPtr<Range> getRangeAt(int index, ExceptionCode&) const;
-    int rangeCount() const { return !isNone() ? 1 : 0; }
-    void removeAllRanges();
-    void addRange(const Range*);
-    //void deleteFromDocument();
-    //bool containsNode(Node *node, bool entirelyContained);
-    //void selectAllChildren(const Node *);
-    //void removeRange(const Range *);
-    
-    // Microsoft Selection Object API
-    void empty();
-    //void clear();
-    //TextRange *createRange();
-    
     bool recomputeCaretRect(); // returns true if caret rect moved
     void invalidateCaretRect();
     void paintCaret(GraphicsContext*, const IntRect&);
@@ -151,6 +110,11 @@ public:
     // Used to suspend caret blinking while the mouse is down.
     void setCaretBlinkingSuspended(bool suspended) { m_isCaretBlinkingSuspended = suspended; }
     bool isCaretBlinkingSuspended() const { return m_isCaretBlinkingSuspended; }
+
+    // Focus
+    void setFocused(bool);
+    bool isFocusedAndActive() const;
+    void pageActivationChanged();
 
 #ifndef NDEBUG
     void formatForDebugger(char* buffer, unsigned length) const;
@@ -176,6 +140,8 @@ private:
     void notifyAccessibilityForSelectionChange() {};
 #endif
 
+    void focusedOrActiveStateChanged();
+
     Selection m_sel;
 
     IntRect m_caretRect;            // caret coordinates, size, and position
@@ -193,6 +159,7 @@ private:
     bool m_isCaretBlinkingSuspended;
     
     int m_xPosForVerticalArrowNavigation;
+    bool m_focused;
 };
 
 inline bool operator==(const SelectionController& a, const SelectionController& b)

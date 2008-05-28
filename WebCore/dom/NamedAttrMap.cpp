@@ -4,6 +4,7 @@
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ *           (C) 2007 Eric Seidel (eric@webkit.org)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,9 +34,9 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static inline bool inHTMLDocument(const Element* e)
+static inline bool shouldIgnoreAttributeCase(const Element* e)
 {
-    return e && e->document()->isHTMLDocument();
+    return e && e->document()->isHTMLDocument() && e->isHTMLElement();
 }
 
 NamedAttrMap::NamedAttrMap(Element *e)
@@ -57,7 +58,7 @@ bool NamedAttrMap::isMappedAttributeMap() const
 
 PassRefPtr<Node> NamedAttrMap::getNamedItem(const String& name) const
 {
-    String localName = inHTMLDocument(element) ? name.lower() : name;
+    String localName = shouldIgnoreAttributeCase(element) ? name.lower() : name;
     Attribute* a = getAttributeItem(localName);
     if (!a)
         return 0;
@@ -72,7 +73,7 @@ PassRefPtr<Node> NamedAttrMap::getNamedItemNS(const String& namespaceURI, const 
 
 PassRefPtr<Node> NamedAttrMap::removeNamedItem(const String& name, ExceptionCode& ec)
 {
-    String localName = inHTMLDocument(element) ? name.lower() : name;
+    String localName = shouldIgnoreAttributeCase(element) ? name.lower() : name;
     Attribute* a = getAttributeItem(localName);
     if (!a) {
         ec = NOT_FOUND_ERR;
@@ -263,31 +264,24 @@ NamedAttrMap& NamedAttrMap::operator=(const NamedAttrMap& other)
     return *this;
 }
 
-void NamedAttrMap::addAttribute(Attribute *attribute)
+void NamedAttrMap::addAttribute(PassRefPtr<Attribute> prpAttribute)
 {
-    // Add the attribute to the list
-    Attribute **newAttrs = static_cast<Attribute **>(fastMalloc((len + 1) * sizeof(Attribute *)));
-    if (attrs) {
-      for (unsigned i = 0; i < len; i++)
-        newAttrs[i] = attrs[i];
-      fastFree(attrs);
-    }
-    attrs = newAttrs;
-    attrs[len++] = attribute;
-    attribute->ref();
+    Attribute* attribute = prpAttribute.releaseRef(); // The attrs array will own this pointer.
 
-    Attr * const attr = attribute->attr();
-    if (attr)
+    // Add the attribute to the list
+    attrs = static_cast<Attribute**>(fastRealloc(attrs, (len + 1) * sizeof(Attribute*)));
+    attrs[len++] = attribute;
+
+    if (Attr* attr = attribute->attr())
         attr->m_element = element;
 
     // Notify the element that the attribute has been added, and dispatch appropriate mutation events
     // Note that element may be null here if we are called from insertAttr() during parsing
     if (element) {
-        RefPtr<Attribute> a = attribute;
-        element->attributeChanged(a.get());
+        element->attributeChanged(attribute);
         // Because of our updateStyleAttributeIfNeeded() style modification events are never sent at the right time, so don't bother sending them.
-        if (a->name() != styleAttr) {
-            element->dispatchAttrAdditionEvent(a.get());
+        if (attribute->name() != styleAttr) {
+            element->dispatchAttrAdditionEvent(attribute);
             element->dispatchSubtreeModifiedEvent(false);
         }
     }

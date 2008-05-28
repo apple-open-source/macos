@@ -106,6 +106,62 @@ void dotMacRefKeyToRaw(
 	CSSM_DeleteContext(ccHand);
 }
 
+void dotMacTokenizeHostName(
+    const CSSM_DATA				&inName,    // UTF8, no NULL
+    CSSM_DATA					&outName,   // RETURNED
+    CSSM_DATA					&outDomain) // RETURNED
+{
+    int idx = 0;
+    int stopIdx = inName.Length;
+    uint8 *p = inName.Data;
+    outName = inName;
+    outDomain.Length = idx;
+    if (!p) return;
+    while (idx < stopIdx) {
+        if (*p++ == '.') {
+            outName.Length = idx;
+            outDomain.Length = (CSSM_SIZE)(stopIdx - (idx + 1));
+            outDomain.Data = p;
+            break;
+        }
+        idx++;
+    }
+    if (outDomain.Length) {
+        /* continue scanning for a port specifier */
+        idx = 0;
+        stopIdx = outDomain.Length;
+        while (idx < stopIdx) {
+            if (*p++ == ':') {
+                outDomain.Length = idx;
+                break;
+            }
+            idx++;
+        }
+    }
+}
+
+void dotMacTokenizeUserName(
+    const CSSM_DATA				&inName,    // UTF8, no NULL
+    CSSM_DATA					&outName,   // RETURNED
+    CSSM_DATA					&outDomain) // RETURNED
+{
+    int idx = 0;
+    int stopIdx = inName.Length;
+    uint8 *p = inName.Data;
+    outName = inName;
+    outDomain.Length = idx;
+    if (!p) return;
+    while (idx < stopIdx) {
+        if (*p++ == '@') {
+            outName.Length = idx;
+            outDomain.Length = (CSSM_SIZE)(stopIdx - (idx + 1));
+            outDomain.Data = p;
+            break;
+        }
+        idx++;
+    }
+}
+
 /*
  * Encode/decode ReferenceIdentitifiers for queued requests.
  * We PEM encode/decode here to keep things orthogonal, since returned
@@ -113,6 +169,7 @@ void dotMacRefKeyToRaw(
  */
 OSStatus dotMacEncodeRefId(  
 	const CSSM_DATA				&userName,	// UTF8, no NULL
+	const CSSM_DATA				&domainName, // UTF8, no NULL
 	DotMacCertTypeTag			certTypeTag,
 	SecNssCoder					&coder,		// results mallocd in this address space
 	CSSM_DATA					&refId)		// RETURNED, PEM encoded
@@ -121,6 +178,7 @@ OSStatus dotMacEncodeRefId(
 	
 	/* set up a DotMacTpPendingRequest */
 	req.userName = userName;
+    req.domainName = domainName;
 	uint8 certType = certTypeTag;
 	req.certTypeTag.Data = &certType;
 	req.certTypeTag.Length = 1;
@@ -152,6 +210,7 @@ OSStatus dotMacDecodeRefId(
 	SecNssCoder					&coder,			// results mallocd in this address space
 	const CSSM_DATA				&refId,			// PEM encoded
 	CSSM_DATA					&userName,		// RETURNED, UTF8, no NULL
+	CSSM_DATA					&domainName,	// RETURNED, UTF8, no NULL
 	DotMacCertTypeTag			*certTypeTag)	// RETURNED
 {
 	/* PEM decode */
@@ -179,6 +238,7 @@ OSStatus dotMacDecodeRefId(
 	
 	/* decoded params back to caller */
 	userName = req.userName;
+    domainName = req.domainName;
 	if(req.certTypeTag.Length != 1) {
 		dotMacErrorLog("dotMacDecodeRefId: reqType length (%lu) error", req.certTypeTag.Length);
 		return paramErr;
@@ -199,11 +259,14 @@ OSStatus dotMacDecodeRefId(
 /* fetch cert via HTTP */
 CSSM_RETURN dotMacTpCertFetch(
 	const CSSM_DATA		&userName,  // UTF8, no NULL
+	const CSSM_DATA		&domainName, // UTF8, no NULL
 	DotMacCertTypeTag	certType,
 	Allocator			&alloc,		// results mallocd here
 	CSSM_DATA			&result)	// RETURNED
 {
 	unsigned rawUrlLen;
+    unsigned domainLen = (domainName.Length && domainName.Data) ? domainName.Length : strlen(DOT_MAC_DOMAIN);
+    uint8 *domain = (domainName.Length && domainName.Data) ? domainName.Data : (uint8 *) DOT_MAC_DOMAIN;
 	char *typeArg;
 	CSSM_RETURN crtn = CSSM_OK;
 	
@@ -228,7 +291,8 @@ CSSM_RETURN dotMacTpCertFetch(
 
 	/* URL :=  http://certinfo.mac.com/locate?accountName&type=certTypeTag */
 	rawUrlLen = strlen(DOT_MAC_LOOKUP_SCHEMA) +		/* http:// */
-		strlen(DOT_MAC_LOOKUP_HOST) +				/* certmgmt.mac.com */
+		strlen(DOT_MAC_LOOKUP_HOST_NAME) +			/* certinfo */
+        domainLen +	1 +								/* .mac.com */
 		strlen(DOT_MAC_LOOKUP_PATH) +				/* /locate? */
 		userName.Length +							/* joe */
 		strlen(DOT_MAC_LOOKUP_TYPE) +				/* &type= */
@@ -241,10 +305,15 @@ CSSM_RETURN dotMacTpCertFetch(
 	memmove(cp, DOT_MAC_LOOKUP_SCHEMA, len);
 	cp += len;
 	
-	len = strlen(DOT_MAC_LOOKUP_HOST);
-	memmove(cp, DOT_MAC_LOOKUP_HOST, len);
+	len = strlen(DOT_MAC_LOOKUP_HOST_NAME);
+	memmove(cp, DOT_MAC_LOOKUP_HOST_NAME, len);
 	cp += len;
 	
+    memmove(cp, ".", 1);
+    cp += 1;
+    memmove(cp, domain, domainLen);
+    cp += domainLen;
+
 	len = strlen(DOT_MAC_LOOKUP_PATH);
 	memmove(cp, DOT_MAC_LOOKUP_PATH, len);
 	cp += len;

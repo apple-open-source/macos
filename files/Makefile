@@ -10,20 +10,15 @@ Destination = $(DSTROOT)
 # Common Makefile
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
+
 ##
 # Read the hierarchy file and create the directories.
 # If the corresponding directory exists in the SRCROOT
 # and contains a Makefile, execute that makefile.
 ##
-SRC_HIERARCHY=hierarchy
-
 Product=$(shell tconf --product)
-ifeq "$(Product)" "AppleTV"
-	SRC_HIERARCHY=hierarchy hierarchy.AppleTV
-endif
-ifeq "$(Product)" "iPhone"
-	SRC_HIERARCHY=hierarchy hierarchy.iPhone
-endif
+SRC_HIERARCHY=hierarchy hierarchy.$(Product)
 
 install::
 	@echo "Installing for $(Product)"
@@ -37,8 +32,15 @@ install::
 install::
 	$(_v) $(LN) -fs private/etc "$(Destination)/etc"
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/etc"
-ifeq "$(shell tconf --test TARGET_OS_EMBEDDED)" "YES"
+ifeq "$(Embedded)" "YES"
 	$(_v) $(LN) -fs private/var/tmp "$(Destination)/tmp"
+	$(_v) $(LN) -fs ../private/var/logs "$(Destination)/Library/Logs"
+ifeq "$(Product)" "iPhone"
+	$(_v) $(LN) -fs "../../private/var/Managed Preferences/mobile" "$(Destination)/Library/Managed Preferences/mobile"
+endif
+	$(_v) $(LN) -fs ../private/var/preferences "$(Destination)/Library/Preferences"
+	$(_v) $(LN) -fs ../private/var/Keychains "$(Destination)/Library/Keychains"
+	$(_v) $(LN) -fs ../private/var/MobileDevice "$(Destination)/Library/MobileDevice"
 else
 	$(_v) $(LN) -fs private/tmp "$(Destination)/tmp"
 endif

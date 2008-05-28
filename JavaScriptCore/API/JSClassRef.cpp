@@ -1,6 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,21 +24,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include <wtf/Platform.h>
+#include "config.h"
+#include "JSClassRef.h"
+
 #include "APICast.h"
 #include "JSCallbackObject.h"
-#include "JSClassRef.h"
 #include "JSObjectRef.h"
-#include "identifier.h"
+#include <kjs/JSGlobalObject.h>
+#include <kjs/identifier.h>
+#include <kjs/object_object.h>
 
 using namespace KJS;
 
 const JSClassDefinition kJSClassDefinitionEmpty = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass* protoClass) 
-    : refCount(0)
     // FIXME: <rdar://problem/4949018>
-    , className(definition->className)
+    : className(definition->className)
     , parentClass(definition->parentClass)
     , prototypeClass(0)
     , staticValues(0)
@@ -155,8 +157,8 @@ JSObject* OpaqueJSClass::prototype(JSContextRef ctx)
         if (parentClass)
             parentPrototype = parentClass->prototype(ctx); // can be null
         if (!parentPrototype)
-            parentPrototype = exec->dynamicInterpreter()->builtinObjectPrototype();
-        cachedPrototype = new JSCallbackObject(exec, prototypeClass, parentPrototype, this); // set ourself as the object's private data, so it can clear our reference on destruction
+            parentPrototype = exec->dynamicGlobalObject()->objectPrototype();
+        cachedPrototype = new JSCallbackObject<JSObject>(exec, prototypeClass, parentPrototype, this); // set ourself as the object's private data, so it can clear our reference on destruction
     }
     return cachedPrototype;
 }

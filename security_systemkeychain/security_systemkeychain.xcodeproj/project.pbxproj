@@ -767,7 +767,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32626;
+				CURRENT_PROJECT_VERSION = 33578;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/local/SecurityPieces/Frameworks,
@@ -808,7 +808,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32626;
+				CURRENT_PROJECT_VERSION = 33578;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INSTALL_PATH = /usr/sbin;
@@ -842,7 +842,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32626;
+				CURRENT_PROJECT_VERSION = 33578;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SRCROOT)/../build",

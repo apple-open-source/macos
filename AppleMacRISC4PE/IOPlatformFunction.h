@@ -177,6 +177,7 @@ enum {
     @class IOPlatformFunction
     @abstract A class abstracting platform-do-function properties.  Note that this differs somewhat from a platform-do-function, which can contain multiple commands.  An IOPlatformFunction object deals with a single command, defined as (pHandle, flags, command[List])
 */
+class IOPlatformFunctionIterator;
 class IOPlatformFunction : public OSObject
 {
 	friend class IOPlatformFunctionIterator;

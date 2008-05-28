@@ -56,14 +56,9 @@ Attr* toAttr(JSValue* val, bool& ok)
     return static_cast<Attr*>(static_cast<JSNode*>(val)->impl());
 }
 
-bool checkNodeSecurity(ExecState* exec, Node* n)
+bool checkNodeSecurity(ExecState* exec, Node* node)
 {
-  if (!n) 
-    return false;
-
-  // Check to see if the currently executing interpreter is allowed to access the specified node
-  Window* win = Window::retrieveWindow(n->document()->frame());
-  return win && win->isSafeScript(exec);
+    return node && allowsAccessFromFrame(exec, node->document()->frame());
 }
 
 JSValue* toJS(ExecState* exec, EventTarget* target)
@@ -82,12 +77,9 @@ JSValue* toJS(ExecState* exec, EventTarget* target)
     if (node)
         return toJS(exec, node);
 
-    XMLHttpRequest* xhr = target->toXMLHttpRequest();
-    if (xhr) {
+    if (XMLHttpRequest* xhr = target->toXMLHttpRequest())
         // XMLHttpRequest is always created via JS, so we don't need to use cacheDOMObject() here.
-        ScriptInterpreter* interp = static_cast<ScriptInterpreter*>(exec->dynamicInterpreter());
-        return interp->getDOMObject(xhr);
-    }
+        return ScriptInterpreter::getDOMObject(xhr);
 
     // There are two kinds of EventTargets: EventTargetNode and XMLHttpRequest.
     // If SVG support is enabled, there is also SVGElementInstance.
@@ -105,7 +97,7 @@ JSValue* getRuntimeObject(ExecState* exec, Node* n)
         HTMLPlugInElement* plugInElement = static_cast<HTMLPlugInElement*>(n);
         if (plugInElement->getInstance() && plugInElement->getInstance()->rootObject())
             // The instance is owned by the PlugIn element.
-            return new RuntimeObjectImp(plugInElement->getInstance());
+            return KJS::Bindings::Instance::createRuntimeObject(plugInElement->getInstance());
     }
 #endif
 

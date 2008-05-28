@@ -39,27 +39,37 @@ WebInspector.ConsolePanel = function()
     this.messageList.className = "console-message-list";
     this.element.appendChild(this.messageList);
 
-    var console = this;
-    this.messageList.addEventListener("click", function(event) { console.messageListClicked(event) }, true);
+    this.messageList.addEventListener("click", this.messageListClicked.bind(this), true);
 
     this.consolePrompt = document.createElement("textarea");
     this.consolePrompt.className = "console-prompt";
     this.element.appendChild(this.consolePrompt);
 
-    this.consolePrompt.addEventListener("keydown", function(event) { console.promptKeypress(event) }, false);
+    this.consolePrompt.addEventListener("keydown", this.promptKeyDown.bind(this), false);
+
+    var clearButtonText = WebInspector.UIString("Clear");
+    this.clearMessagesElement = document.createElement("button");
+    this.clearMessagesElement.appendChild(document.createTextNode(clearButtonText));
+    this.clearMessagesElement.title = clearButtonText;
+    this.clearMessagesElement.addEventListener("click", this.clearButtonClicked.bind(this), false);
 }
 
 WebInspector.ConsolePanel.prototype = {
     show: function()
     {
-        WebInspector.consoleListItem.item.select();
         WebInspector.Panel.prototype.show.call(this);
+        WebInspector.consoleListItem.select();
+
+        this.clearMessagesElement.removeStyleClass("hidden");
+        if (!this.clearMessagesElement.parentNode)
+            document.getElementById("toolbarButtons").appendChild(this.clearMessagesElement);
     },
 
     hide: function()
     {
-        WebInspector.consoleListItem.item.deselect();
         WebInspector.Panel.prototype.hide.call(this);
+        WebInspector.consoleListItem.deselect();
+        this.clearMessagesElement.addStyleClass("hidden");
     },
 
     addMessage: function(msg)
@@ -100,10 +110,15 @@ WebInspector.ConsolePanel.prototype = {
         this.messageList.removeChildren();
     },
 
+    clearButtonClicked: function()
+    {
+        this.clearMessages();
+    },
+
     messageListClicked: function(event)
     {
         var link = event.target.firstParentOrSelfWithNodeName("a");
-        if (link) {
+        if (link && link.representedNode) {
             WebInspector.updateFocusedNode(link.representedNode);
             return;
         }
@@ -116,13 +131,16 @@ WebInspector.ConsolePanel.prototype = {
         if (!resource)
             return;
 
-        resource.panel.showSourceLine(item.message.line);
+        if (link && link.hasStyleClass("console-message-url")) {
+            WebInspector.navigateToResource(resource);
+            resource.panel.showSourceLine(item.message.line);
+        }
 
         event.stopPropagation();
         event.preventDefault();
     },
 
-    promptKeypress: function(event)
+    promptKeyDown: function(event)
     {
         switch (event.keyIdentifier) {
             case "Enter":
@@ -165,7 +183,7 @@ WebInspector.ConsolePanel.prototype = {
 
         var level = exception ? WebInspector.ConsoleMessage.MessageLevel.Error : WebInspector.ConsoleMessage.MessageLevel.Log;
 
-        this.addMessage(new WebInspector.ConsoleCommand(str, this._outputToNode(result)));
+        this.addMessage(new WebInspector.ConsoleCommand(str, this._format(result)));
     },
 
     _onUpPressed: function(event)
@@ -205,16 +223,81 @@ WebInspector.ConsolePanel.prototype = {
         this.consolePrompt.moveCursorToEnd();
     },
 
-    _outputToNode: function(output)
+    _format: function(output)
     {
-        if (output instanceof Node) {
-            var anchor = document.createElement("a");
-            anchor.innerHTML = output.titleInfo().title;
-            anchor.representedNode = output;
-            return anchor;
+        var type = Object.type(output);
+        if (type === "object") {
+            if (output instanceof Node)
+                type = "node";
         }
-        return document.createTextNode(Object.describe(output));
-    }
+
+        // We don't perform any special formatting on these types, so we just
+        // pass them through the simple _formatvalue function.
+        var undecoratedTypes = {
+            "undefined": 1,
+            "null": 1,
+            "boolean": 1,
+            "number": 1,
+            "date": 1,
+            "function": 1,
+        };
+
+        var formatter;
+        if (type in undecoratedTypes)
+            formatter = "_formatvalue";
+        else {
+            formatter = "_format" + type;
+            if (!(formatter in this)) {
+                formatter = "_formatobject";
+                type = "object";
+            }
+        }
+
+        var span = document.createElement("span");
+        span.addStyleClass("console-formatted-" + type);
+        this[formatter](output, span);
+        return span;
+    },
+
+    _formatvalue: function(val, elem)
+    {
+        elem.appendChild(document.createTextNode(val));
+    },
+
+    _formatstring: function(str, elem)
+    {
+        elem.appendChild(document.createTextNode("\"" + str + "\""));
+    },
+
+    _formatregexp: function(re, elem)
+    {
+        var formatted = String(re).replace(/([\\\/])/g, "\\$1").replace(/\\(\/[gim]*)$/, "$1").substring(1);
+        elem.appendChild(document.createTextNode(formatted));
+    },
+
+    _formatarray: function(arr, elem)
+    {
+        elem.appendChild(document.createTextNode("["));
+        for (var i = 0; i < arr.length; ++i) {
+            elem.appendChild(this._format(arr[i]));
+            if (i < arr.length - 1)
+                elem.appendChild(document.createTextNode(", "));
+        }
+        elem.appendChild(document.createTextNode("]"));
+    },
+
+    _formatnode: function(node, elem)
+    {
+        var anchor = document.createElement("a");
+        anchor.innerHTML = node.titleInfo().title;
+        anchor.representedNode = node;
+        elem.appendChild(anchor);
+    },
+
+    _formatobject: function(obj, elem)
+    {
+        elem.appendChild(document.createTextNode(Object.describe(obj)));
+    },
 }
 
 WebInspector.ConsolePanel.prototype.__proto__ = WebInspector.Panel.prototype;
@@ -272,22 +355,21 @@ WebInspector.ConsoleMessage.prototype = {
                 item.className += " console-error-level";
         }
 
-
         var messageDiv = document.createElement("div");
         messageDiv.className = "console-message-message";
-        messageDiv.innerText = this.message;
+        messageDiv.textContent = this.message;
         item.appendChild(messageDiv);
 
-        var urlDiv = document.createElement("div");
-        urlDiv.className = "console-message-url";
-        urlDiv.innerText = this.url;
-        item.appendChild(urlDiv);
+        if (this.url && this.url !== "undefined") {
+            var urlElement = document.createElement("a");
+            urlElement.className = "console-message-url";
 
-        if (this.line >= 0) {
-            var lineDiv = document.createElement("div");
-            lineDiv.className = "console-message-line";
-            lineDiv.innerText = this.line;
-            item.appendChild(lineDiv);
+            if (this.line > 0)
+                urlElement.textContent = WebInspector.UIString("%s (line %d)", this.url, this.line);
+            else
+                urlElement.textContent = this.url;
+
+            item.appendChild(urlElement);
         }
 
         return item;
@@ -364,7 +446,7 @@ WebInspector.ConsoleCommand.prototype = {
 
         var inputDiv = document.createElement("div");
         inputDiv.className = "console-command-input";
-        inputDiv.innerText = this.input;
+        inputDiv.textContent = this.input;
         item.appendChild(inputDiv);
 
         var outputDiv = document.createElement("div");

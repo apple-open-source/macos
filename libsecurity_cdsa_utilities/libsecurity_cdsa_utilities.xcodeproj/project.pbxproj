@@ -643,7 +643,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 33506;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -694,7 +694,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 33506;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -743,7 +743,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 33506;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,

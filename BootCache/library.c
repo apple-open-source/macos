@@ -469,7 +469,6 @@ BC_print_statistics(char *fname, struct BC_statistics *ss)
 		return(errno);
 
 	/* readahead */
-	fprintf(fp, "block size                %u\n", ss->ss_blocksize);
 	fprintf(fp, "initiated reads           %u\n", ss->ss_initiated_reads);
 	fprintf(fp, "blocks read               %u\n", ss->ss_read_blocks);
 	fprintf(fp, "read errors               %u\n", ss->ss_read_errors);
@@ -484,6 +483,11 @@ BC_print_statistics(char *fname, struct BC_statistics *ss)
 			}
 		}
 	}
+
+	for(b = 0; b < STAT_BATCHMAX - 1; b++) {
+		fprintf(fp, "blocks read in batch %d:   %u\n", b, ss->ss_batch_size[b]);
+	}
+
 	timersub(&ss->ss_batch_time[STAT_BATCHMAX], &ss->ss_batch_time[0], &tv);
 	msec = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 	if (msec > 0) {

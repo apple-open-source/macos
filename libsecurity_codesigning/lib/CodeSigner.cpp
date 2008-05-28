@@ -193,6 +193,7 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	state.mResourceRules = get<CFDictionaryRef>(kSecCodeSignerResourceRules);
 	
 	state.mApplicationData = get<CFDataRef>(kSecCodeSignerApplicationData);
+	state.mEntitlementData = get<CFDataRef>(kSecCodeSignerEntitlements);
 }
 
 

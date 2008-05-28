@@ -553,6 +553,10 @@ CFErrorRef SetJABBERPrincipal(CFStringRef inPrincipal)
     return NULL;
 }
 
+CFErrorRef SetVNCPrincipal(CFStringRef inPrincipal)
+{
+    return NULL;
+}
 
 /*
 	SetVPNPrincipal()

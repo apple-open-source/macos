@@ -25,13 +25,13 @@
 #ifndef KJS_OBJECT_H
 #define KJS_OBJECT_H
 
-#include "JSType.h"
 #include "CommonIdentifiers.h"
-#include "interpreter.h"
+#include "ExecState.h"
+#include "JSType.h"
+#include "list.h"
 #include "property_map.h"
 #include "property_slot.h"
 #include "scope_chain.h"
-#include <wtf/AlwaysInline.h>
 
 namespace KJS {
 
@@ -63,15 +63,11 @@ namespace KJS {
      * Pointer to the class information of the base class.
      * 0L if there is none.
      */
-    const ClassInfo *parentClass;
+    const ClassInfo* parentClass;
     /**
      * Static hash-table of properties.
      */
-    const HashTable *propHashTable;
-    /**
-     * Reserved for future extension.
-     */
-    void *dummy;
+    const HashTable* propHashTable;
   };
   
   // This is an internal value object which stores getter and setter functions
@@ -82,7 +78,8 @@ namespace KJS {
       
     GetterSetterImp() : getter(0), setter(0) { }
       
-    virtual JSValue *toPrimitive(ExecState *exec, JSType preferred = UnspecifiedType) const;
+    virtual JSValue* toPrimitive(ExecState*, JSType preferred = UnspecifiedType) const;
+    virtual bool getPrimitiveNumber(ExecState*, double& number, JSValue*& value);
     virtual bool toBoolean(ExecState *exec) const;
     virtual double toNumber(ExecState *exec) const;
     virtual UString toString(ExecState *exec) const;
@@ -114,7 +111,7 @@ namespace KJS {
      * (that is, the ECMAScript "null" value, not a null object pointer).
      */
     JSObject();
-
+    
     virtual void mark();
     virtual JSType type() const;
 
@@ -149,8 +146,8 @@ namespace KJS {
      * And in your source file:
      *
      * \code
-     *   const ClassInfo BarImp::info = {"Bar", 0, 0, 0}; // no parent class
-     *   const ClassInfo FooImp::info = {"Foo", &BarImp::info, 0, 0};
+     *   const ClassInfo BarImp::info = { "Bar", 0, 0 }; // no parent class
+     *   const ClassInfo FooImp::info = { "Foo", &BarImp::info, 0 };
      * \endcode
      *
      * @see inherits()
@@ -286,8 +283,9 @@ namespace KJS {
      * @param propertyName The name of the property to check for
      * @return true if the object has the property, otherwise false
      */
-    bool hasProperty(ExecState *exec, const Identifier &propertyName) const;
-    bool hasProperty(ExecState *exec, unsigned propertyName) const;
+    bool hasProperty(ExecState*, const Identifier&) const;
+    bool hasProperty(ExecState*, unsigned) const;
+    bool hasOwnProperty(ExecState*, const Identifier&) const;
 
     /**
      * Removes the specified property from the object.
@@ -415,7 +413,8 @@ namespace KJS {
 
     virtual void getPropertyNames(ExecState*, PropertyNameArray&);
 
-    virtual JSValue *toPrimitive(ExecState *exec, JSType preferredType = UnspecifiedType) const;
+    virtual JSValue* toPrimitive(ExecState*, JSType preferredType = UnspecifiedType) const;
+    virtual bool getPrimitiveNumber(ExecState*, double& number, JSValue*& value);
     virtual bool toBoolean(ExecState *exec) const;
     virtual double toNumber(ExecState *exec) const;
     virtual UString toString(ExecState *exec) const;
@@ -445,19 +444,15 @@ namespace KJS {
     void defineGetter(ExecState *exec, const Identifier& propertyName, JSObject *getterFunc);
     void defineSetter(ExecState *exec, const Identifier& propertyName, JSObject *setterFunc);
 
-    /**
-     * Remove all properties from this object.
-     * This doesn't take DontDelete into account, and isn't in the ECMA spec.
-     * It's simply a quick way to remove everything stored in the property map.
-     */
-    void clearProperties() { _prop.clear(); }
-
     void saveProperties(SavedProperties &p) const { _prop.save(p); }
     void restoreProperties(const SavedProperties &p) { _prop.restore(p); }
 
-    virtual bool isActivation() { return false; }
+    virtual bool isActivationObject() { return false; }
+    virtual bool isGlobalObject() const { return false; }
+
   protected:
     PropertyMap _prop;
+
   private:
     const HashEntry* findPropertyHashEntry( const Identifier& propertyName ) const;
     JSValue *_proto;
@@ -507,7 +502,7 @@ JSObject *throwError(ExecState *, ErrorType);
 inline JSObject::JSObject(JSValue* proto)
     : _proto(proto)
 {
-    assert(proto);
+    ASSERT(proto);
 }
 
 inline JSObject::JSObject()
@@ -522,7 +517,7 @@ inline JSValue *JSObject::prototype() const
 
 inline void JSObject::setPrototype(JSValue *proto)
 {
-    assert(proto);
+    ASSERT(proto);
     _proto = proto;
 }
 
@@ -585,23 +580,11 @@ ALWAYS_INLINE bool JSObject::getOwnPropertySlot(ExecState* exec, const Identifie
     return false;
 }
 
-
-// FIXME: Put this function in a separate file named something like scope_chain_mark.h -- can't put it in scope_chain.h since it depends on JSObject.
-
-inline void ScopeChain::mark()
-{
-    for (ScopeChainNode *n = _node; n; n = n->next) {
-        JSObject *o = n->object;
-        if (!o->marked())
-            o->mark();
-    }
-}
-
 inline void ScopeChain::release()
 {
     // This function is only called by deref(),
     // Deref ensures these conditions are true.
-    assert(_node && _node->refCount == 0);
+    ASSERT(_node && _node->refCount == 0);
     ScopeChainNode *n = _node;
     do {
         ScopeChainNode *next = n->next;

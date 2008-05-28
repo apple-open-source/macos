@@ -18,7 +18,9 @@
  * Boston, MA 02110-1301, USA.
  *
  */
+#include "config.h"
 #include "QWebPopup.h"
+#include "RenderStyle.h"
 
 #include <QCoreApplication>
 #include <QMouseEvent>
@@ -26,8 +28,12 @@
 namespace WebCore {
 
 QWebPopup::QWebPopup(PopupMenuClient* client)
+    : m_client(client)
+    , m_popupVisible(false)
 {
-    m_client = client;
+    Q_ASSERT(m_client);
+
+    setFont(m_client->clientStyle()->font().font());
     connect(this, SIGNAL(activated(int)),
             SLOT(activeChanged(int)));
 }
@@ -40,20 +46,28 @@ void QWebPopup::exec()
     QCoreApplication::sendEvent(this, &event);
 }
 
-void QWebPopup::hideEvent(QHideEvent* e)
+void QWebPopup::showPopup()
 {
-    QComboBox::hideEvent(e);
-    if (m_client)
-        m_client->hidePopup();
+    QComboBox::showPopup();
+    m_popupVisible = true;
+}
+
+void QWebPopup::hidePopup()
+{
+    QComboBox::hidePopup();
+    if (!m_popupVisible)
+        return;
+
+    m_popupVisible = false;
+    m_client->hidePopup();
 }
 
 void QWebPopup::activeChanged(int index)
 {
-    if (m_client) {
-        if (index >= 0)
-            m_client->valueChanged(index);
-        m_client->hidePopup();
-    }
+    if (index < 0)
+        return;
+
+    m_client->valueChanged(index);
 }
 
 }

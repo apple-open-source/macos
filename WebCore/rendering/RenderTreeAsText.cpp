@@ -33,7 +33,6 @@
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "InlineTextBox.h"
-#include "JSEditor.h"
 #include "RenderBR.h"
 #include "RenderListMarker.h"
 #include "RenderTableCell.h"
@@ -43,7 +42,10 @@
 #include <wtf/Vector.h>
 
 #if ENABLE(SVG)
+#include "RenderSVGRoot.h"
 #include "RenderSVGContainer.h"
+#include "RenderSVGInlineText.h"
+#include "RenderSVGText.h"
 #include "SVGRenderTreeAsText.h"
 #endif
 
@@ -129,7 +131,7 @@ static bool isEmptyOrUnstyledAppleStyleSpan(const Node* node)
     return (!inlineStyleDecl || inlineStyleDecl->length() == 0);
 }
 
-static String quoteAndEscapeNonPrintables(const String& s)
+String quoteAndEscapeNonPrintables(const String& s)
 {
     Vector<UChar> result;
     result.append('"');
@@ -323,6 +325,17 @@ void write(TextStream& ts, const RenderObject& o, int indent)
         write(ts, static_cast<const RenderSVGContainer&>(o), indent);
         return;
     }
+    if (o.isSVGRoot()) {
+        write(ts, static_cast<const RenderSVGRoot&>(o), indent);
+        return;
+    }
+    if (o.isSVGText()) {
+        if (!o.isText())
+            write(ts, static_cast<const RenderSVGText&>(o), indent);
+        else
+            write(ts, static_cast<const RenderSVGInlineText&>(o), indent);
+        return;
+    }
 #endif
 
     writeIndent(ts, indent);
@@ -408,7 +421,7 @@ static void writeLayers(TextStream& ts, const RenderLayer* rootLayer, RenderLaye
     l->updateZOrderLists();
     l->updateOverflowList();
 
-    bool shouldPaint = l->intersectsDamageRect(layerBounds, damageRect);
+    bool shouldPaint = l->intersectsDamageRect(layerBounds, damageRect, rootLayer);
     Vector<RenderLayer*>* negList = l->negZOrderList();
     if (shouldPaint && negList && negList->size() > 0)
         write(ts, *l, layerBounds, damageRect, clipRectToApply, outlineRect, -1, indent);

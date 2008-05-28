@@ -17,6 +17,7 @@
 /* HTTP routines for Apache proxy */
 
 #include "mod_proxy.h"
+#include "ap_regex.h"
 
 module AP_MODULE_DECLARE_DATA proxy_http_module;
 
@@ -80,7 +81,26 @@ static int proxy_http_canon(request_rec *r, char *url)
         search = r->args;
 
     /* process path */
-    path = ap_proxy_canonenc(r->pool, url, strlen(url), enc_path, 0, r->proxyreq);
+    /* In a reverse proxy, our URL has been processed, so canonicalise
+     * unless proxy-nocanon is set to say it's raw
+     * In a forward proxy, we have and MUST NOT MANGLE the original.
+     */
+    switch (r->proxyreq) {
+    default: /* wtf are we doing here? */
+    case PROXYREQ_REVERSE:
+        if (apr_table_get(r->notes, "proxy-nocanon")) {
+            path = url;   /* this is the raw path */
+        }
+        else {
+            path = ap_proxy_canonenc(r->pool, url, strlen(url),
+                                     enc_path, 0, r->proxyreq);
+        }
+        break;
+    case PROXYREQ_PROXY:
+        path = url;
+        break;
+    }
+
     if (path == NULL)
         return HTTP_BAD_REQUEST;
 
@@ -98,29 +118,102 @@ static int proxy_http_canon(request_rec *r, char *url)
 }
 
 /* Clear all connection-based headers from the incoming headers table */
-static void ap_proxy_clear_connection(apr_pool_t *p, apr_table_t *headers)
+typedef struct header_dptr {
+    apr_pool_t *pool;
+    apr_table_t *table;
+    apr_time_t time;
+} header_dptr;
+static ap_regex_t *warn_rx;
+static int clean_warning_headers(void *data, const char *key, const char *val)
 {
+    apr_table_t *headers = ((header_dptr*)data)->table;
+    apr_pool_t *pool = ((header_dptr*)data)->pool;
+    char *warning;
+    char *date;
+    apr_time_t warn_time;
+    const int nmatch = 3;
+    ap_regmatch_t pmatch[3];
+
+    if (headers == NULL) {
+        ((header_dptr*)data)->table = headers = apr_table_make(pool, 2);
+    }
+/*
+ * Parse this, suckers!
+ *
+ *    Warning    = "Warning" ":" 1#warning-value
+ *
+ *    warning-value = warn-code SP warn-agent SP warn-text
+ *                                             [SP warn-date]
+ *
+ *    warn-code  = 3DIGIT
+ *    warn-agent = ( host [ ":" port ] ) | pseudonym
+ *                    ; the name or pseudonym of the server adding
+ *                    ; the Warning header, for use in debugging
+ *    warn-text  = quoted-string
+ *    warn-date  = <"> HTTP-date <">
+ *
+ * Buggrit, use a bloomin' regexp!
+ * (\d{3}\s+\S+\s+\".*?\"(\s+\"(.*?)\")?)  --> whole in $1, date in $3
+ */
+    while (!ap_regexec(warn_rx, val, nmatch, pmatch, 0)) {
+        warning = apr_pstrndup(pool, val+pmatch[0].rm_so,
+                               pmatch[0].rm_eo - pmatch[0].rm_so);
+        warn_time = 0;
+        if (pmatch[2].rm_eo > pmatch[2].rm_so) {
+            /* OK, we have a date here */
+            date = apr_pstrndup(pool, val+pmatch[2].rm_so,
+                                pmatch[2].rm_eo - pmatch[2].rm_so);
+            warn_time = apr_date_parse_http(date);
+        }
+        if (!warn_time || (warn_time == ((header_dptr*)data)->time)) {
+            apr_table_addn(headers, key, warning);
+        }
+        val += pmatch[0].rm_eo;
+    }
+    return 1;
+}
+static apr_table_t *ap_proxy_clean_warnings(apr_pool_t *p, apr_table_t *headers)
+{
+   header_dptr x;
+   x.pool = p;
+   x.table = NULL;
+   x.time = apr_date_parse_http(apr_table_get(headers, "Date"));
+   apr_table_do(clean_warning_headers, &x, headers, "Warning", NULL);
+   if (x.table != NULL) {
+       apr_table_unset(headers, "Warning");
+       return apr_table_overlay(p, headers, x.table);
+   }
+   else {
+        return headers;
+   }
+}
+static int clear_conn_headers(void *data, const char *key, const char *val)
+{
+    apr_table_t *headers = ((header_dptr*)data)->table;
+    apr_pool_t *pool = ((header_dptr*)data)->pool;
     const char *name;
-    char *next = apr_pstrdup(p, apr_table_get(headers, "Connection"));
-
-    apr_table_unset(headers, "Proxy-Connection");
-    if (!next)
-        return;
-
+    char *next = apr_pstrdup(pool, val);
     while (*next) {
         name = next;
         while (*next && !apr_isspace(*next) && (*next != ',')) {
             ++next;
         }
         while (*next && (apr_isspace(*next) || (*next == ','))) {
-            *next = '\0';
-            ++next;
+            *next++ = '\0';
         }
         apr_table_unset(headers, name);
     }
+    return 1;
+}
+static void ap_proxy_clear_connection(apr_pool_t *p, apr_table_t *headers)
+{
+    header_dptr x;
+    x.pool = p;
+    x.table = headers;
+    apr_table_unset(headers, "Proxy-Connection");
+    apr_table_do(clear_conn_headers, &x, headers, "Connection", NULL);
     apr_table_unset(headers, "Connection");
 }
-
 static void add_te_chunked(apr_pool_t *p,
                            apr_bucket_alloc_t *bucket_alloc,
                            apr_bucket_brigade *header_brigade)
@@ -755,18 +848,20 @@ apr_status_t ap_proxy_http_request(apr_pool_t *p, request_rec *r,
              || !strcasecmp(headers_in[counter].key, "Trailer")
              || !strcasecmp(headers_in[counter].key, "Upgrade")
 
-            /* XXX: @@@ FIXME: "Proxy-Authorization" should *only* be
-             * suppressed if THIS server requested the authentication,
-             * not when a frontend proxy requested it!
-             *
-             * The solution to this problem is probably to strip out
-             * the Proxy-Authorisation header in the authorisation
-             * code itself, not here. This saves us having to signal
-             * somehow whether this request was authenticated or not.
-             */
-             || !strcasecmp(headers_in[counter].key,"Proxy-Authorization")
-             || !strcasecmp(headers_in[counter].key,"Proxy-Authenticate")) {
+             ) {
             continue;
+        }
+        /* Do we want to strip Proxy-Authorization ?
+         * If we haven't used it, then NO
+         * If we have used it then MAYBE: RFC2616 says we MAY propagate it.
+         * So let's make it configurable by env.
+         */
+        if (!strcasecmp(headers_in[counter].key,"Proxy-Authorization")) {
+            if (r->user != NULL) { /* we've authenticated */
+                if (!apr_table_get(r->subprocess_env, "Proxy-Chain-Auth")) {
+                    continue;
+                }
+            }
         }
 
         /* Skip Transfer-Encoding and Content-Length for now.
@@ -1233,6 +1328,9 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
     int pread_len = 0;
     apr_table_t *save_table;
     int backend_broke = 0;
+    static const char *hop_by_hop_hdrs[] =
+        {"Keep-Alive", "Proxy-Authenticate", "TE", "Trailer", "Upgrade", NULL};
+    int i;
 
     bb = apr_brigade_create(p, c->bucket_alloc);
 
@@ -1373,6 +1471,13 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
             }
             ap_proxy_pre_http_request(origin,rp);
 
+            /* Clear hop-by-hop headers */
+            for (i=0; hop_by_hop_hdrs[i]; ++i) {
+                apr_table_unset(r->headers_out, hop_by_hop_hdrs[i]);
+            }
+            /* Delete warnings with wrong date */
+            r->headers_out = ap_proxy_clean_warnings(p, r->headers_out);
+
             /* handle Via header in response */
             if (conf->viaopt != via_off && conf->viaopt != via_block) {
                 const char *server_name = ap_get_server_name(r);
@@ -1384,8 +1489,8 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
                 if (server_name == r->hostname)
                     server_name = r->server->server_hostname;
                 /* create a "Via:" response header entry and merge it */
-                apr_table_mergen(r->headers_out, "Via",
-                                 (conf->viaopt == via_full)
+                apr_table_addn(r->headers_out, "Via",
+                               (conf->viaopt == via_full)
                                      ? apr_psprintf(p, "%d.%d %s%s (%s)",
                                            HTTP_VERSION_MAJOR(r->proto_num),
                                            HTTP_VERSION_MINOR(r->proto_num),
@@ -1415,9 +1520,33 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
 
         interim_response = ap_is_HTTP_INFO(r->status);
         if (interim_response) {
+            /* RFC2616 tells us to forward this.
+             *
+             * OTOH, an interim response here may mean the backend
+             * is playing sillybuggers.  The Client didn't ask for
+             * it within the defined HTTP/1.1 mechanisms, and if
+             * it's an extension, it may also be unsupported by us.
+             *
+             * There's also the possibility that changing existing
+             * behaviour here might break something.
+             *
+             * So let's make it configurable.
+             */
+            const char *policy = apr_table_get(r->subprocess_env,
+                                               "proxy-interim-response");
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, NULL,
                          "proxy: HTTP: received interim %d response",
                          r->status);
+            if (!policy || !strcasecmp(policy, "RFC")) {
+                ap_send_interim_response(r, 1);
+            }
+            /* FIXME: refine this to be able to specify per-response-status
+             * policies and maybe also add option to bail out with 502
+             */
+            else if (strcasecmp(policy, "Suppress")) {
+                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL,
+                             "undefined proxy interim response policy");
+            }
         }
         /* Moved the fixups of Date headers and those affected by
          * ProxyPassReverse/etc from here to ap_proxy_read_headers
@@ -1754,11 +1883,17 @@ cleanup:
     }
     return status;
 }
-
+static apr_status_t warn_rx_free(void *p)
+{
+    ap_pregfree((apr_pool_t*)p, warn_rx);
+    return APR_SUCCESS;
+}
 static void ap_proxy_http_register_hook(apr_pool_t *p)
 {
     proxy_hook_scheme_handler(proxy_http_handler, NULL, NULL, APR_HOOK_FIRST);
     proxy_hook_canon_handler(proxy_http_canon, NULL, NULL, APR_HOOK_FIRST);
+    warn_rx = ap_pregcomp(p, "[0-9]{3}[ \t]+[^ \t]+[ \t]+\"[^\"]*\"([ \t]+\"([^\"]+)\")?", 0);
+    apr_pool_cleanup_register(p, p, warn_rx_free, apr_pool_cleanup_null);
 }
 
 module AP_MODULE_DECLARE_DATA proxy_http_module = {

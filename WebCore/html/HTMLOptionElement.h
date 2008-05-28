@@ -57,7 +57,6 @@ public:
     void setText(const String&, ExceptionCode&);
 
     int index() const;
-    void setIndex(int, ExceptionCode&);
     virtual void parseMappedAttribute(MappedAttribute*);
 
     String value() const;
@@ -69,7 +68,7 @@ public:
 
     HTMLSelectElement* getSelect() const;
 
-    virtual void childrenChanged();
+    virtual void childrenChanged(bool changedByParser = false);
 
     bool defaultSelected() const;
     void setDefaultSelected(bool);

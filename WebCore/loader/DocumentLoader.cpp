@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,8 +39,10 @@
 #include "MainResourceLoader.h"
 #include "PlatformString.h"
 #include "SharedBuffer.h"
+#include "StringBuffer.h"
 #include "XMLTokenizer.h"
 #include <wtf/Assertions.h>
+#include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
@@ -59,7 +61,7 @@ static inline String canonicalizedTitle(const String& title, Frame* frame)
     unsigned length = title.length();
     unsigned i;
 
-    Vector<UChar> stringBuilder(length);
+    StringBuffer buffer(length);
     unsigned builderIndex = 0;
 
     // Skip leading spaces and leading characters that would convert to spaces
@@ -76,16 +78,16 @@ static inline String canonicalizedTitle(const String& title, Frame* frame)
     bool previousCharWasWS = false;
     for (; i < length; ++i) {
         UChar c = characters[i];
-        if (c <= 0x20 || c == 0x7F) {
+        if (c <= 0x20 || c == 0x7F || (WTF::Unicode::category(c) & (WTF::Unicode::Separator_Line | WTF::Unicode::Separator_Paragraph))) {
             if (previousCharWasWS)
                 continue;
-            stringBuilder[builderIndex++] = ' ';
+            buffer[builderIndex++] = ' ';
             previousCharWasWS = true;
         } else if (c == '\\') {
-            stringBuilder[builderIndex++] = frame->backslashAsCurrencySymbol();
+            buffer[builderIndex++] = frame->backslashAsCurrencySymbol();
             previousCharWasWS = false;
         } else {
-            stringBuilder[builderIndex++] = c;
+            buffer[builderIndex++] = c;
             previousCharWasWS = false;
         }
     }
@@ -93,15 +95,15 @@ static inline String canonicalizedTitle(const String& title, Frame* frame)
     // Strip trailing spaces
     while (builderIndex > 0) {
         --builderIndex;
-        if (stringBuilder[builderIndex] != ' ')
+        if (buffer[builderIndex] != ' ')
             break;
     }
 
-    if (!builderIndex && stringBuilder[builderIndex] == ' ')
+    if (!builderIndex && buffer[builderIndex] == ' ')
         return "";
 
-    stringBuilder.resize(builderIndex + 1);
-    return String::adopt(stringBuilder);
+    buffer.shrink(builderIndex + 1);
+    return String::adopt(buffer);
 }
 
 static void cancelAll(const ResourceLoaderSet& loaders)
@@ -189,15 +191,15 @@ ResourceRequest& DocumentLoader::actualRequest()
     return m_request;
 }
 
-const KURL& DocumentLoader::URL() const
+const KURL& DocumentLoader::url() const
 {
     return request().url();
 }
 
-void DocumentLoader::replaceRequestURLForAnchorScroll(const KURL& URL)
+void DocumentLoader::replaceRequestURLForAnchorScroll(const KURL& url)
 {
-    m_originalRequestCopy.setURL(URL);
-    m_request.setURL(URL);
+    m_originalRequestCopy.setURL(url);
+    m_request.setURL(url);
 }
 
 void DocumentLoader::setRequest(const ResourceRequest& req)
@@ -221,7 +223,7 @@ void DocumentLoader::setRequest(const ResourceRequest& req)
 
     // Only send webView:didReceiveServerRedirectForProvisionalLoadForFrame: if URL changed.
     // Also, don't send it when replacing unreachable URLs with alternate content.
-    if (!handlingUnreachableURL && oldURL.url() != req.url().url())
+    if (!handlingUnreachableURL && oldURL != req.url())
         frameLoader()->didReceiveServerRedirectForProvisionalLoadForFrame();
 }
 
@@ -688,7 +690,7 @@ bool DocumentLoader::startLoadingMainResource(unsigned long identifier)
     if (!m_mainResourceLoader->load(m_request, m_substituteData)) {
         // FIXME: If this should really be caught, we should just ASSERT this doesn't happen;
         // should it be caught by other parts of WebKit or other parts of the app?
-        LOG_ERROR("could not create WebResourceHandle for URL %s -- should be caught by policy handler level", m_request.url().url().ascii());
+        LOG_ERROR("could not create WebResourceHandle for URL %s -- should be caught by policy handler level", m_request.url().string().ascii().data());
         m_mainResourceLoader = 0;
         return false;
     }

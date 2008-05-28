@@ -525,6 +525,11 @@ readsb(listerr)
 		{ badsb(listerr, "NCYL LESS THAN NCG*CPG"); return (0); }
 	if (sblock.fs_sbsize > SBSIZE)
 		{ badsb(listerr, "SIZE PREPOSTEROUSLY LARGE"); return (0); }
+	if (sblock.fs_qfmask != ~sblock.fs_fmask)
+		{ badsb(listerr, "BAD QFMASK VALUE"); return (0); }
+	if (sblock.fs_qbmask != ~sblock.fs_bmask)
+		{ badsb(listerr, "BAD QBMASK VALUE"); return (0); }
+
 	/*
 	 * Compute block size that the filesystem is based on,
 	 * according to fsbtodb, and adjust superblock block number

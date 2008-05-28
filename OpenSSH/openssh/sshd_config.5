@@ -34,17 +34,15 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $OpenBSD: sshd_config.5,v 1.70 2006/08/21 08:14:01 dtucker Exp $
-.Dd September 25, 1999
+.\" $OpenBSD: sshd_config.5,v 1.77 2007/06/08 07:48:09 jmc Exp $
+.Dd $Mdocdate: June 11 2007 $
 .Dt SSHD_CONFIG 5
 .Os
 .Sh NAME
 .Nm sshd_config
 .Nd OpenSSH SSH daemon configuration file
 .Sh SYNOPSIS
-.Bl -tag -width Ds -compact
-.It Pa /etc/ssh/sshd_config
-.El
+.Nm /etc/ssh/sshd_config
 .Sh DESCRIPTION
 .Xr sshd 8
 reads configuration data from
@@ -511,7 +509,10 @@ The MAC algorithm is used in protocol version 2
 for data integrity protection.
 Multiple algorithms must be comma-separated.
 The default is:
-.Dq hmac-md5,hmac-sha1,hmac-ripemd160,hmac-sha1-96,hmac-md5-96 .
+.Bd -literal -offset indent
+hmac-md5,hmac-sha1,umac-64@openssh.com,
+hmac-ripemd160,hmac-sha1-96,hmac-md5-96
+.Ed
 .It Cm Match
 Introduces a conditional block.
 If all of the criteria on the
@@ -534,9 +535,16 @@ Only a subset of keywords may be used on the lines following a
 keyword.
 Available keywords are
 .Cm AllowTcpForwarding ,
+.Cm Banner ,
 .Cm ForceCommand ,
 .Cm GatewayPorts ,
+.Cm GSSApiAuthentication ,
+.Cm KbdInteractiveAuthentication ,
+.Cm KerberosAuthentication ,
+.Cm PasswordAuthentication ,
 .Cm PermitOpen ,
+.Cm RhostsRSAAuthentication ,
+.Cm RSAAuthentication ,
 .Cm X11DisplayOffset ,
 .Cm X11Forwarding ,
 and
@@ -734,6 +742,8 @@ Specifies whether pure RSA authentication is allowed.
 The default is
 .Dq yes .
 This option applies to protocol version 1 only.
+.It Cm SACLSupport
+Enables use of Service ACLs on Mac OS X.
 .It Cm ServerKeyBits
 Defines the number of bits in the ephemeral protocol version 1 server key.
 The minimum value is 512, and the default is 768.

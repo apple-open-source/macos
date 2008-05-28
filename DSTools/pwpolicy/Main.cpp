@@ -469,7 +469,6 @@ int main ( int argc, char * const *argv )
 				// eDSLocalNodeNames should be called "eDSLocalNodeName" because there is only one.
 				if ( localNodeNameList[0] != NULL ) {
 					if ( strcmp(nodename, localNodeNameList[0]) == 0 ) {
-						username = "";
 						authType = kAuthTypeShadowHash;
 					}
 					free( localNodeNameList[0] );

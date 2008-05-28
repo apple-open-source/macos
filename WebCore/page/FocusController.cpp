@@ -56,6 +56,7 @@ using namespace HTMLNames;
 
 FocusController::FocusController(Page* page)
     : m_page(page)
+    , m_isActive(false)
 {
 }
 
@@ -64,17 +65,13 @@ void FocusController::setFocusedFrame(PassRefPtr<Frame> frame)
     if (m_focusedFrame == frame)
         return;
 
-    if (m_focusedFrame) {
-        m_focusedFrame->setWindowHasFocus(false);
-        m_focusedFrame->setIsActive(false);
-    }
+    if (m_focusedFrame)
+        m_focusedFrame->selectionController()->setFocused(false);
 
     m_focusedFrame = frame;
 
-    if (m_focusedFrame) {
-        m_focusedFrame->setWindowHasFocus(true);
-        m_focusedFrame->setIsActive(true);
-    }
+    if (m_focusedFrame)
+        m_focusedFrame->selectionController()->setFocused(true);
 }
 
 Frame* FocusController::focusedOrMainFrame()
@@ -110,14 +107,9 @@ static Node* deepFocusableNode(FocusDirection direction, Node* node, KeyboardEve
     return node;
 }
 
-bool FocusController::setInitialFocus(KeyboardEvent* event)
+bool FocusController::setInitialFocus(FocusDirection direction, KeyboardEvent* event)
 {
-    return advanceFocus((event && event->shiftKey()) ? FocusDirectionBackward : FocusDirectionForward, event, true);
-}
-
-bool FocusController::advanceFocus(KeyboardEvent* event)
-{
-    return advanceFocus((event && event->shiftKey()) ? FocusDirectionBackward : FocusDirectionForward, event);
+    return advanceFocus(direction, event, true);
 }
 
 bool FocusController::advanceFocus(FocusDirection direction, KeyboardEvent* event, bool initialFocus)
@@ -295,6 +287,24 @@ bool FocusController::setFocusedNode(Node* node, PassRefPtr<Frame> newFocusedFra
     m_page->editorClient()->setInputMethodState(node->shouldUseInputMethod());
 
     return true;
+}
+
+void FocusController::setActive(bool active)
+{
+    if (m_isActive == active)
+        return;
+
+    m_isActive = active;
+
+    // FIXME: It would be nice to make Mac use this implementation someday.
+    // Right now Mac calls updateControlTints from within WebKit, and moving
+    // the call to here is not simple.
+#if !PLATFORM(MAC)
+    if (FrameView* view = m_page->mainFrame()->view())
+        view->updateControlTints();
+#endif
+
+    focusedOrMainFrame()->selectionController()->pageActivationChanged();
 }
 
 } // namespace WebCore

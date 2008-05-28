@@ -24,9 +24,8 @@
 #ifndef KJSCOLLECTOR_H_
 #define KJSCOLLECTOR_H_
 
+#include <string.h>
 #include <wtf/HashCountedSet.h>
-
-#define KJS_MEM_LIMIT 500000
 
 namespace KJS {
 
@@ -37,6 +36,7 @@ namespace KJS {
   class Collector {
   public:
     static void* allocate(size_t s);
+    static void* allocateNumber(size_t s);
     static bool collect();
     static bool isBusy(); // true if an allocation or collection is in progress
 
@@ -45,16 +45,16 @@ namespace KJS {
     static void reportExtraMemoryCost(size_t cost);
 
     static size_t size();
-    static bool isOutOfMemory() { return memoryFull; }
 
     static void protect(JSValue*);
     static void unprotect(JSValue*);
     
     static void collectOnMainThreadOnly(JSValue*);
 
-    static size_t numInterpreters();
-    static size_t numProtectedObjects();
-    static HashCountedSet<const char*>* rootObjectTypeCounts();
+    static size_t globalObjectCount();
+    static size_t protectedObjectCount();
+    static size_t protectedGlobalObjectCount();
+    static HashCountedSet<const char*>* protectedObjectTypeCounts();
 
     class Thread;
     static void registerThread();
@@ -64,7 +64,11 @@ namespace KJS {
     static bool isCellMarked(const JSCell*);
     static void markCell(JSCell*);
 
+    enum HeapType { PrimaryHeap, NumberHeap };
+
   private:
+    template <Collector::HeapType heapType> static void* heapAllocate(size_t s);
+    template <Collector::HeapType heapType> static size_t sweep(bool);
     static const CollectorBlock* cellBlock(const JSCell*);
     static CollectorBlock* cellBlock(JSCell*);
     static size_t cellOffset(const JSCell*);
@@ -81,6 +85,7 @@ namespace KJS {
 
     static size_t mainThreadOnlyObjectCount;
     static bool memoryFull;
+    static void reportOutOfMemoryToAllExecStates();
   };
 
   // tunable parameters
@@ -97,8 +102,11 @@ namespace KJS {
   const size_t MINIMUM_CELL_SIZE = CellSize<sizeof(void*)>::m_value;
   const size_t CELL_ARRAY_LENGTH = (MINIMUM_CELL_SIZE / sizeof(double)) + (MINIMUM_CELL_SIZE % sizeof(double) != 0 ? sizeof(double) : 0);
   const size_t CELL_SIZE = CELL_ARRAY_LENGTH * sizeof(double);
+  const size_t SMALL_CELL_SIZE = CELL_SIZE / 2;
   const size_t CELL_MASK = CELL_SIZE - 1;
+  const size_t CELL_ALIGN_MASK = ~CELL_MASK;
   const size_t CELLS_PER_BLOCK = (BLOCK_SIZE * 8 - sizeof(uint32_t) * 8 - sizeof(void *) * 8 - 2 * (7 + 3 * 8)) / (CELL_SIZE * 8 + 2);
+  const size_t SMALL_CELLS_PER_BLOCK = 2 * CELLS_PER_BLOCK;
   const size_t BITMAP_SIZE = (CELLS_PER_BLOCK + 7) / 8;
   const size_t BITMAP_WORDS = (BITMAP_SIZE + 3) / sizeof(uint32_t);
   
@@ -120,11 +128,30 @@ namespace KJS {
     } u;
   };
 
+  struct SmallCollectorCell {
+    union {
+      double memory[CELL_ARRAY_LENGTH / 2];
+      struct {
+        void* zeroIfFree;
+        ptrdiff_t next;
+      } freeCell;
+    } u;
+  };
+
   class CollectorBlock {
   public:
     CollectorCell cells[CELLS_PER_BLOCK];
     uint32_t usedCells;
     CollectorCell* freeList;
+    CollectorBitmap marked;
+    CollectorBitmap collectOnMainThreadOnly;
+  };
+
+  class SmallCellCollectorBlock {
+  public:
+    SmallCollectorCell cells[SMALL_CELLS_PER_BLOCK];
+    uint32_t usedCells;
+    SmallCollectorCell* freeList;
     CollectorBitmap marked;
     CollectorBitmap collectOnMainThreadOnly;
   };

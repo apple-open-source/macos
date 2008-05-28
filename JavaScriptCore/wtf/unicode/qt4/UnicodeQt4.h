@@ -63,7 +63,7 @@ typedef uint16_t UChar;
 #endif
 typedef uint32_t UChar32;
 
-// some defines from ICU needed one or two places
+// some defines from ICU
 
 #define U16_IS_LEAD(c) (((c)&0xfffffc00)==0xd800)
 #define U16_IS_TRAIL(c) (((c)&0xfffffc00)==0xdc00)
@@ -75,6 +75,7 @@ typedef uint32_t UChar32;
 #define U16_TRAIL(supplementary) (UChar)(((supplementary)&0x3ff)|0xdc00)
 
 #define U_IS_SURROGATE(c) (((c)&0xfffff800)==0xd800)
+#define U16_IS_SINGLE(c) !U_IS_SURROGATE(c)
 #define U16_IS_SURROGATE(c) U_IS_SURROGATE(c)
 #define U16_IS_SURROGATE_LEAD(c) (((c)&0x400)==0)
 
@@ -174,7 +175,7 @@ namespace WTF {
 
 #if QT_VERSION >= 0x040300
     // FIXME: handle surrogates correctly in all methods
-    
+
     inline UChar32 toLower(UChar32 ch)
     {
       return QChar::toLower(ch);
@@ -186,9 +187,9 @@ namespace WTF {
         const UChar *s = src;
         UChar *r = result;
         UChar *re = result + resultLength;
-        
+
         // this avoids one out of bounds check in the loop
-        if (QChar(*s).isLowSurrogate()) 
+        if (QChar(*s).isLowSurrogate())
             *r++ = *s++;
 
         int needed = 0;
@@ -199,7 +200,7 @@ namespace WTF {
             const QUnicodeTables::Properties *prop = QUnicodeTables::properties(c);
             if (prop->lowerCaseSpecial) {
                 QString qstring;
-                if (c > 0x10000) {
+                if (c < 0x10000) {
                     qstring += QChar(c);
                 } else {
                     qstring += QChar(*(s-1));
@@ -239,9 +240,9 @@ namespace WTF {
         const UChar *s = src;
         UChar *r = result;
         UChar *re = result + resultLength;
-        
+
         // this avoids one out of bounds check in the loop
-        if (QChar(*s).isLowSurrogate()) 
+        if (QChar(*s).isLowSurrogate())
             *r++ = *s++;
 
         int needed = 0;
@@ -252,7 +253,7 @@ namespace WTF {
             const QUnicodeTables::Properties *prop = QUnicodeTables::properties(c);
             if (prop->upperCaseSpecial) {
                 QString qstring;
-                if (c > 0x10000) {
+                if (c < 0x10000) {
                     qstring += QChar(c);
                 } else {
                     qstring += QChar(*(s-1));
@@ -291,7 +292,7 @@ namespace WTF {
       return QChar::toCaseFolded(c);
     }
 
-    inline int foldCase(UChar* result, int resultLength, UChar* src, int srcLength,  bool* error)
+    inline int foldCase(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
     {
       // FIXME: handle special casing. Easiest with some low level API in Qt
       *error = false;
@@ -307,6 +308,11 @@ namespace WTF {
     inline bool isFormatChar(UChar32 c)
     {
       return QChar::category(c) == QChar::Other_Format;
+    }
+
+    inline bool isArabicChar(UChar32 c)
+    {
+        return c >= 0x0600 && c <= 0x06FF;
     }
 
     inline bool isPrintableChar(UChar32 c)
@@ -343,11 +349,6 @@ namespace WTF {
       return QChar::category(c) == QChar::Letter_Lowercase;
     }
 
-    inline bool isUpper(UChar32 c)
-    {
-      return QChar::category(c) == QChar::Letter_Uppercase;
-    }
-
     inline int digitValue(UChar32 c)
     {
       return QChar::digitValue(c);
@@ -372,10 +373,10 @@ namespace WTF {
     {
       // handle surrogates correctly
       for (int i = 0; i < len; ++i) {
-        QChar c1 = QChar(a[i]).toCaseFolded();
-        QChar c2 = QChar(b[i]).toCaseFolded();
-        if (c1 != c2)
-          return c1 < c2;
+          uint c1 = QChar::toCaseFolded(a[i]);
+          uint c2 = QChar::toCaseFolded(b[i]);
+          if (c1 != c2)
+              return c1 - c2;
       }
       return 0;
     }
@@ -389,7 +390,7 @@ namespace WTF {
     {
       return (CharCategory) U_MASK(QChar::category(c));
     }
-    
+
 #else
 
     inline UChar32 toLower(UChar32 ch)
@@ -444,7 +445,7 @@ namespace WTF {
       return QChar((unsigned short)c).toLower().unicode();
     }
 
-    inline int foldCase(UChar* result, int resultLength, UChar* src, int srcLength,  bool* error)
+    inline int foldCase(UChar* result, int resultLength, const UChar* src, int srcLength,  bool* error)
     {
       return toLower(result, resultLength, src, srcLength, error);
     }
@@ -457,6 +458,11 @@ namespace WTF {
     inline bool isPrintableChar(UChar32 c)
     {
       return (c & 0xffff0000) == 0 && QChar((unsigned short)c).isPrint();
+    }
+
+    inline bool isArabicChar(UChar32 c)
+    {
+        return c >= 0x0600 && c <= 0x06FF;
     }
 
     inline bool isSeparatorSpace(UChar32 c)
@@ -477,11 +483,6 @@ namespace WTF {
     inline bool isLower(UChar32 c)
     {
       return (c & 0xffff0000) == 0 && QChar((unsigned short)c).category() == QChar::Letter_Lowercase;
-    }
-
-    inline bool isUpper(UChar32 c)
-    {
-      return (c & 0xffff0000) == 0 && QChar((unsigned short)c).category() == QChar::Letter_Uppercase;
     }
 
     inline int digitValue(UChar32 c)
@@ -518,7 +519,7 @@ namespace WTF {
         QChar c1 = QChar(a[i]).toLower();
         QChar c2 = QChar(b[i]).toLower();
         if (c1 != c2)
-          return c1 < c2;
+          return c1.unicode() - c2.unicode();
       }
       return 0;
     }
@@ -538,7 +539,7 @@ namespace WTF {
     }
 
 #endif
-    
+
   }
 }
 

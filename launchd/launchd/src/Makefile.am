@@ -1,4 +1,6 @@
-AM_CFLAGS = -no-cpp-precomp -F/System/Library/PrivateFrameworks -Wall -Wextra -Waggregate-return -Wshadow -Wmissing-prototypes -Wmissing-declarations -Werror -D__MigTypeCheck=1 -fvisibility=hidden -Dmig_external=__private_extern__
+AM_CFLAGS = -no-cpp-precomp -isysroot $(SDKROOT) -F$(SDKROOT)/System/Library/PrivateFrameworks -Wall -Wextra -Waggregate-return -Wshadow -Wmissing-prototypes -Wmissing-declarations -Werror -D__MigTypeCheck=1 -fvisibility=hidden -Dmig_external=__private_extern__
+
+AM_LDFLAGS = -Wl,-syslibroot,$(SDKROOT)
 
 CLEANFILES = protocol_vproc.h protocol_vprocServer.c protocol_vprocUser.c protocol_vprocServer.h		\
 	     launchd_internal.h launchd_internalServer.h launchd_internalServer.c launchd_internalUser.c	\
@@ -34,26 +36,33 @@ install-data-hook:
 else
 
 bin_PROGRAMS = launchctl wait4path
+if DO_EMBEDDED_MAGIC
+sbin_PROGRAMS = launchd
+else
 sbin_PROGRAMS = launchd SystemStarter
+endif
 libexec_PROGRAMS = launchproxy
 
 sysconf_DATA = hostconfig rc.common rc.netboot
 
-launchctl_CFLAGS = $(AM_CFLAGS) -I/System/Library/Frameworks/System.framework/PrivateHeaders
-launchctl_LDFLAGS = -framework CoreFoundation -framework IOKit -framework Security -weak_library /usr/lib/libedit.dylib
+launchctl_CFLAGS = $(AM_CFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+launchctl_LDFLAGS = $(AM_LDFLAGS) -framework CoreFoundation -framework IOKit $(LIBS_SECURITY) -weak_library /usr/lib/libedit.dylib
 
+if DO_EMBEDDED_MAGIC
+else
 SystemStarter_CFLAGS = -mdynamic-no-pic $(AM_CFLAGS)
-SystemStarter_LDFLAGS = -framework CoreFoundation -framework IOKit
+SystemStarter_LDFLAGS = $(AM_LDFLAGS) -framework CoreFoundation -framework IOKit
 SystemStarter_SOURCES = StartupItems.c IPC.c SystemStarter.c
+endif
 
 launchd_CFLAGS = -mdynamic-no-pic $(AM_CFLAGS) -Wno-unused-parameter
-launchd_LDFLAGS = -lbsm
+launchd_LDFLAGS = $(AM_LDFLAGS) -lbsm
 launchd_SOURCES = launchd.c launchd_core_logic.c launchd_unix_ipc.c protocol_vprocServer.c notifyServer.c launchd_internalUser.c launchd_internalServer.c job_replyUser.c launchd_runtime.c launchd_runtime_kill.c mach_excServer.c
 
 launchd_runtime.c:: notifyServer.h launchd_internal.h mach_excServer.h
 launchd_core_logic.c:: protocol_vproc.h job_reply.h protocol_vprocServer.h
 
-launchproxy_LDFLAGS = -weak_framework Security
+launchproxy_LDFLAGS = $(AM_LDFLAGS) $(WEAKLIBS_SECURITY)
 
 notifyServer.c notifyServer.h: /usr/include/mach/notify.defs
 	mig $(MIGFLAGS) -header /dev/null -user /dev/null -sheader notifyServer.h /usr/include/mach/notify.defs
@@ -72,7 +81,11 @@ man1_MANS = wait4path.1 launchctl.1
 
 man5_MANS = launchd.plist.5 launchd.conf.5
 
+if DO_EMBEDDED_MAGIC
+man8_MANS = launchd.8 launchproxy.8
+else
 man8_MANS = StartupItemContext.8 SystemStarter.8 rc.8 launchd.8 launchproxy.8
+endif
 
 install-data-hook:
 	mkdir -p $(DESTDIR)/usr/libexec
@@ -85,7 +98,6 @@ install-data-hook:
 	mkdir -p $(DESTDIR)/Library/LaunchAgents
 	mkdir -p $(DESTDIR)/System/Library/LaunchAgents
 	mkdir -p $(DESTDIR)/System/Library/LaunchDaemons
-	cp $(srcdir)/StartupItemContext $(DESTDIR)/usr/libexec
 	cp $(srcdir)/liblaunch_public.h $(DESTDIR)/usr/include/launch.h
 	cp $(srcdir)/libvproc_public.h $(DESTDIR)/usr/include/vproc.h
 	cp $(srcdir)/libbootstrap_public.h $(DESTDIR)/usr/include/servers/bootstrap.h
@@ -94,6 +106,10 @@ install-data-hook:
 	cp $(srcdir)/liblaunch_private.h $(DESTDIR)/usr/local/include/launch_priv.h
 	cp $(srcdir)/libvproc_private.h $(DESTDIR)/usr/local/include/vproc_priv.h
 	cp $(srcdir)/reboot2.h $(DESTDIR)/usr/local/include/reboot2.h
+if DO_EMBEDDED_MAGIC
+else
+	cp $(srcdir)/StartupItemContext $(DESTDIR)/usr/libexec
 	cp $(srcdir)/com.apple.SystemStarter.plist $(DESTDIR)/System/Library/LaunchDaemons
+endif
 
 endif

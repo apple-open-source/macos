@@ -76,13 +76,13 @@ TextIterator::TextIterator() : m_startContainer(0), m_startOffset(0), m_endConta
 {
 }
 
-TextIterator::TextIterator(const Range* r, bool emitForSelectionPreservation) 
+TextIterator::TextIterator(const Range* r, bool emitCharactersBetweenAllVisiblePositions) 
     : m_startContainer(0) 
     , m_startOffset(0)
     , m_endContainer(0)
     , m_endOffset(0)
     , m_positionNode(0)
-    , m_emitForSelectionPreservation(emitForSelectionPreservation)
+    , m_emitCharactersBetweenAllVisiblePositions(emitCharactersBetweenAllVisiblePositions)
 {
     if (!r)
         return;
@@ -94,7 +94,7 @@ TextIterator::TextIterator(const Range* r, bool emitForSelectionPreservation)
     int startOffset = r->startOffset(ec);
     Node *endContainer = r->endContainer(ec);
     int endOffset = r->endOffset(ec);
-    if (ec != 0)
+    if (ec)
         return;
 
     // Callers should be handing us well-formed ranges. If we discover that this isn't
@@ -353,7 +353,7 @@ bool TextIterator::handleReplacedElement()
 
     m_haveEmitted = true;
     
-    if (m_emitForSelectionPreservation) {
+    if (m_emitCharactersBetweenAllVisiblePositions) {
         // We want replaced elements to behave like punctuation for boundary 
         // finding, and to simply take up space for the selection preservation 
         // code in moveParagraphs, so we use a comma.
@@ -372,15 +372,6 @@ bool TextIterator::handleReplacedElement()
     m_lastCharacter = 0;
 
     return true;
-}
-
-static bool isTableCell(Node* node)
-{
-    RenderObject* r = node->renderer();
-    if (!r)
-        return node->hasTagName(tdTag) || node->hasTagName(thTag);
-    
-    return r->isTableCell();
 }
 
 static bool shouldEmitTabBeforeNode(Node* node)
@@ -501,7 +492,7 @@ static bool shouldEmitExtraNewlineForNode(Node* node)
 
 bool TextIterator::shouldRepresentNodeOffsetZero()
 {
-    if (m_emitForSelectionPreservation && m_node->renderer() && m_node->renderer()->isTable())
+    if (m_emitCharactersBetweenAllVisiblePositions && m_node->renderer() && m_node->renderer()->isTable())
         return true;
         
     // Leave element positioned flush with start of a paragraph
@@ -548,28 +539,34 @@ bool TextIterator::shouldRepresentNodeOffsetZero()
 
 bool TextIterator::shouldEmitSpaceBeforeAndAfterNode(Node* node)
 {
-    return node->renderer() && node->renderer()->isTable() && (node->renderer()->isInline() || m_emitForSelectionPreservation);
+    return node->renderer() && node->renderer()->isTable() && (node->renderer()->isInline() || m_emitCharactersBetweenAllVisiblePositions);
 }
 
 void TextIterator::representNodeOffsetZero()
 {
-    // emit a character to show the positioning of m_node
-    if (!shouldRepresentNodeOffsetZero())
-        return;
+    // Emit a character to show the positioning of m_node.
     
-    if (shouldEmitTabBeforeNode(m_node))
-        emitCharacter('\t', m_node->parentNode(), m_node, 0, 0);
-    else if (shouldEmitNewlineBeforeNode(m_node))
-        emitCharacter('\n', m_node->parentNode(), m_node, 0, 0);
-    else if (shouldEmitSpaceBeforeAndAfterNode(m_node))
-        emitCharacter(' ', m_node->parentNode(), m_node, 0, 0);
+    // When we haven't been emitting any characters, shouldRepresentNodeOffsetZero() can 
+    // create VisiblePositions, which is expensive.  So, we perform the inexpensive checks
+    // on m_node to see if it necessitates emitting a character first and will early return 
+    // before encountering shouldRepresentNodeOffsetZero()s worse case behavior.
+    if (shouldEmitTabBeforeNode(m_node)) {
+        if (shouldRepresentNodeOffsetZero())
+            emitCharacter('\t', m_node->parentNode(), m_node, 0, 0);
+    } else if (shouldEmitNewlineBeforeNode(m_node)) {
+        if (shouldRepresentNodeOffsetZero())
+            emitCharacter('\n', m_node->parentNode(), m_node, 0, 0);
+    } else if (shouldEmitSpaceBeforeAndAfterNode(m_node)) {
+        if (shouldRepresentNodeOffsetZero())
+            emitCharacter(' ', m_node->parentNode(), m_node, 0, 0);
+    }
 }
 
 bool TextIterator::handleNonTextNode()
 {
     if (shouldEmitNewlineForNode(m_node))
         emitCharacter('\n', m_node->parentNode(), m_node, 0, 1);
-    else if (m_emitForSelectionPreservation && m_node->renderer() && m_node->renderer()->isHR())
+    else if (m_emitCharactersBetweenAllVisiblePositions && m_node->renderer() && m_node->renderer()->isHR())
         emitCharacter(' ', m_node->parentNode(), m_node, 0, 1);
     else
         representNodeOffsetZero();
@@ -598,18 +595,21 @@ void TextIterator::exitNode()
         // use extra newline to represent margin bottom, as needed
         bool addNewline = shouldEmitExtraNewlineForNode(m_node);
         
+        // FIXME: We need to emit a '\n' as we leave an empty block(s) that
+        // contain a VisiblePosition when doing selection preservation.
         if (m_lastCharacter != '\n') {
             // insert a newline with a position following this block's contents.
             emitCharacter('\n', baseNode->parentNode(), baseNode, 1, 1);
-
             // remember whether to later add a newline for the current node
             ASSERT(!m_needAnotherNewline);
             m_needAnotherNewline = addNewline;
-        } else if (addNewline) {
+        } else if (addNewline)
             // insert a newline with a position following this block's contents.
             emitCharacter('\n', baseNode->parentNode(), baseNode, 1, 1);
-        }
-    } else if (shouldEmitSpaceBeforeAndAfterNode(m_node))
+    }
+    
+    // If nothing was emitted, see if we need to emit a space.
+    if (!m_positionNode && shouldEmitSpaceBeforeAndAfterNode(m_node))
         emitCharacter(' ', baseNode->parentNode(), baseNode, 1, 1);
 }
 
@@ -707,7 +707,7 @@ SimplifiedBackwardsTextIterator::SimplifiedBackwardsTextIterator(const Range *r)
     if (!endNode->offsetInCharacters()) {
         if (endOffset > 0 && endOffset <= static_cast<int>(endNode->childNodeCount())) {
             endNode = endNode->childNode(endOffset - 1);
-            endOffset = endNode->hasChildNodes() ? endNode->childNodeCount() : endNode->maxOffset();
+            endOffset = endNode->offsetInCharacters() ? endNode->maxCharacterOffset() : endNode->childNodeCount();
         }
     }
 
@@ -797,7 +797,7 @@ void SimplifiedBackwardsTextIterator::advance()
         }
         
         m_node = next;
-        m_offset = m_node ? m_node->caretMaxOffset() : 0;
+        m_offset = m_node ? caretMaxOffset(m_node) : 0;
         m_handledNode = false;
         m_handledChildren = false;
         
@@ -892,8 +892,8 @@ CharacterIterator::CharacterIterator()
 {
 }
 
-CharacterIterator::CharacterIterator(const Range *r, bool emitSpaceForReplacedElements)
-    : m_offset(0), m_runOffset(0), m_atBreak(true), m_textIterator(r, emitSpaceForReplacedElements)
+CharacterIterator::CharacterIterator(const Range *r, bool emitCharactersBetweenAllVisiblePositions)
+    : m_offset(0), m_runOffset(0), m_atBreak(true), m_textIterator(r, emitCharactersBetweenAllVisiblePositions)
 {
     while (!atEnd() && m_textIterator.length() == 0)
         m_textIterator.advance();
@@ -1020,7 +1020,7 @@ void WordAwareIterator::advance()
     
     while (1) {
         // If this chunk ends in whitespace we can just use it as our chunk.
-        if (DeprecatedChar(m_textIterator.characters()[m_textIterator.length() - 1]).isSpace())
+        if (isSpaceOrNewline(m_textIterator.characters()[m_textIterator.length() - 1]))
             return;
 
         // If this is the first chunk that failed, save it in previousText before look ahead
@@ -1031,7 +1031,7 @@ void WordAwareIterator::advance()
 
         // Look ahead to next chunk.  If it is whitespace or a break, we can use the previous stuff
         m_textIterator.advance();
-        if (m_textIterator.atEnd() || m_textIterator.length() == 0 || DeprecatedChar(m_textIterator.characters()[0]).isSpace()) {
+        if (m_textIterator.atEnd() || m_textIterator.length() == 0 || isSpaceOrNewline(m_textIterator.characters()[0])) {
             m_didLookAhead = true;
             return;
         }
@@ -1138,10 +1138,10 @@ unsigned CircularSearchBuffer::length() const
 
 // --------
 
-int TextIterator::rangeLength(const Range *r, bool spacesForReplacedElements)
+int TextIterator::rangeLength(const Range *r, bool forSelectionPreservation)
 {
     int length = 0;
-    for (TextIterator it(r, spacesForReplacedElements); !it.atEnd(); it.advance())
+    for (TextIterator it(r, forSelectionPreservation); !it.atEnd(); it.advance())
         length += it.length();
     
     return length;
@@ -1168,7 +1168,7 @@ PassRefPtr<Range> TextIterator::subrange(Range* entireRange, int characterOffset
     return result.release();
 }
 
-PassRefPtr<Range> TextIterator::rangeFromLocationAndLength(Element *scope, int rangeLocation, int rangeLength, bool spacesForReplacedElements)
+PassRefPtr<Range> TextIterator::rangeFromLocationAndLength(Element *scope, int rangeLocation, int rangeLength, bool forSelectionPreservation)
 {
     RefPtr<Range> resultRange = scope->document()->createRange();
 
@@ -1178,7 +1178,7 @@ PassRefPtr<Range> TextIterator::rangeFromLocationAndLength(Element *scope, int r
 
     RefPtr<Range> textRunRange;
 
-    TextIterator it(rangeOfContents(scope).get(), spacesForReplacedElements);
+    TextIterator it(rangeOfContents(scope).get(), forSelectionPreservation);
     
     // FIXME: the atEnd() check shouldn't be necessary, workaround for <http://bugs.webkit.org/show_bug.cgi?id=6289>.
     if (rangeLocation == 0 && rangeLength == 0 && it.atEnd()) {
@@ -1317,13 +1317,13 @@ exit:
     return result;
 }
 
-DeprecatedString plainText(const Range* r)
+String plainText(const Range* r)
 {
     unsigned length;
     UChar* buf = plainTextToMallocAllocatedBuffer(r, length);
     if (!buf)
-        return DeprecatedString("");
-    DeprecatedString result(reinterpret_cast<const DeprecatedChar*>(buf), length);
+        return "";
+    String result(buf, length);
     free(buf);
     return result;
 }

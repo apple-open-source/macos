@@ -1,3 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common
-
-AFTER_INSTALL += install_files

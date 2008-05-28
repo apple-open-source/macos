@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Trolltech ASA
+ * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,6 +50,9 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QPainterPath>
+#elif PLATFORM(CAIRO)
+#include "CairoPath.h"
+#include <cairo.h>
 #endif
 
 namespace WebCore {
@@ -135,7 +139,12 @@ void CanvasRenderingContext2D::setFillStyle(PassRefPtr<CanvasStyle> style)
     GraphicsContext* c = drawingContext();
     if (!c)
         return;
+#if PLATFORM(CAIRO)
+    // FIXME: hack to reduce code duplication in CanvasStyle.cpp
+    state().m_fillStyle->applyStrokeColor(c);
+#else
     state().m_fillStyle->applyFillColor(c);
+#endif
     state().m_appliedFillPattern = false;
 }
 
@@ -310,6 +319,21 @@ void CanvasRenderingContext2D::translate(float tx, float ty)
     state().m_path.transform(AffineTransform().translate(-tx, -ty));
 }
 
+void CanvasRenderingContext2D::transform(float m11, float m12, float m21, float m22, float dx, float dy)
+{
+    GraphicsContext* c = drawingContext();
+    if (!c)
+        return;
+    
+    // HTML5 3.14.11.1 -- ignore any calls that pass non-finite numbers
+    if (!isfinite(m11) || !isfinite(m21) || !isfinite(dx) || 
+        !isfinite(m12) || !isfinite(m22) || !isfinite(dy))
+        return;
+    AffineTransform transform(m11, m12, m21, m22, dx, dy);
+    c->concatCTM(transform);
+    state().m_path.transform(transform.inverse());
+}
+
 void CanvasRenderingContext2D::setStrokeColor(const String& color)
 {
     setStrokeStyle(new CanvasStyle(color));
@@ -410,14 +434,14 @@ void CanvasRenderingContext2D::arcTo(float x0, float y0, float x1, float y1, flo
     state().m_path.addArcTo(FloatPoint(x0, y0), FloatPoint(x1, y1), r);
 }
 
-void CanvasRenderingContext2D::arc(float x, float y, float r, float sa, float ea, bool clockwise, ExceptionCode& ec)
+void CanvasRenderingContext2D::arc(float x, float y, float r, float sa, float ea, bool anticlockwise, ExceptionCode& ec)
 {
     ec = 0;
     if (!(r > 0)) {
         ec = INDEX_SIZE_ERR;
         return;
     }
-    state().m_path.addArc(FloatPoint(x, y), r, sa, ea, clockwise);
+    state().m_path.addArc(FloatPoint(x, y), r, sa, ea, anticlockwise);
 }
 
 void CanvasRenderingContext2D::rect(float x, float y, float width, float height, ExceptionCode& ec)
@@ -473,6 +497,21 @@ void CanvasRenderingContext2D::fill()
             applyFillPattern();
         p->fillPath(*path, p->brush());
     }
+#elif PLATFORM(CAIRO)
+    cairo_t* cr = c->platformContext();
+    cairo_save(cr);
+    willDraw(state().m_path.boundingRect());
+    if (state().m_fillStyle->gradient()) {
+        cairo_set_source(cr, state().m_fillStyle->gradient()->platformShading());
+        c->addPath(state().m_path);
+        cairo_fill(cr);
+    } else {
+        if (state().m_fillStyle->pattern())
+            applyFillPattern();
+        c->addPath(state().m_path);
+        cairo_fill(cr);
+    }
+    cairo_restore(cr);
 #endif
 
     clearPathForDashboardBackwardCompatibilityMode();
@@ -521,6 +560,22 @@ void CanvasRenderingContext2D::stroke()
             applyStrokePattern();
         p->strokePath(*path, p->pen());
     }
+#elif PLATFORM(CAIRO)
+    cairo_t* cr = c->platformContext();
+    cairo_save(cr);
+    // FIXME: consider inset, as in CG
+    willDraw(state().m_path.boundingRect());
+    if (state().m_strokeStyle->gradient()) {
+        cairo_set_source(cr, state().m_strokeStyle->gradient()->platformShading());
+        c->addPath(state().m_path);
+        cairo_stroke(cr);
+    } else {
+        if (state().m_strokeStyle->pattern())
+            applyStrokePattern();
+        c->addPath(state().m_path);
+        cairo_stroke(cr);
+    }
+    cairo_restore(cr);
 #endif
 
     clearPathForDashboardBackwardCompatibilityMode();
@@ -533,6 +588,21 @@ void CanvasRenderingContext2D::clip()
         return;
     c->clip(state().m_path);
     clearPathForDashboardBackwardCompatibilityMode();
+}
+
+bool CanvasRenderingContext2D::isPointInPath(const float x, const float y)
+{
+    GraphicsContext* c = drawingContext();
+    if (!c)
+        return false;
+    FloatPoint point(x, y);
+    // We have to invert the current transform to ensure we correctly handle the
+    // transforms applied to the current path.
+    AffineTransform ctm = c->getCTM();
+    if (!ctm.isInvertible())
+        return false;
+    FloatPoint transformedPoint = ctm.inverse().mapPoint(point);
+    return state().m_path.contains(transformedPoint);
 }
 
 void CanvasRenderingContext2D::clearRect(float x, float y, float width, float height, ExceptionCode& ec)
@@ -590,6 +660,20 @@ void CanvasRenderingContext2D::fillRect(float x, float y, float width, float hei
             applyFillPattern();
         p->fillRect(rect, p->brush());
     }
+#elif PLATFORM(CAIRO)
+    FloatRect rect(x, y, width, height);
+    willDraw(rect);
+    cairo_t* cr = c->platformContext();
+    cairo_save(cr);
+    if (state().m_fillStyle->gradient()) {
+        cairo_set_source(cr, state().m_fillStyle->gradient()->platformShading());
+    } else {
+        if (state().m_fillStyle->pattern())
+            applyFillPattern();
+    }
+    cairo_rectangle(cr, x, y, width, height);
+    cairo_fill(cr);
+    cairo_restore(cr);
 #endif
 }
 
@@ -671,7 +755,8 @@ void CanvasRenderingContext2D::setShadow(float width, float height, float blur, 
         return;
     // FIXME: Do this through platform-independent GraphicsContext API.
 #if PLATFORM(CG)
-    RGBA32 rgba = CSSParser::parseColor(color);
+    RGBA32 rgba = 0; // default is transparent black
+    CSSParser::parseColor(rgba, color);
     const CGFloat components[4] = {
         ((rgba >> 16) & 0xFF) / 255.0f,
         ((rgba >> 8) & 0xFF) / 255.0f,
@@ -761,7 +846,9 @@ void CanvasRenderingContext2D::applyShadow()
         return;
     // FIXME: Do this through platform-independent GraphicsContext API.
 #if PLATFORM(CG)
-    RGBA32 rgba = state().m_shadowColor.isEmpty() ? 0 : CSSParser::parseColor(state().m_shadowColor);
+    RGBA32 rgba = 0; // default is transparent black
+    if (!state().m_shadowColor.isEmpty())
+        CSSParser::parseColor(rgba, state().m_shadowColor);
     const CGFloat components[4] = {
         ((rgba >> 16) & 0xFF) / 255.0f,
         ((rgba >> 8) & 0xFF) / 255.0f,
@@ -915,6 +1002,18 @@ void CanvasRenderingContext2D::drawImage(HTMLCanvasElement* canvas, const FloatR
     willDraw(dstRect);
     QPainter* painter = static_cast<QPainter*>(c->platformContext());
     painter->drawImage(dstRect, px, srcRect);
+#elif PLATFORM(CAIRO)
+    cairo_surface_t* image = canvas->createPlatformImage();
+    if (!image)
+        return;
+    willDraw(dstRect);
+    cairo_t* cr = c->platformContext();
+    cairo_save(cr);
+    cairo_set_source_surface(cr, image, srcRect.x(), srcRect.y());
+    cairo_surface_destroy(image);
+    cairo_rectangle(cr, dstRect.x(), dstRect.y(), dstRect.width(), dstRect.height());
+    cairo_fill(cr);
+    cairo_restore(cr);
 #endif
 }
 
@@ -968,6 +1067,7 @@ PassRefPtr<CanvasPattern> CanvasRenderingContext2D::createPattern(HTMLImageEleme
     const String& repetitionType, ExceptionCode& ec)
 {
     bool repeatX, repeatY;
+    ec = 0;
     CanvasPattern::parseRepetitionType(repetitionType, repeatX, repeatY, ec);
     if (ec)
         return 0;
@@ -978,6 +1078,7 @@ PassRefPtr<CanvasPattern> CanvasRenderingContext2D::createPattern(HTMLCanvasElem
     const String& repetitionType, ExceptionCode& ec)
 {
     bool repeatX, repeatY;
+    ec = 0;
     CanvasPattern::parseRepetitionType(repetitionType, repeatX, repeatY, ec);
     if (ec)
         return 0;
@@ -989,6 +1090,13 @@ PassRefPtr<CanvasPattern> CanvasRenderingContext2D::createPattern(HTMLCanvasElem
     PassRefPtr<CanvasPattern> pattern = new CanvasPattern(image, repeatX, repeatY);
     CGImageRelease(image);
     return pattern;
+#elif PLATFORM(CAIRO)
+    cairo_surface_t* surface = canvas->createPlatformImage();
+    if (!surface)
+        return 0;
+    PassRefPtr<CanvasPattern> pattern = new CanvasPattern(surface, repeatX, repeatY);
+    cairo_surface_destroy(surface);
+    return pattern;
 #else
     notImplemented();
     return 0;
@@ -999,7 +1107,11 @@ void CanvasRenderingContext2D::willDraw(const FloatRect& r)
 {
     if (!m_canvas)
         return;
-    m_canvas->willDraw(r);
+    GraphicsContext* c = drawingContext();
+    if (!c)
+        return;
+
+    m_canvas->willDraw(c->getCTM().mapRect(r));
 }
 
 GraphicsContext* CanvasRenderingContext2D::drawingContext() const
@@ -1041,6 +1153,21 @@ void CanvasRenderingContext2D::applyStrokePattern()
     state().m_strokeStylePatternTransform = m;
 #elif PLATFORM(QT)
     fprintf(stderr, "FIXME: CanvasRenderingContext2D::applyStrokePattern\n");
+#elif PLATFORM(CAIRO)
+    CanvasPattern* pattern = state().m_strokeStyle->pattern();
+    if (!pattern)
+        return;
+
+    cairo_t* cr = c->platformContext();
+    cairo_matrix_t m;
+    cairo_get_matrix(cr, &m);
+
+    cairo_pattern_t* platformPattern = pattern->createPattern(m);
+    if (!platformPattern)
+        return;
+
+    cairo_set_source(cr, platformPattern);
+    cairo_pattern_destroy(platformPattern);
 #endif
     state().m_appliedStrokePattern = true;
 }
@@ -1077,6 +1204,21 @@ void CanvasRenderingContext2D::applyFillPattern()
     state().m_fillStylePatternTransform = m;
 #elif PLATFORM(QT)
     fprintf(stderr, "FIXME: CanvasRenderingContext2D::applyFillPattern\n");
+#elif PLATFORM(CAIRO)
+    CanvasPattern* pattern = state().m_fillStyle->pattern();
+    if (!pattern)
+        return;
+
+    cairo_t* cr = c->platformContext();
+    cairo_matrix_t m;
+    cairo_get_matrix(cr, &m);
+
+    cairo_pattern_t* platformPattern = pattern->createPattern(m);
+    if (!platformPattern)
+        return;
+
+    cairo_set_source(cr, platformPattern);
+    cairo_pattern_destroy(platformPattern);
 #endif
     state().m_appliedFillPattern = true;
 }

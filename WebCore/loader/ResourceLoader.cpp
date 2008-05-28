@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *           (C) 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@
 #include "ProgressTracker.h"
 #include "ResourceHandle.h"
 #include "ResourceError.h"
+#include "Settings.h"
 #include "SharedBuffer.h"
 
 namespace WebCore {
@@ -147,6 +148,16 @@ FrameLoader* ResourceLoader::frameLoader() const
         return 0;
     return m_frame->loader();
 }
+
+void ResourceLoader::setShouldBufferData(bool shouldBufferData)
+{ 
+    m_shouldBufferData = shouldBufferData; 
+
+    // Reset any already buffered data
+    if (!m_shouldBufferData)
+        m_resourceData = 0;
+}
+    
 
 void ResourceLoader::addData(const char* data, int length, bool allAtOnce)
 {
@@ -280,11 +291,6 @@ void ResourceLoader::didFail(const ResourceError& error)
     releaseResources();
 }
 
-void ResourceLoader::wasBlocked()
-{
-    didFail(blockedError());
-}
-
 void ResourceLoader::didCancel(const ResourceError& error)
 {
     ASSERT(!m_cancelled);
@@ -341,6 +347,11 @@ ResourceError ResourceLoader::blockedError()
     return frameLoader()->blockedError(m_request);
 }
 
+ResourceError ResourceLoader::cannotShowURLError()
+{
+    return frameLoader()->cannotShowURLError(m_request);
+}
+
 void ResourceLoader::willSendRequest(ResourceHandle*, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
     willSendRequest(request, redirectResponse);
@@ -368,7 +379,12 @@ void ResourceLoader::didFail(ResourceHandle*, const ResourceError& error)
 
 void ResourceLoader::wasBlocked(ResourceHandle*)
 {
-    wasBlocked();
+    didFail(blockedError());
+}
+
+void ResourceLoader::cannotShowURL(ResourceHandle*)
+{
+    didFail(cannotShowURLError());
 }
 
 void ResourceLoader::didReceiveAuthenticationChallenge(const AuthenticationChallenge& challenge)
@@ -395,7 +411,7 @@ void ResourceLoader::receivedCancellation(const AuthenticationChallenge&)
 void ResourceLoader::willCacheResponse(ResourceHandle*, CacheStoragePolicy& policy)
 {
     // When in private browsing mode, prevent caching to disk
-    if (policy == StorageAllowed && frameLoader()->privateBrowsingEnabled())
+    if (policy == StorageAllowed && m_frame->settings()->privateBrowsingEnabled())
         policy = StorageAllowedInMemoryOnly;    
 }
 

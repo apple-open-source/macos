@@ -1,6 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +23,7 @@
 
 #include "FocusDirection.h"
 #include <wtf/Forward.h>
+#include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
 
 #if PLATFORM(MAC)
@@ -43,6 +44,7 @@ namespace WebCore {
     class String;
     
     struct FrameLoadRequest;
+    struct WindowFeatures;
     
     enum MessageSource {
         HTMLMessageSource,
@@ -59,7 +61,7 @@ namespace WebCore {
         ErrorMessageLevel
     };
 
-    class Chrome {
+    class Chrome : Noncopyable {
     public:
         Chrome(Page*, ChromeClient*);
         ~Chrome();
@@ -79,8 +81,7 @@ namespace WebCore {
         bool canTakeFocus(FocusDirection) const;
         void takeFocus(FocusDirection) const;
 
-        Page* createWindow(Frame*, const FrameLoadRequest&) const;
-        Page* createModalDialog(Frame*, const FrameLoadRequest&) const;
+        Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&) const;
         void show() const;
 
         bool canRunModal() const;
@@ -124,7 +125,7 @@ namespace WebCore {
         void setToolTip(const HitTestResult&);
 
         void print(Frame*);
-
+        
 #if PLATFORM(MAC)
         void focusNSView(NSView*);
 #endif

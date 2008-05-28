@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,10 @@
 #include "config.h"
 #include "CachedPage.h"
 
+#include "AnimationController.h"
+#include "CachedPagePlatformData.h"
 #include "Document.h"
+#include "DocumentLoader.h"
 #include "Element.h"
 #include "EventHandler.h"
 #include "FocusController.h"
@@ -34,15 +37,16 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "GCController.h"
+#include "JSLocation.h"
 #include "Logging.h"
 #include "Page.h"
+#include "PausedTimeouts.h"
 #include "SystemTime.h"
 #if ENABLE(SVG)
 #include "SVGDocumentExtensions.h"
 #endif
 
 #include "kjs_proxy.h"
-#include "kjs_window.h"
 #include "kjs_window.h"
 #include <kjs/JSLock.h>
 #include <kjs/SavedBuiltins.h>
@@ -80,23 +84,26 @@ CachedPage::CachedPage(Page* page)
     , m_URL(page->mainFrame()->loader()->url())
     , m_windowProperties(new SavedProperties)
     , m_locationProperties(new SavedProperties)
-    , m_interpreterBuiltins(new SavedBuiltins)
+    , m_windowLocalStorage(new SavedProperties)
+    , m_windowBuiltins(new SavedBuiltins)
 {
 #ifndef NDEBUG
     ++CachedPageCounter::count;
 #endif
     
+    m_document->willSaveToCache(); 
+    
     Frame* mainFrame = page->mainFrame();
-    KJSProxy* proxy = mainFrame->scriptProxy();
     Window* window = Window::retrieveWindow(mainFrame);
 
     mainFrame->clearTimers();
 
     JSLock lock;
 
-    if (proxy && window) {
-        proxy->interpreter()->saveBuiltins(*m_interpreterBuiltins.get());
+    if (window) {
+        window->saveBuiltins(*m_windowBuiltins.get());
         window->saveProperties(*m_windowProperties.get());
+        window->saveLocalStorage(*m_windowLocalStorage.get());
         window->location()->saveProperties(*m_locationProperties.get());
         m_pausedTimeouts.set(window->pauseTimeouts());
     }
@@ -115,7 +122,7 @@ CachedPage::~CachedPage()
     --CachedPageCounter::count;
 #endif
 
-    close();
+    clear();
 }
 
 void CachedPage::restore(Page* page)
@@ -123,14 +130,14 @@ void CachedPage::restore(Page* page)
     ASSERT(m_document->view() == m_view);
 
     Frame* mainFrame = page->mainFrame();
-    KJSProxy* proxy = mainFrame->scriptProxy();
     Window* window = Window::retrieveWindow(mainFrame);
 
     JSLock lock;
 
-    if (proxy && window) {
-        proxy->interpreter()->restoreBuiltins(*m_interpreterBuiltins.get());
+    if (window) {
+        window->restoreBuiltins(*m_windowBuiltins.get());
         window->restoreProperties(*m_windowProperties.get());
+        window->restoreLocalStorage(*m_windowLocalStorage.get());
         window->location()->restoreProperties(*m_locationProperties.get());
         window->resumeTimeouts(m_pausedTimeouts.get());
     }
@@ -139,6 +146,8 @@ void CachedPage::restore(Page* page)
     if (m_document && m_document->svgExtensions())
         m_document->accessSVGExtensions()->unpauseAnimations();
 #endif
+
+    mainFrame->animationController()->resumeAnimations();
 
     mainFrame->eventHandler()->setMousePressNode(mousePressNode());
         
@@ -156,6 +165,9 @@ void CachedPage::clear()
     if (!m_document)
         return;
 
+    if (m_cachedPagePlatformData)
+        m_cachedPagePlatformData->clear();
+        
     ASSERT(m_view);
     ASSERT(m_document->frame() == m_view->frame());
 
@@ -181,8 +193,10 @@ void CachedPage::clear()
 
     m_windowProperties.clear();
     m_locationProperties.clear();
-    m_interpreterBuiltins.clear();
+    m_windowBuiltins.clear();
     m_pausedTimeouts.clear();
+    m_cachedPagePlatformData.clear();
+    m_windowLocalStorage.clear();
 
     gcController().garbageCollectSoon();
 }
@@ -210,6 +224,16 @@ void CachedPage::setTimeStampToNow()
 double CachedPage::timeStamp() const
 {
     return m_timeStamp;
+}
+
+void CachedPage::setCachedPagePlatformData(CachedPagePlatformData* data)
+{
+    m_cachedPagePlatformData.set(data);
+}
+
+CachedPagePlatformData* CachedPage::cachedPagePlatformData()
+{
+    return m_cachedPagePlatformData.get();
 }
 
 } // namespace WebCore

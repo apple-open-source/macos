@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,10 +31,10 @@
 
 namespace WebCore {
 
-class AtomicStringList;
 class Attr;
 class Attribute;
 class CSSStyleDeclaration;
+class ClassNames;
 class ElementRareData;
 class IntSize;
 
@@ -44,7 +44,7 @@ public:
     ~Element();
 
     // Used to quickly determine whether or not an element has a given CSS class.
-    virtual const AtomicStringList* getClassList() const;
+    virtual const ClassNames* getClassNames() const;
     const AtomicString& getIDAttribute() const;
     bool hasAttribute(const QualifiedName&) const;
     const AtomicString& getAttribute(const QualifiedName&) const;
@@ -98,7 +98,7 @@ public:
 
     const QualifiedName& tagQName() const { return m_tagName; }
     String tagName() const { return nodeName(); }
-    virtual bool hasTagName(const QualifiedName& tagName) const { return m_tagName.matches(tagName); }
+    bool hasTagName(const QualifiedName& tagName) const { return m_tagName.matches(tagName); }
     
     // A fast function for checking the local name against another atomic string.
     bool hasLocalName(const AtomicString& other) const { return m_tagName.localName() == other; }
@@ -118,11 +118,15 @@ public:
     virtual bool isElementNode() const { return true; }
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
+    virtual void childrenChanged(bool changedByParser = false);
+
+    virtual bool isInputTypeHidden() const { return false; }
 
     String nodeNamePreservingCase() const;
 
     // convenience methods which ignore exceptions
     void setAttribute(const QualifiedName&, const String& value);
+    void setBooleanAttribute(const QualifiedName& name, bool);
 
     virtual NamedAttrMap* attributes() const;
     NamedAttrMap* attributes(bool readonly) const;
@@ -155,6 +159,7 @@ public:
     virtual String toString() const;
 
     virtual bool isURLAttribute(Attribute*) const;
+    virtual const QualifiedName& imageSourceAttributeName() const;
     virtual String target() const { return String(); }
         
     virtual void focus(bool restorePreviousSelection = true);
@@ -181,10 +186,14 @@ public:
     IntSize minimumSizeForResizing() const;
     void setMinimumSizeForResizing(const IntSize&);
 
-    // The following method is called when a Document is restored from the page cache
-    // and the element has registered itself with the Document via registerForDidRestorePageCallback()
+    // Use Document::registerForPageCacheCallbacks() to subscribe these
+    virtual void willSaveToCache() { }
     virtual void didRestoreFromCache() { }
     
+    bool isFinishedParsingChildren() const { return m_parsingChildrenFinished; }
+    virtual void finishParsingChildren();
+    virtual void beginParsingChildren() { m_parsingChildrenFinished = false; }
+
 private:
     ElementRareData* rareData();
     const ElementRareData* rareData() const;
@@ -197,11 +206,21 @@ private:
     void updateFocusAppearanceSoonAfterAttach();
     void cancelFocusAppearanceUpdate();
 
-protected:
-    mutable RefPtr<NamedAttrMap> namedAttrMap;
+    virtual bool virtualHasTagName(const QualifiedName&) const;
 
 private:
     QualifiedName m_tagName;
+
+protected:
+    mutable RefPtr<NamedAttrMap> namedAttrMap;
+
+    // These two bits are really used by the StyledElement subclass, but they are pulled up here in order to be shared with other
+    // Element bits.
+    mutable bool m_isStyleAttributeValid : 1;
+    mutable bool m_synchronizingStyleAttribute : 1;
+    
+private:
+    bool m_parsingChildrenFinished : 1;
 };
 
 } //namespace

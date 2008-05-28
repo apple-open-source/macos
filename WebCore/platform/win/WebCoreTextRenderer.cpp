@@ -29,15 +29,13 @@
 #include "FontDescription.h"
 #include "GraphicsContext.h"
 #include "StringTruncator.h"
-#include "TextStyle.h"
 #include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
 static bool isOneLeftToRightRun(const TextRun& run)
 {
-    unsigned i;
-    for (i = 0; i < run.length(); i++) {
+    for (int i = 0; i < run.length(); i++) {
         WTF::Unicode::Direction direction = WTF::Unicode::direction(run[i]);
         if (direction == WTF::Unicode::RightToLeft || direction > WTF::Unicode::OtherNeutral)
             return false;
@@ -48,14 +46,13 @@ static bool isOneLeftToRightRun(const TextRun& run)
 static void doDrawTextAtPoint(GraphicsContext& context, const String& text, const IntPoint& point, const Font& font, const Color& color, int underlinedIndex)
 {
     TextRun run(text.characters(), text.length());
-    TextStyle style;
 
     context.setFillColor(color);
     if (isOneLeftToRightRun(run))
-        font.drawText(&context, run, style, point);
+        font.drawText(&context, run, point);
     else {
         context.setFont(font);
-        context.drawBidiText(run, point, style);
+        context.drawBidiText(run, point);
     }
 
     if (underlinedIndex >= 0) {
@@ -64,12 +61,12 @@ static void doDrawTextAtPoint(GraphicsContext& context, const String& text, cons
         int beforeWidth;
         if (underlinedIndex > 0) {
             TextRun beforeRun(text.characters(), underlinedIndex);
-            beforeWidth = font.width(beforeRun, style);
+            beforeWidth = font.width(beforeRun);
         } else
             beforeWidth = 0;
 
         TextRun underlinedRun(text.characters() + underlinedIndex, 1);
-        int underlinedWidth = font.width(underlinedRun, style);
+        int underlinedWidth = font.width(underlinedRun);
 
         IntPoint underlinePoint(point);
         underlinePoint.move(beforeWidth, 1);

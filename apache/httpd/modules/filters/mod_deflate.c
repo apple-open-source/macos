@@ -293,6 +293,7 @@ typedef struct deflate_ctx_t
     int (*libz_end_func)(z_streamp);
     unsigned char *validation_buffer;
     apr_size_t validation_buffer_length;
+    int inflate_init;
 } deflate_ctx;
 
 /* Number of validation bytes (CRC and length) after the compressed data */
@@ -371,7 +372,23 @@ static apr_status_t deflate_ctx_cleanup(void *data)
         ctx->libz_end_func(&ctx->stream);
     return APR_SUCCESS;
 }
-
+/* PR 39727: we're screwing up our clients if we leave a strong ETag
+ * header while transforming content.  Henrik Nordstrom suggests
+ * appending ";gzip".
+ *
+ * Pending a more thorough review of our Etag handling, let's just
+ * implement his suggestion.  It fixes the bug, or at least turns it
+ * from a showstopper to an inefficiency.  And it breaks nothing that
+ * wasn't already broken.
+ */
+static void deflate_check_etag(request_rec *r, const char *transform)
+{
+    const char *etag = apr_table_get(r->headers_out, "ETag");
+    if (etag && (((etag[0] != 'W') && (etag[0] !='w')) || (etag[1] != '/'))) {
+        apr_table_set(r->headers_out, "ETag",
+                      apr_pstrcat(r->pool, etag, "-", transform, NULL));
+    }
+}
 static apr_status_t deflate_out_filter(ap_filter_t *f,
                                        apr_bucket_brigade *bb)
 {
@@ -569,6 +586,7 @@ static apr_status_t deflate_out_filter(ap_filter_t *f,
         }
         apr_table_unset(r->headers_out, "Content-Length");
         apr_table_unset(r->headers_out, "Content-MD5");
+        deflate_check_etag(r, "gzip");
 
         /* initialize deflate output buffer */
         ctx->stream.next_out = ctx->buffer;
@@ -983,7 +1001,6 @@ static apr_status_t inflate_out_filter(ap_filter_t *f,
 {
     int zlib_method;
     int zlib_flags;
-    int inflate_init = 1;
     apr_bucket *e;
     request_rec *r = f->r;
     deflate_ctx *ctx = f->ctx;
@@ -1062,12 +1079,13 @@ static apr_status_t inflate_out_filter(ap_filter_t *f,
         /* these are unlikely to be set anyway, but ... */
         apr_table_unset(r->headers_out, "Content-Length");
         apr_table_unset(r->headers_out, "Content-MD5");
+        deflate_check_etag(r, "gunzip");
 
         /* initialize inflate output buffer */
         ctx->stream.next_out = ctx->buffer;
         ctx->stream.avail_out = c->bufferSize;
 
-        inflate_init = 0;
+        ctx->inflate_init = 0;
     }
 
     while (!APR_BRIGADE_EMPTY(bb))
@@ -1172,7 +1190,7 @@ static apr_status_t inflate_out_filter(ap_filter_t *f,
         apr_bucket_read(e, &data, &len, APR_BLOCK_READ);
 
         /* first bucket contains zlib header */
-        if (!inflate_init++) {
+        if (!ctx->inflate_init++) {
             if (len < 10) {
                 ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
                               "Insufficient data for inflate");

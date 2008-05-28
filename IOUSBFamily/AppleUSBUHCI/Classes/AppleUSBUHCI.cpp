@@ -1044,7 +1044,8 @@ AppleUSBUHCI::scavengeIsochTransactions(void)
 	
     if (pDoneEl && (cachedConsumer != cachedProducer))
     {
-		EnsureUsability();
+		// rdar://5768268 - no longer call EnsureUsability() since it is no longer a lightweight call - if we are completing transactions then there is a
+		// port active somewhere 
 		
 		// there is real work to do - first reverse the list
 		prevEl = NULL;

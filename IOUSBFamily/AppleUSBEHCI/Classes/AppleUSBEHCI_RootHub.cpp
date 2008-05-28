@@ -1029,7 +1029,7 @@ AppleUSBEHCI::UIMRootHubStatusChange(void)
     statusChangedBitmap = 0;
     statusBit = 1;
 	
-    if (_controllerAvailable && !_wakingFromHibernation && (GetRootHubStatus((IOUSBHubStatus *)&tempStatus) == kIOReturnSuccess))
+    if (_controllerAvailable && !_wakingFromHibernation && !_pcCardEjected && (GetRootHubStatus((IOUSBHubStatus *)&tempStatus) == kIOReturnSuccess))
     {
         hubStatus = USBToHostLong( tempStatus );
         if ((hubStatus & (kHubLocalPowerStatus | kHubOverCurrentIndicator) ) != 0)

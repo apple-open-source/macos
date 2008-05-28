@@ -102,10 +102,17 @@ lck_attr_t *srs_lck_attr;
 lck_grp_attr_t *nbp_grp_attr;
 lck_grp_t *nbp_lck_group;
 lck_attr_t *nbp_lck_attr;
+
+lck_grp_attr_t   * iconv_lck_grp_attr;
+lck_grp_t  * iconv_lck_grp;
+lck_attr_t * iconv_lck_attr;
+lck_mtx_t * iconv_lck;
+
 lck_grp_attr_t   * dev_lck_grp_attr;
 lck_grp_t  * dev_lck_grp;
 lck_attr_t * dev_lck_attr;
 lck_mtx_t * dev_lck;
+
 lck_grp_attr_t   * hash_lck_grp_attr;
 lck_grp_t  * hash_lck_grp;
 lck_attr_t * hash_lck_attr;
@@ -190,6 +197,12 @@ static void smbnet_lock_init()
 	nbp_lck_attr = lck_attr_alloc_init();
 	nbp_grp_attr = lck_grp_attr_alloc_init();
 	nbp_lck_group = lck_grp_alloc_init("smb-nbp", nbp_grp_attr);
+
+	
+	iconv_lck_attr = lck_attr_alloc_init();
+	iconv_lck_grp_attr = lck_grp_attr_alloc_init();
+	iconv_lck_grp = lck_grp_alloc_init("smb-dev", iconv_lck_grp_attr);
+	iconv_lck = lck_mtx_alloc_init(iconv_lck_grp, iconv_lck_attr);
 	
 	dev_lck_attr = lck_attr_alloc_init();
 	dev_lck_grp_attr = lck_grp_attr_alloc_init();
@@ -202,6 +215,10 @@ static void smbnet_lock_uninit()
 	lck_grp_free(dev_lck_grp);
 	lck_grp_attr_free(dev_lck_grp_attr);
 	lck_attr_free(dev_lck_attr);
+	
+	lck_grp_free(iconv_lck_grp);
+	lck_grp_attr_free(iconv_lck_grp_attr);
+	lck_attr_free(iconv_lck_attr);
 	
 	lck_grp_free(nbp_lck_group);
 	lck_grp_attr_free(nbp_grp_attr);
@@ -268,6 +285,7 @@ smbfs_aclsflunksniff(struct smbmount *smp, struct smb_cred *scrp)
 	u_int8_t	ntauth[SIDAUTHSIZE] = { 0, 0, 0, 0, 0, 5 };
 	uid_t	uid;
 	u_int16_t	fid = 0;
+	int seclen = 0;
 
 	/*
 	 * Does the server claim ACL support for this volume?
@@ -289,7 +307,7 @@ smbfs_aclsflunksniff(struct smbmount *smp, struct smb_cred *scrp)
 	np->n_lastvop = smbfs_aclsflunksniff;
 	error = smbfs_smb_tmpopen(np, STD_RIGHT_READ_CONTROL_ACCESS, scrp, &fid);
 	if (error == 0) {
-		error = smbfs_smb_getsec(ssp, fid, scrp, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION, &w_secp);
+		error = smbfs_smb_getsec(ssp, fid, scrp, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION, &w_secp, &seclen);
 		/* If we get an error on close, not sure what we would do with it at this point */
 		(void)smbfs_smb_tmpclose(np, fid, scrp);
 	}
@@ -1145,9 +1163,9 @@ smbfs_sync_callback(vnode_t vp, void *args)
 	 * it for a short period of time. Don't clear negative acl cache it doesn't cost much, so its ok to
 	 * hold on to for longer periods of time.
 	 */
-	if ((np->acl_error == 0) && np->acl_cache_data)
+	if ((np->acl_error == 0) && (!vnode_isnamedstream(vp)))
 		smbfs_clear_acl_cache(np);
-	
+
 	if (!vnode_isdir(vp)) {
 		/* See if the file needs to be reopened. Ignore the error if being revoke it will get caught below */
 		(void)smbfs_smb_reopen_file(np, cargs->vfsctx);
@@ -1424,6 +1442,7 @@ PRIVSYM int smbfs_module_stop(kmod_info_t *ki, void *data)
 
 	smbfs_remove_sleep_wake_notifier();
 
+	lck_mtx_free(iconv_lck, iconv_lck_grp);
 	lck_mtx_free(dev_lck, dev_lck_grp);
 	smbfs_lock_uninit();	/* Free up the file system locks */
 	smbnet_lock_uninit();	/* Free up the network locks */

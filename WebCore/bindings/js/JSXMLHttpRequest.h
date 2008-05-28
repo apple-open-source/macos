@@ -36,16 +36,19 @@ namespace KJS {
 class JSXMLHttpRequestConstructorImp : public DOMObject {
 public:
     JSXMLHttpRequestConstructorImp(ExecState*, WebCore::Document*);
+
     virtual bool implementsConstruct() const;
     virtual JSObject* construct(ExecState*, const List&);
+
 private:
     RefPtr<WebCore::Document> doc;
 };
 
 class JSXMLHttpRequest : public DOMObject {
 public:
-    JSXMLHttpRequest(ExecState*, WebCore::Document*);
+    JSXMLHttpRequest(JSObject* prototype, WebCore::Document*);
     ~JSXMLHttpRequest();
+
     virtual const ClassInfo* classInfo() const { return &info; }
     static const ClassInfo info;
     enum { Onload, Onreadystatechange, ReadyState, ResponseText, ResponseXML, Status,
@@ -59,11 +62,23 @@ public:
     virtual bool toBoolean(ExecState*) const { return true; }
     virtual void mark();
 
+    WebCore::XMLHttpRequest* impl() const { return m_impl.get(); }
+
 private:
-    friend class JSXMLHttpRequestPrototypeFunction;
     RefPtr<WebCore::XMLHttpRequest> m_impl;
 };
 
-} // namespace
+JSValue* jsXMLHttpRequestPrototypeFunctionAbort(ExecState*, JSObject*, const List&);
+JSValue* jsXMLHttpRequestPrototypeFunctionGetAllResponseHeaders(ExecState*, JSObject*, const List&);
+JSValue* jsXMLHttpRequestPrototypeFunctionGetResponseHeader(ExecState*, JSObject*, const List&);
+JSValue* jsXMLHttpRequestPrototypeFunctionOpen(ExecState*, JSObject*, const List&);
+JSValue* jsXMLHttpRequestPrototypeFunctionSend(ExecState*, JSObject*, const List&);
+JSValue* jsXMLHttpRequestPrototypeFunctionSetRequestHeader(ExecState*, JSObject*, const List&);
+JSValue* jsXMLHttpRequestPrototypeFunctionOverrideMIMEType(ExecState*, JSObject*, const List&);
+JSValue* jsXMLHttpRequestPrototypeFunctionAddEventListener(ExecState*, JSObject*, const List&);
+JSValue* jsXMLHttpRequestPrototypeFunctionRemoveEventListener(ExecState*, JSObject*, const List&);
+JSValue* jsXMLHttpRequestPrototypeFunctionDispatchEvent(ExecState*, JSObject*, const List&);
 
-#endif
+} // namespace KJS
+
+#endif // JSXMLHttpRequest_h

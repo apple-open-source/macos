@@ -15,6 +15,21 @@ Package=<4>
 
 ###############################################################################
 
+Project: "apr_app"="..\apr\build\apr_app.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name apr
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "apriconv"="..\apr-iconv\apriconv.dsp" - Package Owner=<4>
 
 Package=<5>
@@ -39,13 +54,10 @@ Package=<5>
 Package=<4>
 {{{
     Begin Project Dependency
-    Project_Dep_Name apr
+    Project_Dep_Name apriconv
     End Project Dependency
     Begin Project Dependency
     Project_Dep_Name xml
-    End Project Dependency
-    Begin Project Dependency
-    Project_Dep_Name apriconv
     End Project Dependency
 }}}
 
@@ -59,6 +71,21 @@ Package=<5>
 
 Package=<4>
 {{{
+}}}
+
+###############################################################################
+
+Project: "libapr_app"="..\apr\build\libapr_app.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libapr
+    End Project Dependency
 }}}
 
 ###############################################################################
@@ -126,10 +153,16 @@ Package=<4>
     Project_Dep_Name libapr
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name xml
+    Project_Dep_Name libapriconv
     End Project Dependency
     Begin Project Dependency
-    Project_Dep_Name libapriconv
+    Project_Dep_Name libapriconv_ccs_modules
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libapriconv_ces_modules
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name xml
     End Project Dependency
 }}}
 

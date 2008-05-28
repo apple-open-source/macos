@@ -34,7 +34,7 @@
             "wireless.c", 
             "Dialogue.c"
         ); 
-        "OTHER_SOURCES" = ("Makefile.preamble", Makefile, "Makefile.postamble"); 
+        "OTHER_SOURCES" = ("Makefile.preamble", Makefile, "Makefile.postamble", "Info.plist" ); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

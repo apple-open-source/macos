@@ -80,6 +80,12 @@ public:
 
     bool isNull() const;
 
+    // These are only used for SVGImage right now
+    virtual void setContainerSize(const IntSize&) { }
+    virtual bool usesContainerSize() const { return false; }
+    virtual bool hasRelativeWidth() const { return false; }
+    virtual bool hasRelativeHeight() const { return false; }
+
     virtual IntSize size() const = 0;
     IntRect rect() const;
     int width() const;
@@ -105,6 +111,8 @@ public:
     ImageObserver* imageObserver() const { return m_imageObserver; }
 
     enum TileRule { StretchTile, RoundTile, RepeatTile };
+
+    virtual NativeImagePtr nativeImageForCurrentFrame() { return 0; }
     
 #if PLATFORM(MAC)
     // Accessors for native image formats.
@@ -139,8 +147,6 @@ private:
     // Supporting tiled drawing
     virtual bool mayFillWithSolidColor() const { return false; }
     virtual Color solidColor() const { return Color(); }
-    
-    virtual NativeImagePtr nativeImageForCurrentFrame() { return 0; }
     
     virtual void startAnimation() { }
     

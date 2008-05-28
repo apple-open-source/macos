@@ -46,7 +46,7 @@
 #include "HighLevelDirServicesMini.h"
 
 #warning VERIFY the version string before each major OS build submission
-const char *version = "10.5.0";
+const char *version = "10.5.3";
 
 SInt32				deleteGroupMember			(   tDirReference inDSRef,
 													tDirNodeReference inDSNodeRef,

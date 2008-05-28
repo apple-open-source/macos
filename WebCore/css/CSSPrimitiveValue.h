@@ -1,8 +1,7 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,6 +29,7 @@ namespace WebCore {
 
 class Counter;
 class DashboardRegion;
+struct Length;
 class Pair;
 class Rect;
 class RenderStyle;
@@ -67,7 +67,8 @@ public:
         CSS_RECT = 24,
         CSS_RGBCOLOR = 25,
         CSS_PAIR = 100, // We envision this being exposed as a means of getting computed style values for pairs (border-spacing/radius, background-position, etc.)
-        CSS_DASHBOARD_REGION = 101 // FIXME: What on earth is this doing as a primitive value? It should not be!
+        CSS_DASHBOARD_REGION = 101, // FIXME: What on earth is this doing as a primitive value? It should not be!
+        CSS_UNICODE_RANGE = 102
     };
 
     // FIXME: int vs. unsigned overloading is too tricky for color vs. ident
@@ -75,11 +76,11 @@ public:
     CSSPrimitiveValue(int ident);
     CSSPrimitiveValue(double, UnitTypes);
     CSSPrimitiveValue(const String&, UnitTypes);
-    CSSPrimitiveValue(PassRefPtr<Counter>);
-    CSSPrimitiveValue(PassRefPtr<Rect>);
     CSSPrimitiveValue(unsigned color); // RGB value
-    CSSPrimitiveValue(PassRefPtr<Pair>);
-    CSSPrimitiveValue(PassRefPtr<DashboardRegion>); // FIXME: Why is dashboard region a primitive value? This makes no sense.
+    CSSPrimitiveValue(const Length&);
+    template<typename T> CSSPrimitiveValue(T); // Defined in CSSPrimitiveValueMappings.h
+    template<typename T> CSSPrimitiveValue(T* val) { init(PassRefPtr<T>(val)); }
+    template<typename T> CSSPrimitiveValue(PassRefPtr<T> val) { init(val); }
 
     virtual ~CSSPrimitiveValue();
 
@@ -109,30 +110,43 @@ public:
     // use with care!!!
     void setPrimitiveType(unsigned short type) { m_type = type; }
 
+    double getDoubleValue(unsigned short unitType, ExceptionCode&);
     double getDoubleValue(unsigned short unitType);
     double getDoubleValue() const { return m_value.num; }
 
     void setFloatValue(unsigned short unitType, double floatValue, ExceptionCode&);
+    float getFloatValue(unsigned short unitType, ExceptionCode& ec) { return static_cast<float>(getDoubleValue(unitType, ec)); }
     float getFloatValue(unsigned short unitType) { return static_cast<float>(getDoubleValue(unitType)); }
     float getFloatValue() const { return static_cast<float>(m_value.num); }
+
+    int getIntValue(unsigned short unitType, ExceptionCode& ec) { return static_cast<int>(getDoubleValue(unitType, ec)); }
     int getIntValue(unsigned short unitType) { return static_cast<int>(getDoubleValue(unitType)); }
     int getIntValue() const { return static_cast<int>(m_value.num); }
 
     void setStringValue(unsigned short stringType, const String& stringValue, ExceptionCode&);
+    String getStringValue(ExceptionCode&) const;
     String getStringValue() const;
 
-    Counter* getCounterValue () const { return m_type != CSS_COUNTER ? 0 : m_value.counter; }
-    Rect* getRectValue () const { return m_type != CSS_RECT ? 0 : m_value.rect; }
+    Counter* getCounterValue(ExceptionCode&) const;
+    Counter* getCounterValue() const { return m_type != CSS_COUNTER ? 0 : m_value.counter; }
+
+    Rect* getRectValue(ExceptionCode&) const;
+    Rect* getRectValue() const { return m_type != CSS_RECT ? 0 : m_value.rect; }
+
+    unsigned getRGBColorValue(ExceptionCode&) const;
     unsigned getRGBColorValue() const { return m_type != CSS_RGBCOLOR ? 0 : m_value.rgbcolor; }
+
+    Pair* getPairValue(ExceptionCode&) const;
     Pair* getPairValue() const { return m_type != CSS_PAIR ? 0 : m_value.pair; }
 
-    DashboardRegion* getDashboardRegionValue () const { return m_type != CSS_DASHBOARD_REGION ? 0 : m_value.region; }
+    DashboardRegion* getDashboardRegionValue() const { return m_type != CSS_DASHBOARD_REGION ? 0 : m_value.region; }
 
     virtual bool isPrimitiveValue() const { return true; }
 
     virtual unsigned short cssValueType() const;
 
     int getIdent();
+    template<typename T> operator T() const; // Defined in CSSPrimitiveValueMappings.h
 
     virtual bool parseString(const String&, bool = false);
     virtual String cssText() const;
@@ -151,6 +165,14 @@ protected:
         Pair* pair;
         DashboardRegion* region;
     } m_value;
+
+private:
+    template<typename T> operator T*(); // compile-time guard
+
+    void init(PassRefPtr<Counter>);
+    void init(PassRefPtr<Rect>);
+    void init(PassRefPtr<Pair>);
+    void init(PassRefPtr<DashboardRegion>); // FIXME: Why is dashboard region a primitive value? This makes no sense.
 };
 
 } // namespace WebCore

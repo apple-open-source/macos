@@ -1,7 +1,6 @@
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Samuel Weinig <sam@webkit.org>
  *
  *  This library is free software; you can redistribute it and/or
@@ -27,53 +26,65 @@
 #include "config.h"
 #include "kjs_binding.h"
 
-#include "Chrome.h"
-#include "Event.h"
-#include "EventNames.h"
-#include "Frame.h"
+#include "DOMCoreException.h"
+#include "EventException.h"
+#include "ExceptionCode.h"
+#include "HTMLImageElement.h"
+#include "HTMLNames.h"
+#include "JSDOMCoreException.h"
+#include "JSEventException.h"
 #include "JSNode.h"
-#include "Page.h"
-#include "PlatformString.h"
-#include "Range.h"
+#include "JSRangeException.h"
+#include "JSXMLHttpRequestException.h"
 #include "RangeException.h"
-#include "XMLHttpRequest.h"
-#include "kjs_dom.h"
+#include "XMLHttpRequestException.h"
 #include "kjs_window.h"
-#include <kjs/collector.h>
-#include <wtf/HashMap.h>
 
 #if ENABLE(SVG)
+#include "JSSVGException.h"
 #include "SVGException.h"
 #endif
 
 #if ENABLE(XPATH)
-#include "XPathEvaluator.h"
+#include "JSXPathException.h"
+#include "XPathException.h"
 #endif
 
+using namespace KJS;
 using namespace WebCore;
-using namespace EventNames;
+using namespace HTMLNames;
+
+// FIXME: Move all this stuff into the WebCore namespace.
 
 namespace KJS {
 
 typedef HashMap<void*, DOMObject*> DOMObjectMap;
-typedef HashMap<Node*, JSNode*> NodeMap;
+typedef HashMap<WebCore::Node*, JSNode*> NodeMap;
 typedef HashMap<Document*, NodeMap*> NodePerDocMap;
 
 // For debugging, keep a set of wrappers currently registered, and check that
 // all are unregistered before they are destroyed. This has helped us fix at
 // least one bug.
 
+static void addWrapper(DOMObject* wrapper);
+static void removeWrapper(DOMObject* wrapper);
+static void removeWrappers(const NodeMap& wrappers);
+
 #ifdef NDEBUG
 
-#define ADD_WRAPPER(wrapper)
-#define REMOVE_WRAPPER(wrapper)
-#define REMOVE_WRAPPERS(wrappers)
+static inline void addWrapper(DOMObject*)
+{
+}
+
+static inline void removeWrapper(DOMObject*)
+{
+}
+
+static inline void removeWrappers(const NodeMap&)
+{
+}
 
 #else
-
-#define ADD_WRAPPER(wrapper) addWrapper(wrapper)
-#define REMOVE_WRAPPER(wrapper) removeWrapper(wrapper)
-#define REMOVE_WRAPPERS(wrappers) removeWrappers(wrappers)
 
 static HashSet<DOMObject*>& wrapperSet()
 {
@@ -127,17 +138,6 @@ static NodePerDocMap& domNodesPerDocument()
     return staticDOMNodesPerDocument;
 }
 
-ScriptInterpreter::ScriptInterpreter(JSObject* global, Frame* frame)
-    : Interpreter(global)
-    , m_frame(frame)
-    , m_currentEvent(0)
-    , m_inlineCode(false)
-    , m_timerCallback(false)
-{
-    // Time in milliseconds before the script timeout handler kicks in.
-    setTimeoutTime(10000);
-}
-
 DOMObject* ScriptInterpreter::getDOMObject(void* objectHandle) 
 {
     return domObjects().get(objectHandle);
@@ -145,17 +145,16 @@ DOMObject* ScriptInterpreter::getDOMObject(void* objectHandle)
 
 void ScriptInterpreter::putDOMObject(void* objectHandle, DOMObject* wrapper) 
 {
-    ADD_WRAPPER(wrapper);
+    addWrapper(wrapper);
     domObjects().set(objectHandle, wrapper);
 }
 
 void ScriptInterpreter::forgetDOMObject(void* objectHandle)
 {
-    REMOVE_WRAPPER(domObjects().get(objectHandle));
-    domObjects().remove(objectHandle);
+    removeWrapper(domObjects().take(objectHandle));
 }
 
-JSNode* ScriptInterpreter::getDOMNodeForDocument(Document* document, Node* node)
+JSNode* ScriptInterpreter::getDOMNodeForDocument(Document* document, WebCore::Node* node)
 {
     if (!document)
         return static_cast<JSNode*>(domObjects().get(node));
@@ -165,21 +164,20 @@ JSNode* ScriptInterpreter::getDOMNodeForDocument(Document* document, Node* node)
     return NULL;
 }
 
-void ScriptInterpreter::forgetDOMNodeForDocument(Document* document, Node* node)
+void ScriptInterpreter::forgetDOMNodeForDocument(Document* document, WebCore::Node* node)
 {
-    REMOVE_WRAPPER(getDOMNodeForDocument(document, node));
     if (!document) {
-        domObjects().remove(node);
+        removeWrapper(domObjects().take(node));
         return;
     }
     NodeMap* documentDict = domNodesPerDocument().get(document);
     if (documentDict)
-        documentDict->remove(node);
+        removeWrapper(documentDict->take(node));
 }
 
-void ScriptInterpreter::putDOMNodeForDocument(Document* document, Node* node, JSNode* wrapper)
+void ScriptInterpreter::putDOMNodeForDocument(Document* document, WebCore::Node* node, JSNode* wrapper)
 {
-    ADD_WRAPPER(wrapper);
+    addWrapper(wrapper);
     if (!document) {
         domObjects().set(node, wrapper);
         return;
@@ -195,12 +193,11 @@ void ScriptInterpreter::putDOMNodeForDocument(Document* document, Node* node, JS
 void ScriptInterpreter::forgetAllDOMNodesForDocument(Document* document)
 {
     ASSERT(document);
-    NodePerDocMap::iterator it = domNodesPerDocument().find(document);
-    if (it != domNodesPerDocument().end()) {
-        REMOVE_WRAPPERS(*it->second);
-        delete it->second;
-        domNodesPerDocument().remove(it);
-    }
+    NodeMap* map = domNodesPerDocument().take(document);
+    if (!map)
+        return;
+    removeWrappers(*map);
+    delete map;
 }
 
 void ScriptInterpreter::markDOMNodesForDocument(Document* doc)
@@ -210,92 +207,31 @@ void ScriptInterpreter::markDOMNodesForDocument(Document* doc)
         NodeMap* nodeDict = dictIt->second;
         NodeMap::iterator nodeEnd = nodeDict->end();
         for (NodeMap::iterator nodeIt = nodeDict->begin(); nodeIt != nodeEnd; ++nodeIt) {
-            JSNode* node = nodeIt->second;
+            JSNode* jsNode = nodeIt->second;
+            WebCore::Node* node = jsNode->impl();
+            
             // don't mark wrappers for nodes that are no longer in the
             // document - they should not be saved if the node is not
             // otherwise reachable from JS.
-            if (node->impl()->inDocument() && !node->marked())
-                node->mark();
+            // However, image elements that aren't in the document are also
+            // marked, if they are not done loading yet.
+            if (!jsNode->marked() && (node->inDocument() || (node->hasTagName(imgTag) &&
+                                                             !static_cast<HTMLImageElement*>(node)->haveFiredLoadEvent())))
+                jsNode->mark();
         }
     }
 }
 
-ExecState* ScriptInterpreter::globalExec()
-{
-    // we need to make sure that any script execution happening in this
-    // frame does not destroy it
-    m_frame->keepAlive();
-    return Interpreter::globalExec();
-}
-
-void ScriptInterpreter::updateDOMNodeDocument(Node* node, Document* oldDoc, Document* newDoc)
+void ScriptInterpreter::updateDOMNodeDocument(WebCore::Node* node, Document* oldDoc, Document* newDoc)
 {
     ASSERT(oldDoc != newDoc);
     JSNode* wrapper = getDOMNodeForDocument(oldDoc, node);
     if (wrapper) {
-        REMOVE_WRAPPER(wrapper);
+        removeWrapper(wrapper);
         putDOMNodeForDocument(newDoc, node, wrapper);
         forgetDOMNodeForDocument(oldDoc, node);
-        ADD_WRAPPER(wrapper);
+        addWrapper(wrapper);
     }
-}
-
-bool ScriptInterpreter::wasRunByUserGesture() const
-{
-    if (m_currentEvent) {
-        const AtomicString& type = m_currentEvent->type();
-        bool eventOk = ( // mouse events
-            type == clickEvent || type == mousedownEvent ||
-            type == mouseupEvent || type == dblclickEvent ||
-            // keyboard events
-            type == keydownEvent || type == keypressEvent ||
-            type == keyupEvent ||
-            // other accepted events
-            type == selectEvent || type == changeEvent ||
-            type == focusEvent || type == blurEvent ||
-            type == submitEvent);
-        if (eventOk)
-            return true;
-    } else { // no event
-        if (m_inlineCode && !m_timerCallback)
-            // This is the <a href="javascript:window.open('...')> case -> we let it through
-            return true;
-        // This is the <script>window.open(...)</script> case or a timer callback -> block it
-    }
-    return false;
-}
-
-bool ScriptInterpreter::isGlobalObject(JSValue* v)
-{
-    return v->isObject(&Window::info);
-}
-
-bool ScriptInterpreter::isSafeScript(const Interpreter* target)
-{
-    return Window::isSafeScript(this, static_cast<const ScriptInterpreter*>(target));
-}
-
-Interpreter* ScriptInterpreter::interpreterForGlobalObject(const JSValue* imp)
-{
-    const Window* win = static_cast<const Window*>(imp);
-    return win->interpreter();
-}
-
-bool ScriptInterpreter::shouldInterruptScript() const
-{
-    Page* page = m_frame->page();
-
-    // See <rdar://problem/5479443>. We don't think that page can ever be NULL
-    // in this case, but if it is, we've gotten into a state where we may have
-    // hung the UI, with no way to ask the client whether to cancel execution. 
-    // For now, our solution is just to cancel execution no matter what, 
-    // ensuring that we never hang. We might want to consider other solutions 
-    // if we discover problems with this one.
-    ASSERT(page);
-    if (!page)
-        return true;
-
-    return page->chrome()->shouldInterruptJavaScript();
 }
 
 JSValue* jsStringOrNull(const String& s)
@@ -340,130 +276,87 @@ String valueToStringWithUndefinedOrNullCheck(ExecState* exec, JSValue* val)
     return val->toString(exec);
 }
 
-static const char* const exceptionNames[] = {
-    0,
-    "INDEX_SIZE_ERR",
-    "DOMSTRING_SIZE_ERR",
-    "HIERARCHY_REQUEST_ERR",
-    "WRONG_DOCUMENT_ERR",
-    "INVALID_CHARACTER_ERR",
-    "NO_DATA_ALLOWED_ERR",
-    "NO_MODIFICATION_ALLOWED_ERR",
-    "NOT_FOUND_ERR",
-    "NOT_SUPPORTED_ERR",
-    "INUSE_ATTRIBUTE_ERR",
-    "INVALID_STATE_ERR",
-    "SYNTAX_ERR",
-    "INVALID_MODIFICATION_ERR",
-    "NAMESPACE_ERR",
-    "INVALID_ACCESS_ERR",
-    "VALIDATION_ERR",
-    "TYPE_MISMATCH_ERR",
-};
-
-static const char* const rangeExceptionNames[] = {
-    0, "BAD_BOUNDARYPOINTS_ERR", "INVALID_NODE_TYPE_ERR"
-};
-
-static const char* const eventExceptionNames[] = {
-    "UNSPECIFIED_EVENT_TYPE_ERR"
-};
-
-static const char* const xmlHttpRequestExceptionNames[] = {
-    "NETWORK_ERR"
-};
-
-#if ENABLE(XPATH)
-static const char* const xpathExceptionNames[] = {
-    "INVALID_EXPRESSION_ERR",
-    "TYPE_ERR"
-};
-#endif
-
-#if ENABLE(SVG)
-static const char* const svgExceptionNames[] = {
-    "SVG_WRONG_TYPE_ERR",
-    "SVG_INVALID_VALUE_ERR",
-    "SVG_MATRIX_NOT_INVERTABLE"
-};
-#endif
-
 void setDOMException(ExecState* exec, ExceptionCode ec)
 {
-    if (ec == 0 || exec->hadException())
+    if (!ec || exec->hadException())
         return;
 
-    const char* type = "DOM";
-    int code = ec;
-
-    const char* const* nameTable;
-  
-    int nameTableSize;
-    int nameIndex;
-    if (code >= RangeExceptionOffset && code <= RangeExceptionMax) {
-        type = "DOM Range";
-        code -= RangeExceptionOffset;
-        nameIndex = code;
-        nameTable = rangeExceptionNames;
-        nameTableSize = sizeof(rangeExceptionNames) / sizeof(rangeExceptionNames[0]);
-    } else if (code >= EventExceptionOffset && code <= EventExceptionMax) {
-        type = "DOM Events";
-        code -= EventExceptionOffset;
-        nameIndex = code;
-        nameTable = eventExceptionNames;
-        nameTableSize = sizeof(eventExceptionNames) / sizeof(eventExceptionNames[0]);
-    } else if (code == XMLHttpRequestExceptionOffset) {
-        // FIXME: this exception should be replaced with DOM SECURITY_ERR when it finds its way to the spec.
+    // To be removed: See XMLHttpRequest.h.
+    if (ec == XMLHttpRequestException::PERMISSION_DENIED) {
         throwError(exec, GeneralError, "Permission denied");
         return;
-    } else if (code > XMLHttpRequestExceptionOffset && code <= XMLHttpRequestExceptionMax) {
-        type = "XMLHttpRequest";
-        // XMLHttpRequest exception codes start with 101 and we don't want 100 empty elements in the name array
-        nameIndex = code - NETWORK_ERR;
-        code -= XMLHttpRequestExceptionOffset;
-        nameTable = xmlHttpRequestExceptionNames;
-        nameTableSize = sizeof(xmlHttpRequestExceptionNames) / sizeof(xmlHttpRequestExceptionNames[0]);
-#if ENABLE(XPATH)
-    } else if (code >= XPathExceptionOffset && code <= XPathExceptionMax) {
-        type = "DOM XPath";
-        // XPath exception codes start with 51 and we don't want 51 empty elements in the name array
-        nameIndex = code - INVALID_EXPRESSION_ERR;
-        code -= XPathExceptionOffset;
-        nameTable = xpathExceptionNames;
-        nameTableSize = sizeof(xpathExceptionNames) / sizeof(xpathExceptionNames[0]);
-#endif
-#if ENABLE(SVG)
-    } else if (code >= SVGExceptionOffset && code <= SVGExceptionMax) {
-        type = "DOM SVG";
-        code -= SVGExceptionOffset;
-        nameIndex = code;
-        nameTable = svgExceptionNames;
-        nameTableSize = sizeof(svgExceptionNames) / sizeof(svgExceptionNames[0]);
-#endif
-    } else {
-        nameIndex = code;
-        nameTable = exceptionNames;
-        nameTableSize = sizeof(exceptionNames) / sizeof(exceptionNames[0]);
     }
 
-    const char* name = (nameIndex < nameTableSize && nameIndex >= 0) ? nameTable[nameIndex] : 0;
+    ExceptionCodeDescription description;
+    getExceptionCodeDescription(ec, description);
 
-    // 100 characters is a big enough buffer, because there are:
-    //   13 characters in the message
-    //   10 characters in the longest type, "DOM Events"
-    //   27 characters in the longest name, "NO_MODIFICATION_ALLOWED_ERR"
-    //   20 or so digits in the longest integer's ASCII form (even if int is 64-bit)
-    //   1 byte for a null character
-    // That adds up to about 70 bytes.
-    char buffer[100];
+    JSValue* errorObject = 0;
+    switch (description.type) {
+        case DOMExceptionType:
+            errorObject = toJS(exec, new DOMCoreException(description));
+            break;
+        case RangeExceptionType:
+            errorObject = toJS(exec, new RangeException(description));
+            break;
+        case EventExceptionType:
+            errorObject = toJS(exec, new EventException(description));
+            break;
+        case XMLHttpRequestExceptionType:
+            errorObject = toJS(exec, new XMLHttpRequestException(description));
+            break;
+#if ENABLE(SVG)
+        case SVGExceptionType:
+            errorObject = toJS(exec, new SVGException(description), 0);
+            break;
+#endif
+#if ENABLE(XPATH)
+        case XPathExceptionType:
+            errorObject = toJS(exec, new XPathException(description));
+            break;
+#endif
+    }
 
-    if (name)
-        sprintf(buffer, "%s: %s Exception %d", name, type, code);
-    else
-        sprintf(buffer, "%s Exception %d", type, code);
-
-    JSObject* errorObject = throwError(exec, GeneralError, buffer);
-    errorObject->put(exec, "code", jsNumber(code));
+    ASSERT(errorObject);
+    exec->setException(errorObject);
 }
 
+} // namespace KJS
+
+namespace WebCore {
+
+bool allowsAccessFromFrame(ExecState* exec, Frame* frame)
+{
+    if (!frame)
+        return false;
+    Window* window = Window::retrieveWindow(frame);
+    return window && window->allowsAccessFrom(exec);
 }
+
+bool allowsAccessFromFrame(ExecState* exec, Frame* frame, String& message)
+{
+    if (!frame)
+        return false;
+    Window* window = Window::retrieveWindow(frame);
+    return window && window->allowsAccessFrom(exec, message);
+}
+
+void printErrorMessageForFrame(Frame* frame, const String& message)
+{
+    if (!frame)
+        return;
+    if (Window* window = Window::retrieveWindow(frame))
+        window->printErrorMessage(message);
+}
+
+JSValue* nonCachingStaticFunctionGetter(ExecState* exec, JSObject*, const Identifier& propertyName, const PropertySlot& slot)
+{
+    const HashEntry* entry = slot.staticEntry();
+    return new PrototypeFunction(exec, entry->params, propertyName, entry->value.functionValue);
+}
+
+JSValue* objectToStringFunctionGetter(ExecState* exec, JSObject*, const Identifier& propertyName, const PropertySlot&)
+{
+    return new PrototypeFunction(exec, 0, propertyName, objectProtoFuncToString);
+}
+
+} // namespace WebCore

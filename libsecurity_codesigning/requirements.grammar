@@ -29,8 +29,13 @@
 //	RequirementSet => set of labeled requirements (Requirements *)
 // The grammar can "autosense" - i.e. recognize which one it's fed and
 // return appropriate semantic data.
+//
 // The semantic data compiled is a malloc'ed BlobCore * - a Requirement
 // object or a SuperBlob containing multiple Requirements.
+//
+// Errors are indicated to the caller by accumulating error message strings
+// in the errors member variable. Any non-empty error value indicates failure.
+// Presence of semantic data is not a reliable indication of success.
 //
 header "post_include_hpp" {
 #include "requirement.h"
@@ -44,6 +49,7 @@ header "post_include_cpp" {
 #include "csutilities.h"
 #include <security_utilities/cfutilities.h>
 #include <security_utilities/hashing.h>
+#include <security_cdsa_utilities/cssmdata.h>	// OID coding
 using namespace CodeSigning;
 typedef Requirement::Maker Maker;
 }
@@ -59,7 +65,9 @@ options {
 
 {
 	//
-	// Collect error messages
+	// Collect error messages.
+	// Note that the immediate caller takes the absence of collected error messages
+	// to indicate compilation success.
 	//
 	void RequirementParser::reportError(const antlr::RecognitionException &ex)
 	{
@@ -95,7 +103,24 @@ options {
 			throw antlr::SemanticException("invalid hash length");
 		memcpy(hash, hexString(s).data(), SHA1::digestLength);
 	}
+	
+	void RequirementParser::certMatchOperation(Maker &maker, int slot, string key)
+	{
+		if (!key.compare(0, 8, "subject.", 0, 8)) {
+			maker.put(opCertField);
+			maker.put(slot);
+			maker.put(key);
+		} else if (!key.compare(0, 6, "field.", 0, 6)) {
+			maker.put(opCertGeneric);
+			maker.put(slot);
+			CssmAutoData oid(Allocator::standard()); oid.fromOid(key.c_str() + 6);
+			maker.putData(oid.data(), oid.length());
+		} else {
+			throw antlr::SemanticException(key + ": unrecognized certificate field");
+		}
+	}
 }
+
 
 class RequirementParser extends Parser;
 
@@ -112,6 +137,7 @@ public:
 private:
 	static string hexString(const string &s);
 	static void hashString(const string &s, SHA1::Digest hash);
+	void certMatchOperation(Maker &maker, int slot, string key);
 }
 
 
@@ -190,9 +216,10 @@ primary[Maker &maker]
 			{ maker.put(opFalse); }
 	|	certspec[maker]
 	|	infospec[maker]
+	|	entitlementspec[maker]
 	|	"identifier" { string code; } eql code=identifierString
 			{ maker.ident(code); }
-	|	"cdhash" { SHA1::Digest digest; } hash[digest]
+	|	"cdhash" { SHA1::Digest digest; } eql hash[digest]
 			{ maker.cdhash(digest); }
 	;
 
@@ -201,8 +228,9 @@ primary[Maker &maker]
 // Certificate specifications restrict certificates in the signing chain
 //
 certspec[Maker &maker]
-	:	"anchor" "apple"
-			{ maker.put(opAppleAnchor); }
+	:	"anchor" "apple" appleanchor[maker]
+	|	"anchor" "generic" "apple"		// alternate form
+			{ maker.put(opAppleGenericAnchor); }
 	|	( "certificate" | "cert" | "anchor" ) "trusted"
 			{ maker.trustedAnchor(); }
 	|	( "certificate" | "cert" ) { int slot; } slot=certSlot
@@ -210,11 +238,18 @@ certspec[Maker &maker]
 	|	"anchor" certslotspec[maker, Requirement::anchorCert]
 	;
 
+appleanchor[Maker &maker]
+	:	empty
+			{ maker.put(opAppleAnchor); }
+	|	"generic"
+			{ maker.put(opAppleGenericAnchor); }
+	;
+
 certslotspec[Maker &maker, int slot]	{ string key; }
 	:	eql { SHA1::Digest digest; } certificateDigest[digest]
             { maker.anchor(slot, digest); }
 	|	key=bracketKey
-			{ maker.put(opCertField); maker.put(slot); maker.put(key); }
+			{ certMatchOperation(maker, slot, key); }
 		match_suffix[maker]
 	;
 
@@ -228,13 +263,39 @@ infospec[Maker &maker]		{ string key; }
 		match_suffix[maker]
 	;
 
+
+//
+// Entitlement specifications place conditions on embedded entitlement entries
+//
+entitlementspec[Maker &maker]	{ string key; }
+	:	"entitlement" key=bracketKey
+			{ maker.put(opEntitlementField); maker.put(key); }
+		match_suffix[maker]
+	;
+
+
+//
+// Common match operations, written as a syntactic suffix (the operand precedes this)
+//
 match_suffix[Maker &maker]
-	:	empty
+	:	empty ( "exists" ) ?
 			{ maker.put(matchExists); }
-	|	EQL { string value; } value=datavalue
-			{ maker.put(matchEqual); maker.put(value); }
+	|	( EQL | EQQL )
+			{ MatchOperation mop = matchEqual; string value; }
+		( STAR { mop = matchEndsWith; } ) ?
+		value=datavalue
+		( STAR { mop = (mop == matchEndsWith) ? matchContains : matchBeginsWith; } ) ?
+			{ maker.put(mop); maker.put(value); }
 	|	SUBS { string value; } value=datavalue
 			{ maker.put(matchContains); maker.put(value); }
+	|	LESS { string value; } value=datavalue
+			{ maker.put(matchLessThan); maker.put(value); }
+	|	GT { string value; } value=datavalue
+			{ maker.put(matchGreaterThan); maker.put(value); }
+	|	LE { string value; } value=datavalue
+			{ maker.put(matchLessEqual); maker.put(value); }
+	|	GE { string value; } value=datavalue
+			{ maker.put(matchGreaterEqual); maker.put(value); }
 	;
 
 bracketKey returns [string key]
@@ -252,12 +313,6 @@ certSlot returns [int slot]
 	|	"leaf"			// the leaf ( == -1)
 			{ slot = Requirement::leafCert; }
 	|	"root"			// the root ( == 0)
-			{ slot = Requirement::anchorCert; }
-	;
-
-certSlotAnchor returns [int slot]
-	:	slot=certSlot
-	|	empty			// defaults to anchor ( == 0)
 			{ slot = Requirement::anchorCert; }
 	;
 
@@ -310,6 +365,7 @@ fluff
 
 eql
 	:	EQL
+	|	EQQL
 	|	empty
 	;
 
@@ -319,9 +375,11 @@ empty : ;
 //
 // The lexer for the Requirement language.
 // Really straightforward and conventional.
-// A subset of strings don't need to be quoted (DOTKEYs), though the disassembler
-//   will always quote them anyway.
-// There's a syntax H"abcd" to denote hash values (in hex).
+// A subset of strings don't need to be quoted (DOTKEYs). Neither do some simple
+//  pathnames starting with "/".
+// Hash values have a special syntax H"abcd" (abcd in straight hex).
+// Hex constants of the form 0xabcd can have any length; they are carried
+// around as strings (which are in turn stored as data in the language binary).
 //
 class RequirementLexer extends Lexer;
 
@@ -336,7 +394,7 @@ IDENT options { testLiterals=true; }
 	;
 
 DOTKEY options { testLiterals=true; }
-	:	IDENT ( "." IDENT )*
+	:	IDENT ( "." ( IDENT | INTEGER ) )*
 	;
 
 PATHNAME
@@ -369,11 +427,17 @@ LPAREN	: '(' ;
 RPAREN	: ')' ;
 LBRACK	: '[' ;
 RBRACK	: ']' ;
+LESS	: '<' ;
+GT		: '>' ;
+LE		: "<=" ;
+GE		: ">=" ;
 COMMA	: ',' ;
 EQL		: '=' ;
+EQQL	: "==" ;
 SUBS	: '~' ;
 NEG		: '-' ;
 NOT		: '!' ;
+STAR	: '*' ;
 
 
 //

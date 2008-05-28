@@ -3023,9 +3023,9 @@ IOReturn IOFramebuffer::powerStateWillChangeTo( IOPMPowerFlags flags,
 
         if (serverState != serverNotified)
         {
-            // server will ack within ten seconds
+            // server will ack within 45 seconds
             serverPendingAck = true;
-            ret = 10 * 1000 * 1000;
+            ret = 45 * 1000 * 1000;
         }
         else
             ret = IOPMAckImplied;

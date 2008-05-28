@@ -46,15 +46,16 @@ class Clipboard;
 class DeleteButtonController;
 class DocumentFragment;
 class EditCommand;
+class EditorInternalCommand;
 class EditorClient;
 class EventTargetNode;
-class FontData;
 class Frame;
 class HTMLElement;
 class Pasteboard;
 class Range;
 class SelectionController;
 class Selection;
+class SimpleFontData;
 
 struct CompositionUnderline {
     CompositionUnderline() 
@@ -67,6 +68,9 @@ struct CompositionUnderline {
     bool thick;
 };
 
+enum TriState { FalseTriState, TrueTriState, MixedTriState };
+enum EditorCommandSource { CommandFromMenuOrKeyBinding, CommandFromDOM, CommandFromDOMWithUserInterface };
+
 class Editor {
 public:
     Editor(Frame*);
@@ -77,8 +81,8 @@ public:
     DeleteButtonController* deleteButtonController() const { return m_deleteButtonController.get(); }
     EditCommand* lastEditCommand() { return m_lastEditCommand.get(); }
 
-    void handleKeypress(KeyboardEvent*);
-    void handleInputMethodKeypress(KeyboardEvent*);
+    void handleKeyboardEvent(KeyboardEvent*);
+    void handleInputMethodKeydown(KeyboardEvent*);
 
     bool canEdit() const;
     bool canEditRichly() const;
@@ -94,7 +98,8 @@ public:
     bool canCopy() const;
     bool canPaste() const;
     bool canDelete() const;
-    
+    bool canSmartCopyOrDelete();
+
     void cut();
     void copy();
     void paste();
@@ -106,6 +111,7 @@ public:
 
     void indent();
     void outdent();
+    void transpose();
 
     bool shouldInsertFragment(PassRefPtr<DocumentFragment> fragment, PassRefPtr<Range> replacingDOMRange, EditorInsertAction givenAction);
     bool shouldInsertText(const String&, Range*, EditorInsertAction) const;
@@ -115,11 +121,12 @@ public:
     
     void respondToChangedSelection(const Selection& oldSelection);
     void respondToChangedContents(const Selection& endingSelection);
+
+    TriState selectionHasStyle(CSSStyleDeclaration*) const;
+    const SimpleFontData* fontForSelection(bool&) const;
     
-    const FontData* fontForSelection(bool&) const;
-    
-    Frame::TriState selectionUnorderedListState() const;
-    Frame::TriState selectionOrderedListState() const;
+    TriState selectionUnorderedListState() const;
+    TriState selectionOrderedListState() const;
     PassRefPtr<Node> insertOrderedList();
     PassRefPtr<Node> insertUnorderedList();
     bool canIncreaseSelectionListLevel();
@@ -136,9 +143,7 @@ public:
     void setLastEditCommand(PassRefPtr<EditCommand> lastEditCommand);
 
     bool deleteWithDirection(SelectionController::EDirection, TextGranularity, bool killRing, bool isTypingAction);
-    void deleteRange(Range*, bool killRing, bool prepend, bool smartDeleteOK, EditorDeleteAction, TextGranularity);
     void deleteSelectionWithSmartDelete(bool smartDelete);
-    void deleteSelectionWithSmartDelete();
     bool dispatchCPPEvent(const AtomicString&, ClipboardAccessPolicy);
     
     Node* removedAnchor() const { return m_removedAnchor.get(); }
@@ -156,9 +161,31 @@ public:
     bool selectionStartHasStyle(CSSStyleDeclaration*) const;
 
     bool clientIsEditable() const;
-    
-    bool execCommand(const AtomicString&, Event* triggeringEvent = 0);
-    
+
+    class Command {
+    public:
+        Command();
+        Command(PassRefPtr<Frame>, const EditorInternalCommand*, EditorCommandSource);
+
+        bool execute(const String& parameter = String(), Event* triggeringEvent = 0) const;
+        bool execute(Event* triggeringEvent) const;
+
+        bool isSupported() const;
+        bool isEnabled(Event* triggeringEvent = 0) const;
+
+        TriState state(Event* triggeringEvent = 0) const;
+        String value(Event* triggeringEvent = 0) const;
+
+        bool isTextInsertion() const;
+
+    private:
+        RefPtr<Frame> m_frame;
+        const EditorInternalCommand* m_command;
+        EditorCommandSource m_source;
+    };
+    Command command(const String& commandName); // Default is CommandFromMenuOrKeyBinding.
+    Command command(const String& commandName, EditorCommandSource);
+
     bool insertText(const String&, Event* triggeringEvent);
     bool insertTextWithoutSendingTextEvent(const String&, bool selectInsertedText, Event* triggeringEvent = 0);
     bool insertLineBreak();
@@ -200,7 +227,7 @@ public:
     void showColorPanel();
     void toggleBold();
     void toggleUnderline();
-    void setBaseWritingDirection(String);
+    void setBaseWritingDirection(const String&);
 
     bool smartInsertDeleteEnabled();
     
@@ -224,13 +251,23 @@ public:
 
     void setStartNewKillRingSequence(bool);
 
+    PassRefPtr<Range> rangeForPoint(const IntPoint& windowPoint);
+
+    void clear();
+
+    Selection selectionForCommand(Event*);
+
 #if PLATFORM(MAC)
     NSString* userVisibleString(NSURL*);
 #endif
 
-    PassRefPtr<Range> rangeForPoint(const IntPoint& windowPoint);
+    void appendToKillRing(const String&);
+    void prependToKillRing(const String&);
+    String yankFromKillRing();
+    void startNewKillRingSequence();
+    void setKillRingToYankedState();
 
-    void clear();
+    PassRefPtr<Range> selectedRange();
 
 private:
     Frame* m_frame;
@@ -243,12 +280,11 @@ private:
     unsigned m_compositionEnd;
     Vector<CompositionUnderline> m_customCompositionUnderlines;
     bool m_ignoreCompositionSelectionChange;
+    bool m_shouldStartNewKillRingSequence;
 
     bool canDeleteRange(Range*) const;
-    bool canSmartCopyOrDelete();
     bool canSmartReplaceWithPasteboard(Pasteboard*);
     PassRefPtr<Clipboard> newGeneralClipboard(ClipboardAccessPolicy);
-    PassRefPtr<Range> selectedRange();
     void pasteAsPlainTextWithPasteboard(Pasteboard*);
     void pasteWithPasteboard(Pasteboard*, bool allowPlainText);
     void replaceSelectionWithFragment(PassRefPtr<DocumentFragment>, bool selectReplacement, bool smartReplace, bool matchStyle);
@@ -261,25 +297,12 @@ private:
     void setIgnoreCompositionSelectionChange(bool ignore);
 
     void addToKillRing(Range*, bool prepend);
-
-#if PLATFORM(MAC)
-    bool m_startNewKillRingSequence;
-#endif
 };
-
-#if PLATFORM(MAC)
 
 inline void Editor::setStartNewKillRingSequence(bool flag)
 {
-    m_startNewKillRingSequence = flag;
+    m_shouldStartNewKillRingSequence = flag;
 }
-
-#else
-
-inline void Editor::setStartNewKillRingSequence(bool) { }
-inline void Editor::addToKillRing(Range*, bool) { }
-
-#endif
 
 } // namespace WebCore
 

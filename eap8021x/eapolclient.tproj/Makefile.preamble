@@ -143,3 +143,5 @@ ifeq "$(RC_RELEASE)" "Darwin"
 else
 	FRAMEWORKS += -framework Apple80211
 endif
+
+OTHER_LDFLAGS += -sectcreate __TEXT __info_plist Info.plist

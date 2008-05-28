@@ -93,6 +93,8 @@ class FlatFileNode : public BDPIVirtualNode
 		static sqlite3					*fSQLDatabase;
 		static pthread_mutex_t			fWatchFilesLock;
 		static DSMutexSemaphore			fSQLDatabaseLock;
+		static bool						fProperShutdown;
+		static bool						fSafeBoot;
 	
 	private:
 		static int						sqlExecSync( const char *command );

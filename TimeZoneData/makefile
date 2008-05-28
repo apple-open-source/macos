@@ -31,7 +31,11 @@ RC_ARCHS=
 #################################
 
 INSTALL = /usr/bin/install
-INSTALLDIR = /usr/local/share/tz
+ifeq "$(OS)" "Windows_NT"
+	INSTALLDIR = /AppleInternal/bin/tz
+else
+	INSTALLDIR = /usr/local/share/tz
+endif
 
 #################################
 # B&I TARGETS
@@ -40,16 +44,6 @@ INSTALLDIR = /usr/local/share/tz
 installsrc :
 	if test ! -d $(SRCROOT); then mkdir $(SRCROOT); fi;
 	tar cf - ./makefile ./tz*.tar.gz | (cd $(SRCROOT) ; tar xfp -);
-# 	for i in `find $(SRCROOT)/icuSources/ | grep "CVS$$"` ; do \
-# 		if test -d $$i ; then \
-# 			rm -rf $$i; \
-# 		fi; \
-# 	done
-# 	for j in `find $(SRCROOT)/icuSources/ | grep ".cvsignore"` ; do \
-# 		if test -f $$j ; then \
-# 			rm -f $$j; \
-# 		fi; \
-# 	done
 
 installhdrs : 
 

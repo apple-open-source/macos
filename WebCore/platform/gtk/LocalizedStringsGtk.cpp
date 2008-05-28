@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
- * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com 
+ * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
+ * Copyright (C) 2008 Christian Dywan <christian@imendio.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,7 +24,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -31,10 +32,18 @@
 #include "LocalizedStrings.h"
 #include "PlatformString.h"
 
+#include <gtk/gtk.h>
 #include <glib/gi18n.h>
 
-
 namespace WebCore {
+
+static const char* gtkStockLabel(const char* stockID)
+{
+    GtkStockItem item;
+    if (!gtk_stock_lookup(stockID, &item))
+        return stockID;
+    return item.label;
+}
 
 String submitButtonDefaultLabel()
 {
@@ -42,98 +51,130 @@ String submitButtonDefaultLabel()
 }
 
 String inputElementAltText()
-{ 
+{
     return String::fromUTF8(_("Submit"));
 }
 
 String resetButtonDefaultLabel()
-{ 
+{
     return String::fromUTF8(_("Reset"));
 }
 
 String searchableIndexIntroduction()
 {
-    return String::fromUTF8(_("Searchable Index"));
+    return String::fromUTF8(_("_Searchable Index"));
 }
 
 String fileButtonChooseFileLabel()
-{ 
+{
     return String::fromUTF8(_("Choose File"));
 }
 
 String fileButtonNoFileSelectedLabel()
-{ 
-    return String::fromUTF8(_("No file selected"));
+{
+    return String::fromUTF8(_("(None)"));
 }
 
 String contextMenuItemTagOpenLinkInNewWindow()
 {
-    return String::fromUTF8(_("Open Link in New Window"));
+    return String::fromUTF8(_("Open Link in New _Window"));
 }
 
 String contextMenuItemTagDownloadLinkToDisk()
 {
-    return String::fromUTF8(_("Download Linked File"));
+    return String::fromUTF8(_("_Download Linked File"));
 }
 
 String contextMenuItemTagCopyLinkToClipboard()
 {
-    return String::fromUTF8(_("Copy Link"));
+    return String::fromUTF8(_("Copy Link Loc_ation"));
 }
 
 String contextMenuItemTagOpenImageInNewWindow()
-{ 
-    return String::fromUTF8(_("Open Image in New Window"));
+{
+    return String::fromUTF8(_("Open _Image in New Window"));
 }
 
 String contextMenuItemTagDownloadImageToDisk()
 {
-    return String::fromUTF8(_("Download Image"));
+    return String::fromUTF8(_("Sa_ve Image As"));
 }
 
 String contextMenuItemTagCopyImageToClipboard()
 {
-    return String::fromUTF8(_("Copy Image"));
+    return String::fromUTF8(_("Cop_y Image"));
 }
 
 String contextMenuItemTagOpenFrameInNewWindow()
 {
-    return String::fromUTF8(_("Open Frame in New Window"));
+    return String::fromUTF8(_("Open _Frame in New Window"));
 }
 
 String contextMenuItemTagCopy()
 {
-    return String::fromUTF8(_("Copy"));
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_COPY));
+    return stockLabel;
+}
+
+String contextMenuItemTagDelete()
+{
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_DELETE));
+    return stockLabel;
+}
+
+String contextMenuItemTagSelectAll()
+{
+#if GLIB_CHECK_VERSION(2,10,0)
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_SELECT_ALL));
+#else
+    static String stockLabel = String::fromUTF8(_("Select _All"));
+#endif
+    return stockLabel;
+}
+
+String contextMenuItemTagUnicode()
+{
+    return String::fromUTF8(_("_Insert Unicode Control Character"));
+}
+
+String contextMenuItemTagInputMethods()
+{
+    return String::fromUTF8(_("Input _Methods"));
 }
 
 String contextMenuItemTagGoBack()
 {
-    return String::fromUTF8(_("Back"));
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_GO_BACK));
+    return stockLabel;
 }
 
 String contextMenuItemTagGoForward()
 {
-    return String::fromUTF8(_("Forward"));
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_GO_FORWARD));
+    return stockLabel;
 }
 
 String contextMenuItemTagStop()
 {
-    return String::fromUTF8(_("Stop"));
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_STOP));
+    return stockLabel;
 }
 
 String contextMenuItemTagReload()
 {
-    return String::fromUTF8(_("Reload"));
+    return String::fromUTF8(_("_Reload"));
 }
 
 String contextMenuItemTagCut()
 {
-    return String::fromUTF8(_("Cut"));
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_CUT));
+    return stockLabel;
 }
 
 String contextMenuItemTagPaste()
 {
-    return String::fromUTF8(_("Paste"));
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_PASTE));
+    return stockLabel;
 }
 
 String contextMenuItemTagNoGuessesFound()
@@ -143,107 +184,90 @@ String contextMenuItemTagNoGuessesFound()
 
 String contextMenuItemTagIgnoreSpelling()
 {
-    return String::fromUTF8(_("Ignore Spelling"));
+    return String::fromUTF8(_("_Ignore Spelling"));
 }
 
 String contextMenuItemTagLearnSpelling()
 {
-    return String::fromUTF8(_("Learn Spelling"));
+    return String::fromUTF8(_("_Learn Spelling"));
 }
 
 String contextMenuItemTagSearchWeb()
 {
-    return String::fromUTF8(_("Search with MSN"));
+    return String::fromUTF8(_("_Search the Web"));
 }
 
 String contextMenuItemTagLookUpInDictionary()
 {
-    return String::fromUTF8(_("Look Up in Dictionary"));
+    return String::fromUTF8(_("_Look Up in Dictionary"));
 }
 
 String contextMenuItemTagOpenLink()
 {
-    return String::fromUTF8(_("Open Link"));
+    return String::fromUTF8(_("_Open Link"));
 }
 
 String contextMenuItemTagIgnoreGrammar()
 {
-    return String::fromUTF8(_("Ignore Grammar"));
+    return String::fromUTF8(_("Ignore _Grammar"));
 }
 
 String contextMenuItemTagSpellingMenu()
 {
-    return String::fromUTF8(_("Spelling and Grammar"));
+    return String::fromUTF8(_("Spelling and _Grammar"));
 }
 
 String contextMenuItemTagShowSpellingPanel(bool show)
 {
-    return String::fromUTF8(show ? _("Show Spelling and Grammar") : _("Hide Spelling and Grammar"));
+    return String::fromUTF8(show ? _("_Show Spelling and Grammar") : _("_Hide Spelling and Grammar"));
 }
 
 String contextMenuItemTagCheckSpelling()
 {
-    return String::fromUTF8(_("Check Document Now"));
+    return String::fromUTF8(_("_Check Document Now"));
 }
 
 String contextMenuItemTagCheckSpellingWhileTyping()
 {
-    return String::fromUTF8(_("Check Spelling While Typing"));
+    return String::fromUTF8(_("Check Spelling While _Typing"));
 }
 
 String contextMenuItemTagCheckGrammarWithSpelling()
 {
-    return String::fromUTF8(_("Check Grammar With Spelling"));
+    return String::fromUTF8(_("Check _Grammar With Spelling"));
 }
 
 String contextMenuItemTagFontMenu()
 {
-    return String::fromUTF8(_("Font"));
+    return String::fromUTF8(_("_Font"));
 }
 
 String contextMenuItemTagBold()
 {
-    return String::fromUTF8(_("Bold"));
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_BOLD));
+    return stockLabel;
 }
 
 String contextMenuItemTagItalic()
 {
-    return String::fromUTF8(_("Italic"));
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_ITALIC));
+    return stockLabel;
 }
 
 String contextMenuItemTagUnderline()
 {
-    return String::fromUTF8(_("Underline"));
+    static String stockLabel = String::fromUTF8(gtkStockLabel(GTK_STOCK_UNDERLINE));
+    return stockLabel;
 }
 
 String contextMenuItemTagOutline()
 {
-    return String::fromUTF8(_("Outline"));
-}
-
-String contextMenuItemTagWritingDirectionMenu()
-{
-    return String::fromUTF8(_("Write Direction"));
-}
-
-String contextMenuItemTagDefaultDirection()
-{
-    return String::fromUTF8(_("Default"));
-}
-
-String contextMenuItemTagLeftToRight()
-{
-    return String::fromUTF8(_("Left to Right"));
-}
-
-String contextMenuItemTagRightToLeft()
-{
-    return String::fromUTF8(_("Right to Left"));
+    return String::fromUTF8(_("_Outline"));
 }
 
 String contextMenuItemTagInspectElement()
 {
-    return String::fromUTF8(_("Inspect Element"));
+    return String::fromUTF8(_("Inspect _Element"));
 }
 
 String searchMenuNoRecentSearchesText()
@@ -258,7 +282,7 @@ String searchMenuRecentSearchesText()
 
 String searchMenuClearRecentSearchesText()
 {
-    return String::fromUTF8(_("Clear recent searches"));
+    return String::fromUTF8(_("_Clear recent searches"));
 }
 
 String unknownFileSizeText()

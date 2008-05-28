@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: spprintf.c,v 1.10.4.3.2.2 2007/01/01 09:46:50 sebastian Exp $ */
+/* $Id: spprintf.c,v 1.10.4.3.2.3 2007/12/31 07:22:55 sebastian Exp $ */
 
 /* This is the spprintf implementation.
  * It has emerged from apache snprintf. See original header:

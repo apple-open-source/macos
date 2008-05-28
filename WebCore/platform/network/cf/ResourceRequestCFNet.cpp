@@ -57,10 +57,17 @@ static inline void addHeadersFromHashMap(CFMutableURLRequestRef request, const H
 
 void ResourceRequest::doUpdatePlatformRequest()
 {
+    CFMutableURLRequestRef cfRequest;
+
     RetainPtr<CFURLRef> url(AdoptCF, ResourceRequest::url().createCFURL());
     RetainPtr<CFURLRef> mainDocumentURL(AdoptCF, ResourceRequest::mainDocumentURL().createCFURL());
-
-    CFMutableURLRequestRef cfRequest = CFURLRequestCreateMutable(0, url.get(), (CFURLRequestCachePolicy)cachePolicy(), timeoutInterval(), mainDocumentURL.get());
+    if (m_cfRequest) {
+        cfRequest = CFURLRequestCreateMutableCopy(0, m_cfRequest.get());
+        CFURLRequestSetURL(cfRequest, url.get());
+        CFURLRequestSetMainDocumentURL(cfRequest, mainDocumentURL.get());
+    } else {
+        cfRequest = CFURLRequestCreateMutable(0, url.get(), (CFURLRequestCachePolicy)cachePolicy(), timeoutInterval(), mainDocumentURL.get());
+    }
 
     RetainPtr<CFStringRef> requestMethod(AdoptCF, httpMethod().createCFString());
     CFURLRequestSetHTTPRequestMethod(cfRequest, requestMethod.get());
@@ -70,11 +77,7 @@ void ResourceRequest::doUpdatePlatformRequest()
     CFURLRequestSetShouldHandleHTTPCookies(cfRequest, allowHTTPCookies());
 
     if (m_cfRequest) {
-#ifdef CFNETWORK_HAS_NEW_COOKIE_FUNCTIONS
-        RetainPtr<CFHTTPCookieStorageRef> cookieStorage(AdoptCF, CFURLRequestCopyHTTPCookieStorage(m_cfRequest.get()));
-        CFURLRequestSetHTTPCookieStorage(cfRequest, cookieStorage.get());
         CFURLRequestSetHTTPCookieStorageAcceptPolicy(cfRequest, CFURLRequestGetHTTPCookieStorageAcceptPolicy(m_cfRequest.get()));
-#endif
         CFURLRequestSetSSLProperties(cfRequest, CFURLRequestGetSSLProperties(m_cfRequest.get()));
     }
 
@@ -104,15 +107,7 @@ void ResourceRequest::doUpdateResourceRequest()
         CFRelease(headers);
     }
 
-    if (CFDataRef bodyData = CFURLRequestCopyHTTPRequestBody(m_cfRequest.get())) {
-        m_httpBody = new FormData(CFDataGetBytePtr(bodyData), CFDataGetLength(bodyData));
-        CFRelease(bodyData);
-    } else if (CFReadStreamRef bodyStream = CFURLRequestCopyHTTPRequestBodyStream(m_cfRequest.get())) {
-        if (FormData* formData = httpBodyFromStream(bodyStream))
-            m_httpBody = formData;
-        CFRelease(bodyStream);
-    }
-    // FIXME: what to do about arbitrary body streams?
+    m_httpBody = httpBodyFromRequest(m_cfRequest.get());
 }
 
 }

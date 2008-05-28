@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -474,6 +474,8 @@ deget(pmp, dirclust, diroffset, dvp, cnp, depp, context)
 				dep->de_FileSize = de_cn2off(pmp, size);
 				error = 0;
 			}
+			if (error)
+				goto fail;
 		}
 	} else {
 		/*

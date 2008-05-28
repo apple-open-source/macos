@@ -48,7 +48,9 @@ PKG_REQUEST_LOCAL=../pkg-request.local
 #
 OPENSSHD=opensshd.init
 OPENSSH_MANIFEST=openssh.xml
-OPENSSH_FMRI=svc:/site/openssh:default
+OPENSSH_FMRI=svc:/site/${SYSVINIT_NAME}:default
+SMF_METHOD_DIR=/lib/svc/method/site
+SMF_MANIFEST_DIR=/var/svc/manifest/site
 
 PATH_GROUPADD_PROG=@PATH_GROUPADD_PROG@
 PATH_USERADD_PROG=@PATH_USERADD_PROG@
@@ -196,14 +198,17 @@ then
 	# For Solaris' SMF, /lib/svc/method/site is the preferred place
 	# for start/stop scripts that aren't supplied with the OS, and
 	# similarly /var/svc/manifest/site for manifests.
-	mkdir -p $FAKE_ROOT${TEST_DIR}/lib/svc/method/site
-	mkdir -p $FAKE_ROOT${TEST_DIR}/var/svc/manifest/site
+	mkdir -p $FAKE_ROOT${TEST_DIR}${SMF_METHOD_DIR}
+	mkdir -p $FAKE_ROOT${TEST_DIR}${SMF_MANIFEST_DIR}
 
-	cp ${OPENSSHD} $FAKE_ROOT${TEST_DIR}/lib/svc/method/site/${SYSVINIT_NAME}
-	chmod 744 $FAKE_ROOT${TEST_DIR}/lib/svc/method/site/${SYSVINIT_NAME}
+	cp ${OPENSSHD} $FAKE_ROOT${TEST_DIR}${SMF_METHOD_DIR}/${SYSVINIT_NAME}
+	chmod 744 $FAKE_ROOT${TEST_DIR}${SMF_METHOD_DIR}/${SYSVINIT_NAME}
 
-	cp ${OPENSSH_MANIFEST} $FAKE_ROOT${TEST_DIR}/var/svc/manifest/site
-	chmod 644 $FAKE_ROOT${TEST_DIR}/var/svc/manifest/site/${OPENSSH_MANIFEST}
+	cat ${OPENSSH_MANIFEST} | \
+	    sed -e "s|__SYSVINIT_NAME__|${SYSVINIT_NAME}|" \
+	    -e "s|__SMF_METHOD_DIR__|${SMF_METHOD_DIR}|" \
+	    > $FAKE_ROOT${TEST_DIR}${SMF_MANIFEST_DIR}/${SYSVINIT_NAME}.xml
+	chmod 644 $FAKE_ROOT${TEST_DIR}${SMF_MANIFEST_DIR}/${SYSVINIT_NAME}.xml
 else
 	mkdir -p $FAKE_ROOT${TEST_DIR}/etc/init.d
 
@@ -213,19 +218,19 @@ fi
 
 [ "${PERMIT_ROOT_LOGIN}" = no ]  &&  \
 	perl -p -i -e "s/#PermitRootLogin yes/PermitRootLogin no/" \
-		$FAKE_ROOT/${sysconfdir}/sshd_config
+		$FAKE_ROOT${sysconfdir}/sshd_config
 [ "${X11_FORWARDING}" = yes ]  &&  \
 	perl -p -i -e "s/#X11Forwarding no/X11Forwarding yes/" \
-		$FAKE_ROOT/${sysconfdir}/sshd_config
+		$FAKE_ROOT${sysconfdir}/sshd_config
 # fix PrintMotd
 perl -p -i -e "s/#PrintMotd yes/PrintMotd no/" \
-	$FAKE_ROOT/${sysconfdir}/sshd_config
+	$FAKE_ROOT${sysconfdir}/sshd_config
 
 # We don't want to overwrite config files on multiple installs
-mv $FAKE_ROOT/${sysconfdir}/ssh_config $FAKE_ROOT/${sysconfdir}/ssh_config.default
-mv $FAKE_ROOT/${sysconfdir}/sshd_config $FAKE_ROOT/${sysconfdir}/sshd_config.default
-[ -f $FAKE_ROOT/${sysconfdir}/ssh_prng_cmds ]  &&  \
-mv $FAKE_ROOT/${sysconfdir}/ssh_prng_cmds $FAKE_ROOT/${sysconfdir}/ssh_prng_cmds.default
+mv $FAKE_ROOT${sysconfdir}/ssh_config $FAKE_ROOT${sysconfdir}/ssh_config.default
+mv $FAKE_ROOT${sysconfdir}/sshd_config $FAKE_ROOT${sysconfdir}/sshd_config.default
+[ -f $FAKE_ROOT${sysconfdir}/ssh_prng_cmds ]  &&  \
+mv $FAKE_ROOT${sysconfdir}/ssh_prng_cmds $FAKE_ROOT${sysconfdir}/ssh_prng_cmds.default
 
 # local tweeks here
 [ -s "${POST_MAKE_INSTALL_FIXES}" ]  &&  . ${POST_MAKE_INSTALL_FIXES}
@@ -334,9 +339,8 @@ then
 	then
 		svccfg delete -f $OPENSSH_FMRI
 	fi
-	# NOTE, if manifest enables sshd by default, this will actually
-	# start the daemon, which may not be what the user wants.
-	svccfg import ${TEST_DIR}/var/svc/manifest/site/$OPENSSH_MANIFEST
+	# NOTE, The manifest disables sshd by default.
+	svccfg import ${TEST_DIR}${SMF_MANIFEST_DIR}/${SYSVINIT_NAME}.xml
 else
 	if [ "\${USE_SYM_LINKS}" = yes ]
 	then
@@ -428,8 +432,6 @@ if [ "\${POST_INS_START}" = "yes" ]
 then
 	if [ $DO_SMF -eq 1 ]
 	then
-		# See svccfg import note above.  The service may already
-		# be started.
 		svcadm enable $OPENSSH_FMRI
 	else
 		${TEST_DIR}/etc/init.d/${SYSVINIT_NAME} start
@@ -544,7 +546,7 @@ PRE_INS_STOP=no
 POST_INS_START=no
 # determine if should restart the daemon
 if [ -s ${piddir}/sshd.pid  ] && \
-    /usr/bin/svcs $OPENSSH_FMRI 2>&1 | egrep "^online" > /dev/null 2>&1
+    /usr/bin/svcs -H $OPENSSH_FMRI 2>&1 | egrep "^online" > /dev/null 2>&1
 then
 	ans=\`ckyorn -d n \
 -p "Should the running sshd daemon be restarted? ${DEF_MSG}"\` || exit \$?

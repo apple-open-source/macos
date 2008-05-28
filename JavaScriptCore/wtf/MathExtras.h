@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +27,15 @@
 #define WTF_MathExtras_h
 
 #include <math.h>
+#include <stdlib.h>
 #include <time.h>
+
+#if PLATFORM(SOLARIS) && COMPILER(GCC)
+#include <ieeefp.h>
+#endif
 
 #if COMPILER(MSVC)
 
-#include "kjs/operations.h"
-#include "kjs/value.h"
 #include <xmath.h>
 #include <limits>
 
@@ -58,6 +61,20 @@ const double piOverFourDouble = M_PI_4;
 const float piOverFourFloat = static_cast<float>(M_PI_4);
 #endif
 
+#if PLATFORM(SOLARIS) && COMPILER(GCC)
+
+#ifndef isfinite
+inline bool isfinite(double x) { return finite(x) && !isnand(x); }
+#endif
+#ifndef isinf
+inline bool isinf(double x) { return !finite(x) && !isnand(x); }
+#endif
+#ifndef signbit
+inline bool signbit(double x) { return x < 0.0; } // FIXME: Wrong for negative 0.
+#endif
+
+#endif
+
 #if COMPILER(MSVC)
 
 inline bool isinf(double num) { return !_finite(num) && !_isnan(num); }
@@ -67,6 +84,7 @@ inline long lroundf(float num) { return static_cast<long>(num > 0 ? num + 0.5f :
 inline double round(double num) { return num > 0 ? floor(num + 0.5) : ceil(num - 0.5); }
 inline float roundf(float num) { return num > 0 ? floorf(num + 0.5f) : ceilf(num - 0.5f); }
 inline bool signbit(double num) { return _copysign(1.0, num) < 0; }
+inline double trunc(double num) { return num > 0 ? floor(num) : ceil(num); }
 
 inline double nextafter(double x, double y) { return _nextafter(x, y); }
 inline float nextafterf(float x, float y) { return x > y ? x - FLT_EPSILON : x + FLT_EPSILON; }
@@ -79,8 +97,9 @@ inline double wtf_atan2(double x, double y)
 {
     static double posInf = std::numeric_limits<double>::infinity();
     static double negInf = -std::numeric_limits<double>::infinity();
+    static double nan = std::numeric_limits<double>::quiet_NaN();
 
-    double result = KJS::NaN;
+    double result = nan;
 
     if (x == posInf && y == posInf)
         result = piOverFourDouble;
@@ -99,9 +118,12 @@ inline double wtf_atan2(double x, double y)
 // Work around a bug in the Microsoft CRT, where fmod(x, +-infinity) yields NaN instead of x.
 inline double wtf_fmod(double x, double y) { return (!isinf(x) && isinf(y)) ? x : fmod(x, y); }
 
-#define fmod(x, y) wtf_fmod(x, y)
+// Work around a bug in the Microsoft CRT, where pow(NaN, 0) yields NaN instead of 1.
+inline double wtf_pow(double x, double y) { return y == 0 ? 1 : pow(x, y); }
 
 #define atan2(x, y) wtf_atan2(x, y)
+#define fmod(x, y) wtf_fmod(x, y)
+#define pow(x, y) wtf_pow(x, y)
 
 #if defined(_CRT_RAND_S)
 // Initializes the random number generator.
@@ -120,7 +142,9 @@ inline double wtf_random()
 }
 #endif // _CRT_RAND_S
 
-#else
+#endif // COMPILER(MSVC)
+
+#if !COMPILER(MSVC) || !defined(_CRT_RAND_S)
 
 // Initializes the random number generator.
 inline void wtf_random_init()
@@ -135,5 +159,19 @@ inline double wtf_random()
 }
 
 #endif // #if COMPILER(MSVC)
+
+inline double deg2rad(double d)  { return d * piDouble / 180.0; }
+inline double rad2deg(double r)  { return r * 180.0 / piDouble; }
+inline double deg2grad(double d) { return d * 400.0 / 360.0; }
+inline double grad2deg(double g) { return g * 360.0 / 400.0; }
+inline double rad2grad(double r) { return r * 200.0 / piDouble; }
+inline double grad2rad(double g) { return g * piDouble / 200.0; }
+
+inline float deg2rad(float d)  { return d * piFloat / 180.0f; }
+inline float rad2deg(float r)  { return r * 180.0f / piFloat; }
+inline float deg2grad(float d) { return d * 400.0f / 360.0f; }
+inline float grad2deg(float g) { return g * 360.0f / 400.0f; }
+inline float rad2grad(float r) { return r * 200.0f / piFloat; }
+inline float grad2rad(float g) { return g * piFloat / 200.0f; }
 
 #endif // #ifndef WTF_MathExtras_h

@@ -45,7 +45,6 @@
 #import "EditorClient.h"
 #import "EventHandler.h"
 #import "FloatRect.h"
-#import "FontData.h"
 #import "FormDataStreamMac.h"
 #import "Frame.h"
 #import "FrameLoader.h"
@@ -64,7 +63,7 @@
 #import "Page.h"
 #import "PlatformMouseEvent.h"
 #import "PlatformScreen.h"
-#import "PlugInInfoStore.h"
+#import "PluginInfoStore.h"
 #import "RenderImage.h"
 #import "RenderPart.h"
 #import "RenderTreeAsText.h"
@@ -73,6 +72,7 @@
 #import "ReplaceSelectionCommand.h"
 #import "ResourceRequest.h"
 #import "SelectionController.h"
+#import "SimpleFontData.h"
 #import "SmartReplace.h"
 #import "SubresourceLoader.h"
 #import "SystemTime.h"
@@ -130,7 +130,7 @@ static PassRefPtr<RootObject> createRootObject(void* nativeHandle)
         return 0;
 
     Frame* frame = [bridge _frame];
-    return frame->createRootObject(nativeHandle, frame->scriptProxy()->interpreter());
+    return frame->createRootObject(nativeHandle, frame->scriptProxy()->globalObject());
 }
 
 static pthread_t mainThread = 0;
@@ -291,7 +291,7 @@ static inline WebCoreFrameBridge *bridge(Frame *frame)
     // changing another's location before the frame's document
     // has been created. 
     if (doc) {
-        doc->setShouldCreateRenderers([self shouldCreateRenderers]);
+        doc->setShouldCreateRenderers(_shouldCreateRenderers);
         m_frame->loader()->addData((const char *)[data bytes], [data length]);
     }
 }
@@ -343,7 +343,7 @@ static inline WebCoreFrameBridge *bridge(Frame *frame)
 {
     // FIXME: This is never "for interchange". Is that right? See the next method.
     Vector<Node*> nodeList;
-    NSString *markupString = createMarkup([node _node], IncludeNode, nodes ? &nodeList : 0).getNSString();
+    NSString *markupString = createMarkup([node _node], IncludeNode, nodes ? &nodeList : 0);
     if (nodes)
         *nodes = [self nodesFromList:&nodeList];
 
@@ -354,7 +354,7 @@ static inline WebCoreFrameBridge *bridge(Frame *frame)
 {
     // FIXME: This is always "for interchange". Is that right? See the previous method.
     Vector<Node*> nodeList;
-    NSString *markupString = createMarkup([range _range], nodes ? &nodeList : 0, AnnotateForInterchange).getNSString();
+    NSString *markupString = createMarkup([range _range], nodes ? &nodeList : 0, AnnotateForInterchange);
     if (nodes)
         *nodes = [self nodesFromList:&nodeList];
 
@@ -394,7 +394,7 @@ static inline WebCoreFrameBridge *bridge(Frame *frame)
     Document *doc = m_frame->document();
     if (doc)
         doc->setPrinting(deviceType == WebCoreDevicePrinter);
-    m_frame->reparseConfiguration();
+    m_frame->reapplyStyles();
 }
 
 - (void)forceLayoutAdjustingViewSize:(BOOL)flag
@@ -407,11 +407,6 @@ static inline WebCoreFrameBridge *bridge(Frame *frame)
 - (void)forceLayoutWithMinimumPageWidth:(float)minPageWidth maximumPageWidth:(float)maxPageWidth adjustingViewSize:(BOOL)flag
 {
     m_frame->forceLayoutWithPageWidthRange(minPageWidth, maxPageWidth, flag);
-}
-
-- (void)sendResizeEvent
-{
-    m_frame->sendResizeEvent();
 }
 
 - (void)sendScrollEvent
@@ -714,7 +709,7 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
         return @"";
 
     JSLock lock;
-    return String(result->toString(m_frame->scriptProxy()->interpreter()->globalExec()));
+    return String(result->toString(m_frame->scriptProxy()->globalObject()->globalExec()));
 }
 
 - (NSAppleEventDescriptor *)aeDescByEvaluatingJavaScriptFromString:(NSString *)string
@@ -725,7 +720,7 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     if (!result) // FIXME: pass errors
         return 0;
     JSLock lock;
-    return aeDescFromJSValue(m_frame->scriptProxy()->interpreter()->globalExec(), result);
+    return aeDescFromJSValue(m_frame->scriptProxy()->globalObject()->globalExec(), result);
 }
 
 - (NSRect)caretRectAtNode:(DOMNode *)node offset:(int)offset affinity:(NSSelectionAffinity)affinity
@@ -779,12 +774,6 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     return m_frame->view() ? m_frame->view()->needsLayout() : false;
 }
 
-- (void)setNeedsLayout
-{
-    if (m_frame->view())
-        m_frame->view()->setNeedsLayout();
-}
-
 - (NSString *)renderTreeAsExternalRepresentation
 {
     return externalRepresentation(m_frame->renderer()).getNSString();
@@ -793,16 +782,6 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
 - (void)setShouldCreateRenderers:(BOOL)f
 {
     _shouldCreateRenderers = f;
-}
-
-- (BOOL)shouldCreateRenderers
-{
-    return _shouldCreateRenderers;
-}
-
-- (NSColor *)selectionColor
-{
-    return m_frame->isActive() ? [NSColor selectedTextBackgroundColor] : [NSColor secondarySelectedControlColor];
 }
 
 - (id)accessibilityTree
@@ -835,24 +814,14 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     if (m_frame->selectionController()->isNone())
         return nil;
 
-    // NOTE: The enums *must* match the very similar ones declared in SelectionController.h
     SelectionController selectionController;
     selectionController.setSelection(m_frame->selectionController()->selection());
     selectionController.modify(alteration, direction, granularity);
     return [DOMRange _wrapRange:selectionController.toRange().get()];
 }
 
-- (void)alterCurrentSelection:(SelectionController::EAlteration)alteration verticalDistance:(float)verticalDistance
-{
-    if (m_frame->selectionController()->isNone())
-        return;
-    SelectionController* selectionController = m_frame->selectionController();
-    selectionController->modify(alteration, static_cast<int>(verticalDistance), true);
-}
-
 - (TextGranularity)selectionGranularity
 {
-    // NOTE: The enums *must* match the very similar ones declared in SelectionController.h
     return m_frame->selectionGranularity();
 }
 
@@ -925,12 +894,6 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     return [self convertToNSRange:m_frame->selectionController()->toRange().get()];
 }
 
-- (void)setMarkDOMRange:(DOMRange *)range
-{
-    Range* r = [range _range];
-    m_frame->setMark(Selection(startPosition(r), endPosition(r), SEL_DEFAULT_AFFINITY));
-}
-
 - (DOMRange *)markDOMRange
 {
     return [DOMRange _wrapRange:m_frame->mark().toRange().get()];
@@ -964,6 +927,9 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     if (newEnd.isNull())
         newEnd = end;
 
+    newStart = rangeCompliantEquivalent(newStart);
+    newEnd = rangeCompliantEquivalent(newEnd);
+
     RefPtr<Range> range = m_frame->document()->createRange();
     int exception = 0;
     range->setStart(newStart.node(), newStart.offset(), exception);
@@ -972,7 +938,7 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
 }
 
 // Determines whether whitespace needs to be added around aString to preserve proper spacing and
-// punctuation when itÕs inserted into the receiverÕs text over charRange. Returns by reference
+// punctuation when itâ€™s inserted into the receiverâ€™s text over charRange. Returns by reference
 // in beforeString and afterString any whitespace that should be added, unless either or both are
 // nil. Both are returned as nil if aString is nil or if smart insertion and deletion are disabled.
 - (void)smartInsertForString:(NSString *)pasteString replacingRange:(DOMRange *)rangeToReplace beforeString:(NSString **)beforeString afterString:(NSString **)afterString
@@ -1094,16 +1060,6 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     m_frame->revealSelection(RenderLayer::gAlignToEdgeIfNeeded);
 }
 
-- (void)setSelectionToDragCaret
-{
-    m_frame->selectionController()->setSelection(m_frame->dragCaretController()->selection());
-}
-
-- (void)moveSelectionToDragCaret:(DOMDocumentFragment *)selectionFragment smartMove:(BOOL)smartMove
-{
-    applyCommand(new MoveSelectionCommand([selectionFragment _documentFragment], m_frame->dragCaretController()->base(), smartMove));
-}
-
 - (VisiblePosition)_visiblePositionForPoint:(NSPoint)point
 {
     IntPoint outerPoint(point);
@@ -1118,16 +1074,6 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     if (visiblePos.isNull())
         visiblePos = VisiblePosition(Position(node, 0));
     return visiblePos;
-}
-
-- (DOMRange *)dragCaretDOMRange
-{
-    return [DOMRange _wrapRange:m_frame->dragCaretController()->toRange().get()];
-}
-
-- (BOOL)isDragCaretRichlyEditable
-{
-    return m_frame->dragCaretController()->isContentRichlyEditable();
 }
 
 - (DOMRange *)characterRangeAtPoint:(NSPoint)point
@@ -1155,24 +1101,6 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     return nil;
 }
 
-- (void)deleteKeyPressedWithSmartDelete:(BOOL)smartDelete granularity:(TextGranularity)granularity
-{
-    if (!m_frame || !m_frame->document())
-        return;
-    
-    TypingCommand::deleteKeyPressed(m_frame->document(), smartDelete, granularity);
-    m_frame->revealSelection(RenderLayer::gAlignToEdgeIfNeeded);
-}
-
-- (void)forwardDeleteKeyPressedWithSmartDelete:(BOOL)smartDelete granularity:(TextGranularity)granularity
-{
-    if (!m_frame || !m_frame->document())
-        return;
-    
-    TypingCommand::forwardDeleteKeyPressed(m_frame->document(), smartDelete, granularity);
-    m_frame->revealSelection(RenderLayer::gAlignToEdgeIfNeeded);
-}
-
 - (DOMCSSStyleDeclaration *)typingStyle
 {
     if (!m_frame || !m_frame->typingStyle())
@@ -1187,27 +1115,12 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     m_frame->computeAndSetTypingStyle([style _CSSStyleDeclaration], undoAction);
 }
 
-- (NSCellStateValue)selectionHasStyle:(DOMCSSStyleDeclaration *)style
-{
-    if (!m_frame)
-        return NSOffState;
-    switch (m_frame->selectionHasStyle([style _CSSStyleDeclaration])) {
-        case Frame::falseTriState:
-            return NSOffState;
-        case Frame::trueTriState:
-            return NSOnState;
-        case Frame::mixedTriState:
-            return NSMixedState;
-    }
-    return NSOffState;
-}
-
 - (NSFont *)fontForSelection:(BOOL *)hasMultipleFonts
 {
     bool multipleFonts = false;
     NSFont *font = nil;
     if (m_frame) {
-        const FontData* fd = m_frame->editor()->fontForSelection(multipleFonts);
+        const SimpleFontData* fd = m_frame->editor()->fontForSelection(multipleFonts);
         if (fd)
             font = fd->getNSFont();
     }
@@ -1215,11 +1128,6 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     if (hasMultipleFonts)
         *hasMultipleFonts = multipleFonts;
     return font;
-}
-
-- (NSWritingDirection)baseWritingDirectionForSelectionStart
-{
-    return m_frame ? m_frame->baseWritingDirectionForSelectionStart() : (NSWritingDirection)NSWritingDirectionLeftToRight;
 }
 
 - (void)dragSourceMovedTo:(NSPoint)windowLoc
@@ -1242,31 +1150,13 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     }
 }
 
-- (DOMRange *)rangeOfCharactersAroundCaret
-{
-    if (!m_frame)
-        return nil;
-        
-    Selection selection(m_frame->selectionController()->selection());
-    if (!selection.isCaret())
-        return nil;
-
-    VisiblePosition caret(selection.visibleStart());
-    VisiblePosition next = caret.next();
-    VisiblePosition previous = caret.previous();
-    if (previous.isNull() || next.isNull() || caret == next || caret == previous)
-        return nil;
-
-    return [DOMRange _wrapRange:makeRange(previous, next).get()];
-}
-
-- (BOOL)getData:(NSData **)data andResponse:(NSURLResponse **)response forURL:(NSString *)URL
+- (BOOL)getData:(NSData **)data andResponse:(NSURLResponse **)response forURL:(NSString *)url
 {
     Document* doc = m_frame->document();
     if (!doc)
         return NO;
 
-    CachedResource* resource = doc->docLoader()->cachedResource(URL);
+    CachedResource* resource = doc->docLoader()->cachedResource(url);
     if (!resource)
         return NO;
 
@@ -1299,15 +1189,10 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     for (HashMap<String, CachedResource*>::const_iterator it = allResources.begin(); it != end; ++it) {
         SharedBuffer* buffer = it->second->data();
         NSData *data;
-        
         if (buffer)
             data = buffer->createNSData();
         else
-            data = nil;
-        
-        // It's clearly a bug to pass a nil value for data here, and doing so is part of the problem in
-        // <rdar://problem/5268311>. However, fixing this in the obvious ways makes the symptom in 5268311
-        // worse, so don't just fix this without investigating that bug further.
+            data = [[NSData alloc] init];
         [d addObject:data];
         [data release];
         [r addObject:it->second->response().nsURLResponse()];
@@ -1323,7 +1208,7 @@ static HTMLFormElement *formElementFromDOMElement(DOMElement *element)
     
     if (WebCore::DOMImplementation::isTextMIMEType(mimeType) ||
         Image::supportsType(mimeType) ||
-        PlugInInfoStore::supportsMIMEType(mimeType))
+        PluginInfoStore::supportsMIMEType(mimeType))
         return NO;
     
     return YES;

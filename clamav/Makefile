@@ -11,13 +11,13 @@ OBJROOT=$(SRCROOT)
 SYMROOT=$(OBJROOT)
 DSTROOT=/usr/local
 RC_ARCHS=
-CFLAGS=-Os $(RC_CFLAGS)
+CFLAGS=-O0 $(RC_CFLAGS)
 
 # Configuration values we customize
 #
 
 PROJECT_NAME=clamav
-OS_VER=0.91.2
+OS_VER=0.92.1
 CLAMAV_TAR_GZ=clamav-$(OS_VER).tar.gz
 
 CLAMAV_BUILD_DIR=/clamav/clamav-$(OS_VER)

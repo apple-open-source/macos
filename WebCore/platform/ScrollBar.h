@@ -26,7 +26,7 @@
 #ifndef ScrollBar_h
 #define ScrollBar_h
 
-#include "Shared.h"
+#include <wtf/RefCounted.h>
 #include "ScrollTypes.h"
 #include <wtf/MathExtras.h>
 
@@ -50,14 +50,20 @@ public:
 
     // Used to obtain a window clip rect.
     virtual IntRect windowClipRect() const = 0;
+
+    // FIXME: It would be nice to set this state on the scroll bar instead of
+    // having to ask for it from the client at paint time.
+    virtual bool isActive() const = 0;
 };
 
-class Scrollbar : public Shared<Scrollbar> {
+class Scrollbar : public RefCounted<Scrollbar> {
 protected:
     Scrollbar(ScrollbarClient*, ScrollbarOrientation, ScrollbarControlSize);
 
 public:
     virtual ~Scrollbar() {}
+
+    void setClient(ScrollbarClient* client) { m_client = client; }
 
     virtual bool isWidget() const = 0;
 

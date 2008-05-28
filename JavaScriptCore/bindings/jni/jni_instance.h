@@ -25,8 +25,6 @@
 #ifndef _JNI_INSTANCE_H_
 #define _JNI_INSTANCE_H_
 
-#include "config.h"
-
 #include "runtime.h"
 
 #include <JavaVM/jni.h>
@@ -85,7 +83,9 @@ public:
     JSValue *stringValue() const;
     JSValue *numberValue() const;
     JSValue *booleanValue() const;
-        
+
+    virtual BindingLanguage getBindingLanguage() const { return JavaLanguage; }
+
 private:
     RefPtr<JObjectWrapper> _instance;
     mutable JavaClass *_class;

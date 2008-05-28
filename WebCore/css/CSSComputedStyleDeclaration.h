@@ -48,12 +48,15 @@ public:
     virtual String getPropertyValue(int propertyID) const;
     virtual bool getPropertyPriority(int propertyID) const;
     virtual int getPropertyShorthand(int propertyID) const { return -1; }
-    virtual bool isPropertyImplicit(int propertyID) const { return true; }
+    virtual bool isPropertyImplicit(int propertyID) const { return false; }
 
     virtual PassRefPtr<CSSMutableStyleDeclaration> copy() const;
     virtual PassRefPtr<CSSMutableStyleDeclaration> makeMutable();
 
     PassRefPtr<CSSValue> getPropertyCSSValue(int propertyID, EUpdateLayout) const;
+#if ENABLE(SVG)
+    PassRefPtr<CSSValue> getSVGPropertyCSSValue(int propertyID, EUpdateLayout) const;
+#endif
 
     PassRefPtr<CSSMutableStyleDeclaration> copyInheritableProperties() const;
 

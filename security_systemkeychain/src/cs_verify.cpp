@@ -80,7 +80,8 @@ void verify(const char *target)
 		cssmPerror(target, rc);
 	} else if (rc = SecStaticCodeCheckValidity(ondiskRef, kSecCSBasicValidateOnly, designated)) {
 		note(0, "%s: does not satisfy its designated Requirement", target);
-		cssmPerror(target, rc);
+		if (!exitcode)
+			exitcode = exitNoverify;
 	} else
 		note(3, "%s: satisfies its Designated Requirement", target);
 	

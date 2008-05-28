@@ -1,7 +1,68 @@
                                                      -*- coding: utf-8 -*-
+Changes for APR 1.2.12
+
+  *) Numerous fixes to the test/ framework, including better handling of
+     long size_t comparisons and more consistent Makefile.(in|win) setup
+     for authoring new tests.  [William Rowe]
+
+  *) Win32 build fixes including a Makefile.win scheme, fixes for 64P
+     model x86_64 compiles and VC8 builds.  [William Rowe]
+
+  *) Fix --disable-ipv6 build on platforms with getifaddrs().
+     PR 39199.  [Joe Orton]
+
+  *) Fix DSO-related crash on z/OS caused by incorrect memory
+     allocation.  [David Jones <oscaremma gmail.com>]
+
+  *) Define apr_ino_t in such a way that it doesn't change definition
+     based on the library consumer's -D'efines to the filesystem.
+     [Lucian Adrian Grijincu <lucian.grijincu gmail.com>]
+
+  *) Implement apr_atomic_casptr() for z/OS.
+     [David Jones <oscaremma gmail.com>]
+
+  *) Fill in apr_fileinfo_t member st_csize on Netware and Unix (PR 41678),
+     and refine the file times down to apr_time_t resolution if supported
+     by a st_atimensec or st_atim.tv_nsec value by the OS.  Additional
+     msec implementations are possible if exposed through autoconf.
+     [William Rowe, Nicklas Edmundsson <nikke acc.umu.se>]
+
+  *) Fix apr_socket_recvfrom() to ensure the peer's port and address
+     is returned through the "from" parameter on Unix and Win32.  
+     [Joe Orton, William Rowe]
+
+  *) The WIN32 cleanup routine for shared memory segments could wrongly
+     return unknown errors and leak a open handle.
+     [Joe Mudd <Joe.Mudd sas.com>]
+
+  *) apr_procattr_io_set() on Windows: Set non-blocking pipe handles
+     to a default timeout of 0, following the Unix default.  No effect
+     on pipe handles configured to block.  PR 43522.
+     [Eric Covener <covener gmail.com>]
+
+  *) apr_file_write() on Windows: Fix return code when writing to a non-
+     blocking pipe would have blocked.  PR 43563.
+     [Eric Covener <covener gmail.com>]
+
+  *) Cause apr_file_dup2() on Win32 to update the MSVCRT psuedo-stdio
+     handles for fd-based and FILE * based I/O.  [William Rowe]
+
+  *) Revert Win32 to the 1.2.8 behavior of apr_proc_create() for any 
+     of the three stdio streams which are not initialized, through either
+     apr_procattr_io_set() or apr_procattr_child_XXX_set(), when given a
+     procattr_t with one or two streams which were initialized through
+     apr_procattr_child_XXX_set().  Once again, these do not inherit the 
+     parent process stdio stream to WIN32 child processes (passing 
+     INVALID_HANDLE_VALUE instead) as on Unix.  Note APR 1.3.0 adopts 
+     the Unix behavior of inheriting any uninitialized streams as the 
+     parent's corresponding stdio stream, in such cases.  [William Rowe]
+
 Changes for APR 1.2.11
 
-  *) Win32 apr_file_read; Correctly handle completion-based read-to-EOF.
+  *) Fix handling of EINTR from read() in apr_generate_random_bytes()
+     on platforms with /dev/random.  PR 39790.  [Joe Orton]
+
+  *) Win32 apr_file_read: Correctly handle completion-based read-to-EOF.
      [Steven Naim <steven.naim googlemail.com>]
 
   *) Fixed Win32 regression of stdout inheritance in apr_proc_create.
@@ -9,7 +70,7 @@ Changes for APR 1.2.11
 
 Changes for APR 1.2.10
 
-  *) Solve winNT inherited pipe leaks by mutexing apr_proc_create calls,
+  *) Solve WinNT inherited pipe leaks by mutexing apr_proc_create calls,
      on WinNT (not WinCE, nor 9x) so that we toggle the inherited state 
      of the stdin/out/err pipes.  All other file handles are treated as
      not-inherited until apr_file_dup2'ed a std handle of this process, 

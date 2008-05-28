@@ -51,7 +51,7 @@
 #include "MoveSelectionCommand.h"
 #include "Node.h"
 #include "Page.h"
-#include "PlugInInfoStore.h"
+#include "PluginInfoStore.h"
 #include "RenderFileUploadControl.h"
 #include "RenderImage.h"
 #include "ReplaceSelectionCommand.h"
@@ -175,7 +175,7 @@ DragOperation DragController::dragUpdated(DragData* dragData)
 bool DragController::performDrag(DragData* dragData)
 {   
     ASSERT(dragData);
-    ASSERT(m_document == m_page->mainFrame()->documentAtPoint(dragData->clientPosition()));
+    m_document = m_page->mainFrame()->documentAtPoint(dragData->clientPosition());
     if (m_isHandlingDrag) {
         ASSERT(m_dragDestinationAction & DragDestinationActionDHTML);
         m_client->willPerformDragDestinationAction(DragDestinationActionDHTML, dragData);
@@ -200,7 +200,8 @@ bool DragController::performDrag(DragData* dragData)
 
     if (operationForLoad(dragData) == DragOperationNone)
         return false;
-      
+
+    m_client->willPerformDragDestinationAction(DragDestinationActionLoad, dragData);
     m_page->mainFrame()->loader()->load(ResourceRequest(dragData->asURL()));
     return true;
 }

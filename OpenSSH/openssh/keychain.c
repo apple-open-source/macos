@@ -96,7 +96,7 @@ store_in_keychain(const char *filename, const char *passphrase)
 
 	CFStringRef cfstr_relative_filename = NULL;
 	CFURLRef cfurl_relative_filename = NULL, cfurl_filename = NULL;
-	CFStringRef cfstr_filename;
+	CFStringRef cfstr_filename = NULL;
 	CFDataRef cfdata_filename = NULL;
 	CFIndex filename_len;
 	UInt8 *label = NULL;
@@ -132,7 +132,7 @@ store_in_keychain(const char *filename, const char *passphrase)
 	}
 	if ((cfstr_filename = CFURLCopyFileSystemPath(cfurl_filename,
 	    kCFURLPOSIXPathStyle)) == NULL) {
-		fprintf(stderr, "CFURLGetString failed\n");
+		fprintf(stderr, "CFURLCopyFileSystemPath failed\n");
 		goto err;
 	}
 	if ((cfdata_filename = CFStringCreateExternalRepresentation(NULL,
@@ -205,6 +205,8 @@ err:	/* Clean up. */
 		CFRelease(cfurl_relative_filename);
 	if (cfurl_filename)
 		CFRelease(cfurl_filename);
+	if (cfstr_filename)
+		CFRelease(cfstr_filename);
 	if (cfdata_filename)
 		CFRelease(cfdata_filename);
 	if (label)
@@ -251,7 +253,7 @@ remove_from_keychain(const char *filename)
 
 	CFStringRef cfstr_relative_filename = NULL;
 	CFURLRef cfurl_relative_filename = NULL, cfurl_filename = NULL;
-	CFStringRef cfstr_filename;
+	CFStringRef cfstr_filename = NULL;
 	CFDataRef cfdata_filename = NULL;
 	CFIndex filename_len;
 	const UInt8 *utf8_filename;
@@ -283,7 +285,7 @@ remove_from_keychain(const char *filename)
 	}
 	if ((cfstr_filename = CFURLCopyFileSystemPath(cfurl_filename,
 	    kCFURLPOSIXPathStyle)) == NULL) {
-		fprintf(stderr, "CFURLGetString failed\n");
+		fprintf(stderr, "CFURLCopyFileSystemPath failed\n");
 		goto err;
 	}
 	if ((cfdata_filename = CFStringCreateExternalRepresentation(NULL,
@@ -313,6 +315,8 @@ err:	/* Clean up. */
 		CFRelease(cfurl_relative_filename);
 	if (cfurl_filename)
 		CFRelease(cfurl_filename);
+	if (cfstr_filename)
+		CFRelease(cfstr_filename);
 	if (cfdata_filename)
 		CFRelease(cfdata_filename);
 	if (itemRef)
@@ -456,7 +460,7 @@ keychain_read_passphrase(const char *filename)
 
 	CFStringRef cfstr_relative_filename = NULL;
 	CFURLRef cfurl_relative_filename = NULL, cfurl_filename = NULL;
-	CFStringRef cfstr_filename;
+	CFStringRef cfstr_filename = NULL;
 	CFDataRef cfdata_filename = NULL;
 	CFIndex filename_len;
 	UInt8 *label = NULL;
@@ -506,7 +510,7 @@ keychain_read_passphrase(const char *filename)
 	}
 	if ((cfstr_filename = CFURLCopyFileSystemPath(cfurl_filename,
 	    kCFURLPOSIXPathStyle)) == NULL) {
-		fprintf(stderr, "CFURLGetString failed\n");
+		fprintf(stderr, "CFURLCopyFileSystemPath failed\n");
 		goto err;
 	}
 	if ((cfdata_filename = CFStringCreateExternalRepresentation(NULL,
@@ -613,6 +617,8 @@ err:	/* Clean up. */
 		CFRelease(cfurl_relative_filename);
 	if (cfurl_filename)
 		CFRelease(cfurl_filename);
+	if (cfstr_filename)
+		CFRelease(cfstr_filename);
 	if (cfdata_filename)
 		CFRelease(cfdata_filename);
 	if (label)

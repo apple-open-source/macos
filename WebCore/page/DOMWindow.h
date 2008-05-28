@@ -27,7 +27,7 @@
 #define DOMWindow_h
 
 #include "PlatformString.h"
-#include "Shared.h"
+#include <wtf/RefCounted.h>
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 
@@ -36,14 +36,19 @@ namespace WebCore {
     class BarInfo;
     class CSSRuleList;
     class CSSStyleDeclaration;
+    class Console;
     class DOMSelection;
+    class Database;
     class Document;
     class Element;
+    class FloatRect;
     class Frame;
     class History;
     class Screen;
-    
-    class DOMWindow : public Shared<DOMWindow> {
+
+    typedef int ExceptionCode;
+
+    class DOMWindow : public RefCounted<DOMWindow> {
     public:
         DOMWindow(Frame*);
         virtual ~DOMWindow();
@@ -52,6 +57,8 @@ namespace WebCore {
         void disconnectFrame();
 
         void clear();
+
+        static void adjustWindowRect(const FloatRect& screen, FloatRect& window, const FloatRect& pendingChanges);
 
         // DOM Level 0
         Screen* screen() const;
@@ -107,7 +114,7 @@ namespace WebCore {
         void setDefaultStatus(const String&);
         // This attribute is an alias of defaultStatus and is necessary for legacy uses.
         String defaultstatus() const { return defaultStatus(); }
-        void setDefaultstatus(const String& string) { setDefaultStatus(string); }
+        void setDefaultstatus(const String& status) { setDefaultStatus(status); }
 
         // Self referential attributes
         DOMWindow* self() const;
@@ -128,6 +135,27 @@ namespace WebCore {
         PassRefPtr<CSSRuleList> getMatchedCSSRules(Element*, const String& pseudoElt, bool authorOnly = true) const;
         double devicePixelRatio() const;
 
+#if ENABLE(DATABASE)
+        // HTML 5 client-side database
+        PassRefPtr<Database> openDatabase(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, ExceptionCode&);
+#endif
+
+        Console* console() const;
+        
+#if ENABLE(CROSS_DOCUMENT_MESSAGING)
+        void postMessage(const String& message, const String& domain, const String& uri, DOMWindow* source) const;
+#endif
+
+        void scrollBy(int x, int y) const;
+        void scrollTo(int x, int y) const;
+        void scroll(int x, int y) const { scrollTo(x, y); }
+
+        void moveBy(float x, float y) const;
+        void moveTo(float x, float y) const;
+
+        void resizeBy(float x, float y) const;
+        void resizeTo(float width, float height) const;
+
     private:
         Frame* m_frame;
         mutable RefPtr<Screen> m_screen;
@@ -139,6 +167,7 @@ namespace WebCore {
         mutable RefPtr<BarInfo> m_scrollbars;
         mutable RefPtr<BarInfo> m_statusbar;
         mutable RefPtr<BarInfo> m_toolbar;
+        mutable RefPtr<Console> m_console;
     };
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,7 @@
 #endif
 
 using namespace std;
+using namespace WTF;
 
 namespace WebCore {
 
@@ -284,10 +285,9 @@ void KURL::init(const KURL &base, const DeprecatedString &relative, const TextEn
 
     // for compatibility with Win IE, we must treat backslashes as if they were slashes, as long as we're not dealing with the javascript: schema
     DeprecatedString substitutedRelative;
-    bool shouldSubstituteBackslashes = relative.contains('\\') && !relative.startsWith("javascript:", false);
-    if (shouldSubstituteBackslashes) {
+    bool shouldSubstituteBackslashes = relative.contains('\\') && !(relative.startsWith("javascript:", false) || relative.startsWith("data:", false));
+    if (shouldSubstituteBackslashes)
         substitutedRelative = substituteBackslashes(relative);
-    }
 
     const DeprecatedString &rel = shouldSubstituteBackslashes ? substitutedRelative : relative;
     
@@ -787,7 +787,7 @@ DeprecatedString KURL::decode_string(const DeprecatedString& urlString, const Te
         // Copy the entire %-escape sequence into an 8-bit buffer.
         int encodedRunLength = encodedRunEnd - encodedRunPosition;
         buffer.clear();
-        buffer.resize(encodedRunLength + 1);
+        buffer.grow(encodedRunLength + 1);
         urlString.copyLatin1(buffer.data(), encodedRunPosition, encodedRunLength);
 
         // Decode the %-escapes into bytes.
@@ -819,7 +819,7 @@ bool KURL::isLocalFile() const
     // and including feed would allow feeds to potentially let someone's blog
     // read the contents of the clipboard on a drag, even without a drop.
     // Likewise with using the FrameLoader::shouldTreatURLAsLocal() function.
-    return protocol() == "file";
+    return equalIgnoringCase(protocol(), "file");
 }
 
 static void appendEscapingBadChars(char*& buffer, const char *strStart, size_t length)
@@ -1030,7 +1030,7 @@ void KURL::parse(const char *url, const DeprecatedString *originalString)
  
             // possible start of port
             portEnd = portStart;
-            while (isdigit(url[portEnd])) {
+            while (isASCIIDigit(url[portEnd])) {
                 portEnd++;
             }
         } else {
@@ -1461,7 +1461,7 @@ static char *encodeRelativeString(const KURL &base, const DeprecatedString &rel,
     char *strBuffer;
 
     TextEncoding pathEncoding(UTF8Encoding());
-    TextEncoding otherEncoding = encoding.isValid() ? encoding : UTF8Encoding();
+    TextEncoding otherEncoding = (encoding.isValid() && !rel.startsWith("mailto:", false)) ? encoding : UTF8Encoding();
     
     int pathEnd = -1;
     if (pathEncoding != otherEncoding) {

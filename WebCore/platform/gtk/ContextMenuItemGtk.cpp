@@ -1,42 +1,130 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
- * Copyright (C) 2007 Holger Hans Peter Freyther
+ *  Copyright (C) 2007 Holger Hans Peter Freyther
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2 of the License, or (at your option) any later version.
  *
- * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
- * 2.  Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 #include "config.h"
+#include "ContextMenu.h"
 #include "ContextMenuItem.h"
-
+#include "CString.h"
 #include "NotImplemented.h"
+
+#include <gtk/gtk.h>
+
+#define WEBKIT_CONTEXT_MENU_ACTION "webkit-context-menu"
 
 namespace WebCore {
 
-ContextMenuItem::ContextMenuItem(PlatformMenuItemDescription)
+static const char* gtkStockIDFromContextMenuAction(const ContextMenuAction& action)
 {
-    notImplemented();
+    switch (action) {
+    case ContextMenuItemTagCopyLinkToClipboard:
+    case ContextMenuItemTagCopyImageToClipboard:
+    case ContextMenuItemTagCopy:
+        return GTK_STOCK_COPY;
+    case ContextMenuItemTagOpenLinkInNewWindow:
+    case ContextMenuItemTagOpenImageInNewWindow:
+    case ContextMenuItemTagOpenFrameInNewWindow:
+        return GTK_STOCK_OPEN;
+    case ContextMenuItemTagDownloadLinkToDisk:
+    case ContextMenuItemTagDownloadImageToDisk:
+        return GTK_STOCK_SAVE;
+    case ContextMenuItemTagGoBack:
+        return GTK_STOCK_GO_BACK;
+    case ContextMenuItemTagGoForward:
+        return GTK_STOCK_GO_FORWARD;
+    case ContextMenuItemTagStop:
+        return GTK_STOCK_STOP;
+    case ContextMenuItemTagReload:
+        return GTK_STOCK_REFRESH;
+    case ContextMenuItemTagCut:
+        return GTK_STOCK_CUT;
+    case ContextMenuItemTagPaste:
+        return GTK_STOCK_PASTE;
+    case ContextMenuItemTagDelete:
+        return GTK_STOCK_DELETE;
+#if GTK_CHECK_VERSION(2, 10, 0)
+    case ContextMenuItemTagSelectAll:
+        return GTK_STOCK_SELECT_ALL;
+#endif
+    case ContextMenuItemTagSpellingGuess:
+        return GTK_STOCK_INFO;
+    case ContextMenuItemTagIgnoreSpelling:
+        return GTK_STOCK_NO;
+    case ContextMenuItemTagLearnSpelling:
+        return GTK_STOCK_OK;
+    case ContextMenuItemTagOther:
+        return GTK_STOCK_MISSING_IMAGE;
+    case ContextMenuItemTagSearchInSpotlight:
+        return GTK_STOCK_FIND;
+    case ContextMenuItemTagSearchWeb:
+        return GTK_STOCK_FIND;
+    case ContextMenuItemTagOpenWithDefaultApplication:
+        return GTK_STOCK_OPEN;
+    case ContextMenuItemPDFZoomIn:
+        return GTK_STOCK_ZOOM_IN;
+    case ContextMenuItemPDFZoomOut:
+        return GTK_STOCK_ZOOM_OUT;
+    case ContextMenuItemPDFAutoSize:
+        return GTK_STOCK_ZOOM_FIT;
+    case ContextMenuItemPDFNextPage:
+        return GTK_STOCK_GO_FORWARD;
+    case ContextMenuItemPDFPreviousPage:
+        return GTK_STOCK_GO_BACK;
+    // New tags, not part of API
+    case ContextMenuItemTagOpenLink:
+        return GTK_STOCK_OPEN;
+    case ContextMenuItemTagCheckSpelling:
+        return GTK_STOCK_SPELL_CHECK;
+    case ContextMenuItemTagFontMenu:
+        return GTK_STOCK_SELECT_FONT;
+    case ContextMenuItemTagShowFonts:
+        return GTK_STOCK_SELECT_FONT;
+    case ContextMenuItemTagBold:
+        return GTK_STOCK_BOLD;
+    case ContextMenuItemTagItalic:
+        return GTK_STOCK_ITALIC;
+    case ContextMenuItemTagUnderline:
+        return GTK_STOCK_UNDERLINE;
+    case ContextMenuItemTagShowColors:
+        return GTK_STOCK_SELECT_COLOR;
+    default:
+        return NULL;
+    }
+}
+
+// Extract the ActionType from the menu item
+ContextMenuItem::ContextMenuItem(GtkMenuItem* item)
+    : m_platformDescription()
+{
+    if (GTK_IS_SEPARATOR_MENU_ITEM(item))
+        m_platformDescription.type = SeparatorType;
+    else if (gtk_menu_item_get_submenu(item))
+        m_platformDescription.type = SubmenuType;
+    else if (GTK_IS_CHECK_MENU_ITEM(item)) {
+        m_platformDescription.type = CheckableActionType;
+        m_platformDescription.checked = gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(item));
+    } else
+        m_platformDescription.type = ActionType;
+
+    m_platformDescription.action = *static_cast<ContextMenuAction*>(g_object_get_data(G_OBJECT(item), WEBKIT_CONTEXT_MENU_ACTION));
+
+    m_platformDescription.subMenu = GTK_MENU(gtk_menu_item_get_submenu(item));
+    if (m_platformDescription.subMenu)
+        g_object_ref(m_platformDescription.subMenu);
 }
 
 ContextMenuItem::ContextMenuItem(ContextMenu*)
@@ -44,42 +132,77 @@ ContextMenuItem::ContextMenuItem(ContextMenu*)
     notImplemented();
 }
 
-ContextMenuItem::ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, ContextMenu*)
+ContextMenuItem::ContextMenuItem(ContextMenuItemType type, ContextMenuAction action, const String& title, ContextMenu* subMenu)
 {
-    notImplemented();
+    m_platformDescription.type = type;
+    m_platformDescription.action = action;
+    m_platformDescription.title = title;
+
+    setSubMenu(subMenu);
 }
 
 ContextMenuItem::~ContextMenuItem()
 {
-    notImplemented();
+    if (m_platformDescription.subMenu)
+        g_object_unref(m_platformDescription.subMenu);
+}
+
+GtkMenuItem* ContextMenuItem::createNativeMenuItem(const PlatformMenuItemDescription& menu)
+{
+    GtkMenuItem* item = 0;
+    if (menu.type == SeparatorType)
+        item = GTK_MENU_ITEM(gtk_separator_menu_item_new());
+    else {
+        if (menu.type == CheckableActionType) {
+            item = GTK_MENU_ITEM(gtk_check_menu_item_new_with_mnemonic(menu.title.utf8().data()));
+            gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(item), menu.checked);
+        } else {
+            if (const gchar* stockID = gtkStockIDFromContextMenuAction(menu.action)) {
+                item = GTK_MENU_ITEM(gtk_image_menu_item_new_with_mnemonic(menu.title.utf8().data()));
+                GtkWidget* image = gtk_image_new_from_stock(stockID, GTK_ICON_SIZE_MENU);
+                gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(item), image);
+            } else
+                item = GTK_MENU_ITEM(gtk_menu_item_new_with_mnemonic(menu.title.utf8().data()));
+        }
+
+        ContextMenuAction* menuAction = static_cast<ContextMenuAction*>(malloc(sizeof(ContextMenuAction*)));
+        *menuAction = menu.action;
+        g_object_set_data(G_OBJECT(item), WEBKIT_CONTEXT_MENU_ACTION, menuAction);
+
+        gtk_widget_set_sensitive(GTK_WIDGET(item), menu.enabled);
+
+        if (menu.subMenu)
+            gtk_menu_item_set_submenu(item, GTK_WIDGET(menu.subMenu));
+    }
+
+    return item;
 }
 
 PlatformMenuItemDescription ContextMenuItem::releasePlatformDescription()
 {
-    notImplemented();
-    return m_platformDescription;
+    PlatformMenuItemDescription description = m_platformDescription;
+    m_platformDescription = PlatformMenuItemDescription();
+    return description;
 }
 
 ContextMenuItemType ContextMenuItem::type() const
 {
-    notImplemented();
-    return ActionType; 
+    return m_platformDescription.type;
 }
 
-void ContextMenuItem::setType(ContextMenuItemType)
+void ContextMenuItem::setType(ContextMenuItemType type)
 {
-    notImplemented();
+    m_platformDescription.type = type;
 }
 
 ContextMenuAction ContextMenuItem::action() const
 {
-    notImplemented();
-    return ContextMenuItemTagNoAction;
+    return m_platformDescription.action;
 }
 
-void ContextMenuItem::setAction(ContextMenuAction)
+void ContextMenuItem::setAction(ContextMenuAction action)
 {
-    notImplemented();
+    m_platformDescription.action = action;
 }
 
 String ContextMenuItem::title() const
@@ -95,23 +218,36 @@ void ContextMenuItem::setTitle(const String&)
 
 PlatformMenuDescription ContextMenuItem::platformSubMenu() const
 {
-    notImplemented();
-    return 0;
+    return m_platformDescription.subMenu;
 }
 
-void ContextMenuItem::setSubMenu(ContextMenu*)
+void ContextMenuItem::setSubMenu(ContextMenu* menu)
 {
-    notImplemented();
+    if (m_platformDescription.subMenu)
+        g_object_unref(m_platformDescription.subMenu);
+
+    if (!menu)
+        return;
+
+    m_platformDescription.subMenu = menu->releasePlatformDescription();
+    m_platformDescription.type = SubmenuType;
+
+#if GLIB_CHECK_VERSION(2,10,0)
+    g_object_ref_sink(G_OBJECT(m_platformDescription.subMenu));
+#else
+    g_object_ref(G_OBJECT(m_platformDescription.subMenu));
+    gtk_object_sink(GTK_OBJECT(m_platformDescription.subMenu));
+#endif
 }
 
-void ContextMenuItem::setChecked(bool)
+void ContextMenuItem::setChecked(bool shouldCheck)
 {
-    notImplemented();
+    m_platformDescription.checked = shouldCheck;
 }
 
-void ContextMenuItem::setEnabled(bool)
+void ContextMenuItem::setEnabled(bool shouldEnable)
 {
-    notImplemented();
+    m_platformDescription.enabled = shouldEnable;
 }
 
 }

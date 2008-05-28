@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOUSBFAMILY_VERSION, Copyright © 2000-2007 Apple Inc.  All Rights Reserved.</string>
+	<string>IOUSBFAMILY_VERSION, Copyright © 2000-2008 Apple Inc.  All Rights Reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>

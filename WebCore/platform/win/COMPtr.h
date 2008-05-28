@@ -31,6 +31,7 @@
 #include <guiddef.h>
 #include <unknwn.h>
 #include <WTF/Assertions.h>
+#include <WTF/HashTraits.h>
 
 typedef long HRESULT;
 
@@ -39,6 +40,7 @@ typedef long HRESULT;
 
 enum AdoptCOMTag { AdoptCOM };
 enum QueryTag { Query };
+enum CreateTag { Create };
 
 template <typename T> class COMPtr {
 public:
@@ -48,11 +50,14 @@ public:
     COMPtr(const COMPtr& o) : m_ptr(o.m_ptr) { if (T* ptr = m_ptr) ptr->AddRef(); }
 
     inline COMPtr(QueryTag, IUnknown* ptr) : m_ptr(copyQueryInterfaceRef(ptr)) { }
-    template <typename U> inline COMPtr(QueryTag, const COMPtr<U>& ptr) : m_ptr(copyQueryInterfaceRef(ptr)) { }
+    template <typename U> inline COMPtr(QueryTag, const COMPtr<U>& ptr) : m_ptr(copyQueryInterfaceRef(ptr.get())) { }
+
+    inline COMPtr(CreateTag, const IID& clsid) : m_ptr(createInstance(clsid)) { }
 
     ~COMPtr() { if (m_ptr) m_ptr->Release(); }
 
     T* get() const { return m_ptr; }
+    T* releaseRef() { T* tmp = m_ptr; m_ptr = 0; return tmp; }
 
     T& operator*() const { return *m_ptr; }
     T* operator->() const { return m_ptr; }
@@ -68,18 +73,29 @@ public:
     COMPtr& operator=(const COMPtr&);
     COMPtr& operator=(T*);
     template <typename U> COMPtr& operator=(const COMPtr<U>&);
-  
+
     void query(IUnknown* ptr) { adoptRef(copyQueryInterfaceRef(ptr)); }
     template <typename U> inline void query(const COMPtr<U>& ptr) { query(ptr.get()); }
 
-    HRESULT copyRefTo(T**);
+    void create(const IID& clsid) { adoptRef(createInstance(clsid)); }
+
+    template <typename U> HRESULT copyRefTo(U**);
     void adoptRef(T*);
 
 private:
     static T* copyQueryInterfaceRef(IUnknown*);
+    static T* createInstance(const IID& clsid);
 
     T* m_ptr;
 };
+
+template <typename T> inline T* COMPtr<T>::createInstance(const IID& clsid)
+{
+    T* result;
+    if (FAILED(CoCreateInstance(clsid, 0, CLSCTX_ALL, __uuidof(result), reinterpret_cast<void**>(&result))))
+        return 0;
+    return result;
+}
 
 template <typename T> inline T* COMPtr<T>::copyQueryInterfaceRef(IUnknown* ptr)
 {
@@ -91,7 +107,7 @@ template <typename T> inline T* COMPtr<T>::copyQueryInterfaceRef(IUnknown* ptr)
     return result;
 }
 
-template <typename T> inline HRESULT COMPtr<T>::copyRefTo(T** ptr)
+template <typename T> template <typename U> inline HRESULT COMPtr<T>::copyRefTo(U** ptr)
 {
     if (!ptr)
         return E_POINTER;
@@ -171,6 +187,44 @@ template <typename T, typename U> inline bool operator!=(const COMPtr<T>& a, U* 
 template <typename T, typename U> inline bool operator!=(T* a, const COMPtr<U>& b)
 {
     return a != b.get();
+}
+
+namespace WTF {
+    template<typename P> struct HashTraits<COMPtr<P> > : GenericHashTraits<COMPtr<P> > {
+        typedef HashTraits<typename IntTypes<sizeof(P*)>::SignedType> StorageTraits;
+        typedef typename StorageTraits::TraitType StorageType;
+        static const bool emptyValueIsZero = true;
+        static const bool needsRef = true;
+
+        typedef union { 
+            P* m_p; 
+            StorageType m_s; 
+        } UnionType;
+
+        static void ref(const StorageType& s) 
+        { 
+            if (const P* p = reinterpret_cast<const UnionType*>(&s)->m_p) 
+                const_cast<P*>(p)->AddRef(); 
+        }
+        static void deref(const StorageType& s) 
+        { 
+            if (const P* p = reinterpret_cast<const UnionType*>(&s)->m_p) 
+                const_cast<P*>(p)->Release(); 
+        }
+    };
+
+    template<typename P> struct HashKeyStorageTraits<PtrHash<COMPtr<P> >, HashTraits<COMPtr<P> > > {
+        typedef typename IntTypes<sizeof(P*)>::SignedType IntType;
+        typedef IntHash<IntType> Hash;
+        typedef HashTraits<IntType> Traits;
+    };
+
+    template<typename P> struct DefaultHash<COMPtr<P> > { typedef PtrHash<COMPtr<P> > Hash; };
+
+    template<typename P> struct PtrHash<COMPtr<P> > {
+        static unsigned hash(const COMPtr<P>& key) { return PtrHash<P*>::hash(key.get()); }
+        static bool equal(const COMPtr<P>& a, const COMPtr<P>& b) { return a == b; }
+    };
 }
 
 #endif

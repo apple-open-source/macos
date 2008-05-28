@@ -42,11 +42,12 @@ xml/apr_xml.lo: xml/apr_xml.c .make.dirs include/apr_xml.h include/apr_xlate.h
 strmatch/apr_strmatch.lo: strmatch/apr_strmatch.c .make.dirs include/apr_strmatch.h
 xlate/xlate.lo: xlate/xlate.c .make.dirs include/apr_xlate.h
 dbd/apr_dbd.lo: dbd/apr_dbd.c .make.dirs include/apr_dbd.h
+dbd/apr_dbd_mysql.lo: dbd/apr_dbd_mysql.c .make.dirs include/apu_version.h include/apr_buckets.h
 dbd/apr_dbd_pgsql.lo: dbd/apr_dbd_pgsql.c .make.dirs 
 dbd/apr_dbd_sqlite2.lo: dbd/apr_dbd_sqlite2.c .make.dirs 
 dbd/apr_dbd_sqlite3.lo: dbd/apr_dbd_sqlite3.c .make.dirs 
 
-OBJECTS_all = buckets/apr_brigade.lo buckets/apr_buckets.lo buckets/apr_buckets_alloc.lo buckets/apr_buckets_eos.lo buckets/apr_buckets_file.lo buckets/apr_buckets_flush.lo buckets/apr_buckets_heap.lo buckets/apr_buckets_mmap.lo buckets/apr_buckets_pipe.lo buckets/apr_buckets_pool.lo buckets/apr_buckets_refcount.lo buckets/apr_buckets_simple.lo buckets/apr_buckets_socket.lo crypto/apr_md4.lo crypto/apr_md5.lo crypto/apr_sha1.lo crypto/getuuid.lo crypto/uuid.lo dbm/apr_dbm.lo dbm/apr_dbm_berkeleydb.lo dbm/apr_dbm_gdbm.lo dbm/apr_dbm_ndbm.lo dbm/apr_dbm_sdbm.lo dbm/sdbm/sdbm.lo dbm/sdbm/sdbm_hash.lo dbm/sdbm/sdbm_lock.lo dbm/sdbm/sdbm_pair.lo encoding/apr_base64.lo hooks/apr_hooks.lo ldap/apr_ldap_init.lo ldap/apr_ldap_option.lo ldap/apr_ldap_url.lo misc/apr_date.lo misc/apr_queue.lo misc/apr_reslist.lo misc/apr_rmm.lo misc/apu_version.lo uri/apr_uri.lo xml/apr_xml.lo strmatch/apr_strmatch.lo xlate/xlate.lo dbd/apr_dbd.lo dbd/apr_dbd_pgsql.lo dbd/apr_dbd_sqlite2.lo dbd/apr_dbd_sqlite3.lo
+OBJECTS_all = buckets/apr_brigade.lo buckets/apr_buckets.lo buckets/apr_buckets_alloc.lo buckets/apr_buckets_eos.lo buckets/apr_buckets_file.lo buckets/apr_buckets_flush.lo buckets/apr_buckets_heap.lo buckets/apr_buckets_mmap.lo buckets/apr_buckets_pipe.lo buckets/apr_buckets_pool.lo buckets/apr_buckets_refcount.lo buckets/apr_buckets_simple.lo buckets/apr_buckets_socket.lo crypto/apr_md4.lo crypto/apr_md5.lo crypto/apr_sha1.lo crypto/getuuid.lo crypto/uuid.lo dbm/apr_dbm.lo dbm/apr_dbm_berkeleydb.lo dbm/apr_dbm_gdbm.lo dbm/apr_dbm_ndbm.lo dbm/apr_dbm_sdbm.lo dbm/sdbm/sdbm.lo dbm/sdbm/sdbm_hash.lo dbm/sdbm/sdbm_lock.lo dbm/sdbm/sdbm_pair.lo encoding/apr_base64.lo hooks/apr_hooks.lo ldap/apr_ldap_init.lo ldap/apr_ldap_option.lo ldap/apr_ldap_url.lo misc/apr_date.lo misc/apr_queue.lo misc/apr_reslist.lo misc/apr_rmm.lo misc/apu_version.lo uri/apr_uri.lo xml/apr_xml.lo strmatch/apr_strmatch.lo xlate/xlate.lo dbd/apr_dbd.lo dbd/apr_dbd_mysql.lo dbd/apr_dbd_pgsql.lo dbd/apr_dbd_sqlite2.lo dbd/apr_dbd_sqlite3.lo
 
 OBJECTS_unix = $(OBJECTS_all)
 

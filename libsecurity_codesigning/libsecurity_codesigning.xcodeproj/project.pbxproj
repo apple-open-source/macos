@@ -57,6 +57,7 @@
 		C259DFD70AD6D9BA00C9ACC6 /* sigblob.h in Headers */ = {isa = PBXBuildFile; fileRef = C259DFD50AD6D9BA00C9ACC6 /* sigblob.h */; };
 		C26B45C10B8A9C0A003C0ACA /* ucspc in Frameworks */ = {isa = PBXBuildFile; fileRef = C26B45C00B8A9C00003C0ACA /* ucspc */; };
 		C297DF250B014BB300E94EE0 /* SecCodeSigner.h in Headers */ = {isa = PBXBuildFile; fileRef = C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2A36B4B0D906C08003412BA /* resources.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E911E10ADEBE3200275CB2 /* resources.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2A487530B7914F400849490 /* SecCodeHostLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2A487540B79150C00849490 /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2A487550B79152A00849490 /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -144,7 +145,7 @@
 		C2D8A0980AE7F74500F68F79 /* cfmunge.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D8A07E0AE7F6E300F68F79 /* cfmunge.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2E2873D0B5D8D80009336A0 /* SecCodeHostLib.c in Sources */ = {isa = PBXBuildFile; fileRef = C2E2873C0B5D8D80009336A0 /* SecCodeHostLib.c */; };
 		C2E911E20ADEBE3200275CB2 /* resources.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2E911E00ADEBE3200275CB2 /* resources.cpp */; };
-		C2E911E30ADEBE3200275CB2 /* resources.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E911E10ADEBE3200275CB2 /* resources.h */; };
+		C2E911E30ADEBE3200275CB2 /* resources.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E911E10ADEBE3200275CB2 /* resources.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2EF10100A49BD89005A44BB /* renum.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2EF100E0A49BD89005A44BB /* renum.cpp */; };
 		C2EF10110A49BD89005A44BB /* renum.h in Headers */ = {isa = PBXBuildFile; fileRef = C2EF100F0A49BD89005A44BB /* renum.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2EF10130A49BD89005A44BB /* renum.h in Headers */ = {isa = PBXBuildFile; fileRef = C2EF100F0A49BD89005A44BB /* renum.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -632,6 +633,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C2A36B4B0D906C08003412BA /* resources.h in Headers */,
 				C2F656930BCBFFF40078779E /* cserror.h in Headers */,
 				C2A487540B79150C00849490 /* SecIntegrity.h in Headers */,
 				C2A487530B7914F400849490 /* SecCodeHostLib.h in Headers */,
@@ -997,7 +999,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32953;
+				CURRENT_PROJECT_VERSION = 33803;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -1047,7 +1049,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32953;
+				CURRENT_PROJECT_VERSION = 33803;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -1095,7 +1097,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32953;
+				CURRENT_PROJECT_VERSION = 33803;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,

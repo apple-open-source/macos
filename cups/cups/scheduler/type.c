@@ -567,12 +567,12 @@ mimeFileType(mime_t     *mime,		/* I - MIME database */
     if ((base = strrchr(filename, '/')) != NULL)
       base ++;
     else
-      filename = filename;
+      base = filename;
   }
   else if ((base = strrchr(pathname, '/')) != NULL)
     base ++;
   else
-    filename = pathname;
+    base = pathname;
 
  /*
   * Then check it against all known types...
@@ -638,8 +638,8 @@ compare_types(mime_type_t *t0,		/* I - First type */
   int	i;				/* Result of comparison */
 
 
-  if ((i = strcmp(t0->super, t1->super)) == 0)
-    i = strcmp(t0->type, t1->type);
+  if ((i = strcasecmp(t0->super, t1->super)) == 0)
+    i = strcasecmp(t0->type, t1->type);
 
   return (i);
 }

@@ -1075,12 +1075,15 @@ expand_extended_headers(ARCHD *arcn, HD_USTAR *hd)
 		char *name, *str;
 		int size, nbytes, inx;
 		size = asc_ul(myhd->size, sizeof(myhd->size), OCT);
-		if (size > sizeof(mybuf))
+		if (size > sizeof(mybuf)) {
 			paxwarn(1,"extended header buffer overflow");
+			exit(1);
+		}
 		nbytes = rd_wrbuf(mybuf, size);
 		if (nbytes != size) {
 			paxwarn(1,"extended header data read failure: nbytes=%d, size=%d\n",
 				nbytes, size);
+			exit(1);
 		}
 		/*
 		printf("Read 1 extended header: type=%c, size=%d\n",
@@ -1093,19 +1096,30 @@ expand_extended_headers(ARCHD *arcn, HD_USTAR *hd)
 			int nentries = sscanf(&mybuf[inx],"%d ", &len);
 			if (nentries != 1) {
 				paxwarn(1,"Extended header failure: length");
+				exit(1);
 			}
-			if (mybuf[inx+len-1] != '\n')
+			if (len < 0 || (inx+len-1 >= sizeof(mybuf))) {
+				paxwarn(1, "Extended header failure: invalid length (%d)", len);
+				exit(1);
+			}
+			if (mybuf[inx+len-1] != '\n') {
 				paxwarn(1,"Extended header failure: missed newline");
-			else mybuf[inx+len-1] = '\0';
+				exit(1);
+			} else
+				mybuf[inx+len-1] = '\0';
 			name = strchr(&mybuf[inx],' ');
 			if (name) name++;
-			else 
+			else {
 				paxwarn(1,"Extended header failure: missing space");
+				exit(1);
+			}
 			str = strchr(name,'=');
 			if (str) {
 				*str++='\0'; /* end of name */
-			} else
+			} else {
 				paxwarn(1,"Extended header failure: missing RHS string");
+				exit(1);
+			}
 			for (i = 0; i < sizeof(o_option_table)/sizeof(O_OPTION_TYPE); i++) {
 				if (strncasecmp(name, o_option_table[i].name, o_option_table[i].len) == 0) {
 					/* Found option: see if already set TBD */

@@ -62,6 +62,43 @@ _k5_check_err(krb5_error_code error, const char *function, const char *file, int
 
 static const char lkdc_prefix[] = "LKDC:";
 
+/* If realms a and b have a common subrealm, returns the number of
+ * common components.  Otherwise, returns zero.
+ */
+static int
+has_common_subrealm(const char *a, const char *b)
+{
+	const char *ap = &a[strlen(a)];
+	const char *bp = &b[strlen(b)];
+	unsigned int n = 0;
+
+	if (ap == a || bp == b)
+		return 0;
+	for (--ap, --bp; ap >= a && bp >= b && *ap == *bp; --ap, --bp)
+		if ((ap == a && bp == b) ||
+		    (ap == a && '.' == bp[-1]) ||
+		    (bp == b && '.' == ap[-1]) ||
+		    ('.' == ap[-1] && '.' == bp[-1]))
+			++n;
+	return n;
+}
+
+static const char *
+principal_realm(const char *princ)
+{
+	const char *p = &princ[strlen(princ)];
+
+	while (p > princ) {
+		if ('@' == p[0] && '\\' != p[-1])
+			break;
+		--p;
+	}
+	if (p == princ)
+		return NULL;
+	else
+		return &p[1];
+}
+
 /* Result string in `*realm' is owned by the caller and must be free()d. */
 static int
 realm_for_host(krb5_context ctx, const char *hostname, const char *hintrealm,
@@ -873,15 +910,13 @@ OSStatus KRBCopyClientPrincipalInfo (void *inKerberosSession,  CFDictionaryRef i
 		krb5_error_code krb_err = 0;
 		cc_context_t cc_context = NULL;
 		cc_ccache_iterator_t iterator = NULL;
-		krb5_principal	clientPrinc = NULL;
-		int			realmMatches = 0;
+		const char *alternateRealm = NULL;
+		const char *clientRealm = principal_realm(clientPrincipalString);
 		char		*alternateClientPrincipal = NULL;
+		char		*bestClientPrincipal = NULL;
+		int commonSubrealms = 1, tmp;
 
 		krb_err = k5_ok (krb5_init_context(&kcontext));
-
-		if (!krb_err) {
-			krb_err = k5_ok (krb5_parse_name (kcontext, clientPrincipalString, &clientPrinc));
-		}
 
 		if (!krb_err) {
 			krb_err = k5_ok (cc_initialize (&cc_context, ccapi_version_4, NULL, NULL));
@@ -891,7 +926,7 @@ OSStatus KRBCopyClientPrincipalInfo (void *inKerberosSession,  CFDictionaryRef i
 		}
 
 		/* We exit if we find more than one match */
-		while (!krb_err && realmMatches < 2) {
+		while (!krb_err) {
 			cc_ccache_t   cc_ccache = NULL;
 			cc_string_t   ccacheName = NULL;
 			krb5_ccache ccache = NULL;
@@ -905,14 +940,41 @@ OSStatus KRBCopyClientPrincipalInfo (void *inKerberosSession,  CFDictionaryRef i
 
 			if (!krb_err) { krb_err = k5_ok (krb5_cc_get_principal (kcontext, ccache, &ccachePrinc)); }
 
-			if (!krb_err && krb5_realm_compare (kcontext, clientPrinc, ccachePrinc)) {
-				realmMatches++;
-				if (NULL == alternateClientPrincipal) {
-					krb_err = k5_ok (krb5_unparse_name (kcontext, ccachePrinc, &alternateClientPrincipal));
-					KHLog ("    KRBCopyClientPrincipalInfo: ccache principal match = \"%s\"", alternateClientPrincipal);
+			if (!krb_err) {	krb_err = k5_ok (krb5_unparse_name (kcontext, ccachePrinc, &alternateClientPrincipal)); }
+
+			if (!krb_err) { alternateRealm = principal_realm(alternateClientPrincipal); }
+
+			/* If the client principal realm and the service principal
+			 * realm are an exact match or have a common subrealm with
+			 * multiple components, then in most cases it will be the
+			 * one to use.  If there are multiple matches, choose the
+			 * one with the largest number of common components.  The
+			 * commonSubrealms variable keeps track of the number of
+			 * components matched in the best match found so far.
+			 * Because it was initialized to 1 earlier, a realm must
+			 * have at least two common components to be considered.
+			 */
+			if (!krb_err && (0 == (tmp = strcmp(clientRealm, alternateRealm)) ||
+				commonSubrealms < (tmp = has_common_subrealm(clientRealm, alternateRealm)))) {
+				if (NULL != bestClientPrincipal) { free(bestClientPrincipal); }
+				bestClientPrincipal = strdup(alternateClientPrincipal);
+				if (0 == tmp) {
+					/* Exact match (strcmp set tmp to 0.)
+					 * Exit the loop.
+					 */
+					break;
+				} else {
+					/* Inexact match (has_common_subrealm set tmp nonzero.)
+					 * Keep track of the number of components matched.
+					 */
+					commonSubrealms = tmp;
 				}
 			}
 
+			if (NULL != alternateClientPrincipal) {
+				krb5_free_unparsed_name(kcontext, alternateClientPrincipal);
+				alternateClientPrincipal = NULL;
+			}
 			if (NULL != ccache)      { krb5_cc_close (kcontext, ccache); }                
 			if (NULL != ccacheName)  { cc_string_release (ccacheName); }
 			if (NULL != cc_ccache)   { cc_ccache_release (cc_ccache); }
@@ -921,13 +983,15 @@ OSStatus KRBCopyClientPrincipalInfo (void *inKerberosSession,  CFDictionaryRef i
 
 		if (NULL != iterator)    { cc_ccache_iterator_release (iterator); }
 		if (NULL != cc_context)  { cc_context_release (cc_context); }
-		if (NULL != clientPrinc) { krb5_free_principal (kcontext, clientPrinc); }
 
-		/* We only accept the principal when there is exactly one
-		 * match and it doesn't match the one we computed.
+		if (NULL != bestClientPrincipal) {
+			KHLog ("    KRBCopyClientPrincipalInfo: ccache principal match = \"%s\"", bestClientPrincipal);
+		}
+
+		/* We only accept the principal when it doesn't match the one we computed.
 		 */
-		if (1 == realmMatches && NULL != alternateClientPrincipal && !clientNameProvided &&
-			0 != strcmp(clientPrincipalString, alternateClientPrincipal)) {
+		if (NULL != bestClientPrincipal && !clientNameProvided &&
+			0 != strcmp(clientPrincipalString, bestClientPrincipal)) {
 			char *useClientNameString = NULL, *startOfRealm;
 			
 			KHLog ("%s", "    KRBCopyClientPrincipalInfo: found a single ticket for realm, replacing principal & username");
@@ -936,11 +1000,11 @@ OSStatus KRBCopyClientPrincipalInfo (void *inKerberosSession,  CFDictionaryRef i
 			if (NULL != clientPrincipal) { CFRelease (clientPrincipal); }
 			if (NULL != clientPrincipalString) { __KRBReleaseUTF8String (clientPrincipalString); }
 
-			clientPrincipal = CFStringCreateWithCString (NULL, alternateClientPrincipal, kCFStringEncodingASCII);
-			clientPrincipalString = strdup (alternateClientPrincipal);
+			clientPrincipal = CFStringCreateWithCString (NULL, bestClientPrincipal, kCFStringEncodingASCII);
+			clientPrincipalString = strdup (bestClientPrincipal);
 			
 			/* Extract the "Username" from the principal */
-			useClientNameString = strdup (alternateClientPrincipal);
+			useClientNameString = strdup (bestClientPrincipal);
 			
 			/* This is an ugly loop.  It does the reverse of krb5_unparse_name () in that it searches from the
 			 * end of the principal looking for an unquoted "@".  This is a guaranteed way to strip the realm from
@@ -974,6 +1038,7 @@ OSStatus KRBCopyClientPrincipalInfo (void *inKerberosSession,  CFDictionaryRef i
 			if (NULL != useClientNameString) { free (useClientNameString); }
 		}
 
+		if (NULL != bestClientPrincipal)      { free (bestClientPrincipal); }
 		if (NULL != alternateClientPrincipal) { krb5_free_unparsed_name (kcontext, alternateClientPrincipal); }
 		if (NULL != kcontext)                 { krb5_free_context (kcontext); }
 	}

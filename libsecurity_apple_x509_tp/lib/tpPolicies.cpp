@@ -785,7 +785,7 @@ static bool tpVerifyEKU(
  *   -- implicit '@'
  *   -- domain name from subject name's organizationalUnit
  *
- * Plus we require an Organization component of "Apple Computer, Inc.".
+ * Plus we require an Organization component of "Apple Computer, Inc." or "Apple Inc."
  */
 static bool tpCompareIChatHandleName(
 	TPCertInfo 				&cert,
@@ -804,7 +804,7 @@ static bool tpCompareIChatHandleName(
 	/* search until all of these are true */
 	CSSM_BOOL	commonNameMatch = CSSM_FALSE;		// name before '@'
 	CSSM_BOOL	orgUnitMatch = CSSM_FALSE;			// domain after '@
-	CSSM_BOOL	orgMatch = CSSM_FALSE;				// Apple COmputer, Inc. 
+	CSSM_BOOL	orgMatch = CSSM_FALSE;				// Apple Computer, Inc. (or Apple Inc.)
 	
 	/* 
 	 * incoming UTF8 handle ==> two components.
@@ -893,7 +893,8 @@ static bool tpCompareIChatHandleName(
 			if(!orgMatch && 
 			   tpCompareOids(&ptvp->type, &CSSMOID_OrganizationName) &&
 			   /* this one is case sensitive */
-			   tpCompareTvpToCfString(ptvp, CFSTR("Apple Computer, Inc."), 0)) {
+			   (tpCompareTvpToCfString(ptvp, CFSTR("Apple Computer, Inc."), 0) ||
+			    tpCompareTvpToCfString(ptvp, CFSTR("Apple Inc."), 0))) {
 					orgMatch = CSSM_TRUE;
 			}
 			

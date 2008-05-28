@@ -34,17 +34,15 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $OpenBSD: sshd_config.5,v 1.70 2006/08/21 08:14:01 dtucker Exp $
-.Dd September 25, 1999
+.\" $OpenBSD: sshd_config.5,v 1.77 2007/06/08 07:48:09 jmc Exp $
+.Dd $Mdocdate: June 11 2007 $
 .Dt SSHD_CONFIG 5
 .Os
 .Sh NAME
 .Nm sshd_config
 .Nd OpenSSH SSH daemon configuration file
 .Sh SYNOPSIS
-.Bl -tag -width Ds -compact
-.It Pa /etc/ssh/sshd_config
-.El
+.Nm /etc/ssh/sshd_config
 .Sh DESCRIPTION
 .Xr sshd 8
 reads configuration data from
@@ -317,12 +315,35 @@ Specifies whether user authentication based on GSSAPI is allowed.
 The default is
 .Dq no .
 Note that this option applies to protocol version 2 only.
+.It Cm GSSAPIKeyExchange
+Specifies whether key exchange based on GSSAPI is allowed. GSSAPI key exchange 
+doesn't rely on ssh keys to verify host identity.
+The default is
+.Dq no .
+Note that this option applies to protocol version 2 only.
 .It Cm GSSAPICleanupCredentials
 Specifies whether to automatically destroy the user's credentials cache
 on logout.
 The default is
 .Dq yes .
 Note that this option applies to protocol version 2 only.
+.It Cm GSSAPIStrictAcceptorCheck
+Determines whether to be strict about the identity of the GSSAPI acceptor 
+a client authenticates against. If
+.Dq yes
+then the client must authenticate against the
+.Pa host
+service on the current hostname. If 
+.Dq no
+then the client may authenticate against any service key stored in the 
+machine's default store. This facility is provided to assist with operation 
+on multi homed machines. 
+The default is
+.Dq yes .
+Note that this option applies only to protocol version 2 GSSAPI connections,
+and setting it to 
+.Dq no
+may only work with recent Kerberos GSSAPI libraries.
 .It Cm HostbasedAuthentication
 Specifies whether rhosts or /etc/hosts.equiv authentication together
 with successful public key client host authentication is allowed
@@ -488,7 +509,10 @@ The MAC algorithm is used in protocol version 2
 for data integrity protection.
 Multiple algorithms must be comma-separated.
 The default is:
-.Dq hmac-md5,hmac-sha1,hmac-ripemd160,hmac-sha1-96,hmac-md5-96 .
+.Bd -literal -offset indent
+hmac-md5,hmac-sha1,umac-64@openssh.com,
+hmac-ripemd160,hmac-sha1-96,hmac-md5-96
+.Ed
 .It Cm Match
 Introduces a conditional block.
 If all of the criteria on the
@@ -511,9 +535,16 @@ Only a subset of keywords may be used on the lines following a
 keyword.
 Available keywords are
 .Cm AllowTcpForwarding ,
+.Cm Banner ,
 .Cm ForceCommand ,
 .Cm GatewayPorts ,
+.Cm GSSApiAuthentication ,
+.Cm KbdInteractiveAuthentication ,
+.Cm KerberosAuthentication ,
+.Cm PasswordAuthentication ,
 .Cm PermitOpen ,
+.Cm RhostsRSAAuthentication ,
+.Cm RSAAuthentication ,
 .Cm X11DisplayOffset ,
 .Cm X11Forwarding ,
 and

@@ -22,7 +22,7 @@
 #ifndef KJS_SCOPE_CHAIN_H
 #define KJS_SCOPE_CHAIN_H
 
-#include <assert.h>
+#include <wtf/Assertions.h>
 
 namespace KJS {
 
@@ -59,6 +59,9 @@ namespace KJS {
 
     class ScopeChain {
     public:
+        typedef ScopeChainIterator const_iterator;
+        typedef JSObject* ValueType;
+
         ScopeChain() : _node(0) { }
         ~ScopeChain() { deref(); }
 
@@ -77,6 +80,7 @@ namespace KJS {
         void clear() { deref(); _node = 0; }
         void push(JSObject *);
         void push(const ScopeChain &);
+        void replaceTop(JSObject*);
         void pop();
         
         void mark();
@@ -122,14 +126,20 @@ inline JSObject *ScopeChain::bottom() const
 
 inline void ScopeChain::push(JSObject *o)
 {
-    assert(o);
+    ASSERT(o);
     _node = new ScopeChainNode(_node, o);
+}
+
+inline void ScopeChain::replaceTop(JSObject* o)
+{
+    ASSERT(o);
+    _node->object = o;
 }
 
 inline void ScopeChain::pop()
 {
     ScopeChainNode *oldNode = _node;
-    assert(oldNode);
+    ASSERT(oldNode);
     ScopeChainNode *newNode = oldNode->next;
     _node = newNode;
     

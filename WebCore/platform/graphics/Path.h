@@ -32,6 +32,9 @@ typedef struct CGPath PlatformPath;
 #elif PLATFORM(QT)
 class QPainterPath;
 typedef QPainterPath PlatformPath;
+#elif PLATFORM(WX) && USE(WXGC)
+class wxGraphicsPath;
+typedef wxGraphicsPath PlatformPath;
 #elif PLATFORM(CAIRO)
 namespace WebCore {
     struct CairoPath;
@@ -94,7 +97,7 @@ namespace WebCore {
         void addArcTo(const FloatPoint&, const FloatPoint&, float radius);
         void closeSubpath();
 
-        void addArc(const FloatPoint&, float radius, float startAngle, float endAngle, bool clockwise);
+        void addArc(const FloatPoint&, float radius, float startAngle, float endAngle, bool anticlockwise);
         void addRect(const FloatRect&);
         void addEllipse(const FloatRect&);
 

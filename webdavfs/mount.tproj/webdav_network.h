@@ -87,6 +87,29 @@ int network_finish_download(
  */
 int network_server_ping(u_int32_t delay);
 
+void network_seqwrite_manager(struct stream_put_ctx *ctx);
+
+// Note: ctx->lock must be held before calling this routine
+enum {WRITE_MGR_NEW_REQUEST_ID = 1};
+#define WRITE_MGR_MSG_PORTSEND_TIMEOUT 10.0
+#define WRITE_MGR_MSG_PORT_NAME "com.apple.webdavfs.msgport"
+int queue_writemgr_request_locked(struct stream_put_ctx *ctx, struct seqwrite_mgr_req *req);
+
+void writeseqReadResponseCallback(CFReadStreamRef str, 
+								  CFStreamEventType event, 
+								  void* arg);
+								  
+void writeseqWriteCallback(CFWriteStreamRef str, 
+						   CFStreamEventType event, 
+						   void* arg);
+
+CFDataRef managerMessagePortCallback(CFMessagePortRef local,
+										SInt32 msgid,
+										CFDataRef data,
+										void *info);
+
+int cleanup_seq_write(struct stream_put_ctx *ctx);
+
 int network_open(
 	uid_t uid,					/* -> uid of the user making the request */
 	struct node_entry *node,	/* -> node to open */
@@ -103,7 +126,12 @@ int network_create(
 	char *name,					/* -> file name to create */
 	size_t name_length,			/* -> length of name */
 	time_t *creation_date);		/* <- date of the creation */
-	
+
+int setup_seq_write(
+	uid_t uid,				  /* -> uid of the user making the request */
+	struct node_entry *node,  /* -> node we're writing  */
+	off_t file_length);       /* -> file length hint sent from the kernel */
+
 int network_fsync(
 	uid_t uid,					/* -> uid of the user making the request */
 	struct node_entry *node,	/* -> node to sync with server */
@@ -160,6 +188,10 @@ int network_read(
 	size_t count,				/* -> number of bytes of data to be read */
 	char **buffer,				/* <- buffer data was read into (allocated by network_read) */
 	size_t *actual_count);		/* <- number of bytes actually read */
+
+/* Read the response CFReadStream of a sequential write */	
+int network_read_seqwrite_rsp(
+	struct stream_put_ctx *ctx);	/* -> sequential write context */
 
 time_t DateBytesToTime(			/* <- time_t value; -1 if error */
 	const UInt8 *bytes,			/* -> pointer to bytes to parse */

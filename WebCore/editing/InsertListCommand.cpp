@@ -30,6 +30,7 @@
 #include "htmlediting.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
+#include "TextIterator.h"
 #include "visible_units.h"
 
 namespace WebCore {
@@ -60,42 +61,39 @@ InsertListCommand::InsertListCommand(Document* document, Type type, const String
 
 bool InsertListCommand::modifyRange()
 {
-    ASSERT(endingSelection().isRange());
-    VisiblePosition visibleStart = endingSelection().visibleStart();
-    VisiblePosition visibleEnd = endingSelection().visibleEnd();
-    VisiblePosition startOfLastParagraph = startOfParagraph(visibleEnd);
+    Selection selection = selectionForParagraphIteration(endingSelection());
+    ASSERT(selection.isRange());
+    VisiblePosition startOfSelection = selection.visibleStart();
+    VisiblePosition endOfSelection = selection.visibleEnd();
+    VisiblePosition startOfLastParagraph = startOfParagraph(endOfSelection);
     
-    // If the end of the selection to modify is just after a table, and
-    // if the start of the selection is inside that table, the last paragraph
-    // that we'll want modify is the last one inside the table, not the table itself.
-    // Adjust startOfLastParagraph here to avoid infinite recursion.
-    if (Node* table = isFirstPositionAfterTable(visibleEnd))
-        if (visibleStart.deepEquivalent().node()->isDescendantOf(table))
-            startOfLastParagraph = startOfParagraph(visibleEnd.previous(true));
-        
-    if (startOfParagraph(visibleStart) == startOfLastParagraph)
+    if (startOfParagraph(startOfSelection) == startOfLastParagraph)
         return false;
-    
-    Node* startList = enclosingList(visibleStart.deepEquivalent().node());
-    Node* endList = enclosingList(visibleEnd.deepEquivalent().node());
+
+    Node* startList = enclosingList(startOfSelection.deepEquivalent().node());
+    Node* endList = enclosingList(endOfSelection.deepEquivalent().node());
     if (!startList || startList != endList)
         m_forceCreateList = true;
 
-    setEndingSelection(visibleStart);
+    setEndingSelection(startOfSelection);
     doApply();
-    visibleStart = endingSelection().visibleStart();
-    VisiblePosition nextParagraph = endOfParagraph(visibleStart).next();
-    while (nextParagraph.isNotNull() && nextParagraph != startOfLastParagraph) {
-        setEndingSelection(nextParagraph);
+    // Fetch the start of the selection after moving the first paragraph,
+    // because moving the paragraph will invalidate the original start.  
+    // We'll use the new start to restore the original selection after 
+    // we modified all selected paragraphs.
+    startOfSelection = endingSelection().visibleStart();
+    VisiblePosition startOfCurrentParagraph = startOfNextParagraph(startOfSelection);
+    while (startOfCurrentParagraph != startOfLastParagraph) {
+        setEndingSelection(startOfCurrentParagraph);
         doApply();
-        nextParagraph = endOfParagraph(endingSelection().visibleStart()).next();
+        startOfCurrentParagraph = startOfNextParagraph(endingSelection().visibleStart());
     }
-    setEndingSelection(visibleEnd);
+    setEndingSelection(endOfSelection);
     doApply();
-    visibleEnd = endingSelection().visibleEnd();
-    setEndingSelection(Selection(visibleStart.deepEquivalent(), visibleEnd.deepEquivalent(), DOWNSTREAM));
+    // Fetch the end of the selection, for the reason mentioned above.
+    endOfSelection = endingSelection().visibleEnd();
+    setEndingSelection(Selection(startOfSelection, endOfSelection));
     m_forceCreateList = false;
-    
     return true;
 }
 
@@ -123,6 +121,9 @@ void InsertListCommand::doApply()
     if (endingSelection().isRange() && modifyRange())
         return;
     
+    // FIXME: This will produce unexpected results for a selection that starts just before a
+    // table and ends inside the first cell, selectionForParagraphIteration should probably
+    // be renamed and deployed inside setEndingSelection().
     Node* selectionNode = endingSelection().start().node();
     const QualifiedName listTag = (m_type == OrderedList) ? olTag : ulTag;
     Node* listChildNode = enclosingListChild(selectionNode);
@@ -167,13 +168,28 @@ void InsertListCommand::doApply()
             nodeToInsert = createListItemElement(document());
             appendNode(placeholder.get(), nodeToInsert.get());
         }
+        
         if (nextListChild && previousListChild) {
-            splitElement(static_cast<Element *>(listNode), nextListChild);
+            // We want to pull listChildNode out of listNode, and place it before nextListChild 
+            // and after previousListChild, so we split listNode and insert it between the two lists.  
+            // But to split listNode, we must first split ancestors of listChildNode between it and listNode,
+            // if any exist.
+            // FIXME: We appear to split at nextListChild as opposed to listChildNode so that when we remove
+            // listChildNode below in moveParagraphs, previousListChild will be removed along with it if it is 
+            // unrendered. But we ought to remove nextListChild too, if it is unrendered.
+            splitElement(static_cast<Element *>(listNode), splitTreeToNode(nextListChild, listNode));
             insertNodeBefore(nodeToInsert.get(), listNode);
-        } else if (nextListChild)
+        } else if (nextListChild || listChildNode->parentNode() != listNode) {
+            // Just because listChildNode has no previousListChild doesn't mean there isn't any content
+            // in listNode that comes before listChildNode, as listChildNode could have ancestors
+            // between it and listNode. So, we split up to listNode before inserting the placeholder
+            // where we're about to move listChildNode to.
+            if (listChildNode->parentNode() != listNode)
+                splitElement(static_cast<Element *>(listNode), splitTreeToNode(listChildNode, listNode));
             insertNodeBefore(nodeToInsert.get(), listNode);
-        else
+        } else
             insertNodeAfter(nodeToInsert.get(), listNode);
+        
         VisiblePosition insertionPoint = VisiblePosition(Position(placeholder.get(), 0));
         moveParagraphs(start, end, insertionPoint, true);
     }
@@ -191,9 +207,12 @@ void InsertListCommand::doApply()
         Node* previousList = outermostEnclosingList(previousPosition.deepEquivalent().node());
         Node* nextList = outermostEnclosingList(nextPosition.deepEquivalent().node());
         Node* startNode = start.deepEquivalent().node();
-        if (previousList && (!previousList->hasTagName(listTag) || startNode->isDescendantOf(previousList)))
+        Node* previousCell = enclosingTableCell(previousPosition.deepEquivalent());
+        Node* nextCell = enclosingTableCell(nextPosition.deepEquivalent());
+        Node* currentCell = enclosingTableCell(start.deepEquivalent());
+        if (previousList && (!previousList->hasTagName(listTag) || startNode->isDescendantOf(previousList) || previousCell != currentCell))
             previousList = 0;
-        if (nextList && (!nextList->hasTagName(listTag) || startNode->isDescendantOf(nextList)))
+        if (nextList && (!nextList->hasTagName(listTag) || startNode->isDescendantOf(nextList) || nextCell != currentCell))
             nextList = 0;
         // Place list item into adjoining lists.
         if (previousList)

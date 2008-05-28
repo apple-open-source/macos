@@ -58,7 +58,7 @@ public:
 
     virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
 
-    const QPixmap* imageAtIndex(size_t index) const;
+    QPixmap* imageAtIndex(size_t index) const;
 
     virtual bool supportsAlpha() const;
 
@@ -88,6 +88,7 @@ private:
     typedef QList<ImageData> ImageList;
     ImageList m_imageList;
     mutable QHash<int, QPixmap> m_pixmapCache;
+    int m_loopCount;
 };
 
 

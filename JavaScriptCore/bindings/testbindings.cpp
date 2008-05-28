@@ -29,7 +29,7 @@
 #include "types.h"
 #include "interpreter.h"
 
-#include "npruntime.h"
+#include "npruntime_internal.h"
 
 #include "runtime.h"
 #include "runtime_object.h"
@@ -377,7 +377,8 @@ int main(int argc, char **argv)
         
         // create interpreter w/ global object
         Object global(new GlobalImp());
-        Interpreter interp(global);
+        Interpreter interp;
+        interp.setGlobalObject(global);
         ExecState *exec = interp.globalExec();
         
         MyObject *myObject = (MyObject *)NPN_CreateObject (myFunctionPtrs);

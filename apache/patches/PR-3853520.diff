@@ -1,6 +1,6 @@
 --- docs/conf/httpd.conf.in.orig	2007-02-28 16:05:22.000000000 -0800
 +++ docs/conf/httpd.conf.in	2007-02-28 16:11:33.000000000 -0800
-@@ -168,13 +168,27 @@
+@@ -171,13 +171,27 @@
  # The following lines prevent .htaccess and .htpasswd files from being 
  # viewed by Web clients. 
  #

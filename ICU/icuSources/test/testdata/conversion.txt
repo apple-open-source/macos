@@ -182,6 +182,21 @@ conversion:table(nofallback) {
           :intvector{ 0, 5, 7, 9, 9, 9, 9, 9, 9, 9, 9, 12 },
           :int{1}, :int{1}, "", "&", :bin{""}
         }
+        // empty segment (using substitution and stop)
+        {
+          "ISO-2022-KR",
+          :bin{ 1b242943610e0f620d0a },
+          "a\uFFFDb\u000D\u000A",
+          :intvector{ 4, 6, 7, 8, 9 },
+          :int{1}, :int{1}, "", "?", :bin{""}
+        }
+        {
+          "ISO-2022-KR",
+          :bin{ 1b242943610e0f620d0a },
+          "a",
+          :intvector{ 4 },
+          :int{1}, :int{1}, "illesc", ".", :bin{"0f"}
+        }
 
         // ISO-2022-JP
 
@@ -231,6 +246,21 @@ conversion:table(nofallback) {
           "JIS8",
           :bin{ 41c15c1b284a5cc242 }, "A\uff81\\\xa5\uff82B", :intvector{ 0, 1, 2, 6, 7, 8 },
           :int{1}, :int{1}, "", ".", :bin{""}
+        }
+        // empty segment (using substitution and stop)
+        {
+          "ISO-2022-JP",
+          :bin{ 61621b24421b284263640d0a },
+          "ab\uFFFDcd\u000D\u000A",
+          :intvector{ 0, 1, 5, 8, 9, 10, 11 },
+          :int{1}, :int{1}, "", "?", :bin{""}
+        }
+        {
+          "ISO-2022-JP",
+          :bin{ 61621b24421b284263640d0a },
+          "ab",
+          :intvector{ 0, 1 },
+          :int{1}, :int{1}, "illesc", ".", :bin{"1b2842"}
         }
 
         // ISO-2022-CN
@@ -302,6 +332,36 @@ conversion:table(nofallback) {
           :bin{ 411b242b491b4f2121 }, "\x41", :intvector{ 0 },
           :int{1}, :int{1}, "unsuppesc", ".", :bin{ 1b242b49 }
         }
+        // empty segment 1 (using substitution and stop)
+        {
+          "ISO-2022-CN",
+          :bin{ 611b242941620e0f1b242a481b4e6a65630d0a },
+          "ab\uFFFD\u994Cc\u000D\u000A",
+          :intvector{ 0, 5, 7, 14, 16, 17, 18 },
+          :int{1}, :int{1}, "", "?", :bin{""}
+        }
+        {
+          "ISO-2022-CN",
+          :bin{ 611b242941620e0f1b242a481b4e6a65630d0a },
+          "ab",
+          :intvector{ 0, 5 },
+          :int{1}, :int{1}, "illesc", ".", :bin{"0f"}
+        }
+        // empty segment 2 (using substitution and stop)
+        {
+          "ISO-2022-CN",
+          :bin{ 611b242941620e1b24294768640f630d0a },
+          "ab\uFFFD\u5F70c\u000D\u000A",
+          :intvector{ 0, 5, 7, 11, 14, 15, 16 },
+          :int{1}, :int{1}, "", "?", :bin{""}
+        }
+        {
+          "ISO-2022-CN",
+          :bin{ 611b242941620e1b24294768640f630d0a },
+          "ab",
+          :intvector{ 0, 5 },
+          :int{1}, :int{1}, "illesc", ".", :bin{"1b242947"}
+        }
 
         // ISO-2022 SBCS
         // [U_ENABLE_GENERIC_ISO_2022]
@@ -315,6 +375,24 @@ conversion:table(nofallback) {
         //  :intvector{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 },
         //  :int{1}, :int{1}, "", ".", :bin{""}
         //}
+
+        // HZ-GB-2312
+
+        // empty segment (using substitution and stop)
+        {
+          "HZ-GB-2312",
+          :bin{ 61627e7b7e7d6364 },
+          "ab\uFFFDcd",
+          :intvector{ 0, 1, 4, 6, 7 },
+          :int{1}, :int{1}, "", "?", :bin{""}
+        }
+        {
+          "HZ-GB-2312",
+          :bin{ 61627e7b7e7d63640d0a },
+          "ab",
+          :intvector{ 0, 1 },
+          :int{1}, :int{1}, "illesc", ".", :bin{"7e7d"}
+        }
 
         // DBCS-only extensions
         {

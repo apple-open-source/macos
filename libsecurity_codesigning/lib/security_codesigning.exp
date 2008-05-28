@@ -59,6 +59,7 @@ _SecHostSetHostingPort
 _kSecCodeSignerApplicationData
 _kSecCodeSignerDetached
 _kSecCodeSignerDryRun
+_kSecCodeSignerEntitlements
 _kSecCodeSignerFlags
 _kSecCodeSignerIdentifier
 _kSecCodeSignerIdentifierPrefix
@@ -72,12 +73,14 @@ _kSecCodeInfoChangedFiles
 _kSecCodeInfoCMS
 _kSecCodeInfoTime
 _kSecCodeInfoDesignatedRequirement
+_kSecCodeInfoEntitlements
 _kSecCodeInfoFormat
 _kSecCodeInfoIdentifier
 _kSecCodeInfoImplicitDesignatedRequirement
 _kSecCodeInfoMainExecutable
 _kSecCodeInfoPList
 _kSecCodeInfoRequirements
+_kSecCodeInfoRequirementData
 _kSecCodeInfoStatus
 _kSecCodeInfoTrust
 _kSecGuestAttributePid

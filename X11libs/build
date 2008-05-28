@@ -151,7 +151,7 @@ sub build {
 # Xfixes before Xcomposite
 # Xp before XprintUtil before XprintAppUtil
 sub build_lib {
-    build('libpng');
+    build("libpng");
     build("xtrans");
     build("libpthread-stubs");
     build("libXau");

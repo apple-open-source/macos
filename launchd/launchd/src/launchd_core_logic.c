@@ -16,11 +16,12 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23459 $";
+static const char *const __rcs_file_version__ = "$Revision: 23585 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
 
+#include <TargetConditionals.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <mach/mach_time.h>
@@ -73,7 +74,12 @@ static const char *const __rcs_file_version__ = "$Revision: 23459 $";
 #include <ctype.h>
 #include <glob.h>
 #include <spawn.h>
+#if HAVE_SANDBOX
 #include <sandbox.h>
+#endif
+#if HAVE_QUARANTINE
+#include <quarantine.h>
+#endif
 
 #include "liblaunch_public.h"
 #include "liblaunch_private.h"
@@ -164,7 +170,10 @@ struct socketgroup {
 	SLIST_ENTRY(socketgroup) sle;
 	int *fds;
 	unsigned int junkfds:1, fd_cnt:31;
-	char name[0];
+	union {
+		const char name[0];
+		char name_init[0];
+	};
 };
 
 static bool socketgroup_new(job_t j, const char *name, int *fds, unsigned int fd_cnt, bool junkfds);
@@ -196,7 +205,10 @@ static void calendarinterval_sanity_check(void);
 struct envitem {
 	SLIST_ENTRY(envitem) sle;
 	char *value;
-	char key[0];
+	union {
+		const char key[0];
+		char key_init[0];
+	};
 };
 
 static bool envitem_new(job_t j, const char *k, const char *v, bool global);
@@ -212,7 +224,9 @@ struct limititem {
 static bool limititem_update(job_t j, int w, rlim_t r);
 static void limititem_delete(job_t j, struct limititem *li);
 static void limititem_setup(launch_data_t obj, const char *key, void *context);
+#if HAVE_SANDBOX
 static void seatbelt_setup_flags(launch_data_t obj, const char *key, void *context);
+#endif
 
 typedef enum {
 	NETWORK_UP = 1,
@@ -234,7 +248,10 @@ struct semaphoreitem {
 	SLIST_ENTRY(semaphoreitem) sle;
 	semaphore_reason_t why;
 	int fd;
-	char what[0];
+	union {
+		const char what[0];
+		char what_init[0];
+	};
 };
 
 struct semaphoreitem_dict_iter_context {
@@ -271,7 +288,10 @@ struct jobmgr_s {
 	unsigned int hopefully_first_cnt;
 	unsigned int normal_active_cnt;
 	unsigned int sent_stop_to_normal_jobs:1, sent_stop_to_hopefully_last_jobs:1, shutting_down:1, session_initialized:1;
-	char name[0];
+	union {
+		const char name[0];
+		char name_init[0];
+	};
 };
 
 #define jobmgr_assumes(jm, e)	\
@@ -281,6 +301,7 @@ static jobmgr_t jobmgr_new(jobmgr_t jm, mach_port_t requestorport, mach_port_t t
 static job_t jobmgr_import2(jobmgr_t jm, launch_data_t pload);
 static jobmgr_t jobmgr_parent(jobmgr_t jm);
 static jobmgr_t jobmgr_do_garbage_collection(jobmgr_t jm);
+static bool jobmgr_label_test(jobmgr_t jm, const char *str);
 static void jobmgr_reap_bulk(jobmgr_t jm, struct kevent *kev);
 static void jobmgr_log_stray_children(jobmgr_t jm);
 static void jobmgr_remove(jobmgr_t jm);
@@ -322,7 +343,7 @@ struct job_s {
 	cpu_type_t *j_binpref;
 	size_t j_binpref_cnt;
 	mach_port_t j_port;
-	mach_port_t wait_reply_port;
+	mach_port_t wait_reply_port;	/* we probably should switch to a list of waiters */
 	uid_t mach_uid;
 	jobmgr_t mgr;
 	char **argv;
@@ -336,10 +357,14 @@ struct job_s {
 	char *alt_exc_handler;
 	struct machservice *lastlookup;
 	unsigned int lastlookup_gennum;
+#if HAVE_SANDBOX
 	char *seatbelt_profile;
 	uint64_t seatbelt_flags;
+#endif
+#if HAVE_QUARANTINE
 	void *quarantine_data;
 	size_t quarantine_data_sz;
+#endif
 	pid_t p;
 	int argc;
 	int last_exit_status;
@@ -361,7 +386,7 @@ struct job_s {
 		     currently_ignored:1, forced_peers_to_demand_mode:1, setnice:1, hopefully_exits_last:1, removal_pending:1,
 		     wait4pipe_eof:1, sent_sigkill:1, debug_before_kill:1, weird_bootstrap:1, start_on_mount:1,
 		     per_user:1, hopefully_exits_first:1, deny_unknown_mslookups:1, unload_at_mig_return:1, abandon_pg:1,
-		     poll_for_vfs_changes:1, internal_exc_handler:1;
+		     poll_for_vfs_changes:1, internal_exc_handler:1, deny_job_creation:1;
 	const char label[0];
 };
 
@@ -450,9 +475,11 @@ static char **mach_cmd2argv(const char *string);
 static size_t our_strhash(const char *s) __attribute__((pure));
 static void extract_rcsid_substr(const char *i, char *o, size_t osz);
 static void do_first_per_user_launchd_hack(void);
+static size_t get_kern_max_proc(void);
 static void do_file_init(void) __attribute__((constructor));
 
 /* file local globals */
+static bool do_apple_internal_magic;
 static size_t total_children;
 static size_t total_anon_children;
 static mach_port_t the_exception_server;
@@ -865,12 +892,16 @@ job_remove(job_t j)
 	if (j->alt_exc_handler) {
 		free(j->alt_exc_handler);
 	}
+#if HAVE_SANDBOX
 	if (j->seatbelt_profile) {
 		free(j->seatbelt_profile);
 	}
+#endif
+#if HAVE_QUARANTINE
 	if (j->quarantine_data) {
 		free(j->quarantine_data);
 	}
+#endif
 	if (j->j_binpref) {
 		free(j->j_binpref);
 	}
@@ -1458,8 +1489,10 @@ job_import_string(job_t j, const char *key, const char *value)
 			where2put = &j->stdoutpath;
 		} else if (strcasecmp(key, LAUNCH_JOBKEY_STANDARDERRORPATH) == 0) {
 			where2put = &j->stderrpath;
+#if HAVE_SANDBOX
 		} else if (strcasecmp(key, LAUNCH_JOBKEY_SANDBOXPROFILE) == 0) {
 			where2put = &j->seatbelt_profile;
+#endif
 		}
 		break;
 	default:
@@ -1537,8 +1570,10 @@ job_import_integer(job_t j, const char *key, long long value)
 
 				job_assumes(j, kevent_mod((uintptr_t)&j->start_interval, EVFILT_TIMER, EV_ADD, NOTE_SECONDS, value, j) != -1);
 			}
+#if HAVE_SANDBOX
 		} else if (strcasecmp(key, LAUNCH_JOBKEY_SANDBOXFLAGS) == 0) {
 			j->seatbelt_flags = value;
+#endif
 		}
 
 		break;
@@ -1554,6 +1589,7 @@ job_import_opaque(job_t j, const char *key, launch_data_t value)
 	switch (key[0]) {
 	case 'q':
 	case 'Q':
+#if HAVE_QUARANTINE
 		if (strcasecmp(key, LAUNCH_JOBKEY_QUARANTINEDATA) == 0) {
 			size_t tmpsz = launch_data_get_opaque_size(value);
 
@@ -1562,9 +1598,33 @@ job_import_opaque(job_t j, const char *key, launch_data_t value)
 				j->quarantine_data_sz = tmpsz;
 			}
 		}
+#endif
 		break;
 	default:
 		break;
+	}
+}
+
+static void
+policy_setup(launch_data_t obj, const char *key, void *context)
+{
+	job_t j = context;
+	bool found_key = false;
+
+	switch (key[0]) {
+	case 'd':
+	case 'D':
+		if (strcasecmp(key, LAUNCH_JOBPOLICY_DENYCREATINGOTHERJOBS) == 0) {
+			j->deny_job_creation = launch_data_get_bool(obj);
+			found_key = true;
+		}
+		break;
+	default:
+		break;
+	}
+
+	if (unlikely(!found_key)) {
+		job_log(j, LOG_WARNING, "Unknown policy: %s", key);
 	}
 }
 
@@ -1574,6 +1634,12 @@ job_import_dictionary(job_t j, const char *key, launch_data_t value)
 	launch_data_t tmp;
 
 	switch (key[0]) {
+	case 'p':
+	case 'P':
+		if (strcasecmp(key, LAUNCH_JOBKEY_POLICIES) == 0) {
+			launch_data_dict_iterate(value, policy_setup, j);
+		}
+		break;
 	case 'k':
 	case 'K':
 		if (strcasecmp(key, LAUNCH_JOBKEY_KEEPALIVE) == 0) {
@@ -1612,8 +1678,10 @@ job_import_dictionary(job_t j, const char *key, launch_data_t value)
 			calendarinterval_new_from_obj(j, value);
 		} else if (strcasecmp(key, LAUNCH_JOBKEY_SOFTRESOURCELIMITS) == 0) {
 			launch_data_dict_iterate(value, limititem_setup, j);
+#if HAVE_SANDBOX
 		} else if (strcasecmp(key, LAUNCH_JOBKEY_SANDBOXFLAGS) == 0) {
 			launch_data_dict_iterate(value, seatbelt_setup_flags, j);
+#endif
 		}
 		break;
 	case 'h':
@@ -1816,10 +1884,7 @@ jobmgr_import2(jobmgr_t jm, launch_data_t pload)
 	if ((j = job_find(label)) != NULL) {
 		errno = EEXIST;
 		return NULL;
-	} else if (label[0] == '\0' || (strncasecmp(label, "", strlen("com.apple.launchd")) == 0) ||
-			(strtol(label, NULL, 10) != 0)) {
-		jobmgr_log(jm, LOG_ERR, "Somebody attempted to use a reserved prefix for a label: %s", label);
-		/* the empty string, com.apple.launchd and number prefixes for labels are reserved */
+	} else if (!jobmgr_label_test(jm, label)) {
 		errno = EINVAL;
 		return NULL;
 	}
@@ -1829,6 +1894,40 @@ jobmgr_import2(jobmgr_t jm, launch_data_t pload)
 	}
 
 	return j;
+}
+
+bool
+jobmgr_label_test(jobmgr_t jm, const char *str)
+{
+	char *endstr = NULL;
+	const char *ptr;
+
+	if (str[0] == '\0') {
+		jobmgr_log(jm, LOG_ERR, "Empty job labels are not allowed");
+		return false;
+	}
+	
+	for (ptr = str; *ptr; ptr++) {
+		if (iscntrl(*ptr)) {
+			jobmgr_log(jm, LOG_ERR, "ASCII control characters are not allowed in job labels. Index: %td Value: 0x%hhx", ptr - str, *ptr);
+			return false;
+		}
+	}
+	
+	strtoll(str, &endstr, 0);
+
+	if (str != endstr) {
+		jobmgr_log(jm, LOG_ERR, "Job labels are not allowed to begin with numbers: %s", str);
+		return false;
+	}
+	
+	if ((strncasecmp(str, "com.apple.launchd", strlen("com.apple.launchd")) == 0) ||
+			(strncasecmp(str, "com.apple.launchctl", strlen("com.apple.launchctl")) == 0)) {
+		jobmgr_log(jm, LOG_ERR, "Job labels are not allowed to use a reserved prefix: %s", str);
+		return false;
+	}
+
+	return true;
 }
 
 job_t 
@@ -1993,8 +2092,14 @@ void
 job_log_stray_pg(job_t j)
 {
 	int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PGRP, j->p };
-	size_t i, kp_cnt, len = 10*1024*1024;
+	size_t i, kp_cnt, len = sizeof(struct kinfo_proc) * get_kern_max_proc();
 	struct kinfo_proc *kp;
+
+#if TARGET_OS_EMBEDDED
+	if (!do_apple_internal_magic) {
+		return;
+	}
+#endif
 
 	if (!job_assumes(j, (kp = malloc(len)) != NULL)) {
 		return;
@@ -2680,6 +2785,7 @@ job_start_child(job_t j)
 		job_assumes(j, binpref_out_cnt == j->j_binpref_cnt);
 	}
 
+#if HAVE_QUARANTINE
 	if (j->quarantine_data) {
 		qtn_proc_t qp;
 
@@ -2689,7 +2795,9 @@ job_start_child(job_t j)
 			}
 		}
 	}
+#endif
 
+#if HAVE_SANDBOX
 	if (j->seatbelt_profile) {
 		char *seatbelt_err_buf = NULL;
 
@@ -2700,6 +2808,7 @@ job_start_child(job_t j)
 			goto out_bad;
 		}
 	}
+#endif
 
 	if (j->prog) {
 		errno = posix_spawn(&junk_pid, j->inetcompat ? file2exec : j->prog, NULL, &spattr, (char *const*)argv, environ);
@@ -2764,9 +2873,16 @@ void
 job_find_and_blame_pids_with_weird_uids(job_t j)
 {
 	int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
-	size_t i, kp_cnt, len = 10*1024*1024;
-	struct kinfo_proc *kp = malloc(len);
+	size_t i, kp_cnt, len = sizeof(struct kinfo_proc) * get_kern_max_proc();
+	struct kinfo_proc *kp;
 	uid_t u = j->mach_uid;
+
+#if TARGET_OS_EMBEDDED
+	if (!do_apple_internal_magic) {
+		return;
+	}
+#endif
+	kp = malloc(len);
 
 	if (!job_assumes(j, kp != NULL)) {
 		return;
@@ -3262,11 +3378,10 @@ semaphoreitem_ignore(job_t j, struct semaphoreitem *si)
 void
 semaphoreitem_watch(job_t j, struct semaphoreitem *si)
 {
-	char parentdir_path[PATH_MAX], *which_path = si->what;
+	char *parentdir, tmp_path[PATH_MAX];
+	const char *which_path = si->what;
 	int saved_errno = 0;
 	int fflags = 0;
-	
-	strlcpy(parentdir_path, dirname(si->what), sizeof(parentdir_path));
 
 	switch (si->why) {
 	case PATH_EXISTS:
@@ -3283,11 +3398,18 @@ semaphoreitem_watch(job_t j, struct semaphoreitem *si)
 		return;
 	}
 
+	/* dirname() may modify tmp_path */
+	strlcpy(tmp_path, si->what, sizeof(tmp_path));
+
+	if (!job_assumes(j, (parentdir = dirname(tmp_path)))) {
+		return;
+	}
+
 	/* See 5321044 for why we do the do-while loop and 5415523 for why ENOENT is checked */
 	do {
 		if (si->fd == -1) {
 			if ((si->fd = _fd(open(which_path, O_EVTONLY|O_NOCTTY))) == -1) {
-				which_path = parentdir_path;
+				which_path = parentdir;
 				si->fd = _fd(open(which_path, O_EVTONLY|O_NOCTTY));
 			}
 		}
@@ -3528,7 +3650,7 @@ socketgroup_new(job_t j, const char *name, int *fds, unsigned int fd_cnt, bool j
 	}
 
 	memcpy(sg->fds, fds, fd_cnt * sizeof(int));
-	strcpy(sg->name, name);
+	strcpy(sg->name_init, name);
 
 	SLIST_INSERT_HEAD(&j->sockets, sg, sle);
 
@@ -3620,8 +3742,8 @@ envitem_new(job_t j, const char *k, const char *v, bool global)
 		return false;
 	}
 
-	strcpy(ei->key, k);
-	ei->value = ei->key + strlen(k) + 1;
+	strcpy(ei->key_init, k);
+	ei->value = ei->key_init + strlen(k) + 1;
 	strcpy(ei->value, v);
 
 	if (global) {
@@ -3701,6 +3823,7 @@ limititem_delete(job_t j, struct limititem *li)
 	free(li);
 }
 
+#if HAVE_SANDBOX
 void
 seatbelt_setup_flags(launch_data_t obj, const char *key, void *context)
 {
@@ -3719,6 +3842,7 @@ seatbelt_setup_flags(launch_data_t obj, const char *key, void *context)
 		j->seatbelt_flags |= SANDBOX_NAMED;
 	}
 }
+#endif
 
 void
 limititem_setup(launch_data_t obj, const char *key, void *context)
@@ -3760,7 +3884,7 @@ job_useless(job_t j)
 	} else if (j->removal_pending) {
 		job_log(j, LOG_DEBUG, "Exited while removal was pending.");
 		return true;
-	} else if (j->mgr->shutting_down) {
+	} else if (j->mgr->shutting_down && (j->hopefully_exits_first || j->mgr->hopefully_first_cnt == 0)) {
 		job_log(j, LOG_DEBUG, "Exited while shutdown in progress. Processes remaining: %lu/%lu", total_children, total_anon_children);
 		return true;
 	} else if (j->legacy_mach_job) {
@@ -3785,6 +3909,10 @@ job_keepalive(job_t j)
 	struct machservice *ms;
 	struct stat sb;
 	bool good_exit = (WIFEXITED(j->last_exit_status) && WEXITSTATUS(j->last_exit_status) == 0);
+
+	if (j->mgr->shutting_down) {
+		return false;
+	}
 
 	/*
 	 * 5066316
@@ -4040,6 +4168,10 @@ job_setup_exception_port(job_t j, task_t target_task)
 	f = PPC_THREAD_STATE64;
 #elif defined(__i386__)
 	f = x86_THREAD_STATE;
+#elif defined(__arm__)
+	f = ARM_THREAD_STATE;
+#else
+#error "unknown architecture"
 #endif
 
 	if (target_task) {
@@ -4239,9 +4371,14 @@ void
 jobmgr_log_stray_children(jobmgr_t jm)
 {
 	int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
-	size_t i, kp_cnt, len = 10*1024*1024;
+	size_t i, kp_cnt, len = sizeof(struct kinfo_proc) * get_kern_max_proc();
 	struct kinfo_proc *kp;
 
+#if TARGET_OS_EMBEDDED
+	if (!do_apple_internal_magic) {
+		return;
+	}
+#endif
 	if (jm->parentmgr || getpid() != 1) {
 		return;
 	}
@@ -4318,7 +4455,7 @@ jobmgr_new(jobmgr_t jm, mach_port_t requestorport, mach_port_t transfer_port, bo
 	}
 
 	jmr->kqjobmgr_callback = jobmgr_callback;
-	strcpy(jmr->name, name ? name : "Under construction");
+	strcpy(jmr->name_init, name ? name : "Under construction");
 
 	jmr->req_port = requestorport;
 
@@ -4366,7 +4503,7 @@ jobmgr_new(jobmgr_t jm, mach_port_t requestorport, mach_port_t transfer_port, bo
 	}
 
 	if (!name) {
-		sprintf(jmr->name, "%u", MACH_PORT_INDEX(jmr->jm_port));
+		sprintf(jmr->name_init, "%u", MACH_PORT_INDEX(jmr->jm_port));
 	}
 
 	/* Sigh... at the moment, MIG has maxsize == sizeof(reply union) */
@@ -4806,7 +4943,7 @@ semaphoreitem_new(job_t j, semaphore_reason_t why, const char *what)
 	si->why = why;
 
 	if (what) {
-		strcpy(si->what, what);
+		strcpy(si->what_init, what);
 	}
 
 	SLIST_INSERT_HEAD(&j->semaphores, si, sle);
@@ -5109,6 +5246,10 @@ job_mig_create_server(job_t j, cmd_t server_cmd, uid_t server_uid, boolean_t on_
 
 	if (!launchd_assumes(j != NULL)) {
 		return BOOTSTRAP_NO_MEMORY;
+	}
+
+	if (unlikely(j->deny_job_creation)) {
+		return BOOTSTRAP_NOT_PRIVILEGED;
 	}
 
 	runtime_get_caller_creds(&ldc);
@@ -5729,6 +5870,8 @@ job_mig_register2(job_t j, name_t servicename, mach_port_t serviceport, uint64_t
 
 	job_log(j, LOG_DEBUG, "%sMach service registration attempt: %s", flags & BOOTSTRAP_PER_PID_SERVICE ? "Per PID " : "", servicename);
 
+	/* 5641783 for the embedded hack */
+#if !TARGET_OS_EMBEDDED
 	/*
 	 * From a per-user/session launchd's perspective, SecurityAgent (UID
 	 * 92) is a rogue application (not our UID, not root and not a child of
@@ -5741,6 +5884,7 @@ job_mig_register2(job_t j, name_t servicename, mach_port_t serviceport, uint64_t
 			return BOOTSTRAP_NOT_PRIVILEGED;
 		}
 	}
+#endif
 	
 	ms = jobmgr_lookup_service(j->mgr, servicename, false, flags & BOOTSTRAP_PER_PID_SERVICE ? ldc.pid : 0);
 
@@ -5780,9 +5924,12 @@ job_mig_look_up2(job_t j, name_t servicename, mach_port_t *serviceportp, mach_ms
 
 	runtime_get_caller_creds(&ldc);
 
+	/* 5641783 for the embedded hack */
+#if !TARGET_OS_EMBEDDED
 	if (getpid() == 1 && j->anonymous && job_get_bs(j)->parentmgr == NULL && ldc.uid != 0 && ldc.euid != 0) {
 		return VPROC_ERR_TRY_PER_USER;
 	}
+#endif
 
 	if (!mspolicy_check(j, servicename, flags & BOOTSTRAP_PER_PID_SERVICE)) {
 		job_log(j, LOG_NOTICE, "Policy denied Mach service lookup: %s", servicename);
@@ -6075,7 +6222,7 @@ job_mig_move_subset(job_t j, mach_port_t target_subset, name_t session_type)
 		}
 
 		jobmgr_log(j->mgr, LOG_DEBUG, "Renaming to: %s", session_type);
-		strcpy(j->mgr->name, session_type);
+		strcpy(j->mgr->name_init, session_type);
 
 		if (job_assumes(j, (j2 = jobmgr_init_session(j->mgr, session_type, false)))) {
 			job_assumes(j, job_dispatch(j2, true));
@@ -6092,7 +6239,7 @@ job_mig_move_subset(job_t j, mach_port_t target_subset, name_t session_type)
 
 	job_log(j, LOG_DEBUG, "Move subset attempt: 0x%x", target_subset);
 
-	kr = _vproc_grab_subset(target_subset, &reqport, &rcvright, &out_obj_array, &l2l_ports, &l2l_port_cnt);
+	errno = kr = _vproc_grab_subset(target_subset, &reqport, &rcvright, &out_obj_array, &l2l_ports, &l2l_port_cnt);
 
 	if (!job_assumes(j, kr == 0)) {
 		goto out;
@@ -6367,6 +6514,66 @@ out_bad:
 }
 
 kern_return_t
+job_mig_embedded_wait(job_t j, name_t targetlabel, integer_t *waitstatus)
+{
+	job_t otherj;
+
+	if (!launchd_assumes(j != NULL)) {
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
+	if (unlikely(!(otherj = job_find(targetlabel)))) {
+		return BOOTSTRAP_UNKNOWN_SERVICE;
+	}
+
+	*waitstatus = j->last_exit_status;
+
+	return 0;
+}
+
+kern_return_t
+job_mig_embedded_kickstart(job_t j, name_t targetlabel, pid_t *out_pid, mach_port_t *out_name_port)
+{
+	struct ldcred ldc;
+	kern_return_t kr;
+	job_t otherj;
+
+	if (!launchd_assumes(j != NULL)) {
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
+	if (unlikely(!(otherj = job_find(targetlabel)))) {
+		return BOOTSTRAP_UNKNOWN_SERVICE;
+	}
+
+	runtime_get_caller_creds(&ldc);
+
+	if (ldc.euid != 0 && ldc.euid != geteuid()
+#if TARGET_OS_EMBEDDED
+			&& j->username && otherj->username
+			&& strcmp(j->username, otherj->username) != 0
+#endif
+			) {
+		return BOOTSTRAP_NOT_PRIVILEGED;
+	}
+
+	otherj = job_dispatch(otherj, true);
+
+	if (!job_assumes(j, otherj && otherj->p)) {
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
+	kr = task_name_for_pid(mach_task_self(), otherj->p, out_name_port);
+	if (!job_assumes(j, kr == 0)) {
+		return kr;
+	}
+
+	*out_pid = otherj->p;
+
+	return 0;
+}
+
+kern_return_t
 job_mig_wait(job_t j, mach_port_t srp, integer_t *waitstatus)
 {
 	if (!launchd_assumes(j != NULL)) {
@@ -6415,6 +6622,7 @@ job_mig_set_service_policy(job_t j, pid_t target_pid, uint64_t flags, name_t tar
 			job_assumes(j, mspolicy_new(target_j, target_service, flags & BOOTSTRAP_ALLOW_LOOKUP, flags & BOOTSTRAP_PER_PID_SERVICE, false));
 		} else {
 			target_j->deny_unknown_mslookups = !(flags & BOOTSTRAP_ALLOW_LOOKUP);
+			target_j->deny_job_creation = (bool)(flags & BOOTSTRAP_DENY_JOB_CREATION);
 		}
 	} else {
 		job_log(j, LOG_WARNING, "Jobs that have policies assigned to them may not set policies.");
@@ -6436,6 +6644,10 @@ job_mig_spawn(job_t j, vm_offset_t indata, mach_msg_type_number_t indataCnt, pid
 
 	if (!launchd_assumes(j != NULL)) {
 		return BOOTSTRAP_NO_MEMORY;
+	}
+
+	if (unlikely(j->deny_job_creation)) {
+		return BOOTSTRAP_NOT_PRIVILEGED;
 	}
 
 	if (getpid() == 1 && ldc.euid && ldc.uid) {
@@ -6640,9 +6852,26 @@ waiting4removal_delete(job_t j, struct waiting_for_removal *w4r)
 	free(w4r);
 }
 
+size_t
+get_kern_max_proc(void)
+{
+	int mib[] = { CTL_KERN, KERN_MAXPROC };
+	int max = 100;
+	size_t max_sz = sizeof(max);
+
+	launchd_assumes(sysctl(mib, 2, &max, &max_sz, NULL, 0) != -1);
+
+	return max;
+}
+
 void
 do_file_init(void)
 {
+	struct stat sb;
+
 	launchd_assert(mach_timebase_info(&tbi) == 0);
 
+	if (stat("/AppleInternal", &sb) == 0) {
+		do_apple_internal_magic = true;
+	}
 }

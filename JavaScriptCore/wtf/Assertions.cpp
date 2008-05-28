@@ -35,7 +35,7 @@
 #include <CoreFoundation/CFString.h>
 #endif
 
-#if PLATFORM(WIN)
+#if COMPILER(MSVC)
 #ifndef WINVER
 #define WINVER 0x0500
 #endif
@@ -48,10 +48,7 @@
 
 extern "C" {
 
-// This is to work around the "you should use a printf format attribute" warning on GCC
-// We can't use _attribute__ ((format (printf, 2, 3))) since we allow %@
-static int (* vfprintf_no_warning)(FILE *, const char*, va_list) = vfprintf;
-
+WTF_ATTRIBUTE_PRINTF(1, 0)
 static void vprintf_stderr_common(const char* format, va_list args)
 {
 #if PLATFORM(MAC)
@@ -70,7 +67,7 @@ static void vprintf_stderr_common(const char* format, va_list args)
         CFRelease(str);
         CFRelease(cfFormat);
     } else
-#elif PLATFORM(WIN)
+#elif COMPILER(MSVC)
     if (IsDebuggerPresent()) {
         size_t size = 1024;
 
@@ -91,9 +88,10 @@ static void vprintf_stderr_common(const char* format, va_list args)
         } while (size > 1024);
     }
 #endif
-        vfprintf_no_warning(stderr, format, args);
+    vfprintf(stderr, format, args);
 }
 
+WTF_ATTRIBUTE_PRINTF(1, 2)
 static void printf_stderr_common(const char* format, ...)
 {
     va_list args;

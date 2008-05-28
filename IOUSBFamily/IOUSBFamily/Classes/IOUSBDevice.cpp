@@ -842,7 +842,11 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
 			
 			USBLog(5,"%s[%p]: kIOUSBMessagePortHasBeenSuspended calling _doClientMessage ",getName(),this);
 			retain();
-			thread_call_enter1( _DO_MESSAGE_CLIENTS_THREAD, (thread_call_param_t) messageStructPtr );
+			if ( thread_call_enter1( _DO_MESSAGE_CLIENTS_THREAD, (thread_call_param_t) messageStructPtr ) == TRUE )
+			{
+				USBLog(3,"%s[%p]: kIOUSBMessagePortHasBeenSuspended _DO_MESSAGE_CLIENTS_THREAD already queued ",getName(),this);
+				release();
+			}
 			
 		}
 		break;
@@ -2896,7 +2900,11 @@ IOUSBDevice::SuspendDevice( bool suspend )
 	retain();
 	
 	USBLog(5, "+%s[%p]::SuspendDevice(%s) for port %ld", getName(), this, suspend ? "suspend" : "resume", _PORT_NUMBER );
-	thread_call_enter1( _DO_PORT_SUSPEND_THREAD, (thread_call_param_t) suspend );
+	if ( thread_call_enter1( _DO_PORT_SUSPEND_THREAD, (thread_call_param_t) suspend ) == TRUE )
+	{
+		USBLog(3, "%s[%p]::SuspendDevice(%s) for port %ld, _DO_PORT_SUSPEND_THREAD already queued", getName(), this, suspend ? "suspend" : "resume", _PORT_NUMBER );
+		release();
+	}
 	
 	if ( _WORKLOOP->inGate() && _COMMAND_GATE)
 	{
@@ -2963,7 +2971,11 @@ IOUSBDevice::ReEnumerateDevice( UInt32 options )
     //
     USBLog(3, "+%s[%p] ReEnumerateDevice for port %ld, options 0x%lx", getName(), this, _PORT_NUMBER, options );
     retain();
-    thread_call_enter1( _DO_PORT_REENUMERATE_THREAD, (thread_call_param_t) options );
+    if ( thread_call_enter1( _DO_PORT_REENUMERATE_THREAD, (thread_call_param_t) options) == TRUE )
+	{
+		USBLog(3, "+%s[%p] ReEnumerateDevice for port %ld, _DO_PORT_REENUMERATE_THREAD already queued", getName(), this, _PORT_NUMBER );
+		release();
+	}
 	
     USBLog(3, "-%s[%p] ReEnumerateDevice for port %ld", getName(), this, _PORT_NUMBER );
     

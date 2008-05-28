@@ -46,9 +46,15 @@ typedef struct tagPOINT POINT;
 typedef struct tagPOINTS POINTS;
 #elif PLATFORM(QT)
 class QPoint;
+#elif PLATFORM(GTK)
+typedef struct _GdkPoint GdkPoint;
 #endif
 #if PLATFORM(SYMBIAN)
 class TPoint;
+#endif
+
+#if PLATFORM(WX)
+class wxPoint;
 #endif
 
 namespace WebCore {
@@ -84,10 +90,18 @@ public:
 #elif PLATFORM(QT)
     IntPoint(const QPoint&);
     operator QPoint() const;
+#elif PLATFORM(GTK)
+    IntPoint(const GdkPoint&);
+    operator GdkPoint() const;
 #endif
 #if PLATFORM(SYMBIAN)
     IntPoint(const TPoint&);
     operator TPoint() const;
+#endif
+
+#if PLATFORM(WX)
+    IntPoint(const wxPoint&);
+    operator wxPoint() const;
 #endif
 
 private:

@@ -42,7 +42,6 @@
 #include "HTMLNames.h"
 #include "HTMLScriptElement.h"
 #include "HTMLStyleElement.h"
-#include "HTMLTableSectionElement.h"
 #include "HTMLTokenizer.h"
 #include "ProcessingInstruction.h"
 #include "ResourceHandle.h"
@@ -55,6 +54,7 @@
 #include <QDebug>
 #endif
 #include <wtf/Platform.h>
+#include <wtf/StringExtras.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(XSLT)
@@ -337,7 +337,6 @@ private:
 public:
     DeprecatedPtrList<PendingCallback> m_callbacks;
 };
-#endif
 // --------------------------------
 
 static int globalDescriptor = 0;
@@ -368,7 +367,6 @@ private:
     unsigned m_currentOffset;
 };
 
-#ifndef USE_QXMLSTREAM
 static bool shouldAllowExternalLoad(const char* inURI)
 {
     if (strstr(inURI, "/etc/xml/catalog")
@@ -447,12 +445,27 @@ static xmlParserCtxtPtr createStringParser(xmlSAXHandlerPtr handlers, void* user
 }
 #endif
 
+#if defined(USE_QXMLSTREAM) && QT_VERSION >= 0x040400
+class EntityResolver : public QXmlStreamEntityResolver
+{
+    virtual QString resolveUndeclaredEntity(const QString &name);
+};
+
+QString EntityResolver::resolveUndeclaredEntity(const QString &name)
+{
+    UChar c = decodeNamedEntity(name.toUtf8().constData());
+    return QString(c);
+}
+#endif
+
 // --------------------------------
 
 XMLTokenizer::XMLTokenizer(Document* _doc, FrameView* _view)
     : m_doc(_doc)
     , m_view(_view)
-#ifndef USE_QXMLSTREAM
+#ifdef USE_QXMLSTREAM
+    , m_wroteText(false)
+#else
     , m_context(0)
 #endif
     , m_currentNode(_doc)
@@ -474,12 +487,17 @@ XMLTokenizer::XMLTokenizer(Document* _doc, FrameView* _view)
     , m_pendingCallbacks(new PendingCallbacks)
 #endif
 {
+#if defined(USE_QXMLSTREAM) && QT_VERSION >= 0x040400
+    m_stream.setEntityResolver(new EntityResolver);
+#endif
 }
 
 XMLTokenizer::XMLTokenizer(DocumentFragment* fragment, Element* parentElement)
     : m_doc(fragment->document())
     , m_view(0)
-#ifndef USE_QXMLSTREAM
+#ifdef USE_QXMLSTREAM
+    , m_wroteText(false)
+#else
     , m_context(0)
 #endif
     , m_currentNode(fragment)
@@ -520,6 +538,7 @@ XMLTokenizer::XMLTokenizer(DocumentFragment* fragment, Element* parentElement)
     if (elemStack.isEmpty())
         return;
     
+#if !PLATFORM(QT) || QT_VERSION < 0x040400
     for (Element* element = elemStack.last(); !elemStack.isEmpty(); elemStack.removeLast()) {
         if (NamedAttrMap* attrs = element->attributes()) {
             for (unsigned i = 0; i < attrs->length(); i++) {
@@ -531,6 +550,26 @@ XMLTokenizer::XMLTokenizer(DocumentFragment* fragment, Element* parentElement)
             }
         }
     }
+#else
+    QXmlStreamNamespaceDeclarations namespaces;
+    for (Element* element = elemStack.last(); !elemStack.isEmpty(); elemStack.removeLast()) {
+        if (NamedAttrMap* attrs = element->attributes()) {
+            for (unsigned i = 0; i < attrs->length(); i++) {
+                Attribute* attr = attrs->attributeItem(i);
+                if (attr->localName() == "xmlns")
+                    m_defaultNamespaceURI = attr->value();
+                else if (attr->prefix() == "xmlns")
+                    namespaces.append(QXmlStreamNamespaceDeclaration(attr->localName(), attr->value()));
+            }
+        }
+    }
+    m_stream.addExtraNamespaceDeclarations(namespaces);
+    m_stream.setEntityResolver(new EntityResolver);
+#endif
+
+    // If the parent element is not in document tree, there may be no xmlns attribute; just default to the parent's namespace.
+    if (m_defaultNamespaceURI.isNull() && !parentElement->inDocument())
+        m_defaultNamespaceURI = parentElement->namespaceURI();
 }
 
 XMLTokenizer::~XMLTokenizer()
@@ -540,6 +579,9 @@ XMLTokenizer::~XMLTokenizer()
         m_doc->deref();
     if (m_pendingScript)
         m_pendingScript->deref(this);
+#if defined(USE_QXMLSTREAM) && QT_VERSION >= 0x040400
+    delete m_stream.entityResolver();
+#endif
 }
 
 void XMLTokenizer::setCurrentNode(Node* n)
@@ -585,8 +627,10 @@ bool XMLTokenizer::write(const SegmentedString& s, bool /*appendData*/)
         xmlParseChunk(m_context, reinterpret_cast<const char*>(parseString.characters()), sizeof(UChar) * parseString.length(), 0);
     }
 #else
+    m_wroteText = true;
     QString data(parseString);
     if (!data.isEmpty()) {
+#if QT_VERSION < 0x040400
         if (!m_sawFirstElement) {
             int idx = data.indexOf(QLatin1String("<?xml"));
             if (idx != -1) {
@@ -598,12 +642,15 @@ bool XMLTokenizer::write(const SegmentedString& s, bool /*appendData*/)
                 String version = attrs.get("version");
                 String encoding = attrs.get("encoding");
                 ExceptionCode ec = 0;
-                if (!version.isEmpty())
-                    m_doc->setXMLVersion(version, ec);
-                if (!encoding.isEmpty())
-                    m_doc->setXMLEncoding(encoding);
+                if (!m_parsingFragment) {
+                    if (!version.isEmpty())
+                        m_doc->setXMLVersion(version, ec);
+                    if (!encoding.isEmpty())
+                        m_doc->setXMLEncoding(encoding);
+                }
             }
         }
+#endif
         m_stream.addData(data);
         parse();
     }
@@ -690,7 +737,7 @@ void XMLTokenizer::startElementNs(const xmlChar* xmlLocalName, const xmlChar* xm
     String localName = toString(xmlLocalName);
     String uri = toString(xmlURI);
     String prefix = toString(xmlPrefix);
-    
+
     if (m_parsingFragment && uri.isNull()) {
         if (!prefix.isNull())
             uri = m_prefixToNamespaceMap.get(prefix);
@@ -717,6 +764,8 @@ void XMLTokenizer::startElementNs(const xmlChar* xmlLocalName, const xmlChar* xm
         stopParsing();
         return;
     }
+
+    newElement->beginParsingChildren();
 
     if (newElement->hasTagName(scriptTag))
         static_cast<HTMLScriptElement*>(newElement.get())->setCreatedByParser(true);
@@ -758,7 +807,7 @@ void XMLTokenizer::endElementNs()
 
     Node* n = m_currentNode;
     RefPtr<Node> parent = n->parentNode();
-    n->finishedParsing();
+    n->finishParsingChildren();
     
     // don't load external scripts for standalone documents (for now)
     if (n->isElementNode() && m_view && (static_cast<Element*>(n)->hasTagName(scriptTag) 
@@ -801,7 +850,7 @@ void XMLTokenizer::endElementNs()
                 if (child->isTextNode() || child->nodeType() == Node::CDATA_SECTION_NODE)
                     scriptCode += static_cast<CharacterData*>(child)->data();
             }
-            m_view->frame()->loader()->executeScript(m_doc->URL(), m_scriptStartLine - 1, scriptCode);
+            m_view->frame()->loader()->executeScript(m_doc->url(), m_scriptStartLine - 1, scriptCode);
         }
         
         m_requestingScript = false;
@@ -820,10 +869,8 @@ void XMLTokenizer::characters(const xmlChar* s, int len)
         return;
     }
     
-    if (m_currentNode->isTextNode() || enterText()) {
-        ExceptionCode ec = 0;
-        static_cast<Text*>(m_currentNode)->appendData(toString(s, len), ec);
-    }
+    if (m_currentNode->isTextNode() || enterText())
+        m_bufferedText.append(s, len);
 }
 
 void XMLTokenizer::error(ErrorType type, const char* message, va_list args)
@@ -927,12 +974,17 @@ void XMLTokenizer::comment(const xmlChar* s)
 void XMLTokenizer::startDocument(const xmlChar* version, const xmlChar* encoding, int standalone)
 {
     ExceptionCode ec = 0;
-    
+
     if (version)
         m_doc->setXMLVersion(toString(version), ec);
     m_doc->setXMLStandalone(standalone == 1, ec); // possible values are 0, 1, and -1
     if (encoding)
         m_doc->setXMLEncoding(toString(encoding));
+}
+
+void XMLTokenizer::endDocument()
+{
+    exitText();
 }
 
 void XMLTokenizer::internalSubset(const xmlChar* name, const xmlChar* externalID, const xmlChar* systemID)
@@ -1018,6 +1070,7 @@ static void commentHandler(void* closure, const xmlChar* comment)
     getTokenizer(closure)->comment(comment);
 }
 
+WTF_ATTRIBUTE_PRINTF(2, 3)
 static void warningHandler(void* closure, const char* message, ...)
 {
     va_list args;
@@ -1026,6 +1079,7 @@ static void warningHandler(void* closure, const char* message, ...)
     va_end(args);
 }
 
+WTF_ATTRIBUTE_PRINTF(2, 3)
 static void fatalErrorHandler(void* closure, const char* message, ...)
 {
     va_list args;
@@ -1034,6 +1088,7 @@ static void fatalErrorHandler(void* closure, const char* message, ...)
     va_end(args);
 }
 
+WTF_ATTRIBUTE_PRINTF(2, 3)
 static void normalErrorHandler(void* closure, const char* message, ...)
 {
     va_list args;
@@ -1093,6 +1148,12 @@ static void startDocumentHandler(void* closure)
     xmlSAX2StartDocument(closure);
 }
 
+static void endDocumentHandler(void* closure)
+{
+    getTokenizer(closure)->endDocument();
+    xmlSAX2EndDocument(closure);
+}
+
 static void internalSubsetHandler(void* closure, const xmlChar* name, const xmlChar* externalID, const xmlChar* systemID)
 {
     getTokenizer(closure)->internalSubset(name, externalID, systemID);
@@ -1147,6 +1208,9 @@ void XMLTokenizer::handleError(ErrorType type, const char* m, int lineNumber, in
 
 bool XMLTokenizer::enterText()
 {
+#ifndef USE_QXMLSTREAM
+    ASSERT(m_bufferedText.size() == 0);
+#endif
     RefPtr<Node> newNode = new Text(m_doc, "");
     if (!m_currentNode->addChild(newNode.get()))
         return false;
@@ -1161,6 +1225,13 @@ void XMLTokenizer::exitText()
 
     if (!m_currentNode || !m_currentNode->isTextNode())
         return;
+
+#ifndef USE_QXMLSTREAM
+    ExceptionCode ec = 0;
+    static_cast<Text*>(m_currentNode)->appendData(toString(m_bufferedText.data(), m_bufferedText.size()), ec);
+    Vector<xmlChar> empty;
+    m_bufferedText.swap(empty);
+#endif
 
     if (m_view && m_currentNode && !m_currentNode->attached())
         m_currentNode->attach();
@@ -1187,6 +1258,7 @@ void XMLTokenizer::initializeParserContext()
     sax.endElementNs = endElementNsHandler;
     sax.getEntity = getEntityHandler;
     sax.startDocument = startDocumentHandler;
+    sax.endDocument = endDocumentHandler;
     sax.internalSubset = internalSubsetHandler;
     sax.externalSubset = externalSubsetHandler;
     sax.ignorableWhitespace = ignorableWhitespaceHandler;
@@ -1207,7 +1279,7 @@ void XMLTokenizer::end()
 {
 #if ENABLE(XSLT)
     if (m_sawXSLTransform) {
-        m_doc->setTransformSource(xmlDocPtrForString(m_doc->docLoader(), m_originalSourceForTransform, m_doc->URL()));
+        m_doc->setTransformSource(xmlDocPtrForString(m_doc->docLoader(), m_originalSourceForTransform, m_doc->url()));
         
         m_doc->setParsing(false); // Make the doc think it's done, so it will apply xsl sheets.
         m_doc->updateStyleSelector();
@@ -1227,7 +1299,7 @@ void XMLTokenizer::end()
         m_context = 0;
     }
 #else
-    if (m_stream.error() == QXmlStreamReader::PrematureEndOfDocumentError) {
+    if (m_stream.error() == QXmlStreamReader::PrematureEndOfDocumentError || (m_wroteText && !m_sawFirstElement)) {
         handleError(fatal, qPrintable(m_stream.errorString()), lineNumber(),
                     columnNumber());
     }
@@ -1241,7 +1313,8 @@ void XMLTokenizer::end()
     }
     
     setCurrentNode(0);
-    m_doc->finishedParsing();    
+    if (!m_parsingFragment)
+        m_doc->finishedParsing();    
 }
 
 void XMLTokenizer::finish()
@@ -1256,7 +1329,7 @@ static inline RefPtr<Element> createXHTMLParserErrorHeader(Document* doc, const 
 {
     ExceptionCode ec = 0;
     RefPtr<Element> reportElement = doc->createElementNS(xhtmlNamespaceURI, "parsererror", ec);
-    reportElement->setAttribute(styleAttr, "white-space: pre; border: 2px solid #c77; padding: 0 1em 0 1em; margin: 1em; background-color: #fdd; color: black");
+    reportElement->setAttribute(styleAttr, "display: block; white-space: pre; border: 2px solid #c77; padding: 0 1em 0 1em; margin: 1em; background-color: #fdd; color: black");
     
     RefPtr<Element> h3 = doc->createElementNS(xhtmlNamespaceURI, "h3", ec);
     reportElement->appendChild(h3.get(), ec);
@@ -1276,6 +1349,10 @@ static inline RefPtr<Element> createXHTMLParserErrorHeader(Document* doc, const 
 
 void XMLTokenizer::insertErrorMessageBlock()
 {
+#ifdef USE_QXMLSTREAM
+    if (m_parsingFragment)
+        return;
+#endif
     // One or more errors occurred during parsing of the code. Display an error block to the user above
     // the normal content (the DOM tree is created manually and includes line/col info regarding 
     // where the errors are located)
@@ -1384,7 +1461,7 @@ void* xmlDocPtrForString(DocLoader* docLoader, const String& source, const Depre
 int XMLTokenizer::lineNumber() const
 {
 #ifndef USE_QXMLSTREAM
-    return m_context->input->line;
+    return m_context ? m_context->input->line : 1;
 #else
     return m_stream.lineNumber();
 #endif
@@ -1393,7 +1470,7 @@ int XMLTokenizer::lineNumber() const
 int XMLTokenizer::columnNumber() const
 {
 #ifndef USE_QXMLSTREAM
-    return m_context->input->col;
+    return m_context ? m_context->input->col : 1;
 #else
     return m_stream.columnNumber();
 #endif
@@ -1485,6 +1562,7 @@ static void balancedCommentHandler(void* closure, const xmlChar* comment)
     static_cast<XMLTokenizer*>(closure)->comment(comment);
 }
 
+WTF_ATTRIBUTE_PRINTF(2, 3)
 static void balancedWarningHandler(void* closure, const char* message, ...)
 {
     va_list args;
@@ -1495,6 +1573,9 @@ static void balancedWarningHandler(void* closure, const char* message, ...)
 #endif
 bool parseXMLDocumentFragment(const String& string, DocumentFragment* fragment, Element* parent)
 {
+    if (!string.length())
+        return true;
+
     XMLTokenizer tokenizer(fragment, parent);
     
 #ifndef USE_QXMLSTREAM
@@ -1506,17 +1587,20 @@ bool parseXMLDocumentFragment(const String& string, DocumentFragment* fragment, 
     sax.startElementNs = balancedStartElementNsHandler;
     sax.endElementNs = balancedEndElementNsHandler;
     sax.cdataBlock = balancedCdataBlockHandler;
-    sax.ignorableWhitespace = balancedCdataBlockHandler;
+    sax.ignorableWhitespace = balancedCharactersHandler;
     sax.comment = balancedCommentHandler;
     sax.warning = balancedWarningHandler;
     sax.initialized = XML_SAX2_MAGIC;
     
     int result = xmlParseBalancedChunkMemory(0, &sax, &tokenizer, 0, (const xmlChar*)string.utf8().data(), 0);
+    tokenizer.endDocument();
     return result == 0;
 #else
+    tokenizer.write(String("<qxmlstreamdummyelement>"), false);
     tokenizer.write(string, false);
+    tokenizer.write(String("</qxmlstreamdummyelement>"), false);
     tokenizer.finish();
-    return tokenizer.hasError();
+    return !tokenizer.hasError();
 #endif
 }
 
@@ -1715,11 +1799,27 @@ void XMLTokenizer::startDocument()
     initializeParserContext();
     ExceptionCode ec = 0;
 
-    m_doc->setXMLStandalone(m_stream.isStandaloneDocument(), ec);
+    if (!m_parsingFragment) {
+        m_doc->setXMLStandalone(m_stream.isStandaloneDocument(), ec);
+
+#if QT_VERSION >= 0x040400
+        QStringRef version = m_stream.documentVersion();
+        if (!version.isEmpty())
+            m_doc->setXMLVersion(version, ec);
+        QStringRef encoding = m_stream.documentEncoding();
+        if (!encoding.isEmpty())
+            m_doc->setXMLEncoding(encoding);
+#endif
+    }
 }
 
 void XMLTokenizer::parseStartElement()
 {
+    if (!m_sawFirstElement && m_parsingFragment) {
+        // skip dummy element for fragments
+        m_sawFirstElement = true;
+        return;
+    }
     m_sawFirstElement = true;
 
     exitText();
@@ -1729,10 +1829,8 @@ void XMLTokenizer::parseStartElement()
     String prefix    = prefixFromQName(m_stream.qualifiedName().toString());
 
     if (m_parsingFragment && uri.isNull()) {
-        if (!prefix.isNull())
-            uri = m_prefixToNamespaceMap.get(prefix);
-        else
-            uri = m_defaultNamespaceURI;
+        Q_ASSERT (prefix.isNull());
+        uri = m_defaultNamespaceURI;
     }
 
     ExceptionCode ec = 0;
@@ -1780,8 +1878,13 @@ void XMLTokenizer::parseEndElement()
     exitText();
 
     Node* n = m_currentNode;
+
+    // skip end of dummy element
+//     if (m_parsingFragment & n->nodeType() == Node::DOCUMENT_FRAGMENT_NODE)
+//         return;
+    
     RefPtr<Node> parent = n->parentNode();
-    n->finishedParsing();
+    n->finishParsingChildren();
 
     // don't load external scripts for standalone documents (for now)
     if (n->isElementNode() && m_view && (static_cast<Element*>(n)->hasTagName(scriptTag) 
@@ -1823,7 +1926,7 @@ void XMLTokenizer::parseEndElement()
                 if (child->isTextNode() || child->nodeType() == Node::CDATA_SECTION_NODE)
                     scriptCode += static_cast<CharacterData*>(child)->data();
             }
-            m_view->frame()->loader()->executeScript(m_doc->URL(), m_scriptStartLine - 1, scriptCode);
+            m_view->frame()->loader()->executeScript(m_doc->url(), m_scriptStartLine - 1, scriptCode);
         }
         m_requestingScript = false;
     }
@@ -1894,6 +1997,7 @@ bool XMLTokenizer::hasError() const
     return m_stream.hasError();
 }
 
+#if QT_VERSION < 0x040400
 static QString parseId(const QString &dtd, int *pos, bool *ok)
 {
     *ok = true;
@@ -1912,9 +2016,15 @@ static QString parseId(const QString &dtd, int *pos, bool *ok)
     *pos = end + 1;
     return dtd.mid(start, end - start);
 }
+#endif
 
 void XMLTokenizer::parseDtd()
 {
+#if QT_VERSION >= 0x040400
+    QStringRef name = m_stream.dtdName();
+    QStringRef publicId = m_stream.dtdPublicId();
+    QStringRef systemId = m_stream.dtdSystemId();
+#else
     QString dtd = m_stream.text().toString();
 
     int start = dtd.indexOf("<!DOCTYPE ") + 10;
@@ -1963,10 +2073,9 @@ void XMLTokenizer::parseDtd()
         handleError(fatal, "Invalid DOCTYPE", lineNumber(), columnNumber());
         return;
     }
-    
-    //qDebug() << dtd << name << publicId << systemId;
-    const QXmlStreamNotationDeclarations& decls = m_stream.notationDeclarations();
+#endif    
 
+    //qDebug() << dtd << name << publicId << systemId;
     if ((publicId == "-//W3C//DTD XHTML 1.0 Transitional//EN")
         || (publicId == "-//W3C//DTD XHTML 1.1//EN")
         || (publicId == "-//W3C//DTD XHTML 1.0 Strict//EN")
@@ -1977,7 +2086,8 @@ void XMLTokenizer::parseDtd()
         || (publicId == "-//WAPFORUM//DTD XHTML Mobile 1.0//EN")) {
         setIsXHTMLDocument(true); // controls if we replace entities or not.
     }
-    m_doc->setDocType(new DocumentType(m_doc, name, publicId, systemId));
+    if (!m_parsingFragment)
+        m_doc->setDocType(new DocumentType(m_doc, name, publicId, systemId));
     
 }
 #endif

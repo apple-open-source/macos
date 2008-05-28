@@ -29,6 +29,7 @@
 #include "CSSStyleSelector.h"
 #include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
+#include "ClassNames.h"
 #include "Document.h"
 #include "HTMLNames.h"
 
@@ -58,6 +59,7 @@ struct MappedAttributeKeyTraits : WTF::GenericHashTraits<MappedAttributeKey> {
 struct MappedAttributeHash {
     static unsigned hash(const MappedAttributeKey&);
     static bool equal(const MappedAttributeKey& a, const MappedAttributeKey& b) { return a == b; }
+    static const bool safeToCompareToEmptyOrDeleted = true;
 };
 
 typedef HashMap<MappedAttributeKey, CSSMappedAttributeDeclaration*, MappedAttributeHash, MappedAttributeKeyTraits> MappedAttributeDecls;
@@ -102,16 +104,9 @@ void StyledElement::updateStyleAttributeIfNeeded() const
     }
 }
 
-inline static bool isClassWhitespace(UChar c)
-{
-    return c == ' ' || c == '\r' || c == '\n' || c == '\t';
-}
-
 StyledElement::StyledElement(const QualifiedName& name, Document *doc)
     : Element(name, doc)
 {
-    m_isStyleAttributeValid = true;
-    m_synchronizingStyleAttribute = false;
 }
 
 StyledElement::~StyledElement()
@@ -129,7 +124,7 @@ void StyledElement::createInlineStyleDecl()
     m_inlineStyleDecl = new CSSMutableStyleDeclaration;
     m_inlineStyleDecl->setParent(document()->elementSheet());
     m_inlineStyleDecl->setNode(this);
-    m_inlineStyleDecl->setStrictParsing(!document()->inCompatMode());
+    m_inlineStyleDecl->setStrictParsing(isHTMLElement() && !document()->inCompatMode());
 }
 
 void StyledElement::destroyInlineStyleDecl()
@@ -215,7 +210,18 @@ void StyledElement::parseMappedAttribute(MappedAttribute *attr)
         setChanged();
     } else if (attr->name() == classAttr) {
         // class
-        setHasClass(!attr->isNull());
+        bool hasClass = false;
+        if (!attr->isEmpty()) {
+            const AtomicString& value = attr->value();
+            unsigned len = value.length();
+            for (unsigned i = 0; i < len; ++i) {
+                if (!isClassWhitespace(value[i])) {
+                    hasClass = true;
+                    break;
+                }
+            }
+        }
+        setHasClass(hasClass);
         if (namedAttrMap)
             mappedAttributes()->parseClassAttribute(attr->value());
         setChanged();
@@ -246,14 +252,9 @@ CSSStyleDeclaration* StyledElement::style()
     return getInlineStyleDecl();
 }
 
-CSSMutableStyleDeclaration* StyledElement::additionalAttributeStyleDecl()
+const ClassNames* StyledElement::getClassNames() const
 {
-    return 0;
-}
-
-const AtomicStringList* StyledElement::getClassList() const
-{
-    return namedAttrMap ? mappedAttributes()->getClassList() : 0;
+    return namedAttrMap ? mappedAttributes()->getClassNames() : 0;
 }
 
 static inline int toHex(UChar c) {
@@ -281,17 +282,18 @@ void StyledElement::addCSSStringProperty(MappedAttribute* attr, int id, const St
     attr->decl()->setStringProperty(id, value, type, false);
 }
 
-void StyledElement::addCSSImageProperty(MappedAttribute* attr, int id, const String &URL)
+void StyledElement::addCSSImageProperty(MappedAttribute* attr, int id, const String& url)
 {
     if (!attr->decl()) createMappedDecl(attr);
-    attr->decl()->setImageProperty(id, URL, false);
+    attr->decl()->setImageProperty(id, url, false);
 }
 
 void StyledElement::addCSSLength(MappedAttribute* attr, int id, const String &value)
 {
     // FIXME: This function should not spin up the CSS parser, but should instead just figure out the correct
     // length unit and make the appropriate parsed value.
-    if (!attr->decl()) createMappedDecl(attr);
+    if (!attr->decl())
+        createMappedDecl(attr);
 
     // strip attribute garbage..
     StringImpl* v = value.impl();
@@ -303,8 +305,14 @@ void StyledElement::addCSSLength(MappedAttribute* attr, int id, const String &va
         
         for (; l < v->length(); l++) {
             UChar cc = (*v)[l];
-            if (cc > '9' || (cc < '0' && cc != '*' && cc != '%' && cc != '.'))
+            if (cc > '9')
                 break;
+            if (cc < '0') {
+                if (cc == '%' || cc == '*')
+                    l++;
+                if (cc != '.')
+                    break;
+            }
         }
 
         if (l != v->length()) {
@@ -317,7 +325,7 @@ void StyledElement::addCSSLength(MappedAttribute* attr, int id, const String &va
 }
 
 /* color parsing that tries to match as close as possible IE 6. */
-void StyledElement::addCSSColor(MappedAttribute* attr, int id, const String &c)
+void StyledElement::addCSSColor(MappedAttribute* attr, int id, const String& c)
 {
     // this is the only case no color gets applied in IE.
     if (!c.length())
@@ -329,7 +337,7 @@ void StyledElement::addCSSColor(MappedAttribute* attr, int id, const String &c)
     if (attr->decl()->setProperty(id, c, false))
         return;
     
-    String color = c.copy();
+    String color = c;
     // not something that fits the specs.
     
     // we're emulating IEs color parser here. It maps transparent to black, otherwise it tries to build a rgb value

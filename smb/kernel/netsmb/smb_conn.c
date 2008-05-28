@@ -329,15 +329,24 @@ smb_sm_tcon(struct smb_vcspec *vcspec, struct smb_sharespec *shspec,
 	struct smb_share *ssp = NULL;
 	int error;
 
+	/*
+	 * If smb_sm_lookupint returns without an error the the vc will
+	 * be locked and a refcnt will be taken.
+	 */
 	error = smb_sm_lookupint(vcspec, shspec, scred, &vcp);
-	if (error == 0)
+	if (error == 0) {
+		/* Ok release the lock, we just need the reference */
+		smb_vc_unlock(vcp);				
 		return error;
+	}
 
 	error = smb_sm_lookupint(vcspec, NULL, scred, &vcp);
-	if (error || shspec == NULL)
+	if (error)
 		return (error);
 
 	error = smb_share_create(vcp, shspec, scred, &ssp);
+	/* Ok release the lock, we just need the reference */
+	smb_vc_unlock(vcp);				
 	if (!error) {
 		error = smb_smb_treeconnect(ssp, scred);
 		if (error)
@@ -347,7 +356,7 @@ smb_sm_tcon(struct smb_vcspec *vcspec, struct smb_sharespec *shspec,
 	
 	}
 	if (error)
-		smb_vc_put(vcp, scred);
+		smb_vc_rele(vcp, scred);
 	return error;
 }
 
@@ -405,33 +414,33 @@ smb_co_gone(struct smb_connobj *cp, struct smb_cred *scred)
 void
 smb_co_ref(struct smb_connobj *cp)
 {
-	SMB_CO_LOCK(cp);
+	lck_mtx_lock(&(cp)->co_interlock);
 	cp->co_usecount++;
-	SMB_CO_UNLOCK(cp);
+	lck_mtx_unlock(&(cp)->co_interlock);
 }
 
 void
 smb_co_rele(struct smb_connobj *cp, struct smb_cred *scred)
 {
 
-	SMB_CO_LOCK(cp);
+	lck_mtx_lock(&(cp)->co_interlock);
 	if (cp->co_usecount > 1) {
 		cp->co_usecount--;
-		SMB_CO_UNLOCK(cp);
+		lck_mtx_unlock(&(cp)->co_interlock);
 		return;
 	}
 	if (cp->co_usecount == 0) {
 		SMBERROR("negative co_usecount for level %d\n", cp->co_level);
-		SMB_CO_UNLOCK(cp);
+		lck_mtx_unlock(&(cp)->co_interlock);
 		return;
 	}
 	cp->co_usecount--;
 	if (cp->co_flags & SMBO_GONE) {
-		SMB_CO_UNLOCK(cp);
+		lck_mtx_unlock(&(cp)->co_interlock);
 		return; /* someone is already draining */
 	}
 	cp->co_flags |= SMBO_GONE;
-	SMB_CO_UNLOCK(cp);
+	lck_mtx_unlock(&(cp)->co_interlock);
 
 	smb_co_drain(cp);
 	smb_co_gone(cp, scred);
@@ -441,7 +450,7 @@ void
 smb_co_put(struct smb_connobj *cp, struct smb_cred *scred)
 {
 
-	SMB_CO_LOCK(cp);
+	lck_mtx_lock(&(cp)->co_interlock);
 	if (cp->co_usecount > 1) {
 		cp->co_usecount--;
 	} else if (cp->co_usecount == 1) {
@@ -450,7 +459,7 @@ smb_co_put(struct smb_connobj *cp, struct smb_cred *scred)
 	} else {
 		SMBERROR("negative usecount\n");
 	}
-	SMB_CO_UNLOCK(cp);
+	lck_mtx_unlock(&(cp)->co_interlock);
 	smb_co_unlock(cp);
 	if ((cp->co_flags & SMBO_GONE) == 0)
 		return;
@@ -488,7 +497,6 @@ smb_co_unlock(struct smb_connobj *cp)
 	} else if (cp->co_lockcount && (--cp->co_lockcount == 0)) {
 		cp->co_lockowner = NULL;
 		lck_mtx_unlock(cp->co_lock);
-		/* the funnel protects the sleep/wakeup */
 		if (cp->co_lock_flags & SMBFS_CO_LOCK_WAIT){
 			cp->co_lock_flags &= ~SMBFS_CO_LOCK_WAIT;
 			wakeup(&cp->co_lock);
@@ -499,7 +507,6 @@ smb_co_unlock(struct smb_connobj *cp)
 void
 smb_co_drain(struct smb_connobj *cp)
 {
-	/* the funnel protects the sleep/wakeup */
 	while (cp->co_lockcount > 0) {
 		cp->co_lock_flags |= SMBFS_CO_LOCK_WAIT;
 		msleep(&cp->co_lock, 0, 0, 0, 0);
@@ -522,20 +529,14 @@ smb_co_addchild(struct smb_connobj *parent, struct smb_connobj *child)
  */
 void smb_vc_reset(struct smb_vc *vcp)
 {
-    	/* 
+	/* 
 	 * If these two flags were set keep them for the reconnect. Clear out 
 	 * any other flags that may have been set in the original connection. 
 	 */
 	vcp->vc_hflags2 &= (SMB_FLAGS2_EXT_SEC | SMB_FLAGS2_KNOWS_LONG_NAMES);
 
-	vcp->vc_mid = 0;	/* Should we reset this value? */
+	vcp->vc_mid = 0;
 	vcp->vc_number = smb_vcnext++;
-	if (vcp->vc_toserver)
-		iconv_close(vcp->vc_toserver);
-	if (vcp->vc_tolocal)
-		iconv_close(vcp->vc_tolocal);
-	vcp->vc_toserver = NULL;
-	vcp->vc_tolocal = NULL;
 }
 
 int
@@ -581,13 +582,6 @@ smb_vc_create(struct smb_vcspec *vcspec, struct smb_cred *scred, struct smb_vc *
 
 		ithrow(iconv_open("tolower", vcspec->localcs, &vcp->vc_tolower));
 		ithrow(iconv_open("toupper", vcspec->localcs, &vcp->vc_toupper));
-		if (vcspec->servercs[0]) {
-			ithrow(iconv_open(vcspec->servercs, vcspec->localcs,
-			    &vcp->vc_toserver));
-			ithrow(iconv_open(vcspec->localcs, vcspec->servercs,
-			    &vcp->vc_tolocal));
-		}
-
 		ithrow(smb_iod_create(vcp));
 		*vcpp = vcp;
 		smb_sm_lockvclist();
@@ -772,10 +766,11 @@ u_short
 smb_vc_nextmid(struct smb_vc *vcp)
 {
 	u_short r;
-
-	SMB_CO_LOCK(&vcp->obj);
+	struct smb_connobj *cp = &vcp->obj;
+	
+	lck_mtx_lock(&(cp)->co_interlock);
 	r = vcp->vc_mid++;
-	SMB_CO_UNLOCK(&vcp->obj);
+	lck_mtx_unlock(&(cp)->co_interlock);
 	return r;
 }
 

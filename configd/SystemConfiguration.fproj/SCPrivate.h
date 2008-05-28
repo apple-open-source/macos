@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,6 +61,42 @@
 extern Boolean	_sc_debug;	/* TRUE if debugging enabled */
 extern Boolean	_sc_verbose;	/* TRUE if verbose logging enabled */
 extern Boolean	_sc_log;	/* TRUE if SCLog() output goes to syslog */
+
+/*!
+	@group SCNetworkReachabilityCreateWithOptions #defines
+	@discussion The following defines the keys and values that can
+		be passed to the SCNetworkReachabilityCreateWithOptions
+		API.
+ */
+
+/*!
+	@constant kSCNetworkReachabilityOptionNodeName
+	@discussion A CFString that will be passed to getaddrinfo(3).  An acceptable
+		value is either a valid host name or a numeric host address string
+		consisting of a dotted decimal IPv4 address or an IPv6 address.
+ */
+#define kSCNetworkReachabilityOptionNodeName	CFSTR("nodename")
+
+/*!
+	@constant kSCNetworkReachabilityOptionServName
+	@discussion A CFString that will be passed to getaddrinfo(3).  An acceptable
+		value is either a decimal port number or a service name listed in
+		services(5).
+ */
+#define kSCNetworkReachabilityOptionServName	CFSTR("servname")
+
+/*!
+	@constant kSCNetworkReachabilityOptionHints
+	@discussion A CFData wrapping a "struct addrinfo" that will be passed to
+		getaddrinfo(3).  The caller can supply any of the ai_family,
+		ai_socktype, ai_protocol, and ai_flags structure elements.  All
+		other elements must be 0 or the null pointer.
+ */
+#define kSCNetworkReachabilityOptionHints	CFSTR("hints")
+
+/*!
+	@group
+ */
 
 __BEGIN_DECLS
 
@@ -265,6 +301,25 @@ void		SCTrace				(Boolean		condition,
 						 FILE			*stream,
 						 CFStringRef		formatString,
 						 ...);
+
+/*!
+	@function SCNetworkReachabilityCreateWithOptions
+	@discussion Creates a reference to a specified network host.  The
+		options allow the caller to specify the node name and/or
+		the service name.  This reference can be used later to
+		monitor the reachability of the target host.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for the SCNetworkReachability object.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@param options A CFDictionary containing options specifying the
+		network host.  The options reflect the arguments that would
+		be passed to getaddrinfo().
+  */
+SCNetworkReachabilityRef
+SCNetworkReachabilityCreateWithOptions		(CFAllocatorRef		allocator,
+						 CFDictionaryRef	options);
 
 /*
  * DOS encoding/codepage

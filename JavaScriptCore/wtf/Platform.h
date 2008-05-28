@@ -50,11 +50,25 @@
 #define WTF_PLATFORM_WIN_OS 1
 #endif
 
+/* PLATFORM(FREEBSD) */
+/* Operating system level dependencies for FreeBSD-like systems that */
+/* should be used regardless of operating environment */
+#ifdef __FreeBSD__
+#define WTF_PLATFORM_FREEBSD 1
+#endif
+
+/* PLATFORM(SOLARIS) */
+/* Operating system level dependencies for Solaris that should be used */
+/* regardless of operating environment */
+#if defined(sun) || defined(__sun)
+#define WTF_PLATFORM_SOLARIS 1
+#endif
+
 /* PLATFORM(UNIX) */
 /* Operating system level dependencies for Unix-like systems that */
 /* should be used regardless of operating environment */
-/* (includes PLATFORM(DARWIN)) */
-#if   defined(__APPLE__)   \
+#if   PLATFORM(DARWIN)     \
+   || PLATFORM(FREEBSD)    \
    || defined(unix)        \
    || defined(__unix)      \
    || defined(__unix__)    \
@@ -77,6 +91,8 @@
 #define WTF_PLATFORM_KDE 1
 #endif
 
+#elif defined(BUILDING_WX__)
+#define WTF_PLATFORM_WX 1
 #elif defined(BUILDING_GTK__)
 #define WTF_PLATFORM_GTK 1
 #elif PLATFORM(DARWIN)
@@ -92,7 +108,7 @@
 #if PLATFORM(MAC)
 #define WTF_PLATFORM_CG 1
 #define WTF_PLATFORM_CI 1
-#elif !PLATFORM(QT)
+#elif !PLATFORM(QT) && !PLATFORM(WX)
 #define WTF_PLATFORM_CAIRO 1
 #endif
 
@@ -151,7 +167,8 @@
 
 /* PLATFORM(X86_64) */
 #if   defined(__x86_64__) \
-   || defined(__ia64__)
+   || defined(__ia64__) \
+   || defined(_M_X64)
 #define WTF_PLATFORM_X86_64 1
 #endif
 
@@ -160,6 +177,9 @@
 /* COMPILER(MSVC) */
 #if defined(_MSC_VER)
 #define WTF_COMPILER_MSVC 1
+#if _MSC_VER < 1400
+#define WTF_COMPILER_MSVC7 1
+#endif
 #endif
 
 /* COMPILER(GCC) */
@@ -195,14 +215,16 @@
 
 #if PLATFORM(MAC)
 #define WTF_PLATFORM_CF 1
+#define WTF_USE_PTHREADS 1
 #endif
 
 #if PLATFORM(WIN)
 #define WTF_USE_WININET 1
 #endif
 
-#if PLATFORM(GTK)
+#if PLATFORM(WX)
 #define WTF_USE_CURL 1
+#define WTF_USE_PTHREADS 1
 #endif
 
 #if PLATFORM(QT)
@@ -211,6 +233,10 @@
 
 #if !defined(ENABLE_ICONDATABASE)
 #define ENABLE_ICONDATABASE 1
+#endif
+
+#if !defined(ENABLE_DATABASE)
+#define ENABLE_DATABASE 1
 #endif
 
 #if !defined(ENABLE_FTPDIR)

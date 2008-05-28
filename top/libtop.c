@@ -286,6 +286,23 @@ libtop_init(libtop_print_t *a_print, void *a_user_data)
 	libtop_port = mach_host_self();
 	host_page_size(libtop_port, &tsamp.pagesize);
 
+	/* Get the physical memory size of the system. */
+	{
+		int mib[2];
+		size_t size;
+
+		mib[0] = CTL_HW;
+		mib[1] = HW_MEMSIZE;
+
+		size = sizeof(tsamp.memsize);
+		if (sysctl(mib, 2, &tsamp.memsize, &size, NULL, 0) == -1) {
+			libtop_print(libtop_user_data,
+			    "%s(): Error in sysctl(): %s",
+			    __FUNCTION__, strerror(errno));
+			return TRUE;
+		}
+	}
+
 	/* Initialize the pinfo tree. */
 	rb_tree_new(&libtop_ptree, pnode);
 

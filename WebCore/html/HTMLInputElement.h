@@ -25,6 +25,7 @@
 #define HTMLInputElement_h
 
 #include "HTMLGenericFormElement.h"
+#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
@@ -69,7 +70,8 @@ public:
 
     bool autoComplete() const { return m_autocomplete; }
 
-    virtual bool isChecked() const { return checked(); }
+    // isChecked is used by the rendering tree/CSS while checked() is used by JS to determine checked state
+    virtual bool isChecked() const { return checked() && (inputType() == CHECKBOX || inputType() == RADIO); }
     virtual bool isIndeterminate() const { return indeterminate(); }
     
     bool readOnly() const { return isReadOnlyControl(); }
@@ -78,6 +80,7 @@ public:
     virtual bool isRadioButton() const { return m_type == RADIO; }
     bool isTextField() const { return m_type == TEXT || m_type == PASSWORD || m_type == SEARCH || m_type == ISINDEX; }
     bool isSearchField() const { return m_type == SEARCH; }
+    virtual bool isInputTypeHidden() const { return m_type == HIDDEN; }
 
     bool checked() const { return m_checked; }
     void setChecked(bool, bool sendChangeEvent = false);
@@ -205,7 +208,7 @@ private:
 
     short m_maxResults;
 
-    HTMLImageLoader* m_imageLoader;
+    OwnPtr<HTMLImageLoader> m_imageLoader;
 
     unsigned m_type : 4; // InputType 
     bool m_checked : 1;

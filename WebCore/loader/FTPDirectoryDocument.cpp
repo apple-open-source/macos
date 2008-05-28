@@ -43,6 +43,15 @@
 #include "Text.h"
 #include "XMLTokenizer.h"
 
+// On Win, the threadsafe *_r functions need to be gotten from pthreads. 
+#if COMPILER(MSVC) && USE(PTHREADS)
+#include <pthread.h>
+#endif
+
+#if PLATFORM(QT)
+#include <QDateTime>
+#endif
+
 using namespace std;
 
 namespace WebCore {
@@ -110,7 +119,7 @@ void FTPDirectoryTokenizer::appendEntry(const String& filename, const String& si
 {
     ExceptionCode ec;
 
-    RefPtr<Element> rowElement = m_doc->createElementNS(xhtmlNamespaceURI, "tr", ec);
+    RefPtr<Element> rowElement = m_tableElement->insertRow(-1, ec);
     rowElement->setAttribute("class", "ftpDirectoryEntryRow", ec);
    
     RefPtr<Element> element = m_doc->createElementNS(xhtmlNamespaceURI, "td", ec);
@@ -134,15 +143,6 @@ void FTPDirectoryTokenizer::appendEntry(const String& filename, const String& si
     element->appendChild(new Text(m_doc, size), ec);
     element->setAttribute("class", "ftpDirectoryFileSize", ec);
     rowElement->appendChild(element, ec);
-    
-    // Append the new row to the first tbody if it exists.  
-    // Many <TABLE> elements end up having an implicit <TBODY> created for them and in those
-    // cases, it's more correct to append to the tbody instead of the table itself
-    HTMLTableSectionElement* body = m_tableElement->firstTBody();
-    if (body)
-        body->appendChild(rowElement, ec);
-    else
-        m_tableElement->appendChild(rowElement, ec);
 }
 
 PassRefPtr<Element> FTPDirectoryTokenizer::createTDForFilename(const String& filename)
@@ -204,6 +204,42 @@ static bool wasLastDayOfMonth(int year, int month, int day)
     
     return lastDays[month] == day;
 }
+
+#if PLATFORM(QT)
+
+/*!
+ Replacement for localtime_r() which is not available on MinGW.
+
+ We use this on all of Qt's platforms for portability.
+ */
+struct tm gmtimeQt(const QDateTime &input)
+{
+    tm result;
+
+    const QDate date(input.date());
+    result.tm_year = date.year() - 1900;
+    result.tm_mon = date.month();
+    result.tm_mday = date.day();
+    result.tm_wday = date.dayOfWeek();
+    result.tm_yday = date.dayOfYear();
+
+    const QTime time(input.time());
+    result.tm_sec = time.second();
+    result.tm_min = time.minute();
+    result.tm_hour = time.hour();
+
+    return result;
+}
+
+static struct tm *localTimeQt(const time_t *const timep, struct tm *result)
+{
+    const QDateTime dt(QDateTime::fromTime_t(*timep));
+    *result = WebCore::gmtimeQt(dt.toLocalTime());
+    return result;
+}
+
+#define localtime_r(x, y) localTimeQt(x, y)
+#endif
 
 static String processFileDateString(const FTPTime& fileTime)
 {
@@ -399,7 +435,7 @@ bool FTPDirectoryTokenizer::write(const SegmentedString& s, bool appendData)
             m_skipLF = false;
         }
         
-        str.advance(0);
+        str.advance();
         
         // Maybe enlarge the buffer
         checkBuffer();

@@ -1,8 +1,6 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,7 +29,9 @@
 #include "ExceptionCode.h"
 #include "Pair.h"
 #include "RenderStyle.h"
-#include <ctype.h>
+#include <wtf/ASCIICType.h>
+
+using namespace WTF;
 
 namespace WebCore {
 
@@ -46,13 +46,13 @@ static bool isCSSTokenizerIdentifier(const String& string)
         ++p;
 
     // {nmstart}
-    if (p == end || !(p[0] == '_' || p[0] >= 128 || isalpha(p[0])))
+    if (p == end || !(p[0] == '_' || p[0] >= 128 || isASCIIAlpha(p[0])))
         return false;
     ++p;
 
     // {nmchar}*
     for (; p != end; ++p) {
-        if (!(p[0] == '_' || p[0] == '-' || p[0] >= 128 || isalnum(p[0])))
+        if (!(p[0] == '_' || p[0] == '-' || p[0] >= 128 || isASCIIAlphanumeric(p[0])))
             return false;
     }
 
@@ -131,33 +131,63 @@ CSSPrimitiveValue::CSSPrimitiveValue(const String& str, UnitTypes type)
         m_value.string->ref();
 }
 
-CSSPrimitiveValue::CSSPrimitiveValue(PassRefPtr<Counter> c)
-    : m_type(CSS_COUNTER)
-{
-    m_value.counter = c.releaseRef();
-}
-
-CSSPrimitiveValue::CSSPrimitiveValue(PassRefPtr<Rect> r)
-    : m_type(CSS_RECT)
-{
-    m_value.rect = r.releaseRef();
-}
-
-CSSPrimitiveValue::CSSPrimitiveValue(PassRefPtr<DashboardRegion> r)
-    : m_type(CSS_DASHBOARD_REGION)
-{
-    m_value.region = r.releaseRef();
-}
-
 CSSPrimitiveValue::CSSPrimitiveValue(RGBA32 color)
     : m_type(CSS_RGBCOLOR)
 {
     m_value.rgbcolor = color;
 }
 
-CSSPrimitiveValue::CSSPrimitiveValue(PassRefPtr<Pair> p)
-    : m_type(CSS_PAIR)
+CSSPrimitiveValue::CSSPrimitiveValue(const Length& length)
 {
+    switch (length.type()) {
+        case Auto:
+            m_type = CSS_IDENT;
+            m_value.ident = CSS_VAL_AUTO;
+            break;
+        case WebCore::Fixed:
+            m_type = CSS_PX;
+            m_value.num = length.value();
+            break;
+        case Intrinsic:
+            m_type = CSS_IDENT;
+            m_value.ident = CSS_VAL_INTRINSIC;
+            break;
+        case MinIntrinsic:
+            m_type = CSS_IDENT;
+            m_value.ident = CSS_VAL_MIN_INTRINSIC;
+            break;
+        case Percent:
+            m_type = CSS_PERCENTAGE;
+            m_value.num = length.percent();
+            break;
+        case Relative:
+        case Static:
+            ASSERT_NOT_REACHED();
+            break;
+    }
+}
+
+void CSSPrimitiveValue::init(PassRefPtr<Counter> c)
+{
+    m_type = CSS_COUNTER;
+    m_value.counter = c.releaseRef();
+}
+
+void CSSPrimitiveValue::init(PassRefPtr<Rect> r)
+{
+    m_type = CSS_RECT;
+    m_value.rect = r.releaseRef();
+}
+
+void CSSPrimitiveValue::init(PassRefPtr<DashboardRegion> r)
+{
+    m_type = CSS_DASHBOARD_REGION;
+    m_value.region = r.releaseRef();
+}
+
+void CSSPrimitiveValue::init(PassRefPtr<Pair> p)
+{
+    m_type = CSS_PAIR;
     m_value.pair = p.releaseRef();
 }
 
@@ -368,10 +398,13 @@ double scaleFactorForConversion(unsigned short unitType)
     return factor;
 }
 
-double CSSPrimitiveValue::getDoubleValue(unsigned short unitType)
+double CSSPrimitiveValue::getDoubleValue(unsigned short unitType, ExceptionCode& ec)
 {
-    ASSERT(m_type <= CSS_DIMENSION);
-    ASSERT(unitType <= CSS_DIMENSION);
+    ec = 0;
+    if (m_type < CSS_NUMBER || m_type > CSS_DIMENSION || unitType < CSS_NUMBER || unitType > CSS_DIMENSION) {
+        ec = INVALID_ACCESS_ERR;
+        return 0.0;
+    }
 
     if (unitType == m_type || unitType < CSS_PX || unitType > CSS_PC)
         return m_value.num;
@@ -388,6 +421,28 @@ double CSSPrimitiveValue::getDoubleValue(unsigned short unitType)
 
     return convertedValue;
 }
+
+double CSSPrimitiveValue::getDoubleValue(unsigned short unitType)
+{
+    if (m_type < CSS_NUMBER || m_type > CSS_DIMENSION || unitType < CSS_NUMBER || unitType > CSS_DIMENSION)
+        return 0;
+
+    if (unitType == m_type || unitType < CSS_PX || unitType > CSS_PC)
+        return m_value.num;
+
+    double convertedValue = m_value.num;
+
+    // First convert the value from m_type into CSSPixels
+    double factor = scaleFactorForConversion(m_type);
+    convertedValue *= factor;
+
+    // Now convert from CSSPixels to the specified unitType
+    factor = scaleFactorForConversion(unitType);
+    convertedValue /= factor;
+
+    return convertedValue;
+}
+
 
 void CSSPrimitiveValue::setStringValue(unsigned short stringType, const String& stringValue, ExceptionCode& ec)
 {
@@ -410,6 +465,24 @@ void CSSPrimitiveValue::setStringValue(unsigned short stringType, const String& 
     // FIXME: parse ident
 }
 
+String CSSPrimitiveValue::getStringValue(ExceptionCode& ec) const
+{
+    ec = 0;
+    switch (m_type) {
+        case CSS_STRING:
+        case CSS_ATTR:
+        case CSS_URI:
+            return m_value.string;
+        case CSS_IDENT:
+            return getValueName(m_value.ident);
+        default:
+            ec = INVALID_ACCESS_ERR;
+            break;
+    }
+
+    return String();
+}
+
 String CSSPrimitiveValue::getStringValue() const
 {
     switch (m_type) {
@@ -420,11 +493,54 @@ String CSSPrimitiveValue::getStringValue() const
         case CSS_IDENT:
             return getValueName(m_value.ident);
         default:
-            // FIXME: The CSS 2.1 spec says you should throw an exception here.
             break;
     }
 
     return String();
+}
+
+Counter* CSSPrimitiveValue::getCounterValue(ExceptionCode& ec) const
+{
+    ec = 0;
+    if (m_type != CSS_COUNTER) {
+        ec = INVALID_ACCESS_ERR;
+        return 0;
+    }
+
+    return m_value.counter;
+}
+
+Rect* CSSPrimitiveValue::getRectValue(ExceptionCode& ec) const
+{
+    ec = 0;
+    if (m_type != CSS_RECT) {
+        ec = INVALID_ACCESS_ERR;
+        return 0;
+    }
+
+    return m_value.rect;
+}
+
+unsigned CSSPrimitiveValue::getRGBColorValue(ExceptionCode& ec) const
+{
+    ec = 0;
+    if (m_type != CSS_RGBCOLOR) {
+        ec = INVALID_ACCESS_ERR;
+        return 0;
+    }
+
+    return m_value.rgbcolor;
+}
+
+Pair* CSSPrimitiveValue::getPairValue(ExceptionCode& ec) const
+{
+    ec = 0;
+    if (m_type != CSS_PAIR) {
+        ec = INVALID_ACCESS_ERR;
+        return 0;
+    }
+
+    return m_value.pair;
 }
 
 unsigned short CSSPrimitiveValue::cssValueType() const

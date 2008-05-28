@@ -49,7 +49,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC4PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC4PE version 2.0.3, Copyright 2003-2007 Apple Inc.</string>
+	<string>AppleMacRISC4PE version 2.0.4, Copyright 2003-2008 Apple Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -61,11 +61,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.3</string>
+	<string>2.0.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.3d9</string>
+	<string>2.0.4d9</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC4CPU</key>
@@ -745,7 +745,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC4PE;
-				MODULE_VERSION = 2.0.3d9;
+				MODULE_VERSION = 2.0.4d9;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
@@ -779,7 +779,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC4PE;
-				MODULE_VERSION = 2.0.3d9;
+				MODULE_VERSION = 2.0.4d9;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -809,7 +809,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC4PE;
-				MODULE_VERSION = 2.0.3d9;
+				MODULE_VERSION = 2.0.4d9;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

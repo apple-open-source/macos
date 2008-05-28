@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,11 +24,13 @@
 #ifndef Node_h
 #define Node_h
 
+#include "DeprecatedString.h"
 #include "DocPtr.h"
 #include "PlatformString.h"
-#include "DeprecatedString.h"
+#include "TreeShared.h"
 #include <wtf/Assertions.h>
 #include <wtf/HashSet.h>
+#include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
@@ -36,6 +38,7 @@ namespace WebCore {
 class AtomicString;
 class ContainerNode;
 class Document;
+class DynamicNodeList;
 class Element;
 class Event;
 class EventListener;
@@ -43,7 +46,6 @@ class IntRect;
 class KeyboardEvent;
 class NamedAttrMap;
 class NodeList;
-struct NodeListsNodeData;
 class PlatformKeyboardEvent;
 class PlatformMouseEvent;
 class PlatformWheelEvent;
@@ -53,6 +55,7 @@ class RenderArena;
 class RenderObject;
 class RenderStyle;
 class TextStream;
+struct NodeListsNodeData;
 
 typedef int ExceptionCode;
 
@@ -88,7 +91,7 @@ public:
 
     // DOM methods & attributes for Node
 
-    virtual bool hasTagName(const QualifiedName&) const { return false; }
+    bool hasTagName(const QualifiedName& name) const { return virtualHasTagName(name); }
     virtual String nodeName() const = 0;
     virtual String nodeValue() const;
     virtual void setNodeValue(const String&, ExceptionCode&);
@@ -139,9 +142,12 @@ public:
 
     virtual bool isElementNode() const { return false; }
     virtual bool isHTMLElement() const { return false; }
+
 #if ENABLE(SVG)
-    virtual bool isSVGElement() const { return false; }
+    virtual
 #endif
+        bool isSVGElement() const { return false; }
+
     virtual bool isStyledElement() const { return false; }
     virtual bool isFrameOwnerElement() const { return false; }
     virtual bool isAttributeNode() const { return false; }
@@ -208,7 +214,8 @@ public:
     // until they know all of their nested <param>s. [Radar 3603191, 4040848].
     // Also used for script elements and some SVG elements for similar purposes,
     // but making parsing a special case in this respect should be avoided if possible.
-    virtual void finishedParsing() { }
+    virtual void finishParsingChildren() { }
+    virtual void beginParsingChildren() { }
 
     // Called by the frame right before dispatching an unloadEvent. [Radar 4532113]
     // This is needed for HTMLInputElements to tell the frame that it is done editing 
@@ -349,14 +356,9 @@ public:
     
     // Used to determine whether range offsets use characters or node indices.
     virtual bool offsetInCharacters() const;
-
-    // FIXME: These next 7 functions are mostly editing-specific and should be moved out.
-    virtual int maxOffset() const;
-    virtual int caretMinOffset() const;
-    virtual int caretMaxOffset() const;
-    virtual unsigned caretMaxRenderedOffset() const;
-    virtual int previousOffset(int current) const;
-    virtual int nextOffset(int current) const;
+    // Number of DOM 16-bit units contained in node. Note that rendered text length can be different - e.g. because of
+    // css-transform:capitalize breaking up precomposed characters and ligatures.
+    virtual int maxCharacterOffset() const;
     
     // FIXME: We should try to find a better location for these methods.
     virtual bool canSelectAll() const { return false; }
@@ -433,7 +435,7 @@ public:
      * Notifies the node that it's list of children have changed (either by adding or removing child nodes), or a child
      * node that is of the type CDATA_SECTION_NODE, TEXT_NODE or COMMENT_NODE has changed its value.
      */
-    virtual void childrenChanged();
+    virtual void childrenChanged(bool changedByParser = false) {};
 
     virtual String toString() const = 0;
 
@@ -445,8 +447,8 @@ public:
     void showTreeAndMark(const Node* markedNode1, const char* markedLabel1, const Node* markedNode2 = 0, const char* markedLabel2 = 0) const;
 #endif
 
-    void registerNodeList(NodeList*);
-    void unregisterNodeList(NodeList*);
+    void registerDynamicNodeList(DynamicNodeList*);
+    void unregisterDynamicNodeList(DynamicNodeList*);
     void notifyNodeListsChildrenChanged();
     void notifyLocalNodeListsChildrenChanged();
     void notifyNodeListsAttributeChanged();
@@ -454,6 +456,11 @@ public:
     
     PassRefPtr<NodeList> getElementsByTagName(const String&);
     PassRefPtr<NodeList> getElementsByTagNameNS(const String& namespaceURI, const String& localName);
+    PassRefPtr<NodeList> getElementsByName(const String& elementName);
+    PassRefPtr<NodeList> getElementsByClassName(const String& classNames);
+
+    PassRefPtr<Element> querySelector(const String& selectors, ExceptionCode&);
+    PassRefPtr<NodeList> querySelectorAll(const String& selectors, ExceptionCode&);
 
 private: // members
     DocPtr<Document> m_document;
@@ -465,7 +472,7 @@ protected:
     virtual void willMoveToNewOwnerDocument() { }
     virtual void didMoveToNewOwnerDocument() { }
     
-    NodeListsNodeData* m_nodeLists;
+    OwnPtr<NodeListsNodeData> m_nodeLists;
 
     short m_tabIndex;
 
@@ -497,6 +504,7 @@ private:
 
     virtual Node* virtualFirstChild() const;
     virtual Node* virtualLastChild() const;
+    virtual bool virtualHasTagName(const QualifiedName&) const;
 };
 
 } //namespace

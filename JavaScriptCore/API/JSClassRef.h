@@ -33,6 +33,7 @@
 #include <kjs/protect.h>
 #include <kjs/ustring.h>
 #include <wtf/HashMap.h>
+#include <wtf/RefCounted.h>
 
 struct StaticValueEntry {
     StaticValueEntry(JSObjectGetPropertyCallback _getProperty, JSObjectSetPropertyCallback _setProperty, JSPropertyAttributes _attributes)
@@ -55,7 +56,7 @@ struct StaticFunctionEntry {
     JSPropertyAttributes attributes;
 };
 
-struct OpaqueJSClass {
+struct OpaqueJSClass : public RefCounted<OpaqueJSClass> {
     static OpaqueJSClass* create(const JSClassDefinition*);
     static OpaqueJSClass* createNoAutomaticPrototype(const JSClassDefinition*);
     ~OpaqueJSClass();
@@ -64,8 +65,6 @@ struct OpaqueJSClass {
     
     typedef HashMap<RefPtr<KJS::UString::Rep>, StaticValueEntry*> StaticValuesTable;
     typedef HashMap<RefPtr<KJS::UString::Rep>, StaticFunctionEntry*> StaticFunctionsTable;
-
-    unsigned refCount;
 
     KJS::UString className;
     OpaqueJSClass* parentClass;

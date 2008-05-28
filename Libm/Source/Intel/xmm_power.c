@@ -1116,7 +1116,7 @@ double pow(double x, double y) {
             return 0.0;
         }
 
-        const double absy = fabs(y);
+        const double absy = __builtin_fabs(y);
         //one last edge case -- pow(x, y) returns NaN and raises invalid for x < 0 and finite non-integer y
         // and one special case --      call sqrt for |y| == 0.5
         if( EXPECT_FALSE((x < 0.0 && !yisint) || (0.5 == absy)) )
@@ -1320,16 +1320,18 @@ double pow(double x, double y) {
   Still need to worry about numeric overflow and underflow.
 */
 
-    const double absx = fabs(x);
+    const double absx = __builtin_fabs(x);
     const double signx = (x < 0.0 && yisodd)?-1.0:1.0; // adjustment to the sign if needed
     if(x == -1.0) return signx;
 
     long double temp;
 
     //use fyl2x to get y*log2(x)
-    asm volatile( "fldl (%1)\n fldl (%2)\n fyl2x \n fstpt %0" : "=m" (*(&temp)) : "r" (&y),  "r" (&absx) );
+	const double *py = &y;
+	const double *pabsx = &absx;
+    asm volatile( "fldl (%1)\n fldl (%2)\n fyl2x \n fstpt %0" : "=m" (*(&temp)) : "r" (py),  "r" (pabsx), "m"(absx), "m"(y) );
     const long double lw = temp;
-    const long double abslw = fabsl(lw);
+    const long double abslw = __builtin_fabsl(lw);
 
     //const long double lw = __fyl2x((long double)y, (long double)absx);
 
@@ -1343,7 +1345,7 @@ _mm_add_epi64((xInt64)absy, (((absx >> 11) | 1p11) - 1.ffcp11)) < 1p-57
 */
 
     if (lw < POW_UNDERFLOW_GUARANTEED) return signx * XDOUBLE_2_DOUBLE(REQUIRED_MULTIPLY_sd(small,small));//small*small, raise underflow
-    const long double wn = floorl(lw); // TODO: long double or double?
+    const long double wn = __builtin_floorl(lw); // TODO: long double or double?
     const long double lwf = lw - wn;
 /* **************************************************************** */
 

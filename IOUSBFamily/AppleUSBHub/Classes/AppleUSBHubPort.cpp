@@ -140,7 +140,14 @@ AppleUSBHubPort::start(void)
 	_hub->retain();
 	_hub->RaisePowerState();				// make sure that the hub is at a good power state until we are done with the init
 	_hub->IncrementOutstandingIO();
-    thread_call_enter(_initThread);
+    if ( thread_call_enter(_initThread) == TRUE )
+	{
+		_hub->DecrementOutstandingIO();
+		_hub->release();
+		_hub->LowerPowerState();
+		release();
+	}
+	
     USBLog(5, "AppleUSBHubPort[%p]::start: fork complete", this);
 
     return kIOReturnSuccess;
@@ -520,7 +527,19 @@ AppleUSBHubPort::RemoveDevice(void)
 #endif
 		if (_hub && !_hub->isInactive())
 		{
+			UInt32		retries = 100;
 			USBLog(4, "AppleUSBHubPort[%p]::RemoveDevice - hub still active - terminating device[%p] synchronously", this, cachedPortDevice);
+			// before issuing a Synchronous terminate, we need to make sure that the device is not busy
+			while (cachedPortDevice->getBusyState() && retries--)
+			{
+				// wait up to 10 seconds for the device to get un-busy
+				USBLog(2, "AppleUSBHubPort[%p]::RemoveDevice - device(%p)[%s] busy - waiting 100ms (retries remaining: %d)", this, cachedPortDevice, cachedPortDevice->getName(), (int)retries);
+				IOSleep(100);
+			}
+			if (cachedPortDevice->getBusyState())
+			{
+				USBError(1, "AppleUSBHubPort: Port %d of Hub at %p about to terminate a busy device (%s) after waiting 10 seconds", _portNum, (void*)_hub->_locationID, cachedPortDevice->getName());
+			}
 			cachedPortDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
 		}
 		else
@@ -1792,13 +1811,14 @@ AppleUSBHubPort::DefaultOverCrntChangeHandler(UInt16 changeFlags, UInt16 statusF
     IOUSBHubPortStatus		portStatus;
     IOReturn				err;
 
-    USBLog(5, "AppleUSBHubPort[%p]::DefaultOverCrntChangeHandler. Port %d", this,  _portNum );
     err = _hub->GetPortStatus(&portStatus, _portNum);
 
-    if ( (err == kIOReturnSuccess) && (portStatus.changeFlags != 0x1f) )
+	USBLog(5, "AppleUSBHubPort[%p]::DefaultOverCrntChangeHandler. Port %d (RH: %d), status = 0x%x, change: 0x%x", this,  _portNum, _hub->_isRootHub, portStatus.statusFlags, portStatus.changeFlags );
+
+	if ( (err == kIOReturnSuccess) && (portStatus.changeFlags != 0x1f) )
     {
 		// check to see if either the overcurrent status is on or the port power status is off
-        if ( (portStatus.statusFlags & kHubPortOverCurrent) || ~(portStatus.statusFlags & kHubPortPower))
+        if ( (portStatus.statusFlags & kHubPortOverCurrent) || ( ~(portStatus.statusFlags & kHubPortPower) && !_hub->_isRootHub) )
         {
             USBLog(1, "AppleUSBHubPort[%p]::DefaultOverCrntChangeHandler. OverCurrent condition in Port %d", this,  _portNum );
             hubDescriptor = _hub->GetCachedHubDescriptor();
@@ -2195,7 +2215,11 @@ AppleUSBHubPort::StatusChanged(void)
         return false;
         
     retain();				// since we are about to schedule on a new thread
-    thread_call_enter(_portStatusChangedHandlerThread);
+    if ( thread_call_enter(_portStatusChangedHandlerThread) == TRUE )
+	{
+		USBLog(3,"AppleUSBHubPort[%p]::StatusChanged -  _portStatusChangedHandlerThread already queued", this);
+		release();
+	}
     
     return true;
 }

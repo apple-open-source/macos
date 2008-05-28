@@ -23,7 +23,9 @@
 #include "config.h"
 #include "RenderMenuList.h"
 
+#include "CSSStyleSelector.h"
 #include "Document.h"
+#include "FontSelector.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
@@ -34,7 +36,6 @@
 #include "RenderBR.h"
 #include "RenderText.h"
 #include "RenderTheme.h"
-#include "TextStyle.h"
 #include <math.h>
 
 using namespace std;
@@ -112,7 +113,11 @@ void RenderMenuList::removeChild(RenderObject* oldChild)
 void RenderMenuList::setStyle(RenderStyle* newStyle)
 {
     bool fontChanged = !style() || style()->font() != newStyle->font();
-
+    
+    // Don't allow overflow on menu lists.
+    newStyle->setOverflowX(OVISIBLE);
+    newStyle->setOverflowY(OVISIBLE);
+    
     RenderBlock::setStyle(newStyle);
 
     if (m_buttonText)
@@ -134,7 +139,7 @@ void RenderMenuList::updateOptionsWidth()
         if (element->hasTagName(optionTag)) {
             String text = static_cast<HTMLOptionElement*>(element)->optionText();
             if (!text.isEmpty())
-                maxOptionWidth = max(maxOptionWidth, style()->font().floatWidth(text, TextStyle()));
+                maxOptionWidth = max(maxOptionWidth, style()->font().floatWidth(text));
         }
     }
 
@@ -344,6 +349,16 @@ Document* RenderMenuList::clientDocument() const
     return document();
 }
 
+int RenderMenuList::clientInsetLeft() const
+{
+    return 0;
+}
+
+int RenderMenuList::clientInsetRight() const
+{
+    return 0;
+}
+
 int RenderMenuList::clientPaddingLeft() const
 {
     return paddingLeft();
@@ -391,6 +406,11 @@ void RenderMenuList::setTextFromItem(unsigned listIndex)
 {
     HTMLSelectElement* select = static_cast<HTMLSelectElement*>(node());
     setTextFromOption(select->listToOptionIndex(listIndex));
+}
+
+FontSelector* RenderMenuList::fontSelector() const
+{
+    return document()->styleSelector()->fontSelector();
 }
 
 }

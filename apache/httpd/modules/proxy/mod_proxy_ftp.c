@@ -517,6 +517,14 @@ static apr_status_t proxy_send_dir_filter(ap_filter_t *f,
             }
 
             filename = strrchr(ctx->buffer, ' ');
+            if (filename == NULL) {
+                /* Line is broken.  Ignore it. */
+                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, r->server,
+                             "proxy_ftp: could not parse line %s", ctx->buffer);
+                /* erase buffer for next time around */
+                ctx->buffer[0] = 0;
+                continue;  /* while state is BODY */
+            }
             *(filename++) = '\0';
 
             /* handle filenames with spaces in 'em */
@@ -1682,7 +1690,13 @@ static int proxy_ftp_handler(request_rec *r, proxy_worker *worker,
 
     /* set content-type */
     if (dirlisting) {
-        ap_set_content_type(r, "text/html");
+        proxy_dir_conf *dconf = ap_get_module_config(r->per_dir_config,
+                                                     &proxy_module);
+
+        ap_set_content_type(r, apr_pstrcat(p, "text/html;charset=",
+                                           dconf->ftp_directory_charset ?
+                                           dconf->ftp_directory_charset :
+                                           "ISO-8859-1",  NULL));
     }
     else {
         if (r->content_type) {

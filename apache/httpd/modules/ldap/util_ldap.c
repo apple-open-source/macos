@@ -111,7 +111,7 @@ static int util_ldap_handler(request_rec *r)
         return DECLINED;
     }
 
-    r->content_type = "text/html";
+    r->content_type = "text/html; charset=ISO-8859-1";
     if (r->header_only)
         return OK;
 
@@ -223,7 +223,7 @@ static int uldap_connection_init(request_rec *r,
      * some hosts with ports and some without. All hosts which do not
      * specify a port will use the default port.
      */
-    apr_ldap_init(ldc->pool, &(ldc->ldap),
+    apr_ldap_init(r->pool, &(ldc->ldap),
                   ldc->host,
                   APR_LDAP_SSL == ldc->secure ? LDAPS_PORT : LDAP_PORT,
                   APR_LDAP_NONE,
@@ -251,7 +251,7 @@ static int uldap_connection_init(request_rec *r,
 
     /* set client certificates */
     if (!apr_is_empty_array(ldc->client_certs)) {
-        apr_ldap_set_option(ldc->pool, ldc->ldap, APR_LDAP_OPT_TLS_CERT,
+        apr_ldap_set_option(r->pool, ldc->ldap, APR_LDAP_OPT_TLS_CERT,
                             ldc->client_certs, &(result));
         if (LDAP_SUCCESS != result->rc) {
             uldap_connection_unbind( ldc );
@@ -262,7 +262,7 @@ static int uldap_connection_init(request_rec *r,
 
     /* switch on SSL/TLS */
     if (APR_LDAP_NONE != ldc->secure) {
-        apr_ldap_set_option(ldc->pool, ldc->ldap,
+        apr_ldap_set_option(r->pool, ldc->ldap,
                             APR_LDAP_OPT_TLS, &ldc->secure, &(result));
         if (LDAP_SUCCESS != result->rc) {
             uldap_connection_unbind( ldc );
@@ -277,7 +277,7 @@ static int uldap_connection_init(request_rec *r,
 
 /*XXX All of the #ifdef's need to be removed once apr-util 1.2 is released */
 #ifdef APR_LDAP_OPT_VERIFY_CERT
-    apr_ldap_set_option(ldc->pool, ldc->ldap,
+    apr_ldap_set_option(r->pool, ldc->ldap,
                         APR_LDAP_OPT_VERIFY_CERT, &(st->verify_svr_cert), &(result));
 #else
 #if defined(LDAPSSL_VERIFY_SERVER)
@@ -307,7 +307,7 @@ static int uldap_connection_init(request_rec *r,
     }
 
     if (st->connectionTimeout >= 0) {
-        rc = apr_ldap_set_option(ldc->pool, ldc->ldap, LDAP_OPT_NETWORK_TIMEOUT,
+        rc = apr_ldap_set_option(r->pool, ldc->ldap, LDAP_OPT_NETWORK_TIMEOUT,
                                  (void *)&timeOut, &(result));
         if (APR_SUCCESS != rc) {
             ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server,
@@ -369,7 +369,7 @@ static int uldap_connection_open(request_rec *r,
         rc = ldap_simple_bind_s(ldc->ldap,
                                 (char *)ldc->binddn,
                                 (char *)ldc->bindpw);
-        if (LDAP_SERVER_DOWN != rc) {
+        if (!AP_LDAP_IS_SERVER_DOWN(rc)) {
             break;
         } else if (failures == 5) {
            /* attempt to init the connection once again */
@@ -539,11 +539,19 @@ static util_ldap_connection_t *
          */
         /* create the details to the pool in st */
         l = apr_pcalloc(st->pool, sizeof(util_ldap_connection_t));
+        if (apr_pool_create(&l->pool, st->pool) != APR_SUCCESS) { 
+            ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r,
+                          "util_ldap: Failed to create memory pool");
+#if APR_HAS_THREADS
+            apr_thread_mutex_unlock(st->mutex);
+#endif
+            return NULL;
+    
+        }
 #if APR_HAS_THREADS
         apr_thread_mutex_create(&l->lock, APR_THREAD_MUTEX_DEFAULT, st->pool);
         apr_thread_mutex_lock(l->lock);
 #endif
-        l->pool = st->pool;
         l->bound = 0;
         l->host = apr_pstrdup(st->pool, host);
         l->port = port;
@@ -663,10 +671,10 @@ start_over:
     }
 
     /* search for reqdn */
-    if ((result = ldap_search_ext_s(ldc->ldap, (char *)reqdn, LDAP_SCOPE_BASE,
-                                    "(objectclass=*)", NULL, 1,
-                                    NULL, NULL, NULL, APR_LDAP_SIZELIMIT, &res))
-            == LDAP_SERVER_DOWN)
+    result = ldap_search_ext_s(ldc->ldap, (char *)reqdn, LDAP_SCOPE_BASE,
+                               "(objectclass=*)", NULL, 1,
+                               NULL, NULL, NULL, APR_LDAP_SIZELIMIT, &res);
+    if (AP_LDAP_IS_SERVER_DOWN(result))
     {
         ldc->reason = "DN Comparison ldap_search_ext_s() "
                       "failed with server down";
@@ -800,11 +808,11 @@ start_over:
         return result;
     }
 
-    if ((result = ldap_compare_s(ldc->ldap,
-                                 (char *)dn,
-                                 (char *)attrib,
-                                 (char *)value))
-                                               == LDAP_SERVER_DOWN) {
+    result = ldap_compare_s(ldc->ldap,
+                            (char *)dn,
+                            (char *)attrib,
+                            (char *)value);
+    if (AP_LDAP_IS_SERVER_DOWN(result)) { 
         /* connection failed - try again */
         ldc->reason = "ldap_compare_s() failed with server down";
         uldap_connection_unbind(ldc);
@@ -913,8 +921,16 @@ static int uldap_cache_checkuserid(request_rec *r, util_ldap_connection_t *ldc,
                      && (strcmp(search_nodep->bindpw, bindpw) == 0))
             {
                 /* ...and entry is valid */
-                *binddn = search_nodep->dn;
-                *retvals = search_nodep->vals;
+                *binddn = apr_pstrdup(r->pool, search_nodep->dn);
+                if (attrs) {
+                    int i = 0, k = 0;
+                    while (attrs[k++]);
+                    *retvals = apr_pcalloc(r->pool, sizeof(char *) * k);
+                    while (search_nodep->vals[i]) {
+                        (*retvals)[i] = apr_pstrdup(r->pool, search_nodep->vals[i]);
+                        i++;
+                    }
+                }
                 LDAP_CACHE_UNLOCK();
                 ldc->reason = "Authentication successful (cached)";
                 return LDAP_SUCCESS;
@@ -940,11 +956,11 @@ start_over:
     }
 
     /* try do the search */
-    if ((result = ldap_search_ext_s(ldc->ldap,
-                                    (char *)basedn, scope,
-                                    (char *)filter, attrs, 0,
-                                    NULL, NULL, NULL, APR_LDAP_SIZELIMIT, &res))
-            == LDAP_SERVER_DOWN)
+    result = ldap_search_ext_s(ldc->ldap,
+                               (char *)basedn, scope,
+                               (char *)filter, attrs, 0,
+                               NULL, NULL, NULL, APR_LDAP_SIZELIMIT, &res);
+    if (AP_LDAP_IS_SERVER_DOWN(result))
     {
         ldc->reason = "ldap_search_ext_s() for user failed with server down";
         uldap_connection_unbind(ldc);
@@ -998,9 +1014,10 @@ start_over:
      * fails, it means that the password is wrong (the dn obviously
      * exists, since we just retrieved it)
      */
-    if ((result = ldap_simple_bind_s(ldc->ldap,
-                                     (char *)*binddn,
-                                     (char *)bindpw)) == LDAP_SERVER_DOWN) {
+    result = ldap_simple_bind_s(ldc->ldap,
+                                (char *)*binddn,
+                                (char *)bindpw);
+    if (AP_LDAP_IS_SERVER_DOWN(result)) {
         ldc->reason = "ldap_simple_bind_s() to check user credentials "
                       "failed with server down";
         ldap_msgfree(res);
@@ -1153,8 +1170,16 @@ static int uldap_cache_getuserdn(request_rec *r, util_ldap_connection_t *ldc,
             }
             else {
                 /* ...and entry is valid */
-                *binddn = search_nodep->dn;
-                *retvals = search_nodep->vals;
+                *binddn = apr_pstrdup(r->pool, search_nodep->dn);
+                if (attrs) {
+                    int i = 0, k = 0;
+                    while (attrs[k++]);
+                    *retvals = apr_pcalloc(r->pool, sizeof(char *) * k);
+                    while (search_nodep->vals[i]) {
+                        (*retvals)[i] = apr_pstrdup(r->pool, search_nodep->vals[i]);
+                        i++;
+                    }
+                }
                 LDAP_CACHE_UNLOCK();
                 ldc->reason = "Search successful (cached)";
                 return LDAP_SUCCESS;
@@ -1180,11 +1205,11 @@ start_over:
     }
 
     /* try do the search */
-    if ((result = ldap_search_ext_s(ldc->ldap,
-                                    (char *)basedn, scope,
-                                    (char *)filter, attrs, 0,
-                                    NULL, NULL, NULL, APR_LDAP_SIZELIMIT, &res))
-            == LDAP_SERVER_DOWN)
+    result = ldap_search_ext_s(ldc->ldap,
+                               (char *)basedn, scope,
+                               (char *)filter, attrs, 0,
+                               NULL, NULL, NULL, APR_LDAP_SIZELIMIT, &res);
+    if (AP_LDAP_IS_SERVER_DOWN(result))
     {
         ldc->reason = "ldap_search_ext_s() for user failed with server down";
         uldap_connection_unbind(ldc);
@@ -1990,7 +2015,7 @@ static int util_ldap_post_config(apr_pool_t *p, apr_pool_t *plog,
                       0,
                       &(result_err));
     if (APR_SUCCESS == rc) {
-        rc = apr_ldap_set_option(p, NULL, APR_LDAP_OPT_TLS_CERT,
+        rc = apr_ldap_set_option(ptemp, NULL, APR_LDAP_OPT_TLS_CERT,
                                  (void *)st->global_certs, &(result_err));
     }
 

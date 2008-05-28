@@ -1,10 +1,9 @@
-# 
-# KDOM IDL parser
+#
+# WebKit IDL parser
 #
 # Copyright (C) 2005 Nikolas Zimmermann <wildfox@kde.org>
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
-# 
-# This file is part of the KDE project
+# Copyright (C) 2007 Apple Inc. All rights reserved.
 # 
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Library General Public
@@ -180,6 +179,89 @@ sub AddMethodsConstantsAndAttributesFromParentClasses
     }
 }
 
+sub GetMethodsAndAttributesFromParentClasses
+{
+    # For the passed interface, recursively parse all parent
+    # IDLs in order to find out all inherited properties/methods.
+
+    my $object = shift;
+    my $dataNode = shift;
+
+    my @parents = @{$dataNode->parents};
+
+    return if @{$dataNode->parents} == 0;
+
+    my @parentList = ();
+
+    foreach (@{$dataNode->parents}) {
+        my $interface = $object->StripModule($_);
+        if ($interface eq "EventTargetNode") {
+            $interface = "Node";
+        }
+
+        # Step #1: Find the IDL file associated with 'interface'
+        $endCondition = 0;
+        $foundFilename = "";
+
+        foreach (@{$useDirectories}) {
+            $object->ScanDirectory("${interface}.idl", $_, $_, 0) if $foundFilename eq "";
+        }
+
+        die("Could NOT find specified parent interface \"$interface\"!\n") if $foundFilename eq "";
+
+        print "  |  |>  Parsing parent IDL \"$foundFilename\" for interface \"$interface\"\n" if $verbose;
+
+        # Step #2: Parse the found IDL file (in quiet mode).
+        my $parser = IDLParser->new(1);
+        my $document = $parser->Parse($foundFilename, $defines);
+
+        foreach my $class (@{$document->classes}) {
+            # Step #3: Enter recursive parent search
+            push(@parentList, GetMethodsAndAttributesFromParentClasses($object, $class));
+
+            # Step #4: Collect constants & functions & attributes of this parent-class
+
+            # print "  |  |>  -> Inheriting $functionsMax functions amd $attributesMax attributes...\n  |  |>\n" if $verbose;
+            my $hash = {
+                "name" => $class->name,
+                "functions" => $class->functions,
+                "attributes" => $class->attributes
+            };
+
+            # Step #5: Concatenate data
+            unshift(@parentList, $hash);
+        }
+    }
+
+    return @parentList;
+}
+
+sub ParseInterface
+{
+    my ($object, $interfaceName) = @_;
+
+    # Step #1: Find the IDL file associated with 'interface'
+    $endCondition = 0;
+    $foundFilename = "";
+
+    foreach (@{$useDirectories}) {
+        $object->ScanDirectory("${interfaceName}.idl", $_, $_, 0) if $foundFilename eq "";
+    }
+    die "Could NOT find specified parent interface \"$interfaceName\"!\n" if $foundFilename eq "";
+
+    print "  |  |>  Parsing parent IDL \"$foundFilename\" for interface \"$interfaceName\"\n" if $verbose;
+
+    # Step #2: Parse the found IDL file (in quiet mode).
+    my $parser = IDLParser->new(1);
+    my $document = $parser->Parse($foundFilename, $defines);
+
+    foreach my $interface (@{$document->classes}) {
+        return $interface if $interface->name eq $interfaceName;
+    }
+
+    die "Interface definition not found";
+}
+
 # Helpers for all CodeGenerator***.pm modules
 sub IsPodType
 {
@@ -239,13 +321,12 @@ sub ScanDirectory
     return if ($endCondition eq 1) and ($reportAllFiles eq 0);
 
     my $sourceRoot = $ENV{SOURCE_ROOT};
-    if ($sourceRoot) {
-        $thisDir = "$sourceRoot/$directory";
-    } else {
-        $thisDir = "$directory";
-    }
+    my $thisDir = $sourceRoot ? "$sourceRoot/$directory" : $directory;
 
-    opendir(DIR, $thisDir) or die "[ERROR] Can't open directory $thisDir: \"$!\"\n";
+    if (!opendir(DIR, $thisDir)) {
+        opendir(DIR, $directory) or die "[ERROR] Can't open directory $thisDir or $directory: \"$!\"\n";
+        $thisDir = $directory;
+    }
 
     my @names = readdir(DIR) or die "[ERROR] Cant't read directory $thisDir \"$!\"\n";
     closedir(DIR);
@@ -275,6 +356,27 @@ sub ScanDirectory
             }
         }
     }
+}
+
+# Uppercase the first letter while respecting WebKit style guidelines. 
+# E.g., xmlEncoding becomes XMLEncoding, but xmlllang becomes Xmllang.
+sub WK_ucfirst
+{
+    my ($object, $param) = @_;
+    my $ret = ucfirst($param);
+    $ret =~ s/Xml/XML/ if $ret =~ /^Xml[^a-z]/;
+    return $ret;
+}
+
+# Lowercase the first letter while respecting WebKit style guidelines. 
+# URL becomes url, but SetURL becomes setURL.
+sub WK_lcfirst
+{
+    my ($object, $param) = @_;
+    my $ret = lcfirst($param);
+    $ret =~ s/uRL/url/ if $ret =~ /^uRL/;
+    $ret =~ s/jS/js/ if $ret =~ /^jS/;
+    return $ret;
 }
 
 1;

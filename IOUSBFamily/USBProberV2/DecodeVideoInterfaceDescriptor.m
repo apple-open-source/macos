@@ -55,6 +55,7 @@
     auto IOUSBVDC_UncompressedFrameDescriptor * pUncompressedFrameDesc = NULL;
     auto IOUSBVDC_UncompressedDiscreteFrameDescriptor * pUncompressedDiscreteFrameDesc = NULL;
 	auto IOUSBVDC_StillImageFrameDescriptor * pVSStillImageFrameDesc = NULL;
+	auto IOUSBVDC_DVFormatDescriptor * pDVFormatDesc = NULL;
 	
     UInt16					i, j;
     UInt8					*p;
@@ -1144,7 +1145,7 @@
 					break;
 				
 				
-			case VS_STILL_IMAGE_FRAME:
+				case VS_STILL_IMAGE_FRAME:
 				pVSStillImageFrameDesc = (IOUSBVDC_StillImageFrameDescriptor *)desc;
 				
 				sprintf((char *)buf, "0x%x", pVSStillImageFrameDesc->bEndpointAddress );
@@ -1152,7 +1153,7 @@
 				
 				sprintf((char *)buf, "%d", pVSStillImageFrameDesc->bNumImageSizePatterns );
 				[thisDevice addProperty:"bNumImageSizePatterns" withValue:buf atDepth:INTERFACE_LEVEL+1];
-						
+				
 				IOSUBVDC_StillImageSize	*	dimensions;
 				
 				for (j = 0; j < pVSStillImageFrameDesc->bNumImageSizePatterns; j++ )
@@ -1161,14 +1162,14 @@
 					
 					sprintf((char *)buf, "Width: %d, Height: %d", OSSwapLittleToHostInt16( dimensions->wWidth), OSSwapLittleToHostInt16(dimensions->wHeight) );
 					sprintf((char *)buf2, "wWidth[%d], wHeight[%d]", j+1, j+1 );
-
+					
 					[thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+2];
 				}
-					
+				
 				IOSUBVDC_StillImageCompressionPattern *	pattern = (IOSUBVDC_StillImageCompressionPattern *) &pVSStillImageFrameDesc->dwSize[j];
 				sprintf((char *)buf, "%d", pattern->bNumCompressionPattern );
 				[thisDevice addProperty:"bCompressionPatterns" withValue:buf atDepth:INTERFACE_LEVEL+2];
-
+				
 				for (j = 0; j < pattern->bNumCompressionPattern; j++ )
 				{
 					sprintf((char *)buf, "%d", pattern->bCompression[j] );
@@ -1176,8 +1177,39 @@
 					
 					[thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+3];
 				}
-					
-					break;
+				
+				break;
+				
+				case VS_FORMAT_DV:
+				pDVFormatDesc = (IOUSBVDC_DVFormatDescriptor *)desc;
+				
+				sprintf((char *)buf, "0x%x", pDVFormatDesc->bFormatIndex);
+				[thisDevice addProperty:"bFormatIndex:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf((char *)buf, "0x%x (%u)", Swap32(&pDVFormatDesc->dwMaxVideoFrameBufferSize), pDVFormatDesc->dwMaxVideoFrameBufferSize);
+				[thisDevice addProperty:"dwMaxVideoFrameBufferSize (bytes):" withValue:buf atDepth:INTERFACE_LEVEL+1];
+								
+				switch (pDVFormatDesc->bFormatType & 0x3)
+				{
+					case 0:  s = "SD-DV"; break;
+					case 1:  s = "SDL-DV"; break;
+					case 2:  s = "HD-DV"; break;
+					default: s = "reserved"; break;
+				}
+				
+				if (pDVFormatDesc->bFormatType & 0x80)
+				{
+					sprintf((char *)buf, "60 Hz %s", s);
+				}
+				else
+				{
+					sprintf((char *)buf, "5b0 Hz %s", s);
+				}
+				
+				[thisDevice addProperty:"DV Format:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+				
+				break;
 				// default:
 		}
 	}       

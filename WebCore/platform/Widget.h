@@ -51,6 +51,10 @@ class QWidget;
 class QWebFrame;
 #endif
 
+#if PLATFORM(WX)
+class wxWindow;
+#endif
+
 namespace WebCore {
 
     class Cursor;
@@ -122,6 +126,9 @@ namespace WebCore {
         virtual void setParent(ScrollView*);
         ScrollView* parent() const;
 
+        virtual void attachToWindow() { }
+        virtual void detachFromWindow() { }
+
         virtual void geometryChanged() const {};
         
         IntRect convertToContainingWindow(const IntRect&) const;
@@ -161,15 +168,17 @@ protected:
 #endif
 
 #if PLATFORM(QT)
-        QWidget* qwidget() const;
-        void setQWidget(QWidget *widget);
-        QWidget* containingWindow() const;
+        void setNativeWidget(QWidget *widget);
+        QWidget* nativeWidget() const;
+
+        QWidget *containingWindow() const;
 
         QWebFrame* qwebframe() const;
         void setQWebFrame(QWebFrame *webFrame);
         virtual void setParent(ScrollView*);
         ScrollView* parent() const;
         virtual void geometryChanged() const;
+        ScrollView* topLevel() const;
 
         IntRect convertToContainingWindow(const IntRect&) const;
         IntPoint convertToContainingWindow(const IntPoint&) const;
@@ -177,6 +186,9 @@ protected:
 
         virtual IntPoint convertChildToSelf(const Widget*, const IntPoint&) const;
         virtual IntPoint convertSelfToChild(const Widget*, const IntPoint&) const;
+
+        bool suppressInvalidation() const;
+        void setSuppressInvalidation(bool);
 #endif
 
 #if PLATFORM(MAC)
@@ -192,6 +204,12 @@ protected:
         void addToSuperview(NSView* superview);
         void removeFromSuperview();
         IntPoint convertToScreenCoordinate(NSView*, const IntPoint&);
+#endif
+
+#if PLATFORM(WX)
+        Widget(wxWindow*);
+        wxWindow* nativeWindow() const;
+        virtual void setNativeWindow(wxWindow*);
 #endif
 
     private:

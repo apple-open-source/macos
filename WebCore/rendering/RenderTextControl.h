@@ -27,6 +27,7 @@
 
 namespace WebCore {
 
+class FontSelector;
 class HTMLTextFieldInnerElement;
 class HTMLTextFieldInnerTextElement;
 class HTMLSearchFieldCancelButtonElement;
@@ -53,7 +54,8 @@ public:
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
     virtual void layout();
     virtual bool avoidsFloats() const { return true; }
-
+    virtual void paint(PaintInfo&, int tx, int ty);
+    
     virtual bool isEdited() const { return m_dirty; }
     virtual void setEdited(bool isEdited) { m_dirty = isEdited; }
     virtual bool isTextField() const { return !m_multiLine; }
@@ -102,6 +104,8 @@ public:
     
     bool placeholderIsVisible() const { return m_placeholderVisible; }
 
+    virtual void capsLockStateMayHaveChanged();
+
 private:
     // PopupMenuClient methods
     virtual void valueChanged(unsigned listIndex, bool fireEvents = true);
@@ -111,6 +115,8 @@ private:
     virtual RenderStyle* itemStyle(unsigned listIndex) const;
     virtual RenderStyle* clientStyle() const;
     virtual Document* clientDocument() const;
+    virtual int clientInsetLeft() const;
+    virtual int clientInsetRight() const;
     virtual int clientPaddingLeft() const;
     virtual int clientPaddingRight() const;
     virtual int listSize() const;
@@ -121,7 +127,8 @@ private:
     virtual void setTextFromItem(unsigned listIndex);
     virtual bool shouldPopOver() const { return false; }
     virtual bool valueShouldChangeOnHotTrack() const { return false; }
-    
+    virtual FontSelector* fontSelector() const;
+
     RenderStyle* createInnerBlockStyle(RenderStyle* startStyle);
     RenderStyle* createInnerTextStyle(RenderStyle* startStyle);
     RenderStyle* createCancelButtonStyle(RenderStyle* startStyle);
@@ -144,7 +151,8 @@ private:
     bool m_multiLine;
     bool m_placeholderVisible;
     bool m_userEdited;
-
+    bool m_shouldDrawCapsLockIndicator;
+    
     RefPtr<SearchPopupMenu> m_searchPopup;
     bool m_searchPopupIsVisible;
     mutable Vector<String> m_recentSearches;

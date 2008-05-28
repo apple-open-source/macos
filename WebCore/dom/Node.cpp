@@ -24,18 +24,31 @@
 #include "config.h"
 #include "Node.h"
 
+#include "CSSParser.h"
+#include "CSSRule.h"
+#include "CSSRuleList.h"
+#include "CSSSelector.h"
+#include "CSSStyleRule.h"
+#include "CSSStyleSelector.h"
+#include "CSSStyleSheet.h"
 #include "CString.h"
 #include "ChildNodeList.h"
+#include "ClassNodeList.h"
 #include "DOMImplementation.h"
 #include "Document.h"
+#include "DynamicNodeList.h"
 #include "Element.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "HTMLNames.h"
+#include "HTMLNames.h"
 #include "KURL.h"
 #include "Logging.h"
+#include "NameNodeList.h"
 #include "NamedAttrMap.h"
 #include "RenderObject.h"
+#include "SelectorNodeList.h"
+#include "TagNodeList.h"
 #include "Text.h"
 #include "TextStream.h"
 #include "XMLNames.h"
@@ -46,54 +59,28 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-typedef HashSet<NodeList*> NodeListSet;
 struct NodeListsNodeData {
-    NodeListSet m_registeredLists;
-    NodeList::Caches m_childNodeListCaches;
+    typedef HashSet<DynamicNodeList*> NodeListSet;
+    NodeListSet m_listsWithCaches;
+
+    DynamicNodeList::Caches m_childNodeListCaches;
+
+    typedef HashMap<String, DynamicNodeList::Caches*> CacheMap;
+    CacheMap m_classNodeListCaches;
+    CacheMap m_nameNodeListCaches;
+
+    ~NodeListsNodeData()
+    {
+        deleteAllValues(m_classNodeListCaches);
+        deleteAllValues(m_nameNodeListCaches);
+    }
+
+    void invalidateCaches();
+    void invalidateCachesThatDependOnAttributes();
+    bool isEmpty() const;
 };
 
-// NodeList that limits to a particular tag.
-class TagNodeList : public NodeList {
-public:
-    TagNodeList(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName);
-
-    virtual unsigned length() const;
-    virtual Node* item(unsigned index) const;
-
-private:
-    virtual bool nodeMatches(Node*) const;
-
-    AtomicString m_namespaceURI;
-    AtomicString m_localName;
-};
-
-inline TagNodeList::TagNodeList(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName)
-    : NodeList(rootNode), m_namespaceURI(namespaceURI), m_localName(localName)
-{
-    ASSERT(m_namespaceURI.isNull() || !m_namespaceURI.isEmpty());
-}
-
-unsigned TagNodeList::length() const
-{
-    return recursiveLength();
-}
-
-Node* TagNodeList::item(unsigned index) const
-{
-    return recursiveItem(index);
-}
-
-bool TagNodeList::nodeMatches(Node* testNode) const
-{
-    if (!testNode->isElementNode())
-        return false;
-
-    if (m_namespaceURI != starAtom && m_namespaceURI != testNode->namespaceURI())
-        return false;
-
-    return m_localName == starAtom || m_localName == testNode->localName();
-}
-
+// --------
 
 bool Node::isSupported(const String& feature, const String& version)
 {
@@ -138,7 +125,6 @@ Node::Node(Document *doc)
       m_previous(0),
       m_next(0),
       m_renderer(0),
-      m_nodeLists(0),
       m_tabIndex(0),
       m_hasId(false),
       m_hasClass(false),
@@ -189,9 +175,13 @@ Node::~Node()
     else
         --NodeCounter::count;
 #endif
+
+    if (m_nodeLists && m_document)
+        document()->removeNodeListCache();
+
     if (renderer())
         detach();
-    delete m_nodeLists;
+
     if (m_previous)
         m_previous->setNextSibling(0);
     if (m_next)
@@ -216,8 +206,10 @@ void Node::setNodeValue(const String& /*nodeValue*/, ExceptionCode& ec)
 
 PassRefPtr<NodeList> Node::childNodes()
 {
-    if (!m_nodeLists)
-        m_nodeLists = new NodeListsNodeData;
+    if (!m_nodeLists) {
+        m_nodeLists.set(new NodeListsNodeData);
+        document()->addNodeListCache();
+    }
 
     return new ChildNodeList(this, &m_nodeLists->m_childNodeListCaches);
 }
@@ -230,6 +222,11 @@ Node* Node::virtualFirstChild() const
 Node* Node::virtualLastChild() const
 {
     return 0;
+}
+
+bool Node::virtualHasTagName(const QualifiedName&) const
+{
+    return false;
 }
 
 Node *Node::lastDescendant() const
@@ -359,7 +356,7 @@ void Node::setPrefix(const AtomicString& /*prefix*/, ExceptionCode& ec)
 
 const AtomicString& Node::localName() const
 {
-    return emptyAtom;
+    return nullAtom;
 }
 
 const AtomicString& Node::namespaceURI() const
@@ -435,22 +432,30 @@ unsigned Node::nodeIndex() const
     return count;
 }
 
-void Node::registerNodeList(NodeList* list)
+void Node::registerDynamicNodeList(DynamicNodeList* list)
 {
-    if (!m_nodeLists)
-        m_nodeLists = new NodeListsNodeData;
-    else if (m_nodeLists->m_registeredLists.isEmpty()) 
-        m_nodeLists->m_childNodeListCaches.reset();
+    if (!m_nodeLists) {
+        m_nodeLists.set(new NodeListsNodeData);
+        document()->addNodeListCache();
+    } else if (!m_document->hasNodeListCaches()) {
+        // We haven't been receiving notifications while there were no registered lists, so the cache is invalid now.
+        m_nodeLists->invalidateCaches();
+    }
 
-    m_nodeLists->m_registeredLists.add(list);
-    m_document->addNodeList();
+    if (list->hasOwnCaches())
+        m_nodeLists->m_listsWithCaches.add(list);
 }
 
-void Node::unregisterNodeList(NodeList* list)
+void Node::unregisterDynamicNodeList(DynamicNodeList* list)
 {
     ASSERT(m_nodeLists);
-    m_document->removeNodeList();
-    m_nodeLists->m_registeredLists.remove(list);
+    if (list->hasOwnCaches()) {
+        m_nodeLists->m_listsWithCaches.remove(list);
+        if (m_nodeLists->isEmpty()) {
+            m_nodeLists.clear();
+            document()->removeNodeListCache();
+        }
+    }
 }
 
 void Node::notifyLocalNodeListsAttributeChanged()
@@ -458,9 +463,12 @@ void Node::notifyLocalNodeListsAttributeChanged()
     if (!m_nodeLists)
         return;
 
-    NodeListSet::iterator end = m_nodeLists->m_registeredLists.end();
-    for (NodeListSet::iterator i = m_nodeLists->m_registeredLists.begin(); i != end; ++i)
-        (*i)->rootNodeAttributeChanged();
+    m_nodeLists->invalidateCachesThatDependOnAttributes();
+
+    if (m_nodeLists->isEmpty()) {
+        m_nodeLists.clear();
+        document()->removeNodeListCache();
+    }
 }
 
 void Node::notifyNodeListsAttributeChanged()
@@ -474,16 +482,21 @@ void Node::notifyLocalNodeListsChildrenChanged()
     if (!m_nodeLists)
         return;
 
-    m_nodeLists->m_childNodeListCaches.reset();
+    m_nodeLists->invalidateCaches();
 
-    NodeListSet::iterator end = m_nodeLists->m_registeredLists.end();
-    for (NodeListSet::iterator i = m_nodeLists->m_registeredLists.begin(); i != end; ++i)
-        (*i)->rootNodeChildrenChanged();
+    NodeListsNodeData::NodeListSet::iterator end = m_nodeLists->m_listsWithCaches.end();
+    for (NodeListsNodeData::NodeListSet::iterator i = m_nodeLists->m_listsWithCaches.begin(); i != end; ++i)
+        (*i)->invalidateCache();
+
+    if (m_nodeLists->isEmpty()) {
+        m_nodeLists.clear();
+        document()->removeNodeListCache();
+    }
 }
 
 void Node::notifyNodeListsChildrenChanged()
 {
-    for (Node *n = this; n; n = n->parentNode())
+    for (Node* n = this; n; n = n->parentNode())
         n->notifyLocalNodeListsChildrenChanged();
 }
 
@@ -823,15 +836,25 @@ void Node::attach()
 {
     ASSERT(!attached());
     ASSERT(!renderer() || (renderer()->style() && renderer()->parent()));
-    document()->incDOMTreeVersion();
+
+    // If this node got a renderer it may be the previousRenderer() of sibling text nodes and thus affect the
+    // result of Text::rendererIsNeeded() for those nodes.
+    if (renderer()) {
+        for (Node* next = nextSibling(); next; next = next->nextSibling()) {
+            if (next->renderer())
+                break;
+            if (!next->attached())
+                break;  // Assume this means none of the following siblings are attached.
+            if (next->isTextNode())
+                next->createRendererIfNeeded();
+        }
+    }
+
     m_attached = true;
 }
 
 void Node::willRemove()
 {
-    // If the document is in the page cache, then we don't need to clear out the focused node.
-    if (!document()->inPageCache() && m_focused)
-        document()->focusedNodeRemoved(this);
 }
 
 void Node::detach()
@@ -847,7 +870,6 @@ void Node::detach()
         doc->hoveredNodeDetached(this);
     if (m_inActiveChain)
         doc->activeChainNodeDetached(this);
-    doc->incDOMTreeVersion();
 
     m_active = false;
     m_hovered = false;
@@ -864,12 +886,11 @@ void Node::insertedIntoDocument()
 
 void Node::removedFromDocument()
 {
+    if (m_document && m_document->getCSSTarget() == this)
+        m_document->setCSSTarget(0);
+
     setInDocument(false);
     removedFromTree(false);
-}
-
-void Node::childrenChanged()
-{
 }
 
 bool Node::isReadOnlyNode()
@@ -1004,8 +1025,7 @@ void Node::createRendererIfNeeded()
 {
     if (!document()->shouldCreateRenderers())
         return;
-    
-    ASSERT(!attached());
+
     ASSERT(!renderer());
     
     Node *parent = parentNode();    
@@ -1024,7 +1044,7 @@ void Node::createRendererIfNeeded()
                     r->destroy();
                 else {
                     setRenderer(r);
-                    renderer()->setStyle(style);
+                    renderer()->setAnimatableStyle(style);
                     parentRenderer->addChild(renderer(), nextRenderer());
                 }
             }
@@ -1059,7 +1079,7 @@ RenderStyle* Node::renderStyle() const
 void Node::setRenderStyle(RenderStyle* s)
 {
     if (m_renderer)
-        m_renderer->setStyle(s); 
+        m_renderer->setAnimatableStyle(s); 
 }
 
 RenderStyle* Node::computedStyle()
@@ -1067,38 +1087,14 @@ RenderStyle* Node::computedStyle()
     return parent() ? parent()->computedStyle() : 0;
 }
 
-int Node::maxOffset() const
+int Node::maxCharacterOffset() const
 {
-    return 1;
+    ASSERT_NOT_REACHED();
+    return 0;
 }
 
 // FIXME: Shouldn't these functions be in the editing code?  Code that asks questions about HTML in the core DOM class
 // is obviously misplaced.
-int Node::caretMinOffset() const
-{
-    return renderer() ? renderer()->caretMinOffset() : 0;
-}
-
-int Node::caretMaxOffset() const
-{
-    return renderer() ? renderer()->caretMaxOffset() : 1;
-}
-
-unsigned Node::caretMaxRenderedOffset() const
-{
-    return renderer() ? renderer()->caretMaxRenderedOffset() : 1;
-}
-
-int Node::previousOffset (int current) const
-{
-    return renderer() ? renderer()->previousOffset(current) : current - 1;
-}
-
-int Node::nextOffset (int current) const
-{
-    return renderer() ? renderer()->nextOffset(current) : current + 1;
-}
-
 bool Node::canStartSelection() const
 {
     if (isContentEditable())
@@ -1226,6 +1222,86 @@ PassRefPtr<NodeList> Node::getElementsByTagNameNS(const String& namespaceURI, co
     if (document()->isHTMLDocument())
         name = localName.lower();
     return new TagNodeList(this, namespaceURI.isEmpty() ? nullAtom : AtomicString(namespaceURI), name);
+}
+
+PassRefPtr<NodeList> Node::getElementsByName(const String& elementName)
+{
+    if (!m_nodeLists) {
+        m_nodeLists.set(new NodeListsNodeData);
+        document()->addNodeListCache();
+    }
+
+    pair<NodeListsNodeData::CacheMap::iterator, bool> result = m_nodeLists->m_nameNodeListCaches.add(elementName, 0);
+    if (result.second)
+        result.first->second = new DynamicNodeList::Caches;
+    
+    return new NameNodeList(this, elementName, result.first->second);
+}
+
+PassRefPtr<NodeList> Node::getElementsByClassName(const String& classNames)
+{
+    if (!m_nodeLists) {
+        m_nodeLists.set(new NodeListsNodeData);
+        document()->addNodeListCache();
+    }
+
+    pair<NodeListsNodeData::CacheMap::iterator, bool> result = m_nodeLists->m_classNodeListCaches.add(classNames, 0);
+    if (result.second)
+        result.first->second = new DynamicNodeList::Caches;
+    
+    return new ClassNodeList(this, classNames, result.first->second);
+}
+
+PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& ec)
+{
+    if (selectors.isNull() || selectors.isEmpty()) {
+        ec = SYNTAX_ERR;
+        return 0;
+    }
+    CSSStyleSheet tempStyleSheet(document());
+    CSSParser p(true);
+    RefPtr<CSSRule> rule = p.parseRule(&tempStyleSheet, selectors + "{}");
+    if (!rule || !rule->isStyleRule()) {
+        ec = SYNTAX_ERR;
+        return 0;
+    }
+
+    CSSStyleSelector* styleSelector = document()->styleSelector();
+    CSSSelector* querySelector = static_cast<CSSStyleRule*>(rule.get())->selector();
+    
+    // FIXME: We can speed this up by implementing caching similar to the one use by getElementById
+    for (Node* n = firstChild(); n; n = n->traverseNextNode(this)) {
+        if (n->isElementNode()) {
+            Element* element = static_cast<Element*>(n);
+            styleSelector->initElementAndPseudoState(element);
+            styleSelector->initForStyleResolve(element, 0);
+            for (CSSSelector* selector = querySelector; selector; selector = selector->next()) {
+                if (styleSelector->checkSelector(selector))
+                    return element;
+            }
+        }
+    }
+    
+    return 0;
+}
+
+PassRefPtr<NodeList> Node::querySelectorAll(const String& selectors, ExceptionCode& ec)
+{
+    if (selectors.isNull() || selectors.isEmpty()) {
+        ec = SYNTAX_ERR;
+        return 0;
+    }
+    CSSStyleSheet tempStyleSheet(document());
+    CSSParser p(true);
+    RefPtr<CSSRule> rule = p.parseRule(&tempStyleSheet, selectors + "{}");
+    if (!rule || !rule->isStyleRule()) {
+        ec = SYNTAX_ERR;
+        return 0;
+    }
+    
+    SelectorNodeList* resultList = new SelectorNodeList(this, static_cast<CSSStyleRule*>(rule.get())->selector());
+
+    return resultList;
 }
 
 Document *Node::ownerDocument() const
@@ -1624,7 +1700,51 @@ void Node::formatForDebugger(char* buffer, unsigned length) const
 
 #endif
 
+// --------
+
+void NodeListsNodeData::invalidateCaches()
+{
+    m_childNodeListCaches.reset();
+    invalidateCachesThatDependOnAttributes();
 }
+
+void NodeListsNodeData::invalidateCachesThatDependOnAttributes()
+{
+    CacheMap::iterator classCachesEnd = m_classNodeListCaches.end();
+    for (CacheMap::iterator it = m_classNodeListCaches.begin(); it != classCachesEnd; ++it)
+        it->second->reset();
+
+    CacheMap::iterator nameCachesEnd = m_nameNodeListCaches.end();
+    for (CacheMap::iterator it = m_nameNodeListCaches.begin(); it != nameCachesEnd; ++it)
+        it->second->reset();
+}
+
+bool NodeListsNodeData::isEmpty() const
+{
+    if (!m_listsWithCaches.isEmpty())
+        return false;
+
+    if (m_childNodeListCaches.refCount)
+        return false;
+
+    CacheMap::const_iterator classCachesEnd = m_classNodeListCaches.end();
+    for (CacheMap::const_iterator it = m_classNodeListCaches.begin(); it != classCachesEnd; ++it) {
+        if (it->second->refCount)
+            return false;
+    }
+
+    CacheMap::const_iterator nameCachesEnd = m_nameNodeListCaches.end();
+    for (CacheMap::const_iterator it = m_nameNodeListCaches.begin(); it != nameCachesEnd; ++it) {
+        if (it->second->refCount)
+            return false;
+    }
+
+    return true;
+}
+
+// --------
+
+} // namespace WebCore
 
 #ifndef NDEBUG
 

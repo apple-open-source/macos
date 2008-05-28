@@ -251,7 +251,7 @@ void RenderTableCell::setStyle(RenderStyle* newStyle)
 
 bool RenderTableCell::requiresLayer()
 {
-    return isPositioned() || isTransparent() || hasOverflowClip();
+    return isPositioned() || isTransparent() || hasOverflowClip() || hasTransform();
 }
 
 // The following rules apply for resolving conflicts and figuring out which border
@@ -826,7 +826,7 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, int tx, i
             paintInfo.context->save();
             paintInfo.context->clip(clipRect);
         }
-        paintBackground(paintInfo.context, c, bgLayer, my, mh, tx, ty, w, h);
+        paintBackgrounds(paintInfo.context, c, bgLayer, my, mh, tx, ty, w, h);
         if (shouldClip)
             paintInfo.context->restore();
     }

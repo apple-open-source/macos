@@ -176,6 +176,7 @@ protected:
 		SInt32				_activeIsochTransfers;				// isochronous transfers in the queue
 		IOService			*_provider;							// common name for our provider
 		bool				_controllerCanSleep;				// true iff the controller is able to support sleep/wake
+		bool				_needToClose;
     };
     ExpansionData *_expansionData;
 	
@@ -188,6 +189,7 @@ public:
     virtual void 		stop( IOService * provider );
     virtual bool 		finalize(IOOptionBits options);
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
+    virtual bool		didTerminate( IOService * provider, IOOptionBits options, bool * defer );
 	
 protected:
 		

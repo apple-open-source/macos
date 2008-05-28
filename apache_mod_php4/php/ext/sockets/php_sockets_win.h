@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sockets_win.h,v 1.5.8.3.2.2 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: php_sockets_win.h,v 1.5.8.3.2.3 2007/12/31 07:22:51 sebastian Exp $ */
 
 
 #ifdef PHP_WIN32

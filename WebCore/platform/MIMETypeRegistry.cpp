@@ -26,6 +26,7 @@
 #include "config.h"
 #include "MIMETypeRegistry.h"
 
+#include "MediaPlayer.h"
 #include "StringHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -43,8 +44,10 @@ namespace WebCore
 {
 static WTF::HashSet<String>* supportedImageResourceMIMETypes;
 static WTF::HashSet<String>* supportedImageMIMETypes;
+static WTF::HashSet<String>* supportedJavaScriptMIMETypes;
 static WTF::HashSet<String>* supportedNonImageMIMETypes;
-    
+static WTF::HashSet<String>* supportedMediaMIMETypes;
+
 #if PLATFORM(CG)
 extern String getMIMETypeForUTI(const String& uti);
 #endif
@@ -64,11 +67,15 @@ static void initialiseSupportedImageMIMETypes()
         CFRelease(supportedType);
     }
     CFRelease(supportedTypes);
-    
-    // On Tiger, com.microsoft.bmp doesn't have a MIME type in the registry.
+
+    // On Tiger and Leopard, com.microsoft.bmp doesn't have a MIME type in the registry.
     supportedImageMIMETypes->add("image/bmp");
     supportedImageResourceMIMETypes->add("image/bmp");
-    
+
+    // Favicons don't have a MIME type in the registry either.
+    supportedImageMIMETypes->add("image/x-icon");
+    supportedImageResourceMIMETypes->add("image/x-icon");
+
     //  We only get one MIME type per UTI, hence our need to add these manually
     supportedImageMIMETypes->add("image/pjpeg");
     supportedImageResourceMIMETypes->add("image/pjpeg");
@@ -113,6 +120,32 @@ static void initialiseSupportedImageMIMETypes()
 #endif
 }
 
+static void initialiseSupportedJavaScriptMIMETypes()
+{
+    /*
+        Mozilla 1.8 and WinIE 7 both accept text/javascript and text/ecmascript.
+        Mozilla 1.8 accepts application/javascript, application/ecmascript, and application/x-javascript, but WinIE 7 doesn't.
+        WinIE 7 accepts text/javascript1.1 - text/javascript1.3, text/jscript, and text/livescript, but Mozilla 1.8 doesn't.
+        Mozilla 1.8 allows leading and trailing whitespace, but WinIE 7 doesn't.
+        Mozilla 1.8 and WinIE 7 both accept the empty string, but neither accept a whitespace-only string.
+        We want to accept all the values that either of these browsers accept, but not other values.
+     */
+    static const char* types[] = {
+        "text/javascript",
+        "text/ecmascript",
+        "application/javascript",
+        "application/ecmascript",
+        "application/x-javascript",
+        "text/javascript1.1",
+        "text/javascript1.2",
+        "text/javascript1.3",
+        "text/jscript",
+        "text/livescript",
+    };
+    for (size_t i = 0; i < sizeof(types)/sizeof(types[0]); ++i)
+      supportedJavaScriptMIMETypes->add(types[i]);
+}
+
 static void initialiseSupportedNonImageMimeTypes()
 {
     static const char* types[] = {
@@ -121,7 +154,6 @@ static void initialiseSupportedNonImageMimeTypes()
       "text/xsl",
       "text/plain",
       "text/",
-      "application/x-javascript",
       "application/xml",
       "application/xhtml+xml",
       "application/rss+xml",
@@ -141,12 +173,23 @@ static void initialiseSupportedNonImageMimeTypes()
       supportedNonImageMIMETypes->add(types[i]);
 }
 
+static void initialiseSupportedMediaMIMETypes()
+{
+    supportedMediaMIMETypes = new WTF::HashSet<String>();
+#if ENABLE(VIDEO)
+    MediaPlayer::getSupportedTypes(*supportedMediaMIMETypes);
+#endif
+}
+
 static void initialiseMIMETypeRegistry()
 {
+    supportedJavaScriptMIMETypes = new WTF::HashSet<String>();
+    initialiseSupportedJavaScriptMIMETypes();
+
     supportedImageResourceMIMETypes = new WTF::HashSet<String>();
     supportedImageMIMETypes = new WTF::HashSet<String>();
-    supportedNonImageMIMETypes = new WTF::HashSet<String>();
-    
+    supportedNonImageMIMETypes = new WTF::HashSet<String>(*supportedJavaScriptMIMETypes);
+
     initialiseSupportedNonImageMimeTypes();
     initialiseSupportedImageMIMETypes();
 }
@@ -174,6 +217,13 @@ bool MIMETypeRegistry::isSupportedImageResourceMIMEType(const String& mimeType)
         initialiseMIMETypeRegistry();
     return !mimeType.isEmpty() && supportedImageResourceMIMETypes->contains(mimeType); 
 }
+
+bool MIMETypeRegistry::isSupportedJavaScriptMIMEType(const String& mimeType)
+{ 
+    if (!supportedJavaScriptMIMETypes)
+        initialiseMIMETypeRegistry();
+    return !mimeType.isEmpty() && supportedJavaScriptMIMETypes->contains(mimeType); 
+}
     
 bool MIMETypeRegistry::isSupportedNonImageMIMEType(const String& mimeType)
 {
@@ -182,6 +232,14 @@ bool MIMETypeRegistry::isSupportedNonImageMIMEType(const String& mimeType)
     return !mimeType.isEmpty() && supportedNonImageMIMETypes->contains(mimeType);
 }
 
+bool MIMETypeRegistry::isSupportedMediaMIMEType(const String& mimeType)
+{
+    if (!supportedMediaMIMETypes)
+        initialiseSupportedMediaMIMETypes();
+    return !mimeType.isEmpty() && supportedMediaMIMETypes->contains(mimeType);     
+}
+    
+    
 bool MIMETypeRegistry::isJavaAppletMIMEType(const String& mimeType)
 {
     // Since this set is very limited and is likely to remain so we won't bother with the overhead
@@ -214,4 +272,11 @@ HashSet<String> &MIMETypeRegistry::getSupportedNonImageMIMETypes()
     return *supportedNonImageMIMETypes;
 }
 
+HashSet<String> &MIMETypeRegistry::getSupportedMediaMIMETypes()
+{
+    if (!supportedMediaMIMETypes)
+        initialiseSupportedMediaMIMETypes();
+    return *supportedMediaMIMETypes;
+}
+    
 }

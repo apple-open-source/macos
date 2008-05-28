@@ -32,37 +32,28 @@
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
-#include "CharacterData.h"
-#include "Clipboard.h"
 #include "ClipboardEvent.h"
 #include "DeleteButtonController.h"
 #include "DeleteSelectionCommand.h"
 #include "DocLoader.h"
-#include "Document.h"
 #include "DocumentFragment.h"
-#include "EditCommand.h"
-#include "Editor.h"
 #include "EditorClient.h"
-#include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "FocusController.h"
+#include "FontData.h"
 #include "FrameView.h"
-#include "HTMLElement.h"
 #include "HTMLInputElement.h"
-#include "HTMLNames.h"
 #include "HTMLTextAreaElement.h"
 #include "HitTestResult.h"
 #include "IndentOutdentCommand.h"
 #include "InsertListCommand.h"
 #include "KeyboardEvent.h"
-#include "KURL.h"
 #include "ModifySelectionListLevel.h"
 #include "Page.h"
 #include "Pasteboard.h"
-#include "Range.h"
+#include "RemoveFormatCommand.h"
 #include "ReplaceSelectionCommand.h"
-#include "SelectionController.h"
 #include "Sound.h"
 #include "Text.h"
 #include "TextIterator.h"
@@ -73,27 +64,21 @@
 
 namespace WebCore {
 
-class FontData;
-
 using namespace std;
 using namespace EventNames;
 using namespace HTMLNames;
 
 // When an event handler has moved the selection outside of a text control
 // we should use the target control's selection for this editing operation.
-static Selection selectionForEvent(Frame* frame, Event* event)
+Selection Editor::selectionForCommand(Event* event)
 {
-    Page* page = frame->page();
-    if (!page)
-        return Selection();
-    Selection selection = page->selection();
+    Selection selection = m_frame->selectionController()->selection();
     if (!event)
         return selection;
-    Node* target = event->target()->toNode();
-    Node* selectionStart = selection.start().node();
-    
     // If the target is a text control, and the current selection is outside of its shadow tree,
     // then use the saved selection for that text control.
+    Node* target = event->target()->toNode();
+    Node* selectionStart = selection.start().node();
     if (target && (!selectionStart || target->shadowAncestorNode() != selectionStart->shadowAncestorNode())) {
         if (target->hasTagName(inputTag) && static_cast<HTMLInputElement*>(target)->isTextField())
             return static_cast<HTMLInputElement*>(target)->selection();
@@ -110,18 +95,18 @@ EditorClient* Editor::client() const
     return 0;
 }
 
-void Editor::handleKeypress(KeyboardEvent* event)
+void Editor::handleKeyboardEvent(KeyboardEvent* event)
 {
     if (EditorClient* c = client())
-        if (selectionForEvent(m_frame, event).isContentEditable())
-            c->handleKeypress(event);
+        if (selectionForCommand(event).isContentEditable())
+            c->handleKeyboardEvent(event);
 }
 
-void Editor::handleInputMethodKeypress(KeyboardEvent* event)
+void Editor::handleInputMethodKeydown(KeyboardEvent* event)
 {
     if (EditorClient* c = client())
-        if (selectionForEvent(m_frame, event).isContentEditable())
-            c->handleInputMethodKeypress(event);
+        if (selectionForCommand(event).isContentEditable())
+            c->handleInputMethodKeydown(event);
 }
 
 bool Editor::canEdit() const
@@ -159,11 +144,10 @@ bool Editor::canCut() const
     return canCopy() && canDelete();
 }
 
-static Node* imageNodeFromImageDocument(Document* document)
+static HTMLImageElement* imageElementFromImageDocument(Document* document)
 {
     if (!document)
         return 0;
-    
     if (!document->isImageDocument())
         return 0;
     
@@ -173,19 +157,16 @@ static Node* imageNodeFromImageDocument(Document* document)
     
     Node* node = body->firstChild();
     if (!node)
-        return 0;
-    
+        return 0;    
     if (!node->hasTagName(imgTag))
         return 0;
-    
-    return node;
+    return static_cast<HTMLImageElement*>(node);
 }
 
 bool Editor::canCopy() const
 {
-    if (imageNodeFromImageDocument(m_frame->document()))
+    if (imageElementFromImageDocument(m_frame->document()))
         return true;
-        
     SelectionController* selectionController = m_frame->selectionController();
     return selectionController->isRange() && !selectionController->isInPasswordField();
 }
@@ -232,48 +213,6 @@ bool Editor::canSmartCopyOrDelete()
     return client() && client()->smartInsertDeleteEnabled() && m_frame->selectionGranularity() == WordGranularity;
 }
 
-void Editor::deleteRange(Range* range, bool killRing, bool prepend, bool smartDeleteOK, EditorDeleteAction deletionAction, TextGranularity granularity)
-{
-    if (killRing)
-        addToKillRing(range, prepend);
-
-    ExceptionCode ec = 0;
-
-    SelectionController* selectionController = m_frame->selectionController();
-    bool smartDelete = smartDeleteOK && canSmartCopyOrDelete();
-    switch (deletionAction) {
-        case deleteSelectionAction:
-            selectionController->setSelectedRange(range, DOWNSTREAM, true, ec);
-            if (ec)
-                return;
-            deleteSelectionWithSmartDelete(smartDelete);
-            break;
-        case deleteKeyAction:
-            selectionController->setSelectedRange(range, DOWNSTREAM, (granularity != CharacterGranularity), ec);
-            if (ec)
-                return;
-            if (m_frame->document()) {
-                TypingCommand::deleteKeyPressed(m_frame->document(), smartDelete, granularity);
-                revealSelectionAfterEditingOperation();
-            }
-            break;
-        case forwardDeleteKeyAction:
-            selectionController->setSelectedRange(range, DOWNSTREAM, (granularity != CharacterGranularity), ec);
-            if (ec)
-                return;
-            if (m_frame->document()) {
-                TypingCommand::forwardDeleteKeyPressed(m_frame->document(), smartDelete, granularity);
-                revealSelectionAfterEditingOperation();
-            }
-            break;
-    }
-
-    // clear the "start new kill ring sequence" setting, because it was set to true
-    // when the selection was updated by deleting the range
-    if (killRing)
-        setStartNewKillRingSequence(false);
-}
-
 bool Editor::deleteWithDirection(SelectionController::EDirection direction, TextGranularity granularity, bool killRing, bool isTypingAction)
 {
     // Delete the selection, if there is one.
@@ -282,45 +221,54 @@ bool Editor::deleteWithDirection(SelectionController::EDirection direction, Text
     if (!canEdit())
         return false;
 
-    RefPtr<Range> range;
-    EditorDeleteAction deletionAction = deleteSelectionAction;
-
-    bool smartDeleteOK = false;
-    
     if (m_frame->selectionController()->isRange()) {
-        range = selectedRange();
-        smartDeleteOK = true;
-        if (isTypingAction)
-            deletionAction = deleteKeyAction;
+        if (killRing)
+            addToKillRing(selectedRange().get(), false);
+        if (isTypingAction) {
+            if (m_frame->document()) {
+                TypingCommand::deleteKeyPressed(m_frame->document(), canSmartCopyOrDelete(), granularity);
+                revealSelectionAfterEditingOperation();
+            }
+        } else {
+            deleteSelectionWithSmartDelete(canSmartCopyOrDelete());
+            // Implicitly calls revealSelectionAfterEditingOperation().
+        }
     } else {
-        SelectionController selectionController;
-        selectionController.setSelection(m_frame->selectionController()->selection());
-        selectionController.modify(SelectionController::EXTEND, direction, granularity);
-        if (killRing && selectionController.isCaret() && granularity != CharacterGranularity)
-            selectionController.modify(SelectionController::EXTEND, direction, CharacterGranularity);
+        SelectionController selectionToDelete;
+        selectionToDelete.setSelection(m_frame->selectionController()->selection());
+        selectionToDelete.modify(SelectionController::EXTEND, direction, granularity);
+        if (killRing && selectionToDelete.isCaret() && granularity != CharacterGranularity)
+            selectionToDelete.modify(SelectionController::EXTEND, direction, CharacterGranularity);
 
-        range = selectionController.toRange();
-        
+        RefPtr<Range> range = selectionToDelete.toRange();
+
+        if (killRing)
+            addToKillRing(range.get(), false);
+
+        if (!m_frame->selectionController()->setSelectedRange(range.get(), DOWNSTREAM, (granularity != CharacterGranularity)))
+            return true;
+
         switch (direction) {
             case SelectionController::FORWARD:
             case SelectionController::RIGHT:
-                deletionAction = forwardDeleteKeyAction;
+                if (m_frame->document())
+                    TypingCommand::forwardDeleteKeyPressed(m_frame->document(), false, granularity);
                 break;
             case SelectionController::BACKWARD:
             case SelectionController::LEFT:
-                deletionAction = deleteKeyAction;
+                if (m_frame->document())
+                    TypingCommand::deleteKeyPressed(m_frame->document(), false, granularity);
                 break;
         }
+        revealSelectionAfterEditingOperation();
     }
 
-    deleteRange(range.get(), killRing, false, smartDeleteOK, deletionAction, granularity);
+    // clear the "start new kill ring sequence" setting, because it was set to true
+    // when the selection was updated by deleting the range
+    if (killRing)
+        setStartNewKillRingSequence(false);
 
     return true;
-}
-
-void Editor::deleteSelectionWithSmartDelete()
-{
-    deleteSelectionWithSmartDelete(canSmartCopyOrDelete());
 }
 
 void Editor::deleteSelectionWithSmartDelete(bool smartDelete)
@@ -460,7 +408,7 @@ void Editor::respondToChangedContents(const Selection& endingSelection)
         client()->respondToChangedContents();  
 }
 
-const FontData* Editor::fontForSelection(bool& hasMultipleFonts) const
+const SimpleFontData* Editor::fontForSelection(bool& hasMultipleFonts) const
 {
 #if !PLATFORM(QT)
     hasMultipleFonts = false;
@@ -469,7 +417,7 @@ const FontData* Editor::fontForSelection(bool& hasMultipleFonts) const
         Node* nodeToRemove;
         RenderStyle* style = m_frame->styleForSelectionStart(nodeToRemove); // sets nodeToRemove
 
-        const FontData* result = 0;
+        const SimpleFontData* result = 0;
         if (style)
             result = style->font().primaryFont();
         
@@ -482,7 +430,7 @@ const FontData* Editor::fontForSelection(bool& hasMultipleFonts) const
         return result;
     }
 
-    const FontData* font = 0;
+    const SimpleFontData* font = 0;
 
     RefPtr<Range> range = m_frame->selectionController()->toRange();
     Node* startNode = range->editingStartPosition().node();
@@ -495,7 +443,7 @@ const FontData* Editor::fontForSelection(bool& hasMultipleFonts) const
             if (!renderer)
                 continue;
             // FIXME: Are there any node types that have renderers, but that we should be skipping?
-            const FontData* f = renderer->style()->font().primaryFont();
+            const SimpleFontData* f = renderer->style()->font().primaryFont();
             if (!font)
                 font = f;
             else if (font != f) {
@@ -511,36 +459,34 @@ const FontData* Editor::fontForSelection(bool& hasMultipleFonts) const
 #endif
 }
 
-Frame::TriState Editor::selectionUnorderedListState() const
+TriState Editor::selectionUnorderedListState() const
 {
     if (m_frame->selectionController()->isCaret()) {
-        Node* selectionNode = m_frame->selectionController()->selection().start().node();
-        if (enclosingNodeWithTag(selectionNode, ulTag))
-            return Frame::trueTriState;
+        if (enclosingNodeWithTag(m_frame->selectionController()->selection().start(), ulTag))
+            return TrueTriState;
     } else if (m_frame->selectionController()->isRange()) {
-        Node* startNode = enclosingNodeWithTag(m_frame->selectionController()->selection().start().node(), ulTag);
-        Node* endNode = enclosingNodeWithTag(m_frame->selectionController()->selection().end().node(), ulTag);
+        Node* startNode = enclosingNodeWithTag(m_frame->selectionController()->selection().start(), ulTag);
+        Node* endNode = enclosingNodeWithTag(m_frame->selectionController()->selection().end(), ulTag);
         if (startNode && endNode && startNode == endNode)
-            return Frame::trueTriState;
+            return TrueTriState;
     }
 
-    return Frame::falseTriState;
+    return FalseTriState;
 }
 
-Frame::TriState Editor::selectionOrderedListState() const
+TriState Editor::selectionOrderedListState() const
 {
     if (m_frame->selectionController()->isCaret()) {
-        Node* selectionNode = m_frame->selectionController()->selection().start().node();
-        if (enclosingNodeWithTag(selectionNode, olTag))
-            return Frame::trueTriState;
+        if (enclosingNodeWithTag(m_frame->selectionController()->selection().start(), olTag))
+            return TrueTriState;
     } else if (m_frame->selectionController()->isRange()) {
-        Node* startNode = enclosingNodeWithTag(m_frame->selectionController()->selection().start().node(), olTag);
-        Node* endNode = enclosingNodeWithTag(m_frame->selectionController()->selection().end().node(), olTag);
+        Node* startNode = enclosingNodeWithTag(m_frame->selectionController()->selection().start(), olTag);
+        Node* endNode = enclosingNodeWithTag(m_frame->selectionController()->selection().end(), olTag);
         if (startNode && endNode && startNode == endNode)
-            return Frame::trueTriState;
+            return TrueTriState;
     }
 
-    return Frame::falseTriState;
+    return FalseTriState;
 }
 
 PassRefPtr<Node> Editor::insertOrderedList()
@@ -614,27 +560,7 @@ void Editor::decreaseSelectionListLevel()
 
 void Editor::removeFormattingAndStyle()
 {
-    Document* document = m_frame->document();
-    
-    // Make a plain text string from the selection to remove formatting like tables and lists.
-    String string = m_frame->selectionController()->toString();
-    
-    // Get the default style for this editable root, it's the style that we'll give the
-    // content that we're operating on.
-    Node* root = m_frame->selectionController()->rootEditableElement();
-    RefPtr<CSSComputedStyleDeclaration> computedStyle = new CSSComputedStyleDeclaration(root);
-    RefPtr<CSSMutableStyleDeclaration> defaultStyle = computedStyle->copyInheritableProperties();
-    
-    // Delete the selected content.
-    // FIXME: We should be able to leave this to insertText, but its delete operation
-    // doesn't preserve the style we're about to set.
-    deleteSelectionWithSmartDelete(false);
-    // Normally, deleting a fully selected anchor and then inserting text will re-create
-    // the removed anchor, but we don't want that behavior here. 
-    setRemovedAnchor(0);
-    // Insert the content with the default style.
-    m_frame->setTypingStyle(defaultStyle.get());
-    TypingCommand::insertText(document, string, true);
+    applyCommand(new RemoveFormatCommand(m_frame->document()));
 }
 
 void Editor::setLastEditCommand(PassRefPtr<EditCommand> lastEditCommand) 
@@ -672,10 +598,9 @@ void Editor::applyStyle(CSSStyleDeclaration* style, EditAction editingAction)
         case Selection::NONE:
             // do nothing
             break;
-        case Selection::CARET: {
+        case Selection::CARET:
             m_frame->computeAndSetTypingStyle(style, editingAction);
             break;
-        }
         case Selection::RANGE:
             if (m_frame->document() && style)
                 applyCommand(new ApplyStyleCommand(m_frame->document(), style, editingAction));
@@ -728,7 +653,7 @@ bool Editor::clientIsEditable() const
 bool Editor::selectionStartHasStyle(CSSStyleDeclaration* style) const
 {
     Node* nodeToRemove;
-    RefPtr<CSSStyleDeclaration> selectionStyle = m_frame->selectionComputedStyle(nodeToRemove);
+    RefPtr<CSSComputedStyleDeclaration> selectionStyle = m_frame->selectionComputedStyle(nodeToRemove);
     if (!selectionStyle)
         return false;
     
@@ -753,6 +678,57 @@ bool Editor::selectionStartHasStyle(CSSStyleDeclaration* style) const
     return match;
 }
 
+static void updateState(CSSMutableStyleDeclaration* desiredStyle, CSSComputedStyleDeclaration* computedStyle, bool& atStart, TriState& state)
+{
+    DeprecatedValueListConstIterator<CSSProperty> end;
+    for (DeprecatedValueListConstIterator<CSSProperty> it = desiredStyle->valuesIterator(); it != end; ++it) {
+        int propertyID = (*it).id();
+        String desiredProperty = desiredStyle->getPropertyValue(propertyID);
+        String computedProperty = computedStyle->getPropertyValue(propertyID);
+        TriState propertyState = equalIgnoringCase(desiredProperty, computedProperty)
+            ? TrueTriState : FalseTriState;
+        if (atStart) {
+            state = propertyState;
+            atStart = false;
+        } else if (state != propertyState) {
+            state = MixedTriState;
+            break;
+        }
+    }
+}
+
+TriState Editor::selectionHasStyle(CSSStyleDeclaration* style) const
+{
+    bool atStart = true;
+    TriState state = FalseTriState;
+
+    RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->makeMutable();
+
+    if (!m_frame->selectionController()->isRange()) {
+        Node* nodeToRemove;
+        RefPtr<CSSComputedStyleDeclaration> selectionStyle = m_frame->selectionComputedStyle(nodeToRemove);
+        if (!selectionStyle)
+            return FalseTriState;
+        updateState(mutableStyle.get(), selectionStyle.get(), atStart, state);
+        if (nodeToRemove) {
+            ExceptionCode ec = 0;
+            nodeToRemove->remove(ec);
+            ASSERT(ec == 0);
+        }
+    } else {
+        for (Node* node = m_frame->selectionController()->start().node(); node; node = node->traverseNextNode()) {
+            RefPtr<CSSComputedStyleDeclaration> computedStyle = new CSSComputedStyleDeclaration(node);
+            if (computedStyle)
+                updateState(mutableStyle.get(), computedStyle.get(), atStart, state);
+            if (state == MixedTriState)
+                break;
+            if (node == m_frame->selectionController()->end().node())
+                break;
+        }
+    }
+
+    return state;
+}
 void Editor::indent()
 {
     applyCommand(new IndentOutdentCommand(m_frame->document(), IndentOutdentCommand::Indent));
@@ -786,6 +762,8 @@ void Editor::appliedEditing(PassRefPtr<EditCommand> cmd)
     Selection newSelection(cmd->endingSelection());
     // If there is no selection change, don't bother sending shouldChangeSelection, but still call setSelection,
     // because there is work that it must do in this situation.
+    // The old selection can be invalid here and calling shouldChangeSelection can produce some strange calls.
+    // See <rdar://problem/5729315> Some shouldChangeSelectedDOMRange contain Ranges for selections that are no longer valid
     if (newSelection == m_frame->selectionController()->selection() || m_frame->shouldChangeSelection(newSelection))
         m_frame->selectionController()->setSelection(newSelection, false);
     
@@ -822,6 +800,8 @@ void Editor::unappliedEditing(PassRefPtr<EditCommand> cmd)
     Selection newSelection(cmd->startingSelection());
     // If there is no selection change, don't bother sending shouldChangeSelection, but still call setSelection,
     // because there is work that it must do in this situation.
+    // The old selection can be invalid here and calling shouldChangeSelection can produce some strange calls.
+    // See <rdar://problem/5729315> Some shouldChangeSelectedDOMRange contain Ranges for selections that are no longer valid
     if (newSelection == m_frame->selectionController()->selection() || m_frame->shouldChangeSelection(newSelection))
         m_frame->selectionController()->setSelection(newSelection, true);
     
@@ -838,6 +818,8 @@ void Editor::reappliedEditing(PassRefPtr<EditCommand> cmd)
     Selection newSelection(cmd->endingSelection());
     // If there is no selection change, don't bother sending shouldChangeSelection, but still call setSelection,
     // because there is work that it must do in this situation.
+    // The old selection can be invalid here and calling shouldChangeSelection can produce some strange calls.
+    // See <rdar://problem/5729315> Some shouldChangeSelectedDOMRange contain Ranges for selections that are no longer valid
     if (newSelection == m_frame->selectionController()->selection() || m_frame->shouldChangeSelection(newSelection))
         m_frame->selectionController()->setSelection(newSelection, true);
     
@@ -847,517 +829,11 @@ void Editor::reappliedEditing(PassRefPtr<EditCommand> cmd)
     respondToChangedContents(newSelection);    
 }
 
-// Execute command functions
-
-static bool execCopy(Frame* frame, Event*)
-{
-    frame->editor()->copy();
-    return true;
-}
-
-static bool execCut(Frame* frame, Event*)
-{
-    frame->editor()->cut();
-    return true;
-}
-
-static bool execDelete(Frame* frame, Event*)
-{
-    frame->editor()->performDelete();
-    return true;
-}
-
-static bool execDeleteWordBackward(Frame* frame, Event*)
-{
-    frame->editor()->deleteWithDirection(SelectionController::BACKWARD, WordGranularity, true, false);
-    return true;
-}
-
-static bool execDeleteWordForward(Frame* frame, Event*)
-{
-    frame->editor()->deleteWithDirection(SelectionController::FORWARD, WordGranularity, true, false);
-    return true;
-}
-
-static bool execBackwardDelete(Frame* frame, Event*)
-{
-    frame->editor()->deleteWithDirection(SelectionController::BACKWARD, CharacterGranularity, false, true);
-    return true;
-}
-
-static bool execForwardDelete(Frame* frame, Event*)
-{
-    frame->editor()->deleteWithDirection(SelectionController::FORWARD, CharacterGranularity, false, true);
-    return true;
-}
-
-static bool execMoveBackward(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::BACKWARD, CharacterGranularity, true);
-    return true;
-}
-
-static bool execMoveBackwardAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::BACKWARD, CharacterGranularity, true);
-    return true;
-}
-
-static bool execMoveUpByPageAndModifyCaret(Frame* frame, Event*)
-{
-    RenderObject* renderer = frame->document()->focusedNode()->renderer();
-    if (renderer->style()->overflowY() == OSCROLL
-        || renderer->style()->overflowY() == OAUTO
-        || renderer->isTextArea()) {
-        int height = -(frame->document()->focusedNode()->renderer()->clientHeight()-PAGE_KEEP);
-        bool handledScroll = renderer->scroll(ScrollUp, ScrollByPage);
-        bool handledCaretMove = frame->selectionController()->modify(SelectionController::MOVE, height);
-        return handledScroll || handledCaretMove;
-    }
-    return false;
-}
-
-static bool execMoveDown(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::FORWARD, LineGranularity, true);
-    return true;
-}
-
-static bool execMoveDownAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::FORWARD, LineGranularity, true);
-    return true;
-}
-
-static bool execMoveForward(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::FORWARD, CharacterGranularity, true);
-    return true;
-}
-
-static bool execMoveForwardAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::FORWARD, CharacterGranularity, true);
-    return true;
-}
-
-static bool execMoveDownByPageAndModifyCaret(Frame* frame, Event*)
-{
-    RenderObject* renderer = frame->document()->focusedNode()->renderer();
-    if (renderer->style()->overflowY() == OSCROLL
-        || renderer->style()->overflowY() == OAUTO
-        || renderer->isTextArea()) {
-        int height = frame->document()->focusedNode()->renderer()->clientHeight()-PAGE_KEEP;
-        bool handledScroll = renderer->scroll(ScrollDown, ScrollByPage);
-        bool handledCaretMove = frame->selectionController()->modify(SelectionController::MOVE, height);
-        return handledScroll || handledCaretMove;
-    }
-    return false;
-}
-
-static bool execMoveLeft(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::LEFT, CharacterGranularity, true);
-    return true;
-}
-
-static bool execMoveLeftAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::LEFT, CharacterGranularity, true);
-    return true;
-}
-
-static bool execMoveRight(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::RIGHT, CharacterGranularity, true);
-    return true;
-}
-
-static bool execMoveRightAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::RIGHT, CharacterGranularity, true);
-    return true;
-}
-
-static bool execMoveToBeginningOfDocument(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::BACKWARD, DocumentBoundary, true);
-    return true;
-}
-
-static bool execMoveToBeginningOfDocumentAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::BACKWARD, DocumentBoundary, true);
-    return true;
-}
-
-static bool execMoveToBeginningOfSentence(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::BACKWARD, SentenceBoundary, true);
-    return true;
-}
-
-static bool execMoveToBeginningOfSentenceAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::BACKWARD, SentenceBoundary, true);
-    return true;
-}
-
-static bool execMoveToBeginningOfLine(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::BACKWARD, LineBoundary, true);
-    return true;
-}
-
-static bool execMoveToBeginningOfLineAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::BACKWARD, LineBoundary, true);
-    return true;
-}
-
-static bool execMoveToBeginningOfParagraph(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::BACKWARD, ParagraphBoundary, true);
-    return true;
-}
-
-static bool execMoveToBeginningOfParagraphAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::BACKWARD, ParagraphBoundary, true);
-    return true;
-}
-
-static bool execMoveToEndOfDocument(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::FORWARD, DocumentBoundary, true);
-    return true;
-}
-
-static bool execMoveToEndOfDocumentAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::FORWARD, DocumentBoundary, true);
-    return true;
-}
-
-static bool execMoveToEndOfSentence(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::FORWARD, SentenceBoundary, true);
-    return true;
-}
-
-static bool execMoveToEndOfSentenceAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::FORWARD, SentenceBoundary, true);
-    return true;
-}
-
-static bool execMoveToEndOfLine(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::FORWARD, LineBoundary, true);
-    return true;
-}
-
-static bool execMoveToEndOfLineAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::FORWARD, LineBoundary, true);
-    return true;
-}
-
-static bool execMoveToEndOfParagraph(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::FORWARD, ParagraphBoundary, true);
-    return true;
-}
-
-static bool execMoveToEndOfParagraphAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::FORWARD, ParagraphBoundary, true);
-    return true;
-}
-
-static bool execMoveParagraphBackwardAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::BACKWARD, ParagraphGranularity, true);
-    return true;
-}
-
-static bool execMoveParagraphForwardAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::FORWARD, ParagraphGranularity, true);
-    return true;
-}
-
-static bool execMoveUp(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::BACKWARD, LineGranularity, true);
-    return true;
-}
-
-static bool execMoveUpAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::BACKWARD, LineGranularity, true);
-    return true;
-}
-
-static bool execMoveWordBackward(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::BACKWARD, WordGranularity, true);
-    return true;
-}
-
-static bool execMoveWordBackwardAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::BACKWARD, WordGranularity, true);
-    return true;
-}
-
-static bool execMoveWordForward(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::FORWARD, WordGranularity, true);
-    return true;
-}
-
-static bool execMoveWordForwardAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::FORWARD, WordGranularity, true);
-    return true;
-}
-
-static bool execMoveWordLeft(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::LEFT, WordGranularity, true);
-    return true;
-}
-
-static bool execMoveWordLeftAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::LEFT, WordGranularity, true);
-    return true;
-}
-
-static bool execMoveWordRight(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::MOVE, SelectionController::RIGHT, WordGranularity, true);
-    return true;
-}
-
-static bool execMoveWordRightAndModifySelection(Frame* frame, Event*)
-{
-    frame->selectionController()->modify(SelectionController::EXTEND, SelectionController::RIGHT, WordGranularity, true);
-    return true;
-}
-
-static bool execPaste(Frame* frame, Event*)
-{
-    frame->editor()->paste();
-    return true;
-}
-
-static bool execSelectAll(Frame* frame, Event*)
-{
-    frame->selectionController()->selectAll();
-    return true;
-}
-
-static bool execToggleBold(Frame* frame, Event*)
-{
-    ExceptionCode ec;
-    
-    RefPtr<CSSStyleDeclaration> style = frame->document()->createCSSStyleDeclaration();
-    style->setProperty(CSS_PROP_FONT_WEIGHT, "bold", false, ec);
-    if (frame->editor()->selectionStartHasStyle(style.get()))
-        style->setProperty(CSS_PROP_FONT_WEIGHT, "normal", false, ec);
-    frame->editor()->applyStyleToSelection(style.get(), EditActionSetFont);
-    return true;
-}
-
-static bool execToggleItalic(Frame* frame, Event*)
-{
-    ExceptionCode ec;
-    
-    RefPtr<CSSStyleDeclaration> style = frame->document()->createCSSStyleDeclaration();
-    style->setProperty(CSS_PROP_FONT_STYLE, "italic", false, ec);
-    if (frame->editor()->selectionStartHasStyle(style.get()))
-        style->setProperty(CSS_PROP_FONT_STYLE, "normal", false, ec);
-    frame->editor()->applyStyleToSelection(style.get(), EditActionSetFont);
-    return true;
-}
-
-static bool execRedo(Frame* frame, Event*)
-{
-    frame->editor()->redo();
-    return true;
-}
-
-static bool execUndo(Frame* frame, Event*)
-{
-    frame->editor()->undo();
-    return true;
-}
-
-static inline Frame* targetFrame(Frame* frame, Event* evt)
-{
-    Node* node = evt ? evt->target()->toNode() : 0;
-    if (!node)
-        return frame;
-    return node->document()->frame();
-}
-
-static bool execInsertTab(Frame* frame, Event* evt)
-{
-    return targetFrame(frame, evt)->eventHandler()->handleTextInputEvent("\t", evt, false, false);
-}
-
-static bool execInsertBacktab(Frame* frame, Event* evt)
-{
-    return targetFrame(frame, evt)->eventHandler()->handleTextInputEvent("\t", evt, false, true);
-}
-
-static bool execInsertNewline(Frame* frame, Event* evt)
-{
-    Frame* targetFrame = WebCore::targetFrame(frame, evt);
-    return targetFrame->eventHandler()->handleTextInputEvent("\n", evt, !targetFrame->editor()->canEditRichly());
-}
-
-static bool execInsertLineBreak(Frame* frame, Event* evt)
-{
-    return targetFrame(frame, evt)->eventHandler()->handleTextInputEvent("\n", evt, true);
-}
-
-// Enabled functions
-
-static bool enabled(Frame*, Event*)
-{
-    return true;
-}
-
-static bool canPaste(Frame* frame, Event*)
-{
-    return frame->editor()->canPaste();
-}
-
-static bool hasEditableSelection(Frame* frame, Event* evt)
-{
-    if (evt)
-        return selectionForEvent(frame, evt).isContentEditable();
-    return frame->selectionController()->isContentEditable();
-}
-
-static bool hasEditableRangeSelection(Frame* frame, Event*)
-{
-    return frame->selectionController()->isRange() && frame->selectionController()->isContentEditable();
-}
-
-static bool hasRangeSelection(Frame* frame, Event*)
-{
-    return frame->selectionController()->isRange();
-}
-
-static bool hasRichlyEditableSelection(Frame* frame, Event*)
-{
-    return frame->selectionController()->isCaretOrRange() && frame->selectionController()->isContentRichlyEditable();
-}
-
-static bool canRedo(Frame* frame, Event*)
-{
-    return frame->editor()->canRedo();
-}
-
-static bool canUndo(Frame* frame, Event*)
-{
-    return frame->editor()->canUndo();
-}
-
-struct Command {
-    bool (*enabled)(Frame*, Event*);
-    bool (*exec)(Frame*, Event*);
-};
-
-typedef HashMap<RefPtr<AtomicStringImpl>, const Command*> CommandMap;
-
-static CommandMap* createCommandMap()
-{
-    struct CommandEntry { const char* name; Command command; };
-    
-    static const CommandEntry commands[] = {
-        { "BackwardDelete", { hasEditableSelection, execBackwardDelete } },
-        { "Copy", { hasRangeSelection, execCopy } },
-        { "Cut", { hasEditableRangeSelection, execCut } },
-        { "Delete", { hasEditableSelection, execDelete } },
-        { "DeleteWordBackward", { hasEditableSelection, execDeleteWordBackward } },
-        { "DeleteWordForward", { hasEditableSelection, execDeleteWordForward} },
-        { "ForwardDelete", { hasEditableSelection, execForwardDelete } },
-        { "InsertBacktab", { hasEditableSelection, execInsertBacktab } },
-        { "InsertTab", { hasEditableSelection, execInsertTab } },
-        { "InsertLineBreak", { hasEditableSelection, execInsertLineBreak } },        
-        { "InsertNewline", { hasEditableSelection, execInsertNewline } },        
-        { "MoveBackward", { hasEditableSelection, execMoveBackward } },
-        { "MoveBackwardAndModifySelection", { hasEditableSelection, execMoveBackwardAndModifySelection } },
-        { "MoveUpByPageAndModifyCaret", { hasEditableSelection, execMoveUpByPageAndModifyCaret } },
-        { "MoveDown", { hasEditableSelection, execMoveDown } },
-        { "MoveDownAndModifySelection", { hasEditableSelection, execMoveDownAndModifySelection } },
-        { "MoveForward", { hasEditableSelection, execMoveForward } },
-        { "MoveForwardAndModifySelection", { hasEditableSelection, execMoveForwardAndModifySelection } },
-        { "MoveDownByPageAndModifyCaret", { hasEditableSelection, execMoveDownByPageAndModifyCaret } },
-        { "MoveLeft", { hasEditableSelection, execMoveLeft } },
-        { "MoveLeftAndModifySelection", { hasEditableSelection, execMoveLeftAndModifySelection } },
-        { "MoveRight", { hasEditableSelection, execMoveRight } },
-        { "MoveRightAndModifySelection", { hasEditableSelection, execMoveRightAndModifySelection } },
-        { "MoveToBeginningOfDocument", { hasEditableSelection, execMoveToBeginningOfDocument } },
-        { "MoveToBeginningOfDocumentAndModifySelection", { hasEditableSelection, execMoveToBeginningOfDocumentAndModifySelection } },
-        { "MoveToBeginningOfSentence", { hasEditableSelection, execMoveToBeginningOfSentence } },
-        { "MoveToBeginningOfSentenceAndModifySelection", { hasEditableSelection, execMoveToBeginningOfSentenceAndModifySelection } },
-        { "MoveToBeginningOfLine", { hasEditableSelection, execMoveToBeginningOfLine } },
-        { "MoveToBeginningOfLineAndModifySelection", { hasEditableSelection, execMoveToBeginningOfLineAndModifySelection } },
-        { "MoveToBeginningOfParagraph", { hasEditableSelection, execMoveToBeginningOfParagraph } },
-        { "MoveToBeginningOfParagraphAndModifySelection", { hasEditableSelection, execMoveToBeginningOfParagraphAndModifySelection } },
-        { "MoveToEndOfDocument", { hasEditableSelection, execMoveToEndOfDocument } },
-        { "MoveToEndOfDocumentAndModifySelection", { hasEditableSelection, execMoveToEndOfDocumentAndModifySelection } },
-        { "MoveToEndOfSentence", { hasEditableSelection, execMoveToEndOfSentence } },
-        { "MoveToEndOfSentenceAndModifySelection", { hasEditableSelection, execMoveToEndOfSentenceAndModifySelection } },
-        { "MoveToEndOfLine", { hasEditableSelection, execMoveToEndOfLine } },
-        { "MoveToEndOfLineAndModifySelection", { hasEditableSelection, execMoveToEndOfLineAndModifySelection } },
-        { "MoveToEndOfParagraph", { hasEditableSelection, execMoveToEndOfParagraph } },
-        { "MoveToEndOfParagraphAndModifySelection", { hasEditableSelection, execMoveToEndOfParagraphAndModifySelection } },
-        { "MoveParagraphBackwardAndModifySelection", { hasEditableSelection, execMoveParagraphBackwardAndModifySelection } },
-        { "MoveParagraphForwardAndModifySelection", { hasEditableSelection, execMoveParagraphForwardAndModifySelection } },
-        { "MoveUp", { hasEditableSelection, execMoveUp } },
-        { "MoveUpAndModifySelection", { hasEditableSelection, execMoveUpAndModifySelection } },
-        { "MoveWordBackward", { hasEditableSelection, execMoveWordBackward } },
-        { "MoveWordBackwardAndModifySelection", { hasEditableSelection, execMoveWordBackwardAndModifySelection } },
-        { "MoveWordForward", { hasEditableSelection, execMoveWordForward } },
-        { "MoveWordForwardAndModifySelection", { hasEditableSelection, execMoveWordForwardAndModifySelection } },
-        { "MoveWordLeft", { hasEditableSelection, execMoveWordLeft } },
-        { "MoveWordLeftAndModifySelection", { hasEditableSelection, execMoveWordLeftAndModifySelection } },
-        { "MoveWordRight", { hasEditableSelection, execMoveWordRight } },
-        { "MoveWordRightAndModifySelection", { hasEditableSelection, execMoveWordRightAndModifySelection } },
-        { "Paste", { canPaste, execPaste } },
-        { "Redo", { canRedo, execRedo } },
-        { "SelectAll", { enabled, execSelectAll } },
-        { "ToggleBold", { hasRichlyEditableSelection, execToggleBold } },
-        { "ToggleItalic", { hasRichlyEditableSelection, execToggleItalic } },
-        { "Undo", { canUndo, execUndo } }
-    };
-
-    CommandMap* commandMap = new CommandMap;
-
-    const unsigned numCommands = sizeof(commands) / sizeof(commands[0]);
-    for (unsigned i = 0; i < numCommands; i++)
-        commandMap->set(AtomicString(commands[i].name).impl(), &commands[i].command);
-
-    return commandMap;
-}
-
-// =============================================================================
-//
-// public editing commands
-//
-// =============================================================================
-
 Editor::Editor(Frame* frame)
     : m_frame(frame)
     , m_deleteButtonController(new DeleteButtonController(frame))
     , m_ignoreCompositionSelectionChange(false)
+    , m_shouldStartNewKillRingSequence(false)
 { 
 }
 
@@ -1371,29 +847,6 @@ void Editor::clear()
     m_customCompositionUnderlines.clear();
 }
 
-bool Editor::execCommand(const AtomicString& command, Event* triggeringEvent)
-{
-    if (!m_frame->document())
-        return false;
-
-    static CommandMap* commandMap;
-    if (!commandMap)
-        commandMap = createCommandMap();
-    
-    const Command* c = commandMap->get(command.impl());
-    if (!c)
-        return false;
-    
-    bool handled = false;
-    
-    if (c->enabled(m_frame, triggeringEvent)) {
-        m_frame->document()->updateLayoutIgnorePendingStylesheets();
-        handled = c->exec(m_frame, triggeringEvent);
-    }
-    
-    return handled;
-}
-
 bool Editor::insertText(const String& text, Event* triggeringEvent)
 {
     return m_frame->eventHandler()->handleTextInputEvent(text, triggeringEvent);
@@ -1404,7 +857,7 @@ bool Editor::insertTextWithoutSendingTextEvent(const String& text, bool selectIn
     if (text.isEmpty())
         return false;
 
-    Selection selection = selectionForEvent(m_frame, triggeringEvent);
+    Selection selection = selectionForCommand(triggeringEvent);
     if (!selection.isContentEditable())
         return false;
     RefPtr<Range> range = selection.toRange();
@@ -1415,7 +868,7 @@ bool Editor::insertTextWithoutSendingTextEvent(const String& text, bool selectIn
     // Get the selection to use for the event that triggered this insertText.
     // If the event handler changed the selection, we may want to use a different selection
     // that is contained in the event target.
-    selection = selectionForEvent(m_frame, triggeringEvent);
+    selection = selectionForCommand(triggeringEvent);
     if (selection.isContentEditable()) {
         if (Node* selectionStart = selection.start().node()) {
             RefPtr<Document> document = selectionStart->document();
@@ -1474,7 +927,7 @@ void Editor::cut()
     if (shouldDeleteRange(selection.get())) {
         Pasteboard::generalPasteboard()->writeSelection(selection.get(), canSmartCopyOrDelete(), m_frame);
         didWriteSelectionToPasteboard();
-        deleteSelectionWithSmartDelete();
+        deleteSelectionWithSmartDelete(canSmartCopyOrDelete());
     }
 }
 
@@ -1488,8 +941,8 @@ void Editor::copy()
     }
     
     Document* document = m_frame->document();
-    if (Node* node = imageNodeFromImageDocument(document))
-        Pasteboard::generalPasteboard()->writeImage(node, document->URL(), document->title());
+    if (HTMLImageElement* imageElement = imageElementFromImageDocument(document))
+        Pasteboard::generalPasteboard()->writeImage(imageElement, document->url(), document->title());
     else
         Pasteboard::generalPasteboard()->writeSelection(selectedRange().get(), canSmartCopyOrDelete(), m_frame);
     
@@ -1533,7 +986,13 @@ void Editor::performDelete()
         systemBeep();
         return;
     }
-    deleteRange(selectedRange().get(), true, false, true, deleteSelectionAction, CharacterGranularity);
+
+    addToKillRing(selectedRange().get(), false);
+    deleteSelectionWithSmartDelete(canSmartCopyOrDelete());
+
+    // clear the "start new kill ring sequence" setting, because it was set to true
+    // when the selection was updated by deleting the range
+    setStartNewKillRingSequence(false);
 }
 
 void Editor::copyURL(const KURL& url, const String& title)
@@ -1635,25 +1094,19 @@ void Editor::didWriteSelectionToPasteboard()
 
 void Editor::toggleBold()
 {
-    execToggleBold(frame(), 0);
+    command("ToggleBold").execute();
 }
 
 void Editor::toggleUnderline()
 {
-    ExceptionCode ec = 0;
-
-    RefPtr<CSSStyleDeclaration> style = frame()->document()->createCSSStyleDeclaration();
-    style->setProperty(CSS_PROP__WEBKIT_TEXT_DECORATIONS_IN_EFFECT, "underline", false, ec);
-    if (selectionStartHasStyle(style.get()))
-        style->setProperty(CSS_PROP__WEBKIT_TEXT_DECORATIONS_IN_EFFECT, "none", false, ec);
-    applyStyleToSelection(style.get(), EditActionUnderline);
+    command("ToggleUnderline").execute();
 }
 
-void Editor::setBaseWritingDirection(String direction)
+void Editor::setBaseWritingDirection(const String& direction)
 {
     ExceptionCode ec = 0;
 
-    RefPtr<CSSStyleDeclaration> style = frame()->document()->createCSSStyleDeclaration();
+    RefPtr<CSSMutableStyleDeclaration> style = new CSSMutableStyleDeclaration;
     style->setProperty(CSS_PROP_DIRECTION, direction, false, ec);
     applyParagraphStyleToSelection(style.get(), EditActionSetWritingDirection);
 }
@@ -1663,8 +1116,12 @@ void Editor::selectComposition()
     RefPtr<Range> range = compositionRange();
     if (!range)
         return;
-    ExceptionCode ec = 0;
-    m_frame->selectionController()->setSelectedRange(range.get(), DOWNSTREAM, false, ec);
+    
+    // The composition can start inside a composed character sequence, so we have to override checks.
+    // See <http://bugs.webkit.org/show_bug.cgi?id=15781>
+    Selection selection;
+    selection.setWithoutValidation(range->startPosition(), range->endPosition());
+    m_frame->selectionController()->setSelection(selection, false, false);
 }
 
 void Editor::confirmComposition()
@@ -1698,8 +1155,10 @@ void Editor::confirmComposition(const String& text, bool preserveSelection)
         setIgnoreCompositionSelectionChange(false);
         return;
     }
-
-    deleteSelectionWithSmartDelete(false);
+    
+    // If there is a composition to replace, remove it with a deletion that will be part of the
+    // same Undo step as the next and previous insertions.
+    TypingCommand::deleteSelection(m_frame->document(), false);
 
     m_compositionNode = 0;
     m_customCompositionUnderlines.clear();
@@ -1722,8 +1181,10 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
         setIgnoreCompositionSelectionChange(false);
         return;
     }
-
-    deleteSelectionWithSmartDelete(false);
+    
+    // If there is a composition to replace, remove it with a deletion that will be part of the
+    // same Undo step as the next and previous insertions.
+    TypingCommand::deleteSelection(m_frame->document(), false);
 
     m_compositionNode = 0;
     m_customCompositionUnderlines.clear();
@@ -1731,9 +1192,9 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
     if (!text.isEmpty()) {
         TypingCommand::insertText(m_frame->document(), text, true, true);
 
-        Node* baseNode = m_frame->selectionController()->baseNode();
+        Node* baseNode = m_frame->selectionController()->base().node();
         unsigned baseOffset = m_frame->selectionController()->base().offset();
-        Node* extentNode = m_frame->selectionController()->extentNode();
+        Node* extentNode = m_frame->selectionController()->extent().node();
         unsigned extentOffset = m_frame->selectionController()->extent().offset();
 
         if (baseNode && baseNode == extentNode && baseNode->isTextNode() && baseOffset + text.length() == extentOffset) {
@@ -1752,8 +1213,7 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
             unsigned start = min(baseOffset + selectionStart, extentOffset);
             unsigned end = min(max(start, baseOffset + selectionEnd), extentOffset);
             RefPtr<Range> selectedRange = new Range(baseNode->document(), baseNode, start, baseNode, end);                
-            ExceptionCode ec = 0;
-            m_frame->selectionController()->setSelectedRange(selectedRange.get(), DOWNSTREAM, false, ec);
+            m_frame->selectionController()->setSelectedRange(selectedRange.get(), DOWNSTREAM, false);
         }
     }
 
@@ -2007,7 +1467,8 @@ void Editor::advanceToNextMisspelling(bool startBeforeSelection)
         if (position.isNull())
             return;
         
-        spellingSearchRange->setStart(position.node(), position.offset(), ec);
+        Position rangeCompliantPosition = rangeCompliantEquivalent(position);
+        spellingSearchRange->setStart(rangeCompliantPosition.node(), rangeCompliantPosition.offset(), ec);
         startedWithSelection = false;   // won't need to wrap
     }
     
@@ -2395,5 +1856,86 @@ bool Editor::getCompositionSelection(unsigned& selectionStart, unsigned& selecti
     selectionEnd = start.offset() - m_compositionEnd;
     return true;
 }
+
+void Editor::transpose()
+{
+    if (!canEdit())
+        return;
+
+     Selection selection = m_frame->selectionController()->selection();
+     if (!selection.isCaret())
+         return;
+
+    // Make a selection that goes back one character and forward two characters.
+    VisiblePosition caret = selection.visibleStart();
+    VisiblePosition next = isEndOfParagraph(caret) ? caret : caret.next();
+    VisiblePosition previous = next.previous();
+    if (next == previous)
+        return;
+    previous = previous.previous();
+    if (!inSameParagraph(next, previous))
+        return;
+    RefPtr<Range> range = makeRange(previous, next);
+    if (!range)
+        return;
+    Selection newSelection(range.get(), DOWNSTREAM);
+
+    // Transpose the two characters.
+    String text = plainText(range.get());
+    if (text.length() != 2)
+        return;
+    String transposed = text.right(1) + text.left(1);
+
+    // Select the two characters.
+    if (newSelection != m_frame->selectionController()->selection()) {
+        if (!m_frame->shouldChangeSelection(newSelection))
+            return;
+        m_frame->selectionController()->setSelection(newSelection);
+    }
+
+    // Insert the transposed characters.
+    if (!shouldInsertText(transposed, range.get(), EditorInsertActionTyped))
+        return;
+    replaceSelectionWithText(transposed, false, false);
+}
+
+void Editor::addToKillRing(Range* range, bool prepend)
+{
+    if (m_shouldStartNewKillRingSequence)
+        startNewKillRingSequence();
+
+    String text = plainText(range);
+    text.replace('\\', m_frame->backslashAsCurrencySymbol());
+    if (prepend)
+        prependToKillRing(text);
+    else
+        appendToKillRing(text);
+    m_shouldStartNewKillRingSequence = false;
+}
+
+#if !PLATFORM(MAC)
+
+void Editor::appendToKillRing(const String&)
+{
+}
+
+void Editor::prependToKillRing(const String&)
+{
+}
+
+String Editor::yankFromKillRing()
+{
+    return String();
+}
+
+void Editor::startNewKillRingSequence()
+{
+}
+
+void Editor::setKillRingToYankedState()
+{
+}
+
+#endif
 
 } // namespace WebCore

@@ -21,7 +21,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -29,45 +29,32 @@
 
 #if PLATFORM(CAIRO)
 
+#include "AffineTransform.h"
 #include "CairoPath.h"
 #include "FloatRect.h"
 #include "Font.h"
-#include "FontData.h"
 #include "IntRect.h"
 #include "NotImplemented.h"
 #include "Path.h"
+#include "SimpleFontData.h"
 #include <cairo.h>
 #include <math.h>
 #include <stdio.h>
 #include <wtf/MathExtras.h>
 
-#if PLATFORM(WIN)
-#include <cairo-win32.h>
-#endif
-
 #if PLATFORM(GTK)
 #include <gdk/gdk.h>
+#include <pango/pango.h>
+#elif PLATFORM(WIN)
+#include <cairo-win32.h>
 #endif
-
+#include "GraphicsContextPlatformPrivateCairo.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
 namespace WebCore {
-
-class GraphicsContextPlatformPrivate {
-public:
-    GraphicsContextPlatformPrivate();
-    ~GraphicsContextPlatformPrivate();
-
-    cairo_t* cr;
-    Vector<float> layers;
-
-#if PLATFORM(GTK)
-    GdkEventExpose* expose;
-#endif
-};
 
 static inline void setColor(cairo_t* cr, const Color& col)
 {
@@ -85,34 +72,6 @@ static inline void fillRectSourceOver(cairo_t* cr, const FloatRect& rect, const 
     cairo_fill(cr);
 }
 
-GraphicsContextPlatformPrivate::GraphicsContextPlatformPrivate()
-    :  cr(0)
-#if PLATFORM(GTK)
-    , expose(0)
-#endif
-{
-}
-
-GraphicsContextPlatformPrivate::~GraphicsContextPlatformPrivate()
-{
-    cairo_destroy(cr);
-}
-
-#if PLATFORM(WIN)
-GraphicsContext::GraphicsContext(HDC dc)
-    : m_common(createGraphicsContextPrivate())
-    , m_data(new GraphicsContextPlatformPrivate)
-{
-    if (dc) {
-        cairo_surface_t* surface = cairo_win32_surface_create(dc);
-        m_data->cr = cairo_create(surface);
-    } else {
-        setPaintingDisabled(true);
-        m_data->cr = 0;
-    }
-}
-#endif
-
 GraphicsContext::GraphicsContext(PlatformGraphicsContext* cr)
     : m_common(createGraphicsContextPrivate())
     , m_data(new GraphicsContextPlatformPrivate)
@@ -125,6 +84,14 @@ GraphicsContext::~GraphicsContext()
 {
     destroyGraphicsContextPrivate(m_common);
     delete m_data;
+}
+
+AffineTransform GraphicsContext::getCTM() const
+{
+    cairo_t* cr = platformContext();
+    cairo_matrix_t m;
+    cairo_get_matrix(cr, &m);
+    return m;
 }
 
 cairo_t* GraphicsContext::platformContext() const
@@ -218,7 +185,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     FloatPoint p1 = point1;
     FloatPoint p2 = point2;
     bool isVerticalLine = (p1.x() == p2.x());
- 
+
     adjustLineToPixelBoundaries(p1, p2, width, style);
     cairo_set_line_width(cr, width);
 
@@ -408,7 +375,10 @@ void GraphicsContext::clip(const IntRect& rect)
 
     cairo_t* cr = m_data->cr;
     cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
+    cairo_fill_rule_t savedFillRule = cairo_get_fill_rule(cr);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
     cairo_clip(cr);
+    cairo_set_fill_rule(cr, savedFillRule);
 }
 
 void GraphicsContext::drawFocusRing(const Color& color)
@@ -440,30 +410,44 @@ void GraphicsContext::drawFocusRing(const Color& color)
     cairo_restore(cr);
 }
 
-void GraphicsContext::setFocusRingClip(const IntRect&)
-{
-    // hopefully a no-op. Comment in CG version says that it exists
-    // to work around bugs in Mac focus ring clipping
-}
-
-void GraphicsContext::clearFocusRingClip()
-{
-    // hopefully a no-op. Comment in CG version says that it exists
-    // to work around bugs in Mac focus ring clipping
-}
-
 void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool printing)
 {
     if (paintingDisabled())
         return;
 
+    // This is a workaround for http://bugs.webkit.org/show_bug.cgi?id=15659
+    StrokeStyle savedStrokeStyle = strokeStyle();
+    setStrokeStyle(SolidStroke);
+
     IntPoint endPoint = origin + IntSize(width, 0);
     drawLine(origin, endPoint);
+
+    setStrokeStyle(savedStrokeStyle);
 }
 
-void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint&, int width, bool grammar)
+void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& origin, int width, bool grammar)
 {
+    if (paintingDisabled())
+        return;
+
+#if PLATFORM(GTK)
+    cairo_t* cr = m_data->cr;
+    cairo_save(cr);
+
+    // Convention is green for grammar, red for spelling
+    // These need to become configurable
+    if (grammar)
+        cairo_set_source_rgb(cr, 0, 1, 0);
+    else
+        cairo_set_source_rgb(cr, 1, 0, 0);
+
+    // We ignore most of the provided constants in favour of the platform style
+    pango_cairo_show_error_underline(cr, origin.x(), origin.y(), width, cMisspellingLineThickness);
+
+    cairo_restore(cr);
+#else
     notImplemented();
+#endif
 }
 
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& frect)
@@ -554,24 +538,14 @@ void GraphicsContext::setPlatformStrokeStyle(const StrokeStyle& strokeStyle)
     }
 }
 
-void GraphicsContext::setPlatformFont(const Font& font)
-{
-    if (paintingDisabled())
-        return;
-
-#if PLATFORM(GTK)
-    // FIXME: is it the right thing to do? Also, doesn't work on Win because
-    // there FontData doesn't have ::setFont()
-    const FontData *fontData = font.primaryFont();
-    fontData->setFont(m_data->cr);
-#endif
-}
-
 void GraphicsContext::setURLForRect(const KURL& link, const IntRect& destRect)
 {
     notImplemented();
 }
 
+#if PLATFORM(GTK)
+// FIXME:  This should be moved to something like GraphicsContextCairoGTK.cpp,
+// as there is a Windows implementation in platform/graphics/win/GraphicsContextCairoWin.cpp
 void GraphicsContext::concatCTM(const AffineTransform& transform)
 {
     if (paintingDisabled())
@@ -581,11 +555,31 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     const cairo_matrix_t* matrix = reinterpret_cast<const cairo_matrix_t*>(&transform);
     cairo_transform(cr, matrix);
 }
+#endif
 
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
 {
-    notImplemented();
+    if (paintingDisabled())
+        return;
+
+    clip(rect);
+
+    Path p;
+    FloatRect r(rect);
+    // Add outer ellipse
+    p.addEllipse(r);
+    // Add inner ellipse
+    r.inflate(-thickness);
+    p.addEllipse(r);
+    addPath(p);
+
+    cairo_t* cr = m_data->cr;
+    cairo_fill_rule_t savedFillRule = cairo_get_fill_rule(cr);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+    cairo_clip(cr);
+    cairo_set_fill_rule(cr, savedFillRule);
 }
+
 
 void GraphicsContext::setShadow(IntSize const&, int, Color const&)
 {
@@ -633,9 +627,18 @@ void GraphicsContext::clearRect(const FloatRect& rect)
     cairo_restore(cr);
 }
 
-void GraphicsContext::strokeRect(const FloatRect&, float)
+void GraphicsContext::strokeRect(const FloatRect& rect, float width)
 {
-    notImplemented();
+    if (paintingDisabled())
+        return;
+
+    cairo_t* cr = m_data->cr;
+    cairo_save(cr);
+    cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
+    setColor(cr, strokeColor());
+    cairo_set_line_width(cr, width);
+    cairo_stroke(cr);
+    cairo_restore(cr);
 }
 
 void GraphicsContext::setLineCap(LineCap lineCap)
@@ -717,14 +720,15 @@ static inline cairo_operator_t toCairoOperator(CompositeOperator op)
         case CompositeXOR:
             return CAIRO_OPERATOR_XOR;
         case CompositePlusDarker:
-            return CAIRO_OPERATOR_OVER;
+            return CAIRO_OPERATOR_SATURATE;
         case CompositeHighlight:
+            // There is no Cairo equivalent for CompositeHighlight.
             return CAIRO_OPERATOR_OVER;
         case CompositePlusLighter:
-            return CAIRO_OPERATOR_OVER;
+            return CAIRO_OPERATOR_ADD;
+        default:
+            return CAIRO_OPERATOR_SOURCE;
     }
-
-    return CAIRO_OPERATOR_OVER;
 }
 
 void GraphicsContext::setCompositeOperation(CompositeOperator op)
@@ -750,7 +754,7 @@ void GraphicsContext::addPath(const Path& path)
         return;
 
     cairo_t* cr = m_data->cr;
-    cairo_path_t *p = cairo_copy_path(path.platformPath()->m_cr);
+    cairo_path_t* p = cairo_copy_path(path.platformPath()->m_cr);
     cairo_append_path(cr, p);
     cairo_path_destroy(p);
 }
@@ -761,15 +765,30 @@ void GraphicsContext::clip(const Path& path)
         return;
 
     cairo_t* cr = m_data->cr;
-    cairo_path_t *p = cairo_copy_path(path.platformPath()->m_cr);
+    cairo_path_t* p = cairo_copy_path(path.platformPath()->m_cr);
     cairo_append_path(cr, p);
     cairo_path_destroy(p);
+    cairo_fill_rule_t savedFillRule = cairo_get_fill_rule(cr);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
     cairo_clip(cr);
+    cairo_set_fill_rule(cr, savedFillRule);
 }
 
-void GraphicsContext::clipOut(const Path&)
+void GraphicsContext::clipOut(const Path& path)
 {
-    notImplemented();
+    if (paintingDisabled())
+        return;
+
+    cairo_t* cr = m_data->cr;
+    double x1, y1, x2, y2;
+    cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
+    cairo_rectangle(cr, x1, y1, x2 - x1, y2 - y1);
+    addPath(path);
+
+    cairo_fill_rule_t savedFillRule = cairo_get_fill_rule(cr);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+    cairo_clip(cr);
+    cairo_set_fill_rule(cr, savedFillRule);
 }
 
 void GraphicsContext::rotate(float radians)
@@ -788,19 +807,44 @@ void GraphicsContext::scale(const FloatSize& size)
     cairo_scale(m_data->cr, size.width(), size.height());
 }
 
-void GraphicsContext::clipOut(const IntRect&)
+void GraphicsContext::clipOut(const IntRect& r)
 {
-    notImplemented();
+    if (paintingDisabled())
+        return;
+
+    cairo_t* cr = m_data->cr;
+    double x1, y1, x2, y2;
+    cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
+    cairo_rectangle(cr, x1, x2, x2 - x1, y2 - y1);
+    cairo_rectangle(cr, r.x(), r.y(), r.width(), r.height());
+    cairo_fill_rule_t savedFillRule = cairo_get_fill_rule(cr);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+    cairo_clip(cr);
+    cairo_set_fill_rule(cr, savedFillRule);
 }
 
-void GraphicsContext::clipOutEllipseInRect(const IntRect&)
+void GraphicsContext::clipOutEllipseInRect(const IntRect& r)
 {
-    notImplemented();
+    if (paintingDisabled())
+        return;
+
+    Path p;
+    p.addEllipse(r);
+    clipOut(p);
 }
 
-void GraphicsContext::fillRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color&)
+void GraphicsContext::fillRoundedRect(const IntRect& r, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color)
 {
-    notImplemented();
+    if (paintingDisabled())
+        return;
+
+    cairo_t* cr = m_data->cr;
+    cairo_save(cr);
+    beginPath();
+    addPath(Path::createRoundedRectangle(r, topLeft, topRight, bottomLeft, bottomRight));
+    setColor(cr, color);
+    cairo_fill(cr);
+    cairo_restore(cr);
 }
 
 #if PLATFORM(GTK)
@@ -816,6 +860,9 @@ GdkEventExpose* GraphicsContext::gdkExposeEvent() const
 
 GdkDrawable* GraphicsContext::gdkDrawable() const
 {
+    if (!m_data->expose)
+        return 0;
+
     return GDK_DRAWABLE(m_data->expose->window);
 }
 
@@ -830,6 +877,17 @@ IntPoint GraphicsContext::translatePoint(const IntPoint& point) const
     return IntPoint(x, y);
 }
 #endif
+
+void GraphicsContext::setUseAntialiasing(bool enable)
+{
+    if (paintingDisabled())
+        return;
+
+    // When true, use the default Cairo backend antialias mode (usually this
+    // enables standard 'grayscale' antialiasing); false to explicitly disable
+    // antialiasing. This is the same strategy as used in drawConvexPolygon().
+    cairo_set_antialias(m_data->cr, enable ? CAIRO_ANTIALIAS_DEFAULT : CAIRO_ANTIALIAS_NONE);
+}
 
 } // namespace WebCore
 

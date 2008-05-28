@@ -26,7 +26,8 @@
 #include "config.h"
 #include "runtime_method.h"
 
-#include "context.h"
+#include "ExecState.h"
+#include "JSGlobalObject.h"
 #include "runtime_object.h"
 #include "function_object.h"
 
@@ -34,7 +35,7 @@ using namespace KJS::Bindings;
 using namespace KJS;
 
 RuntimeMethod::RuntimeMethod(ExecState *exec, const Identifier &ident, Bindings::MethodList &m) 
-    : InternalFunctionImp (static_cast<FunctionPrototype*>(exec->lexicalInterpreter()->builtinFunctionPrototype()), ident)
+    : InternalFunctionImp(exec->lexicalGlobalObject()->functionPrototype(), ident)
     , _methodList(new MethodList(m))
 {
 }
@@ -82,7 +83,7 @@ JSValue *RuntimeMethod::callAsFunction(ExecState *exec, JSObject *thisObj, const
     if (!imp)
         return throwError(exec, TypeError);
 
-    Instance *instance = imp->getInternalInstance();
+    RefPtr<Instance> instance = imp->getInternalInstance();
     if (!instance) 
         return RuntimeObjectImp::throwInvalidAccessError(exec);
         
@@ -90,14 +91,4 @@ JSValue *RuntimeMethod::callAsFunction(ExecState *exec, JSObject *thisObj, const
     JSValue *aValue = instance->invokeMethod(exec, *_methodList, args);
     instance->end();
     return aValue;
-}
-
-CodeType RuntimeMethod::codeType() const
-{
-    return FunctionCode;
-}
-
-Completion RuntimeMethod::execute(ExecState*)
-{
-    return Completion(Normal, jsUndefined());
 }

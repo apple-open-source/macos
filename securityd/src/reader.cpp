@@ -33,16 +33,33 @@
 // This does not commence state tracking; call update to start up the reader.
 //
 Reader::Reader(TokenCache &tc, const PCSC::ReaderState &state)
-	: cache(tc), mToken(NULL)
+	: cache(tc), mType(pcsc), mToken(NULL)
 {
 	mName = state.name();	// remember separate copy of name
 	mPrintName = mName;		//@@@ how to make this readable? Use IOKit information?
-	secdebug("reader", "%p (%s) new reader", this, name().c_str());
+	secdebug("reader", "%p (%s) new PCSC reader", this, name().c_str());
+}
+
+Reader::Reader(TokenCache &tc, const string &identifier)
+	: cache(tc), mType(software), mToken(NULL)
+{
+	mName = identifier;
+	mPrintName = mName;
+	secdebug("reader", "%p (%s) new software reader", this, name().c_str());
 }
 
 Reader::~Reader()
 {
 	secdebug("reader", "%p (%s) destroyed", this, name().c_str());
+}
+
+
+//
+// Type qualification. None matches anything.
+//
+bool Reader::isType(Type reqType) const
+{
+	return reqType == this->type();
 }
 
 
@@ -90,7 +107,7 @@ void Reader::update(const PCSC::ReaderState &state)
 			//@@@ or should we call some verify-still-the-same function of tokend?
 			//@@@ (I think pcsc will return an error if the card changed?)
 			if (!mToken)
-				insertToken();
+				insertToken(NULL);
 		} else {
 			secdebug("reader", "%p (%s) unexpected state change (0x%lx to 0x%lx)",
 				this, name().c_str(), oldState, state.state());
@@ -101,10 +118,10 @@ void Reader::update(const PCSC::ReaderState &state)
 }
 
 
-void Reader::insertToken()
+void Reader::insertToken(TokenDaemon *tokend)
 {
 	RefPointer<Token> token = new Token();
-	token->insert(*this);
+	token->insert(*this, tokend);
 	mToken = token;
 	addReference(*token);
 	secdebug("reader", "%p (%s) inserted token %p",

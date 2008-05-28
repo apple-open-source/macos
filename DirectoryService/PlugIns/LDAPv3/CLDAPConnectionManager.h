@@ -36,6 +36,23 @@
 
 using namespace std;
 
+typedef struct sLDAPContinueData {
+    int					fLDAPMsgId;			//LDAP session call handle mainly used for searches
+	tDirNodeReference	fNodeRef;			//node reference associated with this context data
+	CLDAPConnection	   *fLDAPConnection;	//the LDAP connection for this continue data
+    LDAPMessage		   *fResult;			//LDAP message last result used for continued searches
+	LDAP			   *fRefLD;				//LDAP * of the original connection for LDAPMsgID, since msgids are invalid on previous LDs
+											//  should not be used directly, only for reference
+    UInt32				fRecNameIndex;		//index used to cycle through all requested Rec Names
+    UInt32				fRecTypeIndex;		//index used to cycle through all requested Rec Types
+    UInt32				fTotalRecCount;		//count of all retrieved records
+    UInt32				fLimitRecSearch;	//client specified limit of number of records to return
+    void				*fAuthHndl;
+	void				*fAuthHandlerProc;
+	char				*fAuthAuthorityData;
+    tContextData		fPassPlugContinueData;
+} sLDAPContinueData;
+
 class CLDAPv3Configs;
 
 // Context data structure

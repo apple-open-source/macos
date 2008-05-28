@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple, Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,11 +20,16 @@
 #include "config.h"
 #include "JSDocument.h"
 
+#include "DOMWindow.h"
 #include "Document.h"
+#include "Frame.h"
+#include "FrameLoader.h"
 #include "HTMLDocument.h"
+#include "JSDOMWindow.h"
 #include "JSHTMLDocument.h"
+#include "JSLocation.h"
 #include "kjs_binding.h"
-#include "kjs_window.h"
+#include "kjs_proxy.h"
 
 #if ENABLE(SVG)
 #include "JSSVGDocument.h"
@@ -37,8 +42,37 @@ using namespace KJS;
 
 void JSDocument::mark()
 {
-    DOMObject::mark();
+    JSEventTargetNode::mark();
     ScriptInterpreter::markDOMNodesForDocument(static_cast<Document*>(impl()));
+}
+
+JSValue* JSDocument::location(ExecState* exec) const
+{
+    Frame* frame = static_cast<Document*>(impl())->frame();
+    if (!frame)
+        return jsNull();
+
+    KJS::Window* win = KJS::Window::retrieveWindow(frame);
+    ASSERT(win);
+    return win->location();
+}
+
+void JSDocument::setLocation(ExecState* exec, JSValue* value)
+{
+    Frame* frame = static_cast<Document*>(impl())->frame();
+    if (!frame)
+        return;
+
+    String str = value->toString(exec);
+
+    // IE and Mozilla both resolve the URL relative to the source frame,
+    // not the target frame.
+    Frame* activeFrame = static_cast<JSDOMWindow*>(exec->dynamicGlobalObject())->impl()->frame();
+    if (activeFrame)
+        str = activeFrame->document()->completeURL(str);
+
+    bool userGesture = activeFrame->scriptProxy()->processingUserGesture();
+    frame->loader()->scheduleLocationChange(str, activeFrame->loader()->outgoingReferrer(), false, userGesture);
 }
 
 JSValue* toJS(ExecState* exec, Document* doc)
@@ -46,24 +80,23 @@ JSValue* toJS(ExecState* exec, Document* doc)
     if (!doc)
         return jsNull();
 
-    ScriptInterpreter* interp = static_cast<ScriptInterpreter*>(exec->dynamicInterpreter());
-    JSDocument* ret =  static_cast<JSDocument*>(interp->getDOMObject(doc));
+    JSDocument* ret = static_cast<JSDocument*>(ScriptInterpreter::getDOMObject(doc));
     if (ret)
         return ret;
 
     if (doc->isHTMLDocument())
-        ret = new JSHTMLDocument(exec, static_cast<HTMLDocument*>(doc));
+        ret = new JSHTMLDocument(JSHTMLDocumentPrototype::self(exec), static_cast<HTMLDocument*>(doc));
 #if ENABLE(SVG)
     else if (doc->isSVGDocument())
-        ret = new JSSVGDocument(exec, static_cast<SVGDocument*>(doc));
+        ret = new JSSVGDocument(JSSVGDocumentPrototype::self(exec), static_cast<SVGDocument*>(doc));
 #endif
     else
-        ret = new JSDocument(exec, doc);
+        ret = new JSDocument(JSDocumentPrototype::self(exec), doc);
 
     // Make sure the document is kept around by the window object, and works right with the
     // back/forward cache.
     if (doc->frame())
-        Window::retrieveWindow(doc->frame())->putDirect("document", ret, DontDelete|ReadOnly);
+        KJS::Window::retrieveWindow(doc->frame())->putDirect("document", ret, DontDelete|ReadOnly);
     else {
         size_t nodeCount = 0;
         for (Node* n = doc; n; n = n->traverseNextNode())
@@ -72,7 +105,7 @@ JSValue* toJS(ExecState* exec, Document* doc)
         Collector::reportExtraMemoryCost(nodeCount * sizeof(Node));
     }
 
-    interp->putDOMObject(doc, ret);
+    ScriptInterpreter::putDOMObject(doc, ret);
 
     return ret;
 }

@@ -499,10 +499,11 @@ mbr_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int du
 	struct passwd p, *res;
 	char buf[MAXPWBUF];
 	kern_return_t kstatus;
-	uint32_t i, maxgroups, count, gidptrCnt, gg_count;
+	uint32_t i, maxgroups, count, gg_count;
 	int pwstatus;
 	GIDArray gids;
 	gid_t *gidptr, *gg_list;
+	size_t gidptrsz;
 	int status, do_dealloc;
 	audit_token_t token;
 
@@ -515,7 +516,7 @@ mbr_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int du
 	do_dealloc = 0;
 	*grpcnt = 0;
 	gidptr = NULL;
-	gidptrCnt = 0;
+	gidptrsz = 0;
 	gg_list = NULL;
 	gg_count = 0;
 	
@@ -542,7 +543,9 @@ mbr_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int du
 	kstatus = 0;
 	if (maxgroups > 16)
 	{
+		uint32_t gidptrCnt = 0;
 		kstatus = memberdDSmig_GetAllGroups(_ds_port, p.pw_uid, &count, &gidptr, &gidptrCnt, &token);
+		gidptrsz = gidptrCnt * sizeof(gid_t);
 		do_dealloc = 1;
 	}
 	else
@@ -560,7 +563,7 @@ mbr_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int du
 
 	for (i = 0; i < count; i++) _add_group(gidptr[i], &gg_list, &gg_count, 0);
 
-	if ((do_dealloc == 1) && (gidptr != NULL)) vm_deallocate(mach_task_self(), (vm_address_t)gidptr, gidptrCnt);
+	if ((do_dealloc == 1) && (gidptr != NULL)) vm_deallocate(mach_task_self(), (vm_address_t)gidptr, gidptrsz);
 
 	if (gg_list == NULL)
 	{
@@ -596,6 +599,7 @@ ds_getgrouplist(const char *name, gid_t basegid, gid_t **grplist, int dupbase)
 	uint32_t i, count, gidptrCnt, out_count;
 	int pwstatus;
 	gid_t *gidptr, *out_list;
+	size_t gidptrsz;
 	audit_token_t token;
 
 	if (_ds_port == MACH_PORT_NULL) return -1;
@@ -604,6 +608,7 @@ ds_getgrouplist(const char *name, gid_t basegid, gid_t **grplist, int dupbase)
 
 	gidptr = NULL;
 	gidptrCnt = 0;
+	gidptrsz = 0;
 	out_list = NULL;
 	out_count = 0;
 
@@ -629,17 +634,18 @@ ds_getgrouplist(const char *name, gid_t basegid, gid_t **grplist, int dupbase)
 		if (out_list != NULL) free(out_list);
 		return -1;
 	}
+	gidptrsz = gidptrCnt * sizeof(gid_t);
 
 	if (audit_token_uid(token) != 0)
 	{
 		if (out_list != NULL) free(out_list);
-		if (gidptr != NULL) vm_deallocate(mach_task_self(), (vm_address_t)gidptr, gidptrCnt);
+		if (gidptr != NULL) vm_deallocate(mach_task_self(), (vm_address_t)gidptr, gidptrsz);
 		return -1;
 	}
 
 	for (i = 0; i < count; i++) _add_group(gidptr[i], &out_list, &out_count, 0);
 
-	if (gidptr != NULL) vm_deallocate(mach_task_self(), (vm_address_t)gidptr, gidptrCnt);
+	if (gidptr != NULL) vm_deallocate(mach_task_self(), (vm_address_t)gidptr, gidptrsz);
 
 	*grplist = out_list;
 	return out_count;

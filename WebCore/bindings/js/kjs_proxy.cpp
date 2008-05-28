@@ -23,6 +23,8 @@
 
 #include "Chrome.h"
 #include "Document.h"
+#include "Event.h"
+#include "EventNames.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "GCController.h"
@@ -38,25 +40,24 @@
 #endif
 
 using namespace KJS;
+using namespace WebCore::EventNames;
 
 namespace WebCore {
 
 KJSProxy::KJSProxy(Frame* frame)
+    : m_frame(frame)
+    , m_handlerLineno(0)
+    , m_processingTimerCallback(0)
+    , m_processingInlineCode(0)
 {
-    m_frame = frame;
-    m_handlerLineno = 0;
 }
 
 KJSProxy::~KJSProxy()
 {
-    // Check for <rdar://problem/4876466>. In theory, no JS should be executing
-    // in our interpreter. 
-    ASSERT(!m_script || !m_script->context());
+    if (m_globalObject) {
+        m_globalObject = 0;
     
-    if (m_script) {
-        m_script = 0;
-    
-        // It's likely that destroying the interpreter has created a lot of garbage.
+        // It's likely that releasing the global object has created a lot of garbage.
         gcController().garbageCollectSoon();
     }
 }
@@ -71,9 +72,8 @@ JSValue* KJSProxy::evaluate(const String& filename, int baseLine, const String& 
     // and false for <script>doSomething()</script>. Check if it has the
     // expected value in all cases.
     // See smart window.open policy for where this is used.
-    bool inlineCode = filename.isNull();
-
-    m_script->setInlineCode(inlineCode);
+    ExecState* exec = m_globalObject->globalExec();
+    m_processingInlineCode = filename.isNull();
 
     JSLock lock;
 
@@ -83,33 +83,34 @@ JSValue* KJSProxy::evaluate(const String& filename, int baseLine, const String& 
     
     JSValue* thisNode = Window::retrieve(m_frame);
   
-    m_script->startTimeoutCheck();
-    Completion comp = m_script->evaluate(filename, baseLine, reinterpret_cast<const KJS::UChar*>(str.characters()), str.length(), thisNode);
-    m_script->stopTimeoutCheck();
+    m_globalObject->startTimeoutCheck();
+    Completion comp = Interpreter::evaluate(exec, filename, baseLine, reinterpret_cast<const KJS::UChar*>(str.characters()), str.length(), thisNode);
+    m_globalObject->stopTimeoutCheck();
   
-    if (comp.complType() == Normal || comp.complType() == ReturnValue)
+    if (comp.complType() == Normal || comp.complType() == ReturnValue) {
+        m_processingInlineCode = false;
         return comp.value();
+    }
 
     if (comp.complType() == Throw) {
-        UString errorMessage = comp.value()->toString(m_script->globalExec());
-        int lineNumber = comp.value()->toObject(m_script->globalExec())->get(m_script->globalExec(), "line")->toInt32(m_script->globalExec());
-        UString sourceURL = comp.value()->toObject(m_script->globalExec())->get(m_script->globalExec(), "sourceURL")->toString(m_script->globalExec());
+        UString errorMessage = comp.value()->toString(exec);
+        int lineNumber = comp.value()->toObject(exec)->get(exec, "line")->toInt32(exec);
+        UString sourceURL = comp.value()->toObject(exec)->get(exec, "sourceURL")->toString(exec);
         if (Page* page = m_frame->page())
             page->chrome()->addMessageToConsole(JSMessageSource, ErrorMessageLevel, errorMessage, lineNumber, sourceURL);
     }
 
+    m_processingInlineCode = false;
     return 0;
 }
 
-void KJSProxy::clear() {
-  // clear resources allocated by the interpreter, and make it ready to be used by another page
-  // We have to keep it, so that the Window object for the frame remains the same.
-  // (we used to delete and re-create it, previously)
-  if (m_script) {
-    Window *win = Window::retrieveWindow(m_frame);
-    if (win)
-        win->clear();
-  }
+void KJSProxy::clear()
+{
+    // clear resources allocated by the global object, and make it ready to be used by another page
+    // We have to keep it, so that the Window object for the frame remains the same.
+    // (we used to delete and re-create it, previously)
+    if (m_globalObject)
+        m_globalObject->clear();
 }
 
 EventListener* KJSProxy::createHTMLEventHandler(const String& functionName, const String& code, Node* node)
@@ -134,46 +135,72 @@ void KJSProxy::finishedWithEvent(Event* event)
   // is the case in sitations where an event has been created just for temporary usage,
   // e.g. an image load or mouse move. Once the event has been dispatched, it is forgotten
   // by the DOM implementation and so does not need to be cached still by the interpreter
-  m_script->forgetDOMObject(event);
+  ScriptInterpreter::forgetDOMObject(event);
 }
 
-ScriptInterpreter* KJSProxy::interpreter()
+void KJSProxy::initScript()
 {
-  initScriptIfNeeded();
-  ASSERT(m_script);
-  return m_script.get();
-}
+    if (m_globalObject)
+        return;
 
-void KJSProxy::initScriptIfNeeded()
-{
-  if (m_script)
-    return;
+    JSLock lock;
 
-  // Build the global object - which is a Window instance
-  JSLock lock;
-  JSObject* globalObject = new JSDOMWindow(m_frame->domWindow());
+    m_globalObject = new JSDOMWindow(m_frame->domWindow());
 
-  // Create a KJS interpreter for this frame
-  m_script = new ScriptInterpreter(globalObject, m_frame);
+    // FIXME: We can get rid of this (and eliminate compatMode entirely).
+    String userAgent = m_frame->loader()->userAgent(m_frame->document() ? m_frame->document()->url() : KURL());
+    if (userAgent.find("Microsoft") >= 0 || userAgent.find("MSIE") >= 0)
+        m_globalObject->setCompatMode(IECompat);
+    else {
+        // If we find "Mozilla" but not "(compatible, ...)" we are a real Netscape
+        if (userAgent.find("Mozilla") >= 0 && userAgent.find("compatible") == -1)
+            m_globalObject->setCompatMode(NetscapeCompat);
+    }
 
-  String userAgent = m_frame->loader()->userAgent(m_frame->document() ? m_frame->document()->URL() : KURL());
-  if (userAgent.find("Microsoft") >= 0 || userAgent.find("MSIE") >= 0)
-    m_script->setCompatMode(Interpreter::IECompat);
-  else
-    // If we find "Mozilla" but not "(compatible, ...)" we are a real Netscape
-    if (userAgent.find("Mozilla") >= 0 && userAgent.find("compatible") == -1)
-      m_script->setCompatMode(Interpreter::NetscapeCompat);
-
-  m_frame->loader()->dispatchWindowObjectAvailable();
+    m_frame->loader()->dispatchWindowObjectAvailable();
 }
     
 void KJSProxy::clearDocumentWrapper() 
 {
-    if (!m_script)
+    if (!m_globalObject)
         return;
 
     JSLock lock;
-    m_script->globalObject()->removeDirect("document");
+    m_globalObject->removeDirect("document");
 }
 
+bool KJSProxy::processingUserGesture() const
+{
+    if (!m_globalObject)
+        return false;
+
+    if (Event* event = m_globalObject->currentEvent()) {
+        const AtomicString& type = event->type();
+        if ( // mouse events
+            type == clickEvent || type == mousedownEvent ||
+            type == mouseupEvent || type == dblclickEvent ||
+            // keyboard events
+            type == keydownEvent || type == keypressEvent ||
+            type == keyupEvent ||
+            // other accepted events
+            type == selectEvent || type == changeEvent ||
+            type == focusEvent || type == blurEvent ||
+            type == submitEvent)
+            return true;
+    } else { // no event
+        if (m_processingInlineCode && !m_processingTimerCallback) {
+            // This is the <a href="javascript:window.open('...')> case -> we let it through
+            return true;
+        }
+        // This is the <script>window.open(...)</script> case or a timer callback -> block it
+    }
+    return false;
 }
+
+bool KJSProxy::isEnabled()
+{
+    Settings* settings = m_frame->settings();
+    return (settings && settings->isJavaScriptEnabled());
+}
+
+} // namespace WebCore

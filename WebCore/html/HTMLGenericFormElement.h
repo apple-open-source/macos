@@ -92,6 +92,9 @@ public:
 
     void formDestroyed() { m_form = 0; }
 
+protected:
+    void removeFromForm();
+
 private:
     virtual HTMLFormElement* virtualForm() const;
 
@@ -106,7 +109,7 @@ public:
     HTMLFormControlElementWithState(const QualifiedName& tagName, Document*, HTMLFormElement*);
     virtual ~HTMLFormControlElementWithState();
 
-    virtual void finishedParsing();
+    virtual void finishParsingChildren();
 
     virtual bool saveState(String& value) const = 0;
 

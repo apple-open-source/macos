@@ -7,7 +7,7 @@ diff -ru ../openssh-4.5p1.orig/openbsd-compat/glob.c ./openbsd-compat/glob.c
      !defined(GLOB_HAS_GL_MATCHC) || \
 -    !defined(HAVE_DECL_GLOB_NOMATCH) || HAVE_DECL_GLOB_NOMATCH == 0
 +    !defined(HAVE_DECL_GLOB_NOMATCH) || HAVE_DECL_GLOB_NOMATCH == 0 || \
-+    defined(__APPLE__)
++    defined(__APPLE_GLOBBING__)
  
  static long
  get_arg_max(void)
@@ -20,7 +20,7 @@ diff -ru ../openssh-4.5p1.orig/openbsd-compat/glob.h ./openbsd-compat/glob.h
      !defined(GLOB_HAS_GL_MATCHC) || \
 -    !defined(HAVE_DECL_GLOB_NOMATCH) || HAVE_DECL_GLOB_NOMATCH == 0
 +    !defined(HAVE_DECL_GLOB_NOMATCH) || HAVE_DECL_GLOB_NOMATCH == 0 || \
-+    defined(__APPLE__)
++    defined(__APPLE_GLOBBING__)
  
  #ifndef _GLOB_H_
  #define	_GLOB_H_

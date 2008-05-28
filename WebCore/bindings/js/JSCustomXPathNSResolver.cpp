@@ -73,15 +73,14 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
 
     if (!m_frame)
         return String();
-    KJSProxy* proxy = m_frame->scriptProxy();
-    if (!proxy)
+    if (!m_frame->scriptProxy()->isEnabled())
         return String();
 
     JSLock lock;
 
-    ScriptInterpreter* interpreter = proxy->interpreter();
-    ExecState* exec = interpreter->globalExec();
-
+    JSGlobalObject* globalObject = m_frame->scriptProxy()->globalObject();
+    ExecState* exec = globalObject->globalExec();
+        
     JSValue* lookupNamespaceURIFuncValue = m_customResolver->get(exec, "lookupNamespaceURI");
     JSObject* lookupNamespaceURIFunc = 0;
     if (lookupNamespaceURIFuncValue->isObject()) {      
@@ -104,12 +103,12 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
 
     String result;
     JSValue* retval;
-    interpreter->startTimeoutCheck();
+    globalObject->startTimeoutCheck();
     if (lookupNamespaceURIFunc)
         retval = lookupNamespaceURIFunc->call(exec, m_customResolver, args);
     else
         retval = m_customResolver->call(exec, m_customResolver, args);
-    interpreter->stopTimeoutCheck();
+    globalObject->stopTimeoutCheck();
 
     if (exec->hadException()) {
         JSObject* exception = exec->exception()->toObject(exec);

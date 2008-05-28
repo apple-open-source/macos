@@ -734,7 +734,7 @@ AppleUSBOHCI::UIMRootHubStatusChange(void)
     statusChangedBitmap = 0;
     statusBit = 1;								// really bit 0 (which is the hub bit)
 
-    if (GetRootHubStatus((IOUSBHubStatus *)&tempStatus) == kIOReturnSuccess)
+    if ( _controllerAvailable && !_wakingFromHibernation && !_pcCardEjected && (GetRootHubStatus((IOUSBHubStatus *)&tempStatus) == kIOReturnSuccess) )
     {
         // GetRootHubStatus does NOT swap bits, so we need to do it here
         //

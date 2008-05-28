@@ -1,8 +1,7 @@
 // -*- c-basic-offset: 2 -*-
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004 Apple Computer, Inc.
+ *  Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -31,6 +30,7 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 
 /* On some ARM platforms GCC won't pack structures by default so sizeof(UChar)
    will end up being != 2 which causes crashes since the code depends on that. */
@@ -50,6 +50,9 @@ namespace DOM {
 class KJScript;
 
 namespace KJS {
+
+  using WTF::PlacementNewAdoptType;
+  using WTF::PlacementNewAdopt;
 
   class UString;
 
@@ -147,11 +150,13 @@ namespace KJS {
       int size() const { return len; }
       
       unsigned hash() const { if (_hash == 0) _hash = computeHash(data(), len); return _hash; }
+      unsigned computedHash() const { ASSERT(_hash); return _hash; } // fast path for Identifiers
+
       static unsigned computeHash(const UChar *, int length);
       static unsigned computeHash(const char *);
 
       Rep* ref() { ASSERT(JSLock::lockCount() > 0); ++rc; return this; }
-      void deref() { ASSERT(JSLock::lockCount() > 0); if (--rc == 0) destroy(); }
+      ALWAYS_INLINE void deref() { ASSERT(JSLock::lockCount() > 0); if (--rc == 0) destroy(); }
 
       // unshared data
       int offset;
@@ -160,6 +165,7 @@ namespace KJS {
       mutable unsigned _hash;
       bool isIdentifier;
       UString::Rep* baseString;
+      size_t reportedCost;
 
       // potentially shared data
       UChar *buf;
@@ -198,6 +204,9 @@ namespace KJS {
      * Copy constructor. Makes a shallow copy only.
      */
     UString(const UString &s) : m_rep(s.m_rep) {}
+
+    UString(const Vector<UChar>& buffer);
+
     /**
      * Convenience declaration only ! You'll be on your own to write the
      * implementation for a construction from DOM::DOMString.
@@ -219,6 +228,9 @@ namespace KJS {
      * Destructor.
      */
     ~UString() {}
+
+    // Special constructor for cases where we overwrite an object in place.
+    UString(PlacementNewAdoptType) : m_rep(PlacementNewAdopt) { }
 
     /**
      * Constructs a string from an int.
@@ -258,6 +270,8 @@ namespace KJS {
 
     /**
      * @return The string converted to the 8-bit string type CString().
+     * This method is not Unicode safe and shouldn't be used unless the string
+     * is known to be ASCII.
      */
     CString cstring() const;
     /**
@@ -271,12 +285,13 @@ namespace KJS {
 
     /**
      * Convert the string to UTF-8, assuming it is UTF-16 encoded.
-     * Since this function is tolerant of badly formed UTF-16, it can create UTF-8
-     * strings that are invalid because they have characters in the range
-     * U+D800-U+DDFF, U+FFFE, or U+FFFF, but the UTF-8 string is guaranteed to
-     * be otherwise valid.
+     * In non-strict mode, this function is tolerant of badly formed UTF-16, it
+     * can create UTF-8 strings that are invalid because they have characters in
+     * the range U+D800-U+DDFF, U+FFFE, or U+FFFF, but the UTF-8 string is
+     * guaranteed to be otherwise valid.
+     * In strict mode, error is returned as null CString.
      */
-    CString UTF8String() const;
+    CString UTF8String(bool strict = false) const;
 
     /**
      * @see UString(const DOM::DOMString&).
@@ -372,12 +387,6 @@ namespace KJS {
      * Static instance of a null string.
      */
     static const UString &null();
-#ifdef KJS_DEBUG_MEM
-    /**
-     * Clear statically allocated resources.
-     */
-    static void globalClear();
-#endif
 
     Rep* rep() const { return m_rep.get(); }
     UString(PassRefPtr<Rep> r) : m_rep(r) { ASSERT(m_rep); }
@@ -419,16 +428,6 @@ namespace KJS {
   
   int compare(const UString &, const UString &);
 
-  // Given a first byte, gives the length of the UTF-8 sequence it begins.
-  // Returns 0 for bytes that are not legal starts of UTF-8 sequences.
-  // Only allows sequences of up to 4 bytes, since that works for all Unicode characters (U-00000000 to U-0010FFFF).
-  int UTF8SequenceLength(char);
-
-  // Takes a null-terminated C-style string with a UTF-8 sequence in it and converts it to a character.
-  // Only allows Unicode characters (U-00000000 to U-0010FFFF).
-  // Returns -1 if the sequence is not valid (including presence of extra bytes).
-  int decodeUTF8Sequence(const char *);
-
 inline UString::UString()
   : m_rep(&Rep::null)
 {
@@ -444,22 +443,26 @@ inline unsigned UString::toArrayIndex(bool *ok) const
     return i;
 }
 
+// We'd rather not do shared substring append for small strings, since
+// this runs too much risk of a tiny initial string holding down a
+// huge buffer.
+// FIXME: this should be size_t but that would cause warnings until we
+// fix UString sizes to be size_t instead of int
+static const int minShareSize = Collector::minExtraCostSize / sizeof(UChar);
+
 inline size_t UString::cost() const
 {
-    // If this string is sharing with a base, then don't count any cost. We will never share
-    // with a base that wasn't already big enough to register extra cost, so a string holding that
-    // buffer has already paid extra cost at some point; and if we just
-    // enlarged it by a huge amount, it must have been by appending a string
-    // that itself paid extra cost, or a huge number of small strings. Either way, GC will come
-    // relatively soon.
-  
-    // If we didn't do this, the shared substring optimization would result
-    // in constantly garbage collecting when sharing with one big string.
+   size_t capacity = (m_rep->baseString->capacity + m_rep->baseString->preCapacity) * sizeof(UChar);
+   size_t reportedCost = m_rep->baseString->reportedCost;
+   ASSERT(capacity >= reportedCost);
 
-    if (!m_rep->baseIsSelf())
-        return 0;
+   size_t capacityDelta = capacity - reportedCost;
 
-    return (m_rep->capacity + m_rep->preCapacity) * sizeof(UChar);
+   if (capacityDelta < static_cast<size_t>(minShareSize))
+       return 0;
+
+   m_rep->baseString->reportedCost = capacity;
+   return capacityDelta;
 }
 
 } // namespace

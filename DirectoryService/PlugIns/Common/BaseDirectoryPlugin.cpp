@@ -873,11 +873,11 @@ tDirStatus BaseDirectoryPlugin::GetDirNodeInfo( sGetDirNodeInfo *inData )
 			goto failure;
 		}
 		
+		cfNodeInfo = (CFMutableDictionaryRef) pContinue->fStateInfo;
+		
 		// just remove it, we'll recreate it if needed
 		inData->fOutContinueData = NULL;
 		fContinueHash->RemoveItem( pContinue );
-		
-		cfNodeInfo = (CFMutableDictionaryRef) pContinue->fStateInfo;
 	}
 	else
 	{

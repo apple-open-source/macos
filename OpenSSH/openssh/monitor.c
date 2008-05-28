@@ -1,4 +1,4 @@
-/* $OpenBSD: monitor.c,v 1.89 2006/11/07 10:31:31 markus Exp $ */
+/* $OpenBSD: monitor.c,v 1.91 2007/05/17 20:52:13 djm Exp $ */
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
  * Copyright 2002 Markus Friedl <markus@openbsd.org>
@@ -233,7 +233,7 @@ struct mon_table mon_dispatch_proto20[] = {
     {MONITOR_REQ_GSSSTEP, MON_ISAUTH, mm_answer_gss_accept_ctx},
     {MONITOR_REQ_GSSUSEROK, MON_AUTH, mm_answer_gss_userok},
     {MONITOR_REQ_GSSCHECKMIC, MON_ISAUTH, mm_answer_gss_checkmic},
-    {MONITOR_REQ_GSSSIGN, MON_ONCE, mm_answer_gss_sign},
+     {MONITOR_REQ_GSSSIGN, MON_ONCE, mm_answer_gss_sign},
 #endif
     {0, 0, NULL}
 };
@@ -420,6 +420,7 @@ monitor_child_postauth(struct monitor *pmonitor)
 	monitor_set_child_handler(pmonitor->m_pid);
 	signal(SIGHUP, &monitor_child_handler);
 	signal(SIGTERM, &monitor_child_handler);
+	signal(SIGINT, &monitor_child_handler);
 
 	if (compat20) {
 		mon_dispatch = mon_dispatch_postauth20;
@@ -431,7 +432,7 @@ monitor_child_postauth(struct monitor *pmonitor)
 #ifdef GSSAPI
 		/* and for the GSSAPI key exchange */
 		monitor_permit(mon_dispatch, MONITOR_REQ_GSSSETUP, 1);
-#endif		
+#endif
 	} else {
 		mon_dispatch = mon_dispatch_postauth15;
 		monitor_permit(mon_dispatch, MONITOR_REQ_TERM, 1);
@@ -657,6 +658,9 @@ mm_answer_pwnamallow(int sock, Buffer *m)
 #endif
 	buffer_put_cstring(m, pwent->pw_dir);
 	buffer_put_cstring(m, pwent->pw_shell);
+	buffer_put_string(m, &options, sizeof(options));
+	if (options.banner != NULL)
+		buffer_put_cstring(m, options.banner);
 
  out:
 	debug3("%s: sending MONITOR_ANS_PWNAM: %d", __func__, allowed);

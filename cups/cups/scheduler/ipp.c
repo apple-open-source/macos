@@ -1,9 +1,9 @@
 /*
- * "$Id: ipp.c 6949 2007-09-12 21:33:23Z mike $"
+ * "$Id: ipp.c 7296 2008-02-12 00:20:32Z mike $"
  *
  *   IPP routines for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   This file contains Kerberos support code, copyright 2006 by
@@ -658,7 +658,7 @@ cupsdProcessIPPRequest(
                     con->http.fd, con->response->request.status.status_code,
 	            ippErrorString(con->response->request.status.status_code));
 
-    if (cupsdSendHeader(con, HTTP_OK, "application/ipp", AUTH_NONE))
+    if (cupsdSendHeader(con, HTTP_OK, "application/ipp", CUPSD_AUTH_NONE))
     {
 #ifdef CUPSD_USE_CHUNKING
      /*
@@ -746,7 +746,7 @@ cupsdProcessIPPRequest(
  * 'cupsdTimeoutJob()' - Timeout a job waiting on job files.
  */
 
-void
+int					/* O - 0 on success, -1 on error */
 cupsdTimeoutJob(cupsd_job_t *job)	/* I - Job to timeout */
 {
   cupsd_printer_t	*printer;	/* Destination printer or class */
@@ -774,10 +774,13 @@ cupsdTimeoutJob(cupsd_job_t *job)	/* I - Job to timeout */
     cupsdLogMessage(CUPSD_LOG_INFO, "[Job %d] Adding end banner page \"%s\".",
                     job->id, attr->values[1].string.text);
 
-    kbytes = copy_banner(NULL, job, attr->values[1].string.text);
+    if ((kbytes = copy_banner(NULL, job, attr->values[1].string.text)) < 0)
+      return (-1);
 
     cupsdUpdateQuota(printer, job->username, 0, kbytes);
   }
+
+  return (0);
 }
 
 
@@ -1786,7 +1789,8 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
                       "[Job %d] Adding start banner page \"%s\".",
                       job->id, attr->values[0].string.text);
 
-      kbytes = copy_banner(con, job, attr->values[0].string.text);
+      if ((kbytes = copy_banner(con, job, attr->values[0].string.text)) < 0)
+        return (NULL);
 
       cupsdUpdateQuota(printer, job->username, 0, kbytes);
     }
@@ -2403,12 +2407,15 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
 
     supported = ippFindAttribute(printer->attrs, "port-monitor-supported",
                                  IPP_TAG_NAME);
-    for (i = 0; i < supported->num_values; i ++)
-      if (!strcmp(supported->values[i].string.text,
-                  attr->values[0].string.text))
-        break;
+    if (supported)
+    {
+      for (i = 0; i < supported->num_values; i ++)
+        if (!strcmp(supported->values[i].string.text,
+                    attr->values[0].string.text))
+          break;
+    }
 
-    if (i >= supported->num_values)
+    if (!supported || i >= supported->num_values)
     {
       send_ipp_status(con, IPP_NOT_POSSIBLE, _("Bad port-monitor \"%s\"!"),
         	      attr->values[0].string.text);
@@ -3410,13 +3417,6 @@ check_quotas(cupsd_client_t  *con,	/* I - Client connection */
                   con, con->http.fd, p, p->name);
 
  /*
-  * Check input...
-  */
-
-  if (!con || !p)
-    return (0);
-
- /*
   * Figure out who is printing...
   */
 
@@ -3922,7 +3922,7 @@ copy_banner(cupsd_client_t *con,	/* I - Client connection */
   */
 
   if (add_file(con, job, banner->filetype, 0))
-    return (0);
+    return (-1);
 
   snprintf(filename, sizeof(filename), "%s/d%05d-%03d", RequestRoot, job->id,
            job->num_files);
@@ -4643,6 +4643,10 @@ copy_printer_attrs(
                  "com.apple.print.recoverable-message", NULL,
 		 printer->recoverable);
 #endif /* __APPLE__ */
+
+  if (!ra || cupsArrayFind(ra, "marker-change-time"))
+    ippAddInteger(con->response, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+                  "marker-change-time", printer->marker_time);
 
   if (printer->alert && (!ra || cupsArrayFind(ra, "printer-alert")))
     ippAddString(con->response, IPP_TAG_PRINTER, IPP_TAG_STRING,
@@ -7036,17 +7040,6 @@ move_job(cupsd_client_t  *con,		/* I - Client connection */
   }
 
  /*
-  * Check policy...
-  */
-
-  if ((status = cupsdCheckPolicy(dprinter->op_policy_ptr, con,
-                                 NULL)) != HTTP_OK)
-  {
-    send_http_error(con, status, dprinter);
-    return;
-  }
-
- /*
   * See if we have a job URI or a printer URI...
   */
 
@@ -7151,6 +7144,17 @@ move_job(cupsd_client_t  *con,		/* I - Client connection */
       src      = NULL;
       sprinter = NULL;
     }
+  }
+
+ /*
+  * Check the policy of the destination printer...
+  */
+
+  if ((status = cupsdCheckPolicy(dprinter->op_policy_ptr, con,
+                                 job ? job->username : NULL)) != HTTP_OK)
+  {
+    send_http_error(con, status, dprinter);
+    return;
   }
 
  /*
@@ -7541,7 +7545,8 @@ print_job(cupsd_client_t  *con,		/* I - Client connection */
   * See if we need to add the ending sheet...
   */
 
-  cupsdTimeoutJob(job);
+  if (cupsdTimeoutJob(job))
+    return;
 
  /*
   * Log and save the job...
@@ -8745,7 +8750,8 @@ send_document(cupsd_client_t  *con,	/* I - Client connection */
     * See if we need to add the ending sheet...
     */
 
-    cupsdTimeoutJob(job);
+    if (cupsdTimeoutJob(job))
+      return;
 
     if (job->state_value == IPP_JOB_STOPPED)
     {
@@ -8830,7 +8836,7 @@ send_http_error(
   if (status == HTTP_UNAUTHORIZED &&
       printer && printer->num_auth_info_required > 0 &&
       !strcmp(printer->auth_info_required[0], "negotiate"))
-    cupsdSendError(con, status, AUTH_NEGOTIATE);
+    cupsdSendError(con, status, CUPSD_AUTH_NEGOTIATE);
   else if (printer)
   {
     char	resource[HTTP_MAX_URI];	/* Resource portion of URI */
@@ -8843,13 +8849,13 @@ send_http_error(
       snprintf(resource, sizeof(resource), "/printers/%s", printer->name);
 
     if ((auth = cupsdFindBest(resource, HTTP_POST)) == NULL ||
-        auth->type == AUTH_NONE)
+        auth->type == CUPSD_AUTH_NONE)
       auth = cupsdFindPolicyOp(printer->op_policy_ptr, IPP_PRINT_JOB);
 
-    cupsdSendError(con, status, auth ? auth->type : AUTH_NONE);
+    cupsdSendError(con, status, auth ? auth->type : CUPSD_AUTH_NONE);
   }
   else
-    cupsdSendError(con, status, AUTH_NONE);
+    cupsdSendError(con, status, CUPSD_AUTH_NONE);
 
   ippDelete(con->response);
   con->response = NULL;
@@ -9152,7 +9158,8 @@ set_job_attrs(cupsd_client_t  *con,	/* I - Client connection */
       else if (con->response->request.status.status_code == IPP_OK)
       {
         cupsdSetJobPriority(job, attr->values[0].integer);
-        event |= CUPSD_EVENT_JOB_CONFIG_CHANGED;
+        event |= CUPSD_EVENT_JOB_CONFIG_CHANGED |
+	         CUPSD_EVENT_PRINTER_QUEUE_ORDER_CHANGED;
       }
     }
     else if (!strcmp(attr->name, "job-state"))
@@ -9298,6 +9305,10 @@ set_job_attrs(cupsd_client_t  *con,	/* I - Client connection */
  /*
   * Send events as needed...
   */
+
+  if (event & CUPSD_EVENT_PRINTER_QUEUE_ORDER_CHANGED)
+    cupsdAddEvent(CUPSD_EVENT_PRINTER_QUEUE_ORDER_CHANGED, job->printer, job,
+                  "Job priority changed by user.");
 
   if (event & CUPSD_EVENT_JOB_STATE)
     cupsdAddEvent(CUPSD_EVENT_JOB_STATE, job->printer, job,
@@ -9805,6 +9816,8 @@ user_allowed(cupsd_printer_t *p,	/* I - Printer or class */
 {
   int		i;			/* Looping var */
   struct passwd	*pw;			/* User password data */
+  char		baseuser[256],		/* Base username */
+		*baseptr;		/* Pointer to "@" in base username */
 
 
   if (p->num_users == 0)
@@ -9812,6 +9825,20 @@ user_allowed(cupsd_printer_t *p,	/* I - Printer or class */
 
   if (!strcmp(username, "root"))
     return (1);
+
+  if (strchr(username, '@'))
+  {
+   /*
+    * Strip @REALM for username check...
+    */
+
+    strlcpy(baseuser, username, sizeof(baseuser));
+
+    if ((baseptr = strchr(baseuser, '@')) != NULL)
+      *baseptr = '\0';
+
+    username = baseuser;
+  }
 
   pw = getpwnam(username);
   endpwent();
@@ -9979,8 +10006,8 @@ validate_user(cupsd_job_t    *job,	/* I - Job */
   cupsdLogMessage(CUPSD_LOG_DEBUG2,
                   "validate_user(job=%d, con=%d, owner=\"%s\", username=%p, "
 		  "userlen=%d)",
-        	  job ? job->id : 0, con->http.fd, owner ? owner : "(null)",
-		  username, userlen);
+        	  job->id, con ? con->http.fd : 0,
+		  owner ? owner : "(null)", username, userlen);
 
  /*
   * Validate input...
@@ -10007,5 +10034,5 @@ validate_user(cupsd_job_t    *job,	/* I - Job */
 
 
 /*
- * End of "$Id: ipp.c 6949 2007-09-12 21:33:23Z mike $".
+ * End of "$Id: ipp.c 7296 2008-02-12 00:20:32Z mike $".
  */

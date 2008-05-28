@@ -22,6 +22,12 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
 #ifndef ABTS_H
 #define ABTS_H
 

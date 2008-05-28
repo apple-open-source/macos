@@ -38,6 +38,7 @@ void
 usage() {
 	fprintf(stderr, "usage: tconf \n"
 		"\t--product\n"
+		"\t--archs\n"
 		"\t--cflags\n"
 		"\t--cxxflags\n"
 		"\t--ldflags\n"
@@ -85,18 +86,20 @@ find_config() {
 		if (is_file(result)) return result;
 		free(result);
 	}
-	if (next_root) {
+	if (!path && next_root) {
 		// 5)
 		asprintf(&result, "%s/%s/%s.plist", next_root,
 			TARGET_CONFIG_DIR_PATH, TARGET_CONFIG_DEFAULT);
 		if (is_file(result)) return result;
 		free(result);
 	}
-	// 6)
-	asprintf(&result, "%s/%s.plist",
-		TARGET_CONFIG_DIR_PATH, TARGET_CONFIG_DEFAULT);
-	if (is_file(result)) return result;
-	free(result);
+	if (!path) {
+		// 6)
+		asprintf(&result, "%s/%s.plist",
+			TARGET_CONFIG_DIR_PATH, TARGET_CONFIG_DEFAULT);
+		if (is_file(result)) return result;
+		free(result);
+	}
 
 	return NULL;
 }
@@ -163,6 +166,39 @@ lookup_arch_config(CFDictionaryRef config, CFStringRef key) {
 		}
 		if (res) break;
 	}
+
+	CFRelease(archs);
+	return res;
+}
+
+int
+cmd_archs(CFDictionaryRef config) {
+	int res = 0;
+	
+	CFStringRef env = cfstr(getenv("RC_ARCHS"));
+	CFArrayRef archs = tokenizeString(env);
+	if (env) CFRelease(env);
+
+	if (!archs) {
+		CFDictionaryRef target_archs = CFDictionaryGetValue(config,
+					CFSTR("TargetArchitectures"));
+		if (target_archs) {
+			archs = dictionaryGetSortedKeys(target_archs);
+			CFRelease(target_archs);
+		}
+	}
+
+	if (!archs) {
+		return -1;
+	}
+
+	CFIndex i, count = CFArrayGetCount(archs);
+	for (i = 0; i < count; ++i) {
+		CFStringRef arch = CFArrayGetValueAtIndex(archs, i);
+		if (i > 0) printf(" ");
+		cfprintf(stdout, "%@", arch);
+	}
+	printf("\n");
 
 	CFRelease(archs);
 	return res;
@@ -275,7 +311,7 @@ export_target_conds(FILE* f, CFDictionaryRef config) {
 	CFDictionaryRef target_conds = CFDictionaryGetValue(config,
 						CFSTR("TargetConditionals"));
 	if (target_conds) {
-		CFDictionaryApplyFunction(target_conds,
+		dictionaryApplyFunctionSorted(target_conds,
 		    (CFDictionaryApplierFunction)&_export_target_cond,
 		    (void*)f);
 	}
@@ -287,7 +323,7 @@ _export_target_arch_conds(CFStringRef key, CFTypeRef value, FILE* f) {
 	cfprintf(f,
 "#if defined(__%@__)\n",
 		key);
-	CFDictionaryApplyFunction(value,
+	dictionaryApplyFunctionSorted(value,
 		(CFDictionaryApplierFunction)&_export_target_cond,
 		(void*)f);
 	cfprintf(f,
@@ -302,7 +338,7 @@ export_target_arch_conds(FILE* f, CFDictionaryRef config) {
 						CFSTR("TargetArchitectures"));
 
         if (target_archs) {
-                CFDictionaryApplyFunction(target_archs,
+                dictionaryApplyFunctionSorted(target_archs,
 		    (CFDictionaryApplierFunction)&_export_target_arch_conds,
 		    (void*)f);
 	}
@@ -356,7 +392,9 @@ main(int argc, char* argv[]) {
 
 	CFDictionaryRef config = read_config();
 	
-	if (strcmp(cmd, "--cflags") == 0) {
+	if (strcmp(cmd, "--archs") == 0) {
+		cmd_archs(config);
+	} else if (strcmp(cmd, "--cflags") == 0) {
 		cmd_config(config, "CFLAGS", "RC_CFLAGS", NULL);
 	} else if (strcmp(cmd, "--cxxflags") == 0) {
 		cmd_config(config, "CXXFLAGS", "RC_CFLAGS", NULL);

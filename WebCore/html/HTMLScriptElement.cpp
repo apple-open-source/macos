@@ -29,8 +29,10 @@
 #include "Document.h"
 #include "EventNames.h"
 #include "Frame.h"
+#include "FrameLoader.h"
 #include "HTMLNames.h"
 #include "kjs_proxy.h"
+#include "MIMETypeRegistry.h"
 #include "Text.h"
 
 namespace WebCore {
@@ -57,13 +59,14 @@ bool HTMLScriptElement::isURLAttribute(Attribute *attr) const
     return attr->name() == srcAttr;
 }
 
-void HTMLScriptElement::childrenChanged()
+void HTMLScriptElement::childrenChanged(bool changedByParser)
 {
     // If a node is inserted as a child of the script element
     // and the script element has been inserted in the document
     // we evaluate the script.
     if (!m_createdByParser && inDocument() && firstChild())
-        evaluateScript(document()->URL(), text());
+        evaluateScript(document()->url(), text());
+    HTMLElement::childrenChanged(changedByParser);
 }
 
 void HTMLScriptElement::parseMappedAttribute(MappedAttribute *attr)
@@ -92,13 +95,13 @@ void HTMLScriptElement::parseMappedAttribute(MappedAttribute *attr)
         HTMLElement::parseMappedAttribute(attr);
 }
 
-void HTMLScriptElement::finishedParsing()
+void HTMLScriptElement::finishParsingChildren()
 {
     // The parser just reached </script>. If we have no src and no text,
     // allow dynamic loading later.
     if (getAttribute(srcAttr).isEmpty() && text().isEmpty())
         setCreatedByParser(false);
-    HTMLElement::finishedParsing();
+    HTMLElement::finishParsingChildren();
 }
 
 void HTMLScriptElement::insertedIntoDocument()
@@ -118,7 +121,12 @@ void HTMLScriptElement::insertedIntoDocument()
     
     const AtomicString& url = getAttribute(srcAttr);
     if (!url.isEmpty()) {
-        m_cachedScript = document()->docLoader()->requestScript(url, getAttribute(charsetAttr));
+        String scriptSrcCharset = getAttribute(charsetAttr).domString().stripWhiteSpace();
+        if (scriptSrcCharset.isEmpty()) {
+            if (Frame* frame = document()->frame())
+                scriptSrcCharset = frame->loader()->encoding();
+        }
+        m_cachedScript = document()->docLoader()->requestScript(url, scriptSrcCharset);
         if (m_cachedScript)
             m_cachedScript->ref(this);
         else
@@ -131,7 +139,7 @@ void HTMLScriptElement::insertedIntoDocument()
     // it should be evaluated, and evaluateScript only evaluates a script once.
     String scriptString = text();    
     if (!scriptString.isEmpty())
-        evaluateScript(document()->URL(), scriptString);
+        evaluateScript(document()->url(), scriptString);
 }
 
 void HTMLScriptElement::removedFromDocument()
@@ -171,28 +179,6 @@ void HTMLScriptElement::notifyFinished(CachedResource* o)
 bool HTMLScriptElement::shouldExecuteAsJavaScript()
 {
     /*
-        Mozilla 1.8 and WinIE 7 both accept text/javascript and text/ecmascript.
-        Mozilla 1.8 accepts application/javascript, application/ecmascript, and application/x-javascript, but WinIE 7 doesn't.
-        WinIE 7 accepts text/javascript1.1 - text/javascript1.3, text/jscript, and text/livescript, but Mozilla 1.8 doesn't.
-        Mozilla 1.8 allows leading and trailing whitespace, but WinIE 7 doesn't.
-        Mozilla 1.8 and WinIE 7 both accept the empty string, but neither accept a whitespace-only string.
-        We want to accept all the values that either of these browsers accept, but not other values.
-     */
-    static const AtomicString validTypes[] = {
-        "text/javascript",
-        "text/ecmascript",
-        "application/javascript",
-        "application/ecmascript",
-        "application/x-javascript",
-        "text/javascript1.1",
-        "text/javascript1.2",
-        "text/javascript1.3",
-        "text/jscript",
-        "text/livescript",
-    };
-    static const unsigned validTypesCount = sizeof(validTypes) / sizeof(validTypes[0]);
-
-    /*
          Mozilla 1.8 accepts javascript1.0 - javascript1.7, but WinIE 7 accepts only javascript1.1 - javascript1.3.
          Mozilla 1.8 and WinIE 7 both accept javascript and livescript.
          WinIE 7 accepts ecmascript and jscript, but Mozilla 1.8 doesn't.
@@ -218,13 +204,12 @@ bool HTMLScriptElement::shouldExecuteAsJavaScript()
     const AtomicString& type = getAttribute(typeAttr);
     if (!type.isEmpty()) {
         String lowerType = type.domString().stripWhiteSpace().lower();
-        for (unsigned i = 0; i < validTypesCount; ++i)
-            if (lowerType == validTypes[i])
-                return true;
+        if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(lowerType))
+            return true;
 
         return false;
     }
-    
+
     const AtomicString& language = getAttribute(languageAttr);
     if (!language.isEmpty()) {
         String lowerLanguage = language.domString().lower();
@@ -239,7 +224,7 @@ bool HTMLScriptElement::shouldExecuteAsJavaScript()
     return true;
 }
 
-void HTMLScriptElement::evaluateScript(const String& URL, const String& script)
+void HTMLScriptElement::evaluateScript(const String& url, const String& script)
 {
     if (m_evaluated)
         return;
@@ -249,10 +234,9 @@ void HTMLScriptElement::evaluateScript(const String& URL, const String& script)
     
     Frame* frame = document()->frame();
     if (frame) {
-        KJSProxy* proxy = frame->scriptProxy();
-        if (proxy) {
+        if (frame->scriptProxy()->isEnabled()) {
             m_evaluated = true;
-            proxy->evaluate(URL, 0, script);
+            frame->scriptProxy()->evaluate(url, 0, script);
             Document::updateDocumentsRendering();
         }
     }

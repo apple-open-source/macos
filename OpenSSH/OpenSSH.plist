@@ -3,23 +3,40 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2006-11-10</string>
+	<string>2007-12-17</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>OpenSSH.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>kerberos patches from www.sxw.org.uk</string>
+		<string>Storing keys in Keychin on Leopard and later.</string>
+		<string>Two getpwuid usage fixes.</string>
+		<string>Globbing fix for Leoaprd and later</string>
+		<string>Some manpage fixes.</string>
+		<string>Added EAs to scp.</string>
+		<string>SACL support for sshd.</string>
+		<string>Corrected UsePAM comment in sshd config file.</string>
+		<string>An auth_error logging fix.</string>
+		<string>A fix to preserve EA mtime.</string>
+		<string>Allow more than 16 groups.</string>
+		<string>Launch ssh-agent via launchd.</string>
+		<string>Enable GSSAPI by default (pre-Leopard).</string>
+		<string>Better name resolution error message.</string>
+		<string>Correct X11 display for Leopard ans later.</string>
+		<string>BSM support.</string>
+		<string>PAM support.</string>
+		<string>A lastlog fix.</string>
+		<string>A GSSKEX patch.</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>OpenSSH</string>
 	<key>OpenSourceSHA1</key>
-	<string>2eefcbbeb9e4fa16fa4500dec107d1a09d3d02d7</string>
+	<string>58357db9e64ba6382bef3d73d1d386fcdc0508f4</string>
 	<key>OpenSourceURL</key>
 	<string>http://www.openssh.org/</string>
 	<key>OpenSourceVersion</key>
-	<string>4.5p1</string>
+	<string>4.7p1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://openssh.org/</string>
 </dict>

@@ -4,7 +4,7 @@
 #   ESP Package Manager (EPM) file list for the Common UNIX Printing
 #   System (CUPS).
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2008 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -16,7 +16,7 @@
 
 # Product information
 %product Common UNIX Printing System
-%copyright 2007 by Apple Inc.
+%copyright 2007-2008 by Apple Inc.
 %vendor Apple Inc.
 #%license LICENSE.txt
 %readme LICENSE.txt

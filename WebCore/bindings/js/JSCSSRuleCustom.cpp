@@ -48,37 +48,36 @@ KJS::JSValue* toJS(KJS::ExecState* exec, CSSRule* rule)
     if (!rule)
         return KJS::jsNull();
 
-    KJS::ScriptInterpreter* interp = static_cast<KJS::ScriptInterpreter*>(exec->dynamicInterpreter());
-    KJS::DOMObject* ret = interp->getDOMObject(rule);
+    KJS::DOMObject* ret = KJS::ScriptInterpreter::getDOMObject(rule);
 
     if (ret)
         return ret;
 
     switch (rule->type()) {
         case CSSRule::STYLE_RULE:
-            ret = new JSCSSStyleRule(exec, static_cast<CSSStyleRule*>(rule));
+            ret = new JSCSSStyleRule(JSCSSRulePrototype::self(exec), static_cast<CSSStyleRule*>(rule));
             break;
         case CSSRule::MEDIA_RULE:
-            ret = new JSCSSMediaRule(exec, static_cast<CSSMediaRule*>(rule));
+            ret = new JSCSSMediaRule(JSCSSMediaRulePrototype::self(exec), static_cast<CSSMediaRule*>(rule));
             break;
         case CSSRule::FONT_FACE_RULE:
-            ret = new JSCSSFontFaceRule(exec, static_cast<CSSFontFaceRule*>(rule));
+            ret = new JSCSSFontFaceRule(JSCSSFontFaceRulePrototype::self(exec), static_cast<CSSFontFaceRule*>(rule));
             break;
         case CSSRule::PAGE_RULE:
-            ret = new JSCSSPageRule(exec, static_cast<CSSPageRule*>(rule));
+            ret = new JSCSSPageRule(JSCSSPageRulePrototype::self(exec), static_cast<CSSPageRule*>(rule));
             break;
         case CSSRule::IMPORT_RULE:
-            ret = new JSCSSImportRule(exec, static_cast<CSSImportRule*>(rule));
+            ret = new JSCSSImportRule(JSCSSImportRulePrototype::self(exec), static_cast<CSSImportRule*>(rule));
             break;
         case CSSRule::CHARSET_RULE:
-            ret = new JSCSSCharsetRule(exec, static_cast<CSSCharsetRule*>(rule));
+            ret = new JSCSSCharsetRule(JSCSSCharsetRulePrototype::self(exec), static_cast<CSSCharsetRule*>(rule));
             break;
         default:
-            ret = new JSCSSRule(exec, rule);
+            ret = new JSCSSRule(JSCSSRulePrototype::self(exec), rule);
             break;
     }
 
-    interp->putDOMObject(rule, ret);
+    KJS::ScriptInterpreter::putDOMObject(rule, ret);
     return ret;
 }
 

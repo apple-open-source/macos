@@ -64,15 +64,16 @@ void MainResourceLoader::receivedError(const ResourceError& error)
     RefPtr<MainResourceLoader> protect(this);
     RefPtr<Frame> protectFrame(m_frame);
 
+    // It is important that we call FrameLoader::receivedMainResourceError before calling 
+    // FrameLoader::didFailToLoad because receivedMainResourceError clears out the relevant
+    // document loaders. Also, receivedMainResourceError ends up calling a FrameLoadDelegate method
+    // and didFailToLoad calls a ResourceLoadDelegate method and they need to be in the correct order.
+    frameLoader()->receivedMainResourceError(error, true);
+
     if (!cancelled()) {
         ASSERT(!reachedTerminalState());
         frameLoader()->didFailToLoad(this, error);
-    }
-    
-    if (frameLoader())
-        frameLoader()->receivedMainResourceError(error, true);
-
-    if (!cancelled()) {
+        
         releaseResources();
     }
 
@@ -168,14 +169,19 @@ void MainResourceLoader::willSendRequest(ResourceRequest& newRequest, const Reso
     
     // Don't set this on the first request. It is set when the main load was started.
     m_documentLoader->setRequest(newRequest);
-    
+
+    // FIXME: Ideally we'd stop the I/O until we hear back from the navigation policy delegate
+    // listener. But there's no way to do that in practice. So instead we cancel later if the
+    // listener tells us to. In practice that means the navigation policy needs to be decided
+    // synchronously for these redirect cases.
+
     ref(); // balanced by deref in continueAfterNavigationPolicy
     frameLoader()->checkNavigationPolicy(newRequest, callContinueAfterNavigationPolicy, this);
 }
 
-static bool shouldLoadAsEmptyDocument(const KURL& URL)
+static bool shouldLoadAsEmptyDocument(const KURL& url)
 {
-    return URL.isEmpty() || equalIgnoringCase(String(URL.protocol()), "about");
+    return url.isEmpty() || equalIgnoringCase(String(url.protocol()), "about");
 }
 
 void MainResourceLoader::continueAfterContentPolicy(PolicyAction contentPolicy, const ResourceResponse& r)
@@ -295,7 +301,7 @@ void MainResourceLoader::didReceiveData(const char* data, int length, long long 
 
 void MainResourceLoader::didFinishLoading()
 {
-    ASSERT(shouldLoadAsEmptyDocument(frameLoader()->URL()) || !defersLoading());
+    ASSERT(shouldLoadAsEmptyDocument(frameLoader()->activeDocumentLoader()->url()) || !defersLoading());
 
     // The additional processing can do anything including possibly removing the last
     // reference to this object.

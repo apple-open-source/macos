@@ -1,10 +1,8 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Samuel Weinig (sam@webkit.org)
  *
  * This library is free software; you can redistribute it and/or
@@ -38,9 +36,10 @@
 #include "Image.h"
 #include "ImageDocument.h"
 #include "MediaList.h"
+#include "MIMETypeRegistry.h"
 #include "Page.h"
 #include "PluginDocument.h"
-#include "PlugInInfoStore.h"
+#include "PluginInfoStore.h"
 #include "RegularExpression.h"
 #include "Settings.h"
 #include "TextDocument.h"
@@ -65,93 +64,103 @@ static bool qualifiedNameIsMalformed(const String&)
 
 #if ENABLE(SVG)
 
-static void addString(HashSet<StringImpl*, CaseInsensitiveHash<StringImpl*> >& set, const
-char* string)
+static void addString(HashSet<String, CaseFoldingHash>& set, const char* string)
 {
-    StringImpl* s = new StringImpl(string);
-    s->ref();
-    set.add(s);
+    set.add(string);
 }
 
 static bool isSVG10Feature(const String &feature)
 {
     static bool initialized = false;
-    static HashSet<StringImpl*, CaseInsensitiveHash<StringImpl*> > svgFeatures;
+    static HashSet<String, CaseFoldingHash> svgFeatures;
     if (!initialized) {
-        // TODO: features need to be uncommented when we implement them
-        // 1.0 features
+#if ENABLE(SVG_USE) && ENABLE(SVG_FOREIGN_OBJECT) && ENABLE(SVG_FILTER) && ENABLE(SVG_FONTS)
         addString(svgFeatures, "svg");
         addString(svgFeatures, "svg.static");
+#endif
 //      addString(svgFeatures, "svg.animation");
 //      addString(svgFeatures, "svg.dynamic");
 //      addString(svgFeatures, "svg.dom.animation");
 //      addString(svgFeatures, "svg.dom.dynamic");
+#if ENABLE(SVG_USE) && ENABLE(SVG_FOREIGN_OBJECT) && ENABLE(SVG_FILTER) && ENABLE(SVG_FONTS)
         addString(svgFeatures, "dom");
         addString(svgFeatures, "dom.svg");
         addString(svgFeatures, "dom.svg.static");
+#endif
 //      addString(svgFeatures, "svg.all");
 //      addString(svgFeatures, "dom.svg.all");
         initialized = true;
     }
-    return svgFeatures.contains(feature.impl());
+    return svgFeatures.contains(feature);
 }
 
 static bool isSVG11Feature(const String &feature)
 {
     static bool initialized = false;
-    static HashSet<StringImpl*, CaseInsensitiveHash<StringImpl*> > svgFeatures;
+    static HashSet<String, CaseFoldingHash> svgFeatures;
     if (!initialized) {
-        // TODO: features need to be uncommented when we implement them
-        // 1.1 features
+        // Sadly, we cannot claim to implement any of the SVG 1.1 generic feature sets
+        // lack of Font and Filter support.
+        // http://bugs.webkit.org/show_bug.cgi?id=15480
+#if ENABLE(SVG_USE) && ENABLE(SVG_FOREIGN_OBJECT) && ENABLE(SVG_FILTER) && ENABLE(SVG_FONTS)
         addString(svgFeatures, "SVG");
         addString(svgFeatures, "SVGDOM");
         addString(svgFeatures, "SVG-static");
         addString(svgFeatures, "SVGDOM-static");
+#endif
 //      addString(svgFeatures, "SVG-animation);
 //      addString(svgFeatures, "SVGDOM-animation);
 //      addString(svgFeatures, "SVG-dynamic);
 //      addString(svgFeatures, "SVGDOM-dynamic);
         addString(svgFeatures, "CoreAttribute");
+#if ENABLE(SVG_USE)
         addString(svgFeatures, "Structure");
         addString(svgFeatures, "BasicStructure");
+#endif
         addString(svgFeatures, "ContainerAttribute");
         addString(svgFeatures, "ConditionalProcessing");
         addString(svgFeatures, "Image");
         addString(svgFeatures, "Style");
         addString(svgFeatures, "ViewportAttribute");
         addString(svgFeatures, "Shape");
-//      addString(svgFeatures, "Text");
-//      addString(svgFeatures, "BasicText");
+//      addString(svgFeatures, "Text"); // requires altGlyph, bug 6426
+        addString(svgFeatures, "BasicText");
         addString(svgFeatures, "PaintAttribute");
         addString(svgFeatures, "BasicPaintAttribute");
         addString(svgFeatures, "OpacityAttribute");
         addString(svgFeatures, "GraphicsAttribute");
         addString(svgFeatures, "BaseGraphicsAttribute");
         addString(svgFeatures, "Marker");
-//      addString(svgFeatures, "ColorProfile");
+//      addString(svgFeatures, "ColorProfile"); // requires color-profile, bug 6037
         addString(svgFeatures, "Gradient");
         addString(svgFeatures, "Pattern");
         addString(svgFeatures, "Clip");
         addString(svgFeatures, "BasicClip");
         addString(svgFeatures, "Mask");
+#if ENABLE(SVG_FILTER)
 //      addString(svgFeatures, "Filter");
-//      addString(svgFeatures, "BasicFilter");
+        addString(svgFeatures, "BasicFilter");
+#endif
         addString(svgFeatures, "DocumentEventsAttribute");
         addString(svgFeatures, "GraphicalEventsAttribute");
-        addString(svgFeatures, "AnimationEventsAttribute");
-//      addString(svgFeatures, "Cursor");
+//      addString(svgFeatures, "AnimationEventsAttribute");
+        addString(svgFeatures, "Cursor");
         addString(svgFeatures, "Hyperlinking");
         addString(svgFeatures, "XlinkAttribute");
-//      addString(svgFeatures, "ExternalResourcesRequired");
-//      addString(svgFeatures, "View");
+        addString(svgFeatures, "ExternalResourcesRequired");
+//      addString(svgFeatures, "View"); // buggy <view> support, bug 16962
         addString(svgFeatures, "Script");
-//      addString(svgFeatures, "Animation");
-//      addString(svgFeatures, "Font");
-//      addString(svgFeatures, "BasicFont");
+//      addString(svgFeatures, "Animation"); // <animate> support missing
+#if ENABLE(SVG_FONTS)
+        addString(svgFeatures, "Font");
+        addString(svgFeatures, "BasicFont");
+#endif
+#if ENABLE(SVG_FOREIGN_OBJECT)
         addString(svgFeatures, "Extensibility");
+#endif
         initialized = true;
     }
-    return svgFeatures.contains(feature.impl());
+    return svgFeatures.contains(feature);
 }
 #endif
 
@@ -242,14 +251,7 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& namespaceUR
         // - if the qualifiedName has a prefix and the namespaceURI is null, or
         // - if the qualifiedName has a prefix that is "xml" and the namespaceURI is different
         //   from "http://www.w3.org/XML/1998/namespace" [Namespaces].
-        int colonpos = -1;
-        unsigned i;
-        StringImpl *qname = qualifiedName.impl();
-        for (i = 0; i < qname->length() && colonpos < 0; i++) {
-            if ((*qname)[i] == ':')
-                colonpos = i;
-        }
-    
+        int colonpos = qualifiedName.find(':');    
         if (qualifiedNameIsMalformed(qualifiedName) ||
             (colonpos >= 0 && namespaceURI.isNull()) ||
             (colonpos == 3 && qualifiedName[0] == 'x' && qualifiedName[1] == 'm' && qualifiedName[2] == 'l' &&
@@ -333,11 +335,11 @@ bool DOMImplementation::isXMLMIMEType(const String& mimeType)
 
 bool DOMImplementation::isTextMIMEType(const String& mimeType)
 {
-    if (mimeType == "application/x-javascript" ||
+    if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(mimeType) ||
         (mimeType.startsWith("text/") && mimeType != "text/html" &&
          mimeType != "text/xml" && mimeType != "text/xsl"))
         return true;
-    
+
     return false;
 }
 
@@ -370,14 +372,14 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& type, Frame
 
     // PDF is one image type for which a plugin can override built-in support.
     // We do not want QuickTime to take over all image types, obviously.
-    if ((type == "application/pdf" || type == "text/pdf") && PlugInInfoStore::supportsMIMEType(type))
+    if ((type == "application/pdf" || type == "text/pdf") && PluginInfoStore::supportsMIMEType(type))
         return new PluginDocument(this, frame);
     if (Image::supportsType(type))
         return new ImageDocument(this, frame);
     // Everything else except text/plain can be overridden by plugins. In particular, Adobe SVG Viewer should be used for SVG, if installed.
     // Disallowing plug-ins to use text/plain prevents plug-ins from hijacking a fundamental type that the browser is expected to handle,
     // and also serves as an optimization to prevent loading the plug-in database in the common case.
-    if (type != "text/plain" && PlugInInfoStore::supportsMIMEType(type)) 
+    if (type != "text/plain" && PluginInfoStore::supportsMIMEType(type)) 
         return new PluginDocument(this, frame);
     if (isTextMIMEType(type))
         return new TextDocument(this, frame);

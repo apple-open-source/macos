@@ -201,52 +201,42 @@ to use
 .Pp
 If neither exists, only the superuser is allowed use of
 .Nm at .
-This is the default configuration.
 .Sh IMPLEMENTATION NOTES
 Note that
 .Nm at
 is implemented through the
-.Xr cron 8
-daemon by calling
+.Xr launchd 8
+daemon periodically invoking
+.Xr atrun 8 ,
+which is disabled by default.
+See 
 .Xr atrun 8
-every five minutes.
-This implies that the granularity of
-.Nm at
-might not be optimal for every deployment.
-If a finer granularity is needed, the system crontab at
-.Pa /etc/crontab
-needs to be changed.
+for information about enabling
+.Nm atrun .
 .Sh OPTIONS
 .Bl -tag -width indent
-.\" ==========
 .It Fl b
 Is an alias for
 .Nm batch .
-.\" ==========
 .It Fl c
 Cat the jobs listed on the command line to standard output.
-.\" ==========
 .It Fl d
 Is an alias for
 .Nm atrm
 (this option is deprecated; use
 .Fl r
 instead).
-.\" ==========
 .It Fl f Ar file
 Read the job from
 .Ar file
 rather than standard input.
-.\" ==========
 .It Fl l
 With no arguments, list all jobs for the invoking user.
 If one or more
 job numbers are given, list only those jobs.
-.\" ==========
 .It Fl m
 Send mail to the user when the job has completed even if there was no
 output.
-.\" ==========
 .It Fl q Ar queue
 Use the specified queue.
 A queue designation consists of a single letter; valid queue designations
@@ -272,10 +262,8 @@ is treated as if it had been submitted to batch at that time.
 If
 .Nm atq
 is given a specific queue, it will only show jobs pending in that queue.
-.\" ==========
 .It Fl r
 Remove the specified jobs.
-.\" ==========
 .It Fl t
 Specify the job time using the \*[Px] time format.
 The argument should be in the form
@@ -286,25 +274,18 @@ The argument should be in the form
 where each pair of letters represents the following:
 .Pp
 .Bl -tag -width indent -compact -offset indent
-.\" ==========
 .It Ar CC
 The first two digits of the year (the century).
-.\" ==========
 .It Ar YY
 The second two digits of the year.
-.\" ==========
 .It Ar MM
 The month of the year, from 1 to 12.
-.\" ==========
 .It Ar DD
 the day of the month, from 1 to 31.
-.\" ==========
 .It Ar hh
 The hour of the day, from 0 to 23.
-.\" ==========
 .It Ar mm
 The minute of the hour, from 0 to 59.
-.\" ==========
 .It Ar SS
 The second of the minute, from 0 to 61.
 .El
@@ -318,7 +299,6 @@ year.
 If the
 .Ar SS
 letter pair is not specified, the value defaults to 0.
-.\" ==========
 .It Fl v
 For
 .Nm atq ,
@@ -327,23 +307,18 @@ shows the time the job will be executed.
 .El
 .Sh FILES
 .Bl -tag -width _ATJOB_DIR/_LOCKFILE -compact
-.\" ==========
 .It Pa _ATJOB_DIR
 directory containing job files
 (/usr/lib/cron/jobs/)
-.\" ==========
 .It Pa _ATJOB_DIR/_LOCKFILE
 job-creation lock file
 (/usr/lib/cron/jobs/...)
-.\" ==========
 .It Pa _ATSPOOL_DIR
 directory containing output spool files
 (/usr/lib/cron/spool/)
-.\" ==========
 .It Pa _PERM_PATH/at.allow
 allow permission control
 (/usr/lib/cron/at.allow)
-.\" ==========
 .It Pa _PERM_PATH/at.deny
 deny permission control
 (/usr/lib/cron/at.deny)

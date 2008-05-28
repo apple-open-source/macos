@@ -30,6 +30,7 @@
 
 #include "Cache.h"
 #include "CachedCSSStyleSheet.h"
+#include "CachedFont.h"
 #include "CachedImage.h"
 #include "CachedScript.h"
 #include "CachedXSLStyleSheet.h"
@@ -66,19 +67,19 @@ void DocLoader::checkForReload(const KURL& fullURL)
     if (m_allowStaleResources)
         return; //Don't reload resources while pasting
     if (m_cachePolicy == CachePolicyVerify) {
-       if (!m_reloadedURLs.contains(fullURL.url())) {
-          CachedResource* existing = cache()->resourceForURL(fullURL.url());
+       if (!m_reloadedURLs.contains(fullURL.string())) {
+          CachedResource* existing = cache()->resourceForURL(fullURL.string());
           if (existing && existing->isExpired()) {
              cache()->remove(existing);
-             m_reloadedURLs.add(fullURL.url());
+             m_reloadedURLs.add(fullURL.string());
           }
        }
     } else if ((m_cachePolicy == CachePolicyReload) || (m_cachePolicy == CachePolicyRefresh)) {
-       if (!m_reloadedURLs.contains(fullURL.url())) {
-          CachedResource* existing = cache()->resourceForURL(fullURL.url());
+       if (!m_reloadedURLs.contains(fullURL.string())) {
+          CachedResource* existing = cache()->resourceForURL(fullURL.string());
           if (existing)
              cache()->remove(existing);
-          m_reloadedURLs.add(fullURL.url());
+          m_reloadedURLs.add(fullURL.string());
        }
     }
 }
@@ -91,6 +92,11 @@ CachedImage* DocLoader::requestImage(const String& url)
         cache()->loader()->load(this, resource, true);
     }
     return resource;
+}
+
+CachedFont* DocLoader::requestFont(const String& url)
+{
+    return static_cast<CachedFont*>(requestResource(CachedResource::FontResource, url));
 }
 
 CachedCSSStyleSheet* DocLoader::requestCSSStyleSheet(const String& url, const String& charset, bool isUserStyleSheet)
@@ -138,7 +144,7 @@ CachedResource* DocLoader::requestResource(CachedResource::Type type, const Stri
     KURL fullURL = m_doc->completeURL(url.deprecatedString());
     
     if (cache()->disabled()) {
-        HashMap<String, CachedResource*>::iterator it = m_docResources.find(fullURL.url());
+        HashMap<String, CachedResource*>::iterator it = m_docResources.find(fullURL.string());
         
         if (it != m_docResources.end()) {
             it->second->setDocLoader(0);
@@ -173,13 +179,10 @@ void DocLoader::setAutoLoadImages(bool enable)
     for (HashMap<String, CachedResource*>::iterator it = m_docResources.begin(); it != end; ++it) {
         CachedResource* resource = it->second;
         if (resource->type() == CachedResource::ImageResource) {
-            CachedImage* image = const_cast<CachedImage*>(static_cast<const CachedImage *>(resource));
+            CachedImage* image = const_cast<CachedImage*>(static_cast<const CachedImage*>(resource));
 
-            CachedResource::Status status = image->status();
-            if (status != CachedResource::Unknown)
-                continue;
-
-            cache()->loader()->load(this, image, true);
+            if (image->stillNeedsLoad())
+                cache()->loader()->load(this, image, true);
         }
     }
 }
@@ -203,9 +206,10 @@ void DocLoader::setLoadInProgress(bool load)
 
 void DocLoader::checkCacheObjectStatus(CachedResource* resource)
 {
-    // Return from the function for objects that we didn't load from the cache.
-    if (!resource)
+    // Return from the function for objects that we didn't load from the cache or if we don't have a frame.
+    if (!resource || !m_frame)
         return;
+
     switch (resource->status()) {
         case CachedResource::Cached:
             break;
@@ -215,20 +219,9 @@ void DocLoader::checkCacheObjectStatus(CachedResource* resource)
         case CachedResource::Pending:
             return;
     }
-    
-    // Notify the caller that we "loaded".
-    if (!m_frame || m_frame->loader()->haveToldBridgeAboutLoad(resource->url()))
-        return;
-    
-    ResourceRequest request(resource->url());
-    const ResourceResponse& response = resource->response();
-    SharedBuffer* data = resource->data();
-    
-    if (resource->sendResourceLoadCallbacks()) {
-        // FIXME: If the WebKit client changes or cancels the request, WebCore does not respect this and continues the load.
-        m_frame->loader()->loadedResourceFromMemoryCache(request, response, data ? data->size() : 0);
-    }
-    m_frame->loader()->didTellBridgeAboutLoad(resource->url());
+
+    // FIXME: If the WebKit client changes or cancels the request, WebCore does not respect this and continues the load.
+    m_frame->loader()->loadedResourceFromMemoryCache(resource);
 }
 
 void DocLoader::incrementRequestCount()

@@ -23,6 +23,7 @@
 #include "runtime.h"
 #include "runtime_root.h"
 #include <qpointer.h>
+#include <qhash.h>
 
 class QObject;
 
@@ -31,40 +32,50 @@ namespace KJS {
 namespace Bindings {
 
 class QtClass;
+class QtField;
+class QtRuntimeMetaMethod;
 
 class QtInstance : public Instance
 {
 public:
-    QtInstance(QObject* instance, PassRefPtr<RootObject>);
-        
     ~QtInstance ();
-    
-    virtual Class* getClass() const;
-    
-    QtInstance (const QtInstance &other);
 
-    QtInstance &operator=(const QtInstance &other);
-    
+    virtual Class* getClass() const;
+
     virtual void begin();
     virtual void end();
-    
+
     virtual JSValue* valueOf() const;
     virtual JSValue* defaultValue (JSType hint) const;
 
     virtual bool implementsCall() const;
-    
+
     virtual JSValue* invokeMethod (ExecState *exec, const MethodList &method, const List &args);
     virtual JSValue* invokeDefaultMethod (ExecState *exec, const List &args);
+
+    virtual void getPropertyNames(ExecState*, PropertyNameArray&);
+
+    virtual BindingLanguage getBindingLanguage() const { return QtLanguage; }
 
     JSValue* stringValue() const;
     JSValue* numberValue() const;
     JSValue* booleanValue() const;
-    
-    QObject* getObject() const { return _object; }
+
+    QObject* getObject() const { return m_object; }
+
+    static QtInstance* getQtInstance(QObject*, PassRefPtr<RootObject>);
+    static JSObject* getRuntimeObject(QtInstance*);
 
 private:
-    mutable QtClass* _class;
-    QPointer<QObject> _object;
+    friend class QtClass;
+    QtInstance(QObject*, PassRefPtr<RootObject>); // Factory produced only..
+    mutable QtClass* m_class;
+    QPointer<QObject> m_object;
+    QObject* m_hashkey;
+    mutable QHash<QByteArray,JSValue*> m_methods;
+    mutable QHash<QString,QtField*> m_fields;
+    mutable QtRuntimeMetaMethod* m_defaultMethod;
+    mutable int m_defaultMethodIndex;
 };
 
 } // namespace Bindings

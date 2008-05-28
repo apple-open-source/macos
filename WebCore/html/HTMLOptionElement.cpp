@@ -147,12 +147,6 @@ int HTMLOptionElement::index() const
     return 0;
 }
 
-void HTMLOptionElement::setIndex(int, ExceptionCode& ec)
-{
-    ec = NO_MODIFICATION_ALLOWED_ERR;
-    // ###
-}
-
 void HTMLOptionElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == selectedAttr)
@@ -193,11 +187,12 @@ void HTMLOptionElement::setSelectedState(bool selected)
     setChanged();
 }
 
-void HTMLOptionElement::childrenChanged()
+void HTMLOptionElement::childrenChanged(bool changedByParser)
 {
    HTMLSelectElement *select = getSelect();
    if (select)
-       select->childrenChanged();
+       select->childrenChanged(changedByParser);
+   HTMLGenericFormElement::childrenChanged(changedByParser);
 }
 
 HTMLSelectElement* HTMLOptionElement::getSelect() const

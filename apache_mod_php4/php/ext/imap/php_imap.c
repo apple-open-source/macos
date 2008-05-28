@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -26,7 +26,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.142.2.44.2.12 2007/03/22 00:08:55 edink Exp $ */
+/* $Id: php_imap.c,v 1.142.2.44.2.14 2007/12/31 07:22:48 sebastian Exp $ */
 
 #define IMAP41
 
@@ -3258,7 +3258,7 @@ int _php_imap_mail(char *to, char *subject, char *message, char *headers, char *
 		addr = NULL;
 		rfc822_parse_adrlist(&addr, tempMailTo, NULL);
 		while (addr) {
-			if (strcmp(addr->host, ERRHOST) == 0) {
+			if (addr->host == NULL || strcmp(addr->host, ERRHOST) == 0) {
 				PHP_IMAP_BAD_DEST;
 			} else {
 				offset += sprintf(bufferTo + offset, "%s@%s,", addr->mailbox, addr->host);
@@ -3281,7 +3281,7 @@ int _php_imap_mail(char *to, char *subject, char *message, char *headers, char *
 		addr = NULL;
 		rfc822_parse_adrlist(&addr, tempMailTo, NULL);
 		while (addr) {
-			if (strcmp(addr->host, ERRHOST) == 0) {
+			if (addr->host == NULL || strcmp(addr->host, ERRHOST) == 0) {
 				PHP_IMAP_BAD_DEST;
 			} else {
 				offset += sprintf(bufferCc + offset, "%s@%s,", addr->mailbox, addr->host);
@@ -3301,7 +3301,7 @@ int _php_imap_mail(char *to, char *subject, char *message, char *headers, char *
 		addr = NULL;
 		rfc822_parse_adrlist(&addr, tempMailTo, NULL);
 		while (addr) {
-			if (strcmp(addr->host, ERRHOST) == 0) {
+			if (addr->host == NULL || strcmp(addr->host, ERRHOST) == 0) {
 				PHP_IMAP_BAD_DEST;
 			} else {
 				offset += sprintf(bufferBcc + offset, "%s@%s,", addr->mailbox, addr->host);

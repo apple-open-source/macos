@@ -1,10 +1,10 @@
 dnl -------------------------------------------------------- -*- autoconf -*-
-dnl Copyright 2000-2005 The Apache Software Foundation or its licensors, as
-dnl applicable.
-dnl
-dnl Licensed under the Apache License, Version 2.0 (the "License");
-dnl you may not use this file except in compliance with the License.
-dnl You may obtain a copy of the License at
+dnl Licensed to the Apache Software Foundation (ASF) under one or more
+dnl contributor license agreements.  See the NOTICE file distributed with
+dnl this work for additional information regarding copyright ownership.
+dnl The ASF licenses this file to You under the Apache License, Version 2.0
+dnl (the "License"); you may not use this file except in compliance with
+dnl the License.  You may obtain a copy of the License at
 dnl
 dnl     http://www.apache.org/licenses/LICENSE-2.0
 dnl
@@ -111,7 +111,8 @@ AC_DEFUN([APU_SYSTEM_EXPAT], [
  
     APU_TRY_EXPAT_LINK([Expat 1.95.x in /usr/local], 
        apu_cv_expat_usrlocal, [expat.h], [-lexpat],
-       [APR_ADDTO(APRUTIL_INCLUDES, [-I/usr/local/include])],[
+       [APR_ADDTO(APRUTIL_INCLUDES, [-I/usr/local/include])
+        APR_ADDTO(APRUTIL_LDFLAGS, [-L/usr/local/lib])],[
        APR_REMOVEFROM(LDFLAGS, [-L/usr/local/lib])
        APR_REMOVEFROM(CPPFLAGS, [-I/usr/local/include])
       ])
@@ -123,6 +124,9 @@ dnl
 dnl APU_FIND_EXPAT: figure out where EXPAT is located (or use bundled)
 dnl
 AC_DEFUN([APU_FIND_EXPAT], [
+
+save_cppflags="$CPPFLAGS"
+save_ldflags="$LDFLAGS"
 
 apu_has_expat=0
 
@@ -144,6 +148,7 @@ AC_ARG_WITH([expat],
       APR_ADDTO(LDFLAGS, [-L$withval/lib])
       APR_ADDTO(CPPFLAGS, [-I$withval/include])
       APR_ADDTO(APRUTIL_INCLUDES, [-I$withval/include])
+      APR_ADDTO(APRUTIL_LDFLAGS, [-L$withval/lib])
     fi
     # ...and refuse to fall back on the builtin expat.
     apu_try_builtin_expat=0
@@ -169,6 +174,9 @@ APR_ADDTO(APRUTIL_LIBS, [$apu_expat_libs])
 
 APR_XML_DIR=$bundled_subdir
 AC_SUBST(APR_XML_DIR)
+
+CPPFLAGS=$save_cppflags
+LDFLAGS=$save_ldflags
 ])
 
 
@@ -219,6 +227,7 @@ apu_has_ldap_novell="0"
 apu_has_ldap_microsoft="0"
 apu_has_ldap_netscape="0"
 apu_has_ldap_mozilla="0"
+apu_has_ldap_zos="0"
 apu_has_ldap_other="0"
 
 AC_ARG_WITH(ldap-include,[  --with-ldap-include=path  path to ldap include files with trailing slash])
@@ -320,6 +329,15 @@ dnl The iPlanet C SDK 5.0 is as yet untested...
                                            apr_cv_ldap_toolkit="Mozilla"])
         fi
         if test "x$apr_cv_ldap_toolkit" = "x"; then
+          case "$host" in
+          *-ibm-os390)
+            AC_EGREP_CPP([IBM], [$lber_h
+                                 $ldap_h], [apu_has_ldap_zos="1"
+                                            apr_cv_ldap_toolkit="zOS"])
+            ;;
+          esac
+        fi
+        if test "x$apr_cv_ldap_toolkit" = "x"; then
           apu_has_ldap_other="1"
           apr_cv_ldap_toolkit="unknown"
         fi
@@ -348,6 +366,7 @@ AC_SUBST(apu_has_ldap_novell)
 AC_SUBST(apu_has_ldap_microsoft)
 AC_SUBST(apu_has_ldap_netscape)
 AC_SUBST(apu_has_ldap_mozilla)
+AC_SUBST(apu_has_ldap_zos)
 AC_SUBST(apu_has_ldap_other)
 
 ])

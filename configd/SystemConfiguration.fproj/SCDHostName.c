@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,61 @@
 #pragma mark ComputerName
 
 
+static CFStringRef
+_SCPreferencesCopyComputerName(SCPreferencesRef	prefs,
+			       CFStringEncoding	*nameEncoding)
+{
+	CFDictionaryRef	dict;
+	CFStringRef	name		= NULL;
+	CFStringRef	path;
+	Boolean		tempPrefs	= FALSE;
+
+	if (prefs == NULL) {
+		prefs = SCPreferencesCreate(NULL, CFSTR("_SCPreferencesCopyComputerName"), NULL);
+		if (prefs == NULL) {
+			return NULL;
+		}
+		tempPrefs = TRUE;
+	}
+
+	path = CFStringCreateWithFormat(NULL,
+					NULL,
+					CFSTR("/%@/%@"),
+					kSCPrefSystem,
+					kSCCompSystem);
+	dict = SCPreferencesPathGetValue(prefs, path);
+	CFRelease(path);
+
+	if (dict != NULL) {
+		if (isA_CFDictionary(dict)) {
+			name = CFDictionaryGetValue(dict, kSCPropSystemComputerName);
+			name = isA_CFString(name);
+			if (name != NULL) {
+				CFRetain(name);
+			}
+		}
+
+		if (nameEncoding != NULL) {
+			CFNumberRef	num;
+
+			num = CFDictionaryGetValue(dict,
+						   kSCPropSystemComputerNameEncoding);
+			if (isA_CFNumber(num)) {
+				CFNumberGetValue(num, kCFNumberIntType, nameEncoding);
+			} else {
+				*nameEncoding = CFStringGetSystemEncoding();
+			}
+		}
+	}
+
+	if (tempPrefs)	CFRelease(prefs);
+	if (name == NULL) {
+		_SCErrorSet(kSCStatusNoKey);
+	}
+	return name;
+}
+
+
 CFStringRef
 SCDynamicStoreKeyCreateComputerName(CFAllocatorRef allocator)
 {
@@ -76,6 +131,13 @@ SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 	dict = SCDynamicStoreCopyValue(store, key);
 	CFRelease(key);
 	if (dict == NULL) {
+		/*
+		 * Let's try looking in the preferences.plist file until
+		 * (a) we add an API to retrieve the name regardless of
+		 *     where it is stored and
+		 * (b) this API is deprecated
+		 */
+		name = _SCPreferencesCopyComputerName(NULL, nameEncoding);
 		goto done;
 	}
 	if (!isA_CFDictionary(dict)) {
@@ -121,9 +183,18 @@ SCPreferencesSetComputerName(SCPreferencesRef	prefs,
 	Boolean			ok;
 	CFStringRef		path;
 
-	if (!isA_CFString(name)) {
-		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
+	if (name != NULL) {
+		CFIndex	len;
+
+		if (!isA_CFString(name)) {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return FALSE;
+		}
+
+		len = CFStringGetLength(name);
+		if (len == 0) {
+			name = NULL;
+		}
 	}
 
 	path = CFStringCreateWithFormat(NULL,
@@ -142,26 +213,36 @@ SCPreferencesSetComputerName(SCPreferencesRef	prefs,
 						    &kCFTypeDictionaryValueCallBacks);
 	}
 
-	CFDictionarySetValue(newDict, kSCPropSystemComputerName, name);
+	if ((name != NULL) && (CFStringGetLength(name) > 0)) {
+		CFDictionarySetValue(newDict, kSCPropSystemComputerName, name);
 
-	num = CFNumberCreate(NULL, kCFNumberSInt32Type, &encoding);
-	CFDictionarySetValue(newDict, kSCPropSystemComputerNameEncoding, num);
-	CFRelease(num);
+		num = CFNumberCreate(NULL, kCFNumberSInt32Type, &encoding);
+		CFDictionarySetValue(newDict, kSCPropSystemComputerNameEncoding, num);
+		CFRelease(num);
 
-	CFDictionaryRemoveValue(newDict, kSCPropSystemComputerNameRegion);
-	if (encoding == kCFStringEncodingMacRoman) {
-		UInt32	userEncoding	= 0;
-		UInt32	userRegion	= 0;
+		CFDictionaryRemoveValue(newDict, kSCPropSystemComputerNameRegion);
+		if (encoding == kCFStringEncodingMacRoman) {
+			UInt32	userEncoding	= 0;
+			UInt32	userRegion	= 0;
 
-		__CFStringGetUserDefaultEncoding(&userEncoding, &userRegion);
-		if ((userEncoding == kCFStringEncodingMacRoman) && (userRegion != 0)) {
-			num = CFNumberCreate(NULL, kCFNumberSInt32Type, &userRegion);
-			CFDictionarySetValue(newDict, kSCPropSystemComputerNameRegion, num);
-			CFRelease(num);
+			__CFStringGetUserDefaultEncoding(&userEncoding, &userRegion);
+			if ((userEncoding == kCFStringEncodingMacRoman) && (userRegion != 0)) {
+				num = CFNumberCreate(NULL, kCFNumberSInt32Type, &userRegion);
+				CFDictionarySetValue(newDict, kSCPropSystemComputerNameRegion, num);
+				CFRelease(num);
+			}
 		}
+	} else {
+		CFDictionaryRemoveValue(newDict, kSCPropSystemComputerName);
+		CFDictionaryRemoveValue(newDict, kSCPropSystemComputerNameEncoding);
+		CFDictionaryRemoveValue(newDict, kSCPropSystemComputerNameRegion);
 	}
 
-	ok = SCPreferencesPathSetValue(prefs, path, newDict);
+	if (CFDictionaryGetCount(newDict) > 0) {
+		ok = SCPreferencesPathSetValue(prefs, path, newDict);
+	} else {
+		ok = SCPreferencesPathRemoveValue(prefs, path);
+	}
 
 	CFRelease(path);
 	CFRelease(newDict);
@@ -266,6 +347,49 @@ SCPreferencesSetHostName(SCPreferencesRef	prefs,
 #pragma mark LocalHostName
 
 
+static CFStringRef
+_SCPreferencesCopyLocalHostName(SCPreferencesRef	prefs)
+{
+	CFDictionaryRef	dict;
+	CFStringRef	name		= NULL;
+	CFStringRef	path;
+	Boolean		tempPrefs	= FALSE;
+
+	if (prefs == NULL) {
+		prefs = SCPreferencesCreate(NULL, CFSTR("_SCPreferencesCopyLocalHostName"), NULL);
+		if (prefs == NULL) {
+			return NULL;
+		}
+		tempPrefs = TRUE;
+	}
+
+	path = CFStringCreateWithFormat(NULL,
+					NULL,
+					CFSTR("/%@/%@/%@"),
+					kSCPrefSystem,
+					kSCCompNetwork,
+					kSCCompHostNames);
+	dict = SCPreferencesPathGetValue(prefs, path);
+	CFRelease(path);
+
+	if (dict != NULL) {
+		if (isA_CFDictionary(dict)) {
+			name = CFDictionaryGetValue(dict, kSCPropNetLocalHostName);
+			name = isA_CFString(name);
+			if (name != NULL) {
+				CFRetain(name);
+			}
+		}
+	}
+
+	if (tempPrefs)	CFRelease(prefs);
+	if (name == NULL) {
+		_SCErrorSet(kSCStatusNoKey);
+	}
+	return name;
+}
+
+
 CFStringRef
 SCDynamicStoreKeyCreateHostNames(CFAllocatorRef allocator)
 {
@@ -300,6 +424,13 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 	dict = SCDynamicStoreCopyValue(store, key);
 	CFRelease(key);
 	if (dict == NULL) {
+		/*
+		 * Let's try looking in the preferences.plist file until
+		 * (a) we add an API to retrieve the name regardless of
+		 *     where it is stored and
+		 * (b) this API is deprecated
+		 */
+		name = _SCPreferencesCopyLocalHostName(NULL);
 		goto done;
 	}
 	if (!isA_CFDictionary(dict)) {

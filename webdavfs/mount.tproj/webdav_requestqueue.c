@@ -61,6 +61,11 @@ typedef struct webdav_requestqueue_element_tag
 			u_int32_t delay;					/* used for backoff delay sending ping requests to the server */
 		} serverping;
 		
+		struct seqwrite_read_rsp
+		{
+			struct stream_put_ctx *ctx;
+		} seqwrite_read_rsp;
+		
 	} element;
 } webdav_requestqueue_element_t;
 
@@ -77,8 +82,10 @@ typedef struct
 #define WEBDAV_REQUEST_TYPE 1
 #define WEBDAV_DOWNLOAD_TYPE 2
 #define WEBDAV_SERVER_PING_TYPE 3
+#define WEBDAV_SEQWRITE_MANAGER_TYPE 4
 
 #define WEBDAV_MAX_IDLE_TIME 10		/* in seconds */
+
 
 /* connectionstate_lock used to make connectionstate thread safe */
 static pthread_mutex_t connectionstate_lock;
@@ -390,7 +397,12 @@ static void handle_filesystem_request(int so)
 					error = filesystem_invalidate_caches((struct webdav_request_invalcaches *)key);
 					send_reply(so, (void *)0, 0, error);
 					break;
-
+					
+				case WEBDAV_WRITESEQ:
+					error = filesystem_write_seq((struct webdav_request_writeseq *)key);
+					send_reply(so, (void *)0, 0, error);
+					break;
+				
 				default:
 					error = ENOTSUP;
 					break;
@@ -562,6 +574,11 @@ static int handle_request_thread(void *arg)
 				case WEBDAV_SERVER_PING_TYPE:
 					/* Send an OPTIONS request to the server. */
 					network_server_ping(myrequest->element.serverping.delay);
+				break;
+				
+				case WEBDAV_SEQWRITE_MANAGER_TYPE:
+					/* Read the response stream of a sequential write sequence */
+					network_seqwrite_manager(myrequest->element.seqwrite_read_rsp.ctx);
 				break;
 				
 				default:
@@ -834,6 +851,64 @@ int requestqueue_enqueue_server_ping(u_int32_t delay)
 	
 	/* Insert server pings at head of request queue. They must be executed immediately since they are */
 	/* used to detect when connectivity to the host has been restored. */
+	request_element_ptr->next = waiting_requests.item_head;
+	++(waiting_requests.request_count);
+
+	if ( waiting_requests.item_head == NULL ) {
+		/* request queue was empty */
+		waiting_requests.item_head = waiting_requests.item_tail = request_element_ptr;
+	}
+	else {
+		/* this request is the new head */
+		waiting_requests.item_head = request_element_ptr;
+	}
+
+	if (gIdleThreadCount > 0) {
+		/* Already have one or more threads just waiting for work to do.  Just kick the requests_condvar to wake 
+		up the threads */
+		error = pthread_cond_signal(&requests_condvar);
+		require_noerr(error, pthread_cond_signal);
+	}
+	else {
+		/* No idle threads, so try to create one if we have not reached out maximum number of threads */
+		if (gCurrThreadCount < WEBDAV_REQUEST_THREADS) {
+			error = pthread_create(&request_thread, &gRequest_thread_attr, (void *) handle_request_thread, (void *) NULL);
+			require_noerr(error, pthread_create_signal);
+
+			gCurrThreadCount += 1;
+		}
+	}
+
+pthread_create_signal:
+pthread_cond_signal:
+malloc_request_element_ptr:
+
+	error2 = pthread_mutex_unlock(&requests_lock);
+	require_noerr_action(error2, pthread_mutex_unlock, error = (error == 0) ? error2 : error; webdav_kill(-1));
+
+pthread_mutex_unlock:
+pthread_mutex_lock:
+
+	return (error);
+}
+
+/*****************************************************************************/
+
+int requestqueue_enqueue_seqwrite_manager(struct stream_put_ctx *ctx)
+{
+	int error, error2;
+	webdav_requestqueue_element_t * request_element_ptr;
+	pthread_t request_thread;
+
+	error = pthread_mutex_lock(&requests_lock);
+	require_noerr_action(error, pthread_mutex_lock, webdav_kill(-1));
+
+	request_element_ptr = malloc(sizeof(webdav_requestqueue_element_t));
+	require_action(request_element_ptr != NULL, malloc_request_element_ptr, error = EIO);
+
+	request_element_ptr->type = WEBDAV_SEQWRITE_MANAGER_TYPE;
+	request_element_ptr->element.seqwrite_read_rsp.ctx = ctx;
+	
 	request_element_ptr->next = waiting_requests.item_head;
 	++(waiting_requests.request_count);
 

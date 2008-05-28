@@ -58,10 +58,12 @@ SecKeychainRef keychain = NULL;		// source keychain for signer identity
 const char *internalReq = NULL;		// internal requirement (raw optarg)
 const char *testReq = NULL;			// external requirement (raw optarg)
 const char *detached = NULL;		// detached signature path
+const char *entitlements = NULL;	// path to entitlement configuration input
 const char *resourceRules = NULL;	// explicit resource rules template
 const char *uniqueIdentifier = NULL; // unique ident hash
 const char *identifierPrefix = NULL; // prefix for un-dotted default identifiers
 const char *modifiedFiles = NULL;	// file to receive list of modified files
+const char *extractCerts = NULL;	// location for extracting signing chain certificates
 SecCSFlags verifyOptions = kSecCSDefaultFlags; // option flags to static verifications
 CFDateRef signingTime;				// explicit signing time option
 size_t signatureSize = 0;			// override CMS blob estimate
@@ -69,6 +71,7 @@ uint32_t cdFlags = 0;				// CodeDirectory flags requested
 const char *procAction = NULL;		// action-on-process(es) requested
 bool noMachO = false;				// force non-MachO operation
 bool dryrun = false;				// do not actually change anything
+bool preserveMetadata = false;		// keep metadata from previous signature (if any)
 
 
 //
@@ -84,13 +87,17 @@ enum {
 	optCheckExpiration = 1,
 	optContinue,
 	optDryRun,
+	optExtractCerts,
+	optEntitlements,
 	optFileList,
 	optIdentifierPrefix,
 	optIgnoreResources,
 	optKeychain,
 	optNoMachO,
+	optPreserveMetadata,
 	optProcInfo,
 	optProcAction,
+	optRemoveSignature,
 	optResourceRules,
 	optSigningTime,
 	optSignatureSize,
@@ -115,12 +122,15 @@ const struct option options[] = {
 	{ "check-expiration", no_argument,		NULL, optCheckExpiration },
 	{ "continue",	no_argument,			NULL, optContinue },
 	{ "dryrun",		no_argument,			NULL, optDryRun },
+	{ "entitlements", required_argument,	NULL, optEntitlements },
 	{ "expired",	no_argument,			NULL, optCheckExpiration },
+	{ "extract-certificates", optional_argument, NULL, optExtractCerts },
 	{ "file-list",	required_argument,		NULL, optFileList },
 	{ "ignore-resources", no_argument,		NULL, optIgnoreResources },
 	{ "keychain",	required_argument,		NULL, optKeychain },
 	{ "no-macho",	no_argument,			NULL, optNoMachO },
 	{ "prefix",		required_argument,		NULL, optIdentifierPrefix },
+	{ "preserve-metadata", no_argument,		NULL, optPreserveMetadata },
 	{ "procaction",	required_argument,		NULL, optProcAction },
 	{ "procinfo",	no_argument,			NULL, optProcInfo },
 	{ "resource-rules", required_argument,	NULL, optResourceRules },
@@ -198,6 +208,15 @@ int main(int argc, char *argv[])
 			case optDryRun:
 				dryrun = true;
 				break;
+			case optEntitlements:
+				entitlements = optarg;
+				break;
+			case optExtractCerts:
+				if (optarg)
+					extractCerts = optarg;
+				else
+					extractCerts = "./codesign";
+				break;
 			case optFileList:
 				modifiedFiles = optarg;
 				break;
@@ -212,6 +231,9 @@ int main(int argc, char *argv[])
 				break;
 			case optNoMachO:
 				noMachO = true;
+				break;
+			case optPreserveMetadata:
+				preserveMetadata = true;
 				break;
 			case optProcAction:
 				operation = doProcAction;

@@ -94,7 +94,11 @@ template <class ReqType> const ReqType *readRequirement(const std::string &sourc
 uint32_t parseCdFlags(const char *string);
 CFDateRef parseDate(const char *string);
 
+std::string hashString(SHA1::Digest hash);
+std::string hashString(SHA1 &hash);
+
 void writeFileList(CFArrayRef list, const char *destination, const char *mode);
+void writeData(CFDataRef data, const char *destination, const char *mode);
 
 CFRef<SecCodeRef> codePath(const char *target);
 

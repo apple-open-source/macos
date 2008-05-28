@@ -25,6 +25,7 @@
 #include "config.h"
 #include "RenderWidget.h"
 
+#include "AnimationController.h"
 #include "AXObjectCache.h"
 #include "Document.h"
 #include "Element.h"
@@ -71,11 +72,13 @@ void RenderWidget::destroy()
     // So the code below includes copied and pasted contents of
     // both RenderBox::destroy() and RenderObject::destroy().
     // Fix originally made for <rdar://problem/4228818>.
+    animationController()->cancelImplicitAnimations(this);
 
     if (RenderView* v = view())
         v->removeWidget(this);
 
-    document()->axObjectCache()->remove(this);
+    if (AXObjectCache::accessibilityEnabled())
+        document()->axObjectCache()->remove(this);
 
     remove();
 
@@ -123,6 +126,8 @@ void RenderWidget::setWidget(Widget* widget)
 {
     if (widget != m_widget) {
         if (m_widget) {
+            // removeFromParent is a no-op on Mac.
+            m_widget->removeFromParent();
             widgetRendererMap().remove(m_widget);
             deleteWidget();
         }

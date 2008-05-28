@@ -29,7 +29,7 @@
 
 
 #warning VERIFY the version string before each major OS build submission
-#define DIRTVERSION "10.5.0"
+#define DIRTVERSION "10.5.3"
 
 #import <Foundation/Foundation.h>
 #import "DSAuthenticate.h"

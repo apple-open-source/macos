@@ -846,9 +846,6 @@ cupsGetPPD2(http_t     *http,		/* I - HTTP connection */
 
   close(fd);
 
-  if (http2 != http)
-    httpClose(http2);
-
  /*
   * See if we actually got the file or an error...
   */
@@ -876,6 +873,9 @@ cupsGetPPD2(http_t     *http,		/* I - HTTP connection */
 
     return (NULL);
   }
+
+  if (http2 != http)
+    httpClose(http2);
 
  /*
   * Return the PPD file...

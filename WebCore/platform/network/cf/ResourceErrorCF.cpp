@@ -29,9 +29,9 @@
 
 #if USE(CFNETWORK)
 
-// FIXME: Once <rdar://problem/5050881> is fixed we can remove this extern "C"
-
-extern "C" {
+// FIXME: Once <rdar://problem/5050881> is fixed in open source we
+// can remove this extern "C"
+extern "C" { 
 #include <CFNetwork/CFNetworkErrors.h>
 }
 
@@ -76,6 +76,8 @@ void ResourceError::unpackPlatformError()
         m_domain = "NSPOSIXErrorDomain";
     else if (domain == kCFErrorDomainOSStatus)
         m_domain = "NSOSStatusErrorDomain";
+    else if (domain == kCFErrorDomainWinSock)
+        m_domain = "kCFErrorDomainWinSock";
 
     m_errorCode = CFErrorGetCode(m_platformError.get());
 

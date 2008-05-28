@@ -27,16 +27,21 @@
 #define AffineTransform_h
 
 #if PLATFORM(CG)
-#include <ApplicationServices/ApplicationServices.h>
+#include <CoreGraphics/CGAffineTransform.h>
 #elif PLATFORM(QT)
 #include <QMatrix>
 #elif PLATFORM(CAIRO)
-#include "cairo.h"
+#include <cairo.h>
+#elif PLATFORM(WX) && USE(WXGC)
+#include <wx/defs.h>
+#include <wx/graphics.h>
 #endif
 
 namespace WebCore {
 
+class IntPoint;
 class IntRect;
+class FloatPoint;
 class FloatRect;
 
 class AffineTransform {
@@ -49,10 +54,14 @@ public:
     AffineTransform(const QMatrix &matrix);
 #elif PLATFORM(CAIRO)
     AffineTransform(const cairo_matrix_t &matrix);
+#elif PLATFORM(WX) && USE(WXGC)
+    AffineTransform(const wxGraphicsMatrix &matrix);
 #endif
 
     void setMatrix(double a, double b, double c, double d, double e, double f);
     void map(double x, double y, double *x2, double *y2) const;
+    IntPoint mapPoint(const IntPoint&) const;
+    FloatPoint mapPoint(const FloatPoint&) const;
     IntRect mapRect(const IntRect&) const;
     FloatRect mapRect(const FloatRect&) const;
     
@@ -88,6 +97,7 @@ public:
     AffineTransform& shear(double sx, double sy);
     AffineTransform& flipX();
     AffineTransform& flipY();
+    AffineTransform& skew(double angleX, double angleY);
     AffineTransform& skewX(double angle);
     AffineTransform& skewY(double angle);
  
@@ -101,9 +111,12 @@ public:
     operator QMatrix() const;
 #elif PLATFORM(CAIRO)
     operator cairo_matrix_t() const;
+#elif PLATFORM(WX) && USE(WXGC)
+    operator wxGraphicsMatrix() const;
 #endif
 
     bool operator==(const AffineTransform&) const;
+    bool operator!=(const AffineTransform& other) const { return !(*this == other); }
     AffineTransform& operator*=(const AffineTransform&);
     AffineTransform operator*(const AffineTransform&);
     
@@ -114,6 +127,8 @@ private:
     QMatrix m_transform;
 #elif PLATFORM(CAIRO)
     cairo_matrix_t m_transform;
+#elif PLATFORM(WX) && USE(WXGC)
+    wxGraphicsMatrix m_transform;
 #endif
 };
 

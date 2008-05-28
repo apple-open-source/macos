@@ -47,26 +47,25 @@ KJS::JSValue* toJS(KJS::ExecState* exec, CSSValue* value)
     if (!value)
         return KJS::jsNull();
 
-    KJS::ScriptInterpreter* interp = static_cast<KJS::ScriptInterpreter*>(exec->dynamicInterpreter());
-    KJS::DOMObject* ret = interp->getDOMObject(value);
+    KJS::DOMObject* ret = KJS::ScriptInterpreter::getDOMObject(value);
 
     if (ret)
         return ret;
 
     if (value->isValueList())
-        ret = new JSCSSValueList(exec, static_cast<CSSValueList*>(value));
+        ret = new JSCSSValueList(JSCSSValueListPrototype::self(exec), static_cast<CSSValueList*>(value));
 #if ENABLE(SVG)
-    else if (value->isSVGColor())
-        ret = new JSSVGColor(exec, static_cast<SVGColor*>(value));
     else if (value->isSVGPaint())
-        ret = new JSSVGPaint(exec, static_cast<SVGPaint*>(value));
+        ret = new JSSVGPaint(JSSVGPaintPrototype::self(exec), static_cast<SVGPaint*>(value));
+    else if (value->isSVGColor())
+        ret = new JSSVGColor(JSSVGColorPrototype::self(exec), static_cast<SVGColor*>(value));
 #endif
     else if (value->isPrimitiveValue())
-        ret = new JSCSSPrimitiveValue(exec, static_cast<CSSPrimitiveValue*>(value));
+        ret = new JSCSSPrimitiveValue(JSCSSPrimitiveValuePrototype::self(exec), static_cast<CSSPrimitiveValue*>(value));
     else
-        ret = new JSCSSValue(exec, value);
+        ret = new JSCSSValue(JSCSSValuePrototype::self(exec), value);
 
-    interp->putDOMObject(value, ret);
+    KJS::ScriptInterpreter::putDOMObject(value, ret);
     return ret;
 }
 

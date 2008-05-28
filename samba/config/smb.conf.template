@@ -79,6 +79,9 @@
     ; Check in with PAM to enforce SACL access policy.
     obey pam restrictions = yes
 
+    ; Don't be trying to enforce ACLs in userspace.
+    acl check permissions = no
+
     ; Make sure that we resolve unqualified names as NetBIOS before DNS.
     name resolve order = lmhosts wins bcast host
 

@@ -30,6 +30,7 @@
 namespace WTF {
 
     void *fastMalloc(size_t n);
+    void *fastZeroedMalloc(size_t n);
     void *fastCalloc(size_t n_elements, size_t element_size);
     void fastFree(void* p);
     void *fastRealloc(void* p, size_t n);
@@ -42,6 +43,7 @@ namespace WTF {
 } // namespace WTF
 
 using WTF::fastMalloc;
+using WTF::fastZeroedMalloc;
 using WTF::fastCalloc;
 using WTF::fastRealloc;
 using WTF::fastFree;
@@ -55,6 +57,8 @@ using WTF::fastMallocAllow;
 #define WTF_PRIVATE_INLINE __private_extern__ inline __attribute__((always_inline))
 #elif COMPILER(GCC)
 #define WTF_PRIVATE_INLINE inline __attribute__((always_inline))
+#elif COMPILER(MSVC)
+#define WTF_PRIVATE_INLINE __forceinline
 #else
 #define WTF_PRIVATE_INLINE inline
 #endif

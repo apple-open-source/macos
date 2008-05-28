@@ -269,7 +269,6 @@
 			productRefGroup = 0563D44F063ED9D300ED568D /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				0563D445063ED9AC00ED568D /* world */,
 				0582D18D0648269100577DEB /* dotmac_tp.bundle */,
@@ -337,7 +336,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 32199;
+				CURRENT_PROJECT_VERSION = 33607;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -358,7 +357,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 32199;
+				CURRENT_PROJECT_VERSION = 33607;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -378,7 +377,7 @@
 		C27AD4680987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 32199;
+				CURRENT_PROJECT_VERSION = 33607;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -400,7 +399,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 32199;
+				DYLIB_CURRENT_VERSION = 33607;
 				FRAMEWORK_VERSION = A;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
@@ -418,7 +417,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 32199;
+				DYLIB_CURRENT_VERSION = 33607;
 				FRAMEWORK_VERSION = A;
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				OTHER_CFLAGS = "-DNDEBUG";
@@ -435,7 +434,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 32199;
+				DYLIB_CURRENT_VERSION = 33607;
 				FRAMEWORK_VERSION = A;
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				PRODUCT_NAME = security_dotmac_tp;

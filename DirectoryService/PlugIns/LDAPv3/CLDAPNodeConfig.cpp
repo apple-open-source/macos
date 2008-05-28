@@ -198,8 +198,6 @@ LDAP *CLDAPNodeConfig::EstablishConnection( CLDAPReplicaInfo **inOutReplicaInfo,
 	
 	(*outStatus) = (inWriteable ? eDSAuthMasterUnreachable : eDSCannotAccessSession);
 
-	fMutex.WaitLock();
-
 	if ( ldap_is_ldapi_url(fNodeName) )
 	{
 		(*outStatus) = eDSAuthMethodNotSupported;
@@ -217,9 +215,7 @@ LDAP *CLDAPNodeConfig::EstablishConnection( CLDAPReplicaInfo **inOutReplicaInfo,
 			}
 		}
 	}
-	
-	fMutex.SignalLock();
-	
+
 	return pTempLD;
 }
 
@@ -230,8 +226,6 @@ LDAP *CLDAPNodeConfig::EstablishConnection( CLDAPReplicaInfo **inOutReplicaInfo,
 	
 	(*outStatus) = (inWriteable ? eDSAuthMasterUnreachable : eDSCannotAccessSession);
 
-	fMutex.WaitLock();
-	
 	if ( ldap_is_ldapi_url(fNodeName) )
 	{
 		(*outStatus) = eDSAuthMethodNotSupported;
@@ -251,8 +245,6 @@ LDAP *CLDAPNodeConfig::EstablishConnection( CLDAPReplicaInfo **inOutReplicaInfo,
 		}
 	}
 	
-	fMutex.SignalLock();
-	
 	return pTempLD;
 }
 
@@ -264,13 +256,17 @@ LDAP *CLDAPNodeConfig::EstablishConnection( CLDAPReplicaInfo **inOutReplicaInfo,
 	(*outStatus) = (inWriteable ? eDSAuthMasterUnreachable : eDSCannotAccessSession);
 	
 	fMutex.WaitLock();
+	bool bSecureUse = fSecureUse;
+	fMutex.SignalLock();
 
-	if ( fSecureUse == true )
+	if ( bSecureUse == true )
 	{
 		// we have to dupe these credentials because they can be freed in Establish connection due to mutex unlock for Kerberos
+		fMutex.WaitLock();
 		char *pServerAccount = (fServerAccount != NULL ? strdup(fServerAccount) : NULL);
 		char *pKerberosID = (fServerKerberosID != NULL ? strdup(fServerKerberosID) : NULL);
 		char *pPassword = (fServerPassword != NULL ? strdup(fServerPassword) : NULL);
+		fMutex.SignalLock();
 		
 		pTempLD = EstablishConnection( inOutReplicaInfo, inWriteable, pServerAccount, pKerberosID, pPassword, inCallback, 
 									   inParam, outStatus );
@@ -283,6 +279,8 @@ LDAP *CLDAPNodeConfig::EstablishConnection( CLDAPReplicaInfo **inOutReplicaInfo,
 	{
 		if ( ldap_is_ldapi_url(fNodeName) )
 		{
+			fMutex.WaitLock();
+
 			// we don't do this in internal establish because it's meant for network connections
 			CLDAPReplicaInfo *replica = *(fReplicaList.begin());
 			
@@ -306,6 +304,8 @@ LDAP *CLDAPNodeConfig::EstablishConnection( CLDAPReplicaInfo **inOutReplicaInfo,
 					pTempLD = NULL;
 				}
 			}
+
+			fMutex.SignalLock();
 		}
 		else
 		{
@@ -315,8 +315,6 @@ LDAP *CLDAPNodeConfig::EstablishConnection( CLDAPReplicaInfo **inOutReplicaInfo,
 	
 	if ( pTempLD != NULL )
 		(*outStatus) = eDSNoErr;
-	
-	fMutex.SignalLock();
 
 	return pTempLD;
 }
@@ -2056,6 +2054,8 @@ LDAP *CLDAPNodeConfig::InternalEstablishConnection( CLDAPReplicaInfo **inOutRepl
 {
 	LDAP	*pReturnLD	= NULL;
 	
+	fMutex.WaitLock();
+
 	// if we have no replica, but we have a server name and our replica list is 0
 	if ( (*inOutReplicaInfo) == NULL && fServerName != NULL && fReplicaList.size() == 0 )
 	{
@@ -2125,11 +2125,26 @@ searchAgain:	// we jump up here and re-do it all if we were getting replicas, ma
 		char *pServerAccount = NULL;
 		char *pServerKerberosID = NULL;
 		char *pServerPassword = NULL;
+		bool bDynamicDataNeedsUpdate = false;
 		
 		// copy credentials returns fSecureUse so if it is false or AuthenticateCredentials succeeds we update dynamic data
 		// we have to make copy because AuthenticateUsingCredentials might give up mutex for Kerberos
-		if ( CopyCredentials(&pServerAccount, &pServerKerberosID, &pServerPassword) == false ||
-			 AuthenticateUsingCredentials(pReturnLD, (*inOutReplicaInfo), pServerAccount, pServerKerberosID, pServerPassword) == eDSNoErr )
+		if ( CopyCredentials(&pServerAccount, &pServerKerberosID, &pServerPassword) == false )
+		{
+			bDynamicDataNeedsUpdate = true;
+		}
+		else
+		{
+			// Drop the lock to avoid deadlock w/KDC when running on a server.
+			fMutex.SignalLock();
+			if ( AuthenticateUsingCredentials(pReturnLD, (*inOutReplicaInfo), pServerAccount, pServerKerberosID, pServerPassword) == eDSNoErr )
+			{
+				bDynamicDataNeedsUpdate = true;
+			}
+			fMutex.WaitLock();
+		}
+
+		if ( bDynamicDataNeedsUpdate )
 		{
 			bDoAgain = UpdateDynamicData( pReturnLD, (*inOutReplicaInfo) );
 		}
@@ -2149,7 +2164,9 @@ searchAgain:	// we jump up here and re-do it all if we were getting replicas, ma
 			goto searchAgain;
 		}
 	}
-	
+
+	fMutex.SignalLock();
+
 	return pReturnLD;
 }
 
@@ -2229,10 +2246,7 @@ tDirStatus CLDAPNodeConfig::AuthenticateUsingCredentials( LDAP *inLDAP, CLDAPRep
 			}
 			
 			if ( username != NULL ) {
-				// need to release our lock during this call because the locally configured KDC might try to contact the LDAP server
-				fMutex.SignalLock();
 				GetUserTGTIfNecessaryAndStore( username, usePassword, &cacheName );
-				fMutex.WaitLock();
 			}
 			
 			if ( cacheName != NULL )

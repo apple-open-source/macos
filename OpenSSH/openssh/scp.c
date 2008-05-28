@@ -1,4 +1,4 @@
-/* $OpenBSD: scp.c,v 1.155 2006/08/03 03:34:42 deraadt Exp $ */
+/* $OpenBSD: scp.c,v 1.160 2007/08/06 19:16:06 sobrado Exp $ */
 /*
  * scp - secure remote copy.  This is basically patched BSD rcp which
  * uses ssh to do the data transfer (instead of using rcmd).
@@ -96,6 +96,9 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#if defined(HAVE_STRNVIS) && defined(HAVE_VIS_H)
+#include <vis.h>
+#endif
 
 #include "xmalloc.h"
 #include "atomicio.h"
@@ -400,7 +403,7 @@ main(int argc, char **argv)
 	if ((pwd = getpwuid(userid = getuid())) == NULL)
 		fatal("unknown user %u", (u_int) userid);
 
-	if (!isatty(STDERR_FILENO))
+	if (!isatty(STDOUT_FILENO))
 		showprogress = 0;
 
 	remin = STDIN_FILENO;
@@ -607,7 +610,7 @@ source(int argc, char **argv)
 	off_t i, amt, statbytes;
 	size_t result;
 	int fd = -1, haderr, indx;
-	char *last, *name, buf[2048];
+	char *last, *name, buf[2048], encname[MAXPATHLEN];
 	int len;
 #if HAVE_COPYFILE
 	char md_name[MAXPATHLEN];
@@ -620,11 +623,6 @@ source(int argc, char **argv)
 		len = strlen(name);
 		while (len > 1 && name[len-1] == '/')
 			name[--len] = '\0';
-		if (strchr(name, '\n') != NULL) {
-			run_err("%s: skipping, filename contains a newline",
-			    name);
-			goto next;
-		}
 #if HAVE_COPYFILE
 md_next:
 		statbytes = 0;
@@ -634,14 +632,22 @@ md_next:
 		    free(md_tmp);
 		    if (fd < 0)
 			goto syserr;
-		} else
+		} else {
 #endif
-		if ((fd = open(name, O_RDONLY, 0)) < 0)
+		if ((fd = open(name, O_RDONLY|O_NONBLOCK, 0)) < 0)
 			goto syserr;
+		if (strchr(name, '\n') != NULL) {
+			strnvis(encname, name, sizeof(encname), VIS_NL);
+			name = encname;
+		}
+#if HAVE_COPYFILE
+		}
+#endif
 		if (fstat(fd, &stb) < 0) {
 syserr:			run_err("%s: %s", name, strerror(errno));
 			goto next;
 		}
+		unset_nonblock(fd);
 		switch (stb.st_mode & S_IFMT) {
 		case S_IFREG:
 			break;
@@ -1121,7 +1127,8 @@ bad:			run_err("%s: %s", np, strerror(errno));
 			wrerr = YES;
 			wrerrno = errno;
 		}
-		if (wrerr == NO && ftruncate(ofd, size) != 0) {
+		if (wrerr == NO && (!exists || S_ISREG(stb.st_mode)) &&
+		    ftruncate(ofd, size) != 0) {
 			run_err("%s: truncate: %s", np, strerror(errno));
 			wrerr = DISPLAYED;
 		}
@@ -1243,7 +1250,7 @@ usage(void)
 	    "usage: scp [-1246BCpqrv] [-c cipher] [-F ssh_config] [-i identity_file]\n"
 #endif
 	    "           [-l limit] [-o ssh_option] [-P port] [-S program]\n"
-	    "           [[user@]host1:]file1 [...] [[user@]host2:]file2\n");
+	    "           [[user@]host1:]file1 ... [[user@]host2:]file2\n");
 	exit(1);
 }
 

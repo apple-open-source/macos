@@ -48,7 +48,7 @@ namespace WebCore {
 
     typedef int ExceptionCode;
 
-    class CanvasRenderingContext2D : public Shared<CanvasRenderingContext2D> {
+    class CanvasRenderingContext2D : public RefCounted<CanvasRenderingContext2D> {
     public:
         CanvasRenderingContext2D(HTMLCanvasElement*);
 
@@ -96,6 +96,7 @@ namespace WebCore {
         void scale(float sx, float sy);
         void rotate(float angleInRadians);
         void translate(float tx, float ty);
+        void transform(float m11, float m12, float m21, float m22, float dx, float dy);
 
         void setStrokeColor(const String& color);
         void setStrokeColor(float grayLevel);
@@ -125,6 +126,8 @@ namespace WebCore {
         void fill();
         void stroke();
         void clip();
+
+        bool isPointInPath(const float x, const float y);
 
         void clearRect(float x, float y, float width, float height, ExceptionCode&);
         void fillRect(float x, float y, float width, float height, ExceptionCode&);

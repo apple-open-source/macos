@@ -2,7 +2,7 @@
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
-    Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -24,6 +24,7 @@
 #include "Cache.h"
 
 #include "CachedCSSStyleSheet.h"
+#include "CachedFont.h"
 #include "CachedImage.h"
 #include "CachedScript.h"
 #include "CachedXSLStyleSheet.h"
@@ -65,18 +66,20 @@ static CachedResource* createResource(CachedResource::Type type, DocLoader* docL
     switch (type) {
     case CachedResource::ImageResource:
         // User agent images need to null check the docloader.  No other resources need to.
-        return new CachedImage(docLoader, url.url(), true /* for cache */);
+        return new CachedImage(docLoader, url.string(), true /* for cache */);
     case CachedResource::CSSStyleSheet:
-        return new CachedCSSStyleSheet(docLoader, url.url(), *charset, skipCanLoadCheck, sendResourceLoadCallbacks);
+        return new CachedCSSStyleSheet(docLoader, url.string(), *charset, skipCanLoadCheck, sendResourceLoadCallbacks);
     case CachedResource::Script:
-        return new CachedScript(docLoader, url.url(), *charset);
+        return new CachedScript(docLoader, url.string(), *charset);
+    case CachedResource::FontResource:
+        return new CachedFont(docLoader, url.string());
 #if ENABLE(XSLT)
     case CachedResource::XSLStyleSheet:
-        return new CachedXSLStyleSheet(docLoader, url.url());
+        return new CachedXSLStyleSheet(docLoader, url.string());
 #endif
 #if ENABLE(XBL)
     case CachedResource::XBLStyleSheet:
-        return new CachedXBLDocument(docLoader, url.url());
+        return new CachedXBLDocument(docLoader, url.string());
 #endif
     default:
         break;
@@ -93,7 +96,7 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
         return 0;
     
     // Look up the resource in our map.
-    CachedResource* resource = m_resources.get(url.url());
+    CachedResource* resource = m_resources.get(url.string());
 
     if (resource) {
         if (!skipCanLoadCheck && FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(*resource, docLoader->doc())) {
@@ -107,7 +110,7 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
         if (!skipCanLoadCheck && FrameLoader::restrictAccessToLocal() && !FrameLoader::canLoad(url, docLoader->doc())) {
             Document* doc = docLoader->doc();
             if(doc)
-                FrameLoader::reportLocalLoadFailed(doc->page(), url.url());
+                FrameLoader::reportLocalLoadFailed(doc->page(), url.string());
 
             return 0;
         }
@@ -117,7 +120,7 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
         ASSERT(resource);
         ASSERT(resource->inCache());
         if (!disabled()) {
-            m_resources.set(url.url(), resource);  // The size will be added in later once the resource is loaded and calls back to us with the new size.
+            m_resources.set(url.string(), resource);  // The size will be added in later once the resource is loaded and calls back to us with the new size.
             
             // This will move the resource to the front of its LRU list and increase its access count.
             resourceAccessed(resource);
@@ -334,7 +337,7 @@ Cache::LRUList* Cache::lruListFor(CachedResource* resource)
     resource->m_lruIndex = queueIndex;
 #endif
     if (m_allResources.size() <= queueIndex)
-        m_allResources.resize(queueIndex + 1);
+        m_allResources.grow(queueIndex + 1);
     return &m_allResources[queueIndex];
 }
 
@@ -556,6 +559,12 @@ Cache::Statistics Cache::getStatistics()
                 stats.xslStyleSheets.decodedSize += o->decodedSize();
                 break;
 #endif
+            case CachedResource::FontResource:
+                stats.fonts.count++;
+                stats.fonts.size += o->size();
+                stats.fonts.liveSize += o->referenced() ? o->size() : 0;
+                stats.fonts.decodedSize += o->decodedSize();
+                break;
 #if ENABLE(XBL)
             case CachedResource::XBL:
                 stats.xblDocs.count++;

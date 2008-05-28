@@ -200,11 +200,21 @@ void Token::removeCommon(TokenDbCommon &dbc)
 // we're analyzing the token, determine its characteristics, and get ready to
 // use it.
 //
-void Token::insert(::Reader &slot)
+void Token::insert(::Reader &slot, RefPointer<TokenDaemon> tokend)
 {
 	try {
 		// this might take a while...
 		Server::active().longTermActivity();
+		referent(slot);
+		mState = slot.pcscState();
+		
+		if (tokend == NULL) {
+			// no pre-determined Tokend - search for one
+			if (!(tokend = chooseTokend())) {
+				secdebug("token", "%p no token daemons available - faulting this card", this);
+				fault(false);	// throws
+			}
+		}
 
 		// take Token lock and hold throughout insertion
 		StLock<Mutex> _(*this);
@@ -212,26 +222,18 @@ void Token::insert(::Reader &slot)
 		Syslog::debug("token inserted into reader %s", slot.name().c_str());
 		secdebug("token", "%p begin insertion into slot %p (reader %s)",
 			this, &slot, slot.name().c_str());
-		referent(slot);
-		mState = slot.pcscState();
-		
-		RefPointer<TokenDaemon> tokend = chooseTokend();
-		if (!tokend) {
-			secdebug("token", "%p no token daemons available - faulting this card", this);
-			fault(false);
-		}
 		
 		// tell the tokend object to relay faults to us
 		tokend->faultRelay(this);
 
 		// locate or establish cache directories
 		if (tokend->hasTokenUid()) {
-			secdebug("token", "%p CHOOSING %s (score=%d, uid=\"%s\")",
+			secdebug("token", "%p using %s (score=%d, uid=\"%s\")",
 				this, tokend->bundlePath().c_str(), tokend->score(), tokend->tokenUid().c_str());
 			mCache = new TokenCache::Token(reader().cache,
 				tokend->bundleIdentifier() + ":" + tokend->tokenUid());
 		} else {
-			secdebug("token", "%p CHOOSING %s (score=%d, temporary)",
+			secdebug("token", "%p using %s (score=%d, temporary)",
 				this, tokend->bundlePath().c_str(), tokend->score());
 			mCache = new TokenCache::Token(reader().cache);
 		}
@@ -448,10 +450,15 @@ RefPointer<TokenDaemon> Token::chooseTokend()
 	RefPointer<TokenDaemon> leader;
 	for (CodeRepository<Bundle>::const_iterator it = candidates.begin();
 			it != candidates.end(); it++) {
+		RefPointer<Bundle> candidate = *it;
 		try {
-			// any pre-launch screening of candidate *it goes here
-			
-			RefPointer<TokenDaemon> tokend = new TokenDaemon(*it,
+			// skip software token daemons - ineligible for automatic choosing
+			if (CFTypeRef type = (*it)->infoPlistItem("TokendType"))
+				if (CFEqual(type, CFSTR("software")))
+					continue;
+
+			// okay, launch it and let it try
+			RefPointer<TokenDaemon> tokend = new TokenDaemon(candidate,
 				reader().name(), reader().pcscState(), reader().cache);
 			
 			if (tokend->state() == ServerChild::dead)	// ah well, this one's no good
@@ -465,7 +472,7 @@ RefPointer<TokenDaemon> Token::chooseTokend()
 			if (!leader || tokend->score() > leader->score())
 				leader = tokend;		// a new front runner, he is...
 		} catch (...) {
-			secdebug("token", "exception setting up %s (moving on)", (*it)->canonicalPath().c_str());
+			secdebug("token", "exception setting up %s (moving on)", candidate->canonicalPath().c_str());
 		}
 	}
 	return leader;

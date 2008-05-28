@@ -159,7 +159,9 @@ bool StyleChange::checkForLegacyHTMLStyleChange(const CSSProperty *property)
             }
             break;
         case CSS_PROP_COLOR: {
-            Color color(CSSParser::parseColor(valueText));
+            RGBA32 rgba = 0;
+            CSSParser::parseColor(rgba, valueText);
+            Color color(rgba);
             m_applyFontColor = color.name();
             return true;
         }
@@ -489,7 +491,7 @@ void ApplyStyleCommand::applyRelativeFontStyleChange(CSSMutableStyleDeclaration 
     
     start = start.upstream(); // Move upstream to ensure we do not add redundant spans.
     Node *startNode = start.node();
-    if (startNode->isTextNode() && start.offset() >= startNode->caretMaxOffset()) // Move out of text node if range does not include its characters.
+    if (startNode->isTextNode() && start.offset() >= caretMaxOffset(startNode)) // Move out of text node if range does not include its characters.
         startNode = startNode->traverseNextNode();
 
     // Store away font size before making any changes to the document.
@@ -641,7 +643,7 @@ void ApplyStyleCommand::applyInlineStyle(CSSMutableStyleDeclaration *style)
     
     bool rangeIsEmpty = false;
 
-    if (start.offset() >= start.node()->caretMaxOffset()) {
+    if (start.offset() >= caretMaxOffset(start.node())) {
         node = node->traverseNextNode();
         Position newStart = Position(node, 0);
         if (Range::compareBoundaryPoints(end, newStart) < 0)
@@ -741,22 +743,18 @@ void ApplyStyleCommand::removeHTMLFontStyle(CSSMutableStyleDeclaration *style, H
 
     if (!elem->hasLocalName(fontTag))
         return;
-
-    ExceptionCode ec = 0;
+        
     DeprecatedValueListConstIterator<CSSProperty> end;
     for (DeprecatedValueListConstIterator<CSSProperty> it = style->valuesIterator(); it != end; ++it) {
         switch ((*it).id()) {
             case CSS_PROP_COLOR:
-                elem->removeAttribute(colorAttr, ec);
-                ASSERT(ec == 0);
+                removeNodeAttribute(elem, colorAttr);
                 break;
             case CSS_PROP_FONT_FAMILY:
-                elem->removeAttribute(faceAttr, ec);
-                ASSERT(ec == 0);
+                removeNodeAttribute(elem, faceAttr);
                 break;
             case CSS_PROP_FONT_SIZE:
-                elem->removeAttribute(sizeAttr, ec);
-                ASSERT(ec == 0);
+                removeNodeAttribute(elem, sizeAttr);
                 break;
         }
     }
@@ -947,7 +945,7 @@ void ApplyStyleCommand::pushDownTextDecorationStyleAtBoundaries(const Position &
 static int maxRangeOffset(Node *n)
 {
     if (n->offsetInCharacters())
-        return n->maxOffset();
+        return n->maxCharacterOffset();
 
     if (n->isElementNode())
         return n->childNodeCount();
@@ -996,7 +994,7 @@ void ApplyStyleCommand::removeInlineStyle(PassRefPtr<CSSMutableStyleDeclaration>
                 if (s.node() == elem) {
                     // Since elem must have been fully selected, and it is at the start
                     // of the selection, it is clear we can set the new s offset to 0.
-                    ASSERT(s.offset() <= s.node()->caretMinOffset());
+                    ASSERT(s.offset() <= caretMinOffset(s.node()));
                     s = Position(next, 0);
                 }
                 if (e.node() == elem) {
@@ -1043,7 +1041,7 @@ bool ApplyStyleCommand::nodeFullyUnselected(Node *node, const Position &start, c
 
 bool ApplyStyleCommand::splitTextAtStartIfNeeded(const Position &start, const Position &end)
 {
-    if (start.node()->isTextNode() && start.offset() > start.node()->caretMinOffset() && start.offset() < start.node()->caretMaxOffset()) {
+    if (start.node()->isTextNode() && start.offset() > caretMinOffset(start.node()) && start.offset() < caretMaxOffset(start.node())) {
         int endOffsetAdjustment = start.node() == end.node() ? start.offset() : 0;
         Text *text = static_cast<Text *>(start.node());
         splitTextNode(text, start.offset());
@@ -1055,7 +1053,7 @@ bool ApplyStyleCommand::splitTextAtStartIfNeeded(const Position &start, const Po
 
 bool ApplyStyleCommand::splitTextAtEndIfNeeded(const Position &start, const Position &end)
 {
-    if (end.node()->isTextNode() && end.offset() > end.node()->caretMinOffset() && end.offset() < end.node()->caretMaxOffset()) {
+    if (end.node()->isTextNode() && end.offset() > caretMinOffset(end.node()) && end.offset() < caretMaxOffset(end.node())) {
         Text *text = static_cast<Text *>(end.node());
         splitTextNode(text, end.offset());
         
@@ -1063,7 +1061,7 @@ bool ApplyStyleCommand::splitTextAtEndIfNeeded(const Position &start, const Posi
         ASSERT(prevNode);
         Node *startNode = start.node() == end.node() ? prevNode : start.node();
         ASSERT(startNode);
-        updateStartEnd(Position(startNode, start.offset()), Position(prevNode, prevNode->caretMaxOffset()));
+        updateStartEnd(Position(startNode, start.offset()), Position(prevNode, caretMaxOffset(prevNode)));
         return true;
     }
     return false;
@@ -1071,7 +1069,7 @@ bool ApplyStyleCommand::splitTextAtEndIfNeeded(const Position &start, const Posi
 
 bool ApplyStyleCommand::splitTextElementAtStartIfNeeded(const Position &start, const Position &end)
 {
-    if (start.node()->isTextNode() && start.offset() > start.node()->caretMinOffset() && start.offset() < start.node()->caretMaxOffset()) {
+    if (start.node()->isTextNode() && start.offset() > caretMinOffset(start.node()) && start.offset() < caretMaxOffset(start.node())) {
         int endOffsetAdjustment = start.node() == end.node() ? start.offset() : 0;
         Text *text = static_cast<Text *>(start.node());
         splitTextNodeContainingElement(text, start.offset());
@@ -1084,7 +1082,7 @@ bool ApplyStyleCommand::splitTextElementAtStartIfNeeded(const Position &start, c
 
 bool ApplyStyleCommand::splitTextElementAtEndIfNeeded(const Position &start, const Position &end)
 {
-    if (end.node()->isTextNode() && end.offset() > end.node()->caretMinOffset() && end.offset() < end.node()->caretMaxOffset()) {
+    if (end.node()->isTextNode() && end.offset() > caretMinOffset(end.node()) && end.offset() < caretMaxOffset(end.node())) {
         Text *text = static_cast<Text *>(end.node());
         splitTextNodeContainingElement(text, end.offset());
 
@@ -1181,7 +1179,7 @@ bool ApplyStyleCommand::mergeEndWithNextIfIdentical(const Position &start, const
     int endOffset = end.offset();
 
     if (isAtomicNode(endNode)) {
-        if (endOffset < endNode->caretMaxOffset())
+        if (endOffset < caretMaxOffset(endNode))
             return false;
 
         unsigned parentLastOffset = end.node()->parent()->childNodes()->length() - 1;

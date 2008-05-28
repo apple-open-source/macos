@@ -43,7 +43,6 @@
 #import "EventListener.h"
 #import "EventTarget.h"
 #import "ExceptionHandlers.h"
-#import "FontData.h"
 #import "FoundationExtras.h"
 #import "Frame.h"
 #import "FrameView.h"
@@ -61,6 +60,7 @@
 #import "Range.h"
 #import "RenderImage.h"
 #import "RenderView.h"
+#import "SimpleFontData.h"
 #import "Text.h"
 #import "TreeWalker.h"
 #import "WebScriptObjectPrivate.h"
@@ -71,6 +71,7 @@
 #import "SVGDocument.h"
 #import "SVGElement.h"
 #import "SVGNames.h"
+#import "DOMSVG.h"
 #endif
 
 namespace WebCore {
@@ -187,7 +188,7 @@ static void createElementClassMap()
 
 #if ENABLE(SVG)
     addElementClass(SVGNames::aTag, [DOMSVGAElement class]);
-#if ENABLE(SVG_EXPERIMENTAL_FEATURES)
+#if ENABLE(SVG_ANIMATION)
     addElementClass(SVGNames::animateTag, [DOMSVGAnimateElement class]);
     addElementClass(SVGNames::animateColorTag, [DOMSVGAnimateColorElement class]);
     addElementClass(SVGNames::animateTransformTag, [DOMSVGAnimateTransformElement class]);
@@ -195,10 +196,13 @@ static void createElementClassMap()
     addElementClass(SVGNames::circleTag, [DOMSVGCircleElement class]);
     addElementClass(SVGNames::clipPathTag, [DOMSVGClipPathElement class]);
     addElementClass(SVGNames::cursorTag, [DOMSVGCursorElement class]);
+#if ENABLE(SVG_FONTS)
+    addElementClass(SVGNames::definition_srcTag, [DOMSVGDefinitionSrcElement class]);
+#endif
     addElementClass(SVGNames::defsTag, [DOMSVGDefsElement class]);
     addElementClass(SVGNames::descTag, [DOMSVGDescElement class]);
     addElementClass(SVGNames::ellipseTag, [DOMSVGEllipseElement class]);
-#if ENABLE(SVG_EXPERIMENTAL_FEATURES)
+#if ENABLE(SVG_FILTERS)
     addElementClass(SVGNames::feBlendTag, [DOMSVGFEBlendElement class]);
     addElementClass(SVGNames::feColorMatrixTag, [DOMSVGFEColorMatrixElement class]);
     addElementClass(SVGNames::feComponentTransferTag, [DOMSVGFEComponentTransferElement class]);
@@ -222,7 +226,15 @@ static void createElementClassMap()
     addElementClass(SVGNames::feTileTag, [DOMSVGFETileElement class]);
     addElementClass(SVGNames::feTurbulenceTag, [DOMSVGFETurbulenceElement class]);
     addElementClass(SVGNames::filterTag, [DOMSVGFilterElement class]);
-    addElementClass(SVGNames::foreignObjectTag, [DOMSVGForeignObjectElement class]);
+#endif
+#if ENABLE(SVG_FONTS)
+    addElementClass(SVGNames::fontTag, [DOMSVGFontElement class]);
+    addElementClass(SVGNames::font_faceTag, [DOMSVGFontFaceElement class]);
+    addElementClass(SVGNames::font_face_formatTag, [DOMSVGFontFaceFormatElement class]);
+    addElementClass(SVGNames::font_face_nameTag, [DOMSVGFontFaceNameElement class]);
+    addElementClass(SVGNames::font_face_srcTag, [DOMSVGFontFaceSrcElement class]);
+    addElementClass(SVGNames::font_face_uriTag, [DOMSVGFontFaceUriElement class]);
+    addElementClass(SVGNames::glyphTag, [DOMSVGGlyphElement class]);
 #endif
     addElementClass(SVGNames::gTag, [DOMSVGGElement class]);
     addElementClass(SVGNames::imageTag, [DOMSVGImageElement class]);
@@ -231,6 +243,9 @@ static void createElementClassMap()
     addElementClass(SVGNames::markerTag, [DOMSVGMarkerElement class]);
     addElementClass(SVGNames::maskTag, [DOMSVGMaskElement class]);
     addElementClass(SVGNames::metadataTag, [DOMSVGMetadataElement class]);
+#if ENABLE(SVG_FONTS)
+    addElementClass(SVGNames::missing_glyphTag, [DOMSVGMissingGlyphElement class]);
+#endif
     addElementClass(SVGNames::pathTag, [DOMSVGPathElement class]);
     addElementClass(SVGNames::patternTag, [DOMSVGPatternElement class]);
     addElementClass(SVGNames::polygonTag, [DOMSVGPolygonElement class]);
@@ -248,16 +263,26 @@ static void createElementClassMap()
     addElementClass(SVGNames::titleTag, [DOMSVGTitleElement class]);
     addElementClass(SVGNames::trefTag, [DOMSVGTRefElement class]);
     addElementClass(SVGNames::tspanTag, [DOMSVGTSpanElement class]);
+    addElementClass(SVGNames::textPathTag, [DOMSVGTextPathElement class]);
     addElementClass(SVGNames::useTag, [DOMSVGUseElement class]);
     addElementClass(SVGNames::viewTag, [DOMSVGViewElement class]);
 #endif
+}
+
+static Class lookupElementClass(const QualifiedName& tag)
+{
+    // Do a special lookup to ignore element prefixes
+    if (tag.hasPrefix())
+        return elementClassMap->get(QualifiedName(nullAtom, tag.localName(), tag.namespaceURI()).impl());
+    
+    return elementClassMap->get(tag.impl());
 }
 
 static Class elementClass(const QualifiedName& tag, Class defaultClass)
 {
     if (!elementClassMap)
         createElementClassMap();
-    Class objcClass = elementClassMap->get(tag.impl());
+    Class objcClass = lookupElementClass(tag);
     if (!objcClass)
         objcClass = defaultClass;
     return objcClass;

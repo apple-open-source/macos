@@ -2,7 +2,7 @@
 *
 * @APPLE_LICENSE_HEADER_START@
 * 
-* Copyright (c) 2007 Apple Inc.  All Rights Reserved.
+* Copyright (c) 2007-2008 Apple Inc.  All Rights Reserved.
 * 
 * This file contains Original Code and/or Modifications of Original Code
 * as defined in and that are subject to the Apple Public Source License
@@ -372,64 +372,9 @@ IOUSBControllerV3::setPowerState( unsigned long powerStateOrdinal, IOService* wh
 IOReturn
 IOUSBControllerV3::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice)
 {
-	unsigned long oldState = _myPowerState;
 	
 	USBLog(5, "IOUSBControllerV3(%s)[%p]::powerStateDidChangeTo - capabilities(%p) - stateNumber (%d) - whatDevice(%p): current state(%d)", getName(), this, (void*)capabilities, (int)stateNumber, whatDevice, (int)_myPowerState);
 
-	// I update _myPowerState here, because IOKit doesn't actually update the value returned by getPowerState() until the entire
-	// power domain is in the new state. This means that I may have already made the power change, but until my children actually
-	// get updated, getPowerState will appear to be in the old state, and I may need to know
-	_myPowerState = stateNumber;
-
-	if ( isInactive() || (_onCardBus && _pcCardEjected) )
-	{
-		USBLog(1,"IOUSBControllerV3(%s)[%p]::powerStateDidChangeTo - isInactive (or pccardEjected) - no op", getName(), this);
-	}
-	else
-	{
-		if (stateNumber < kUSBPowerStateLowPower)
-		{
-			// first mark _controllerAvailable as false so that if the RootHubTimerFired method does get called, it doesn't actually do anything 
-			_controllerAvailable = false;									// interrupts should have been disabled already
-			RootHubStopTimer();
-			EnableBusMastering(false);										// turn off bus mastering
-		}
-		else
-		{
-			// the controller should be ready to go, but interrupts are still disabled
-			_controllerAvailable = true;
-
-			// if we are coming FROM a lower state, then reenable interrupts (_myPowerState is the old state)
-			if (oldState < kUSBPowerStateLowPower)
-			{
-				EnableInterruptsFromController(true);
-				if (_rootHubPollingRate)						// only once we have done this once
-					RootHubStartTimer(_rootHubPollingRate);		// restart the timer on wakeup
-			}
-
-			if ( _rootHubDevice == NULL )
-			{
-				IOReturn err;
-				
-				USBLog(5, "IOUSBControllerV3(%s)[%p]::powerStateDidChangeTo - calling CreateRootHubDevice", getName(), this);
-				err = CreateRootHubDevice( _device, &_rootHubDevice );
-				USBLog(5,"IOUSBControllerV3(%s)[%p]::powerStateDidChangeTo - done with CreateRootHubDevice - return (%p)", getName(), this, (void*)err);
-				if ( err != kIOReturnSuccess )
-				{
-					USBLog(1,"AppleUSBEHCI[%p]::powerStateDidChangeTo - Could not create root hub device upon wakeup (%x)!", this, err);
-				}
-				else
-				{
-					_rootHubDevice->registerService(kIOServiceRequired | kIOServiceSynchronous);
-				}
-			}
-			if (_watchdogUSBTimer && !_watchdogTimerActive)
-			{
-				_watchdogTimerActive = true;
-				_watchdogUSBTimer->setTimeoutMS(kUSBWatchdogTimeoutMS);
-			}
-		}
-	}
 	return super::powerStateDidChangeTo(capabilities, stateNumber, whatDevice);
 }
 
@@ -965,6 +910,7 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 {
     IOUSBControllerV3			*me = (IOUSBControllerV3 *)owner;
 	unsigned long				powerStateOrdinal = (unsigned long)arg0;
+	unsigned long				oldState = me->_myPowerState;
 	
 	switch (powerStateOrdinal)
 	{
@@ -987,6 +933,57 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 		case	kUSBPowerStateOn:
 			me->ControllerOn();
 			break;
+	}
+	
+	// This stuff used to be done in powerStateDidChangeTo. However, the timer activation and cancellation stuff really
+	// needs to be done inside the workLoop to prevent race conditions between the actually running of those timers and 
+	// rearming them. So now I do this stuff in here, where we are protected by the WL
+
+	// I update _myPowerState here, because IOKit doesn't actually update the value returned by getPowerState() until the entire
+	// power domain is in the new state. This means that I may have already made the power change, but until my children actually
+	// get updated, getPowerState will appear to be in the old state, and I may need to know
+	me->_myPowerState = powerStateOrdinal;
+	if (powerStateOrdinal < kUSBPowerStateLowPower)
+	{
+		// first mark _controllerAvailable as false so that if the RootHubTimerFired method does get called, it doesn't actually do anything 
+		me->_controllerAvailable = false;									// interrupts should have been disabled already
+		me->RootHubStopTimer();
+		me->EnableBusMastering(false);										// turn off bus mastering
+	}
+	else
+	{
+		// the controller should be ready to go, but interrupts are still disabled
+		me->_controllerAvailable = true;
+		
+		// if we are coming FROM a lower state, then reenable interrupts (_myPowerState is the old state)
+		if (oldState < kUSBPowerStateLowPower)
+		{
+			me->EnableInterruptsFromController(true);
+			if (me->_rootHubPollingRate)						// only once we have done this once
+				me->RootHubStartTimer(me->_rootHubPollingRate);		// restart the timer on wakeup
+		}
+		
+		if ( me->_rootHubDevice == NULL )
+		{
+			IOReturn err;
+			
+			USBLog(5, "IOUSBControllerV3(%s)[%p]::powerStateDidChangeTo - calling CreateRootHubDevice", me->getName(), me);
+			err = me->CreateRootHubDevice( me->_device, &(me->_rootHubDevice) );
+			USBLog(5,"IOUSBControllerV3(%s)[%p]::powerStateDidChangeTo - done with CreateRootHubDevice - return (%p)", me->getName(), me, (void*)err);
+			if ( err != kIOReturnSuccess )
+			{
+				USBLog(1,"AppleUSBEHCI[%p]::powerStateDidChangeTo - Could not create root hub device upon wakeup (%x)!", me, err);
+			}
+			else
+			{
+				me->_rootHubDevice->registerService(kIOServiceRequired | kIOServiceSynchronous);
+			}
+		}
+		if (me->_watchdogUSBTimer && !me->_watchdogTimerActive)
+		{
+			me->_watchdogTimerActive = true;
+			me->_watchdogUSBTimer->setTimeoutMS(kUSBWatchdogTimeoutMS);
+		}
 	}
 	return kIOReturnSuccess;
 }
@@ -1056,8 +1053,6 @@ IOUSBControllerV3::RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender
 	
     if (!me || me->isInactive() || !me->_controllerAvailable)
         return;
-	
-	me->_rootHubTimerActive = true;	
 	if (me->_rootHubDevice && me->_rootHubDevice->GetPolicyMaker())
 	{
 		USBLog(7, "IOUSBControllerV3(%s)[%p]::RootHubTimerFired - PolicyMaker[%p] powerState[%d]", me->getName(), me, me->_rootHubDevice->GetPolicyMaker(), (int)me->_rootHubDevice->GetPolicyMaker()->getPowerState());
@@ -1071,8 +1066,6 @@ IOUSBControllerV3::RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender
 	// fire it up again
     if (me->_rootHubPollingRate && !me->isInactive() && me->_controllerAvailable)
 		me->_rootHubTimer->setTimeoutMS(me->_rootHubPollingRate);
-	me->_rootHubTimerActive = false;	
-	
 }
 
 
@@ -1224,19 +1217,9 @@ IOUSBControllerV3::RootHubStartTimer(UInt8 pollingRate)
 IOReturn				
 IOUSBControllerV3::RootHubStopTimer(void)
 {
-	UInt32		retries = 20;
 	
 	// first of all, make sure that we are not currently inside of the RootHubTimerFired method before we cancel the timeout
-	// note that if we are not in it now, we won't get into it because at this point _controllerAvailavle is false
-	while (_rootHubTimerActive && retries--)
-	{
-		IOSleep(1);
-	}
-	if (_rootHubTimerActive)
-	{
-		USBLog(1, "USB Controller @ %p - unable to stop root hub timer", this);
-	}
-
+	// note that if we are not in it now, we won't get into it because at this point _controllerAvailable is false
 	// cancel the timer, which may or may not actually do anything
     if (_rootHubTimer)
     {

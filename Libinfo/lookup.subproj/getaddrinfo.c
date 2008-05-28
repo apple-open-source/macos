@@ -459,7 +459,8 @@ gai_make_query(const char *nodename, const char *servname, const struct addrinfo
 	kvbuf_t *request;
 	char str[64], *cname;
 
-	flags = 0;
+	/* new default for SULeoDeo */
+	flags = AI_PARALLEL;
 	family = PF_UNSPEC;
 	proto = IPPROTO_UNSPEC;
 	socktype = SOCK_UNSPEC;
@@ -471,7 +472,6 @@ gai_make_query(const char *nodename, const char *servname, const struct addrinfo
 		if (hints->ai_flags & AI_NUMERICHOST) flags |= AI_NUMERICHOST;
 		if (hints->ai_flags & AI_CANONNAME) flags |= AI_CANONNAME;
 		if (hints->ai_flags & AI_PASSIVE) flags |= AI_PASSIVE;
-		if (hints->ai_flags & AI_PARALLEL) flags |= AI_PARALLEL;
 
 		proto = hints->ai_protocol;
 

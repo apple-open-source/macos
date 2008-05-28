@@ -1,55 +1,54 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2007 Holger Hans Peter Freyther zecke@selfish.org
- * All rights reserved.
+ *  Copyright (C) 2007 Holger Hans Peter Freyther zecke@selfish.org
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2 of the License, or (at your option) any later version.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 #include "config.h"
 #include "PlatformScrollBar.h"
+
 #include "IntRect.h"
 #include "GraphicsContext.h"
 #include "FrameView.h"
-
 #include "NotImplemented.h"
+#include "gtkdrawing.h"
+
 #include <gtk/gtk.h>
-#include <cairo/cairo.h>
-#include <stdio.h>
 
 using namespace WebCore;
 
+static gboolean gtkScrollEventCallback(GtkWidget* widget, GdkEventScroll* event, PlatformScrollbar*)
+{
+    /* Scroll only if our parent rejects the scroll event. The rationale for
+     * this is that we want the main frame to scroll when we move the mouse
+     * wheel over a child scrollbar in most cases. */
+    return gtk_widget_event(gtk_widget_get_parent(widget), reinterpret_cast<GdkEvent*>(event));
+}
 
 PlatformScrollbar::PlatformScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation,
                                      ScrollbarControlSize controlSize)
     : Scrollbar(client, orientation, controlSize)
     , m_adjustment(GTK_ADJUSTMENT(gtk_adjustment_new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)))
-{ 
+{
     GtkScrollbar* scrollBar = orientation == HorizontalScrollbar ?
                               GTK_SCROLLBAR(::gtk_hscrollbar_new(m_adjustment)) :
                               GTK_SCROLLBAR(::gtk_vscrollbar_new(m_adjustment));
     gtk_widget_show(GTK_WIDGET(scrollBar));
     g_object_ref(G_OBJECT(scrollBar));
     g_signal_connect(G_OBJECT(scrollBar), "value-changed", G_CALLBACK(PlatformScrollbar::gtkValueChanged), this);
+    g_signal_connect(G_OBJECT(scrollBar), "scroll-event", G_CALLBACK(gtkScrollEventCallback), this);
 
     setGtkWidget(GTK_WIDGET(scrollBar));
 
@@ -58,7 +57,7 @@ PlatformScrollbar::PlatformScrollbar(ScrollbarClient* client, ScrollbarOrientati
      * we will end up with a 0 width scrollbar.
      */
     resize(PlatformScrollbar::horizontalScrollbarHeight(),
-           PlatformScrollbar::verticalScrollbarWidth());    
+           PlatformScrollbar::verticalScrollbarWidth());
 }
 
 PlatformScrollbar::~PlatformScrollbar()
@@ -67,6 +66,7 @@ PlatformScrollbar::~PlatformScrollbar()
      * the Widget does not take over ownership.
      */
     g_signal_handlers_disconnect_by_func(G_OBJECT(gtkWidget()), (gpointer)PlatformScrollbar::gtkValueChanged, this);
+    g_signal_handlers_disconnect_by_func(G_OBJECT(gtkWidget()), (gpointer)gtkScrollEventCallback, this);
     g_object_unref(G_OBJECT(gtkWidget()));
 }
 
@@ -91,7 +91,7 @@ void PlatformScrollbar::paint(GraphicsContext* graphicsContext, const IntRect& d
 }
 
 void PlatformScrollbar::updateThumbPosition()
-{ 
+{
     if (m_adjustment->value != m_currentPos) {
         m_adjustment->value = m_currentPos;
         gtk_adjustment_value_changed(m_adjustment);
@@ -128,5 +128,29 @@ void PlatformScrollbar::geometryChanged()
 
 void PlatformScrollbar::gtkValueChanged(GtkAdjustment*, PlatformScrollbar* that)
 {
-    that->setValue(gtk_adjustment_get_value(that->m_adjustment));
+    that->setValue(static_cast<int>(gtk_adjustment_get_value(that->m_adjustment)));
+}
+
+static int scrollbarSize()
+{
+    static int size = 0;
+
+    if (size)
+        return size;
+
+    MozGtkScrollbarMetrics metrics;
+    moz_gtk_get_scrollbar_metrics(&metrics);
+    size = metrics.slider_width;
+
+    return size;
+}
+
+int PlatformScrollbar::horizontalScrollbarHeight()
+{
+    return scrollbarSize();
+}
+
+int PlatformScrollbar::verticalScrollbarWidth()
+{
+    return scrollbarSize();
 }

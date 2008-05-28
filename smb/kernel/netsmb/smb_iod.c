@@ -205,8 +205,6 @@ static void smb_iod_start_reconnect(struct smbiod *iod)
 	SMB_IOD_FLAGSUNLOCK(iod);
 	
 	vcp = iod->iod_vc;
-	/* Debug code remove when Radar 2811937 is complete */
-	SMBWARNING("with server %s\n", vcp->vc_srvname);
 
 			 /* Search through the request list and set them to the correct state */
 	SMB_IOD_RQLOCK(iod);
@@ -235,13 +233,14 @@ static void smb_iod_start_reconnect(struct smbiod *iod)
 	}
 	SMB_IOD_RQUNLOCK(iod);
 			 
-	 /* Now tell all the sessions we are in reconnect mode. */
-	/* %%% Shouldn't we do a smb_vc_lock and smb_vc_unlock around the loop? Look at it for Radar 2811937 */
+	/* Now tell all the sessions we are in reconnect mode. */
+	smb_vc_lock(vcp);	/* lock the vc so we can search the list */
 	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
 		SMBS_ST_LOCK(ssp);
 		ssp->ss_flags |= SMBS_RECONNECTING;
 		SMBS_ST_UNLOCK(ssp);
 	}
+	smb_vc_unlock(vcp);
 	/* Ok now we can do the reconnect */
 	SMB_IOD_FLAGSLOCK(iod);
 	iod->iod_flags &= ~SMBIOD_START_RECONNECT;
@@ -283,7 +282,7 @@ smb_iod_negotiate(struct smbiod *iod, struct smb_cred *user_scred)
 		ithrow(SMB_TRAN_CONNECT(vcp, vcp->vc_paddr));
 		iod->iod_state = SMBIOD_ST_TRANACTIVE;
 		SMBIODEBUG("tconnect\n");
-		ithrow(smb_smb_negotiate(vcp, &iod->iod_scred, user_scred));
+		ithrow(smb_smb_negotiate(vcp, &iod->iod_scred, user_scred, FALSE));
 		iod->iod_state = SMBIOD_ST_NEGOACTIVE;
 		SMBIODEBUG("completed\n");
 		smb_iod_invrq(iod);
@@ -893,7 +892,7 @@ smb_tickle(struct smbiod *iod)
 	 * the shares.  One success is good enough - needn't
 	 * tickle all the shares.
 	 */
-	/* %%% Shouldn't we do a smb_vc_lock and smb_vc_unlock around the loop? Look at it for Radar 2811937 */
+	smb_vc_lock(iod->iod_vc);	/* lock the vc so we can search the list */
 	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
 		/*
 		 * Make sure nobody deletes the share out from under
@@ -905,6 +904,7 @@ smb_tickle(struct smbiod *iod)
 		if (!error)
 			break;
 	}
+	smb_vc_unlock(iod->iod_vc);
 }
 
 /*
@@ -916,8 +916,7 @@ static int smb_iod_check_for_active_shares(struct smb_vc *vcp, int NotifyUser)
 	struct smb_share *ssp;
 	int treecnt = 0;
 
-	
-	/* %%% Shouldn't we do a smb_vc_lock and smb_vc_unlock around the loop? Look at it for Radar 2811937 */
+	smb_vc_lock(vcp);	/* lock the vc so we can search the list */
 	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
 		smb_share_ref(ssp);
 		if (ssp->ss_mount && ssp->ss_mount->sm_mp && ((ssp->ss_mount->sm_flags & kInMountSMBFS) != kInMountSMBFS) && 
@@ -928,6 +927,7 @@ static int smb_iod_check_for_active_shares(struct smb_vc *vcp, int NotifyUser)
 		}
 		smb_share_rele(ssp, &iod->iod_scred);			
 	}
+	smb_vc_unlock(vcp);
 	return treecnt;			
 
 }
@@ -979,7 +979,6 @@ int smb_iod_nb_intr(struct smb_vc *vcp)
  */
 static void smb_iod_reconnect(struct smbiod *iod)
 {
-	int iconv_close(void *handle);
 	struct smb_vc *vcp = iod->iod_vc;
 	int tree_cnt = 0;
 	int error = 0;
@@ -987,7 +986,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
 	struct smb_share *ssp = NULL;
 	struct timespec waittime, sleeptime, tsnow;
 
-	/* Make sure no user application tries to grab this VC */
+	/* Take a reference on this VC so no one can remove it until we are done */
 	smb_vc_ref(iod->iod_vc);
 	vcp = iod->iod_vc;
 
@@ -1029,7 +1028,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
 			if (sleepcnt < SMB_MAX_SLEEP_CNT )
 				sleepcnt++;
 			nanotime(&tsnow);
-			SMBWARNING("Retrying connect to %s\n", vcp->vc_srvname);
+			SMBERROR("Retrying connection to %s\n", vcp->vc_srvname);
 		}			
 		/* 
 		 * We went to sleep during the reconnect and we just woke up. Start the 
@@ -1047,8 +1046,10 @@ static void smb_iod_reconnect(struct smbiod *iod)
 	}while (error && (timespeccmp(&waittime, &tsnow, >)));
 		
 	/* reconnect failed or we timed out, nothing left to do cancel the reconnect */
-	if (error)
+	if (error) {
+		SMBDEBUG("connect  error = %d\n", error);
 		goto exit;
+	}
 	
 	/* Clear out the outstanding request counter, everything is going to get resent */
 	iod->iod_muxcnt = 0;
@@ -1056,10 +1057,12 @@ static void smb_iod_reconnect(struct smbiod *iod)
 	smb_vc_reset(vcp);
 	/* Start the virtual circuit */
 	iod->iod_state = SMBIOD_ST_TRANACTIVE;
-	error = smb_smb_negotiate(vcp, &iod->iod_scred, NULL);
+	error = smb_smb_negotiate(vcp, &iod->iod_scred, NULL, TRUE);
 	iod->iod_state = SMBIOD_ST_NEGOACTIVE;
-	if (error) 
-		goto exit;		
+	if (error) {
+		SMBDEBUG("smb_smb_negotiate  error = %d\n", error);
+		goto exit;				
+	}
 
 	/* Reset the security */
 	error = smb_iod_ssnsetup(iod);
@@ -1075,7 +1078,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
 	 * We do not wake up smbfs_smb_reopen_file, wait till the very end.
 	 */
 	tree_cnt = 0;
-	/* %%% Shouldn't we do a smb_vc_lock and smb_vc_unlock around the loop? Look at it for Radar 2811937 */
+	smb_vc_lock(vcp);	/* lock the vc so we can search the list */
 	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
 		smb_share_ref(ssp);
 		if (ssp->ss_mount && ssp->ss_mount->sm_mp && (!vfs_isforce(ssp->ss_mount->sm_mp))) {
@@ -1090,17 +1093,19 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		}
 		smb_share_rele(ssp, &iod->iod_scred);			
 	}
+	smb_vc_unlock(vcp);
 	/* If we have no shares on this connect then kill the whole virtual circuit. */
 	if (!tree_cnt)
 		error = ENOTCONN;
 
-exit:;		
+exit:	
 	/*
 	 * We only want to wake up the shares if we are not trying to do another
 	 * reconnect. So if we have no error or the reconnect time is pass the
 	 * wake time, then wake up any volumes that are waiting
 	 */
 	if ((error == 0) || (iod->reconnectStartTime.tv_sec >= gWakeTime.tv_sec)) {
+		smb_vc_lock(vcp);	/* lock the vc so we can search the list */
 		SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
 			smb_share_ref(ssp);
 			SMBS_ST_LOCK(ssp);
@@ -1109,6 +1114,7 @@ exit:;
 			wakeup(&ssp->ss_flags);	/* Wakeup the volumes. */
 			smb_share_rele(ssp, &iod->iod_scred);			
 		}					
+		smb_vc_unlock(vcp);
 	}
 	/* 
 	 * Remember we are the main thread, turning off the flag will start the process 
@@ -1117,6 +1123,8 @@ exit:;
 	SMB_IOD_FLAGSLOCK(iod);
 	iod->iod_flags &= ~SMBIOD_RECONNECT;
 	SMB_IOD_FLAGSUNLOCK(iod);
+	if (!error)
+		SMBERROR("Reconnected to %s\n", vcp->vc_srvname);		
 	smb_vc_rele(vcp, &iod->iod_scred);	/* We are done release the reference */
 	if (error) {
 		SMB_TRAN_DISCONNECT(vcp);
@@ -1135,6 +1143,7 @@ exit:;
 			SMBERROR("The reconnect failed to %s! error = %d\n", vcp->vc_srvname, error);
 		}
 	}
+
 	iod->iod_workflag = 1;
 }
 
@@ -1217,9 +1226,7 @@ static void smb_iod_thread(void *arg)
 {
 	struct smbiod *iod = arg;
 	vfs_context_t      vfsctx;
-	boolean_t	funnel_state;
 
-	funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
 	/* the iod sets the iod_p to kernproc when launching smb_iod_thread in 
 	 * smb_iod_create. Current kpis to cvfscontext support to build a 
@@ -1280,7 +1287,6 @@ static void smb_iod_thread(void *arg)
 	SMB_IOD_FLAGSUNLOCK(iod);
 
 	vfs_context_rele(vfsctx);
-	(void) thread_funnel_set(kernel_flock, funnel_state);
 }
 
 int

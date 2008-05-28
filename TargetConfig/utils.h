@@ -29,6 +29,7 @@ CFStringRef cfstr(const char* str);
 CFPropertyListRef read_plist(const char* path);
 int cfprintf(FILE* file, const char* format, ...);
 CFArrayRef dictionaryGetSortedKeys(CFDictionaryRef dictionary);
+void dictionaryApplyFunctionSorted(CFDictionaryRef dict, CFDictionaryApplierFunction applier, void* context);
 int writePlist(FILE* f, CFPropertyListRef p, int tabs);
 CFArrayRef tokenizeString(CFStringRef str);
 void arrayAppendArrayDistinct(CFMutableArrayRef array, CFArrayRef other);

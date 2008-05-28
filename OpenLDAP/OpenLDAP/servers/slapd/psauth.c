@@ -1,4 +1,4 @@
- #include <stdio.h>
+#include <stdio.h>
 #include <string.h>		//used for strcpy, etc.
 #include <stdlib.h>		//used for malloc
 #include <stdarg.h>
@@ -303,13 +303,16 @@ long OLHandleFirstContact( sPSContextData *inContext, const char *inIP, const ch
 long BeginServerSession( sPSContextData *inContext, int inSock )
 {
 	long siResult = 0;
-	unsigned count;
-	char *tptr, *end;
-	char buf[4096];
-	PWServerError serverResult;
-	int salen;
-	char hbuf[NI_MAXHOST], pbuf[NI_MAXSERV];
-	struct sockaddr_storage local_ip;
+	unsigned int count = 0;
+	char *tptr = NULL;
+	char *end = NULL;
+	char buf[4096] = {0,};
+	PWServerError serverResult = {0};
+	int salen = 0;
+	char hbuf[NI_MAXHOST] = {0};
+	char pbuf[NI_MAXSERV] = {0};
+	struct sockaddr_storage local_ip = {0};
+	int result = 0;
 	
 	do
 	{
@@ -331,13 +334,22 @@ long BeginServerSession( sPSContextData *inContext, int inSock )
 		
 		// set ip addresses
 		salen = sizeof(local_ip);
-		if (getsockname(inContext->fd, (struct sockaddr *)&local_ip, &salen) < 0) {
+		result = getsockname(inContext->fd, (struct sockaddr *)&local_ip, &salen);
+		if (result == 0)
+		{
+			result = getnameinfo((struct sockaddr *)&local_ip, salen,
+						hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
+						NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
+			if ( result == 0 && hbuf[0] != '\0' )
+				snprintf(inContext->localaddr, sizeof(inContext->localaddr), "%s;%s", hbuf, pbuf);
+			else
+				strlcpy(inContext->localaddr, "127.0.0.1;3659", sizeof(inContext->localaddr));
+		}
+		else
+		{
+			strlcpy(inContext->localaddr, "127.0.0.1;3659", sizeof(inContext->localaddr));
 		}
 		
-		getnameinfo((struct sockaddr *)&local_ip, salen,
-					hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
-					NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
-		snprintf(inContext->localaddr, sizeof(inContext->localaddr), "%s;%s", hbuf, pbuf);
 		snprintf(inContext->remoteaddr, sizeof(inContext->remoteaddr), "%s;%s", inContext->psName, inContext->psPort);
 		
 		// retrieve the password server's list of available auth methods
@@ -412,7 +424,7 @@ long BeginServerSession( sPSContextData *inContext, int inSock )
 	
 	return siResult;
 }
-    
+
 
 // ---------------------------------------------------------------------------
 //	* EndServerSession
@@ -459,8 +471,8 @@ int GetRSAPublicKey( sPSContextData *inContext, char *inData )
 	char				*keyStr				= NULL;
 	char				*bufPtr				= NULL;
     int					bits				= 0;
-    PWServerError		serverResult;
-    char				buf[1024];
+    PWServerError		serverResult		= {0};
+    char				buf[1024]			= {0};
     
     if ( inContext == NULL )
         return kAuthOtherError;
@@ -509,9 +521,9 @@ int GetRSAPublicKey( sPSContextData *inContext, char *inData )
 
 int InitConnection(sPSContextData* pContext, sSASLContext *saslContext, char* psName, char* rsakey, sasl_callback_t callbacks[5])
 {
-	long result;
+	long result = 0;
 	sasl_security_properties_t secprops = {0,65535,4096,0,NULL,NULL};
-	char hexHash[34];
+	char hexHash[34] = {0};
 	
 	pContext->fd = -1;
 	
@@ -549,7 +561,7 @@ int InitConnection(sPSContextData* pContext, sSASLContext *saslContext, char* ps
 	if ( result != kAuthNoError )
 		return result;
 	
-	result = sasl_client_new("rcmd", psName, pContext->localaddr, pContext->remoteaddr, callbacks, 0, &pContext->conn);
+	result = sasl_client_new("rcmd", psName, NULL, NULL, callbacks, 0, &pContext->conn);
 	if ( result != SASL_OK || pContext->conn == NULL ) {
 #ifdef DEBUG_PRINTFS
 		printf("sasl_client_new failed.\n");

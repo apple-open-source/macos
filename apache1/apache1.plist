@@ -6,15 +6,15 @@
 		<key>OpenSourceProject</key>
 		<string>apache1</string>
 		<key>OpenSourceVersion</key>
-		<string>1.3.39</string>
+		<string>1.3.41</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://httpd.apache.org/</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.apache.org/dist/httpd/apache_1.3.39.tar.gz</string>
+		<string>http://www.apache.org/dist/httpd/apache_1.3.41.tar.gz</string>
 		<key>OpenSourceSHA1</key>
-		<string>004a6358129d2e839dfe35e1fcf2f1aff5cb24ed</string>
+		<string>3bbd4c4bc648e6ad5b696bb83420533f4d23daf8</string>
 		<key>OpenSourceImportDate</key>
-		<string>2007-09-12</string>
+		<string>2008-02-19</string>
 		<key>OpenSourceModifications</key>
 		<array>
 		<string>Close htdigest.c overflow exposure</string>

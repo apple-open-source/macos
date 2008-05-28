@@ -116,11 +116,8 @@ RenderBlock::~RenderBlock()
     delete m_positionedObjects;
     delete m_maxMargin;
     
-    if (m_hasColumns) {
-        ColumnInfoMap::iterator it = gColumnInfoMap->find(this);
-        delete it->second;
-        gColumnInfoMap->remove(it);
-    }
+    if (m_hasColumns)
+        delete gColumnInfoMap->take(this);
 }
 
 void RenderBlock::setStyle(RenderStyle* _style)
@@ -291,9 +288,11 @@ void RenderBlock::makeChildrenNonInline(RenderObject *insertionPoint)
 
     m_childrenInline = false;
 
-    deleteLineBoxTree();
-
     RenderObject *child = firstChild();
+    if (!child)
+        return;
+
+    deleteLineBoxTree();
 
     while (child) {
         RenderObject *inlineRunStart, *inlineRunEnd;
@@ -320,6 +319,8 @@ void RenderBlock::makeChildrenNonInline(RenderObject *insertionPoint)
     for (RenderObject *c = firstChild(); c; c = c->nextSibling())
         ASSERT(!c->isInline());
 #endif
+
+    repaint();
 }
 
 void RenderBlock::removeChild(RenderObject *oldChild)
@@ -576,10 +577,11 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
 
     int repaintTop = 0;
     int repaintBottom = 0;
+    int maxFloatBottom = 0;
     if (childrenInline())
         layoutInlineChildren(relayoutChildren, repaintTop, repaintBottom);
     else
-        layoutBlockChildren(relayoutChildren);
+        layoutBlockChildren(relayoutChildren, maxFloatBottom);
 
     // Expand our intrinsic height to encompass floats.
     int toAdd = borderBottom() + paddingBottom() + horizontalScrollbarHeight();
@@ -595,6 +597,16 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
     int oldHeight = m_height;
     calcHeight();
     if (oldHeight != m_height) {
+        if (oldHeight > m_height && maxFloatBottom > m_height && !childrenInline()) {
+            // One of our children's floats may have become an overhanging float for us. We need to look for it.
+            for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
+                if (child->isBlockFlow() && !child->isFloatingOrPositioned()) {
+                    RenderBlock* block = static_cast<RenderBlock*>(child);
+                    if (block->floatBottom() + block->yPos() > m_height)
+                        addOverhangingFloats(block, -block->xPos(), -block->yPos(), false);
+                }
+            }
+        }
         // We have to rebalance columns to the new height.
         layoutColumns(singleColumnBottom);
 
@@ -648,7 +660,7 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
     bool didFullRepaint = false;
     if (checkForRepaint)
         didFullRepaint = repaintAfterLayoutIfNeeded(oldBounds, oldOutlineBox);
-    if (!didFullRepaint && repaintTop != repaintBottom) {
+    if (!didFullRepaint && repaintTop != repaintBottom && (style()->visibility() == VISIBLE || enclosingLayer()->hasVisibleContent())) {
         IntRect repaintRect(m_overflowLeft, repaintTop, m_overflowWidth - m_overflowLeft, repaintBottom - repaintTop);
 
         // FIXME: Deal with multiple column repainting.  We have to split the repaint
@@ -1131,7 +1143,7 @@ void RenderBlock::handleBottomOfBlock(int top, int bottom, MarginInfo& marginInf
     setCollapsedBottomMargin(marginInfo);
 }
 
-void RenderBlock::layoutBlockChildren(bool relayoutChildren)
+void RenderBlock::layoutBlockChildren(bool relayoutChildren, int& maxFloatBottom)
 {
     int top = borderTop() + paddingTop();
     int bottom = borderBottom() + paddingBottom() + horizontalScrollbarHeight();
@@ -1147,6 +1159,7 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren)
     RenderObject* legend = layoutLegend(relayoutChildren);
 
     int previousFloatBottom = 0;
+    maxFloatBottom = 0;
 
     RenderObject* child = firstChild();
     while (child) {
@@ -1187,14 +1200,6 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren)
         // be correct.  Only if we're wrong (when we compute the real y position)
         // will we have to potentially relayout.
         int yPosEstimate = estimateVerticalPosition(child, marginInfo);
-        
-        // If an element might be affected by the presence of floats, then always mark it for
-        // layout.
-        if (!child->avoidsFloats() || child->shrinkToAvoidFloats()) {
-            int fb = max(previousFloatBottom, floatBottom());
-            if (fb > m_height || fb > yPosEstimate)
-                child->setChildNeedsLayout(true, false);
-        }
 
         // Cache our old rect so that we can dirty the proper repaint rects if the child moves.
         IntRect oldRect(child->xPos(), child->yPos() , child->width(), child->height());
@@ -1202,13 +1207,27 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren)
         // Go ahead and position the child as though it didn't collapse with the top.
         view()->addLayoutDelta(IntSize(0, child->yPos() - yPosEstimate));
         child->setPos(child->xPos(), yPosEstimate);
+
+        bool markDescendantsWithFloats = false;
         if (yPosEstimate != oldRect.y() && !child->avoidsFloats() && child->containsFloats())
+            markDescendantsWithFloats = true;
+        else if (!child->avoidsFloats() || child->shrinkToAvoidFloats()) {
+            // If an element might be affected by the presence of floats, then always mark it for
+            // layout.
+            int fb = max(previousFloatBottom, floatBottom());
+            if (fb > m_height || fb > yPosEstimate)
+                markDescendantsWithFloats = true;
+        }
+
+        if (markDescendantsWithFloats)
             child->markAllDescendantsWithFloatsForLayout();
 
         if (child->isRenderBlock())
             previousFloatBottom = max(previousFloatBottom, oldRect.y() + static_cast<RenderBlock*>(child)->floatBottom());
 
-        child->layoutIfNeeded();
+        bool childNeededLayout = child->needsLayout();
+        if (childNeededLayout)
+            child->layout();
 
         // Now determine the correct ypos based off examination of collapsing margin
         // values.
@@ -1234,7 +1253,7 @@ void RenderBlock::layoutBlockChildren(bool relayoutChildren)
         }
         // If the child has overhanging floats that intrude into following siblings (or possibly out
         // of this block), then the parent gets notified of the floats now.
-        addOverhangingFloats(static_cast<RenderBlock *>(child), -child->xPos(), -child->yPos());
+        maxFloatBottom = max(maxFloatBottom, addOverhangingFloats(static_cast<RenderBlock *>(child), -child->xPos(), -child->yPos(), !childNeededLayout));
 
         // Update our overflow in case the child spills out the block.
         m_overflowTop = min(m_overflowTop, child->yPos() + child->overflowTop(false));
@@ -1276,20 +1295,21 @@ bool RenderBlock::layoutOnlyPositionedObjects()
     if (!posChildNeedsLayout() || normalChildNeedsLayout() || selfNeedsLayout())
         return false;
 
-    // All we have to is lay out our positioned objects.
     if (!m_hasColumns)
         view()->pushLayoutState(this, IntSize(xPos(), yPos()));
     else
         view()->disableLayoutState();
 
+    // All we have to is lay out our positioned objects.
     layoutPositionedObjects(false);
-    if (hasOverflowClip())
-        m_layer->updateScrollInfoAfterLayout();
 
     if (!m_hasColumns)
         view()->popLayoutState();
     else
         view()->enableLayoutState();
+
+    if (hasOverflowClip())
+        m_layer->updateScrollInfoAfterLayout();
 
     setNeedsLayout(false);
     return true;
@@ -1747,7 +1767,7 @@ bool RenderBlock::isSelectionRoot() const
         return false;
         
     if (isBody() || isRoot() || hasOverflowClip() || isRelPositioned() ||
-        isFloatingOrPositioned() || isTableCell() || isInlineBlockOrInlineTable())
+        isFloatingOrPositioned() || isTableCell() || isInlineBlockOrInlineTable() || hasTransform())
         return true;
     
     if (view() && view()->selectionStart()) {
@@ -1797,8 +1817,8 @@ GapRects RenderBlock::fillSelectionGaps(RenderBlock* rootBlock, int blockX, int 
     if (!isBlockFlow()) // FIXME: Make multi-column selection gap filling work someday.
         return result;
 
-    if (m_hasColumns) {
-        // FIXME: We should learn how to gap fill multiple columns eventually.
+    if (m_hasColumns || hasTransform()) {
+        // FIXME: We should learn how to gap fill multiple columns and transforms eventually.
         lastTop = (ty - blockY) + height();
         lastLeft = leftSelectionOffset(rootBlock, height());
         lastRight = rightSelectionOffset(rootBlock, height());
@@ -1837,7 +1857,7 @@ GapRects RenderBlock::fillInlineSelectionGaps(RenderBlock* rootBlock, int blockX
 
     RootInlineBox* lastSelectedLine = 0;
     RootInlineBox* curr;
-    for (curr = firstRootBox(); curr && !curr->hasSelectedChildren(); curr = curr->nextRootBox());
+    for (curr = firstRootBox(); curr && !curr->hasSelectedChildren(); curr = curr->nextRootBox()) { }
 
     // Now paint the gaps for the lines.
     for (; curr && curr->hasSelectedChildren(); curr = curr->nextRootBox()) {
@@ -1875,7 +1895,7 @@ GapRects RenderBlock::fillBlockSelectionGaps(RenderBlock* rootBlock, int blockX,
 
     // Go ahead and jump right to the first block child that contains some selected objects.
     RenderObject* curr;
-    for (curr = firstChild(); curr && curr->selectionState() == SelectionNone; curr = curr->nextSibling());
+    for (curr = firstChild(); curr && curr->selectionState() == SelectionNone; curr = curr->nextSibling()) { }
 
     for (bool sawSelectionEnd = false; curr && !sawSelectionEnd; curr = curr->nextSibling()) {
         SelectionState childState = curr->selectionState();
@@ -2629,18 +2649,23 @@ RenderBlock::clearFloats()
         addIntrudingFloats(block, xoffset, offset);
 }
 
-void RenderBlock::addOverhangingFloats(RenderBlock* child, int xoff, int yoff)
+int RenderBlock::addOverhangingFloats(RenderBlock* child, int xoff, int yoff, bool makeChildPaintOtherFloats)
 {
     // Prevent floats from being added to the canvas by the root element, e.g., <html>.
     if (child->hasOverflowClip() || !child->containsFloats() || child->isRoot())
-        return;
+        return 0;
+
+    int lowestFloatBottom = 0;
 
     // Floats that will remain the child's responsiblity to paint should factor into its
     // visual overflow.
     IntRect floatsOverflowRect;
     DeprecatedPtrListIterator<FloatingObject> it(*child->m_floatingObjects);
     for (FloatingObject* r; (r = it.current()); ++it) {
-        if (child->yPos() + r->endY > height()) {
+        int bottom = child->yPos() + r->endY;
+        lowestFloatBottom = max(lowestFloatBottom, bottom);
+
+        if (bottom > height()) {
             // If the object is not in the list, we add it now.
             if (!containsFloat(r->node)) {
                 FloatingObject *floatingObj = new FloatingObject(r->type());
@@ -2666,7 +2691,14 @@ void RenderBlock::addOverhangingFloats(RenderBlock* child, int xoff, int yoff)
                 }
                 m_floatingObjects->append(floatingObj);
             }
-        }
+        } else if (makeChildPaintOtherFloats && r->noPaint && !r->node->hasLayer() && r->node->isDescendantOf(child) && r->node->enclosingLayer() == child->enclosingLayer())
+            // The float is not overhanging from this block, so if it is a descendant of the child, the child should
+            // paint it (the other case is that it is intruding into the child), unless it has its own layer or enclosing
+            // layer.
+            // If makeChildPaintOtherFloats is false, it means that the child must already know about all the floats
+            // it should paint.
+            r->noPaint = false;
+
         if (!r->noPaint && !r->node->hasLayer()) {
             IntRect floatOverflowRect = r->node->overflowRect(false);
             floatOverflowRect.move(r->left + r->node->marginLeft(), r->startY + r->node->marginTop());
@@ -2674,6 +2706,7 @@ void RenderBlock::addOverhangingFloats(RenderBlock* child, int xoff, int yoff)
         }
     }
     child->addVisualOverflow(floatsOverflowRect);
+    return lowestFloatBottom;
 }
 
 void RenderBlock::addIntrudingFloats(RenderBlock* prev, int xoff, int yoff)
@@ -2865,7 +2898,7 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
                 if (!o->noPaint && !o->node->hasLayer()) {
                     int xoffset = scrolledX + o->left + o->node->marginLeft() - o->node->xPos();
                     int yoffset =  scrolledY + o->startY + o->node->marginTop() - o->node->yPos();
-                    if (o->node->hitTest(request, result, _x, _y, xoffset, yoffset)) {
+                    if (o->node->hitTest(request, result, IntPoint(_x, _y), xoffset, yoffset)) {
                         updateHitTestResult(result, IntPoint(_x - xoffset, _y - yoffset));
                         return true;
                     }
@@ -2962,16 +2995,22 @@ Position RenderBlock::positionForBox(InlineBox *box, bool start) const
     return Position(box->object()->element(), start ? textBox->start() : textBox->start() + textBox->len());
 }
 
-Position RenderBlock::positionForRenderer(RenderObject *renderer, bool start) const
+Position RenderBlock::positionForRenderer(RenderObject* renderer, bool start) const
 {
     if (!renderer)
         return Position(element(), 0);
 
-    Node *node = renderer->element() ? renderer->element() : element();
+    Node* node = renderer->element() ? renderer->element() : element();
     if (!node)
         return Position();
 
-    int offset = start ? node->caretMinOffset() : node->caretMaxOffset();
+    ASSERT(renderer == node->renderer());
+
+    int offset = start ? renderer->caretMinOffset() : renderer->caretMaxOffset();
+
+    // FIXME: This was a runtime check that seemingly couldn't fail; changed it to an assertion for now.
+    ASSERT(!node->isCharacterDataNode() || renderer->isText());
+
     return Position(node, offset);
 }
 
@@ -3159,9 +3198,7 @@ void RenderBlock::setDesiredColumnCountAndWidth(int count, int width)
 {
     if (count == 1) {
         if (m_hasColumns) {
-            ColumnInfoMap::iterator it = gColumnInfoMap->find(this);
-            delete it->second;
-            gColumnInfoMap->remove(it);
+            delete gColumnInfoMap->take(this);
             m_hasColumns = false;
         }
     } else {
@@ -3526,35 +3563,12 @@ static inline void stripTrailingSpace(int& inlineMax, int& inlineMin,
         // Collapse away the trailing space at the end of a block.
         RenderText* t = static_cast<RenderText*>(trailingSpaceChild);
         const UChar space = ' ';
-        int spaceWidth = t->style()->font().width(TextRun(&space, 1)); // FIXME: This ignores first-line.
-        inlineMax -= spaceWidth;
+        const Font& font = t->style()->font(); // FIXME: This ignores first-line.
+        int spaceWidth = font.width(TextRun(&space, 1));
+        inlineMax -= spaceWidth + font.wordSpacing();
         if (inlineMin > inlineMax)
             inlineMin = inlineMax;
     }
-}
-
-// This function is to match a crazy quirk that other browsers have. Firefox
-// and Opera will allow a table cell to grow to fit an image inside it under
-// very specific cirucumstances. Not supporting the quirk has caused us to
-// mis-render some real sites. (See Bugzilla 10517.) 
-static bool shouldGrowTableCellForImage(const RenderBlock* containingBlock, const RenderObject* image, const RenderObject* adjacentLeaf)
-{
-    if (!containingBlock->style()->htmlHacks())
-        return false;
-
-    if (!containingBlock->isTableCell())
-        return false;
-
-    if (!image->isImage())
-        return false;
-
-    if (adjacentLeaf && !adjacentLeaf->isImage())
-        return false;
-
-    if (!containingBlock->style()->width().isAuto())
-        return false;
-
-    return true;
 }
 
 void RenderBlock::calcInlinePrefWidths()
@@ -3569,6 +3583,11 @@ void RenderBlock::calcInlinePrefWidths()
     bool stripFrontSpaces = true;
     RenderObject* trailingSpaceChild = 0;
 
+    // Firefox and Opera will allow a table cell to grow to fit an image inside it under
+    // very specific cirucumstances (in order to match common WinIE renderings). 
+    // Not supporting the quirk has caused us to mis-render some real sites. (See Bugzilla 10517.) 
+    bool allowImagesToBreak = !style()->htmlHacks() || !isTableCell() || !style()->width().isIntrinsicOrAuto();
+
     bool autoWrap, oldAutoWrap;
     autoWrap = oldAutoWrap = style()->autoWrap();
 
@@ -3577,11 +3596,6 @@ void RenderBlock::calcInlinePrefWidths()
     RenderObject* prevFloat = 0;
     RenderObject* previousLeaf = 0;
     while (RenderObject* child = childIterator.next()) {
-        InlineMinMaxIterator leafIterator = childIterator;
-        RenderObject* nextLeaf = leafIterator.next();
-        while (nextLeaf && nextLeaf->isInlineFlow())
-            nextLeaf = leafIterator.next();
-
         autoWrap = child->isReplaced() ? child->parent()->style()->autoWrap() : 
             child->style()->autoWrap();
 
@@ -3675,8 +3689,8 @@ void RenderBlock::calcInlinePrefWidths()
                 } else
                     clearPreviousFloat = false;
                 
-                bool growForPrevious = shouldGrowTableCellForImage(this, child, previousLeaf);
-                if (!growForPrevious && (autoWrap || oldAutoWrap) || clearPreviousFloat) {
+                bool canBreakReplacedElement = !child->isImage() || allowImagesToBreak;
+                if (canBreakReplacedElement && (autoWrap || oldAutoWrap) || clearPreviousFloat) {
                     m_minPrefWidth = max(inlineMin, m_minPrefWidth);
                     inlineMin = 0;
                 }
@@ -3699,12 +3713,12 @@ void RenderBlock::calcInlinePrefWidths()
                 // Add our width to the max.
                 inlineMax += childMax;
 
-                if (!autoWrap || growForPrevious)
+                if (!autoWrap || !canBreakReplacedElement)
                     inlineMin += childMin;
                 else
                     inlineMin = childMin;
 
-                if (autoWrap && !shouldGrowTableCellForImage(this, child, nextLeaf)) {
+                if (autoWrap && canBreakReplacedElement) {
                     // Now check our line.
                     m_minPrefWidth = max(inlineMin, m_minPrefWidth);
 
@@ -4126,7 +4140,7 @@ void RenderBlock::updateFirstLetter()
             unsigned int length = 0;
             
             // account for leading spaces and punctuation
-            while (length < oldText->length() && (DeprecatedChar((*oldText)[length]).isSpace() || Unicode::isPunct((*oldText)[length])))
+            while (length < oldText->length() && (isSpaceOrNewline((*oldText)[length]) || Unicode::isPunct((*oldText)[length])))
                 length++;
             
             // account for first letter

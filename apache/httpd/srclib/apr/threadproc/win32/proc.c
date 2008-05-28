@@ -32,6 +32,10 @@
 #include <process.h>
 #endif
 
+/* We have very carefully excluded volumes of definitions from the
+ * Microsoft Platform SDK, which kill the build time performance.
+ * These the sole constants we borrow from WinBase.h and WinUser.h
+ */
 #ifndef LOGON32_LOGON_NETWORK
 #define LOGON32_LOGON_NETWORK 3
 #endif
@@ -83,20 +87,66 @@ APR_DECLARE(apr_status_t) apr_procattr_io_set(apr_procattr_t *attr,
             in = APR_READ_BLOCK;
         else if (in == APR_PARENT_BLOCK)
             in = APR_WRITE_BLOCK;
-        stat = apr_create_nt_pipe(&attr->child_in, &attr->parent_in, in,
-                                  attr->pool);
+
+        stat = apr_create_nt_pipe(&attr->child_in, &attr->parent_in,
+                                  in, attr->pool);
+        if (stat == APR_SUCCESS) { 
+            switch (in) { 
+                case APR_FULL_BLOCK:
+                    break;
+                case APR_READ_BLOCK:
+                    apr_file_pipe_timeout_set(attr->parent_in, 0);
+                    break;
+                case APR_WRITE_BLOCK:
+                    apr_file_pipe_timeout_set(attr->child_in, 0);
+                    break;
+                default:
+                    apr_file_pipe_timeout_set(attr->child_in, 0);
+                    apr_file_pipe_timeout_set(attr->parent_in, 0);
+            }
+        }
         if (stat == APR_SUCCESS)
             stat = apr_file_inherit_unset(attr->parent_in);
     }
     if (out && stat == APR_SUCCESS) {
-        stat = apr_create_nt_pipe(&attr->parent_out, &attr->child_out, out,
-                                  attr->pool);
+        stat = apr_create_nt_pipe(&attr->parent_out, &attr->child_out,
+                                  out, attr->pool);
+        if (stat == APR_SUCCESS) { 
+            switch (out) {
+                case APR_FULL_BLOCK:
+                    break;
+                case APR_PARENT_BLOCK:
+                    apr_file_pipe_timeout_set(attr->child_out, 0);
+                    break;
+                case APR_CHILD_BLOCK:
+                    apr_file_pipe_timeout_set(attr->parent_out, 0);
+                    break;
+                default:
+                    apr_file_pipe_timeout_set(attr->child_out, 0);
+                    apr_file_pipe_timeout_set(attr->parent_out, 0);
+            }
+        }
         if (stat == APR_SUCCESS)
             stat = apr_file_inherit_unset(attr->parent_out);
     }
     if (err && stat == APR_SUCCESS) {
-        stat = apr_create_nt_pipe(&attr->parent_err, &attr->child_err, err,
-                                  attr->pool);
+        stat = apr_create_nt_pipe(&attr->parent_err, &attr->child_err,
+                                  err, attr->pool);
+        if (stat == APR_SUCCESS) { 
+            switch (err) {
+                case APR_FULL_BLOCK:
+                    break;
+                case APR_PARENT_BLOCK:
+                    apr_file_pipe_timeout_set(attr->child_err, 0);
+                    break;
+                case APR_CHILD_BLOCK:
+                    apr_file_pipe_timeout_set(attr->parent_err, 0);
+                    break;
+                default:
+                    apr_file_pipe_timeout_set(attr->child_err, 0);
+                    apr_file_pipe_timeout_set(attr->parent_err, 0);
+            }
+        }
         if (stat == APR_SUCCESS)
             stat = apr_file_inherit_unset(attr->parent_err);
     }
@@ -776,46 +826,49 @@ APR_DECLARE(apr_status_t) apr_proc_create(apr_proc_t *new,
             si.dwFlags |= STARTF_USESTDHANDLES;
 
             si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+            if (GetHandleInformation(si.hStdInput, &stdin_reset)
+                    && (stdin_reset &= HANDLE_FLAG_INHERIT))
+                SetHandleInformation(si.hStdInput,
+                                     HANDLE_FLAG_INHERIT, 0);
+
             if (attr->child_in && attr->child_in->filehand)
             {
-                if (GetHandleInformation(si.hStdInput,
-                                         &stdin_reset)
-                        && (stdin_reset &= HANDLE_FLAG_INHERIT))
-                    SetHandleInformation(si.hStdInput,
-                                         HANDLE_FLAG_INHERIT, 0);
-
                 si.hStdInput = attr->child_in->filehand;
                 SetHandleInformation(si.hStdInput, HANDLE_FLAG_INHERIT,
                                                    HANDLE_FLAG_INHERIT);
             }
+            else
+                si.hStdInput = INVALID_HANDLE_VALUE;
             
             si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+            if (GetHandleInformation(si.hStdOutput, &stdout_reset)
+                    && (stdout_reset &= HANDLE_FLAG_INHERIT))
+                SetHandleInformation(si.hStdOutput,
+                                     HANDLE_FLAG_INHERIT, 0);
+
             if (attr->child_out && attr->child_out->filehand)
             {
-                if (GetHandleInformation(si.hStdOutput,
-                                         &stdout_reset)
-                        && (stdout_reset &= HANDLE_FLAG_INHERIT))
-                    SetHandleInformation(si.hStdOutput,
-                                         HANDLE_FLAG_INHERIT, 0);
-
                 si.hStdOutput = attr->child_out->filehand;
                 SetHandleInformation(si.hStdOutput, HANDLE_FLAG_INHERIT,
                                                     HANDLE_FLAG_INHERIT);
             }
+            else
+                si.hStdOutput = INVALID_HANDLE_VALUE;
 
             si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+            if (GetHandleInformation(si.hStdError, &stderr_reset)
+                    && (stderr_reset &= HANDLE_FLAG_INHERIT))
+                SetHandleInformation(si.hStdError,
+                                     HANDLE_FLAG_INHERIT, 0);
+
             if (attr->child_err && attr->child_err->filehand)
             {
-                if (GetHandleInformation(si.hStdError,
-                                         &stderr_reset)
-                        && (stderr_reset &= HANDLE_FLAG_INHERIT))
-                    SetHandleInformation(si.hStdError,
-                                         HANDLE_FLAG_INHERIT, 0);
-
                 si.hStdError = attr->child_err->filehand;
                 SetHandleInformation(si.hStdError, HANDLE_FLAG_INHERIT,
-                                                   HANDLE_FLAG_INHERIT);
+                                                       HANDLE_FLAG_INHERIT);
             }
+            else
+                si.hStdError = INVALID_HANDLE_VALUE;
         }
         if (attr->user_token) {
             /* XXX: for terminal services, handles can't be cannot be

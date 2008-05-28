@@ -313,8 +313,8 @@ samp_p_header_print(void)
 	mem_wired = (unsigned long long) samp_tsamp->vm_stat.wire_count * samp_tsamp->pagesize;
 	mem_active = (unsigned long long) samp_tsamp->vm_stat.active_count * samp_tsamp->pagesize;
 	mem_inactive = (unsigned long long) samp_tsamp->vm_stat.inactive_count * samp_tsamp->pagesize;
-	mem_used = (unsigned long long) mem_wired + mem_active + mem_inactive;
 	mem_free = (unsigned long long) samp_tsamp->vm_stat.free_count * samp_tsamp->pagesize;
+	mem_used = (unsigned long long) samp_tsamp->memsize - mem_free;
 
 	pageins = samp_tsamp->vm_stat.pageins;
 	pageouts = samp_tsamp->vm_stat.pageouts;

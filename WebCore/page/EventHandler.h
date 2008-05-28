@@ -108,6 +108,8 @@ public:
 
     void setResizingFrameSet(HTMLFrameSetElement*);
 
+    void resizeLayerDestroyed();
+
     IntPoint currentMousePosition() const;
 
     void setIgnoreWheelEvents(bool);
@@ -132,6 +134,9 @@ public:
 
     void setMouseDownMayStartAutoscroll() { m_mouseDownMayStartAutoscroll = true; }
 
+    bool needsKeyboardEventDisambiguationQuirks() const;
+
+    bool handleAccessKey(const PlatformKeyboardEvent&);
     bool keyEvent(const PlatformKeyboardEvent&);
     void defaultKeyboardEventHandler(KeyboardEvent*);
 
@@ -146,6 +151,8 @@ public:
 
     void focusDocumentView();
 
+    void capsLockStateMayHaveChanged();
+    
 #if PLATFORM(MAC)
     PassRefPtr<KeyboardEvent> currentKeyboardEvent() const;
 
@@ -180,6 +187,7 @@ private:
     
     bool eventActivatedView(const PlatformMouseEvent&) const;
     void selectClosestWordFromMouseEvent(const MouseEventWithHitTestResults& event);
+    void selectClosestWordOrLinkFromMouseEvent(const MouseEventWithHitTestResults& event);
 
     bool handleMouseDoubleClickEvent(const PlatformMouseEvent&);
 
@@ -219,6 +227,7 @@ private:
 
     bool handleDrag(const MouseEventWithHitTestResults&);
     bool handleMouseUp(const MouseEventWithHitTestResults&);
+    void clearDragState();
 
     bool dispatchDragSrcEvent(const AtomicString& eventType, const PlatformMouseEvent&);
 
@@ -239,7 +248,7 @@ private:
     bool passMouseDownEventToWidget(Widget*);
     bool passWheelEventToWidget(PlatformWheelEvent&, Widget*);
 
-    void defaultTabEventHandler(Event*, bool isBackTab);
+    void defaultTabEventHandler(KeyboardEvent*);
 
     void allowDHTMLDrag(bool& flagDHTML, bool& flagUA) const;
 

@@ -152,7 +152,8 @@ typedef void (*cupsd_selfunc_t)(void *data);
  * Globals...
  */
 
-VAR int			MaxFDs;		/* Maximum number of files */
+VAR int			MaxFDs		VALUE(0);
+					/* Maximum number of files */
 
 VAR time_t		ReloadTime	VALUE(0);
 					/* Time of reload request... */
@@ -160,7 +161,8 @@ VAR int			NeedReload	VALUE(RELOAD_ALL);
 					/* Need to load configuration? */
 
 #ifdef HAVE_GSSAPI
-VAR krb5_context	KerberosContext;/* Kerberos context for credentials */
+VAR krb5_context	KerberosContext VALUE(NULL);
+					/* Kerberos context for credentials */
 #endif /* HAVE_GSSAPI */
 
 #ifdef HAVE_LAUNCH_H

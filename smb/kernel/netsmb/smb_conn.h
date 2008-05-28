@@ -216,9 +216,6 @@ struct smb_connobj;
 typedef void smb_co_gone_t (struct smb_connobj *cp, struct smb_cred *scred);
 typedef void smb_co_free_t (struct smb_connobj *cp);
 
-#define	SMB_CO_LOCK(cp)		lck_mtx_lock(&(cp)->co_interlock)
-#define	SMB_CO_UNLOCK(cp)	lck_mtx_unlock(&(cp)->co_interlock)
-
 struct smb_connobj {
 	int			co_level;	/* SMBL_ */
 	u_int32_t	co_flags;
@@ -477,7 +474,7 @@ const char * smb_share_getpass(struct smb_share *ssp);
 /*
  * SMB protocol level functions
  */
-int  smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred, struct smb_cred *user_scred);
+int  smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred, struct smb_cred *user_scred, int inReconnect);
 int  smb_smb_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred);
 int  smb_smb_ssnclose(struct smb_vc *vcp, struct smb_cred *scred);
 int  smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred);

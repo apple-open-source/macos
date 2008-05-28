@@ -47,9 +47,11 @@
 #include "RenderObject.h"
 #include "ScrollBar.h"
 #include "Timer.h"
+#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
+class AffineTransform;
 class CachedResource;
 class HitTestResult;
 class PlatformScrollbar;
@@ -209,7 +211,7 @@ public:
 
     bool isTransparent() const;
     RenderLayer* transparentAncestor();
-    void beginTransparencyLayers(GraphicsContext*, const IntRect&);
+    void beginTransparencyLayers(GraphicsContext*, const RenderLayer* rootLayer);
 
     const RenderLayer* root() const
     {
@@ -281,6 +283,8 @@ public:
     void updateLayerPosition();
     void updateLayerPositions(bool doFullRepaint = false, bool checkForRepaint = true);
 
+    void updateTransform();
+
     void relativePositionOffset(int& relX, int& relY) { relX += m_relX; relY += m_relY; }
 
     void clearClipRects();
@@ -330,10 +334,10 @@ public:
     IntRect childrenClipRect() const; // Returns the foreground clip rect of the layer in the document's coordinate space.
     IntRect selfClipRect() const; // Returns the background clip rect of the layer in the document's coordinate space.
 
-    bool intersectsDamageRect(const IntRect& layerBounds, const IntRect& damageRect) const;
+    bool intersectsDamageRect(const IntRect& layerBounds, const IntRect& damageRect, const RenderLayer* rootLayer) const;
 
     // Returns a bounding box for this layer only.
-    IntRect absoluteBoundingBox() const;
+    IntRect boundingBox(const RenderLayer* rootLayer) const;
 
     void updateHoverActiveState(const HitTestRequest&, HitTestResult&);
 
@@ -344,6 +348,8 @@ public:
     int staticY() const { return m_staticY; }
     void setStaticX(int staticX) { m_staticX = staticX; }
     void setStaticY(int staticY) { m_staticY = staticY; }
+
+    AffineTransform* transform() const { return m_transform.get(); }
 
     void destroy(RenderArena*);
 
@@ -369,13 +375,14 @@ private:
 
     void paintLayer(RenderLayer* rootLayer, GraphicsContext*, const IntRect& paintDirtyRect,
                     bool haveTransparency, PaintRestriction, RenderObject* paintingRoot);
-    RenderLayer* hitTestLayer(RenderLayer* rootLayer, const HitTestRequest&, HitTestResult&, const IntRect& hitTestRect);
+    RenderLayer* hitTestLayer(RenderLayer* rootLayer, const HitTestRequest&, HitTestResult&, const IntRect& hitTestRect, const IntPoint& hitTestPoint);
     void computeScrollDimensions(bool* needHBar = 0, bool* needVBar = 0);
 
     bool shouldBeOverflowOnly() const;
 
     virtual void valueChanged(Scrollbar*);
     virtual IntRect windowClipRect() const;
+    virtual bool isActive() const;
 
     void updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow);
 
@@ -462,6 +469,8 @@ protected:
     // Cached normal flow values for absolute positioned elements with static left/top values.
     int m_staticX;
     int m_staticY;
+    
+    OwnPtr<AffineTransform> m_transform;
 };
 
 } // namespace WebCore

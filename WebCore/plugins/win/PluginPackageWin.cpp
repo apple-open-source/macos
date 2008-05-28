@@ -23,16 +23,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
-#include "PluginPackageWin.h"
+#include <shlwapi.h>
 
+#include "config.h"
+#include "PluginPackage.h"
+
+#include "CString.h"
 #include "DeprecatedString.h"
+#include "MIMETypeRegistry.h"
 #include "npruntime_impl.h"
+#include "PluginDatabase.h"
 #include "PluginDebug.h"
+#include "Timer.h"
+#include <string.h>
 
 namespace WebCore {
 
-PluginPackageWin::~PluginPackageWin()
+PluginPackage::~PluginPackage()
 {
     ASSERT(!m_isLoaded);
 }
@@ -80,20 +87,79 @@ static Vector<String> splitString(const String& str, char delimiter, int padTo)
     return result;
 }
 
-PluginPackageWin::PluginPackageWin(const String& path, const FILETIME& lastModified)
+void PluginPackage::freeLibrarySoon()
+{
+    ASSERT(!m_freeLibraryTimer.isActive());
+    ASSERT(m_module);
+    ASSERT(m_loadCount == 0);
+
+    m_freeLibraryTimer.startOneShot(0);
+}
+
+void PluginPackage::freeLibraryTimerFired(Timer<PluginPackage>* /*timer*/)
+{
+    ASSERT(m_module);
+    ASSERT(m_loadCount == 0);
+
+    ::FreeLibrary(m_module);
+    m_module = 0;
+}
+
+PluginPackage::PluginPackage(const String& path, const FILETIME& lastModified)
     : m_path(path)
     , m_module(0)
     , m_lastModified(lastModified)
     , m_isLoaded(false)
     , m_loadCount(0)
+    , m_freeLibraryTimer(this, &PluginPackage::freeLibraryTimerFired)
+    , m_fileVersionLS(0)
+    , m_fileVersionMS(0)
+    , m_allowsMultipleInstances(true)
 {
-    int pos = m_path.deprecatedString().findRev('\\');
-
-    m_fileName = m_path.right(m_path.length() - pos - 1);
-
+    m_fileName = String(PathFindFileName(m_path.charactersWithNullTermination()));
+    m_parentDirectory = m_path.left(m_path.length() - m_fileName.length() - 1);
 }
 
-bool PluginPackageWin::fetchInfo()
+int PluginPackage::compareFileVersion(unsigned compareVersionMS, unsigned compareVersionLS) const
+{
+    // return -1, 0, or 1 if plug-in version is less than, equal to, or greater than
+    // the passed version
+    if (m_fileVersionMS != compareVersionMS)
+        return m_fileVersionMS > compareVersionMS ? 1 : -1;
+    if (m_fileVersionLS != compareVersionLS)
+        return m_fileVersionLS > compareVersionLS ? 1 : -1;
+    return 0;
+}
+
+void PluginPackage::storeFileVersion(LPVOID versionInfoData)
+{
+    VS_FIXEDFILEINFO* info;
+    UINT infoSize;
+    if (!VerQueryValue(versionInfoData, TEXT("\\"), (LPVOID*) &info, &infoSize) || infoSize < sizeof(VS_FIXEDFILEINFO))
+        return;
+    m_fileVersionLS = info->dwFileVersionLS;
+    m_fileVersionMS = info->dwFileVersionMS;
+}
+
+bool PluginPackage::isPluginBlacklisted()
+{
+    static const unsigned silverlightPluginMinRequiredVersionMS = 0x00010000;
+    static const unsigned silverlightPluginMinRequiredVersionLS = 0x51BE0000;
+
+    if (name() == "Silverlight Plug-In") {
+        // workaround for <rdar://5557379> Crash in Silverlight when opening microsoft.com.
+        // the latest 1.0 version of Silverlight does not reproduce this crash, so allow it
+        // and any newer versions
+        if (compareFileVersion(silverlightPluginMinRequiredVersionMS, silverlightPluginMinRequiredVersionLS) < 0)
+            return true;
+    } else if (fileName() == "npmozax.dll")
+        // Bug 15217: Mozilla ActiveX control complains about missing xpcom_core.dll
+        return true;
+
+    return false;
+}
+
+bool PluginPackage::fetchInfo()
 {
     DWORD versionInfoSize, zeroHandle;
     versionInfoSize = GetFileVersionInfoSizeW(m_path.charactersWithNullTermination(), &zeroHandle); 
@@ -116,6 +182,19 @@ bool PluginPackageWin::fetchInfo()
         return false;
     }
 
+    // VLC 0.8.6d and 0.8.6e crash if multiple instances are created.
+    // <rdar://problem/5773070> tracks allowing multiple instances when this
+    // bug is fixed.
+    if (name() == "VLC Multimedia Plugin")
+        m_allowsMultipleInstances = false;
+
+    storeFileVersion(versionInfoData);
+
+    if (isPluginBlacklisted()) {
+        fastFree(versionInfoData);
+        return false;
+    }
+
     Vector<String> mimeTypes = splitString(getVersionInfo(versionInfoData, "MIMEType"), '|', -1);
     Vector<String> fileExtents = splitString(getVersionInfo(versionInfoData, "FileExtents"), '|', mimeTypes.size());
     Vector<String> descriptions = splitString(getVersionInfo(versionInfoData, "FileOpenName"), '|', mimeTypes.size());
@@ -134,6 +213,8 @@ bool PluginPackageWin::fetchInfo()
             description = description.left(pos);
         }
 
+        mimeTypes[i] = mimeTypes[i].lower();
+
         m_mimeToExtensions.add(mimeTypes[i], splitString(fileExtents[i], ',', -1));
         m_mimeToDescriptions.add(mimeTypes[i], description);
     }
@@ -141,30 +222,59 @@ bool PluginPackageWin::fetchInfo()
     return true;
 }
 
-bool PluginPackageWin::load()
+int PluginPackage::compare(const PluginPackage& compareTo) const
 {
-    if (m_isLoaded) {
+    // Sort plug-ins that allow multiple instances first.
+    bool AallowsMultipleInstances = allowsMultipleInstances();
+    bool BallowsMultipleInstances = compareTo.allowsMultipleInstances();
+    if (AallowsMultipleInstances != BallowsMultipleInstances)
+        return AallowsMultipleInstances ? -1 : 1;
+
+    // Sort plug-ins in a preferred path first.
+    bool AisInPreferredPath = PluginDatabase::isPreferredPluginPath(parentDirectory());
+    bool BisInPreferredPath = PluginDatabase::isPreferredPluginPath(compareTo.parentDirectory());
+    if (AisInPreferredPath != BisInPreferredPath)
+        return AisInPreferredPath ? -1 : 1;
+
+    int diff = strcmp(name().utf8().data(), compareTo.name().utf8().data());
+    if (diff)
+        return diff;
+
+    if (diff = compareFileVersion(compareTo.m_fileVersionLS, compareTo.m_fileVersionMS))
+        return diff;
+
+    return strcmp(parentDirectory().utf8().data(), compareTo.parentDirectory().utf8().data());
+}
+
+bool PluginPackage::load()
+{
+    if (m_freeLibraryTimer.isActive()) {
+        ASSERT(m_module);
+        m_freeLibraryTimer.stop();
+    } else if (m_isLoaded) {
+        if (!allowsMultipleInstances())
+            return false;
         m_loadCount++;
         return true;
-    }
+    } else {
+        WCHAR currentPath[MAX_PATH];
 
-    WCHAR currentPath[MAX_PATH];
+        if (!::GetCurrentDirectoryW(MAX_PATH, currentPath))
+            return false;
 
-    if (!::GetCurrentDirectoryW(MAX_PATH, currentPath))
-        return false;
+        String path = m_path.substring(0, m_path.reverseFind('\\'));
 
-    String path = m_path.substring(0, m_path.reverseFind('\\'));
+        if (!::SetCurrentDirectoryW(path.charactersWithNullTermination()))
+            return false;
 
-    if (!::SetCurrentDirectoryW(path.charactersWithNullTermination()))
-        return false;
+        // Load the library
+        m_module = ::LoadLibraryW(m_path.charactersWithNullTermination());
 
-    // Load the library
-    m_module = ::LoadLibraryW(m_path.charactersWithNullTermination());
-
-    if (!::SetCurrentDirectoryW(currentPath)) {
-        if (m_module)
-            ::FreeLibrary(m_module);
-        return false;
+        if (!::SetCurrentDirectoryW(currentPath)) {
+            if (m_module)
+                ::FreeLibrary(m_module);
+            return false;
+        }
     }
 
     if (!m_module)
@@ -191,6 +301,7 @@ bool PluginPackageWin::load()
     if (npErr != NPERR_NO_ERROR)
         goto abort;
 
+    memset(&m_browserFuncs, 0, sizeof(m_browserFuncs));
     m_browserFuncs.size = sizeof (m_browserFuncs);
     m_browserFuncs.version = NP_VERSION_MINOR;
     m_browserFuncs.geturl = NPN_GetURL;
@@ -223,6 +334,7 @@ bool PluginPackageWin::load()
     m_browserFuncs.getintidentifier = _NPN_GetIntIdentifier;
     m_browserFuncs.identifierisstring = _NPN_IdentifierIsString;
     m_browserFuncs.utf8fromidentifier = _NPN_UTF8FromIdentifier;
+    m_browserFuncs.intfromidentifier = _NPN_IntFromIdentifier;
     m_browserFuncs.createobject = _NPN_CreateObject;
     m_browserFuncs.retainobject = _NPN_RetainObject;
     m_browserFuncs.releaseobject = _NPN_ReleaseObject;
@@ -232,8 +344,8 @@ bool PluginPackageWin::load()
     m_browserFuncs.getproperty = _NPN_GetProperty;
     m_browserFuncs.setproperty = _NPN_SetProperty;
     m_browserFuncs.removeproperty = _NPN_RemoveProperty;
-    m_browserFuncs.hasproperty = _NPN_HasMethod;
-    m_browserFuncs.hasmethod = _NPN_HasProperty;
+    m_browserFuncs.hasproperty = _NPN_HasProperty;
+    m_browserFuncs.hasmethod = _NPN_HasMethod;
     m_browserFuncs.setexception = _NPN_SetException;
     m_browserFuncs.enumerate = _NPN_Enumerate;
 
@@ -250,7 +362,7 @@ abort:
     return false;
 }
 
-void PluginPackageWin::unload()
+void PluginPackage::unload()
 {
     if (!m_isLoaded)
         return;
@@ -263,7 +375,7 @@ void PluginPackageWin::unload()
     unloadWithoutShutdown();
 }
 
-void PluginPackageWin::unloadWithoutShutdown()
+void PluginPackage::unloadWithoutShutdown()
 {
     if (!m_isLoaded)
         return;
@@ -271,14 +383,20 @@ void PluginPackageWin::unloadWithoutShutdown()
     ASSERT(m_loadCount == 0);
     ASSERT(m_module);
 
-    FreeLibrary(m_module);
+    // <rdar://5530519>: Crash when closing tab with pdf file (Reader 7 only)
+    // If the plugin has subclassed its parent window, as with Reader 7, we may have
+    // gotten here by way of the plugin's internal window proc forwarding a message to our
+    // original window proc. If we free the plugin library from here, we will jump back
+    // to code we just freed when we return, so delay calling FreeLibrary at least until
+    // the next message loop
+    freeLibrarySoon();
 
     m_isLoaded = false;
 }
 
-PluginPackageWin* PluginPackageWin::createPackage(const String& path, const FILETIME& lastModified)
+PluginPackage* PluginPackage::createPackage(const String& path, const FILETIME& lastModified)
 {
-    PluginPackageWin* package = new PluginPackageWin(path, lastModified);
+    PluginPackage* package = new PluginPackage(path, lastModified);
 
     if (!package->fetchInfo()) {
         delete package;
@@ -288,7 +406,7 @@ PluginPackageWin* PluginPackageWin::createPackage(const String& path, const FILE
     return package;
 }
 
-unsigned PluginPackageWin::hash() const
+unsigned PluginPackage::hash() const
 { 
     unsigned hashCodes[3] = {
         m_description.impl()->hash(),
@@ -299,7 +417,7 @@ unsigned PluginPackageWin::hash() const
     return StringImpl::computeHash(reinterpret_cast<UChar*>(hashCodes), 3 * sizeof(unsigned) / sizeof(UChar));
 }
 
-bool PluginPackageWin::equal(const PluginPackageWin& a, const PluginPackageWin& b)
+bool PluginPackage::equal(const PluginPackage& a, const PluginPackage& b)
 {
     return a.m_description == b.m_description && (CompareFileTime(&a.m_lastModified, &b.m_lastModified) == 0);
 }

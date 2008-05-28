@@ -36,6 +36,7 @@
 #include "GraphicsContext.h"
 #include "AffineTransform.h"
 #include "NotImplemented.h"
+#include "qwebsettings.h"
 
 #include <QPixmap>
 #include <QPainter>
@@ -50,7 +51,22 @@
 #include <math.h>
 
 // This function loads resources into WebKit
-QPixmap loadResourcePixmap(const char*);
+static QPixmap loadResourcePixmap(const char *name)
+{
+    const QString resource = name;
+
+    QPixmap pixmap;
+    if (resource == "missingImage")
+        pixmap = QWebSettings::webGraphic(QWebSettings::MissingImageGraphic);
+    else if (resource == "nullPlugin")
+        pixmap = QWebSettings::webGraphic(QWebSettings::MissingPluginGraphic);
+    else if (resource == "urlIcon")
+        pixmap = QWebSettings::webGraphic(QWebSettings::DefaultFaviconGraphic);
+    else if (resource == "textAreaResizeCorner")
+        pixmap = QWebSettings::webGraphic(QWebSettings::TextAreaResizeCornerGraphic);
+
+    return pixmap;
+}
 
 namespace WebCore {
 

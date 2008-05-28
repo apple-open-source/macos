@@ -1431,8 +1431,15 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
             //
 			if ( _QUEUED_REPORTS <= kMaxQueuedReports)
 			{
+				// If thread_call_enter() returns TRUE, then a call is already
+				// pending, and we need to drop our outstandingIO count.
 				IncrementOutstandingIO();
-				thread_call_enter1(_HANDLE_REPORT_THREAD, (thread_call_param_t) &timeStamp);
+				if ( thread_call_enter1(_HANDLE_REPORT_THREAD, (thread_call_param_t) &timeStamp) == TRUE)
+				{
+					USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _HANDLE_REPORT_THREAD was already queued!", getName(), this);
+					DecrementOutstandingIO();
+				}
+				
 			}
 			else
 			{
@@ -1461,8 +1468,15 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 				if ( !_deviceHasBeenDisconnected && !isInactive() && _interruptPipe)
 				{
 					USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler Checking to see if HID device is still connected", getName(), this);
+	
+					// If thread_call_enter() returns TRUE, then a call is already
+					// pending, and we need to drop our outstandingIO count.
 					IncrementOutstandingIO();
-					thread_call_enter(_deviceDeadCheckThread );
+					if ( thread_call_enter(_deviceDeadCheckThread) == TRUE )
+					{
+						USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _deviceDeadCheckThread was already queued!", getName(), this);
+						DecrementOutstandingIO();
+					}
 					
 					// Before requeueing, we need to clear the stall
 					//
@@ -1512,8 +1526,15 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 				
                 // And call the device to reset the endpoint as well
                 //
-                IncrementOutstandingIO();
-                thread_call_enter(_clearFeatureEndpointHaltThread);					// this will rearm the request when it is done
+  
+				// If thread_call_enter() returns TRUE, then a call is already
+				// pending, and we need to drop our outstandingIO count.
+				IncrementOutstandingIO();
+                if ( thread_call_enter(_clearFeatureEndpointHaltThread) == TRUE )					// this will rearm the request when it is done
+				{
+					USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _clearFeatureEndpointHaltThread was already queued!", getName(), this);
+					DecrementOutstandingIO();
+				}
             }
 			break;
 			
@@ -1748,8 +1769,14 @@ IOUSBHIDDriver::HandleReport(AbsoluteTime timeStamp)
         //
 		if ( _NEED_TO_CLEARPIPESTALL  )
 		{
+			// If thread_call_enter() returns TRUE, then a call is already
+			// pending, and we need to drop our outstandingIO count.
 			IncrementOutstandingIO();
-			thread_call_enter(_clearFeatureEndpointHaltThread);					// this will rearm the request when it is done
+			if ( thread_call_enter(_clearFeatureEndpointHaltThread) == TRUE )					// this will rearm the request when it is done
+			{
+				USBLog(3, "IOUSBHIDDriver(%s)[%p]::HandleReport  _clearFeatureEndpointHaltThread was already queued!", getName(), this);
+				DecrementOutstandingIO();
+			}
 		}
 		else
 		{

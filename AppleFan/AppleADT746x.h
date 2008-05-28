@@ -161,13 +161,13 @@ class AppleADT746x : public IOService
 		bool doI2CRead(UInt8 sub, UInt8 *bytes, UInt16 len);
 		bool doI2CWrite(UInt8 sub, UInt8 *bytes, UInt16 len);
 
-		IOReturn AppleADT746x::getLocalTemp(SInt32 *temperature);
-		IOReturn AppleADT746x::getRemote1Temp(SInt32 *temperature);
-		IOReturn AppleADT746x::getRemote2Temp(SInt32 *temperature);
+		IOReturn getLocalTemp(SInt32 *temperature);
+		IOReturn getRemote1Temp(SInt32 *temperature);
+		IOReturn getRemote2Temp(SInt32 *temperature);
 
-		IOReturn AppleADT746x::getVoltage(SInt32 *voltage);
+		IOReturn getVoltage(SInt32 *voltage);
 
-		IOReturn AppleADT746x::getFanTach(SInt32 *fanSpeed, SInt16 whichFan);
+		IOReturn getFanTach(SInt32 *fanSpeed, SInt16 whichFan);
 
 	public:
 		virtual IOService *probe(IOService *provider, SInt32 *score);

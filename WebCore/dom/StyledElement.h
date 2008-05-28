@@ -49,7 +49,7 @@ public:
     void addCSSProperty(MappedAttribute* attr, int id, const String &value);
     void addCSSProperty(MappedAttribute* attr, int id, int value);
     void addCSSStringProperty(MappedAttribute* attr, int id, const String &value, CSSPrimitiveValue::UnitTypes = CSSPrimitiveValue::CSS_STRING);
-    void addCSSImageProperty(MappedAttribute* attr, int id, const String &URL);
+    void addCSSImageProperty(MappedAttribute*, int propertyID, const String& url);
     void addCSSColor(MappedAttribute* attr, int id, const String &c);
     void createMappedDecl(MappedAttribute* attr);
     
@@ -58,7 +58,8 @@ public:
     static void removeMappedAttributeDecl(MappedAttributeEntry type, const QualifiedName& attrName, const AtomicString& attrValue);
     
     CSSMutableStyleDeclaration* inlineStyleDecl() const { return m_inlineStyleDecl.get(); }
-    virtual CSSMutableStyleDeclaration* additionalAttributeStyleDecl();
+    virtual bool canHaveAdditionalAttributeStyleDecls() const { return false; }
+    virtual void additionalAttributeStyleDecls(Vector<CSSMutableStyleDeclaration*>&) {};
     CSSMutableStyleDeclaration* getInlineStyleDecl();
     CSSStyleDeclaration* style();
     void createInlineStyleDecl();
@@ -66,7 +67,7 @@ public:
     void invalidateStyleAttribute();
     virtual void updateStyleAttributeIfNeeded() const;
     
-    virtual const AtomicStringList* getClassList() const;
+    virtual const ClassNames* getClassNames() const;
     virtual void attributeChanged(Attribute* attr, bool preserveDecls = false);
     virtual void parseMappedAttribute(MappedAttribute* attr);
     virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
@@ -77,8 +78,6 @@ public:
 
 protected:
     RefPtr<CSSMutableStyleDeclaration> m_inlineStyleDecl;
-    mutable bool m_isStyleAttributeValid : 1;
-    mutable bool m_synchronizingStyleAttribute : 1;
 };
 
 } //namespace

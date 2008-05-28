@@ -289,12 +289,12 @@ Value FunId::evaluate() const
         while (startPos < length && isWhitespace(idList[startPos]))
             ++startPos;
         
+        if (startPos == length)
+            break;
+
         size_t endPos = startPos;
         while (endPos < length && !isWhitespace(idList[endPos]))
             ++endPos;
-
-        if (endPos == length)
-            break;
 
         // If there are several nodes with the same id, id() should return the first one.
         // In WebKit, getElementById behaves so, too, although its behavior in this case is formally undefined.
@@ -375,7 +375,7 @@ Value FunCount::evaluate() const
     if (!a.isNodeSet())
         return 0.0;
     
-    return a.toNodeSet().size();
+    return double(a.toNodeSet().size());
 }
 
 Value FunString::evaluate() const
@@ -441,14 +441,11 @@ Value FunSubstringAfter::evaluate() const
     String s1 = arg(0)->evaluate().toString();
     String s2 = arg(1)->evaluate().toString();
 
-    if (s2.isEmpty())
-        return s2;
-
     int i = s1.find(s2);
     if (i == -1)
         return "";
 
-    return s1.substring(s2.length());
+    return s1.substring(i + s2.length());
 }
 
 Value FunSubstring::evaluate() const

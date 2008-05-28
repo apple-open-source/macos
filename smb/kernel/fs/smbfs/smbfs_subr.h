@@ -198,7 +198,7 @@ int  smbfs_smb_unhideit(struct smbnode *np, const char *name, int len,
 			struct smb_cred *scrp);
 int smbfs_set_unix_info2(struct smbnode *np, struct timespec *crtime, struct timespec *mtime, struct timespec *atime, u_int64_t fsize,  u_int32_t perms, u_int32_t FileFlags, u_int32_t FileFlagsMask, struct smb_cred *scrp);
 int  smbfs_smb_getsec(struct smb_share *ssp, u_int16_t fid,
-	struct smb_cred *scrp, u_int32_t selector, struct ntsecdesc **res);
+	struct smb_cred *scrp, u_int32_t selector, struct ntsecdesc **res, int *seclen);
 int  smbfs_smb_setsec(struct smb_share *ssp, u_int16_t fid,
 	struct smb_cred *scrp, u_int32_t selector, u_int16_t flags,
 	struct ntsid *owner, struct ntsid *group, struct ntacl *sacl,

@@ -130,7 +130,7 @@ OSStatus performAuthenticatedXMLRPC(
 		xmlDebug("performAuthenticatedXMLRPC: WSMethodInvocationInvoke (attempt %u)\n", attempt);
 		xmlDebug("***************************************************************************\n");
         CFDictionaryRef response = WSMethodInvocationInvoke(wsRef);
-
+		
         /*
 		 * Since we can't reuse the Invocation dump it as we have our response
 		 */
@@ -138,6 +138,10 @@ OSStatus performAuthenticatedXMLRPC(
             CFRelease(wsRef);
             wsRef = NULL;
         }
+
+        #if XML_DEBUG
+        logCFstr("performAuthenticatedXMLRPC: userName:", userName);
+        #endif
 
         if (WSMethodResultIsFault(response)) {
             CFStringRef errorMsg = (CFStringRef)CFDictionaryGetValue(

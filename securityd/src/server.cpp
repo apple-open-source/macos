@@ -36,6 +36,7 @@
 #include "child.h"
 #include <mach/mach_error.h>
 #include <security_utilities/ccaudit.h>
+#include "pcscmonitor.h"
 
 #include "agentquery.h"
 
@@ -374,6 +375,14 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
 			NodeCore::dumpAll();
 			break;
 #endif //DEBUGDUMP
+
+		case SIGUSR2:
+			{
+				extern PCSCMonitor *gPCSC;
+				gPCSC->startSoftTokens();
+				break;
+			}
+
 		default:
 			assert(false);
         }

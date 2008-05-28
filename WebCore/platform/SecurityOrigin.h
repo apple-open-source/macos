@@ -29,30 +29,51 @@
 #ifndef SecurityOrigin_h
 #define SecurityOrigin_h
 
+#include <wtf/RefCounted.h>
+#include <wtf/PassRefPtr.h>
+
 #include "PlatformString.h"
+#include "Threading.h"
 
 namespace WebCore {
 
     class Frame;
     class KURL;
-
-    class SecurityOrigin {
+    
+    class SecurityOrigin : public ThreadSafeShared<SecurityOrigin> {
     public:
-        SecurityOrigin();
+        static PassRefPtr<SecurityOrigin> createForFrame(Frame*);
+        static PassRefPtr<SecurityOrigin> createFromIdentifier(const String&);
+        static PassRefPtr<SecurityOrigin> create(const String& protocol, const String& host, unsigned short port, SecurityOrigin* ownerFrameOrigin);
 
-        void setForFrame(Frame*);
+        PassRefPtr<SecurityOrigin> copy();
+
         void setDomainFromDOM(const String& newDomain);
-
-        bool canAccess(const SecurityOrigin&) const;
+        String host() const { return m_host; }
+        String protocol() const { return m_protocol; }
+        unsigned short port() const { return m_port; }
+        
+        enum Reason  {
+            GenericMismatch,
+            DomainSetInDOMMismatch
+        };
+        bool canAccess(const SecurityOrigin*, Reason&) const;
         bool isSecureTransitionTo(const KURL&) const;
 
-    private:
-        void clear();
         bool isEmpty() const;
+        String toString() const;
+        
+        String stringIdentifier() const;
+
+        // do not use this for access checks, it's there only for using this as a hashtable key
+        bool equal(SecurityOrigin* other) const { return m_protocol == other->m_protocol && m_host == other->m_host && m_port == other->m_port; }
+        
+    private:
+        SecurityOrigin(const String& protocol, const String& host, unsigned short port);
 
         String m_protocol;
         String m_host;
-        short m_port;
+        unsigned short m_port;
         bool m_portSet;
         bool m_noAccess;
         bool m_domainWasSetInDOM;

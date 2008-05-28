@@ -85,6 +85,16 @@ RenderFlow* RenderFlow::continuationBefore(RenderObject* beforeChild)
 
 void RenderFlow::addChildWithContinuation(RenderObject* newChild, RenderObject* beforeChild)
 {
+    if (beforeChild && (beforeChild->parent()->isTableRow() || beforeChild->parent()->isTableSection() || beforeChild->parent()->isTable())) {
+        RenderObject* anonymousTablePart = beforeChild->parent();
+        ASSERT(anonymousTablePart->isAnonymous());
+        while (!anonymousTablePart->isTable()) {
+            anonymousTablePart = anonymousTablePart->parent();
+            ASSERT(anonymousTablePart->isAnonymous());
+        }
+        return anonymousTablePart->addChild(newChild, beforeChild);
+    }
+
     RenderFlow* flow = continuationBefore(beforeChild);
     ASSERT(!beforeChild || beforeChild->parent()->isRenderBlock() ||
                 beforeChild->parent()->isRenderInline());
@@ -759,17 +769,16 @@ void RenderFlow::paintOutline(GraphicsContext* graphicsContext, int tx, int ty)
     if (style()->outlineStyleIsAuto() || style()->outlineStyle() <= BHIDDEN)
         return;
 
-    Vector<IntRect*> rects;
+    Vector<IntRect> rects;
 
-    rects.append(new IntRect);
+    rects.append(IntRect());
     for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox())
-        rects.append(new IntRect(curr->xPos(), curr->yPos(), curr->width(), curr->height()));
+        rects.append(IntRect(curr->xPos(), curr->yPos(), curr->width(), curr->height()));
 
-    rects.append(new IntRect);
+    rects.append(IntRect());
 
     for (unsigned i = 1; i < rects.size() - 1; i++)
-        paintOutlineForLine(graphicsContext, tx, ty, *rects.at(i - 1), *rects.at(i), *rects.at(i + 1));
-    deleteAllValues(rects);
+        paintOutlineForLine(graphicsContext, tx, ty, rects.at(i - 1), rects.at(i), rects.at(i + 1));
 }
 
 void RenderFlow::paintOutlineForLine(GraphicsContext* graphicsContext, int tx, int ty,

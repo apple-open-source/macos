@@ -41,7 +41,7 @@
 #include "dstools_version.h"
 
 #warning VERIFY the version string before each major OS build submission
-const char *version = "10.5.0";
+const char *version = "10.5.3";
 	
 SInt32 EnableRootUser( const char *userName, const char *password, const char *rootPassword );
 SInt32 EnableRootUser( const char *userName, const char *password, const char *rootPassword )

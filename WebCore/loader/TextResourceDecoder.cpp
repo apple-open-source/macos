@@ -1,8 +1,6 @@
 /*
-    This file is part of the KDE libraries
-
     Copyright (C) 1999 Lars Knoll (knoll@mpi-hd.mpg.de)
-    Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
+    Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
     Copyright (C) 2005, 2006, 2007 Alexey Proskuryakov (ap@nypop.com)
 
     This library is free software; you can redistribute it and/or
@@ -28,9 +26,11 @@
 #include "CString.h"
 #include "DOMImplementation.h"
 #include "DeprecatedCString.h"
-#include "DeprecatedString.h"
 #include "HTMLNames.h"
 #include "TextCodec.h"
+#include <wtf/ASCIICType.h>
+
+using namespace WTF;
 
 namespace WebCore {
 
@@ -394,7 +394,7 @@ bool TextResourceDecoder::checkForCSSCharset(const char* data, size_t len, bool&
     }
 
     size_t oldSize = m_buffer.size();
-    m_buffer.resize(oldSize + len);
+    m_buffer.grow(oldSize + len);
     memcpy(m_buffer.data() + oldSize, data, len);
 
     movedDataToBuffer = true;
@@ -476,7 +476,7 @@ bool TextResourceDecoder::checkForHeadCharset(const char* data, size_t len, bool
     // through the HTML head several times.
 
     size_t oldSize = m_buffer.size();
-    m_buffer.resize(oldSize + len);
+    m_buffer.grow(oldSize + len);
     memcpy(m_buffer.data() + oldSize, data, len);
 
     movedDataToBuffer = true;
@@ -528,7 +528,10 @@ bool TextResourceDecoder::checkForHeadCharset(const char* data, size_t len, bool
     // Additionally, we ignore things that looks like tags in <title>, <script> and <noscript>; see
     // <http://bugs.webkit.org/show_bug.cgi?id=4560>, <http://bugs.webkit.org/show_bug.cgi?id=12165>
     // and <http://bugs.webkit.org/show_bug.cgi?id=12389>.
-    
+
+    // Since many sites have charset declarations after <body> or other tags that are disallowed in <head>,
+    // we don't bail out until we've checked at least 512 bytes of input.
+
     AtomicStringImpl* enclosingTagName = 0;
 
     while (ptr + 3 < pEnd) { // +3 guarantees that "<!--" fits in the buffer - and certainly we aren't going to lose any "charset" that way.
@@ -645,11 +648,11 @@ bool TextResourceDecoder::checkForHeadCharset(const char* data, size_t len, bool
 
                     pos = endpos + 1;
                 }
-            } else if (tag != scriptTag && tag != noscriptTag && tag != styleTag &&
+            } else if (ptr - m_buffer.data() >= 512 && tag != scriptTag && tag != noscriptTag && tag != styleTag &&
                        tag != linkTag && tag != metaTag && tag != objectTag &&
                        tag != titleTag && tag != baseTag && 
                        (end || tag != htmlTag) && !enclosingTagName &&
-                       (tag != headTag) && isalpha(tagBuffer[0])) {
+                       (tag != headTag) && isASCIIAlpha(tagBuffer[0])) {
                 m_checkedForHeadCharset = true;
                 return true;
             }
@@ -706,19 +709,19 @@ String TextResourceDecoder::decode(const char* data, size_t len)
 
     if (!movedDataToBuffer) {
         size_t oldSize = m_buffer.size();
-        m_buffer.resize(oldSize + len);
+        m_buffer.grow(oldSize + len);
         memcpy(m_buffer.data() + oldSize, data, len);
     }
 
     String result = m_decoder.decode(m_buffer.data(), m_buffer.size());
-    m_buffer.resize(0);
+    m_buffer.clear();
     return result;
 }
 
 String TextResourceDecoder::flush()
 {
     String result = m_decoder.decode(m_buffer.data(), m_buffer.size(), true);
-    m_buffer.resize(0);
+    m_buffer.clear();
     return result;
 }
 

@@ -33,7 +33,6 @@
 #include "RenderLayer.h"
 #include "Text.h"
 #include "TextBreakIterator.h"
-#include "TextStyle.h"
 #include "break_lines.h"
 #include <wtf/AlwaysInline.h>
 
@@ -43,7 +42,7 @@ using namespace Unicode;
 
 namespace WebCore {
 
-static inline bool charactersAreAllASCII(const StringImpl* text)
+static inline bool charactersAreAllASCII(StringImpl* text)
 {
     const UChar* chars = text->characters();
     unsigned length = text->length();
@@ -198,14 +197,31 @@ void RenderText::absoluteRects(Vector<IntRect>& rects, int tx, int ty, bool)
 
 void RenderText::addLineBoxRects(Vector<IntRect>& rects, unsigned start, unsigned end, bool useSelectionHeight)
 {
+    // Work around signed/unsigned issues. This function takes unsigneds, and is often passed UINT_MAX
+    // to mean "all the way to the end". InlineTextBox coordinates are unsigneds, so changing this 
+    // function to take ints causes various internal mismatches. But selectionRect takes ints, and 
+    // passing UINT_MAX to it causes trouble. Ideally we'd change selectionRect to take unsigneds, but 
+    // that would cause many ripple effects, so for now we'll just clamp our unsigned parameters to INT_MAX.
+    ASSERT(end == UINT_MAX || end <= INT_MAX);
+    ASSERT(start <= INT_MAX);
+    start = min(start, static_cast<unsigned>(INT_MAX));
+    end = min(end, static_cast<unsigned>(INT_MAX));
+    
     int x, y;
     absolutePositionForContent(x, y);
 
     for (InlineTextBox* box = firstTextBox(); box; box = box->nextTextBox()) {
-        if (start <= box->start() && box->end() <= end)
-            rects.append(IntRect(x + box->xPos(), y + box->yPos(), box->width(), box->height()));
-        else {
-            unsigned realEnd = min(box->end() + 1, end); // box->end() points at the last char, not after it
+        // Note: box->end() returns the index of the last character, not the index past it
+        if (start <= box->start() && box->end() < end) {
+            IntRect r = IntRect(x + box->xPos(), y + box->yPos(), box->width(), box->height());
+            if (useSelectionHeight) {
+                IntRect selectionRect = box->selectionRect(x, y, start, end);
+                r.setHeight(selectionRect.height());
+                r.setY(selectionRect.y());
+            }
+            rects.append(r);
+        } else {
+            unsigned realEnd = min(box->end() + 1, end);
             IntRect r = box->selectionRect(x, y, start, realEnd);
             if (!r.isEmpty()) {
                 if (!useSelectionHeight) {
@@ -404,7 +420,7 @@ ALWAYS_INLINE int RenderText::widthFromCache(const Font& f, int start, int len, 
                     w += tabWidth - ((xPos + w) % tabWidth);
                 else
                     w += monospaceCharacterWidth;
-                if (isspace(c) && !isspace(previousChar))
+                if (isASCIISpace(c) && !isASCIISpace(previousChar))
                     w += f.wordSpacing();
             }
             previousChar = c;
@@ -412,7 +428,7 @@ ALWAYS_INLINE int RenderText::widthFromCache(const Font& f, int start, int len, 
         return w;
     }
 
-    return f.width(TextRun(text()->characters() + start, len), TextStyle(allowTabs(), xPos));
+    return f.width(TextRun(text()->characters() + start, len, allowTabs(), xPos));
 }
 
 void RenderText::trimmedPrefWidths(int leadWidth,
@@ -447,11 +463,14 @@ void RenderText::trimmedPrefWidths(int leadWidth,
     hasBreakableChar = m_hasBreakableChar;
     hasBreak = m_hasBreak;
 
-    if (stripFrontSpaces && ((*m_text)[0] == ' ' || ((*m_text)[0] == '\n' && !style()->preserveNewline()) || (*m_text)[0] == '\t')) {
+    if ((*m_text)[0] == ' ' || ((*m_text)[0] == '\n' && !style()->preserveNewline()) || (*m_text)[0] == '\t') {
         const Font& f = style()->font(); // FIXME: This ignores first-line.
-        const UChar space = ' ';
-        int spaceWidth = f.width(TextRun(&space, 1));
-        maxW -= spaceWidth + f.wordSpacing();
+        if (stripFrontSpaces) {
+            const UChar space = ' ';
+            int spaceWidth = f.width(TextRun(&space, 1));
+            maxW -= spaceWidth;
+        } else
+            maxW += f.wordSpacing();
     }
 
     stripFrontSpaces = collapseWhiteSpace && m_hasEndWS;
@@ -582,9 +601,13 @@ void RenderText::calcPrefWidths(int leadWidth)
             ignoringSpaces = false;
 
         // Ignore spaces and soft hyphens
-        if (ignoringSpaces || c == softHyphen) {
+        if (ignoringSpaces) {
             ASSERT(lastWordBoundary == i);
             lastWordBoundary++;
+            continue;
+        } else if (c == softHyphen) {
+            currMaxWidth += widthFromCache(f, lastWordBoundary, i - lastWordBoundary, leadWidth + currMaxWidth);
+            lastWordBoundary = i + 1;
             continue;
         }
 
@@ -664,7 +687,7 @@ void RenderText::calcPrefWidths(int leadWidth)
                     m_maxWidth = currMaxWidth;
                 currMaxWidth = 0;
             } else {
-                currMaxWidth += f.width(TextRun(txt + i, 1), TextStyle(allowTabs(), leadWidth + currMaxWidth));
+                currMaxWidth += f.width(TextRun(txt + i, 1, allowTabs(), leadWidth + currMaxWidth));
                 needsWordSpacing = isSpace && !previousCharacterIsSpace && i == len - 1;
             }
             ASSERT(lastWordBoundary == i);
@@ -672,7 +695,7 @@ void RenderText::calcPrefWidths(int leadWidth)
         }
     }
 
-    if (needsWordSpacing && len > 1)
+    if (needsWordSpacing && len > 1 || ignoringSpaces && !firstWord)
         currMaxWidth += wordSpacing;
 
     m_minWidth = max(currMinWidth, m_minWidth);
@@ -695,7 +718,7 @@ bool RenderText::containsOnlyWhitespace(unsigned from, unsigned len) const
     unsigned currPos;
     for (currPos = from;
          currPos < from + len && ((*m_text)[currPos] == '\n' || (*m_text)[currPos] == ' ' || (*m_text)[currPos] == '\t');
-         currPos++);
+         currPos++) { }
     return currPos >= (from + len);
 }
 
@@ -873,11 +896,10 @@ void RenderText::setTextInternal(PassRefPtr<StringImpl> text)
             // Then, it will strip off all leading and trailing space characters.
             // Then, all contiguous space characters will be consolidated.    
 
-            static StringImpl empty("", 0);
-            m_text = m_text->replace('\n', &empty);
+           m_text = m_text->replace('\n', StringImpl::empty());
 
-            // If xml:space="default" is set, white-space is set to "nowrap", which handles
-            // leading, trailing & contiguous space character removal for us.
+           // If xml:space="default" is set, white-space is set to "nowrap", which handles
+           // leading, trailing & contiguous space character removal for us.
         }
 
         m_text = m_text->replace('\t', ' ');
@@ -1019,7 +1041,7 @@ unsigned int RenderText::width(unsigned int from, unsigned int len, const Font& 
         else
             w = widthFromCache(f, from, len, xPos);
     } else
-        w = f.width(TextRun(text()->characters() + from, len), TextStyle(allowTabs(), xPos));
+        w = f.width(TextRun(text()->characters() + from, len, allowTabs(), xPos));
 
     return w;
 }

@@ -64,7 +64,7 @@ public:
     virtual Color activeListBoxSelectionBackgroundColor() const;
 
     // System fonts.
-    virtual void systemFont(int propId, FontDescription&) const;
+    virtual void systemFont(int cssValueId, FontDescription&) const;
 
     virtual int minimumMenuListSize(RenderStyle*) const;
 
@@ -74,6 +74,8 @@ public:
     virtual int popupInternalPaddingRight(RenderStyle*) const;
     virtual int popupInternalPaddingTop(RenderStyle*) const;
     virtual int popupInternalPaddingBottom(RenderStyle*) const;
+    
+    virtual bool paintCapsLockIndicator(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
 protected:
     // Methods for each appearance value.
@@ -119,6 +121,14 @@ protected:
 
     virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+    virtual bool paintMediaFullscreenButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaMuteButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekBackButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekForwardButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
 private:
     IntRect inflateRect(const IntRect&, const IntSize&, const int* margins) const;

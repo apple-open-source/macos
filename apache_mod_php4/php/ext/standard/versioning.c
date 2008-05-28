@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: versioning.c,v 1.12.4.2.4.2 2007/01/01 09:46:49 sebastian Exp $ */
+/* $Id: versioning.c,v 1.12.4.2.4.3 2007/12/31 07:22:53 sebastian Exp $ */
 
 #include <stdio.h>
 #include <sys/types.h>

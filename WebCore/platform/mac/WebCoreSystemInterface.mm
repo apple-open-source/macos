@@ -1,5 +1,5 @@
 /*
- * Copyright 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright 2006, 2007, 2008 Apple Computer, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,12 +33,12 @@ NSString* (*wkCreateURLPasteboardFlavorTypeName)(void);
 NSString* (*wkCreateURLNPasteboardFlavorTypeName)(void);
 void (*wkDrawBezeledTextFieldCell)(NSRect, BOOL enabled);
 void (*wkDrawTextFieldCellFocusRing)(NSTextFieldCell*, NSRect);
+void (*wkDrawCapsLockIndicator)(CGContextRef, CGRect);
 void (*wkDrawBezeledTextArea)(NSRect, BOOL enabled);
-void (*wkDrawFocusRing)(CGContextRef, CGRect clipRect, CGColorRef, int radius);
+void (*wkDrawFocusRing)(CGContextRef, CGColorRef, int radius);
 BOOL (*wkFontSmoothingModeIsLCD)(int mode);
 OSStatus (*wkGetATSStyleGroup)(ATSUStyle, void** styleGroup);
 CGFontRef (*wkGetCGFontFromNSFont)(NSFont*);
-ATSGlyphRef (*wkGetDefaultGlyphForChar)(NSFont*, UniChar);
 NSFont* (*wkGetFontInLanguageForRange)(NSFont*, NSString*, NSRange);
 NSFont* (*wkGetFontInLanguageForCharacter)(NSFont*, UniChar);
 void (*wkGetFontMetrics)(CGFontRef, int* ascent, int* descent, int* lineGap, unsigned* unitsPerEm);
@@ -46,6 +46,15 @@ BOOL (*wkGetGlyphTransformedAdvances)(CGFontRef, NSFont*, CGAffineTransform*, AT
 ATSLayoutRecord* (*wkGetGlyphVectorFirstRecord)(void* glyphVector);
 int (*wkGetGlyphVectorNumGlyphs)(void* glyphVector);
 size_t (*wkGetGlyphVectorRecordSize)(void* glyphVector);
+void (*wkDrawMediaFullscreenButton)(CGContextRef context, CGRect rect, BOOL active);
+void (*wkDrawMediaMuteButton)(CGContextRef context, CGRect rect, BOOL active);
+void (*wkDrawMediaPauseButton)(CGContextRef context, CGRect rect, BOOL active);
+void (*wkDrawMediaPlayButton)(CGContextRef context, CGRect rect, BOOL active);
+void (*wkDrawMediaSeekBackButton)(CGContextRef context, CGRect rect, BOOL active);
+void (*wkDrawMediaSeekForwardButton)(CGContextRef context, CGRect rect, BOOL active);
+void (*wkDrawMediaSliderTrack)(CGContextRef context, CGRect rect, float percentLoaded);
+void (*wkDrawMediaSliderThumb)(CGContextRef context, CGRect rect, BOOL active);
+void (*wkDrawMediaUnMuteButton)(CGContextRef context, CGRect rect, BOOL active);
 NSString* (*wkGetPreferredExtensionForMIMEType)(NSString*);
 NSArray* (*wkGetExtensionsForMIMEType)(NSString*);
 NSString* (*wkGetMIMETypeForExtension)(NSString*);
@@ -57,9 +66,13 @@ void (*wkGetWheelEventDeltas)(NSEvent*, float* deltaX, float* deltaY, BOOL* cont
 OSStatus (*wkInitializeGlyphVector)(int count, void* glyphs);
 NSString* (*wkPathFromFont)(NSFont*);
 void (*wkPopupMenu)(NSMenu*, NSPoint location, float width, NSView*, int selectedItem, NSFont*);
+int (*wkQTMovieDataRate)(QTMovie*);
+float (*wkQTMovieMaxTimeLoaded)(QTMovie*);
+void (*wkQTMovieViewSetDrawSynchronously)(QTMovieView*, BOOL);
 void (*wkReleaseStyleGroup)(void* group);
 void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*);
 void (*wkSetDragImage)(NSImage*, NSPoint offset);
+void (*wkSetPatternBaseCTM)(CGContextRef, CGAffineTransform);
 void (*wkSetPatternPhaseInUserSpace)(CGContextRef, CGPoint point);
 void (*wkSetUpFontCache)(size_t);
 void (*wkSignalCFReadStreamEnd)(CFReadStreamRef stream);

@@ -31,7 +31,6 @@
 #include "CachedResourceClient.h"
 #include "CachedResourceClientWalker.h"
 #include "TextResourceDecoder.h"
-#include "DeprecatedString.h"
 #include "loader.h"
 #include <wtf/Vector.h>
 
@@ -65,6 +64,11 @@ void CachedCSSStyleSheet::setEncoding(const String& chs)
     m_decoder->setEncoding(chs, TextResourceDecoder::EncodingFromHTTPHeader);
 }
 
+String CachedCSSStyleSheet::encoding() const
+{
+    return m_decoder->encoding().name();
+}
+
 void CachedCSSStyleSheet::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
 {
     if (!allDataReceived)
@@ -87,7 +91,7 @@ void CachedCSSStyleSheet::checkNotify()
 
     CachedResourceClientWalker w(m_clients);
     while (CachedResourceClient *c = w.next())
-        c->setCSSStyleSheet(m_response.url().url(), m_decoder->encoding().name(), m_sheet);
+        c->setCSSStyleSheet(m_response.url().string(), m_decoder->encoding().name(), m_sheet);
 
 #if USE(LOW_BANDWIDTH_DISPLAY)        
     // if checkNotify() is called from error(), client's setCSSStyleSheet(...)

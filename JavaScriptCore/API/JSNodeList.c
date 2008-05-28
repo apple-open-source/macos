@@ -26,14 +26,18 @@
 
 #include "JSNode.h"
 #include "JSNodeList.h"
+#include "JSObjectRef.h"
+#include "JSValueRef.h"
 #include "UnusedParam.h"
-#include <assert.h>
+#include <wtf/Assertions.h>
 
 static JSValueRef JSNodeList_item(JSContextRef context, JSObjectRef object, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
+    UNUSED_PARAM(object);
+
     if (argumentCount > 0) {
         NodeList* nodeList = JSObjectGetPrivate(thisObject);
-        assert(nodeList);
+        ASSERT(nodeList);
         Node* node = NodeList_item(nodeList, (unsigned)JSValueToNumber(context, arguments[0], exception));
         if (node)
             return JSNode_new(context, node);
@@ -49,10 +53,11 @@ static JSStaticFunction JSNodeList_staticFunctions[] = {
 
 static JSValueRef JSNodeList_length(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
 {
-    UNUSED_PARAM(context);
+    UNUSED_PARAM(propertyName);
+    UNUSED_PARAM(exception);
     
     NodeList* nodeList = JSObjectGetPrivate(thisObject);
-    assert(nodeList);
+    ASSERT(nodeList);
     return JSValueMakeNumber(context, NodeList_length(nodeList));
 }
 
@@ -64,7 +69,7 @@ static JSStaticValue JSNodeList_staticValues[] = {
 static JSValueRef JSNodeList_getProperty(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
 {
     NodeList* nodeList = JSObjectGetPrivate(thisObject);
-    assert(nodeList);
+    ASSERT(nodeList);
     double index = JSValueToNumber(context, JSValueMakeString(context, propertyName), exception);
     unsigned uindex = (unsigned)index;
     if (uindex == index) { // false for NaN
@@ -78,8 +83,10 @@ static JSValueRef JSNodeList_getProperty(JSContextRef context, JSObjectRef thisO
 
 static void JSNodeList_initialize(JSContextRef context, JSObjectRef thisObject)
 {
+    UNUSED_PARAM(context);
+
     NodeList* nodeList = JSObjectGetPrivate(thisObject);
-    assert(nodeList);
+    ASSERT(nodeList);
     
     NodeList_ref(nodeList);
 }
@@ -87,13 +94,15 @@ static void JSNodeList_initialize(JSContextRef context, JSObjectRef thisObject)
 static void JSNodeList_finalize(JSObjectRef thisObject)
 {
     NodeList* nodeList = JSObjectGetPrivate(thisObject);
-    assert(nodeList);
+    ASSERT(nodeList);
 
     NodeList_deref(nodeList);
 }
 
 static JSClassRef JSNodeList_class(JSContextRef context)
 {
+    UNUSED_PARAM(context);
+
     static JSClassRef jsClass;
     if (!jsClass) {
         JSClassDefinition definition = kJSClassDefinitionEmpty;

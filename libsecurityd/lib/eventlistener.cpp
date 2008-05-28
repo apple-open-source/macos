@@ -155,24 +155,6 @@ void NotificationPort::receive (const MachPlusPlus::Message &msg)
 			}
 		}
 	}
-	
-	switch (ur)
-	{
-		case kURMessageDropped:
-			syslog(LOG_WARNING | LOG_AUTH, "Security message buffer overflowed.");
-		break;
-		
-		case kURMessagePending:
-			syslog(LOG_DEBUG | LOG_AUTH, "Security message was pending (this may be normal)");
-		break;
-		
-		case kURBufferCorrupt:
-			syslog(LOG_WARNING | LOG_AUTH, "Security message had an invalid length");
-		break;
-		
-		default:
-		break;
-	}
 }
 
 

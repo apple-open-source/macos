@@ -50,8 +50,10 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 #include <sys/types.h>
 #include <grp.h>
 #include <pwd.h>
+#if !TARGET_OS_EMBEDDED
 #include <membership.h>
 #include <membershipPriv.h>
+#endif
 #include <uuid/uuid.h>
 #endif
 
@@ -197,6 +199,9 @@ static struct {
 static char *
 uuid_to_name(uuid_t *uu) 
 {
+#if TARGET_OS_EMBEDDED
+  return strdup("<UNKNOWN>");
+#else  /* !TARGET_OS_EMBEDDED */
   int is_gid = -1;
   struct group *tgrp = NULL;
   struct passwd *tpass = NULL;
@@ -240,6 +245,7 @@ uuid_to_name(uuid_t *uu)
 		strcpy(name, "<UNKNOWN>");
 	}
   return name;
+#endif	/* !TARGET_OS_EMBEDDED */
 }
 
 static void
@@ -289,7 +295,6 @@ printacl(acl_t acl, int isdir)
 			continue;
 		if (acl_get_permset(entry, &perms) != 0)
 			continue;
-
 		name = uuid_to_name(applicable);
 		acl_free(applicable);
 

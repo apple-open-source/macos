@@ -82,7 +82,7 @@ struct sDNSLookup
     char                *fQueryStrings[10];
     dns_reply_t         *fAnswers[10];  // up to 10 active queries
     uint16_t            fAdditionalInfo[10];
-    int                 fMinimumTTL[10];
+    int32_t             fMinimumTTL[10];
     double              fAnswerTime[10];
     int32_t             fQueryFinished[10];
     pthread_t           fThreadID[10];
@@ -216,7 +216,7 @@ private:
 	SInt32			DoPlugInCustomCall			( sDoPlugInCustomCall *inData );
 	
 	kvbuf_t*		FetchFromCache				( CCache *inCache, 
-                                                  uint32_t *outTTL,
+                                                  int32_t *outTTL,
 												  ... );
 	kvbuf_t*		GetRecordListLibInfo		( tDirNodeReference inNodeRef,
 												  const char* inSearchValue, 
@@ -282,7 +282,7 @@ private:
                                                   const char *inIPv4, 
                                                   const char *inIPv6, 
                                                   pid_t inPID, 
-                                                  uint32_t *outTTL );
+                                                  int32_t *outTTL );
     int             SortPartitionAdditional     ( dns_resource_record_t **inRecords, 
                                                   int inFirst, 
                                                   int inLast );
@@ -313,7 +313,7 @@ private:
                                                   int inPID, 
                                                   bool inParallelQuery, 
                                                   sDNSLookup *inLookup, 
-                                                  uint32_t *outTTL = NULL );
+                                                  int32_t *outTTL = NULL );
     kvbuf_t*        DSgethostbyaddr             ( kvbuf_t *inBuffer, pid_t inPID );
     kvbuf_t*        DSgethostent                ( kvbuf_t *inBuffer, pid_t inPID );
     kvbuf_t*        DSgetnameinfo               ( kvbuf_t *inBuffer, pid_t inPID );

@@ -498,7 +498,7 @@ AppleUSBUHCI::UIMRootHubStatusChange(void)
     
     USBLog(7, "%s[%p]::UIMRootHubStatusChange (_controllerAvailable: %d)", getName(), this, _controllerAvailable);
 
-	if (_controllerAvailable)
+	if (_controllerAvailable && !_wakingFromHibernation && !_pcCardEjected)
 	{
 		// For UHCI, we first need to see if we have a pending resume
 		RHCheckStatus();

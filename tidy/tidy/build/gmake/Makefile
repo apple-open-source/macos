@@ -2,9 +2,9 @@
 #
 #  CVS Info :
 #
-#     $Author: iccir $ 
-#     $Date: 2007/02/21 02:46:28 $ 
-#     $Revision: 1.10 $ 
+#     $Author: tduffy $ 
+#     $Date: 2008/01/04 22:49:34 $ 
+#     $Revision: 1.11 $ 
 #
 #  Copyright (c) 1998-2005 World Wide Web Consortium
 #  (Massachusetts Institute of Technology, European Research 
@@ -239,7 +239,7 @@ clean:
 
 installhdrs: $(HFILES)
 	if [ ! -d "$(incinst)" ]; then mkdir -p "$(incinst)"; fi
-	cp -f $(HFILES) "$(incinst)/"
+	install -m 0444 $(HFILES) "$(incinst)/"
 
 installib: $(LIBRARY)
 	if [ ! -d "$(libinst)" ]; then mkdir -p "$(libinst)"; fi

@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+#  Periodically clean up amavis/tmp and virusmails
+
+AMAVISD_TMP_DIR="/var/amavis/tmp"
+if [ -d $AMAVISD_TMP_DIR ]; then
+	cd $AMAVISD_TMP_DIR
+	find $AMAVISD_TMP_DIR -type d -atime +30 -exec rm -r {} \;
+	find $AMAVISD_TMP_DIR -type f -atime +30 -exec rm -r {} \;
+fi
+
+AMAVISD_VIR_DIR="/var/virusmails"
+if [ -d $AMAVISD_VIR_DIR ]; then
+	cd $AMAVISD_VIR_DIR
+	find $AMAVISD_VIR_DIR -type d -atime +30 -exec rm -r {} \;
+	find $AMAVISD_VIR_DIR -type f -atime +30 -exec rm -r {} \;
+fi
+

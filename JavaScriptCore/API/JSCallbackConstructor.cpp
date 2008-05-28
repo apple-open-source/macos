@@ -1,6 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,18 +24,20 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include <wtf/Platform.h>
+#include "config.h"
 #include "JSCallbackConstructor.h"
 
 #include "APICast.h"
+#include <kjs/JSGlobalObject.h>
+#include <kjs/object_object.h>
 #include <wtf/Vector.h>
 
 namespace KJS {
 
-const ClassInfo JSCallbackConstructor::info = { "CallbackConstructor", 0, 0, 0 };
+const ClassInfo JSCallbackConstructor::info = { "CallbackConstructor", 0, 0};
 
 JSCallbackConstructor::JSCallbackConstructor(ExecState* exec, JSClassRef jsClass, JSObjectCallAsConstructorCallback callback)
-    : JSObject(exec->lexicalInterpreter()->builtinObjectPrototype())
+    : JSObject(exec->lexicalGlobalObject()->objectPrototype())
     , m_class(jsClass)
     , m_callback(callback)
 {

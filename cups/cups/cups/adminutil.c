@@ -4,7 +4,7 @@
  *   Administration utility API definitions for the Common UNIX Printing
  *   System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 2001-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -1057,7 +1057,7 @@ _cupsAdminGetServerSettings(
 	in_admin_location = 0;
 	in_location       = 0;
       }
-      else if (!strcasecmp(line, "Allow") && in_admin_location &&
+      else if (!strcasecmp(line, "Allow") &&
                strcasecmp(value, "localhost") && strcasecmp(value, "127.0.0.1")
 #ifdef AF_LOCAL
 	       && *value != '/'
@@ -1067,9 +1067,9 @@ _cupsAdminGetServerSettings(
 #endif /* AF_INET6 */
 	       )
       {
-	remote_admin = 1;
-
-	if (!strcasecmp(value, "all"))
+        if (in_admin_location)
+	  remote_admin = 1;
+        else if (!strcasecmp(value, "all"))
 	  remote_any = 1;
       }
       else if (line[0] != '<' && !in_location && !in_policy)
@@ -1578,8 +1578,6 @@ _cupsAdminSetServerSettings(
 	if (remote_admin)
 	  cupsFilePrintf(temp, "  Allow %s\n",
 	                 remote_any > 0 ? "all" : "@LOCAL");
-	else
-	  cupsFilePuts(temp, "  Allow localhost\n");
       }
       else if (in_conf_location && remote_admin >= 0)
       {
@@ -1597,8 +1595,6 @@ _cupsAdminSetServerSettings(
 	if (remote_admin)
 	  cupsFilePrintf(temp, "  Allow %s\n",
 	                 remote_any > 0 ? "all" : "@LOCAL");
-	else
-	  cupsFilePuts(temp, "  Allow localhost\n");
       }
       else if (in_root_location && (remote_admin >= 0 || share_printers >= 0))
       {
@@ -1619,8 +1615,6 @@ _cupsAdminSetServerSettings(
 	if (remote_admin > 0 || share_printers > 0)
 	  cupsFilePrintf(temp, "  Allow %s\n",
 	                 remote_any > 0 ? "all" : "@LOCAL");
-	else
-	  cupsFilePuts(temp, "  Allow localhost\n");
       }
 
       in_admin_location = 0;
@@ -1841,8 +1835,6 @@ _cupsAdminSetServerSettings(
 
     if (remote_admin > 0 || share_printers > 0)
       cupsFilePrintf(temp, "  Allow %s\n", remote_any > 0 ? "all" : "@LOCAL");
-    else
-      cupsFilePuts(temp, "  Allow localhost\n");
 
     cupsFilePuts(temp, "</Location>\n");
   }
@@ -1859,8 +1851,6 @@ _cupsAdminSetServerSettings(
 
     if (remote_admin)
       cupsFilePrintf(temp, "  Allow %s\n", remote_any > 0 ? "all" : "@LOCAL");
-    else
-      cupsFilePuts(temp, "  Allow localhost\n");
 
     cupsFilePuts(temp, "</Location>\n");
   }
@@ -1880,8 +1870,6 @@ _cupsAdminSetServerSettings(
 
     if (remote_admin)
       cupsFilePrintf(temp, "  Allow %s\n", remote_any > 0 ? "all" : "@LOCAL");
-    else
-      cupsFilePuts(temp, "  Allow localhost\n");
 
     cupsFilePuts(temp, "</Location>\n");
   }

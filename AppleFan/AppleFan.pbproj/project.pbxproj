@@ -105,7 +105,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleFan;
-				MODULE_VERSION = 1.0.9b3;
+				MODULE_VERSION = 1.0.10f1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -135,7 +135,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleFan</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleFan version 1.0.9, Copyright 2003 Apple Computer, Inc.</string>
+	<string>AppleFan version 1.0.10, Copyright 2003-2008 Apple, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -147,11 +147,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.9</string>
+	<string>1.0.10</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.9b3</string>
+	<string>1.0.10f1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleFan</key>
@@ -429,7 +429,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleK2Fan;
-				MODULE_VERSION = 1.0.9b3;
+				MODULE_VERSION = 1.0.10f1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -454,7 +454,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleK2Fan</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleK2Fan version 1.0.9, Copyright 2003 Apple Computer, Inc.</string>
+	<string>AppleK2Fan version 1.0.10, Copyright 2003-2008 Apple, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -466,11 +466,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.9</string>
+	<string>1.0.10</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.9b3</string>
+	<string>1.0.10f1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleK2Fan</key>
@@ -569,7 +569,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOI2CADT746x;
-				MODULE_VERSION = 1.0.9b3;
+				MODULE_VERSION = 1.0.10f1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -595,7 +595,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOI2CADT746x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOI2CADT746x version 1.0.9, Copyright 2004 Apple Computer, Inc.</string>
+	<string>IOI2CADT746x version 1.0.10, Copyright 2003-2008 Apple, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -607,11 +607,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.9</string>
+	<string>1.0.10</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.9b3</string>
+	<string>1.0.10f1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOI2CADT746x</key>
@@ -824,7 +824,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleADM103x;
-				MODULE_VERSION = 1.0.9b3;
+				MODULE_VERSION = 1.0.10f1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -850,7 +850,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleADM103x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleADM103x version 1.0.9, Copyright 2003 Apple Computer, Inc.</string>
+	<string>AppleADM103x version 1.0.10, Copyright 2003-2008 Apple, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -862,11 +862,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.9</string>
+	<string>1.0.10</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.9b3</string>
+	<string>1.0.10f1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleADM103x</key>
@@ -970,7 +970,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleADT746x;
-				MODULE_VERSION = 1.0.9b3;
+				MODULE_VERSION = 1.0.10f1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -996,7 +996,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleADT746x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleADT746x version 1.0.9, Copyright 2003 Apple Computer, Inc.</string>
+	<string>AppleADT746x version 1.0.10, Copyright 2003-2008 Apple, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1008,11 +1008,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.9</string>
+	<string>1.0.10</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.9b3</string>
+	<string>1.0.10f1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleADT746x</key>

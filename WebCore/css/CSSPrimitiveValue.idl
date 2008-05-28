@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -19,7 +19,11 @@
 
 module css {
 
-    interface [GenerateConstructor] CSSPrimitiveValue : CSSValue {
+    interface [
+        GenerateConstructor,
+        InterfaceUUID=a286b0cb-4ff0-4482-aa6e-7c5fb39afaba,
+        ImplementationUUID=c310c84d-480f-4bbb-9187-28e00956ac47
+    ] CSSPrimitiveValue : CSSValue {
 
         // UnitTypes
         const unsigned short CSS_UNKNOWN    = 0;
@@ -54,14 +58,21 @@ module css {
         [OldStyleObjC] void setFloatValue(in unsigned short unitType,
                                           in float floatValue)
             raises(DOMException);
-        float getFloatValue(in unsigned short unitType);
+        float getFloatValue(in unsigned short unitType)
+            raises(DOMException);
         [OldStyleObjC] void setStringValue(in unsigned short stringType, 
                                            in DOMString stringValue)
             raises(DOMException);
-        DOMString getStringValue();
-        Counter getCounterValue();
-        Rect getRectValue();
-        RGBColor getRGBColorValue();
+        DOMString getStringValue()
+            raises(DOMException);
+        Counter getCounterValue()
+            raises(DOMException);
+        Rect getRectValue()
+            raises(DOMException);
+#if !defined(LANGUAGE_COM)
+        RGBColor getRGBColorValue()
+            raises(DOMException);
+#endif
 
     };
 

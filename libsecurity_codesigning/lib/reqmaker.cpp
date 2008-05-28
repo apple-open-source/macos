@@ -84,6 +84,11 @@ void Requirement::Maker::anchor()
 	put(opAppleAnchor);
 }
 
+void Requirement::Maker::anchorGeneric()
+{
+	put(opAppleGenericAnchor);
+}
+
 void Requirement::Maker::anchor(int slot, SHA1::Digest digest)
 {
 	put(opAnchorHash);
@@ -128,6 +133,16 @@ void Requirement::Maker::cdhash(SHA1::Digest digest)
 {
 	put(opCDHash);
 	putData(digest, SHA1::digestLength);
+}
+
+
+
+void Requirement::Maker::copy(const Requirement *req)
+{
+	assert(req);
+	if (req->kind() != exprForm)		// don't know how to embed this
+		MacOSError::throwMe(errSecCSReqUnsupported);
+	this->copy(req->at<const void>(sizeof(Requirement)), req->length() - sizeof(Requirement));
 }
 
 

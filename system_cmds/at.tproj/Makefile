@@ -8,7 +8,7 @@ MANPAGES = at.1
 PROJECT_HEADERS = privs.h pathnames.h
 
 Extra_CC_Flags = -D__FBSDID=__RCSID -DDAEMON_UID=1 -DDAEMON_GID=1 \
-	-DDEFAULT_AT_QUEUE=\"a\" -DDEFAULT_BATCH_QUEUE=\"b\" \
+	-DDEFAULT_AT_QUEUE='a' -DDEFAULT_BATCH_QUEUE='b' \
 	-DPERM_PATH=\"/usr/lib/cron/\" \
 	-I/System/Library/Frameworks/System.framework/PrivateHeaders
 

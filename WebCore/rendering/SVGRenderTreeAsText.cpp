@@ -28,18 +28,23 @@
 #include "config.h"
 
 #if ENABLE(SVG)
-
 #include "SVGRenderTreeAsText.h"
 
 #include "GraphicsTypes.h"
+#include "InlineTextBox.h"
 #include "HTMLNames.h"
-#include "KCanvasRenderingStyle.h"
 #include "RenderSVGContainer.h"
+#include "RenderSVGInlineText.h"
+#include "RenderSVGText.h"
+#include "RenderSVGRoot.h"
 #include "RenderTreeAsText.h"
+#include "SVGCharacterLayoutInfo.h"
+#include "SVGInlineTextBox.h"
 #include "SVGPaintServerGradient.h"
 #include "SVGPaintServerPattern.h"
 #include "SVGPaintServerSolid.h"
 #include "SVGResourceClipper.h"
+#include "SVGRootInlineBox.h"
 #include "SVGStyledElement.h"
 #include <math.h>
 
@@ -174,11 +179,11 @@ static void writeIndent(TextStream& ts, int indent)
 }
 
 // FIXME: Maybe this should be in KCanvasRenderingStyle.cpp
-static TextStream& operator<<(TextStream& ts, const KCDashArray& a)
+static TextStream& operator<<(TextStream& ts, const DashArray& a)
 {
     ts << "{";
-    KCDashArray::const_iterator end = a.end();
-    for (KCDashArray::const_iterator it = a.begin(); it != end; ++it) {
+    DashArray::const_iterator end = a.end();
+    for (DashArray::const_iterator it = a.begin(); it != end; ++it) {
         if (it != a.begin())
             ts << ", ";
         ts << *it;
@@ -234,16 +239,16 @@ static void writeStyle(TextStream& ts, const RenderObject& object)
         ts << " [opacity=" << style->opacity() << "]";
     if (object.isRenderPath()) {
         const RenderPath& path = static_cast<const RenderPath&>(object);
-        SVGPaintServer* strokePaintServer = KSVGPainterFactory::strokePaintServer(style, &path);
+        SVGPaintServer* strokePaintServer = SVGPaintServer::strokePaintServer(style, &path);
         if (strokePaintServer) {
             TextStreamSeparator s(" ");
             ts << " [stroke={";
             if (strokePaintServer)
                 ts << s << *strokePaintServer;
 
-            double dashOffset = KSVGPainterFactory::cssPrimitiveToLength(&path, svgStyle->strokeDashOffset(), 0.0);
-            const KCDashArray& dashArray = KSVGPainterFactory::dashArrayFromRenderingStyle(style);
-            double strokeWidth = KSVGPainterFactory::cssPrimitiveToLength(&path, svgStyle->strokeWidth(), 1.0);
+            double dashOffset = SVGRenderStyle::cssPrimitiveToLength(&path, svgStyle->strokeDashOffset(), 0.0f);
+            const DashArray& dashArray = dashArrayFromRenderingStyle(style);
+            double strokeWidth = SVGRenderStyle::cssPrimitiveToLength(&path, svgStyle->strokeWidth(), 1.0f);
 
             if (svgStyle->strokeOpacity() != 1.0f)
                 ts << s << "[opacity=" << svgStyle->strokeOpacity() << "]";
@@ -261,7 +266,7 @@ static void writeStyle(TextStream& ts, const RenderObject& object)
                 ts << s << "[dash array=" << dashArray << "]";
             ts << "}]";
         }
-        SVGPaintServer* fillPaintServer = KSVGPainterFactory::fillPaintServer(style, &path);
+        SVGPaintServer* fillPaintServer = SVGPaintServer::fillPaintServer(style, &path);
         if (fillPaintServer) {
             TextStreamSeparator s(" ");
             ts << " [fill={";
@@ -307,6 +312,139 @@ static TextStream& operator<<(TextStream& ts, const RenderSVGContainer& containe
     return ts;
 }
 
+static TextStream& operator<<(TextStream& ts, const RenderSVGRoot& root)
+{
+    ts << " " << root.absoluteTransform().mapRect(root.relativeBBox());
+
+    writeStyle(ts, root);
+
+    return ts;
+}
+
+static TextStream& operator<<(TextStream& ts, const RenderSVGText& text)
+{
+    SVGRootInlineBox* box = static_cast<SVGRootInlineBox*>(text.firstRootBox());
+
+    if (!box)
+        return ts;
+
+    Vector<SVGTextChunk>& chunks = const_cast<Vector<SVGTextChunk>& >(box->svgTextChunks());
+    ts << " at (" << text.xPos() << "," << text.yPos() << ") size " << box->width() << "x" << box->height() << " contains " << chunks.size() << " chunk(s)";
+
+    if (text.parent() && (text.parent()->style()->color() != text.style()->color()))
+        ts << " [color=" << text.style()->color().name() << "]";
+
+    return ts;
+}
+
+static inline bool containsInlineTextBox(SVGTextChunk& chunk, SVGInlineTextBox* box)
+{
+    Vector<SVGInlineBoxCharacterRange>::iterator boxIt = chunk.boxes.begin();
+    Vector<SVGInlineBoxCharacterRange>::iterator boxEnd = chunk.boxes.end();
+
+    bool found = false;
+    for (; boxIt != boxEnd; ++boxIt) {
+        SVGInlineBoxCharacterRange& range = *boxIt;
+
+        if (box == static_cast<SVGInlineTextBox*>(range.box)) {
+            found = true;
+            break;
+        }
+    }
+
+    return found;
+}
+
+static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textBox, int indent)
+{
+    SVGRootInlineBox* rootBox = textBox->svgRootInlineBox();
+    if (!rootBox)
+        return;
+
+    Vector<SVGTextChunk>& chunks = const_cast<Vector<SVGTextChunk>& >(rootBox->svgTextChunks());
+
+    Vector<SVGTextChunk>::iterator it = chunks.begin();
+    Vector<SVGTextChunk>::iterator end = chunks.end();
+
+    // Write text chunks
+    unsigned int i = 1;
+    for (; it != end; ++it) {
+        SVGTextChunk& cur = *it;
+
+        // Write inline box character ranges
+        Vector<SVGInlineBoxCharacterRange>::iterator boxIt = cur.boxes.begin();
+        Vector<SVGInlineBoxCharacterRange>::iterator boxEnd = cur.boxes.end();
+
+        if (!containsInlineTextBox(cur, textBox)) {
+            i++;
+            continue;
+        }
+
+        writeIndent(ts, indent + 1);
+
+        unsigned int j = 1;
+        ts << "chunk " << i << " ";
+
+        if (cur.anchor == TA_MIDDLE) {
+            ts << "(middle anchor";
+            if (cur.isVerticalText)
+                ts << ", vertical";
+            ts << ") ";
+        } else if (cur.anchor == TA_END) {
+            ts << "(end anchor";
+            if (cur.isVerticalText)
+                ts << ", vertical";
+            ts << ") ";
+        } else if (cur.isVerticalText)
+            ts << "(vertical) ";
+
+        unsigned int totalOffset = 0;
+
+        for (; boxIt != boxEnd; ++boxIt) {
+            SVGInlineBoxCharacterRange& range = *boxIt;
+
+            unsigned int offset = range.endOffset - range.startOffset;
+            ASSERT(cur.start + totalOffset <= cur.end);
+    
+            totalOffset += offset;
+      
+            if (textBox != static_cast<SVGInlineTextBox*>(range.box)) {
+                j++;
+                continue;
+            }
+  
+            FloatPoint topLeft = topLeftPositionOfCharacterRange(cur.start + totalOffset - offset, cur.start + totalOffset);
+
+            ts << "text run " << j << " at (" << topLeft.x() << "," << topLeft.y() << ") ";
+            ts << "startOffset " << range.startOffset << " endOffset " << range.endOffset;
+
+            if (cur.isVerticalText)
+                ts << " height " << cummulatedHeightOfInlineBoxCharacterRange(range);
+            else
+                ts << " width " << cummulatedWidthOfInlineBoxCharacterRange(range);
+
+            if (textBox->m_reversed || textBox->m_dirOverride) {
+                ts << (textBox->m_reversed ? " RTL" : " LTR");
+
+                if (textBox->m_dirOverride)
+                    ts << " override";
+            }
+
+            ts << ": " << quoteAndEscapeNonPrintables(String(textBox->textObject()->text()).substring(textBox->start() + range.startOffset, offset)) << endl;
+
+            j++;
+        }
+
+        i++;
+    }
+}
+
+static inline void writeSVGInlineText(TextStream& ts, const RenderSVGInlineText& text, int indent)
+{
+    for (InlineTextBox* box = text.firstTextBox(); box; box = box->nextTextBox())
+        writeSVGInlineTextBox(ts, static_cast<SVGInlineTextBox*>(box), indent);
+}
+
 static String getTagName(SVGStyledElement* elem)
 {
     if (elem)
@@ -329,6 +467,55 @@ void write(TextStream& ts, const RenderSVGContainer& container, int indent)
 
     for (RenderObject* child = container.firstChild(); child; child = child->nextSibling())
         write(ts, *child, indent + 1);
+}
+
+void write(TextStream& ts, const RenderSVGRoot& root, int indent)
+{
+    writeIndent(ts, indent);
+    ts << root.renderName();
+
+    if (root.element()) {
+        String tagName = getTagName(static_cast<SVGStyledElement*>(root.element()));
+        if (!tagName.isEmpty())
+            ts << " {" << tagName << "}";
+    }
+
+    ts << root << endl;
+
+    for (RenderObject* child = root.firstChild(); child; child = child->nextSibling())
+        write(ts, *child, indent + 1);
+}
+
+void write(TextStream& ts, const RenderSVGText& text, int indent)
+{
+    writeIndent(ts, indent);
+    ts << text.renderName();
+
+    if (text.element()) {
+        String tagName = getTagName(static_cast<SVGStyledElement*>(text.element()));
+        if (!tagName.isEmpty())
+            ts << " {" << tagName << "}";
+    }
+
+    ts << text << endl;
+
+    for (RenderObject* child = text.firstChild(); child; child = child->nextSibling())
+        write(ts, *child, indent + 1);
+}
+
+void write(TextStream& ts, const RenderSVGInlineText& text, int indent)
+{
+    writeIndent(ts, indent);
+    ts << text.renderName();
+
+    if (text.element()) {
+        String tagName = getTagName(static_cast<SVGStyledElement*>(text.element()));
+        if (!tagName.isEmpty())
+            ts << " {" << tagName << "}";
+    }
+
+    ts << " at (" << text.xPos() << "," << text.yPos() << ") size " << text.width() << "x" << text.height() << endl;
+    writeSVGInlineText(ts, text, indent);
 }
 
 void write(TextStream& ts, const RenderPath& path, int indent)

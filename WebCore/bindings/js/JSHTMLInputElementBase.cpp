@@ -36,52 +36,24 @@ namespace WebCore {
 @begin JSHTMLInputElementBasePrototypeTable 0
 @end
 @begin JSHTMLInputElementBaseFunctionTable 1
-  setSelectionRange     WebCore::JSHTMLInputElementBase::SetSelectionRange         DontDelete|Function 2
+  setSelectionRange     WebCore::jsHTMLInputElementBaseFunctionSetSelectionRange         DontDelete|Function 2
 @end
 */
 
-KJS_IMPLEMENT_PROTOTYPE_FUNCTION(JSHTMLInputElementBasePrototypeFunction)
-KJS_IMPLEMENT_PROTOTYPE("JSHTMLInputElementBase", JSHTMLInputElementBasePrototype, JSHTMLInputElementBasePrototypeFunction)
+KJS_IMPLEMENT_PROTOTYPE("JSHTMLInputElementBase", JSHTMLInputElementBasePrototype)
 
-JSValue* JSHTMLInputElementBasePrototypeFunction::callAsFunction(ExecState*, JSObject*, const List&)
-{
-    return 0;
-}
-
-// SetSelectionRange is implemented on the class instead of on the prototype
-// to make it easier to enable/disable lookup of the function based on input type.
-class JSHTMLInputElementBaseFunction : public InternalFunctionImp {
-public:
-    JSHTMLInputElementBaseFunction(ExecState*, int i, int len, const Identifier& name);
-    virtual JSValue *callAsFunction(ExecState*, JSObject* thisObj, const List& args);
-private:
-    int m_id;
-};
-
-JSHTMLInputElementBaseFunction::JSHTMLInputElementBaseFunction(ExecState* exec, int i, int len, const Identifier& name)
-    : InternalFunctionImp(static_cast<FunctionPrototype*>(exec->lexicalInterpreter()->builtinFunctionPrototype()), name)
-    , m_id(i)
-{
-    put(exec, exec->propertyNames().length, jsNumber(len), DontDelete|ReadOnly|DontEnum);
-}
-
-JSValue* JSHTMLInputElementBaseFunction::callAsFunction(ExecState* exec, JSObject* thisObj, const List& args)
+JSValue* jsHTMLInputElementBaseFunctionSetSelectionRange(ExecState* exec, JSObject* thisObj, const List& args)
 {
     HTMLInputElement& input = *static_cast<HTMLInputElement*>(static_cast<JSHTMLInputElementBase*>(thisObj)->impl());
-    if (m_id == JSHTMLInputElementBase::SetSelectionRange) {
-        input.setSelectionRange(args[0]->toInt32(exec), args[1]->toInt32(exec));
-        return jsUndefined();
-    }
+    input.setSelectionRange(args[0]->toInt32(exec), args[1]->toInt32(exec));
     return jsUndefined();
 }
 
-const ClassInfo JSHTMLInputElementBase::info = { "JSHTMLInputElementBase", &JSHTMLElement::info, &JSHTMLInputElementBaseTable, 0 };
+const ClassInfo JSHTMLInputElementBase::info = { "JSHTMLInputElementBase", &JSHTMLElement::info, &JSHTMLInputElementBaseTable };
 
-JSHTMLInputElementBase::JSHTMLInputElementBase(ExecState* exec, PassRefPtr<HTMLInputElement> e)
-    : JSHTMLElement(exec, e.get())
+JSHTMLInputElementBase::JSHTMLInputElementBase(KJS::JSObject* prototype, PassRefPtr<HTMLInputElement> e)
+    : JSHTMLElement(prototype, e.get())
 {
-    // We don't really need a prototype, just use our parent class's prototype
-    setPrototype(JSHTMLElementPrototype::self(exec));
 }
 
 bool JSHTMLInputElementBase::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -94,8 +66,8 @@ bool JSHTMLInputElementBase::getOwnPropertySlot(ExecState* exec, const Identifie
     
     // otherwise, do our own function lookup on our function table
     const HashEntry* entry = Lookup::findEntry(&JSHTMLInputElementBaseFunctionTable, propertyName);
-    if (entry && (entry->value == SetSelectionRange)) {
-        slot.setStaticEntry(this, entry, staticFunctionGetter<JSHTMLInputElementBaseFunction>); 
+    if (entry && (entry->attr & KJS::Function) && entry->value.functionValue == jsHTMLInputElementBaseFunctionSetSelectionRange) {
+        slot.setStaticEntry(this, entry, staticFunctionGetter);
         return true;
     }
     ASSERT(!entry);

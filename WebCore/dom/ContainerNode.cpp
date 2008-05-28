@@ -1,10 +1,8 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -45,7 +43,7 @@ using namespace EventNames;
 static void dispatchChildInsertionEvents(Node*, ExceptionCode&);
 static void dispatchChildRemovalEvents(Node*, ExceptionCode&);
 
-typedef Vector<std::pair<NodeCallback, Node*> > NodeCallbackQueue;
+typedef Vector<std::pair<NodeCallback, RefPtr<Node> > > NodeCallbackQueue;
 static NodeCallbackQueue* s_postAttachCallbackQueue = 0;
 
 static size_t s_attachDepth = 0;
@@ -55,24 +53,14 @@ ContainerNode::ContainerNode(Document* doc)
 {
 }
 
-void ContainerNode::removeAllChildren()
+void ContainerNode::addChildNodesToDeletionQueue(Node*& head, Node*& tail, ContainerNode* container)
 {
-    // Avoid deep recursion when destroying the node tree.
-    static bool alreadyInsideDestructor; 
-    bool topLevel = !alreadyInsideDestructor;
-    if (topLevel)
-        alreadyInsideDestructor = true;
-
-    // List of nodes to be deleted.
-    static Node* head;
-    static Node* tail;
-
     // We have to tell all children that their parent has died.
     Node* n;
     Node* next;
-    for (n = m_firstChild; n != 0; n = next) {
+    for (n = container->firstChild(); n != 0; n = next) {
         ASSERT(!n->m_deletionHasBegun);
-
+        
         next = n->nextSibling();
         n->setPreviousSibling(0);
         n->setNextSibling(0);
@@ -92,25 +80,34 @@ void ContainerNode::removeAllChildren()
         } else if (n->inDocument())
             n->removedFromDocument();
     }
+    container->setFirstChild(0);
+    container->setLastChild(0);
+}
 
-    // Only for the top level call, do the actual deleting.
-    if (topLevel) {
-        while ((n = head) != 0) {
-            ASSERT(n->m_deletionHasBegun);
+void ContainerNode::removeAllChildren()
+{
+    // List of nodes to be deleted.
+    Node* head = 0;
+    Node* tail = 0;
 
-            next = n->nextSibling();
-            n->setNextSibling(0);
+    addChildNodesToDeletionQueue(head, tail, this);
 
-            head = next;
-            if (next == 0)
-                tail = 0;
+    Node* n;
+    Node* next;
+    while ((n = head) != 0) {
+        ASSERT(n->m_deletionHasBegun);
 
-            delete n;
-        }
+        next = n->nextSibling();
+        n->setNextSibling(0);
 
-        alreadyInsideDestructor = false;
-        m_firstChild = 0;
-        m_lastChild = 0;
+        head = next;
+        if (next == 0)
+            tail = 0;
+        
+        if (n->hasChildNodes())
+            addChildNodesToDeletionQueue(head, tail, static_cast<ContainerNode*>(n));
+        
+        delete n;
     }
 }
 
@@ -326,7 +323,6 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
         child = nextChild.release();
     }
 
-    // ### set style in case it's attached
     document()->setDocumentChanged(true);
     dispatchSubtreeModifiedEvent();
     return true;
@@ -394,6 +390,8 @@ bool ContainerNode::removeChild(Node* oldChild, ExceptionCode& ec)
         return false;
     }
 
+    document()->removeFocusedNodeOfSubtree(child.get());
+    
     // FIXME: After sending the mutation events, "this" could be destroyed.
     // We can prevent that by doing a "ref", but first we have to make sure
     // that no callers call with ref count == 0 and parent = 0 (as of this
@@ -440,18 +438,21 @@ bool ContainerNode::removeChild(Node* oldChild, ExceptionCode& ec)
 
 // this differs from other remove functions because it forcibly removes all the children,
 // regardless of read-only status or event exceptions, e.g.
-void ContainerNode::removeChildren()
+bool ContainerNode::removeChildren()
 {
-    Node *n;
-    
     if (!m_firstChild)
-        return;
+        return false;
 
+    Node* n;
+    
     // do any prep work needed before actually starting to detach
     // and remove... e.g. stop loading frames, fire unload events
     for (n = m_firstChild; n; n = n->nextSibling())
         willRemoveChild(n);
     
+    // exclude this node when looking for removed focusedNode since only children will be removed
+    document()->removeFocusedNodeOfSubtree(this, true);
+
     forbidEventDispatch();
     while ((n = m_firstChild) != 0) {
         Node *next = n->nextSibling();
@@ -476,11 +477,12 @@ void ContainerNode::removeChildren()
         n->deref();
     }
     allowEventDispatch();
-    
+
     // Dispatch a single post-removal mutation event denoting a modified subtree.
     dispatchSubtreeModifiedEvent();
-}
 
+    return true;
+}
 
 bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec)
 {
@@ -574,15 +576,26 @@ ContainerNode* ContainerNode::addChild(PassRefPtr<Node> newChild)
     m_lastChild = newChild.get();
     allowEventDispatch();
 
+    document()->incDOMTreeVersion();
     if (inDocument())
         newChild->insertedIntoDocument();
-    if (document()->hasNodeLists())
-        notifyNodeListsChildrenChanged();
-    childrenChanged();
+    childrenChanged(true);
     
     if (newChild->isElementNode())
         return static_cast<ContainerNode*>(newChild.get());
     return this;
+}
+
+void ContainerNode::suspendPostAttachCallbacks()
+{
+    ++s_attachDepth;
+}
+
+void ContainerNode::resumePostAttachCallbacks()
+{
+    if (s_attachDepth == 1 && s_postAttachCallbackQueue)
+        dispatchPostAttachCallbacks();
+    --s_attachDepth;
 }
 
 void ContainerNode::queuePostAttachCallback(NodeCallback callback, Node* node)
@@ -590,7 +603,21 @@ void ContainerNode::queuePostAttachCallback(NodeCallback callback, Node* node)
     if (!s_postAttachCallbackQueue)
         s_postAttachCallbackQueue = new NodeCallbackQueue;
     
-    s_postAttachCallbackQueue->append(std::pair<NodeCallback, Node*>(callback, node));
+    s_postAttachCallbackQueue->append(std::pair<NodeCallback, RefPtr<Node> >(callback, node));
+}
+
+void ContainerNode::dispatchPostAttachCallbacks()
+{
+    // We recalculate size() each time through the loop because a callback
+    // can add more callbacks to the end of the queue.
+    for (size_t i = 0; i < s_postAttachCallbackQueue->size(); ++i) {
+        std::pair<NodeCallback, RefPtr<Node> >& pair = (*s_postAttachCallbackQueue)[i];
+        NodeCallback callback = pair.first;
+        Node* node = pair.second.get();
+
+        callback(node);
+    }
+    s_postAttachCallbackQueue->clear();
 }
 
 void ContainerNode::attach()
@@ -601,20 +628,8 @@ void ContainerNode::attach()
         child->attach();
     EventTargetNode::attach();
 
-    if (s_attachDepth == 1) {
-        if (s_postAttachCallbackQueue) {
-            // We recalculate size() each time through the loop because a callback
-            // can add more callbacks to the end of the queue.
-            for (size_t i = 0; i < s_postAttachCallbackQueue->size(); ++i) {
-                std::pair<NodeCallback, Node*>& pair = (*s_postAttachCallbackQueue)[i];
-                NodeCallback callback = pair.first;
-                Node* node = pair.second;
-                
-                callback(node);
-            }
-            s_postAttachCallbackQueue->clear();
-        }
-    }    
+    if (s_attachDepth == 1 && s_postAttachCallbackQueue)
+        dispatchPostAttachCallbacks();
     --s_attachDepth;
 }
 
@@ -657,7 +672,14 @@ void ContainerNode::removedFromTree(bool deep)
     }
 }
 
-void ContainerNode::cloneChildNodes(Node *clone)
+void ContainerNode::childrenChanged(bool changedByParser)
+{
+    Node::childrenChanged(changedByParser);
+    if (document()->hasNodeListCaches())
+        notifyNodeListsChildrenChanged();
+}
+
+void ContainerNode::cloneChildNodes(ContainerNode *clone)
 {
     // disable the delete button so it's elements are not serialized into the markup
     if (document()->frame())

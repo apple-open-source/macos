@@ -67,6 +67,7 @@ private:
 	CFRef<CFDictionaryRef> mResourceRules; // explicit resource collection rules (override)
 	CFRef<CFDateRef> mSigningTime;	// signing time desired (kCFNull for none)
 	CFRef<CFDataRef> mApplicationData; // contents of application slot
+	CFRef<CFDataRef> mEntitlementData; // entitlement configuration data
 	const Requirements *mRequirements; // internal code requirements
 	size_t mCMSSize;				// size estimate for CMS blob
 	uint32_t mCdFlags;				// CodeDirectory flags

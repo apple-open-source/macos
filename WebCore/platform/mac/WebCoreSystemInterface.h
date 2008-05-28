@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,12 +40,16 @@ typedef struct _NSRect NSRect;
 #endif
 
 #ifdef __OBJC__
+@class NSData;
 @class NSEvent;
 @class NSFont;
 @class NSMutableURLRequest;
 @class NSURLRequest;
+@class QTMovie;
+@class QTMovieView;
 #else
 typedef struct NSArray NSArray;
+typedef struct NSData NSData;
 typedef struct NSDate NSDate;
 typedef struct NSEvent NSEvent;
 typedef struct NSFont NSFont;
@@ -59,6 +63,8 @@ typedef struct NSURLConnection NSURLConnection;
 typedef struct NSURLResponse NSURLResponse;
 typedef struct NSView NSView;
 typedef struct objc_object *id;
+typedef struct QTMovie QTMovie;
+typedef struct QTMovieView QTMovieView;
 #endif
 
 #ifdef __cplusplus
@@ -84,12 +90,12 @@ extern OSStatus (*wkConvertCharToGlyphs)(void* styleGroup, const UniChar*, unsig
 extern id (*wkCreateNSURLConnectionDelegateProxy)(void);
 extern void (*wkDrawBezeledTextFieldCell)(NSRect, BOOL enabled);
 extern void (*wkDrawTextFieldCellFocusRing)(NSTextFieldCell*, NSRect);
+extern void (*wkDrawCapsLockIndicator)(CGContextRef, CGRect);
 extern void (*wkDrawBezeledTextArea)(NSRect, BOOL enabled);
-extern void (*wkDrawFocusRing)(CGContextRef, CGRect clipRect, CGColorRef, int radius);
+extern void (*wkDrawFocusRing)(CGContextRef, CGColorRef, int radius);
 extern BOOL (*wkFontSmoothingModeIsLCD)(int mode);
 extern OSStatus (*wkGetATSStyleGroup)(ATSUStyle, void** styleGroup);
 extern CGFontRef (*wkGetCGFontFromNSFont)(NSFont*);
-extern ATSGlyphRef (*wkGetDefaultGlyphForChar)(NSFont*, UniChar);
 extern NSFont* (*wkGetFontInLanguageForRange)(NSFont*, NSString*, NSRange);
 extern NSFont* (*wkGetFontInLanguageForCharacter)(NSFont*, UniChar);
 extern void (*wkGetFontMetrics)(CGFontRef, int* ascent, int* descent, int* lineGap, unsigned* unitsPerEm);
@@ -97,6 +103,15 @@ extern BOOL (*wkGetGlyphTransformedAdvances)(CGFontRef, NSFont*, CGAffineTransfo
 extern ATSLayoutRecord* (*wkGetGlyphVectorFirstRecord)(void* glyphVector);
 extern int (*wkGetGlyphVectorNumGlyphs)(void* glyphVector);
 extern size_t (*wkGetGlyphVectorRecordSize)(void* glyphVector);
+extern void (*wkDrawMediaFullscreenButton)(CGContextRef context, CGRect rect, BOOL active);
+extern void (*wkDrawMediaMuteButton)(CGContextRef context, CGRect rect, BOOL active);
+extern void (*wkDrawMediaPauseButton)(CGContextRef context, CGRect rect, BOOL active);
+extern void (*wkDrawMediaPlayButton)(CGContextRef context, CGRect rect, BOOL active);
+extern void (*wkDrawMediaSeekBackButton)(CGContextRef context, CGRect rect, BOOL active);
+extern void (*wkDrawMediaSeekForwardButton)(CGContextRef context, CGRect rect, BOOL active);
+extern void (*wkDrawMediaSliderTrack)(CGContextRef context, CGRect rect, float percentLoaded);
+extern void (*wkDrawMediaSliderThumb)(CGContextRef context, CGRect rect, BOOL active);
+extern void (*wkDrawMediaUnMuteButton)(CGContextRef context, CGRect rect, BOOL active);
 extern NSString* (*wkGetPreferredExtensionForMIMEType)(NSString*);
 extern NSArray* (*wkGetExtensionsForMIMEType)(NSString*);
 extern NSString* (*wkGetMIMETypeForExtension)(NSString*);
@@ -108,11 +123,15 @@ extern void (*wkGetWheelEventDeltas)(NSEvent*, float* deltaX, float* deltaY, BOO
 extern OSStatus (*wkInitializeGlyphVector)(int count, void* glyphs);
 extern NSString* (*wkPathFromFont)(NSFont*);
 extern void (*wkPopupMenu)(NSMenu*, NSPoint location, float width, NSView*, int selectedItem, NSFont*);
+extern int (*wkQTMovieDataRate)(QTMovie*);
+extern float (*wkQTMovieMaxTimeLoaded)(QTMovie*);
+extern void (*wkQTMovieViewSetDrawSynchronously)(QTMovieView*, BOOL);
 extern void (*wkReleaseStyleGroup)(void* group);
 extern void (*wkSetCGFontRenderingMode)(CGContextRef, NSFont*);
 extern void (*wkSetDragImage)(NSImage*, NSPoint offset);
 extern void (*wkSetNSURLConnectionDefersCallbacks)(NSURLConnection *, BOOL);
 extern void (*wkSetNSURLRequestShouldContentSniff)(NSMutableURLRequest *, BOOL);
+extern void (*wkSetPatternBaseCTM)(CGContextRef, CGAffineTransform);
 extern void (*wkSetPatternPhaseInUserSpace)(CGContextRef, CGPoint);
 extern void (*wkSetUpFontCache)(size_t);
 extern void (*wkSignalCFReadStreamEnd)(CFReadStreamRef stream);

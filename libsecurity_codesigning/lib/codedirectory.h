@@ -64,6 +64,7 @@ enum {
 #define kSecCS_REQUIREMENTSFILE		"CodeRequirements"	// internal requirements
 #define kSecCS_RESOURCEDIRFILE		"CodeResources"		// resource directory
 #define kSecCS_APPLICATIONFILE		"CodeApplication"	// application-specific resource
+#define kSecCS_ENTITLEMENTFILE		"CodeEntitlements"	// entitlement configuration (just in case)
 
 
 //
@@ -83,6 +84,7 @@ enum {
 	cdRequirementsSlot = 2,				// internal requirements
 	cdResourceDirSlot = 3,				// resource directory
 	cdApplicationSlot = 4,				// Application specific slot
+	cdEntitlementSlot = 5,				// embedded entitlement configuration
 	// (add further primary slot numbers here)
 
 	cdSlotCount,						// total number of special slots (+1 for slot 0)

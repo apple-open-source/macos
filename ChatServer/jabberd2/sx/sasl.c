@@ -208,6 +208,8 @@ static int _sx_sasl_wio(sx_t s, sx_plugin_t p, sx_buf_t buf) {
     sasl_conn_t *sasl;
     int *x, len, pos, reslen, maxbuf;
     char *out, *result;
+    int sasl_ret;
+    sx_error_t sxe;
 
     sasl = ((_sx_sasl_data_t) s->plugin_data[p->index])->sasl;
 
@@ -229,8 +231,15 @@ static int _sx_sasl_wio(sx_t s, sx_plugin_t p, sx_buf_t buf) {
         if((buf->len - pos) < maxbuf)
             maxbuf = buf->len - pos;
 
-        sasl_encode(sasl, &buf->data[pos], maxbuf, (const char **) &out, &len);
-        
+        sasl_ret = sasl_encode(sasl, &buf->data[pos], maxbuf, (const char **) &out, &len);
+        if (sasl_ret != SASL_OK) {
+            _sx_gen_error(sxe, SX_ERR_STREAM, "Stream error", "sasl_encode failed, closing stream");
+            _sx_event(s, event_ERROR, (void *) &sxe);
+            _sx_state(s, state_CLOSING);
+
+            return 1;
+        }
+
         result = (char *) realloc(result, sizeof(char) * (reslen + len));
         memcpy(&result[reslen], out, len);
         reslen += len;
@@ -250,6 +259,8 @@ static int _sx_sasl_rio(sx_t s, sx_plugin_t p, sx_buf_t buf) {
     sasl_conn_t *sasl;
     int *x, len;
     char *out;
+    int sasl_ret;
+    sx_error_t sxe;
 
     sasl = ((_sx_sasl_data_t) s->plugin_data[p->index])->sasl;
 
@@ -261,8 +272,15 @@ static int _sx_sasl_rio(sx_t s, sx_plugin_t p, sx_buf_t buf) {
     _sx_debug(ZONE, "doing sasl decode");
 
     /* decode the input */
-    sasl_decode(sasl, buf->data, buf->len, (const char **) &out, &len);
-    
+    sasl_ret = sasl_decode(sasl, buf->data, buf->len, (const char **) &out, &len);
+    if (sasl_ret != SASL_OK) {
+        _sx_gen_error(sxe, SX_ERR_STREAM, "Stream error", "sasl_decode failed, closing stream");
+        _sx_event(s, event_ERROR, (void *) &sxe);
+        _sx_state(s, state_CLOSING);
+
+        return 1;
+    }
+
     /* replace the buffer */
     _sx_buffer_set(buf, out, len, NULL);
 

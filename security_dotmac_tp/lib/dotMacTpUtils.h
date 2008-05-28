@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,18 @@ void dotMacRefKeyToRaw(
 	const CSSM_KEY	*refKey,	
 	CSSM_KEY_PTR	rawKey);			// RETURNED
 
+/* Fetch components of a hostname string. */
+void dotMacTokenizeHostName(
+    const CSSM_DATA				&inName,    // UTF8, no NULL
+    CSSM_DATA					&outName,   // RETURNED
+    CSSM_DATA					&outDomain); // RETURNED
+
+/* Fetch components of a username string. */
+void dotMacTokenizeUserName(
+    const CSSM_DATA				&inName,    // UTF8, no NULL
+    CSSM_DATA					&outName,   // RETURNED
+    CSSM_DATA					&outDomain); // RETURNED
+
 /*
  * Encode/decode ReferenceIdentitifiers for queued requests.
  * We PEM encode/decode here to keep things orthogonal, since returned
@@ -60,6 +72,7 @@ void dotMacRefKeyToRaw(
  */
 OSStatus dotMacEncodeRefId(  
 	const CSSM_DATA				&userName,	// UTF8, no NULL
+	const CSSM_DATA				&domainName, // UTF8, no NULL
 	DotMacCertTypeTag			signType,
 	SecNssCoder					&coder,		// results mallocd in this address space
 	CSSM_DATA					&refId);	// RETURNED, PEM encoded
@@ -68,11 +81,13 @@ OSStatus dotMacDecodeRefId(
 	SecNssCoder					&coder,		// results mallocd in this address space
 	const CSSM_DATA				&refId,		// PEM encoded
 	CSSM_DATA					&userName,	// RETURNED, UTF8, no NULL
+	CSSM_DATA					&domainName, // RETURNED, UTF8, no NULL
 	DotMacCertTypeTag			*signType);  // RETURNED
 
 /* fetch cert via HTTP */
 CSSM_RETURN dotMacTpCertFetch(
 	const CSSM_DATA				&userName,  // UTF8, no NULL
+	const CSSM_DATA				&domainName, // UTF8, no NULL
 	DotMacCertTypeTag			signType,
 	Allocator					&alloc,		// results mallocd here
 	CSSM_DATA					&result);	// RETURNED

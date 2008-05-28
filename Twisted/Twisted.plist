@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2008-3-11</string>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>Twisted.txt</string>
+	<key>OpenSourceMD5</key>
+	<string>56df2ae66db57932515a491c03bf514f</string>
+	<key>OpenSourceModifications</key>
+	<array/>
+	<key>OpenSourceProject</key>
+	<string>Twisted</string>
+	<key>OpenSourceURL</key>
+	<string>http://tmrc.mit.edu/mirror/twisted/Twisted/2.5/Twisted-2.5.0.tar.bz2</string>
+	<key>OpenSourceVersion</key>
+	<string>2.5.0</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://twistedmatrix.com/</string>
+</dict>
+</plist>

@@ -19,6 +19,7 @@
 #define CORE_PRIVATE
 
 #include "mod_proxy.h"
+#include "scoreboard.h"
 #include "ap_mpm.h"
 #include "apr_version.h"
 #include "apr_hooks.h"
@@ -79,22 +80,37 @@ static int init_balancer_members(proxy_server_conf *conf, server_rec *s,
 {
     int i;
     proxy_worker *workers;
+    int worker_is_initialized;
+    proxy_worker_stat *slot;
 
     workers = (proxy_worker *)balancer->workers->elts;
 
     for (i = 0; i < balancer->workers->nelts; i++) {
+        worker_is_initialized = PROXY_WORKER_IS_INITIALIZED(workers);
+        if (!worker_is_initialized) {
+            /*
+             * If the worker is not initialized check whether its scoreboard
+             * slot is already initialized.
+             */
+            slot = (proxy_worker_stat *) ap_get_scoreboard_lb(workers->id);
+            if (slot) {
+                worker_is_initialized = slot->status & PROXY_WORKER_INITIALIZED;
+            }
+            else {
+                worker_is_initialized = 0;
+            }
+        }
         ap_proxy_initialize_worker_share(conf, workers, s);
         ap_proxy_initialize_worker(workers, s);
+        if (!worker_is_initialized) {
+            /* Set to the original configuration */
+            workers->s->lbstatus = workers->s->lbfactor =
+            (workers->lbfactor ? workers->lbfactor : 1);
+            workers->s->lbset = workers->lbset;
+        }
         ++workers;
     }
 
-    workers = (proxy_worker *)balancer->workers->elts;
-    for (i = 0; i < balancer->workers->nelts; i++) {
-        /* Set to the original configuration */
-        workers[i].s->lbstatus = workers[i].s->lbfactor =
-          (workers[i].lbfactor ? workers[i].lbfactor : 1);
-        workers[i].s->lbset = workers[i].lbset;
-    }
     /* Set default number of attempts to the number of
      * workers.
      */
@@ -622,7 +638,7 @@ static int balancer_handler(request_rec *r)
         proxy_worker *ws;
 
         ws = ap_proxy_get_worker(r->pool, conf, name);
-        if (ws) {
+        if (bsel && ws) {
             worker = (proxy_worker *)bsel->workers->elts;
             for (n = 0; n < bsel->workers->nelts; n++) {
                 if (strcasecmp(worker->name, ws->name) == 0) {
@@ -634,33 +650,10 @@ static int balancer_handler(request_rec *r)
         }
     }
     /* First set the params */
-    if (bsel) {
-        const char *val;
-        if ((val = apr_table_get(params, "ss"))) {
-            if (strlen(val))
-                bsel->sticky = apr_pstrdup(conf->pool, val);
-            else
-                bsel->sticky = NULL;
-        }
-        if ((val = apr_table_get(params, "tm"))) {
-            int ival = atoi(val);
-            if (ival >= 0)
-                bsel->timeout = apr_time_from_sec(ival);
-        }
-        if ((val = apr_table_get(params, "fa"))) {
-            int ival = atoi(val);
-            if (ival >= 0)
-                bsel->max_attempts = ival;
-            bsel->max_attempts_set = 1;
-        }
-        if ((val = apr_table_get(params, "lm"))) {
-            proxy_balancer_method *provider;
-            provider = ap_lookup_provider(PROXY_LBMETHOD, val, "0");
-            if (provider) {
-                bsel->lbmethod = provider;
-            }
-        }
-    }
+    /*
+     * Note that it is not possible set the proxy_balancer because it is not
+     * in shared memory.
+     */
     if (wsel) {
         const char *val;
         if ((val = apr_table_get(params, "lf"))) {
@@ -727,7 +720,7 @@ static int balancer_handler(request_rec *r)
         ap_rputs("</httpd:manager>", r);
     }
     else {
-        ap_set_content_type(r, "text/html");
+        ap_set_content_type(r, "text/html; charset=ISO-8859-1");
         ap_rputs(DOCTYPE_HTML_3_2
                  "<html><head><title>Balancer Manager</title></head>\n", r);
         ap_rputs("<body><h1>Load Balancer Manager for ", r);
@@ -740,14 +733,16 @@ static int balancer_handler(request_rec *r)
         for (i = 0; i < conf->balancers->nelts; i++) {
 
             ap_rputs("<hr />\n<h3>LoadBalancer Status for ", r);
-            ap_rvputs(r, "<a href=\"", r->uri, "?b=",
-                      balancer->name + sizeof("balancer://") - 1,
-                      "\">", NULL);
-            ap_rvputs(r, balancer->name, "</a></h3>\n\n", NULL);
+            ap_rvputs(r, balancer->name, "</h3>\n\n", NULL);
             ap_rputs("\n\n<table border=\"0\" style=\"text-align: left;\"><tr>"
                 "<th>StickySession</th><th>Timeout</th><th>FailoverAttempts</th><th>Method</th>"
                 "</tr>\n<tr>", r);
-            ap_rvputs(r, "<td>", balancer->sticky, NULL);
+            if (balancer->sticky) {
+                ap_rvputs(r, "<td>", balancer->sticky, NULL);
+            }
+            else {
+                ap_rputs("<td> - ", r);
+            }
             ap_rprintf(r, "</td><td>%" APR_TIME_T_FMT "</td>",
                 apr_time_sec(balancer->timeout));
             ap_rprintf(r, "<td>%d</td>\n", balancer->max_attempts);
@@ -769,8 +764,10 @@ static int balancer_handler(request_rec *r)
                           ap_escape_uri(r->pool, worker->name),
                           "\">", NULL);
                 ap_rvputs(r, worker->name, "</a></td>", NULL);
-                ap_rvputs(r, "<td>", worker->s->route, NULL);
-                ap_rvputs(r, "</td><td>", worker->s->redirect, NULL);
+                ap_rvputs(r, "<td>", ap_escape_html(r->pool, worker->s->route),
+                          NULL);
+                ap_rvputs(r, "</td><td>",
+                          ap_escape_html(r->pool, worker->s->redirect), NULL);
                 ap_rprintf(r, "</td><td>%d</td>", worker->s->lbfactor);
                 ap_rprintf(r, "<td>%d</td><td>", worker->s->lbset);
                 if (worker->s->status & PROXY_WORKER_DISABLED)
@@ -808,10 +805,12 @@ static int balancer_handler(request_rec *r)
             ap_rputs("<tr><td>LB Set:</td><td><input name=\"ls\" type=text ", r);
             ap_rprintf(r, "value=\"%d\"></td></tr>\n", wsel->s->lbset);
             ap_rputs("<tr><td>Route:</td><td><input name=\"wr\" type=text ", r);
-            ap_rvputs(r, "value=\"", wsel->route, NULL);
+            ap_rvputs(r, "value=\"", ap_escape_html(r->pool, wsel->s->route),
+                      NULL);
             ap_rputs("\"></td></tr>\n", r);
             ap_rputs("<tr><td>Route Redirect:</td><td><input name=\"rr\" type=text ", r);
-            ap_rvputs(r, "value=\"", wsel->redirect, NULL);
+            ap_rvputs(r, "value=\"", ap_escape_html(r->pool, wsel->s->redirect),
+                      NULL);
             ap_rputs("\"></td></tr>\n", r);
             ap_rputs("<tr><td>Status:</td><td>Disabled: <input name=\"dw\" value=\"Disable\" type=radio", r);
             if (wsel->s->status & PROXY_WORKER_DISABLED)
@@ -824,41 +823,6 @@ static int balancer_handler(request_rec *r)
             ap_rvputs(r, "</table>\n<input type=hidden name=\"w\" ",  NULL);
             ap_rvputs(r, "value=\"", ap_escape_uri(r->pool, wsel->name), "\">\n", NULL);
             ap_rvputs(r, "<input type=hidden name=\"b\" ", NULL);
-            ap_rvputs(r, "value=\"", bsel->name + sizeof("balancer://") - 1,
-                      "\">\n</form>\n", NULL);
-            ap_rputs("<hr />\n", r);
-        }
-        else if (bsel) {
-            ap_rputs("<h3>Edit balancer settings for ", r);
-            ap_rvputs(r, bsel->name, "</h3>\n", NULL);
-            ap_rvputs(r, "<form method=\"GET\" action=\"", NULL);
-            ap_rvputs(r, r->uri, "\">\n<dl>", NULL);
-            ap_rputs("<table><tr><td>StickySession Identifier:</td><td><input name=\"ss\" type=text ", r);
-            if (bsel->sticky)
-                ap_rvputs(r, "value=\"", bsel->sticky, "\"", NULL);
-            ap_rputs("></td><tr>\n<tr><td>Timeout:</td><td><input name=\"tm\" type=text ", r);
-            ap_rprintf(r, "value=\"%" APR_TIME_T_FMT "\"></td></tr>\n",
-                       apr_time_sec(bsel->timeout));
-            ap_rputs("<tr><td>Failover Attempts:</td><td><input name=\"fa\" type=text ", r);
-            ap_rprintf(r, "value=\"%d\"></td></tr>\n",
-                       bsel->max_attempts);
-            ap_rputs("<tr><td>LB Method:</td><td><select name=\"lm\">", r);
-            {
-                apr_array_header_t *methods;
-                ap_list_provider_names_t *method;
-                int i;
-                methods = ap_list_provider_names(r->pool, PROXY_LBMETHOD, "0");
-                method = (ap_list_provider_names_t *)methods->elts;
-                for (i = 0; i < methods->nelts; i++) {
-                    ap_rprintf(r, "<option value=\"%s\" %s>%s</option>", method->provider_name,
-                       (!strcasecmp(bsel->lbmethod->name, method->provider_name)) ? "selected" : "",
-                       method->provider_name);
-                    method++;
-                }
-            }
-            ap_rputs("</select></td></tr>\n", r);
-            ap_rputs("<tr><td colspan=2><input type=submit value=\"Submit\"></td></tr>\n", r);
-            ap_rvputs(r, "</table>\n<input type=hidden name=\"b\" ", NULL);
             ap_rvputs(r, "value=\"", bsel->name + sizeof("balancer://") - 1,
                       "\">\n</form>\n", NULL);
             ap_rputs("<hr />\n", r);

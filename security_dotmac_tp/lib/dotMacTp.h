@@ -43,15 +43,16 @@ extern "C" {
 #define DOT_MAC_KEY_SIZE				1024					/* key size in bits */
 #define DOT_MAC_CSR_SIGNATURE_ALGID		CSSM_ALGID_SHA1WithRSA  /* sig alg of the CSR */
 #define DOT_MAC_CSR_SIGNATURE_ALGOID	CSSMOID_SHA1WithRSA		/* ditto */
+#define DOT_MAC_DOMAIN					"mac.com"
 
 /* By default, sign requests go to http://certmgmt.mac.com/sign */
 #define DOT_MAC_SIGN_SCHEMA				"http://"
-#define DOT_MAC_SIGN_HOST_NAME			"certmgmt.mac.com"		/* default server */
+#define DOT_MAC_SIGN_HOST_NAME			"certmgmt"				/* default server */
 #define DOT_MAC_SIGN_PATH				"/signing"
 
 /* By default, archive requests go to http://certmgmt.mac.com/archive */
 #define DOT_MAC_ARCHIVE_SCHEMA			"http://"
-#define DOT_MAC_ARCHIVE_HOST_NAME		"certmgmt.mac.com"		/* default server */
+#define DOT_MAC_ARCHIVE_HOST_NAME		"certmgmt"				/* default server */
 #define DOT_MAC_ARCHIVE_PATH			"/archive"
 
 /* Certificate Type Tags, as seen in the XMLRPC interface */
@@ -60,13 +61,9 @@ extern "C" {
 #define DOT_MAC_CERT_TYPE_EMAIL_SIGNING		"dmEmailSigning"
 #define DOT_MAC_CERT_TYPE_EMAIL_ENCRYPT		"dmEmailEncryption"
 
-/* 
- * lookup requests go to http://certinfo.mac.com/ 
- * Note that lookup via RetrieveCredResult() has no mechanism for specifying an 
- * alternate lookup host
- */
+/* By default, lookup requests go to http://certinfo.mac.com/ */
 #define DOT_MAC_LOOKUP_SCHEMA			"http://"
-#define DOT_MAC_LOOKUP_HOST				"certinfo.mac.com"
+#define DOT_MAC_LOOKUP_HOST_NAME		"certinfo"				/* default server */
 
 /* 
  * Paths for per-cert-type lookups.

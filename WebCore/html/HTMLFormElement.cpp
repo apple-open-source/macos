@@ -46,6 +46,11 @@
 #include <QtCore/QFileInfo>
 #endif
 
+#if PLATFORM(WX)
+#include <wx/defs.h>
+#include <wx/filename.h>
+#endif
+
 #if PLATFORM(WIN_OS)
 #include <shlwapi.h>
 #endif
@@ -224,6 +229,8 @@ static String pathGetFilename(String path)
 {
 #if PLATFORM(QT)
     return QFileInfo(path).fileName();
+#elif PLATFORM(WX)
+    return wxFileName(path).GetFullName();
 #elif PLATFORM(WIN_OS)
     return String(PathFindFileName(path.charactersWithNullTermination()));
 #else
@@ -231,25 +238,28 @@ static String pathGetFilename(String path)
 #endif
 }
 
-PassRefPtr<FormData> HTMLFormElement::formData(const char* boundary) const
+TextEncoding HTMLFormElement::dataEncoding() const
 {
-    DeprecatedCString enc_string = "";
+    if (isMailtoForm())
+        return UTF8Encoding();
 
+    TextEncoding encoding;
     String str = m_acceptcharset;
     str.replace(',', ' ');
     Vector<String> charsets = str.split(' ');
-    TextEncoding encoding;
-    Frame* frame = document()->frame();
     Vector<String>::const_iterator end = charsets.end();
     for (Vector<String>::const_iterator it = charsets.begin(); it != end; ++it)
         if ((encoding = TextEncoding(*it)).isValid())
-            break;
-    if (!encoding.isValid()) {
-        if (frame)
-            encoding = frame->loader()->encoding();
-        else
-            encoding = Latin1Encoding();
-    }
+            return encoding;
+    if (Frame* frame = document()->frame())
+        return frame->loader()->encoding();
+    return Latin1Encoding();
+}
+
+PassRefPtr<FormData> HTMLFormElement::formData(const char* boundary) const
+{
+    DeprecatedCString enc_string = "";
+    TextEncoding encoding = dataEncoding();
 
     RefPtr<FormData> result = new FormData;
     
@@ -350,6 +360,11 @@ void HTMLFormElement::parseEnctype(const String& type)
         m_enctype = "application/x-www-form-urlencoded";
         m_multipart = false;
     }
+}
+
+bool HTMLFormElement::isMailtoForm() const
+{
+    return m_url.startsWith("mailto:", false);
 }
 
 bool HTMLFormElement::prepareSubmit(Event* event)
@@ -465,11 +480,28 @@ void HTMLFormElement::submit(Event* event, bool activateSubmitButton)
 
     if (needButtonActivation && firstSuccessfulSubmitButton)
         firstSuccessfulSubmitButton->setActivatedSubmit(true);
+    
+    if (!m_url)
+        m_url = document()->url();
 
     if (m_post) {
-        if (!m_multipart)
-            frame->loader()->submitForm("POST", m_url, formData(0), m_target, enctype(), String(), event);
-        else {
+        if (m_multipart && isMailtoForm()) {
+            setEnctype("application/x-www-form-urlencoded");
+            m_multipart = false;
+        }
+
+        if (!m_multipart) {
+            RefPtr<FormData> data = formData(0);
+            if (isMailtoForm()) {
+                String body = data->flattenToString();
+                if (equalIgnoringCase(enctype(), "text/plain")) {
+                    // Convention seems to be to decode, and s/&/\r\n/. Also, spaces are encoded as %20.
+                    body = KURL::decode_string(body.replace('&', "\r\n").replace('+', ' ').deprecatedString() + "\r\n");
+                }
+                data = new FormData((String("body=") + encodeCString(body.utf8())).replace('+', "%20").latin1());
+            }
+            frame->loader()->submitForm("POST", m_url, data, m_target, enctype(), String(), event);
+        } else {
             Vector<char> boundary;
             getUniqueBoundaryString(boundary);
             frame->loader()->submitForm("POST", m_url, formData(boundary.data()), m_target, enctype(), boundary.data(), event);
@@ -575,18 +607,15 @@ unsigned HTMLFormElement::formElementIndex(HTMLGenericFormElement *e)
 
 void HTMLFormElement::registerFormElement(HTMLGenericFormElement* e)
 {
-    Document* doc = document();
-    doc->checkedRadioButtons().removeButton(e);
+    document()->checkedRadioButtons().removeButton(e);
     m_checkedRadioButtons.addButton(e);
     formElements.insert(formElementIndex(e), e);
-    doc->incDOMTreeVersion();
 }
 
 void HTMLFormElement::removeFormElement(HTMLGenericFormElement* e)
 {
     m_checkedRadioButtons.removeButton(e);
     removeFromVector(formElements, e);
-    document()->incDOMTreeVersion();
 }
 
 bool HTMLFormElement::isURLAttribute(Attribute *attr) const
@@ -714,21 +743,26 @@ void HTMLFormElement::CheckedRadioButtons::addButton(HTMLGenericFormElement* ele
         return;
 
     HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(element);
+
     // We only track checked buttons.
     if (!inputElement->checked())
         return;
 
     if (!m_nameToCheckedRadioButtonMap)
         m_nameToCheckedRadioButtonMap.set(new NameToInputMap);
-    else {
-        HTMLInputElement* currentCheckedRadio = m_nameToCheckedRadioButtonMap->get(element->name().impl());
-        if (currentCheckedRadio && currentCheckedRadio != element)
-            currentCheckedRadio->setChecked(false);
-    }
 
-    m_nameToCheckedRadioButtonMap->set(element->name().impl(), inputElement);    
-}
+    pair<NameToInputMap::iterator, bool> result = m_nameToCheckedRadioButtonMap->add(element->name().impl(), inputElement);
+    if (result.second)
+        return;
     
+    HTMLInputElement* oldCheckedButton = result.first->second;
+    if (oldCheckedButton == inputElement)
+        return;
+
+    result.first->second = inputElement;
+    oldCheckedButton->setChecked(false);
+}
+
 HTMLInputElement* HTMLFormElement::CheckedRadioButtons::checkedButtonForGroup(const AtomicString& name) const
 {
     if (!m_nameToCheckedRadioButtonMap)

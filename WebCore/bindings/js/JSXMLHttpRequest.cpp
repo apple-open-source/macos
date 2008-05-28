@@ -1,5 +1,4 @@
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 2004, 2007 Apple Inc. All rights reserved.
  *  Copyright (C) 2005, 2006 Alexey Proskuryakov <ap@nypop.com>
  *
@@ -42,28 +41,27 @@ using namespace WebCore;
 
 /* Source for JSXMLHttpRequestPrototypeTable.
 @begin JSXMLHttpRequestPrototypeTable 7
-  abort                 JSXMLHttpRequest::Abort                   DontDelete|Function 0
-  getAllResponseHeaders JSXMLHttpRequest::GetAllResponseHeaders   DontDelete|Function 0
-  getResponseHeader     JSXMLHttpRequest::GetResponseHeader       DontDelete|Function 1
-  open                  JSXMLHttpRequest::Open                    DontDelete|Function 5
-  overrideMimeType      JSXMLHttpRequest::OverrideMIMEType        DontDelete|Function 1
-  send                  JSXMLHttpRequest::Send                    DontDelete|Function 1
-  setRequestHeader      JSXMLHttpRequest::SetRequestHeader        DontDelete|Function 2
+  abort                 jsXMLHttpRequestPrototypeFunctionAbort                   DontDelete|Function 0
+  getAllResponseHeaders jsXMLHttpRequestPrototypeFunctionGetAllResponseHeaders   DontDelete|Function 0
+  getResponseHeader     jsXMLHttpRequestPrototypeFunctionGetResponseHeader       DontDelete|Function 1
+  open                  jsXMLHttpRequestPrototypeFunctionOpen                    DontDelete|Function 5
+  overrideMimeType      jsXMLHttpRequestPrototypeFunctionOverrideMIMEType        DontDelete|Function 1
+  send                  jsXMLHttpRequestPrototypeFunctionSend                    DontDelete|Function 1
+  setRequestHeader      jsXMLHttpRequestPrototypeFunctionSetRequestHeader        DontDelete|Function 2
 # from the EventTarget interface
 # FIXME: add DOM3 EventTarget methods (addEventListenerNS, removeEventListenerNS).
-  addEventListener      JSXMLHttpRequest::AddEventListener        DontDelete|Function 3
-  removeEventListener   JSXMLHttpRequest::RemoveEventListener     DontDelete|Function 3
-  dispatchEvent         JSXMLHttpRequest::DispatchEvent           DontDelete|Function 1
+  addEventListener      jsXMLHttpRequestPrototypeFunctionAddEventListener        DontDelete|Function 3
+  removeEventListener   jsXMLHttpRequestPrototypeFunctionRemoveEventListener     DontDelete|Function 3
+  dispatchEvent         jsXMLHttpRequestPrototypeFunctionDispatchEvent           DontDelete|Function 1
 @end
 */
 KJS_DEFINE_PROTOTYPE(JSXMLHttpRequestPrototype)
-KJS_IMPLEMENT_PROTOTYPE_FUNCTION(JSXMLHttpRequestPrototypeFunction)
-KJS_IMPLEMENT_PROTOTYPE("JSXMLHttpRequest", JSXMLHttpRequestPrototype, JSXMLHttpRequestPrototypeFunction)
+KJS_IMPLEMENT_PROTOTYPE("JSXMLHttpRequest", JSXMLHttpRequestPrototype)
 
 JSXMLHttpRequestConstructorImp::JSXMLHttpRequestConstructorImp(ExecState* exec, Document* d)
-    : doc(d)
+    : DOMObject(exec->lexicalGlobalObject()->objectPrototype())
+    , doc(d)
 {
-    setPrototype(exec->lexicalInterpreter()->builtinObjectPrototype());
     putDirect(exec->propertyNames().prototype, JSXMLHttpRequestPrototype::self(exec), None);
 }
 
@@ -74,10 +72,10 @@ bool JSXMLHttpRequestConstructorImp::implementsConstruct() const
 
 JSObject* JSXMLHttpRequestConstructorImp::construct(ExecState* exec, const List&)
 {
-    return new JSXMLHttpRequest(exec, doc.get());
+    return new JSXMLHttpRequest(JSXMLHttpRequestPrototype::self(exec), doc.get());
 }
 
-const ClassInfo JSXMLHttpRequest::info = { "JSXMLHttpRequest", 0, &JSXMLHttpRequestTable, 0 };
+const ClassInfo JSXMLHttpRequest::info = { "JSXMLHttpRequest", 0, &JSXMLHttpRequestTable };
 
 /* Source for JSXMLHttpRequestTable.
 @begin JSXMLHttpRequestTable 7
@@ -103,12 +101,19 @@ JSValue* JSXMLHttpRequest::getValueProperty(ExecState* exec, int token) const
     switch (token) {
         case ReadyState:
             return jsNumber(m_impl->getReadyState());
-        case ResponseText:
-            return jsOwnedStringOrNull(m_impl->getResponseText());
-        case ResponseXML:
-            if (Document* responseXML = m_impl->getResponseXML())
+        case ResponseText: {
+            JSValue* result = jsOwnedStringOrNull(m_impl->getResponseText(ec));
+            setDOMException(exec, ec);
+            return result;
+        }
+        case ResponseXML: {
+            Document* responseXML = m_impl->getResponseXML(ec);
+            setDOMException(exec, ec);
+            if (responseXML)
                 return toJS(exec, responseXML);
+
             return jsNull();
+        }
         case Status: {
             JSValue* result = jsNumber(m_impl->getStatus(ec));
             setDOMException(exec, ec);
@@ -190,10 +195,10 @@ void JSXMLHttpRequest::mark()
 }
 
 
-JSXMLHttpRequest::JSXMLHttpRequest(ExecState* exec, Document* d)
-  : m_impl(new XMLHttpRequest(d))
+JSXMLHttpRequest::JSXMLHttpRequest(JSObject* prototype, Document* d)
+    : DOMObject(prototype)
+    , m_impl(new XMLHttpRequest(d))
 {
-    setPrototype(JSXMLHttpRequestPrototype::self(exec));
     ScriptInterpreter::putDOMObject(m_impl.get(), this);
 }
 
@@ -205,127 +210,194 @@ JSXMLHttpRequest::~JSXMLHttpRequest()
     ScriptInterpreter::forgetDOMObject(m_impl.get());
 }
 
-JSValue* JSXMLHttpRequestPrototypeFunction::callAsFunction(ExecState* exec, JSObject* thisObj, const List& args)
+JSValue* jsXMLHttpRequestPrototypeFunctionAbort(ExecState* exec, JSObject* thisObj, const List& args)
 {
     if (!thisObj->inherits(&JSXMLHttpRequest::info))
         return throwError(exec, TypeError);
 
     JSXMLHttpRequest* request = static_cast<JSXMLHttpRequest*>(thisObj);
 
+    request->impl()->abort();
+    return jsUndefined();
+}
+
+JSValue* jsXMLHttpRequestPrototypeFunctionGetAllResponseHeaders(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSXMLHttpRequest::info))
+        return throwError(exec, TypeError);
+
+    JSXMLHttpRequest* request = static_cast<JSXMLHttpRequest*>(thisObj);
     ExceptionCode ec = 0;
 
-    switch (id) {
-        case JSXMLHttpRequest::Abort:
-            request->m_impl->abort();
-            return jsUndefined();
+    JSValue* headers = jsStringOrUndefined(request->impl()->getAllResponseHeaders(ec));
+    setDOMException(exec, ec);
+    return headers;
+}
 
-        case JSXMLHttpRequest::GetAllResponseHeaders:
-            return jsStringOrUndefined(request->m_impl->getAllResponseHeaders());
+JSValue* jsXMLHttpRequestPrototypeFunctionGetResponseHeader(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSXMLHttpRequest::info))
+        return throwError(exec, TypeError);
 
-        case JSXMLHttpRequest::GetResponseHeader:
-            if (args.size() < 1)
-                return throwError(exec, SyntaxError, "Not enough arguments");
+    JSXMLHttpRequest* request = static_cast<JSXMLHttpRequest*>(thisObj);
+    ExceptionCode ec = 0;
 
-            return jsStringOrNull(request->m_impl->getResponseHeader(args[0]->toString(exec)));
+    if (args.size() < 1)
+        return throwError(exec, SyntaxError, "Not enough arguments");
 
-        case JSXMLHttpRequest::Open: {
-            if (args.size() < 2)
-                return throwError(exec, SyntaxError, "Not enough arguments");
+    JSValue* header = jsStringOrNull(request->impl()->getResponseHeader(args[0]->toString(exec), ec));
+    setDOMException(exec, ec);
+    return header;
+}
 
-            String method = args[0]->toString(exec);
-            Frame* frame = Window::retrieveActive(exec)->impl()->frame();
-            if (!frame)
-                return jsUndefined();
-            KURL url = frame->loader()->completeURL(DeprecatedString(args[1]->toString(exec)));
 
-            bool async = true;
-            if (args.size() >= 3)
-                async = args[2]->toBoolean(exec);
+JSValue* jsXMLHttpRequestPrototypeFunctionOpen(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSXMLHttpRequest::info))
+        return throwError(exec, TypeError);
 
-            if (args.size() >= 4 && !args[3]->isUndefined()) {
-                String user = valueToStringWithNullCheck(exec, args[3]);
+    JSXMLHttpRequest* request = static_cast<JSXMLHttpRequest*>(thisObj);
+    ExceptionCode ec = 0;
 
-                if (args.size() >= 5 && !args[4]->isUndefined()) {
-                    String password = valueToStringWithNullCheck(exec, args[4]);
-                    request->m_impl->open(method, url, async, user, password, ec);
-                } else
-                    request->m_impl->open(method, url, async, user, ec);
-            } else
-                request->m_impl->open(method, url, async, ec);
+    if (args.size() < 2)
+        return throwError(exec, SyntaxError, "Not enough arguments");
 
-            setDOMException(exec, ec);
-            return jsUndefined();
-        }
-        case JSXMLHttpRequest::Send: {
-            String body;
+    String method = args[0]->toString(exec);
+    Frame* frame = Window::retrieveActive(exec)->impl()->frame();
+    if (!frame)
+        return jsUndefined();
+    KURL url = frame->loader()->completeURL(DeprecatedString(args[1]->toString(exec)));
 
-            if (args.size() >= 1) {
-                if (args[0]->toObject(exec)->inherits(&JSDocument::info)) {
-                    Document* doc = static_cast<Document*>(static_cast<JSDocument*>(args[0]->toObject(exec))->impl());
-                    body = doc->toString().deprecatedString();
-                } else {
-                    // converting certain values (like null) to object can set an exception
-                    if (exec->hadException())
-                        exec->clearException();
-                    else
-                        body = args[0]->toString(exec);
-                }
-            }
+    bool async = true;
+    if (args.size() >= 3)
+        async = args[2]->toBoolean(exec);
 
-            request->m_impl->send(body, ec);
-            setDOMException(exec, ec);
+    if (args.size() >= 4 && !args[3]->isUndefined()) {
+        String user = valueToStringWithNullCheck(exec, args[3]);
 
-            return jsUndefined();
-        }
-        case JSXMLHttpRequest::SetRequestHeader:
-            if (args.size() < 2)
-                return throwError(exec, SyntaxError, "Not enough arguments");
+        if (args.size() >= 5 && !args[4]->isUndefined()) {
+            String password = valueToStringWithNullCheck(exec, args[4]);
+            request->impl()->open(method, url, async, user, password, ec);
+        } else
+            request->impl()->open(method, url, async, user, ec);
+    } else
+        request->impl()->open(method, url, async, ec);
 
-            request->m_impl->setRequestHeader(args[0]->toString(exec), args[1]->toString(exec), ec);
-            setDOMException(exec, ec);
-            return jsUndefined();
+    setDOMException(exec, ec);
+    return jsUndefined();
+}
 
-        case JSXMLHttpRequest::OverrideMIMEType:
-            if (args.size() < 1)
-                return throwError(exec, SyntaxError, "Not enough arguments");
+JSValue* jsXMLHttpRequestPrototypeFunctionSend(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSXMLHttpRequest::info))
+        return throwError(exec, TypeError);
 
-            request->m_impl->overrideMIMEType(args[0]->toString(exec));
-            return jsUndefined();
-        
-        case JSXMLHttpRequest::AddEventListener: {
-            Document* doc = request->m_impl->document();
-            if (!doc)
-                return jsUndefined();
-            Frame* frame = doc->frame();
-            if (!frame)
-                return jsUndefined();
-            JSUnprotectedEventListener* listener = KJS::Window::retrieveWindow(frame)->findOrCreateJSUnprotectedEventListener(args[1], true);
-            if (!listener)
-                return jsUndefined();
-            request->m_impl->addEventListener(args[0]->toString(exec), listener, args[2]->toBoolean(exec));
-            return jsUndefined();
-        }
-        case JSXMLHttpRequest::RemoveEventListener: {
-            Document* doc = request->m_impl->document();
-            if (!doc)
-                return jsUndefined();
-            Frame* frame = doc->frame();
-            if (!frame)
-                return jsUndefined();
-            JSUnprotectedEventListener* listener = KJS::Window::retrieveWindow(frame)->findOrCreateJSUnprotectedEventListener(args[1], true);
-            if (!listener)
-                return jsUndefined();
-            request->m_impl->removeEventListener(args[0]->toString(exec), listener, args[2]->toBoolean(exec));
-            return jsUndefined();
-        }
-        case JSXMLHttpRequest::DispatchEvent: {
-            bool result = request->m_impl->dispatchEvent(toEvent(args[0]), ec);
-            setDOMException(exec, ec);
-            return jsBoolean(result);
+    JSXMLHttpRequest* request = static_cast<JSXMLHttpRequest*>(thisObj);
+    ExceptionCode ec = 0;
+
+    String body;
+
+    if (args.size() >= 1) {
+        if (args[0]->toObject(exec)->inherits(&JSDocument::info)) {
+            Document* doc = static_cast<Document*>(static_cast<JSDocument*>(args[0]->toObject(exec))->impl());
+            body = doc->toString().deprecatedString();
+        } else {
+            // converting certain values (like null) to object can set an exception
+            if (exec->hadException())
+                exec->clearException();
+            else
+                body = args[0]->toString(exec);
         }
     }
 
+    request->impl()->send(body, ec);
+    setDOMException(exec, ec);
+
     return jsUndefined();
+}
+
+JSValue* jsXMLHttpRequestPrototypeFunctionSetRequestHeader(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSXMLHttpRequest::info))
+        return throwError(exec, TypeError);
+
+    JSXMLHttpRequest* request = static_cast<JSXMLHttpRequest*>(thisObj);
+    ExceptionCode ec = 0;
+
+    if (args.size() < 2)
+        return throwError(exec, SyntaxError, "Not enough arguments");
+
+    request->impl()->setRequestHeader(args[0]->toString(exec), args[1]->toString(exec), ec);
+    setDOMException(exec, ec);
+    return jsUndefined();
+
+}
+
+JSValue* jsXMLHttpRequestPrototypeFunctionOverrideMIMEType(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSXMLHttpRequest::info))
+        return throwError(exec, TypeError);
+
+    JSXMLHttpRequest* request = static_cast<JSXMLHttpRequest*>(thisObj);
+
+    if (args.size() < 1)
+        return throwError(exec, SyntaxError, "Not enough arguments");
+
+    request->impl()->overrideMIMEType(args[0]->toString(exec));
+    return jsUndefined();
+}
+
+JSValue* jsXMLHttpRequestPrototypeFunctionAddEventListener(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSXMLHttpRequest::info))
+        return throwError(exec, TypeError);
+
+    JSXMLHttpRequest* request = static_cast<JSXMLHttpRequest*>(thisObj);
+
+    Document* doc = request->impl()->document();
+    if (!doc)
+        return jsUndefined();
+    Frame* frame = doc->frame();
+    if (!frame)
+        return jsUndefined();
+    JSUnprotectedEventListener* listener = KJS::Window::retrieveWindow(frame)->findOrCreateJSUnprotectedEventListener(args[1], true);
+    if (!listener)
+        return jsUndefined();
+    request->impl()->addEventListener(args[0]->toString(exec), listener, args[2]->toBoolean(exec));
+    return jsUndefined();
+}
+
+JSValue* jsXMLHttpRequestPrototypeFunctionRemoveEventListener(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSXMLHttpRequest::info))
+        return throwError(exec, TypeError);
+
+    JSXMLHttpRequest* request = static_cast<JSXMLHttpRequest*>(thisObj);
+
+    Document* doc = request->impl()->document();
+    if (!doc)
+        return jsUndefined();
+    Frame* frame = doc->frame();
+    if (!frame)
+        return jsUndefined();
+    JSUnprotectedEventListener* listener = KJS::Window::retrieveWindow(frame)->findOrCreateJSUnprotectedEventListener(args[1], true);
+    if (!listener)
+        return jsUndefined();
+    request->impl()->removeEventListener(args[0]->toString(exec), listener, args[2]->toBoolean(exec));
+    return jsUndefined();
+}
+
+JSValue* jsXMLHttpRequestPrototypeFunctionDispatchEvent(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSXMLHttpRequest::info))
+        return throwError(exec, TypeError);
+
+    JSXMLHttpRequest* request = static_cast<JSXMLHttpRequest*>(thisObj);
+    ExceptionCode ec = 0;
+
+    bool result = request->impl()->dispatchEvent(toEvent(args[0]), ec);
+    setDOMException(exec, ec);
+    return jsBoolean(result);
 }
 
 } // end namespace

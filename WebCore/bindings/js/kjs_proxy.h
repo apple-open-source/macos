@@ -21,11 +21,13 @@
 #ifndef kjs_proxy_h
 #define kjs_proxy_h
 
+#include "JSDOMWindow.h"
+#include <kjs/protect.h>
 #include <wtf/RefPtr.h>
 
 namespace KJS {
+    class JSGlobalObject;
     class JSValue;
-    class ScriptInterpreter;
 }
 
 namespace WebCore {
@@ -36,10 +38,19 @@ class Frame;
 class Node;
 class String;
 
+// FIXME: Rename this class to JSController and the Frame function to javaScript().
+
 class KJSProxy {
 public:
     KJSProxy(Frame*);
     ~KJSProxy();
+
+    bool haveGlobalObject() const { return m_globalObject; }
+    JSDOMWindow* globalObject()
+    {
+        initScriptIfNeeded();
+        return m_globalObject;
+    }
 
     KJS::JSValue* evaluate(const String& filename, int baseLine, const String& code);
     void clear();
@@ -48,19 +59,29 @@ public:
     EventListener* createSVGEventHandler(const String& functionName, const String& code, Node*);
 #endif
     void finishedWithEvent(Event*);
-    KJS::ScriptInterpreter *interpreter();
     void setEventHandlerLineno(int lineno) { m_handlerLineno = lineno; }
 
-    void initScriptIfNeeded();
-
-    bool haveInterpreter() const { return m_script; }
-    
     void clearDocumentWrapper();
 
+    void setProcessingTimerCallback(bool b) { m_processingTimerCallback = b; }
+    bool processingUserGesture() const;
+
+    bool isEnabled();
+
 private:
-    RefPtr<KJS::ScriptInterpreter> m_script;
+    void initScriptIfNeeded()
+    {
+        if (!m_globalObject)
+            initScript();
+    }
+    void initScript();
+
+    KJS::ProtectedPtr<JSDOMWindow> m_globalObject;
     Frame* m_frame;
     int m_handlerLineno;
+    
+    bool m_processingTimerCallback;
+    bool m_processingInlineCode;
 };
 
 }

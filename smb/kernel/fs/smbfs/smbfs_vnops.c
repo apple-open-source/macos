@@ -165,16 +165,21 @@ static void *smbfs_create_windows_symlink_data(const char *target, u_int32_t *rt
 
 /*
  * Free any memory and clear any value used by the acl caching
+ * We have a lock around this routine to make sure no one plays
+ * with these values until we are done.
  */
 PRIVSYM void
 smbfs_clear_acl_cache(struct smbnode *np)
 {
+	lck_mtx_lock(&np->f_ACLCacheLock);		
 	if (np->acl_cache_data)
 		FREE(np->acl_cache_data, M_TEMP);
 	np->acl_cache_data = NULL;
 	np->acl_cache_timer.tv_sec = 0;
 	np->acl_cache_timer.tv_nsec = 0;
 	np->acl_error = 0;
+	np->acl_cache_len = 0;
+	lck_mtx_unlock(&np->f_ACLCacheLock);		
 }
 /*
  * smbfs_down is called when we have a message that timeout or we are
@@ -283,33 +288,65 @@ smb_sid_endianize(struct ntsid *sidp)
  * This is ok, becasue one we go through this process the vfs layer will handle the longer caching of these
  * request.
  */
-static int smbfs_update_acl_cache(struct smb_share *ssp, struct smbnode *np, struct smb_cred *credp)
+static int smbfs_update_acl_cache(struct smb_share *ssp, struct smbnode *np, struct smb_cred *credp, struct ntsecdesc **w_sec)
 {
 	u_int32_t selector = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
 	u_int16_t			fid = 0;
 	struct timespec		ts;
+	struct ntsecdesc	*acl_cache_data = NULL;
+	int					acl_cache_len = 0;
+	int					error;
 	
 	/* Check to see if the cache has time out */
-	nanotime(&ts);
-	if (timespeccmp(&np->acl_cache_timer, &ts, >))
-		return np->acl_error;	/* no then return the cache error if one and the cache data */
+	nanouptime(&ts);
+	if (timespeccmp(&np->acl_cache_timer, &ts, >)) {
+		/* Ok the cache is still good take a lock and retrieve the data */
+		lck_mtx_lock(&np->f_ACLCacheLock);		
+		goto done;
+	}
 	
-		/* The cache data is stale, clear  it out and refetch it.*/
-	smbfs_clear_acl_cache(np);
-	np->acl_error = smbfs_smb_tmpopen(np, STD_RIGHT_READ_CONTROL_ACCESS, credp, &fid);
-	if (np->acl_error == 0) {
+	error = smbfs_smb_tmpopen(np, STD_RIGHT_READ_CONTROL_ACCESS, credp, &fid);
+	if (error == 0) {
 		int cerror;
 			
-		np->acl_error = smbfs_smb_getsec(ssp, fid, credp, selector, (struct ntsecdesc **)&np->acl_cache_data);
+		error = smbfs_smb_getsec(ssp, fid, credp, selector, (struct ntsecdesc **)&acl_cache_data, &acl_cache_len);
 		cerror = smbfs_smb_tmpclose(np, fid, credp);
 		if (cerror)
 			SMBWARNING("error %d closing fid %d file %.*s\n", cerror, fid, np->n_nmlen, np->n_name);	
-		if ((np->acl_error == 0) && (np->acl_cache_data == NULL))
-			np->acl_error = EBADRPC;
+		if ((error == 0) && (acl_cache_data == NULL))
+			error = EBADRPC;
 	}
-	/* Reset our timer and return the new information */
+	
+	/* Don't let anyone play with the acl cache until we are done */
+	lck_mtx_lock(&np->f_ACLCacheLock);		
+	/* We have new information reset our timer  */
 	SET_ACL_CACHE_TIME(np);
-	return np->acl_error;	
+	/* Free the old data no longer needed */
+	if (np->acl_cache_data)
+		FREE(np->acl_cache_data, M_TEMP);
+	np->acl_cache_data = acl_cache_data;
+	np->acl_cache_len = acl_cache_len;
+	np->acl_error = error;
+	
+done:
+	if (np->acl_error)
+		*w_sec = NULL;
+	else if (np->acl_cache_data) {
+		MALLOC(*w_sec, struct ntsecdesc *, np->acl_cache_len, M_TEMP, M_WAITOK);
+		if (*w_sec)
+			bcopy(np->acl_cache_data, *w_sec, np->acl_cache_len);
+		else {	/* Should never happen, but just to be safe */
+			*w_sec = np->acl_cache_data;
+			np->acl_cache_data = NULL;
+			np->acl_cache_len = 0;
+			np->acl_cache_timer.tv_sec = 0;
+			np->acl_cache_timer.tv_nsec = 0;
+		}
+	} else
+		np->acl_error =  EBADRPC;	/* Should never happen, but just to be safe */
+	error = np->acl_error;
+	lck_mtx_unlock(&np->f_ACLCacheLock);		
+	return error;	
 }
 
 static int
@@ -318,7 +355,7 @@ smbfs_getsecurity(struct smbnode *np, struct vnode_attr *vap,
 {
 	struct smb_share	*ssp = np->n_mount->sm_share;
 	int					error;
-	struct ntsecdesc	*w_sec;	/* Wire sec descriptor */
+	struct ntsecdesc	*w_sec = NULL;	/* Wire sec descriptor */
 	u_int32_t			acecount, j, aflags;
 	struct ntacl		*w_dacl;	/* Wire DACL */
 	struct ntsid		*w_sidp;	/* Wire SID */
@@ -327,6 +364,10 @@ smbfs_getsecurity(struct smbnode *np, struct vnode_attr *vap,
 	kauth_ace_rights_t	arights;
 	u_int32_t			w_rights;
 	ntsid_t				sid;	/* temporary, for a kauth sid */
+
+	/* We do not support acl access on a stream node */
+	if (vnode_isnamedstream(np->n_vnode))
+		return ENOTSUP;
 
 	if (VATTR_IS_ACTIVE(vap, va_acl))
 		vap->va_acl = NULL;					/* default */
@@ -337,11 +378,9 @@ smbfs_getsecurity(struct smbnode *np, struct vnode_attr *vap,
 	if (VATTR_IS_ACTIVE(vap, va_uuuid))
 		vap->va_uuuid = kauth_null_guid;	/* default */
 	/* Check to make sure we have current acl information */
-	error = smbfs_update_acl_cache(ssp, np, credp);
+	error = smbfs_update_acl_cache(ssp, np, credp, &w_sec);
 	if (error)
-		return error;
-
-	w_sec = np->acl_cache_data;
+		goto exit;
 	
 	if (VATTR_IS_ACTIVE(vap, va_guuid)) {
 		w_sidp = sdgroup(w_sec);
@@ -479,6 +518,10 @@ smbfs_getsecurity(struct smbnode *np, struct vnode_attr *vap,
 exit:
 	if (error && res)
 		kauth_acl_free(res);
+	
+	if (w_sec)
+		FREE(w_sec, M_TEMP);
+		
 	return (error);
 }
 
@@ -499,7 +542,12 @@ smbfs_setsecurity(vnode_t vp, struct vnode_attr *vap, struct smb_cred *credp)
 	u_int16_t fsecflags = 0;
 	struct ntsecdesc	*w_sec = NULL;	/* Wire sec descriptor */
 	u_int16_t	fid = 0;
-
+	int seclen = 0;
+	
+	/* We do not support acl access on a stream node */
+	 if (vnode_isnamedstream(vp))
+		 return ENOTSUP;
+	
 	/* Clear the ACL cache, after this call it will be out of date. */
 	smbfs_clear_acl_cache(np);
 		
@@ -517,6 +565,7 @@ smbfs_setsecurity(vnode_t vp, struct vnode_attr *vap, struct smb_cred *credp)
 		error = kauth_cred_guid2ntsid(&vap->va_guuid, (ntsid_t *)w_grp);
 		if (error) {
 			SMBERROR("kauth_cred_guid2ntsid error %d\n", error);
+			smb_hexdump(__FUNCTION__, "va_guuid: ", (u_char *)&vap->va_guuid, (int)sizeof(vap->va_guuid));
 			goto exit;
 		}
 		smb_sid_endianize(w_grp);
@@ -529,17 +578,15 @@ smbfs_setsecurity(vnode_t vp, struct vnode_attr *vap, struct smb_cred *credp)
 		bzero(w_usr, MAXSIDLEN);
 		error = kauth_cred_guid2ntsid(&vap->va_uuuid, (ntsid_t *)w_usr);
 		if (error) {
-			SMBERROR("kauth_cred_guid2ntsid %d file %.*s\n",
-				 error, np->n_nmlen, np->n_name);
+			SMBERROR("kauth_cred_guid2ntsid (va_uuuid)  %d file %.*s\n", error, np->n_nmlen, np->n_name);
+			smb_hexdump(__FUNCTION__, "va_uuuid: ", (u_char *)&vap->va_uuuid, (int)sizeof(vap->va_uuuid));
 			goto exit;
 		}
 		smb_sid_endianize(w_usr);
 	}
 	if (VATTR_IS_ACTIVE(vap, va_acl) && vap->va_acl != NULL) {
 		if (vap->va_acl->acl_entrycount > UINT16_MAX) {
-			SMBERROR("acl_entrycount=%d, file(%.*s)\n",
-				 vap->va_acl->acl_entrycount, np->n_nmlen,
-				 np->n_name);
+			SMBERROR("acl_entrycount=%d, file(%.*s)\n", vap->va_acl->acl_entrycount, np->n_nmlen, np->n_name);
 			error = EINVAL;
 			goto exit;
 		}
@@ -631,8 +678,8 @@ smbfs_setsecurity(vnode_t vp, struct vnode_attr *vap, struct smb_cred *credp)
 			error = kauth_cred_guid2ntsid(&acep->ace_applicable,
 						      (ntsid_t *)w_sidp);
 			if (error) {
-				SMBERROR("kauth_cred_guid2ntsid %d file %.*s\n",
-					 error, np->n_nmlen, np->n_name);
+				SMBERROR("kauth_cred_guid2ntsid (va_acl)  %d file %.*s\n", error, np->n_nmlen, np->n_name);
+				smb_hexdump(__FUNCTION__, "ace_applicable: ", (u_char *)&acep->ace_applicable, (int)sizeof(acep->ace_applicable));
 				goto exit;
 			}
 			smb_sid_endianize(w_sidp);
@@ -649,10 +696,9 @@ smbfs_setsecurity(vnode_t vp, struct vnode_attr *vap, struct smb_cred *credp)
 	 * Note we have to ask for everything as Windows will give back
 	 * zeroes for any bits it thinks we don't care about.
 	 */
-	error = smbfs_smb_getsec(ssp, fid, credp, OWNER_SECURITY_INFORMATION |
-						  GROUP_SECURITY_INFORMATION |
-						  DACL_SECURITY_INFORMATION,
-				 &w_sec);
+	error = smbfs_smb_getsec(ssp, fid, credp, 
+							 OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, 
+							 &w_sec, &seclen);
 	if (error || w_sec == NULL) {
 		SMBERROR("smbfs_smb_getsec %d file %.*s\n", error,
 			 np->n_nmlen, np->n_name);
@@ -1420,14 +1466,11 @@ static int smbfs_vnop_inactive(struct vnop_inactive_args *ap)
 	np->n_lastvop = smbfs_vnop_inactive;
 	np = VTOSMB(vp);
 	
-	/* Clear the ACL cache, no longer needed */
-	smbfs_clear_acl_cache(np);
-	
 	if ((vnode_vfsisrdonly(vp)) || (vnode_isdir(vp))) {
-		/* Nothing to do here just get out */
-        goto out;
+		/* Nothing else to do here just get out */
+		goto out;
 	}
-		
+	
     /*
      * Before we take the lock, someone can jump in and do an open and start using this vnode again.
 	 * Check for that and just skip out if it happens.  We will get another inactive later.
@@ -1461,6 +1504,9 @@ static int smbfs_vnop_inactive(struct vnop_inactive_args *ap)
 #endif // DEBUG
 	
 out:
+	/* Node went inactive clear the ACL cache? */
+	if (!vnode_isnamedstream(vp))
+		smbfs_clear_acl_cache(np);
 	smbnode_unlock(np);
 	return (0);
 }
@@ -1488,8 +1534,6 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 		DBG_ASSERT((np->f_refcnt == 0));
 #endif // DEBUG
 
-	DBG_ASSERT((np->acl_cache_data == NULL));
-
 	SET(np->n_flag, NTRANSIT);
 
 	dvp = (np->n_parent && (np->n_flag & NREFPARENT)) ?
@@ -1509,6 +1553,13 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 		if (!vnode_isnamedstream(vp))
 			lck_mtx_destroy(&np->rfrkMetaLock, smbfs_mutex_group);
 	}
+	
+	/* We are done with the node clear the acl cache and destroy the acl cache lock  */
+	if (!vnode_isnamedstream(vp)) {
+		smbfs_clear_acl_cache(np);
+		lck_mtx_destroy(&np->f_ACLCacheLock, smbfs_mutex_group);		
+	}
+	
 	/* Free up both names before we unlock the node */
 	if (np->n_name)
 		smbfs_name_free(np->n_name);
@@ -1549,12 +1600,13 @@ smbfs_getids(struct smbnode *np, struct smb_cred *scrp)
 	int error;
 	ntsid_t	sid;
 
-	error = smbfs_update_acl_cache(ssp, np, scrp);
+	/* We do not support acl access on a stream node */
+	if (vnode_isnamedstream(np->n_vnode))
+		return ENOTSUP;
+	error = smbfs_update_acl_cache(ssp, np, scrp, &w_sec);
 	if (error)
 		return error;
 	
-	w_sec = np->acl_cache_data;
-
 	/*
 	 * A null w_sec commonly means a FAT filesystem.  Our
 	 * caller will fallback to owner being the uid who

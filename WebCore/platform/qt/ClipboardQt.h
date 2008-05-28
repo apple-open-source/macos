@@ -27,6 +27,7 @@
 #define ClipboardQt_h
 
 #include "Clipboard.h"
+#include "CachedResourceClient.h"
 #include "ClipboardAccessPolicy.h"
 
 class QMimeData;
@@ -36,12 +37,12 @@ namespace WebCore {
     class CachedImage;
 
     // State available during IE's events for drag and drop and copy/paste
-    class ClipboardQt : public Clipboard {
+    class ClipboardQt : public Clipboard, public CachedResourceClient {
     public:
-        ClipboardQt(ClipboardAccessPolicy policy, const QMimeData* readableClipboard, bool forDragging);
+        ClipboardQt(ClipboardAccessPolicy policy, const QMimeData* readableClipboard);
         
         // Clipboard is writable so it will create its own QMimeData object
-        ClipboardQt(ClipboardAccessPolicy policy, bool forDragging);
+        ClipboardQt(ClipboardAccessPolicy policy, bool forDragging = false);
         ~ClipboardQt();
     
         void clearData(const String& type);
@@ -52,10 +53,7 @@ namespace WebCore {
         // extensions beyond IE's API
         HashSet<String> types() const;
     
-        IntPoint dragLocation() const;
-        CachedImage* dragImage() const;
         void setDragImage(CachedImage*, const IntPoint&);
-        Node* dragImageElement();
         void setDragImageElement(Node*, const IntPoint&);
 
         virtual DragImageRef createDragImage(IntPoint& dragLoc) const;
@@ -69,6 +67,8 @@ namespace WebCore {
         void invalidateWritableData() { m_writableData = 0; }
         
     private:
+        void setDragImage(CachedImage* image, Node *node, const IntPoint &loc);
+        
         const QMimeData* m_readableData;
         QMimeData* m_writableData;
     };

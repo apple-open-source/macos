@@ -10,14 +10,27 @@ gtk-port:LIBS -= -lWebKitGtk
 TEMPLATE = lib
 qt-port:TARGET = QtWebKit
 gtk-port:TARGET = WebKitGtk
-OBJECTS_DIR = tmp
-OBJECTS_DIR_WTR = $$OBJECTS_DIR/
-win32-*: OBJECTS_DIR_WTR ~= s|/|\|
-INCLUDEPATH += tmp $$OUTPUT_DIR/WebCore/tmp
 
-DESTDIR = $$OUTPUT_DIR/lib
+CONFIG(QTDIR_build) {
+    GENERATED_SOURCES_DIR = $$PWD/generated
+    include($$QT_SOURCE_TREE/src/qbase.pri)
+    PRECOMPILED_HEADER = $$PWD/../WebKit/qt/WebKit_pch.h
+}
+
+isEmpty(GENERATED_SOURCES_DIR):GENERATED_SOURCES_DIR = tmp
+GENERATED_SOURCES_DIR_SLASH = $$GENERATED_SOURCES_DIR/
+win32-*: GENERATED_SOURCES_DIR_SLASH ~= s|/|\|
+
+INCLUDEPATH += $$GENERATED_SOURCES_DIR
+
+!CONFIG(QTDIR_build) {
+     OBJECTS_DIR = tmp
+     DESTDIR = $$OUTPUT_DIR/lib
+}
+
 DEPENDPATH += css dom loader editing history html \
-	loader page platform platform/graphics rendering xml
+    loader page platform platform/graphics platform/network platform/text plugins rendering xml \
+    bindings/js
 
 include($$OUTPUT_DIR/config.pri)
 
@@ -25,8 +38,10 @@ CONFIG -= warn_on
 *-g++*:QMAKE_CXXFLAGS += -Wreturn-type -fno-strict-aliasing
 #QMAKE_CXXFLAGS += -Wall -Wno-undef -Wno-unused-parameter
 
-contains(QT_CONFIG, reduce_exports):CONFIG += hide_symbols
-unix:contains(QT_CONFIG, reduce_relocations):CONFIG += bsymbolic_functions
+CONFIG(release):!CONFIG(QTDIR_build) {
+    contains(QT_CONFIG, reduce_exports):CONFIG += hide_symbols
+    unix:contains(QT_CONFIG, reduce_relocations):CONFIG += bsymbolic_functions
+}
 
 linux-*: DEFINES += HAVE_STDINT_H
 freebsd-*: DEFINES += HAVE_PTHREAD_NP_H
@@ -40,7 +55,7 @@ freebsd-*: DEFINES += HAVE_PTHREAD_NP_H
 
 DEFINES += BUILD_WEBKIT
 
-win32-*: DEFINES += ENABLE_ICONDATABASE=0
+win32-*: DEFINES += ENABLE_ICONDATABASE=0 ENABLE_DATABASE=0
 
 # Pick up 3rdparty libraries from INCLUDE/LIB just like with MSVC
 win32-g++ {
@@ -50,15 +65,51 @@ win32-g++ {
     QMAKE_LIBDIR_POST += $$split(TMPPATH,";")
 }
 
+gtk-port: PKGCONFIG += gthread-2.0
+
 # Optional components (look for defs in config.h and included files!)
+!contains(DEFINES, ENABLE_DATABASE=.): DEFINES += ENABLE_DATABASE=1
 !contains(DEFINES, ENABLE_ICONDATABASE=.): DEFINES += ENABLE_ICONDATABASE=1
 !contains(DEFINES, ENABLE_XPATH=.): DEFINES += ENABLE_XPATH=1
 gtk-port:!contains(DEFINES, ENABLE_XSLT=.): DEFINES += ENABLE_XSLT=1
 #!contains(DEFINES, ENABLE_XBL=.): DEFINES += ENABLE_XBL=1
 qt-port: !contains(DEFINES, ENABLE_SVG=.): DEFINES += ENABLE_SVG=1
-gtk-port:DEFINES += ENABLE_SVG=1
+gtk-port:DEFINES += ENABLE_SVG=0
+DEFINES += ENABLE_VIDEO=0
 
 DEFINES += WTF_CHANGES=1
+
+#
+# For builds inside Qt we interpret the output rule and the input of each extra compiler manually
+# and add the resulting sources to the SOURCES variable, because the build inside Qt contains already
+# all the generated files. We do not need to generate any extra compiler rules in that case.
+#
+# In addition this function adds a new target called 'generated_files' that allows manually calling
+# all the extra compilers to generate all the necessary files for the build using 'make generated_files'
+#
+defineTest(addExtraCompiler) {
+    CONFIG(QTDIR_build) {
+        outputRule = $$eval($${1}.output)
+
+        input = $$eval($${1}.input)
+        input = $$eval($$input)
+
+        for(file,input) {
+            base = $$basename(file)
+            base ~= s/\..+//
+            newfile=$$replace(outputRule,\\$\\{QMAKE_FILE_BASE\\},$$base)
+            SOURCES += $$newfile
+        }
+
+        export(SOURCES)
+    } else {
+        QMAKE_EXTRA_COMPILERS += $$1
+        generated_files.depends += compiler_$${1}_make_all
+        export(QMAKE_EXTRA_COMPILERS)
+        export(generated_files.depends)
+    }
+    return(true)
+}
 
 include($$PWD/../JavaScriptCore/JavaScriptCore.pri)
 
@@ -66,46 +117,65 @@ include($$PWD/../JavaScriptCore/JavaScriptCore.pri)
 #LIBS += -L$$OUTPUT_DIR/lib -lJavaScriptCore
 
 qt-port {
-!win32-* {
-    LIBS += -L$$OUTPUT_DIR/WebKitQt/Plugins
-    LIBS += -lqtwebico
-}
-
+RESOURCES += $$PWD/../WebCore/page/inspector/WebKit.qrc
 INCLUDEPATH += \
                 $$PWD/platform/qt \
                 $$PWD/platform/network/qt \
                 $$PWD/platform/graphics/qt \
-                $$PWD/platform/graphics/svg/qt \
+                $$PWD/svg/graphics/qt \
                 $$PWD/loader/qt \
                 $$PWD/page/qt \
-                $$PWD/../WebKitQt/WebCoreSupport \
-                $$PWD/../WebKitQt/Api
+                $$PWD/../WebKit/qt/WebCoreSupport \
+                $$PWD/../WebKit/qt/Api
 
 DEPENDPATH += editing/qt history/qt loader/qt page/qt \
-	platform/graphics/qt ../WeKitQt/Api ../WebKitQt/WebCoreSupport
+    platform/graphics/qt ../WebKit/qt/Api ../WebKit/qt/WebCoreSupport
 
     DEFINES += WTF_USE_JAVASCRIPTCORE_BINDINGS=1
 }
 
 gtk-port {
+    x11:plugins {
+        DEFINES += XP_UNIX
+    }
+
     INCLUDEPATH += \
-    $$PWD/platform/graphics/svg/cairo \
+    $$PWD/platform/gtk \
+    $$PWD/platform/graphics/gtk \
+    $$PWD/platform/graphics/cairo \
+    $$PWD/svg/graphics/cairo \
+    $$PWD/platform/network/curl \
+    $$PWD/platform/image-decoders \
     $$PWD/platform/image-decoders/bmp \
     $$PWD/platform/image-decoders/gif \
     $$PWD/platform/image-decoders/ico \
     $$PWD/platform/image-decoders/jpeg \
     $$PWD/platform/image-decoders/png \
-    $$PWD/platform/image-decoders/xbm
+    $$PWD/platform/image-decoders/xbm \
+    $$PWD/loader/gtk \
+    $$PWD/page/gtk \
+    $$PWD/../WebKit/gtk \
+    $$PWD/../WebKit/gtk/WebCoreSupport \
+    $$PWD/../WebKit/gtk/webkit
 
-    DEPENDPATH += platform/graphics/gdk       \
-                  platform/gdk                \
-                  loader/gdk                  \
-                  page/gdk                    \
-                  platform/graphics/cairo     \
-                  platform/graphics/svg/cairo \
-                  platform/network/curl       \
-                  ../WebKit/gtk/Api           \
-                  ../WebKit/gtk/WebCoreSupport
+    DEPENDPATH += \
+    platform/gtk \
+    platform/graphics/gtk \
+    platform/graphics/cairo \
+    svg/graphics/cairo \
+    platform/network/curl \
+    platform/image-decoders \
+    platform/image-decoders/bmp \
+    platform/image-decoders/gif \
+    platform/image-decoders/ico \
+    platform/image-decoders/jpeg \
+    platform/image-decoders/png \
+    platform/image-decoders/xbm \
+    loader/gtk \
+    page/gtk \
+    ../WebKit/gtk \
+    ../WebKit/gtk/WebCoreSupport \
+    ../WebKit/gtk/webkit
 }
 
 INCLUDEPATH +=  $$PWD \
@@ -113,11 +183,15 @@ INCLUDEPATH +=  $$PWD \
                 $$PWD/.. \
                 $$PWD/../JavaScriptCore/kjs \
                 $$PWD/../JavaScriptCore/bindings \
+                $$PWD/../JavaScriptCore/wtf \
                 $$PWD/platform \
                 $$PWD/platform/network \
                 $$PWD/platform/graphics \
-                $$PWD/platform/graphics/svg \
-                $$PWD/platform/graphics/svg/filters \
+                $$PWD/svg/graphics \
+                $$PWD/svg/graphics/filters \
+                $$PWD/platform/sql \
+                $$PWD/platform/text \
+                $$PWD/storage \
                 $$PWD/loader $$PWD/loader/icon \
                 $$PWD/css \
                 $$PWD/dom \
@@ -129,10 +203,14 @@ INCLUDEPATH +=  $$PWD \
                 $$PWD/xml \
                 $$PWD/html \
                 $$PWD/bindings/js \
-                $$PWD/ksvg2 $$PWD/ksvg2/css $$PWD/ksvg2/svg $$PWD/ksvg2/misc $$PWD/ksvg2/events \
-                $$PWD/platform/image-decoders
+                $$PWD/svg \
+                $$PWD/platform/image-decoders \
+                $$PWD/plugins
 
-QT += network xml
+QT += network
+lessThan(QT_MINOR_VERSION, 4): QT += xml
+
+QMAKE_EXTRA_TARGETS += generated_files
 
 FEATURE_DEFINES_JAVASCRIPT = LANGUAGE_JAVASCRIPT=1
 
@@ -154,15 +232,15 @@ WALDOCSSPROPS = $$PWD/css/CSSPropertyNames.in
 
 WALDOCSSVALUES = $$PWD/css/CSSValueKeywords.in
 
-SVGCSSPROPERTIES = $$PWD/ksvg2/css/CSSPropertyNames.in
+SVGCSSPROPERTIES = $$PWD/css/SVGCSSPropertyNames.in
 
-SVGCSSVALUES = $$PWD/ksvg2/css/CSSValueKeywords.in
+SVGCSSVALUES = $$PWD/css/SVGCSSValueKeywords.in
 
 STYLESHEETS_EMBED = $$PWD/css/html4.css
 
 LUT_FILES += \
-    bindings/js/JSDOMExceptionConstructor.cpp \
-    bindings/js/JSEventTargetNode.cpp \
+    bindings/js/JSEventTargetBase.cpp \
+    bindings/js/JSLocation.cpp \
     bindings/js/JSXMLHttpRequest.cpp \
     bindings/js/JSXSLTProcessor.cpp \
     bindings/js/kjs_css.cpp \
@@ -191,6 +269,7 @@ IDL_BINDINGS += \
     css/MediaList.idl \
     css/Rect.idl \
     css/StyleSheet.idl \
+    css/StyleSheetList.idl \
     dom/Attr.idl \
     dom/CharacterData.idl \
     dom/CDATASection.idl \
@@ -198,14 +277,17 @@ IDL_BINDINGS += \
     dom/DocumentFragment.idl \
     dom/Document.idl \
     dom/DocumentType.idl \
+    dom/DOMCoreException.idl \
     dom/DOMImplementation.idl \
     dom/Element.idl \
     dom/Entity.idl \
     dom/EntityReference.idl \
     dom/Event.idl \
+    dom/EventException.idl \
 #    dom/EventListener.idl \
 #    dom/EventTarget.idl \
     dom/KeyboardEvent.idl \
+    dom/MessageEvent.idl \
     dom/MouseEvent.idl \
     dom/MutationEvent.idl \
     dom/NamedNodeMap.idl \
@@ -216,6 +298,7 @@ IDL_BINDINGS += \
     dom/Notation.idl \
     dom/OverflowEvent.idl \
     dom/ProcessingInstruction.idl \
+    dom/ProgressEvent.idl \
     dom/RangeException.idl \
     dom/Range.idl \
     dom/Text.idl \
@@ -287,11 +370,13 @@ IDL_BINDINGS += \
     html/HTMLTitleElement.idl \
     html/HTMLUListElement.idl \
     page/BarInfo.idl \
+    page/Console.idl \
     page/DOMSelection.idl \
     page/DOMWindow.idl \
     page/History.idl \
     page/Screen.idl \
     xml/DOMParser.idl \
+    xml/XMLHttpRequestException.idl \
     xml/XMLSerializer.idl
 
 
@@ -302,13 +387,15 @@ SOURCES += \
     bindings/js/JSCSSRuleCustom.cpp \
     bindings/js/JSCSSStyleDeclarationCustom.cpp \
     bindings/js/JSCSSValueCustom.cpp \
+    bindings/js/JSCustomVoidCallback.cpp \
     bindings/js/JSCustomXPathNSResolver.cpp \
     bindings/js/JSDocumentCustom.cpp \
-    bindings/js/JSDOMExceptionConstructor.cpp \
     bindings/js/JSDOMWindowCustom.cpp \
     bindings/js/JSElementCustom.cpp \
     bindings/js/JSEventCustom.cpp \
+    bindings/js/JSEventTargetBase.cpp \
     bindings/js/JSEventTargetNode.cpp \
+    bindings/js/JSHistoryCustom.cpp \
     bindings/js/JSHTMLAppletElementCustom.cpp \
     bindings/js/JSHTMLCollectionCustom.cpp \
     bindings/js/JSHTMLDocumentCustom.cpp \
@@ -324,6 +411,7 @@ SOURCES += \
     bindings/js/JSHTMLOptionElementConstructor.cpp \
     bindings/js/JSHTMLOptionsCollectionCustom.cpp \
     bindings/js/JSHTMLSelectElementCustom.cpp \
+    bindings/js/JSLocation.cpp \
     bindings/js/JSNamedNodeMapCustom.cpp \
     bindings/js/JSNamedNodesCollection.cpp  \
     bindings/js/JSNodeCustom.cpp \
@@ -332,6 +420,7 @@ SOURCES += \
     bindings/js/JSNodeIteratorCustom.cpp \
     bindings/js/JSNodeListCustom.cpp \
     bindings/js/JSStyleSheetCustom.cpp \
+    bindings/js/JSStyleSheetListCustom.cpp \
     bindings/js/JSTreeWalkerCustom.cpp \
     bindings/js/JSXMLHttpRequest.cpp \
     bindings/js/JSXSLTProcessor.cpp \
@@ -343,11 +432,17 @@ SOURCES += \
     bindings/js/kjs_navigator.cpp \
     bindings/js/kjs_proxy.cpp \
     bindings/js/kjs_window.cpp \
+    bindings/js/PausedTimeouts.cpp \
+    bindings/js/ScheduledAction.cpp \
     css/CSSBorderImageValue.cpp \
     css/CSSCharsetRule.cpp \
     css/CSSComputedStyleDeclaration.cpp \
     css/CSSCursorImageValue.cpp \
+    css/CSSFontFace.cpp \
     css/CSSFontFaceRule.cpp \
+    css/CSSFontFaceSrcValue.cpp \
+    css/CSSFontSelector.cpp \
+    css/CSSFontFaceSource.cpp \
     css/CSSHelper.cpp \
     css/CSSImageValue.cpp \
     css/CSSImportRule.cpp \
@@ -362,10 +457,14 @@ SOURCES += \
     css/CSSRule.cpp \
     css/CSSRuleList.cpp \
     css/CSSSelector.cpp \
+    css/CSSSegmentedFontFace.cpp \
     css/CSSStyleDeclaration.cpp \
     css/CSSStyleRule.cpp \
     css/CSSStyleSelector.cpp \
     css/CSSStyleSheet.cpp \
+    css/CSSTimingFunctionValue.cpp \
+    css/CSSTransformValue.cpp \
+    css/CSSUnicodeRangeValue.cpp \
     css/CSSValueList.cpp \
     css/FontFamilyValue.cpp \
     css/FontValue.cpp \
@@ -386,6 +485,8 @@ SOURCES += \
     dom/CDATASection.cpp \
     dom/CharacterData.cpp \
     dom/ChildNodeList.cpp \
+    dom/ClassNames.cpp \
+    dom/ClassNodeList.cpp \
     dom/Clipboard.cpp \
     dom/ClipboardEvent.cpp \
     dom/Comment.cpp \
@@ -395,6 +496,7 @@ SOURCES += \
     dom/DocumentFragment.cpp \
     dom/DocumentType.cpp \
     dom/DOMImplementation.cpp \
+    dom/DynamicNodeList.cpp \
     dom/EditingText.cpp \
     dom/Element.cpp \
     dom/Entity.cpp \
@@ -403,8 +505,11 @@ SOURCES += \
     dom/EventNames.cpp \
     dom/EventTarget.cpp \
     dom/EventTargetNode.cpp \
+    dom/ExceptionBase.cpp \
+    dom/ExceptionCode.cpp \
     dom/KeyboardEvent.cpp \
     dom/MappedAttribute.cpp \
+    dom/MessageEvent.cpp \
     dom/MouseEvent.cpp \
     dom/MouseRelatedEvent.cpp \
     dom/MutationEvent.cpp \
@@ -415,17 +520,20 @@ SOURCES += \
     dom/NodeFilterCondition.cpp \
     dom/NodeFilter.cpp \
     dom/NodeIterator.cpp \
-    dom/NodeList.cpp \
     dom/Notation.cpp \
     dom/OverflowEvent.cpp \
     dom/Position.cpp \
     dom/PositionIterator.cpp \
     dom/ProcessingInstruction.cpp \
+    dom/ProgressEvent.cpp \
     dom/QualifiedName.cpp \
     dom/Range.cpp \
     dom/RegisteredEventListener.cpp \
+    dom/SelectorNodeList.cpp \
+    dom/StaticNodeList.cpp \
     dom/StyledElement.cpp \
     dom/StyleElement.cpp \
+    dom/TagNodeList.cpp \
     dom/Text.cpp \
     dom/TextEvent.cpp \
     dom/Traversal.cpp \
@@ -437,7 +545,6 @@ SOURCES += \
     editing/AppendNodeCommand.cpp \
     editing/ApplyStyleCommand.cpp \
     editing/BreakBlockquoteCommand.cpp \
-    editing/CommandByName.cpp \
     editing/CompositeEditCommand.cpp \
     editing/CreateLinkCommand.cpp \
     editing/DeleteButtonController.cpp \
@@ -446,6 +553,7 @@ SOURCES += \
     editing/DeleteSelectionCommand.cpp \
     editing/EditCommand.cpp \
     editing/Editor.cpp \
+    editing/EditorCommand.cpp \
     editing/FormatBlockCommand.cpp \
     editing/htmlediting.cpp \
     editing/HTMLInterchange.cpp \
@@ -457,12 +565,12 @@ SOURCES += \
     editing/InsertParagraphSeparatorCommand.cpp \
     editing/InsertTextCommand.cpp \
     editing/JoinTextNodesCommand.cpp \
-    editing/JSEditor.cpp \
     editing/markup.cpp \
     editing/MergeIdenticalElementsCommand.cpp \
     editing/ModifySelectionListLevel.cpp \
     editing/MoveSelectionCommand.cpp \
     editing/RemoveCSSPropertyCommand.cpp \
+    editing/RemoveFormatCommand.cpp \
     editing/RemoveNodeAttributeCommand.cpp \
     editing/RemoveNodeCommand.cpp \
     editing/RemoveNodePreservingChildrenCommand.cpp \
@@ -471,6 +579,7 @@ SOURCES += \
     editing/Selection.cpp \
     editing/SetNodeAttributeCommand.cpp \
     editing/SmartReplace.cpp \
+    editing/SmartReplaceICU.cpp \
     editing/SplitElementCommand.cpp \
     editing/SplitTextNodeCommand.cpp \
     editing/SplitTextNodeContainingElementCommand.cpp \
@@ -557,6 +666,7 @@ SOURCES += \
     html/HTMLTableElement.cpp \
     html/HTMLTablePartElement.cpp \
     html/HTMLTableRowElement.cpp \
+    html/HTMLTableRowsCollection.cpp \
     html/HTMLTableSectionElement.cpp \
     html/HTMLTextAreaElement.cpp \
     html/HTMLTextFieldInnerElement.cpp \
@@ -566,6 +676,7 @@ SOURCES += \
     html/HTMLViewSourceDocument.cpp \
     loader/Cache.cpp \
     loader/CachedCSSStyleSheet.cpp \
+    loader/CachedFont.cpp \
     loader/CachedImage.cpp \
     loader/CachedResourceClientWalker.cpp \
     loader/CachedResource.cpp \
@@ -590,8 +701,10 @@ SOURCES += \
     loader/SubresourceLoader.cpp \
     loader/TextDocument.cpp \
     loader/TextResourceDecoder.cpp \
+    page/AnimationController.cpp \
     page/BarInfo.cpp \
     page/Chrome.cpp \
+    page/Console.cpp \
     page/ContextMenuController.cpp \
     page/DOMSelection.cpp \
     page/DOMWindow.cpp \
@@ -607,13 +720,14 @@ SOURCES += \
     page/Page.cpp \
     page/Screen.cpp \
     page/Settings.cpp \
+    page/WindowFeatures.cpp \
     platform/Arena.cpp \
     platform/ArrayImpl.cpp \
-    platform/AtomicString.cpp \
-    platform/Base64.cpp \
-    platform/BidiContext.cpp \
+    platform/text/AtomicString.cpp \
+    platform/text/Base64.cpp \
+    platform/text/BidiContext.cpp \
     platform/ContextMenu.cpp \
-    platform/CString.cpp \
+    platform/text/CString.cpp \
     platform/DeprecatedCString.cpp \
     platform/DeprecatedPtrListImpl.cpp \
     platform/DeprecatedString.cpp \
@@ -622,7 +736,7 @@ SOURCES += \
     platform/DragData.cpp \
     platform/DragImage.cpp \
     platform/FileChooser.cpp \
-    platform/FontFamily.cpp \
+    platform/graphics/FontFamily.cpp \
     platform/graphics/AffineTransform.cpp \
     platform/graphics/BitmapImage.cpp \
     platform/graphics/Color.cpp \
@@ -630,14 +744,15 @@ SOURCES += \
     platform/graphics/FloatPoint.cpp \
     platform/graphics/FloatRect.cpp \
     platform/graphics/FloatSize.cpp \
+    platform/graphics/FontData.cpp \
     platform/graphics/GraphicsContext.cpp \
     platform/graphics/GraphicsTypes.cpp \
-    platform/graphics/ImageBuffer.cpp \
     platform/graphics/Image.cpp \
     platform/graphics/IntRect.cpp \
     platform/graphics/Path.cpp \
     platform/graphics/PathTraversalState.cpp \
     platform/graphics/Pen.cpp \
+    platform/graphics/SegmentedFontData.cpp \
     platform/KURL.cpp \
     platform/Logging.cpp \
     platform/MIMETypeRegistry.cpp \
@@ -648,23 +763,27 @@ SOURCES += \
     platform/network/ProtectionSpace.cpp \
     platform/network/ResourceHandle.cpp \
     platform/network/ResourceRequestBase.cpp \
-    platform/network/ResourceResponse.cpp \
-    platform/RegularExpression.cpp \
+    platform/network/ResourceResponseBase.cpp \
+    platform/text/RegularExpression.cpp \
     platform/ScrollBar.cpp \
 #    platform/SearchPopupMenu.cpp \
-    platform/SegmentedString.cpp \
+    platform/SecurityOrigin.cpp \
+    platform/text/SegmentedString.cpp \
     platform/SharedBuffer.cpp \
-    platform/String.cpp \
-    platform/StringImpl.cpp \
-    platform/TextCodec.cpp \
-    platform/TextCodecLatin1.cpp \
-    platform/TextCodecUTF16.cpp \
-    platform/TextDecoder.cpp \
-    platform/TextEncoding.cpp \
-    platform/TextEncodingRegistry.cpp \
-    platform/TextStream.cpp \
+    platform/text/String.cpp \
+    platform/text/StringImpl.cpp \
+    platform/text/TextCodec.cpp \
+    platform/text/TextCodecLatin1.cpp \
+    platform/text/TextCodecUserDefined.cpp \
+    platform/text/TextCodecUTF16.cpp \
+    platform/text/TextDecoder.cpp \
+    platform/text/TextEncoding.cpp \
+    platform/text/TextEncodingRegistry.cpp \
+    platform/text/TextStream.cpp \
     platform/Timer.cpp \
+    platform/text/UnicodeRange.cpp \
     platform/Widget.cpp \
+    plugins/PluginStream.cpp \
     rendering/AutoTableLayout.cpp \
     rendering/bidi.cpp \
     rendering/break_lines.cpp \
@@ -743,16 +862,17 @@ SOURCES += \
     xml/XSLImportRule.cpp \
     xml/XSLStyleSheet.cpp \
     xml/XSLTExtensions.cpp \
+    xml/XSLTUnicodeSort.cpp \
     xml/XSLTProcessor.cpp
 
 gtk-port {
   SOURCES += \
-    platform/GlyphPageTreeNode.cpp \
-    platform/GlyphWidthMap.cpp \
-    platform/FontCache.cpp \
-    platform/Font.cpp \
-    platform/FontData.cpp \
-    platform/FontFallbackList.cpp 
+    platform/graphics/GlyphPageTreeNode.cpp \
+    platform/graphics/GlyphWidthMap.cpp \
+    platform/graphics/FontCache.cpp \
+    platform/graphics/Font.cpp \
+    platform/graphics/FontFallbackList.cpp \
+    platform/graphics/SimpleFontData.cpp 
 }
 
 qt-port {
@@ -761,22 +881,17 @@ qt-port {
     $$PWD/platform/qt/QWebPopup.h \
     $$PWD/platform/qt/MenuEventProxy.h \
     $$PWD/platform/qt/SharedTimerQt.h \
-    $$PWD/../WebKitQt/Api/qwebframe.h \
-    $$PWD/../WebKitQt/Api/qwebpage.h \
-    $$PWD/../WebKitQt/Api/qwebnetworkinterface.h \
-    $$PWD/../WebKitQt/Api/qwebnetworkinterface_p.h \
-    $$PWD/../WebKitQt/Api/qwebobjectplugin.h \
-    $$PWD/../WebKitQt/Api/qwebobjectplugin_p.h \
-    $$PWD/../WebKitQt/Api/qwebobjectpluginconnector.h \
-    $$PWD/../WebKitQt/Api/qwebhistoryinterface.h \
-    $$PWD/../WebKitQt/Api/qcookiejar.h \
-    $$PWD/../WebKitQt/WebCoreSupport/FrameLoaderClientQt.h
+    $$PWD/../WebKit/qt/Api/qwebframe.h \
+    $$PWD/../WebKit/qt/Api/qwebpage.h \
+    $$PWD/../WebKit/qt/Api/qwebview.h \
+    $$PWD/../WebKit/qt/Api/qwebhistoryinterface.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
+    $$PWD/platform/network/qt/QNetworkReplyHandler.h
 
     SOURCES += \
     page/qt/DragControllerQt.cpp \
     page/qt/EventHandlerQt.cpp \
     page/qt/FrameQt.cpp \
-    loader/qt/DocumentLoaderQt.cpp \
     platform/graphics/qt/AffineTransformQt.cpp \
     platform/graphics/qt/ColorQt.cpp \
     platform/graphics/qt/FloatPointQt.cpp \
@@ -792,8 +907,9 @@ qt-port {
     platform/graphics/qt/IntSizeQt.cpp \
     platform/graphics/qt/PathQt.cpp \
     platform/network/qt/ResourceHandleQt.cpp \
+    platform/network/qt/ResourceRequestQt.cpp \
+    platform/network/qt/QNetworkReplyHandler.cpp \
     editing/qt/EditorQt.cpp \
-    history/qt/CachedPageQt.cpp \
     platform/qt/ClipboardQt.cpp \
     platform/qt/ContextMenuItemQt.cpp \
     platform/qt/ContextMenuQt.cpp \
@@ -803,7 +919,12 @@ qt-port {
     platform/qt/DragImageQt.cpp \
     platform/qt/FileChooserQt.cpp \
     platform/qt/FileSystemQt.cpp \
-    platform/qt/FontQt.cpp \
+    platform/graphics/qt/FontCacheQt.cpp \
+    platform/graphics/qt/FontCustomPlatformData.cpp \
+    platform/graphics/qt/FontQt.cpp \
+    platform/graphics/qt/GlyphPageTreeNodeQt.cpp \
+    platform/graphics/qt/SimpleFontDataQt.cpp \
+    platform/qt/KURLQt.cpp \
     platform/qt/Localizations.cpp \
     platform/qt/MIMETypeRegistryQt.cpp \
     platform/qt/PasteboardQt.cpp \
@@ -819,59 +940,79 @@ qt-port {
     platform/qt/SearchPopupMenuQt.cpp \
     platform/qt/SharedTimerQt.cpp \
     platform/qt/SoundQt.cpp \
-    platform/qt/StringQt.cpp \
+    platform/text/qt/StringQt.cpp \
     platform/qt/TemporaryLinkStubs.cpp \
-    platform/qt/TextBoundaries.cpp \
-    platform/qt/TextBreakIteratorQt.cpp \
-    platform/qt/TextCodecQt.cpp \
+    platform/text/qt/TextBoundaries.cpp \
+    platform/text/qt/TextBreakIteratorQt.cpp \
+    platform/text/qt/TextCodecQt.cpp \
     platform/qt/ThreadingQt.cpp \
     platform/qt/WheelEventQt.cpp \
     platform/qt/WidgetQt.cpp \
-    ../WebKitQt/WebCoreSupport/ChromeClientQt.cpp \
-    ../WebKitQt/WebCoreSupport/ContextMenuClientQt.cpp \
-    ../WebKitQt/WebCoreSupport/DragClientQt.cpp \
-    ../WebKitQt/WebCoreSupport/EditorClientQt.cpp \
-    ../WebKitQt/WebCoreSupport/EditCommandQt.cpp \
-    ../WebKitQt/WebCoreSupport/FrameLoaderClientQt.cpp \
-    ../WebKitQt/WebCoreSupport/InspectorClientQt.cpp \
-    ../WebKitQt/Api/qwebframe.cpp \
-    ../WebKitQt/Api/qwebnetworkinterface.cpp \
-    ../WebKitQt/Api/qcookiejar.cpp \
-    ../WebKitQt/Api/qwebpage.cpp \
-    ../WebKitQt/Api/qwebpagehistory.cpp \
-    ../WebKitQt/Api/qwebsettings.cpp \
-    ../WebKitQt/Api/qwebobjectplugin.cpp \
-    ../WebKitQt/Api/qwebobjectpluginconnector.cpp \
-    ../WebKitQt/Api/qwebhistoryinterface.cpp
+    ../WebKit/qt/WebCoreSupport/ChromeClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/ContextMenuClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/DragClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/EditorClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/EditCommandQt.cpp \
+    ../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
+    ../WebKit/qt/Api/qwebframe.cpp \
+    ../WebKit/qt/Api/qwebpage.cpp \
+    ../WebKit/qt/Api/qwebview.cpp \
+    ../WebKit/qt/Api/qwebhistory.cpp \
+    ../WebKit/qt/Api/qwebsettings.cpp \
+    ../WebKit/qt/Api/qwebhistoryinterface.cpp \
+    platform/ThreadingNone.cpp
 
     unix: SOURCES += platform/qt/SystemTimeQt.cpp
     else: SOURCES += platform/win/SystemTimeWin.cpp
+
+    # Files belonging to the Qt 4.3 build
+    lessThan(QT_MINOR_VERSION, 4) {
+        HEADERS += \
+            $$PWD/../WebKit/qt/Api/qwebnetworkinterface.h \
+            $$PWD/../WebKit/qt/Api/qwebnetworkinterface_p.h \
+            $$PWD/../WebKit/qt/Api/qwebobjectplugin.h \
+            $$PWD/../WebKit/qt/Api/qwebobjectplugin_p.h \
+            $$PWD/../WebKit/qt/Api/qwebobjectpluginconnector.h \
+            $$PWD/../WebKit/qt/Api/qcookiejar.h
+
+        SOURCES += \
+            ../WebKit/qt/Api/qwebnetworkinterface.cpp \
+            ../WebKit/qt/Api/qwebobjectplugin.cpp \
+            ../WebKit/qt/Api/qwebobjectpluginconnector.cpp \
+            ../WebKit/qt/Api/qcookiejar.cpp
+
+     }
 }
 
 gtk-port {
     HEADERS += \
         ../WebCore/platform/gtk/ClipboardGtk.h \
-        ../WebKit/gtk/Api/webkitgtkdefines.h \
-        ../WebKit/gtk/Api/webkitgtkframe.h \
-        ../WebKit/gtk/Api/webkitgtkglobal.h \
-        ../WebKit/gtk/Api/webkitgtknetworkrequest.h \
-        ../WebKit/gtk/Api/webkitgtkpage.h \
-        ../WebKit/gtk/Api/webkitgtkprivate.h \
-        ../WebKit/gtk/Api/webkitgtksettings.h \
-        ../WebKit/gtk/WebCoreSupport/ChromeClientGtk.h \ 
+        ../WebCore/platform/gtk/PasteboardHelper.h \
+        ../WebKit/gtk/webkit/webkit.h \
+        ../WebKit/gtk/webkit/webkitdefines.h \
+        ../WebKit/gtk/webkit/webkitnetworkrequest.h \
+        ../WebKit/gtk/webkit/webkitprivate.h \
+        ../WebKit/gtk/webkit/webkitwebbackforwardlist.h \
+        ../WebKit/gtk/webkit/webkitwebframe.h \
+        ../WebKit/gtk/webkit/webkitwebhistoryitem.h \
+        ../WebKit/gtk/webkit/webkitwebsettings.h \
+        ../WebKit/gtk/webkit/webkitwebview.h \
+        ../WebKit/gtk/WebCoreSupport/ChromeClientGtk.h \
         ../WebKit/gtk/WebCoreSupport/ContextMenuClientGtk.h \
         ../WebKit/gtk/WebCoreSupport/DragClientGtk.h \
         ../WebKit/gtk/WebCoreSupport/EditorClientGtk.h \
         ../WebKit/gtk/WebCoreSupport/FrameLoaderClientGtk.h \
-        ../WebKit/gtk/WebCoreSupport/InspectorClientGtk.h
+        ../WebKit/gtk/WebCoreSupport/InspectorClientGtk.h \
+        ../WebKit/gtk/WebCoreSupport/PasteboardHelperGtk.h
     SOURCES += \
-        platform/StringTruncator.cpp \
-        platform/TextCodecICU.cpp \
-        platform/TextBreakIteratorICU.cpp \
+        platform/graphics/StringTruncator.cpp \
+        platform/text/TextCodecICU.cpp \
+        platform/text/TextBoundariesICU.cpp \
+        platform/text/TextBreakIteratorICU.cpp \
         page/gtk/EventHandlerGtk.cpp \
         page/gtk/FrameGtk.cpp \
         page/gtk/DragControllerGtk.cpp \
-        loader/gtk/DocumentLoaderGtk.cpp \
         platform/gtk/ClipboardGtk.cpp \
         platform/gtk/CookieJarGtk.cpp \
         platform/gtk/CursorGtk.cpp \
@@ -881,12 +1022,14 @@ gtk-port {
         platform/gtk/DragImageGtk.cpp \
         platform/gtk/FileChooserGtk.cpp \
         platform/gtk/FileSystemGtk.cpp \
-        platform/gtk/FontCacheGtk.cpp \
-        platform/gtk/FontDataGtk.cpp \
-        platform/gtk/FontGtk.cpp \
-        platform/gtk/FontPlatformDataGtk.cpp \
-        platform/gtk/GlyphPageTreeNodeGtk.cpp \
+        platform/graphics/gtk/FontCacheGtk.cpp \
+        platform/graphics/gtk/FontCustomPlatformData.cpp \
+        platform/graphics/gtk/FontGtk.cpp \
+        platform/graphics/gtk/FontPlatformDataGtk.cpp \
+        platform/graphics/gtk/GlyphPageTreeNodeGtk.cpp \
+        platform/graphics/gtk/SimpleFontDataGtk.cpp \
         platform/gtk/KeyEventGtk.cpp \
+        platform/gtk/Language.cpp \
         platform/gtk/LocalizedStringsGtk.cpp \
         platform/gtk/LoggingGtk.cpp \
         platform/gtk/MIMETypeRegistryGtk.cpp \
@@ -898,14 +1041,20 @@ gtk-port {
         platform/gtk/RenderThemeGtk.cpp \
         platform/gtk/SearchPopupMenuGtk.cpp \
         platform/gtk/ScrollViewGtk.cpp \
-        platform/gtk/SharedTimerLinux.cpp \
+        platform/gtk/SharedTimerGtk.cpp \
         platform/gtk/SoundGtk.cpp \
-        platform/gtk/SystemTimeLinux.cpp \
+        platform/gtk/SystemTimeGtk.cpp \
         platform/gtk/TemporaryLinkStubs.cpp \
+        platform/text/gtk/TextBreakIteratorInternalICUGtk.cpp \
+        platform/gtk/ThreadingGtk.cpp \
         platform/gtk/WheelEventGtk.cpp \
         platform/gtk/WidgetGtk.cpp \
+        platform/gtk/gtk2drawing.c \
+        platform/graphics/gtk/ColorGtk.cpp \
         platform/graphics/gtk/IconGtk.cpp \
         platform/graphics/gtk/ImageGtk.cpp \
+        platform/graphics/gtk/IntPointGtk.cpp \
+        platform/graphics/gtk/IntRectGtk.cpp \
         platform/network/curl/ResourceHandleCurl.cpp \
         platform/network/curl/ResourceHandleManager.cpp \
         platform/graphics/cairo/AffineTransformCairo.cpp \
@@ -921,33 +1070,118 @@ gtk-port {
         platform/image-decoders/bmp/BMPImageDecoder.cpp \
         platform/image-decoders/ico/ICOImageDecoder.cpp \
         platform/image-decoders/xbm/XBMImageDecoder.cpp \
-        ../WebKit/gtk/Api/webkitgtkframe.cpp \
-        ../WebKit/gtk/Api/webkitgtkglobal.cpp \
-        ../WebKit/gtk/Api/webkitgtknetworkrequest.cpp \
-        ../WebKit/gtk/Api/webkitgtkpage.cpp \
-        ../WebKit/gtk/Api/webkitgtkprivate.cpp \
-        ../WebKit/gtk/Api/webkitgtksettings.cpp \
-        ../WebKit/gtk/WebCoreSupport/ChromeClientGtk.cpp \ 
+        ../WebKit/gtk/webkit/webkitnetworkrequest.cpp \
+        ../WebKit/gtk/webkit/webkitprivate.cpp \
+        ../WebKit/gtk/webkit/webkitwebbackforwardlist.cpp \
+        ../WebKit/gtk/webkit/webkitwebframe.cpp \
+        ../WebKit/gtk/webkit/webkitwebhistoryitem.cpp \
+        ../WebKit/gtk/webkit/webkitwebsettings.cpp \
+        ../WebKit/gtk/webkit/webkitwebview.cpp \
+        ../WebKit/gtk/WebCoreSupport/ChromeClientGtk.cpp \
         ../WebKit/gtk/WebCoreSupport/ContextMenuClientGtk.cpp \
-        ../WebKit/gtk/WebCoreSupport/DragClientGtk.cpp \ 
+        ../WebKit/gtk/WebCoreSupport/DragClientGtk.cpp \
         ../WebKit/gtk/WebCoreSupport/EditorClientGtk.cpp \
         ../WebKit/gtk/WebCoreSupport/FrameLoaderClientGtk.cpp \
-        ../WebKit/gtk/WebCoreSupport/InspectorClientGtk.cpp
+        ../WebKit/gtk/WebCoreSupport/InspectorClientGtk.cpp \
+        ../WebKit/gtk/WebCoreSupport/PasteboardHelperGtk.cpp
 }
- 
+
+contains(DEFINES, ENABLE_DATABASE=1) {
+    FEATURE_DEFINES_JAVASCRIPT += ENABLE_DATABASE=1
+
+    CONFIG(QTDIR_build) {
+        # some what copied from src/plugins/sqldrivers/sqlite/sqlite.pro
+        system-sqlite {
+            LIBS *= $$QT_LFLAGS_SQLITE
+            QMAKE_CXXFLAGS *= $$QT_CFLAGS_SQLITE
+        } else {
+            CONFIG(release, debug|release):DEFINES *= NDEBUG
+            INCLUDEPATH += $$QT_SOURCE_TREE/src/3rdparty/sqlite/
+            SOURCES += $$QT_SOURCE_TREE/src/3rdparty/sqlite/sqlite3.c
+        }
+    } else {
+        qt-port: INCLUDEPATH += $$[QT_INSTALL_PREFIX]/src/3rdparty/sqlite/
+        LIBS += -lsqlite3
+    }
+
+    SOURCES += \
+        platform/sql/SQLiteAuthorizer.cpp \
+        platform/sql/SQLiteDatabase.cpp \
+        platform/sql/SQLiteStatement.cpp \
+        platform/sql/SQLiteTransaction.cpp \
+        platform/sql/SQLValue.cpp \
+        storage/ChangeVersionWrapper.cpp \
+        storage/DatabaseAuthorizer.cpp \
+        storage/Database.cpp \
+        storage/DatabaseTask.cpp \
+        storage/DatabaseThread.cpp \
+        storage/DatabaseTracker.cpp \
+        storage/OriginQuotaManager.cpp \
+        storage/OriginUsageRecord.cpp \
+        storage/SQLResultSet.cpp \
+        storage/SQLResultSetRowList.cpp \
+        storage/SQLStatement.cpp \
+        storage/SQLTransaction.cpp \
+        bindings/js/JSCustomSQLStatementCallback.cpp \
+        bindings/js/JSCustomSQLStatementErrorCallback.cpp \
+        bindings/js/JSCustomSQLTransactionCallback.cpp \
+        bindings/js/JSCustomSQLTransactionErrorCallback.cpp \
+        bindings/js/JSDatabaseCustom.cpp \
+        bindings/js/JSSQLResultSetRowListCustom.cpp \
+        bindings/js/JSSQLTransactionCustom.cpp
+
+    IDL_BINDINGS += \
+        storage/Database.idl \
+        storage/SQLError.idl \
+        storage/SQLResultSet.idl \
+        storage/SQLResultSetRowList.idl \
+        storage/SQLTransaction.idl
+}
+
 contains(DEFINES, ENABLE_ICONDATABASE=1) {
-    qt-port: INCLUDEPATH += $$[QT_INSTALL_PREFIX]/src/3rdparty/sqlite/
-    LIBS += -lsqlite3
     SOURCES += \
         loader/icon/IconDatabase.cpp \
         loader/icon/IconRecord.cpp \
-        loader/icon/PageURLRecord.cpp \
-        loader/icon/SQLDatabase.cpp \
-        loader/icon/SQLStatement.cpp \
-        loader/icon/SQLTransaction.cpp
+        loader/icon/PageURLRecord.cpp
 } else {
     SOURCES += \
         loader/icon/IconDatabaseNone.cpp
+}
+
+contains(DEFINES, ENABLE_VIDEO=1) {
+    FEATURE_DEFINES_JAVASCRIPT += ENABLE_VIDEO=1
+
+    IDL_BINDINGS += \
+        html/HTMLAudioElement.idl \
+        html/HTMLMediaElement.idl \
+        html/HTMLSourceElement.idl \
+        html/HTMLVideoElement.idl \
+        html/MediaError.idl \
+        html/TimeRanges.idl \
+        html/VoidCallback.idl 
+
+    SOURCES += \
+        html/HTMLAudioElement.cpp \
+        html/HTMLMediaElement.cpp \
+        html/HTMLSourceElement.cpp \
+        html/HTMLVideoElement.cpp \
+        html/TimeRanges.cpp \
+        platform/graphics/MediaPlayer.cpp \
+        rendering/MediaControlElements.cpp \
+        rendering/RenderVideo.cpp \
+        rendering/RenderMedia.cpp \
+        bindings/js/JSAudioConstructor.cpp
+
+    gtk-port {
+        SOURCES += \
+            platform/graphics/gtk/MediaPlayerPrivateGStreamer.cpp \
+            platform/graphics/gtk/VideoSinkGStreamer.cpp
+
+        CONFIG(debug):DEFINES += GST_DISABLE_DEPRECATED
+
+        PKGCONFIG += gstreamer-0.10 gstreamer-plugins-base-0.10 gnome-vfs-2.0
+        LIBS += -lgstinterfaces-0.10 -lgstbase-0.10 -lgstvideo-0.10
+    }
 }
 
 contains(DEFINES, ENABLE_XPATH=1) {
@@ -957,6 +1191,7 @@ contains(DEFINES, ENABLE_XPATH=1) {
 
     IDL_BINDINGS += \
         xml/XPathNSResolver.idl \
+        xml/XPathException.idl \
         xml/XPathExpression.idl \
         xml/XPathResult.idl \
         xml/XPathEvaluator.idl
@@ -985,139 +1220,150 @@ contains(DEFINES, ENABLE_XBL=1) {
 contains(DEFINES, ENABLE_SVG=1) {
     FEATURE_DEFINES_JAVASCRIPT += ENABLE_SVG=1
 
-    DEPENDPATH += ksvg2/css ksvg2/events ksvg2/misc ksvg2/svg platform/graphics/svg
+    DEPENDPATH += svg svg/graphics
     qt-port {
-	DEPENDPATH += platform/graphics/svg/qt
+    DEPENDPATH += svg/graphics/qt
     }
 
     gtk-port {
-	DEPENDPATH += platform/graphics/svg/cairo
+    DEPENDPATH += svg/graphics/cairo
     }
 
-    SVG_NAMES = $$PWD/ksvg2/svg/svgtags.in
+    SVG_NAMES = $$PWD/svg/svgtags.in
 
-    XLINK_NAMES = $$PWD/ksvg2/misc/xlinkattrs.in
+    XLINK_NAMES = $$PWD/svg/xlinkattrs.in
 
-    IDL_BINDINGS += ksvg2/events/SVGZoomEvent.idl \
-        ksvg2/svg/SVGAElement.idl \
-        ksvg2/svg/SVGAngle.idl \
-        ksvg2/svg/SVGAnimateColorElement.idl \
-        ksvg2/svg/SVGAnimatedAngle.idl \
-        ksvg2/svg/SVGAnimatedBoolean.idl \
-        ksvg2/svg/SVGAnimatedEnumeration.idl \
-        ksvg2/svg/SVGAnimatedInteger.idl \
-        ksvg2/svg/SVGAnimatedLength.idl \
-        ksvg2/svg/SVGAnimatedLengthList.idl \
-        ksvg2/svg/SVGAnimatedNumber.idl \
-        ksvg2/svg/SVGAnimatedNumberList.idl \
-        ksvg2/svg/SVGAnimatedPreserveAspectRatio.idl \
-        ksvg2/svg/SVGAnimatedRect.idl \
-        ksvg2/svg/SVGAnimatedString.idl \
-        ksvg2/svg/SVGAnimatedTransformList.idl \
-        ksvg2/svg/SVGAnimateElement.idl \
-        ksvg2/svg/SVGAnimateTransformElement.idl \
-        ksvg2/svg/SVGAnimationElement.idl \
-        ksvg2/svg/SVGCircleElement.idl \
-        ksvg2/svg/SVGClipPathElement.idl \
-        ksvg2/svg/SVGColor.idl \
-        ksvg2/svg/SVGComponentTransferFunctionElement.idl \
-        ksvg2/svg/SVGCursorElement.idl \
-        ksvg2/svg/SVGDefsElement.idl \
-        ksvg2/svg/SVGDescElement.idl \
-        ksvg2/svg/SVGDocument.idl \
-        ksvg2/svg/SVGElement.idl \
-        ksvg2/svg/SVGElementInstance.idl \
-        ksvg2/svg/SVGElementInstanceList.idl \
-        ksvg2/svg/SVGEllipseElement.idl \
-        ksvg2/svg/SVGFEBlendElement.idl \
-        ksvg2/svg/SVGFEColorMatrixElement.idl \
-        ksvg2/svg/SVGFEComponentTransferElement.idl \
-        ksvg2/svg/SVGFECompositeElement.idl \
-        ksvg2/svg/SVGFEDiffuseLightingElement.idl \
-        ksvg2/svg/SVGFEDisplacementMapElement.idl \
-        ksvg2/svg/SVGFEDistantLightElement.idl \
-        ksvg2/svg/SVGFEFloodElement.idl \
-        ksvg2/svg/SVGFEFuncAElement.idl \
-        ksvg2/svg/SVGFEFuncBElement.idl \
-        ksvg2/svg/SVGFEFuncGElement.idl \
-        ksvg2/svg/SVGFEFuncRElement.idl \
-        ksvg2/svg/SVGFEGaussianBlurElement.idl \
-        ksvg2/svg/SVGFEImageElement.idl \
-        ksvg2/svg/SVGFEMergeElement.idl \
-        ksvg2/svg/SVGFEMergeNodeElement.idl \
-        ksvg2/svg/SVGFEOffsetElement.idl \
-        ksvg2/svg/SVGFEPointLightElement.idl \
-        ksvg2/svg/SVGFESpecularLightingElement.idl \
-        ksvg2/svg/SVGFESpotLightElement.idl \
-        ksvg2/svg/SVGFETileElement.idl \
-        ksvg2/svg/SVGFETurbulenceElement.idl \
-        ksvg2/svg/SVGFilterElement.idl \
-        ksvg2/svg/SVGForeignObjectElement.idl \
-        ksvg2/svg/SVGGElement.idl \
-        ksvg2/svg/SVGGradientElement.idl \
-        ksvg2/svg/SVGImageElement.idl \
-        ksvg2/svg/SVGLength.idl \
-        ksvg2/svg/SVGLengthList.idl \
-        ksvg2/svg/SVGLinearGradientElement.idl \
-        ksvg2/svg/SVGLineElement.idl \
-        ksvg2/svg/SVGMarkerElement.idl \
-        ksvg2/svg/SVGMaskElement.idl \
-        ksvg2/svg/SVGMatrix.idl \
-        ksvg2/svg/SVGMetadataElement.idl \
-        ksvg2/svg/SVGNumber.idl \
-        ksvg2/svg/SVGNumberList.idl \
-        ksvg2/svg/SVGPaint.idl \
-        ksvg2/svg/SVGPathElement.idl \
-        ksvg2/svg/SVGPathSegArcAbs.idl \
-        ksvg2/svg/SVGPathSegArcRel.idl \
-        ksvg2/svg/SVGPathSegClosePath.idl \
-        ksvg2/svg/SVGPathSegCurvetoCubicAbs.idl \
-        ksvg2/svg/SVGPathSegCurvetoCubicRel.idl \
-        ksvg2/svg/SVGPathSegCurvetoCubicSmoothAbs.idl \
-        ksvg2/svg/SVGPathSegCurvetoCubicSmoothRel.idl \
-        ksvg2/svg/SVGPathSegCurvetoQuadraticAbs.idl \
-        ksvg2/svg/SVGPathSegCurvetoQuadraticRel.idl \
-        ksvg2/svg/SVGPathSegCurvetoQuadraticSmoothAbs.idl \
-        ksvg2/svg/SVGPathSegCurvetoQuadraticSmoothRel.idl \
-        ksvg2/svg/SVGPathSeg.idl \
-        ksvg2/svg/SVGPathSegLinetoAbs.idl \
-        ksvg2/svg/SVGPathSegLinetoHorizontalAbs.idl \
-        ksvg2/svg/SVGPathSegLinetoHorizontalRel.idl \
-        ksvg2/svg/SVGPathSegLinetoRel.idl \
-        ksvg2/svg/SVGPathSegLinetoVerticalAbs.idl \
-        ksvg2/svg/SVGPathSegLinetoVerticalRel.idl \
-        ksvg2/svg/SVGPathSegList.idl \
-        ksvg2/svg/SVGPathSegMovetoAbs.idl \
-        ksvg2/svg/SVGPathSegMovetoRel.idl \
-        ksvg2/svg/SVGPatternElement.idl \
-        ksvg2/svg/SVGPoint.idl \
-        ksvg2/svg/SVGPointList.idl \
-        ksvg2/svg/SVGPolygonElement.idl \
-        ksvg2/svg/SVGPolylineElement.idl \
-        ksvg2/svg/SVGPreserveAspectRatio.idl \
-        ksvg2/svg/SVGRadialGradientElement.idl \
-        ksvg2/svg/SVGRectElement.idl \
-        ksvg2/svg/SVGRect.idl \
-        ksvg2/svg/SVGRenderingIntent.idl \
-        ksvg2/svg/SVGScriptElement.idl \
-        ksvg2/svg/SVGSetElement.idl \
-        ksvg2/svg/SVGStopElement.idl \
-        ksvg2/svg/SVGStringList.idl \
-        ksvg2/svg/SVGStyleElement.idl \
-        ksvg2/svg/SVGSVGElement.idl \
-        ksvg2/svg/SVGSwitchElement.idl \
-        ksvg2/svg/SVGSymbolElement.idl \
-        ksvg2/svg/SVGTextContentElement.idl \
-        ksvg2/svg/SVGTextElement.idl \
-        ksvg2/svg/SVGTextPositioningElement.idl \
-        ksvg2/svg/SVGTitleElement.idl \
-        ksvg2/svg/SVGTransform.idl \
-        ksvg2/svg/SVGTransformList.idl \
-        ksvg2/svg/SVGTRefElement.idl \
-        ksvg2/svg/SVGTSpanElement.idl \
-        ksvg2/svg/SVGUnitTypes.idl \
-        ksvg2/svg/SVGUseElement.idl \
-        ksvg2/svg/SVGViewElement.idl 
+    IDL_BINDINGS += svg/SVGZoomEvent.idl \
+        svg/SVGAElement.idl \
+        svg/SVGAngle.idl \
+        svg/SVGAnimateColorElement.idl \
+        svg/SVGAnimatedAngle.idl \
+        svg/SVGAnimatedBoolean.idl \
+        svg/SVGAnimatedEnumeration.idl \
+        svg/SVGAnimatedInteger.idl \
+        svg/SVGAnimatedLength.idl \
+        svg/SVGAnimatedLengthList.idl \
+        svg/SVGAnimatedNumber.idl \
+        svg/SVGAnimatedNumberList.idl \
+        svg/SVGAnimatedPreserveAspectRatio.idl \
+        svg/SVGAnimatedRect.idl \
+        svg/SVGAnimatedString.idl \
+        svg/SVGAnimatedTransformList.idl \
+        svg/SVGAnimateElement.idl \
+        svg/SVGAnimateTransformElement.idl \
+        svg/SVGAnimationElement.idl \
+        svg/SVGCircleElement.idl \
+        svg/SVGClipPathElement.idl \
+        svg/SVGColor.idl \
+        svg/SVGComponentTransferFunctionElement.idl \
+        svg/SVGCursorElement.idl \
+        svg/SVGDefinitionSrcElement.idl \
+        svg/SVGDefsElement.idl \
+        svg/SVGDescElement.idl \
+        svg/SVGDocument.idl \
+        svg/SVGElement.idl \
+        svg/SVGElementInstance.idl \
+        svg/SVGElementInstanceList.idl \
+        svg/SVGEllipseElement.idl \
+        svg/SVGException.idl \
+        svg/SVGFEBlendElement.idl \
+        svg/SVGFEColorMatrixElement.idl \
+        svg/SVGFEComponentTransferElement.idl \
+        svg/SVGFECompositeElement.idl \
+        svg/SVGFEDiffuseLightingElement.idl \
+        svg/SVGFEDisplacementMapElement.idl \
+        svg/SVGFEDistantLightElement.idl \
+        svg/SVGFEFloodElement.idl \
+        svg/SVGFEFuncAElement.idl \
+        svg/SVGFEFuncBElement.idl \
+        svg/SVGFEFuncGElement.idl \
+        svg/SVGFEFuncRElement.idl \
+        svg/SVGFEGaussianBlurElement.idl \
+        svg/SVGFEImageElement.idl \
+        svg/SVGFEMergeElement.idl \
+        svg/SVGFEMergeNodeElement.idl \
+        svg/SVGFEOffsetElement.idl \
+        svg/SVGFEPointLightElement.idl \
+        svg/SVGFESpecularLightingElement.idl \
+        svg/SVGFESpotLightElement.idl \
+        svg/SVGFETileElement.idl \
+        svg/SVGFETurbulenceElement.idl \
+        svg/SVGFilterElement.idl \
+        svg/SVGFontElement.idl \
+        svg/SVGFontFaceElement.idl \
+        svg/SVGFontFaceFormatElement.idl \
+        svg/SVGFontFaceNameElement.idl \
+        svg/SVGFontFaceSrcElement.idl \
+        svg/SVGFontFaceUriElement.idl \
+        svg/SVGForeignObjectElement.idl \
+        svg/SVGGElement.idl \
+        svg/SVGGlyphElement.idl \
+        svg/SVGGradientElement.idl \
+        svg/SVGImageElement.idl \
+        svg/SVGLength.idl \
+        svg/SVGLengthList.idl \
+        svg/SVGLinearGradientElement.idl \
+        svg/SVGLineElement.idl \
+        svg/SVGMarkerElement.idl \
+        svg/SVGMaskElement.idl \
+        svg/SVGMatrix.idl \
+        svg/SVGMetadataElement.idl \
+        svg/SVGMissingGlyphElement.idl \
+        svg/SVGNumber.idl \
+        svg/SVGNumberList.idl \
+        svg/SVGPaint.idl \
+        svg/SVGPathElement.idl \
+        svg/SVGPathSegArcAbs.idl \
+        svg/SVGPathSegArcRel.idl \
+        svg/SVGPathSegClosePath.idl \
+        svg/SVGPathSegCurvetoCubicAbs.idl \
+        svg/SVGPathSegCurvetoCubicRel.idl \
+        svg/SVGPathSegCurvetoCubicSmoothAbs.idl \
+        svg/SVGPathSegCurvetoCubicSmoothRel.idl \
+        svg/SVGPathSegCurvetoQuadraticAbs.idl \
+        svg/SVGPathSegCurvetoQuadraticRel.idl \
+        svg/SVGPathSegCurvetoQuadraticSmoothAbs.idl \
+        svg/SVGPathSegCurvetoQuadraticSmoothRel.idl \
+        svg/SVGPathSeg.idl \
+        svg/SVGPathSegLinetoAbs.idl \
+        svg/SVGPathSegLinetoHorizontalAbs.idl \
+        svg/SVGPathSegLinetoHorizontalRel.idl \
+        svg/SVGPathSegLinetoRel.idl \
+        svg/SVGPathSegLinetoVerticalAbs.idl \
+        svg/SVGPathSegLinetoVerticalRel.idl \
+        svg/SVGPathSegList.idl \
+        svg/SVGPathSegMovetoAbs.idl \
+        svg/SVGPathSegMovetoRel.idl \
+        svg/SVGPatternElement.idl \
+        svg/SVGPoint.idl \
+        svg/SVGPointList.idl \
+        svg/SVGPolygonElement.idl \
+        svg/SVGPolylineElement.idl \
+        svg/SVGPreserveAspectRatio.idl \
+        svg/SVGRadialGradientElement.idl \
+        svg/SVGRectElement.idl \
+        svg/SVGRect.idl \
+        svg/SVGRenderingIntent.idl \
+        svg/SVGScriptElement.idl \
+        svg/SVGSetElement.idl \
+        svg/SVGStopElement.idl \
+        svg/SVGStringList.idl \
+        svg/SVGStyleElement.idl \
+        svg/SVGSVGElement.idl \
+        svg/SVGSwitchElement.idl \
+        svg/SVGSymbolElement.idl \
+        svg/SVGTextContentElement.idl \
+        svg/SVGTextElement.idl \
+        svg/SVGTextPathElement.idl \
+        svg/SVGTextPositioningElement.idl \
+        svg/SVGTitleElement.idl \
+        svg/SVGTransform.idl \
+        svg/SVGTransformList.idl \
+        svg/SVGTRefElement.idl \
+        svg/SVGTSpanElement.idl \
+        svg/SVGUnitTypes.idl \
+        svg/SVGUseElement.idl \
+        svg/SVGViewElement.idl 
 
     SOURCES += \
 # TODO: this-one-is-not-auto-added! FIXME! tmp/SVGElementFactory.cpp \
@@ -1126,160 +1372,174 @@ contains(DEFINES, ENABLE_SVG=1) {
         bindings/js/JSSVGPathSegCustom.cpp \
         bindings/js/JSSVGPathSegListCustom.cpp \
         bindings/js/JSSVGPointListCustom.cpp \
-        ksvg2/css/SVGCSSParser.cpp \
-        ksvg2/css/SVGCSSStyleSelector.cpp \
-        ksvg2/css/SVGRenderStyle.cpp \
-        ksvg2/css/SVGRenderStyleDefs.cpp \
-        ksvg2/events/JSSVGLazyEventListener.cpp \
-        ksvg2/events/SVGZoomEvent.cpp \
-        ksvg2/misc/KCanvasRenderingStyle.cpp \
-        ksvg2/misc/PointerEventsHitRules.cpp \
-        ksvg2/misc/SVGDocumentExtensions.cpp \
-        ksvg2/misc/SVGImageLoader.cpp \
-        ksvg2/misc/SVGTimer.cpp \
-        ksvg2/misc/TimeScheduler.cpp \
-        ksvg2/svg/ColorDistance.cpp \
-        ksvg2/svg/SVGAElement.cpp \
-        ksvg2/svg/SVGAngle.cpp \
-        ksvg2/svg/SVGAnimateColorElement.cpp \
-        ksvg2/svg/SVGAnimatedPathData.cpp \
-        ksvg2/svg/SVGAnimatedPoints.cpp \
-        ksvg2/svg/SVGAnimateElement.cpp \
-        ksvg2/svg/SVGAnimateMotionElement.cpp \
-        ksvg2/svg/SVGAnimateTransformElement.cpp \
-        ksvg2/svg/SVGAnimationElement.cpp \
-        ksvg2/svg/SVGCircleElement.cpp \
-        ksvg2/svg/SVGClipPathElement.cpp \
-        ksvg2/svg/SVGColor.cpp \
-        ksvg2/svg/SVGComponentTransferFunctionElement.cpp \
-        ksvg2/svg/SVGCursorElement.cpp \
-        ksvg2/svg/SVGDefsElement.cpp \
-        ksvg2/svg/SVGDescElement.cpp \
-        ksvg2/svg/SVGDocument.cpp \
-        ksvg2/svg/SVGElement.cpp \
-        ksvg2/svg/SVGElementInstance.cpp \
-        ksvg2/svg/SVGElementInstanceList.cpp \
-        ksvg2/svg/SVGEllipseElement.cpp \
-        ksvg2/svg/SVGExternalResourcesRequired.cpp \
-        ksvg2/svg/SVGFEBlendElement.cpp \
-        ksvg2/svg/SVGFEColorMatrixElement.cpp \
-        ksvg2/svg/SVGFEComponentTransferElement.cpp \
-        ksvg2/svg/SVGFECompositeElement.cpp \
-        ksvg2/svg/SVGFEDiffuseLightingElement.cpp \
-        ksvg2/svg/SVGFEDisplacementMapElement.cpp \
-        ksvg2/svg/SVGFEDistantLightElement.cpp \
-        ksvg2/svg/SVGFEFloodElement.cpp \
-        ksvg2/svg/SVGFEFuncAElement.cpp \
-        ksvg2/svg/SVGFEFuncBElement.cpp \
-        ksvg2/svg/SVGFEFuncGElement.cpp \
-        ksvg2/svg/SVGFEFuncRElement.cpp \
-        ksvg2/svg/SVGFEGaussianBlurElement.cpp \
-        ksvg2/svg/SVGFEImageElement.cpp \
-        ksvg2/svg/SVGFELightElement.cpp \
-        ksvg2/svg/SVGFEMergeElement.cpp \
-        ksvg2/svg/SVGFEMergeNodeElement.cpp \
-        ksvg2/svg/SVGFEOffsetElement.cpp \
-        ksvg2/svg/SVGFEPointLightElement.cpp \
-        ksvg2/svg/SVGFESpecularLightingElement.cpp \
-        ksvg2/svg/SVGFESpotLightElement.cpp \
-        ksvg2/svg/SVGFETileElement.cpp \
-        ksvg2/svg/SVGFETurbulenceElement.cpp \
-        ksvg2/svg/SVGFilterElement.cpp \
-        ksvg2/svg/SVGFilterPrimitiveStandardAttributes.cpp \
-        ksvg2/svg/SVGFitToViewBox.cpp \
-        ksvg2/svg/SVGForeignObjectElement.cpp \
-        ksvg2/svg/SVGGElement.cpp \
-        ksvg2/svg/SVGGradientElement.cpp \
-        ksvg2/svg/SVGImageElement.cpp \
-        ksvg2/svg/SVGLangSpace.cpp \
-        ksvg2/svg/SVGLength.cpp \
-        ksvg2/svg/SVGLengthList.cpp \
-        ksvg2/svg/SVGLinearGradientElement.cpp \
-        ksvg2/svg/SVGLineElement.cpp \
-        ksvg2/svg/SVGLocatable.cpp \
-        ksvg2/svg/SVGMarkerElement.cpp \
-        ksvg2/svg/SVGMaskElement.cpp \
-        ksvg2/svg/SVGMetadataElement.cpp \
-        ksvg2/svg/SVGMPathElement.cpp \
-        ksvg2/svg/SVGNumberList.cpp \
-        ksvg2/svg/SVGPaint.cpp \
-        ksvg2/svg/SVGParserUtilities.cpp \
-        ksvg2/svg/SVGPathElement.cpp \
-        ksvg2/svg/SVGPathSegArc.cpp \
-        ksvg2/svg/SVGPathSegClosePath.cpp \
-        ksvg2/svg/SVGPathSegCurvetoCubic.cpp \
-        ksvg2/svg/SVGPathSegCurvetoCubicSmooth.cpp \
-        ksvg2/svg/SVGPathSegCurvetoQuadratic.cpp \
-        ksvg2/svg/SVGPathSegCurvetoQuadraticSmooth.cpp \
-        ksvg2/svg/SVGPathSegLineto.cpp \
-        ksvg2/svg/SVGPathSegLinetoHorizontal.cpp \
-        ksvg2/svg/SVGPathSegLinetoVertical.cpp \
-        ksvg2/svg/SVGPathSegList.cpp \
-        ksvg2/svg/SVGPathSegMoveto.cpp \
-        ksvg2/svg/SVGPatternElement.cpp \
-        ksvg2/svg/SVGPointList.cpp \
-        ksvg2/svg/SVGPolyElement.cpp \
-        ksvg2/svg/SVGPolygonElement.cpp \
-        ksvg2/svg/SVGPolylineElement.cpp \
-        ksvg2/svg/SVGPreserveAspectRatio.cpp \
-        ksvg2/svg/SVGRadialGradientElement.cpp \
-        ksvg2/svg/SVGRectElement.cpp \
-        ksvg2/svg/SVGScriptElement.cpp \
-        ksvg2/svg/SVGSetElement.cpp \
-        ksvg2/svg/SVGStopElement.cpp \
-        ksvg2/svg/SVGStringList.cpp \
-        ksvg2/svg/SVGStylable.cpp \
-        ksvg2/svg/SVGStyledElement.cpp \
-        ksvg2/svg/SVGStyledLocatableElement.cpp \
-        ksvg2/svg/SVGStyledTransformableElement.cpp \
-        ksvg2/svg/SVGStyleElement.cpp \
-        ksvg2/svg/SVGSVGElement.cpp \
-        ksvg2/svg/SVGSwitchElement.cpp \
-        ksvg2/svg/SVGSymbolElement.cpp \
-        ksvg2/svg/SVGTests.cpp \
-        ksvg2/svg/SVGTextContentElement.cpp \
-        ksvg2/svg/SVGTextElement.cpp \
-        ksvg2/svg/SVGTextPositioningElement.cpp \
-        ksvg2/svg/SVGTitleElement.cpp \
-        ksvg2/svg/SVGTransformable.cpp \
-        ksvg2/svg/SVGTransform.cpp \
-        ksvg2/svg/SVGTransformDistance.cpp \
-        ksvg2/svg/SVGTransformList.cpp \
-        ksvg2/svg/SVGTRefElement.cpp \
-        ksvg2/svg/SVGTSpanElement.cpp \
-        ksvg2/svg/SVGURIReference.cpp \
-        ksvg2/svg/SVGUseElement.cpp \
-        ksvg2/svg/SVGViewElement.cpp \
-        ksvg2/svg/SVGZoomAndPan.cpp \
-        platform/graphics/svg/filters/SVGFEBlend.cpp \
-        platform/graphics/svg/filters/SVGFEColorMatrix.cpp \
-        platform/graphics/svg/filters/SVGFEComponentTransfer.cpp \
-        platform/graphics/svg/filters/SVGFEComposite.cpp \
-        platform/graphics/svg/filters/SVGFEConvolveMatrix.cpp \
-        platform/graphics/svg/filters/SVGFEDiffuseLighting.cpp \
-        platform/graphics/svg/filters/SVGFEDisplacementMap.cpp \
-        platform/graphics/svg/filters/SVGFEFlood.cpp \
-        platform/graphics/svg/filters/SVGFEGaussianBlur.cpp \
-        platform/graphics/svg/filters/SVGFEImage.cpp \
-        platform/graphics/svg/filters/SVGFEMerge.cpp \
-        platform/graphics/svg/filters/SVGFEMorphology.cpp \
-        platform/graphics/svg/filters/SVGFEOffset.cpp \
-        platform/graphics/svg/filters/SVGFESpecularLighting.cpp \
-        platform/graphics/svg/filters/SVGFETurbulence.cpp \
-        platform/graphics/svg/filters/SVGFilterEffect.cpp \
-        platform/graphics/svg/filters/SVGLightSource.cpp \
-        platform/graphics/svg/SVGImage.cpp \
-        platform/graphics/svg/SVGPaintServer.cpp \
-        platform/graphics/svg/SVGPaintServerGradient.cpp \
-        platform/graphics/svg/SVGPaintServerLinearGradient.cpp \
-        platform/graphics/svg/SVGPaintServerPattern.cpp \
-        platform/graphics/svg/SVGPaintServerRadialGradient.cpp \
-        platform/graphics/svg/SVGPaintServerSolid.cpp \
-        platform/graphics/svg/SVGResourceClipper.cpp \
-        platform/graphics/svg/SVGResource.cpp \
-        platform/graphics/svg/SVGResourceFilter.cpp \
-        platform/graphics/svg/SVGResourceMarker.cpp \
-        platform/graphics/svg/SVGResourceMasker.cpp \
+        bindings/js/JSSVGTransformListCustom.cpp \
+        css/SVGCSSComputedStyleDeclaration.cpp \
+        css/SVGCSSParser.cpp \
+        css/SVGCSSStyleSelector.cpp \
+        rendering/SVGRenderStyle.cpp \
+        rendering/SVGRenderStyleDefs.cpp \
+        bindings/js/JSSVGLazyEventListener.cpp \
+        svg/SVGZoomEvent.cpp \
+        rendering/PointerEventsHitRules.cpp \
+        svg/SVGDocumentExtensions.cpp \
+        svg/SVGImageLoader.cpp \
+        svg/SVGTimer.cpp \
+        svg/TimeScheduler.cpp \
+        svg/ColorDistance.cpp \
+        svg/SVGAElement.cpp \
+        svg/SVGAngle.cpp \
+        svg/SVGAnimateColorElement.cpp \
+        svg/SVGAnimatedPathData.cpp \
+        svg/SVGAnimatedPoints.cpp \
+        svg/SVGAnimateElement.cpp \
+        svg/SVGAnimateMotionElement.cpp \
+        svg/SVGAnimateTransformElement.cpp \
+        svg/SVGAnimationElement.cpp \
+        svg/SVGCircleElement.cpp \
+        svg/SVGClipPathElement.cpp \
+        svg/SVGColor.cpp \
+        svg/SVGComponentTransferFunctionElement.cpp \
+        svg/SVGCursorElement.cpp \
+        svg/SVGDefinitionSrcElement.cpp \
+        svg/SVGDefsElement.cpp \
+        svg/SVGDescElement.cpp \
+        svg/SVGDocument.cpp \
+        svg/SVGElement.cpp \
+        svg/SVGElementInstance.cpp \
+        svg/SVGElementInstanceList.cpp \
+        svg/SVGEllipseElement.cpp \
+        svg/SVGExternalResourcesRequired.cpp \
+        svg/SVGFEBlendElement.cpp \
+        svg/SVGFEColorMatrixElement.cpp \
+        svg/SVGFEComponentTransferElement.cpp \
+        svg/SVGFECompositeElement.cpp \
+        svg/SVGFEDiffuseLightingElement.cpp \
+        svg/SVGFEDisplacementMapElement.cpp \
+        svg/SVGFEDistantLightElement.cpp \
+        svg/SVGFEFloodElement.cpp \
+        svg/SVGFEFuncAElement.cpp \
+        svg/SVGFEFuncBElement.cpp \
+        svg/SVGFEFuncGElement.cpp \
+        svg/SVGFEFuncRElement.cpp \
+        svg/SVGFEGaussianBlurElement.cpp \
+        svg/SVGFEImageElement.cpp \
+        svg/SVGFELightElement.cpp \
+        svg/SVGFEMergeElement.cpp \
+        svg/SVGFEMergeNodeElement.cpp \
+        svg/SVGFEOffsetElement.cpp \
+        svg/SVGFEPointLightElement.cpp \
+        svg/SVGFESpecularLightingElement.cpp \
+        svg/SVGFESpotLightElement.cpp \
+        svg/SVGFETileElement.cpp \
+        svg/SVGFETurbulenceElement.cpp \
+        svg/SVGFilterElement.cpp \
+        svg/SVGFilterPrimitiveStandardAttributes.cpp \
+        svg/SVGFitToViewBox.cpp \
+        svg/SVGFont.cpp \
+        svg/SVGFontData.cpp \
+        svg/SVGFontElement.cpp \
+        svg/SVGFontFaceElement.cpp \
+        svg/SVGFontFaceFormatElement.cpp \
+        svg/SVGFontFaceNameElement.cpp \
+        svg/SVGFontFaceSrcElement.cpp \
+        svg/SVGFontFaceUriElement.cpp \
+        svg/SVGForeignObjectElement.cpp \
+        svg/SVGGElement.cpp \
+        svg/SVGGlyphElement.cpp \
+        svg/SVGGradientElement.cpp \
+        svg/SVGImageElement.cpp \
+        svg/SVGLangSpace.cpp \
+        svg/SVGLength.cpp \
+        svg/SVGLengthList.cpp \
+        svg/SVGLinearGradientElement.cpp \
+        svg/SVGLineElement.cpp \
+        svg/SVGLocatable.cpp \
+        svg/SVGMarkerElement.cpp \
+        svg/SVGMaskElement.cpp \
+        svg/SVGMetadataElement.cpp \
+        svg/SVGMissingGlyphElement.cpp \
+        svg/SVGMPathElement.cpp \
+        svg/SVGNumberList.cpp \
+        svg/SVGPaint.cpp \
+        svg/SVGParserUtilities.cpp \
+        svg/SVGPathElement.cpp \
+        svg/SVGPathSegArc.cpp \
+        svg/SVGPathSegClosePath.cpp \
+        svg/SVGPathSegCurvetoCubic.cpp \
+        svg/SVGPathSegCurvetoCubicSmooth.cpp \
+        svg/SVGPathSegCurvetoQuadratic.cpp \
+        svg/SVGPathSegCurvetoQuadraticSmooth.cpp \
+        svg/SVGPathSegLineto.cpp \
+        svg/SVGPathSegLinetoHorizontal.cpp \
+        svg/SVGPathSegLinetoVertical.cpp \
+        svg/SVGPathSegList.cpp \
+        svg/SVGPathSegMoveto.cpp \
+        svg/SVGPatternElement.cpp \
+        svg/SVGPointList.cpp \
+        svg/SVGPolyElement.cpp \
+        svg/SVGPolygonElement.cpp \
+        svg/SVGPolylineElement.cpp \
+        svg/SVGPreserveAspectRatio.cpp \
+        svg/SVGRadialGradientElement.cpp \
+        svg/SVGRectElement.cpp \
+        svg/SVGScriptElement.cpp \
+        svg/SVGSetElement.cpp \
+        svg/SVGStopElement.cpp \
+        svg/SVGStringList.cpp \
+        svg/SVGStylable.cpp \
+        svg/SVGStyledElement.cpp \
+        svg/SVGStyledLocatableElement.cpp \
+        svg/SVGStyledTransformableElement.cpp \
+        svg/SVGStyleElement.cpp \
+        svg/SVGSVGElement.cpp \
+        svg/SVGSwitchElement.cpp \
+        svg/SVGSymbolElement.cpp \
+        svg/SVGTests.cpp \
+        svg/SVGTextContentElement.cpp \
+        svg/SVGTextElement.cpp \
+        svg/SVGTextPathElement.cpp \
+        svg/SVGTextPositioningElement.cpp \
+        svg/SVGTitleElement.cpp \
+        svg/SVGTransformable.cpp \
+        svg/SVGTransform.cpp \
+        svg/SVGTransformDistance.cpp \
+        svg/SVGTransformList.cpp \
+        svg/SVGTRefElement.cpp \
+        svg/SVGTSpanElement.cpp \
+        svg/SVGURIReference.cpp \
+        svg/SVGUseElement.cpp \
+        svg/SVGViewElement.cpp \
+        svg/SVGViewSpec.cpp \
+        svg/SVGZoomAndPan.cpp \
+        svg/graphics/filters/SVGFEBlend.cpp \
+        svg/graphics/filters/SVGFEColorMatrix.cpp \
+        svg/graphics/filters/SVGFEComponentTransfer.cpp \
+        svg/graphics/filters/SVGFEComposite.cpp \
+        svg/graphics/filters/SVGFEConvolveMatrix.cpp \
+        svg/graphics/filters/SVGFEDiffuseLighting.cpp \
+        svg/graphics/filters/SVGFEDisplacementMap.cpp \
+        svg/graphics/filters/SVGFEFlood.cpp \
+        svg/graphics/filters/SVGFEGaussianBlur.cpp \
+        svg/graphics/filters/SVGFEImage.cpp \
+        svg/graphics/filters/SVGFEMerge.cpp \
+        svg/graphics/filters/SVGFEMorphology.cpp \
+        svg/graphics/filters/SVGFEOffset.cpp \
+        svg/graphics/filters/SVGFESpecularLighting.cpp \
+        svg/graphics/filters/SVGFETurbulence.cpp \
+        svg/graphics/filters/SVGFilterEffect.cpp \
+        svg/graphics/filters/SVGLightSource.cpp \
+        svg/graphics/SVGImage.cpp \
+        svg/graphics/SVGPaintServer.cpp \
+        svg/graphics/SVGPaintServerGradient.cpp \
+        svg/graphics/SVGPaintServerLinearGradient.cpp \
+        svg/graphics/SVGPaintServerPattern.cpp \
+        svg/graphics/SVGPaintServerRadialGradient.cpp \
+        svg/graphics/SVGPaintServerSolid.cpp \
+        svg/graphics/SVGResourceClipper.cpp \
+        svg/graphics/SVGResource.cpp \
+        svg/graphics/SVGResourceFilter.cpp \
+        svg/graphics/SVGResourceMarker.cpp \
+        svg/graphics/SVGResourceMasker.cpp \
         rendering/RenderForeignObject.cpp \
         rendering/RenderPath.cpp \
         rendering/RenderSVGBlock.cpp \
@@ -1289,74 +1549,114 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/RenderSVGImage.cpp \
         rendering/RenderSVGInline.cpp \
         rendering/RenderSVGInlineText.cpp \
+        rendering/RenderSVGRoot.cpp \
         rendering/RenderSVGText.cpp \
+        rendering/RenderSVGTextPath.cpp \
+        rendering/RenderSVGTransformableContainer.cpp \
         rendering/RenderSVGTSpan.cpp \
+        rendering/RenderSVGViewportContainer.cpp \
+        rendering/SVGCharacterLayoutInfo.cpp \
         rendering/SVGInlineFlowBox.cpp \
         rendering/SVGInlineTextBox.cpp \
+        rendering/SVGRenderSupport.cpp \
         rendering/SVGRootInlineBox.cpp
 
 qt-port:SOURCES += \
-        platform/graphics/svg/qt/RenderPathQt.cpp \
-        platform/graphics/svg/qt/SVGPaintServerGradientQt.cpp \
-        platform/graphics/svg/qt/SVGPaintServerLinearGradientQt.cpp \
-        platform/graphics/svg/qt/SVGPaintServerPatternQt.cpp \
-        platform/graphics/svg/qt/SVGPaintServerQt.cpp \
-        platform/graphics/svg/qt/SVGPaintServerRadialGradientQt.cpp \
-        platform/graphics/svg/qt/SVGPaintServerSolidQt.cpp \
-        platform/graphics/svg/qt/SVGResourceClipperQt.cpp \
-        platform/graphics/svg/qt/SVGResourceFilterQt.cpp \
-        platform/graphics/svg/qt/SVGResourceMaskerQt.cpp
+        svg/graphics/qt/RenderPathQt.cpp \
+        svg/graphics/qt/SVGPaintServerGradientQt.cpp \
+        svg/graphics/qt/SVGPaintServerLinearGradientQt.cpp \
+        svg/graphics/qt/SVGPaintServerPatternQt.cpp \
+        svg/graphics/qt/SVGPaintServerQt.cpp \
+        svg/graphics/qt/SVGPaintServerRadialGradientQt.cpp \
+        svg/graphics/qt/SVGPaintServerSolidQt.cpp \
+        svg/graphics/qt/SVGResourceClipperQt.cpp \
+        svg/graphics/qt/SVGResourceFilterQt.cpp \
+        svg/graphics/qt/SVGResourceMaskerQt.cpp
 
 gtk-port:SOURCES += \
-        platform/graphics/svg/cairo/RenderPathCairo.cpp \
-        platform/graphics/svg/cairo/SVGPaintServerCairo.cpp \
-        platform/graphics/svg/cairo/SVGPaintServerGradientCairo.cpp \
-        platform/graphics/svg/cairo/SVGPaintServerPatternCairo.cpp \
-        platform/graphics/svg/cairo/SVGPaintServerSolidCairo.cpp \
-        platform/graphics/svg/cairo/SVGResourceClipperCairo.cpp \
-        platform/graphics/svg/cairo/SVGResourceMaskerCairo.cpp
+        svg/graphics/cairo/RenderPathCairo.cpp \
+        svg/graphics/cairo/SVGPaintServerCairo.cpp \
+        svg/graphics/cairo/SVGPaintServerGradientCairo.cpp \
+        svg/graphics/cairo/SVGPaintServerPatternCairo.cpp \
+        svg/graphics/cairo/SVGPaintServerSolidCairo.cpp \
+        svg/graphics/cairo/SVGResourceClipperCairo.cpp \
+        svg/graphics/cairo/SVGResourceMaskerCairo.cpp
 
         # GENERATOR 5-C:
-        svgnames_a.output = tmp/SVGNames.cpp
-        svgnames_a.commands = perl $$PWD/ksvg2/scripts/make_names.pl --tags $$PWD/ksvg2/svg/svgtags.in --attrs $$PWD/ksvg2/svg/svgattrs.in --namespace SVG --cppNamespace WebCore --namespaceURI 'http://www.w3.org/2000/svg' --factory --attrsNullNamespace --preprocessor \"$${QMAKE_MOC} -E\" --output tmp
+        svgnames_a.output = $$GENERATED_SOURCES_DIR/SVGNames.cpp
+        svgnames_a.commands = perl $$PWD/dom/make_names.pl --tags $$PWD/svg/svgtags.in --attrs $$PWD/svg/svgattrs.in --namespace SVG --cppNamespace WebCore --namespaceURI 'http://www.w3.org/2000/svg' --factory --attrsNullNamespace --preprocessor \"$${QMAKE_MOC} -E\" --output $$GENERATED_SOURCES_DIR
         svgnames_a.input = SVG_NAMES
         svgnames_a.dependency_type = TYPE_C
         svgnames_a.CONFIG = target_predeps
         svgnames_a.variable_out = GENERATED_SOURCES
-        svgnames_a.clean = ${QMAKE_FILE_OUT} tmp/SVGNames.h
-        QMAKE_EXTRA_COMPILERS += svgnames_a
-        svgnames_b.output = tmp/SVGElementFactory.cpp
+        svgnames_a.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}SVGNames.h
+        addExtraCompiler(svgnames_a)
+        svgnames_b.output = $$GENERATED_SOURCES_DIR/SVGElementFactory.cpp
         svgnames_b.commands = @echo -n ''
         svgnames_b.input = SVG_NAMES
-        svgnames_b.depends = tmp/SVGNames.cpp
+        svgnames_b.depends = $$GENERATED_SOURCES_DIR/SVGNames.cpp
         svgnames_b.CONFIG = target_predeps
         svgnames_b.variable_out = GENERATED_SOURCES
-        svgnames_b.clean += tmp/SVGElementFactory.h ${QMAKE_FILE_OUT}
-        QMAKE_EXTRA_COMPILERS += svgnames_b
+        svgnames_b.clean += ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}SVGElementFactory.h ${QMAKE_FILE_OUT}
+        addExtraCompiler(svgnames_b)
 
         # GENERATOR 5-D:
-        xlinknames.output = tmp/XLinkNames.cpp
-        xlinknames.commands = perl $$PWD/ksvg2/scripts/make_names.pl --attrs $$PWD/ksvg2/misc/xlinkattrs.in --namespace XLink --cppNamespace WebCore --namespaceURI 'http://www.w3.org/1999/xlink' --preprocessor \"$${QMAKE_MOC} -E\" --output tmp
+        xlinknames.output = $$GENERATED_SOURCES_DIR/XLinkNames.cpp
+        xlinknames.commands = perl $$PWD/dom/make_names.pl --attrs $$PWD/svg/xlinkattrs.in --namespace XLink --cppNamespace WebCore --namespaceURI 'http://www.w3.org/1999/xlink' --preprocessor \"$${QMAKE_MOC} -E\" --output $$GENERATED_SOURCES_DIR
         xlinknames.input = XLINK_NAMES
         xlinknames.dependency_type = TYPE_C
         xlinknames.CONFIG = target_predeps
         xlinknames.variable_out = GENERATED_SOURCES
-        xlinknames.clean = ${QMAKE_FILE_OUT} tmp/XLinkNames.h
-        QMAKE_EXTRA_COMPILERS += xlinknames
+        xlinknames.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}XLinkNames.h
+        addExtraCompiler(xlinknames)
+
+    # GENERATOR 6-A:
+    cssprops.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.c
+    cssprops.input = WALDOCSSPROPS
+    cssprops.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$SVGCSSPROPERTIES > $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makeprop.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
+    cssprops.CONFIG = target_predeps no_link
+    cssprops.depend = ${QMAKE_FILE_NAME} SVGCSSPROPERTIES
+    cssprops.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
+    addExtraCompiler(cssprops)
+
+    # GENERATOR 6-B:
+    cssvalues.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.c
+    cssvalues.input = WALDOCSSVALUES
+    cssvalues.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$SVGCSSVALUES > $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.in && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makevalues.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.gperf
+    cssvalues.CONFIG = target_predeps no_link
+    cssvalues.depend = ${QMAKE_FILE_NAME} SVGCSSVALUES
+    cssvalues.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
+    addExtraCompiler(cssvalues)
+} else {
+    # GENERATOR 6-A:
+    cssprops.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.c
+    cssprops.input = WALDOCSSPROPS
+    cssprops.commands = $(COPY_FILE) ${QMAKE_FILE_NAME} $$GENERATED_SOURCES_DIR && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makeprop.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
+    cssprops.CONFIG = target_predeps no_link
+    cssprops.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
+    addExtraCompiler(cssprops)
+
+    # GENERATOR 6-B:
+    cssvalues.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.c
+    cssvalues.input = WALDOCSSVALUES
+    cssvalues.commands = $(COPY_FILE) ${QMAKE_FILE_NAME} $$GENERATED_SOURCES_DIR && cd $$GENERATED_SOURCES_DIR && perl $$PWD/css/makevalues.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.gperf
+    cssvalues.CONFIG = target_predeps no_link
+    cssvalues.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
+    addExtraCompiler(cssvalues)
 }
 
 
 # GENERATOR 1: IDL compiler
-idl.output = tmp/JS${QMAKE_FILE_BASE}.cpp
+idl.output = $$GENERATED_SOURCES_DIR/JS${QMAKE_FILE_BASE}.cpp
 idl.variable_out = GENERATED_SOURCES
 idl.input = IDL_BINDINGS
-idl.commands = perl -I$$PWD/bindings/scripts $$PWD/bindings/scripts/generate-bindings.pl --defines \"$${FEATURE_DEFINES_JAVASCRIPT}\" --generator JS --include $$PWD/dom --include $$PWD/html --include $$PWD/xml --include $$PWD/ksvg2/svg --outputdir tmp --preprocessor \"$${QMAKE_MOC} -E\" ${QMAKE_FILE_NAME}
+idl.commands = perl -I$$PWD/bindings/scripts $$PWD/bindings/scripts/generate-bindings.pl --defines \"$${FEATURE_DEFINES_JAVASCRIPT}\" --generator JS --include $$PWD/dom --include $$PWD/html --include $$PWD/xml --include $$PWD/svg --outputdir $$GENERATED_SOURCES_DIR --preprocessor \"$${QMAKE_MOC} -E\" ${QMAKE_FILE_NAME}
 idl.CONFIG += target_predeps
-idl.clean = tmp/JS${QMAKE_FILE_BASE}.h ${QMAKE_FILE_OUT}
-QMAKE_EXTRA_COMPILERS += idl
+idl.clean = ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}JS${QMAKE_FILE_BASE}.h ${QMAKE_FILE_OUT}
+addExtraCompiler(idl)
 
 # GENERATOR 2-A: LUT creator
-#lut.output = tmp/${QMAKE_FILE_BASE}.lut.h
+#lut.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.lut.h
 #lut.commands = perl $$PWD/../JavaScriptCore/kjs/create_hash_table ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
 #lut.depend = ${QMAKE_FILE_NAME}
 #lut.input = LUT_FILES
@@ -1364,142 +1664,111 @@ QMAKE_EXTRA_COMPILERS += idl
 #QMAKE_EXTRA_COMPILERS += lut
 
 # GENERATOR 2-B: like JavaScriptCore/LUT Generator, but rename output
-luttable.output = tmp/${QMAKE_FILE_BASE}Table.cpp
+luttable.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}Table.cpp
 luttable.commands = perl $$PWD/../JavaScriptCore/kjs/create_hash_table ${QMAKE_FILE_NAME} -i > ${QMAKE_FILE_OUT}
 luttable.depend = ${QMAKE_FILE_NAME}
 luttable.input = LUT_TABLE_FILES
 luttable.CONFIG += no_link
 luttable.dependency_type = TYPE_C
-QMAKE_EXTRA_COMPILERS += luttable
+addExtraCompiler(luttable)
 
 # GENERATOR 3: tokenizer (flex)
-tokenizer.output = tmp/${QMAKE_FILE_BASE}.cpp
+tokenizer.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
 tokenizer.commands = flex -t < ${QMAKE_FILE_NAME} | perl $$PWD/css/maketokenizer > ${QMAKE_FILE_OUT}
 tokenizer.dependency_type = TYPE_C
 tokenizer.input = TOKENIZER
 tokenizer.CONFIG += target_predeps no_link
-QMAKE_EXTRA_COMPILERS += tokenizer
+addExtraCompiler(tokenizer)
 
 # GENERATOR 4: CSS grammar
-cssbison.output = tmp/${QMAKE_FILE_BASE}.cpp
-cssbison.commands = perl $$PWD/css/makegrammar.pl ${QMAKE_FILE_NAME} tmp/${QMAKE_FILE_BASE}
+cssbison.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
+cssbison.commands = perl $$PWD/css/makegrammar.pl ${QMAKE_FILE_NAME} $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}
 cssbison.depend = ${QMAKE_FILE_NAME}
 cssbison.input = CSSBISON
 cssbison.CONFIG = target_predeps
 cssbison.dependency_type = TYPE_C
 cssbison.variable_out = GENERATED_SOURCES
-cssbison.clean = ${QMAKE_FILE_OUT} tmp/${QMAKE_FILE_BASE}.h
-QMAKE_EXTRA_COMPILERS += cssbison
-#PRE_TARGETDEPS += tmp/CSSGrammar.cpp
+cssbison.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
+addExtraCompiler(cssbison)
+#PRE_TARGETDEPS += $$GENERATED_SOURCES_DIR/CSSGrammar.cpp
 grammar_h_dep.target = tmp/CSSParser.o
-grammar_h_dep.depends = tmp/CSSGrammar.cpp tmp/HTMLNames.cpp
+grammar_h_dep.depends = $$GENERATED_SOURCES_DIR/CSSGrammar.cpp $$GENERATED_SOURCES_DIR/HTMLNames.cpp
 QMAKE_EXTRA_TARGETS += grammar_h_dep
 
 # GENERATOR 5-A:
-htmlnames.output = tmp/HTMLNames.cpp
-htmlnames.commands = perl $$PWD/ksvg2/scripts/make_names.pl --tags $$PWD/html/HTMLTagNames.in --attrs $$PWD/html/HTMLAttributeNames.in --namespace HTML --namespacePrefix xhtml --cppNamespace WebCore --namespaceURI 'http://www.w3.org/1999/xhtml' --attrsNullNamespace --preprocessor \"$${QMAKE_MOC} -E\" --output tmp
+htmlnames.output = $$GENERATED_SOURCES_DIR/HTMLNames.cpp
+htmlnames.commands = perl $$PWD/dom/make_names.pl --tags $$PWD/html/HTMLTagNames.in --attrs $$PWD/html/HTMLAttributeNames.in --namespace HTML --namespacePrefix xhtml --cppNamespace WebCore --namespaceURI 'http://www.w3.org/1999/xhtml' --attrsNullNamespace --preprocessor \"$${QMAKE_MOC} -E\" --output $$GENERATED_SOURCES_DIR
 htmlnames.input = HTML_NAMES
 htmlnames.dependency_type = TYPE_C
 htmlnames.CONFIG = target_predeps
 htmlnames.variable_out = GENERATED_SOURCES
-htmlnames.clean = ${QMAKE_FILE_OUT} tmp/HTMLNames.h
-QMAKE_EXTRA_COMPILERS += htmlnames
+htmlnames.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}HTMLNames.h
+addExtraCompiler(htmlnames)
 
 # GENERATOR 5-B:
-xmlnames.output = tmp/XMLNames.cpp
-xmlnames.commands = perl $$PWD/ksvg2/scripts/make_names.pl --attrs $$PWD/xml/xmlattrs.in --namespace XML --cppNamespace WebCore --namespaceURI 'http://www.w3.org/XML/1998/namespace' --preprocessor \"$${QMAKE_MOC} -E\" --output tmp
+xmlnames.output = $$GENERATED_SOURCES_DIR/XMLNames.cpp
+xmlnames.commands = perl $$PWD/dom/make_names.pl --attrs $$PWD/xml/xmlattrs.in --namespace XML --cppNamespace WebCore --namespaceURI 'http://www.w3.org/XML/1998/namespace' --preprocessor \"$${QMAKE_MOC} -E\" --output $$GENERATED_SOURCES_DIR
 xmlnames.input = XML_NAMES
 xmlnames.dependency_type = TYPE_C
 xmlnames.CONFIG = target_predeps
 xmlnames.variable_out = GENERATED_SOURCES
-xmlnames.clean = ${QMAKE_FILE_OUT} tmp/XMLNames.h
-QMAKE_EXTRA_COMPILERS += xmlnames
-
-# GENERATOR 6-A:
-cssprops.output = tmp/CSSPropertyNames.c
-cssprops.input = WALDOCSSPROPS
-cssprops.commands = $(COPY_FILE) ${QMAKE_FILE_NAME} tmp && cd tmp && perl $$PWD/css/makeprop.pl && $(DEL_FILE) ${QMAKE_FILE_BASE}.strip ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
-cssprops.CONFIG = target_predeps no_link
-cssprops.clean = ${QMAKE_FILE_OUT} tmp/CSSPropertyNames.h
-QMAKE_EXTRA_COMPILERS += cssprops
-
-# GENERATOR 6-B:
-cssvalues.output = tmp/CSSValueKeywords.c
-cssvalues.input = WALDOCSSVALUES
-cssvalues.commands = $(COPY_FILE) ${QMAKE_FILE_NAME} tmp && cd tmp && perl $$PWD/css/makevalues.pl && $(DEL_FILE) CSSValueKeywords.in CSSValueKeywords.strip CSSValueKeywords.gperf
-cssvalues.CONFIG = target_predeps no_link
-cssvalues.clean = ${QMAKE_FILE_OUT} tmp/CSSValueKeywords.h
-QMAKE_EXTRA_COMPILERS += cssvalues
-
-# GENERATOR 7-A:
-svgcssproperties.output = tmp/ksvgcssproperties.h
-svgcssproperties.input = SVGCSSPROPERTIES
-svgcssproperties.commands = $(COPY_FILE) ${QMAKE_FILE_IN} ${QMAKE_VAR_OBJECTS_DIR_WTR}ksvgcssproperties.in && cd tmp && perl $$PWD/ksvg2/scripts/cssmakeprops -n SVG -f ksvgcssproperties.in && $(DEL_FILE) ksvgcssproperties.in ksvgcssproperties.gperf
-svgcssproperties.CONFIG = target_predeps no_link
-svgcssproperties.clean = ${QMAKE_FILE_OUT} tmp/ksvgcssproperties.c
-QMAKE_EXTRA_COMPILERS += svgcssproperties
-
-# GENERATOR 7-B:
-svgcssvalues.output = tmp/ksvgcssvalues.h
-svgcssvalues.input = SVGCSSVALUES
-svgcssvalues.commands = perl -ne \"print lc\" $$PWD/ksvg2/css/CSSValueKeywords.in > tmp/ksvgcssvalues.in && cd tmp && perl $$PWD/ksvg2/scripts/cssmakevalues -n SVG -f ksvgcssvalues.in && $(DEL_FILE) ksvgcssvalues.in ksvgcssvalues.gperf
-svgcssvalues.CONFIG = target_predeps no_link
-svgcssvalues.clean = ${QMAKE_FILE_OUT} tmp/ksvgcssvalues.c tmp/CSSValueKeywords.h
-QMAKE_EXTRA_COMPILERS += svgcssvalues
+xmlnames.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}XMLNames.h
+addExtraCompiler(xmlnames)
 
 # GENERATOR 8-A:
-entities.output = tmp/HTMLEntityNames.c
-entities.commands = gperf -a -L ANSI-C -C -G -c -o -t --key-positions="*" -N findEntity -D -s 2 < $$PWD/html/HTMLEntityNames.gperf > tmp/HTMLEntityNames.c
+entities.output = $$GENERATED_SOURCES_DIR/HTMLEntityNames.c
+entities.commands = gperf -a -L ANSI-C -C -G -c -o -t --key-positions="*" -N findEntity -D -s 2 < $$PWD/html/HTMLEntityNames.gperf > $$GENERATED_SOURCES_DIR/HTMLEntityNames.c
 entities.input = ENTITIES_GPERF
 entities.dependency_type = TYPE_C
 entities.CONFIG = target_predeps no_link
 entities.clean = ${QMAKE_FILE_OUT}
-QMAKE_EXTRA_COMPILERS += entities
+addExtraCompiler(entities)
 
 # GENERATOR 8-B:
-doctypestrings.output = tmp/${QMAKE_FILE_BASE}.cpp
+doctypestrings.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
 doctypestrings.input = DOCTYPESTRINGS
 doctypestrings.commands = perl -e \"print \'$${LITERAL_HASH}include <string.h>\';\" > ${QMAKE_FILE_OUT} && echo // bogus >> ${QMAKE_FILE_OUT} && gperf -CEot -L ANSI-C --key-positions="*" -N findDoctypeEntry -F ,PubIDInfo::eAlmostStandards,PubIDInfo::eAlmostStandards < ${QMAKE_FILE_NAME} >> ${QMAKE_FILE_OUT}
 doctypestrings.dependency_type = TYPE_C
 doctypestrings.CONFIG += target_predeps no_link
 doctypestrings.clean = ${QMAKE_FILE_OUT}
-QMAKE_EXTRA_COMPILERS += doctypestrings
+addExtraCompiler(doctypestrings)
 
 # GENERATOR 8-C:
-colordata.output = tmp/ColorData.c
+colordata.output = $$GENERATED_SOURCES_DIR/ColorData.c
 colordata.commands = perl -e \"print \'$${LITERAL_HASH}include <string.h>\';\" > ${QMAKE_FILE_OUT} && echo // bogus >> ${QMAKE_FILE_OUT} && gperf -CDEot -L ANSI-C --key-positions="*" -N findColor -D -s 2 < ${QMAKE_FILE_NAME} >> ${QMAKE_FILE_OUT}
 colordata.input = COLORDAT_GPERF
 colordata.CONFIG = target_predeps no_link
-QMAKE_EXTRA_COMPILERS += colordata
+addExtraCompiler(colordata)
 
 # GENERATOR 9:
-stylesheets.output = tmp/UserAgentStyleSheetsData.cpp
-stylesheets.commands = perl $$PWD/css/make-css-file-arrays.pl --preprocessor \"$${QMAKE_MOC} -E\" tmp/UserAgentStyleSheets.h tmp/UserAgentStyleSheetsData.cpp $$PWD/css/html4.css $$PWD/css/quirks.css $$PWD/css/svg.css $$PWD/css/view-source.css
+stylesheets.output = $$GENERATED_SOURCES_DIR/UserAgentStyleSheetsData.cpp
+stylesheets.commands = perl $$PWD/css/make-css-file-arrays.pl --preprocessor \"$${QMAKE_MOC} -E\" $$GENERATED_SOURCES_DIR/UserAgentStyleSheets.h $$GENERATED_SOURCES_DIR/UserAgentStyleSheetsData.cpp $$PWD/css/html4.css $$PWD/css/quirks.css $$PWD/css/svg.css $$PWD/css/view-source.css
 stylesheets.input = STYLESHEETS_EMBED
 stylesheets.CONFIG = target_predeps
 stylesheets.variable_out = GENERATED_SOURCES
-stylesheets.clean = ${QMAKE_FILE_OUT} tmp/UserAgentStyleSheets.h
-QMAKE_EXTRA_COMPILERS += stylesheets
+stylesheets.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}UserAgentStyleSheets.h
+addExtraCompiler(stylesheets)
 
 # GENERATOR 10: XPATH grammar
-xpathbison.output = tmp/${QMAKE_FILE_BASE}.cpp
-xpathbison.commands = bison -d -p xpathyy ${QMAKE_FILE_NAME} -o ${QMAKE_FILE_BASE}.tab.c && $(MOVE) ${QMAKE_FILE_BASE}.tab.c tmp/${QMAKE_FILE_BASE}.cpp && $(MOVE) ${QMAKE_FILE_BASE}.tab.h tmp/${QMAKE_FILE_BASE}.h
+xpathbison.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
+xpathbison.commands = bison -d -p xpathyy ${QMAKE_FILE_NAME} -o ${QMAKE_FILE_BASE}.tab.c && $(MOVE) ${QMAKE_FILE_BASE}.tab.c $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp && $(MOVE) ${QMAKE_FILE_BASE}.tab.h $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.h
 xpathbison.depend = ${QMAKE_FILE_NAME}
 xpathbison.input = XPATHBISON
 xpathbison.CONFIG = target_predeps
 xpathbison.dependency_type = TYPE_C
 xpathbison.variable_out = GENERATED_SOURCES
-xpathbison.clean = ${QMAKE_FILE_OUT} tmp/${QMAKE_FILE_BASE}.h
-QMAKE_EXTRA_COMPILERS += xpathbison
+xpathbison.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_GENERATED_SOURCES_DIR_SLASH}${QMAKE_FILE_BASE}.h
+addExtraCompiler(xpathbison)
 
-qt-port {
+qt-port:!CONFIG(QTDIR_build) {
     target.path = $$[QT_INSTALL_LIBS]
-    include($$PWD/../WebKitQt/Api/headers.pri)
+    include($$PWD/../WebKit/qt/Api/headers.pri)
     headers.files = $$WEBKIT_API_HEADERS
     headers.path = $$[QT_INSTALL_HEADERS]/QtWebKit
-    prf.files = $$PWD/../WebKitQt/Api/qtwebkit.prf
+    prf.files = $$PWD/../WebKit/qt/Api/qtwebkit.prf
     prf.path = $$[QT_INSTALL_PREFIX]/mkspecs/features
 
+    VERSION=$${QT_MAJOR_VERSION}.$${QT_MINOR_VERSION}.$${QT_PATCH_VERSION}
 
     win32-* {
         DLLDESTDIR = $$OUTPUT_DIR/bin
@@ -1524,14 +1793,21 @@ qt-port {
 }
 
 gtk-port {
-    isEmpty(WEBKIT_LIB_DIR):WEBKIT_LIB_DIR=$$[QT_INSTALL_LIBS]
-    isEmpty(WEBKIT_INC_DIR):WEBKIT_INC_DIR=$$[QT_INSTALL_HEADERS]/WebKitGtk
+    isEmpty(WEBKIT_LIB_DIR):WEBKIT_LIB_DIR=/usr/local/lib
+    isEmpty(WEBKIT_INC_DIR):WEBKIT_INC_DIR=/usr/local/include/WebKitGtk
 
     target.path = $$WEBKIT_LIB_DIR
-    include($$PWD/../WebKit/gtk/Api/headers.pri)
+    INSTALLS += target
+
+    include($$PWD/../WebKit/gtk/webkit/headers.pri)
     headers.files = $$WEBKIT_API_HEADERS
     headers.path = $$WEBKIT_INC_DIR
-    INSTALLS += target headers
+    INSTALLS += headers
+
+    include($$PWD/../JavaScriptCore/headers.pri)
+    jsheaders.files = $$JS_API_HEADERS
+    jsheaders.path = $$WEBKIT_INC_DIR/JavaScriptCore
+    INSTALLS += jsheaders
 
     unix {
         CONFIG += create_pc create_prl
@@ -1543,18 +1819,24 @@ gtk-port {
         QMAKE_PKGCONFIG_INSTALL_REPLACE += lib_replace
     }
 
-    GENMARSHALS = ../WebKit/gtk/Api/webkitgtk-marshal.list
-    GENMARSHALS_PREFIX = webkit_gtk_marshal
+    GENMARSHALS = ../WebKit/gtk/webkit/webkit-marshal.list
+    GENMARSHALS_PREFIX = webkit_marshal
 
     #
     # integrate glib-genmarshal as additional compiler
     #
-    QMAKE_GENMARSHAL_CC  = glib-genmarshal
-    glib-genmarshal.commands = $${QMAKE_GENMARSHAL_CC} --prefix=$${GENMARSHALS_PREFIX} ${QMAKE_FILE_IN} --header --body >${QMAKE_FILE_OUT}
-    glib-genmarshal.output = $$OUT_PWD/${QMAKE_FILE_BASE}.h
+    QMAKE_GENMARSHAL_CC = glib-genmarshal
+    glib-genmarshal.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.cpp
+    glib-genmarshal.commands = echo 'extern \\"C\\" {' > ${QMAKE_FILE_OUT} && $${QMAKE_GENMARSHAL_CC} --prefix=$${GENMARSHALS_PREFIX} ${QMAKE_FILE_IN} --body >> ${QMAKE_FILE_OUT} && echo '}' >> ${QMAKE_FILE_OUT}
     glib-genmarshal.input = GENMARSHALS
-    glib-genmarshal.CONFIG = no_link
-    glib-genmarshal.variable_out = PRE_TARGETDEPS
+    glib-genmarshal.variable_out = GENERATED_SOURCES
     glib-genmarshal.name = GENMARSHALS
     QMAKE_EXTRA_UNIX_COMPILERS += glib-genmarshal
+
+    glib-genmarshalh.output = $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.h
+    glib-genmarshalh.commands = $${QMAKE_GENMARSHAL_CC} --prefix=$${GENMARSHALS_PREFIX} ${QMAKE_FILE_IN} --header > $$GENERATED_SOURCES_DIR/${QMAKE_FILE_BASE}.h
+    glib-genmarshalh.input = GENMARSHALS
+    glib-genmarshalh.variable_out = GENERATED_SOURCES
+    glib-genmarshalh.name = GENMARSHALS
+    QMAKE_EXTRA_UNIX_COMPILERS += glib-genmarshalh
 }

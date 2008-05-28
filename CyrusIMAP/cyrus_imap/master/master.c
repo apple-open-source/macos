@@ -1954,6 +1954,10 @@ int main(int argc, char **argv)
 
     time_t now;
 
+#ifdef APPLE_OS_X_SERVER
+    struct stat file_stat;
+#endif
+
     p = getenv("CYRUS_VERBOSE");
     if (p) verbose = atoi(p) + 1;
 #ifdef HAVE_NETSNMP
@@ -2368,6 +2372,16 @@ int main(int argc, char **argv)
 		}
 		got_sig_usr1 = 0;
 	}
+
+	/* does the corrupt db file exist */
+	if ( (stat( "/var/imap/db/db_alert", &file_stat ) == 0) && (file_stat.st_mode & S_IFREG) )
+	{
+		syslog( LOG_CRIT, "Warning: Database panic alert, exiting to initiate automatic database clean-up" );
+		pid_t my_pid = getpid();
+
+		kill( my_pid, SIGTERM );
+	}
+
 #endif
 
 	FD_ZERO(&rfds);

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,12 +30,12 @@ namespace WebCore {
 static RenderStyle* defaultStyle;
 
 StyleSurroundData::StyleSurroundData()
-    : margin(Fixed), padding(Auto)
+    : margin(Fixed), padding(Fixed)
 {
 }
 
 StyleSurroundData::StyleSurroundData(const StyleSurroundData& o)
-    : Shared<StyleSurroundData>()
+    : RefCounted<StyleSurroundData>()
     , offset(o.offset)
     , margin(o.margin)
     , padding(o.padding)
@@ -57,7 +57,7 @@ StyleBoxData::StyleBoxData()
 }
 
 StyleBoxData::StyleBoxData(const StyleBoxData& o)
-    : Shared<StyleBoxData>()
+    : RefCounted<StyleBoxData>()
     , width(o.width)
     , height(o.height)
     , min_width(o.min_width)
@@ -96,7 +96,7 @@ StyleVisualData::~StyleVisualData()
 }
 
 StyleVisualData::StyleVisualData(const StyleVisualData& o)
-    : Shared<StyleVisualData>()
+    : RefCounted<StyleVisualData>()
     , clip(o.clip)
     , hasClip(o.hasClip)
     , textDecoration(o.textDecoration)
@@ -200,7 +200,7 @@ bool BackgroundLayer::operator==(const BackgroundLayer& o) const
 void BackgroundLayer::fillUnsetProperties()
 {
     BackgroundLayer* curr;
-    for (curr = this; curr && curr->isBackgroundImageSet(); curr = curr->next());
+    for (curr = this; curr && curr->isBackgroundImageSet(); curr = curr->next()) { }
     if (curr && curr != this) {
         // We need to fill in the remaining values with the pattern specified.
         for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
@@ -211,7 +211,7 @@ void BackgroundLayer::fillUnsetProperties()
         }
     }
     
-    for (curr = this; curr && curr->isBackgroundXPositionSet(); curr = curr->next());
+    for (curr = this; curr && curr->isBackgroundXPositionSet(); curr = curr->next()) { }
     if (curr && curr != this) {
         // We need to fill in the remaining values with the pattern specified.
         for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
@@ -222,7 +222,7 @@ void BackgroundLayer::fillUnsetProperties()
         }
     }
     
-    for (curr = this; curr && curr->isBackgroundYPositionSet(); curr = curr->next());
+    for (curr = this; curr && curr->isBackgroundYPositionSet(); curr = curr->next()) { }
     if (curr && curr != this) {
         // We need to fill in the remaining values with the pattern specified.
         for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
@@ -233,7 +233,7 @@ void BackgroundLayer::fillUnsetProperties()
         }
     }
     
-    for (curr = this; curr && curr->isBackgroundAttachmentSet(); curr = curr->next());
+    for (curr = this; curr && curr->isBackgroundAttachmentSet(); curr = curr->next()) { }
     if (curr && curr != this) {
         // We need to fill in the remaining values with the pattern specified.
         for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
@@ -244,7 +244,7 @@ void BackgroundLayer::fillUnsetProperties()
         }
     }
     
-    for (curr = this; curr && curr->isBackgroundClipSet(); curr = curr->next());
+    for (curr = this; curr && curr->isBackgroundClipSet(); curr = curr->next()) { }
     if (curr && curr != this) {
         // We need to fill in the remaining values with the pattern specified.
         for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
@@ -255,7 +255,7 @@ void BackgroundLayer::fillUnsetProperties()
         }
     }
 
-    for (curr = this; curr && curr->isBackgroundCompositeSet(); curr = curr->next());
+    for (curr = this; curr && curr->isBackgroundCompositeSet(); curr = curr->next()) { }
     if (curr && curr != this) {
         // We need to fill in the remaining values with the pattern specified.
         for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
@@ -266,7 +266,7 @@ void BackgroundLayer::fillUnsetProperties()
         }
     }
 
-    for (curr = this; curr && curr->isBackgroundOriginSet(); curr = curr->next());
+    for (curr = this; curr && curr->isBackgroundOriginSet(); curr = curr->next()) { }
     if (curr && curr != this) {
         // We need to fill in the remaining values with the pattern specified.
         for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
@@ -277,7 +277,7 @@ void BackgroundLayer::fillUnsetProperties()
         }
     }
 
-    for (curr = this; curr && curr->isBackgroundRepeatSet(); curr = curr->next());
+    for (curr = this; curr && curr->isBackgroundRepeatSet(); curr = curr->next()) { }
     if (curr && curr != this) {
         // We need to fill in the remaining values with the pattern specified.
         for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
@@ -288,7 +288,7 @@ void BackgroundLayer::fillUnsetProperties()
         }
     }
     
-    for (curr = this; curr && curr->isBackgroundSizeSet(); curr = curr->next());
+    for (curr = this; curr && curr->isBackgroundSizeSet(); curr = curr->next()) { }
     if (curr && curr != this) {
         // We need to fill in the remaining values with the pattern specified.
         for (BackgroundLayer* pattern = this; curr; curr = curr->next()) {
@@ -322,7 +322,7 @@ StyleBackgroundData::StyleBackgroundData()
 }
 
 StyleBackgroundData::StyleBackgroundData(const StyleBackgroundData& o)
-    : Shared<StyleBackgroundData>(), m_background(o.m_background), m_outline(o.m_outline)
+    : RefCounted<StyleBackgroundData>(), m_background(o.m_background), m_outline(o.m_outline)
 {
 }
 
@@ -341,7 +341,7 @@ StyleMarqueeData::StyleMarqueeData()
 }
 
 StyleMarqueeData::StyleMarqueeData(const StyleMarqueeData& o)
-    : Shared<StyleMarqueeData>()
+    : RefCounted<StyleMarqueeData>()
     , increment(o.increment)
     , speed(o.speed)
     , loops(o.loops)
@@ -368,7 +368,7 @@ StyleFlexibleBoxData::StyleFlexibleBoxData()
 }
 
 StyleFlexibleBoxData::StyleFlexibleBoxData(const StyleFlexibleBoxData& o)
-    : Shared<StyleFlexibleBoxData>()
+    : RefCounted<StyleFlexibleBoxData>()
     , flex(o.flex)
     , flex_group(o.flex_group)
     , ordinal_group(o.ordinal_group)
@@ -399,7 +399,7 @@ StyleMultiColData::StyleMultiColData()
 {}
 
 StyleMultiColData::StyleMultiColData(const StyleMultiColData& o)
-    : Shared<StyleMultiColData>()
+    : RefCounted<StyleMultiColData>()
     , m_width(o.m_width)
     , m_count(o.m_count)
     , m_gap(o.m_gap)
@@ -420,6 +420,229 @@ bool StyleMultiColData::operator==(const StyleMultiColData& o) const
            m_breakAfter == o.m_breakAfter && m_breakInside == o.m_breakInside;
 }
 
+StyleTransformData::StyleTransformData()
+    : m_operations(RenderStyle::initialTransform())
+    , m_x(RenderStyle::initialTransformOriginX())
+    , m_y(RenderStyle::initialTransformOriginY())
+{}
+
+StyleTransformData::StyleTransformData(const StyleTransformData& o)
+    : RefCounted<StyleTransformData>()
+    , m_operations(o.m_operations)
+    , m_x(o.m_x)
+    , m_y(o.m_y)
+{}
+
+bool StyleTransformData::operator==(const StyleTransformData& o) const
+{
+    return m_x == o.m_x && m_y == o.m_y && m_operations == o.m_operations;
+}
+
+bool TransformOperations::operator==(const TransformOperations& o) const
+{
+    if (m_operations.size() != o.m_operations.size())
+        return false;
+        
+    unsigned s = m_operations.size();
+    for (unsigned i = 0; i < s; i++) {
+        if (*m_operations[i] != *o.m_operations[i])
+            return false;
+    }
+    
+    return true;
+}
+
+TransformOperation* ScaleTransformOperation::blend(const TransformOperation* from, double progress, bool blendToIdentity)
+{
+    if (from && !from->isScaleOperation())
+        return this;
+    
+    if (blendToIdentity)
+        return new ScaleTransformOperation(m_x + (1. - m_x) * progress, m_y + (1. - m_y) * progress);
+    
+    const ScaleTransformOperation* fromOp = static_cast<const ScaleTransformOperation*>(from);
+    double fromX = fromOp ? fromOp->m_x : 1.;
+    double fromY = fromOp ? fromOp->m_y : 1.;
+    return new ScaleTransformOperation(fromX + (m_x - fromX) * progress, fromY + (m_y - fromY) * progress);
+}
+
+TransformOperation* RotateTransformOperation::blend(const TransformOperation* from, double progress, bool blendToIdentity)
+{
+    if (from && !from->isRotateOperation())
+        return this;
+    
+    if (blendToIdentity)
+        return new RotateTransformOperation(m_angle - m_angle * progress);
+    
+    const RotateTransformOperation* fromOp = static_cast<const RotateTransformOperation*>(from);
+    double fromAngle = fromOp ? fromOp->m_angle : 0;
+    return new RotateTransformOperation(fromAngle + (m_angle - fromAngle) * progress);
+}
+
+TransformOperation* SkewTransformOperation::blend(const TransformOperation* from, double progress, bool blendToIdentity)
+{
+    if (from && !from->isSkewOperation())
+        return this;
+    
+    if (blendToIdentity)
+        return new SkewTransformOperation(m_angleX - m_angleX * progress, m_angleY - m_angleY * progress);
+    
+    const SkewTransformOperation* fromOp = static_cast<const SkewTransformOperation*>(from);
+    double fromAngleX = fromOp ? fromOp->m_angleX : 0;
+    double fromAngleY = fromOp ? fromOp->m_angleY : 0;
+    return new SkewTransformOperation(fromAngleX + (m_angleX - fromAngleX) * progress, fromAngleY + (m_angleY - fromAngleY) * progress);
+}
+
+TransformOperation* TranslateTransformOperation::blend(const TransformOperation* from, double progress, bool blendToIdentity)
+{
+    if (from && !from->isTranslateOperation())
+        return this;
+    
+    if (blendToIdentity)
+        return new TranslateTransformOperation(Length(0, m_x.type()).blend(m_x, progress), Length(0, m_y.type()).blend(m_y, progress));
+
+    const TranslateTransformOperation* fromOp = static_cast<const TranslateTransformOperation*>(from);
+    Length fromX = fromOp ? fromOp->m_x : Length(0, m_x.type());
+    Length fromY = fromOp ? fromOp->m_y : Length(0, m_y.type());
+    return new TranslateTransformOperation(m_x.blend(fromX, progress), m_y.blend(fromY, progress));
+}
+
+TransformOperation* MatrixTransformOperation::blend(const TransformOperation* from, double progress, bool blendToIdentity)
+{
+    if (from && !from->isMatrixOperation())
+        return this;
+    
+    if (blendToIdentity)
+        return new MatrixTransformOperation(m_a * (1. - progress) + progress,
+                                            m_b * (1. - progress),
+                                            m_c * (1. - progress),
+                                            m_d * (1. - progress) + progress,
+                                            m_e * (1. - progress),
+                                            m_f * (1. - progress));
+
+    const MatrixTransformOperation* fromOp = static_cast<const MatrixTransformOperation*>(from);
+    double fromA = fromOp ? fromOp->m_a : 1.;
+    double fromB = fromOp ? fromOp->m_b : 0;
+    double fromC = fromOp ? fromOp->m_c : 0;
+    double fromD = fromOp ? fromOp->m_d : 1.;
+    double fromE = fromOp ? fromOp->m_e : 0;
+    double fromF = fromOp ? fromOp->m_f : 0;
+    
+    return new MatrixTransformOperation(fromA + (m_a - fromA) * progress,
+                                        fromB + (m_b - fromB) * progress,
+                                        fromC + (m_c - fromC) * progress,
+                                        fromD + (m_d - fromD) * progress,
+                                        fromE + (m_e - fromE) * progress,
+                                        fromF + (m_f - fromF) * progress);
+}
+
+Transition::Transition()
+    : m_duration(RenderStyle::initialTransitionDuration())
+    , m_repeatCount(RenderStyle::initialTransitionRepeatCount())
+    , m_timingFunction(RenderStyle::initialTransitionTimingFunction())
+    , m_property(RenderStyle::initialTransitionProperty())
+    , m_durationSet(false)
+    , m_repeatCountSet(false)
+    , m_timingFunctionSet(false)
+    , m_propertySet(false)
+    , m_next(0)
+{
+}
+
+Transition::Transition(const Transition& o)
+    : m_duration(o.m_duration)
+    , m_repeatCount(o.m_repeatCount)
+    , m_timingFunction(o.m_timingFunction)
+    , m_property(o.m_property)
+    , m_durationSet(o.m_durationSet)
+    , m_repeatCountSet(o.m_repeatCountSet)
+    , m_timingFunctionSet(o.m_timingFunctionSet)
+    , m_propertySet(o.m_propertySet)
+    , m_next(o.m_next ? new Transition(*o.m_next) : 0)
+{
+}
+
+Transition::~Transition()
+{
+    delete m_next;
+}
+
+Transition& Transition::operator=(const Transition& o)
+{
+    if (m_next != o.m_next) {
+        delete m_next;
+        m_next = o.m_next ? new Transition(*o.m_next) : 0;
+    }
+
+    m_duration = o.m_duration;
+    m_repeatCount = o.m_repeatCount;
+    m_timingFunction = o.m_timingFunction;
+    m_property = o.m_property;
+
+    m_durationSet = o.m_durationSet;
+    m_repeatCountSet = o.m_repeatCountSet;
+    m_timingFunctionSet = o.m_timingFunctionSet;
+    m_propertySet = o.m_propertySet;
+
+    return *this;
+}
+
+bool Transition::operator==(const Transition& o) const
+{
+    return m_duration == o.m_duration && m_repeatCount == o.m_repeatCount && m_timingFunction == o.m_timingFunction &&
+           m_property == o.m_property && m_durationSet == o.m_durationSet && m_repeatCountSet == o.m_repeatCountSet &&
+           m_timingFunctionSet == o.m_timingFunctionSet && m_propertySet == o.m_propertySet &&
+           ((m_next && o.m_next) ? *m_next == *o.m_next : m_next == o.m_next);
+}
+
+void Transition::fillUnsetProperties()
+{
+    Transition* curr;
+    for (curr = this; curr && curr->isTransitionDurationSet(); curr = curr->next()) { }
+    if (curr && curr != this) {
+        // We need to fill in the remaining values with the pattern specified.
+        for (Transition* pattern = this; curr; curr = curr->next()) {
+            curr->m_duration = pattern->m_duration;
+            pattern = pattern->next();
+            if (pattern == curr || !pattern)
+                pattern = this;
+        }
+    }
+    
+    for (curr = this; curr && curr->isTransitionRepeatCountSet(); curr = curr->next()) { }
+    if (curr && curr != this) {
+        // We need to fill in the remaining values with the pattern specified.
+        for (Transition* pattern = this; curr; curr = curr->next()) {
+            curr->m_repeatCount = pattern->m_repeatCount;
+            pattern = pattern->next();
+            if (pattern == curr || !pattern)
+                pattern = this;
+        }
+    }
+    
+    for (curr = this; curr && curr->isTransitionTimingFunctionSet(); curr = curr->next()) { }
+    if (curr && curr != this) {
+        // We need to fill in the remaining values with the pattern specified.
+        for (Transition* pattern = this; curr; curr = curr->next()) {
+            curr->m_timingFunction = pattern->m_timingFunction;
+            pattern = pattern->next();
+            if (pattern == curr || !pattern)
+                pattern = this;
+        }
+    }
+
+    for (curr = this; curr && curr->isTransitionPropertySet(); curr = curr->next()) { }
+    if (curr && curr != this) {
+        // We need to fill in the remaining values with the pattern specified.
+        for (Transition* pattern = this; curr; curr = curr->next()) {
+            curr->m_property = pattern->m_property;
+            pattern = pattern->next();
+            if (pattern == curr || !pattern)
+                pattern = this;
+        }
+    }
+}
+
 StyleRareNonInheritedData::StyleRareNonInheritedData()
     : lineClamp(RenderStyle::initialLineClamp())
     , opacity(RenderStyle::initialOpacity())
@@ -433,6 +656,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , m_appearance(RenderStyle::initialAppearance())
     , m_borderFit(RenderStyle::initialBorderFit())
     , m_boxShadow(0)
+    , m_transition(0)
 #if ENABLE(XBL)
     , bindingURI(0)
 #endif
@@ -440,12 +664,13 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
 }
 
 StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonInheritedData& o)
-    : Shared<StyleRareNonInheritedData>()
+    : RefCounted<StyleRareNonInheritedData>()
     , lineClamp(o.lineClamp)
     , opacity(o.opacity)
     , flexibleBox(o.flexibleBox)
     , marquee(o.marquee)
     , m_multiCol(o.m_multiCol)
+    , m_transform(o.m_transform)
     , m_content(0)
     , m_counterDirectives(0)
     , userDrag(o.userDrag)
@@ -456,6 +681,7 @@ StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonInherited
     , m_appearance(o.m_appearance)
     , m_borderFit(o.m_borderFit)
     , m_boxShadow(o.m_boxShadow ? new ShadowData(*o.m_boxShadow) : 0)
+    , m_transition(o.m_transition ? new Transition(*o.m_transition) : 0)
 #if ENABLE(XBL)
     , bindingURI(o.bindingURI ? o.bindingURI->copy() : 0)
 #endif
@@ -467,6 +693,7 @@ StyleRareNonInheritedData::~StyleRareNonInheritedData()
     delete m_content;
     delete m_counterDirectives;
     delete m_boxShadow;
+    delete m_transition;
 #if ENABLE(XBL)
     delete bindingURI;
 #endif
@@ -492,6 +719,7 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && flexibleBox == o.flexibleBox
         && marquee == o.marquee
         && m_multiCol == o.m_multiCol
+        && m_transform == o.m_transform
         && m_content == o.m_content
         && m_counterDirectives == o.m_counterDirectives
         && userDrag == o.userDrag
@@ -502,6 +730,7 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && m_appearance == o.m_appearance
         && m_borderFit == o.m_borderFit
         && shadowDataEquivalent(o)
+        && transitionDataEquivalent(o)
 #if ENABLE(XBL)
         && bindingsEquivalent(o)
 #endif
@@ -513,6 +742,15 @@ bool StyleRareNonInheritedData::shadowDataEquivalent(const StyleRareNonInherited
     if (!m_boxShadow && o.m_boxShadow || m_boxShadow && !o.m_boxShadow)
         return false;
     if (m_boxShadow && o.m_boxShadow && (*m_boxShadow != *o.m_boxShadow))
+        return false;
+    return true;
+}
+
+bool StyleRareNonInheritedData::transitionDataEquivalent(const StyleRareNonInheritedData& o) const
+{
+    if (!m_transition && o.m_transition || m_transition && !o.m_transition)
+        return false;
+    if (m_transition && o.m_transition && (*m_transition != *o.m_transition))
         return false;
     return true;
 }
@@ -533,7 +771,7 @@ StyleRareInheritedData::StyleRareInheritedData()
 }
 
 StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
-    : Shared<StyleRareInheritedData>()
+    : RefCounted<StyleRareInheritedData>()
     , textStrokeColor(o.textStrokeColor)
     , textStrokeWidth(o.textStrokeWidth)
     , textFillColor(o.textFillColor)
@@ -598,7 +836,7 @@ StyleInheritedData::~StyleInheritedData()
 }
 
 StyleInheritedData::StyleInheritedData(const StyleInheritedData& o)
-    : Shared<StyleInheritedData>(),
+    : RefCounted<StyleInheritedData>(),
       indent( o.indent ), line_height( o.line_height ), style_image( o.style_image ),
       cursorData(o.cursorData),
       font( o.font ), color( o.color ),
@@ -632,21 +870,6 @@ bool StyleInheritedData::operator==(const StyleInheritedData& o) const
         orphans == o.orphans &&
         page_break_inside == o.page_break_inside;
 }
-
-bool CursorList::operator==(const CursorList& other) const
-{
-    // If the lists aren't the same size, then they can't be equivalent.
-    if (size() != other.size())
-        return false;
-        
-    for (unsigned i = 0; i < size(); i++) {
-        if (m_vector[i] != other.m_vector[i])
-            return false;
-    }
-    
-    return true;
-}
-
 
 static inline bool operator!=(const CounterContent& a, const CounterContent& b)
 {
@@ -707,6 +930,15 @@ RenderStyle::RenderStyle()
     , m_pseudoState(PseudoUnknown)
     , m_affectedByAttributeSelectors(false)
     , m_unique(false)
+    , m_affectedByEmpty(false)
+    , m_emptyState(false)
+    , m_childrenAffectedByFirstChildRules(false)
+    , m_childrenAffectedByLastChildRules(false)
+    , m_childrenAffectedByForwardPositionalRules(false)
+    , m_childrenAffectedByBackwardPositionalRules(false)
+    , m_firstChildState(false)
+    , m_lastChildState(false)
+    , m_childIndex(0)
     , m_ref(0)
 #if ENABLE(SVG)
     , m_svgStyle(defaultStyle->m_svgStyle)
@@ -720,6 +952,15 @@ RenderStyle::RenderStyle(bool)
     , m_pseudoState(PseudoUnknown)
     , m_affectedByAttributeSelectors(false)
     , m_unique(false)
+    , m_affectedByEmpty(false)
+    , m_emptyState(false)
+    , m_childrenAffectedByFirstChildRules(false)
+    , m_childrenAffectedByLastChildRules(false)
+    , m_childrenAffectedByForwardPositionalRules(false)
+    , m_childrenAffectedByBackwardPositionalRules(false)
+    , m_firstChildState(false)
+    , m_lastChildState(false)
+    , m_childIndex(0)
     , m_ref(1)
 {
     setBitDefaults();
@@ -732,6 +973,7 @@ RenderStyle::RenderStyle(bool)
     rareNonInheritedData.access()->flexibleBox.init();
     rareNonInheritedData.access()->marquee.init();
     rareNonInheritedData.access()->m_multiCol.init();
+    rareNonInheritedData.access()->m_transform.init();
     rareInheritedData.init();
     inherited.init();
     
@@ -754,6 +996,15 @@ RenderStyle::RenderStyle(const RenderStyle& o)
     , m_pseudoState(o.m_pseudoState)
     , m_affectedByAttributeSelectors(false)
     , m_unique(false)
+    , m_affectedByEmpty(false)
+    , m_emptyState(false)
+    , m_childrenAffectedByFirstChildRules(false)
+    , m_childrenAffectedByLastChildRules(false)
+    , m_childrenAffectedByForwardPositionalRules(false)
+    , m_childrenAffectedByBackwardPositionalRules(false)
+    , m_firstChildState(false)
+    , m_lastChildState(false)
+    , m_childIndex(0)
     , m_ref(0)
 #if ENABLE(SVG)
     , m_svgStyle(o.m_svgStyle)
@@ -796,53 +1047,25 @@ bool RenderStyle::operator==(const RenderStyle& o) const
 
 bool RenderStyle::isStyleAvailable() const
 {
-    return this != CSSStyleSelector::styleNotYetAvailable;
+    return this != CSSStyleSelector::m_styleNotYetAvailable;
 }
-
-enum EPseudoBit { NO_BIT = 0x0, BEFORE_BIT = 0x1, AFTER_BIT = 0x2, FIRST_LINE_BIT = 0x4,
-                  FIRST_LETTER_BIT = 0x8, SELECTION_BIT = 0x10, FIRST_LINE_INHERITED_BIT = 0x20,
-                  FILE_UPLOAD_BUTTON_BIT = 0x40, SLIDER_THUMB_BIT = 0x80, SEARCH_CANCEL_BUTTON_BIT = 0x100, SEARCH_DECORATION_BIT = 0x200, 
-                  SEARCH_RESULTS_DECORATION_BIT = 0x400, SEARCH_RESULTS_BUTTON_BIT = 0x800 };
 
 static inline int pseudoBit(RenderStyle::PseudoId pseudo)
 {
-    switch (pseudo) {
-        case RenderStyle::BEFORE:
-            return BEFORE_BIT;
-        case RenderStyle::AFTER:
-            return AFTER_BIT;
-        case RenderStyle::FIRST_LINE:
-            return FIRST_LINE_BIT;
-        case RenderStyle::FIRST_LETTER:
-            return FIRST_LETTER_BIT;
-        case RenderStyle::SELECTION:
-            return SELECTION_BIT;
-        case RenderStyle::FIRST_LINE_INHERITED:
-            return FIRST_LINE_INHERITED_BIT;
-        case RenderStyle::FILE_UPLOAD_BUTTON:
-            return FILE_UPLOAD_BUTTON_BIT;
-        case RenderStyle::SLIDER_THUMB:
-            return SLIDER_THUMB_BIT;
-        case RenderStyle::SEARCH_CANCEL_BUTTON:
-            return SEARCH_CANCEL_BUTTON_BIT;        
-        case RenderStyle::SEARCH_DECORATION:
-            return SEARCH_DECORATION_BIT;
-        case RenderStyle::SEARCH_RESULTS_DECORATION:
-            return SEARCH_RESULTS_DECORATION_BIT;
-        case RenderStyle::SEARCH_RESULTS_BUTTON:
-            return SEARCH_RESULTS_BUTTON_BIT;
-        default:
-            return NO_BIT;
-    }
+    return 1 << (pseudo - 1);
 }
 
 bool RenderStyle::hasPseudoStyle(PseudoId pseudo) const
 {
+    ASSERT(pseudo > NOPSEUDO);
+    ASSERT(pseudo < FIRST_INTERNAL_PSEUDOID);
     return pseudoBit(pseudo) & noninherited_flags._pseudoBits;
 }
 
 void RenderStyle::setHasPseudoStyle(PseudoId pseudo)
 {
+    ASSERT(pseudo > NOPSEUDO);
+    ASSERT(pseudo < FIRST_INTERNAL_PSEUDOID);
     noninherited_flags._pseudoBits |= pseudoBit(pseudo);
 }
 
@@ -938,8 +1161,12 @@ RenderStyle::Diff RenderStyle::diff(const RenderStyle* other) const
         if (rareNonInheritedData->m_multiCol.get() != other->rareNonInheritedData->m_multiCol.get() &&
             *rareNonInheritedData->m_multiCol.get() != *other->rareNonInheritedData->m_multiCol.get())
             return Layout;
-            
-        // If regions change trigger a relayout to re-calc regions.
+        
+        if (rareNonInheritedData->m_transform.get() != other->rareNonInheritedData->m_transform.get() &&
+            *rareNonInheritedData->m_transform.get() != *other->rareNonInheritedData->m_transform.get())
+            return Layout;
+
+        // If regions change, trigger a relayout to re-calc regions.
         if (rareNonInheritedData->m_dashboardRegions != other->rareNonInheritedData->m_dashboardRegions)
             return Layout;
     }
@@ -1070,6 +1297,8 @@ RenderStyle::Diff RenderStyle::diff(const RenderStyle* other) const
     // Cursors are not checked, since they will be set appropriately in response to mouse events,
     // so they don't need to cause any repaint or layout.
 
+    // Transitions don't need to be checked either.  We always set the new style on the RenderObject, so we will get a chance to fire off
+    // the resulting transition properly.
     return Equal;
 }
 
@@ -1203,11 +1432,11 @@ void RenderStyle::setContent(StringImpl* s, bool add)
         if (lastContent->m_type == CONTENT_TEXT) {
             // We can augment the existing string and share this ContentData node.
             StringImpl* oldStr = lastContent->m_content.m_text;
-            StringImpl* newStr = oldStr->copy();
-            newStr->ref();
+            String newStr = oldStr;
+            newStr.append(s);
+            newStr.impl()->ref();
             oldStr->deref();
-            newStr->append(s);
-            lastContent->m_content.m_text = newStr;
+            lastContent->m_content.m_text = newStr.impl();
             return;
         }
     }
@@ -1287,6 +1516,31 @@ void ContentData::clear()
         c->m_next = 0;
         delete c;
     }
+}
+
+void RenderStyle::applyTransform(AffineTransform& transform, const IntSize& borderBoxSize) const
+{
+    // transform-origin brackets the transform with translate operations.
+    // Optimize for the case where the only transform is a translation, since the transform-origin is irrelevant
+    // in that case.
+    bool applyTransformOrigin = false;
+    unsigned s = rareNonInheritedData->m_transform->m_operations.size();
+    unsigned i;
+    for (i = 0; i < s; i++) {
+        if (!rareNonInheritedData->m_transform->m_operations[i]->isTranslateOperation()) {
+            applyTransformOrigin = true;
+            break;
+        }
+    }
+    
+    if (applyTransformOrigin)
+        transform.translate(transformOriginX().calcValue(borderBoxSize.width()), transformOriginY().calcValue(borderBoxSize.height()));
+    
+    for (i = 0; i < s; i++)
+        rareNonInheritedData->m_transform->m_operations[i]->apply(transform, borderBoxSize);
+        
+    if (applyTransformOrigin)
+        transform.translate(-transformOriginX().calcValue(borderBoxSize.width()), -transformOriginY().calcValue(borderBoxSize.height()));
 }
 
 #if ENABLE(XBL)
@@ -1432,6 +1686,37 @@ const Vector<StyleDashboardRegion>& RenderStyle::noneDashboardRegions()
         noneListInitialized = true;
     }
     return noneList;
+}
+
+void RenderStyle::adjustTransitions()
+{
+    if (transitions()) {
+        if (transitions()->isEmpty()) {
+            clearTransitions();
+            return;
+        }
+
+        Transition* next;
+        for (Transition* p = accessTransitions(); p; p = next) {
+            next = p->m_next;
+            if (next && next->isEmpty()) {
+                delete next;
+                p->m_next = 0;
+                break;
+            }
+        }
+    
+        // Repeat patterns into layers that don't have some properties set.
+        accessTransitions()->fillUnsetProperties();
+    }
+}
+
+Transition* RenderStyle::accessTransitions()
+{
+    Transition* layer = rareNonInheritedData.access()->m_transition;
+    if (!layer)
+        rareNonInheritedData.access()->m_transition = new Transition();
+    return rareNonInheritedData->m_transition;
 }
 
 }

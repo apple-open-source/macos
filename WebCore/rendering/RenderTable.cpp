@@ -1,10 +1,10 @@
-/**
+/*
  * Copyright (C) 1997 Martin Jones (mjones@kde.org)
  *           (C) 1997 Torben Weis (weis@kde.org)
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
  *           (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -56,7 +56,6 @@ RenderTable::RenderTable(Node* node)
     , m_frame(Void)
     , m_rules(None)
     , m_hasColElements(false)
-    , m_padding(0)
     , m_needsSectionRecalc(0)
     , m_hSpacing(0)
     , m_vSpacing(0)
@@ -178,7 +177,7 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
 
     if (!wrapInAnonymousSection) {
         // If the next renderer is actually wrapped in an anonymous table section, we need to go up and find that.
-        while (beforeChild && !beforeChild->isTableSection() && !beforeChild->isTableCol())
+        while (beforeChild && !beforeChild->isTableSection() && !beforeChild->isTableCol() && beforeChild->style()->display() != TABLE_CAPTION)
             beforeChild = beforeChild->parent();
 
         RenderContainer::addChild(child, beforeChild);
@@ -191,17 +190,14 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
     }
 
     RenderObject* lastBox = beforeChild;
-    RenderObject* nextToLastBox = beforeChild;
-    while (lastBox && lastBox->parent()->isAnonymous() && !lastBox->isTableSection() && lastBox->style()->display() != TABLE_CAPTION) {
-        nextToLastBox = lastBox;
+    while (lastBox && lastBox->parent()->isAnonymous() && !lastBox->isTableSection() && lastBox->style()->display() != TABLE_CAPTION)
         lastBox = lastBox->parent();
-    }
-    if (lastBox && lastBox->isAnonymous()) {
-        lastBox->addChild(child, nextToLastBox);
+    if (lastBox && lastBox->isAnonymous() && !isAfterContent(lastBox)) {
+        lastBox->addChild(child, beforeChild);
         return;
     }
 
-    if (beforeChild && !beforeChild->isTableSection())
+    if (beforeChild && !beforeChild->isTableSection() && beforeChild->style()->display() != TABLE_CAPTION)
         beforeChild = 0;
     RenderTableSection* section = new (renderArena()) RenderTableSection(document() /* anonymous */);
     RenderStyle* newStyle = new (renderArena()) RenderStyle();
@@ -547,7 +543,7 @@ void RenderTable::splitColumn(int pos, int firstSpan)
 {
     // we need to add a new columnStruct
     int oldSize = m_columns.size();
-    m_columns.resize(oldSize + 1);
+    m_columns.grow(oldSize + 1);
     int oldSpan = m_columns[pos].span;
     ASSERT(oldSpan > firstSpan);
     m_columns[pos].span = firstSpan;
@@ -560,7 +556,7 @@ void RenderTable::splitColumn(int pos, int firstSpan)
             static_cast<RenderTableSection*>(child)->splitColumn(pos, oldSize + 1);
     }
 
-    m_columnPos.resize(numEffCols() + 1);
+    m_columnPos.grow(numEffCols() + 1);
     setNeedsLayoutAndPrefWidthsRecalc();
 }
 
@@ -569,7 +565,7 @@ void RenderTable::appendColumn(int span)
     // easy case.
     int pos = m_columns.size();
     int newSize = pos + 1;
-    m_columns.resize(newSize);
+    m_columns.grow(newSize);
     m_columns[pos].span = span;
 
     // change width of all rows.
@@ -578,7 +574,7 @@ void RenderTable::appendColumn(int span)
             static_cast<RenderTableSection*>(child)->appendColumn(pos);
     }
 
-    m_columnPos.resize(numEffCols() + 1);
+    m_columnPos.grow(numEffCols() + 1);
     setNeedsLayoutAndPrefWidthsRecalc();
 }
 

@@ -1,8 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * This file is part of the KDE libraries
- *
- * Copyright (C) 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,7 +23,6 @@
 #define WTF_HashSet_h
 
 #include "HashTable.h"
-#include "Vector.h"
 
 namespace WTF {
 
@@ -111,7 +108,7 @@ namespace WTF {
         typedef typename StorageTraits::TraitType StorageType;
         static unsigned hash(const ValueType& key) { return HashFunctions::hash(key); }
         static bool equal(const StorageType& a, const ValueType& b) { return HashFunctions::equal(*(const ValueType*)&a, b); }
-        static void translate(StorageType& location, const ValueType& key, const ValueType&, unsigned)
+        static void translate(StorageType& location, const ValueType& key, const ValueType&)
         {
             Assigner<ValueTraits::needsRef, ValueType, StorageType, ValueTraits>::assign(key, location);
         }
@@ -122,7 +119,7 @@ namespace WTF {
         typedef typename StorageTraits::TraitType StorageType;
         static unsigned hash(const ValueType& key) { return HashFunctions::hash(key); }
         static bool equal(const StorageType& a, const ValueType& b) { return HashFunctions::equal(*(const ValueType*)&a, b); }
-        static void translate(StorageType& location, const ValueType& key, const ValueType&, unsigned)
+        static void translate(StorageType& location, const ValueType& key, const ValueType&)
         {
             if (location == StorageTraits::deletedValue())
                 location = StorageTraits::emptyValue();
@@ -276,7 +273,7 @@ namespace WTF {
     {
         const bool canReplaceDeletedValue = !ValueTraits::needsDestruction || StorageTraits::needsDestruction;
         typedef HashSetTranslatorAdapter<canReplaceDeletedValue, ValueType, StorageTraits, T, Translator> Adapter;
-        return m_impl.template add<T, T, Adapter>(value, value);
+        return m_impl.template addPassingHashCode<T, T, Adapter>(value, value);
     }
 
     template<typename T, typename U, typename V>
@@ -284,8 +281,9 @@ namespace WTF {
     {
         if (it.m_impl == m_impl.end())
             return;
+        m_impl.checkTableConsistency();
         RefCounter<ValueTraits, StorageTraits>::deref(*it.m_impl);
-        m_impl.remove(it.m_impl);
+        m_impl.removeWithoutEntryConsistencyCheck(it.m_impl);
     }
 
     template<typename T, typename U, typename V>
@@ -316,8 +314,8 @@ namespace WTF {
         deleteAllValues<typename HashSet<T, U, V>::ValueType>(collection.m_impl);
     }
     
-    template<typename T, typename U, typename V>
-    inline void copyToVector(const HashSet<T, U, V>& collection, Vector<T>& vector)
+    template<typename T, typename U, typename V, typename W>
+    inline void copyToVector(const HashSet<T, U, V>& collection, W& vector)
     {
         typedef typename HashSet<T, U, V>::const_iterator iterator;
         
@@ -328,6 +326,7 @@ namespace WTF {
         for (unsigned i = 0; it != end; ++it, ++i)
             vector[i] = *it;
     }  
+
 } // namespace WTF
 
 using WTF::HashSet;

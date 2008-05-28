@@ -60,6 +60,15 @@ public:
 typedef SuperBlob<0xfade0cc1> DetachedSignatureBlob;	// indexed by main architecture
 
 
+//
+// An entitlement blob is used for embedding entitlement configuration data
+//
+class EntitlementBlob : public Blob<EntitlementBlob, 0xfade7171> {
+public:
+	CFDictionaryRef entitlements() const;
+};
+
+
 } // end namespace CodeSigning
 } // end namespace Security
 

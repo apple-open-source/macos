@@ -123,7 +123,7 @@ available</td></tr>
     </code></p></div>
     
     <p>The <code>httpready</code> accept filter buffers entire HTTP requests at
-       the kernel level.  Once an entire request is recieved, the kernel then 
+       the kernel level.  Once an entire request is received, the kernel then 
        sends it to the server. See the 
        <a href="http://www.freebsd.org/cgi/man.cgi?query=accf_http&amp;sektion=9">
        accf_http(9)</a> man page for more details.  Since HTTPS requests are 
@@ -146,7 +146,7 @@ available</td></tr>
     <p>Using <code>none</code> for an argument will disable any accept filters 
        for that protocol.  This is useful for protocols that require a server
        send data first, such as <code>nntp</code>:</p>
-    <div class="example"><p><code>AcceptFilter nttp none</code></p></div>
+    <div class="example"><p><code>AcceptFilter nntp none</code></p></div>
 
 
 </div>
@@ -366,7 +366,6 @@ content-type is <code>text/plain</code> or <code>text/html</code></td></tr>
       <code class="directive"><a href="#forcetype">ForceType</a></code>. Setting the
       content type within a (non-nph) CGI script is also safe.</p>
 
-      <p>The by-type output filters are never applied on proxy requests.</p>
     </div>
 
 <h3>See also</h3>
@@ -636,7 +635,7 @@ headers</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>MIME content-type that will be sent if the
 server cannot determine a type in any other way</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>DefaultType <var>MIME-type</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>DefaultType <var>MIME-type|none</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>DefaultType text/plain</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
@@ -646,8 +645,9 @@ server cannot determine a type in any other way</td></tr>
     <p>There will be times when the server is asked to provide a
     document whose type cannot be determined by its <a class="glossarylink" href="../glossary.html#mime-type" title="see glossary">MIME types</a> mappings.</p>
 
-    <p>The server must inform the client of the content-type of the
-    document, so in the event of an unknown type it uses the
+    <p>The server SHOULD inform the client of the content-type of the
+    document.  If the server is unable to determine this by normal
+    means, it will set it to the configured
     <code>DefaultType</code>. For example:</p>
 
     <div class="example"><p><code>
@@ -656,6 +656,15 @@ server cannot determine a type in any other way</td></tr>
 
     <p>would be appropriate for a directory which contained many GIF
     images with filenames missing the <code>.gif</code> extension.</p>
+
+    <p>In cases where it can neither be determined by the server nor
+    the administrator (e.g. a proxy), it is preferable to omit the MIME
+    type altogether rather than provide information that may be false.
+    This can be accomplished using</p>
+    <div class="example"><p><code>
+      DefaultType None
+    </code></p></div>
+    <p>DefaultType None is only available in httpd-2.2.7 and later.</p>
 
     <p>Note that unlike <code class="directive"><a href="#forcetype">ForceType</a></code>, this directive only
     provides the default mime-type. All other mime-type definitions,
@@ -1187,6 +1196,14 @@ HTTP response header</td></tr>
     the setting for that subdirectory (which will be inherited by
     any sub-subdirectories that don't override it) will be equivalent to
     <code>FileETag&nbsp;MTime&nbsp;Size</code>.</p>
+    <div class="warning"><h3>Warning</h3>
+    Do not change the default for directories or locations that have WebDAV
+    enabled and use <code class="module"><a href="../mod/mod_dav_fs.html">mod_dav_fs</a></code> as a storage provider.
+    <code class="module"><a href="../mod/mod_dav_fs.html">mod_dav_fs</a></code> uses <code>INode&nbsp;MTime&nbsp;Size</code>
+    as a fixed format for <code>ETag</code> comparisons on conditional requests.
+    These conditional requests will break if the <code>ETag</code> format is
+    changed via <code class="directive">FileETag</code>.
+    </div>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -3378,6 +3395,11 @@ hostname or IP address</td></tr>
     statement of the main server. You may also specify <code>:*</code>
     to match all ports on that address. (This is recommended when used
     with <code>_default_</code>.)</p>
+
+    <p>A <code class="directive"><a href="#servername">ServerName</a></code> should be
+    specified inside each <code class="directive">&lt;VirtualHost&gt;</code> block. If it is absent, the
+    <code class="directive"><a href="#servername">ServerName</a></code> from the "main"
+    server configuration will be inherited.</p>
 
     <div class="warning"><h3>Security</h3>
     <p>See the <a href="../misc/security_tips.html">security tips</a>

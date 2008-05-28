@@ -24,7 +24,7 @@ AEP_Version    = $(GNUVersion)
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = Apple.diff unexmacosx.c.diff
+AEP_Patches    = Apple.diff unexmacosx.c.diff CVE-2007-6109.diff files.el.diff
 
 # Extract the source.
 install_source::

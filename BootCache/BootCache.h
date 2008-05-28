@@ -118,6 +118,7 @@ struct BC_statistics {
 	u_int	ss_read_blocks;		/* number of blocks read */
 	u_int	ss_read_errors;		/* read errors encountered */
 	u_int	ss_error_discards;	/* blocks discarded due to read errors */
+	u_int	ss_batch_size[STAT_BATCHMAX+1];	/* number of blocks in read per batch */
 	struct timeval ss_batch_time[STAT_BATCHMAX+1];	/* time prefetch stopped */
 	struct timeval ss_cache_stop;	/* time cache stopped */
 	struct timeval ss_wait_time;	/* total time spent blocked for blocks */

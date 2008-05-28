@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Disabled</key>
+	<true/>
+	<key>Label</key>
+	<string>org.amavis.amavisd_cleanup</string>
+	<key>Program</key>
+	<string>/var/amavis/amavisd_cleanup</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>amavisd_cleanup</string>
+	</array>
+	<key>ServiceIPC</key>
+	<false/>
+	<key>UserName</key>
+	<string>_amavisd</string>
+	<key>StartInterval</key>
+	<integer>600</integer>
+</dict>
+</plist>

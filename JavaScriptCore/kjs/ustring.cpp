@@ -1,6 +1,5 @@
 // -*- c-basic-offset: 2 -*-
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
@@ -31,13 +30,17 @@
 #include "function.h"
 #include "identifier.h"
 #include "operations.h"
-#include <assert.h>
 #include <ctype.h>
 #include <float.h>
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <wtf/Assertions.h>
+#include <wtf/ASCIICType.h>
+#include <wtf/MathExtras.h>
 #include <wtf/Vector.h>
+#include <wtf/unicode/UTF8.h>
 
 #if HAVE(STRING_H)
 #include <string.h>
@@ -46,8 +49,9 @@
 #include <strings.h>
 #endif
 
-using std::max;
-using std::min;
+using namespace WTF;
+using namespace WTF::Unicode;
+using namespace std;
 
 namespace KJS {
 
@@ -72,15 +76,6 @@ static inline UChar* reallocChars(UChar* buffer, size_t length)
         return 0;
     return static_cast<UChar*>(fastRealloc(buffer, sizeof(UChar) * length));
 }
-
-// we'd rather not do shared substring append for small strings, since
-// this runs too much risk of a tiny initial string holding down a
-// huge buffer. This is also tuned to match the extra cost size, so we
-// don't ever share a buffer that wouldn't be over the extra cost
-// threshold already.
-// FIXME: this should be size_t but that would cause warnings until we
-// fix UString sizes to be size_t instad of int
-static const int minShareSize = Collector::minExtraCostSize / sizeof(UChar);
 
 COMPILE_ASSERT(sizeof(UChar) == 2, uchar_is_2_bytes)
 
@@ -169,10 +164,10 @@ bool operator==(const CString& c1, const CString& c2)
 
 // Hack here to avoid a global with a constructor; point to an unsigned short instead of a UChar.
 static unsigned short almostUChar;
-UString::Rep UString::Rep::null = { 0, 0, 1, 0, 0, &UString::Rep::null, 0, 0, 0, 0, 0 };
-UString::Rep UString::Rep::empty = { 0, 0, 1, 0, 0, &UString::Rep::empty, reinterpret_cast<UChar*>(&almostUChar), 0, 0, 0, 0 };
+UString::Rep UString::Rep::null = { 0, 0, 1, 0, 0, &UString::Rep::null, 0, 0, 0, 0, 0, 0 };
+UString::Rep UString::Rep::empty = { 0, 0, 1, 0, 0, &UString::Rep::empty, 0, reinterpret_cast<UChar*>(&almostUChar), 0, 0, 0, 0 };
 const int normalStatBufferSize = 4096;
-static char *statBuffer = 0;
+static char *statBuffer = 0; // FIXME: This buffer is never deallocated.
 static int statBufferSize = 0;
 
 PassRefPtr<UString::Rep> UString::Rep::createCopying(const UChar *d, int l)
@@ -197,6 +192,7 @@ PassRefPtr<UString::Rep> UString::Rep::create(UChar *d, int l)
   r->_hash = 0;
   r->isIdentifier = 0;
   r->baseString = r;
+  r->reportedCost = 0;
   r->buf = d;
   r->usedCapacity = l;
   r->capacity = l;
@@ -216,8 +212,8 @@ PassRefPtr<UString::Rep> UString::Rep::create(PassRefPtr<Rep> base, int offset, 
 
   base = base->baseString;
 
-  assert(-(offset + baseOffset) <= base->usedPreCapacity);
-  assert(offset + baseOffset + length <= base->usedCapacity);
+  ASSERT(-(offset + baseOffset) <= base->usedPreCapacity);
+  ASSERT(offset + baseOffset + length <= base->usedCapacity);
 
   Rep *r = new Rep;
   r->offset = baseOffset + offset;
@@ -226,6 +222,7 @@ PassRefPtr<UString::Rep> UString::Rep::create(PassRefPtr<Rep> base, int offset, 
   r->_hash = 0;
   r->isIdentifier = 0;
   r->baseString = base.releaseRef();
+  r->reportedCost = 0;
   r->buf = 0;
   r->usedCapacity = 0;
   r->capacity = 0;
@@ -420,11 +417,13 @@ UString::UString(const char *c)
     m_rep = &Rep::null;
     return;
   }
-  size_t length = strlen(c);
-  if (length == 0) {
+
+  if (!c[0]) {
     m_rep = &Rep::empty;
     return;
   }
+
+  size_t length = strlen(c);
   UChar *d = allocChars(length);
   if (!d)
       m_rep = &Rep::null;
@@ -452,6 +451,15 @@ UString::UString(UChar *c, int length, bool copy)
   else
     m_rep = Rep::create(c, length);
 }
+
+UString::UString(const Vector<UChar>& buffer)
+{
+    if (!buffer.size())
+        m_rep = &Rep::empty;
+    else
+        m_rep = Rep::createCopying(buffer.data(), buffer.size());
+}
+
 
 UString::UString(const UString &a, const UString &b)
 {
@@ -482,7 +490,7 @@ UString::UString(const UString &a, const UString &b)
         m_rep = Rep::create(a.m_rep, 0, length);
     } else
         m_rep = &Rep::null;
-  } else if (-bOffset == b.usedPreCapacity() && bSize >= minShareSize && 4 * bSize >= aSize) {
+  } else if (-bOffset == b.usedPreCapacity() && bSize >= minShareSize  && 4 * bSize >= aSize) {
     // - b reaches the beginning of its buffer so it qualifies for shared prepend
     // - also, it's at least a quarter the length of a - prepending to a much shorter
     //   string does more harm than good
@@ -595,7 +603,7 @@ UString UString::from(long l)
 UString UString::from(double d)
 {
   // avoid ever printing -NaN, in JS conceptually there is only one NaN value
-  if (isNaN(d))
+  if (isnan(d))
     return "NaN";
 
   char buf[80];
@@ -880,15 +888,6 @@ char *UString::ascii() const
   return statBuffer;
 }
 
-#ifdef KJS_DEBUG_MEM
-void UString::globalClear()
-{
-  delete [] statBuffer;
-  statBuffer = 0;
-  statBufferSize = 0;
-}
-#endif
-
 UString &UString::operator=(const char *c)
 {
     if (!c) {
@@ -896,12 +895,12 @@ UString &UString::operator=(const char *c)
         return *this;
     }
 
-    int l = static_cast<int>(strlen(c));
-    if (!l) {
+    if (!c[0]) {
         m_rep = &Rep::empty;
         return *this;
     }
 
+  int l = static_cast<int>(strlen(c));
   UChar *d;
   if (m_rep->rc == 1 && l <= m_rep->capacity && m_rep->baseIsSelf() && m_rep->offset == 0 && m_rep->preCapacity == 0) {
     d = m_rep->buf;
@@ -953,7 +952,7 @@ double UString::toDouble(bool tolerateTrailingJunk, bool tolerateEmptyString) co
   const char *c = ascii();
 
   // skip leading white space
-  while (isspace(*c))
+  while (isASCIISpace(*c))
     c++;
 
   // empty string ?
@@ -997,7 +996,7 @@ double UString::toDouble(bool tolerateTrailingJunk, bool tolerateEmptyString) co
       // converts the string "inf" with any capitalization to infinity,
       // whereas the ECMA spec requires that it be converted to NaN.
 
-      if (strncmp(c, "Infinity", 8) == 0) {
+      if (c[0] == 'I' && c[1] == 'n' && c[2] == 'f' && c[3] == 'i' && c[4] == 'n' && c[5] == 'i' && c[6] == 't' && c[7] == 'y') {
         d = sign * Inf;
         c += 8;
       } else if ((d == Inf || d == -Inf) && *c != 'I' && *c != 'i')
@@ -1008,7 +1007,7 @@ double UString::toDouble(bool tolerateTrailingJunk, bool tolerateEmptyString) co
   }
 
   // allow trailing white space
-  while (isspace(*c))
+  while (isASCIISpace(*c))
     c++;
   // don't allow anything after - unless tolerant=true
   if (!tolerateTrailingJunk && *c != '\0')
@@ -1267,138 +1266,20 @@ int compare(const UString& s1, const UString& s2)
   return (l1 > l2) ? 1 : -1;
 }
 
-inline int inlineUTF8SequenceLengthNonASCII(char b0)
-{
-  if ((b0 & 0xC0) != 0xC0)
-    return 0;
-  if ((b0 & 0xE0) == 0xC0)
-    return 2;
-  if ((b0 & 0xF0) == 0xE0)
-    return 3;
-  if ((b0 & 0xF8) == 0xF0)
-    return 4;
-  return 0;
-}
-
-int UTF8SequenceLengthNonASCII(char b0)
-{
-  return inlineUTF8SequenceLengthNonASCII(b0);
-}
-
-inline int inlineUTF8SequenceLength(char b0)
-{
-  return (b0 & 0x80) == 0 ? 1 : UTF8SequenceLengthNonASCII(b0);
-}
-
-// Given a first byte, gives the length of the UTF-8 sequence it begins.
-// Returns 0 for bytes that are not legal starts of UTF-8 sequences.
-// Only allows sequences of up to 4 bytes, since that works for all Unicode characters (U-00000000 to U-0010FFFF).
-int UTF8SequenceLength(char b0)
-{
-  return (b0 & 0x80) == 0 ? 1 : inlineUTF8SequenceLengthNonASCII(b0);
-}
-
-// Takes a null-terminated C-style string with a UTF-8 sequence in it and converts it to a character.
-// Only allows Unicode characters (U-00000000 to U-0010FFFF).
-// Returns -1 if the sequence is not valid (including presence of extra bytes).
-int decodeUTF8Sequence(const char *sequence)
-{
-  // Handle 0-byte sequences (never valid).
-  const unsigned char b0 = sequence[0];
-  const int length = inlineUTF8SequenceLength(b0);
-  if (length == 0)
-    return -1;
-
-  // Handle 1-byte sequences (plain ASCII).
-  const unsigned char b1 = sequence[1];
-  if (length == 1) {
-    if (b1)
-      return -1;
-    return b0;
-  }
-
-  // Handle 2-byte sequences.
-  if ((b1 & 0xC0) != 0x80)
-    return -1;
-  const unsigned char b2 = sequence[2];
-  if (length == 2) {
-    if (b2)
-      return -1;
-    const int c = ((b0 & 0x1F) << 6) | (b1 & 0x3F);
-    if (c < 0x80)
-      return -1;
-    return c;
-  }
-
-  // Handle 3-byte sequences.
-  if ((b2 & 0xC0) != 0x80)
-    return -1;
-  const unsigned char b3 = sequence[3];
-  if (length == 3) {
-    if (b3)
-      return -1;
-    const int c = ((b0 & 0xF) << 12) | ((b1 & 0x3F) << 6) | (b2 & 0x3F);
-    if (c < 0x800)
-      return -1;
-    // UTF-16 surrogates should never appear in UTF-8 data.
-    if (c >= 0xD800 && c <= 0xDFFF)
-      return -1;
-    // Backwards BOM and U+FFFF should never appear in UTF-8 data.
-    if (c == 0xFFFE || c == 0xFFFF)
-      return -1;
-    return c;
-  }
-
-  // Handle 4-byte sequences.
-  if ((b3 & 0xC0) != 0x80)
-    return -1;
-  const unsigned char b4 = sequence[4];
-  if (length == 4) {
-    if (b4)
-      return -1;
-    const int c = ((b0 & 0x7) << 18) | ((b1 & 0x3F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
-    if (c < 0x10000 || c > 0x10FFFF)
-      return -1;
-    return c;
-  }
-
-  return -1;
-}
-
-CString UString::UTF8String() const
+CString UString::UTF8String(bool strict) const
 {
   // Allocate a buffer big enough to hold all the characters.
   const int length = size();
   Vector<char, 1024> buffer(length * 3);
 
   // Convert to runs of 8-bit characters.
-  char *p = buffer.begin();
-  const UChar *d = data();
-  for (int i = 0; i != length; ++i) {
-    unsigned short c = d[i].unicode();
-    if (c < 0x80) {
-      *p++ = (char)c;
-    } else if (c < 0x800) {
-      *p++ = (char)((c >> 6) | 0xC0); // C0 is the 2-byte flag for UTF-8
-      *p++ = (char)((c | 0x80) & 0xBF); // next 6 bits, with high bit set
-    } else if (c >= 0xD800 && c <= 0xDBFF && i < length && d[i+1].uc >= 0xDC00 && d[i+1].uc <= 0xDFFF) {
-      unsigned sc = 0x10000 + (((c & 0x3FF) << 10) | (d[i+1].uc & 0x3FF));
-      *p++ = (char)((sc >> 18) | 0xF0); // F0 is the 4-byte flag for UTF-8
-      *p++ = (char)(((sc >> 12) | 0x80) & 0xBF); // next 6 bits, with high bit set
-      *p++ = (char)(((sc >> 6) | 0x80) & 0xBF); // next 6 bits, with high bit set
-      *p++ = (char)((sc | 0x80) & 0xBF); // next 6 bits, with high bit set
-      ++i;
-    } else {
-      *p++ = (char)((c >> 12) | 0xE0); // E0 is the 3-byte flag for UTF-8
-      *p++ = (char)(((c >> 6) | 0x80) & 0xBF); // next 6 bits, with high bit set
-      *p++ = (char)((c | 0x80) & 0xBF); // next 6 bits, with high bit set
-    }
-  }
+  char* p = buffer.data();
+  const ::UChar* d = reinterpret_cast<const ::UChar*>(&data()->uc);
+  ConversionResult result = convertUTF16ToUTF8(&d, d + length, &p, p + buffer.size(), strict);
+  if (result != conversionOK)
+    return CString();
 
-  // Return the result as a C string.
-  CString result(buffer.data(), p - buffer.data());
-
-  return result;
+  return CString(buffer.data(), p - buffer.data());
 }
 
 } // namespace KJS

@@ -20,10 +20,15 @@
 
 module core {
 
-    interface [GenerateConstructor, GenerateToJS, CustomMarkFunction] Document : EventTargetNode {
+    interface [
+        GenerateConstructor,
+        GenerateToJS,
+        CustomMarkFunction,
+        InterfaceUUID=48BB95FC-2D08-4c54-BE65-7558736A4CAE,
+        ImplementationUUID=FF5CBE81-F817-429c-A6C2-0CCCD2328062
+    ] Document : EventTargetNode {
 
         // DOM Level 1 Core
-
         readonly attribute DocumentType doctype;
         readonly attribute DOMImplementation implementation;
         readonly attribute Element documentElement;
@@ -74,6 +79,7 @@ module core {
 
                  attribute [ConvertNullStringTo=Null, ConvertNullToNullString] DOMString documentURI;
 
+#if !defined(LANGUAGE_COM)
         // DOM Level 2 Events (DocumentEvents interface)
 
         Event              createEvent(in DOMString eventType)
@@ -96,7 +102,7 @@ module core {
                                             in NodeFilter filter,
                                             in boolean entityReferenceExpansion)
             raises(DOMException);
-#endif
+#endif // !defined(LANGUAGE_OBJECTIVE_C)
 
         // DOM Level 2 Abstract Views (DocumentView interface)
 
@@ -110,7 +116,6 @@ module core {
 
         [OldStyleObjC] CSSStyleDeclaration getOverrideStyle(in Element element,
                                                             in DOMString pseudoElement);
-
 #ifdef ENABLE_XPATH
         // DOM Level 3 XPath (XPathEvaluator interface)
         [OldStyleObjC] XPathExpression createExpression(in DOMString expression,
@@ -123,7 +128,8 @@ module core {
                                             in unsigned short type,
                                             in XPathResult inResult)
             raises(DOMException);
-#endif
+#endif // ENABLE_XPATH
+#endif // !defined(LANGUAGE_COM)
 
         // Common extensions
 
@@ -144,11 +150,42 @@ module core {
         boolean            queryCommandSupported(in DOMString command);
         [ConvertNullStringTo=False] DOMString queryCommandValue(in DOMString command);
 
+        // Moved down from HTMLDocument
+
+                 attribute [ConvertNullToNullString] DOMString title;
+        readonly attribute DOMString referrer;
+#if defined(LANGUAGE_JAVASCRIPT)
+                 attribute [ConvertNullToNullString] DOMString domain;
+#else
+        readonly attribute DOMString domain;
+#endif
+        readonly attribute DOMString URL;
+
+        // FIXME: the DOM spec states that this attribute can 
+        // raise an exception on setting.
+                 attribute [ConvertNullToNullString] DOMString cookie
+                     /*setter raises (DOMException)*/;
+
+        // FIXME: the DOM spec does NOT have this attribute
+        // raising an exception.
+                 attribute HTMLElement body
+                     setter raises (DOMException);
+
+        readonly attribute HTMLCollection images;
+        readonly attribute HTMLCollection applets;
+        readonly attribute HTMLCollection links;
+        readonly attribute HTMLCollection forms;
+        readonly attribute HTMLCollection anchors;
+        readonly attribute DOMString lastModified;
+
+        NodeList getElementsByName(in DOMString elementName);
+
+#if defined(LANGUAGE_JAVASCRIPT)
+                 attribute [Custom] Location location;
+#endif
+
         // IE extensions
 
-#if !defined(LANGUAGE_OBJECTIVE_C)
-        readonly attribute DOMString URL;
-#endif
                  attribute [ConvertNullStringTo=Undefined, ConvertNullToNullString] DOMString charset;
         readonly attribute [ConvertNullStringTo=Undefined] DOMString defaultCharset;
         readonly attribute [ConvertNullStringTo=Undefined] DOMString readyState;
@@ -164,8 +201,10 @@ module core {
         readonly attribute [ConvertNullStringTo=Null] DOMString preferredStylesheetSet;
                  attribute [ConvertNullStringTo=Null, ConvertNullToNullString] DOMString selectedStylesheetSet;
 
+#if !defined(LANGUAGE_COM)
 #if !defined(LANGUAGE_JAVASCRIPT)
         CSSStyleDeclaration createCSSStyleDeclaration();
+#endif
 #endif
 
 #if defined(LANGUAGE_OBJECTIVE_C)
@@ -182,6 +221,14 @@ module core {
                                                   in [Optional] boolean authorOnly);
 #endif
 
+        // HTML 5
+        NodeList            getElementsByClassName(in DOMString tagname);
+
+        // DocumentSelector - Selector API
+        Element             querySelector(in [ConvertUndefinedOrNullToNullString] DOMString selectors)
+            raises(DOMException);
+        NodeList            querySelectorAll(in [ConvertUndefinedOrNullToNullString] DOMString selectors)
+            raises(DOMException);
     };
 
 }

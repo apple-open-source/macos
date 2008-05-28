@@ -32,7 +32,7 @@
 #endif
 
 #if USE(NPOBJECT)
-#include <bindings/npruntime.h>
+#include <bindings/npruntime_internal.h>
 #endif
 
 namespace WebCore {
@@ -45,10 +45,10 @@ public:
     virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
     virtual void parseMappedAttribute(MappedAttribute*);
 
-    virtual void willRemove();
-
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
     virtual bool checkDTD(const Node* newChild);
+
+    virtual void updateWidget() { }
 
     String align() const;
     void setAlign(const String&);
@@ -69,8 +69,6 @@ public:
     virtual NPObject* getNPObject();
 #endif
 
-    void setFrameName(const AtomicString& frameName) { m_frameName = frameName; }
-
     virtual void defaultEventHandler(Event*);
 private:
 #if USE(NPOBJECT)
@@ -78,6 +76,8 @@ private:
 #endif
 
 protected:
+    static void updateWidgetCallback(Node*);
+
     String oldNameAttr;
 #if USE(JAVASCRIPTCORE_BINDINGS)
     mutable RefPtr<KJS::Bindings::Instance> m_instance;
@@ -85,9 +85,6 @@ protected:
 #if USE(NPOBJECT)
     NPObject* m_NPObject;
 #endif
-
-private:
-    AtomicString m_frameName;
 };
 
 } // namespace WebCore

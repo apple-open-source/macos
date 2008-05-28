@@ -35,7 +35,11 @@
 #include <stdint.h>
 struct UConverter;
 typedef struct UConverter UConverter;
+#ifdef _MSC_VER
+typedef wchar_t UChar;
+#else
 typedef uint16_t UChar;
+#endif
 #endif
 
 #ifdef __cplusplus

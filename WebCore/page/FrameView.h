@@ -50,6 +50,13 @@ template <typename T> class Timer;
 class FrameView : public ScrollView {
 public:
     FrameView(Frame*);
+
+    // On the Mac, FrameViews always get their size from the underlying NSView,
+    // so passing in a size is nonsensical.
+#if !PLATFORM(MAC)
+    FrameView(Frame*, const IntSize& initialSize);
+#endif
+
     virtual ~FrameView();
 
     Frame* frame() const { return m_frame.get(); }
@@ -72,11 +79,11 @@ public:
     bool didFirstLayout() const;
     void layoutTimerFired(Timer<FrameView>*);
     void scheduleRelayout();
-    void scheduleRelayoutOfSubtree(Node*);
+    void scheduleRelayoutOfSubtree(RenderObject*);
     void unscheduleRelayout();
     bool layoutPending() const;
 
-    Node* layoutRoot() const;
+    RenderObject* layoutRoot(bool onlyDuringLayout = false) const;
     int layoutCount() const;
 
     // These two helper functions just pass through to the RenderView.
@@ -123,6 +130,7 @@ public:
     void scheduleEvent(PassRefPtr<Event>, PassRefPtr<EventTargetNode>, bool tempEvent);
     void pauseScheduledEvents();
     void resumeScheduledEvents();
+    void postLayoutTimerFired(Timer<FrameView>*);
 
     bool wasScrolledByUser() const;
     void setWasScrolledByUser(bool);
@@ -132,7 +140,7 @@ public:
 
     // FIXME: This method should be used by all platforms, but currently depends on ScrollView::children,
     // which not all methods have. Once FrameView and ScrollView are merged, this #if should be removed.
-#if PLATFORM(WIN) || PLATFORM(GTK)
+#if PLATFORM(WIN) || PLATFORM(GTK) || PLATFORM(QT)
     void layoutIfNeededRecursive();
 #endif
 
@@ -147,11 +155,10 @@ private:
 
     void applyOverflowToViewport(RenderObject*, ScrollbarMode& hMode, ScrollbarMode& vMode);
 
-    void updateBorder();
-
     void updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow);
 
     void dispatchScheduledEvents();
+    void performPostLayoutTasks();
 
     unsigned m_refCount;
     IntSize m_size;

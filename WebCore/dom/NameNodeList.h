@@ -1,10 +1,8 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004 Apple Computer, Inc.
+ * Copyright (C) 2004, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,35 +20,27 @@
  * Boston, MA 02110-1301, USA.
  *
  */
+
 #ifndef NameNodeList_h
 #define NameNodeList_h
 
-#include "NodeList.h"
-#include "PlatformString.h"
+#include "DynamicNodeList.h"
+#include "AtomicString.h"
 
 namespace WebCore {
 
-/**
- * NodeList which lists all Nodes in a Element with a given "name=" tag
- */
-class NameNodeList : public NodeList {
-public:
-    NameNodeList(Node* doc, const String& name);
+    class String;
 
-    // DOM methods overridden from  parent classes
+    // NodeList which lists all Nodes in a Element with a given "name" attribute
+    class NameNodeList : public DynamicNodeList {
+    public:
+        NameNodeList(PassRefPtr<Node> rootNode, const String& name, DynamicNodeList::Caches*);
 
-    virtual unsigned length() const;
-    virtual Node* item(unsigned index) const;
+    private:
+        virtual bool nodeMatches(Node*) const;
 
-    // Other methods (not part of DOM)
-    virtual void rootNodeChildrenChanged() { }
-    virtual void rootNodeAttributeChanged() { NodeList::rootNodeChildrenChanged(); }
-
-protected:
-    virtual bool nodeMatches(Node* testNode) const;
-
-    String nodeName;
-};
+        AtomicString m_nodeName;
+    };
 
 } // namespace WebCore
 

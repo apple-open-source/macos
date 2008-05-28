@@ -156,7 +156,7 @@ SecIdentityRef findIdentity(SecKeychainRef keychain, const char *match)
 #endif //NDEBUG
 	CFRef<SecIdentitySearchRef> search;
 	MacOSError::check(SecIdentitySearchCreateWithPolicy(policy, NULL,
-			CSSM_KEYUSE_ANY, keychain, false, &search.aref()));
+			CSSM_KEYUSE_SIGN, keychain, false, &search.aref()));
 
 	// filter all candidates against our match constraint
 	CFRef<CFStringRef> cfmatch = makeCFString(match);
@@ -252,6 +252,25 @@ CFDateRef parseDate(const char *string)
 	if (!date)
 		fail("%s: invalid date/time", string);
 	return date.yield();
+}
+
+
+//
+// Convert a SHA-1 hash into a string of hex digits (40 of them, of course)
+//
+std::string hashString(SHA1::Digest hash)
+{
+	char s[2 * SHA1::digestLength + 1];
+	for (unsigned n = 0; n < SHA1::digestLength; n++)
+		sprintf(&s[2*n], "%02.2x", hash[n]);
+	return s;
+}
+
+std::string hashString(SHA1 &hash)
+{
+	SHA1::Digest digest;
+	hash.finish(digest);
+	return hashString(digest);
 }
 
 
@@ -374,6 +393,25 @@ void writeFileList(CFArrayRef list, const char *destination, const char *mode)
 	CFIndex count = CFArrayGetCount(list);
 	for (CFIndex n = 0; n < count; n++)
 		fprintf(out, "%s\n", cfString(CFURLRef(CFArrayGetValueAtIndex(list, n))).c_str());
+	if (strcmp(destination, "-"))
+		fclose(out);
+}
+
+
+//
+// Take a CFData and write it to a file as a property list.
+//
+void writeData(CFDataRef data, const char *destination, const char *mode)
+{
+	FILE *out;
+	if (!strcmp(destination, "-")) {
+		out = stdout;
+	} else if (!(out = fopen(destination, mode))) {
+		perror(destination);
+		exit(1);
+	}
+	if (data)
+		fwrite(CFDataGetBytePtr(data), 1, CFDataGetLength(data), out);
 	if (strcmp(destination, "-"))
 		fclose(out);
 }

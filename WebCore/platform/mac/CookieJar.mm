@@ -30,38 +30,59 @@
 #import "BlockExceptions.h"
 #import "PlatformString.h"
 
+#import <wtf/RetainPtr.h>
+
+#ifdef BUILDING_ON_TIGER
+typedef unsigned int NSUInteger;
+#endif
+
 namespace WebCore {
 
-String cookies(const KURL& url)
+String cookies(const Document* /*document*/, const KURL& url)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
-    NSURL *URL = url.getNSURL();
-    NSArray *cookiesForURL = [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookiesForURL:URL];
-    NSDictionary *header = [NSHTTPCookie requestHeaderFieldsWithCookies:cookiesForURL];
+    NSURL *cookieURL = url.getNSURL();
+    NSArray *cookiesForURL = [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookiesForURL:cookieURL];
+
+    // <rdar://problem/5632883> On 10.5, NSHTTPCookieStorage would happily store an empty cookie, which would be sent as "Cookie: =".
+    // We have a workaround in setCookies() to prevent that, but we also need to avoid sending cookies that were previously stored.
+    NSUInteger count = [cookiesForURL count];
+    RetainPtr<NSMutableArray> cookiesForURLFilteredCopy(AdoptNS, [[NSMutableArray alloc] initWithCapacity:count]);
+    for (NSUInteger i = 0; i < count; ++i) {
+        NSHTTPCookie *cookie = (NSHTTPCookie *)[cookiesForURL objectAtIndex:i];
+        if ([[cookie name] length] != 0)
+            [cookiesForURLFilteredCopy.get() addObject:cookie];
+    }
+
+    NSDictionary *header = [NSHTTPCookie requestHeaderFieldsWithCookies:cookiesForURLFilteredCopy.get()];
     return [header objectForKey:@"Cookie"];
 
     END_BLOCK_OBJC_EXCEPTIONS;
     return String();
 }
 
-void setCookies(const KURL& url, const KURL& policyBaseURL, const String& cookieStr)
+void setCookies(Document* /*document*/, const KURL& url, const KURL& policyBaseURL, const String& cookieStr)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
-    NSURL *URL = url.getNSURL();
+    // <rdar://problem/5632883> On 10.5, NSHTTPCookieStorage would happily store an empty cookie, which would be sent as "Cookie: =".
+    if (cookieStr.isEmpty())
+        return;
+
+    NSURL *cookieURL = url.getNSURL();
     
     // <http://bugs.webkit.org/show_bug.cgi?id=6531>, <rdar://4409034>
     // cookiesWithResponseHeaderFields doesn't parse cookies without a value
     String cookieString = cookieStr.contains('=') ? cookieStr : cookieStr + "=";
     
-    NSArray *cookies = [NSHTTPCookie cookiesWithResponseHeaderFields:[NSDictionary dictionaryWithObject:cookieString forKey:@"Set-Cookie"] forURL:URL];
-    [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookies:cookies forURL:URL mainDocumentURL:policyBaseURL.getNSURL()];    
+    NSArray *cookies = [NSHTTPCookie cookiesWithResponseHeaderFields:[NSDictionary dictionaryWithObject:cookieString forKey:@"Set-Cookie"] forURL:cookieURL];
+    [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookies:cookies forURL:cookieURL mainDocumentURL:policyBaseURL.getNSURL()];    
 
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
-bool cookiesEnabled()
+bool cookiesEnabled(const Document* /*document*/)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 

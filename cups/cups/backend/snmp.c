@@ -1,5 +1,5 @@
 /*
- * "$Id: snmp.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: snmp.c 7210 2008-01-10 06:56:26Z mike $"
  *
  *   SNMP discovery backend for the Common UNIX Printing System (CUPS).
  *
@@ -1090,7 +1090,7 @@ asn1_get_string(
     * String is larger than the buffer...
     */
 
-    memcpy(string, buffer, strsize - 1);
+    memcpy(string, *buffer, strsize - 1);
     string[strsize - 1] = '\0';
   }
 
@@ -2272,5 +2272,5 @@ update_cache(snmp_cache_t *device,	/* I - Device */
 
 
 /*
- * End of "$Id: snmp.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: snmp.c 7210 2008-01-10 06:56:26Z mike $".
  */

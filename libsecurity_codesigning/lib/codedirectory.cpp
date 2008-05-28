@@ -53,6 +53,8 @@ const char *CodeDirectory::canonicalSlotName(SpecialSlot slot)
 		return kSecCS_SIGNATUREFILE;
 	case cdApplicationSlot:
 		return kSecCS_APPLICATIONFILE;
+	case cdEntitlementSlot:
+		return kSecCS_ENTITLEMENTFILE;
 	default:
 		return NULL;
 	}
@@ -71,6 +73,8 @@ unsigned CodeDirectory::slotAttributes(SpecialSlot slot)
 		return cdComponentPerArchitecture | cdComponentIsBlob;
 	case cdSignatureSlot:
 		return cdComponentPerArchitecture; // raw
+	case cdEntitlementSlot:
+		return cdComponentIsBlob; // global
 	default:
 		return 0; // global, raw
 	}

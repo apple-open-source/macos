@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -212,6 +212,12 @@ _configclose(mach_port_t server, int *sc_status)
 	if (*sc_status != kSCStatusOK) {
 		return KERN_SUCCESS;
 	}
+
+	/*
+	 * Remove send and receive right
+	 */
+	mach_port_mod_refs(mach_task_self(), mySession->key, MACH_PORT_RIGHT_SEND   , -1);
+	mach_port_mod_refs(mach_task_self(), mySession->key, MACH_PORT_RIGHT_RECEIVE, -1);
 
 	/*
 	 * Remove the session entry.

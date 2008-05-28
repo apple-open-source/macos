@@ -1,7 +1,7 @@
 /**
  * This file is part of the theme implementation for form controls in WebCore.
  *
- * Copyright (C) 2005 Apple Computer, Inc.
+ * Copyright (C) 2005, 2006, 2007, 2008 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,11 +23,14 @@
 #include "RenderTheme.h"
 
 #include "Document.h"
+#include "FocusController.h"
 #include "Frame.h"
 #include "GraphicsContext.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "Page.h"
 #include "RenderStyle.h"
+#include "SelectionController.h"
 
 // The methods in this file are shared by all themes on every platform.
 
@@ -72,6 +75,7 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
             return adjustMenuListStyle(selector, style, e);
         case MenulistButtonAppearance:
             return adjustMenuListButtonStyle(selector, style, e);
+        case MediaSliderAppearance:
         case SliderHorizontalAppearance:
         case SliderVerticalAppearance:
             return adjustSliderTrackStyle(selector, style, e);
@@ -126,6 +130,22 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
             if (o->parent()->isSlider())
                 return paintSliderThumb(o, paintInfo, r);
             // We don't support drawing a slider thumb without a parent slider
+            break;
+        case MediaFullscreenButtonAppearance:
+            return paintMediaFullscreenButton(o, paintInfo, r);
+        case MediaPlayButtonAppearance:
+            return paintMediaPlayButton(o, paintInfo, r);
+        case MediaMuteButtonAppearance:
+            return paintMediaMuteButton(o, paintInfo, r);
+        case MediaSeekBackButtonAppearance:
+            return paintMediaSeekBackButton(o, paintInfo, r);
+        case MediaSeekForwardButtonAppearance:
+            return paintMediaSeekForwardButton(o, paintInfo, r);
+        case MediaSliderAppearance:
+            return paintMediaSliderTrack(o, paintInfo, r);
+        case MediaSliderThumbAppearance:
+            if (o->parent()->isSlider())
+                return paintMediaSliderThumb(o, paintInfo, r);
             break;
         case MenulistButtonAppearance:
         case TextFieldAppearance:
@@ -331,6 +351,25 @@ bool RenderTheme::stateChanged(RenderObject* o, ControlState state) const
     return true;
 }
 
+// FIXME: It would be nice to set this state on the RenderObjects instead of
+// having to dig up to the FocusController at paint time.
+bool RenderTheme::isActive(const RenderObject* o) const
+{
+    Node* node = o->element();
+    if (!node)
+        return false;
+
+    Frame* frame = node->document()->frame();
+    if (!frame)
+        return false;
+
+    Page* page = frame->page();
+    if (!page)
+        return false;
+
+    return page->focusController()->isActive();
+}
+
 bool RenderTheme::isChecked(const RenderObject* o) const
 {
     if (!o->element())
@@ -359,7 +398,7 @@ bool RenderTheme::isFocused(const RenderObject* o) const
         return false;
     Document* document = node->document();
     Frame* frame = document->frame();
-    return node == document->focusedNode() && frame && frame->isActive();
+    return node == document->focusedNode() && frame && frame->selectionController()->isFocusedAndActive();
 }
 
 bool RenderTheme::isPressed(const RenderObject* o) const
@@ -476,6 +515,11 @@ void RenderTheme::platformColorsDidChange()
 {
     m_activeSelectionColor = Color();
     m_inactiveSelectionColor = Color();
+}
+
+Color RenderTheme::platformTextSearchHighlightColor() const
+{
+    return Color(255, 255, 0);
 }
 
 } // namespace WebCore

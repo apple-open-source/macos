@@ -1888,44 +1888,6 @@ bool ConvertBinaryToHex( const unsigned char *inData, long len, char *outHexStr 
 #pragma mark C API
 #pragma mark -
 
-CFDictionaryRef pwsf_GetStatusForReplicas( void )
-{
-	CReplicaFile replicaFile;
-	CFDictionaryRef repDict;
-	CFMutableDictionaryRef outputDict;
-	unsigned long repIndex, repCount;
-	
-	repCount = replicaFile.ReplicaCount();
-	outputDict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-	if ( outputDict == NULL )
-		return NULL;
-	
-	// parent
-	repDict = (CFMutableDictionaryRef) replicaFile.GetParent();
-	if ( repDict == NULL ) {
-		errmsg( "The replica file is invalid." );
-		CFRelease( outputDict );
-		return NULL;
-	}
-	pwsf_AddReplicaStatus( &replicaFile, repDict, outputDict );
-	
-	// replicas
-	for ( repIndex = 0; repIndex < repCount; repIndex++ )
-	{
-		repDict = replicaFile.GetReplica( repIndex );
-		if ( repDict == NULL ) {
-			errmsg( "The replica file is invalid." );
-			CFRelease( outputDict );
-			return NULL;
-		}
-		
-		pwsf_AddReplicaStatus( &replicaFile, repDict, outputDict );
-	}
-	
-	return (CFDictionaryRef)outputDict;
-}
-
-
 void pwsf_AddReplicaStatus( CReplicaFile *inReplicaFile, CFDictionaryRef inDict, CFMutableDictionaryRef inOutDict )
 {
 	CFArrayRef ipArray;

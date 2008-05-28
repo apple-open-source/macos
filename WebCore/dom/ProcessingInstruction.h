@@ -51,14 +51,15 @@ public:
     virtual PassRefPtr<Node> cloneNode(bool deep);
     virtual bool childTypeAllowed(NodeType);
     virtual bool offsetInCharacters() const;
+    virtual int maxCharacterOffset() const;
 
     // Other methods (not part of DOM)
     String localHref() const { return m_localHref; }
     StyleSheet* sheet() const { return m_sheet.get(); }
     bool checkStyleSheet();
-    virtual void setCSSStyleSheet(const String& URL, const String& charset, const String& sheet);
+    virtual void setCSSStyleSheet(const String& url, const String& charset, const String& sheet);
 #if ENABLE(XSLT)
-    virtual void setXSLStyleSheet(const String& URL, const String& sheet);
+    virtual void setXSLStyleSheet(const String& url, const String& sheet);
 #endif
     void setCSSStyleSheet(CSSStyleSheet*);
     bool isLoading() const;

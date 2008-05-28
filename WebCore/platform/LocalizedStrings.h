@@ -51,6 +51,12 @@ namespace WebCore {
     String contextMenuItemTagReload();
     String contextMenuItemTagCut();
     String contextMenuItemTagPaste();
+#if PLATFORM(GTK)
+    String contextMenuItemTagDelete();
+    String contextMenuItemTagSelectAll();
+    String contextMenuItemTagInputMethods();
+    String contextMenuItemTagUnicode();
+#endif
     String contextMenuItemTagNoGuessesFound();
     String contextMenuItemTagIgnoreSpelling();
     String contextMenuItemTagLearnSpelling();
@@ -94,6 +100,11 @@ namespace WebCore {
     String AXHeadingText();
 
     String unknownFileSizeText();
+
+#if PLATFORM(WIN)
+    String uploadFileText();
+    String allFilesText();
+#endif
 }
 
 #endif

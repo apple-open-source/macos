@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: scanf.h,v 1.9.8.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: scanf.h,v 1.9.8.1.8.3 2007/12/31 07:22:53 sebastian Exp $ */
 
 #ifndef  SCANF_H
 #define  SCANF_H

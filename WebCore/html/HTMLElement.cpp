@@ -66,7 +66,7 @@ String HTMLElement::nodeName() const
     // FIXME: Would be nice to have an atomicstring lookup based off uppercase chars that does not have to copy
     // the string on a hit in the hash.
     if (document()->isHTMLDocument())
-        return tagQName().localName().impl()->upper();
+        return tagQName().localName().domString().upper();
     return Element::nodeName();
 }
     
@@ -799,6 +799,8 @@ HashSet<AtomicStringImpl*>* inlineTagList()
         tagList.add(delTag.localName().impl());
         tagList.add(nobrTag.localName().impl());
         tagList.add(wbrTag.localName().impl());
+        tagList.add(audioTag.localName().impl());
+        tagList.add(videoTag.localName().impl());
     }
     return &tagList;
 }

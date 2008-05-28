@@ -1,8 +1,6 @@
 // -*- mode: c++; c-basic-offset: 4 -*-
 /*
- * This file is part of the KDE libraries
- *
- * Copyright (C) 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,7 +23,6 @@
 #define WTF_HashMap_h
 
 #include "HashTable.h"
-#include "Vector.h"
 
 namespace WTF {
 
@@ -97,8 +94,10 @@ namespace WTF {
         pair<iterator, bool> add(const KeyType&, const MappedType&); 
 
         void remove(const KeyType&);
-        void remove(iterator it);
+        void remove(iterator);
         void clear();
+
+        MappedType take(const KeyType&); // efficient combination of get with remove
 
     private:
         pair<iterator, bool> inlineAdd(const KeyType&, const MappedType&);
@@ -129,7 +128,7 @@ namespace WTF {
 
         static unsigned hash(const KeyType& key) { return HashFunctions::hash(key); }
         static bool equal(const KeyStorageType& a, const KeyType& b) { return HashFunctions::equal(*(KeyType*)&a, b); }
-        static void translate(ValueStorageType& location, const KeyType& key, const MappedType& mapped, unsigned)
+        static void translate(ValueStorageType& location, const KeyType& key, const MappedType& mapped)
         {
             Assigner<KeyTraits::needsRef, KeyType, KeyStorageType, KeyTraits>::assign(key, location.first);
             Assigner<MappedTraits::needsRef, MappedType, MappedStorageType, MappedTraits>::assign(mapped, location.second);
@@ -150,7 +149,7 @@ namespace WTF {
         
         static unsigned hash(const KeyType& key) { return HashFunctions::hash(key); }
         static bool equal(const KeyStorageType& a, const KeyType& b) { return HashFunctions::equal(*(KeyType*)&a, b); }
-        static void translate(ValueStorageType& location, const KeyType& key, const MappedType& mapped, unsigned)
+        static void translate(ValueStorageType& location, const KeyType& key, const MappedType& mapped)
         {
             if (location.first == KeyStorageTraits::deletedValue())
                 location.first = KeyStorageTraits::emptyValue();
@@ -291,13 +290,15 @@ namespace WTF {
     }
 
     template<typename T, typename U, typename V, typename W, typename MappedTraits>
-    inline typename HashMap<T, U, V, W, MappedTraits>::MappedType
+    typename HashMap<T, U, V, W, MappedTraits>::MappedType
     HashMap<T, U, V, W, MappedTraits>::get(const KeyType& key) const
     {
-        const_iterator it = find(key);
-        if (it == end())
+        if (m_impl.isEmpty())
             return MappedTraits::emptyValue();
-        return it->second;
+        ValueStorageType* entry = const_cast<HashTableType&>(m_impl).lookup(*(const KeyStorageType*)&key);
+        if (!entry)
+            return MappedTraits::emptyValue();
+        return ((ValueType *)entry)->second;
     }
 
     template<typename T, typename U, typename V, typename W, typename X>
@@ -305,8 +306,9 @@ namespace WTF {
     {
         if (it.m_impl == m_impl.end())
             return;
+        m_impl.checkTableConsistency();
         RefCounter<ValueTraits, ValueStorageTraits>::deref(*it.m_impl);
-        m_impl.remove(it.m_impl);
+        m_impl.removeWithoutEntryConsistencyCheck(it.m_impl);
     }
 
     template<typename T, typename U, typename V, typename W, typename X>
@@ -320,6 +322,19 @@ namespace WTF {
     {
         derefAll();
         m_impl.clear();
+    }
+
+    template<typename T, typename U, typename V, typename W, typename MappedTraits>
+    typename HashMap<T, U, V, W, MappedTraits>::MappedType
+    HashMap<T, U, V, W, MappedTraits>::take(const KeyType& key)
+    {
+        // This can probably be made more efficient to avoid ref/deref churn.
+        iterator it = find(key);
+        if (it == end())
+            return MappedTraits::emptyValue();
+        typename HashMap<T, U, V, W, MappedTraits>::MappedType result = it->second;
+        remove(it);
+        return result;
     }
 
     template<typename T, typename U, typename V, typename W, typename X>
@@ -377,21 +392,36 @@ namespace WTF {
         deleteAllPairFirsts<typename HashMap<T, U, V, W, X>::KeyType>(collection);
     }
     
-    template<typename T, typename U, typename V, typename W, typename X>
-    inline void copyValuesToVector(const HashMap<T, U, V, W, X>& collection, Vector<U>& vector)
+    template<typename T, typename U, typename V, typename W, typename X, typename Y>
+    inline void copyKeysToVector(const HashMap<T, U, V, W, X>& collection, Y& vector)
     {
-        typedef typename HashMap<T, U, V, W, X>::const_iterator iterator;
+        typedef typename HashMap<T, U, V, W, X>::const_iterator::Keys iterator;
         
         vector.resize(collection.size());
         
-        iterator it = collection.begin();
-        iterator end = collection.end();
+        iterator it = collection.begin().keys();
+        iterator end = collection.end().keys();
         for (unsigned i = 0; it != end; ++it, ++i)
-            vector[i] = (*it).second;
+            vector[i] = *it;
+    }  
+
+    template<typename T, typename U, typename V, typename W, typename X, typename Y>
+    inline void copyValuesToVector(const HashMap<T, U, V, W, X>& collection, Y& vector)
+    {
+        typedef typename HashMap<T, U, V, W, X>::const_iterator::Values iterator;
+        
+        vector.resize(collection.size());
+        
+        iterator it = collection.begin().values();
+        iterator end = collection.end().values();
+        for (unsigned i = 0; it != end; ++it, ++i)
+            vector[i] = *it;
     }   
 
 } // namespace WTF
 
 using WTF::HashMap;
+
+#include "RefPtrHashMap.h"
 
 #endif /* WTF_HashMap_h */

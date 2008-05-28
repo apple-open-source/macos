@@ -161,6 +161,8 @@ struct smbnode {
 	void				*acl_cache_data;
 	struct timespec		acl_cache_timer;
 	int					acl_error;
+	int					acl_cache_len;
+	lck_mtx_t			f_ACLCacheLock;	/* Locks the openState */
 	u_char				*n_name;	/* node's file or directory name */
 	u_char				n_nmlen;	/* node's name length */
 	u_char				n_snmlen;	/* if a stream then the legnth of the stream name */
@@ -219,7 +221,7 @@ struct smbnode {
 #define SET_ACL_CACHE_TIME(np) { \
 	struct timespec waittime;	\
 								\
-	nanotime(&np->acl_cache_timer);	\
+	nanouptime(&np->acl_cache_timer);	\
 	if (np->acl_error) { \
 		waittime.tv_sec = SMB_ACL_MAXTIMO;	\
 		waittime.tv_nsec = 0;	\

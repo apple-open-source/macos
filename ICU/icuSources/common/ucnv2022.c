@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2000-2006, International Business Machines
+*   Copyright (C) 2000-2006,2008 International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  ucnv2022.c
@@ -181,6 +181,7 @@ typedef struct{
 #ifdef U_ENABLE_GENERIC_ISO_2022
     UBool isFirstBuffer;
 #endif
+    UBool isEmptySegment;
     char name[30];
     char locale[3];
 }UConverterDataISO2022;
@@ -590,6 +591,7 @@ _ISO2022Reset(UConverter *converter, UConverterResetChoice choice) {
     if(choice<=UCNV_RESET_TO_UNICODE) {
         uprv_memset(&myConverterData->toU2022State, 0, sizeof(ISO2022State));
         myConverterData->key = 0;
+        myConverterData->isEmptySegment = FALSE;
     }
     if(choice!=UCNV_RESET_TO_UNICODE) {
         uprv_memset(&myConverterData->fromU2022State, 0, sizeof(ISO2022State));
@@ -1705,6 +1707,7 @@ UConverter_toUnicode_ISO_2022_JP_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
                     continue;
                 } else {
                     /* only JIS7 uses SI/SO, not ISO-2022-JP-x */
+                    myData->isEmptySegment = FALSE;	/* reset this, we have a different error */
                     break;
                 }
 
@@ -1716,20 +1719,37 @@ UConverter_toUnicode_ISO_2022_JP_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
                     continue;
                 } else {
                     /* only JIS7 uses SI/SO, not ISO-2022-JP-x */
+                    myData->isEmptySegment = FALSE;	/* reset this, we have a different error */
                     break;
                 }
 
             case ESC_2022:
                 mySource--;
 escape:
-                changeState_2022(args->converter,&(mySource), 
-                    mySourceLimit, ISO_2022_JP,err);
+                {
+                    const char * mySourceBefore = mySource;
+                    int8_t toULengthBefore = args->converter->toULength;
 
+                    changeState_2022(args->converter,&(mySource), 
+                        mySourceLimit, ISO_2022_JP,err);
+
+                    /* If in ISO-2022-JP only and we successully completed an escape sequence, but previous segment was empty, create an error */
+                    if ( myData->version == 0 && myData->key == 0 && U_SUCCESS(*err) && myData->isEmptySegment ) {
+                        *err = U_PARSE_ERROR;	/* temporary err to flag empty segment, will be reset to U_ILLEGAL_ESCAPE_SEQUENCE in _toUnicodeWithCallback */
+                        args->converter->toULength = toULengthBefore + (mySource - mySourceBefore);
+                    }
+
+                }
                 /* invalid or illegal escape sequence */
                 if(U_FAILURE(*err)){
                     args->target = myTarget;
                     args->source = mySource;
+                    myData->isEmptySegment = FALSE;	/* Reset to avoid future spurious errors */
                     return;
+                }
+                /* If we successfully completed an escape sequence, we begin a new segment, empty so far */
+                if (myData->key == 0) {
+                    myData->isEmptySegment = TRUE;
                 }
                 continue;
 
@@ -1747,6 +1767,7 @@ escape:
                 /* falls through */
             default:
                 /* convert one or two bytes */
+                myData->isEmptySegment = FALSE;
                 cs = (StateEnum)pToU2022State->cs[pToU2022State->g];
                 if( (uint8_t)(mySourceChar - 0xa1) <= (0xdf - 0xa1) && myData->version==4 &&
                     !IS_JP_DBCS(cs)
@@ -2240,15 +2261,26 @@ UConverter_toUnicode_ISO_2022_KR_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
 
             if(mySourceChar==UCNV_SI){
                 myData->toU2022State.g = 0;
+                if (myData->isEmptySegment) {
+                    myData->isEmptySegment = FALSE;	/* we are handling it, reset to avoid future spurious errors */
+                    *err = U_PARSE_ERROR;	/* temporary err to flag empty segment, will be reset to U_ILLEGAL_ESCAPE_SEQUENCE in _toUnicodeWithCallback */
+                    args->converter->toUBytes[0] = mySourceChar;
+                    args->converter->toULength = 1;
+                    args->target = myTarget;
+                    args->source = mySource;
+                    return;
+                }
                 /*consume the source */
                 continue;
             }else if(mySourceChar==UCNV_SO){
                 myData->toU2022State.g = 1;
+                myData->isEmptySegment = TRUE;	/* Begin a new segment, empty so far */
                 /*consume the source */
                 continue;
             }else if(mySourceChar==ESC_2022){
                 mySource--;
 escape:
+                myData->isEmptySegment = FALSE;	/* Any invalid ESC sequences will be detected separately, so just reset this */
                 changeState_2022(args->converter,&(mySource), 
                                 mySourceLimit, ISO_2022_KR, err);
                 if(U_FAILURE(*err)){
@@ -2259,6 +2291,7 @@ escape:
                 continue;
             }   
 
+            myData->isEmptySegment = FALSE;	/* Any invalid char errors will be detected separately, so just reset this */
             if(myData->toU2022State.g == 1) {
                 if(mySource < mySourceLimit) {
                     char trailByte;
@@ -2759,27 +2792,50 @@ UConverter_toUnicode_ISO_2022_CN_OFFSETS_LOGIC(UConverterToUnicodeArgs *args,
             switch(mySourceChar){
             case UCNV_SI:
                 pToU2022State->g=0;
+                if (myData->isEmptySegment) {
+                    myData->isEmptySegment = FALSE;	/* we are handling it, reset to avoid future spurious errors */
+                    *err = U_PARSE_ERROR;	/* temporary err to flag empty segment, will be reset to U_ILLEGAL_ESCAPE_SEQUENCE in _toUnicodeWithCallback */
+                    args->converter->toUBytes[0] = mySourceChar;
+                    args->converter->toULength = 1;
+                    args->target = myTarget;
+                    args->source = mySource;
+                    return;
+                }
                 continue;
 
             case UCNV_SO:
                 if(pToU2022State->cs[1] != 0) {
                     pToU2022State->g=1;
+                    myData->isEmptySegment = TRUE;	/* Begin a new segment, empty so far */
                     continue;
                 } else {
                     /* illegal to have SO before a matching designator */
+                    myData->isEmptySegment = FALSE;	/* Handling a different error, reset this to avoid future spurious errs */
                     break;
                 }
 
             case ESC_2022:
                 mySource--;
 escape:
-                changeState_2022(args->converter,&(mySource), 
-                    mySourceLimit, ISO_2022_CN,err);
+                {
+                    const char * mySourceBefore = mySource;
+                    int8_t toULengthBefore = args->converter->toULength;
+
+                    changeState_2022(args->converter,&(mySource), 
+                        mySourceLimit, ISO_2022_CN,err);
+
+                    /* After SO there must be at least one character before a designator (designator error handled separately) */
+                    if ( myData->key == 0 && U_SUCCESS(*err) && myData->isEmptySegment ) {
+                        *err = U_PARSE_ERROR;	/* temporary err to flag empty segment, will be reset to U_ILLEGAL_ESCAPE_SEQUENCE in _toUnicodeWithCallback */
+                        args->converter->toULength = toULengthBefore + (mySource - mySourceBefore);
+                    }
+                }
 
                 /* invalid or illegal escape sequence */
                 if(U_FAILURE(*err)){
                     args->target = myTarget;
                     args->source = mySource;
+                    myData->isEmptySegment = FALSE;	/* Reset to avoid future spurious errors */
                     return;
                 }
                 continue;
@@ -2793,6 +2849,7 @@ escape:
                 /* falls through */
             default:
                 /* convert one or two bytes */
+                myData->isEmptySegment = FALSE;
                 if(pToU2022State->g != 0) {
                     if(mySource < mySourceLimit) {
                         UConverterSharedData *cnv;

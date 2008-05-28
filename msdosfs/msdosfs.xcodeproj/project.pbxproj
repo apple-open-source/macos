@@ -801,7 +801,7 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = msdosfs_module_stop;
-				MODULE_VERSION = 1.5.1;
+				MODULE_VERSION = 1.5.2;
 				PRODUCT_NAME = msdosfs;
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -837,7 +837,7 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = msdosfs_module_stop;
-				MODULE_VERSION = 1.5.1;
+				MODULE_VERSION = 1.5.2;
 				PRODUCT_NAME = msdosfs;
 				WARNING_CFLAGS = (
 					"-Wall",

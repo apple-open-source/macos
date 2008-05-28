@@ -1,7 +1,6 @@
-// -*- c-basic-offset: 2 -*-
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
+ *  Copyright (C) 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -26,63 +25,53 @@
 
 namespace KJS {
 
-  class ErrorInstance : public JSObject {
-  public:
-    ErrorInstance(JSObject *proto);
-    
-    virtual const ClassInfo *classInfo() const { return &info; }
-    static const ClassInfo info;
-  };
-  
-  class ErrorPrototype : public JSObject {
-  public:
-    ErrorPrototype(ExecState *exec,
-                      ObjectPrototype *objectProto,
-                      FunctionPrototype *funcProto);
-  };
+    class ErrorInstance : public JSObject {
+    public:
+        ErrorInstance(JSObject* prototype);
 
-  class ErrorProtoFunc : public InternalFunctionImp {
-  public:
-    ErrorProtoFunc(ExecState*, FunctionPrototype*, const Identifier&);
-    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
-  };
+        virtual const ClassInfo* classInfo() const { return &info; }
+        static const ClassInfo info;
+    };
 
-  class ErrorObjectImp : public InternalFunctionImp {
-  public:
-    ErrorObjectImp(ExecState *exec, FunctionPrototype *funcProto,
-                   ErrorPrototype *errorProto);
+    class ErrorPrototype : public ErrorInstance {
+    public:
+        ErrorPrototype(ExecState*, ObjectPrototype*, FunctionPrototype*);
+    };
 
-    virtual bool implementsConstruct() const;
-    virtual JSObject *construct(ExecState *exec, const List &args);
+    JSValue* errorProtoFuncToString(ExecState*, JSObject*, const List&);
 
-    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
-  };
+    class ErrorObjectImp : public InternalFunctionImp {
+    public:
+        ErrorObjectImp(ExecState*, FunctionPrototype*, ErrorPrototype*);
 
-  class NativeErrorPrototype : public JSObject {
-  public:
-    NativeErrorPrototype(ExecState *exec, ErrorPrototype *errorProto,
-                            ErrorType et, UString name, UString message);
-  private:
-    ErrorType errType;
-  };
+        virtual bool implementsConstruct() const;
+        virtual JSObject* construct(ExecState*, const List&);
 
-  class NativeErrorImp : public InternalFunctionImp {
-  public:
-    NativeErrorImp(ExecState *exec, FunctionPrototype *funcProto,
-                   JSObject *prot);
+        virtual JSValue* callAsFunction(ExecState*, JSObject*, const List&);
+    };
 
-    virtual bool implementsConstruct() const;
-    virtual JSObject *construct(ExecState *exec, const List &args);
-    virtual JSValue *callAsFunction(ExecState *exec, JSObject *thisObj, const List &args);
+    class NativeErrorPrototype : public JSObject {
+    public:
+        NativeErrorPrototype(ExecState*, ErrorPrototype*, const UString& name, const UString& message);
+    };
 
-    virtual void mark();
+    class NativeErrorImp : public InternalFunctionImp {
+    public:
+        NativeErrorImp(ExecState*, FunctionPrototype*, NativeErrorPrototype*);
 
-    virtual const ClassInfo *classInfo() const { return &info; }
-    static const ClassInfo info;
-  private:
-    JSObject *proto;
-  };
+        virtual bool implementsConstruct() const;
+        virtual JSObject* construct(ExecState*, const List&);
+        virtual JSValue* callAsFunction(ExecState*, JSObject*, const List&);
 
-} // namespace
+        virtual void mark();
 
-#endif
+        virtual const ClassInfo* classInfo() const { return &info; }
+        static const ClassInfo info;
+
+    private:
+        JSObject* proto;
+    };
+
+} // namespace KJS
+
+#endif // ERROR_OBJECT_H_

@@ -11,9 +11,13 @@ NAME = file_cmds
 
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
+ifneq ($(shell tconf --test TARGET_OS_EMBEDDED),YES)
+#libcrypto missing
+MTREE=mtree
+endif
 
 TOOLS = chflags chmod chown cksum compress cp dd df du install ipcrm ipcs ln ls\
-        mkdir mkfifo mknod mtree mv pathchk pax rm rmdir rmt shar stat\
+        mkdir mkfifo mknod $(MTREE) mv pathchk pax rm rmdir rmt shar stat\
         touch
 
 OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
@@ -25,9 +29,12 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-
-NEXTSTEP_PB_CFLAGS = -mdynamic-no-pic -no-cpp-precomp -I/System/Library/Frameworks/System.framework/PrivateHeaders
-
+OTHER_LDFLAGS += -dead_strip
+NEXTSTEP_PB_CFLAGS = -mdynamic-no-pic -no-cpp-precomp -I "$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders" -include TargetConditionals.h
+ifneq ($(SDKROOT),)
+OTHER_CFLAGS  += -isysroot "$(SDKROOT)"
+OTHER_LDFLAGS += -Wl,-syslibroot,"$(SDKROOT)"
+endif
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build
 

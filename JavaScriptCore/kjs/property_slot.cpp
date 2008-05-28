@@ -32,9 +32,15 @@ JSValue *PropertySlot::undefinedGetter(ExecState*, JSObject*, const Identifier&,
     return jsUndefined();
 }
 
+JSValue* PropertySlot::ungettableGetter(ExecState*, JSObject*, const Identifier&, const PropertySlot&)
+{
+    ASSERT_NOT_REACHED();
+    return jsUndefined();
+}
+
 JSValue *PropertySlot::functionGetter(ExecState* exec, JSObject* originalObject, const Identifier&, const PropertySlot& slot)
 {
-    return slot.m_data.getterFunc->call(exec, originalObject, List::empty());
+    return slot.m_data.getterFunc->call(exec, originalObject, exec->emptyList());
 }
 
 }

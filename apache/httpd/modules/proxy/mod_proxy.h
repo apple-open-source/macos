@@ -94,7 +94,10 @@ enum enctype {
 #endif /*APR_CHARSET_EBCDIC*/
 
 /* default Max-Forwards header setting */
-#define DEFAULT_MAX_FORWARDS    10
+/* Set this to -1, which complies with RFC2616 by not setting
+ * max-forwards if the client didn't send it to us.
+ */
+#define DEFAULT_MAX_FORWARDS    -1
 
 /* static information about a remote proxy */
 struct proxy_remote {
@@ -106,10 +109,12 @@ struct proxy_remote {
     int use_regex;          /* simple boolean. True if we have a regex pattern */
 };
 
+#define PROXYPASS_NOCANON 0x01
 struct proxy_alias {
     const char  *real;
     const char  *fake;
     ap_regex_t  *regex;
+    unsigned int flags;
 };
 
 struct dirconn_entry {
@@ -207,6 +212,7 @@ typedef struct {
     apr_array_header_t* cookie_domains;
     const apr_strmatch_pattern* cookie_path_str;
     const apr_strmatch_pattern* cookie_domain_str;
+    const char *ftp_directory_charset;
 } proxy_dir_conf;
 
 typedef struct {
@@ -254,14 +260,16 @@ struct proxy_conn_pool {
 #define PROXY_WORKER_NOT_USABLE_BITMAP ( PROXY_WORKER_IN_SHUTDOWN | \
 PROXY_WORKER_DISABLED | PROXY_WORKER_STOPPED | PROXY_WORKER_IN_ERROR )
 
-#define PROXY_WORKER_IS_INITIALIZED(f)   ( (f)->s->status & \
-  PROXY_WORKER_INITIALIZED )
+/* NOTE: these check the shared status */
+#define PROXY_WORKER_IS_INITIALIZED(f)   ( (f)->s && \
+  ( (f)->s->status &  PROXY_WORKER_INITIALIZED ) )
 
-#define PROXY_WORKER_IS_STANDBY(f)   ( (f)->s->status & \
-  PROXY_WORKER_HOT_STANDBY )
+#define PROXY_WORKER_IS_STANDBY(f)   ( (f)->s && \
+  ( (f)->s->status &  PROXY_WORKER_HOT_STANDBY ) )
 
-#define PROXY_WORKER_IS_USABLE(f)   ( !((f)->s->status & \
-  (PROXY_WORKER_NOT_USABLE_BITMAP)) && PROXY_WORKER_IS_INITIALIZED(f) )
+#define PROXY_WORKER_IS_USABLE(f)   ( (f)->s && \
+  ( !( (f)->s->status & PROXY_WORKER_NOT_USABLE_BITMAP) ) && \
+  PROXY_WORKER_IS_INITIALIZED(f) )
 
 /* default worker retry timeout in seconds */
 #define PROXY_WORKER_DEFAULT_RETRY  60
@@ -328,6 +336,7 @@ struct proxy_worker {
     int             lbset;      /* load balancer cluster set */
     apr_interval_time_t ping_timeout;
     char ping_timeout_set;
+    char            retry_set;
 };
 
 /*

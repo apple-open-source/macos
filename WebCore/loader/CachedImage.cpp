@@ -38,10 +38,8 @@
 #include "PDFDocumentImage.h"
 #endif
 
-#if ENABLE(SVG_EXPERIMENTAL_FEATURES)
-#if PLATFORM(MAC) || PLATFORM(QT)
+#if ENABLE(SVG_AS_IMAGE)
 #include "SVGImage.h"
-#endif
 #endif
 
 using std::max;
@@ -115,6 +113,36 @@ Image* CachedImage::image() const
     return nullImage();
 }
 
+void CachedImage::setImageContainerSize(const IntSize& containerSize)
+{
+    if (m_image)
+        m_image->setContainerSize(containerSize);
+}
+
+bool CachedImage::usesImageContainerSize() const
+{
+    if (m_image)
+        return m_image->usesContainerSize();
+
+    return false;
+}
+
+bool CachedImage::imageHasRelativeWidth() const
+{
+    if (m_image)
+        return m_image->hasRelativeWidth();
+
+    return false;
+}
+
+bool CachedImage::imageHasRelativeHeight() const
+{
+    if (m_image)
+        return m_image->hasRelativeHeight();
+
+    return false;
+}
+
 IntSize CachedImage::imageSize() const
 {
     return (m_image ? m_image->size() : IntSize());
@@ -151,13 +179,11 @@ inline void CachedImage::createImage()
         return;
     }
 #endif
-#if ENABLE(SVG_EXPERIMENTAL_FEATURES)
-#if PLATFORM(MAC) || PLATFORM(QT)
+#if ENABLE(SVG_AS_IMAGE)
     if (m_response.mimeType() == "image/svg+xml") {
         m_image = new SVGImage(this);
         return;
     }
-#endif
 #endif
     m_image = new BitmapImage(this);
 }

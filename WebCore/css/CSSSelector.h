@@ -3,7 +3,7 @@
  *
  * Copyright (C) 1999-2003 Lars Knoll (knoll@kde.org)
  *               1999 Waldo Bastian (bastian@kde.org)
- * Copyright (C) 2004, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -121,8 +121,16 @@ namespace WebCore {
             PseudoEmpty,
             PseudoFirstChild,
             PseudoFirstOfType,
+            PseudoLastChild,
+            PseudoLastOfType,
+            PseudoOnlyChild,
+            PseudoOnlyOfType,
             PseudoFirstLine,
             PseudoFirstLetter,
+            PseudoNthChild,
+            PseudoNthOfType,
+            PseudoNthLastChild,
+            PseudoNthLastOfType,
             PseudoLink,
             PseudoVisited,
             PseudoAnyLink,
@@ -147,7 +155,15 @@ namespace WebCore {
             PseudoSearchCancelButton,
             PseudoSearchDecoration,
             PseudoSearchResultsDecoration,
-            PseudoSearchResultsButton
+            PseudoSearchResultsButton,
+            PseudoMediaControlsPanel,
+            PseudoMediaControlsMuteButton,
+            PseudoMediaControlsPlayButton,
+            PseudoMediaControlsTimeDisplay,
+            PseudoMediaControlsTimeline,
+            PseudoMediaControlsSeekBackButton,
+            PseudoMediaControlsSeekForwardButton,
+            PseudoMediaControlsFullscreenButton
         };
 
         PseudoType pseudoType() const
@@ -173,7 +189,7 @@ namespace WebCore {
 
         unsigned m_relation           : 3; // enum Relation
         mutable unsigned m_match      : 4; // enum Match
-        mutable unsigned m_pseudoType : 6; // PseudoType
+        mutable unsigned m_pseudoType : 8; // PseudoType
 
     private:
         void extractPseudoType() const;

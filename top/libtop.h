@@ -88,6 +88,9 @@ typedef struct {
 	/* VM page size. */
 	vm_size_t		pagesize;
 
+	/* Physical memory size. */
+	unsigned long long	memsize;
+
 	/* VM statistics. */
 	vm_statistics_data_t	vm_stat;
 	vm_statistics_data_t	b_vm_stat;

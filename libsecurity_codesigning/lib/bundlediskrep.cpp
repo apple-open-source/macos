@@ -24,6 +24,7 @@
 #include <CoreFoundation/CFURLAccess.h>
 #include <CoreFoundation/CFBundlePriv.h>
 #include <security_codesigning/cfmunge.h>
+#include <copyfile.h>
 
 
 namespace Security {
@@ -36,7 +37,7 @@ using namespace UnixPlusPlus;
 // We make a CFBundleRef immediately, but everything else is lazy
 //
 BundleDiskRep::BundleDiskRep(const char *path)
-	: mBundle(_CFBundleCreateIfLooksLikeBundle(NULL, CFTempURL(path)))
+	: mBundle(_CFBundleCreateIfMightBeBundle(NULL, CFTempURL(path)))
 {
 	if (!mBundle)
 		MacOSError::throwMe(errSecCSBadObjectFormat);
@@ -52,31 +53,40 @@ BundleDiskRep::BundleDiskRep(CFBundleRef ref)
 
 //
 // Create a path to a bundle signing resource, by name.
-// Note that these are stored in the bundle's Content directory,
-// not its Resources directory.
+// If the BUNDLEDISKREP_DIRECTORY directory exists in the bundle's support directory, files
+// will be read and written there. Otherwise, they go directly into the support directory.
 //
-string BundleDiskRep::resourcePath(const char *name)
+string BundleDiskRep::metaPath(const char *name)
 {
-	if (mResourcePath.empty())
-		mResourcePath = cfString(CFBundleCopySupportFilesDirectoryURL(mBundle), true);
-	return mResourcePath + "/" + name;
+	if (mMetaPath.empty()) {
+		string support = cfString(CFBundleCopySupportFilesDirectoryURL(mBundle), true);
+		mMetaPath = support + "/" BUNDLEDISKREP_DIRECTORY;
+		if (::access(mMetaPath.c_str(), F_OK) == 0) {
+			mMetaExists = true;
+		} else {
+			mMetaPath = support;
+			mMetaExists = false;
+		}
+	}
+	return mMetaPath + "/" + name;
 }
 
 
 //
-// Load the data for a signing resource, by URL.
+// Try to create the meta-file directory in our bundle.
+// Does nothing if the directory already exists.
+// Throws if an error occurs.
 //
-CFDataRef BundleDiskRep::resourceData(CFURLRef url)
+void BundleDiskRep::createMeta()
 {
-	CFDataRef data;
-	SInt32 error;
-	if (CFURLCreateDataAndPropertiesFromResource(NULL, url,
-		&data, NULL, NULL, &error)) {
-		return data;
-	} else {
-		secdebug("bundlerep", "failed to fetch %s error=%d",
-			cfString(url).c_str(), int(error));
-		return NULL;
+	string meta = metaPath(BUNDLEDISKREP_DIRECTORY);
+	if (!mMetaExists) {
+		if (::mkdir(meta.c_str(), 0755) == 0) {
+			copyfile(cfString(canonicalPath(), true).c_str(), meta.c_str(), NULL, COPYFILE_SECURITY);
+			mMetaPath = meta;
+			mMetaExists = true;
+		} else if (errno != EEXIST)
+			UnixError::throwMe();
 	}
 }
 
@@ -94,7 +104,7 @@ CFDataRef BundleDiskRep::component(CodeDirectory::SpecialSlot slot)
 	// the Info.plist comes from the magic CFBundle-indicated place and ONLY from there
 	case cdInfoSlot:
 		if (CFRef<CFURLRef> info = _CFBundleCopyInfoPlistURL(mBundle))
-			return resourceData(info);
+			return cfLoadFile(info);
 		else
 			return NULL;
 	// by default, we take components from the executable image or files
@@ -105,7 +115,7 @@ CFDataRef BundleDiskRep::component(CodeDirectory::SpecialSlot slot)
 	// but the following always come from files
 	case cdResourceDirSlot:
 		if (const char *name = CodeDirectory::canonicalSlotName(slot))
-			return resourceData(name);
+			return metaData(name);
 		else
 			return NULL;
 	}
@@ -129,7 +139,7 @@ string BundleDiskRep::recommendedIdentifier()
 			return cfString(identifier);
 	
 	// fall back to using the $(basename) of the canonical path. Drop any .app suffix
-	string path = cfString(this->canonicalPath());
+	string path = cfString(this->canonicalPath(), true);
 	if (path.substr(path.size() - 4) == ".app")
 		path = path.substr(0, path.size() - 4);
 	string::size_type p = path.rfind('/');
@@ -161,6 +171,19 @@ CFDictionaryRef BundleDiskRep::defaultResourceRules()
 		"'^Resources/.*\\.lproj/locversion.plist$' = {omit=#T, weight=1100}"
 		"}}");
 }
+
+void BundleDiskRep::adjustResources(ResourceBuilder &builder)
+{
+	// exclude entire contents of meta directory
+	builder.addExclusion("^" BUNDLEDISKREP_DIRECTORY "/");
+	
+	// exclude the main executable file
+	string resources = resourcesRootPath();
+	string executable = mainExecutablePath();
+	if (!executable.compare(0, resources.length(), resources, 0, resources.length()))	// is prefix
+		builder.addExclusion(string("^") + executable.substr(resources.length() + 1) + "$");
+}
+
 
 const Requirements *BundleDiskRep::defaultRequirements(const Architecture *arch)
 {
@@ -199,6 +222,7 @@ CFArrayRef BundleDiskRep::modifiedFiles()
 	checkModifiedFile(files, cdCodeDirectorySlot);
 	checkModifiedFile(files, cdSignatureSlot);
 	checkModifiedFile(files, cdResourceDirSlot);
+	checkModifiedFile(files, cdEntitlementSlot);
 	return files;
 }
 
@@ -206,10 +230,11 @@ void BundleDiskRep::checkModifiedFile(CFMutableArrayRef files, CodeDirectory::Sp
 {
 	if (CFDataRef data = mExecRep->component(slot))	// provided by executable file
 		CFRelease(data);
-	else if (const char *resourceName = CodeDirectory::canonicalSlotName(slot)) // bundle file
-		CFArrayAppendValue(files, CFTempURL(resourcePath(resourceName)));
-	else
-		/* we don't have that one */;
+	else if (const char *resourceName = CodeDirectory::canonicalSlotName(slot)) {
+		string file = metaPath(resourceName);
+		if (::access(file.c_str(), F_OK) == 0)
+			CFArrayAppendValue(files, CFTempURL(file));
+	}
 }
 
 FileDesc &BundleDiskRep::fd()
@@ -232,7 +257,7 @@ DiskRep::Writer *BundleDiskRep::writer()
 }
 
 BundleDiskRep::Writer::Writer(BundleDiskRep *r)
-	: rep(r)
+	: rep(r), mMadeMetaDirectory(false)
 {
 	execWriter = rep->mExecRep->writer();
 }
@@ -241,7 +266,7 @@ BundleDiskRep::Writer::Writer(BundleDiskRep *r)
 //
 // Write a component.
 // Note that this isn't concerned with Mach-O writing; this is handled at
-// a much higher level. If we're called, we write to a file in the Bundle's contents directory.
+// a much higher level. If we're called, we write to a file in the Bundle's meta directory.
 //
 void BundleDiskRep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef data)
 {
@@ -251,11 +276,18 @@ void BundleDiskRep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef
 			return execWriter->component(slot, data);	// ... so hand it through
 		// execWriter doesn't want the data; store it as a resource file (below)
 	case cdResourceDirSlot:
-	case cdRequirementsSlot:
 		// the resource directory always goes into a bundle file
 		if (const char *name = CodeDirectory::canonicalSlotName(slot)) {
-			AutoFileDesc fd(rep->resourcePath(name), O_WRONLY | O_CREAT | O_TRUNC);
+			rep->createMeta();
+			string path = rep->metaPath(name);
+			AutoFileDesc fd(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 			fd.writeAll(CFDataGetBytePtr(data), CFDataGetLength(data));
+			if (rep->mMetaExists) {
+				// leave a symlink in the support directory for pre-10.5.3 compatibility (but ignore errors)
+				string legacy = cfString(CFBundleCopySupportFilesDirectoryURL(rep->mBundle), true) + "/" + name;
+//				::unlink(legacy.c_str());		// force-replace
+				::symlink((string(BUNDLEDISKREP_DIRECTORY "/") + name).c_str(), legacy.c_str());
+			}
 		} else
 			MacOSError::throwMe(errSecCSBadObjectFormat);
 	}

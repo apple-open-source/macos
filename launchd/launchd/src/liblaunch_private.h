@@ -24,7 +24,6 @@
 #include <sys/types.h>
 #include <launch.h>
 #include <unistd.h>
-#include <quarantine.h>
 
 #pragma GCC visibility push(default)
 
@@ -67,7 +66,7 @@ typedef struct _launch *launch_t;
 
 launch_t launchd_fdopen(int);
 int launchd_getfd(launch_t);
-void launchd_close(launch_t, typeof(close) closefunc);
+void launchd_close(launch_t, __typeof__(close) closefunc);
 
 launch_data_t   launch_data_new_errno(int);
 bool		launch_data_set_errno(launch_data_t, int);
@@ -114,7 +113,7 @@ struct spawn_via_launchd_attr {
  	mach_port_t *		spawn_observer_port;
  	const cpu_type_t *	spawn_binpref;
 	size_t			spawn_binpref_cnt;
-	qtn_proc_t		spawn_quarantine;
+	void *			spawn_quarantine;
 	const char *		spawn_seatbelt_profile;
 	const uint64_t *	spawn_seatbelt_flags;
 };

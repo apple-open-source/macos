@@ -42,21 +42,15 @@
 #include "RenderWidget.h"
 #include "Text.h"
 
-#if ENABLE(SVG)
-#include "SVGDocument.h"
-#endif
-
 namespace WebCore {
 
 using namespace EventNames;
 using namespace HTMLNames;
 
-HTMLObjectElement::HTMLObjectElement(Document* doc) 
+HTMLObjectElement::HTMLObjectElement(Document* doc, bool createdByParser) 
     : HTMLPlugInElement(objectTag, doc)
-    , m_needWidgetUpdate(false)
+    , m_needWidgetUpdate(!createdByParser)
     , m_useFallbackContent(false)
-    , m_imageLoader(0)
-    , m_complete(false)
     , m_docNamedItem(true)
 {
 }
@@ -67,8 +61,6 @@ HTMLObjectElement::~HTMLObjectElement()
     // m_instance should have been cleaned up in detach().
     ASSERT(!m_instance);
 #endif
-    
-    delete m_imageLoader;
 }
 
 #if USE(JAVASCRIPTCORE_BINDINGS)
@@ -104,17 +96,15 @@ void HTMLObjectElement::parseMappedAttribute(MappedAttribute *attr)
           m_serviceType = m_serviceType.left(pos);
         if (renderer())
           m_needWidgetUpdate = true;
-        if (!isImageType() && m_imageLoader) {
-          delete m_imageLoader;
-          m_imageLoader = 0;
-        }
+        if (!isImageType() && m_imageLoader)
+          m_imageLoader.clear();
     } else if (attr->name() == dataAttr) {
         m_url = parseURL(val);
         if (renderer())
           m_needWidgetUpdate = true;
         if (renderer() && isImageType()) {
           if (!m_imageLoader)
-              m_imageLoader = new HTMLImageLoader(this);
+              m_imageLoader.set(new HTMLImageLoader(this));
           m_imageLoader->updateFromElement();
         }
     } else if (attr->name() == classidAttr) {
@@ -170,48 +160,37 @@ RenderObject *HTMLObjectElement::createRenderer(RenderArena* arena, RenderStyle*
 
 void HTMLObjectElement::attach()
 {
+    bool isImage = isImageType();
+
+    if (!isImage)
+        queuePostAttachCallback(&HTMLPlugInElement::updateWidgetCallback, this);
+
     HTMLPlugInElement::attach();
 
-    if (renderer() && !m_useFallbackContent) {
-        if (isImageType()) {
-            if (!m_imageLoader)
-                m_imageLoader = new HTMLImageLoader(this);
-            m_imageLoader->updateFromElement();
-            if (renderer()) {
-                RenderImage* imageObj = static_cast<RenderImage*>(renderer());
-                imageObj->setCachedImage(m_imageLoader->image());
-            }
-        } else {
-            if (m_needWidgetUpdate) {
-                // Set m_needWidgetUpdate to false before calling updateWidget because updateWidget may cause
-                // this method or recalcStyle (which also calls updateWidget) to be called.
-                m_needWidgetUpdate = false;
-                static_cast<RenderPartObject*>(renderer())->updateWidget(true);
-            } else {
-                m_needWidgetUpdate = true;
-                setChanged();
-            }
+    if (isImage && renderer() && !m_useFallbackContent) {
+        if (!m_imageLoader)
+            m_imageLoader.set(new HTMLImageLoader(this));
+        m_imageLoader->updateFromElement();
+        if (renderer()) {
+            RenderImage* imageObj = static_cast<RenderImage*>(renderer());
+            imageObj->setCachedImage(m_imageLoader->image());
         }
     }
 }
 
-void HTMLObjectElement::finishedParsing()
+void HTMLObjectElement::updateWidget()
 {
-    // The parser just reached </object>.
-    setComplete(true);
-    
-    HTMLPlugInElement::finishedParsing();
+    if (m_needWidgetUpdate && renderer() && !m_useFallbackContent && !isImageType())
+        static_cast<RenderPartObject*>(renderer())->updateWidget(true);
 }
 
-void HTMLObjectElement::setComplete(bool complete)
+void HTMLObjectElement::finishParsingChildren()
 {
-    if (complete != m_complete) {
-        m_complete = complete;
-        if (complete && !m_useFallbackContent) {
-            m_needWidgetUpdate = true;
-            if (inDocument())
-                setChanged();
-        }
+    HTMLPlugInElement::finishParsingChildren();
+    if (!m_useFallbackContent) {
+        m_needWidgetUpdate = true;
+        if (inDocument())
+            setChanged();
     }
 }
 
@@ -259,18 +238,24 @@ void HTMLObjectElement::recalcStyle(StyleChange ch)
     HTMLPlugInElement::recalcStyle(ch);
 }
 
-void HTMLObjectElement::childrenChanged()
+void HTMLObjectElement::childrenChanged(bool changedByParser)
 {
     updateDocNamedItem();
     if (inDocument() && !m_useFallbackContent) {
         m_needWidgetUpdate = true;
         setChanged();
     }
+    HTMLPlugInElement::childrenChanged(changedByParser);
 }
 
 bool HTMLObjectElement::isURLAttribute(Attribute *attr) const
 {
     return (attr->name() == dataAttr || (attr->name() == usemapAttr && attr->value().domString()[0] != '#'));
+}
+
+const QualifiedName& HTMLObjectElement::imageSourceAttributeName() const
+{
+    return dataAttr;
 }
 
 bool HTMLObjectElement::isImageType()
@@ -395,7 +380,7 @@ void HTMLObjectElement::setCodeType(const String& value)
 
 String HTMLObjectElement::data() const
 {
-    return getAttribute(dataAttr);
+    return document()->completeURL(getAttribute(dataAttr));
 }
 
 void HTMLObjectElement::setData(const String& value)
@@ -491,17 +476,5 @@ bool HTMLObjectElement::containsJavaApplet() const
     
     return false;
 }
-
-#if ENABLE(SVG)
-SVGDocument* HTMLObjectElement::getSVGDocument(ExceptionCode& ec) const
-{
-    Document* doc = contentDocument();
-    if (doc && doc->isSVGDocument())
-        return static_cast<SVGDocument*>(doc);
-    // Spec: http://www.w3.org/TR/SVG/struct.html#InterfaceGetSVGDocument
-    ec = NOT_SUPPORTED_ERR;
-    return 0;
-}
-#endif
 
 }

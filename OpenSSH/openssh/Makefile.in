@@ -1,4 +1,4 @@
-# $Id: Makefile.in,v 1.283 2006/10/23 21:44:47 tim Exp $
+# $Id: Makefile.in,v 1.285 2007/06/11 04:01:42 djm Exp $
 
 # uncomment if you run a non bourne compatable shell. Ie. csh
 #SHELL = @SH@
@@ -44,11 +44,8 @@ LD=@LD@
 CFLAGS=@CFLAGS@
 CPPFLAGS=-I. -I$(srcdir) @CPPFLAGS@ $(PATHS) @DEFS@
 LIBS=@LIBS@
-LIBSELINUX=@LIBSELINUX@
 SSHDLIBS=@SSHDLIBS@
 LIBEDIT=@LIBEDIT@
-LIBPAM=@LIBPAM@
-LIBWRAP=@LIBWRAP@
 AR=@AR@
 AWK=@AWK@
 RANLIB=@RANLIB@
@@ -75,7 +72,7 @@ LIBSSH_OBJS=acss.o authfd.o authfile.o bufaux.o bufbn.o buffer.o \
 	atomicio.o key.o dispatch.o kex.o mac.o uidswap.o uuencode.o misc.o \
 	monitor_fdpass.o rijndael.o ssh-dss.o ssh-rsa.o dh.o kexdh.o \
 	kexgex.o kexdhc.o kexgexc.o scard.o msg.o progressmeter.o dns.o \
-	entropy.o scard-opensc.o gss-genr.o kexgssc.o
+	entropy.o scard-opensc.o gss-genr.o umac.o kexgssc.o
 
 SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
 	sshconnect.o sshconnect1.o sshconnect2.o
@@ -88,7 +85,7 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passwd.o auth-rsa.o auth-rh-rsa.o \
 	auth2-none.o auth2-passwd.o auth2-pubkey.o \
 	monitor_mm.o monitor.o monitor_wrap.o kexdhs.o kexgexs.o \
 	auth-krb5.o \
-	auth2-gss.o gss-serv.o gss-serv-krb5.o kexgsss.o\
+	auth2-gss.o gss-serv.o gss-serv-krb5.o kexgsss.o \
 	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
 	audit.o audit-bsm.o platform.o
 
@@ -143,7 +140,7 @@ ssh$(EXEEXT): $(LIBCOMPAT) libssh.a $(SSHOBJS) $(KEYCHAINOBJS)
 	$(LD) -o $@ $(SSHOBJS) $(KEYCHAINOBJS) $(LDFLAGS) $(KEYCHAIN_LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
 
 sshd$(EXEEXT): libssh.a	$(LIBCOMPAT) $(SSHDOBJS)
-	$(LD) -o $@ $(SSHDOBJS) $(LDFLAGS) -lssh -lopenbsd-compat $(LIBWRAP) $(LIBPAM) $(LIBSELINUX) $(SSHDLIBS) $(LIBS)
+	$(LD) -o $@ $(SSHDOBJS) $(LDFLAGS) -lssh -lopenbsd-compat $(SSHDLIBS) $(LIBS)
 
 scp$(EXEEXT): $(LIBCOMPAT) libssh.a scp.o progressmeter.o
 	$(LD) -o $@ scp.o progressmeter.o bufaux.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -752,7 +752,6 @@ typedef struct SGlob {
 	int				chkLevel;
 	int             repairLevel;
 	Boolean			minorRepairErrors;	// indicates some minor repairs failed
-	Boolean		minorRepairAfterThreadRec;	// indicates some minor repair failed and should be repaired after incorrect number of thread record repair	
 	Boolean		minorRepairFalseSuccess;	// indicates minor repair function is returning false success, do not delete from the list
 	int				canWrite;  	// we can safely write to the block device
 	int				writeRef;	// file descriptor with write access on the volume	

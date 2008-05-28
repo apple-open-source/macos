@@ -503,6 +503,7 @@ pri(k, ve)
 {
 	VAR *v;
 	int j=0;
+	char c = '?';
 
 	v = ve->var;
 	if (!mflg ) {
@@ -511,17 +512,20 @@ pri(k, ve)
 		switch(k->thval[print_thread_num].tb.policy) {
 			case POLICY_TIMESHARE : 
 		j = k->thval[print_thread_num].schedinfo.tshare.cur_priority;
+		c = 'T';
 			break;
 			case POLICY_FIFO : 
 		j = k->thval[print_thread_num].schedinfo.fifo.base_priority;
+		c = 'F';
 			break;
 			case POLICY_RR : 
 		j = k->thval[print_thread_num].schedinfo.rr.base_priority;
+		c = 'R';
 			break;
 			default :
 				j = 0;		
 		}
-		(void)printf("%*d", v->width, j);
+		(void)printf("%*d%c", v->width - 1, j, c);
 	}else {
 		j=0;
 		(void)printf("%*d", v->width, j);

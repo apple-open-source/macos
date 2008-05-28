@@ -1,4 +1,0 @@
-Package: iousbmassstorageclass
-Maintainer: Darwin Developers <darwin-development@lists.apple.com>
-Description: IOKit USB Mass Storage Classes
-Build-Depends: build-base, jam, iousbfamily, ioscsiarchitecturemodelfamily, xnu

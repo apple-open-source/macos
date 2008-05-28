@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com 
+* Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
@@ -21,7 +21,7 @@
 * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
 * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include "config.h"
@@ -38,7 +38,7 @@ namespace WebCore {
 
 PlatformMouseEvent::PlatformMouseEvent(GdkEventButton* event)
 {
-    m_timestamp = currentTime();
+    m_timestamp = event->time;
     m_position = IntPoint((int)event->x, (int)event->y);
     m_globalPosition = IntPoint((int)event->x_root, (int)event->y_root);
     m_shiftKey = event->state & GDK_SHIFT_MASK;
@@ -77,7 +77,7 @@ PlatformMouseEvent::PlatformMouseEvent(GdkEventButton* event)
 
 PlatformMouseEvent::PlatformMouseEvent(GdkEventMotion* motion)
 {
-    m_timestamp = currentTime();
+    m_timestamp = motion->time;
     m_position = IntPoint((int)motion->x, (int)motion->y);
     m_globalPosition = IntPoint((int)motion->x_root, (int)motion->y_root);
     m_shiftKey = motion->state & GDK_SHIFT_MASK;

@@ -120,11 +120,11 @@ allowed_user(struct passwd * pw)
 	/* grab passwd field for locked account check */
 #ifdef USE_SHADOW
 	if (spw != NULL)
-#if defined(HAVE_LIBIAF)  &&  !defined(BROKEN_LIBIAF)
+#ifdef USE_LIBIAF
 		passwd = get_iaf_password(pw);
 #else
 		passwd = spw->sp_pwdp;
-#endif /* HAVE_LIBIAF  && !BROKEN_LIBIAF */
+#endif /* USE_LIBIAF */
 #else
 	passwd = pw->pw_passwd;
 #endif
@@ -146,9 +146,9 @@ allowed_user(struct passwd * pw)
 		if (strstr(passwd, LOCKED_PASSWD_SUBSTR))
 			locked = 1;
 #endif
-#if defined(HAVE_LIBIAF)  &&  !defined(BROKEN_LIBIAF)
+#ifdef USE_LIBIAF
 		free(passwd);
-#endif /* HAVE_LIBIAF  && !BROKEN_LIBIAF */
+#endif /* USE_LIBIAF */
 		if (locked) {
 			logit("User %.100s not allowed because account is locked",
 			    pw->pw_name);
@@ -614,8 +614,8 @@ fakepw(void)
 	fake.pw_passwd =
 	    "$2a$06$r3.juUaHZDlIbQaO2dS9FuYxL1W9M81R1Tc92PoSNmzvpEqLkLGrK";
 	fake.pw_gecos = "NOUSER";
-	fake.pw_uid = privsep_pw->pw_uid;
-	fake.pw_gid = privsep_pw->pw_gid;
+	fake.pw_uid = privsep_pw == NULL ? (uid_t)-1 : privsep_pw->pw_uid;
+	fake.pw_gid = privsep_pw == NULL ? (gid_t)-1 : privsep_pw->pw_gid;
 #ifdef HAVE_PW_CLASS_IN_PASSWD
 	fake.pw_class = "";
 #endif

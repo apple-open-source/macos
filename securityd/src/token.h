@@ -59,7 +59,7 @@ public:
 	std::string printName() const { return mPrintName; }
 	TokenCache::Token &cache() const { return *mCache; }
 	
-	void insert(::Reader &slot);
+	void insert(::Reader &slot, RefPointer<TokenDaemon> tokend);
 	void remove();
 	
 	void notify(NotificationEvent event);

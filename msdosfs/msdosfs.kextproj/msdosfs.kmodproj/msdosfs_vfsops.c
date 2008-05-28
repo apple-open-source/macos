@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -440,7 +440,16 @@ mountmsdosfs(devvp, mp, context)
 	pmp->pm_maxcluster = (pmp->pm_HugeSectors - pmp->pm_firstcluster) /
 	    SecPerClust + 1;
 
-        pmp->pm_firstcluster *= pmp->pm_BlocksPerSec;	/* Convert to physical (device) blocks */
+	if (FAT32(pmp) && (pmp->pm_rootdirblk < CLUST_FIRST ||
+		pmp->pm_rootdirblk > pmp->pm_maxcluster))
+	{
+		printf("mountmsdosfs: root starting cluster (%lu) out of range\n",
+			pmp->pm_rootdirblk);
+		error = EINVAL;
+		goto error_exit;
+	}
+
+	pmp->pm_firstcluster *= pmp->pm_BlocksPerSec;	/* Convert to physical (device) blocks */
 
 	if (pmp->pm_fatmask == 0) {
 		/*
@@ -631,7 +640,9 @@ mountmsdosfs(devvp, mp, context)
 
 	vfs_setflags(mp, MNT_IGNORE_OWNERSHIP);
 	
-	(void) get_root_label(mp, context);
+	error = get_root_label(mp, context);
+	if (error)
+		goto error_exit;
 
 	return 0;
 
@@ -641,6 +652,7 @@ error_exit:
 	if (pmp) {
 		if (pmp->pm_sync_timer)
 		{
+		    thread_call_cancel(pmp->pm_sync_timer);
 			thread_call_free(pmp->pm_sync_timer);
 			pmp->pm_sync_timer = NULL;
 		}
@@ -1340,8 +1352,12 @@ static int get_root_label(struct mount *mp, vfs_context_t context)
     
     for (frcn=0; ; frcn++) {
         error = pcbmap(root, frcn, 1, &bn, &cluster, &blsize);
-        if (error)
+        if (error) {
+            /* It is fine if no volume label entry was found in the root directory */
+            if (error == E2BIG)
+                error = 0;
             goto not_found;
+        }
 
         error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
         if (error) {
@@ -1411,8 +1427,11 @@ not_found:
     if (bp)
         buf_brelse(bp);
 
-    if (vp)
+    if (vp) {
+        if (error)
+            vnode_recycle(vp);
         vnode_put(vp);
+    }
 
     return error;
 }

@@ -31,7 +31,6 @@ CFErrorRef SetFTPPrincipal(CFStringRef inPrincipal);
 CFErrorRef SetIMAPPrincipal(CFStringRef inPrincipal);
 CFErrorRef SetPOPPrincipal(CFStringRef inPrincipal);
 CFErrorRef SetSMTPPrincipal(CFStringRef inPrincipal);
-CFErrorRef SetLDAPPrincipal(CFStringRef inPrincipal);
 CFErrorRef SetHTTPPrincipal(CFStringRef inPrincipal);
 CFErrorRef SetIPPPrincipal(CFStringRef inPrincipal);
 CFErrorRef SetJABBERPrincipal(CFStringRef inPrincipal);
@@ -43,6 +42,7 @@ CFErrorRef AddXGridPrincipal(CFStringRef inPrincipal);
 CFErrorRef SetXGridPrincipal(CFStringRef inPrincipal);
 CFErrorRef SetSMBPrincipal(CFStringRef inPrincipal, CFStringRef inAdminName, const char *inPassword);
 CFErrorRef SetFTPPrincipal(CFStringRef inPrincipal);
+CFErrorRef SetVNCPrincipal(CFStringRef inPrincipal);
 
 __END_DECLS
 

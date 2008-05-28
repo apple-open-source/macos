@@ -1,10 +1,8 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -34,7 +32,7 @@ typedef void (*NodeCallback)(Node*);
 
 class ContainerNode : public EventTargetNode {
 public:
-    ContainerNode(Document *doc);
+    ContainerNode(Document*);
     virtual ~ContainerNode();
 
     Node* firstChild() const { return m_firstChild; }
@@ -62,19 +60,29 @@ public:
     virtual void insertedIntoTree(bool deep);
     virtual void removedFromTree(bool deep);
 
+    virtual void childrenChanged(bool changedByParser = false);
+
+    virtual bool removeChildren();
+
     void removeAllChildren();
-    void removeChildren();
-    void cloneChildNodes(Node* clone);
+
+    void cloneChildNodes(ContainerNode* clone);
 
 protected:
     static void queuePostAttachCallback(NodeCallback, Node*);
+    static void suspendPostAttachCallbacks();
+    static void resumePostAttachCallbacks();
 
     void setFirstChild(Node* child) { m_firstChild = child; }
     void setLastChild(Node* child) { m_lastChild = child; }
     
 private:
+    static void dispatchPostAttachCallbacks();
+
     virtual Node* virtualFirstChild() const;
     virtual Node* virtualLastChild() const;
+    
+    static void addChildNodesToDeletionQueue(Node*& head, Node*& tail, ContainerNode*);
 
     bool getUpperLeftCorner(int& x, int& y) const;
     bool getLowerRightCorner(int& x, int& y) const;

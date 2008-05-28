@@ -31,9 +31,11 @@
 #include "config.h"
 #include "RenderListBox.h"
 
+#include "CSSStyleSelector.h"
 #include "Document.h"
 #include "EventHandler.h"
 #include "EventNames.h"
+#include "FocusController.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
@@ -42,10 +44,11 @@
 #include "HTMLOptionElement.h"
 #include "HTMLSelectElement.h"
 #include "HitTestResult.h"
+#include "Page.h"
 #include "PlatformScrollBar.h" 
 #include "RenderTheme.h"
 #include "RenderView.h"
-#include "TextStyle.h"
+#include "SelectionController.h"
 #include <math.h>
 
 using namespace std;
@@ -78,9 +81,13 @@ RenderListBox::RenderListBox(HTMLSelectElement* element)
 
 RenderListBox::~RenderListBox()
 {
-    if (m_vBar && m_vBar->isWidget())
-        if (FrameView* view = node()->document()->view())
-            view->removeChild(static_cast<PlatformScrollbar*>(m_vBar.get()));
+    if (m_vBar) {
+        if (m_vBar->isWidget()) {
+            if (FrameView* view = node()->document()->view())
+                view->removeChild(static_cast<PlatformScrollbar*>(m_vBar.get()));
+        }
+        m_vBar->setClient(0);
+    }
 }
 
 void RenderListBox::setStyle(RenderStyle* style)
@@ -96,7 +103,6 @@ void RenderListBox::updateFromElement()
         int size = numItems();
         
         float width = 0;
-        TextStyle textStyle(0, 0, 0, false, false, false, false);
         for (int i = 0; i < size; ++i) {
             HTMLElement* element = listItems[i];
             String text;
@@ -108,11 +114,11 @@ void RenderListBox::updateFromElement()
                 FontDescription d = itemFont.fontDescription();
                 d.setBold(true);
                 itemFont = Font(d, itemFont.letterSpacing(), itemFont.wordSpacing());
-                itemFont.update();
+                itemFont.update(document()->styleSelector()->fontSelector());
             }
                 
             if (!text.isEmpty()) {
-                float textWidth = itemFont.floatWidth(TextRun(text.impl()), textStyle);
+                float textWidth = itemFont.floatWidth(TextRun(text.impl(), 0, 0, 0, false, false, false, false));
                 width = max(width, textWidth);
             }
         }
@@ -228,9 +234,12 @@ void RenderListBox::calcHeight()
     RenderBlock::calcHeight();
     
     if (m_vBar) {
-        m_vBar->setEnabled(numVisibleItems() < numItems());
+        bool enabled = numVisibleItems() < numItems();
+        m_vBar->setEnabled(enabled);
         m_vBar->setSteps(1, min(1, numVisibleItems() - 1), itemHeight);
         m_vBar->setProportion(numVisibleItems(), numItems());
+        if (!enabled)
+            m_indexOffset = 0;
     }
 }
 
@@ -310,7 +319,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
     
     Color textColor = element->renderStyle() ? element->renderStyle()->color() : style()->color();
     if (element->hasTagName(optionTag) && static_cast<HTMLOptionElement*>(element)->selected()) {
-        if (document()->frame()->isActive() && document()->focusedNode() == node())
+        if (document()->frame()->selectionController()->isFocusedAndActive() && document()->focusedNode() == node())
             textColor = theme()->activeListBoxSelectionForegroundColor();
         // Honor the foreground color for disabled items
         else if (!element->disabled())
@@ -324,18 +333,17 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
         FontDescription d = itemFont.fontDescription();
         d.setBold(true);
         itemFont = Font(d, itemFont.letterSpacing(), itemFont.wordSpacing());
-        itemFont.update();
+        itemFont.update(document()->styleSelector()->fontSelector());
     }
     paintInfo.context->setFont(itemFont);
     
     unsigned length = itemText.length();
     const UChar* string = itemText.characters();
-    TextStyle textStyle(0, 0, 0, itemStyle->direction() == RTL, itemStyle->unicodeBidi() == Override, false, false);
-    TextRun textRun(string, length);
+    TextRun textRun(string, length, 0, 0, 0, itemStyle->direction() == RTL, itemStyle->unicodeBidi() == Override, false, false);
 
     // Draw the item text
     if (itemStyle->visibility() != HIDDEN)
-        paintInfo.context->drawBidiText(textRun, r.location(), textStyle);
+        paintInfo.context->drawBidiText(textRun, r.location());
 }
 
 void RenderListBox::paintItemBackground(PaintInfo& paintInfo, int tx, int ty, int listIndex)
@@ -346,7 +354,7 @@ void RenderListBox::paintItemBackground(PaintInfo& paintInfo, int tx, int ty, in
 
     Color backColor;
     if (element->hasTagName(optionTag) && static_cast<HTMLOptionElement*>(element)->selected()) {
-        if (document()->frame()->isActive() && document()->focusedNode() == node())
+        if (document()->frame()->selectionController()->isFocusedAndActive() && document()->focusedNode() == node())
             backColor = theme()->activeListBoxSelectionBackgroundColor();
         else
             backColor = theme()->inactiveListBoxSelectionBackgroundColor();
@@ -538,6 +546,12 @@ IntRect RenderListBox::windowClipRect() const
         return IntRect();
 
     return frameView->windowClipRectForLayer(enclosingLayer(), true);
+}
+
+bool RenderListBox::isActive() const
+{
+    Page* page = document()->frame()->page();
+    return page && page->focusController()->isActive();
 }
 
 bool RenderListBox::isScrollable() const

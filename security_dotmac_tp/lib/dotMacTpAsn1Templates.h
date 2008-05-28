@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,11 +42,13 @@ extern "C" {
  *
  * DotMacTpPendingRequest ::=  SEQUENCE {
  *		userName			UTF8String,
- *		certTypeTag			INTEGER }		// CSSM_DOT_MAC_TYPE_ICHAT, etc. 
+ *		certTypeTag			INTEGER,		// CSSM_DOT_MAC_TYPE_ICHAT, etc.
+ *		domainName			UTF8String }
  */
 typedef struct {
 	CSSM_DATA			userName;
 	CSSM_DATA			certTypeTag;
+    CSSM_DATA			domainName;
 } DotMacTpPendingRequest;
 
 extern const SecAsn1Template DotMacTpPendingRequestTemplate[];

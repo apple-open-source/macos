@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,10 +22,9 @@
 
 #define MOBILE 0
 
-#if __APPLE__
+#ifdef __APPLE__
 #define HAVE_FUNC_USLEEP 1
 #endif /* __APPLE__ */
-
 
 #if PLATFORM(WIN_OS)
 
@@ -38,7 +37,7 @@
 #endif
 
 // If we don't define these, they get defined in windef.h. 
-// We want to use std::min and std::max
+// We want to use std::min and std::max.
 #ifndef max
 #define max max
 #endif
@@ -46,8 +45,11 @@
 #define min min
 #endif
 
+// CURL needs winsock, so don't prevent inclusion of it
+#if !USE(CURL)
 #ifndef _WINSOCKAPI_
 #define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
+#endif
 #endif
 
 #endif /* PLATFORM(WIN_OS) */
@@ -67,6 +69,18 @@
 
 #endif
 
+// this breaks compilation of <QFontDatabase>, at least, so turn it off for now
+// Also generates errors on wx on Windows, presumably because these functions
+// are used from wx headers. 
+#if !PLATFORM(QT) && !PLATFORM(WX)
+#include <wtf/DisallowCType.h>
+#endif
+
+#if PLATFORM(GTK)
+#define WTF_USE_NPOBJECT 1
+#define WTF_USE_JAVASCRIPTCORE_BINDINGS 1
+#endif
+
 #if !COMPILER(MSVC) // can't get this to compile on Visual C++ yet
 #define AVOID_STATIC_CONSTRUCTORS 1
 #endif
@@ -79,6 +93,7 @@
 #define WTF_USE_CFNETWORK 1
 #undef WTF_USE_WININET
 #define WTF_PLATFORM_CF 1
+#define WTF_USE_PTHREADS 0
 #endif
 
 #if PLATFORM(MAC)

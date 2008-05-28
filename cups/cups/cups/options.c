@@ -3,7 +3,7 @@
  *
  *   Option routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -470,18 +470,28 @@ cupsParseOptions(
   char	*copyarg,			/* Copy of input string */
 	*ptr,				/* Pointer into string */
 	*name,				/* Pointer to name */
-	*value;				/* Pointer to value */
+	*value,				/* Pointer to value */
+	quote;				/* Quote character */
 
 
-  if (arg == NULL || options == NULL || num_options < 0)
+ /*
+  * Range check input...
+  */
+
+  if (!arg)
+    return (num_options);
+
+  if (!options || num_options < 0)
     return (0);
 
  /*
   * Make a copy of the argument string and then divide it up...
   */
 
-  copyarg     = strdup(arg);
-  ptr         = copyarg;
+  if ((copyarg = strdup(arg)) == NULL)
+    return (num_options);
+
+  ptr = copyarg;
 
  /*
   * Skip leading spaces...
@@ -501,7 +511,7 @@ cupsParseOptions(
     */
 
     name = ptr;
-    while (!isspace(*ptr & 255) && *ptr != '=' && *ptr != '\0')
+    while (!isspace(*ptr & 255) && *ptr != '=' && *ptr)
       ptr ++;
 
    /*
@@ -521,10 +531,10 @@ cupsParseOptions(
     if (*ptr != '=')
     {
      /*
-      * Start of another option...
+      * Boolean option...
       */
 
-      if (strncasecmp(name, "no", 2) == 0)
+      if (!strncasecmp(name, "no", 2))
         num_options = cupsAddOption(name + 2, "false", num_options,
 	                            options);
       else
@@ -539,38 +549,18 @@ cupsParseOptions(
 
     *ptr++ = '\0';
 
-    if (*ptr == '\'')
+    if (*ptr == '\'' || *ptr == '\"')
     {
      /*
       * Quoted string constant...
       */
 
-      ptr ++;
+      quote = *ptr++;
       value = ptr;
 
-      while (*ptr != '\'' && *ptr != '\0')
+      while (*ptr != quote && *ptr)
       {
-        if (*ptr == '\\')
-	  _cups_strcpy(ptr, ptr + 1);
-
-        ptr ++;
-      }
-
-      if (*ptr != '\0')
-        *ptr++ = '\0';
-    }
-    else if (*ptr == '\"')
-    {
-     /*
-      * Double-quoted string constant...
-      */
-
-      ptr ++;
-      value = ptr;
-
-      while (*ptr != '\"' && *ptr != '\0')
-      {
-        if (*ptr == '\\')
+        if (*ptr == '\\' && ptr[1])
 	  _cups_strcpy(ptr, ptr + 1);
 
         ptr ++;
@@ -603,7 +593,7 @@ cupsParseOptions(
 	      break;
 	  }
         }
-        else if (*ptr == '\\')
+        else if (*ptr == '\\' && ptr[1])
 	  _cups_strcpy(ptr, ptr + 1);
 
       if (*ptr != '\0')
@@ -617,9 +607,9 @@ cupsParseOptions(
 
       value = ptr;
 
-      while (!isspace(*ptr & 255) && *ptr != '\0')
+      while (!isspace(*ptr & 255) && *ptr)
       {
-        if (*ptr == '\\')
+        if (*ptr == '\\' && ptr[1])
 	  _cups_strcpy(ptr, ptr + 1);
 
         ptr ++;

@@ -495,7 +495,7 @@ PROXY_DECLARE(int) ap_proxyerror(request_rec *r, int statuscode, const char *mes
     apr_table_setn(r->notes, "error-notes",
     apr_pstrcat(r->pool,
         "The proxy server could not handle the request "
-        "<em><a href=\"", ap_escape_uri(r->pool, r->uri),
+        "<em><a href=\"", ap_escape_html(r->pool, r->uri),
         "\">", ap_escape_html(r->pool, r->method),
         "&nbsp;",
         ap_escape_html(r->pool, r->uri), "</a></em>.<p>\n"
@@ -907,6 +907,7 @@ PROXY_DECLARE(int) ap_proxy_checkproxyblock(request_rec *r, proxy_server_conf *c
             return HTTP_FORBIDDEN;
         }
         while (conf_addr) {
+            uri_addr = src_uri_addr;
             while (uri_addr) {
                 char *conf_ip;
                 char *uri_ip;
@@ -995,12 +996,14 @@ PROXY_DECLARE(apr_status_t) ap_proxy_string_read(conn_rec *c, apr_bucket_brigade
                     len = (bufflen-1)-(pos-buff);
                 }
                 if (len > 0) {
-                    pos = apr_cpystrn(pos, response, len);
+                    memcpy(pos, response, len);
+                    pos += len;
                 }
             }
             APR_BUCKET_REMOVE(e);
             apr_bucket_destroy(e);
         }
+        *pos = '\0';
     }
 
     return APR_SUCCESS;
@@ -1647,7 +1650,7 @@ PROXY_DECLARE(void) ap_proxy_initialize_worker_share(proxy_server_conf *conf,
     void *score = NULL;
 #endif
 
-    if (worker->s && PROXY_WORKER_IS_INITIALIZED(worker)) {
+    if (PROXY_WORKER_IS_INITIALIZED(worker)) {
         /* The worker share is already initialized */
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, s,
               "proxy: worker %s already initialized",
@@ -1719,7 +1722,7 @@ PROXY_DECLARE(apr_status_t) ap_proxy_initialize_worker(proxy_worker *worker, ser
     }
 
     /* Set default parameters */
-    if (!worker->retry) {
+    if (!worker->retry_set) {
         worker->retry = apr_time_from_sec(PROXY_WORKER_DEFAULT_RETRY);
     }
     /* By default address is reusable */
@@ -2053,7 +2056,7 @@ static int is_socket_connected(apr_socket_t *socket)
         else
             return 0;
     }
-    else if (APR_STATUS_IS_EAGAIN(status)) {
+    else if (APR_STATUS_IS_EAGAIN(status) || APR_STATUS_IS_TIMEUP(status)) {
         return 1;
     }
     return 0;

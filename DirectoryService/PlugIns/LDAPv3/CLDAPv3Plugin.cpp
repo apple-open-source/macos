@@ -5843,7 +5843,7 @@ tDirStatus CLDAPv3Plugin::CreateRecordWithAttributes ( tDirNodeReference inNodeR
 					newValues = NULL;
 				}
 			}
-			mods[modsIndex] = NULL;
+			DSFree( mods[modsIndex] );
 		}
 	}
 
@@ -8402,21 +8402,12 @@ tDirStatus CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					xmlData = CFDataCreate(NULL,(UInt8*)xmlString,strlen(xmlString));
 					
 					siResult = (tDirStatus)fConfigFromXML->WriteServerMappings( userName, password, xmlData );
-					if (userName != nil)
-					{
-						free(userName);
-						userName = nil;
-					}
-					if (password != nil)
-					{
-						free(password);
-						password = nil;
-					}
-					if (xmlString != nil)
-					{
-						free(xmlString);
-						xmlString = nil;
-					}
+
+					DSFree( userName );
+					DSFree( password );
+					DSFree( xmlString );
+					DSCFRelease( xmlData );
+
 					break;
 					/*
 					//ReadServerMappings will accept the partial XML config data that comes out of the local config file so that
@@ -8615,7 +8606,7 @@ tDirStatus CLDAPv3Plugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 						// add to registered nodes as a "forced" DHCP type node
 						siResult = (tDirStatus)fConfigFromXML->AddToXMLConfig( xmlData );
 					}
-					CFRelease(xmlData);
+					DSCFRelease( xmlData );
 					break;
 					
 				case eDSCustomCallLDAPv3NewServerDiscovery:

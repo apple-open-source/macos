@@ -41,7 +41,7 @@ class QPainter;
 #endif
 
 #if PLATFORM(CAIRO)
-struct _cairo_surface;
+typedef struct _cairo_surface cairo_surface_t;
 #endif
 
 namespace WebCore {
@@ -54,21 +54,15 @@ namespace WebCore {
         static std::auto_ptr<ImageBuffer> create(const IntSize&, bool grayScale);
         ~ImageBuffer();
 
-        IntSize size() const;
+        IntSize size() const { return m_size; }
         GraphicsContext* context() const;
-
-        // This offers a way to render parts of a WebKit rendering tree into this ImageBuffer class.
-        // FIXME: This doesn't belong in the platform directory.
-        // Bad layering that this knows about the render tree.
-        // We need to move it into RenderObject or somewhere in the SVG world.
-        static void renderSubtreeToImage(ImageBuffer*, RenderObject*);
 
 #if PLATFORM(CG)
         CGImageRef cgImage() const;
 #elif PLATFORM(QT)
         QPixmap* pixmap() const;
 #elif PLATFORM(CAIRO)
-        _cairo_surface* surface() const;
+        cairo_surface_t* surface() const;
 #endif
 
     private:
@@ -85,8 +79,8 @@ namespace WebCore {
         mutable QPixmap m_pixmap;
         mutable QPainter* m_painter;
 #elif PLATFORM(CAIRO)
-        ImageBuffer(_cairo_surface* surface);
-        mutable _cairo_surface *m_surface;
+        ImageBuffer(cairo_surface_t* surface);
+        mutable cairo_surface_t* m_surface;
 #endif
     };
 }

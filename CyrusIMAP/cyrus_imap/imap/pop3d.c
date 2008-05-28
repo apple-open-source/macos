@@ -1556,6 +1556,12 @@ void cmd_pass(char *pass)
 			sleep(plaintextloginpause);
 		}
     }
+
+	if ( popd_userid )
+	{
+		free(popd_userid);
+	}
+	popd_userid = xstrdup( gUserOpts->fRecNamePtr );
 #else
     else {
 	syslog(LOG_NOTICE, "login: %s %s%s plaintext%s %s", popd_clienthost,

@@ -436,7 +436,15 @@ Result:
 	value of a header sent in the HTTP request.
         Example: <code>%{HTTP:Proxy-Connection}</code> is
         the value of the HTTP header
-        ``<code>Proxy-Connection:</code>''.</li>
+        ``<code>Proxy-Connection:</code>''.
+        <p>If a HTTP header is used in a condition this header is added to
+        the Vary header of the response in case the condition evaluates to
+        to true for the request. It is <strong>not</strong> added if the
+        condition evaluates to false for the request. Adding the HTTP header
+        to the Vary header of the response is needed for proper caching.</p>
+        <p>It has to be kept in mind that conditions follow a short circuit
+        logic in the case of the '<strong><code>ornext|OR</code></strong>' flag
+        so that certain conditions might not be evaluated at all.</p></li>
 
         <li>
         <code>%{LA-U:variable}</code> can be used for look-aheads which perform
@@ -593,6 +601,16 @@ RewriteRule ...some special stuff for any of these hosts...
 
           Without this flag you would have to write the condition/rule
           pair three times.
+        </li>
+
+        <li>'<strong><code>novary|NV</code></strong>'
+        (<strong>n</strong>o <strong>v</strong>ary)<br />
+        If a HTTP header is used in the condition, this flag prevents
+        this header from being added to the Vary header of the response. <br />
+        Using this flag might break proper caching of the response if
+        the representation of this response varies on the value of this header.
+        So this flag should be only used if the meaning of the Vary header
+        is well understood.
         </li>
       </ul>
       </li>
@@ -1078,7 +1096,7 @@ later</td></tr>
 </pre></div>
 
       <p>For more information about regular expressions, have a look at the
-      perl regular expression manpage ("<a href="http://www.perldoc.com/perlre.html">perldoc
+      perl regular expression manpage ("<a href="http://perldoc.perl.org/perlre.html">perldoc
       perlre</a>"). If you are interested in more detailed
       information about regular expressions and their variants
       (POSIX regex etc.) the following book is dedicated to this topic:</p>
@@ -1123,7 +1141,7 @@ cannot use <code>$N</code> in the substitution string!
         <dd>A <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code>-relative path to the
         resource to be served. Note that <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>
         tries to guess whether you have specified a file-system path
-        or a URL-path by checking to see if the first segement of the
+        or a URL-path by checking to see if the first segment of the
         path exists at the root of the file-system. For example, if
         you specify a <em>Substitution</em> string of
         <code>/www/file.html</code>, then this will be treated as a
@@ -1207,6 +1225,21 @@ cannot use <code>$N</code> in the substitution string!
       brackets, of any of the following flags: </p>
 
       <dl>
+        <dt>'<code>B</code>' (escape backreferences)</dt>
+        <dd><p>Apache has to unescape URLs before mapping them,
+        so backreferences will be unescaped at the time they are applied.
+        Using the B flag, non-alphanumeric characters in backreferences
+        will be escaped.  For example, consider the rule:</p>
+        <pre><code> RewriteRule ^(.*)$ index.php?show=$1 </code></pre>
+        <p>This will map <code>/C++</code> to <code>index.php?show=C++</code>.
+        But it will also map <code>/C%2b%2b</code> to
+        <code>index.php?show=C++</code>, because the <code>%2b</code>
+        has been unescaped.  With the B flag, it will instead map to
+        <code>index.php?show=&gt;/C%2b%2b</code>.</p>
+        <p>This escaping is particularly necessary in a proxy situation,
+        when the backend may break if presented with an unescaped URL.</p>
+        </dd>
+
         <dt>'<code>chain|C</code>'
         (chained with next rule)</dt><dd>
          This flag chains the current rule with the next rule
@@ -1220,8 +1253,7 @@ cannot use <code>$N</code> in the substitution string!
         when you let an external redirect happen (where the
         ``<code>.www</code>'' part should not occur!).</dd>
 
-        <dt>
-		'<code>cookie|CO=</code><em>NAME</em>:<em>VAL</em>:<em>domain</em>[:<em>lifetime</em>[:<em>path</em>]]'
+        <dt>'<code>cookie|CO=</code><em>NAME</em>:<em>VAL</em>:<em>domain</em>[:<em>lifetime</em>[:<em>path</em>]]'
         (set cookie)</dt><dd>
         This sets a cookie in the client's browser.  The cookie's name
         is specified by <em>NAME</em> and the value is
@@ -1460,6 +1492,17 @@ cannot use <code>$N</code> in the substitution string!
         </code></p></div>
         </dd>
       </dl>
+
+<div class="note"><h3>Home directory expansion</h3>
+<p> When the substitution string begins with a string
+resembling "/~user" (via explicit text or backreferences), mod_rewrite performs
+home directory expansion independent of the presence or configuration
+of <code class="module"><a href="../mod/mod_userdir.html">mod_userdir</a></code>.</p>
+
+<p> This expansion does not occur when the <em>PT</em>
+flag is used on the <code class="directive"><a href="#rewriterule">RewriteRule</a></code>
+directive.</p>
+</div>
 
 <div class="note"><h3>Per-directory Rewrites</h3>
  

@@ -37,7 +37,6 @@ public:
     virtual ~Comment();
 
     // DOM methods overridden from  parent classes
-    const AtomicString& localName() const;
     virtual String nodeName() const;
     virtual NodeType nodeType() const;
     virtual PassRefPtr<Node> cloneNode(bool deep);
@@ -45,7 +44,6 @@ public:
     // Other methods (not part of DOM)
     virtual bool isCommentNode() const { return true; }
     virtual bool childTypeAllowed(NodeType);
-    virtual bool offsetInCharacters() const;
 
     virtual String toString() const;
 };

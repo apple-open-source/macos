@@ -84,15 +84,20 @@ class SubresourceLoaderClient;
 
 template <typename T> class Timer;
 
-class ResourceHandle : public Shared<ResourceHandle> {
+class ResourceHandle : public RefCounted<ResourceHandle> {
 private:
     ResourceHandle(const ResourceRequest&, ResourceHandleClient*, bool defersLoading, bool shouldContentSniff, bool mightDownloadFromHandle);
+
+    enum FailureType {
+        BlockedFailure,
+        InvalidURLFailure
+    };
 
 public:
     // FIXME: should not need the Frame
     static PassRefPtr<ResourceHandle> create(const ResourceRequest&, ResourceHandleClient*, Frame*, bool defersLoading, bool shouldContentSniff, bool mightDownloadFromHandle = false);
 
-    static void loadResourceSynchronously(const ResourceRequest&, ResourceError&, ResourceResponse&, Vector<char>& data);
+    static void loadResourceSynchronously(const ResourceRequest&, ResourceError&, ResourceResponse&, Vector<char>& data, Frame* frame);
     static bool willLoadFromCache(ResourceRequest&);
     
     ~ResourceHandle();
@@ -113,13 +118,8 @@ public:
     CFURLConnectionRef connection() const;
     CFURLConnectionRef releaseConnectionForDownload();
 
-    static CFHTTPCookieStorageAcceptPolicy cookieStorageAcceptPolicy();
-    static void setCookieStorageAcceptPolicy(CFHTTPCookieStorageAcceptPolicy);
-
-    static CFHTTPCookieStorageRef cookieStorage();
-    static void setCookieStorage(CFHTTPCookieStorageRef);
-
     static void setHostAllowsAnyHTTPSCertificate(const String&);
+    static void setClientCertificate(const String& host, CFDataRef);
 #endif
     PassRefPtr<SharedBuffer> bufferedData();
     static bool supportsBufferedData();
@@ -139,7 +139,7 @@ public:
     friend LRESULT __stdcall ResourceHandleWndProc(HWND, unsigned message, WPARAM, LPARAM);
 #endif
 
-#if PLATFORM(GTK) || PLATFORM(QT)
+#if PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(WX)
     ResourceHandleInternal* getInternal() { return d.get(); }
 #endif
 
@@ -157,15 +157,14 @@ public:
       
     const ResourceRequest& request() const;
 
-    void fireBlockedFailure(Timer<ResourceHandle>*);
+    void fireFailure(Timer<ResourceHandle>*);
 
 private:
-    static bool portAllowed(const ResourceRequest&);
-    
-    void scheduleBlockedFailure();
+    void scheduleFailure(FailureType);
 
     bool start(Frame*);
-        
+
+    friend class ResourceHandleInternal;
     OwnPtr<ResourceHandleInternal> d;
 };
 

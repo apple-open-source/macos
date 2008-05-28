@@ -203,6 +203,7 @@
 		AAD5BF4609F6DBAB0024526F /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000AD6890382D97600DD2B5C /* DirectoryService.framework */; };
 		AAD5BF5109F6DBB00024526F /* PasswordServer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA6A7E340714626F00F0F5A1 /* PasswordServer.framework */; };
 		AAD5BF8109F6DBD20024526F /* dstools_version.c in Sources */ = {isa = PBXBuildFile; fileRef = AAE880C706ADB61600DCA962 /* dstools_version.c */; };
+		B01B5E6E0D4A6F01002A935E /* CAuthAuthority.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B01B5E6D0D4A6F01002A935E /* CAuthAuthority.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -575,6 +576,8 @@
 		AAD5BEF709F6DB640024526F /* pwpolicy */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pwpolicy; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAE880C706ADB61600DCA962 /* dstools_version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dstools_version.c; path = commonC/dstools_version.c; sourceTree = "<group>"; };
 		AAE880DB06ADB63700DCA962 /* dstools_version.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dstools_version.h; path = commonC/dstools_version.h; sourceTree = "<group>"; };
+		B01B5E6C0D4A6F01002A935E /* CAuthAuthority.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CAuthAuthority.h; path = pwpolicy/CAuthAuthority.h; sourceTree = "<group>"; };
+		B01B5E6D0D4A6F01002A935E /* CAuthAuthority.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CAuthAuthority.cpp; path = pwpolicy/CAuthAuthority.cpp; sourceTree = "<group>"; };
 		C54F6C9005D46600001F9C89 /* DSoNodeBrowserItem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DSoNodeBrowserItem.h; path = DSObjCWrappers/DSoNodeBrowserItem.h; sourceTree = "<group>"; };
 		C54F6C9105D46600001F9C89 /* DSoNodeBrowserItem.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = DSoNodeBrowserItem.m; path = DSObjCWrappers/DSoNodeBrowserItem.m; sourceTree = "<group>"; };
 		C56EC77E085E6353009B5F36 /* libedit.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libedit.2.dylib; path = /usr/lib/libedit.2.dylib; sourceTree = "<absolute>"; };
@@ -1010,6 +1013,8 @@
 			isa = PBXGroup;
 			children = (
 				844B3BDE043113F200D87C54 /* Main.cpp */,
+				B01B5E6D0D4A6F01002A935E /* CAuthAuthority.cpp */,
+				B01B5E6C0D4A6F01002A935E /* CAuthAuthority.h */,
 				844B3BD8043113F200D87C54 /* PwdPolicyTool.cpp */,
 				844B3BD9043113F200D87C54 /* PwdPolicyTool.h */,
 				844B3BDF043113F200D87C54 /* pwpolicy.8 */,
@@ -1839,6 +1844,7 @@
 				AAD5BEFB09F6DB800024526F /* Main.cpp in Sources */,
 				AAD5BEFC09F6DB800024526F /* PwdPolicyTool.cpp in Sources */,
 				AAD5BF8109F6DBD20024526F /* dstools_version.c in Sources */,
+				B01B5E6E0D4A6F01002A935E /* CAuthAuthority.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
  
-/* $Id: php_mysql.c,v 1.174.2.29.2.3 2007/01/01 09:46:45 sebastian Exp $ */
+/* $Id: php_mysql.c,v 1.174.2.29.2.6 2007/12/31 07:22:49 sebastian Exp $ */
 
 /* TODO:
  *
@@ -595,8 +595,8 @@ static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				WRONG_PARAM_COUNT;
 				break;
 		}
-		/* disable local infile option for open_basedir */
-		if (PG(open_basedir) && strlen(PG(open_basedir)) && (client_flags & CLIENT_LOCAL_FILES)) {
+		/* disable local infile option for open_basedir and safe_mode */
+		if (((PG(open_basedir) && PG(open_basedir)[0] != '\0') || PG(safe_mode)) && (client_flags & CLIENT_LOCAL_FILES)) {
 			client_flags ^= CLIENT_LOCAL_FILES;
 		}
 
@@ -732,6 +732,7 @@ static void php_mysql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 #endif
 
 			mysql = (php_mysql_conn *) le->ptr;
+			mysql->active_result_id = 0;
 		}
 		ZEND_REGISTER_RESOURCE(return_value, mysql, le_plink);
 	} else { /* non persistent */

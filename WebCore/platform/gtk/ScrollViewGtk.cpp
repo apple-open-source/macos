@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006, 2007 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com 
+ * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
  *
  * All rights reserved.
@@ -24,13 +24,14 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "ScrollView.h"
 
 #include "FloatRect.h"
+#include "FocusController.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
@@ -42,12 +43,9 @@
 #include "Page.h"
 #include "RenderLayer.h"
 
-#include <gdk/gdk.h>
 #include <gtk/gtk.h>
 
 using namespace std;
-
-static const int MagicGtkScrollConstant = 13;
 
 namespace WebCore {
 
@@ -90,12 +88,13 @@ public:
     }
 
     void scrollBackingStore(const IntSize& scrollDelta);
- 
+
     void setHasHorizontalScrollbar(bool hasBar);
     void setHasVerticalScrollbar(bool hasBar);
 
     virtual void valueChanged(Scrollbar*);
     virtual IntRect windowClipRect() const;
+    virtual bool isActive() const;
 
     static void adjustmentChanged(GtkAdjustment*, gpointer);
 
@@ -128,8 +127,13 @@ void ScrollViewScrollbar::geometryChanged()
     ASSERT(parent()->isFrameView());
 
     FrameView* frameView = static_cast<FrameView*>(parent());
-    IntRect windowRect = IntRect(frameView->convertToContainingWindow(frameGeometry().location()), frameGeometry().size());
-    GtkAllocation allocation = { windowRect.x(), windowRect.y(), windowRect.width(), windowRect.height() };
+    IntPoint loc = frameView->convertToContainingWindow(frameGeometry().location());
+
+    // Don't allow the allocation size to be negative
+    IntSize sz = frameGeometry().size();
+    sz.clampNegativeToZero();
+
+    GtkAllocation allocation = { loc.x(), loc.y(), sz.width(), sz.height() };
     gtk_widget_size_allocate(gtkWidget(), &allocation);
 }
 
@@ -239,6 +243,12 @@ IntRect ScrollView::ScrollViewPrivate::windowClipRect() const
     return static_cast<const FrameView*>(view)->windowClipRect(false);
 }
 
+bool ScrollView::ScrollViewPrivate::isActive() const
+{
+    Page* page = static_cast<const FrameView*>(view)->frame()->page();
+    return page && page->focusController()->isActive();
+}
+
 ScrollView::ScrollView()
     : m_data(new ScrollViewPrivate(this))
 {}
@@ -248,10 +258,10 @@ ScrollView::~ScrollView()
     delete m_data;
 }
 
-/*  
+/*
  * The following is assumed:
  *   (hadj && vadj) || (!hadj && !vadj)
- */ 
+ */
 void ScrollView::setGtkAdjustments(GtkAdjustment* hadj, GtkAdjustment* vadj)
 {
     ASSERT(!hadj == !vadj);
@@ -276,10 +286,15 @@ void ScrollView::setGtkAdjustments(GtkAdjustment* hadj, GtkAdjustment* vadj)
         m_data->setHasVerticalScrollbar(false);
         m_data->setHasHorizontalScrollbar(false);
 
+#if GLIB_CHECK_VERSION(2,10,0)
+        g_object_ref_sink(m_data->horizontalAdjustment);
+        g_object_ref_sink(m_data->verticalAdjustment);
+#else
         g_object_ref(m_data->horizontalAdjustment);
         gtk_object_sink(GTK_OBJECT(m_data->horizontalAdjustment));
         g_object_ref(m_data->verticalAdjustment);
         gtk_object_sink(GTK_OBJECT(m_data->verticalAdjustment));
+#endif
     }
 
     updateScrollbars(m_data->scrollOffset);
@@ -294,10 +309,7 @@ void ScrollView::updateContents(const IntRect& updateRect, bool now)
     IntRect containingWindowRect = updateRect;
     containingWindowRect.setLocation(windowPoint);
 
-    GdkRectangle rect = { containingWindowRect.x(),
-                          containingWindowRect.y(),
-                          containingWindowRect.width(),
-                          containingWindowRect.height() };
+    GdkRectangle rect = containingWindowRect;
     GdkWindow* window = GTK_WIDGET(containingWindow())->window;
 
     if (window)
@@ -314,7 +326,7 @@ void ScrollView::update()
 {
     ASSERT(containingWindow());
 
-    GdkRectangle rect = { 0, 0, m_data->contentsSize.width(), m_data->contentsSize.height() };
+    GdkRectangle rect = frameGeometry();
     gdk_window_invalidate_rect(GTK_WIDGET(containingWindow())->window, &rect, true);
 }
 
@@ -394,7 +406,7 @@ void ScrollView::scrollBy(int dx, int dy)
     IntSize scrollOffset = m_data->scrollOffset;
     IntSize newScrollOffset = scrollOffset + IntSize(dx, dy).shrunkTo(maximumScroll());
     newScrollOffset.clampNegativeToZero();
- 
+
     if (newScrollOffset == scrollOffset)
         return;
 
@@ -462,7 +474,7 @@ void ScrollView::setFrameGeometry(const IntRect& newGeometry)
 }
 
 void ScrollView::addChild(Widget* child)
-{ 
+{
     child->setParent(this);
     child->setContainingWindow(containingWindow());
     m_data->children.add(child);
@@ -507,7 +519,7 @@ void ScrollView::wheelEvent(PlatformWheelEvent& e)
         (e.deltaY() > 0 && scrollOffset().height() > 0))
         e.accept();
 
-    scrollBy(e.deltaX() * LINE_STEP, e.deltaY() * LINE_STEP);
+    scrollBy(-e.deltaX() * LINE_STEP, -e.deltaY() * LINE_STEP);
 }
 
 void ScrollView::updateScrollbars(const IntSize& desiredOffset)
@@ -541,7 +553,7 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
             // Do a layout if pending before checking if scrollbars are needed.
             if (hasVerticalScrollbar != oldHasVertical || hasHorizontalScrollbar != oldHasHorizontal)
                 static_cast<FrameView*>(this)->layout();
-             
+
             scrollsVertically = (vScroll == ScrollbarAlwaysOn) || (vScroll == ScrollbarAuto && contentsHeight() > height());
             if (scrollsVertically)
                 scrollsHorizontally = (hScroll == ScrollbarAlwaysOn) || (hScroll == ScrollbarAuto && contentsWidth() + cVerticalWidth > width());
@@ -555,7 +567,7 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
             scrollsHorizontally = (hScroll == ScrollbarAuto) ? hasHorizontalScrollbar : (hScroll == ScrollbarAlwaysOn);
             scrollsVertically = (vScroll == ScrollbarAuto) ? hasVerticalScrollbar : (vScroll == ScrollbarAlwaysOn);
         }
-        
+
         if (hasVerticalScrollbar != scrollsVertically) {
             m_data->setHasVerticalScrollbar(scrollsVertically);
             hasVerticalScrollbar = scrollsVertically;
@@ -574,14 +586,16 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
 
     if (m_data->horizontalAdjustment) {
         m_data->horizontalAdjustment->page_size = visibleWidth();
-        m_data->horizontalAdjustment->step_increment = MagicGtkScrollConstant;
+        m_data->horizontalAdjustment->step_increment = visibleWidth() / 10.0;
+        m_data->horizontalAdjustment->page_increment = visibleWidth() * 0.9;
+        m_data->horizontalAdjustment->lower = 0;
         m_data->horizontalAdjustment->upper = contentsWidth();
         gtk_adjustment_changed(m_data->horizontalAdjustment);
 
         if (m_data->scrollOffset.width() != scroll.width()) {
             m_data->horizontalAdjustment->value = scroll.width();
             gtk_adjustment_value_changed(m_data->horizontalAdjustment);
-        } 
+        }
     } else if (m_data->hBar) {
         int clientWidth = visibleWidth();
         m_data->hBar->setEnabled(contentsWidth() > clientWidth);
@@ -602,12 +616,14 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
         m_data->hBar->setProportion(clientWidth, contentsWidth());
         m_data->hBar->setValue(scroll.width());
         if (m_data->scrollbarsSuppressed)
-            m_data->hBar->setSuppressInvalidation(false); 
-    } 
+            m_data->hBar->setSuppressInvalidation(false);
+    }
 
     if (m_data->verticalAdjustment) {
         m_data->verticalAdjustment->page_size = visibleHeight();
-        m_data->verticalAdjustment->step_increment = MagicGtkScrollConstant;
+        m_data->verticalAdjustment->step_increment = visibleHeight() / 10.0;
+        m_data->verticalAdjustment->page_increment = visibleHeight() * 0.9;
+        m_data->verticalAdjustment->lower = 0;
         m_data->verticalAdjustment->upper = contentsHeight();
         gtk_adjustment_changed(m_data->verticalAdjustment);
 
@@ -621,7 +637,7 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
         int pageStep = (clientHeight - PAGE_KEEP);
         if (pageStep < 0) pageStep = clientHeight;
         IntRect oldRect(m_data->vBar->frameGeometry());
-        IntRect vBarRect = IntRect(width() - m_data->vBar->width(), 
+        IntRect vBarRect = IntRect(width() - m_data->vBar->width(),
                                    0,
                                    m_data->vBar->width(),
                                    height() - (m_data->hBar ? m_data->hBar->height() : 0));
@@ -650,12 +666,12 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
        m_data->scrollOffset = scroll;
        m_data->scrollBackingStore(scrollDelta);
     }
- 
+
     m_data->inUpdateScrollbars = false;
 }
 
 IntPoint ScrollView::windowToContents(const IntPoint& windowPoint) const
-{ 
+{
     IntPoint viewPoint = convertFromContainingWindow(windowPoint);
     return viewPoint + scrollOffset();
 }
@@ -663,11 +679,11 @@ IntPoint ScrollView::windowToContents(const IntPoint& windowPoint) const
 IntPoint ScrollView::contentsToWindow(const IntPoint& contentsPoint) const
 {
     IntPoint viewPoint = contentsPoint - scrollOffset();
-    return convertToContainingWindow(viewPoint);  
+    return convertToContainingWindow(viewPoint);
 }
 
 PlatformScrollbar* ScrollView::scrollbarUnderMouse(const PlatformMouseEvent& mouseEvent)
-{ 
+{
     IntPoint viewPoint = convertFromContainingWindow(mouseEvent.pos());
     if (m_data->hBar && m_data->hBar->frameGeometry().contains(viewPoint))
         return m_data->hBar.get();
@@ -766,12 +782,16 @@ void ScrollView::geometryChanged() const
         (*current)->geometryChanged();
 }
 
-void ScrollView::scroll(ScrollDirection direction, ScrollGranularity granularity)
+bool ScrollView::scroll(ScrollDirection direction, ScrollGranularity granularity)
 {
-    if  ((direction == ScrollUp || direction == ScrollDown) && m_data->vBar)
-        m_data->vBar->scroll(direction, granularity);
-    else if (m_data->hBar)
-        m_data->hBar->scroll(direction, granularity);
+    if (direction == ScrollUp || direction == ScrollDown) {
+        if (m_data->vBar)
+            return m_data->vBar->scroll(direction, granularity);
+    } else {
+        if (m_data->hBar)
+            return m_data->hBar->scroll(direction, granularity);
+    }
+    return false;
 }
 
 void ScrollView::addToDirtyRegion(const IntRect& containingWindowRect)

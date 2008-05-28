@@ -8,6 +8,10 @@ UserType        = Administration
 ToolType        = Commands
 GnuAfterInstall = install-plist populate-symroot
 
+ifeq ($(shell tconf --test TARGET_OS_EMBEDDED),YES)
+GnuAfterInstall+= install-config
+endif
+
 # CFLAGS is set in the Makefile, but overridden in the environment.
 # To work around, just pass the extra flags that the Makefile contains.
 Extra_CC_Flags  = -mdynamic-no-pic -DHAVE_CONFIG_H -I$(Sources)/popt
@@ -51,6 +55,12 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(Project).txt
+
+install-config:
+	$(INSTALL_DIRECTORY) $(DSTROOT)/private/etc
+	$(INSTALL_FILE) $(SRCROOT)/rsyncd.conf $(DSTROOT)/private/etc
+	$(INSTALL_DIRECTORY) $(DSTROOT)/System/Library/LaunchDaemons
+	$(INSTALL_FILE) $(SRCROOT)/launchd-rsync.plist $(DSTROOT)/System/Library/LaunchDaemons/rsync.plist
 
 populate-symroot:
 	$(CP) $(OBJROOT)/rsync $(SYMROOT)

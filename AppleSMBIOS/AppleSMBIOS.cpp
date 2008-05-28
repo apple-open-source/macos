@@ -46,7 +46,7 @@ protected:
 
 public:
     SMBPackedStrings( const SMBStructHeader * header, const void * limit );
-	SMBPackedStrings::SMBPackedStrings( const SMBStructHeader * header );
+	SMBPackedStrings( const SMBStructHeader * header );
 
     const char * stringAtIndex( UInt8 index, UInt8 * length = 0 ) const;
 

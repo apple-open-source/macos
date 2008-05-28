@@ -40,11 +40,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if ENABLE(SVG)
-#include "ksvgcssproperties.h"
-#include "ksvgcssvalues.h"
-#endif
-
 using namespace WebCore;
 using namespace HTMLNames;
 
@@ -119,6 +114,7 @@ static inline int getValueID(const char* tagStr, int len)
 #define YYLTYPE_IS_TRIVIAL 1
 #define YYMAXDEPTH 10000
 #define YYDEBUG 0
+// FIXME: Replace with %parse-param { CSSParser* parser } once we can depend on bison 2.x
 #define YYPARSE_PARAM parser
 
 %}
@@ -169,8 +165,8 @@ static int cssyylex(YYSTYPE* yylval) { return CSSParser::current()->lex(yylval);
 %token CONTAINS
 
 %token <string> STRING
-
 %right <string> IDENT
+%token <string> NTH
 
 %nonassoc <string> HEX
 %nonassoc <string> IDSEL
@@ -215,7 +211,7 @@ static int cssyylex(YYSTYPE* yylval) { return CSSParser::current()->lex(yylval);
 %token <val> KHERZ
 %token <string> DIMEN
 %token <val> PERCENTAGE
-%token <val> FLOAT
+%token <val> FLOATTOKEN
 %token <val> INTEGER
 
 %token <string> URI
@@ -551,11 +547,6 @@ page:
 pseudo_page
   : ':' IDENT
   ;
-
-font_face
-  : FONT_FACE_SYM maybe_space
-    '{' maybe_space declaration [ ';' maybe_space declaration ]* '}' maybe_space
-  ;
 */
 
 page:
@@ -568,10 +559,14 @@ page:
     ;
 
 font_face:
-    FONT_FACE_SYM error invalid_block {
+    FONT_FACE_SYM maybe_space
+    '{' maybe_space declaration_list '}'  maybe_space {
+        $$ = static_cast<CSSParser*>(parser)->createFontFaceRule();
+    }
+    | FONT_FACE_SYM error invalid_block {
       $$ = 0;
     }
-  | FONT_FACE_SYM error ';' {
+    | FONT_FACE_SYM error ';' {
       $$ = 0;
     }
 ;
@@ -860,7 +855,12 @@ pseudo:
         if (type == CSSSelector::PseudoUnknown)
             $$ = 0;
         else if (type == CSSSelector::PseudoEmpty ||
-                 type == CSSSelector::PseudoFirstChild) {
+                 type == CSSSelector::PseudoFirstChild ||
+                 type == CSSSelector::PseudoFirstOfType ||
+                 type == CSSSelector::PseudoLastChild ||
+                 type == CSSSelector::PseudoLastOfType ||
+                 type == CSSSelector::PseudoOnlyChild ||
+                 type == CSSSelector::PseudoOnlyOfType) {
             CSSParser* p = static_cast<CSSParser*>(parser);
             Document* doc = p->document();
             if (doc)
@@ -885,15 +885,60 @@ pseudo:
                 doc->setUsesFirstLineRules(true);
         }
     }
-    // used by :lang
+    // used by :nth-*(ax+b)
+    | ':' FUNCTION NTH ')' {
+        CSSParser *p = static_cast<CSSParser*>(parser);
+        $$ = p->createFloatingSelector();
+        $$->m_match = CSSSelector::PseudoClass;
+        $$->m_argument = atomicString($3);
+        $$->m_value = atomicString($2);
+        CSSSelector::PseudoType type = $$->pseudoType();
+        if (type == CSSSelector::PseudoUnknown)
+            $$ = 0;
+        else if (type == CSSSelector::PseudoNthChild ||
+                 type == CSSSelector::PseudoNthOfType ||
+                 type == CSSSelector::PseudoNthLastChild ||
+                 type == CSSSelector::PseudoNthLastOfType) {
+            if (p->document())
+                p->document()->setUsesSiblingRules(true);
+        }
+    }
+    // used by :nth-*
+    | ':' FUNCTION INTEGER ')' {
+        CSSParser *p = static_cast<CSSParser*>(parser);
+        $$ = p->createFloatingSelector();
+        $$->m_match = CSSSelector::PseudoClass;
+        $$->m_argument = String::number($3);
+        $$->m_value = atomicString($2);
+        CSSSelector::PseudoType type = $$->pseudoType();
+        if (type == CSSSelector::PseudoUnknown)
+            $$ = 0;
+        else if (type == CSSSelector::PseudoNthChild ||
+                 type == CSSSelector::PseudoNthOfType ||
+                 type == CSSSelector::PseudoNthLastChild ||
+                 type == CSSSelector::PseudoNthLastOfType) {
+            if (p->document())
+                p->document()->setUsesSiblingRules(true);
+        }
+    }
+    // used by :nth-*(odd/even) and :lang
     | ':' FUNCTION IDENT ')' {
-        $$ = static_cast<CSSParser*>(parser)->createFloatingSelector();
+        CSSParser *p = static_cast<CSSParser*>(parser);
+        $$ = p->createFloatingSelector();
         $$->m_match = CSSSelector::PseudoClass;
         $$->m_argument = atomicString($3);
         $2.lower();
         $$->m_value = atomicString($2);
-        if ($$->pseudoType() == CSSSelector::PseudoUnknown)
+        CSSSelector::PseudoType type = $$->pseudoType();
+        if (type == CSSSelector::PseudoUnknown)
             $$ = 0;
+        else if (type == CSSSelector::PseudoNthChild ||
+                 type == CSSSelector::PseudoNthOfType ||
+                 type == CSSSelector::PseudoNthLastChild ||
+                 type == CSSSelector::PseudoNthLastOfType) {
+            if (p->document())
+                p->document()->setUsesSiblingRules(true);
+        }
     }
     // used by :not
     | ':' NOTFUNCTION maybe_space simple_selector ')' {
@@ -1003,10 +1048,6 @@ property:
         const char* s = str.ascii();
         int l = str.length();
         $$ = getPropertyID(s, l);
-#if ENABLE(SVG)
-        if ($$ == 0)
-            $$ = SVG::getSVGCSSPropertyID(s, l);
-#endif
     }
   ;
 
@@ -1059,10 +1100,6 @@ term:
   | IDENT maybe_space {
       DeprecatedString str = deprecatedString($1);
       $$.id = getValueID(str.lower().latin1(), str.length());
-#if ENABLE(SVG)
-      if ($$.id == 0)
-          $$.id = SVG::getSVGCSSValueID(str.lower().latin1(), str.length());
-#endif
       $$.unit = CSSPrimitiveValue::CSS_IDENT;
       $$.string = $1;
   }
@@ -1070,18 +1107,19 @@ term:
   | DIMEN maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_DIMENSION }
   | unary_operator DIMEN maybe_space { $$.id = 0; $$.string = $2; $$.unit = CSSPrimitiveValue::CSS_DIMENSION }
   | URI maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_URI; }
-  | UNICODERANGE maybe_space { $$.id = 0; $$.iValue = 0; $$.unit = CSSPrimitiveValue::CSS_UNKNOWN;/* ### */ }
+  | UNICODERANGE maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_UNICODE_RANGE }
   | hexcolor { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_RGBCOLOR; }
   | '#' maybe_space { $$.id = 0; $$.string = ParseString(); $$.unit = CSSPrimitiveValue::CSS_RGBCOLOR; } /* Handle error case: "color: #;" */
 /* FIXME: according to the specs a function can have a unary_operator in front. I know no case where this makes sense */
   | function {
       $$ = $1;
   }
+  | '%' maybe_space {} /* Handle width: %; */
   ;
 
 unary_term:
   INTEGER maybe_space { $$.id = 0; $$.isInt = true; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_NUMBER; }
-  | FLOAT maybe_space { $$.id = 0; $$.isInt = false; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_NUMBER; }
+  | FLOATTOKEN maybe_space { $$.id = 0; $$.isInt = false; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_NUMBER; }
   | PERCENTAGE maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_PERCENTAGE; }
   | PXS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_PX; }
   | CMS maybe_space { $$.id = 0; $$.fValue = $1; $$.unit = CSSPrimitiveValue::CSS_CM; }

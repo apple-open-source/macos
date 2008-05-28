@@ -33,9 +33,9 @@ VPATH = \
     $(WebCore)/dom \
     $(WebCore)/html \
     $(WebCore)/page \
+    $(WebCore)/storage \
     $(WebCore)/xml \
-    $(WebCore)/ksvg2/svg \
-    $(WebCore)/ksvg2/events \
+    $(WebCore)/svg
 #
 
 .PHONY : all
@@ -133,6 +133,7 @@ all : \
     DOMHTMLTitleElement.h \
     DOMHTMLUListElement.h \
     DOMKeyboardEvent.h \
+    DOMMessageEvent.h \
     DOMMediaList.h \
     DOMMouseEvent.h \
     DOMMutationEvent.h \
@@ -172,6 +173,7 @@ all : \
     DOMSVGColor.h \
     DOMSVGComponentTransferFunctionElement.h \
     DOMSVGCursorElement.h \
+    DOMSVGDefinitionSrcElement.h \
     DOMSVGDefsElement.h \
     DOMSVGDescElement.h \
     DOMSVGDocument.h \
@@ -202,11 +204,18 @@ all : \
     DOMSVGFESpotLightElement.h \
     DOMSVGFETileElement.h \
     DOMSVGFETurbulenceElement.h \
+    DOMSVGFontElement.h \
+    DOMSVGFontFaceElement.h \
+    DOMSVGFontFaceFormatElement.h \
+    DOMSVGFontFaceNameElement.h \
+    DOMSVGFontFaceSrcElement.h \
+    DOMSVGFontFaceUriElement.h \
     DOMSVGFilterElement.h \
     DOMSVGFilterPrimitiveStandardAttributes.h \
     DOMSVGFitToViewBox.h \
     DOMSVGForeignObjectElement.h \
     DOMSVGGElement.h \
+    DOMSVGGlyphElement.h \
     DOMSVGGradientElement.h \
     DOMSVGImageElement.h \
     DOMSVGLangSpace.h \
@@ -219,6 +228,7 @@ all : \
     DOMSVGMaskElement.h \
     DOMSVGMatrix.h \
     DOMSVGMetadataElement.h \
+    DOMSVGMissingGlyphElement.h \
     DOMSVGNumber.h \
     DOMSVGNumberList.h \
     DOMSVGPaint.h \
@@ -268,6 +278,7 @@ all : \
     DOMSVGTests.h \
     DOMSVGTextContentElement.h \
     DOMSVGTextElement.h \
+    DOMSVGTextPathElement.h \
     DOMSVGTextPositioningElement.h \
     DOMSVGTitleElement.h \
     DOMSVGTransform.h \
@@ -318,13 +329,15 @@ all : \
     JSCanvasRenderingContext2D.h \
     JSCharacterData.h \
     JSComment.h \
+    JSConsole.h \
     JSCounter.h \
     JSCSSStyleDeclaration.h \
-    JSDOMExceptionConstructor.lut.h \
+    JSDOMCoreException.h \
     JSDOMImplementation.h \
     JSDOMParser.h \
     JSDOMSelection.h \
     JSDOMWindow.h \
+    JSDatabase.h \
     JSDocument.h \
     JSDocumentFragment.h \
     JSDocumentType.h \
@@ -332,10 +345,12 @@ all : \
     JSEntity.h \
     JSEntityReference.h \
     JSEvent.h \
-    JSEventTargetNode.lut.h \
-    JSHTMLAppletElement.h \
+    JSEventException.h \
+    JSEventTargetBase.lut.h \
     JSHTMLAnchorElement.h \
+    JSHTMLAppletElement.h \
     JSHTMLAreaElement.h \
+    JSHTMLAudioElement.h \
     JSHTMLBaseElement.h \
     JSHTMLBaseFontElement.h \
     JSHTMLBlockquoteElement.h \
@@ -370,6 +385,7 @@ all : \
     JSHTMLLinkElement.h \
     JSHTMLMapElement.h \
     JSHTMLMarqueeElement.h \
+    JSHTMLMediaElement.h \
     JSHTMLMenuElement.h \
     JSHTMLMetaElement.h \
     JSHTMLModElement.h \
@@ -384,6 +400,7 @@ all : \
     JSHTMLQuoteElement.h \
     JSHTMLScriptElement.h \
     JSHTMLSelectElement.h \
+    JSHTMLSourceElement.h \
     JSHTMLStyleElement.h \
     JSHTMLTableCaptionElement.h \
     JSHTMLTableCellElement.h \
@@ -394,9 +411,13 @@ all : \
     JSHTMLTextAreaElement.h \
     JSHTMLTitleElement.h \
     JSHTMLUListElement.h \
+    JSHTMLVideoElement.h \
     JSHistory.h \
     JSKeyboardEvent.h \
+    JSLocation.lut.h \
+    JSMediaError.h \
     JSMediaList.h \
+    JSMessageEvent.h \
     JSMouseEvent.h \
     JSMutationEvent.h \
     JSNamedNodeMap.h \
@@ -407,9 +428,14 @@ all : \
     JSNotation.h \
     JSOverflowEvent.h \
     JSProcessingInstruction.h \
+    JSProgressEvent.h \
     JSRange.h \
     JSRangeException.h \
     JSRect.h \
+    JSSQLError.h \
+    JSSQLResultSet.h \
+    JSSQLResultSetRowList.h \
+    JSSQLTransaction.h \
     JSSVGAElement.h \
     JSSVGAngle.h \
     JSSVGAnimatedAngle.h \
@@ -423,7 +449,6 @@ all : \
     JSSVGAnimatedLengthList.h \
     JSSVGAnimatedNumber.h \
     JSSVGAnimatedNumberList.h \
-    JSSVGAnimatedPoints.h \
     JSSVGAnimatedPreserveAspectRatio.h \
     JSSVGAnimatedRect.h \
     JSSVGAnimatedString.h \
@@ -435,8 +460,10 @@ all : \
     JSSVGComponentTransferFunctionElement.h \
     JSSVGCursorElement.h \
     JSSVGDefsElement.h \
+    JSSVGDefinitionSrcElement.h \
     JSSVGDescElement.h \
     JSSVGDocument.h \
+    JSSVGException.h \
     JSSVGLength.h \
     JSSVGMatrix.h \
     JSSVGMetadataElement.h \
@@ -485,6 +512,7 @@ all : \
     JSSVGTSpanElement.h \
     JSSVGTextElement.h \
     JSSVGTextContentElement.h \
+    JSSVGTextPathElement.h \
     JSSVGTextPositioningElement.h \
     JSSVGTitleElement.h \
     JSSVGTransform.h \
@@ -521,8 +549,15 @@ all : \
     JSSVGFETileElement.h \
     JSSVGFETurbulenceElement.h \
     JSSVGFilterElement.h \
+    JSSVGFontElement.h \
+    JSSVGFontFaceElement.h \
+    JSSVGFontFaceFormatElement.h \
+    JSSVGFontFaceNameElement.h \
+    JSSVGFontFaceSrcElement.h \
+    JSSVGFontFaceUriElement.h \
     JSSVGForeignObjectElement.h \
     JSSVGGElement.h \
+    JSSVGGlyphElement.h \
     JSSVGGradientElement.h \
     JSSVGImageElement.h \
     JSSVGLength.h \
@@ -531,21 +566,27 @@ all : \
     JSSVGLinearGradientElement.h \
     JSSVGMaskElement.h \
     JSSVGMarkerElement.h \
+    JSSVGMissingGlyphElement.h \
     JSSVGTransform.h \
     JSSVGZoomEvent.h \
     JSScreen.h \
     JSStyleSheet.h \
+    JSStyleSheetList.h \
     JSText.h \
     JSTextEvent.h \
+    JSTimeRanges.h \
     JSTreeWalker.h \
     JSUIEvent.h \
+    JSVoidCallback.h \
+    JSWheelEvent.h \
+    JSXMLHttpRequest.lut.h \
+    JSXMLHttpRequestException.h \
+    JSXMLSerializer.h \
     JSXPathEvaluator.h \
+    JSXPathException.h \
     JSXPathExpression.h \
     JSXPathNSResolver.h \
     JSXPathResult.h \
-    JSWheelEvent.h \
-    JSXMLHttpRequest.lut.h \
-    JSXMLSerializer.h \
     JSXSLTProcessor.lut.h \
     SVGElementFactory.cpp \
     SVGNames.cpp \
@@ -558,20 +599,38 @@ all : \
     kjs_events.lut.h \
     kjs_navigator.lut.h \
     kjs_window.lut.h \
-    ksvgcssproperties.h \
-    ksvgcssvalues.h \
     tokenizer.cpp \
+    WebCore.exp \
 #
 
 # CSS property names and value keywords
 
+ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
+
+CSSPropertyNames.h : css/CSSPropertyNames.in css/SVGCSSPropertyNames.in
+	if sort $< $(WebCore)/css/SVGCSSPropertyNames.in | uniq -d | grep -E '^[^#]'; then echo 'Duplicate value!'; exit 1; fi
+	cat $< $(WebCore)/css/SVGCSSPropertyNames.in > CSSPropertyNames.in
+	perl "$(WebCore)/css/makeprop.pl"
+
+CSSValueKeywords.h : css/CSSValueKeywords.in css/SVGCSSValueKeywords.in
+	# Lower case all the values, as CSS values are case-insensitive
+	perl -ne 'print lc' $(WebCore)/css/SVGCSSValueKeywords.in > SVGCSSValueKeywords.in
+	if sort $< SVGCSSValueKeywords.in | uniq -d | grep -E '^[^#]'; then echo 'Duplicate value!'; exit 1; fi
+	cat $< SVGCSSValueKeywords.in > CSSValueKeywords.in
+	perl "$(WebCore)/css/makevalues.pl"
+
+else
+
 CSSPropertyNames.h : css/CSSPropertyNames.in css/makeprop.pl
-	cat $< > CSSPropertyNames.in
+	cp $< CSSPropertyNames.in
 	perl "$(WebCore)/css/makeprop.pl"
 
 CSSValueKeywords.h : css/CSSValueKeywords.in css/makevalues.pl
-	cat $< > CSSValueKeywords.in
+	cp $< CSSValueKeywords.in
 	perl "$(WebCore)/css/makevalues.pl"
+
+endif 
+
 
 # DOCTYPE strings
 
@@ -627,7 +686,7 @@ UserAgentStyleSheets.h : css/make-css-file-arrays.pl $(USER_AGENT_STYLE_SHEETS)
 
 # character set name table
 
-CharsetData.cpp : platform/mac/make-charset-table.pl platform/mac/character-sets.txt platform/mac/mac-encodings.txt
+CharsetData.cpp : platform/text/mac/make-charset-table.pl platform/text/mac/character-sets.txt platform/text/mac/mac-encodings.txt
 	perl $^ kTextEncoding > $@
 
 # lookup tables for old-style JavaScript bindings
@@ -639,61 +698,78 @@ CharsetData.cpp : platform/mac/make-charset-table.pl platform/mac/character-sets
 
 # HTML tag and attribute names
 
-HTMLNames.cpp : ksvg2/scripts/make_names.pl html/HTMLTagNames.in html/HTMLAttributeNames.in
+HTMLNames.cpp : dom/make_names.pl html/HTMLTagNames.in html/HTMLAttributeNames.in
 	perl $< --tags $(WebCore)/html/HTMLTagNames.in --attrs $(WebCore)/html/HTMLAttributeNames.in \
             --namespace HTML --namespacePrefix xhtml --cppNamespace WebCore --namespaceURI "http://www.w3.org/1999/xhtml" --attrsNullNamespace --output .
 
-XMLNames.cpp : ksvg2/scripts/make_names.pl xml/xmlattrs.in
+XMLNames.cpp : dom/make_names.pl xml/xmlattrs.in
 	perl $< --attrs $(WebCore)/xml/xmlattrs.in \
             --namespace XML --cppNamespace WebCore --namespaceURI "http://www.w3.org/XML/1998/namespace" --output .
 
 ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
 
-ifeq ($(findstring ENABLE_SVG_EXPERIMENTAL_FEATURES,$(FEATURE_DEFINES)), ENABLE_SVG_EXPERIMENTAL_FEATURES)
-# SVG tag and attribute names (need to pass an extra flag if svg experimental features are enabled)
-SVGElementFactory.cpp SVGNames.cpp : ksvg2/scripts/make_names.pl ksvg2/svg/svgtags.in ksvg2/svg/svgattrs.in
-	perl $< --tags $(WebCore)/ksvg2/svg/svgtags.in --attrs $(WebCore)/ksvg2/svg/svgattrs.in --extraDefines "ENABLE_SVG_EXPERIMENTAL_FEATURES=1" \
-            --namespace SVG --cppNamespace WebCore --namespaceURI "http://www.w3.org/2000/svg" --factory --attrsNullNamespace --output .
-else
-# SVG tag and attribute names
-SVGElementFactory.cpp SVGNames.cpp : ksvg2/scripts/make_names.pl ksvg2/svg/svgtags.in ksvg2/svg/svgattrs.in
-	perl $< --tags $(WebCore)/ksvg2/svg/svgtags.in --attrs $(WebCore)/ksvg2/svg/svgattrs.in \
-            --namespace SVG --cppNamespace WebCore --namespaceURI "http://www.w3.org/2000/svg" --factory --attrsNullNamespace --output .
+WEBCORE_EXPORT_DEPENDENCIES := WebCore.SVG.exp
+
+ifeq ($(findstring ENABLE_SVG_USE,$(FEATURE_DEFINES)), ENABLE_SVG_USE)
+    SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_USE=1
 endif
 
-XLinkNames.cpp : ksvg2/scripts/make_names.pl ksvg2/misc/xlinkattrs.in
-	perl $< --attrs $(WebCore)/ksvg2/misc/xlinkattrs.in \
+ifeq ($(findstring ENABLE_SVG_FONTS,$(FEATURE_DEFINES)), ENABLE_SVG_FONTS)
+    SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FONTS=1
+endif
+
+ifeq ($(findstring ENABLE_SVG_FILTERS,$(FEATURE_DEFINES)), ENABLE_SVG_FILTERS)
+    SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FILTERS=1
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.Filters.exp
+endif
+
+ifeq ($(findstring ENABLE_SVG_AS_IMAGE,$(FEATURE_DEFINES)), ENABLE_SVG_AS_IMAGE)
+    SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_AS_IMAGE=1
+endif
+
+ifeq ($(findstring ENABLE_SVG_ANIMATION,$(FEATURE_DEFINES)), ENABLE_SVG_ANIMATION)
+    SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_ANIMATION=1
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.Animation.exp
+endif
+
+ifeq ($(findstring ENABLE_SVG_FOREIGN_OBJECT,$(FEATURE_DEFINES)), ENABLE_SVG_FOREIGN_OBJECT)
+	SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FOREIGN_OBJECT=1
+	WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.ForeignObject.exp
+endif
+
+# SVG tag and attribute names (need to pass an extra flag if svg experimental features are enabled)
+ifdef SVG_FLAGS
+SVGElementFactory.cpp SVGNames.cpp : dom/make_names.pl svg/svgtags.in svg/svgattrs.in
+	perl $< --tags $(WebCore)/svg/svgtags.in --attrs $(WebCore)/svg/svgattrs.in --extraDefines "$(SVG_FLAGS)" \
+            --namespace SVG --cppNamespace WebCore --namespaceURI "http://www.w3.org/2000/svg" --factory --attrsNullNamespace --output .
+else
+SVGElementFactory.cpp SVGNames.cpp : dom/make_names.pl svg/svgtags.in svg/svgattrs.in
+	perl $< --tags $(WebCore)/svg/svgtags.in --attrs $(WebCore)/svg/svgattrs.in \
+            --namespace SVG --cppNamespace WebCore --namespaceURI "http://www.w3.org/2000/svg" --factory --attrsNullNamespace --output .
+
+endif
+
+XLinkNames.cpp : dom/make_names.pl svg/xlinkattrs.in
+	perl $< --attrs $(WebCore)/svg/xlinkattrs.in \
             --namespace XLink --cppNamespace WebCore --namespaceURI "http://www.w3.org/1999/xlink" --output .
 
-# SVG CSS property names and value keywords
-
-ksvgcssproperties.h : ksvg2/scripts/cssmakeprops css/CSSPropertyNames.in ksvg2/css/CSSPropertyNames.in
-	if sort $(WebCore)/css/CSSPropertyNames.in $(WebCore)/ksvg2/css/CSSPropertyNames.in | uniq -d | grep -E '^[^#]'; then echo 'Duplicate value!'; exit 1; fi
-	cat $(WebCore)/ksvg2/css/CSSPropertyNames.in > ksvgcssproperties.in
-	$(WebCore)/ksvg2/scripts/cssmakeprops -n SVG -f ksvgcssproperties.in
-
-ksvgcssvalues.h : ksvg2/scripts/cssmakevalues css/CSSValueKeywords.in ksvg2/css/CSSValueKeywords.in
-	if sort $(WebCore)/css/CSSValueKeywords.in $(WebCore)/ksvg2/css/CSSValueKeywords.in | uniq -d | grep -E '^[^#]'; then echo 'Duplicate value!'; exit 1; fi
-	# Lower case all the values, as CSS values are case-insensitive
-	perl -ne 'print lc' $(WebCore)/ksvg2/css/CSSValueKeywords.in > ksvgcssvalues.in
-	$(WebCore)/ksvg2/scripts/cssmakevalues -n SVG -f ksvgcssvalues.in
+# Add SVG Symbols to the WebCore exported symbols file
+WebCore.exp : WebCore.base.exp $(WEBCORE_EXPORT_DEPENDENCIES)
+	cat $^ > $@
 
 else
 
 SVGElementFactory.cpp :
-	echo > SVGElementFactory.cpp
+	echo > $@
 
 SVGNames.cpp :
-	echo > SVGNames.cpp
+	echo > $@
 
 XLinkNames.cpp :
-	echo > XLinkNames.cpp
+	echo > $@
 
-ksvgcssproperties.h :
-	echo > ksvgcssproperties.h
-
-ksvgcssvalues.h :
-	echo > ksvgcssvalues.h
+WebCore.exp : WebCore.base.exp
+	cat $^ > $@
 
 endif
 
@@ -708,7 +784,7 @@ OBJC_BINDINGS_SCRIPTS = \
 #
 
 DOM%.h : %.idl $(OBJC_BINDINGS_SCRIPTS) bindings/objc/PublicDOMInterfaces.h
-	perl -I $(WebCore)/bindings/scripts $(WebCore)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_OBJECTIVE_C" --generator ObjC --include dom --include html --include css --include page --include xml --include ksvg2/svg --include ksvg2/events --outputdir . $<
+	perl -I $(WebCore)/bindings/scripts $(WebCore)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_OBJECTIVE_C" --generator ObjC --include dom --include html --include css --include page --include xml --include svg --outputdir . $<
 
 # new-style JavaScript bindings
 
@@ -721,4 +797,4 @@ JS_BINDINGS_SCRIPTS = \
 #
 
 JS%.h : %.idl $(JS_BINDINGS_SCRIPTS)
-	perl -I $(WebCore)/bindings/scripts $(WebCore)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --include css --include page --include xml --include ksvg2/svg --include ksvg2/events --outputdir . $<
+	perl -I $(WebCore)/bindings/scripts $(WebCore)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --include css --include page --include xml --include svg --outputdir . $<

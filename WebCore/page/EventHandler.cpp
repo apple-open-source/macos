@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -169,6 +169,30 @@ void EventHandler::selectClosestWordFromMouseEvent(const MouseEventWithHitTestRe
     }
 }
 
+void EventHandler::selectClosestWordOrLinkFromMouseEvent(const MouseEventWithHitTestResults& result)
+{
+    if (!result.hitTestResult().isLiveLink())
+        return selectClosestWordFromMouseEvent(result);
+
+    Node* innerNode = result.targetNode();
+
+    if (innerNode && innerNode->renderer() && m_mouseDownMayStartSelect) {
+        Selection newSelection;
+        Element* URLElement = result.hitTestResult().URLElement();
+        VisiblePosition pos(innerNode->renderer()->positionForPoint(result.localPoint()));
+        if (pos.isNotNull() && pos.deepEquivalent().node()->isDescendantOf(URLElement))
+            newSelection = Selection::selectionFromContentsOfNode(URLElement);
+    
+        if (newSelection.isRange()) {
+            m_frame->setSelectionGranularity(WordGranularity);
+            m_beganSelectingText = true;
+        }
+
+        if (m_frame->shouldChangeSelection(newSelection))
+            m_frame->selectionController()->setSelection(newSelection);
+    }
+}
+
 bool EventHandler::handleMousePressEventDoubleClick(const MouseEventWithHitTestResults& event)
 {
     if (event.event().button() != LeftButton)
@@ -235,7 +259,7 @@ bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestR
 
     VisiblePosition visiblePos(innerNode->renderer()->positionForPoint(event.localPoint()));
     if (visiblePos.isNull())
-        visiblePos = VisiblePosition(innerNode, innerNode->caretMinOffset(), DOWNSTREAM);
+        visiblePos = VisiblePosition(innerNode, 0, DOWNSTREAM);
     Position pos = visiblePos.deepEquivalent();
     
     Selection newSelection = m_frame->selectionController()->selection();
@@ -268,6 +292,9 @@ bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestR
 
 bool EventHandler::handleMousePressEvent(const MouseEventWithHitTestResults& event)
 {
+    // Reset drag state.
+    dragState().m_dragSrc = 0;
+
     bool singleClick = event.event().clickCount() <= 1;
 
     // If we got the event back, that must mean it wasn't prevented,
@@ -548,7 +575,6 @@ HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool all
         return result;
     m_frame->renderer()->layer()->hitTest(HitTestRequest(true, true), result);
 
-    IntPoint widgetPoint(point);
     while (true) {
         Node* n = result.innerNode();
         if (!n || !n->renderer() || !n->renderer()->isWidget())
@@ -559,10 +585,9 @@ HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool all
         Frame* frame = static_cast<HTMLFrameElementBase*>(n)->contentFrame();
         if (!frame || !frame->renderer())
             break;
-        int absX, absY;
-        n->renderer()->absolutePosition(absX, absY, true);
         FrameView* view = static_cast<FrameView*>(widget);
-        widgetPoint.move(view->contentsX() - absX, view->contentsY() - absY);
+        IntPoint widgetPoint(result.localPoint().x() + view->contentsX() - n->renderer()->borderLeft() - n->renderer()->paddingLeft(), 
+            result.localPoint().y() + view->contentsY() - n->renderer()->borderTop() - n->renderer()->paddingTop());
         HitTestResult widgetHitTestResult(widgetPoint);
         frame->renderer()->layer()->hitTest(HitTestRequest(true, true), widgetHitTestResult);
         result = widgetHitTestResult;
@@ -851,8 +876,13 @@ bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& mouseEvent)
 
     // If the hit testing originally determined the event was in a scrollbar, refetch the MouseEventWithHitTestResults
     // in case the scrollbar widget was destroyed when the mouse event was handled.
-    if (mev.scrollbar())
+    if (mev.scrollbar()) {
+        const bool wasLastScrollBar = mev.scrollbar() == m_lastScrollbarUnderMouse.get();
         mev = prepareMouseEvent(HitTestRequest(true, true), mouseEvent);
+
+        if (wasLastScrollBar && mev.scrollbar() != m_lastScrollbarUnderMouse.get())
+            m_lastScrollbarUnderMouse = 0;
+    }
 
     if (swallowEvent) {
         // scrollbars should get events anyway, even disabled controls might be scrollable
@@ -983,14 +1013,14 @@ bool EventHandler::handleMouseMoveEvent(const PlatformMouseEvent& mouseEvent, Hi
             // Send mouse exited to the old scrollbar.
             if (m_lastScrollbarUnderMouse)
                 m_lastScrollbarUnderMouse->handleMouseOutEvent(mouseEvent);
-            m_lastScrollbarUnderMouse = scrollbar;
+            m_lastScrollbarUnderMouse = m_mousePressed ? 0 : scrollbar;
         }
     }
 
     bool swallowEvent = false;
     Node* targetNode = m_capturingMouseEventsNode ? m_capturingMouseEventsNode.get() : mev.targetNode();
     RefPtr<Frame> newSubframe = subframeForTargetNode(targetNode);
-    
+
     // We want mouseouts to happen first, from the inside out.  First send a move event to the last subframe so that it will fire mouseouts.
     if (m_lastMouseMoveEventSubframe && m_lastMouseMoveEventSubframe->tree()->isDescendantOf(m_frame) && m_lastMouseMoveEventSubframe != newSubframe)
         passMouseMoveEventToSubframe(mev, m_lastMouseMoveEventSubframe.get());
@@ -1037,6 +1067,7 @@ bool EventHandler::handleMouseReleaseEvent(const PlatformMouseEvent& mouseEvent)
 #if ENABLE(SVG)
     if (m_svgPan) {
         m_svgPan = false;
+        static_cast<SVGDocument*>(m_frame->document())->updatePan(m_currentMousePosition);
         return true;
     }
 #endif
@@ -1152,7 +1183,7 @@ void EventHandler::cancelDragAndDrop(const PlatformMouseEvent& event, Clipboard*
         else
             dispatchDragEvent(dragleaveEvent, m_dragTarget.get(), event, clipboard);
     }
-    m_dragTarget = 0;
+    clearDragState();
 }
 
 bool EventHandler::performDragAndDrop(const PlatformMouseEvent& event, Clipboard* clipboard)
@@ -1166,8 +1197,17 @@ bool EventHandler::performDragAndDrop(const PlatformMouseEvent& event, Clipboard
         else
             accept = dispatchDragEvent(dropEvent, m_dragTarget.get(), event, clipboard);
     }
-    m_dragTarget = 0;
+    clearDragState();
     return accept;
+}
+
+void EventHandler::clearDragState()
+{
+    m_dragTarget = 0;
+    m_capturingMouseEventsNode = 0;
+#if PLATFORM(MAC)
+    m_sendingEventToSubview = false;
+#endif
 }
 
 Node* EventHandler::nodeUnderMouse() const
@@ -1196,13 +1236,13 @@ void EventHandler::updateMouseEventTargetNode(Node* targetNode, const PlatformMo
     // If we're capturing, we always go right to that node.
     if (m_capturingMouseEventsNode)
         result = m_capturingMouseEventsNode.get();
-    
-    // If the target node is a text node, dispatch on the parent node - rdar://4196646
-    if (result && result->isTextNode())
-        result = result->parentNode();
-    if (result)
-        result = result->shadowAncestorNode();
-        
+    else {
+        // If the target node is a text node, dispatch on the parent node - rdar://4196646
+        if (result && result->isTextNode())
+            result = result->parentNode();
+        if (result)
+            result = result->shadowAncestorNode();
+    }
     m_nodeUnderMouse = result;
     
     // Fire mouseout/mouseover if the mouse has shifted to a different node.
@@ -1347,7 +1387,7 @@ bool EventHandler::sendContextMenuEvent(const PlatformMouseEvent& event)
         // available for text selections.  But only if we're above text.
         (m_frame->selectionController()->isContentEditable() || mev.targetNode() && mev.targetNode()->isTextNode())) {
         m_mouseDownMayStartSelect = true; // context menu events are always allowed to perform a selection
-        selectClosestWordFromMouseEvent(mev);
+        selectClosestWordOrLinkFromMouseEvent(mev);
     }
 
     swallowEvent = dispatchMouseEvent(contextmenuEvent, mev.targetNode(), true, 0, event, true);
@@ -1395,6 +1435,12 @@ void EventHandler::setResizingFrameSet(HTMLFrameSetElement* frameSet)
     m_frameSetBeingResized = frameSet;
 }
 
+void EventHandler::resizeLayerDestroyed()
+{
+    ASSERT(m_resizeLayer);
+    m_resizeLayer = 0;
+}
+
 void EventHandler::hoverTimerFired(Timer<EventHandler>*)
 {
     m_hoverTimer.stop();
@@ -1425,75 +1471,131 @@ static EventTargetNode* eventTargetNodeForDocument(Document* doc)
     return EventTargetNodeCast(node);
 }
 
+bool EventHandler::handleAccessKey(const PlatformKeyboardEvent& evt)
+{
+#if PLATFORM(MAC) || PLATFORM(QT)
+    if (evt.ctrlKey())
+#else
+    if (evt.altKey())
+#endif
+    {
+        String key = evt.unmodifiedText();
+        Element* elem = m_frame->document()->getElementByAccessKey(key.lower());
+        if (elem) {
+            elem->accessKeyAction(false);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+#if !PLATFORM(MAC)
+bool EventHandler::needsKeyboardEventDisambiguationQuirks() const
+{
+    return false;
+}
+#endif
 
 bool EventHandler::keyEvent(const PlatformKeyboardEvent& initialKeyEvent)
 {
     // Check for cases where we are too early for events -- possible unmatched key up
     // from pressing return in the location bar.
-    EventTargetNode* node = eventTargetNodeForDocument(m_frame->document());
+    RefPtr<EventTargetNode> node = eventTargetNodeForDocument(m_frame->document());
     if (!node)
         return false;
-        
-    if (initialKeyEvent.isKeyUp())
-        return !node->dispatchKeyEvent(initialKeyEvent);
-        
+
+    // FIXME: what is this doing here, in keyboard event handler?
     m_frame->loader()->resetMultipleFormSubmissionProtection();
+
+    // In IE, access keys are special, they are handled after default keydown processing, but cannot be canceled - this is hard to match.
+    // On Mac OS X, we process them before dispatching keydown, as the default keydown handler implements Emacs key bindings, which may conflict
+    // with access keys. Then we dispatch keydown, but suppress its default handling.
+    // On Windows, WebKit explicitly calls handleAccessKey() instead of dispatching a keypress event for WM_SYSCHAR messages.
+    // Other platforms currently match either Mac or Windows behavior, depending on whether they send combined KeyDown events.
+    bool matchedAnAccessKey = false;
+    if (initialKeyEvent.type() == PlatformKeyboardEvent::KeyDown)
+        matchedAnAccessKey = handleAccessKey(initialKeyEvent);
+
+    // FIXME: it would be fair to let an input method handle KeyUp events before DOM dispatch.
+    if (initialKeyEvent.type() == PlatformKeyboardEvent::KeyUp || initialKeyEvent.type() == PlatformKeyboardEvent::Char)
+        return !node->dispatchKeyEvent(initialKeyEvent);
+
+    bool backwardCompatibilityMode = needsKeyboardEventDisambiguationQuirks();
+
+    ExceptionCode ec;
+    PlatformKeyboardEvent keyDownEvent = initialKeyEvent;    
+    if (keyDownEvent.type() != PlatformKeyboardEvent::RawKeyDown)
+        keyDownEvent.disambiguateKeyDownEvent(PlatformKeyboardEvent::RawKeyDown, backwardCompatibilityMode);
+    RefPtr<KeyboardEvent> keydown = new KeyboardEvent(keyDownEvent, m_frame->document()->defaultView());
+    if (matchedAnAccessKey)
+        keydown->setDefaultPrevented(true);
+    keydown->setTarget(node);
+
+    if (initialKeyEvent.type() == PlatformKeyboardEvent::RawKeyDown) {
+        node->dispatchEvent(keydown, ec, true);
+        return keydown->defaultHandled() || keydown->defaultPrevented();
+    }
+
+    // Run input method in advance of DOM event handling.  This may result in the IM
+    // modifying the page prior the keydown event, but this behaviour is necessary
+    // in order to match IE:
+    // 1. preventing default handling of keydown and keypress events has no effect on IM input;
+    // 2. if an input method handles the event, its keyCode is set to 229 in keydown event.
+    m_frame->editor()->handleInputMethodKeydown(keydown.get());
     
-    // Prepare the keyPress in advance of the keyDown so we can fire the input method
-    // in advance of keyDown
-    PlatformKeyboardEvent keyPressEvent = initialKeyEvent;    
-    keyPressEvent.setIsAutoRepeat(true);
+    bool handledByInputMethod = keydown->defaultHandled();
+    
+    if (handledByInputMethod) {
+        keyDownEvent.setWindowsVirtualKeyCode(CompositionEventKeyCode);
+        keydown = new KeyboardEvent(keyDownEvent, m_frame->document()->defaultView());
+        keydown->setTarget(node);
+        keydown->setDefaultHandled();
+    }
+
+    node->dispatchEvent(keydown, ec, true);
+    bool keydownResult = keydown->defaultHandled() || keydown->defaultPrevented();
+    if (handledByInputMethod || (keydownResult && !backwardCompatibilityMode))
+        return keydownResult;
+    
+    // Focus may have changed during keydown handling, so refetch node.
+    // But if we are dispatching a fake backward compatibility keypress, then we pretend that the keypress happened on the original node.
+    if (!keydownResult) {
+        node = eventTargetNodeForDocument(m_frame->document());
+        if (!node)
+            return false;
+    }
+
+    PlatformKeyboardEvent keyPressEvent = initialKeyEvent;
+    keyPressEvent.disambiguateKeyDownEvent(PlatformKeyboardEvent::Char, backwardCompatibilityMode);
+    if (keyPressEvent.text().isEmpty())
+        return keydownResult;
     RefPtr<KeyboardEvent> keypress = new KeyboardEvent(keyPressEvent, m_frame->document()->defaultView());
     keypress->setTarget(node);
-    
-    // Run input method in advance of DOM event handling.  This may result in the IM
-    // modifying the page prior the keydown event, however this behaviour is necessary
-    // in order to match IE
-    m_frame->editor()->handleInputMethodKeypress(keypress.get());
-    
-    bool handledByInputMethod = keypress->defaultHandled();
-    
-    PlatformKeyboardEvent keyDownEvent = initialKeyEvent; 
-    
-    if (handledByInputMethod) 
-        keyDownEvent.setWindowsKeyCode(CompositionEventKeyCode);
-        
-    // We always send keyDown and keyPress for all events, including autorepeat keys
-    keyDownEvent.setIsAutoRepeat(false);
-    
-    bool result = !node->dispatchKeyEvent(keyDownEvent);
-    
-    // Focus may have change during the keyDown handling, so refetch node
-    node = eventTargetNodeForDocument(m_frame->document());
-    if (!node)
-        return result;
-    
-    if (keypress->defaultHandled())
-        return true;
-    
-    if (handledByInputMethod)
-        return result;
-    
-    // If the default handling has been prevented on the keydown, we prevent it on
-    // the keypress as well
-    if (result)
-        keypress->setDefaultHandled();
-    
-    ExceptionCode ec;
+    if (keydownResult)
+        keypress->setDefaultPrevented(true);
+#if PLATFORM(MAC)
+    keypress->keypressCommands() = keydown->keypressCommands();
+#endif
     node->dispatchEvent(keypress, ec, true);
-    
-    return result || keypress->defaultHandled() || keypress->defaultPrevented();
+
+    return keydownResult || keypress->defaultPrevented() || keypress->defaultHandled();
 }
 
 void EventHandler::defaultKeyboardEventHandler(KeyboardEvent* event)
 {
-   if (event->type() == keypressEvent) {
-        m_frame->editor()->handleKeypress(event);
+   if (event->type() == keydownEvent) {
+        m_frame->editor()->handleKeyboardEvent(event);
         if (event->defaultHandled())
             return;
         if (event->keyIdentifier() == "U+0009")
-            defaultTabEventHandler(event, false);
-    }
+            defaultTabEventHandler(event);
+   }
+   if (event->type() == keypressEvent) {
+        m_frame->editor()->handleKeyboardEvent(event);
+        if (event->defaultHandled())
+            return;
+   }
 }
 
 bool EventHandler::dragHysteresisExceeded(const FloatPoint& floatDragViewportLocation) const
@@ -1685,6 +1787,12 @@ bool EventHandler::handleTextInputEvent(const String& text, Event* underlyingEve
 {
     if (!m_frame)
         return false;
+#ifndef NDEBUG
+    // Platforms should differentiate real commands like selectAll from text input in disguise (like insertNewline),
+    // and avoid dispatching text input events from keydown default handlers.
+    if (underlyingEvent && underlyingEvent->isKeyboardEvent())
+        ASSERT(static_cast<KeyboardEvent*>(underlyingEvent)->type() == keypressEvent);
+#endif
     EventTarget* target;
     if (underlyingEvent)
         target = underlyingEvent->target();
@@ -1723,11 +1831,6 @@ bool EventHandler::tabsToLinks(KeyboardEvent* event) const
 void EventHandler::defaultTextInputEventHandler(TextEvent* event)
 {
     String data = event->data();
-    if (data == "\t") {
-        defaultTabEventHandler(event, event->isBackTab());
-        if (event->defaultHandled())
-            return;
-    }
     if (data == "\n") {
         if (event->isLineBreak()) {
             if (m_frame->editor()->insertLineBreak())
@@ -1742,21 +1845,34 @@ void EventHandler::defaultTextInputEventHandler(TextEvent* event)
     }
 }
 
-void EventHandler::defaultTabEventHandler(Event* event, bool isBackTab)
+void EventHandler::defaultTabEventHandler(KeyboardEvent* event)
 {
-    Page* page = m_frame->page();
-    // Tabs can be used in design mode editing. You can still move out with back tab.
-    if (!page || !page->tabKeyCyclesThroughElements() || (m_frame->document()->inDesignMode() && !isBackTab))
+    // We should only advance focus on tabs if no special modifier keys are held down.
+    if (event->ctrlKey() || event->metaKey() || event->altGraphKey())
         return;
-    FocusController* focus = page->focusController();
-    KeyboardEvent* keyboardEvent = findKeyboardEvent(event);
-    bool handled;
-    if (isBackTab)
-        handled = focus->advanceFocus(FocusDirectionBackward, keyboardEvent);
-    else
-        handled = focus->advanceFocus(keyboardEvent); // get direction from keyboard event
-    if (handled)
+
+    Page* page = m_frame->page();
+    if (!page)
+        return;
+    if (!page->tabKeyCyclesThroughElements())
+        return;
+
+    FocusDirection focusDirection = event->shiftKey() ? FocusDirectionBackward : FocusDirectionForward;
+
+    // Tabs can be used in design mode editing.
+    if (m_frame->document()->inDesignMode())
+        return;
+
+    if (page->focusController()->advanceFocus(focusDirection, event))
         event->setDefaultHandled();
 }
+
+void EventHandler::capsLockStateMayHaveChanged()
+{
+    if (Document* d = m_frame->document())
+        if (Node* node = d->focusedNode())
+            if (RenderObject* r = node->renderer())
+                r->capsLockStateMayHaveChanged();
+} 
 
 }

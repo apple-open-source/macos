@@ -50,6 +50,7 @@
 #define kIOUSBMassStoragePreferredSubclass		"Preferred Subclass"
 #define kIOUSBMassStoragePreferredProtocol		"Preferred Protocol"
 #define kIOUSBMassStorageResetOnResume			"Reset On Resume"
+#define kIOUSBMassStorageDoNotOperate			"Do Not Operate"
 #define kIOUSBMassStorageUseStandardUSBReset    "Use Standard USB Reset"
 #define kIOUSBKnownCSWTagIssues                 "Known CSW Tag Issues"
 #define kIOUSBMassStorageMaxLogicalUnitNumber	"Max Logical Unit Number"

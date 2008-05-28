@@ -42,11 +42,6 @@ Comment::~Comment()
 {
 }
 
-const AtomicString& Comment::localName() const
-{
-    return commentAtom;
-}
-
 String Comment::nodeName() const
 {
     return commentAtom.domString();
@@ -59,7 +54,7 @@ Node::NodeType Comment::nodeType() const
 
 PassRefPtr<Node> Comment::cloneNode(bool /*deep*/)
 {
-    return document()->createComment(str);
+    return document()->createComment(m_data);
 }
 
 // DOM Section 1.1.1
@@ -72,11 +67,6 @@ String Comment::toString() const
 {
     // FIXME: We need to substitute entity references here.
     return "<!--" + nodeValue() + "-->";
-}
-
-bool Comment::offsetInCharacters() const
-{
-    return true;
 }
 
 } // namespace WebCore

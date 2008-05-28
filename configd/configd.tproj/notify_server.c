@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,10 +56,6 @@ notify_server(mach_msg_header_t *request, mach_msg_header_t *reply)
 			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("No more senders for port %d, closing."),
 			      Request->not_header.msgh_local_port);
 			cleanupSession(Request->not_header.msgh_local_port);
-
-			(void) mach_port_mod_refs(mach_task_self(),
-						 Request->not_header.msgh_local_port,
-						 MACH_PORT_RIGHT_RECEIVE, -1);
 
 			Reply->Head.msgh_bits		= 0;
 			Reply->Head.msgh_remote_port	= MACH_PORT_NULL;

@@ -50,7 +50,6 @@ protected:
     void applyStyle(CSSStyleDeclaration*, const Position& start, const Position& end, EditAction = EditActionChangeAttributes);
     void applyStyledElement(Element*);
     void removeStyledElement(Element*);
-    void deleteKeyPressed();
     void deleteSelection(bool smartDelete = false, bool mergeBlocksAfterDelete = true, bool replace = false, bool expandForSpecialElements = true);
     void deleteSelection(const Selection&, bool smartDelete = false, bool mergeBlocksAfterDelete = true, bool replace = false, bool expandForSpecialElements = true);
     virtual void deleteTextFromNode(Text* node, int offset, int count);
@@ -59,6 +58,7 @@ protected:
     void insertNodeAt(Node* insertChild, const Position&);
     void insertNodeBefore(Node* insertChild, Node* refChild);
     void insertParagraphSeparator(bool useDefaultParagraphElement = false);
+    void insertLineBreak();
     void insertTextIntoNode(Text* node, int offset, const String& text);
     void joinTextNodes(Text*, Text*);
     void rebalanceWhitespace();
@@ -101,6 +101,8 @@ protected:
     bool breakOutOfEmptyListItem();
     
     Position positionAvoidingSpecialElementBoundary(const Position&, bool alwaysAvoidAnchors = true);
+    
+    Node* splitTreeToNode(Node*, Node*, bool splitAncestor = false);
 
     Vector<RefPtr<EditCommand> > m_commands;
 

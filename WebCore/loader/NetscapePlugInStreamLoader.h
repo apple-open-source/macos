@@ -29,58 +29,38 @@
 #include "ResourceLoader.h"
 #include <wtf/Forward.h>
 
-#ifdef __OBJC__
-#import "WebPlugInStreamLoaderDelegate.h"
-#endif
-
 namespace WebCore {
-#if USE(CFNETWORK)
     class NetscapePlugInStreamLoader;
 
     class NetscapePlugInStreamLoaderClient {
     public:
+        virtual ~NetscapePlugInStreamLoaderClient() { }
         virtual void didReceiveResponse(NetscapePlugInStreamLoader*, const ResourceResponse&) = 0;
         virtual void didReceiveData(NetscapePlugInStreamLoader*, const char*, int) = 0;
         virtual void didFail(NetscapePlugInStreamLoader*, const ResourceError&) = 0;
         virtual void didFinishLoading(NetscapePlugInStreamLoader*) { }
     };
-#endif
-
-#ifdef __OBJC__
-        typedef id <WebPlugInStreamLoaderDelegate> PlugInStreamLoaderDelegate;
-#else
-        class NetscapePlugInStreamLoaderClient;
-        typedef NetscapePlugInStreamLoaderClient* PlugInStreamLoaderDelegate;
-#endif
 
     class NetscapePlugInStreamLoader : public ResourceLoader {
     public:
-        static PassRefPtr<NetscapePlugInStreamLoader> create(Frame*, PlugInStreamLoaderDelegate);
+        static PassRefPtr<NetscapePlugInStreamLoader> create(Frame*, NetscapePlugInStreamLoaderClient*);
         virtual ~NetscapePlugInStreamLoader();
 
         bool isDone() const;
 
-#if PLATFORM(MAC) || USE(CFNETWORK)
         virtual void didReceiveResponse(const ResourceResponse&);
-        virtual void didReceiveData(const char *, int, long long lengthReceived, bool allAtOnce);
+        virtual void didReceiveData(const char*, int, long long lengthReceived, bool allAtOnce);
         virtual void didFinishLoading();
         virtual void didFail(const ResourceError&);
 
         virtual void releaseResources();
-#endif
 
     private:
-        NetscapePlugInStreamLoader(Frame*, PlugInStreamLoaderDelegate);
+        NetscapePlugInStreamLoader(Frame*, NetscapePlugInStreamLoaderClient*);
 
-#if PLATFORM(MAC) || USE(CFNETWORK)
         virtual void didCancel(const ResourceError& error);
-#endif
 
-#if PLATFORM(MAC)
-        RetainPtr<PlugInStreamLoaderDelegate > m_stream;
-#elif USE(CFNETWORK)
         NetscapePlugInStreamLoaderClient* m_client;
-#endif
     };
 
 }

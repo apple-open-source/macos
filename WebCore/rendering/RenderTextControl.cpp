@@ -22,11 +22,13 @@
 #include "RenderTextControl.h"
 
 #include "CharacterNames.h"
+#include "CSSStyleSelector.h"
 #include "Document.h"
 #include "Editor.h"
 #include "EditorClient.h"
 #include "Event.h"
 #include "EventNames.h"
+#include "FontSelector.h"
 #include "Frame.h"
 #include "HTMLBRElement.h"
 #include "HTMLInputElement.h"
@@ -36,6 +38,7 @@
 #include "HitTestResult.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
+#include "PlatformKeyboardEvent.h"
 #include "PlatformScrollBar.h"
 #include "RenderTheme.h"
 #include "SearchPopupMenu.h"
@@ -43,7 +46,6 @@
 #include "Settings.h"
 #include "Text.h"
 #include "TextIterator.h"
-#include "TextStyle.h"
 #include "htmlediting.h"
 #include "visible_units.h"
 #include <math.h>
@@ -75,6 +77,7 @@ RenderTextControl::RenderTextControl(Node* node, bool multiLine)
     , m_multiLine(multiLine)
     , m_placeholderVisible(false)
     , m_userEdited(false)
+    , m_shouldDrawCapsLockIndicator(false)
     , m_searchPopup(0)
     , m_searchPopupIsVisible(false)
     , m_searchEventTimer(this, &RenderTextControl::searchEventTimerFired)
@@ -394,12 +397,14 @@ void RenderTextControl::updateFromElement()
         else
             value = value.replace('\\', backslashAsCurrencySymbol());
         if (value != text() || !m_innerText->hasChildNodes()) {
+            if (value != text()) {
+                if (Frame* frame = document()->frame())
+                    frame->editor()->clearUndoRedoOperations();
+            }
             ExceptionCode ec = 0;
             m_innerText->setInnerText(value, ec);
             if (value.endsWith("\n") || value.endsWith("\r"))
                 m_innerText->appendChild(new HTMLBRElement(document()), ec);
-            if (Frame* frame = document()->frame())
-                frame->editor()->clearUndoRedoOperations();
             m_dirty = false;
             m_userEdited = false;
         }
@@ -825,6 +830,13 @@ void RenderTextControl::layout()
     }
 }
 
+void RenderTextControl::paint(PaintInfo& paintInfo, int tx, int ty)
+{
+    RenderBlock::paint(paintInfo, tx, ty);
+    if (paintInfo.phase == PaintPhaseBlockBackground && m_shouldDrawCapsLockIndicator)
+        theme()->paintCapsLockIndicator(this, paintInfo, absoluteContentBox());
+} 
+
 void RenderTextControl::calcPrefWidths()
 {
     ASSERT(prefWidthsDirty());
@@ -838,7 +850,7 @@ void RenderTextControl::calcPrefWidths()
         // Figure out how big a text control needs to be for a given number of characters
         // (using "0" as the nominal character).
         const UChar ch = '0';
-        float charWidth = style()->font().floatWidth(TextRun(&ch, 1), TextStyle(0, 0, 0, false, false, false));
+        float charWidth = style()->font().floatWidth(TextRun(&ch, 1, false, 0, 0, false, false, false));
         int factor;
         int scrollbarSize = 0;
         if (m_multiLine) {
@@ -893,9 +905,11 @@ void RenderTextControl::forwardEvent(Event* evt)
                 innerLayer->scrollToOffset(style()->direction() == RTL ? innerLayer->scrollWidth() : 0, 0);
         }
         updatePlaceholder();
-    } else if (evt->type() == focusEvent)
+        capsLockStateMayHaveChanged();
+    } else if (evt->type() == focusEvent) {
         updatePlaceholder();
-    else {
+        capsLockStateMayHaveChanged();
+    } else {
         if (evt->isMouseEvent() && m_resultsButton && static_cast<MouseEvent*>(evt)->x() < m_innerText->renderer()->absoluteBoundingBoxRect().x())
             m_resultsButton->defaultEventHandler(evt);
         else if (evt->isMouseEvent() && m_cancelButton && static_cast<MouseEvent*>(evt)->x() > m_innerText->renderer()->absoluteBoundingBoxRect().right())
@@ -1100,6 +1114,21 @@ Document* RenderTextControl::clientDocument() const
     return document();
 }
 
+int RenderTextControl::clientInsetLeft() const
+{
+    // Inset the menu by the radius of the cap on the left so that
+    // it only runs along the straight part of the bezel.
+    return height() / 2;
+}
+
+int RenderTextControl::clientInsetRight() const
+{
+    // Inset the menu by the radius of the cap on the right so that
+    // it only runs along the straight part of the bezel (unless it needs
+    // to be wider).
+    return height() / 2;
+}
+
 int RenderTextControl::clientPaddingLeft() const
 {
     return paddingLeft() + m_resultsButton->renderer()->width();
@@ -1184,6 +1213,32 @@ bool RenderTextControl::isScrollable() const
     if (m_innerText && m_innerText->renderer()->isScrollable())
         return true;
     return RenderObject::isScrollable();
+}
+
+FontSelector* RenderTextControl::fontSelector() const
+{
+    return document()->styleSelector()->fontSelector();
+}
+
+void RenderTextControl::capsLockStateMayHaveChanged()
+{
+    // Only draw the caps lock indicator if these things are true:
+    // 1) The field is a password field
+    // 2) The frame is active
+    // 3) The element is focused
+    // 4) The caps lock is on
+
+    bool shouldDrawCapsLockIndicator = false;
+    if (Node* n = node())
+        if (Document* d = document())
+            if (Frame* f = d->frame())
+                shouldDrawCapsLockIndicator = !m_multiLine && static_cast<HTMLInputElement*>(n)->inputType() == HTMLInputElement::PASSWORD && 
+                                               f->selectionController()->isFocusedAndActive() && d->focusedNode() == n && PlatformKeyboardEvent::currentCapsLockState();
+
+    if (shouldDrawCapsLockIndicator != m_shouldDrawCapsLockIndicator) {
+        m_shouldDrawCapsLockIndicator = shouldDrawCapsLockIndicator;
+        repaint();
+    }
 }
 
 } // namespace WebCore

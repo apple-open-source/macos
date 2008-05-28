@@ -38,7 +38,7 @@ namespace WebCore {
 class WidgetPrivate
 {
 public:
-    wxScrolledWindow* nativeWindow;
+    wxWindow* nativeWindow;
     Font font;
     WidgetClient* client;
 };
@@ -50,23 +50,23 @@ Widget::Widget()
     data->client = 0;
 }
 
-Widget::Widget(wxScrolledWindow* win)
+Widget::Widget(wxWindow* win)
     : data(new WidgetPrivate)
 {
-    data->nativeWindow = win;
+    setNativeWindow(win);
 }
 
-Widget::~Widget() 
+Widget::~Widget()
 {
     delete data;
 }
 
-wxScrolledWindow* Widget::nativeWindow() const
+wxWindow* Widget::nativeWindow() const
 {
     return data->nativeWindow;
 }
 
-void Widget::setNativeWindow(wxScrolledWindow* win)
+void Widget::setNativeWindow(wxWindow* win)
 {
     data->nativeWindow = win;
 }
@@ -89,35 +89,15 @@ IntRect Widget::frameGeometry() const
     return IntRect();
 }
 
-bool Widget::hasFocus() const
-{
-    wxWindow* focus = wxWindow::FindFocus();
-    return (data->nativeWindow == focus);
-}
-
 void Widget::setFocus()
 {
     if (data->nativeWindow)
         data->nativeWindow->SetFocus();
 }
 
-void Widget::clearFocus()
-{
-}
-
-const Font& Widget::font() const
-{
-    return data->font;
-}
-
-void Widget::setFont(const Font& font)
-{
-    data->font = font;
-}
-
 void Widget::setCursor(const Cursor& cursor)
 {
-    if (data->nativeWindow)
+    if (data->nativeWindow && cursor.impl())
         data->nativeWindow->SetCursor(*cursor.impl());
 }
 
@@ -169,7 +149,7 @@ void Widget::paint(GraphicsContext*,const IntRect& r)
 {
     invalidateRect(r);
     if (data->nativeWindow)
-        data->nativeWindow->Refresh();
+        data->nativeWindow->Update();
 }
 
 }

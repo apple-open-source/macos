@@ -18,14 +18,16 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23408 $";
+static const char *const __rcs_file_version__ = "$Revision: 23506 $";
 
 #include "config.h"
 #include "launchd.h"
 
+#if HAVE_SECURITY
 #include <Security/Authorization.h>
 #include <Security/AuthorizationTags.h>
 #include <Security/AuthSession.h>
+#endif
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/event.h>
@@ -283,6 +285,7 @@ launchd_single_user(void)
 void
 launchd_SessionCreate(void)
 {
+#if HAVE_SECURITY
 	OSStatus (*sescr)(SessionCreationFlags flags, SessionAttributeBits attributes);
 	void *seclib;
 
@@ -292,6 +295,7 @@ launchd_SessionCreate(void)
 		}
 		launchd_assumes(dlclose(seclib) != -1);
 	}
+#endif
 }
 
 void

@@ -3,7 +3,7 @@
  *
  *   CGI <-> IPP variable routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -158,6 +158,8 @@ cgiGetAttributes(ipp_t      *request,	/* I - IPP request */
     for (i = 0; i < num_attrs; i ++)
       free(attrs[i]);
   }
+
+  fclose(in);
 }
 
 
@@ -523,8 +525,7 @@ cgiPrintTestPage(http_t     *http,	/* I - Connection to server */
   * See who is logged in...
   */
 
-  if ((user = getenv("REMOTE_USER")) == NULL)
-    user = "guest";
+  user = getenv("REMOTE_USER");
 
  /*
   * Locate the test page file...
@@ -562,8 +563,9 @@ cgiPrintTestPage(http_t     *http,	/* I - Connection to server */
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
                NULL, uri);
 
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
-               "requesting-user-name", NULL, user);
+  if (user)
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
+		 "requesting-user-name", NULL, user);
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "job-name",
                NULL, "Test Page");
@@ -592,6 +594,11 @@ cgiPrintTestPage(http_t     *http,	/* I - Connection to server */
     cgiFormEncode(uri, resource, sizeof(uri));
     snprintf(refresh, sizeof(refresh), "2;URL=%s", uri);
     cgiSetVariable("refresh_page", refresh);
+  }
+  else if (cupsLastError() == IPP_NOT_AUTHORIZED)
+  {
+    puts("Status: 401\n");
+    exit(0);
   }
 
   cgiStartHTML(cgiText(_("Print Test Page")));

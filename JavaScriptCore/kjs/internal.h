@@ -1,9 +1,8 @@
 // -*- c-basic-offset: 2 -*-
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -26,7 +25,6 @@
 #define INTERNAL_H
 
 #include "JSType.h"
-#include "interpreter.h"
 #include "object.h"
 #include "protect.h"
 #include "scope_chain.h"
@@ -50,17 +48,18 @@ namespace KJS {
     StringImp(const UString& v) : val(v) { Collector::reportExtraMemoryCost(v.cost()); }
     enum HasOtherOwnerType { HasOtherOwner };
     StringImp(const UString& value, HasOtherOwnerType) : val(value) { }
-    UString value() const { return val; }
-
-    JSType type() const { return StringType; }
-
-    JSValue *toPrimitive(ExecState *exec, JSType preferred = UnspecifiedType) const;
-    bool toBoolean(ExecState *exec) const;
-    double toNumber(ExecState *exec) const;
-    UString toString(ExecState *exec) const;
-    JSObject *toObject(ExecState *exec) const;
+    const UString& value() const { return val; }
 
   private:
+    virtual JSType type() const { return StringType; }
+
+    virtual JSValue* toPrimitive(ExecState*, JSType preferred = UnspecifiedType) const;
+    virtual bool getPrimitiveNumber(ExecState*, double& number, JSValue*& value);
+    virtual bool toBoolean(ExecState *exec) const;
+    virtual double toNumber(ExecState *exec) const;
+    virtual JSObject *toObject(ExecState *exec) const;
+    virtual UString toString(ExecState*) const;
+    
     UString val;
   };
 
@@ -70,55 +69,27 @@ namespace KJS {
   public:
     double value() const { return val; }
 
-    JSType type() const { return NumberType; }
+    virtual JSType type() const { return NumberType; }
 
-    JSValue *toPrimitive(ExecState *exec, JSType preferred = UnspecifiedType) const;
-    bool toBoolean(ExecState *exec) const;
-    double toNumber(ExecState *exec) const;
-    UString toString(ExecState *exec) const;
-    JSObject *toObject(ExecState *exec) const;
-
+    virtual JSValue* toPrimitive(ExecState*, JSType preferred = UnspecifiedType) const;
+    virtual bool getPrimitiveNumber(ExecState*, double& number, JSValue*& value);
+    virtual bool toBoolean(ExecState *exec) const;
+    virtual double toNumber(ExecState *exec) const;
+    virtual UString toString(ExecState *exec) const;
+    virtual JSObject *toObject(ExecState *exec) const;
+    
+    void* operator new(size_t size)
+    {
+        return Collector::allocateNumber(size);
+    }
   private:
     NumberImp(double v) : val(v) { }
 
     virtual bool getUInt32(uint32_t&) const;
+    virtual bool getTruncatedInt32(int32_t&) const;
+    virtual bool getTruncatedUInt32(uint32_t&) const;
 
     double val;
-  };
-
-
-  /**
-   * @short The "label set" in Ecma-262 spec
-   */
-  class LabelStack : Noncopyable {
-  public:
-    LabelStack()
-      : tos(0)
-    {
-    }
-    ~LabelStack();
-
-    /**
-     * If id is not empty and is not in the stack already, puts it on top of
-     * the stack and returns true, otherwise returns false
-     */
-    bool push(const Identifier &id);
-    /**
-     * Is the id in the stack?
-     */
-    bool contains(const Identifier &id) const;
-    /**
-     * Removes from the stack the last pushed id (what else?)
-     */
-    void pop();
-
-  private:
-    struct StackElem {
-      Identifier id;
-      StackElem *prev;
-    };
-
-    StackElem *tos;
   };
 
 
@@ -126,45 +97,25 @@ namespace KJS {
   //                            Evaluation
   // ---------------------------------------------------------------------------
 
-  struct AttachedInterpreter;
+  struct AttachedGlobalObject;
   class DebuggerImp {
   public:
 
     DebuggerImp() {
-      interps = 0;
+      globalObjects = 0;
       isAborted = false;
     }
 
     void abort() { isAborted = true; }
     bool aborted() const { return isAborted; }
 
-    AttachedInterpreter *interps;
+    AttachedGlobalObject* globalObjects;
     bool isAborted;
   };
-
-  // helper function for toInteger, toInt32, toUInt32 and toUInt16
-  double roundValue(ExecState *, JSValue *);
 
 #ifndef NDEBUG
   void printInfo(ExecState *exec, const char *s, JSValue *, int lineno = -1);
 #endif
-
-inline LabelStack::~LabelStack()
-{
-    StackElem *prev;
-    for (StackElem *e = tos; e; e = prev) {
-        prev = e->prev;
-        delete e;
-    }
-}
-
-inline void LabelStack::pop()
-{
-    if (StackElem *e = tos) {
-        tos = e->prev;
-        delete e;
-    }
-}
 
 } // namespace
 

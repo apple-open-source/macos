@@ -48,6 +48,8 @@ typedef struct {
 	CFUUIDRef			_factoryID;
 	UInt32				_refCount;
 
+	Boolean				no_user_intervention;
+
 	CFRunLoopSourceRef		monitorRls;
 
 	CFMutableSetRef			knownInterfaces;
@@ -173,6 +175,7 @@ notify_reply(CFUserNotificationRef userNotification, CFOptionFlags response_flag
 	notify_remove(myInstance, FALSE);
 	return;
 }
+
 
 static void
 notify_add(MyType *myInstance)
@@ -303,6 +306,99 @@ notify_add(MyType *myInstance)
 
 
 static void
+notify_configure(MyType *myInstance)
+{
+	AuthorizationRef	authorization	= NULL;
+	CFIndex			i;
+	CFIndex			n;
+	Boolean			ok;
+	SCPreferencesRef	prefs		= NULL;
+	SCNetworkSetRef		set		= NULL;
+
+	if (geteuid() == 0) {
+		prefs = SCPreferencesCreate(NULL, CFSTR("SCMonitor"), NULL);
+	} else {
+		AuthorizationFlags	flags		= kAuthorizationFlagDefaults;
+		OSStatus		status;
+
+		status = AuthorizationCreate(NULL,
+					     kAuthorizationEmptyEnvironment,
+					     flags,
+					     &authorization);
+		if (status != errAuthorizationSuccess) {
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("AuthorizationCreate() failed: status = %d\n"),
+			      status);
+			return;
+		}
+
+		prefs = SCPreferencesCreateWithAuthorization(NULL, CFSTR("SCMonitor"), NULL, authorization);
+	}
+
+	set = SCNetworkSetCopyCurrent(prefs);
+	if (set == NULL) {
+		set = SCNetworkSetCreate(prefs);
+		if (set == NULL) {
+			goto done;
+		}
+	}
+
+	n = CFArrayGetCount(myInstance->userInterfaces);
+	for (i = 0; i < n; i++) {
+		SCNetworkInterfaceRef	interface;
+		
+		interface = CFArrayGetValueAtIndex(myInstance->userInterfaces, i);
+		ok = SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface);
+		if (ok) {
+			CFStringRef	name;
+
+			name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
+			SCLog(TRUE, LOG_NOTICE, CFSTR("add service for %@"), name);
+		}
+	}
+	
+	ok = SCPreferencesCommitChanges(prefs);
+	if (!ok) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("SCPreferencesCommitChanges() failed: %s\n"),
+		      SCErrorString(SCError()));
+                goto done;
+        }
+		
+        ok = SCPreferencesApplyChanges(prefs);
+	if (!ok) {
+                SCLog(TRUE, LOG_ERR,
+		      CFSTR("SCPreferencesApplyChanges() failed: %s\n"),
+		      SCErrorString(SCError()));
+                goto done;
+        }
+
+    done :
+	
+	if (set != NULL) {
+		CFRelease(set);
+		set = NULL;
+	}
+
+	if (prefs != NULL) {
+		CFRelease(prefs);
+		prefs = NULL;
+	}
+	
+        if (authorization != NULL) {
+                AuthorizationFree(authorization, kAuthorizationFlagDefaults);
+		//              AuthorizationFree(authorization, kAuthorizationFlagDestroyRights);
+                authorization = NULL;
+        }
+	
+	CFRelease(myInstance->userInterfaces);
+	myInstance->userInterfaces = NULL;
+	
+	return;
+}
+
+
+static void
 updateInterfaceList(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 {
 	CFIndex			i;
@@ -400,9 +496,14 @@ updateInterfaceList(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 
     done :
 
-	// post notification
 	if (myInstance->userInterfaces != NULL) {
-		notify_add(myInstance);
+		if (myInstance->no_user_intervention) {
+			// add network services for new interfaces
+			notify_configure(myInstance);
+		} else {
+			// post notification
+			notify_add(myInstance);
+		}
 	}
 
 	if (set != NULL) CFRelease(set);
@@ -432,11 +533,24 @@ watcher_remove(MyType *myInstance)
 static void
 watcher_add(MyType *myInstance)
 {
+	CFBundleRef		bundle;
 	SCDynamicStoreContext	context	= { 0, (void *)myInstance, NULL, NULL, NULL };
 	CFDictionaryRef		dict;
 	CFStringRef		key;
 	CFArrayRef		keys;
 	SCDynamicStoreRef	store;
+
+	bundle = CFBundleGetBundleWithIdentifier(MY_BUNDLE_ID);
+	if (bundle != NULL) {
+		CFDictionaryRef	info;
+		CFBooleanRef	user_intervention;
+		
+		info = CFBundleGetInfoDictionary(bundle);
+		user_intervention = CFDictionaryGetValue(info, CFSTR("User Intervention"));
+		if (isA_CFBoolean(user_intervention)) {
+			myInstance->no_user_intervention = !CFBooleanGetValue(user_intervention);
+		}
+	}
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("SCMonitor"), updateInterfaceList, &context);
 	if (store == NULL) {

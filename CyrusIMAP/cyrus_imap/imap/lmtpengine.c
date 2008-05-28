@@ -978,7 +978,25 @@ static int process_recipient(char *addr, struct namespace *namespace,
 	}
 	else
 	{
-		odGetUserOpts( ret->user, gUserOpts );
+		/* do a virtual user lookup */
+		if ( strrchr(ret->all, '@')  )
+		{
+			odGetUserOpts( ret->all, gUserOpts );
+			if ( gUserOpts->fRecNamePtr != NULL )
+			{
+				if (ret->virt)
+				{
+					free( ret->virt );
+				}
+				ret->virt = xstrdup( gUserOpts->fRecNamePtr );
+				ret->user = ret->virt;
+			}
+		}
+		else
+		{
+			/* regular user lookup */
+			odGetUserOpts( ret->user, gUserOpts );
+		}
 	}
 
     if ( gUserOpts->fRecNamePtr != NULL )
@@ -999,20 +1017,7 @@ static int process_recipient(char *addr, struct namespace *namespace,
 	/* ignore default domain */
 	if (config_defdomain && !strcasecmp(config_defdomain, ret->domain))
 	    ret->domain = NULL;
-#ifdef APPLE_OS_X_SERVER
-//	else if ( config_getswitch( IMAPOPT_VIRTUAL_USER_LOOKUP ) && strrchr(ret->all, '@') )
-//	odGetUserOpts( ret->all, gUserOpts );
-    } else if ( strrchr(ret->all, '@') ) {
-	// If an @ is contained in the user ID do the user lookup based on
-	//  fully qualified email address for virutal host support
-	odGetUserOpts( ret->all, gUserOpts );
-	if ( gUserOpts->fRecNamePtr != NULL ) {
-	    if (ret->virt) free(ret->virt);
-	    ret->virt = xstrdup( gUserOpts->fRecNamePtr );
-	    ret->user = ret->virt;
 	}
-#endif
-    }
 
     /* translate any separators in user & mailbox */
     mboxname_hiersep_tointernal(namespace, ret->rcpt, 0);

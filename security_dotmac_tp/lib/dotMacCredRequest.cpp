@@ -62,8 +62,9 @@ void AppleDotMacTPSession::RetrieveCredResult(
 	 */
 	SecNssCoder coder;
 	CSSM_DATA userName;
+	CSSM_DATA domain;
 	DotMacCertTypeTag certType;
-	OSStatus ortn = dotMacDecodeRefId(coder, ReferenceIdentifier, userName, &certType);
+	OSStatus ortn = dotMacDecodeRefId(coder, ReferenceIdentifier, userName, domain, &certType);
 	if(ortn) {
 		dotMacErrorLog("RetrieveCredResult: Invalid RefID\n");
 		CssmError::throwMe(CSSMERR_TP_INVALID_IDENTIFIER);
@@ -72,7 +73,7 @@ void AppleDotMacTPSession::RetrieveCredResult(
 	/* Fetch the cert. */
 	CSSM_DATA certData = {0, NULL};
 	CSSM_RETURN crtn;
-	crtn = dotMacTpCertFetch(userName, certType, *this, certData);
+	crtn = dotMacTpCertFetch(userName, domain, certType, *this, certData);
 	if(crtn) {
 		/* FIXME error handling here, including no data */
 		CssmError::throwMe(crtn);
@@ -101,7 +102,7 @@ void AppleDotMacTPSession::RetrieveCredResult(
  */
 void AppleDotMacTPSession::SubmitArchiveRequest(
 	DotMacArchiveType archiveType,					// OID preparsed
-	const CSSM_DATA *altHost,						// optional
+	const CSSM_DATA &hostName,						// required
 	CSSM_TP_AUTHORITY_REQUEST_TYPE RequestType,
 	const CSSM_TP_REQUEST_SET &RequestInput,
 	const CSSM_TP_CALLERAUTH_CONTEXT *CallerAuthContext,
@@ -174,14 +175,6 @@ void AppleDotMacTPSession::SubmitArchiveRequest(
 		CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
 	}
 	
-	CSSM_DATA hostName;
-	if(altHost) {
-		hostName = *altHost;
-	}
-	else {
-		hostName.Data = (uint8 *)DOT_MAC_ARCHIVE_HOST_NAME;
-		hostName.Length = strlen(DOT_MAC_ARCHIVE_HOST_NAME);
-	}
 	CSSM_RETURN crtn;
 	
 	crtn = dotMacPostArchiveReq(version, certTypeTag,
@@ -213,13 +206,32 @@ void AppleDotMacTPSession::SubmitCredRequest(
 	sint32 &EstimatedTime,
 	CssmData &ReferenceIdentifier)
 {
-	CredReqOp op = CRO_Sign;
-	
-	/* default host, overridable via PreferredAuthority */
-	CSSM_DATA hostName = { strlen(DOT_MAC_SIGN_HOST_NAME),
-						  (uint8 *)DOT_MAC_SIGN_HOST_NAME };
+	CSSM_DATA hostName = { strlen(DOT_MAC_SIGN_HOST_NAME), (uint8 *)DOT_MAC_SIGN_HOST_NAME };
+    CSSM_DATA domainName = { strlen(DOT_MAC_DOMAIN), (uint8 *)DOT_MAC_DOMAIN };
+	CSSM_DATA fullName = { 0, NULL };
 	CSSM_DATA *altHost = NULL;
-	
+
+	CredReqOp op = CRO_Sign;
+	switch(RequestType) {
+		case CSSM_TP_AUTHORITY_REQUEST_CERTISSUE:
+			break;
+		case CSSM_TP_AUTHORITY_REQUEST_CERTLOOKUP:
+			op = CRO_Lookup;
+            hostName.Length = strlen(DOT_MAC_LOOKUP_HOST_NAME);
+            hostName.Data =  (uint8 *)DOT_MAC_LOOKUP_HOST_NAME;
+			break;
+		default:
+			CssmError::throwMe(CSSMERR_TP_UNSUPPORTED_SERVICE);
+	}
+
+	/* default host, overridable via PreferredAuthority or username specification */
+    CssmAutoData fullHostName(Allocator::standard());
+	fullHostName.malloc(hostName.Length + 1 + domainName.Length);
+	fullName = fullHostName.get();
+	memmove(fullName.Data, hostName.Data, hostName.Length);
+	memmove(fullName.Data + hostName.Length, ".", 1);
+	memmove(fullName.Data + hostName.Length + 1, domainName.Data, domainName.Length);
+
 	/* qualify inputs */
 	if(PreferredAuthority) {
 		/* only valid option: host name */
@@ -235,23 +247,16 @@ void AppleDotMacTPSession::SubmitCredRequest(
 			dotMacErrorLog("SubmitCredRequest: AddressType invalid\n");
 			CssmError::throwMe(CSSMERR_TP_INVALID_AUTHORITY);
 		}
-		hostName = PreferredAuthority->AuthorityLocation->Address;
-		if(hostName.Data == NULL) {
+		fullName = PreferredAuthority->AuthorityLocation->Address;
+		if(fullName.Data == NULL) {
 			dotMacErrorLog("SubmitCredRequest: Address invalid\n");
 			CssmError::throwMe(CSSMERR_TP_INVALID_AUTHORITY);
 		}
 		/* for archive only (it has a different default) */
-		altHost = &hostName;
+		altHost = &fullName;
+		dotMacTokenizeHostName(fullName, hostName, domainName);
 	}
-	switch(RequestType) {
-		case CSSM_TP_AUTHORITY_REQUEST_CERTISSUE:
-			break;
-		case CSSM_TP_AUTHORITY_REQUEST_CERTLOOKUP:
-			op = CRO_Lookup;
-			break;
-		default:
-			CssmError::throwMe(CSSMERR_TP_UNSUPPORTED_SERVICE);
-	}
+
 	if(CallerAuthContext == NULL) {
 		CssmError::throwMe(CSSMERR_TP_INVALID_CALLERAUTH_CONTEXT_POINTER);
 	}
@@ -308,17 +313,52 @@ void AppleDotMacTPSession::SubmitCredRequest(
 
 	switch(op) {
 		case CRO_Archive:
-			SubmitArchiveRequest(archiveType, altHost, RequestType,
+        {
+			CSSM_APPLE_DOTMAC_TP_ARCHIVE_REQUEST *archReq = 
+				(CSSM_APPLE_DOTMAC_TP_ARCHIVE_REQUEST *)RequestInput.Requests;
+			if(!archReq || !archReq->userName.Data || !archReq->userName.Length) {
+				dotMacErrorLog("SubmitCredRequest(Archive): bad username\n");
+				CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
+			}
+            if (!altHost) {
+                CSSM_DATA archReqDomain = domainName;
+                dotMacTokenizeUserName(archReq->userName, archReq->userName, archReqDomain);
+                if (archReqDomain.Length && archReqDomain.Data) {
+                    domainName = archReqDomain;
+                    fullHostName.reset();
+                    fullHostName.malloc(hostName.Length + 1 + domainName.Length);
+                    fullName = fullHostName.get();
+                    memmove(fullName.Data, hostName.Data, hostName.Length);
+                    memmove(fullName.Data + hostName.Length, ".", 1);
+                    memmove(fullName.Data + hostName.Length + 1, domainName.Data, domainName.Length);
+                }
+            }
+			SubmitArchiveRequest(archiveType, fullName, RequestType,
 				RequestInput, CallerAuthContext, EstimatedTime, ReferenceIdentifier);
 			return;
+        }
 		case CRO_Lookup:
 		{
 			CSSM_APPLE_DOTMAC_TP_CERT_REQUEST *certReq = 
 				(CSSM_APPLE_DOTMAC_TP_CERT_REQUEST *)RequestInput.Requests;
-			if((certReq == NULL) || (certReq->userName.Data == NULL)) {
+			if(!certReq || !certReq->userName.Data || !certReq->userName.Length) {
 				dotMacErrorLog("SubmitCredRequest(Lookup): bad username\n");
 				CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
 			}
+            if (!altHost) {
+                CSSM_DATA certReqDomain = domainName;
+                dotMacTokenizeUserName(certReq->userName, certReq->userName, certReqDomain);
+                if (certReqDomain.Length && certReqDomain.Data) {
+                    domainName = certReqDomain;
+                    fullHostName.reset();
+                    fullHostName.malloc(hostName.Length + 1 + domainName.Length);
+                    fullName = fullHostName.get();
+                    memmove(fullName.Data, hostName.Data, hostName.Length);
+                    memmove(fullName.Data + hostName.Length, ".", 1);
+                    memmove(fullName.Data + hostName.Length + 1, domainName.Data, domainName.Length);
+                }
+            }
+
 			if(certReq->flags & CSSM_DOTMAC_TP_IS_REQ_PENDING) {
 				/* 
 				 * We're just asking the server if there is a request pending
@@ -331,7 +371,7 @@ void AppleDotMacTPSession::SubmitCredRequest(
 				CSSM_RETURN crtn = dotMacPostReqPendingPing(certType, 
 					certReq->userName,
 					certReq->password,
-					hostName);
+					fullName);
 				/* this RPC does not have a "success" return */
 				assert(crtn != CSSM_OK);
 				if(crtn) {
@@ -348,8 +388,8 @@ void AppleDotMacTPSession::SubmitCredRequest(
 				 * a CSSM_DOTMAC_TP_IS_REQ_PENDING poll op, which is handled just 
 				 * above this block.
 				 */
-				CSSM_RETURN crtn = dotMacTpCertFetch(certReq->userName, certType, *this, 
-					ReferenceIdentifier);
+				CSSM_RETURN crtn = dotMacTpCertFetch(certReq->userName, domainName,
+					certType, *this, ReferenceIdentifier);
 				if(crtn) {
 					dotMacErrorLog("SubmitCredRequest(Lookup): error on fetch\n");
 					CssmError::throwMe(crtn);
@@ -492,20 +532,25 @@ doPost:
 	if(!(certReq->flags & CSSM_DOTMAC_TP_DO_NOT_POST)) {
 		
 		/* do the net request */
-		CSSM_DATA hostName;
 		CSSM_DATA resultBody;
-		
-		if(altHost) {
-			hostName = *altHost;
-		}
-		else {
-			hostName.Data = (uint8 *)DOT_MAC_SIGN_HOST_NAME;
-			hostName.Length = strlen(DOT_MAC_SIGN_HOST_NAME);
-		}
+        if (!altHost) {
+            CSSM_DATA certReqDomain = domainName;
+            dotMacTokenizeUserName(certReq->userName, certReq->userName, certReqDomain);
+            if (certReqDomain.Length && certReqDomain.Data) {
+                domainName = certReqDomain;
+                fullHostName.reset();
+                fullHostName.malloc(hostName.Length + 1 + domainName.Length);
+                fullName = fullHostName.get();
+                memmove(fullName.Data, hostName.Data, hostName.Length);
+                memmove(fullName.Data + hostName.Length, ".", 1);
+                memmove(fullName.Data + hostName.Length + 1, domainName.Data, domainName.Length);
+            }
+        }
+
 		crtn = dotMacPostCertReq(certType,
 			certReq->userName,
 			certReq->password,
-			hostName,
+			fullName,
 			certReq->flags & CSSM_DOTMAC_TP_SIGN_RENEW ? true : false,
 			csr,
 			coder,

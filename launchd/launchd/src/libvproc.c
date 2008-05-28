@@ -32,6 +32,9 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <pthread.h>
+#if HAVE_QUARANTINE
+#include <quarantine.h>
+#endif
 
 #include "liblaunch_public.h"
 #include "liblaunch_private.h"
@@ -201,6 +204,7 @@ _spawn_via_launchd(const char *label, const char *const *argv, const struct spaw
 
 	if (spawn_attrs) switch (struct_version) {
 	case 2:
+#if HAVE_QUARANTINE
 		if (spawn_attrs->spawn_quarantine) {
 			char qbuf[QTN_SERIALIZED_DATA_MAX];
 			size_t qbuf_sz = QTN_SERIALIZED_DATA_MAX;
@@ -210,6 +214,7 @@ _spawn_via_launchd(const char *label, const char *const *argv, const struct spaw
 				launch_data_dict_insert(in_obj, tmp, LAUNCH_JOBKEY_QUARANTINEDATA);
 			}
 		}
+#endif
 
 		if (spawn_attrs->spawn_seatbelt_profile) {
 			tmp = launch_data_new_string(spawn_attrs->spawn_seatbelt_profile);
@@ -550,6 +555,26 @@ reboot2(uint64_t flags)
 	}
 
 	return reboot2;
+}
+
+vproc_err_t
+_vproc_kickstart_by_label(const char *label, pid_t *out_pid, mach_port_t *out_port_name)
+{
+	if (vproc_mig_embedded_kickstart(bootstrap_port, (char *)label, out_pid, out_port_name) == 0) {
+		return NULL;
+	}
+
+	return (vproc_err_t)_vproc_kickstart_by_label;
+}
+
+vproc_err_t
+_vproc_wait_by_label(const char *label, int *out_wstatus)
+{
+	if (vproc_mig_embedded_wait(bootstrap_port, (char *)label, out_wstatus) == 0) {
+		return NULL;
+	}
+
+	return (vproc_err_t)_vproc_wait_by_label;
 }
 
 vproc_err_t

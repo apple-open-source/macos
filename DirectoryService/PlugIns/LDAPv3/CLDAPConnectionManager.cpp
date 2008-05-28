@@ -129,17 +129,19 @@ CLDAPConnectionManager::~CLDAPConnectionManager( void )
 	
 	fLDAPConnectionMap.clear();
 	
-	// we check connections that have a retain count more than one since they will get removed next go around
-	LDAPAuthConnectionListI	aLDAPAuthConnectionListI;
-	for ( aLDAPAuthConnectionListI = fLDAPAuthConnectionList.begin(); aLDAPAuthConnectionListI != fLDAPAuthConnectionList.end(); 
-		  ++aLDAPAuthConnectionListI )
-	{
-		(*aLDAPAuthConnectionListI)->Release();
-	}
-	
+	// here let's just copy into another list before we clear so we can close the connections safely
+	LDAPAuthConnectionList	cleanupList( fLDAPAuthConnectionList );
+
+	// now safe to clear the list
 	fLDAPAuthConnectionList.clear();
-    
+
+	// release the lock so we can close our authed connections
 	fLDAPConnectionMapMutex.SignalLock();	
+
+	for ( LDAPAuthConnectionListI cleanupListI = cleanupList.begin(); cleanupListI != cleanupList.end(); ++cleanupListI )
+	{
+		(*cleanupListI)->Release();
+	}
 	
 	DSCFRelease( fSupportedSASLMethods );
 }
@@ -159,8 +161,10 @@ CLDAPConnection	*CLDAPConnectionManager::GetConnection( const char *inNodeName )
 	LDAPConnectionMapI aLDAPConnectionMapI = fLDAPConnectionMap.find( inNodeName );
 	if ( aLDAPConnectionMapI != fLDAPConnectionMap.end() )
 	{
+		int32_t connectionStatus = aLDAPConnectionMapI->second->ConnectionStatus();
+
 		// if it's safe return it
-		if ( aLDAPConnectionMapI->second->ConnectionStatus() == kConnectionSafe )
+		if ( connectionStatus == kConnectionSafe )
 		{
 			pConnection = aLDAPConnectionMapI->second->Retain();
 			if ( pConnection->fNodeConfig != NULL )
@@ -176,6 +180,17 @@ CLDAPConnection	*CLDAPConnectionManager::GetConnection( const char *inNodeName )
 					aLDAPConnectionMapI = fLDAPConnectionMap.end();
 				}
 			}
+		}
+		// if it's unknown, try it
+		else if ( connectionStatus == kConnectionUnknown )
+		{
+			// try to establish a connection, if it fails release it
+			pConnection = aLDAPConnectionMapI->second->Retain();
+			LDAP *pTemp = pConnection->LockLDAPSession();
+			if ( pTemp != NULL )
+				pConnection->UnlockLDAPSession( pTemp, false );
+			else
+				DSRelease( pConnection );			
 		}
 	}
 	
@@ -325,16 +340,21 @@ void CLDAPConnectionManager::NodeDeleted( const char *inNodeName )
 {
 	// if a node is deleted, just remove any existing known connections from our map, they will get
 	// deleted when existing sessions fail
+	CLDAPConnection *pConnection = NULL;
+	
 	fLDAPConnectionMapMutex.WaitLock();
 	
 	LDAPConnectionMapI aLDAPConnectionMapI = fLDAPConnectionMap.find( inNodeName );
 	if ( aLDAPConnectionMapI != fLDAPConnectionMap.end() )
 	{
-		aLDAPConnectionMapI->second->Release();
+		pConnection = aLDAPConnectionMapI->second;
 		fLDAPConnectionMap.erase( aLDAPConnectionMapI );
 	}
 
 	fLDAPConnectionMapMutex.SignalLock();
+	
+	// do while not holding mutex due to potential deadlock with Kerberos
+	DSRelease( pConnection );
 }
 
 void CLDAPConnectionManager::PeriodicTask( void )
@@ -344,6 +364,7 @@ void CLDAPConnectionManager::PeriodicTask( void )
 	
 	bool				bShouldCheckThread		= false;
 	LDAPConnectionMapI	aLDAPConnectionMapI;
+	LDAPAuthConnectionList	cleanupList;
 	
 	CLDAPv3Plugin::WaitForNetworkTransitionToFinish();
 	
@@ -360,7 +381,7 @@ void CLDAPConnectionManager::PeriodicTask( void )
 			DbgLog( kLogPlugin, "CLDAPConnectionManager::PeriodicTask - Status Node: %s -- References: 0 -- removing from table", 
 				    aLDAPConnectionMapI->first.c_str() );
 			
-			pConnection->Release();
+			cleanupList.push_back( pConnection );
 			fLDAPConnectionMap.erase( aLDAPConnectionMapI++ );
 			continue;
 		}
@@ -385,7 +406,7 @@ void CLDAPConnectionManager::PeriodicTask( void )
 			DbgLog( kLogPlugin, "CLDAPConnectionManager::PeriodicTask - Status Node: %s:%s -- References: 0 -- removing from table", 
 				    pConnection->fNodeConfig->fNodeName, pConnection->fLDAPUsername );
 			
-			pConnection->Release();
+			cleanupList.push_back( pConnection );
 			aLDAPAuthConnectionListI++;
 			fLDAPAuthConnectionList.remove( pConnection );
 			continue;
@@ -400,6 +421,12 @@ void CLDAPConnectionManager::PeriodicTask( void )
 	}
 	
 	fLDAPConnectionMapMutex.SignalLock();
+	
+	// now Release any we were planning on deleting while not holding the map mutex, due to a Kerberos deadlock potential
+	for ( LDAPAuthConnectionListI cleanupListI = cleanupList.begin(); cleanupListI != cleanupList.end(); cleanupListI++ )
+	{
+		(*cleanupListI)->Release();
+	}
 	
 	// check that there is actually at least one entry in the table that needs to be checked
 	if ( bShouldCheckThread )
@@ -444,7 +471,10 @@ void CLDAPConnectionManager::SystemGoingToSleep( void )
 	// flag all connections unsafe
 	LDAPConnectionMapI	aLDAPConnectionMapI;
 	for ( aLDAPConnectionMapI = fLDAPConnectionMap.begin(); aLDAPConnectionMapI != fLDAPConnectionMap.end(); ++aLDAPConnectionMapI )
+	{
 		aLDAPConnectionMapI->second->SetConnectionStatus( kConnectionUnsafe );
+		aLDAPConnectionMapI->second->CloseConnectionIfPossible();
+	}
 	
 	// need to flag authenticated ones too
 	LDAPAuthConnectionListI aLDAPAuthConnectionListI;
@@ -452,6 +482,7 @@ void CLDAPConnectionManager::SystemGoingToSleep( void )
 		 ++aLDAPAuthConnectionListI )
 	{
 		(*aLDAPAuthConnectionListI)->SetConnectionStatus( kConnectionUnsafe );
+		(*aLDAPAuthConnectionListI)->CloseConnectionIfPossible();
 	}
 	
 	fLDAPConnectionMapMutex.SignalLock();
@@ -470,7 +501,8 @@ void CLDAPConnectionManager::CheckFailed( void )
 		return;
 	
 	LDAPConnectionMap	aCheckConnections;
-    
+	LDAPAuthConnectionList	cleanupList;
+
 	// we don't want to process failed connections right after a network transition, let the active connections go first
 	CLDAPv3Plugin::WaitForNetworkTransitionToFinish();
 	
@@ -488,7 +520,7 @@ void CLDAPConnectionManager::CheckFailed( void )
 			DbgLog( kLogPlugin, "CLDAPConnectionManager::CheckFailed - Status Node: %s -- References: 0 -- removing from table", 
 				    aLDAPConnectionMapI->first.c_str() );
 			
-			pConnection->Release();
+			cleanupList.push_back( pConnection );
 			fLDAPConnectionMap.erase( aLDAPConnectionMapI++ );
 			continue;
 		}
@@ -512,7 +544,7 @@ void CLDAPConnectionManager::CheckFailed( void )
 			DbgLog( kLogPlugin, "CLDAPConnectionManager::CheckFailed - Status Node: %s:%s -- References: 0 -- removing from table", 
 				    pConnection->fNodeConfig->fNodeName, pConnection->fLDAPUsername );
 			
-			pConnection->Release();
+			cleanupList.push_back( pConnection );
 			aLDAPAuthConnectionListI++;
 			fLDAPAuthConnectionList.remove( pConnection );
 		}
@@ -525,6 +557,12 @@ void CLDAPConnectionManager::CheckFailed( void )
 	}
     
 	fLDAPConnectionMapMutex.SignalLock();	
+	
+	// now Release any we were planning on deleting while not holding the map mutex, due to a Kerberos deadlock potential
+	for ( LDAPAuthConnectionListI cleanupListI = cleanupList.begin(); cleanupListI != cleanupList.end(); cleanupListI++ )
+	{
+		(*cleanupListI)->Release();
+	}
     
 	CLDAPv3Plugin::WaitForNetworkTransitionToFinish();
 	

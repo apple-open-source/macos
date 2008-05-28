@@ -25,7 +25,7 @@
 // resource directory construction and verification
 //
 #include "resources.h"
-#include "renum.h"
+#include <Security/CSCommon.h>
 #include <security_codesigning/cfmunge.h>
 
 namespace Security {
@@ -87,9 +87,14 @@ FTSENT *ResourceBuilder::next(string &path, Rule * &rule)
 		Rule *bestRule = NULL;
 		for (Rules::const_iterator it = mRules.begin(); it != mRules.end(); ++it) {
 			Rule *rule = *it;
-			if (rule->match(path.c_str()))
+			if (rule->match(path.c_str())) {
+				if (rule->flags & exclusion) {
+					bestRule = NULL;
+					break;
+				}
 				if (!bestRule || rule->weight > bestRule->weight)
 					bestRule = rule;
+			}
 		}
 		if (!bestRule || (bestRule->flags & omitted))
 			continue;

@@ -23,7 +23,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 2.8.30-1.3.39
+AEP_Version    = 2.8.31-1.3.41
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)

@@ -22,11 +22,14 @@
 /*
  * Copyright (c) 2003 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: IOPlatformFunction.h,v 1.3 2003/07/02 23:02:24 dirty Exp $
+ *  File: $Id: IOPlatformFunction.h,v 1.4 2008/01/04 17:42:22 pmr Exp $
  *
  *  DRI: Eric Muehlhausen
  *
  *		$Log: IOPlatformFunction.h,v $
+ *		Revision 1.4  2008/01/04 17:42:22  pmr
+ *		add support for gcc 4.2
+ *		
  *		Revision 1.3  2003/07/02 23:02:24  dirty
  *		Add CVS log and id keywords.
  *		
@@ -185,6 +188,7 @@ enum {
     @class IOPlatformFunction
     @abstract A class abstracting platform-do-function properties.  Note that this differs somewhat from a platform-do-function, which can contain multiple commands.  An IOPlatformFunction object deals with a single command, defined as (pHandle, flags, command[List])
 */
+class IOPlatformFunctionIterator;
 class IOPlatformFunction : public OSObject
 {
 	friend class IOPlatformFunctionIterator;

@@ -363,12 +363,38 @@ int CopyCredentialsFromUserNotification(
 			index = 0;
 			if ( useDomain )
 			{
-				*domain = CFRetain(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++));
+				*domain = CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++);
+				if (*domain != NULL)
+					CFRetain(*domain);
 			}
-			*username = CFRetain(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++));
-			*password = CFRetain(CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++));
-			*addtokeychain = ((responseFlags & CFUserNotificationCheckBoxChecked(0)) != 0);
-			result = 0;
+			
+			*username = CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++);
+			if (*username != NULL)
+				CFRetain(*username);
+				
+			*password = CFUserNotificationGetResponseValue(userNotification, kCFUserNotificationTextFieldValuesKey, index++);
+			if (*password != NULL)
+				CFRetain(*password);
+			
+			/* verify the UI gave us everything we need */
+			if ( (useDomain && *domain == NULL) ||
+			     (*username == NULL) ||
+				 (*password == NULL) )
+			{
+				/* Something went wrong with the UI. Cleanup. */
+				if (*domain != NULL)
+					CFRelease (*domain);
+				if (*username != NULL)
+					CFRelease (*username);
+				if (*password != NULL)
+					CFRelease (*password);
+				syslog(LOG_ERR, "Unable to get one or more credential fields from UserNotification");
+			}
+			else
+			{
+				*addtokeychain = ((responseFlags & CFUserNotificationCheckBoxChecked(0)) != 0);
+				result = 0;
+			}
 		}
 		else if ( (responseFlags & 3) == kCFUserNotificationAlternateResponse)
 		{

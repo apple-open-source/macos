@@ -1,7 +1,6 @@
 /*
- *  This file is part of the KDE libraries
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All Rights Reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -39,6 +38,8 @@
 #include "Page.h"
 #include "kjs_proxy.h"
 #include "kjs_window.h"
+#include <kjs/array_object.h>
+#include <kjs/function_object.h>
 
 #include "kjs_events.lut.h"
 
@@ -66,7 +67,7 @@ void JSAbstractEventListener::handleEvent(Event* ele, bool isWindowEvent)
     if (!listener)
         return;
 
-    Window* window = windowObj();
+    KJS::Window* window = windowObj();
     // Null check as clearWindowObj() can clear this and we still get called back by
     // xmlhttprequest objects. See http://bugs.webkit.org/show_bug.cgi?id=13275
     if (!window)
@@ -74,14 +75,13 @@ void JSAbstractEventListener::handleEvent(Event* ele, bool isWindowEvent)
     Frame *frame = window->impl()->frame();
     if (!frame)
         return;
-    KJSProxy* proxy = frame->scriptProxy();
-    if (!proxy)
+    if (!frame->scriptProxy()->isEnabled())
         return;
 
     JSLock lock;
 
-    ScriptInterpreter* interpreter = proxy->interpreter();
-    ExecState* exec = interpreter->globalExec();
+    JSGlobalObject* globalObject = frame->scriptProxy()->globalObject();
+    ExecState* exec = globalObject->globalExec();
 
     JSValue* handleEventFuncValue = listener->get(exec, "handleEvent");
     JSObject* handleEventFunc = 0;
@@ -97,14 +97,11 @@ void JSAbstractEventListener::handleEvent(Event* ele, bool isWindowEvent)
         List args;
         args.append(toJS(exec, event));
 
-        // Set the event we're handling in the Window object
         window->setCurrentEvent(event);
-        // ... and in the interpreter
-        interpreter->setCurrentEvent(event);
 
         JSValue* retval;
         if (handleEventFunc) {
-            interpreter->startTimeoutCheck();
+            globalObject->startTimeoutCheck();
             retval = handleEventFunc->call(exec, listener, args);
         } else {
             JSObject* thisObj;
@@ -112,13 +109,12 @@ void JSAbstractEventListener::handleEvent(Event* ele, bool isWindowEvent)
                 thisObj = window;
             else
                 thisObj = static_cast<JSObject*>(toJS(exec, event->currentTarget()));
-            interpreter->startTimeoutCheck();
+            globalObject->startTimeoutCheck();
             retval = listener->call(exec, thisObj, args);
         }
-        interpreter->stopTimeoutCheck();
+        globalObject->stopTimeoutCheck();
 
         window->setCurrentEvent(0);
-        interpreter->setCurrentEvent(0);
 
         if (exec->hadException()) {
             JSObject* exception = exec->exception()->toObject(exec);
@@ -152,13 +148,13 @@ bool JSAbstractEventListener::isHTMLEventListener() const
 
 // -------------------------------------------------------------------------
 
-JSUnprotectedEventListener::JSUnprotectedEventListener(JSObject* listener, Window* win, bool html)
+JSUnprotectedEventListener::JSUnprotectedEventListener(JSObject* listener, KJS::Window* win, bool html)
     : JSAbstractEventListener(html)
     , m_listener(listener)
     , m_win(win)
 {
     if (m_listener) {
-        Window::UnprotectedListenersMap& listeners = html
+        KJS::Window::UnprotectedListenersMap& listeners = html
             ? m_win->jsUnprotectedHTMLEventListeners() : m_win->jsUnprotectedEventListeners();
         listeners.set(m_listener, this);
     }
@@ -167,7 +163,7 @@ JSUnprotectedEventListener::JSUnprotectedEventListener(JSObject* listener, Windo
 JSUnprotectedEventListener::~JSUnprotectedEventListener()
 {
     if (m_listener && m_win) {
-        Window::UnprotectedListenersMap& listeners = isHTMLEventListener()
+        KJS::Window::UnprotectedListenersMap& listeners = isHTMLEventListener()
             ? m_win->jsUnprotectedHTMLEventListeners() : m_win->jsUnprotectedEventListeners();
         listeners.remove(m_listener);
     }
@@ -178,7 +174,7 @@ JSObject* JSUnprotectedEventListener::listenerObj() const
     return m_listener;
 }
 
-Window* JSUnprotectedEventListener::windowObj() const
+KJS::Window* JSUnprotectedEventListener::windowObj() const
 {
     return m_win;
 }
@@ -214,13 +210,13 @@ static EventListenerCounter eventListenerCounter;
 
 // -------------------------------------------------------------------------
 
-JSEventListener::JSEventListener(JSObject* listener, Window* win, bool html)
+JSEventListener::JSEventListener(JSObject* listener, KJS::Window* win, bool html)
     : JSAbstractEventListener(html)
     , m_listener(listener)
     , m_win(win)
 {
     if (m_listener) {
-        Window::ListenersMap& listeners = html
+        KJS::Window::ListenersMap& listeners = html
             ? m_win->jsHTMLEventListeners() : m_win->jsEventListeners();
         listeners.set(m_listener, this);
     }
@@ -232,7 +228,7 @@ JSEventListener::JSEventListener(JSObject* listener, Window* win, bool html)
 JSEventListener::~JSEventListener()
 {
     if (m_listener && m_win) {
-        Window::ListenersMap& listeners = isHTMLEventListener()
+        KJS::Window::ListenersMap& listeners = isHTMLEventListener()
             ? m_win->jsHTMLEventListeners() : m_win->jsEventListeners();
         listeners.remove(m_listener);
     }
@@ -246,7 +242,7 @@ JSObject* JSEventListener::listenerObj() const
     return m_listener;
 }
 
-Window* JSEventListener::windowObj() const
+KJS::Window* JSEventListener::windowObj() const
 {
     return m_win;
 }
@@ -258,7 +254,7 @@ void JSEventListener::clearWindowObj()
 
 // -------------------------------------------------------------------------
 
-JSLazyEventListener::JSLazyEventListener(const String& functionName, const String& code, Window* win, Node* node, int lineNumber)
+JSLazyEventListener::JSLazyEventListener(const String& functionName, const String& code, KJS::Window* win, Node* node, int lineNumber)
     : JSEventListener(0, win, true)
     , m_functionName(functionName)
     , m_code(code)
@@ -292,19 +288,14 @@ void JSLazyEventListener::parseCode() const
     m_parsed = true;
 
     Frame* frame = windowObj()->impl()->frame();
-    KJSProxy* proxy = 0;
-    if (frame)
-        proxy = frame->scriptProxy();
-
-    if (proxy) {
-        ScriptInterpreter* interpreter = proxy->interpreter();
-        ExecState* exec = interpreter->globalExec();
+    if (frame && frame->scriptProxy()->isEnabled()) {
+        ExecState* exec = frame->scriptProxy()->globalObject()->globalExec();
 
         JSLock lock;
-        JSObject* constr = interpreter->builtinFunction();
+        JSObject* constr = frame->scriptProxy()->globalObject()->functionConstructor();
         List args;
 
-        UString sourceURL(frame->loader()->url().url());
+        UString sourceURL(frame->loader()->url().string());
         args.append(eventParameterName());
         args.append(jsString(m_code));
         m_listener = constr->construct(exec, args, m_functionName, sourceURL, m_lineNumber); // FIXME: is globalExec ok ?
@@ -334,7 +325,7 @@ void JSLazyEventListener::parseCode() const
     m_code = String();
 
     if (m_listener) {
-        Window::ListenersMap& listeners = isHTMLEventListener()
+        KJS::Window::ListenersMap& listeners = isHTMLEventListener()
             ? windowObj()->jsHTMLEventListeners() : windowObj()->jsEventListeners();
         listeners.set(m_listener, const_cast<JSLazyEventListener*>(this));
     }
@@ -351,30 +342,29 @@ JSValue* getNodeEventListener(EventTargetNode* n, const AtomicString& eventType)
 
 // -------------------------------------------------------------------------
 
-const ClassInfo JSClipboard::info = { "Clipboard", 0, &JSClipboardTable, 0 };
+const ClassInfo JSClipboard::info = { "Clipboard", 0, &JSClipboardTable };
 
 /* Source for JSClipboardTable. Use "make hashtables" to regenerate.
 @begin JSClipboardTable 3
-  dropEffect    WebCore::JSClipboard::DropEffect   DontDelete
-  effectAllowed WebCore::JSClipboard::EffectAllowed        DontDelete
-  types         WebCore::JSClipboard::Types        DontDelete|ReadOnly
+  dropEffect    WebCore::JSClipboard::DropEffect                           DontDelete
+  effectAllowed WebCore::JSClipboard::EffectAllowed                        DontDelete
+  types         WebCore::JSClipboard::Types                                DontDelete|ReadOnly
 @end
 @begin JSClipboardPrototypeTable 4
-  clearData     WebCore::JSClipboard::ClearData    DontDelete|Function 0
-  getData       WebCore::JSClipboard::GetData      DontDelete|Function 1
-  setData       WebCore::JSClipboard::SetData      DontDelete|Function 2
-  setDragImage  WebCore::JSClipboard::SetDragImage DontDelete|Function 3
+  clearData     WebCore::jsClipboardPrototypeFunctionClearData    DontDelete|Function 0
+  getData       WebCore::jsClipboardPrototypeFunctionGetData      DontDelete|Function 1
+  setData       WebCore::jsClipboardPrototypeFunctionSetData      DontDelete|Function 2
+  setDragImage  WebCore::jsClipboardPrototypeFunctionSetDragImage DontDelete|Function 3
 @end
 */
 
 KJS_DEFINE_PROTOTYPE(JSClipboardPrototype)
-KJS_IMPLEMENT_PROTOTYPE_FUNCTION(JSClipboardPrototypeFunction)
-KJS_IMPLEMENT_PROTOTYPE("Clipboard", JSClipboardPrototype, JSClipboardPrototypeFunction)
+KJS_IMPLEMENT_PROTOTYPE("Clipboard", JSClipboardPrototype)
 
-JSClipboard::JSClipboard(ExecState* exec, Clipboard* clipboard)
-    : m_impl(clipboard)
+JSClipboard::JSClipboard(JSObject* prototype, Clipboard* clipboard)
+    : DOMObject(prototype)
+    , m_impl(clipboard)
 {
-    setPrototype(JSClipboardPrototype::self(exec));
 }
 
 JSClipboard::~JSClipboard()
@@ -407,7 +397,7 @@ JSValue* JSClipboard::getValueProperty(ExecState* exec, int token) const
                 HashSet<String>::const_iterator end = types.end();
                 for (HashSet<String>::const_iterator it = types.begin(); it != end; ++it)
                     list.append(jsString(UString(*it)));
-                return exec->lexicalInterpreter()->builtinArray()->construct(exec, list);
+                return exec->lexicalGlobalObject()->arrayConstructor()->construct(exec, list);
             }
         }
         default:
@@ -437,71 +427,88 @@ void JSClipboard::putValueProperty(ExecState* exec, int token, JSValue* value, i
     }
 }
 
-JSValue* JSClipboardPrototypeFunction::callAsFunction(ExecState* exec, JSObject* thisObj, const List& args)
+JSValue* jsClipboardPrototypeFunctionClearData(ExecState* exec, JSObject* thisObj, const List& args)
 {
     if (!thisObj->inherits(&JSClipboard::info))
         return throwError(exec, TypeError);
 
     Clipboard* clipboard = static_cast<JSClipboard*>(thisObj)->impl();
-    switch (id) {
-        case JSClipboard::ClearData:
-            if (args.size() == 0) {
-                clipboard->clearAllData();
-                return jsUndefined();
-            } else if (args.size() == 1) {
-                clipboard->clearData(args[0]->toString(exec));
-                return jsUndefined();
-            } else
-                return throwError(exec, SyntaxError, "clearData: Invalid number of arguments");
-        case JSClipboard::GetData:
-        {
-            if (args.size() == 1) {
-                bool success;
-                String result = clipboard->getData(args[0]->toString(exec), success);
-                if (success)
-                    return jsString(result);
-                return jsUndefined();
-            } else
-                return throwError(exec, SyntaxError, "getData: Invalid number of arguments");
-        }
-        case JSClipboard::SetData:
-            if (args.size() == 2)
-                return jsBoolean(clipboard->setData(args[0]->toString(exec), args[1]->toString(exec)));
-            return throwError(exec, SyntaxError, "setData: Invalid number of arguments");
-        case JSClipboard::SetDragImage:
-        {
-            if (!clipboard->isForDragging())
-                return jsUndefined();
 
-            if (args.size() != 3)
-                return throwError(exec, SyntaxError, "setDragImage: Invalid number of arguments");
+    if (args.size() == 0) {
+        clipboard->clearAllData();
+        return jsUndefined();
+    } else if (args.size() == 1) {
+        clipboard->clearData(args[0]->toString(exec));
+        return jsUndefined();
+    } else
+        return throwError(exec, SyntaxError, "clearData: Invalid number of arguments");
+}
 
-            int x = args[1]->toInt32(exec);
-            int y = args[2]->toInt32(exec);
+JSValue* jsClipboardPrototypeFunctionGetData(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSClipboard::info))
+        return throwError(exec, TypeError);
 
-            // See if they passed us a node
-            Node* node = toNode(args[0]);
-            if (!node)
-                return throwError(exec, TypeError);
+    Clipboard* clipboard = static_cast<JSClipboard*>(thisObj)->impl();
 
-            if (!node->isElementNode())
-                return throwError(exec, SyntaxError, "setDragImageFromElement: Invalid first argument");
+    if (args.size() == 1) {
+        bool success;
+        String result = clipboard->getData(args[0]->toString(exec), success);
+        if (success)
+            return jsString(result);
+        return jsUndefined();
+    } else
+        return throwError(exec, SyntaxError, "getData: Invalid number of arguments");
+}
 
-            if (static_cast<Element*>(node)->hasLocalName(imgTag) &&
-                !node->inDocument())
-                clipboard->setDragImage(static_cast<HTMLImageElement*>(node)->cachedImage(), IntPoint(x, y));
-            else
-                clipboard->setDragImageElement(node, IntPoint(x, y));
+JSValue* jsClipboardPrototypeFunctionSetData(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSClipboard::info))
+        return throwError(exec, TypeError);
 
-            return jsUndefined();
-        }
-    }
+    Clipboard* clipboard = static_cast<JSClipboard*>(thisObj)->impl();
+
+    if (args.size() == 2)
+        return jsBoolean(clipboard->setData(args[0]->toString(exec), args[1]->toString(exec)));
+    return throwError(exec, SyntaxError, "setData: Invalid number of arguments");
+}
+
+JSValue* jsClipboardPrototypeFunctionSetDragImage(ExecState* exec, JSObject* thisObj, const List& args)
+{
+    if (!thisObj->inherits(&JSClipboard::info))
+        return throwError(exec, TypeError);
+
+    Clipboard* clipboard = static_cast<JSClipboard*>(thisObj)->impl();
+
+    if (!clipboard->isForDragging())
+        return jsUndefined();
+
+    if (args.size() != 3)
+        return throwError(exec, SyntaxError, "setDragImage: Invalid number of arguments");
+
+    int x = args[1]->toInt32(exec);
+    int y = args[2]->toInt32(exec);
+
+    // See if they passed us a node
+    Node* node = toNode(args[0]);
+    if (!node)
+        return throwError(exec, TypeError);
+
+    if (!node->isElementNode())
+        return throwError(exec, SyntaxError, "setDragImageFromElement: Invalid first argument");
+
+    if (static_cast<Element*>(node)->hasLocalName(imgTag) &&
+        !node->inDocument())
+        clipboard->setDragImage(static_cast<HTMLImageElement*>(node)->cachedImage(), IntPoint(x, y));
+    else
+        clipboard->setDragImageElement(node, IntPoint(x, y));
+
     return jsUndefined();
 }
 
 JSValue* toJS(ExecState* exec, Clipboard* obj)
 {
-    return cacheDOMObject<Clipboard, JSClipboard>(exec, obj);
+    return cacheDOMObject<Clipboard, JSClipboard, JSClipboardPrototype>(exec, obj);
 }
 
 Clipboard* toClipboard(JSValue* val)

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Computer, Inc.  All rights reserved.
- * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com 
+ * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * All rights reserved.
  *
@@ -23,7 +22,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -50,6 +49,7 @@ public:
     ScrollView* parent;
     GtkContainer* containingWindow;
     bool suppressInvalidation;
+    GdkCursor* cursor;
 
     GdkDrawable* gdkDrawable() const
     {
@@ -64,6 +64,7 @@ Widget::Widget()
     data->parent = 0;
     data->containingWindow = 0;
     data->suppressInvalidation = false;
+    data->cursor = 0;
 }
 
 GtkWidget* Widget::gtkWidget() const
@@ -78,6 +79,7 @@ void Widget::setGtkWidget(GtkWidget* widget)
 
 Widget::~Widget()
 {
+    ASSERT(!parent());
     delete data;
 }
 
@@ -120,18 +122,32 @@ ScrollView* Widget::parent() const
 {
     return data->parent;
 }
- 
+
 void Widget::setFocus()
 {
     gtk_widget_grab_focus(gtkWidget() ? gtkWidget() : GTK_WIDGET(containingWindow()));
 }
 
+Cursor Widget::cursor()
+{
+    return Cursor(data->cursor);
+}
+
 void Widget::setCursor(const Cursor& cursor)
 {
     GdkCursor* pcur = cursor.impl();
-    if (!pcur)
+
+    // http://bugs.webkit.org/show_bug.cgi?id=16388
+    // [GTK] Widget::setCursor() gets called frequently
+    //
+    // gdk_window_set_cursor() in certain GDK backends seems to be an
+    // expensive operation, so avoid it if possible.
+
+    if (pcur == data->cursor)
         return;
+
     gdk_window_set_cursor(data->gdkDrawable() ? GDK_WINDOW(data->gdkDrawable()) : GTK_WIDGET(containingWindow())->window, pcur);
+    data->cursor = pcur;
 }
 
 void Widget::show()
@@ -148,15 +164,18 @@ void Widget::hide()
     gtk_widget_hide(gtkWidget());
 }
 
-void Widget::setEnabled(bool)
+void Widget::setEnabled(bool shouldEnable)
 {
-    notImplemented();
+    if (!gtkWidget())
+        return;
+    gtk_widget_set_sensitive(gtkWidget(), shouldEnable);
 }
 
 bool Widget::isEnabled() const
 {
-    notImplemented();
-    return false;
+    if (!gtkWidget())
+        return false;
+    return GTK_WIDGET_IS_SENSITIVE(gtkWidget());
 }
 
 void Widget::removeFromParent()
@@ -174,6 +193,9 @@ void Widget::removeFromParent()
 void Widget::paint(GraphicsContext* context, const IntRect&)
 {
     if (!gtkWidget())
+        return;
+
+    if (!context->gdkExposeEvent())
         return;
 
     GtkWidget* widget = gtkWidget();
@@ -266,7 +288,7 @@ IntPoint Widget::convertChildToSelf(const Widget* child, const IntPoint& point) 
 {
     return IntPoint(point.x() + child->x(), point.y() + child->y());
 }
- 
+
 IntPoint Widget::convertSelfToChild(const Widget* child, const IntPoint& point) const
 {
     return IntPoint(point.x() - child->x(), point.y() - child->y());

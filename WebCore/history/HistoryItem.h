@@ -31,7 +31,7 @@
 #include "IntPoint.h"
 #include "KURL.h"
 #include "PlatformString.h"
-#include "Shared.h"
+#include <wtf/RefCounted.h>
 #include "StringHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
@@ -48,14 +48,14 @@ namespace WebCore {
 class Document;
 class Image;
 class KURL;
-struct ResourceRequest;
+class ResourceRequest;
 
 class HistoryItem;
 typedef Vector<RefPtr<HistoryItem> > HistoryItemVector;
 
 extern void (*notifyHistoryItemChanged)();
 
-class HistoryItem : public Shared<HistoryItem> {
+class HistoryItem : public RefCounted<HistoryItem> {
     friend class PageCache;
 
 public: 

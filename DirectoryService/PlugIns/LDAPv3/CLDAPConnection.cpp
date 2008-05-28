@@ -531,6 +531,39 @@ char *CLDAPConnection::CopyReplicaServicePrincipal( void )
 	return returnValue;
 }
 
+void CLDAPConnection::CloseConnectionIfPossible( void )
+{
+	char	nodeName[256];
+
+	if ( fNodeConfig == NULL )
+	{
+		strlcpy( nodeName, "Unknown", sizeof(nodeName) );
+	}
+	else
+	{
+		strlcpy( nodeName, "/LDAPv3/", sizeof(nodeName) );
+		strlcat( nodeName, fNodeConfig->fNodeName, sizeof(nodeName) );
+	}
+
+	// try lock, if we can't grab it, we don't want to block
+	if ( fMutex.WaitTryLock() )
+	{
+		if ( fHost != NULL )
+		{
+			DbgLog( kLogPlugin, "CLDAPConnection::CloseConnectionIfPossible - %s - closed LDAP session - not in use",
+				   nodeName );
+			ldap_unbind_ext_s( fHost, NULL, NULL );
+			fHost = NULL;
+		}
+		fMutex.SignalLock();
+	}	
+	else if ( fHost != NULL ) // we don't care, just informative
+	{
+		DbgLog( kLogPlugin, "CLDAPConnection::CloseConnectionIfPossible - %s - unable to close LDAP session - in use",
+			   nodeName );
+	}
+}
+
 void CLDAPConnection::SetConnectionStatus( int32_t inStatus )
 {
 	int32_t	oldStatus = fConnectionStatus;
@@ -614,23 +647,7 @@ void CLDAPConnection::ReachabilityNotification( SCNetworkReachabilityRef inTarge
 		
 		fReachabilityLock.SignalLock();
 		
-		// try lock, if we can't grab it, we don't want to block
-		if ( fMutex.WaitTryLock() )
-		{
-			if ( fHost != NULL )
-			{
-				DbgLog( kLogPlugin, "CLDAPConnection::ReachabilityNotification - %s - closed LDAP session - not in use",
-					    nodeName );
-				ldap_unbind_ext_s( fHost, NULL, NULL );
-				fHost = NULL;
-			}
-			fMutex.SignalLock();
-		}	
-		else if ( fHost != NULL ) // we don't care, just informative
-		{
-			DbgLog( kLogPlugin, "CLDAPConnection::ReachabilityNotification - %s - unable to close LDAP session - in use",
-				    nodeName );
-		}
+		CloseConnectionIfPossible();
 	}
 }
 

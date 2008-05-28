@@ -256,13 +256,7 @@ void
 server_init(mach_port_t		restart_service_port,
 	    Boolean		enableRestart)
 {
-	CFMachPortContext	context		= { 0
-						  , (void *)1
-						  , NULL
-						  , NULL
-						  , serverMPCopyDescription
-						  };
-
+	serverSessionRef	mySession;
 	CFRunLoopSourceRef	rls;
 	char			*service_name;
 	mach_port_t		service_port	= restart_service_port;
@@ -355,8 +349,9 @@ server_init(mach_port_t		restart_service_port,
 	/* ... and make sure that the global "bootstrap_port" is also unpriviledged */
 	bootstrap_port = unpriv_bootstrap_port;
 
-	/* Create the primary / new connection port */
-	configd_port = CFMachPortCreateWithPort(NULL, service_port, configdCallback, &context, NULL);
+	/* Create the primary / new connection port and backing session */
+	mySession = addSession(service_port, serverMPCopyDescription);
+	configd_port = mySession->serverPort;
 
 	/*
 	 * Create and add a run loop source for the port and add this source
@@ -369,9 +364,6 @@ server_init(mach_port_t		restart_service_port,
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, CFSTR("locked"));
 	CFRelease(rls);
-
-	/* Create a session for the primary / new connection port */
-	(void) addSession(configd_port);
 
 	return;
 }

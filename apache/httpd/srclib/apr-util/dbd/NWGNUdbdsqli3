@@ -54,7 +54,7 @@ XCFLAGS		+= \
 # These defines will come after DEFINES
 #
 XDEFINES	+= \
-			-DAPU_HAVE_SQLITE3 \
+			-DAPU_HAVE_SQLITE3=1 \
 			$(EOLIST)
 
 #

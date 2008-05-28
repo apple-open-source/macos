@@ -34,6 +34,7 @@ function TreeOutline(listNode)
     this._childrenListNode.removeChildren();
     this._knownTreeElements = [];
     this._treeElementsExpandedState = [];
+    this.expandTreeElementsWhenArrowing = false;
     this.root = true;
     this.hasChildren = false;
     this.expanded = true;
@@ -243,12 +244,11 @@ TreeOutline.prototype.findTreeElement = function(representedObject, isAncestor, 
 
     if ("__treeElementIdentifier" in representedObject) {
         var elements = this._knownTreeElements[representedObject.__treeElementIdentifier];
-        if (!elements)
-            return null;
-
-        for (var i = 0; i < elements.length; ++i)
-            if (elements[i].representedObject === representedObject)
-                return elements[i];
+        if (elements) {
+            for (var i = 0; i < elements.length; ++i)
+                if (elements[i].representedObject === representedObject)
+                    return elements[i];
+        }
     }
 
     if (!isAncestor || !(isAncestor instanceof Function) || !getParent || !(getParent instanceof Function))
@@ -277,8 +277,8 @@ TreeOutline.prototype.findTreeElement = function(representedObject, isAncestor, 
     }
 
     for (var i = 0; i < ancestors.length; ++i) {
-        item = this.findTreeElement(ancestors[i]);
-        if (ancestors[i] !== representedObject && item.onpopulate)
+        item = this.findTreeElement(ancestors[i], isAncestor, getParent);
+        if (ancestors[i] !== representedObject && item && item.onpopulate)
             item.onpopulate(item);
     }
 
@@ -295,12 +295,12 @@ TreeOutline.prototype.handleKeyEvent = function(event)
     if (event.keyIdentifier === "Up" && !event.altKey) {
         nextSelectedElement = this.selectedTreeElement.traversePreviousTreeElement(true);
         while (nextSelectedElement && !nextSelectedElement.selectable)
-            nextSelectedElement = nextSelectedElement.traversePreviousTreeElement(false);
+            nextSelectedElement = nextSelectedElement.traversePreviousTreeElement(!this.expandTreeElementsWhenArrowing);
         handled = nextSelectedElement ? true : false;
     } else if (event.keyIdentifier === "Down" && !event.altKey) {
         nextSelectedElement = this.selectedTreeElement.traverseNextTreeElement(true);
         while (nextSelectedElement && !nextSelectedElement.selectable)
-            nextSelectedElement = nextSelectedElement.traverseNextTreeElement(false);
+            nextSelectedElement = nextSelectedElement.traverseNextTreeElement(!this.expandTreeElementsWhenArrowing);
         handled = nextSelectedElement ? true : false;
     } else if (event.keyIdentifier === "Left") {
         if (this.selectedTreeElement.expanded) {
@@ -377,7 +377,7 @@ TreeOutline.prototype.removeChildrenRecursive = TreeOutline._removeChildrenRecur
 function TreeElement(title, representedObject, hasChildren)
 {
     this._title = title;
-    this.representedObject = representedObject;
+    this.representedObject = (representedObject || {});
 
     if (this.representedObject.__treeElementIdentifier)
         this.identifier = this.representedObject.__treeElementIdentifier;
@@ -389,16 +389,8 @@ function TreeElement(title, representedObject, hasChildren)
     this._hidden = false;
     this.expanded = false;
     this.selected = false;
-    this.selectable = true;
     this.hasChildren = hasChildren;
     this.children = [];
-    this.onpopulate = null;
-    this.onexpand = null;
-    this.oncollapse = null;
-    this.onreveal = null;
-    this.onselect = null;
-    this.ondeselect = null;
-    this.ondblclick = null;
     this.treeOutline = null;
     this.parent = null;
     this.previousSibling = null;
@@ -407,6 +399,17 @@ function TreeElement(title, representedObject, hasChildren)
 }
 
 TreeElement.prototype = {
+    selectable: true,
+    arrowToggleWidth: 10,
+
+    get listItemElement() {
+        return this._listItemNode;
+    },
+
+    get childrenListElement() {
+        return this._childrenListNode;
+    },
+
     get title() {
         return this._title;
     },
@@ -480,6 +483,9 @@ TreeElement.prototype._attach = function()
         this._listItemNode.addEventListener("mousedown", TreeElement.treeElementSelected, false);
         this._listItemNode.addEventListener("click", TreeElement.treeElementToggled, false);
         this._listItemNode.addEventListener("dblclick", TreeElement.treeElementDoubleClicked, false);
+
+        if (this.onattach)
+            this.onattach(this);
     }
 
     this.parent._childrenListNode.insertBefore(this._listItemNode, (this.nextSibling ? this.nextSibling._listItemNode : null));
@@ -505,7 +511,7 @@ TreeElement.treeElementSelected = function(event)
     if (!element || !element.treeElement || !element.treeElement.selectable)
         return;
 
-    if (event.offsetX > 20 || !element.treeElement.hasChildren)
+    if (event.offsetX > element.treeElement.arrowToggleWidth || !element.treeElement.hasChildren)
         element.treeElement.select();
 }
 
@@ -515,7 +521,7 @@ TreeElement.treeElementToggled = function(event)
     if (!element || !element.treeElement)
         return;
 
-    if (event.offsetX <= 20 && element.treeElement.hasChildren) {
+    if (event.offsetX <= element.treeElement.arrowToggleWidth && element.treeElement.hasChildren) {
         if (element.treeElement.expanded) {
             if (event.altKey)
                 element.treeElement.collapseRecursively();
@@ -536,11 +542,10 @@ TreeElement.treeElementDoubleClicked = function(event)
     if (!element || !element.treeElement)
         return;
 
-    if (element.treeElement.hasChildren && !element.treeElement.expanded)
-        element.treeElement.expand();
-
     if (element.treeElement.ondblclick)
-        element.treeElement.ondblclick(element.treeElement);
+        element.treeElement.ondblclick(element.treeElement, event);
+    else if (element.treeElement.hasChildren && !element.treeElement.expanded)
+        element.treeElement.expand();
 }
 
 TreeElement.prototype.collapse = function()
@@ -587,10 +592,8 @@ TreeElement.prototype.expand = function()
         if (this.onpopulate)
             this.onpopulate(this);
 
-        for (var i = 0; i < this.children.length; ++i) {
-            var child = this.children[i];
-            child._attach();
-        }
+        for (var i = 0; i < this.children.length; ++i)
+            this.children[i]._attach();
 
         delete this.refreshChildren;
     }

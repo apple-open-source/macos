@@ -21,7 +21,7 @@
 #ifndef PopupMenu_h
 #define PopupMenu_h
 
-#include "Shared.h"
+#include <wtf/RefCounted.h>
 
 #include "IntRect.h"
 #include "PopupMenuClient.h"
@@ -57,7 +57,7 @@ namespace WebCore {
 class FrameView;
 class PlatformScrollbar;
 
-class PopupMenu : public Shared<PopupMenu>
+class PopupMenu : public RefCounted<PopupMenu>
 #if PLATFORM(WIN)
                 , private ScrollbarClient
 #endif
@@ -123,6 +123,7 @@ protected:
     // ScrollBarClient
     virtual void valueChanged(Scrollbar*);
     virtual IntRect windowClipRect() const;
+    virtual bool isActive() const { return true; }
 #endif
     
 private:

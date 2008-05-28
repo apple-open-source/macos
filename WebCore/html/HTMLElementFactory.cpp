@@ -26,34 +26,35 @@
 #include "HTMLAnchorElement.h"
 #include "HTMLAppletElement.h"
 #include "HTMLAreaElement.h"
-#include "HTMLBaseFontElement.h"
+#include "HTMLAudioElement.h"
+#include "HTMLBRElement.h"
 #include "HTMLBaseElement.h"
+#include "HTMLBaseFontElement.h"
 #include "HTMLBlockquoteElement.h"
 #include "HTMLBodyElement.h"
-#include "HTMLBRElement.h"
 #include "HTMLButtonElement.h"
 #include "HTMLCanvasElement.h"
-#include "HTMLDivElement.h"
 #include "HTMLDListElement.h"
-#include "HTMLDocument.h"
 #include "HTMLDirectoryElement.h"
+#include "HTMLDivElement.h"
+#include "HTMLDocument.h"
 #include "HTMLEmbedElement.h"
-#include "HTMLFontElement.h"
-#include "HTMLFrameSetElement.h"
 #include "HTMLFieldSetElement.h"
+#include "HTMLFontElement.h"
 #include "HTMLFormElement.h"
+#include "HTMLFrameElement.h"
+#include "HTMLFrameSetElement.h"
+#include "HTMLHRElement.h"
 #include "HTMLHeadElement.h"
 #include "HTMLHeadingElement.h"
-#include "HTMLHRElement.h"
 #include "HTMLHtmlElement.h"
-#include "HTMLFrameElement.h"
 #include "HTMLIFrameElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLIsIndexElement.h"
 #include "HTMLKeygenElement.h"
+#include "HTMLLIElement.h"
 #include "HTMLLabelElement.h"
 #include "HTMLLegendElement.h"
-#include "HTMLLIElement.h"
 #include "HTMLLinkElement.h"
 #include "HTMLMapElement.h"
 #include "HTMLMarqueeElement.h"
@@ -61,26 +62,28 @@
 #include "HTMLMetaElement.h"
 #include "HTMLModElement.h"
 #include "HTMLNames.h"
-#include "HTMLObjectElement.h"
 #include "HTMLOListElement.h"
+#include "HTMLObjectElement.h"
 #include "HTMLOptGroupElement.h"
 #include "HTMLOptionElement.h"
 #include "HTMLParagraphElement.h"
 #include "HTMLParamElement.h"
 #include "HTMLPreElement.h"
+#include "HTMLQuoteElement.h"
 #include "HTMLScriptElement.h"
 #include "HTMLSelectElement.h"
+#include "HTMLSourceElement.h"
 #include "HTMLStyleElement.h"
-#include "HTMLTextAreaElement.h"
-#include "HTMLTableElement.h"
 #include "HTMLTableCaptionElement.h"
 #include "HTMLTableCellElement.h"
 #include "HTMLTableColElement.h"
+#include "HTMLTableElement.h"
 #include "HTMLTableRowElement.h"
 #include "HTMLTableSectionElement.h"
+#include "HTMLTextAreaElement.h"
 #include "HTMLTitleElement.h"
 #include "HTMLUListElement.h"
-#include "HTMLQuoteElement.h"
+#include "HTMLVideoElement.h"
 
 namespace WebCore {
 
@@ -319,8 +322,7 @@ static PassRefPtr<HTMLElement> embedConstructor(const AtomicString&, Document* d
 
 static PassRefPtr<HTMLElement> objectConstructor(const AtomicString&, Document* doc, HTMLFormElement*, bool createdByParser)
 {
-    RefPtr<HTMLObjectElement> object = new HTMLObjectElement(doc);
-    object->setComplete(!createdByParser);
+    RefPtr<HTMLObjectElement> object = new HTMLObjectElement(doc, createdByParser);
     return object.release();
 }
 
@@ -380,6 +382,29 @@ static PassRefPtr<HTMLElement> marqueeConstructor(const AtomicString&, Document*
 {
     return new HTMLMarqueeElement(doc);
 }
+
+#if ENABLE(VIDEO)
+static PassRefPtr<HTMLElement> audioConstructor(const AtomicString& tagName, Document* doc, HTMLFormElement*, bool)
+{
+    if (!MediaPlayer::isAvailable())
+        return new HTMLElement(QualifiedName(nullAtom, tagName, xhtmlNamespaceURI), doc);
+    return new HTMLAudioElement(doc);
+}
+
+static PassRefPtr<HTMLElement> videoConstructor(const AtomicString& tagName, Document* doc, HTMLFormElement*, bool)
+{
+    if (!MediaPlayer::isAvailable())
+        return new HTMLElement(QualifiedName(nullAtom, tagName, xhtmlNamespaceURI), doc);
+    return new HTMLVideoElement(doc);
+}
+
+static PassRefPtr<HTMLElement> sourceConstructor(const AtomicString& tagName, Document* doc, HTMLFormElement*, bool)
+{
+    if (!MediaPlayer::isAvailable())
+        return new HTMLElement(QualifiedName(nullAtom, tagName, xhtmlNamespaceURI), doc);
+    return new HTMLSourceElement(doc);
+}
+#endif
 
 static void addTag(const QualifiedName& tag, ConstructorFunc func)
 {
@@ -462,6 +487,11 @@ static void createFunctionMap()
     addTag(trTag, tableRowConstructor);
     addTag(ulTag, ulConstructor);
     addTag(xmpTag, preConstructor);
+#if ENABLE(VIDEO)
+    addTag(audioTag, audioConstructor);
+    addTag(sourceTag, sourceConstructor);
+    addTag(videoTag, videoConstructor);
+#endif
 }
 
 PassRefPtr<HTMLElement> HTMLElementFactory::createHTMLElement(const AtomicString& tagName, Document* doc, HTMLFormElement* form, bool createdByParser)

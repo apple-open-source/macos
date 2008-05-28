@@ -78,10 +78,25 @@
 #define WEBDAV_READDIRATTR		25
 #define WEBDAV_SEARCHFS			26
 #define WEBDAV_COPYFILE			27
+#define WEBDAV_WRITESEQ			28
 
 /* Webdav file type constants */
 #define WEBDAV_FILE_TYPE		1
 #define WEBDAV_DIR_TYPE			2
+
+/* The WEBDAV_MAX_IO_BUFFER_SIZE gates how many bytes we
+ * will try to read with a byte range request to the server.
+ * Because sockets are only so big we can't transfer 8192 bytes.
+ * That many bytes won't fit in a buffer so rather than having
+ * webdav_sendmsg wait for all data, it would have to loop.	 Limiting
+ * at 8000 works (based on emprical study on Darwin). If you are porting
+ * this code to another platform or if the default socket buffer size
+ * changes you may need to change this constan to implement the looping.
+ * None of this would be necessary if Darwin's soreserve actually did reserve
+ * space rather than just enforcing limits
+ */
+ 
+#define WEBDAV_MAX_IO_BUFFER_SIZE 8000	/* Gates byte read optimization */
 
 /* Shared (kernel & processs) WebDAV structures */
 
@@ -395,6 +410,21 @@ struct webdav_reply_invalcaches
 {
 };
 
+struct webdav_request_writeseq
+{
+	struct webdav_cred pcr;				/* user and groups */
+	opaque_id		obj_id;				/* opaque_id of file object */
+	off_t			offset;				/* position within the file object at which the write is to begin */
+	size_t			count;				/* number of bytes of data to be written (limited to WEBDAV_MAX_IO_BUFFER_SIZE (8000-bytes)) */
+	size_t			file_len;			/* length of the file after all sequential writes are done */
+	uint32_t		is_retry;			/* non-zero indicates this request is a retry due to an EPIPE */
+};
+
+struct webdav_reply_writeseq
+{
+	size_t			count;				/* number of bytes of data written to the file */
+};
+
 union webdav_request
 {
 	struct webdav_request_lookup	lookup;
@@ -412,6 +442,7 @@ union webdav_request
 	struct webdav_request_readdir	readdir;
 	struct webdav_request_statfs	statfs;
 	struct webdav_request_invalcaches invalcaches;
+	struct webdav_request_writeseq  writeseq;
 };
 
 union webdav_reply
@@ -431,10 +462,11 @@ union webdav_reply
 	struct webdav_reply_readdir		readdir;
 	struct webdav_reply_statfs		statfs;
 	struct webdav_reply_invalcaches	invalcaches;
+	struct webdav_reply_writeseq	writeseq;
 };
 
 #define UNKNOWNUID ((uid_t)99)
-
+ 
 /*
  * The WEBDAV_CONNECTION_DOWN_MASK bit is set by the code in send_reply() in
  * activate.c in the int result when the mount_webdav daemon determines it cannot
@@ -444,6 +476,10 @@ union webdav_reply
 #define WEBDAV_CONNECTION_DOWN_MASK	0x80000000
 
 /*
+ * fsctl(2) values for WebDAV FS
+ */
+ 
+/*
  * WEBDAVIOC_INVALIDATECACHES commmand passed to fsctl(2) causes WebDAV FS to
  * revalidate cached files with the WebDAV server and to invalidate all
  * all cached stat data.
@@ -452,6 +488,33 @@ union webdav_reply
  */
 #define	WEBDAVIOC_INVALIDATECACHES	_IO('w', 1)
 #define	WEBDAV_INVALIDATECACHES		IOCBASECMD(WEBDAVIOC_INVALIDATECACHES)
+
+/*
+ * The WEBDAVIOC_WRITE_SEQUENTIAL command passed to fsctl(2) causes WebDAV FS to
+ * enable Write Sequential mode on a vnode that is opened for writing.
+ * The only parameter is a struct WebdavWriteSequential, that has a single field
+ * to indicate the total length in bytes that will be written.
+ *
+ * Example:
+ *
+ *	struct WebdavWriteSequential {
+ *		uint64_t file_len;
+ *	};
+ *
+ *	struct WebdavWriteSequential req;
+ *	req->file_len = 8192; // Will write 8k
+ *	result = fsctl(path, WEBDAVIOC_WRITE_SEQUENTIAL, &req, 0);
+ *
+ *	Return values:
+ *  0	-	Success
+ *	EBUSY	-	File is already in Write Sequential mode.
+ */
+struct WebdavWriteSequential {
+		uint64_t file_len;
+};
+
+#define WEBDAVIOC_WRITE_SEQUENTIAL	_IOW('z', 19, struct WebdavWriteSequential)
+#define WEBDAV_WRITE_SEQUENTIAL		IOCBASECMD(WEBDAVIOC_WRITE_SEQUENTIAL)
 
 /*
  * Sysctl values for WebDAV FS
@@ -498,12 +561,24 @@ struct webdavnode
 	vnode_t pt_cache_vnode;						/* Pointer to cached file vnode */
 	opaque_id pt_obj_id;						/* opaque_id from lookup */
 	ino_t pt_fileid;							/* file id */
+	
+	/* timestamp cache */
 	struct timespec pt_atime;					/* time of last access */
 	struct timespec pt_mtime;					/* time of last data modification */
 	struct timespec pt_ctime;					/* time of last file status change */
+	struct timespec pt_mtime_old;				/* previous pt_mtime value (directory nodes only, used for negative name cache) */
+	struct timespec pt_timestamp_refresh;		/* time of last timestamp refresh */
+	
 	off_t pt_filesize;							/* what we think the filesize is */
 	u_int32_t pt_status;						/* WEBDAV_DIRTY, etc */
 	u_int32_t pt_opencount;						/* reference count of opens */
+	
+	/* for Write Sequential mode */
+	u_int32_t pt_opencount_write;				/* count of opens for writing */
+	u_int32_t pt_writeseq_enabled;					/* TRUE if node Write Sequential mode is enabled */
+	off_t pt_writeseq_offset;					/* offset we're expecting for the next write */
+	u_int64_t pt_writeseq_len;					/* total length in bytes that will be written in Write Sequential mode */
+	
 	/* SMP debug variables */
 	void *pt_lastvop;							/* tracks last operation that locked this webdavnode */
 	void *pt_activation;						/* tracks last thread that locked this webdavnode */
@@ -527,6 +602,7 @@ struct open_associatecachefile
 #define WEBDAV_WAITINIT			0x00000040		/* Indicates that someone is sleeping (on webdavnode) waiting for initialization to finish */
 #define WEBDAV_ISMAPPED			0x00000080		/* Indicates that the file is mapped */
 #define WEBDAV_WASMAPPED		0x00000100		/* Indicates that the file is or was mapped */
+#define WEBDAV_NEGNCENTRIES		0x00000200		/* Indicates one or more negative name cache entries exist (directory nodes only) */
 
 /* Defines for webdavmount pm_status field */
 
@@ -555,19 +631,6 @@ struct open_associatecachefile
 
 /* Other defines */
 
-/* The WEBDAV_MAX_IO_BUFFER_SIZE gates how many bytes we
- * will try to read with a byte range request to the server.
- * Because sockets are only so big we can't transfer 8192 bytes.
- * That many bytes won't fit in a buffer so rather than having
- * webdav_sendmsg wait for all data, it would have to loop.	 Limiting
- * at 8000 works (based on emprical study on Darwin). If you are porting
- * this code to another platform or if the default socket buffer size
- * changes you may need to change this constan to implement the looping.
- * None of this would be necessary if Darwin's soreserve actually did reserve
- * space rather than just enforcing limits
- */
- 
-#define WEBDAV_MAX_IO_BUFFER_SIZE 8000	/* Gates byte read optimization */
 
 /*
  * In webdav_read and webdav_pagein, webdav_read_bytes is called if the part of
@@ -595,6 +658,14 @@ struct open_associatecachefile
  * before rechecking the server process state
  */
 #define WEBDAV_SO_RCVTIMEO_SECONDS 10
+
+/*
+ * Used only for negative name caching, TIMESTAMP_NEGNCACHE_TIMEOUT is used by the webdav_vnop_lookup routine
+ * to determine how often to fetch attributes from the server to check if a directory has been modified (va_mod_time timestamp).
+ * We purge all negative name cache entries when the modification time of a directory has changed.
+ *
+ */
+#define TIMESTAMP_CACHE_TIMEOUT 10
 
 #if 0
 	#define START_MARKER(str) \

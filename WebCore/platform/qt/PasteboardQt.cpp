@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
+ * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007 Trolltech ASA
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,32 +30,39 @@
 
 #include "DocumentFragment.h"
 #include "Editor.h"
+#include "Image.h"
 #include "markup.h"
-#include "NotImplemented.h"
+#include "RenderImage.h"
 
 #include <qdebug.h>
 #include <qclipboard.h>
 #include <qmimedata.h>
 #include <qapplication.h>
+#include <qurl.h>
+
+#define methodDebug() qDebug() << "PasteboardQt: " << __FUNCTION__;
 
 namespace WebCore {
 
 Pasteboard::Pasteboard()
 {
-    notImplemented();
 }
 
 Pasteboard* Pasteboard::generalPasteboard()
 {
-    static Pasteboard* pasteboard = new Pasteboard();
+    static Pasteboard* pasteboard = 0;
+    if (!pasteboard)
+        pasteboard = new Pasteboard();
     return pasteboard;
 }
 
-void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
+void Pasteboard::writeSelection(Range* selectedRange, bool, Frame* frame)
 {
-    QMimeData *md = new QMimeData;
-    md->setText(selectedRange->text());
-    md->setHtml(selectedRange->toHTML());
+    QMimeData* md = new QMimeData;
+    QString text = frame->selectedText();
+    text.replace(QChar(0xa0), QLatin1Char(' '));
+    md->setText(text);
+    md->setHtml(createMarkup(selectedRange, 0, AnnotateForInterchange));
     QApplication::clipboard()->setMimeData(md);
 }
 
@@ -62,7 +71,7 @@ bool Pasteboard::canSmartReplace()
     return false;
 }
 
-String Pasteboard::plainText(Frame* frame)
+String Pasteboard::plainText(Frame*)
 {
     return QApplication::clipboard()->text();
 }
@@ -70,23 +79,59 @@ String Pasteboard::plainText(Frame* frame)
 PassRefPtr<DocumentFragment> Pasteboard::documentFragment(Frame* frame, PassRefPtr<Range> context,
                                                           bool allowPlainText, bool& chosePlainText)
 {
-    notImplemented();
+    const QMimeData* mimeData = QApplication::clipboard()->mimeData();
+
+    chosePlainText = false;
+
+    if (mimeData->hasHtml()) {
+        QString html = mimeData->html();
+        if (!html.isEmpty()) {
+            RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(frame->document(), html, "");
+            if (fragment)
+                return fragment.release();
+        }
+    }
+
+    if (allowPlainText && mimeData->hasText()) {
+        chosePlainText = true;
+        RefPtr<DocumentFragment> fragment = createFragmentFromText(context.get(), mimeData->text());
+        if (fragment)
+            return fragment.release();
+    }
+
     return 0;
 }
 
-void Pasteboard::writeURL(const KURL&, const String&, Frame*)
+void Pasteboard::writeURL(const KURL& _url, const String&, Frame*)
 {
-    notImplemented();
+    ASSERT(!_url.isEmpty());
+
+    QMimeData* md = new QMimeData;
+    QString url = _url.string();
+    md->setText(url);
+    md->setUrls(QList<QUrl>() << QUrl(url));
+    QApplication::clipboard()->setMimeData(md, QClipboard::Clipboard);
 }
 
-void Pasteboard::writeImage(Node*, const KURL&, const String&)
+void Pasteboard::writeImage(Node* node, const KURL&, const String&)
 {
-    notImplemented();
+    ASSERT(node && node->renderer() && node->renderer()->isImage());
+
+    CachedImage* cachedImage = static_cast<RenderImage*>(node->renderer())->cachedImage();
+    ASSERT(cachedImage);
+
+    Image* image = cachedImage->image();
+    ASSERT(image);
+
+    QPixmap* pixmap = image->getPixmap();
+    ASSERT(pixmap);
+
+    QApplication::clipboard()->setPixmap(*pixmap, QClipboard::Clipboard);
 }
 
 void Pasteboard::clear()
 {
-    notImplemented();
+    QApplication::clipboard()->clear();
 }
 
 }

@@ -28,7 +28,6 @@
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecCertificatePriv.h>
 #include <security_utilities/memutils.h>
-#include <security_cdsa_utilities/cssmdata.h>	// for hex encoding
 #include "csutilities.h"
 
 namespace Security {
@@ -66,6 +65,8 @@ bool Requirement::Interpreter::evaluate()
 		return getString() == mContext->directory->identifier();
 	case opAppleAnchor:
 		return appleSigned();
+	case opAppleGenericAnchor:
+		return appleAnchored();
 	case opAnchorHash:
 		{
 			SecCertificateRef cert = mContext->cert(get<int32_t>());
@@ -77,9 +78,9 @@ bool Requirement::Interpreter::evaluate()
 			return infoKeyValue(key, Match(CFTempString(getString()), matchEqual));
 		}
 	case opAnd:
-		return evaluate() && evaluate();
+		return evaluate() & evaluate();
 	case opOr:
-		return evaluate() || evaluate();
+		return evaluate() | evaluate();
 	case opCDHash:
 		{
 			SHA1 hash;
@@ -94,12 +95,25 @@ bool Requirement::Interpreter::evaluate()
 			Match match(*this);
 			return infoKeyValue(key, match);
 		}
+	case opEntitlementField:
+		{
+			string key = getString();
+			Match match(*this);
+			return entitlementValue(key, match);
+		}
 	case opCertField:
 		{
 			SecCertificateRef cert = mContext->cert(get<int32_t>());
 			string key = getString();
 			Match match(*this);
 			return certFieldValue(key, match, cert);
+		}
+	case opCertGeneric:
+		{
+			SecCertificateRef cert = mContext->cert(get<int32_t>());
+			string key = getString();
+			Match match(*this);
+			return certFieldGeneric(key, match, cert);
 		}
 	case opTrustedCert:
 		return trustedCert(get<int32_t>());
@@ -137,6 +151,18 @@ bool Requirement::Interpreter::infoKeyValue(const string &key, const Match &matc
 }
 
 
+//
+// Evaluate an entitlement condition
+//
+bool Requirement::Interpreter::entitlementValue(const string &key, const Match &match)
+{
+	if (mContext->entitlements)		// we have an Info.plist
+		if (CFTypeRef value = CFDictionaryGetValue(mContext->entitlements, CFTempString(key)))
+			return match(value);
+	return false;
+}
+
+
 bool Requirement::Interpreter::certFieldValue(const string &key, const Match &match, SecCertificateRef cert)
 {
 	// no cert, no chance
@@ -158,16 +184,6 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 		{ "subject.STREET", &CSSMOID_StreetAddress },
 		{ NULL, NULL }
 	};
-
-	// email multi-valued match (any of...)
-	if (key == "email") {
-		CFRef<CFArrayRef> value;
-		if (IFDEBUG(OSStatus rc =) SecCertificateCopyEmailAddresses(cert, &value.aref())) {
-			secdebug("csinterp", "cert %p lookup for email failed rc=%ld", cert, rc);
-			return false;
-		}
-		return match(value);
-	}
 	
 	// DN-component single-value match
 	for (const CertField *cf = certFields; cf->name; cf++)
@@ -180,16 +196,39 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 			return match(value);
 		}
 
+	// email multi-valued match (any of...)
+	if (key == "email") {
+		CFRef<CFArrayRef> value;
+		if (OSStatus rc = SecCertificateCopyEmailAddresses(cert, &value.aref())) {
+			secdebug("csinterp", "cert %p lookup for email failed rc=%ld", cert, rc);
+			return false;
+		}
+		return match(value);
+	}
+
 	// unrecognized key. Fail but do not abort to promote backward compatibility down the road
 	secdebug("csinterp", "cert field notation \"%s\" not understood", key.c_str());
 	return false;
 }
 
 
+bool Requirement::Interpreter::certFieldGeneric(const string &key, const Match &match, SecCertificateRef cert)
+{
+	// the key is actually a (binary) OID value
+	CssmOid oid((char *)key.data(), key.length());
+	return certFieldGeneric(oid, match, cert);
+}
+
+bool Requirement::Interpreter::certFieldGeneric(const CssmOid &oid, const Match &match, SecCertificateRef cert)
+{
+	return cert && certificateHasField(cert, oid) && match(kCFBooleanTrue);
+}
+
+
 //
 // Check the Apple-signed condition
 //
-bool Requirement::Interpreter::appleSigned()
+bool Requirement::Interpreter::appleAnchored()
 {
 	if (SecCertificateRef cert = mContext->cert(anchorCert))
 		if (verifyAnchor(cert, appleAnchorHash())
@@ -197,6 +236,13 @@ bool Requirement::Interpreter::appleSigned()
 			|| verifyAnchor(cert, testAppleAnchorHash())
 #endif
 		)
+		return true;
+	return false;
+}
+
+bool Requirement::Interpreter::appleSigned()
+{
+	if (appleAnchored())
 			if (SecCertificateRef intermed = mContext->cert(-2))	// first intermediate
 				// first intermediate common name match (exact)
 				if (certFieldValue("subject.CN", Match(appleIntermediateCN, matchEqual), intermed)
@@ -327,10 +373,18 @@ Requirement::Interpreter::Match::Match(Interpreter &interp)
 		break;
 	case matchEqual:
 	case matchContains:
+	case matchBeginsWith:
+	case matchEndsWith:
+	case matchLessThan:
+	case matchGreaterThan:
+	case matchLessEqual:
+	case matchGreaterEqual:
 		mValue = makeCFString(interp.getString());
 		break;
 	default:
-		assert(false);
+		// Assume this (unknown) match type has a single data argument.
+		// This gives us a chance to keep the instruction stream aligned.
+		interp.getString();			// discard
 		break;
 	}
 }
@@ -366,10 +420,47 @@ bool Requirement::Interpreter::Match::operator () (CFTypeRef candidate) const
 				return true;
 		}
 		return false;
+	case matchBeginsWith:
+		if (CFGetTypeID(candidate) == CFStringGetTypeID()) {
+			CFStringRef value = CFStringRef(candidate);
+			if (CFStringFindWithOptions(value, mValue, CFRangeMake(0, CFStringGetLength(mValue)), 0, NULL))
+				return true;
+		}
+		return false;
+	case matchEndsWith:
+		if (CFGetTypeID(candidate) == CFStringGetTypeID()) {
+			CFStringRef value = CFStringRef(candidate);
+			CFIndex matchLength = CFStringGetLength(mValue);
+			CFIndex start = CFStringGetLength(value) - matchLength;
+			if (start >= 0)
+				if (CFStringFindWithOptions(value, mValue, CFRangeMake(start, matchLength), 0, NULL))
+					return true;
+		}
+		return false;
+	case matchLessThan:
+		return inequality(candidate, kCFCompareNumerically, kCFCompareLessThan, true);
+	case matchGreaterThan:
+		return inequality(candidate, kCFCompareNumerically, kCFCompareGreaterThan, true);
+	case matchLessEqual:
+		return inequality(candidate, kCFCompareNumerically, kCFCompareGreaterThan, false);
+	case matchGreaterEqual:
+		return inequality(candidate, kCFCompareNumerically, kCFCompareLessThan, false);
 	default:
-		assert(false);
+		// unrecognized match types can never match
 		return false;
 	}
+}
+
+
+bool Requirement::Interpreter::Match::inequality(CFTypeRef candidate, CFStringCompareFlags flags,
+	CFComparisonResult outcome, bool negate) const
+{
+	if (CFGetTypeID(candidate) == CFStringGetTypeID()) {
+		CFStringRef value = CFStringRef(candidate);
+		if ((CFStringCompare(value, mValue, flags) == outcome) == negate)
+			return true;
+	}
+	return false;
 }
 
 

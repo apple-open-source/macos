@@ -23,8 +23,7 @@
 
 #ifndef BUILD_VERSION
 #warning VERIFY BUILD_VERSION NUMBER BEFORE SUBMITTING!!
-#define BUILD_VERSION "110"
-
+#define BUILD_VERSION "112"
 
 #ifdef __cplusplus
 extern "C" {

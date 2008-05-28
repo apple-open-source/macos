@@ -47,6 +47,7 @@ enum
 
 #define kMacRISC4ParentICKey "AAPL,parentIC"
 
+class MacRISC4CPU;
 class MacRISC4PE : public ApplePlatformExpert
 {
     OSDeclareDefaultStructors(MacRISC4PE);

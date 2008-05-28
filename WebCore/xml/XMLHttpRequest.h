@@ -44,13 +44,6 @@ class String;
 
 typedef int ExceptionCode;
 
-const int XMLHttpRequestExceptionOffset = 500;
-const int XMLHttpRequestExceptionMax = 699;
-enum XMLHttpRequestExceptionCode {
-    PERMISSION_DENIED = XMLHttpRequestExceptionOffset, // Use SECURITY_ERR when that's in DOM Core, http://bugs.webkit.org/show_bug.cgi?id=12182
-    NETWORK_ERR = XMLHttpRequestExceptionOffset + 101
-};
-
 // these exact numeric values are important because JS expects them
 enum XMLHttpRequestState {
     Uninitialized = 0,  // The initial value.
@@ -60,7 +53,7 @@ enum XMLHttpRequestState {
     Loaded = 4          // The data transfer has been completed.
 };
 
-class XMLHttpRequest : public Shared<XMLHttpRequest>, public EventTarget, private SubresourceLoaderClient {
+class XMLHttpRequest : public RefCounted<XMLHttpRequest>, public EventTarget, private SubresourceLoaderClient {
 public:
     XMLHttpRequest(Document*);
     ~XMLHttpRequest();
@@ -80,10 +73,10 @@ public:
     void abort();
     void setRequestHeader(const String& name, const String& value, ExceptionCode&);
     void overrideMIMEType(const String& override);
-    String getAllResponseHeaders() const;
-    String getResponseHeader(const String& name) const;
-    const KJS::UString& getResponseText() const;
-    Document* getResponseXML() const;
+    String getAllResponseHeaders(ExceptionCode&) const;
+    String getResponseHeader(const String& name, ExceptionCode&) const;
+    const KJS::UString& getResponseText(ExceptionCode&) const;
+    Document* getResponseXML(ExceptionCode&) const;
 
     void setOnReadyStateChangeListener(EventListener*);
     EventListener* onReadyStateChangeListener() const;
@@ -101,8 +94,8 @@ public:
 
     Document* document() const { return m_doc; }
 
-    using Shared<XMLHttpRequest>::ref;
-    using Shared<XMLHttpRequest>::deref;
+    using RefCounted<XMLHttpRequest>::ref;
+    using RefCounted<XMLHttpRequest>::deref;
 
 private:
     virtual void refEventTarget() { ref(); }

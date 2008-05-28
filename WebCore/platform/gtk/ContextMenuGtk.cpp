@@ -1,59 +1,82 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
- * Copyright (C) 2007 Holger Hans Peter Freyther
+ *  Copyright (C) 2007 Holger Hans Peter Freyther
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2 of the License, or (at your option) any later version.
  *
- * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
- * 2.  Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 #include "config.h"
 #include "ContextMenu.h"
 
-#include "NotImplemented.h"
+#include "ContextMenuController.h"
+
+#include <gtk/gtk.h>
 
 namespace WebCore {
 
+// TODO: ref-counting correctness checking.
+// See http://bugs.webkit.org/show_bug.cgi?id=16115
+
+static void menuItemActivated(GtkMenuItem* item, ContextMenuController* controller)
+{
+    ContextMenuItem contextItem(item);
+    controller->contextMenuItemSelected(&contextItem);
+}
+
 ContextMenu::ContextMenu(const HitTestResult& result)
     : m_hitTestResult(result)
-    , m_platformDescription(0)
 {
-    notImplemented();
+    m_platformDescription = GTK_MENU(gtk_menu_new());
+
+#if GLIB_CHECK_VERSION(2,10,0)
+    g_object_ref_sink(G_OBJECT(m_platformDescription));
+#else
+    g_object_ref(G_OBJECT(m_platformDescription));
+    gtk_object_sink(GTK_OBJECT(m_platformDescription));
+#endif
 }
 
 ContextMenu::~ContextMenu()
 {
-    notImplemented();
+    if (m_platformDescription)
+        g_object_unref(m_platformDescription);
 }
 
-void ContextMenu::appendItem(ContextMenuItem&)
+void ContextMenu::appendItem(ContextMenuItem& item)
 {
-    notImplemented();
+    ASSERT(m_platformDescription);
+    checkOrEnableIfNeeded(item);
+
+    ContextMenuItemType type = item.type();
+    GtkMenuItem* platformItem = ContextMenuItem::createNativeMenuItem(item.releasePlatformDescription());
+    ASSERT(platformItem);
+
+    if (type == ActionType || type == CheckableActionType)
+        g_signal_connect(platformItem, "activate", G_CALLBACK(menuItemActivated), controller());
+
+    gtk_menu_shell_append(GTK_MENU_SHELL(m_platformDescription), GTK_WIDGET(platformItem));
+    gtk_widget_show(GTK_WIDGET(platformItem));
 }
 
 void ContextMenu::setPlatformDescription(PlatformMenuDescription menu)
 {
+    ASSERT(menu);
+    if (m_platformDescription)
+        g_object_unref(m_platformDescription);
+
     m_platformDescription = menu;
+    g_object_ref(m_platformDescription);
 }
 
 PlatformMenuDescription ContextMenu::platformDescription() const
@@ -63,8 +86,10 @@ PlatformMenuDescription ContextMenu::platformDescription() const
 
 PlatformMenuDescription ContextMenu::releasePlatformDescription()
 {
-    notImplemented(); 
-    return 0;
+    PlatformMenuDescription description = m_platformDescription;
+    m_platformDescription = 0;
+
+    return description;
 }
 
 }

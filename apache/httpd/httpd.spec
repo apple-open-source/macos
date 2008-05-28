@@ -9,7 +9,7 @@
 
 Summary: Apache HTTP Server
 Name: httpd
-Version: 2.2.6
+Version: 2.2.8
 Release: 1
 URL: http://httpd.apache.org/
 Vendor: Apache Software Foundation

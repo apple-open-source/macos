@@ -77,7 +77,7 @@ SubresourceLoader::~SubresourceLoader()
 
 bool SubresourceLoader::load(const ResourceRequest& r)
 {
-    m_frame->loader()->didTellBridgeAboutLoad(r.url().url());
+    m_frame->loader()->didTellClientAboutLoad(r.url().string());
     
     return ResourceLoader::load(r);
 }
@@ -96,7 +96,7 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
     if (!skipCanLoadCheck
             && FrameLoader::restrictAccessToLocal()
             && !FrameLoader::canLoad(request.url(), frame->document())) {
-        FrameLoader::reportLocalLoadFailed(frame->page(), request.url().url());
+        FrameLoader::reportLocalLoadFailed(frame->page(), request.url().string());
         return 0;
     }
     
@@ -234,6 +234,21 @@ void SubresourceLoader::didCancel(const ResourceError& error)
         return;
     m_documentLoader->removeSubresourceLoader(this);
     ResourceLoader::didCancel(error);
+}
+
+void SubresourceLoader::didReceiveAuthenticationChallenge(const AuthenticationChallenge& challenge)
+{
+    RefPtr<SubresourceLoader> protect(this);
+
+    if (m_client)
+        m_client->didReceiveAuthenticationChallenge(this, challenge);
+    
+    // The SubResourceLoaderClient may have cancelled this ResourceLoader in response to the challenge.  
+    // If that's the case, don't call didReceiveAuthenticationChallenge
+    if (reachedTerminalState())
+        return;
+        
+    ResourceLoader::didReceiveAuthenticationChallenge(challenge);
 }
 
 void SubresourceLoader::receivedCancellation(const AuthenticationChallenge& challenge)

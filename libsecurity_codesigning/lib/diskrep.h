@@ -30,6 +30,7 @@
 #include "cs.h"
 #include "codedirectory.h"
 #include "requirement.h"
+#include "resources.h"
 #include "macho++.h"		// for class Architecture
 #include <security_utilities/refcount.h>
 #include <security_utilities/superblob.h>
@@ -56,6 +57,7 @@ public:
 	virtual std::string recommendedIdentifier() = 0;		// default identifier
 	virtual std::string resourcesRootPath();				// resource directory if any
 	virtual CFDictionaryRef defaultResourceRules();			// default resource rules
+	virtual void adjustResources(ResourceBuilder &builder);	// adjust resource rule set
 	virtual const Requirements *defaultRequirements(const Architecture *arch); // default internal requirements
 	virtual Universal *mainExecutableImage();				// binary if Mach-O/Universal
 	virtual size_t pageSize();								// default main executable page size

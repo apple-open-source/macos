@@ -103,7 +103,6 @@ smb_usr_vc2spec(struct smbioc_ossn *dp, struct smb_vcspec *spec)
 	spec->reconnect_wait_time = dp->ioc_reconnect_wait_time;
 
 	spec->localcs = dp->ioc_localcs;
-	spec->servercs = dp->ioc_servercs;
 	spec->flags = dp->ioc_opt;
 	return 0;
 }

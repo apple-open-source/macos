@@ -90,7 +90,7 @@ const Requirements *FileDiskRep::defaultRequirements(const Architecture *)
 {
 	// read start of file
 	char buffer[256];
-	size_t length = fd().read(buffer, sizeof(buffer));
+	size_t length = fd().read(buffer, sizeof(buffer), 0);
 	if (length > 3 && buffer[0] == '#' && buffer[1] == '!' && buffer[2] == '/') {
 		// isolate (full) path element in #!/full/path -some -other -stuff
 		if (length == sizeof(buffer))

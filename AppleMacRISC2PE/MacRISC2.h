@@ -63,6 +63,7 @@ enum {
 };
 #endif
 
+class MacRISC2CPU;
 class MacRISC2PE : public ApplePlatformExpert
 {
     OSDeclareDefaultStructors(MacRISC2PE);

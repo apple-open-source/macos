@@ -65,6 +65,7 @@
 #include <sys/sysctl.h>
 #include <DirectoryServiceCore/CSharedData.h>
 #include <netdb_async.h>
+#include <netinet/in.h>
 
 // Globals ---------------------------------------------------------------------------
 
@@ -86,6 +87,7 @@ const int kNegativeDNSCacheTime = 300;  // 5 minutes
 const int kNegativeCacheTime    = 1800; // 30 minutes
 const int kCacheTime            = 3600; // 1 hour
 const int DNS_BUFFER_SIZE       = 8192;
+const int kDefaultTTLValue      = -1;   // -1 means it won't be cached, any other valid TTL will dictate behavior
 
 static pthread_t       gActiveThreads[512];
 static int             gNotifyTokens[512];
@@ -126,6 +128,12 @@ enum eResolveStates
 };
 
 void CancelDNSThreads( void );
+
+inline void SetMaxTTL( int32_t &oldTTL, int32_t newTTL )
+{
+    if ( newTTL >= 0 && (oldTTL < 0 || newTTL < oldTTL) )
+        oldTTL = newTTL;
+}
 
 void dsSetNodeCacheAvailability( char *inNodeName, int inAvailable )
 {
@@ -2561,7 +2569,7 @@ sCacheValidation* ParsePasswdEntry( tDirReference inDirRef, tDirNodeReference in
     kvbuf_append_kvbuf( inBuffer, tempBuffer );
     
     if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_USER, 0, inKeys );
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_USER, kCacheTime, inKeys );
     else
         kvbuf_free( tempBuffer );
     
@@ -2653,7 +2661,7 @@ sCacheValidation* ParseGroupEntry( tDirReference inDirRef, tDirNodeReference inN
     kvbuf_append_kvbuf( inBuffer, tempBuffer );
     
     if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_GROUP, 0, inKeys );
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_GROUP, kCacheTime, inKeys );
     else
         kvbuf_free( tempBuffer );
 
@@ -2798,7 +2806,7 @@ sCacheValidation* ParseMountEntry( tDirReference inDirRef, tDirNodeReference inN
     kvbuf_append_kvbuf( inBuffer, tempBuffer );
     
     if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_MOUNT, 0, inKeys );
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_MOUNT, kCacheTime, inKeys );
     else
         kvbuf_free( tempBuffer );
     
@@ -2882,7 +2890,7 @@ sCacheValidation* ParseAliasEntry( tDirReference inDirRef, tDirNodeReference inN
     kvbuf_append_kvbuf( inBuffer, tempBuffer );
     
     if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_ALIAS, 0, inKeys );
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_ALIAS, kCacheTime, inKeys );
     else
         kvbuf_free( tempBuffer );
     
@@ -3145,7 +3153,7 @@ sCacheValidation* ParseProtocolEntry( tDirReference inDirRef, tDirNodeReference 
     kvbuf_append_kvbuf( inBuffer, tempBuffer );
     
     if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_PROTOCOL, 0, inKeys );
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_PROTOCOL, kCacheTime, inKeys );
     else
         kvbuf_free( tempBuffer );
     
@@ -3229,7 +3237,7 @@ sCacheValidation* ParseRPCEntry( tDirReference inDirRef, tDirNodeReference inNod
     kvbuf_append_kvbuf( inBuffer, tempBuffer );
     
     if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_RPC, 0, inKeys );
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_RPC, kCacheTime, inKeys );
     else
         kvbuf_free( tempBuffer );
     
@@ -3314,7 +3322,7 @@ sCacheValidation* ParseNetworkEntry( tDirReference inDirRef, tDirNodeReference i
     kvbuf_append_kvbuf( inBuffer, tempBuffer );
     
     if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_NETWORK, 0, inKeys );
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_NETWORK, kCacheTime, inKeys );
     else
         kvbuf_free( tempBuffer );
 
@@ -3481,10 +3489,10 @@ nextValue:
     {
         // if we are using a specific search we need to do a different cache entry
         if( pSearch != NULL )
-            CCachePlugin::AddEntryToCacheWithMultiKey( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_GROUP, 0, "netgroup", name, 
+            CCachePlugin::AddEntryToCacheWithMultiKey( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_GROUP, kCacheTime, "netgroup", name, 
                                                        "host", pSearch[0], "user", pSearch[1], "domain", pSearch[2], NULL );
         else
-            CCachePlugin::AddEntryToCacheWithMultiKey( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_GROUP, 0, "netgroup", name, NULL );
+            CCachePlugin::AddEntryToCacheWithMultiKey( inCache, valid_t, tempBuffer, CACHE_ENTRY_TYPE_GROUP, kCacheTime, "netgroup", name, NULL );
     }    
     else
     {
@@ -3603,7 +3611,7 @@ sCacheValidation* ParseHostEntry( tDirReference inDirRef, tDirNodeReference inNo
     kvbuf_append_kvbuf( inBuffer, tempBuffer );
     
     if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, NULL, tempBuffer, CACHE_ENTRY_TYPE_HOST, 0, inKeys );
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, NULL, tempBuffer, CACHE_ENTRY_TYPE_HOST, kCacheTime, inKeys );
     else
         kvbuf_free( tempBuffer );
     
@@ -3667,7 +3675,7 @@ sCacheValidation* ParseEthernetEntry( tDirReference inDirRef, tDirNodeReference 
     kvbuf_append_kvbuf( inBuffer, tempBuffer );
     
     if( inCache != NULL && inKeys != NULL )
-        CCachePlugin::AddEntryToCacheWithKeys( inCache, NULL, tempBuffer, CACHE_ENTRY_TYPE_HOST, 0, inKeys );
+        CCachePlugin::AddEntryToCacheWithKeys( inCache, NULL, tempBuffer, CACHE_ENTRY_TYPE_HOST, kCacheTime, inKeys );
     else
         kvbuf_free( tempBuffer );
     
@@ -4246,7 +4254,7 @@ void CCachePlugin::AddEntryToCacheWithKeys( CCache *inCache, sCacheValidation *i
     DSDelete( keys );
 }
 
-kvbuf_t* CCachePlugin::FetchFromCache( CCache *inCache, uint32_t *outTTL, ... )
+kvbuf_t* CCachePlugin::FetchFromCache( CCache *inCache, int32_t *outTTL, ... )
 {
     sKeyList    *query		= NULL;
     kvbuf_t		*outBuffer	= NULL;
@@ -5022,7 +5030,7 @@ kvbuf_t* CCachePlugin::DSgetpwuuid ( kvbuf_t *inBuffer, pid_t inPID )
                 {
                     kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
                     
-                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_USER, 0, keys );
+                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_USER, kCacheTime, keys );
                 }
                 else
                 {
@@ -5135,7 +5143,7 @@ kvbuf_t* CCachePlugin::DSgetpwuid ( kvbuf_t *inBuffer, pid_t inPID )
                 {
                     kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
                     
-                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_USER, 0, keys );
+                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_USER, kCacheTime, keys );
                 }
                 else
                 {
@@ -5380,7 +5388,7 @@ kvbuf_t* CCachePlugin::DSgetgruuid ( kvbuf_t *inBuffer, pid_t inPID )
                 {
                     kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
                     
-                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_GROUP, 0, keys );
+                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_GROUP, kCacheTime, keys );
                 }
                 else
                 {
@@ -5489,7 +5497,7 @@ kvbuf_t* CCachePlugin::DSgetgrgid ( kvbuf_t *inBuffer, pid_t inPID )
                 {
                     kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
                     
-                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_GROUP, 0, keys );
+                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_GROUP, kCacheTime, keys );
                 }
                 else
                 {
@@ -5887,7 +5895,7 @@ kvbuf_t* CCachePlugin::DSgetservbyname( kvbuf_t *inBuffer, pid_t inPID )
 					char	*keyList3[] = { "s_name", NULL }; // we only pass this if we have no protocol
 					kvbuf_t *copy       = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
 					
-					AddEntryToCacheWithKeylists( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_SERVICE, 0, keyList1, keyList2, 
+					AddEntryToCacheWithKeylists( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_SERVICE, kCacheTime, keyList1, keyList2, 
 												 (proto[0] == '\0' ? keyList3 : NULL), NULL );
 				}
                 
@@ -6027,7 +6035,7 @@ kvbuf_t* CCachePlugin::DSgetservbyport( kvbuf_t *inBuffer, pid_t inPID )
                     char    *keyList3[] = { "s_port", NULL };
                     kvbuf_t *copy       = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
                     
-                    AddEntryToCacheWithKeylists( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_SERVICE, 0, keyList1, keyList2, 
+                    AddEntryToCacheWithKeylists( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_SERVICE, kCacheTime, keyList1, keyList2, 
                                                  (proto[0] == '\0' ? keyList3 : NULL), NULL );
                 }
                 
@@ -6247,7 +6255,7 @@ kvbuf_t* CCachePlugin::DSgetprotobynumber( kvbuf_t *inBuffer, pid_t inPID )
                 {
                     kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
                     
-                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_PROTOCOL, 0, keys );
+                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_PROTOCOL, kCacheTime, keys );
                 }
                 else
                 {
@@ -6466,7 +6474,7 @@ kvbuf_t* CCachePlugin::DSgetrpcbynumber( kvbuf_t *inBuffer, pid_t inPID )
                 {
                     kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
                     
-                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_RPC, 0, keys );
+                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_RPC, kCacheTime, keys );
                 }
                 else
                 {
@@ -6695,7 +6703,7 @@ kvbuf_t* CCachePlugin::DSgetnetbyaddr( kvbuf_t *inBuffer, pid_t inPID )
                 {
                     kvbuf_t *copy = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
                     
-                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_NETWORK, 0, keys );
+                    AddEntryToCacheWithKeys( fLibinfoCache, theValidation, copy, CACHE_ENTRY_TYPE_NETWORK, kCacheTime, keys );
                 }
                 else
                 {
@@ -6868,7 +6876,7 @@ kvbuf_t *CCachePlugin::DSinnetgr( kvbuf_t *inBuffer )
             // need to check this specific so we can do a negative cache
             if ( tempBuffer == NULL )
             {
-                AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_GROUP, 0, "netgroup", name, "host", triplet[0], 
+                AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, NULL, CACHE_ENTRY_TYPE_GROUP, kCacheTime, "netgroup", name, "host", triplet[0], 
 											 "user", triplet[1], "domain", triplet[2], NULL );
             }
             
@@ -6990,6 +6998,9 @@ void CCachePlugin::IssueParallelDNSQueries( sDNSLookup *inLookup )
 			pQuery->fIsParallel = true;
 			pQuery->fMutex = &dnsMutex;
 			pQuery->fCondition = &dnsCondition;
+
+			// clear queryFinished just in case this is a redo.
+			inLookup->fQueryFinished[index] = false;
 
 			if ( inLookup->fQueryTypes[index] == fTypeA )
 				iIndexOfAReq = index;
@@ -7283,13 +7294,13 @@ kvbuf_t* CCachePlugin::DSgethostbyname( kvbuf_t *inBuffer, pid_t inPID, bool inP
 }
 
 kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, const char *inIPv6, int inPID, bool inParallelQuery, sDNSLookup *inLookup, 
-                                            uint32_t *outTTL )
+                                            int32_t *outTTL )
 {
     uint32_t            ipv4            = 0;
     uint32_t            ipv6            = 0;
     kvbuf_t             *outBuffer      = NULL;
     tDataListPtr        attrTypes       = NULL;
-    uint32_t            ttl             = 0;
+    int32_t             ttl             = kDefaultTTLValue;
     sCacheValidation    *theValidation	= NULL;
 
     if( NULL != inIPv4 )
@@ -7371,8 +7382,8 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                 bool        ipv6Found       = false;
                 char        *aliases[1024];
                 
-                // reset TTL to 0
-                ttl = 0;
+                // reset TTL to kDefaultTTLValue
+                ttl = kDefaultTTLValue;
                 
                 if( pAnswer == NULL )
                 {
@@ -7541,7 +7552,7 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                                 if( NULL != reply->answer[index] )
                                 {
                                     // we use the lowest TTL so we refresh this if needed
-                                    int tempTTL = reply->answer[index]->ttl;
+                                    int32_t tempTTL = reply->answer[index]->ttl;
                                     
                                     if( reply->answer[index]->dnstype == fTypeA )
                                     {
@@ -7558,8 +7569,7 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                                         }
 										
                                         // Only care about ttl for IPv4 & IPv6
-                                        if( 0 >= ttl || tempTTL < (int) ttl )
-										    ttl = tempTTL;
+                                        SetMaxTTL( ttl, tempTTL );
                                    }
                                     else if( reply->answer[index]->dnstype == fTypeAAAA )
                                     {
@@ -7590,8 +7600,7 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                                         }
 
                                         // Only care about ttl for IPv4 & IPv6
-                                        if( 0 >= ttl || tempTTL < (int) ttl )
-                                            ttl = tempTTL;
+                                        SetMaxTTL( ttl, tempTTL );
                                     }                                    
                                     else if( reply->answer[index]->dnstype == fTypeCNAME )
                                     {
@@ -7618,9 +7627,9 @@ kvbuf_t* CCachePlugin::DSgethostbyname_int( char *inName, const char *inIPv4, co
                             }
                         }
                     }
-                    else if ( pAnswer->fMinimumTTL[zz] > 0 && (ttl == 0 || pAnswer->fMinimumTTL[zz] < (int) ttl) )
+                    else if ( pAnswer->fMinimumTTL[zz] > 0 );
                     {
-                        ttl = pAnswer->fMinimumTTL[zz];
+                        SetMaxTTL( ttl, pAnswer->fMinimumTTL[zz] );
                     }
                 }
                 
@@ -7840,7 +7849,7 @@ kvbuf_t* CCachePlugin::DSgethostbyaddr( kvbuf_t *inBuffer, pid_t inPID )
     kvbuf_t             *outBuffer		= NULL;
     tDataListPtr        attrTypes		= NULL;
     uint32_t            dictCount       = kvbuf_reset( inBuffer );
-    int                 ttl             = 0;
+    int32_t             ttl             = kDefaultTTLValue;
     uint32_t            valCount        = 0;
     char                *address        = NULL;
     uint32_t            family          = 0;
@@ -7965,9 +7974,7 @@ kvbuf_t* CCachePlugin::DSgethostbyaddr( kvbuf_t *inBuffer, pid_t inPID )
 								{
 									dns_domain_name_record_t *PTR = reply->answer[ii]->data.PTR;
 									
-									int tempTTL = reply->answer[ii]->ttl;
-									if ( ttl == 0 || tempTTL < ttl )
-										ttl = tempTTL;
+                                    SetMaxTTL( ttl, reply->answer[ii]->ttl );
 									
 									if( NULL != PTR && PTR->name != NULL )
 									{
@@ -7988,9 +7995,7 @@ kvbuf_t* CCachePlugin::DSgethostbyaddr( kvbuf_t *inBuffer, pid_t inPID )
                         else if ( reply->authority[0] != NULL )
                         {
                             // if we got an authority, then we will use the minimum time
-                            int tempTTL = reply->authority[0]->data.SOA->minimum;
-                            if ( ttl == 0 || tempTTL < ttl )
-                                ttl = tempTTL;
+                            SetMaxTTL( ttl, reply->authority[0]->data.SOA->minimum );
                         }
                         
                         dns_free_reply( reply );
@@ -8101,7 +8106,7 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
     kvbuf_t             *tempBuffer     = NULL;
     tDataListPtr        attrTypes		= NULL;
     uint32_t            dictCount       = kvbuf_reset( inBuffer );
-    int                 ttl             = 0;
+    int32_t             ttl             = kDefaultTTLValue;
     uint32_t            valCount        = 0;
     char                *reqAddress     = NULL;
     uint32_t            family          = 0;
@@ -8299,9 +8304,7 @@ kvbuf_t* CCachePlugin::DSgetnameinfo( kvbuf_t *inBuffer, pid_t inPID )
                                 {
                                     dns_domain_name_record_t *PTR = reply->answer[ii]->data.PTR;
                                     
-                                    int tempTTL = reply->answer[ii]->ttl;
-                                    if ( ttl == 0 || tempTTL < ttl )
-                                        ttl = tempTTL;
+                                    SetMaxTTL( ttl, reply->answer[ii]->ttl );
                                     
                                     if ( NULL != PTR && PTR->name != NULL )
                                     {
@@ -8646,7 +8649,7 @@ kvbuf_t* CCachePlugin::DSgethostbymac( kvbuf_t *inBuffer, pid_t inPID )
                     char    *keylist[]  = { "mac", "name", NULL };
                     kvbuf_t *copy       = kvbuf_init( outBuffer->databuf, outBuffer->datalen );
                     
-                    AddEntryToCacheWithKeylists( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_HOST, 0, keylist, NULL );
+                    AddEntryToCacheWithKeylists( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_HOST, kCacheTime, keylist, NULL );
                 }
                 else
                 {
@@ -8682,7 +8685,7 @@ kvbuf_t* CCachePlugin::DSgethostbymac( kvbuf_t *inBuffer, pid_t inPID )
 }
 
 // this routine only works for SRV and MX replies
-kvbuf_t *CCachePlugin::dnsreply_to_kvbuf( dns_reply_t *inReply, const char *inIPv4, const char *inIPv6, pid_t inPID, uint32_t *outTTL )
+kvbuf_t *CCachePlugin::dnsreply_to_kvbuf( dns_reply_t *inReply, const char *inIPv4, const char *inIPv6, pid_t inPID, int32_t *outTTL )
 {
     kvbuf_t *outBuffer = kvbuf_new();
     
@@ -8701,10 +8704,7 @@ kvbuf_t *CCachePlugin::dnsreply_to_kvbuf( dns_reply_t *inReply, const char *inIP
             char    *pTarget    = NULL;
             kvbuf_t *hostInfo   = NULL;
             
-            if( outTTL != NULL && (*outTTL == 0 || reply->ttl < *outTTL) )
-            {
-                *outTTL = reply->ttl;
-            }
+            SetMaxTTL( *outTTL, reply->ttl );
             
             // these are qualified hosts, so lets ensure they have a dot to prevent unwanted delays/search domains
             if( reply->dnstype == fTypeSRV )
@@ -8715,7 +8715,8 @@ kvbuf_t *CCachePlugin::dnsreply_to_kvbuf( dns_reply_t *inReply, const char *inIP
             {
                 pTarget = reply->data.MX->name;
             }
-            
+
+            // TODO:  We should parse the additional records for this answer instead of re-issuing the request
             if( pTarget != NULL )
             {
                 int length = strlen( pTarget );
@@ -8740,10 +8741,14 @@ kvbuf_t *CCachePlugin::dnsreply_to_kvbuf( dns_reply_t *inReply, const char *inIP
                 
                 if( reply->dnstype == fTypeSRV )
                 {
-                    kvbuf_add_key( outBuffer, "port" );
-                    
                     snprintf( buffer, sizeof(buffer), "%u", (unsigned int) reply->data.SRV->port );
+                    kvbuf_add_key( outBuffer, "port" );
                     kvbuf_add_val( outBuffer, buffer );
+                }
+                else if ( reply->dnstype == fTypeMX )
+                {
+                    kvbuf_add_key( outBuffer, "port" );
+                    kvbuf_add_val( outBuffer, "25" );
                 }
                 
                 // here we just merged the dictionaries
@@ -8751,7 +8756,7 @@ kvbuf_t *CCachePlugin::dnsreply_to_kvbuf( dns_reply_t *inReply, const char *inIP
                 
                 for( uint32_t yy = 0; yy < keyCount; yy++ )
                 {
-                    uint32_t    valCount;
+                    uint32_t    valCount = 0;
                     
                     char *key = kvbuf_next_key( hostInfo, &valCount );
                     
@@ -8763,6 +8768,7 @@ kvbuf_t *CCachePlugin::dnsreply_to_kvbuf( dns_reply_t *inReply, const char *inIP
                 }
             }
             
+            kvbuf_free( hostInfo );
             index++;
         }
     }
@@ -8870,12 +8876,12 @@ partLower:
         else
         {
             uint16_t pivotPreference = pivot->data.MX->preference;
-            while (inRecords[up]->data.MX->preference >= pivotPreference && up < inLast)
+            while (inRecords[up]->data.MX->preference <= pivotPreference && up < inLast)
             {
                 up++;
             }
             
-            while (inRecords[down]->data.MX->preference < pivotPreference  && down > inFirst )
+            while (inRecords[down]->data.MX->preference > pivotPreference  && down > inFirst )
             {
                 down--;
             }
@@ -9034,20 +9040,10 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
     uint32_t    serviceCount            = 0;
     sDNSLookup  *pDNSLookup             = NULL;
     kvbuf_t     *pTempBuffer            = NULL;
+    char        pTempProtocol[16];
         
     // we search UDP, then TCP, but it's done in reverse, so we can minimize the roundtrips if a service has 
     // more than one protcol when the protocol is unspecified
-    
-    // we special case smtp and TCP combo and insert a specialized query
-    if( bHaveServiceName == true && bResolveName && (IPPROTO_TCP == protocol || 0 == protocol) && (SOCK_STREAM == socktype || 0 == socktype) && 
-        (strcmp(pService, "smtp") == 0 || strcmp(pService, "25") == 0) )
-    {
-        protocolListStr[serviceCount] = NULL;
-        protocolList[serviceCount] = "6";
-        socktypeList[serviceCount] = "1";
-        serviceNameList[serviceCount] = strdup( "MX" );
-        serviceCount++;
-    }
     
     if( (IPPROTO_TCP == protocol || 0 == protocol) && (SOCK_STREAM == socktype || 0 == socktype) )
     {
@@ -9064,7 +9060,27 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
         socktypeList[serviceCount] = "2";
         serviceCount++;
     }
-
+    
+    if ( (SOCK_RAW == socktype || 0 == socktype) && 0 != protocol && IPPROTO_UDP != protocol && IPPROTO_TCP != protocol )
+    {
+        protocolListStr[serviceCount] = NULL;
+        snprintf( pTempProtocol, sizeof(pTempProtocol), "%d", protocol );
+        protocolList[serviceCount] = pTempProtocol;
+        socktypeList[serviceCount] = "3";
+        serviceCount++;
+    }
+    
+    // we special case smtp and TCP combo and insert a specialized query
+    if( bHaveServiceName == true && bResolveName && (IPPROTO_TCP == protocol || 0 == protocol) && (SOCK_STREAM == socktype || 0 == socktype) && 
+        strcmp(pService, "smtp") == 0 )
+    {
+        protocolListStr[serviceCount] = NULL;
+        protocolList[serviceCount] = "6";
+        socktypeList[serviceCount] = "1";
+        serviceNameList[serviceCount] = strdup( "MX" );
+        serviceCount++;
+    }
+    
     // if requested SOCK_RAW, but specified a port or service, then this is invalid request
     if ( socktype == SOCK_RAW && pService != NULL && pService[0] != '\0' )
         return NULL;
@@ -9079,7 +9095,7 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
         // if iPort is something other than 0, but pointer is non-NULL and is not pointing to a NULL char
         // then this was an invalid string, so return NULL, otherwise we do a lookup
         if( endptr != NULL && (*endptr) != '\0' && iPort != 0 )
-            return NULL;
+            iPort = 0;
         
         int index = serviceCount;
         
@@ -9087,55 +9103,61 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
         {
             index--;
 
-            if( protocolListStr[index] != NULL ) // this is a special case query, no protocol signifies a MX query
+            if ( protocolListStr[index] != NULL ) // this is a special case query, no protocol signifies a MX query
             {
-                kvbuf_t *request = kvbuf_new();
-                if( request == NULL)
+                
+                // if we don't have a port, we assume it is a name
+                if ( iPort == 0 )
                 {
-                    break;
-                }
-                
-                kvbuf_add_dict( request );
-                
-                kvbuf_add_key( request, (iPort == 0 ? "name" : "port") );
-                kvbuf_add_val( request, pService );
-                kvbuf_add_key( request, "proto" );
-                kvbuf_add_val( request, protocolListStr[index] );
-                
-                kvbuf_t *answer = (iPort == 0 ? DSgetservbyname(request, inPID) : DSgetservbyport(request, inPID) );
-                
-                // if we have a port, no need to do anything special, just fill it
-                if( iPort != 0 )
-                {
-                    servicePortList[index] = strdup( pService );
-                }
+                    kvbuf_t *request = kvbuf_new();
+                    if( request == NULL)
+                        break;
+
+                    kvbuf_add_dict( request );
                     
-                if( kvbuf_reset(answer) > 0 )
-                {
-                    kvbuf_next_dict( answer );
+                    kvbuf_add_key( request, "name" );
+                    kvbuf_add_val( request, pService );
+                    kvbuf_add_key( request, "proto" );
+                    kvbuf_add_val( request, protocolListStr[index] );
                     
-                    while( (key = kvbuf_next_key(answer, &valCount)) ) 
+                    kvbuf_t *answer = DSgetservbyname( request, inPID );
+                    
+                    if( kvbuf_reset(answer) > 0 )
                     {
-                        if( servicePortList[index] == NULL && strcmp(key, "s_port") == 0 )
+                        kvbuf_next_dict( answer );
+                        
+                        while( (key = kvbuf_next_key(answer, &valCount)) ) 
                         {
-                            char *pTemp = kvbuf_next_val( answer );
-                            if( pTemp != NULL )
+                            if( servicePortList[index] == NULL && strcmp(key, "s_port") == 0 )
                             {
-                                servicePortList[index] = strdup( pTemp );
+                                char *pTemp = kvbuf_next_val( answer );
+                                if( pTemp != NULL )
+                                {
+                                    servicePortList[index] = strdup( pTemp );
+                                }
                             }
-                        }
-                        else if( strcmp(key, "s_name") == 0 )
-                        {
-                            char *pTemp = kvbuf_next_val( answer );
-                            if( pTemp != NULL )
+                            else if( strcmp(key, "s_name") == 0 )
                             {
-                                serviceNameList[index] = strdup( pTemp );
+                                char *pTemp = kvbuf_next_val( answer );
+                                if( pTemp != NULL )
+                                {
+                                    serviceNameList[index] = strdup( pTemp );
+                                }
                             }
                         }
                     }
+                    else
+                    {
+                        serviceNameList[index] = strdup( pService ); // just dupe the name as is
+                    }
+
+                    kvbuf_free( answer );
+                    kvbuf_free( request );
                 }
-                kvbuf_free( answer );
-                kvbuf_free( request );
+                else
+                {
+                    servicePortList[index] = strdup( pService );
+                }
             }
         }
     }
@@ -9146,29 +9168,29 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
         const char              *pIPv6              = ((AF_UNSPEC == family || AF_INET6 == family) ? "1" : "0");
         const char              *pIPv4              = ((AF_UNSPEC == family || AF_INET == family) ? "1" : "0");
         char                    *searchDomainUsed   = NULL;
-        uint32_t                ttl                 = 0;
+        int32_t                 ttl                 = kDefaultTTLValue;
         
         // if we aren't parallel and we don't allow unqualified SRV queries, we start with step #2
         int                     iStateIndex         = (parallel == 0 && fUnqualifiedSRVAllowed == false ? 1 : 0); 
         
         // now let's look and see if the Additional query information is in the cache
         // look for answers for this question
-        int                     iProtListIndex      = serviceCount;
+        uint32_t                iPortListIndex      = serviceCount;
         
-        while( iProtListIndex > 0 )
+        while( iPortListIndex > 0 )
         {
-            iProtListIndex--;
+            iPortListIndex--;
             
-            if( serviceNameList[iProtListIndex] != NULL )
+            if( serviceNameList[iPortListIndex] != NULL )
             {
-                if( protocolListStr[iProtListIndex] != NULL )
+                if( protocolListStr[iPortListIndex] != NULL )
                 {
-                    pOtherAnswers[iProtListIndex] = FetchFromCache( fLibinfoCache, NULL, "sname", serviceNameList[iProtListIndex], 
-                                                                    "pname", protocolListStr[iProtListIndex], "dnsname", pName, NULL );
+                    pOtherAnswers[iPortListIndex] = FetchFromCache( fLibinfoCache, NULL, "sname", serviceNameList[iPortListIndex], 
+                                                                    "pname", protocolListStr[iPortListIndex], "dnsname", pName, NULL );
                 }
                 else
                 {
-                    pOtherAnswers[iProtListIndex] = FetchFromCache( fLibinfoCache, NULL, "mxname", pName, NULL );
+                    pOtherAnswers[iPortListIndex] = FetchFromCache( fLibinfoCache, NULL, "mxname", pName, NULL );
                 }
             }
         }
@@ -9208,18 +9230,14 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                 case kResolveStateBuildExtraQueries:
                     if( bHaveServiceName == true && serviceCount != 0 )
                     {
-                        iProtListIndex  = serviceCount;
-
                         DbgLog( kLogDebug, "CCachePlugin::DSgetaddrinfo - Building Additional Queries" );
-                        while( iProtListIndex > 0 )
+                        for( iPortListIndex = 0; iPortListIndex < serviceCount; iPortListIndex++ )
                         {
-                            iProtListIndex--;
-                            
                             // if we have something to lookup and we got nothing from the cache
-                            if( serviceNameList[iProtListIndex] != NULL && pOtherAnswers[iProtListIndex] == NULL )
+                            if( serviceNameList[iPortListIndex] != NULL && pOtherAnswers[iPortListIndex] == NULL )
                             {
-                                pDNSLookup = CreateAdditionalDNSQueries( pDNSLookup, serviceNameList[iProtListIndex], protocolListStr[iProtListIndex],
-                                                                         pName, searchDomainUsed, iProtListIndex );
+                                pDNSLookup = CreateAdditionalDNSQueries( pDNSLookup, serviceNameList[iPortListIndex], protocolListStr[iPortListIndex],
+                                                                         pName, searchDomainUsed, iPortListIndex );
                             }
                         }
                         DbgLog( kLogDebug, "CCachePlugin::DSgetaddrinfo - Done Building Additional Queries" );
@@ -9276,8 +9294,7 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                 if( (NULL != reply) && (DNS_STATUS_OK == reply->status) )
                 {
                     // grab any TTL based on the minimum returned
-                    if ( pDNSLookup->fMinimumTTL[ii] > 0 && (ttl == 0 || pDNSLookup->fMinimumTTL[ii] < (int) ttl) )
-                        ttl = pDNSLookup->fMinimumTTL[ii];
+                    SetMaxTTL( ttl, pDNSLookup->fMinimumTTL[ii] );
 
                     // if we have more than 1 answer, lets sort them
                     if( (NULL != reply->header) && (reply->header->ancount > 1) )
@@ -9291,7 +9308,7 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                 if( ttl > 0 )
                 {
                     kvbuf_t *copy   = NULL;
-                    int     tempTTL = ttl;
+                    int32_t tempTTL = ttl;
                     
                     if( pOtherAnswers[tempIndex] != NULL )
                     {
@@ -9299,18 +9316,19 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                     }
                     else
                     {
-                        tempTTL = pDNSLookup->fMinimumTTL[ii];
+                        SetMaxTTL( tempTTL, pDNSLookup->fMinimumTTL[ii] );
                     }
 
                     if( protocolListStr[tempIndex] != NULL )
                     {
-                        AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_HOST, tempTTL, 
+                        AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_HOST | CACHE_ENTRY_TYPE_REPLACE, tempTTL, 
 													 "sname", serviceNameList[tempIndex], "pname", protocolListStr[tempIndex],
 													 "dnsname", pName, NULL );
                     }
                     else
                     {
-                        AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_HOST, tempTTL, "mxname", pName, NULL );
+                        AddEntryToCacheWithMultiKey( fLibinfoCache, NULL, copy, CACHE_ENTRY_TYPE_HOST | CACHE_ENTRY_TYPE_REPLACE, tempTTL, 
+                                                     "mxname", pName, NULL );
                     }
                 }                
             }
@@ -9380,6 +9398,9 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
             {
                 index--;
                 
+                if ( bHaveServiceName == true && servicePortList[index] == NULL )
+                    continue;
+                
                 kvbuf_add_dict( outBuffer );
                 
                 kvbuf_add_key( outBuffer, "gai_flags");
@@ -9403,14 +9424,20 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                 char    *p = strrchr( addresses[addressCnt], '%' );
                 if (p != NULL)
                 {
-                    char    scope[16]   = { 0, };
-                    
-                    unsigned scopeid = if_nametoindex( p + 1 );
-                    
-                    snprintf( scope, sizeof(scope), "%u", scopeid );
-                    
-                    kvbuf_add_key( outBuffer, "gai_scopeid" );
-                    kvbuf_add_val( outBuffer, scope );
+                    // Only set the scope for link local addresses.  All others don't
+                    // need it since they are routable.
+                    struct in6_addr ipv6Addr;
+                    if ( inet_pton( AF_INET6, addresses[addressCnt], &ipv6Addr ) == 1 && IN6_IS_ADDR_LINKLOCAL( &ipv6Addr ) )
+                    {
+                        char    scope[16]   = { 0, };
+						
+                        unsigned scopeid = if_nametoindex( p + 1 );
+						
+                        snprintf( scope, sizeof(scope), "%u", scopeid );
+						
+                        kvbuf_add_key( outBuffer, "gai_scopeid" );
+                        kvbuf_add_val( outBuffer, scope );
+                    }
                 }
                 
                 // if we have a null name and they want a canonnical name and AI_PASSIVE isn't set, then it is loopback
@@ -9436,9 +9463,11 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
         int         iNextState          = kProcessAddress;
         char        **ipv6List          = NULL;
         char        **ipv4List          = NULL;
-        char        **addressLists[]    = { NULL, NULL };
-        char        *portList[]         = { NULL, NULL };
-        int         listCount           = 0;
+        size_t      listSize            = 10;
+        char        ***addressLists     = (char ***) malloc( listSize * sizeof(char **) );
+        int         *addressListType    = (int *) malloc( listSize * sizeof(int) );
+        char        **portList          = (char **) malloc( listSize * sizeof(char *) );
+        size_t      listCount           = 0;
         char        *actualName         = NULL;
         bool        bAddedAddresses     = false;
         uint32_t    iCount              = 0;
@@ -9454,20 +9483,21 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                     {
                         kvbuf_t     *tempBuffer = pOtherAnswers[otherOffset];
                         
+                        // if this is an MX lookup and we haven't added any values, we will use otherwise skip
+                        // MX is always last in the lookups, so we should be ok..
+                        if( protocolListStr[otherOffset] == NULL && bAddedAddresses == true )
+                        {
+                            otherOffset++;
+                            continue;
+                        }
+                        
                         iCount = kvbuf_reset( tempBuffer );
-                        if( iCount > 0 )
+                        
+                        for( uint32_t zz = 0; zz < iCount; zz++ )
                         {
                             char        *port   = NULL;
                             uint32_t    vCount;
 
-                            // if this is an MX lookup and we haven't added any values, we will use otherwise skip
-                            // MX is always last in the lookups, so we should be ok..
-                            if( protocolListStr[otherOffset] == NULL && bAddedAddresses == true )
-                            {
-                                otherOffset++;
-                                continue;
-                            }
-                            
                             kvbuf_next_dict( tempBuffer );
                             
                             // let's get the lists we need...
@@ -9479,15 +9509,15 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                                     
                                     if( (family == AF_UNSPEC || family == AF_INET6) && strcmp(key, "h_ipv6_addr_list") == 0 )
                                     {
-                                        ipv6List = (char **) calloc( vCount+1, sizeof(char *) );
+                                        ipv6List = (char **) calloc( vCount + 1, sizeof(char *) );
                                         pWorkingList = ipv6List;
                                     }
                                     else if( (family == AF_UNSPEC || family == AF_INET) && strcmp(key, "h_ipv4_addr_list") == 0 )
                                     {
-                                        ipv4List = (char **) calloc( vCount+1, sizeof(char *) );
+                                        ipv4List = (char **) calloc( vCount + 1, sizeof(char *) );
                                         pWorkingList = ipv4List;
                                     }
-                                    else if( strcmp(key, "h_name") == 0 )
+                                    else if( strcmp(key, "h_name") == 0 && actualName == NULL )
                                     {
                                         actualName = kvbuf_next_val( tempBuffer );
                                     }
@@ -9509,15 +9539,30 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                             if( (family == AF_UNSPEC || family == AF_INET) && ipv4List != NULL )
                             {
                                 addressLists[listCount] = ipv4List;
+                                addressListType[listCount] = AF_INET;
                                 portList[listCount] = port;
                                 listCount++;
+                                ipv4List = NULL;
                             }
                             
                             if( (family == AF_UNSPEC || family == AF_INET6) && ipv6List != NULL )
                             {
                                 addressLists[listCount] = ipv6List;
+                                addressListType[listCount] = AF_INET6;
                                 portList[listCount] = port;
                                 listCount++;
+                                ipv6List = NULL;
+                            }
+                            
+                            if ( listCount >= listSize ) {
+                                listSize += 10;
+                                
+                                addressLists = (char ***) reallocf( addressLists, listSize * sizeof(char **) );
+                                addressListType  = (int *) reallocf( addressListType, listSize * sizeof(int) );
+                                portList = (char **) reallocf( portList, listSize * sizeof(char *) );
+                                
+                                if ( addressLists == NULL || addressListType == NULL || portList == NULL )
+                                    abort();
                             }
                         }
                         otherOffset++; // increment to the next one in case we come back
@@ -9566,7 +9611,7 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                                     ipv4List = (char **) calloc( vCount+1, sizeof(char *) );
                                     pWorkingList = ipv4List;
                                 }
-                                else if( strcmp(key, "h_name") == 0 )
+                                else if( strcmp(key, "h_name") == 0 && actualName == NULL )
                                 {
                                     actualName = kvbuf_next_val( pTempBuffer );
                                 }
@@ -9584,13 +9629,30 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                         if( (family == AF_UNSPEC || family == AF_INET) && ipv4List != NULL )
                         {
                             addressLists[listCount] = ipv4List;
+                            addressListType[listCount] = AF_INET;
+                            portList[listCount] = NULL;
                             listCount++;
+                            ipv4List = NULL;
                         }
 
                         if( (family == AF_UNSPEC || family == AF_INET6) && ipv6List != NULL )
                         {
                             addressLists[listCount] = ipv6List;
+                            addressListType[listCount] = AF_INET6;
+                            portList[listCount] = NULL;
                             listCount++;
+                            ipv6List = NULL;
+                        }
+
+                        if ( listCount >= listSize ) {
+                            listSize += 10;
+                            
+                            addressLists = (char ***) reallocf( addressLists, listSize * sizeof(char **) );
+                            addressListType  = (int *) reallocf( addressListType, listSize * sizeof(int) );
+                            portList = (char **) reallocf( portList, listSize * sizeof(char *) );
+                            
+                            if ( addressLists == NULL || addressListType == NULL || portList == NULL )
+                                abort();
                         }
                     }
                         
@@ -9598,12 +9660,10 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                     // just fall through here...
                     
                 case kAddValuesToDict:
-                    while( listCount > 0 )
+                    for ( size_t iListIndex = 0; iListIndex < listCount; iListIndex++ )
                     {
-                        listCount--;
-                        
-                        char    **tempList      = addressLists[listCount];
-                        int     addrIndex = 0;
+                        char    **tempList  = addressLists[iListIndex];
+                        int     addrIndex   = 0;
                         char    *address;
                         
                         while( (address = tempList[addrIndex]) != NULL )
@@ -9611,9 +9671,13 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                             // now let's step through each of our responses and see which we want to use
                             int     index       = serviceCount;
 
-                            do
+                            while ( index > 0 )
                             {
                                 index--;
+                                
+                                // if we had a serviceName but didn't find a port, then we need to skip adding addresses
+                                if ( bHaveServiceName == true && portList[iListIndex] == NULL && servicePortList[index] == NULL )
+                                    continue;
                                 
                                 kvbuf_add_dict( outBuffer );
                                 
@@ -9628,34 +9692,39 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                                 kvbuf_add_val( outBuffer, protocolList[(iNextState == kProcessAdditional ? (otherOffset - 1) : index)] );
                                 
                                 kvbuf_add_key( outBuffer, "gai_port");
-                                if( portList[listCount] != NULL )
+                                if( portList[iListIndex] != NULL )
                                 {
-                                    kvbuf_add_val( outBuffer, portList[listCount] );
+                                    kvbuf_add_val( outBuffer, portList[iListIndex] );
                                 }
                                 else
                                 {
                                     kvbuf_add_val( outBuffer, (servicePortList[index] != NULL ? servicePortList[index] : "0") );
                                 }
                                 
-                                if( tempList == ipv6List )
+                                if( addressListType[iListIndex] == AF_INET6 )
                                 {
-                                    char    *pAddress = (*tempList);
-                                    char    *p = strrchr( pAddress, '%' );
+                                    char    *p = strrchr( address, '%' );
                                     
                                     if (p != NULL)
                                     {
-                                        char    scope[16]   = { 0, };
+                                        // Only set the scope for link local addresses.  All others don't
+                                        // need it since they are routable.
+                                        struct in6_addr ipv6Addr;
+                                        if ( inet_pton( AF_INET6, address, &ipv6Addr ) == 1 && IN6_IS_ADDR_LINKLOCAL( &ipv6Addr ) )
+                                        {
+                                            char    scope[16]   = { 0, };
                                         
-                                        unsigned scopeid = if_nametoindex( p + 1 );
+                                            unsigned scopeid = if_nametoindex( p + 1 );
                                         
-                                        snprintf( scope, sizeof(scope), "%u", scopeid );
+                                            snprintf( scope, sizeof(scope), "%u", scopeid );
                                         
-                                        kvbuf_add_key( outBuffer, "gai_scopeid" );
-                                        kvbuf_add_val( outBuffer, scope );
+                                            kvbuf_add_key( outBuffer, "gai_scopeid" );
+                                            kvbuf_add_val( outBuffer, scope );
+                                        }
                                     }
                                     
                                     kvbuf_add_key( outBuffer, "gai_address");
-                                    kvbuf_add_val( outBuffer, pAddress );
+                                    kvbuf_add_val( outBuffer, address );
                                     
                                     kvbuf_add_key( outBuffer, "gai_family");
                                     kvbuf_add_val( outBuffer, "30" );
@@ -9674,18 +9743,22 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
                                     kvbuf_add_key( outBuffer, "gai_canonname");
                                     kvbuf_add_val( outBuffer, actualName );
                                 }   
-                            } while( index > 0 && iNextState != kProcessAdditional );
+                                
+                                if ( iNextState == kProcessAdditional )
+                                    break;
+                            };
                             
                             addrIndex++;
                         }
-                        addressLists[listCount] = NULL;
-                        portList[listCount] = NULL;
+                        
+                        DSFree( addressLists[iListIndex] );
+                        addressListType[iListIndex] = AF_UNSPEC;
+                        portList[iListIndex] = NULL;
                         actualName = NULL;
                         bAddedAddresses = true;
                     }
                     
-                    DSFree( ipv4List );
-                    DSFree( ipv6List );
+                    listCount = 0;
                     break;
                 default:
                     break;
@@ -9694,8 +9767,10 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
             iState = iNextState;
         };
         
-        DSFree( ipv4List );
-        DSFree( ipv6List );
+        
+        DSFree( addressLists );
+        DSFree( addressListType );
+        DSFree( portList );
     }
     
     while( serviceCount > 0 )

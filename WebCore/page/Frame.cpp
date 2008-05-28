@@ -74,7 +74,13 @@
 #include "kjs_window.h"
 #include "visible_units.h"
 
+#if FRAME_LOADS_USER_STYLESHEET
+#include "UserStyleSheetLoader.h"
+#endif
+
 #if ENABLE(SVG)
+#include "SVGDocument.h"
+#include "SVGDocumentExtensions.h"
 #include "SVGNames.h"
 #include "XLinkNames.h"
 #endif
@@ -82,46 +88,13 @@
 using namespace std;
 
 using KJS::JSLock;
-using KJS::Window;
 
 namespace WebCore {
 
 using namespace EventNames;
 using namespace HTMLNames;
 
-static const double caretBlinkFrequency = 0.5;
-
-double Frame::s_currentPaintTimeStamp = 0;
-
-class UserStyleSheetLoader : public CachedResourceClient {
-public:
-    UserStyleSheetLoader(PassRefPtr<Document> document, const String& url)
-        : m_document(document)
-        , m_cachedSheet(m_document->docLoader()->requestUserCSSStyleSheet(url, ""))
-    {
-        if (m_cachedSheet) {
-            m_document->addPendingSheet();
-            m_cachedSheet->ref(this);
-        }
-    }
-    ~UserStyleSheetLoader()
-    {
-        if (m_cachedSheet) {
-            if (!m_cachedSheet->isLoaded())
-                m_document->removePendingSheet();        
-            m_cachedSheet->deref(this);
-        }
-    }
-private:
-    virtual void setCSSStyleSheet(const String& /*URL*/, const String& /*charset*/, const String& sheet)
-    {
-        m_document->removePendingSheet();
-        if (Frame* frame = m_document->frame())
-            frame->setUserStyleSheet(sheet);
-    }
-    RefPtr<Document> m_document;
-    CachedCSSStyleSheet* m_cachedSheet;
-};
+double Frame::s_currentPaintTimeStamp = 0.0;
 
 #ifndef NDEBUG
 WTFLogChannel LogWebCoreFrameLeaks =  { 0x00000000, "", WTFLogChannelOn };
@@ -195,8 +168,8 @@ Frame::~Frame()
     --FrameCounter::count;
 #endif
 
-    if (d->m_jscript && d->m_jscript->haveInterpreter())
-        static_cast<Window*>(d->m_jscript->interpreter()->globalObject())->disconnectFrame();
+    if (d->m_jscript && d->m_jscript->haveGlobalObject())
+        static_cast<KJS::Window*>(d->m_jscript->globalObject())->disconnectFrame();
 
     disconnectOwnerElement();
     
@@ -210,7 +183,10 @@ Frame::~Frame()
   
     ASSERT(!d->m_lifeSupportTimer.isActive());
 
+#if FRAME_LOADS_USER_STYLESHEET
     delete d->m_userStyleSheetLoader;
+#endif
+
     delete d;
     d = 0;
 }
@@ -253,13 +229,8 @@ void Frame::setView(FrameView* view)
 
 KJSProxy *Frame::scriptProxy()
 {
-    Settings* settings = this->settings();
-    if (!settings || !settings->isJavaScriptEnabled())
-        return 0;
-
     if (!d->m_jscript)
         d->m_jscript = new KJSProxy(this);
-
     return d->m_jscript;
 }
 
@@ -278,7 +249,7 @@ void Frame::setDocument(PassRefPtr<Document> newDoc)
     }
 
     d->m_doc = newDoc;
-    if (d->m_doc && d->m_isActive)
+    if (d->m_doc && selectionController()->isFocusedAndActive())
         setUseSecureKeyboardEntry(d->m_doc->useSecureKeyboardEntryWhenActive());
         
     if (d->m_doc && !d->m_doc->attached())
@@ -292,22 +263,6 @@ void Frame::setDocument(PassRefPtr<Document> newDoc)
 Settings* Frame::settings() const
 {
     return d->m_page ? d->m_page->settings() : 0;
-}
-
-void Frame::setUserStyleSheetLocation(const KURL& url)
-{
-    delete d->m_userStyleSheetLoader;
-    d->m_userStyleSheetLoader = 0;
-    if (d->m_doc && d->m_doc->docLoader())
-        d->m_userStyleSheetLoader = new UserStyleSheetLoader(d->m_doc, url.url());
-}
-
-void Frame::setUserStyleSheet(const String& styleSheet)
-{
-    delete d->m_userStyleSheetLoader;
-    d->m_userStyleSheetLoader = 0;
-    if (d->m_doc)
-        d->m_doc->setUserStyleSheet(styleSheet);
 }
 
 String Frame::selectedText() const
@@ -351,11 +306,6 @@ Editor* Frame::editor() const
     return &d->m_editor;
 }
 
-CommandByName* Frame::command() const
-{
-    return &d->m_command;
-}
-
 TextGranularity Frame::selectionGranularity() const
 {
     return d->m_selectionGranularity;
@@ -372,9 +322,12 @@ SelectionController* Frame::dragCaretController() const
 }
 
 
-// Either get cached regexp or build one that matches any of the labels.
-// The regexp we build is of the form:  (STR1|STR2|STRN)
-static RegularExpression *regExpForLabels(const Vector<String>& labels)
+AnimationController* Frame::animationController() const
+{
+    return &d->m_animationController;
+}
+
+static RegularExpression *createRegExpForLabels(const Vector<String>& labels)
 {
     // REVIEW- version of this call in FrameMac.mm caches based on the NSArray ptrs being
     // the same across calls.  We can't do that.
@@ -441,7 +394,7 @@ String Frame::searchForLabelsAboveCell(RegularExpression* regExp, HTMLTableCellE
 
 String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element* element)
 {
-    RegularExpression* regExp = regExpForLabels(labels);
+    OwnPtr<RegularExpression> regExp(createRegExpForLabels(labels));
     // We stop searching after we've seen this many chars
     const unsigned int charsSearchedThreshold = 500;
     // This is the absolute max we search.  We allow a little more slop than
@@ -467,7 +420,7 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
         } else if (n->hasTagName(tdTag) && !startingTableCell) {
             startingTableCell = static_cast<HTMLTableCellElement*>(n);
         } else if (n->hasTagName(trTag) && startingTableCell) {
-            String result = searchForLabelsAboveCell(regExp, startingTableCell);
+            String result = searchForLabelsAboveCell(regExp.get(), startingTableCell);
             if (!result.isEmpty())
                 return result;
             searchedCellAbove = true;
@@ -488,7 +441,7 @@ String Frame::searchForLabelsBeforeElement(const Vector<String>& labels, Element
     // If we started in a cell, but bailed because we found the start of the form or the
     // previous element, we still might need to search the row above us for a label.
     if (startingTableCell && !searchedCellAbove) {
-         return searchForLabelsAboveCell(regExp, startingTableCell);
+         return searchForLabelsAboveCell(regExp.get(), startingTableCell);
     }
     return String();
 }
@@ -497,10 +450,10 @@ String Frame::matchLabelsAgainstElement(const Vector<String>& labels, Element* e
 {
     DeprecatedString name = element->getAttribute(nameAttr).deprecatedString();
     // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
-    name.replace(RegularExpression("[[:digit:]]"), " ");
+    name.replace(RegularExpression("\\d"), " ");
     name.replace('_', ' ');
     
-    RegularExpression* regExp = regExpForLabels(labels);
+    OwnPtr<RegularExpression> regExp(createRegExpForLabels(labels));
     // Use the largest match we can find in the whole name string
     int pos;
     int length;
@@ -588,7 +541,7 @@ static bool isFrameElement(const Node *n)
 
 void Frame::setFocusedNodeIfNeeded()
 {
-    if (!document() || selectionController()->isNone() || !d->m_isActive)
+    if (!document() || selectionController()->isNone() || !selectionController()->isFocusedAndActive())
         return;
 
     Node* target = selectionController()->rootEditableElement();
@@ -628,15 +581,41 @@ void Frame::selectionLayoutChanged()
     // Start blinking with a black caret. Be sure not to restart if we're
     // already blinking in the right location.
     if (shouldBlink && !d->m_caretBlinkTimer.isActive()) {
-        d->m_caretBlinkTimer.startRepeating(caretBlinkFrequency);
+        d->m_caretBlinkTimer.startRepeating(theme()->caretBlinkFrequency());
         if (!d->m_caretPaint) {
             d->m_caretPaint = true;
             selectionController()->invalidateCaretRect();
         }
     }
 
-    if (d->m_doc)
-        d->m_doc->updateSelection();
+    if (!renderer())
+        return;
+    RenderView* canvas = static_cast<RenderView*>(renderer());
+
+    Selection selection = selectionController()->selection();
+        
+    if (!selection.isRange())
+        canvas->clearSelection();
+    else {
+        // Use the rightmost candidate for the start of the selection, and the leftmost candidate for the end of the selection.
+        // Example: foo <a>bar</a>.  Imagine that a line wrap occurs after 'foo', and that 'bar' is selected.   If we pass [foo, 3]
+        // as the start of the selection, the selection painting code will think that content on the line containing 'foo' is selected
+        // and will fill the gap before 'bar'.
+        Position startPos = selection.visibleStart().deepEquivalent();
+        if (startPos.downstream().isCandidate())
+            startPos = startPos.downstream();
+        Position endPos = selection.visibleEnd().deepEquivalent();
+        if (endPos.upstream().isCandidate())
+            endPos = endPos.upstream();
+        
+        // We can get into a state where the selection endpoints map to the same VisiblePosition when a selection is deleted
+        // because we don't yet notify the SelectionController of text removal.
+        if (startPos.isNotNull() && endPos.isNotNull() && selection.visibleStart() != selection.visibleEnd()) {
+            RenderObject *startRenderer = startPos.node()->renderer();
+            RenderObject *endRenderer = endPos.node()->renderer();
+            canvas->setSelection(startRenderer, startPos.offset(), endRenderer, endPos.offset());
+        }
+    }
 }
 
 void Frame::caretBlinkTimerFired(Timer<Frame>*)
@@ -674,17 +653,19 @@ void Frame::setZoomFactor(int percent)
   if (d->m_zoomFactor == percent)
       return;
 
-  d->m_zoomFactor = percent;
-  if (d->m_doc) {
 #if ENABLE(SVG)
-    if (d->m_doc->isSVGDocument()) {
-         if (d->m_doc->renderer())
-             d->m_doc->renderer()->repaint();
-         return;
+    if (d->m_doc && d->m_doc->isSVGDocument()) {
+        if (!static_cast<SVGDocument*>(d->m_doc.get())->zoomAndPanEnabled())
+            return;
+        d->m_zoomFactor = percent;
+        if (d->m_doc->renderer())
+            d->m_doc->renderer()->repaint();
+        return;
     }
 #endif
+  d->m_zoomFactor = percent;
+  if (d->m_doc)
       d->m_doc->recalcStyle(Node::Force);
-  }
 
   for (Frame* child = tree()->firstChild(); child; child = child->tree()->nextSibling())
       child->setZoomFactor(d->m_zoomFactor);
@@ -731,16 +712,40 @@ String Frame::jsDefaultStatusBarText() const
    return d->m_kjsDefaultStatusBarText;
 }
 
-void Frame::reparseConfiguration()
+void Frame::setNeedsReapplyStyles()
 {
+    if (d->m_needsReapplyStyles)
+        return;
+
+    d->m_needsReapplyStyles = true;
+
+    // Invalidate the FrameView so that FrameView::layout will get called,
+    // which calls reapplyStyles.
+    view()->invalidate();
+}
+
+bool Frame::needsReapplyStyles() const
+{
+    return d->m_needsReapplyStyles;
+}
+
+void Frame::reapplyStyles()
+{
+    d->m_needsReapplyStyles = false;
+
+    // FIXME: This call doesn't really make sense in a method called
+    // "reapplyStyles". We should probably eventually move it into its own
+    // method.
     if (d->m_doc)
         d->m_doc->docLoader()->setAutoLoadImages(d->m_page && d->m_page->settings()->loadsImagesAutomatically());
         
+#if FRAME_LOADS_USER_STYLESHEET
     const KURL userStyleSheetLocation = d->m_page ? d->m_page->settings()->userStyleSheetLocation() : KURL();
     if (!userStyleSheetLocation.isEmpty())
         setUserStyleSheetLocation(userStyleSheetLocation);
     else
         setUserStyleSheet(String());
+#endif
 
     // FIXME: It's not entirely clear why the following is needed.
     // The document automatically does this as required when you set the style sheet.
@@ -785,7 +790,7 @@ void Frame::setUseSecureKeyboardEntry(bool)
 
 void Frame::updateSecureKeyboardEntryIfActive()
 {
-    if (d->m_isActive)
+    if (selectionController()->isFocusedAndActive())
         setUseSecureKeyboardEntry(d->m_doc->useSecureKeyboardEntryWhenActive());
 }
 
@@ -802,11 +807,6 @@ void Frame::setTypingStyle(CSSMutableStyleDeclaration *style)
 void Frame::clearTypingStyle()
 {
     d->m_typingStyle = 0;
-}
-
-void Frame::transpose()
-{
-    issueTransposeCommand();
 }
 
 void Frame::computeAndSetTypingStyle(CSSStyleDeclaration *style, EditAction editingAction)
@@ -835,58 +835,6 @@ void Frame::computeAndSetTypingStyle(CSSStyleDeclaration *style, EditAction edit
     
     // Set the remaining style as the typing style.
     d->m_typingStyle = mutableStyle.release();
-}
-
-static void updateState(CSSMutableStyleDeclaration *desiredStyle, CSSComputedStyleDeclaration *computedStyle, bool& atStart, Frame::TriState& state)
-{
-    DeprecatedValueListConstIterator<CSSProperty> end;
-    for (DeprecatedValueListConstIterator<CSSProperty> it = desiredStyle->valuesIterator(); it != end; ++it) {
-        int propertyID = (*it).id();
-        String desiredProperty = desiredStyle->getPropertyValue(propertyID);
-        String computedProperty = computedStyle->getPropertyValue(propertyID);
-        Frame::TriState propertyState = equalIgnoringCase(desiredProperty, computedProperty)
-            ? Frame::trueTriState : Frame::falseTriState;
-        if (atStart) {
-            state = propertyState;
-            atStart = false;
-        } else if (state != propertyState) {
-            state = Frame::mixedTriState;
-            break;
-        }
-    }
-}
-
-Frame::TriState Frame::selectionHasStyle(CSSStyleDeclaration *style) const
-{
-    bool atStart = true;
-    TriState state = falseTriState;
-
-    RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->makeMutable();
-
-    if (!selectionController()->isRange()) {
-        Node* nodeToRemove;
-        RefPtr<CSSComputedStyleDeclaration> selectionStyle = selectionComputedStyle(nodeToRemove);
-        if (!selectionStyle)
-            return falseTriState;
-        updateState(mutableStyle.get(), selectionStyle.get(), atStart, state);
-        if (nodeToRemove) {
-            ExceptionCode ec = 0;
-            nodeToRemove->remove(ec);
-            ASSERT(ec == 0);
-        }
-    } else {
-        for (Node* node = selectionController()->start().node(); node; node = node->traverseNextNode()) {
-            RefPtr<CSSComputedStyleDeclaration> computedStyle = new CSSComputedStyleDeclaration(node);
-            if (computedStyle)
-                updateState(mutableStyle.get(), computedStyle.get(), atStart, state);
-            if (state == mixedTriState)
-                break;
-            if (node == selectionController()->end().node())
-                break;
-        }
-    }
-
-    return state;
 }
 
 String Frame::selectionStartStylePropertyValue(int stylePropertyID) const
@@ -1082,24 +1030,23 @@ void Frame::lifeSupportTimerFired(Timer<Frame>*)
 
 KJS::Bindings::RootObject* Frame::bindingRootObject()
 {
-    Settings* settings = this->settings();
-    if (!settings || !settings->isJavaScriptEnabled())
+    if (!scriptProxy()->isEnabled())
         return 0;
 
     if (!d->m_bindingRootObject) {
         JSLock lock;
-        d->m_bindingRootObject = KJS::Bindings::RootObject::create(0, scriptProxy()->interpreter());
+        d->m_bindingRootObject = KJS::Bindings::RootObject::create(0, scriptProxy()->globalObject());
     }
     return d->m_bindingRootObject.get();
 }
 
-PassRefPtr<KJS::Bindings::RootObject> Frame::createRootObject(void* nativeHandle, PassRefPtr<KJS::Interpreter> interpreter)
+PassRefPtr<KJS::Bindings::RootObject> Frame::createRootObject(void* nativeHandle, KJS::JSGlobalObject* globalObject)
 {
     RootObjectMap::iterator it = d->m_rootObjects.find(nativeHandle);
     if (it != d->m_rootObjects.end())
         return it->second;
     
-    RefPtr<KJS::Bindings::RootObject> rootObject = KJS::Bindings::RootObject::create(nativeHandle, interpreter);
+    RefPtr<KJS::Bindings::RootObject> rootObject = KJS::Bindings::RootObject::create(nativeHandle, globalObject);
     
     d->m_rootObjects.set(nativeHandle, rootObject);
     return rootObject.release();
@@ -1109,15 +1056,14 @@ PassRefPtr<KJS::Bindings::RootObject> Frame::createRootObject(void* nativeHandle
 NPObject* Frame::windowScriptNPObject()
 {
     if (!d->m_windowScriptNPObject) {
-        Settings* settings = this->settings();
-        if (settings && settings->isJavaScriptEnabled()) {
+        if (scriptProxy()->isEnabled()) {
             // JavaScript is enabled, so there is a JavaScript window object.  Return an NPObject bound to the window
             // object.
             KJS::JSLock lock;
             KJS::JSObject* win = KJS::Window::retrieveWindow(this);
             ASSERT(win);
             KJS::Bindings::RootObject* root = bindingRootObject();
-            d->m_windowScriptNPObject = _NPN_CreateScriptObject(0, win, root, root);
+            d->m_windowScriptNPObject = _NPN_CreateScriptObject(0, win, root);
         } else {
             // JavaScript is not enabled, so we cannot bind the NPObject to the JavaScript window object.
             // Instead, we create an NPObject of a different class, one which is not bound to a JavaScript object.
@@ -1483,6 +1429,7 @@ void Frame::clearTimers(FrameView *view)
             Document* document = view->frame()->document();
             if (document && document->renderer() && document->renderer()->hasLayer())
                 document->renderer()->layer()->suspendMarquees();
+            view->frame()->animationController()->suspendAnimations();
         }
     }
 }
@@ -1542,55 +1489,6 @@ void Frame::setSelectionFromNone()
         node = node->traverseNextNode();
     if (node)
         selectionController()->setSelection(Selection(Position(node, 0), DOWNSTREAM));
-}
-
-bool Frame::isActive() const
-{
-    return d->m_isActive;
-}
-
-void Frame::setIsActive(bool flag)
-{
-    if (d->m_isActive == flag)
-        return;
-    d->m_isActive = flag;
-
-    // Because RenderObject::selectionBackgroundColor() and
-    // RenderObject::selectionForegroundColor() check if the frame is active,
-    // we have to update places those colors were painted.
-    if (d->m_view)
-        d->m_view->updateContents(enclosingIntRect(selectionRect()));
-
-    // Caret appears in the active frame.
-    if (flag)
-        setSelectionFromNone();
-    setCaretVisible(flag);
-
-    // Because CSSStyleSelector::checkOneSelector() and
-    // RenderTheme::isFocused() check if the frame is active, we have to
-    // update style and theme state that depended on those.
-    if (d->m_doc) {
-        if (Node* node = d->m_doc->focusedNode()) {
-            node->setChanged();
-            if (RenderObject* renderer = node->renderer())
-                if (renderer && renderer->style()->hasAppearance())
-                    theme()->stateChanged(renderer, FocusState);
-        }
-    }
-
-    // Secure keyboard entry is set by the active frame.
-    if (d->m_doc->useSecureKeyboardEntryWhenActive())
-        setUseSecureKeyboardEntry(flag);
-}
-
-void Frame::setWindowHasFocus(bool flag)
-{
-    if (d->m_windowHasFocus == flag)
-        return;
-    d->m_windowHasFocus = flag;
-    
-    if (Document *doc = document())
-        doc->dispatchWindowEvent(flag ? focusEvent : blurEvent, false, false);
 }
 
 bool Frame::inViewSourceMode() const
@@ -1769,16 +1667,20 @@ void Frame::pageDestroyed()
         d->m_page->focusController()->setFocusedFrame(0);
 
     // This will stop any JS timers
-    if (d->m_jscript && d->m_jscript->haveInterpreter())
-        if (Window* w = Window::retrieveWindow(this))
+    if (d->m_jscript && d->m_jscript->haveGlobalObject())
+        if (KJS::Window* w = KJS::Window::retrieveWindow(this))
             w->disconnectFrame();
 
+    clearScriptObjects();
+    
     d->m_page = 0;
 }
 
 void Frame::disconnectOwnerElement()
 {
     if (d->m_ownerElement) {
+        if (Document* doc = document())
+            doc->clearAXObjectCache();
         d->m_ownerElement->m_contentFrame = 0;
         if (d->m_page)
             d->m_page->decrementFrameCount();
@@ -1949,25 +1851,27 @@ FramePrivate::FramePrivate(Page* page, Frame* parent, Frame* thisFrame, HTMLFram
     , m_ownerElement(ownerElement)
     , m_jscript(0)
     , m_zoomFactor(parent ? parent->d->m_zoomFactor : 100)
+    , m_selectionGranularity(CharacterGranularity)
     , m_selectionController(thisFrame)
     , m_caretBlinkTimer(thisFrame, &Frame::caretBlinkTimerFired)
     , m_editor(thisFrame)
-    , m_command(thisFrame)
     , m_eventHandler(thisFrame)
+    , m_animationController(thisFrame)
     , m_caretVisible(false)
     , m_caretPaint(true)
-    , m_isActive(false)
     , m_isPainting(false)
     , m_lifeSupportTimer(thisFrame, &Frame::lifeSupportTimerFired)
     , m_loader(new FrameLoader(thisFrame, frameLoaderClient))
-    , m_userStyleSheetLoader(0)
     , m_paintRestriction(PaintRestrictionNone)
     , m_highlightTextMatches(false)
-    , m_windowHasFocus(false)
     , m_inViewSourceMode(false)
     , frameCount(0)
     , m_prohibitsScrolling(false)
+    , m_needsReapplyStyles(false)
     , m_windowScriptNPObject(0)
+#if FRAME_LOADS_USER_STYLESHEET
+    , m_userStyleSheetLoader(0)
+#endif
 #if PLATFORM(MAC)
     , m_windowScriptObject(nil)
     , m_bridge(nil)

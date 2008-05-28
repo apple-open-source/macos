@@ -195,11 +195,11 @@ PassRefPtr<Node> ReplacementFragment::insertFragmentForTestRendering(Node* conte
     while (n && !n->isElementNode())
         n = n->parentNode();
     if (n) {
-        RefPtr<CSSComputedStyleDeclaration> contextStyle = new CSSComputedStyleDeclaration(static_cast<Element*>(n));
+        RefPtr<CSSComputedStyleDeclaration> conFontStyle = new CSSComputedStyleDeclaration(static_cast<Element*>(n));
         CSSStyleDeclaration* style = holder->style();
-        style->setProperty(CSS_PROP_WHITE_SPACE, contextStyle->getPropertyValue(CSS_PROP_WHITE_SPACE), false, ec);
+        style->setProperty(CSS_PROP_WHITE_SPACE, conFontStyle->getPropertyValue(CSS_PROP_WHITE_SPACE), false, ec);
         ASSERT(ec == 0);
-        style->setProperty(CSS_PROP__WEBKIT_USER_SELECT, contextStyle->getPropertyValue(CSS_PROP__WEBKIT_USER_SELECT), false, ec);
+        style->setProperty(CSS_PROP__WEBKIT_USER_SELECT, conFontStyle->getPropertyValue(CSS_PROP__WEBKIT_USER_SELECT), false, ec);
         ASSERT(ec == 0);
     }
     
@@ -318,9 +318,9 @@ bool ReplaceSelectionCommand::shouldMergeEnd(bool selectionEndWasEndOfParagraph)
            shouldMerge(endOfInsertedContent, next);
 }
 
-static bool isMailPasteAsQuotationNode(Node* node)
+static bool isMailPasteAsQuotationNode(const Node* node)
 {
-    return node && node->hasTagName(blockquoteTag) && node->isElementNode() && static_cast<Element*>(node)->getAttribute(classAttr) == ApplePasteAsQuotation;
+    return node && node->hasTagName(blockquoteTag) && node->isElementNode() && static_cast<const Element*>(node)->getAttribute(classAttr) == ApplePasteAsQuotation;
 }
 
 // Wrap CompositeEditCommand::removeNodePreservingChildren() so we can update the nodes we track
@@ -358,7 +358,7 @@ bool ReplaceSelectionCommand::shouldMerge(const VisiblePosition& from, const Vis
     Node* fromNode = from.deepEquivalent().node();
     Node* toNode = to.deepEquivalent().node();
     Node* fromNodeBlock = enclosingBlock(fromNode);
-    return !enclosingNodeOfType(fromNode, &isMailPasteAsQuotationNode) &&
+    return !enclosingNodeOfType(from.deepEquivalent(), &isMailPasteAsQuotationNode) &&
            fromNodeBlock && (!fromNodeBlock->hasTagName(blockquoteTag) || isMailBlockquote(fromNodeBlock))  &&
            enclosingListChild(fromNode) == enclosingListChild(toNode) &&
            enclosingTableCell(from.deepEquivalent()) == enclosingTableCell(from.deepEquivalent()) &&
@@ -388,6 +388,28 @@ void ReplaceSelectionCommand::negateStyleRulesThatAffectAppearance()
         }
         if (node == m_lastLeafInserted)
             break;
+    }
+}
+
+void ReplaceSelectionCommand::removeUnrenderedTextNodesAtEnds()
+{
+    document()->updateLayoutIgnorePendingStylesheets();
+    if (!m_lastLeafInserted->renderer() && 
+        m_lastLeafInserted->isTextNode() && 
+        !enclosingNodeWithTag(Position(m_lastLeafInserted.get(), 0), selectTag) && 
+        !enclosingNodeWithTag(Position(m_lastLeafInserted.get(), 0), scriptTag)) {
+        RefPtr<Node> previous = m_firstNodeInserted == m_lastLeafInserted ? 0 : m_lastLeafInserted->traversePreviousNode();
+        removeNode(m_lastLeafInserted.get());
+        m_lastLeafInserted = previous;
+    }
+    
+    // We don't have to make sure that m_firstNodeInserted isn't inside a select or script element, because
+    // it is a top level node in the fragment and the user can't insert into those elements.
+    if (!m_firstNodeInserted->renderer() && 
+        m_firstNodeInserted->isTextNode()) {
+        RefPtr<Node> next = m_firstNodeInserted == m_lastLeafInserted ? 0 : m_firstNodeInserted->traverseNextSibling();
+        removeNode(m_firstNodeInserted.get());
+        m_firstNodeInserted = next;
     }
 }
 
@@ -474,7 +496,7 @@ void ReplaceSelectionCommand::handlePasteAsQuotationNode()
 VisiblePosition ReplaceSelectionCommand::positionAtEndOfInsertedContent()
 {
     Node* lastNode = m_lastLeafInserted.get();
-    Node* enclosingSelect = enclosingNodeWithTag(lastNode, selectTag);
+    Node* enclosingSelect = enclosingNodeWithTag(Position(lastNode, 0), selectTag);
     if (enclosingSelect)
         lastNode = enclosingSelect;
     return VisiblePosition(Position(lastNode, maxDeepOffset(lastNode)));
@@ -495,8 +517,6 @@ void ReplaceSelectionCommand::doApply()
         return;
     
     bool selectionIsPlainText = !selection.isContentRichlyEditable();
-    if (selectionIsPlainText)
-        m_matchStyle = true;
     
     Element* currentRoot = selection.rootEditableElement();
     ReplacementFragment fragment(document(), m_documentFragment.get(), m_matchStyle, selection);
@@ -633,6 +653,8 @@ void ReplaceSelectionCommand::doApply()
         refNode = node;
         node = next;
     }
+    
+    removeUnrenderedTextNodesAtEnds();
     
     negateStyleRulesThatAffectAppearance();
     

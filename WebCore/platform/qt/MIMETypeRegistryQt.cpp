@@ -29,7 +29,9 @@
 #include "MIMETypeRegistry.h"
 
 #include "NotImplemented.h"
+#if QT_VERSION < 0x040400
 #include "qwebobjectplugin_p.h"
+#endif
 
 namespace WebCore {
 
@@ -49,7 +51,7 @@ static const ExtensionMap extensionMap [] = {
     { "js", "application/x-javascript" },
     { "mng", "video/x-mng" },
     { "pbm", "image/x-portable-bitmap" },
-    { "pbm", "image/x-portable-graymap" },
+    { "pgm", "image/x-portable-graymap" },
     { "pdf", "application/pdf" },
     { "png", "image/png" },
     { "ppm", "image/x-portable-pixmap" },
@@ -77,9 +79,12 @@ String MIMETypeRegistry::getMIMETypeForExtension(const String &ext)
             return e->mimeType;
         ++e;
     }
+    // ### FIXME: Qt 4.4
+#if QT_VERSION < 0x040400
     QString type = QWebFactoryLoader::self()->mimeTypeForExtension(ext);
     if (!type.isEmpty())
         return type;
+#endif
 
     return "application/octet-stream";
 }

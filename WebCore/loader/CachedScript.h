@@ -37,7 +37,7 @@ namespace WebCore {
 
     class CachedScript : public CachedResource {
     public:
-        CachedScript(DocLoader*, const String& URL, const String& charset);
+        CachedScript(DocLoader*, const String& url, const String& charset);
         virtual ~CachedScript();
 
         const String& script() const { return m_script; }
@@ -45,6 +45,7 @@ namespace WebCore {
         virtual void ref(CachedResourceClient*);
 
         virtual void setEncoding(const String&);
+        virtual String encoding() const;
         virtual void data(PassRefPtr<SharedBuffer> data, bool allDataReceived);
         virtual void error();
 

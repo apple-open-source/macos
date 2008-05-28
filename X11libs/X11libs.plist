@@ -116,7 +116,7 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-02-12</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD with credit clause</string>
 		<key>OpenSourceLicenseFile</key>
@@ -124,11 +124,11 @@
 		<key>OpenSourceProject</key>
 		<string>libpng</string>
 		<key>OpenSourceSHA1</key>
-		<string>779faf8562504cf3eb51e63b86cc53f75cb5cf09</string>
+		<string>67ea40f216348cc1d9952e972899cd17d175ec6f</string>
 		<key>OpenSourceURL</key>
-		<string>http://downloads.sourceforge.net/libpng/libpng-1.2.8-config.tar.gz</string>
+		<string>http://downloads.sourceforge.net/libpng/libpng-1.2.24.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.2.8-config</string>
+		<string>1.2.24</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.libpng.org</string>
 	</dict>

@@ -47,10 +47,20 @@ IdentityCursorPolicyAndID::IdentityCursorPolicyAndID(const StorageManager::Keych
 	mPreferredIdentityChecked(false),
 	mPreferredIdentity(nil)
 {
+    if (mPolicy)
+        CFRetain(mPolicy);
+
+    if (mIDString)
+        CFRetain(mIDString);
 }
 
 IdentityCursorPolicyAndID::~IdentityCursorPolicyAndID() throw()
 {
+    if (mPolicy)
+        CFRelease(mPolicy);
+
+    if (mIDString)
+        CFRelease(mIDString);
 }
 
 void
@@ -108,7 +118,11 @@ IdentityCursorPolicyAndID::next(SecPointer<Identity> &identity)
 
 	if (!mPreferredIdentityChecked)
 	{
-		findPreferredIdentity();
+        try
+        {
+            findPreferredIdentity();
+        }
+        catch(...) {}
 		mPreferredIdentityChecked = true;
 		if (mPreferredIdentity)
 		{

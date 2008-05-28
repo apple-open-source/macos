@@ -3,7 +3,7 @@
  *
  *   Configuration routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -72,7 +72,7 @@ typedef struct
  * Local globals...
  */
 
-static cupsd_var_t	variables[] =
+static const cupsd_var_t	variables[] =
 {
   { "AccessLog",		&AccessLog,		CUPSD_VARTYPE_STRING },
 #ifdef __APPLE__
@@ -173,11 +173,11 @@ static cupsd_var_t	variables[] =
 #define NUM_VARS	(sizeof(variables) / sizeof(variables[0]))
 
 
-static unsigned		ones[4] =
+static const unsigned	ones[4] =
 			{
 			  0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff
 			};
-static unsigned		zeros[4] =
+static const unsigned	zeros[4] =
 			{
 			  0x00000000, 0x00000000, 0x00000000, 0x00000000
 			};
@@ -384,7 +384,7 @@ cupsdReadConfiguration(void)
   if (NumRelays > 0)
   {
     for (i = 0; i < NumRelays; i ++)
-      if (Relays[i].from.type == AUTH_NAME)
+      if (Relays[i].from.type == CUPSD_AUTH_NAME)
 	free(Relays[i].from.mask.name.name);
 
     free(Relays);
@@ -508,7 +508,7 @@ cupsdReadConfiguration(void)
   */
 
   ConfigFilePerm        = CUPS_DEFAULT_CONFIG_FILE_PERM;
-  DefaultAuthType       = AUTH_BASIC;
+  DefaultAuthType       = CUPSD_AUTH_BASIC;
 #ifdef HAVE_SSL
   DefaultEncryption     = HTTP_ENCRYPT_REQUIRED;
 #endif /* HAVE_SSL */
@@ -962,8 +962,8 @@ cupsdReadConfiguration(void)
       cupsdLogMessage(CUPSD_LOG_INFO, "Order Deny,Allow");
 
       po = cupsdAddPolicyOp(p, NULL, IPP_SEND_DOCUMENT);
-      po->order_type = AUTH_ALLOW;
-      po->level      = AUTH_USER;
+      po->order_type = CUPSD_AUTH_ALLOW;
+      po->level      = CUPSD_AUTH_USER;
 
       cupsdAddName(po, "@OWNER");
       cupsdAddName(po, "@SYSTEM");
@@ -1003,9 +1003,9 @@ cupsdReadConfiguration(void)
       cupsdLogMessage(CUPSD_LOG_INFO, "AuthType Default");
 
       po = cupsdAddPolicyOp(p, NULL, IPP_PAUSE_PRINTER);
-      po->order_type = AUTH_ALLOW;
-      po->type       = AUTH_DEFAULT;
-      po->level      = AUTH_USER;
+      po->order_type = CUPSD_AUTH_ALLOW;
+      po->type       = CUPSD_AUTH_DEFAULT;
+      po->level      = CUPSD_AUTH_USER;
 
       cupsdAddName(po, "@SYSTEM");
       cupsdLogMessage(CUPSD_LOG_INFO, "Require user @SYSTEM");
@@ -1038,7 +1038,7 @@ cupsdReadConfiguration(void)
       cupsdLogMessage(CUPSD_LOG_INFO, "Order Deny,Allow");
 
       po = cupsdAddPolicyOp(p, NULL, IPP_ANY_OPERATION);
-      po->order_type = AUTH_ALLOW;
+      po->order_type = CUPSD_AUTH_ALLOW;
 
       cupsdLogMessage(CUPSD_LOG_INFO, "</Limit>");
       cupsdLogMessage(CUPSD_LOG_INFO, "</Policy>");
@@ -1119,19 +1119,27 @@ cupsdReadConfiguration(void)
     if (!mimeType(MimeDatabase, "application", "octet-stream"))
       NumMimeTypes ++;
 
-    MimeTypes = calloc(NumMimeTypes, sizeof(const char *));
-
-    for (i = 0, type = mimeFirstType(MimeDatabase);
-         type;
-	 i ++, type = mimeNextType(MimeDatabase))
+    if ((MimeTypes = calloc(NumMimeTypes, sizeof(const char *))) == NULL)
     {
-      snprintf(mimetype, sizeof(mimetype), "%s/%s", type->super, type->type);
-
-      MimeTypes[i] = _cupsStrAlloc(mimetype);
+      cupsdLogMessage(CUPSD_LOG_ERROR,
+                      "Unable to allocate memory for %d MIME types!",
+		      NumMimeTypes);
+      NumMimeTypes = 0;
     }
+    else
+    {
+      for (i = 0, type = mimeFirstType(MimeDatabase);
+	   type;
+	   i ++, type = mimeNextType(MimeDatabase))
+      {
+	snprintf(mimetype, sizeof(mimetype), "%s/%s", type->super, type->type);
 
-    if (i < NumMimeTypes)
-      MimeTypes[i] = _cupsStrAlloc("application/octet-stream");
+	MimeTypes[i] = _cupsStrAlloc(mimetype);
+      }
+
+      if (i < NumMimeTypes)
+	MimeTypes[i] = _cupsStrAlloc("application/octet-stream");
+    }
 
     if (LogLevel == CUPSD_LOG_DEBUG2)
     {
@@ -1568,9 +1576,9 @@ parse_aaa(cupsd_location_t *loc,	/* I - Location */
     */
 
     if (!strncasecmp(value, "deny", 4))
-      loc->order_type = AUTH_ALLOW;
+      loc->order_type = CUPSD_AUTH_ALLOW;
     else if (!strncasecmp(value, "allow", 5))
-      loc->order_type = AUTH_DENY;
+      loc->order_type = CUPSD_AUTH_DENY;
     else
     {
       cupsdLogMessage(CUPSD_LOG_ERROR, "Unknown Order value %s on line %d.",
@@ -1681,44 +1689,44 @@ parse_aaa(cupsd_location_t *loc,	/* I - Location */
 
     if (!strcasecmp(value, "none"))
     {
-      loc->type  = AUTH_NONE;
-      loc->level = AUTH_ANON;
+      loc->type  = CUPSD_AUTH_NONE;
+      loc->level = CUPSD_AUTH_ANON;
     }
     else if (!strcasecmp(value, "basic"))
     {
-      loc->type = AUTH_BASIC;
+      loc->type = CUPSD_AUTH_BASIC;
 
-      if (loc->level == AUTH_ANON)
-	loc->level = AUTH_USER;
+      if (loc->level == CUPSD_AUTH_ANON)
+	loc->level = CUPSD_AUTH_USER;
     }
     else if (!strcasecmp(value, "digest"))
     {
-      loc->type = AUTH_DIGEST;
+      loc->type = CUPSD_AUTH_DIGEST;
 
-      if (loc->level == AUTH_ANON)
-	loc->level = AUTH_USER;
+      if (loc->level == CUPSD_AUTH_ANON)
+	loc->level = CUPSD_AUTH_USER;
     }
     else if (!strcasecmp(value, "basicdigest"))
     {
-      loc->type = AUTH_BASICDIGEST;
+      loc->type = CUPSD_AUTH_BASICDIGEST;
 
-      if (loc->level == AUTH_ANON)
-	loc->level = AUTH_USER;
+      if (loc->level == CUPSD_AUTH_ANON)
+	loc->level = CUPSD_AUTH_USER;
     }
     else if (!strcasecmp(value, "default"))
     {
-      loc->type = AUTH_DEFAULT;
+      loc->type = CUPSD_AUTH_DEFAULT;
 
-      if (loc->level == AUTH_ANON)
-	loc->level = AUTH_USER;
+      if (loc->level == CUPSD_AUTH_ANON)
+	loc->level = CUPSD_AUTH_USER;
     }
 #ifdef HAVE_GSSAPI
     else if (!strcasecmp(value, "negotiate"))
     {
-      loc->type = AUTH_NEGOTIATE;
+      loc->type = CUPSD_AUTH_NEGOTIATE;
 
-      if (loc->level == AUTH_ANON)
-	loc->level = AUTH_USER;
+      if (loc->level == CUPSD_AUTH_ANON)
+	loc->level = CUPSD_AUTH_USER;
     }
 #endif /* HAVE_GSSAPI */
     else
@@ -1737,8 +1745,8 @@ parse_aaa(cupsd_location_t *loc,	/* I - Location */
 
     if (!strcasecmp(value, "anonymous"))
     {
-      loc->type  = AUTH_NONE;
-      loc->level = AUTH_ANON;
+      loc->type  = CUPSD_AUTH_NONE;
+      loc->level = CUPSD_AUTH_ANON;
 
       cupsdLogMessage(CUPSD_LOG_WARN,
                       "\"AuthClass %s\" is deprecated; consider removing "
@@ -1747,7 +1755,7 @@ parse_aaa(cupsd_location_t *loc,	/* I - Location */
     }
     else if (!strcasecmp(value, "user"))
     {
-      loc->level = AUTH_USER;
+      loc->level = CUPSD_AUTH_USER;
 
       cupsdLogMessage(CUPSD_LOG_WARN,
                       "\"AuthClass %s\" is deprecated; consider using "
@@ -1756,7 +1764,7 @@ parse_aaa(cupsd_location_t *loc,	/* I - Location */
     }
     else if (!strcasecmp(value, "group"))
     {
-      loc->level = AUTH_GROUP;
+      loc->level = CUPSD_AUTH_GROUP;
 
       cupsdLogMessage(CUPSD_LOG_WARN,
                       "\"AuthClass %s\" is deprecated; consider using "
@@ -1765,7 +1773,7 @@ parse_aaa(cupsd_location_t *loc,	/* I - Location */
     }
     else if (!strcasecmp(value, "system"))
     {
-      loc->level = AUTH_GROUP;
+      loc->level = CUPSD_AUTH_GROUP;
 
       cupsdAddName(loc, "@SYSTEM");
 
@@ -1810,9 +1818,9 @@ parse_aaa(cupsd_location_t *loc,	/* I - Location */
 
     if (!strcasecmp(value, "valid-user") ||
         !strcasecmp(value, "user"))
-      loc->level = AUTH_USER;
+      loc->level = CUPSD_AUTH_USER;
     else if (!strcasecmp(value, "group"))
-      loc->level = AUTH_GROUP;
+      loc->level = CUPSD_AUTH_GROUP;
     else
     {
       cupsdLogMessage(CUPSD_LOG_WARN, "Unknown Require type %s on line %d.",
@@ -1873,9 +1881,9 @@ parse_aaa(cupsd_location_t *loc,	/* I - Location */
   else if (!strcasecmp(line, "Satisfy"))
   {
     if (!strcasecmp(value, "all"))
-      loc->satisfy = AUTH_SATISFY_ALL;
+      loc->satisfy = CUPSD_AUTH_SATISFY_ALL;
     else if (!strcasecmp(value, "any"))
-      loc->satisfy = AUTH_SATISFY_ANY;
+      loc->satisfy = CUPSD_AUTH_SATISFY_ANY;
     else
     {
       cupsdLogMessage(CUPSD_LOG_WARN, "Unknown Satisfy value %s on line %d.",
@@ -2054,7 +2062,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 			*value,		/* Pointer to value */
 			*valueptr;	/* Pointer into value */
   int			valuelen;	/* Length of value */
-  cupsd_var_t		*var;		/* Current variable */
+  cupsd_var_t const	*var;		/* Current variable */
   http_addrlist_t	*addrlist,	/* Address list */
 			*addr;		/* Current address */
   unsigned		ip[4],		/* Address value */
@@ -2353,9 +2361,9 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
         cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Unable to initialize browse access control list!");
       else if (!strncasecmp(value, "deny", 4))
-        location->order_type = AUTH_ALLOW;
+        location->order_type = CUPSD_AUTH_ALLOW;
       else if (!strncasecmp(value, "allow", 5))
-        location->order_type = AUTH_DENY;
+        location->order_type = CUPSD_AUTH_DENY;
       else
         cupsdLogMessage(CUPSD_LOG_ERROR,
 	                "Unknown BrowseOrder value %s on line %d.",
@@ -2559,8 +2567,16 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	if ((ptr = strchr(temp, ' ')) != NULL)
 	  *ptr = '\0';
 
-        relay->from.type             = AUTH_NAME;
-	relay->from.mask.name.name   = strdup(temp);
+        relay->from.type = CUPSD_AUTH_NAME;
+
+	if ((relay->from.mask.name.name = strdup(temp)) == NULL)
+	{
+	  cupsdLogMessage(CUPSD_LOG_ERROR,
+			  "Unable to allocate BrowseRelay name at line %d - %s.",
+			  linenum, strerror(errno));
+	  continue;
+	}
+
 	relay->from.mask.name.length = strlen(temp);
       }
       else
@@ -2576,7 +2592,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	  break;
 	}
 
-        relay->from.type = AUTH_IP;
+        relay->from.type = CUPSD_AUTH_IP;
 	memcpy(relay->from.mask.ip.address, ip,
 	       sizeof(relay->from.mask.ip.address));
 	memcpy(relay->from.mask.ip.netmask, mask,
@@ -2626,7 +2642,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
   
 	  httpAddrString(&(relay->to), temp, sizeof(temp));
   
-	  if (relay->from.type == AUTH_IP)
+	  if (relay->from.type == CUPSD_AUTH_IP)
 	    snprintf(temp2, sizeof(temp2), "%u.%u.%u.%u/%u.%u.%u.%u",
 		     relay->from.mask.ip.address[0] >> 24,
 		     (relay->from.mask.ip.address[0] >> 16) & 255,
@@ -2652,7 +2668,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
       }
       else
       {
-        if (relay->from.type == AUTH_NAME)
+        if (relay->from.type == CUPSD_AUTH_NAME)
 	  free(relay->from.mask.name.name);
 
         cupsdLogMessage(CUPSD_LOG_ERROR, "Bad relay address %s at line %d.",
@@ -2728,16 +2744,16 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
       */
 
       if (!strcasecmp(value, "none"))
-	DefaultAuthType = AUTH_NONE;
+	DefaultAuthType = CUPSD_AUTH_NONE;
       else if (!strcasecmp(value, "basic"))
-	DefaultAuthType = AUTH_BASIC;
+	DefaultAuthType = CUPSD_AUTH_BASIC;
       else if (!strcasecmp(value, "digest"))
-	DefaultAuthType = AUTH_DIGEST;
+	DefaultAuthType = CUPSD_AUTH_DIGEST;
       else if (!strcasecmp(value, "basicdigest"))
-	DefaultAuthType = AUTH_BASICDIGEST;
+	DefaultAuthType = CUPSD_AUTH_BASICDIGEST;
 #ifdef HAVE_GSSAPI
       else if (!strcasecmp(value, "negotiate"))
-        DefaultAuthType = AUTH_NEGOTIATE;
+        DefaultAuthType = CUPSD_AUTH_NEGOTIATE;
 #endif /* HAVE_GSSAPI */
       else
       {
@@ -3125,7 +3141,7 @@ read_location(cups_file_t *fp,		/* I - Configuration file */
   if ((parent = cupsdAddLocation(location)) == NULL)
     return (0);
 
-  parent->limit = AUTH_LIMIT_ALL;
+  parent->limit = CUPSD_AUTH_LIMIT_ALL;
   loc           = parent;
 
   while (cupsFileGetConf(fp, line, sizeof(line), &value, &linenum))
@@ -3157,19 +3173,19 @@ read_location(cups_file_t *fp,		/* I - Configuration file */
 	  *valptr++ = '\0';
 
         if (!strcmp(value, "ALL"))
-	  loc->limit = AUTH_LIMIT_ALL;
+	  loc->limit = CUPSD_AUTH_LIMIT_ALL;
 	else if (!strcmp(value, "GET"))
-	  loc->limit |= AUTH_LIMIT_GET;
+	  loc->limit |= CUPSD_AUTH_LIMIT_GET;
 	else if (!strcmp(value, "HEAD"))
-	  loc->limit |= AUTH_LIMIT_HEAD;
+	  loc->limit |= CUPSD_AUTH_LIMIT_HEAD;
 	else if (!strcmp(value, "OPTIONS"))
-	  loc->limit |= AUTH_LIMIT_OPTIONS;
+	  loc->limit |= CUPSD_AUTH_LIMIT_OPTIONS;
 	else if (!strcmp(value, "POST"))
-	  loc->limit |= AUTH_LIMIT_POST;
+	  loc->limit |= CUPSD_AUTH_LIMIT_POST;
 	else if (!strcmp(value, "PUT"))
-	  loc->limit |= AUTH_LIMIT_PUT;
+	  loc->limit |= CUPSD_AUTH_LIMIT_PUT;
 	else if (!strcmp(value, "TRACE"))
-	  loc->limit |= AUTH_LIMIT_TRACE;
+	  loc->limit |= CUPSD_AUTH_LIMIT_TRACE;
 	else
 	  cupsdLogMessage(CUPSD_LOG_WARN, "Unknown request type %s on line %d!",
 	                  value, linenum);
@@ -3178,11 +3194,12 @@ read_location(cups_file_t *fp,		/* I - Configuration file */
       }
 
       if (!strcasecmp(line, "<LimitExcept"))
-        loc->limit = AUTH_LIMIT_ALL ^ loc->limit;
+        loc->limit = CUPSD_AUTH_LIMIT_ALL ^ loc->limit;
 
       parent->limit &= ~loc->limit;
     }
-    else if (!strcasecmp(line, "</Limit>"))
+    else if (!strcasecmp(line, "</Limit>") ||
+             !strcasecmp(line, "</LimitExcept>"))
       loc = parent;
     else if (!parse_aaa(loc, line, value, linenum))
     {

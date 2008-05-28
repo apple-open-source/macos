@@ -833,7 +833,7 @@ CPSPlugIn::HandleFirstContact(
 		// try node IP
 		if ( siResult != kCPSUtilOK )
 		{
-			DEBUGLOG( "CPSPlugIn::HandleFirstContact: trying node IP" );
+			DEBUGLOG( "CPSPlugIn::HandleFirstContact: trying node IP (%s)", inContext->serverProvidedFromNode.ip );
 			DSCFRelease( inContext->serverList );
 			
 			siResult = IdentifyReachableReplicaByIP( &inContext->serverProvidedFromNode, 1, inUserKeyHash, &anEntry, &sock );
@@ -1100,6 +1100,12 @@ SInt32 CPSPlugIn::EndServerSession( sPSContextData *inContext, bool inSendQuit )
 		fpurge( inContext->serverOut );
 		fclose( inContext->serverOut );
 		inContext->serverOut = NULL;
+
+        // inContext->serverOut was created using fdopen(inContext->fd)
+        // That means the fclose() above also closed inContext->fd, so
+        // just set it to -1.
+        inContext->fd = -1;
+        gCloseCount++;
 	}
 	if ( inContext->fd > 0 ) {
 		close( inContext->fd );
@@ -2808,7 +2814,7 @@ SInt32 CPSPlugIn::DoAuthenticationSetup ( sDoDirNodeAuth *inData )
 			DEBUGLOG( "CPSPlugIn::DoAuthenticationResponse returned %l", siResult );
 	}
 	
-	if ( siResult == eDSNoErr )
+	if ( siResult == eDSNoErr && (pb.uiAuthMethod != kAuthSetUserName && pb.uiAuthMethod != kAuthSetPasswd) )
 	{
 		if ( siResult2 != eDSNoErr )
 			siResult = siResult2;
@@ -2817,20 +2823,23 @@ SInt32 CPSPlugIn::DoAuthenticationSetup ( sDoDirNodeAuth *inData )
 	{
 		// for policy violations, confirm with the master if we're talking
 		// to a replica
+		if ( siResult == eDSNoErr &&
+			 (pb.uiAuthMethod == kAuthSetUserName || pb.uiAuthMethod == kAuthSetPasswd) )
+			siResult = siResult2;
+		
 		switch ( siResult )
 		{
-			case eDSAuthNewPasswordRequired:
+			case eDSAuthFailed:
+				if ( pb.uiAuthMethod != kAuthSetUserName && pb.uiAuthMethod != kAuthSetPasswd )
+					break;
+			
 			case eDSAuthPasswordExpired:
-			case eDSAuthPasswordQualityCheckFailed:
 			case eDSAuthAccountDisabled:
 			case eDSAuthAccountExpired:
 			case eDSAuthAccountInactive:
-			case eDSAuthPasswordTooShort:
-			case eDSAuthPasswordTooLong:
-			case eDSAuthPasswordNeedsLetter:
-			case eDSAuthPasswordNeedsDigit:
 			case eDSAuthInvalidLogonHours:
 				if ( !pb.pContext->isUNIXDomainSocket &&
+					 (!DSIsStringEmpty(pb.pContext->master.ip) || !DSIsStringEmpty(pb.pContext->serverProvidedFromNode.ip)) &&
 					 strcmp(pb.pContext->master.ip, pb.pContext->psName) != 0 )
 				{
 					// close the current session
@@ -2841,7 +2850,11 @@ SInt32 CPSPlugIn::DoAuthenticationSetup ( sDoDirNodeAuth *inData )
 					bzero( &contextCopy, sizeof(sPSContextData) );
 					contextCopy.fd = -1;
 					contextCopy.replicaFile = pb.pContext->replicaFile;
-					memcpy( &contextCopy.serverProvidedFromNode, &pb.pContext->master, sizeof(sPSServerEntry) );
+					
+					if ( DSIsStringEmpty(pb.pContext->master.ip) )
+						memcpy( &contextCopy.serverProvidedFromNode, &pb.pContext->serverProvidedFromNode, sizeof(sPSServerEntry) );
+					else
+						memcpy( &contextCopy.serverProvidedFromNode, &pb.pContext->master, sizeof(sPSServerEntry) );
 					contextCopy.providedNodeOnlyOrFail = true;
 					
 					// open a connection to the master
@@ -2922,13 +2935,22 @@ SInt32 CPSPlugIn::DoAuthenticationSetup ( sDoDirNodeAuth *inData )
 								
 								if ( siResult2 == eDSNoErr )
 								{
+									sPSContextData *pSavedContext = pb.pContext;
+									pb.pContext = &contextCopy;
 									siResult = this->DoAuthenticationResponse( inData, pb );
+									pb.pContext = pSavedContext;
+									
 									if ( siResult != eDSNoErr )
-										DEBUGLOG( "CPSPlugIn::DoAuthenticationResponse returned %l", siResult );
+										DEBUGLOG( "CPSPlugIn::DoAuthenticationResponse from redirect to master returned %l", siResult );
 								}
 							}
 						}
 					}
+					else
+					{
+						DEBUGLOG( "CPSPlugIn::DoAuthenticationResponse redirect to master returned %l", siResult2 );
+					}
+					
 					CleanContextData( &contextCopy );
 				}
 				break;
@@ -3372,7 +3394,7 @@ CPSPlugIn::DoAuthenticationResponse( sDoDirNodeAuth *inData, CAuthParams &pb )
 					
 					memcpy(&dataSegmentLen, tptr, 4);
 					
-					pb.paramStr = (char *)malloc( dataSegmentLen * 4/3 + 20 );
+					pb.paramStr = (char *)malloc( ((dataSegmentLen + 3) * 4 / 3) + 20 );
 					if ( pb.paramStr == NULL )
 						return eMemoryError;
 					
@@ -5428,7 +5450,7 @@ SInt32 CPSPlugIn::SetServiceInfo( sDoDirNodeAuth *inData, sPSContextData *inCont
 					CFDataGetBytes( infoData, CFRangeMake(0,infoDataLength), (UInt8 *)infoStr );
 					
 					// The plist is valid, convert to base-64.
-					base64Str = (char *) malloc( ((infoDataLength + 1) * 4 / 3) + 1 );
+					base64Str = (char *) malloc( ((infoDataLength + 3) * 4 / 3) + 20 );
 					if ( base64Str == NULL ) {
 						siResult = eMemoryError;
 						break;
@@ -7203,9 +7225,16 @@ CPSPlugIn::DoSASLPPSAuth(
 			
 			// set step buffer
             sasl_chop( buf );
-			ConvertHexToBinary( buf + 8, (unsigned char *)dataBuf, &dataBufLen );
-			siResult = dsFillAuthBuffer( outAuthBuff, 1, dataBufLen, dataBuf );
 			DEBUGLOG( "received: %s", buf);
+			
+			// ensure we have "+AUTHOK " and data afterward
+			if ( strlen(buf) > 8 ) {
+				ConvertHexToBinary( buf + 8, (unsigned char *)dataBuf, &dataBufLen );
+				siResult = dsFillAuthBuffer( outAuthBuff, 1, dataBufLen, dataBuf );
+			}
+			else {
+				siResult = eDSAuthAccountDisabled;
+			}
 			break;
 			
 		case 1:

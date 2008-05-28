@@ -2280,9 +2280,9 @@ char *CLDAPv3Plugin::ConvertCFDictionaryToXMLStr( CFDictionaryRef inDict, size_t
 	length = CFDataGetLength( xmlData );
 	if ( sourcePtr != NULL && length > 0 )
 	{
-		returnString = (char *) malloc( length + 1 );
+		returnString = (char *) calloc( length + 1, sizeof(char) );
 		if ( returnString != NULL )
-			strlcpy( returnString, (char *)sourcePtr, length + 1 );
+			bcopy( sourcePtr, returnString, length );
 	}
 	
 	DSCFRelease( xmlData );

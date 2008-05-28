@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 
 #include "AuthenticationCF.h"
 #include "AuthenticationChallenge.h"
+#include "CString.h"
 #include "DocLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -46,11 +47,9 @@
 #include <process.h> // for _beginthread()
 
 #include <CFNetwork/CFNetwork.h>
+#include <WebKitSystemInterface/WebKitSystemInterface.h>
 
 namespace WebCore {
-
-static CFHTTPCookieStorageAcceptPolicy defaultAcceptPolicy = CFHTTPCookieStorageAcceptPolicyOnlyFromMainDocumentDomain;
-static CFHTTPCookieStorageRef defaultStorage;
 
 static HashSet<String>& allowsAnyHTTPSCertificateHosts()
 {
@@ -59,11 +58,22 @@ static HashSet<String>& allowsAnyHTTPSCertificateHosts()
     return hosts;
 }
 
+static HashMap<String, RetainPtr<CFDataRef> >& clientCerts()
+{
+    static HashMap<String, RetainPtr<CFDataRef> > certs;
+    return certs;
+}
+
 CFURLRequestRef willSendRequest(CFURLConnectionRef conn, CFURLRequestRef cfRequest, CFURLResponseRef cfRedirectResponse, const void* clientInfo)
 {
     ResourceHandle* handle = (ResourceHandle*)clientInfo;
 
-    LOG(Network, "CFNet - willSendRequest(conn=%p, handle=%p) (%s)", conn, handle, handle->request().url().url().ascii());
+    if (!cfRedirectResponse) {
+        CFRetain(cfRequest);
+        return cfRequest;
+    }
+
+    LOG(Network, "CFNet - willSendRequest(conn=%p, handle=%p) (%s)", conn, handle, handle->request().url().string().utf8().data());
 
     ResourceRequest request(cfRequest);
     if (handle->client())
@@ -79,7 +89,7 @@ void didReceiveResponse(CFURLConnectionRef conn, CFURLResponseRef cfResponse, co
 {
     ResourceHandle* handle = (ResourceHandle*)clientInfo;
 
-    LOG(Network, "CFNet - didReceiveResponse(conn=%p, handle=%p) (%s)", conn, handle, handle->request().url().url().ascii());
+    LOG(Network, "CFNet - didReceiveResponse(conn=%p, handle=%p) (%s)", conn, handle, handle->request().url().string().utf8().data());
 
     if (handle->client())
         handle->client()->didReceiveResponse(handle, cfResponse);
@@ -91,7 +101,7 @@ void didReceiveData(CFURLConnectionRef conn, CFDataRef data, CFIndex originalLen
     const UInt8* bytes = CFDataGetBytePtr(data);
     CFIndex length = CFDataGetLength(data);
 
-    LOG(Network, "CFNet - didReceiveData(conn=%p, handle=%p, bytes=%d) (%s)", conn, handle, length, handle->request().url().url().ascii());
+    LOG(Network, "CFNet - didReceiveData(conn=%p, handle=%p, bytes=%d) (%s)", conn, handle, length, handle->request().url().string().utf8().data());
 
     if (handle->client())
         handle->client()->didReceiveData(handle, (const char*)bytes, length, originalLength);
@@ -101,7 +111,7 @@ void didFinishLoading(CFURLConnectionRef conn, const void* clientInfo)
 {
     ResourceHandle* handle = (ResourceHandle*)clientInfo;
 
-    LOG(Network, "CFNet - didFinishLoading(conn=%p, handle=%p) (%s)", conn, handle, handle->request().url().url().ascii());
+    LOG(Network, "CFNet - didFinishLoading(conn=%p, handle=%p) (%s)", conn, handle, handle->request().url().string().utf8().data());
 
     if (handle->client())
         handle->client()->didFinishLoading(handle);
@@ -111,7 +121,7 @@ void didFail(CFURLConnectionRef conn, CFErrorRef error, const void* clientInfo)
 {
     ResourceHandle* handle = (ResourceHandle*)clientInfo;
 
-    LOG(Network, "CFNet - didFail(conn=%p, handle=%p, error = %p) (%s)", conn, handle, error, handle->request().url().url().ascii());
+    LOG(Network, "CFNet - didFail(conn=%p, handle=%p, error = %p) (%s)", conn, handle, error, handle->request().url().string().utf8().data());
 
     if (handle->client())
         handle->client()->didFail(handle, ResourceError(error));
@@ -141,7 +151,7 @@ void didReceiveChallenge(CFURLConnectionRef conn, CFURLAuthChallengeRef challeng
 {
     ResourceHandle* handle = (ResourceHandle*)clientInfo;
     ASSERT(handle);
-    LOG(Network, "CFNet - didReceiveChallenge(conn=%p, handle=%p (%s)", conn, handle, handle->request().url().url().ascii());
+    LOG(Network, "CFNet - didReceiveChallenge(conn=%p, handle=%p (%s)", conn, handle, handle->request().url().string().utf8().data());
 
     handle->didReceiveAuthenticationChallenge(AuthenticationChallenge(challenge, handle));
 }
@@ -164,14 +174,14 @@ void addHeadersFromHashMap(CFMutableURLRequestRef request, const HTTPHeaderMap& 
 ResourceHandleInternal::~ResourceHandleInternal()
 {
     if (m_connection) {
-        LOG(Network, "CFNet - Cancelling connection %p (%s)", m_connection, m_request.url().url().ascii());
+        LOG(Network, "CFNet - Cancelling connection %p (%s)", m_connection, m_request.url().string().utf8().data());
         CFURLConnectionCancel(m_connection.get());
     }
 }
 
 ResourceHandle::~ResourceHandle()
 {
-    LOG(Network, "CFNet - Destroying job %p (%s)", this, d->m_request.url().url().ascii());
+    LOG(Network, "CFNet - Destroying job %p (%s)", this, d->m_request.url().string().utf8().data());
 }
 
 CFArrayRef arrayFromFormData(const FormData& d)
@@ -223,21 +233,33 @@ CFRunLoopRef ResourceHandle::loaderRunLoop()
     return loaderRL;
 }
 
-static CFURLRequestRef makeFinalRequest(const ResourceRequest& request)
+static CFURLRequestRef makeFinalRequest(const ResourceRequest& request, bool shouldContentSniff)
 {
     CFMutableURLRequestRef newRequest = CFURLRequestCreateMutableCopy(kCFAllocatorDefault, request.cfURLRequest());
     
+    if (!shouldContentSniff)
+        wkSetCFURLRequestShouldContentSniff(newRequest, false);
+
+    RetainPtr<CFMutableDictionaryRef> sslProps;
+
     if (allowsAnyHTTPSCertificateHosts().contains(request.url().host().lower())) {
-        CFTypeRef keys[] = { kCFStreamSSLAllowsAnyRoot, kCFStreamSSLAllowsExpiredRoots };  
-        CFTypeRef values[] = { kCFBooleanTrue, kCFBooleanTrue };
-        static CFDictionaryRef sslProps = CFDictionaryCreate(kCFAllocatorDefault, keys, values, sizeof(keys) / sizeof(keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        CFURLRequestSetSSLProperties(newRequest, sslProps);
+        sslProps.adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+        CFDictionaryAddValue(sslProps.get(), kCFStreamSSLAllowsAnyRoot, kCFBooleanTrue);
+        CFDictionaryAddValue(sslProps.get(), kCFStreamSSLAllowsExpiredRoots, kCFBooleanTrue);
     }
 
-#ifdef CFNETWORK_HAS_NEW_COOKIE_FUNCTIONS
-    CFURLRequestSetHTTPCookieStorage(newRequest, defaultStorage);
-    CFURLRequestSetHTTPCookieStorageAcceptPolicy(newRequest, defaultAcceptPolicy);
-#endif
+    HashMap<String, RetainPtr<CFDataRef> >::iterator clientCert = clientCerts().find(request.url().host().lower());
+    if (clientCert != clientCerts().end()) {
+        if (!sslProps)
+            sslProps.adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+        wkSetClientCertificateInSSLProperties(sslProps.get(), (clientCert->second).get());
+    }
+
+    if (sslProps)
+        CFURLRequestSetSSLProperties(newRequest, sslProps.get());
+
+    if (CFHTTPCookieStorageRef defaultCookieStorage = wkGetDefaultHTTPCookieStorage())
+        CFURLRequestSetHTTPCookieStorageAcceptPolicy(newRequest, CFHTTPCookieStorageGetCookieAcceptPolicy(defaultCookieStorage));
 
     return newRequest;
 }
@@ -249,7 +271,7 @@ bool ResourceHandle::start(Frame* frame)
     if (!frame->page())
         return false;
 
-    RetainPtr<CFURLRequestRef> request(AdoptCF, makeFinalRequest(d->m_request));
+    RetainPtr<CFURLRequestRef> request(AdoptCF, makeFinalRequest(d->m_request, d->m_shouldContentSniff));
 
     // CFURLConnection Callback API currently at version 1
     const int CFURLConnectionClientVersion = 1;
@@ -261,7 +283,7 @@ bool ResourceHandle::start(Frame* frame)
     CFURLConnectionScheduleDownloadWithRunLoop(d->m_connection.get(), loaderRunLoop(), kCFRunLoopDefaultMode);
     CFURLConnectionStart(d->m_connection.get());
 
-    LOG(Network, "CFNet - Starting URL %s (handle=%p, conn=%p)", d->m_request.url().url().ascii(), this, d->m_connection);
+    LOG(Network, "CFNet - Starting URL %s (handle=%p, conn=%p)", d->m_request.url().string().utf8().data(), this, d->m_connection);
 
     return true;
 }
@@ -350,12 +372,12 @@ CFURLConnectionRef ResourceHandle::releaseConnectionForDownload()
     return d->m_connection.releaseRef();
 }
 
-void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, ResourceError& error, ResourceResponse& response, Vector<char>& vector)
+void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, ResourceError& error, ResourceResponse& response, Vector<char>& vector, Frame*)
 {
     ASSERT(!request.isEmpty());
     CFURLResponseRef cfResponse = 0;
     CFErrorRef cfError = 0;
-    RetainPtr<CFURLRequestRef> cfRequest(AdoptCF, makeFinalRequest(request));
+    RetainPtr<CFURLRequestRef> cfRequest(AdoptCF, makeFinalRequest(request, true));
 
     CFDataRef data = CFURLConnectionSendSynchronousRequest(cfRequest.get(), &cfResponse, &cfError, request.timeoutInterval());
 
@@ -374,37 +396,14 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, R
     }
 }
 
-CFHTTPCookieStorageAcceptPolicy ResourceHandle::cookieStorageAcceptPolicy()
-{
-    return defaultAcceptPolicy;
-}
-
-void ResourceHandle::setCookieStorageAcceptPolicy(CFHTTPCookieStorageAcceptPolicy acceptPolicy)
-{
-    defaultAcceptPolicy = acceptPolicy;
-    if (defaultStorage)
-        CFHTTPCookieStorageSetCookieAcceptPolicy(defaultStorage, defaultAcceptPolicy);
-}
-
-CFHTTPCookieStorageRef ResourceHandle::cookieStorage()
-{
-    return defaultStorage;
-}
-
-void ResourceHandle::setCookieStorage(CFHTTPCookieStorageRef storage)
-{
-    if (storage)
-        CFRetain(storage);
-    if (defaultStorage)
-        CFRelease(defaultStorage);
-    defaultStorage = storage;
-    if (defaultStorage)
-        CFHTTPCookieStorageSetCookieAcceptPolicy(defaultStorage, defaultAcceptPolicy);
-}
-
 void ResourceHandle::setHostAllowsAnyHTTPSCertificate(const String& host)
 {
     allowsAnyHTTPSCertificateHosts().add(host.lower());
+}
+
+void ResourceHandle::setClientCertificate(const String& host, CFDataRef cert)
+{
+    clientCerts().set(host.lower(), cert);
 }
 
 void ResourceHandle::setDefersLoading(bool defers)
@@ -413,6 +412,19 @@ void ResourceHandle::setDefersLoading(bool defers)
         CFURLConnectionHalt(d->m_connection.get());
     else
         CFURLConnectionResume(d->m_connection.get());
+}
+
+bool ResourceHandle::loadsBlocked()
+{
+    return false;
+}
+
+bool ResourceHandle::willLoadFromCache(ResourceRequest&)
+{
+    // Not having this function means that we'll ask the user about re-posting a form
+    // even when we go back to a page that's still in the cache.
+    notImplemented();
+    return false;
 }
 
 } // namespace WebCore

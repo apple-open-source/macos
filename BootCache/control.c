@@ -398,6 +398,9 @@ merge_playlists(const char *pfname, int argc, char *argv[])
 	struct BC_playlist_entry *pc, *npc;
 	int i, nentries, nnentries;
 
+	if (pfname == NULL)
+		errx(1, "must specify a playlist file to merge");
+
 	pc = NULL;
 	nentries = 0;
 

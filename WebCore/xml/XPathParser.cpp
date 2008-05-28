@@ -33,6 +33,7 @@
 #include "ExceptionCode.h"
 #include "StringHash.h"
 #include "XPathEvaluator.h"
+#include "XPathException.h"
 #include "XPathNSResolver.h"
 #include "XPathStep.h"
 
@@ -142,7 +143,7 @@ bool Parser::isOperatorContext() const
 
 void Parser::skipWS()
 {
-    while (m_nextPos < m_data.length() && DeprecatedChar(m_data[m_nextPos]).isSpace())
+    while (m_nextPos < m_data.length() && isSpaceOrNewline(m_data[m_nextPos]))
         ++m_nextPos;
 }
 
@@ -503,7 +504,7 @@ Expression* Parser::parseStatement(const String& statement, PassRefPtr<XPathNSRe
         if (m_gotNamespaceError)
             ec = NAMESPACE_ERR;
         else
-            ec = INVALID_EXPRESSION_ERR;
+            ec = XPathException::INVALID_EXPRESSION_ERR;
         return 0;
     }
 

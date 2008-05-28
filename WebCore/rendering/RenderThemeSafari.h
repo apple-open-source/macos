@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.
+ * Copyright (C) 2007, 2008 Apple Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,7 +25,12 @@
 
 #include "RenderTheme.h"
 
+// If you have an empty placeholder SafariThemeConstants.h, then include SafariTheme.h
+// This is a workaround until a version of WebKitSupportLibrary is released with an updated SafariThemeConstants.h 
+#include <SafariTheme/SafariThemeConstants.h>
+#ifndef SafariThemeConstants_h
 #include <SafariTheme/SafariTheme.h>
+#endif
 
 #if PLATFORM(WIN)
 typedef void* HANDLE;
@@ -118,6 +123,18 @@ protected:
 
     virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+ 
+    virtual bool paintCapsLockIndicator(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+#if ENABLE(VIDEO)
+    virtual bool paintMediaFullscreenButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaMuteButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekBackButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekForwardButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+#endif
 
 private:
     IntRect inflateRect(const IntRect&, const IntSize&, const int* margins) const;
@@ -155,9 +172,6 @@ private:
     void setSearchFieldSize(RenderStyle*) const;
 
     ThemeControlState determineState(RenderObject*) const;
-    
-private:
-    HMODULE m_themeDLL;
 };
 
 } // namespace WebCore

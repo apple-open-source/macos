@@ -30,13 +30,15 @@
 
 #include "FloatConversion.h"
 #include "GraphicsContext.h"
-#include "KCanvasRenderingStyle.h"
 #include "PointerEventsHitRules.h"
-#include "SVGLength.h"
+#include "RenderSVGRoot.h"
+#include "SimpleFontData.h"
 #include "SVGLengthList.h"
+#include "SVGResourceFilter.h"
 #include "SVGRootInlineBox.h"
 #include "SVGTextElement.h"
-#include <wtf/OwnPtr.h>
+#include "SVGTransformList.h"
+#include "SVGURIReference.h"
 
 namespace WebCore {
 
@@ -47,7 +49,19 @@ RenderSVGText::RenderSVGText(SVGTextElement* node)
 
 IntRect RenderSVGText::absoluteClippedOverflowRect()
 {
-    return enclosingIntRect(absoluteTransform().mapRect(relativeBBox(true)));
+    FloatRect repaintRect = absoluteTransform().mapRect(relativeBBox(true));
+
+#if ENABLE(SVG_FILTERS)
+    // Filters can expand the bounding box
+    SVGResourceFilter* filter = getFilterById(document(), SVGURIReference::getTarget(style()->svgStyle()->filter()));
+    if (filter)
+        repaintRect.unite(filter->filterBBoxForItemBBox(repaintRect));
+#endif
+
+    if (!repaintRect.isEmpty())
+        repaintRect.inflate(1); // inflate 1 pixel for antialiasing
+
+    return enclosingIntRect(repaintRect);
 }
 
 bool RenderSVGText::requiresLayer()
@@ -55,9 +69,19 @@ bool RenderSVGText::requiresLayer()
     return false;
 }
 
+bool RenderSVGText::calculateLocalTransform()
+{
+    AffineTransform oldTransform = m_localTransform;
+    m_localTransform = static_cast<SVGTextElement*>(element())->animatedLocalTransform();
+    return (oldTransform != m_localTransform);
+}
+
 void RenderSVGText::layout()
 {
     ASSERT(needsLayout());
+    
+    // FIXME: This is a hack to avoid the RenderBlock::layout() partial repainting code which is not (yet) SVG aware
+    setNeedsLayout(true);
 
     IntRect oldBounds;
     IntRect oldOutlineBox;
@@ -67,11 +91,13 @@ void RenderSVGText::layout()
         oldOutlineBox = absoluteOutlineBox();
     }
 
-    // FIXME: need to allow floating point positions 
+    // Best guess for a relative starting point
     SVGTextElement* text = static_cast<SVGTextElement*>(element());
     int xOffset = (int)(text->x()->getFirst().value());
     int yOffset = (int)(text->y()->getFirst().value());
     setPos(xOffset, yOffset);
+    
+    calculateLocalTransform();
 
     RenderBlock::layout();
 
@@ -114,12 +140,33 @@ bool RenderSVGText::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
             return RenderBlock::nodeAtPoint(request, result, (int)localX, (int)localY, _tx, _ty, hitTestAction);
         }
     }
+
     return false;
 }
 
 void RenderSVGText::absoluteRects(Vector<IntRect>& rects, int, int, bool)
 {
-    rects.append(absoluteClippedOverflowRect());
+    RenderSVGRoot* root = findSVGRootObject(parent());
+    if (!root)
+        return;
+
+    int x, y;
+    absolutePosition(x, y);
+
+    AffineTransform htmlParentCtm = root->RenderContainer::absoluteTransform();
+ 
+    // Don't use relativeBBox here, as it's unites the selection rects. Makes it hard
+    // to spot errors, if there are any using WebInspector. Individually feed them into 'rects'.
+    for (InlineRunBox* runBox = firstLineBox(); runBox; runBox = runBox->nextLineBox()) {
+        ASSERT(runBox->isInlineFlowBox());
+
+        InlineFlowBox* flowBox = static_cast<InlineFlowBox*>(runBox);
+        for (InlineBox* box = flowBox->firstChild(); box; box = box->nextOnLine()) {
+            FloatRect boxRect(box->xPos(), box->yPos(), box->width(), box->height());
+            boxRect.move(narrowPrecisionToFloat(x - htmlParentCtm.e()), narrowPrecisionToFloat(y - htmlParentCtm.f()));
+            rects.append(enclosingIntRect(absoluteTransform().mapRect(boxRect)));
+        }
+    }
 }
 
 void RenderSVGText::paint(PaintInfo& paintInfo, int, int)
@@ -142,8 +189,21 @@ FloatRect RenderSVGText::relativeBBox(bool includeStroke) const
     }
 
     // SVG needs to include the strokeWidth(), not the textStrokeWidth().
-    if (includeStroke && style()->svgStyle()->hasStroke())
-        repaintRect.inflate(narrowPrecisionToFloat(KSVGPainterFactory::cssPrimitiveToLength(this, style()->svgStyle()->strokeWidth(), 0.0)));
+    if (includeStroke && style()->svgStyle()->hasStroke()) {
+        float strokeWidth = SVGRenderStyle::cssPrimitiveToLength(this, style()->svgStyle()->strokeWidth(), 0.0f);
+
+#if ENABLE(SVG_FONTS)
+        const Font& font = style()->font();
+        if (font.primaryFont()->isSVGFont()) {
+            float scale = font.unitsPerEm() > 0 ? font.size() / font.unitsPerEm() : 0.0f;
+
+            if (scale != 0.0f)
+                strokeWidth /= scale;
+        }
+#endif
+
+        repaintRect.inflate(strokeWidth);
+    }
 
     repaintRect.move(xPos(), yPos());
     return repaintRect;

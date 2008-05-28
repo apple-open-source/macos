@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.109.2.18.2.4 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: dir.c,v 1.109.2.18.2.9 2007/12/31 07:22:52 sebastian Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -24,6 +24,7 @@
 #include "fopen_wrappers.h"
 #include "file.h"
 #include "php_dir.h"
+#include "php_string.h"
 
 #ifdef HAVE_DIRENT_H
 # include <dirent.h>
@@ -349,9 +350,9 @@ PHP_NAMED_FUNCTION(php_if_readdir)
    Find pathnames matching a pattern */
 PHP_FUNCTION(glob)
 {
-	char cwd[MAXPATHLEN];
 	int cwd_skip = 0;
 #ifdef ZTS
+	char cwd[MAXPATHLEN];
 	char work_pattern[MAXPATHLEN];
 	char *result;
 #endif
@@ -382,6 +383,22 @@ PHP_FUNCTION(glob)
 	} 
 #endif
 
+	if (PG(safe_mode) || (PG(open_basedir) && *PG(open_basedir))) {
+		char *dirname = estrdup(pattern);
+		php_dirname(dirname, strlen(dirname));
+
+		if (PG(safe_mode) && (!php_checkuid(dirname, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+			efree(dirname);
+			RETURN_FALSE;
+		}
+		if (php_check_open_basedir(dirname TSRMLS_CC)) {
+			efree(dirname);
+			RETURN_FALSE;
+		}
+		efree(dirname);
+	}
+
+	memset(&globbuf, 0, sizeof(glob_t));
 	globbuf.gl_offs = 0;
 	if (0 != (ret = glob(pattern, flags & GLOB_FLAGMASK, NULL, &globbuf))) {
 #ifdef GLOB_NOMATCH
@@ -401,16 +418,6 @@ PHP_FUNCTION(glob)
 	if (!globbuf.gl_pathc || !globbuf.gl_pathv) {
 		array_init(return_value);
 		return;
-	}
-
-	/* we assume that any glob pattern will match files from one directory only
-	   so checking the dirname of the first match should be sufficient */
-	strncpy(cwd, globbuf.gl_pathv[0], MAXPATHLEN);
-	if (PG(safe_mode) && (!php_checkuid(cwd, NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
-		RETURN_FALSE;
-	}
-	if (php_check_open_basedir(cwd TSRMLS_CC)) {
-		RETURN_FALSE;
 	}
 
 	array_init(return_value);

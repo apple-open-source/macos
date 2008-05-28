@@ -1,6 +1,6 @@
 --- docs/conf/httpd.conf.in.orig	2005-11-29 08:10:50.000000000 -0800
 +++ docs/conf/httpd.conf.in	2006-05-23 15:01:12.000000000 -0700
-@@ -62,8 +62,8 @@
+@@ -63,8 +63,8 @@
  # It is usually good practice to create a dedicated user and group for
  # running httpd, as with most system services.
  #
@@ -8,10 +8,10 @@
 -Group daemon
 +User www
 +Group www
+
  </IfModule>
- 
- # 'Main' server configuration
-@@ -139,7 +139,7 @@
+ </IfModule>
+@@ -142,7 +142,7 @@
      # http://httpd.apache.org/docs/2.2/mod/core.html#options
      # for more information.
      #
@@ -20,7 +20,7 @@
  
      #
      # AllowOverride controls what directives may be placed in .htaccess files.
-@@ -365,19 +365,19 @@
+@@ -368,19 +368,19 @@
  # necessary.
  
  # Server-pool management (MPM specific)
@@ -44,7 +44,7 @@
  
  # Real-time info on requests and configuration
  #Include @rel_sysconfdir@/extra/httpd-info.conf
-@@ -386,7 +386,7 @@
+@@ -389,7 +389,7 @@
  #Include @rel_sysconfdir@/extra/httpd-vhosts.conf
  
  # Local access to the Apache HTTP Server Manual
@@ -53,7 +53,7 @@
  
  # Distributed authoring and versioning (WebDAV)
  #Include @rel_sysconfdir@/extra/httpd-dav.conf
-@@ -405,3 +405,5 @@
+@@ -408,3 +408,5 @@
  SSLRandomSeed startup builtin
  SSLRandomSeed connect builtin
  </IfModule>

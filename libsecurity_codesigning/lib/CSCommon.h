@@ -76,6 +76,8 @@ enum {
 	errSecCSHostProtocolNotProxy,		/* host protocol violation - proxy hosting not engaged */
 	errSecCSHostProtocolStateError,		/* host protocol violation - invalid guest state change request */
 	errSecCSHostProtocolUnrelated,		/* host protocol violation - the given guest is not a guest of the given host */
+	errSecCSInvalidOperation,			/* requested operation is not valid */
+	errSecCSNotSupported,				/* operation not supported for this type of code */
 };
 
 

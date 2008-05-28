@@ -1,9 +1,7 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2005 Allan Sandfeld Jensen (kde@carewolf.com)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,11 +22,15 @@
 #include "config.h"
 #include "CSSParser.h"
 
+#include "CString.h"
+#include "CSSTimingFunctionValue.h"
 #include "CSSBorderImageValue.h"
 #include "CSSCharsetRule.h"
 #include "CSSCursorImageValue.h"
 #include "CSSHelper.h"
 #include "CSSImageValue.h"
+#include "CSSFontFaceRule.h"
+#include "CSSFontFaceSrcValue.h"
 #include "CSSImportRule.h"
 #include "CSSInheritedValue.h"
 #include "CSSInitialValue.h"
@@ -42,11 +44,14 @@
 #include "CSSSelector.h"
 #include "CSSStyleRule.h"
 #include "CSSStyleSheet.h"
+#include "CSSTransformValue.h"
+#include "CSSUnicodeRangeValue.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
 #include "Counter.h"
 #include "DashboardRegion.h"
 #include "Document.h"
+#include "FloatConversion.h"
 #include "FontFamilyValue.h"
 #include "FontValue.h"
 #include "KURL.h"
@@ -54,6 +59,7 @@
 #include "MediaQueryExp.h"
 #include "Pair.h"
 #include "ShadowValue.h"
+#include <kjs/dtoa.h>
 
 #define YYDEBUG 0
 
@@ -159,7 +165,7 @@ void ParseString::lower()
             characters[i] = Unicode::toLower(characters[i]);
     else
         for (int i = 0; i < length; i++)
-            characters[i] = tolower(characters[i]);
+            characters[i] = toASCIILower(characters[i]);
 }
 
 void CSSParser::setupParser(const char* prefix, const String& string, const char* suffix)
@@ -244,16 +250,17 @@ bool CSSParser::parseValue(CSSMutableStyleDeclaration *declaration, int _id, con
     return ok;
 }
 
-RGBA32 CSSParser::parseColor(const String &string, bool strict)
+// color will only be changed when string contains a valid css color, making it
+// possible to set up a default color.
+bool CSSParser::parseColor(RGBA32& color, const String &string, bool strict)
 {
-    RGBA32 color = 0;
-    RefPtr<CSSMutableStyleDeclaration>dummyStyleDeclaration = new CSSMutableStyleDeclaration;
-
+    color = 0;
     CSSParser parser(true);
 
     // First try creating a color specified by name or the "#" syntax.
     if (!parser.parseColor(string, color, strict)) {
-    
+        RefPtr<CSSMutableStyleDeclaration> dummyStyleDeclaration(new CSSMutableStyleDeclaration);
+
         // Now try to create a color from the rgb() or rgba() syntax.
         if (parser.parseColor(dummyStyleDeclaration.get(), string)) {
             CSSValue* value = parser.parsedProperties[0]->value();
@@ -261,10 +268,11 @@ RGBA32 CSSParser::parseColor(const String &string, bool strict)
                 CSSPrimitiveValue *primitiveValue = static_cast<CSSPrimitiveValue *>(value);
                 color = primitiveValue->getRGBColorValue();
             }
-        }
+        } else
+            return false;
     }
-    
-    return color;
+
+    return true;
 }
 
 bool CSSParser::parseColor(CSSMutableStyleDeclaration *declaration, const String &string)
@@ -384,8 +392,8 @@ bool CSSParser::validUnit(Value* value, Units unitflags, bool strict)
     switch(value->unit) {
     case CSSPrimitiveValue::CSS_NUMBER:
         b = (unitflags & FNumber);
-        if (!b && ((unitflags & FLength) && (value->fValue == 0 || !strict))) {
-            value->unit = CSSPrimitiveValue::CSS_PX;
+        if (!b && ((unitflags & (FLength | FAngle)) && (value->fValue == 0 || !strict))) {
+            value->unit = (unitflags & FLength) ? CSSPrimitiveValue::CSS_PX : CSSPrimitiveValue::CSS_DEG;
             b = true;
         }
         if (!b && (unitflags & FInteger) && value->isInt)
@@ -412,6 +420,8 @@ bool CSSParser::validUnit(Value* value, Units unitflags, bool strict)
     case CSSPrimitiveValue::CSS_DEG:
     case CSSPrimitiveValue::CSS_RAD:
     case CSSPrimitiveValue::CSS_GRAD:
+        b = (unitflags & FAngle);
+        break;
     case CSSPrimitiveValue::CSS_HZ:
     case CSSPrimitiveValue::CSS_KHZ:
     case CSSPrimitiveValue::CSS_DIMENSION:
@@ -519,7 +529,7 @@ bool CSSParser::parseValue(int propId, bool important)
     }
 
     bool valid_primitive = false;
-    CSSValue *parsedValue = 0;
+    RefPtr<CSSValue> parsedValue;
 
     // In quirks mode, we will look for units that have been incorrectly separated from the number they belong to
     // by a space.  We go ahead and associate the unit with the number even though it is invalid CSS.
@@ -679,8 +689,8 @@ bool CSSParser::parseValue(int propId, bool important)
         break;
 
     case CSS_PROP_TEXT_ALIGN:
-        // left | right | center | justify | webkit_left | webkit_right | webkit_center | <string> | inherit
-        if ((id >= CSS_VAL__WEBKIT_AUTO && id <= CSS_VAL__WEBKIT_CENTER) ||
+        // left | right | center | justify | webkit_left | webkit_right | webkit_center | start | end | <string> | inherit
+        if ((id >= CSS_VAL__WEBKIT_AUTO && id <= CSS_VAL__WEBKIT_CENTER) || id == CSS_VAL_START || id == CSS_VAL_END ||
              value->unit == CSSPrimitiveValue::CSS_STRING)
             valid_primitive = true;
         break;
@@ -786,7 +796,7 @@ bool CSSParser::parseValue(int propId, bool important)
         // [<uri>,]*  [ auto | crosshair | default | pointer | progress | move | e-resize | ne-resize |
         // nw-resize | n-resize | se-resize | sw-resize | s-resize | w-resize | ew-resize | 
         // ns-resize | nesw-resize | nwse-resize | col-resize | row-resize | text | wait | help ] ] | inherit
-        CSSValueList* list = 0;
+        RefPtr<CSSValueList> list;
         while (value && value->unit == CSSPrimitiveValue::CSS_URI) {
             if (!list)
                 list = new CSSValueList; 
@@ -800,10 +810,8 @@ bool CSSParser::parseValue(int propId, bool important)
             IntPoint hotspot;
             int nrcoords = coords.size();
             if (nrcoords > 0 && nrcoords != 2) {
-                if (strict) { // only support hotspot pairs in strict mode
-                    delete list;
+                if (strict) // only support hotspot pairs in strict mode
                     return false;
-                }
             } else if(strict && nrcoords == 2)
                 hotspot = IntPoint(coords[0], coords[1]);
             if (strict || coords.size() == 0) {
@@ -814,28 +822,24 @@ bool CSSParser::parseValue(int propId, bool important)
 #endif
                 if (!uri.isEmpty()) {
                     list->append(new CSSCursorImageValue(
-                                 String(KURL(styleElement->baseURL().deprecatedString(), uri.deprecatedString()).url()),
+                                 KURL(styleElement->baseURL().deprecatedString(), uri.deprecatedString()).string(),
                                  hotspot, styleElement));
                 }
             }
-            if ((strict && !value) || (value && !(value->unit == Value::Operator && value->iValue == ','))) {
-                delete list;
+            if ((strict && !value) || (value && !(value->unit == Value::Operator && value->iValue == ',')))
                 return false;
-            }
             value = valueList->next(); // comma
         }
         if (list) {
             if (!value) { // no value after url list (MSIE 5 compatibility)
-                if (list->length() != 1) {
-                    delete list;
+                if (list->length() != 1)
                     return false;
-                }
             } else if (!strict && value->id == CSS_VAL_HAND) // MSIE 5 compatibility :/
                 list->append(new CSSPrimitiveValue(CSS_VAL_POINTER));
             else if (value && ((value->id >= CSS_VAL_AUTO && value->id <= CSS_VAL_ALL_SCROLL) || value->id == CSS_VAL_COPY || value->id == CSS_VAL_NONE))
                 list->append(new CSSPrimitiveValue(value->id));
             valueList->next();
-            parsedValue = list;
+            parsedValue = list.release();
             break;
         }
         id = value->id;
@@ -857,12 +861,13 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSS_PROP_BACKGROUND_POSITION_Y:
     case CSS_PROP__WEBKIT_BACKGROUND_SIZE:
     case CSS_PROP_BACKGROUND_REPEAT: {
-        CSSValue *val1 = 0, *val2 = 0;
+        RefPtr<CSSValue> val1;
+        RefPtr<CSSValue> val2;
         int propId1, propId2;
         if (parseBackgroundProperty(propId, propId1, propId2, val1, val2)) {
-            addProperty(propId1, val1, important);
+            addProperty(propId1, val1.release(), important);
             if (val2)
-                addProperty(propId2, val2, important);
+                addProperty(propId2, val2.release(), important);
             return true;
         }
         return false;
@@ -877,7 +882,7 @@ bool CSSParser::parseValue(int propId, bool important)
             String uri = parseURL(domString(value->string));
             if (!uri.isEmpty()) {
                 parsedValue = new CSSImageValue(
-                    String(KURL(styleElement->baseURL().deprecatedString(), uri.deprecatedString()).url()),
+                    KURL(styleElement->baseURL().deprecatedString(), uri.deprecatedString()).string(),
                     styleElement);
                 valueList->next();
             }
@@ -1032,7 +1037,7 @@ bool CSSParser::parseValue(int propId, bool important)
         if (id == CSS_VAL_NONE) {
             valid_primitive = true;
         } else {
-            CSSValueList *list = new CSSValueList;
+            RefPtr<CSSValueList> list(new CSSValueList);
             bool is_valid = true;
             while(is_valid && value) {
                 switch (value->id) {
@@ -1048,11 +1053,10 @@ bool CSSParser::parseValue(int propId, bool important)
                 }
                 value = valueList->next();
             }
-            if(list->length() && is_valid) {
-                parsedValue = list;
+            if (list->length() && is_valid) {
+                parsedValue = list.release();
                 valueList->next();
-            } else
-                delete list;
+            }
         }
         break;
 
@@ -1060,6 +1064,12 @@ bool CSSParser::parseValue(int propId, bool important)
         if (id == CSS_VAL_AUTO || id == CSS_VAL_FIXED)
             valid_primitive = true;
         break;
+
+    case CSS_PROP_SRC:  // Only used within @font-face, so cannot use inherit | initial or be !important.  This is a list of urls or local references.
+        return parseFontFaceSrc();
+
+    case CSS_PROP_UNICODE_RANGE:
+        return parseFontFaceUnicodeRange();
 
     /* CSS3 properties */
     case CSS_PROP__WEBKIT_APPEARANCE:
@@ -1072,30 +1082,33 @@ bool CSSParser::parseValue(int propId, bool important)
         if (id == CSS_VAL_NONE)
             valid_primitive = true;
         else {
-            CSSValueList* values = new CSSValueList();
+            RefPtr<CSSValueList> values(new CSSValueList());
             Value* val;
-            CSSValue* parsedValue = 0;
+            RefPtr<CSSValue> parsedValue;
             while ((val = valueList->current())) {
                 if (val->unit == CSSPrimitiveValue::CSS_URI) {
                     String value = parseURL(domString(val->string));
                     parsedValue = new CSSPrimitiveValue(
-                                    String(KURL(styleElement->baseURL().deprecatedString(), value.deprecatedString()).url()), 
+                                    KURL(styleElement->baseURL().deprecatedString(), value.deprecatedString()).string(), 
                                     CSSPrimitiveValue::CSS_URI);
-                } 
-                
-                if (parsedValue)
-                    values->append(parsedValue);
-                else
+                }
+                if (!parsedValue)
                     break;
+                
+                // FIXME: We can't use release() here since we might hit this path twice
+                // but that logic seems wrong to me to begin with, we convert all non-uri values
+                // into the last seen URI value!?
+                // -webkit-binding: url(foo.xml), 1, 2; (if that were valid) is treated as:
+                // -webkit-binding: url(foo.xml), url(foo.xml), url(foo.xml); !?
+                values->append(parsedValue.get());
                 valueList->next();
             }
-            if (values->length()) {
-                addProperty(propId, values, important);
-                valueList->next();
-                return true;
-            }
-            delete values;
-            return false;
+            if (!values->length())
+                return false;
+            
+            addProperty(propId, values.release(), important);
+            valueList->next();
+            return true;
         }
 #endif
         break;
@@ -1115,30 +1128,28 @@ bool CSSParser::parseValue(int propId, bool important)
         valid_primitive = validUnit(value, FLength, strict);
         if (!valid_primitive)
             return false;
-        CSSPrimitiveValue* parsedValue1 = new CSSPrimitiveValue(value->fValue,
-                                                                        (CSSPrimitiveValue::UnitTypes)value->unit);
-        CSSPrimitiveValue* parsedValue2 = parsedValue1;
+        RefPtr<CSSPrimitiveValue> parsedValue1 = new CSSPrimitiveValue(value->fValue, (CSSPrimitiveValue::UnitTypes)value->unit);
+        RefPtr<CSSPrimitiveValue> parsedValue2;
         if (num == 2) {
             value = valueList->next();
             valid_primitive = validUnit(value, FLength, strict);
-            if (!valid_primitive) {
-                delete parsedValue1;
+            if (!valid_primitive)
                 return false;
-            }
             parsedValue2 = new CSSPrimitiveValue(value->fValue, (CSSPrimitiveValue::UnitTypes)value->unit);
-        }
+        } else
+            parsedValue2 = parsedValue1;
         
-        Pair* pair = new Pair(parsedValue1, parsedValue2);
-        CSSPrimitiveValue* val = new CSSPrimitiveValue(pair);
+        RefPtr<Pair> pair = new Pair(parsedValue1.release(), parsedValue2.release());
+        RefPtr<CSSPrimitiveValue> val = new CSSPrimitiveValue(pair.release());
         if (propId == CSS_PROP__WEBKIT_BORDER_RADIUS) {
             const int properties[4] = { CSS_PROP__WEBKIT_BORDER_TOP_RIGHT_RADIUS,
                                         CSS_PROP__WEBKIT_BORDER_TOP_LEFT_RADIUS,
                                         CSS_PROP__WEBKIT_BORDER_BOTTOM_LEFT_RADIUS,
                                         CSS_PROP__WEBKIT_BORDER_BOTTOM_RIGHT_RADIUS };
             for (int i = 0; i < 4; i++)
-                addProperty(properties[i], val, important);
+                addProperty(properties[i], val.get(), important);
         } else
-            addProperty(propId, val, important);
+            addProperty(propId, val.release(), important);
         return true;
     }
     case CSS_PROP_OUTLINE_OFFSET:
@@ -1237,6 +1248,43 @@ bool CSSParser::parseValue(int propId, bool important)
         if (id == CSS_VAL_CLIP || id == CSS_VAL_ELLIPSIS)
             valid_primitive = true;
         break;
+    case CSS_PROP__WEBKIT_TRANSFORM:
+        if (id == CSS_VAL_NONE)
+            valid_primitive = true;
+        else {
+            PassRefPtr<CSSValue> val = parseTransform();
+            if (val) {
+                addProperty(propId, val, important);
+                return true;
+            }
+            return false;
+        }
+        break;
+    case CSS_PROP__WEBKIT_TRANSFORM_ORIGIN:
+    case CSS_PROP__WEBKIT_TRANSFORM_ORIGIN_X:
+    case CSS_PROP__WEBKIT_TRANSFORM_ORIGIN_Y: {
+        RefPtr<CSSValue> val1;
+        RefPtr<CSSValue> val2;
+        int propId1, propId2;
+        if (parseTransformOrigin(propId, propId1, propId2, val1, val2)) {
+            addProperty(propId1, val1.release(), important);
+            if (val2)
+                addProperty(propId2, val2.release(), important);
+            return true;
+        }
+        return false;
+    }
+    case CSS_PROP__WEBKIT_TRANSITION_DURATION:
+    case CSS_PROP__WEBKIT_TRANSITION_REPEAT_COUNT:
+    case CSS_PROP__WEBKIT_TRANSITION_TIMING_FUNCTION:
+    case CSS_PROP__WEBKIT_TRANSITION_PROPERTY: {
+        RefPtr<CSSValue> val;
+        if (parseTransitionProperty(propId, val)) {
+            addProperty(propId, val.release(), important);
+            return true;
+        }
+        return false;
+    }
     case CSS_PROP__WEBKIT_MARGIN_COLLAPSE: {
         const int properties[2] = { CSS_PROP__WEBKIT_MARGIN_TOP_COLLAPSE,
             CSS_PROP__WEBKIT_MARGIN_BOTTOM_COLLAPSE };
@@ -1472,6 +1520,8 @@ bool CSSParser::parseValue(int propId, bool important)
         const int properties[2] = { CSS_PROP__WEBKIT_TEXT_STROKE_WIDTH, CSS_PROP__WEBKIT_TEXT_STROKE_COLOR };
         return parseShorthand(propId, properties, 2, important);
     }
+    case CSS_PROP__WEBKIT_TRANSITION:
+        return parseTransitionShorthand(important);
     case CSS_PROP_INVALID:
         return false;
     case CSS_PROP_FONT_STRETCH:
@@ -1480,6 +1530,10 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSS_PROP_TEXT_OVERLINE:
     case CSS_PROP_TEXT_UNDERLINE:
         return false;
+#if ENABLE(SVG)
+    default:
+        return parseSVGValue(propId, important);
+#endif
     }
 
     if (valid_primitive) {
@@ -1495,29 +1549,24 @@ bool CSSParser::parseValue(int propId, bool important)
     }
     if (parsedValue) {
         if (!valueList->current() || inShorthand()) {
-            addProperty(propId, parsedValue, important);
+            addProperty(propId, parsedValue.release(), important);
             return true;
         }
-        delete parsedValue;
     }
-#if ENABLE(SVG)
-    if (parseSVGValue(propId, important))
-        return true;
-#endif
     return false;
 }
 
-void CSSParser::addBackgroundValue(CSSValue*& lval, CSSValue* rval)
+void CSSParser::addBackgroundValue(RefPtr<CSSValue>& lval, PassRefPtr<CSSValue> rval)
 {
     if (lval) {
         if (lval->isValueList())
-            static_cast<CSSValueList*>(lval)->append(rval);
+            static_cast<CSSValueList*>(lval.get())->append(rval);
         else {
-            CSSValue* oldVal = lval;
-            CSSValueList* list = new CSSValueList();
-            lval = list;
-            list->append(oldVal);
+            PassRefPtr<CSSValue> oldlVal(lval.release());
+            PassRefPtr<CSSValueList> list(new CSSValueList());
+            list->append(oldlVal);
             list->append(rval);
+            lval = list;
         }
     }
     else
@@ -1537,8 +1586,8 @@ bool CSSParser::parseBackgroundShorthand(bool important)
     ShorthandScope scope(this, CSS_PROP_BACKGROUND);
 
     bool parsedProperty[numProperties] = { false }; // compiler will repeat false as necessary
-    CSSValue* values[numProperties] = { 0 }; // compiler will repeat 0 as necessary
-    CSSValue* positionYValue = 0;
+    RefPtr<CSSValue> values[numProperties];
+    RefPtr<CSSValue> positionYValue;
     int i;
 
     while (valueList->current()) {
@@ -1550,7 +1599,7 @@ bool CSSParser::parseBackgroundShorthand(bool important)
                 if (properties[i] == CSS_PROP_BACKGROUND_COLOR && parsedProperty[i])
                     // Color is not allowed except as the last item in a list.  Reject the entire
                     // property.
-                    goto fail;
+                    return false;
 
                 if (!parsedProperty[i] && properties[i] != CSS_PROP_BACKGROUND_COLOR) {
                     addBackgroundValue(values[i], new CSSInitialValue(true));
@@ -1566,13 +1615,14 @@ bool CSSParser::parseBackgroundShorthand(bool important)
         bool found = false;
         for (i = 0; !found && i < numProperties; ++i) {
             if (!parsedProperty[i]) {
-                CSSValue *val1 = 0, *val2 = 0;
+                RefPtr<CSSValue> val1;
+                RefPtr<CSSValue> val2;
                 int propId1, propId2;
                 if (parseBackgroundProperty(properties[i], propId1, propId2, val1, val2)) {
                     parsedProperty[i] = found = true;
-                    addBackgroundValue(values[i], val1);
+                    addBackgroundValue(values[i], val1.release());
                     if (properties[i] == CSS_PROP_BACKGROUND_POSITION)
-                        addBackgroundValue(positionYValue, val2);
+                        addBackgroundValue(positionYValue, val2.release());
                 }
             }
         }
@@ -1580,7 +1630,7 @@ bool CSSParser::parseBackgroundShorthand(bool important)
         // if we didn't find at least one match, this is an
         // invalid shorthand and we have to ignore it
         if (!found)
-            goto fail;
+            return false;
     }
     
     // Fill in any remaining properties with the initial value.
@@ -1595,20 +1645,87 @@ bool CSSParser::parseBackgroundShorthand(bool important)
     // Now add all of the properties we found.
     for (i = 0; i < numProperties; i++) {
         if (properties[i] == CSS_PROP_BACKGROUND_POSITION) {
-            addProperty(CSS_PROP_BACKGROUND_POSITION_X, values[i], important);
-            addProperty(CSS_PROP_BACKGROUND_POSITION_Y, positionYValue, important);
-        }
-        else
-            addProperty(properties[i], values[i], important);
+            addProperty(CSS_PROP_BACKGROUND_POSITION_X, values[i].release(), important);
+            // it's OK to call positionYValue.release() since we only see CSS_PROP_BACKGROUND_POSITION once
+            addProperty(CSS_PROP_BACKGROUND_POSITION_Y, positionYValue.release(), important);
+        } else
+            addProperty(properties[i], values[i].release(), important);
     }
     
     return true;
+}
 
-fail:
-    for (int k = 0; k < numProperties; k++)
-        delete values[k];
-    delete positionYValue;
-    return false;
+void CSSParser::addTransitionValue(RefPtr<CSSValue>& lval, PassRefPtr<CSSValue> rval)
+{
+    if (lval) {
+        if (lval->isValueList())
+            static_cast<CSSValueList*>(lval.get())->append(rval);
+        else {
+            PassRefPtr<CSSValue> oldVal(lval.release());
+            PassRefPtr<CSSValueList> list(new CSSValueList());
+            list->append(oldVal);
+            list->append(rval);
+            lval = list;
+        }
+    }
+    else
+        lval = rval;
+}
+
+bool CSSParser::parseTransitionShorthand(bool important)
+{
+    const int properties[] = { CSS_PROP__WEBKIT_TRANSITION_PROPERTY, CSS_PROP__WEBKIT_TRANSITION_DURATION, 
+                               CSS_PROP__WEBKIT_TRANSITION_TIMING_FUNCTION, CSS_PROP__WEBKIT_TRANSITION_REPEAT_COUNT };
+    const int numProperties = sizeof(properties) / sizeof(properties[0]);
+    
+    ShorthandScope scope(this, CSS_PROP__WEBKIT_TRANSITION);
+
+    bool parsedProperty[numProperties] = { false }; // compiler will repeat false as necessary
+    RefPtr<CSSValue> values[numProperties];
+    
+    int i;
+    while (valueList->current()) {
+        Value* val = valueList->current();
+        if (val->unit == Value::Operator && val->iValue == ',') {
+            // We hit the end.  Fill in all remaining values with the initial value.
+            valueList->next();
+            for (i = 0; i < numProperties; ++i) {
+                if (!parsedProperty[i])
+                    addTransitionValue(values[i], new CSSInitialValue(true));
+                parsedProperty[i] = false;
+            }
+            if (!valueList->current())
+                break;
+        }
+        
+        bool found = false;
+        for (i = 0; !found && i < numProperties; ++i) {
+            if (!parsedProperty[i]) {
+                RefPtr<CSSValue> val;
+                if (parseTransitionProperty(properties[i], val)) {
+                    parsedProperty[i] = found = true;
+                    addTransitionValue(values[i], val.release());
+                }
+            }
+        }
+
+        // if we didn't find at least one match, this is an
+        // invalid shorthand and we have to ignore it
+        if (!found)
+            return false;
+    }
+    
+    // Fill in any remaining properties with the initial value.
+    for (i = 0; i < numProperties; ++i) {
+        if (!parsedProperty[i])
+            addTransitionValue(values[i], new CSSInitialValue(true));
+    }
+    
+    // Now add all of the properties we found.
+    for (i = 0; i < numProperties; i++)
+        addProperty(properties[i], values[i].release(), important);
+    
+    return true;
 }
 
 bool CSSParser::parseShorthand(int propId, const int *properties, int numProperties, bool important)
@@ -1723,7 +1840,7 @@ bool CSSParser::parseContent(int propId, bool important)
             // url
             String value = parseURL(domString(val->string));
             parsedValue = new CSSImageValue(
-                String(KURL(styleElement->baseURL().deprecatedString(), value.deprecatedString()).url()), styleElement);
+                KURL(styleElement->baseURL().deprecatedString(), value.deprecatedString()).string(), styleElement);
         } else if (val->unit == Value::Function) {
             // attr(X) | counter(X [,Y]) | counters(X, Y, [,Z])
             ValueList *args = val->function->args;
@@ -1771,7 +1888,7 @@ bool CSSParser::parseContent(int propId, bool important)
     return false;
 }
 
-CSSValue* CSSParser::parseBackgroundColor()
+PassRefPtr<CSSValue> CSSParser::parseBackgroundColor()
 {
     int id = valueList->current()->id;
     if (id == CSS_VAL__WEBKIT_TEXT || (id >= CSS_VAL_AQUA && id <= CSS_VAL_WINDOWTEXT) || id == CSS_VAL_MENU ||
@@ -1780,7 +1897,7 @@ CSSValue* CSSParser::parseBackgroundColor()
     return parseColor();
 }
 
-bool CSSParser::parseBackgroundImage(CSSValue*& value)
+bool CSSParser::parseBackgroundImage(RefPtr<CSSValue>& value)
 {
     if (valueList->current()->id == CSS_VAL_NONE) {
         value = new CSSImageValue();
@@ -1789,14 +1906,14 @@ bool CSSParser::parseBackgroundImage(CSSValue*& value)
     if (valueList->current()->unit == CSSPrimitiveValue::CSS_URI) {
         String uri = parseURL(domString(valueList->current()->string));
         if (!uri.isEmpty())
-            value = new CSSImageValue(String(KURL(styleElement->baseURL().deprecatedString(), uri.deprecatedString()).url()), 
+            value = new CSSImageValue(KURL(styleElement->baseURL().deprecatedString(), uri.deprecatedString()).string(),
                                          styleElement);
         return true;
     }
     return false;
 }
 
-CSSValue* CSSParser::parseBackgroundPositionXY(bool& xFound, bool& yFound)
+PassRefPtr<CSSValue> CSSParser::parseBackgroundPositionXY(bool& xFound, bool& yFound)
 {
     int id = valueList->current()->id;
     if (id == CSS_VAL_LEFT || id == CSS_VAL_TOP || id == CSS_VAL_RIGHT || id == CSS_VAL_BOTTOM || id == CSS_VAL_CENTER) {
@@ -1827,9 +1944,8 @@ CSSValue* CSSParser::parseBackgroundPositionXY(bool& xFound, bool& yFound)
     return 0;
 }
 
-void CSSParser::parseBackgroundPosition(CSSValue*& value1, CSSValue*& value2)
+void CSSParser::parseBackgroundPosition(RefPtr<CSSValue>& value1, RefPtr<CSSValue>& value2)
 {
-    value1 = value2 = 0;
     Value* value = valueList->current();
     
     // Parse the first value.  We're just making sure that it is one of the valid keywords or a percentage/length.
@@ -1854,8 +1970,7 @@ void CSSParser::parseBackgroundPosition(CSSValue*& value1, CSSValue*& value2)
             valueList->next();
         else {
             if (!inShorthand()) {
-                delete value1;
-                value1 = 0;
+                value1.clear();
                 return;
             }
         }
@@ -1868,15 +1983,11 @@ void CSSParser::parseBackgroundPosition(CSSValue*& value1, CSSValue*& value2)
         // For left/right/center, the default of 50% in the y is still correct.
         value2 = new CSSPrimitiveValue(50, CSSPrimitiveValue::CSS_PERCENTAGE);
 
-    if (value1IsY || value2IsX) {
-        // Swap our two values.
-        CSSValue* val = value2;
-        value2 = value1;
-        value1 = val;
-    }
+    if (value1IsY || value2IsX)
+        value1.swap(value2);
 }
 
-CSSValue* CSSParser::parseBackgroundSize()
+PassRefPtr<CSSValue> CSSParser::parseBackgroundSize()
 {
     Value* value = valueList->current();
     CSSPrimitiveValue* parsedValue1;
@@ -1907,11 +2018,14 @@ CSSValue* CSSParser::parseBackgroundSize()
 }
 
 bool CSSParser::parseBackgroundProperty(int propId, int& propId1, int& propId2, 
-                                        CSSValue*& retValue1, CSSValue*& retValue2)
+                                        RefPtr<CSSValue>& retValue1, RefPtr<CSSValue>& retValue2)
 {
-    CSSValueList *values = 0, *values2 = 0;
+    RefPtr<CSSValueList> values;
+    RefPtr<CSSValueList> values2;
     Value* val;
-    CSSValue *value = 0, *value2 = 0;
+    RefPtr<CSSValue> value;
+    RefPtr<CSSValue> value2;
+    
     bool allowComma = false;
     
     retValue1 = retValue2 = 0;
@@ -1923,10 +2037,12 @@ bool CSSParser::parseBackgroundProperty(int propId, int& propId1, int& propId2,
     }
 
     while ((val = valueList->current())) {
-        CSSValue *currValue = 0, *currValue2 = 0;
+        RefPtr<CSSValue> currValue;
+        RefPtr<CSSValue> currValue2;
+        
         if (allowComma) {
             if (val->unit != Value::Operator || val->iValue != ',')
-                goto failed;
+                return false;
             valueList->next();
             allowComma = false;
         } else {
@@ -1990,29 +2106,27 @@ bool CSSParser::parseBackgroundProperty(int propId, int& propId1, int& propId2,
                     break;
             }
             if (!currValue)
-                goto failed;
+                return false;
             
             if (value && !values) {
                 values = new CSSValueList();
-                values->append(value);
-                value = 0;
+                values->append(value.release());
             }
             
             if (value2 && !values2) {
                 values2 = new CSSValueList();
-                values2->append(value2);
-                value2 = 0;
+                values2->append(value2.release());
             }
             
             if (values)
-                values->append(currValue);
+                values->append(currValue.release());
             else
-                value = currValue;
+                value = currValue.release();
             if (currValue2) {
                 if (values2)
-                    values2->append(currValue2);
+                    values2->append(currValue2.release());
                 else
-                    value2 = currValue2;
+                    value2 = currValue2.release();
             }
             allowComma = true;
         }
@@ -2024,20 +2138,175 @@ bool CSSParser::parseBackgroundProperty(int propId, int& propId1, int& propId2,
     }
 
     if (values && values->length()) {
-        retValue1 = values;
+        retValue1 = values.release();
         if (values2 && values2->length())
-            retValue2 = values2;
+            retValue2 = values2.release();
         return true;
     }
     if (value) {
-        retValue1 = value;
-        retValue2 = value2;
+        retValue1 = value.release();
+        retValue2 = value2.release();
         return true;
     }
+    return false;
+}
 
-failed:
-    delete values; delete values2;
-    delete value; delete value2;
+PassRefPtr<CSSValue> CSSParser::parseTransitionDuration()
+{
+    Value* value = valueList->current();
+    if (validUnit(value, FTime, strict))
+        return new CSSPrimitiveValue(value->fValue, (CSSPrimitiveValue::UnitTypes)value->unit);
+    return 0;
+}
+
+PassRefPtr<CSSValue> CSSParser::parseTransitionRepeatCount()
+{
+    Value* value = valueList->current();
+    if (value->id == CSS_VAL_INFINITE)
+        return new CSSPrimitiveValue(value->id);
+    if (validUnit(value, FInteger|FNonNeg, strict))
+        return new CSSPrimitiveValue(value->fValue, (CSSPrimitiveValue::UnitTypes)value->unit);
+    return 0;
+}
+
+bool CSSParser::parseTimingFunctionValue(ValueList*& args, double& result)
+{
+    Value* v = args->current();
+    if (!validUnit(v, FNumber, strict))
+        return false;
+    result = v->fValue;
+    if (result < 0 || result > 1.0)
+        return false;
+    v = args->next();
+    if (!v)
+        // The last number in the function has no comma after it, so we're done.
+        return true;
+    if (v->unit != Value::Operator && v->iValue != ',')
+        return false;
+    v = args->next();
+    return true;
+}
+
+PassRefPtr<CSSValue> CSSParser::parseTransitionTimingFunction()
+{
+    Value* value = valueList->current();
+    if (value->id == CSS_VAL_AUTO || value->id == CSS_VAL_LINEAR || value->id == CSS_VAL_EASE_IN || value->id == CSS_VAL_EASE_OUT || value->id == CSS_VAL_EASE_IN_OUT)
+        return new CSSPrimitiveValue(value->id);
+    
+    // We must be a function.
+    if (value->unit != Value::Function)
+        return 0;
+    
+    // The only timing function we accept for now is a cubic bezier function.  4 points must be specified.
+    ValueList* args = value->function->args;
+    String fname = domString(value->function->name).lower();
+    if (fname != "cubic-bezier(" || !args || args->size() != 7)
+        return 0;
+
+    // There are two points specified.  The values must be between 0 and 1.
+    double x1, y1, x2, y2;
+
+    if (!parseTimingFunctionValue(args, x1))
+        return 0;
+    if (!parseTimingFunctionValue(args, y1))
+        return 0;
+    if (!parseTimingFunctionValue(args, x2))
+        return 0;
+    if (!parseTimingFunctionValue(args, y2))
+        return 0;
+
+    return new CSSTimingFunctionValue(x1, y1, x2, y2);
+}
+
+PassRefPtr<CSSValue> CSSParser::parseTransitionProperty()
+{
+    Value* value = valueList->current();
+    if (value->unit == CSSPrimitiveValue::CSS_IDENT) {
+        String str = domString(value->string);
+        str.lower();
+        if (str == "all")
+            return new CSSPrimitiveValue(cAnimateAll);
+        if (str == "none")
+            return new CSSPrimitiveValue(cAnimateNone);
+        CString propertyName = str.utf8();
+        int result = getPropertyID(propertyName.data(), propertyName.length());
+        if (result)
+            return new CSSPrimitiveValue(result);
+    }
+    return 0;
+}
+
+bool CSSParser::parseTransitionProperty(int propId, RefPtr<CSSValue>& result)
+{
+    RefPtr<CSSValueList> values;
+    Value* val;
+    RefPtr<CSSValue> value;
+    bool allowComma = false;
+    
+    result = 0;
+
+    while ((val = valueList->current())) {
+        RefPtr<CSSValue> currValue;
+        if (allowComma) {
+            if (val->unit != Value::Operator || val->iValue != ',')
+                return false;
+            valueList->next();
+            allowComma = false;
+        }
+        else {
+            switch (propId) {
+                case CSS_PROP__WEBKIT_TRANSITION_DURATION:
+                    currValue = parseTransitionDuration();
+                    if (currValue)
+                        valueList->next();
+                    break;
+                case CSS_PROP__WEBKIT_TRANSITION_REPEAT_COUNT:
+                    currValue = parseTransitionRepeatCount();
+                    if (currValue)
+                        valueList->next();
+                    break;
+                case CSS_PROP__WEBKIT_TRANSITION_TIMING_FUNCTION:
+                    currValue = parseTransitionTimingFunction();
+                    if (currValue)
+                        valueList->next();
+                    break;
+                case CSS_PROP__WEBKIT_TRANSITION_PROPERTY:
+                    currValue = parseTransitionProperty();
+                    if (currValue)
+                        valueList->next();
+                    break;
+            }
+            
+            if (!currValue)
+                return false;
+            
+            if (value && !values) {
+                values = new CSSValueList();
+                values->append(value.release());
+            }
+            
+            if (values)
+                values->append(currValue.release());
+            else
+                value = currValue.release();
+            
+            allowComma = true;
+        }
+        
+        // When parsing the 'transition' shorthand property, we let it handle building up the lists for all
+        // properties.
+        if (inShorthand())
+            break;
+    }
+    
+    if (values && values->length()) {
+        result = values.release();
+        return true;
+    }
+    if (value) {
+        result = value.release();
+        return true;
+    }
     return false;
 }
 
@@ -2398,7 +2667,7 @@ bool CSSParser::parseFont(bool important)
     return false;
 }
 
-CSSValueList* CSSParser::parseFontFamily()
+PassRefPtr<CSSValueList> CSSParser::parseFontFamily()
 {
     CSSValueList* list = new CSSValueList;
     Value* value = valueList->current();
@@ -2457,6 +2726,157 @@ CSSValueList* CSSParser::parseFontFamily()
         list = 0;
     }
     return list;
+}
+
+bool CSSParser::parseFontFaceSrc()
+{
+    RefPtr<CSSValueList> values(new CSSValueList());
+    Value* val;
+    bool expectComma = false;
+    bool allowFormat = false;
+    bool failed = false;
+    RefPtr<CSSFontFaceSrcValue> uriValue;
+    while ((val = valueList->current())) {
+        RefPtr<CSSFontFaceSrcValue> parsedValue;
+        if (val->unit == CSSPrimitiveValue::CSS_URI && !expectComma) {
+            String value = parseURL(domString(val->string));
+            parsedValue = new CSSFontFaceSrcValue(KURL(styleElement->baseURL().deprecatedString(), value.deprecatedString()).string(), false);
+            uriValue = parsedValue;
+            allowFormat = true;
+            expectComma = true;
+        } else if (val->unit == Value::Function) {
+            // There are two allowed functions: local() and format().             
+            String fname = domString(val->function->name).lower();
+            ValueList* args = val->function->args;
+            if (args && args->size() == 1) {
+                if (fname == "local(" && !expectComma) {
+                    expectComma = true;
+                    allowFormat = false;
+                    Value* a = args->current();
+                    uriValue.clear();
+                    parsedValue = new CSSFontFaceSrcValue(domString(a->string), true);
+                } else if (fname == "format(" && allowFormat && uriValue) {
+                    expectComma = true;
+                    allowFormat = false;
+                    uriValue->setFormat(domString(args->current()->string));
+                    uriValue.clear();
+                    valueList->next();
+                    continue;
+                }
+            }
+        } else if (val->unit == Value::Operator && val->iValue == ',' && expectComma) {
+            expectComma = false;
+            allowFormat = false;
+            uriValue.clear();
+            valueList->next();
+            continue;
+        }
+    
+        if (parsedValue)
+            values->append(parsedValue.release());
+        else {
+            failed = true;
+            break;
+        }
+        valueList->next();
+    }
+    
+    if (values->length() && !failed) {
+        addProperty(CSS_PROP_SRC, values.release(), important);
+        valueList->next();
+        return true;
+    }
+
+    return false;
+}
+
+bool CSSParser::parseFontFaceUnicodeRange()
+{
+    CSSValueList* values = new CSSValueList();
+    Value* currentValue;
+    bool failed = false;
+    while ((currentValue = valueList->current())) {
+        if (valueList->current()->unit != CSSPrimitiveValue::CSS_UNICODE_RANGE) {
+            failed = true;
+            break;
+        }
+
+        String rangeString = domString(valueList->current()->string);
+        UChar32 from = 0;
+        UChar32 to = 0;
+        unsigned length = rangeString.length();
+
+        if (length < 3) {
+            failed = true;
+            break;
+        }
+
+        unsigned i = 2;
+        while (i < length) {
+            UChar c = rangeString[i];
+            if (c == '-' || c == '?')
+                break;
+            from *= 16;
+            if (c >= '0' && c <= '9')
+                from += c - '0';
+            else if (c >= 'A' && c <= 'F')
+                from += 10 + c - 'A';
+            else if (c >= 'a' && c <= 'f')
+                from += 10 + c - 'a';
+            else {
+                failed = true;
+                break;
+            }
+            i++;
+        }
+        if (failed)
+            break;
+
+        if (i == length)
+            to = from;
+        else if (rangeString[i] == '?') {
+            unsigned span = 1;
+            while (i < length && rangeString[i] == '?') {
+                span *= 16;
+                from *= 16;
+                i++;
+            }
+            if (i < length)
+                failed = true;
+            to = from + span - 1;
+        } else {
+            if (length < i + 2) {
+                failed = true;
+                break;
+            }
+            i++;
+            while (i < length) {
+                UChar c = rangeString[i];
+                to *= 16;
+                if (c >= '0' && c <= '9')
+                    to += c - '0';
+                else if (c >= 'A' && c <= 'F')
+                    to += 10 + c - 'A';
+                else if (c >= 'a' && c <= 'f')
+                    to += 10 + c - 'a';
+                else {
+                    failed = true;
+                    break;
+                }
+                i++;
+            }
+            if (failed)
+                break;
+        }
+        values->append(new CSSUnicodeRangeValue(from, to));
+        valueList->next();
+    }
+    if (failed || !values->length()) {
+        delete values;
+        return false;
+    }
+    addProperty(CSS_PROP_UNICODE_RANGE, values, important);
+    return true;
 }
 
 bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
@@ -2539,7 +2959,7 @@ bool CSSParser::parseHSLParameters(Value* value, double* colorArray, bool parseA
     return true;
 }
 
-CSSPrimitiveValue *CSSParser::parseColor(Value* value)
+PassRefPtr<CSSPrimitiveValue> CSSParser::parseColor(Value* value)
 {
     RGBA32 c = Color::transparent;
     if (!parseColorFromValue(value ? value : valueList->current(), c))
@@ -2604,9 +3024,11 @@ bool CSSParser::parseColorFromValue(Value* value, RGBA32& c, bool svg)
 // without the allowBreak bit being set, then it will clean up all of the objects and destroy them.
 struct ShadowParseContext {
     ShadowParseContext()
-    :values(0), x(0), y(0), blur(0), color(0),
-     allowX(true), allowY(false), allowBlur(false), allowColor(true),
-     allowBreak(true)
+    : allowX(true)
+    , allowY(false)
+    , allowBlur(false)
+    , allowColor(true)
+    , allowBreak(true)
     {}
 
     bool allowLength() { return allowX || allowY || allowBlur; }
@@ -2644,7 +3066,7 @@ struct ShadowParseContext {
         }
     }
 
-    void commitColor(CSSPrimitiveValue* val) {
+    void commitColor(PassRefPtr<CSSPrimitiveValue> val) {
         color = val;
         allowColor = false;
         if (allowX)
@@ -2692,7 +3114,7 @@ bool CSSParser::parseShadow(int propId, bool important)
         }
         else {
             // The only other type of value that's ok is a color value.
-            CSSPrimitiveValue* parsedColor = 0;
+            RefPtr<CSSPrimitiveValue> parsedColor;
             bool isColor = (val->id >= CSS_VAL_AQUA && val->id <= CSS_VAL_WINDOWTEXT || val->id == CSS_VAL_MENU ||
                             (val->id >= CSS_VAL__WEBKIT_FOCUS_RING_COLOR && val->id <= CSS_VAL__WEBKIT_TEXT && !strict));
             if (isColor) {
@@ -2709,7 +3131,7 @@ bool CSSParser::parseShadow(int propId, bool important)
                 return false; // This value is not a color or length and is invalid or
                               // it is a color, but a color isn't allowed at this point.
             
-            context.commitColor(parsedColor);
+            context.commitColor(parsedColor.release());
         }
         
         valueList->next();
@@ -2730,9 +3152,17 @@ bool CSSParser::parseShadow(int propId, bool important)
 struct BorderImageParseContext
 {
     BorderImageParseContext()
-    :m_allowBreak(false), m_allowNumber(false), m_allowSlash(false), m_allowWidth(false),
-     m_allowRule(false), m_image(0), m_top(0), m_right(0), m_bottom(0), m_left(0), m_borderTop(0), m_borderRight(0), m_borderBottom(0),
-     m_borderLeft(0), m_horizontalRule(0), m_verticalRule(0)
+    : m_allowBreak(false)
+    , m_allowNumber(false)
+    , m_allowSlash(false)
+    , m_allowWidth(false)
+    , m_allowRule(false)
+    , m_borderTop(0)
+    , m_borderRight(0)
+    , m_borderBottom(0)
+    , m_borderLeft(0)
+    , m_horizontalRule(0)
+    , m_verticalRule(0)
     {}
     
     bool allowBreak() const { return m_allowBreak; }
@@ -2743,8 +3173,7 @@ struct BorderImageParseContext
 
     void commitImage(CSSImageValue* image) { m_image = image; m_allowNumber = true; }
     void commitNumber(Value* v) {
-        CSSPrimitiveValue* val = new CSSPrimitiveValue(v->fValue,
-                                                               (CSSPrimitiveValue::UnitTypes)v->unit);
+        PassRefPtr<CSSPrimitiveValue> val = new CSSPrimitiveValue(v->fValue, (CSSPrimitiveValue::UnitTypes)v->unit);
         if (!m_top)
             m_top = val;
         else if (!m_right)
@@ -2762,14 +3191,14 @@ struct BorderImageParseContext
     void commitSlash() { m_allowBreak = m_allowSlash = m_allowNumber = false; m_allowWidth = true; }
     void commitWidth(Value* val) {
         if (!m_borderTop)
-            m_borderTop.set(val);
+            m_borderTop = val;
         else if (!m_borderRight)
-            m_borderRight.set(val);
+            m_borderRight = val;
         else if (!m_borderBottom)
-            m_borderBottom.set(val);
+            m_borderBottom = val;
         else {
             ASSERT(!m_borderLeft);
-            m_borderLeft.set(val);
+            m_borderLeft = val;
         }
 
         m_allowBreak = m_allowRule = true;
@@ -2797,8 +3226,11 @@ struct BorderImageParseContext
              m_left = new CSSPrimitiveValue(m_top->getDoubleValue(), (CSSPrimitiveValue::UnitTypes)m_top->primitiveType());
              
         // Now build a rect value to hold all four of our primitive values.
-        Rect* rect = new Rect;
-        rect->setTop(m_top); rect->setRight(m_right); rect->setBottom(m_bottom); rect->setLeft(m_left);
+        RefPtr<Rect> rect = new Rect;
+        rect->setTop(m_top);
+        rect->setRight(m_right);
+        rect->setBottom(m_bottom);
+        rect->setLeft(m_left);
 
         // Fill in STRETCH as the default if it wasn't specified.
         if (!m_horizontalRule)
@@ -2809,7 +3241,7 @@ struct BorderImageParseContext
             m_verticalRule = m_horizontalRule;
 
         // Make our new border image value now and add it as the result.
-        CSSBorderImageValue* borderImage = new CSSBorderImageValue(m_image, rect, m_horizontalRule, m_verticalRule);
+        CSSBorderImageValue* borderImage = new CSSBorderImageValue(m_image, rect.release(), m_horizontalRule, m_verticalRule);
         p->addProperty(propId, borderImage, important);
             
         // Now we have to deal with the border widths.  The best way to deal with these is to actually put these values into a value
@@ -2842,10 +3274,10 @@ struct BorderImageParseContext
     RefPtr<CSSPrimitiveValue> m_bottom;
     RefPtr<CSSPrimitiveValue> m_left;
     
-    OwnPtr<Value> m_borderTop;
-    OwnPtr<Value> m_borderRight;
-    OwnPtr<Value> m_borderBottom;
-    OwnPtr<Value> m_borderLeft;
+    Value* m_borderTop;
+    Value* m_borderRight;
+    Value* m_borderBottom;
+    Value* m_borderLeft;
     
     int m_horizontalRule;
     int m_verticalRule;
@@ -2863,7 +3295,7 @@ bool CSSParser::parseBorderImage(int propId, bool important)
     if (uri.isEmpty())
         return false;
     
-    context.commitImage(new CSSImageValue(String(KURL(styleElement->baseURL().deprecatedString(), uri.deprecatedString()).url()),
+    context.commitImage(new CSSImageValue(KURL(styleElement->baseURL().deprecatedString(), uri.deprecatedString()).string(),
                                                              styleElement));
     while ((val = valueList->next())) {
         if (context.allowNumber() && validUnit(val, FInteger|FNonNeg|FPercent, true)) {
@@ -2933,6 +3365,157 @@ bool CSSParser::parseCounter(int propId, int defaultValue, bool important)
     return false;
 }
 
+class TransformOperationInfo
+{
+public:
+    TransformOperationInfo(const String& fname)
+    : m_type(CSSTransformValue::UnknownTransformOperation)
+    , m_argCount(1)
+    , m_allowSingleArgument(false)
+    , m_unit(CSSParser::FUnknown)
+    {
+        if (fname == "scale(" || fname == "scaleX(" || fname == "scaleY(") {
+            m_unit = CSSParser::FNumber;
+            if (fname == "scale(")
+                m_type = CSSTransformValue::ScaleTransformOperation;
+            else if (fname == "scaleX(")
+                m_type = CSSTransformValue::ScaleXTransformOperation;
+            else
+                m_type = CSSTransformValue::ScaleYTransformOperation;
+        } else if (fname == "rotate(") {
+            m_type = CSSTransformValue::RotateTransformOperation;
+            m_unit = CSSParser::FAngle;
+        } else if (fname == "skew(" || fname == "skewX(" || fname == "skewY(") {
+            m_unit = CSSParser::FAngle;
+            if (fname == "skew(")
+                m_type = CSSTransformValue::SkewTransformOperation;
+            else if (fname == "skewX(")
+                m_type = CSSTransformValue::SkewXTransformOperation;
+            else
+                m_type = CSSTransformValue::SkewYTransformOperation;
+        } else if (fname == "translate(" || fname == "translateX(" || fname == "translateY(") {
+            m_unit = CSSParser::FLength | CSSParser::FPercent;
+            if (fname == "translate(")
+                m_type = CSSTransformValue::TranslateTransformOperation;
+            else if (fname == "translateX(")
+                m_type = CSSTransformValue::TranslateXTransformOperation;
+            else
+                m_type = CSSTransformValue::TranslateYTransformOperation;
+        } else if (fname == "matrix(") {
+            m_type = CSSTransformValue::MatrixTransformOperation;
+            m_argCount = 11;
+            m_unit = CSSParser::FNumber;
+        }
+        
+        if (fname == "scale(" || fname == "skew(" || fname == "translate(") {
+            m_allowSingleArgument = true;
+            m_argCount = 3;
+        }
+    }
+    
+    CSSTransformValue::TransformOperationType type() const { return m_type; }
+    unsigned argCount() const { return m_argCount; }
+    CSSParser::Units unit() const { return m_unit; }
+
+    bool unknown() const { return m_type == CSSTransformValue::UnknownTransformOperation; }
+    bool hasCorrectArgCount(unsigned argCount) { return m_argCount == argCount || (m_allowSingleArgument && argCount == 1); }
+
+private:
+    CSSTransformValue::TransformOperationType m_type;
+    unsigned m_argCount;
+    bool m_allowSingleArgument;
+    CSSParser::Units m_unit;
+};
+
+PassRefPtr<CSSValue> CSSParser::parseTransform()
+{
+    if (!valueList)
+        return 0;
+
+    // The transform is a list of functional primitives that specify transform operations.  We collect a list
+    // of CSSTransformValues, where each value specifies a single operation.
+    RefPtr<CSSValueList> list = new CSSValueList;
+    for (Value* value = valueList->current(); value; value = valueList->next()) {
+        if (value->unit != Value::Function || !value->function)
+            return 0;
+        String fname = domString(value->function->name).lower();
+        
+        // Every primitive requires at least one argument.
+        ValueList* args = value->function->args;
+        if (!args)
+            return 0;
+        
+        // See if the specified primitive is one we understand.
+        TransformOperationInfo info(fname);
+        if (info.unknown())
+            return 0;
+       
+        if (!info.hasCorrectArgCount(args->size()))
+            return 0;
+
+        // Create the new CSSTransformValue for this operation and add it to our list.
+        CSSTransformValue* transformValue = new CSSTransformValue(info.type());
+        list->append(transformValue);
+
+        // Snag our values.
+        Value* a = args->current();
+        unsigned argNumber = 0;
+        while (a) {
+            CSSParser::Units unit = info.unit();
+
+            if (!validUnit(a, unit, true))
+                return 0;
+            
+            // Add the value to the current transform operation.
+            transformValue->addValue(new CSSPrimitiveValue(a->fValue, (CSSPrimitiveValue::UnitTypes) a->unit));
+
+            a = args->next();
+            if (!a)
+                break;
+            if (a->unit != Value::Operator || a->iValue != ',')
+                return 0;
+            a = args->next();
+            
+            argNumber++;
+        }
+    }
+    
+    return list.release();
+}
+
+bool CSSParser::parseTransformOrigin(int propId, int& propId1, int& propId2, RefPtr<CSSValue>& value, RefPtr<CSSValue>& value2)
+{
+    propId1 = propId;
+    propId2 = propId;
+    if (propId == CSS_PROP__WEBKIT_TRANSFORM_ORIGIN) {
+        propId1 = CSS_PROP__WEBKIT_TRANSFORM_ORIGIN_X;
+        propId2 = CSS_PROP__WEBKIT_TRANSFORM_ORIGIN_Y;
+    }
+
+    switch (propId) {
+        case CSS_PROP__WEBKIT_TRANSFORM_ORIGIN:
+            parseBackgroundPosition(value, value2);
+            // Unlike the other functions, parseBackgroundPosition advances the valueList pointer
+            break;
+        case CSS_PROP__WEBKIT_TRANSFORM_ORIGIN_X: {
+            bool xFound = false, yFound = true;
+            value = parseBackgroundPositionXY(xFound, yFound);
+            if (value)
+                valueList->next();
+            break;
+        }
+        case CSS_PROP__WEBKIT_TRANSFORM_ORIGIN_Y: {
+            bool xFound = true, yFound = false;
+            value = parseBackgroundPositionXY(xFound, yFound);
+            if (value)
+                valueList->next();
+            break;
+        }
+    }
+    
+    return value;
+}
+
 #ifdef CSS_DEBUG
 
 static inline int yyerror(const char *str)
@@ -2951,6 +3534,16 @@ static inline int yyerror(const char*) { return 1; }
 
 #include "CSSGrammar.h"
 
+static inline float convertASCIIToFloat(const UChar* characters, unsigned length)
+{
+    Vector<char, 256> bytes(length + 1);
+    for (unsigned i = 0; i < length; ++i)
+        bytes[i] = characters[i];
+    bytes[length] = 0;
+    char* end;
+    return narrowPrecisionToFloat(kjs_strtod(bytes.data(), &end));
+}
+
 int CSSParser::lex(void* yylvalWithoutType)
 {
     YYSTYPE* yylval = static_cast<YYSTYPE*>(yylvalWithoutType);
@@ -2968,6 +3561,7 @@ int CSSParser::lex(void* yylvalWithoutType)
     case URI:
     case STRING:
     case IDENT:
+    case NTH:
     case HEX:
     case IDSEL:
     case DIMEN:
@@ -3010,9 +3604,9 @@ int CSSParser::lex(void* yylvalWithoutType)
     case SECS:
     case PERCENTAGE:
         length--;
-    case FLOAT:
+    case FLOATTOKEN:
     case INTEGER:
-        yylval->val = DeprecatedString((DeprecatedChar*)t, length).toFloat();
+        yylval->val = convertASCIIToFloat(t, length);
         break;
 
     default:
@@ -3274,7 +3868,7 @@ CSSRule* CSSParser::createCharsetRule(const ParseString& charset)
     return rule;
 }
 
-CSSRule* CSSParser::createImportRule(const ParseString& URL, MediaList* media)
+CSSRule* CSSParser::createImportRule(const ParseString& url, MediaList* media)
 {
     if (!media)
         return 0;
@@ -3282,7 +3876,7 @@ CSSRule* CSSParser::createImportRule(const ParseString& URL, MediaList* media)
         return 0;
     if (!styleElement->isCSSStyleSheet())
         return 0;
-    CSSImportRule* rule = new CSSImportRule(styleElement, domString(URL), media);
+    CSSImportRule* rule = new CSSImportRule(styleElement, domString(url), media);
     m_parsedStyleObjects.append(rule);
     return rule;
 }
@@ -3318,6 +3912,15 @@ CSSRule* CSSParser::createStyleRule(CSSSelector* selector)
         rule->setSelector(sinkFloatingSelector(selector));
         rule->setDeclaration(new CSSMutableStyleDeclaration(rule, parsedProperties, numParsedProperties));
     }
+    clearProperties();
+    return rule;
+}
+
+CSSRule* CSSParser::createFontFaceRule()
+{
+    CSSFontFaceRule* rule = new CSSFontFaceRule(styleElement);
+    m_parsedStyleObjects.append(rule);
+    rule->setDeclaration(new CSSMutableStyleDeclaration(rule, parsedProperties, numParsedProperties));
     clearProperties();
     return rule;
 }

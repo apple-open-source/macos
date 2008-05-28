@@ -79,6 +79,7 @@
 		1508E39F07552B6A0062B350 /* atconfig.c in Sources */ = {isa = PBXBuildFile; fileRef = 159D53C707528B36004F8947 /* atconfig.c */; settings = {COMPILER_FLAGS = "-Wno-deprecated-declarations"; }; };
 		1508E3A007552B6B0062B350 /* cfManager.c in Sources */ = {isa = PBXBuildFile; fileRef = 159D53C507528B36004F8947 /* cfManager.c */; };
 		1508E3A107552B720062B350 /* cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 159D53CA07528B36004F8947 /* cache.c */; };
+		150D7E1E0D16DC6C00AF4BED /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
 		1520A3870846829A0010B584 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		1520A3D0084682A30010B584 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15DAD6C807591A1A0084A6ED /* SystemConfiguration.framework */; };
 		1520A3DF0846B2DD0010B584 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
@@ -336,7 +337,7 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 151F5D990CCE98E50093AC3B /* SCMonitor */;
+			remoteGlobalIDString = 151F5D990CCE98E50093AC3B;
 			remoteInfo = SCMonitor;
 		};
 		1520A385084681350010B584 /* PBXContainerItemProxy */ = {
@@ -821,6 +822,7 @@
 				15FC13180CCF74740013872C /* CoreFoundation.framework in Frameworks */,
 				15E517680CCFBCD0008FFE82 /* SystemConfiguration.framework in Frameworks */,
 				15FEE80E0CCFD341001312F9 /* ApplicationServices.framework in Frameworks */,
+				150D7E1E0D16DC6C00AF4BED /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2888,7 +2890,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 210;
+				DYLIB_CURRENT_VERSION = 212.2;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_MODE_FLAG = "a-w,a+rX";
@@ -2909,7 +2911,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 210;
+				DYLIB_CURRENT_VERSION = 212.2;
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_MODE_FLAG = "a-w,a+rX";
@@ -2929,7 +2931,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 210;
+				DYLIB_CURRENT_VERSION = 212.2;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH = /usr/local/lib;
@@ -2949,7 +2951,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 210;
+				DYLIB_CURRENT_VERSION = 212.2;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INFOPLIST_FILE = SystemConfiguration.fproj/Info.plist;
@@ -2981,7 +2983,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 210;
+				DYLIB_CURRENT_VERSION = 212.2;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INFOPLIST_FILE = SystemConfiguration.fproj/Info.plist;
@@ -3012,7 +3014,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 210;
+				DYLIB_CURRENT_VERSION = 212.2;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INFOPLIST_FILE = SystemConfiguration.fproj/Info.plist;
@@ -4018,7 +4020,7 @@
 		156EB63F0905594A00EEF749 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 210;
+				CURRENT_PROJECT_VERSION = 212.2;
 				DEAD_CODE_STRIPPING = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "u+s,ugo-w,o+rX";
@@ -4039,7 +4041,7 @@
 		156EB6400905594A00EEF749 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 210;
+				CURRENT_PROJECT_VERSION = 212.2;
 				DEAD_CODE_STRIPPING = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "u+s,ugo-w,o+rX";
@@ -4060,7 +4062,7 @@
 		156EB6410905594A00EEF749 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 210;
+				CURRENT_PROJECT_VERSION = 212.2;
 				DEAD_CODE_STRIPPING = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = "u+s,ugo-w,o+rX";
