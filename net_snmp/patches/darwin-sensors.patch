@@ -1,0 +1,1422 @@
+diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/Makefile.test net-snmp-5.4.1.rc4.patched/agent/mibgroup/ucd-snmp/data_access/Makefile.test
+--- net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/Makefile.test	1969-12-31 16:00:00.000000000 -0800
++++ net-snmp-5.4.1.rc4.patched/agent/mibgroup/ucd-snmp/data_access/Makefile.test	2007-07-30 16:33:16.000000000 -0700
+@@ -0,0 +1,20 @@
++SNMPDIR_I = $(HOME)/snmp/apple-snmp-5-4
++SNMPDIR_B = $(HOME)/snmp/build/apple-snmp-5-4
++SNMPLIBS = $(SNMPDIR_B)/snmplib/.libs/libnetsnmp.a -lcrypto
++#SNMPLIBS = `net-snmp-config --libs`
++
++HEADERS	= -F/System/Library/PrivateFrameworks/ -F/System/Library/Frameworks/
++CFLAGS	= -g -O0 -I$(SNMPDIR_B)/include -I$(SNMPDIR_I)/include -DTEST $(HEADERS)
++CC	= gcc
++
++SWINSTLIBS	=  -framework CoreServices -framework CoreFoundation -framework Install
++#LIBS	=  /System/Library/Frameworks/CoreServices.framework/CoreServices  /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation /System/Library/Frameworks/IOKit.framework/IOKit
++
++SWRUNLIBS	=  -framework CoreFoundation -framework ApplicationServices
++SENSORLIBS	=  -framework CoreServices -framework CoreFoundation -framework IOKit
++
++all: sensors
++
++
++sensors: sensors.o sensors_darwin.o 
++	$(CC) $(CFLAGS) sensors.o sensors_darwin.o $(SENSORLIBS) -o sensors $(SNMPLIBS)
+diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c net-snmp-5.4.1.rc4.patched/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c
+--- net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c	1969-12-31 16:00:00.000000000 -0800
++++ net-snmp-5.4.1.rc4.patched/agent/mibgroup/ucd-snmp/data_access/sensors_darwin.c	2007-07-30 18:18:43.000000000 -0700
+@@ -0,0 +1,1394 @@
++/*
++ *  sensor_darwin.c
++ */
++
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++#include <net-snmp/library/container.h>
++#include <net-snmp/library/snmp_debug.h>
++#include <net-snmp/data_access/sensors.h>
++
++#include <CoreFoundation/CoreFoundation.h>
++
++/***********************************************************************
++ *
++ *
++ */
++
++static int          do_type(netsnmp_container *container, int flags);
++static int			InitDataCollection(void);
++static CFArrayRef	DumpSensorData(CFStringRef inKey);
++
++/***********************************************************************
++ *
++ *
++ */
++
++const CFStringRef kFanDataKey = CFSTR("fan_data");
++const CFStringRef kTempDataKey = CFSTR("temp_data");
++const CFStringRef kVoltDataKey = CFSTR("volt_data");
++const CFStringRef kMiscDataKey = CFSTR("misc_data");
++
++const CFStringRef kDescriptionKey = CFSTR("description");
++const CFStringRef kCurrentValueKey = CFSTR("current_value");
++const CFStringRef kUnknownDescription = CFSTR("No Description available");
++
++/***********************************************************************
++ *
++ *
++ */
++void
++netsnmp_sensors_arch_init(void)
++{
++    netsnmp_container *container;
++    int	result = 0;
++    
++    result = InitDataCollection();
++    if(result != 0)
++    {
++    	snmp_log(LOG_NOTICE,"Sensor Data Collection not supported\n");
++    	return;
++    }
++
++    /*
++     * create a temporary container and load all sensors once,
++     * to establish indexes.
++     */
++    container = netsnmp_container_find("sensors:table_container");
++    if (NULL == container) {
++        snmp_log(LOG_ERR,"couldn't allocate sensor container to pre-load indexes\n");
++        return;
++    }
++    container->container_name = strdup("sensors pre-load container");
++
++    do_type(container, NETSNMP_SENSORS_GET_TEMPS);
++    netsnmp_sensors_container_free_items(container);
++
++    do_type(container, NETSNMP_SENSORS_GET_FANS);
++    netsnmp_sensors_container_free_items(container);
++
++    do_type(container, NETSNMP_SENSORS_GET_VOLTS);
++    netsnmp_sensors_container_free_items(container);
++
++    do_type(container, NETSNMP_SENSORS_GET_MISCS);
++    netsnmp_sensors_container_free_items(container);
++    CONTAINER_FREE(container);
++}
++
++void
++netsnmp_sensors_arch_shutdown(void)
++{
++
++}
++
++int
++netsnmp_sensors_arch_load(netsnmp_container *container, u_int flags)
++{
++    if (NULL == container)
++        return -1;
++
++    return do_type(container, flags);
++}
++
++
++/***********************************************************************
++ *
++ *
++ */
++static int
++do_type(netsnmp_container *container, int flags)
++{
++    netsnmp_sensor_entry *entry;
++    CFDictionaryRef tmp_dict;
++    CFStringRef key;
++    CFArrayRef   data;
++    CFStringRef  description;
++    CFNumberRef  value;
++    char        *pos;
++    size_t       size, i;
++    int32_t      i32, rc;
++    u_long       tmp, pre_mul = 0, post_div = 0;
++    oid          idx;
++
++#if defined (__ppc__) || defined (__ppc64__)
++    if(flags & NETSNMP_SENSORS_GET_TEMPS) {
++        /**  temp is in degrees C = current_value/65536 */
++        pre_mul = 1000; /* want mC */
++        post_div = 65536;
++        key = kTempDataKey;
++    }
++    else if(flags & NETSNMP_SENSORS_GET_FANS) {
++        /** fan current_value is in rpm */
++        key = kFanDataKey;
++    }
++    else if(flags & NETSNMP_SENSORS_GET_VOLTS) {
++        /**  voltage is in Volts = current_value/65536 */
++        pre_mul = 1000; /* want mV */
++        post_div = 65536;
++        key = kVoltDataKey;
++    }
++    else if(flags & NETSNMP_SENSORS_GET_MISCS) {
++        /**  power is in Watts = current_value/65536 */
++        /**  current is in Amps  = current_value/65536 */
++        pre_mul = 1000; /* want m? */
++        post_div = 65536;
++        key = kMiscDataKey;
++    }
++    else
++        return -2;
++#elif defined (__i386__) || defined(__x86_64__)
++    if(flags & NETSNMP_SENSORS_GET_TEMPS) {
++        /**  temp is in degrees C = current_value/65536 */
++        pre_mul = 1000; /* want mC */
++        post_div = 256;
++        key = kTempDataKey;
++    }
++    else if(flags & NETSNMP_SENSORS_GET_FANS) {
++        /** fan current_value is in rpm */
++        key = kFanDataKey;
++    }
++    else if(flags & NETSNMP_SENSORS_GET_VOLTS) {
++        /**  voltage is in Volts = current_value/65536 */
++        pre_mul = 1000; /* want mV */
++        post_div = 256;
++        key = kVoltDataKey;
++    }
++    else if(flags & NETSNMP_SENSORS_GET_MISCS) {
++        /**  power is in Watts = current_value/65536 */
++        /**  current is in Amps  = current_value/65536 */
++        pre_mul = 1000; /* want m? */
++        post_div = 256;
++        key = kMiscDataKey;
++    }
++    else
++        return -2;
++#endif
++
++    data = DumpSensorData(key);
++    if (NULL == data)
++        return -3;
++
++    size = CFArrayGetCount( data );
++
++    DEBUGMSGTL(("access:lmSensors","=== Type: %s ===\n",
++                CFStringGetCStringPtr(key,0)));
++    for (i = 0; i < size; ++i ) {
++        tmp_dict = (CFDictionaryRef)CFArrayGetValueAtIndex(data, i);
++        if (NULL == tmp_dict) {
++            DEBUGMSGTL(("access:lmSensors","No dict at index %d\n", i));
++            continue;
++        }
++        description = (CFStringRef)
++            CFDictionaryGetValue(tmp_dict,kDescriptionKey);
++        if (NULL == description) {
++            DEBUGMSGTL(("access:lmSensors","No description at %d\n", i));
++            continue;
++        }
++        pos = CFStringGetCStringPtr(description, 0);
++        value = (CFNumberRef)
++            CFDictionaryGetValue(tmp_dict,kCurrentValueKey);
++        if ((NULL == value) ||
++            (0 == CFNumberGetValue(value, kCFNumberSInt32Type, &i32))) {
++            DEBUGMSGTL(("access:lmSensors","No value at %d\n", i));
++            continue;
++        }
++        if (pre_mul && post_div) {
++            tmp = i32 * pre_mul;
++            tmp /= post_div;
++            DEBUGMSGTL(("access:lmSensors","converted %d to %d\n", i32, tmp ));
++            i32 = tmp;
++        }
++
++        idx = se_find_value_in_slist("lmSensors", pos);
++        if (idx == (oid)SE_DNE) {
++            char *copy;
++
++            idx = se_find_free_value_in_slist("lmSensors");
++            if (idx == SE_DNE)
++                idx = 1;
++
++            copy = strdup(pos);
++            if (NULL == copy) {
++                snmp_log(LOG_ERR, "could not allocate memory\n");
++                continue;
++            }
++            se_add_pair_to_slist("lmSensors", copy, idx);
++            DEBUGMSGTL(("access:lmSensors", "saved index %d for %s\n",
++                        idx, copy));
++        }
++
++        entry = netsnmp_sensors_entry_create(idx);
++        if (NULL == entry) {
++            printf("Couldn't not allocate memory for sensor entry\n");
++            SNMP_FREE(entry);
++            continue;
++        }
++        strncpy(entry->device, pos, sizeof(entry->device));
++        entry->device[sizeof(entry->device)-1] = 0;
++        entry->device_len = strlen(entry->device);
++        entry->value = i32;
++        
++        rc = CONTAINER_INSERT(container, entry);
++        if (0 != rc ) {
++            DEBUGMSGTL(("access:lmSensors","Couldn't insert %s entry in container\n",
++                   entry->device));
++            continue;
++        }
++
++        DEBUGMSGTL(("access:lmSensors","Inserted key %s: value %d\n",
++                    pos, i32));
++    }
++
++    DEBUGIF("access:lmSensors") {
++        while(NULL != container) {
++            DEBUGMSGTL(("access:lmSensors","Container %s, %d entries\n", container->container_name,
++                   CONTAINER_SIZE(container)));
++            container = container->next;
++        }
++    }
++    CFRelease(data);
++    return 0;
++}
++
++/***********************************************************************
++ *
++ *  Created by Leland Wallace on 6/7/07.
++ *  Copyright 2007 Apple Computer, Inc. All rights reserved.
++ *  -- APPLE CONFIDENTIAL --
++ *  -- APPLE INTERNAL USE ONLY --
++ *
++ *
++ *  This is a placeholder implementation of the DumpSensorData() routine 
++ *  that builds & returns a fixed dictionary of results.
++ *
++*
++   this function outputs a CFArray that contains the sensor data for
++   the specified key from a PPC G5 machine
++
++        the structure is as follows:
++
++                CFArray of CFDictionaries {
++                         description : CFString
++                         current_value : CFNumber
++                      }
++ *
++ *
++ *	fan current_value is in rpm
++ *  temp is in degrees C = current_value/65536
++ *  voltage is in Volts = current_value/65536
++ *  power is in Watts = current_value/65536
++ *  current is in Amps  = current_value/65536
++ * 
++ */
++CFArrayRef	xDumpSensorData(CFStringRef inKey)
++{
++	CFMutableDictionaryRef sensorData = NULL;
++	CFMutableArrayRef		tmpArray = NULL;
++	CFDictionaryRef			entryDict = NULL;
++	
++	const void *entry_template[] = { kDescriptionKey, kCurrentValueKey };
++	void *entry_values[2];
++	int	tmpNum = 0;
++	
++	sensorData = CFDictionaryCreateMutable (kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	
++	/* fan data */
++	tmpArray = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
++		
++	entry_values[0] = (void *)CFSTR("CPUA_ACS");
++	tmpNum = 0;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("CPUB_ACS");
++	tmpNum = 1005;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("CPUA_INTAKE_FAN");
++	tmpNum = 999;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++
++	entry_values[0] = (void *)CFSTR("CPUA_EXHAUST_FAN");
++	tmpNum = 1000;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++
++	entry_values[0] = (void *)CFSTR("CPUB_INTAKE_FAN");
++	tmpNum = 999;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++
++	entry_values[0] = (void *)CFSTR("CPUB_EXHAUST_FAN");
++	tmpNum = 1001;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++
++	entry_values[0] = (void *)CFSTR("DRIVEBAY_FAN");
++	tmpNum = 1000;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++
++	CFDictionaryAddValue(sensorData, kFanDataKey, tmpArray);
++	CFRelease(tmpArray);
++	
++	/* misc-data */
++	tmpArray = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
++	
++	entry_values[0] = (void *)CFSTR("power:FAKE_POWER_CPUA");
++	tmpNum = 2315625;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("power:FAKE_POWER_CPUB");
++	tmpNum = 2753046;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("current:AD7417AD2_CPUA");
++	tmpNum = 302400;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("current:AD7417AD4_CPUA");
++	tmpNum = 1824000;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("current:AD7417AD2_CPUB");
++	tmpNum = 356000;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("current:AD7417AD4_CPUB");
++	tmpNum = 2152000;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("power:PCI Power 3v");
++	tmpNum = 0;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("power:PCI Power 5v");
++	tmpNum = 0;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("power:PCI Power 12v");
++	tmpNum = 0;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("power:PCI Power Combined");
++	tmpNum = 78540;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	CFDictionaryAddValue(sensorData, kMiscDataKey, tmpArray);
++	CFRelease(tmpArray);
++
++	/* volt-data */
++	tmpArray = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
++	
++	entry_values[0] = (void *)CFSTR("AD7417AD3_CPUA");
++	tmpNum = 83200;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("AD7417AD3_CPUB");
++	tmpNum = 83840;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	CFDictionaryAddValue(sensorData, kVoltDataKey, tmpArray);
++	CFRelease(tmpArray);
++
++	/* temp_data */
++	tmpArray = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
++	
++	entry_values[0] = (void *)CFSTR("AD7417AD1_CPUA");
++	tmpNum = 3904576;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("MAX6690RMT_U3");
++	tmpNum = 4579328;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("AD7417TEMP_CPUA");
++	tmpNum = 3473408;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("AD7417TEMP_CPUB");
++	tmpNum = 3358720;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("AD7417AD1_CPUB");
++	tmpNum = 3934852;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("DRIVEBAY");
++	tmpNum = 1933312;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	entry_values[0] = (void *)CFSTR("MAX6690LOC_U3");
++	tmpNum = 3235840;
++	entry_values[1] = (void *)CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tmpNum);
++	entryDict = CFDictionaryCreate(kCFAllocatorDefault, entry_template, (const void **)entry_values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++	CFRelease(entry_values[1]);
++	CFArrayAppendValue(tmpArray, entryDict);
++	CFRelease(entryDict);
++	
++	CFDictionaryAddValue(sensorData, kTempDataKey, tmpArray);
++	CFRelease(tmpArray);
++
++	CFArrayRef result = (CFArrayRef)CFDictionaryGetValue(sensorData, inKey);
++	if(result != NULL)
++		CFRetain(result);
++		
++	CFRelease(sensorData);
++	return result;
++}
++
++
++/*
++ *  Copyright 2007 Apple Inc. All rights reserved.
++ *  -- APPLE CONFIDENTIAL --
++ *  -- APPLE INTERNAL USE ONLY --
++ */
++
++#include <sys/types.h>
++#include <sys/sysctl.h>
++
++#include <CoreFoundation/CoreFoundation.h>
++//#include <CoreServices/CoreServices.h>
++#include <IOKit/IOKitLib.h>
++#include <IOKit/IOMessage.h>
++#include <IOKit/pwr_mgt/IOPMLib.h>
++
++static int InitPPCDataCollection(void);
++static int GetPPCSensorData(CFArrayRef *outRef, CFStringRef inKey);
++static int	InitSMCDataCollection(void);
++static int GetSMCSensorData(CFArrayRef *outRef, CFStringRef inKey);
++
++#define kSensorDriverName "IOHWSensor"
++#define kControlDriverName "IOHWControl"
++
++static	io_service_t	platformPlugin;
++
++int		InitDataCollection(void)
++{
++	int	result = 0;
++
++#if defined (__ppc__) || defined (__ppc64__)
++	result = InitPPCDataCollection();
++#elif defined (__i386__) || defined(__x86_64__)
++	result = InitSMCDataCollection();
++#else
++	// need to do a pragma #warn or something here
++	return -1;
++#endif
++	return result;
++}
++
++CFArrayRef	DumpSensorData(CFStringRef inKey)
++{
++	CFArrayRef			rawData = NULL;
++	CFMutableArrayRef	cookedData = NULL;
++	CFStringRef			description = NULL;
++	CFDictionaryRef		sourceDict = NULL;
++	CFDictionaryRef		destDict = NULL;
++	CFNumberRef			value = NULL;
++	CFNumberRef			tmpValue = NULL;
++	int					result = 0;
++	CFIndex				numItems = 0;
++	CFIndex				theIndex = 0;
++	UInt32				no_value = 0;
++	const void			*opKeys[] = { kDescriptionKey, kCurrentValueKey };
++	void				*opValues[2];
++	
++#if defined (__ppc__) || defined (__ppc64__)
++		result = GetPPCSensorData(&rawData, inKey);
++#elif defined (__i386__) || defined(__x86_64__)
++		result = GetSMCSensorData(&rawData, inKey);
++#else
++	// need to do a pragma #warn or something here
++
++	return NULL;
++#endif
++	
++	if((result != 0) || (rawData == NULL))
++	{
++		return NULL;
++	}
++
++	numItems = CFArrayGetCount(rawData);
++	cookedData = CFArrayCreateMutable(kCFAllocatorDefault, numItems, &kCFTypeArrayCallBacks);
++	
++	for(theIndex = 0; theIndex < numItems; theIndex++)
++	{
++		sourceDict = (CFDictionaryRef) CFArrayGetValueAtIndex(rawData, theIndex);
++		description = (CFStringRef) CFDictionaryGetValue(sourceDict, kDescriptionKey);
++		if(description == NULL)
++		{
++			description = (CFStringRef) CFDictionaryGetValue(sourceDict, CFSTR("Desc-Key"));
++		}
++		if(description == NULL)
++		{
++			description = (CFStringRef) CFDictionaryGetValue(sourceDict, CFSTR("location"));
++		}
++		if(description == NULL) 
++		{
++			description = kUnknownDescription;
++		}
++		value = (CFNumberRef) CFDictionaryGetValue(sourceDict, kCurrentValueKey);
++		if(value == NULL)
++		{
++			value =  (CFNumberRef) CFDictionaryGetValue(sourceDict, CFSTR("current-value"));
++		}
++		if(value == NULL)
++		{
++			value =  CFNumberCreate (kCFAllocatorDefault, kCFNumberSInt32Type,  &no_value);
++		}
++		opValues[0] = (void *)description;
++		opValues[1] = (void *)value;
++		
++		destDict = CFDictionaryCreate(kCFAllocatorDefault, opKeys, (const void **)opValues, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++		CFArrayAppendValue(cookedData, destDict);
++		CFRelease(destDict);
++	}
++	CFRelease(rawData);
++	
++	return (CFArrayRef)cookedData;
++}
++
++
++/* PPC data collection 
++ */
++
++static int	InitPPCDataCollection(void)
++{
++	// Find the platform plugin
++    platformPlugin = IOServiceGetMatchingService(kIOMasterPortDefault,
++			IOServiceMatching("IOPlatformPlugin"));
++
++	if (!platformPlugin)
++	{
++		
++		return -1;
++	}
++	else
++	{
++		io_name_t name;
++		kern_return_t status = IORegistryEntryGetName(platformPlugin, name);
++		if (status == kIOReturnSuccess)
++		{
++			printf("found the platform plugin: %s\n", name);
++		}
++		return 0;
++	}
++
++}
++
++
++static int	GetPPCSensorData(CFArrayRef *outRef, CFStringRef inKey)
++{
++	CFDictionaryRef		theItem = 0l;
++	CFArrayRef	controlsArray = 0l;
++	CFArrayRef	sensorArray = 0l;
++	CFMutableArrayRef tmpArray = 0l;	
++
++	CFStringRef	theType = 0l;
++	CFIndex		theIndex = 0;
++	
++	if((outRef == NULL) || (*outRef != NULL))
++	{
++		return -1;
++	}
++
++	if(CFStringCompare(kFanDataKey, inKey, 0) == kCFCompareEqualTo)
++	{
++
++		if ((controlsArray = (CFArrayRef)IORegistryEntryCreateCFProperty( platformPlugin,
++				CFSTR("IOHWControls"), NULL, 0l )) != NULL)
++		{
++			tmpArray = CFArrayCreateMutable(kCFAllocatorDefault,0, &kCFTypeArrayCallBacks); 
++			for(theIndex = 0; theIndex < CFArrayGetCount(controlsArray); theIndex++)
++			{
++				theItem = (CFDictionaryRef) CFArrayGetValueAtIndex(controlsArray, theIndex);
++				theType = (CFStringRef) CFDictionaryGetValue(theItem, CFSTR("type"));
++				if(theType == 0l)	continue;	
++				if(CFStringCompare(CFSTR("fan-rpm"), theType, 0) == kCFCompareEqualTo)
++				{
++						CFArrayAppendValue (tmpArray, theItem);
++					continue;
++				}
++			}
++			CFRelease(controlsArray);
++		} else {
++			tmpArray = CFArrayCreateMutable(kCFAllocatorDefault,1, &kCFTypeArrayCallBacks);		// empty array
++		}
++		
++		*outRef = tmpArray;
++		return 0;
++	} 
++	
++	
++	// get temp data
++	if(CFStringCompare(kTempDataKey, inKey, 0) == kCFCompareEqualTo)	
++	{
++	
++		if ((sensorArray = (CFArrayRef)IORegistryEntryCreateCFProperty( platformPlugin,
++				CFSTR("IOHWSensors"), NULL, 0l )) != NULL)
++		{
++			tmpArray = CFArrayCreateMutable(kCFAllocatorDefault,0, &kCFTypeArrayCallBacks); 
++			for(theIndex = 0; theIndex < CFArrayGetCount(sensorArray); theIndex++)
++			{
++				theItem = (CFDictionaryRef) CFArrayGetValueAtIndex(sensorArray, theIndex);
++				theType = (CFStringRef) CFDictionaryGetValue(theItem, CFSTR("type"));
++				if(theType == 0l)	continue;	
++				if(CFStringCompare(CFSTR("temperature"), theType, 0) == kCFCompareEqualTo)
++				{
++					CFArrayAppendValue (tmpArray, theItem);
++					continue;
++				}
++			}
++			CFRelease(sensorArray);
++		} else {
++			tmpArray = CFArrayCreateMutable(kCFAllocatorDefault,1, &kCFTypeArrayCallBacks);		// empty array
++		}
++		*outRef = tmpArray;
++		return 0;
++	}
++	
++	
++	
++	// get voltage data
++	if(CFStringCompare(kVoltDataKey, inKey, 0) == kCFCompareEqualTo)	
++	{
++
++		if ((sensorArray = (CFArrayRef)IORegistryEntryCreateCFProperty( platformPlugin,
++				CFSTR("IOHWSensors"), NULL, 0l )) != NULL)
++		{
++			tmpArray = CFArrayCreateMutable(kCFAllocatorDefault,0, &kCFTypeArrayCallBacks); 
++			//miscArray = CFArrayCreateMutable(kCFAllocatorDefault,0, &kCFTypeArrayCallBacks); 
++			for(theIndex = 0; theIndex < CFArrayGetCount(sensorArray); theIndex++)
++			{
++				theItem = (CFDictionaryRef) CFArrayGetValueAtIndex(sensorArray, theIndex);
++				theType = (CFStringRef) CFDictionaryGetValue(theItem, CFSTR("type"));
++				if(theType == 0l)	continue;	
++				if(CFStringCompare(CFSTR("voltage"), theType, 0) == kCFCompareEqualTo)
++				{
++					CFArrayAppendValue (tmpArray, theItem);
++					continue;
++				}
++			}
++			CFRelease(sensorArray);
++		} else {
++			tmpArray = CFArrayCreateMutable(kCFAllocatorDefault,1, &kCFTypeArrayCallBacks);		// empty array
++		}
++		*outRef = tmpArray;
++		return 0;
++	}
++	
++	return -1;		// no matching key
++}
++
++/* Intel Data Collection routines
++ */
++ 
++#include <unistd.h>
++#include <sys/param.h>
++#include <fcntl.h>
++#include <CoreFoundation/CoreFoundation.h>
++//#include <ApplicationServices/ApplicationServices.h>
++
++
++
++/* Sensor Table
++*/
++#define	kSensorTableFilename	"SensorDat.xml"
++#define	kSensorTableBasePath	"/usr/share/snmp/"
++
++static CFDictionaryRef	CopySensorTableFor(CFStringRef inModel);
++static char 			*CopyTablePath(void);
++static CFStringRef		CopyModelName(void);
++
++/*  SMC interface
++*/
++#define kMyDriversIOKitClassName "AppleSMC"
++
++// SMC data tpyes
++typedef	UInt32	SMCKey;
++typedef	UInt32	SMCDataType;
++typedef	UInt8	SMCDataAttributes;
++typedef	UInt8	SMCResult;
++
++// a struct to hold the SMC version
++typedef struct SMCVersion 
++{
++	unsigned char	major;
++	unsigned char	minor;
++	unsigned char	build;
++	unsigned char	reserved;	// padding for alignment
++	unsigned short	release;
++
++} SMCVersion;
++
++// a struct to hold the key info data
++typedef struct SMCKeyInfoData 
++{
++	IOByteCount			dataSize;
++	SMCDataType			dataType;
++	SMCDataAttributes	dataAttributes;
++
++} SMCKeyInfoData;
++
++// general success / error codes
++enum
++{
++	// a couple error codes
++	kSMCSuccess	= 0,
++	kSMCError	= 1
++};
++
++// the data struct passed up to the Platform Plugin
++typedef struct SMCPLimitData 
++{
++    UInt16	version;
++    UInt16	length;
++    UInt32	cpuPLimit;
++    UInt32	gpuPLimit;
++    UInt32	memPLimit;
++
++} SMCPLimitData;
++
++
++// the struct passed back and forth between the kext and UC
++typedef struct SMCParamStruct
++{
++	SMCKey				key;
++
++	SMCVersion			vers;
++	SMCPLimitData		pLimitData;
++	SMCKeyInfoData		keyInfo;
++	
++	SMCResult			result;
++	UInt8				status;
++
++	UInt8				data8;
++	UInt32				data32;	
++	UInt8				bytes[32];
++	
++}  SMCParamStruct;
++
++
++enum
++{
++	// the user client method name constants 
++	kSMCUserClientOpen,
++	kSMCUserClientClose,
++	kSMCHandleYPCEvent,
++
++	kSMCPlaceholder1,		// *** LEGACY SUPPORT placeholder
++	kSMCNumberOfMethods,
++	
++	// other constants not mapped to individual methods
++	kSMCReadKey,
++	kSMCWriteKey,
++	kSMCGetKeyCount,
++	kSMCGetKeyFromIndex,
++	kSMCGetKeyInfo,
++
++	kSMCFireInterrupt,
++	kSMCGetPLimits,
++	kSMCGetVers,
++	kSMCPlaceholder2,		// *** LEGACY SUPPORT placeholder
++	
++	kSMCReadStatus,
++	kSMCReadResult,
++
++	kSMCVariableCommand
++};
++
++
++static IOReturn	OpenUserClient(io_service_t serviceObject, io_connect_t dataPort);
++static IOReturn	CloseUserClient(io_connect_t dataPort);
++static IOReturn	callFunction(int which, SMCParamStruct *inputValues, SMCParamStruct *outputValues);
++
++
++/* High Level Interface
++*/
++static CFDictionaryRef	gSensorTable = NULL;
++
++static CFArrayRef	GetFanDataFor(CFDictionaryRef inKeyDict);
++static void FanDataCollector (const void *key, const void *value, void *context);
++static CFArrayRef	GetTempDataFor(CFDictionaryRef inKeyDict);
++static void TempDataCollector (const void *key, const void *value, void *context);
++static CFArrayRef	GetVoltDataFor(CFDictionaryRef inKeyDict);
++static void VoltDataCollector (const void *key, const void *value, void *context);
++
++static int	GetUInt16ForKey(unsigned char *inKey, UInt16 *outValue);
++//static int	GetDoubleFrmFP88ForKey(unsigned char *inKey, double *outValue);
++//static int	GetDoubleFrmSP78ForKey(unsigned char *inKey, double *outValue);
++
++static SMCKey makeUInt32Key(char * keyStr);
++
++
++
++
++
++/* Sensor Table
++*/
++
++static CFDictionaryRef	CopySensorTableFor(CFStringRef inModel)
++{
++	int		fd = 0;
++	char	*path = CopyTablePath();
++	char	buf[4096];
++	size_t	bufLen = 0;
++	CFMutableDataRef	tmpData = NULL;
++	CFDictionaryRef	modelDict = NULL;
++	CFDictionaryRef	fullTable = NULL;
++	
++	
++	if(path == NULL)
++	{
++		return NULL;
++	}
++	// read in the xml data
++	if((fd = open(path, O_RDONLY | O_NOFOLLOW)) == -1)
++	{
++		//fprintf(stderr,"Could not open %s, errno %d\n", path, errno);
++		free(path);
++		return NULL;
++	}
++	free(path);
++	
++	tmpData = CFDataCreateMutable (kCFAllocatorDefault, 0);
++	while((bufLen = read(fd, buf, sizeof(buf))) > 0)
++	{
++		CFDataAppendBytes (tmpData, (unsigned char*)buf, (CFIndex)bufLen);
++	}
++	close(fd);
++	if(bufLen == -1)	// error return
++	{
++		//fprintf(stderr,"Read Error: %s, errno %d\n", path, errno);
++		CFRelease(tmpData);
++		return NULL;
++	}
++	
++	// make a plist/dictionary
++	fullTable = CFPropertyListCreateFromXMLData(kCFAllocatorDefault, tmpData, kCFPropertyListImmutable, NULL);
++	if(fullTable == NULL)
++	{
++		//fprintf(stderr,"Format Error: %s", path);
++		CFRelease(tmpData);
++		return NULL;
++	}
++	
++	// look for inModle in the dictionary
++	modelDict = (CFDictionaryRef)CFDictionaryGetValue (fullTable, inModel);
++	if(modelDict != NULL)
++	{
++		CFRetain(modelDict);
++	} else {
++		//fprintf(stderr,"No table found for");
++		//CFShow(inModel);
++	}
++	
++	// cleanup
++	CFRelease(fullTable);
++	CFRelease(tmpData);
++	return modelDict;
++}
++
++// must be changed to find the SensorData.xml file
++static char *CopyTablePath(void)
++{
++	char *pathbuf = calloc(1, MAXPATHLEN);
++	
++	strlcpy(pathbuf, kSensorTableBasePath, MAXPATHLEN);
++	strlcat(pathbuf, "/", MAXPATHLEN);
++
++	strlcat(pathbuf, kSensorTableFilename, MAXPATHLEN);
++	//fprintf(stderr,"Looking for %s at %s\n", kSensorTableFilename, pathbuf);
++	if(strlen(pathbuf) > MAXPATHLEN-2)	// looks like we have a truncation error
++	{
++		free(pathbuf);
++		return NULL;
++	}
++
++	return pathbuf;
++}
++
++static CFStringRef	CopyModelName(void)
++{
++	int		mib[4];
++	char	strBuffer[64];
++	size_t	bufLen = sizeof(strBuffer);
++	CFStringRef	result = NULL;
++	
++    mib[0] = CTL_HW;
++    mib[1] = HW_MODEL;
++	
++	memset(strBuffer, 0 , bufLen);
++	
++	if (!sysctl(mib, 2, &strBuffer, &bufLen, NULL, 0))
++    {
++		result = CFStringCreateWithCString (kCFAllocatorDefault, strBuffer, kCFStringEncodingUTF8);
++	} else {
++		return NULL;
++	}
++	return result;
++}
++
++/*   Low Level SMC Interface
++*/
++
++static IOReturn OpenUserClient(io_service_t serviceObject, io_connect_t dataPort)
++{
++	return IOConnectCallScalarMethod(dataPort, kSMCUserClientOpen, NULL, 0, NULL, NULL);
++}
++
++static IOReturn CloseUserClient(io_connect_t dataPort)
++{
++	return IOConnectCallScalarMethod(dataPort, kSMCUserClientOpen, NULL, 0, NULL, NULL);
++}
++
++static IOReturn callFunction(int which, SMCParamStruct *inputValues, SMCParamStruct *outputValues) 
++{
++    mach_port_t		masterPort;
++    io_service_t	serviceObject;
++    io_connect_t	dataPort;
++    io_iterator_t 	iterator;
++
++    CFDictionaryRef classToMatch;
++
++	IOReturn result = kIOReturnSuccess, retval = kIOReturnSuccess;
++
++    // returns the mach port used to initiate communication with IOKit
++    retval = IOMasterPort(MACH_PORT_NULL, &masterPort);    
++    if(retval != kIOReturnSuccess) 
++	{
++        //printf("ASMCF::callFunction ERROR - IOMasterPort returned %s\n", printIOReturn(retval));
++        return retval;
++    }
++
++    // find the entry in the IORegistry
++    classToMatch = IOServiceMatching(kMyDriversIOKitClassName);
++	if(classToMatch == NULL) 
++	{
++        //printf("ASMCF::callFunction ERROR - IOServiceMatching returned a NULL dictionary\n");
++        return kIOReturnError;
++    }
++    
++    // this creates an io_iterator_t of all instances of our drivers class that exist in the IORegistry
++    retval = IOServiceGetMatchingServices(masterPort, classToMatch, &iterator);
++    if(retval != kIOReturnSuccess) 
++	{
++        //printf("ASMCF::callFunction ERROR - IOServiceGetMatchingServices returned %s\n", printIOReturn(retval));
++        return retval;
++    }
++
++    // get the first item in the iterator
++    serviceObject = IOIteratorNext(iterator);
++    
++    // release the iterator since there's only 1 object
++    IOObjectRelease(iterator);
++    
++    if(serviceObject) 
++	{
++        // this call will cause the user client to be instantiated
++        retval = IOServiceOpen(serviceObject, mach_task_self(), 1, &dataPort);        
++        IOObjectRelease(serviceObject);
++        
++        if(retval != kIOReturnSuccess) 
++		{
++            //printf("ASMCF::callFunction ERROR - IOServiceOpen returned %s\n", printIOReturn(retval));
++            return retval;
++        } 
++    
++        retval = OpenUserClient(serviceObject, dataPort);
++        if(retval != kIOReturnSuccess) 
++		{
++            //printf("ASMCF::callFunction ERROR - OpenUserClient returned %s\n", printIOReturn(retval));
++            
++            IOServiceClose(dataPort);
++            return retval;
++        }
++
++        //printf("ASMCF::callFunction which == %d\n", which);
++
++		IOByteCount	inStructSize = sizeof(SMCParamStruct);
++		IOItemCount	outStructSize = sizeof(SMCParamStruct);;
++		
++		retval = IOConnectCallStructMethod
++			(
++				dataPort,		// an io_connect_t returned from IOServiceOpen()
++				which,			// an index to the function in the Kernel
++				inputValues,	// the struct input parameter
++				inStructSize,   // the size of the struct input paramter
++				outputValues,	// the struct output parameter
++				&outStructSize	// the size of the struct output paramter
++			);
++
++		//printf("### ASMCF::callFunction - retval = %s\n", printIOReturn(retval));
++		
++		result = retval;
++		//if(retval != kIOReturnSuccess) { printf("ASMCF::callFunction ERROR - IOConnectMethod returned %s\n", printIOReturn(retval)); }
++		
++		retval = CloseUserClient(dataPort);
++        //if(retval != kIOReturnSuccess) { printf("ASMCF::callFunction ERROR - CloseUserClient returned %s\n", printIOReturn(retval)); }
++
++		retval = IOServiceClose(dataPort);
++        //if(retval != kIOReturnSuccess) { printf("ASMCF::callFunction ERROR - IOServiceClose returned %s\n", printIOReturn(retval)); }
++    }
++    else
++    {
++        // release the io_service_t now that we're done with it
++        IOObjectRelease(serviceObject);
++        //printf("ASMCF::callFunction ERROR - couldn't find the driver!\n");
++		result = kIOReturnError;
++    }
++	
++    return result;
++}
++
++
++/* High Level Routines
++*/
++
++static int	InitSMCDataCollection(void)
++{
++	IOReturn		result = 0;
++	CFStringRef		modelName = CopyModelName();
++
++	CFDictionaryRef	tmpDict = CopySensorTableFor(modelName);
++	
++	if(tmpDict == NULL)
++	{
++		fprintf(stderr,"Couldn't find a table entry for the model name %0x\n", modelName);
++		return -1;
++	} else {
++		gSensorTable = tmpDict;
++	}
++	if(modelName != NULL)
++		CFRelease(modelName);
++	return result;
++}
++
++static int GetSMCSensorData(CFArrayRef *outRef, CFStringRef inKey)
++{
++	CFArrayRef	valueArray = NULL;
++	CFDictionaryRef	keyDict = NULL;
++	int	result = 0;
++	
++	if(gSensorTable == NULL)
++	{
++		return -1;
++	}
++	
++	
++	if((outRef == NULL) || (*outRef != NULL))
++	{
++		return -1;
++	}
++	
++	keyDict = (CFDictionaryRef) CFDictionaryGetValue (gSensorTable, inKey);
++	if(keyDict == NULL)
++	{
++		return -1;
++	}
++	
++	//CFShow(keyDict);
++	
++	// figure out the type of the data
++	if(CFStringCompare(kFanDataKey, inKey, 0) == kCFCompareEqualTo)
++	{
++		valueArray = GetFanDataFor(keyDict);
++	} else if(CFStringCompare(kTempDataKey, inKey, 0) == kCFCompareEqualTo)
++	{
++		valueArray = GetTempDataFor(keyDict);
++	} else if(CFStringCompare(kVoltDataKey, inKey, 0) == kCFCompareEqualTo)
++	{
++		valueArray = GetVoltDataFor(keyDict);
++	} else {
++		return -1;
++	}
++	
++	//CFShow(valueArray);
++	*outRef = valueArray;
++
++	return result;
++}
++
++/* 
++	create the results array, apply a function to the dictionary to fill the array, return it
++*/
++static CFArrayRef	GetFanDataFor(CFDictionaryRef inKeyDict)
++{
++	CFMutableArrayRef	results = NULL;
++	results = CFArrayCreateMutable(kCFAllocatorDefault, CFDictionaryGetCount(inKeyDict), &kCFTypeArrayCallBacks);	
++	if(results != NULL)
++	{
++		CFDictionaryApplyFunction (inKeyDict, (CFDictionaryApplierFunction)FanDataCollector, (void *)results);
++	}
++	return results;
++}
++
++static void FanDataCollector (const void *key, const void *value, void *context)
++{
++	CFStringRef	keyVal =(CFStringRef)key;
++	CFStringRef	description =(CFStringRef)value;
++	CFMutableArrayRef	resultsArray = (CFMutableArrayRef)context;
++	unsigned char   keyBuf[5];
++	CFMutableDictionaryRef itemDictionary = NULL;
++	CFNumberRef			tmpNum = NULL;
++	UInt16			dummy_16 = 0;
++	UInt32			dummy_32 = 0;
++	IOReturn		result = 0;
++	
++	if(CFStringGetCString (keyVal, (char *)keyBuf, sizeof(keyBuf), kCFStringEncodingUTF8))
++	{
++		result = GetUInt16ForKey(keyBuf, &dummy_16);
++		if(result != kSMCSuccess)
++		{
++			return;
++		}
++		itemDictionary = CFDictionaryCreateMutable (kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++		dummy_32 = dummy_16;
++		tmpNum = CFNumberCreate (kCFAllocatorDefault, kCFNumberSInt32Type,  &dummy_32);
++		CFDictionaryAddValue (itemDictionary, kCurrentValueKey, tmpNum);
++		CFDictionaryAddValue (itemDictionary, kDescriptionKey, description);
++
++		CFArrayAppendValue(resultsArray, itemDictionary);
++		CFRelease(tmpNum);
++		CFRelease(itemDictionary);
++	}
++}
++
++
++static CFArrayRef	GetTempDataFor(CFDictionaryRef inKeyDict)
++{
++	CFMutableArrayRef	results = NULL;
++	results = CFArrayCreateMutable(kCFAllocatorDefault, CFDictionaryGetCount(inKeyDict), &kCFTypeArrayCallBacks);	
++	if(results != NULL)
++	{
++		CFDictionaryApplyFunction (inKeyDict, (CFDictionaryApplierFunction)TempDataCollector, (void *)results);
++	}
++	return results;
++}
++
++// need to convert sp78 to a CFNumber
++static void TempDataCollector (const void *key, const void *value, void *context)
++{
++	CFStringRef	keyVal =(CFStringRef)key;
++	CFStringRef	description =(CFStringRef)value;
++	CFMutableArrayRef	resultsArray = (CFMutableArrayRef)context;
++	unsigned char   keyBuf[5];
++	CFMutableDictionaryRef itemDictionary = NULL;
++	CFNumberRef			tmpNum = NULL;
++	UInt16			dummy_16 = 0;
++	UInt32			dummy_32 = 0;
++	IOReturn		result = 0;
++	
++	if(CFStringGetCString (keyVal, (char *)keyBuf, sizeof(keyBuf), kCFStringEncodingUTF8))
++	{
++		result = GetUInt16ForKey(keyBuf, &dummy_16);
++		if(result != kSMCSuccess)
++		{
++			return;
++		}
++		itemDictionary = CFDictionaryCreateMutable (kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++		dummy_32 = dummy_16;  // do the conversion here
++		tmpNum = CFNumberCreate (kCFAllocatorDefault, kCFNumberSInt32Type,  &dummy_32);
++		CFDictionaryAddValue (itemDictionary, kCurrentValueKey, tmpNum);
++		CFDictionaryAddValue (itemDictionary, kDescriptionKey, description);
++
++		CFArrayAppendValue(resultsArray, itemDictionary);
++		CFRelease(tmpNum);
++		CFRelease(itemDictionary);
++	}
++}
++
++
++
++static CFArrayRef	GetVoltDataFor(CFDictionaryRef inKeyDict)
++{
++	CFMutableArrayRef	results = NULL;
++	results = CFArrayCreateMutable(kCFAllocatorDefault, CFDictionaryGetCount(inKeyDict), &kCFTypeArrayCallBacks);	
++	if(results != NULL)
++	{
++		CFDictionaryApplyFunction (inKeyDict, (CFDictionaryApplierFunction)VoltDataCollector, (void *)results);
++	}
++	return results;
++}
++
++
++// need to convert fp88 to CFNumber
++static void VoltDataCollector (const void *key, const void *value, void *context)
++{
++	CFStringRef	keyVal =(CFStringRef)key;
++	CFStringRef	description =(CFStringRef)value;
++	CFMutableArrayRef	resultsArray = (CFMutableArrayRef)context;
++	unsigned char   keyBuf[5];
++	CFMutableDictionaryRef itemDictionary = NULL;
++	CFNumberRef			tmpNum = NULL;
++	UInt16			dummy_16 = 0;
++	UInt32			dummy_32 = 0;
++	IOReturn		result = 0;
++	
++	if(CFStringGetCString (keyVal, (char *)keyBuf, sizeof(keyBuf), kCFStringEncodingUTF8))
++	{
++		result = GetUInt16ForKey(keyBuf, &dummy_16);
++		if(result != kSMCSuccess)
++		{
++			return;
++		}
++		itemDictionary = CFDictionaryCreateMutable (kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++		dummy_32 = dummy_16;		// do the conversion here
++		tmpNum = CFNumberCreate (kCFAllocatorDefault, kCFNumberSInt32Type,  &dummy_32);
++		CFDictionaryAddValue (itemDictionary, kCurrentValueKey, tmpNum);
++		CFDictionaryAddValue (itemDictionary, kDescriptionKey, description);
++
++		CFArrayAppendValue(resultsArray, itemDictionary);
++		CFRelease(tmpNum);
++		CFRelease(itemDictionary);
++	}
++}
++
++static SMCKey makeUInt32Key(char * keyStr)
++{
++	SMCKey key32 = 0;
++
++	if(keyStr[0] == '-')
++	{
++		if(strlen(keyStr) < 5) { keyStr[4] = 0x20; } // for 3-character keys, we need to input a space in the 4th spot
++		keyStr[5] = 0;								 // always have 4 characters or less
++				
++		key32 = (keyStr[1] << 24);
++		key32 |= (keyStr[2] << 16);
++		key32 |= (keyStr[3] << 8);
++		key32 |= (keyStr[4] << 0);
++	}
++	else
++	{
++		if(strlen(keyStr) < 4) { keyStr[3] = 0x20; } // for 3-character keys, we need to input a space in the 4th spot
++		keyStr[4] = 0;								 // always have 4 characters or less
++				
++		key32 = (keyStr[0] << 24);
++		key32 |= (keyStr[1] << 16);
++		key32 |= (keyStr[2] << 8);
++		key32 |= (keyStr[3] << 0);
++	}
++	
++	return key32;
++}
++
++static int	GetUInt16ForKey(unsigned char *inKey, UInt16 *outValue)
++{
++	SMCParamStruct	inStruct;
++	SMCParamStruct	outStruct;
++	IOReturn	result = kIOReturnSuccess;
++	
++	bzero(&inStruct, sizeof(SMCParamStruct));
++
++	inStruct.data8 = kSMCReadKey;
++	inStruct.keyInfo.dataSize = sizeof(UInt16);
++	inStruct.key = makeUInt32Key((char *)inKey);
++	if(inStruct.key == 0)
++		return 1;
++	
++	result = callFunction(kSMCHandleYPCEvent, &inStruct, &outStruct);
++	if(result == kIOReturnSuccess)
++	{
++		result = outStruct.result;
++		*outValue = outStruct.bytes[1] + outStruct.bytes[0] * 256;
++	}
++	
++	return result;
++};
++

@@ -4389,11 +4389,23 @@ void* CRequestHandler::DoReleaseContinueData ( sComData *inMsg, SInt32 *outStatu
 
 			// Verify the Directory Reference
 			siResult = CRefTable::VerifyNodeRef( p->fInDirReference, &fPluginPtr, aClientPID, anIPAddress );
-			if ( siResult != eDSNoErr ) throw( siResult );
-
-			siResult = CRefTable::VerifyDirRef( p->fInDirReference, &fPluginPtr, aClientPID, anIPAddress );
-			if ( siResult != eDSNoErr ) throw( siResult );
-
+			if ( siResult == eDSInvalidRefType )
+			{
+				siResult = CRefTable::VerifyDirRef( p->fInDirReference, &fPluginPtr, aClientPID, anIPAddress );
+				if ( siResult != eDSNoErr )
+				{
+					DbgLog( kLogError, "dsDoReleaseContinueData - PID %d called with <%d> that is not a node or directory reference", 
+						    aClientPID, p->fInDirReference );
+					throw( siResult );
+				}
+			}
+			else if ( siResult != eDSNoErr )
+			{
+				DbgLog( kLogError, "dsDoReleaseContinueData - PID %d error %d while checking if reference <%d> is a node", aClientPID, siResult,
+					    p->fInDirReference );
+				throw( siResult );
+			}
+			
 			if ( fPluginPtr == nil )
 			{
 				// weird problem if we make it here

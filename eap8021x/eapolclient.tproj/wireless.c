@@ -149,17 +149,19 @@ wireless_set_wpa_session_key(const wireless_t wref,
 			     const uint8_t * key, int key_length)
 {
     struct apple80211_key 	akey;
-	
+
     /* validate the key_length */
-    if (key_length != 0 && key_length != 32) {
+    if (key_length > 32 || key_length < 0) {
 	return (FALSE);
     }
     bzero(&akey, sizeof(akey));
     akey.version = APPLE80211_VERSION;
-    akey.key_len = (u_int32_t)key_length;
-    if (key_length > 0) {
+    if (key_length != 0) {
+	/* copy the session key, zero-padding to 32 bytes */
 	memcpy(akey.key, key, key_length);
+	key_length = 32;
     }
+    akey.key_len = (u_int32_t)key_length;
     akey.key_cipher_type = APPLE80211_CIPHER_PMK;
     return (Apple80211Set((Apple80211Ref)wref, APPLE80211_IOC_CIPHER_KEY, 0, 
 			  &akey, sizeof(akey)) == kA11NoErr);

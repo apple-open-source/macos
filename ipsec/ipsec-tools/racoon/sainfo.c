@@ -79,12 +79,16 @@ static LIST_HEAD(_sitree, sainfo) sitree;
  * First pass is for sainfo from a specified peer, second for others.
  */
 struct sainfo *
-getsainfo(src, dst, peer)
+getsainfo(src, dst, peer, use_nat_addr)
 	const vchar_t *src, *dst, *peer;
+	int use_nat_addr;
 {
 	struct sainfo *s = NULL;
 	struct sainfo *anonymous = NULL;
 	int pass = 1;
+	
+	if (use_nat_addr && lcconf->ext_nat_id == NULL)
+		return NULL;
 
 	if (peer == NULL)
 		pass = 2;
@@ -109,9 +113,13 @@ getsainfo(src, dst, peer)
 			continue;
 		}
 
-		if (memcmp(src->v, s->idsrc->v, s->idsrc->l) == 0
-		 && memcmp(dst->v, s->iddst->v, s->iddst->l) == 0)
-			return s;
+		if (memcmp(src->v, s->idsrc->v, s->idsrc->l) == 0) {
+			if (use_nat_addr) {
+				if (memcmp(lcconf->ext_nat_id->v, s->iddst->v, s->iddst->l) == 0)
+					return s;
+			} else if (memcmp(dst->v, s->iddst->v, s->iddst->l) == 0)
+				return s;
+		}
 	}
 
 	if (anonymous) {

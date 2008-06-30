@@ -367,8 +367,8 @@ rb_ary_store(ary, idx, val)
 	    new_capa = ARY_DEFAULT_SIZE;
 	}
 	new_capa += idx;
-	if (new_capa * (long)sizeof(VALUE) <= new_capa) {
-	    rb_raise(rb_eArgError, "index too big");
+	if (new_capa < 0 || new_capa > LONG_MAX / sizeof(VALUE)) {
+		rb_raise(rb_eArgError, "index too big");
 	}
 	REALLOC_N(RARRAY(ary)->ptr, VALUE, new_capa);
 	RARRAY(ary)->aux.capa = new_capa;
@@ -976,6 +976,9 @@ rb_ary_splice(ary, beg, len, rpl)
 
     if (beg >= RARRAY(ary)->len) {
 	len = beg + rlen;
+	if (len < 0 || len > LONG_MAX / sizeof(VALUE)) {
+		rb_raise(rb_eIndexError, "index %ld too big", beg);
+	}
 	if (len >= RARRAY(ary)->aux.capa) {
 	    REALLOC_N(RARRAY(ary)->ptr, VALUE, len);
 	    RARRAY(ary)->aux.capa = len;

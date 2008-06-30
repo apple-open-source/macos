@@ -13,7 +13,7 @@ extern "C" {
 
 #define RUBY_STABILITY "___dtrace_stability$ruby$v1$5_5_5_1_1_5_1_1_5_5_5_5_5_5_5"
 
-#define RUBY_TYPEDEFS "___dtrace_typedefs$ruby$v1"
+#define RUBY_TYPEDEFS "___dtrace_typedefs$ruby$v2"
 
 #define	RUBY_FUNCTION_ENTRY(arg0, arg1, arg2, arg3) \
 { \

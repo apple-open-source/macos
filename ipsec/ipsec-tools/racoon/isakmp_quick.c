@@ -88,7 +88,7 @@
 /* quick mode */
 static vchar_t *quick_ir1mx __P((struct ph2handle *, vchar_t *, vchar_t *));
 static int get_sainfo_r __P((struct ph2handle *));
-static int get_proposal_r __P((struct ph2handle *));
+static int get_proposal_r __P((struct ph2handle *, int));
 
 /* %%%
  * Quick Mode
@@ -470,43 +470,56 @@ quick_i2recv(iph2, msg0)
 
 		case ISAKMP_NPTYPE_ID:
 		    {
-			vchar_t *vp;
+				vchar_t *vp;
 
-			/* check ID value */
-			if (f_id == 0) {
-				/* for IDci */
-				f_id = 1;
-				vp = iph2->id;
-			} else {
-				/* for IDcr */
-				vp = iph2->id_p;
-			}
-
-			/* These ids may not match when natt is used with some devices.
-			 * RFC 2407 says that the protocol and port fields should be ignored
-			 * if they are zero, therefore they need to be checked individually.
-			 */
-			struct ipsecdoi_id_b *id_ptr = (struct ipsecdoi_id_b *)vp->v;
-			struct ipsecdoi_pl_id *idp_ptr = (struct ipsecdoi_pl_id *)pa->ptr;
-			
-			if (id_ptr->type != idp_ptr->b.type
-				|| (idp_ptr->b.proto_id != 0 && idp_ptr->b.proto_id != id_ptr->proto_id)
-				|| (idp_ptr->b.port != 0 && idp_ptr->b.port != id_ptr->port)
-				|| memcmp(vp->v + sizeof(struct ipsecdoi_id_b), (caddr_t)pa->ptr + sizeof(struct ipsecdoi_pl_id), 
-						vp->l - sizeof(struct ipsecdoi_id_b))) {
-				//%%% BUG_FIX - to support some servers
-				if (iph2->ph1->natt_flags & NAT_DETECTED) {
-					plog(LLV_WARNING, LOCATION, NULL,
-						"mismatched ID was returned - ignored because nat traversal is being used.\n");
-					break;
+				/* check ID value */
+				if (f_id == 0) {
+					/* for IDci */
+					vp = iph2->id;
+				} else {
+					/* for IDcr */
+					vp = iph2->id_p;
 				}
-				plog(LLV_ERROR, LOCATION, NULL,
-					"mismatched ID was returned.\n");
-				error = ISAKMP_NTYPE_ATTRIBUTES_NOT_SUPPORTED;
-				goto end;
-				}
-			}
 
+				/* These ids may not match when natt is used with some devices.
+				 * RFC 2407 says that the protocol and port fields should be ignored
+				 * if they are zero, therefore they need to be checked individually.
+				 */
+				struct ipsecdoi_id_b *id_ptr = (struct ipsecdoi_id_b *)vp->v;
+				struct ipsecdoi_pl_id *idp_ptr = (struct ipsecdoi_pl_id *)pa->ptr;
+				
+				if (id_ptr->type != idp_ptr->b.type
+					|| (idp_ptr->b.proto_id != 0 && idp_ptr->b.proto_id != id_ptr->proto_id)
+					|| (idp_ptr->b.port != 0 && idp_ptr->b.port != id_ptr->port)
+					|| memcmp(vp->v + sizeof(struct ipsecdoi_id_b), (caddr_t)pa->ptr + sizeof(struct ipsecdoi_pl_id), 
+							vp->l - sizeof(struct ipsecdoi_id_b))) {
+					// to support servers that use our external nat address as our ID
+					if (iph2->ph1->natt_flags & NAT_DETECTED) {
+						plog(LLV_WARNING, LOCATION, NULL,
+							"mismatched ID was returned - ignored because nat traversal is being used.\n");
+						/* If I'm behind a nat and the ID is type address - save the address
+						 * and port for when the peer rekeys.
+						 */
+						if (f_id == 0 && (iph2->ph1->natt_flags & NAT_DETECTED_ME)) {
+							if (lcconf->ext_nat_id)
+								vfree(lcconf->ext_nat_id);
+							lcconf->ext_nat_id = vmalloc(idp_ptr->h.len - sizeof(struct isakmp_gen));
+							if (lcconf->ext_nat_id == NULL) {
+								plog(LLV_ERROR, LOCATION, NULL, "memory error while allocating external nat id.\n");
+								goto end;
+							}
+							memcpy(lcconf->ext_nat_id->v, &(idp_ptr->b), lcconf->ext_nat_id->l);
+							plog(LLV_DEBUG, LOCATION, NULL, "external nat address saved.\n");
+						} 
+					} else {
+						plog(LLV_ERROR, LOCATION, NULL, "mismatched ID was returned.\n");
+						error = ISAKMP_NTYPE_ATTRIBUTES_NOT_SUPPORTED;
+						goto end;
+					}
+				}
+				if (f_id == 0)
+					f_id = 1;
+			}
 			break;
 
 		case ISAKMP_NPTYPE_N:
@@ -1130,7 +1143,10 @@ quick_r1recv(iph2, msg0)
 	}
 
 	/* check the existence of ID payload and create responder's proposal */
-	error = get_proposal_r(iph2);
+	error = get_proposal_r(iph2, 0);
+	if (error != -2 && error != 0 && (iph2->ph1->natt_flags & NAT_DETECTED_ME) && lcconf->ext_nat_id != NULL)
+		error = get_proposal_r(iph2, 1);
+		
 	switch (error) {
 	case -2:
 		/* generate a policy template from peer's proposal */
@@ -1953,7 +1969,10 @@ get_sainfo_r(iph2)
 		goto end;
 	}
 
-	iph2->sainfo = getsainfo(idsrc, iddst, iph2->ph1->id_p);
+	iph2->sainfo = getsainfo(idsrc, iddst, iph2->ph1->id_p, 0);
+	if (iph2->sainfo == NULL)
+		if ((iph2->ph1->natt_flags & NAT_DETECTED_ME) && lcconf->ext_nat_id != NULL)
+			iph2->sainfo = getsainfo(idsrc, iddst, iph2->ph1->id_p, 1);
 	if (iph2->sainfo == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to get sainfo.\n");
@@ -1984,8 +2003,9 @@ end:
  * NOTE: This function is only for responder.
  */
 static int
-get_proposal_r(iph2)
+get_proposal_r(iph2, use_remote_addr)
 	struct ph2handle *iph2;
+	int use_remote_addr;
 {
 	struct policyindex spidx;
 	struct secpolicy *sp_in, *sp_out;
@@ -2018,8 +2038,11 @@ get_proposal_r(iph2)
 	/*
 	 * make destination address in spidx from either ID payload
 	 * or phase 1 address into a address in spidx.
+	 * If behind a nat - use phase1 address because server's
+	 * use the nat's address in the ID payload.
 	 */
 	if (iph2->id != NULL
+	 && use_remote_addr == 0
 	 && (_XIDT(iph2->id) == IPSECDOI_ID_IPV4_ADDR
 	  || _XIDT(iph2->id) == IPSECDOI_ID_IPV6_ADDR
 	  || _XIDT(iph2->id) == IPSECDOI_ID_IPV4_ADDR_SUBNET
@@ -2066,7 +2089,11 @@ get_proposal_r(iph2)
 		memcpy(&spidx.dst, iph2->src, sysdep_sa_len(iph2->src));
 		switch (spidx.dst.ss_family) {
 		case AF_INET:
-			spidx.prefd = sizeof(struct in_addr) << 3;
+			{
+				struct sockaddr_in *s = (struct sockaddr_in *)&spidx.dst;
+				spidx.prefd = sizeof(struct in_addr) << 3;			
+				s->sin_port = htons(0);
+			}
 			break;
 #ifdef INET6
 		case AF_INET6:
@@ -2081,6 +2108,7 @@ get_proposal_r(iph2)
 
 	/* make source address in spidx */
 	if (iph2->id_p != NULL
+	 && use_remote_addr == 0
 	 && (_XIDT(iph2->id_p) == IPSECDOI_ID_IPV4_ADDR
 	  || _XIDT(iph2->id_p) == IPSECDOI_ID_IPV6_ADDR
 	  || _XIDT(iph2->id_p) == IPSECDOI_ID_IPV4_ADDR_SUBNET
@@ -2123,7 +2151,11 @@ get_proposal_r(iph2)
 		memcpy(&spidx.src, iph2->dst, sysdep_sa_len(iph2->dst));
 		switch (spidx.src.ss_family) {
 		case AF_INET:
-			spidx.prefs = sizeof(struct in_addr) << 3;
+			{
+				struct sockaddr_in *s = (struct sockaddr_in *)&spidx.src;
+				spidx.prefs = sizeof(struct in_addr) << 3;
+				s->sin_port = htons(0);
+			}
 			break;
 #ifdef INET6
 		case AF_INET6:

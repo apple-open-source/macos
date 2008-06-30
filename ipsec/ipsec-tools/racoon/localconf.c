@@ -101,6 +101,10 @@ flushlcconf()
 			vfree(lcconf->ident[i]);
 		lcconf->ident[i] = NULL;
 	}
+	if (lcconf->ext_nat_id) {
+		vfree(lcconf->ext_nat_id);
+		lcconf->ext_nat_id = NULL;
+	}
 }
 
 static void

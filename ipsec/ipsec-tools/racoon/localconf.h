@@ -132,6 +132,7 @@ struct localconf {
 	int wait_ph2complete;
 
 	int natt_ka_interval;		/* NAT-T keepalive interval. */
+	vchar_t *ext_nat_id;		/* our address id for our nat address */
 
 	int secret_size;
 	int strict_address;		/* strictly check addresses. */

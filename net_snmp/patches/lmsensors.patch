@@ -1,0 +1,1374 @@
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/include/net-snmp/data_access/sensors.h APPLE/include/net-snmp/data_access/sensors.h
+--- SVN/include/net-snmp/data_access/sensors.h
++++ APPLE/include/net-snmp/data_access/sensors.h
+@@ -0,0 +1,71 @@
++#ifndef NETSNMP_SENSORS_H
++#define NETSNMP_SENSORS_H
++
++#ifdef  __cplusplus
++extern "C" {
++#endif
++
++    /*******************************************************************
++     * Data structure for a sensors entry 
++     */
++typedef struct netsnmp_sensor_entry_s {
++    netsnmp_index   oid_index;
++
++    /*
++     * Index values 
++     */
++    oid            index;
++
++    /*
++     * Column values 
++     */
++    char            device[255];
++    int32_t         value;
++
++    char            device_len;
++
++} netsnmp_sensor_entry;
++
++/*
++ * type constants (based on the oid of the table subtree in the mib)
++ */
++#define NETSNMP_SENSOR_TYPE_TEMP      2
++#define NETSNMP_SENSOR_TYPE_FAN       3
++#define NETSNMP_SENSOR_TYPE_VOLT      4
++
++
++    /*******************************************************************
++     * sensors prototypes
++     */
++
++#define NETSNMP_SENSORS_NOFLAGS            0x00000000
++
++#define NETSNMP_SENSORS_ALL_OR_NONE        0x00000001
++#define NETSNMP_SENSORS_DONT_FREE_ITEMS    0x00000002
++
++#define NETSNMP_SENSORS_GET_TEMPS          0x00000100
++#define NETSNMP_SENSORS_GET_FANS           0x00000200
++#define NETSNMP_SENSORS_GET_VOLTS          0x00000400
++#define NETSNMP_SENSORS_GET_MISCS          0x00000800
++
++    netsnmp_container *
++    netsnmp_sensors_container_load(netsnmp_container *container, int flags );
++
++    void netsnmp_sensors_container_free(netsnmp_container *container,
++                                        u_int flags);
++    void netsnmp_sensors_container_free_items(netsnmp_container *container);
++
++    void netsnmp_sensors_entry_remove(netsnmp_container * container,
++                                      netsnmp_sensor_entry *entry);
++
++    netsnmp_sensor_entry * netsnmp_sensors_entry_create(int32_t index);
++    void netsnmp_sensors_entry_free(netsnmp_sensor_entry *entry);
++
++
++
++#ifdef  __cplusplus
++}
++#endif
++
++
++#endif /* NETSNMP_SENSORS_H */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/data_access/sensors.c APPLE/agent/mibgroup/ucd-snmp/data_access/sensors.c
+--- SVN/agent/mibgroup/ucd-snmp/data_access/sensors.c
++++ APPLE/agent/mibgroup/ucd-snmp/data_access/sensors.c
+@@ -0,0 +1,208 @@
++/*
++ * sensors.c : hrSensorsalledTable data access
++ */
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/data_access/sensors.h>
++
++#include <stdlib.h>
++#include <unistd.h>
++
++/* ---------------------------------------------------------------------
++ */
++
++static void netsnmp_sensors_entry_free_cb(netsnmp_sensor_entry *, void *);
++
++extern void netsnmp_sensors_arch_init(void);
++extern void netsnmp_sensors_arch_shutdown(void);
++extern int netsnmp_sensors_arch_load(netsnmp_container *, u_int);
++
++void init_sensors( void )
++{
++    static int initialized = 0;
++
++    DEBUGMSGTL(("sensors:init", "called\n"));
++
++    if (initialized)
++        return; /* already initialized */
++
++
++    /*
++     * call arch init code
++     */
++    netsnmp_sensors_arch_init();
++}
++
++void shutdown_sensors( void )
++{
++    DEBUGMSGTL(("sensors:shutdown", "called\n"));
++
++    netsnmp_sensors_arch_shutdown();
++}
++
++/* ---------------------------------------------------------------------
++ */
++
++/*
++ * load a container with sensor info. If user_container is NULL,
++ * a new container will be allocated and returned, and the caller
++ * is responsible for releasing the allocated memory when done.
++ *
++ * if flags contains NETSNMP_SENSORS_ALL_OR_NONE and any error occurs,
++ * the container will be completely cleared.
++ */
++netsnmp_container *
++netsnmp_sensors_container_load( netsnmp_container *user_container, int flags )
++{
++    netsnmp_container *container = user_container;
++    int arch_rc;
++
++    DEBUGMSGTL(("sensors:container", "load\n"));
++
++    /*
++     * create the container, if needed
++     */
++    if (NULL == container) {
++        container = netsnmp_container_find("sensors:table_container");
++        if (NULL == container)
++            return NULL;
++    }
++    if (NULL == container->container_name) {
++        container->container_name = strdup("sensors container");
++        /** no big deal if name fails... */
++    }
++
++    /*
++     * call the arch specific code to load the container
++     */
++    arch_rc = netsnmp_sensors_arch_load( container, flags );
++    if (arch_rc && (flags & NETSNMP_SENSORS_ALL_OR_NONE)) {
++        /*
++         * caller does not want a partial load, so empty the container.
++         * if we created the container, destroy it.
++         */
++        netsnmp_sensors_container_free_items(container);
++        if (container != user_container) {
++            netsnmp_sensors_container_free(container, flags);
++        }
++    }
++    
++    return container;
++}
++
++void
++netsnmp_sensors_container_free(netsnmp_container *container, u_int free_flags)
++{
++    DEBUGMSGTL(("sensors:container", "free\n"));
++
++    if (NULL == container) {
++        snmp_log(LOG_ERR,
++                 "invalid container for netsnmp_sensors_container_free\n");
++        return;
++    }
++
++    if(! (free_flags & NETSNMP_SENSORS_DONT_FREE_ITEMS))
++        netsnmp_sensors_container_free_items(container);
++
++    CONTAINER_FREE(container);
++}
++
++/*
++ * free a sensors container
++ */
++void netsnmp_sensors_container_free_items(netsnmp_container *container)
++{
++    DEBUGMSGTL(("sensors:container", "free_items\n"));
++
++    if (NULL == container) {
++        snmp_log(LOG_ERR,
++                 "invalid container for netsnmp_sensors_container_free_items\n");
++        return;
++    }
++
++    /*
++     * free all items.
++     */
++    CONTAINER_CLEAR(container,
++                    (netsnmp_container_obj_func*)netsnmp_sensors_entry_free_cb,
++                    NULL);
++}
++
++
++/* ---------------------------------------------------------------------
++ */
++
++/*
++ * create a new row in the table 
++ */
++netsnmp_sensor_entry *
++netsnmp_sensors_entry_create(int32_t index)
++{
++    netsnmp_sensor_entry *entry;
++
++    entry = SNMP_MALLOC_TYPEDEF(netsnmp_sensor_entry);
++    if (!entry)
++        return NULL;
++
++    entry->index = index;
++    entry->oid_index.len = 1;
++    entry->oid_index.oids = &entry->index;
++
++    return entry;
++}
++
++/*
++ * free a row
++ */
++void
++netsnmp_sensors_entry_free(netsnmp_sensor_entry *entry)
++{
++    SNMP_FREE(entry);
++}
++
++/*
++ * free a row
++ */
++static void
++netsnmp_sensors_entry_free_cb(netsnmp_sensor_entry *entry, void *context)
++{
++    SNMP_FREE(entry);
++}
++
++/*
++ * remove a row from the table 
++ */
++void
++netsnmp_sensor_entry_remove(netsnmp_container * container,
++                            netsnmp_sensor_entry *entry)
++{
++    DEBUGMSGTL(("sensors:container", "remove\n"));
++    if (!entry)
++        return;                 /* Nothing to remove */
++    CONTAINER_REMOVE(container, entry);
++}
++
++/* ---------------------------------------------------------------------
++ */
++
++#ifdef TEST
++int main(int argc, char *argv[])
++{
++    const char *tokens = getenv("SNMP_DEBUG");
++
++    netsnmp_container_init_list();
++
++    /** sensors,verbose:sensors */
++    if (tokens)
++        debug_register_tokens(tokens);
++    else
++        debug_register_tokens("sensors,access:lmSensors");
++    snmp_set_do_debugging(1);
++
++    init_sensors(); /* does a pre-load of all sensors */
++    shutdown_sensors();
++
++    return 0;
++}
++#endif
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/data_access/sensors.h APPLE/agent/mibgroup/ucd-snmp/data_access/sensors.h
+--- SVN/agent/mibgroup/ucd-snmp/data_access/sensors.h
++++ APPLE/agent/mibgroup/ucd-snmp/data_access/sensors.h
+@@ -0,0 +1,54 @@
++/*
++ * sensors data access header
++ *
++ * $Id: lmsensors.patch,v 1.1 2007/08/01 00:03:39 randall Exp $
++ */
++#ifndef NETSNMP_ACCESS_SENSORS_CONFIG_H
++#define NETSNMP_ACCESS_SENSORS_CONFIG_H
++
++/**---------------------------------------------------------------------*/
++/*
++ * configure required files
++ *
++ * Notes:
++ *
++ * 1) prefer functionality over platform, where possible. If a method
++ *    is available for multiple platforms, test that first. That way
++ *    when a new platform is ported, it won't need a new test here.
++ *
++ * 2) don't do detail requirements here. If, for example,
++ *    HPUX11 had different reuirements than other HPUX, that should
++ *    be handled in the *_hpux.h header file.
++ */
++
++#ifdef NETSNMP_INCLUDE_LMSENSORS_REWRITES
++
++/*
++ * all platforms use this generic code
++ */
++config_require(ucd-snmp/data_access/sensors)
++
++
++#   if defined( darwin )
++
++    config_require(ucd-snmp/data_access/sensors_darwin)
++
++#   else
++
++    config_error(This platform does not yet support lmSensors rewrites)
++
++#   endif
++#endif
++
++#ifdef  __cplusplus
++extern "C" {
++#endif
++
++    void init_sensors( void );
++    void shutdown_sensors( void );
++
++#ifdef  __cplusplus
++}
++#endif
++
++#endif /* NETSNMP_ACCESS_SENSORS_CONFIG_H */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/lmSensorsTables.h APPLE/agent/mibgroup/ucd-snmp/lmSensorsTables.h
+--- SVN/agent/mibgroup/ucd-snmp/lmSensorsTables.h
++++ APPLE/agent/mibgroup/ucd-snmp/lmSensorsTables.h
+@@ -0,0 +1,19 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : /mirrors/net-snmp/trunk/net-snmp/local/mib2c.container.conf 16055 2007-03-25T22:31:31.110329Z dts12  $
++ */
++#ifndef LMSENSORSTABLE_H
++#define LMSENSORSTABLE_H
++
++config_exclude(ucd-snmp/lmSensors);
++
++config_require(ucd-snmp/data_access/sensors);
++
++config_require(ucd-snmp/lmTempSensorsTable);
++config_require(ucd-snmp/lmFanSensorsTable);
++config_require(ucd-snmp/lmVoltSensorsTable);
++config_require(ucd-snmp/lmMiscSensorsTable);
++
++config_add_mib(LM-SENSORS-MIB)
++
++#endif                          /* LMTEMPSENSORSTABLE_H */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/lmFanSensorsTable.c APPLE/agent/mibgroup/ucd-snmp/lmFanSensorsTable.c
+--- SVN/agent/mibgroup/ucd-snmp/lmFanSensorsTable.c
++++ APPLE/agent/mibgroup/ucd-snmp/lmFanSensorsTable.c
+@@ -0,0 +1,210 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : /mirrors/net-snmp/trunk/net-snmp/local/mib2c.container.conf 16055 2007-03-25T22:31:31.110329Z dts12  $
++ */
++
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/agent/table_container.h>
++#include <net-snmp/data_access/sensors.h>
++#include "lmTempSensorsTable.h"
++#include "lmFanSensorsTable.h"
++
++/** Initializes the lmFanSensorsTable module */
++void
++init_lmFanSensorsTable(void)
++{
++    /*
++     * here we initialize all the tables we're planning on supporting 
++     */
++    initialize_table_lmFanSensorsTable();
++}
++
++static void     _cache_free(netsnmp_cache * cache, void *magic);
++static int      _cache_load(netsnmp_cache * cache, void *vmagic);
++
++
++/** Initialize the lmFanSensorsTable table by defining its contents and how it's structured */
++void
++initialize_table_lmFanSensorsTable(void)
++{
++    static oid      lmFanSensorsTable_oid[] =
++        { 1, 3, 6, 1, 4, 1, 2021, 13, 16, 3 };
++    size_t          lmFanSensorsTable_oid_len =
++        OID_LENGTH(lmFanSensorsTable_oid);
++    netsnmp_handler_registration *reg = NULL;
++    netsnmp_mib_handler *handler = NULL;
++    netsnmp_container *container = NULL;
++    netsnmp_table_registration_info *table_info = NULL;
++    netsnmp_cache  *cache = NULL;
++
++    /*
++     * NOTE: since all the sensor tables have exactly the same
++     *       structure, we use the lmTempSensorsTable_handler
++     *       for all the tables. We just have our own container
++     *       and cache routines.
++     */
++    reg =
++        netsnmp_create_handler_registration("lmFanSensorsTable",
++                                            lmTempSensorsTable_handler,
++                                            lmFanSensorsTable_oid,
++                                            lmFanSensorsTable_oid_len,
++                                            HANDLER_CAN_RONLY);
++    if (NULL == reg) {
++        snmp_log(LOG_ERR,
++                 "error creating handler registration for lmFanSensorsTable\n");
++        goto bail;
++    }
++
++    container =
++        netsnmp_container_find("lmFanSensorsTable:table_container");
++    if (NULL == container) {
++        snmp_log(LOG_ERR,
++                 "error creating container for lmFanSensorsTable\n");
++        goto bail;
++    }
++
++    table_info = SNMP_MALLOC_TYPEDEF(netsnmp_table_registration_info);
++    if (NULL == table_info) {
++        snmp_log(LOG_ERR,
++                 "error allocating table registration for lmFanSensorsTable\n");
++        goto bail;
++    }
++    netsnmp_table_helper_add_indexes(table_info, ASN_INTEGER,   /* index: lmFanSensorsIndex */
++                                     0);
++    table_info->min_column = COLUMN_LMTEMPSENSORSINDEX;
++    table_info->max_column = COLUMN_LMTEMPSENSORSVALUE;
++
++    /*************************************************
++     *
++     * inject container_table helper
++     */
++    handler = netsnmp_container_table_handler_get(table_info, container,
++                                                  TABLE_CONTAINER_KEY_NETSNMP_INDEX);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR,
++                 "error allocating table registration for lmFanSensorsTable\n");
++        goto bail;
++    }
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,
++                 "error injecting container_table handler for lmFanSensorsTable\n");
++        goto bail;
++    }
++    handler = NULL;             /* reg has it, will reuse below */
++
++    /*************************************************
++     *
++     * inject cache helper
++     */
++    cache = netsnmp_cache_create(30,    /* timeout in seconds */
++                                 _cache_load, _cache_free,
++                                 lmFanSensorsTable_oid,
++                                 lmFanSensorsTable_oid_len);
++
++    if (NULL == cache) {
++        snmp_log(LOG_ERR, "error creating cache for lmFanSensorsTable\n");
++        goto bail;
++    }
++    cache->flags = NETSNMP_CACHE_DONT_INVALIDATE_ON_SET;
++    cache->magic = container;
++
++    handler = netsnmp_cache_handler_get(cache);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR,
++                 "error creating cache handler for lmFanSensorsTable\n");
++        goto bail;
++    }
++
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,
++                 "error injecting cache handler for lmFanSensorsTable\n");
++        goto bail;
++    }
++    handler = NULL;             /* reg has it */
++
++    /*
++     * register the table
++     */
++    if (SNMPERR_SUCCESS != netsnmp_register_table(reg, table_info)) {
++        snmp_log(LOG_ERR,
++                 "error registering table handler for lmFanSensorsTable\n");
++        goto bail;
++    }
++
++    return;                     /* ok */
++
++    /*
++     * Some error occurred during registration. Clean up and bail.
++     */
++  bail:                        /* not ok */
++
++    if (handler)
++        netsnmp_handler_free(handler);
++
++    if (cache)
++        netsnmp_cache_free(cache);
++
++    if (table_info)
++        netsnmp_table_registration_info_free(table_info);
++
++    if (container)
++        CONTAINER_FREE(container);
++
++    if (reg)
++        netsnmp_handler_registration_free(reg);
++}
++
++/**
++ * @internal
++ */
++static int
++_cache_load(netsnmp_cache * cache, void *vmagic)
++{
++    netsnmp_container *container;
++
++    DEBUGMSGTL(("internal:lmFanSensorsTable:_cache_load", "called\n"));
++
++    if ((NULL == cache) || (NULL == cache->magic)) {
++        snmp_log(LOG_ERR,
++                 "invalid cache for lmFanSensorsTable_cache_load\n");
++        return -1;
++    }
++    container = (netsnmp_container *) cache->magic;
++
++    /** should only be called for an invalid or expired cache */
++    netsnmp_assert((0 == cache->valid) || (1 == cache->expired));
++
++    /*
++     * load cache here (or call function to do it)
++     */
++    netsnmp_sensors_container_load(container, NETSNMP_SENSORS_GET_FANS);
++
++    return 0;
++}                               /* _cache_load */
++
++/**
++ * @internal
++ */
++static void
++_cache_free(netsnmp_cache * cache, void *magic)
++{
++    netsnmp_container *container;
++
++    DEBUGMSGTL(("internal:lmFanSensorsTable:_cache_free", "called\n"));
++
++    if ((NULL == cache) || (NULL == cache->magic)) {
++        snmp_log(LOG_ERR,
++                 "invalid cache in lmFanSensorsTable_cache_free\n");
++        return;
++    }
++    container = (netsnmp_container *) cache->magic;
++
++    /*
++     * empty (but don't free) cache here
++     */
++    netsnmp_sensors_container_free_items(container);
++
++}                               /* _cache_free */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/lmFanSensorsTable.h APPLE/agent/mibgroup/ucd-snmp/lmFanSensorsTable.h
+--- SVN/agent/mibgroup/ucd-snmp/lmFanSensorsTable.h
++++ APPLE/agent/mibgroup/ucd-snmp/lmFanSensorsTable.h
+@@ -0,0 +1,16 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : /mirrors/net-snmp/trunk/net-snmp/local/mib2c.container.conf 16055 2007-03-25T22:31:31.110329Z dts12  $
++ */
++#ifndef LMFANSENSORSTABLE_H
++#define LMFANSENSORSTABLE_H
++
++config_require(ucd-snmp/lmTempSensorsTable)
++
++/*
++ * function declarations 
++ */
++void            init_lmFanSensorsTable(void);
++void            initialize_table_lmFanSensorsTable(void);
++
++#endif                          /* LMFANSENSORSTABLE_H */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/lmTempSensorsTable.c APPLE/agent/mibgroup/ucd-snmp/lmTempSensorsTable.c
+--- SVN/agent/mibgroup/ucd-snmp/lmTempSensorsTable.c
++++ APPLE/agent/mibgroup/ucd-snmp/lmTempSensorsTable.c
+@@ -0,0 +1,280 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : /mirrors/net-snmp/trunk/net-snmp/local/mib2c.container.conf 16055 2007-03-25T22:31:31.110329Z dts12  $
++ */
++
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/agent/table_container.h>
++#include <net-snmp/data_access/sensors.h>
++#include "lmTempSensorsTable.h"
++
++/** Initializes the lmTempSensorsTable module */
++void
++init_lmTempSensorsTable(void)
++{
++    /*
++     * here we initialize all the tables we're planning on supporting 
++     */
++    initialize_table_lmTempSensorsTable();
++}
++
++static void     _cache_free(netsnmp_cache * cache, void *magic);
++static int      _cache_load(netsnmp_cache * cache, void *vmagic);
++
++
++/** Initialize the lmTempSensorsTable table by defining its contents and how it's structured */
++void
++initialize_table_lmTempSensorsTable(void)
++{
++    static oid      lmTempSensorsTable_oid[] =
++        { 1, 3, 6, 1, 4, 1, 2021, 13, 16, 2 };
++    size_t          lmTempSensorsTable_oid_len =
++        OID_LENGTH(lmTempSensorsTable_oid);
++    netsnmp_handler_registration *reg = NULL;
++    netsnmp_mib_handler *handler = NULL;
++    netsnmp_container *container = NULL;
++    netsnmp_table_registration_info *table_info = NULL;
++    netsnmp_cache  *cache = NULL;
++
++    reg =
++        netsnmp_create_handler_registration("lmTempSensorsTable",
++                                            lmTempSensorsTable_handler,
++                                            lmTempSensorsTable_oid,
++                                            lmTempSensorsTable_oid_len,
++                                            HANDLER_CAN_RONLY);
++    if (NULL == reg) {
++        snmp_log(LOG_ERR,
++                 "error creating handler registration for lmTempSensorsTable\n");
++        goto bail;
++    }
++
++    container =
++        netsnmp_container_find("lmTempSensorsTable:table_container");
++    if (NULL == container) {
++        snmp_log(LOG_ERR,
++                 "error creating container for lmTempSensorsTable\n");
++        goto bail;
++    }
++
++    table_info = SNMP_MALLOC_TYPEDEF(netsnmp_table_registration_info);
++    if (NULL == table_info) {
++        snmp_log(LOG_ERR,
++                 "error allocating table registration for lmTempSensorsTable\n");
++        goto bail;
++    }
++    netsnmp_table_helper_add_indexes(table_info, ASN_INTEGER,   /* index: lmTempSensorsIndex */
++                                     0);
++    table_info->min_column = COLUMN_LMTEMPSENSORSINDEX;
++    table_info->max_column = COLUMN_LMTEMPSENSORSVALUE;
++
++    /*************************************************
++     *
++     * inject container_table helper
++     */
++    handler = netsnmp_container_table_handler_get(table_info, container,
++                                                  TABLE_CONTAINER_KEY_NETSNMP_INDEX);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR,
++                 "error allocating table registration for lmTempSensorsTable\n");
++        goto bail;
++    }
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,
++                 "error injecting container_table handler for lmTempSensorsTable\n");
++        goto bail;
++    }
++    handler = NULL;             /* reg has it, will reuse below */
++
++    /*************************************************
++     *
++     * inject cache helper
++     */
++    cache = netsnmp_cache_create(30,    /* timeout in seconds */
++                                 _cache_load, _cache_free,
++                                 lmTempSensorsTable_oid,
++                                 lmTempSensorsTable_oid_len);
++
++    if (NULL == cache) {
++        snmp_log(LOG_ERR, "error creating cache for lmTempSensorsTable\n");
++        goto bail;
++    }
++    cache->flags = NETSNMP_CACHE_DONT_INVALIDATE_ON_SET;
++    cache->magic = container;
++
++    handler = netsnmp_cache_handler_get(cache);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR,
++                 "error creating cache handler for lmTempSensorsTable\n");
++        goto bail;
++    }
++
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,
++                 "error injecting cache handler for lmTempSensorsTable\n");
++        goto bail;
++    }
++    handler = NULL;             /* reg has it */
++
++    /*
++     * register the table
++     */
++    if (SNMPERR_SUCCESS != netsnmp_register_table(reg, table_info)) {
++        snmp_log(LOG_ERR,
++                 "error registering table handler for lmTempSensorsTable\n");
++        goto bail;
++    }
++
++    /*
++     * Initialise the contents of the table here
++     */
++
++
++    return;                     /* ok */
++
++    /*
++     * Some error occurred during registration. Clean up and bail.
++     */
++  bail:                        /* not ok */
++
++    if (handler)
++        netsnmp_handler_free(handler);
++
++    if (cache)
++        netsnmp_cache_free(cache);
++
++    if (table_info)
++        netsnmp_table_registration_info_free(table_info);
++
++    if (container)
++        CONTAINER_FREE(container);
++
++    if (reg)
++        netsnmp_handler_registration_free(reg);
++}
++
++/** handles requests for the lmTempSensorsTable table */
++int
++lmTempSensorsTable_handler(netsnmp_mib_handler *handler,
++                           netsnmp_handler_registration *reginfo,
++                           netsnmp_agent_request_info *reqinfo,
++                           netsnmp_request_info *requests)
++{
++
++    netsnmp_request_info *request;
++    netsnmp_table_request_info *table_info;
++    netsnmp_sensor_entry *table_entry;
++
++    switch (reqinfo->mode) {
++        /*
++         * Read-support (also covers GetNext requests)
++         */
++    case MODE_GET:
++        for (request = requests; request; request = request->next) {
++            if (request->processed)
++                continue;
++            table_entry = (netsnmp_sensor_entry *)
++                netsnmp_container_table_extract_context(request);
++            table_info = netsnmp_extract_table_info(request);
++            if ((NULL == table_entry) || (NULL == table_info)) {
++                snmp_log(LOG_ERR,
++                         "could not extract table entry or info for lmTempSensorsTable\n");
++                snmp_set_var_typed_value(request->requestvb,
++                                         SNMP_ERR_GENERR, NULL, 0);
++                continue;
++            }
++
++            switch (table_info->colnum) {
++            case COLUMN_LMTEMPSENSORSINDEX:
++                if (!table_entry) {
++                    netsnmp_set_request_error(reqinfo, request,
++                                              SNMP_NOSUCHINSTANCE);
++                    continue;
++                }
++                snmp_set_var_typed_integer(request->requestvb, ASN_INTEGER,
++                                           table_entry->index);
++                break;
++            case COLUMN_LMTEMPSENSORSDEVICE:
++                if (!table_entry) {
++                    netsnmp_set_request_error(reqinfo, request,
++                                              SNMP_NOSUCHINSTANCE);
++                    continue;
++                }
++                snmp_set_var_typed_value(request->requestvb, ASN_OCTET_STR,
++                                         (u_char *) table_entry->device,
++                                         table_entry->device_len);
++                break;
++            case COLUMN_LMTEMPSENSORSVALUE:
++                if (!table_entry) {
++                    netsnmp_set_request_error(reqinfo, request,
++                                              SNMP_NOSUCHINSTANCE);
++                    continue;
++                }
++                snmp_set_var_typed_integer(request->requestvb, ASN_GAUGE,
++                                           table_entry->value);
++                break;
++            default:
++                netsnmp_set_request_error(reqinfo, request,
++                                          SNMP_NOSUCHOBJECT);
++                break;
++            }
++        }
++        break;
++
++    }
++    return SNMP_ERR_NOERROR;
++}
++
++/**
++ * @internal
++ */
++static int
++_cache_load(netsnmp_cache * cache, void *vmagic)
++{
++    netsnmp_container *container;
++
++    DEBUGMSGTL(("internal:lmTempSensorsTable:_cache_load", "called\n"));
++
++    if ((NULL == cache) || (NULL == cache->magic)) {
++        snmp_log(LOG_ERR,
++                 "invalid cache for lmTempSensorsTable_cache_load\n");
++        return -1;
++    }
++    container = (netsnmp_container *) cache->magic;
++
++    /** should only be called for an invalid or expired cache */
++    netsnmp_assert((0 == cache->valid) || (1 == cache->expired));
++
++    /*
++     * load cache here (or call function to do it)
++     */
++    netsnmp_sensors_container_load(container, NETSNMP_SENSORS_GET_TEMPS);
++
++    return 0;
++}                               /* _cache_load */
++
++/**
++ * @internal
++ */
++static void
++_cache_free(netsnmp_cache * cache, void *magic)
++{
++    netsnmp_container *container;
++
++    DEBUGMSGTL(("internal:lmTempSensorsTable:_cache_free", "called\n"));
++
++    if ((NULL == cache) || (NULL == cache->magic)) {
++        snmp_log(LOG_ERR,
++                 "invalid cache in lmTempSensorsTable_cache_free\n");
++        return;
++    }
++    container = (netsnmp_container *) cache->magic;
++
++    /*
++     * empty (but don't free) cache here
++     */
++    netsnmp_sensors_container_free_items(container);
++
++}                               /* _cache_free */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/lmTempSensorsTable.h APPLE/agent/mibgroup/ucd-snmp/lmTempSensorsTable.h
+--- SVN/agent/mibgroup/ucd-snmp/lmTempSensorsTable.h
++++ APPLE/agent/mibgroup/ucd-snmp/lmTempSensorsTable.h
+@@ -0,0 +1,25 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : /mirrors/net-snmp/trunk/net-snmp/local/mib2c.container.conf 16055 2007-03-25T22:31:31.110329Z dts12  $
++ */
++#ifndef LMTEMPSENSORSTABLE_H
++#define LMTEMPSENSORSTABLE_H
++
++config_exclude(ucd-snmp/lmSensors);
++config_require(ucd-snmp/data_access/sensors);
++config_add_mib(LM-SENSORS-MIB)
++
++/*
++ * function declarations 
++ */
++void            init_lmTempSensorsTable(void);
++void            initialize_table_lmTempSensorsTable(void);
++Netsnmp_Node_Handler lmTempSensorsTable_handler;
++
++/*
++ * column number definitions for table lmTempSensorsTable 
++ */
++#define COLUMN_LMTEMPSENSORSINDEX		1
++#define COLUMN_LMTEMPSENSORSDEVICE		2
++#define COLUMN_LMTEMPSENSORSVALUE		3
++#endif                          /* LMTEMPSENSORSTABLE_H */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/lmVoltSensorsTable.c APPLE/agent/mibgroup/ucd-snmp/lmVoltSensorsTable.c
+--- SVN/agent/mibgroup/ucd-snmp/lmVoltSensorsTable.c
++++ APPLE/agent/mibgroup/ucd-snmp/lmVoltSensorsTable.c
+@@ -0,0 +1,209 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : /mirrors/net-snmp/trunk/net-snmp/local/mib2c.container.conf 16055 2007-03-25T22:31:31.110329Z dts12  $
++ */
++
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/agent/table_container.h>
++#include <net-snmp/data_access/sensors.h>
++#include "lmTempSensorsTable.h"
++#include "lmVoltSensorsTable.h"
++
++/** Initializes the lmVoltSensorsTable module */
++void
++init_lmVoltSensorsTable(void)
++{
++    /*
++     * here we initialize all the tables we're planning on supporting 
++     */
++    initialize_table_lmVoltSensorsTable();
++}
++
++static void     _cache_free(netsnmp_cache * cache, void *magic);
++static int      _cache_load(netsnmp_cache * cache, void *vmagic);
++
++
++/** Initialize the lmVoltSensorsTable table by defining its contents and how it's structured */
++void
++initialize_table_lmVoltSensorsTable(void)
++{
++    static oid      lmVoltSensorsTable_oid[] =
++        { 1, 3, 6, 1, 4, 1, 2021, 13, 16, 4 };
++    size_t          lmVoltSensorsTable_oid_len =
++        OID_LENGTH(lmVoltSensorsTable_oid);
++    netsnmp_handler_registration *reg = NULL;
++    netsnmp_mib_handler *handler = NULL;
++    netsnmp_container *container = NULL;
++    netsnmp_table_registration_info *table_info = NULL;
++    netsnmp_cache  *cache = NULL;
++
++    /*
++     * NOTE: since all the sensor tables have exactly the same
++     *       structure, we use the lmTempSensorsTable_handler
++     *       for all the tables. We just have our own container
++     *       and cache routines.
++     */
++    reg =
++        netsnmp_create_handler_registration("lmVoltSensorsTable",
++                                            lmTempSensorsTable_handler,
++                                            lmVoltSensorsTable_oid,
++                                            lmVoltSensorsTable_oid_len,
++                                            HANDLER_CAN_RONLY);
++    if (NULL == reg) {
++        snmp_log(LOG_ERR,
++                 "error creating handler registration for lmVoltSensorsTable\n");
++        goto bail;
++    }
++
++    container =
++        netsnmp_container_find("lmVoltSensorsTable:table_container");
++    if (NULL == container) {
++        snmp_log(LOG_ERR,
++                 "error creating container for lmVoltSensorsTable\n");
++        goto bail;
++    }
++
++    table_info = SNMP_MALLOC_TYPEDEF(netsnmp_table_registration_info);
++    if (NULL == table_info) {
++        snmp_log(LOG_ERR,
++                 "error allocating table registration for lmVoltSensorsTable\n");
++        goto bail;
++    }
++    netsnmp_table_helper_add_indexes(table_info, ASN_INTEGER,   /* index: lmVoltSensorsIndex */
++                                     0);
++    table_info->min_column = COLUMN_LMTEMPSENSORSINDEX;
++    table_info->max_column = COLUMN_LMTEMPSENSORSVALUE;
++
++    /*************************************************
++     *
++     * inject container_table helper
++     */
++    handler = netsnmp_container_table_handler_get(table_info, container,
++                                                  TABLE_CONTAINER_KEY_NETSNMP_INDEX);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR,
++                 "error allocating table registration for lmVoltSensorsTable\n");
++        goto bail;
++    }
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,
++                 "error injecting container_table handler for lmVoltSensorsTable\n");
++        goto bail;
++    }
++    handler = NULL;             /* reg has it, will reuse below */
++
++    /*************************************************
++     *
++     * inject cache helper
++     */
++    cache = netsnmp_cache_create(30,    /* timeout in seconds */
++                                 _cache_load, _cache_free,
++                                 lmVoltSensorsTable_oid,
++                                 lmVoltSensorsTable_oid_len);
++
++    if (NULL == cache) {
++        snmp_log(LOG_ERR, "error creating cache for lmVoltSensorsTable\n");
++        goto bail;
++    }
++    cache->flags = NETSNMP_CACHE_DONT_INVALIDATE_ON_SET;
++    cache->magic = container;
++
++    handler = netsnmp_cache_handler_get(cache);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR,
++                 "error creating cache handler for lmVoltSensorsTable\n");
++        goto bail;
++    }
++
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,
++                 "error injecting cache handler for lmVoltSensorsTable\n");
++        goto bail;
++    }
++    handler = NULL;             /* reg has it */
++
++    /*
++     * register the table
++     */
++    if (SNMPERR_SUCCESS != netsnmp_register_table(reg, table_info)) {
++        snmp_log(LOG_ERR,
++                 "error registering table handler for lmVoltSensorsTable\n");
++        goto bail;
++    }
++
++    return;                     /* ok */
++
++    /*
++     * Some error occurred during registration. Clean up and bail.
++     */
++  bail:                        /* not ok */
++
++    if (handler)
++        netsnmp_handler_free(handler);
++
++    if (cache)
++        netsnmp_cache_free(cache);
++
++    if (table_info)
++        netsnmp_table_registration_info_free(table_info);
++
++    if (container)
++        CONTAINER_FREE(container);
++
++    if (reg)
++        netsnmp_handler_registration_free(reg);
++}
++
++/**
++ * @internal
++ */
++static int
++_cache_load(netsnmp_cache * cache, void *vmagic)
++{
++    netsnmp_container *container;
++
++    DEBUGMSGTL(("internal:lmVoltSensorsTable:_cache_load", "called\n"));
++
++    if ((NULL == cache) || (NULL == cache->magic)) {
++        snmp_log(LOG_ERR,
++                 "invalid cache for lmVoltSensorsTable_cache_load\n");
++        return -1;
++    }
++    container = (netsnmp_container *) cache->magic;
++
++    /** should only be called for an invalid or expired cache */
++    netsnmp_assert((0 == cache->valid) || (1 == cache->expired));
++
++    /*
++     * load cache here (or call function to do it)
++     */
++    netsnmp_sensors_container_load(container, NETSNMP_SENSORS_GET_VOLTS);
++
++    return 0;
++}                               /* _cache_load */
++
++/**
++ * @internal
++ */
++static void
++_cache_free(netsnmp_cache * cache, void *magic)
++{
++    netsnmp_container *container;
++
++    DEBUGMSGTL(("internal:lmVoltSensorsTable:_cache_free", "called\n"));
++
++    if ((NULL == cache) || (NULL == cache->magic)) {
++        snmp_log(LOG_ERR,
++                 "invalid cache in lmVoltSensorsTable_cache_free\n");
++        return;
++    }
++    container = (netsnmp_container *) cache->magic;
++
++    /*
++     * empty (but don't free) cache here
++     */
++    netsnmp_sensors_container_free_items(container);
++}
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/lmVoltSensorsTable.h APPLE/agent/mibgroup/ucd-snmp/lmVoltSensorsTable.h
+--- SVN/agent/mibgroup/ucd-snmp/lmVoltSensorsTable.h
++++ APPLE/agent/mibgroup/ucd-snmp/lmVoltSensorsTable.h
+@@ -0,0 +1,16 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : /mirrors/net-snmp/trunk/net-snmp/local/mib2c.container.conf 16055 2007-03-25T22:31:31.110329Z dts12  $
++ */
++#ifndef LMVOLTSENSORSTABLE_H
++#define LMVOLTSENSORSTABLE_H
++
++config_require(ucd-snmp/lmTempSensorsTable)
++
++/*
++ * function declarations 
++ */
++void            init_lmVoltSensorsTable(void);
++void            initialize_table_lmVoltSensorsTable(void);
++
++#endif                          /* LMVOLTSENSORSTABLE_H */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/lmMiscSensorsTable.c APPLE/agent/mibgroup/ucd-snmp/lmMiscSensorsTable.c
+--- SVN/agent/mibgroup/ucd-snmp/lmMiscSensorsTable.c
++++ APPLE/agent/mibgroup/ucd-snmp/lmMiscSensorsTable.c
+@@ -0,0 +1,202 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : /mirrors/net-snmp/trunk/net-snmp/local/mib2c.container.conf 16055 2007-03-25T22:31:31.110329Z dts12  $
++ */
++
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/agent/table_container.h>
++#include <net-snmp/data_access/sensors.h>
++#include "lmTempSensorsTable.h"
++#include "lmMiscSensorsTable.h"
++
++static void     _cache_free(netsnmp_cache * cache, void *magic);
++static int      _cache_load(netsnmp_cache * cache, void *vmagic);
++
++/** Initializes the lmMiscSensorsTable module */
++void
++init_lmMiscSensorsTable(void)
++{
++    /*
++     * Initialize the lmMiscSensorsTable table by defining its contents
++     *  and how it's structured
++     */
++    static oid      lmMiscSensorsTable_oid[] =
++        { 1, 3, 6, 1, 4, 1, 2021, 13, 16, 5 };
++    size_t          lmMiscSensorsTable_oid_len =
++        OID_LENGTH(lmMiscSensorsTable_oid);
++    netsnmp_handler_registration *reg = NULL;
++    netsnmp_mib_handler *handler = NULL;
++    netsnmp_container *container = NULL;
++    netsnmp_table_registration_info *table_info = NULL;
++    netsnmp_cache  *cache = NULL;
++
++    /*
++     * NOTE: since all the sensor tables have exactly the same
++     *       structure, we use the lmTempSensorsTable_handler
++     *       for all the tables. We just have our own container
++     *       and cache routines.
++     */
++    reg =
++        netsnmp_create_handler_registration("lmMiscSensorsTable",
++                                            lmTempSensorsTable_handler,
++                                            lmMiscSensorsTable_oid,
++                                            lmMiscSensorsTable_oid_len,
++                                            HANDLER_CAN_RONLY);
++    if (NULL == reg) {
++        snmp_log(LOG_ERR,
++                 "error creating handler registration for lmMiscSensorsTable\n");
++        goto bail;
++    }
++
++    container =
++        netsnmp_container_find("lmMiscSensorsTable:table_container");
++    if (NULL == container) {
++        snmp_log(LOG_ERR,
++                 "error creating container for lmMiscSensorsTable\n");
++        goto bail;
++    }
++
++    table_info = SNMP_MALLOC_TYPEDEF(netsnmp_table_registration_info);
++    if (NULL == table_info) {
++        snmp_log(LOG_ERR,
++                 "error allocating table registration for lmMiscSensorsTable\n");
++        goto bail;
++    }
++    netsnmp_table_helper_add_indexes(table_info, ASN_INTEGER,   /* index: lmMiscSensorsIndex */
++                                     0);
++    table_info->min_column = COLUMN_LMTEMPSENSORSINDEX;
++    table_info->max_column = COLUMN_LMTEMPSENSORSVALUE;
++
++    /*************************************************
++     *
++     * inject container_table helper
++     */
++    handler = netsnmp_container_table_handler_get(table_info, container,
++                                                  TABLE_CONTAINER_KEY_NETSNMP_INDEX);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR,
++                 "error allocating table registration for lmMiscSensorsTable\n");
++        goto bail;
++    }
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,
++                 "error injecting container_table handler for lmMiscSensorsTable\n");
++        goto bail;
++    }
++    handler = NULL;             /* reg has it, will reuse below */
++
++    /*************************************************
++     *
++     * inject cache helper
++     */
++    cache = netsnmp_cache_create(30,    /* timeout in seconds */
++                                 _cache_load, _cache_free,
++                                 lmMiscSensorsTable_oid,
++                                 lmMiscSensorsTable_oid_len);
++
++    if (NULL == cache) {
++        snmp_log(LOG_ERR, "error creating cache for lmMiscSensorsTable\n");
++        goto bail;
++    }
++    cache->flags = NETSNMP_CACHE_DONT_INVALIDATE_ON_SET;
++    cache->magic = container;
++
++    handler = netsnmp_cache_handler_get(cache);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR,
++                 "error creating cache handler for lmMiscSensorsTable\n");
++        goto bail;
++    }
++
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,
++                 "error injecting cache handler for lmMiscSensorsTable\n");
++        goto bail;
++    }
++    handler = NULL;             /* reg has it */
++
++    /*
++     * register the table
++     */
++    if (SNMPERR_SUCCESS != netsnmp_register_table(reg, table_info)) {
++        snmp_log(LOG_ERR,
++                 "error registering table handler for lmMiscSensorsTable\n");
++        goto bail;
++    }
++
++    return;                     /* ok */
++
++    /*
++     * Some error occurred during registration. Clean up and bail.
++     */
++  bail:                        /* not ok */
++
++    if (handler)
++        netsnmp_handler_free(handler);
++
++    if (cache)
++        netsnmp_cache_free(cache);
++
++    if (table_info)
++        netsnmp_table_registration_info_free(table_info);
++
++    if (container)
++        CONTAINER_FREE(container);
++
++    if (reg)
++        netsnmp_handler_registration_free(reg);
++}
++
++/**
++ * @internal
++ */
++static int
++_cache_load(netsnmp_cache * cache, void *vmagic)
++{
++    netsnmp_container *container;
++
++    DEBUGMSGTL(("internal:lmMiscSensorsTable:_cache_load", "called\n"));
++
++    if ((NULL == cache) || (NULL == cache->magic)) {
++        snmp_log(LOG_ERR,
++                 "invalid cache for lmMiscSensorsTable_cache_load\n");
++        return -1;
++    }
++    container = (netsnmp_container *) cache->magic;
++
++    /** should only be called for an invalid or expired cache */
++    netsnmp_assert((0 == cache->valid) || (1 == cache->expired));
++
++    /*
++     * load cache here (or call function to do it)
++     */
++    netsnmp_sensors_container_load(container, NETSNMP_SENSORS_GET_MISCS);
++
++    return 0;
++}                               /* _cache_load */
++
++/**
++ * @internal
++ */
++static void
++_cache_free(netsnmp_cache * cache, void *magic)
++{
++    netsnmp_container *container;
++
++    DEBUGMSGTL(("internal:lmMiscSensorsTable:_cache_free", "called\n"));
++
++    if ((NULL == cache) || (NULL == cache->magic)) {
++        snmp_log(LOG_ERR,
++                 "invalid cache in lmMiscSensorsTable_cache_free\n");
++        return;
++    }
++    container = (netsnmp_container *) cache->magic;
++
++    /*
++     * empty (but don't free) cache here
++     */
++    netsnmp_sensors_container_free_items(container);
++}                               /* _cache_free */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/ucd-snmp/lmMiscSensorsTable.h APPLE/agent/mibgroup/ucd-snmp/lmMiscSensorsTable.h
+--- SVN/agent/mibgroup/ucd-snmp/lmMiscSensorsTable.h
++++ APPLE/agent/mibgroup/ucd-snmp/lmMiscSensorsTable.h
+@@ -0,0 +1,16 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : /mirrors/net-snmp/trunk/net-snmp/local/mib2c.container.conf 16055 2007-03-25T22:31:31.110329Z dts12  $
++ */
++#ifndef LMMISCSENSORSTABLE_H
++#define LMMISCSENSORSTABLE_H
++
++config_require(ucd-snmp/lmTempSensorsTable)
++
++/*
++ * function declarations 
++ */
++void            init_lmMiscSensorsTable(void);
++void            initialize_table_lmMiscSensorsTable(void);
++
++#endif                          /* LMMISCSENSORSTABLE_H */

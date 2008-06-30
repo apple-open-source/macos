@@ -859,7 +859,7 @@ void accept_connections(struct vpn_params* params)
 						slave->redirect_address.s_addr = lbmsg->redirect_address;
 						slave->max_connection = ntohs(lbmsg->max_connection);
 						slave->cur_connection = ntohs(lbmsg->cur_connection);
-						slave->ratio = (lbmsg->cur_connection * 1000)/lbmsg->max_connection;
+						slave->ratio = (lbmsg->cur_connection < lbmsg->max_connection) ? (lbmsg->cur_connection * 1000)/lbmsg->max_connection : 1000;
 						a = ntohl(lbmsg->redirect_address);
 //						vpnlog(LOG_DEBUG, "Load Balancing: Slave server update. Redirection address is %d.%d.%d.%d, current load is %d/%d\n", 
 //							a >> 24 & 0xFF, a >> 16 & 0xFF, a >> 8 & 0xFF, a & 0xFF, slave->cur_connection, slave->max_connection);

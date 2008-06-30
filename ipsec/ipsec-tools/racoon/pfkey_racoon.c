@@ -1969,7 +1969,7 @@ pk_recvacquire(mhp)
 		delph2(iph2[n]);
 		return -1;
 	}
-	iph2[n]->sainfo = getsainfo(idsrc, iddst, NULL);
+	iph2[n]->sainfo = getsainfo(idsrc, iddst, NULL, 0);
 	vfree(idsrc);
 	vfree(iddst);
 	if (iph2[n]->sainfo == NULL) {
@@ -2747,42 +2747,34 @@ pk_checkalg(class, calg, keylen)
  */
 static struct sadb_msg *
 pk_recv(so, lenp)
-	int so;
-	int *lenp;
+int so;
+int *lenp;
 {
-	struct sadb_msg buf, *newmsg;
-	int reallen;
-
-	*lenp = recv(so, (caddr_t)&buf, sizeof(buf), MSG_PEEK);
-	if (*lenp < 0)
+	struct sadb_msg *newmsg;
+	int reallen = 0; 
+	socklen_t optlen = sizeof(reallen);
+	
+	if (getsockopt(so, SOL_SOCKET, SO_NREAD, &reallen, &optlen) < 0)
 		return NULL;	/*fatal*/
-	else if (*lenp < sizeof(buf))
+	
+	if (reallen == 0)
 		return NULL;
-
-	reallen = PFKEY_UNUNIT64(buf.sadb_msg_len);
+	
 	if ((newmsg = racoon_calloc(1, reallen)) == NULL)
 		return NULL;
-
-	*lenp = recv(so, (caddr_t)newmsg, reallen, MSG_PEEK);
-	if (*lenp < 0) {
-		racoon_free(newmsg);
-		return NULL;	/*fatal*/
-	} else if (*lenp != reallen) {
-		racoon_free(newmsg);
-		return NULL;
-	}
-
+	
 	*lenp = recv(so, (caddr_t)newmsg, reallen, 0);
 	if (*lenp < 0) {
 		racoon_free(newmsg);
 		return NULL;	/*fatal*/
-	} else if (*lenp != reallen) {
+	} else if (*lenp != reallen || *lenp < sizeof(struct sadb_msg)) {
 		racoon_free(newmsg);
 		return NULL;
 	}
-
+	
 	return newmsg;
 }
+
 
 /* see handler.h */
 u_int32_t

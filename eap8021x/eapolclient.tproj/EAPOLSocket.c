@@ -750,9 +750,6 @@ EAPOLSocket_transmit(EAPOLSocket * sock,
     return (0);
 
  failed:
-    if (buf) {
-	free(buf);
-    }
     return (-1);
 }
 

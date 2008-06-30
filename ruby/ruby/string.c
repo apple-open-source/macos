@@ -458,10 +458,9 @@ rb_str_format(str, arg)
     VALUE *argv;
 
     if (TYPE(arg) == T_ARRAY) {
-	argv = ALLOCA_N(VALUE, RARRAY(arg)->len + 1);
-	argv[0] = str;
-	MEMCPY(argv+1, RARRAY(arg)->ptr, VALUE, RARRAY(arg)->len);
-	return rb_f_sprintf(RARRAY(arg)->len+1, argv);
+    argv = rb_ary_dup(arg);
+    rb_ary_unshift(argv, str);
+    return rb_f_sprintf(RARRAY(arg)->len+1, RARRAY(argv)->ptr);
     }
 
     argv = ALLOCA_N(VALUE, 2);
@@ -780,6 +779,9 @@ rb_str_buf_append(str, str2)
 	capa = RSTRING(str)->aux.capa;
     }
     len = RSTRING(str)->len+RSTRING(str2)->len;
+    if (len < 0 || (capa+1) > LONG_MAX / 2) {
+    rb_raise(rb_eArgError, "string sizes too big");
+    }
     if (capa <= len) {
 	while (len > capa) {
 	    capa = (capa + 1) * 2;

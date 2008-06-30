@@ -140,22 +140,13 @@ install:: $(OBJROOT)/synchronize-preferences
 	$(INSTALL) -c -m 644 \
 		$(SRCROOT)/include/smb_server_prefs.h \
 		$(DSTROOT)$(USRDIR)/local/include
-ifndef $(GnuAfterInstall)
-	( set -x ; \
-	  cd $(DSTROOT); \
-	  find . -type f | while read f ; do \
-		$(MKDIR) $(SYMROOT)/`dirname "$$f"` ; \
-		cp "$$f" "$(SYMROOT)/$$f" ; \
-		if [ -x "$$f" ] ; then \
-			$(STRIP_X) "$$f"; \
-			dsymutil "$(SYMROOT)/$$f" || true ; \
-		fi ; \
-		case "$$f" in *.dylib) \
-			$(STRIP_X) "$$f" ; \
-			dsymutil "$(SYMROOT)/$$f" || true ;; \
-		esac \
-	  done ; \
-	)
+ifndef $(NoSymRootCopy)
+	$(INSTALL) -d -m 755 $(SYMROOT)$(USRDIR)/local/include
+	$(INSTALL) -d -m 755 $(SYMROOT)$(SMB_LIBEXEC)
+	$(INSTALL) -c -m 755 -o root -g wheel \
+		$(OBJROOT)/synchronize-preferences \
+		$(SYMROOT)$(SMB_LIBEXEC)
+	dsymutil $(SYMROOT)$(SMB_LIBEXEC)/synchronize-preferences
 endif
 
 clean::

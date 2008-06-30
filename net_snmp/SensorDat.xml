@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Xserve1,1</key>
+	<dict>
+		<key>fan_data</key>
+		<dict>
+			<key>F0Ac</key>
+			<string>Inlet Fan Pair 0, (left most from front)</string>
+			<key>F1Ac</key>
+			<string>Outlet Fan Pair 0, (left most from front)</string>
+			<key>F2Ac</key>
+			<string>Inlet Fan Pair 1</string>
+			<key>F3Ac</key>
+			<string>Outlet Fan Pair 1</string>
+			<key>F4Ac</key>
+			<string>Inlet Fan Pair 2</string>
+			<key>F5Ac</key>
+			<string>Outlet Fan Pair 2</string>
+			<key>F6Ac</key>
+			<string>Inlet Fan Pair 3</string>
+			<key>F7Ac</key>
+			<string>Outlet Fan Pair 3</string>
+			<key>F8Ac</key>
+			<string>Inlet Fan Pair 4</string>
+			<key>F9Ac</key>
+			<string>Outlet Fan Pair 4</string>
+			<key>FAAc</key>
+			<string>Inlet Fan Pair 5</string>
+			<key>FBAc</key>
+			<string>Outlet Fan Pair 5</string>
+			<key>FCAc</key>
+			<string>Inlet Fan Pair 6, (right most facing from front)</string>
+			<key>FDAc</key>
+			<string>Outlet Fan Pair 6, (right most facing from front)</string>
+			<key>FEAc</key>
+			<string>PS0 fan 0</string>
+			<key>FFAc</key>
+			<string>PS0 fan 1</string>
+			<key>FGAc</key>
+			<string>PS1 fan 0</string>
+			<key>FHAc</key>
+			<string>PS1 fan 1</string>
+		</dict>
+		<key>temp_data</key>
+		<dict>
+			<key>TA0P</key>
+			<string>Chunnel Ambient Left</string>
+			<key>TA0S</key>
+			<string>PCI Super Slot Ambient</string>
+			<key>TA1P</key>
+			<string>Chunnel Ambient Right</string>
+			<key>TA1S</key>
+			<string>PCI Super Slot PCB</string>
+			<key>TA2S</key>
+			<string>PCIe Half Length Ambient</string>
+			<key>TA3S</key>
+			<string>PCIe Half Length PCB</string>
+			<key>TCAH</key>
+			<string>CPU A HeatSink</string>
+			<key>TC0C</key>
+			<string>CPU A Core 0</string>
+			<key>TC0P</key>
+			<string>CPU A Ambient 1</string>
+			<key>TC1C</key>
+			<string>CPU A Core 1</string>
+			<key>TC1P</key>
+			<string> CPU A Ambient 2</string>
+			<key>TCBH</key>
+			<string>CPU A HeatSink</string>
+			<key>TC2C</key>
+			<string>CPU B Core 0</string>
+			<key>TC2P</key>
+			<string>CPU B Ambient 1</string>
+			<key>TC3C</key>
+			<string>CPU B Core 1</string>
+			<key>TC3P</key>
+			<string>CPU B Ambient 2</string>
+			<key>TG0C</key>
+			<string>Mezzanine GPU Core</string>
+			<key>TG0P</key>
+			<string>Mezzanine GPU Exhaust</string>
+			<key>TH1P</key>
+			<string>Drive Bay 1</string>			
+			<key>TH2P</key>
+			<string>Drive Bay 2</string>			
+			<key>TH3P</key>
+			<string>Drive Bay 3</string>			
+			<key>TN0C</key>
+			<string>MCH Core</string>
+			<key>TN0H</key>
+			<string>MCH HeatSink</string>
+			<key>TS0C</key>
+			<string>CPU B PCB</string>
+			<key>Tp0P</key>
+			<string>PSU1 Inlet Ambient</string>
+			<key>Tp1P</key>
+			<string>PSU1 Primary Component</string>
+			<key>Tp2P</key>
+			<string>PSU1 Secondary Component</string>
+			<key>Tp3P</key>
+			<string>PSU2 Inlet Ambient</string>
+			<key>Tp4P</key>
+			<string>PSU1 Primary Component</string>
+			<key>Tp5P</key>
+			<string>PSU2 Secondary Component</string>
+		</dict>
+		<key>volt_data</key>
+		<dict>
+			<key>VCAC</key>
+			<string>Voltage, CPU A Core</string>
+			<key>VCBC</key>
+			<string>Voltage, CPU B Core</string>
+			<key>VS2C</key>
+			<string>Voltage, Main P12V</string>
+			<key>VS4C</key>
+			<string>Voltage, AUX P1V5</string>
+			<key>VS8C</key>
+			<string>Voltage, Main P3V3</string>
+			<key>VSEC</key>
+			<string>Voltage, FireWire P1V95</string>
+			<key>VSFC</key>
+			<string>Voltage, AUX P3V3</string>
+		</dict>
+	</dict>
+	<key>MacPro1,1</key>
+	<dict>
+		<key>fan_data</key>
+		<dict>
+			<key>F0Ac</key>
+			<string>????</string>
+			<key>F1Ac</key>
+			<string>????</string>
+			<key>F2Ac</key>
+			<string>????</string>
+			<key>F3Ac</key>
+			<string>????</string>
+		</dict>
+		<key>temp_data</key>
+		<dict>
+			<key>TA0P</key>
+			<string>Ambient temp</string>
+			<key>TC0C</key>
+			<string>CPU A Core 0</string>
+			<key>TC1C</key>
+			<string>CPU A Core 1</string>
+			<key>TC2C</key>
+			<string>CPU B Core 0</string>
+			<key>TC3C</key>
+			<string>CPU B Core 1</string>
+			<key>TCAH</key>
+			<string>CPU A HeatSink</string>
+			<key>TCBH</key>
+			<string>CPU B HeatSink</string>
+			<key>TH0P</key>
+			<string>Drive Bay 0</string>
+			<key>TH1P</key>
+			<string>Drive Bay 1</string>			
+			<key>TH2P</key>
+			<string>Drive Bay 2</string>			
+			<key>TH3P</key>
+			<string>Drive Bay 3</string>			
+			<key>TN0H</key>
+			<string>MCH HeatSink</string>
+			<key>Tp0C</key>
+			<string>PSU1 Inlet Ambient</string>
+			<key>Tp1C</key>
+			<string>PSU1 Secondary Component</string>
+		</dict>
+		<key>volt_data</key>
+		<dict>
+			<key>VCAC</key>
+			<string>CPU A core voltage</string>
+			<key>VCBC</key>
+			<string>CPU B core voltage</string>
+			<key>VMAS</key>
+			<string>DIMM Riser A cooked voltage</string>
+			<key>VMBS</key>
+			<string>DIMM Riser B cooked voltage</string>
+			<key>VN0C</key>
+			<string>MCH voltage cooked</string>
+		</dict>
+	</dict>
+	<key>MacPro2,1</key>
+	<dict>
+		<key>fan_data</key>
+		<dict>
+			<key>F0Ac</key>
+			<string>????</string>
+			<key>F1Ac</key>
+			<string>????</string>
+			<key>F2Ac</key>
+			<string>????</string>
+			<key>F3Ac</key>
+			<string>????</string>
+		</dict>
+		<key>temp_data</key>
+		<dict>
+			<key>TA0P</key>
+			<string>Ambient temp</string>
+			<key>TC0C</key>
+			<string>CPU A Core 0</string>
+			<key>TC1C</key>
+			<string>CPU A Core 1</string>
+			<key>TC2C</key>
+			<string>CPU B Core 0</string>
+			<key>TC3C</key>
+			<string>CPU B Core 1</string>
+			<key>TCAH</key>
+			<string>CPU A HeatSink</string>
+			<key>TCBH</key>
+			<string>CPU B HeatSink</string>
+			<key>TH0P</key>
+			<string>Drive Bay 0</string>
+			<key>TH1P</key>
+			<string>Drive Bay 1</string>			
+			<key>TH2P</key>
+			<string>Drive Bay 2</string>			
+			<key>TH3P</key>
+			<string>Drive Bay 3</string>			
+			<key>TN0H</key>
+			<string>MCH HeatSink</string>
+			<key>Tp0C</key>
+			<string>PSU1 Inlet Ambient</string>
+			<key>Tp1C</key>
+			<string>PSU1 Secondary Component</string>
+		</dict>
+		<key>volt_data</key>
+		<dict>
+			<key>VCAC</key>
+			<string>CPU A core voltage</string>
+			<key>VCBC</key>
+			<string>CPU B core voltage</string>
+			<key>VMAS</key>
+			<string>DIMM Riser A cooked voltage</string>
+			<key>VMBS</key>
+			<string>DIMM Riser B cooked voltage</string>
+			<key>VN0C</key>
+			<string>MCH voltage cooked</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

@@ -93,3 +93,4 @@ add-local-kdc-support -p0
 allow-guest-auth-for-local-account -p0
 support-cmdline-workgroup-in-net-setdomainsid -p0
 create-computer-account-in-od -p0
+CVE-2008-1105-receive_smb_raw-overflow -p0

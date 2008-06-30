@@ -900,42 +900,58 @@ eapttls_mschap2_verify(EAPClientPluginDataRef plugin, int identifier)
 }
 
 static EAPPacketRef
+eapttls_do_inner_auth(EAPClientPluginDataRef plugin,
+		      int identifier, EAPClientStatus * client_status)
+{
+    EAPTTLSPluginDataRef	context = (EAPTTLSPluginDataRef)plugin->private;
+    memoryBufferRef		write_buf = &context->write_buffer; 
+
+    context->authentication_started = TRUE;
+    switch (context->inner_auth_type) {
+    case kInnerAuthTypePAP:
+	if (eapttls_pap(plugin) == FALSE) {
+	    /* do something */
+	}
+	break;
+    case kInnerAuthTypeCHAP:
+	if (eapttls_chap(plugin) == FALSE) {
+	    /* do something */
+	}
+	break;
+    case kInnerAuthTypeMSCHAP:
+	if (eapttls_mschap(plugin) == FALSE) {
+	    /* do something */
+	}
+	break;
+    case kInnerAuthTypeEAP:
+	if (eapttls_eap_start(plugin, identifier) == FALSE) {
+	    /* do something */
+	}
+	break;
+    default:
+    case kInnerAuthTypeMSCHAPv2:
+	if (eapttls_mschap2(plugin) == FALSE) {
+	    /* do something */
+	}
+	break;
+    }
+    return (EAPTLSPacketCreate(kEAPCodeResponse,
+			       kEAPTypeTTLS,
+			       identifier,
+			       context->mtu,
+			       write_buf,
+			       &context->last_write_size));
+}
+
+static EAPPacketRef
 eapttls_start_inner_auth(EAPClientPluginDataRef plugin,
 			 int identifier, EAPClientStatus * client_status)
 {
     EAPTTLSPluginDataRef	context = (EAPTTLSPluginDataRef)plugin->private;
     memoryBufferRef		write_buf = &context->write_buffer; 
 
-    context->authentication_started = TRUE;
     if (context->session_was_resumed == FALSE) {
-	switch (context->inner_auth_type) {
-	case kInnerAuthTypePAP:
-	    if (eapttls_pap(plugin) == FALSE) {
-		/* do something */
-	    }
-	    break;
-	case kInnerAuthTypeCHAP:
-	    if (eapttls_chap(plugin) == FALSE) {
-		/* do something */
-	    }
-	    break;
-	case kInnerAuthTypeMSCHAP:
-	    if (eapttls_mschap(plugin) == FALSE) {
-		/* do something */
-	    }
-	    break;
-	case kInnerAuthTypeEAP:
-	    if (eapttls_eap_start(plugin, identifier) == FALSE) {
-		/* do something */
-	    }
-	    break;
-	default:
-	case kInnerAuthTypeMSCHAPv2:
-	    if (eapttls_mschap2(plugin) == FALSE) {
-		/* do something */
-	    }
-	    break;
-	}
+	return (eapttls_do_inner_auth(plugin, identifier, client_status));
     }
     return (EAPTLSPacketCreate(kEAPCodeResponse,
 			       kEAPTypeTTLS,
@@ -1253,9 +1269,24 @@ eapttls_request(EAPClientPluginDataRef plugin,
 	    context->last_write_size = 0;
 	}
 	if (type != kRequestTypeData) {
-	    syslog(LOG_NOTICE, "eapttls_request: unexpected %s frame",
-		   type == kRequestTypeAck ? "Ack" : "Start");
-	    goto done;
+	    EAPTTLSPluginDataRef context;
+
+	    context = (EAPTTLSPluginDataRef)plugin->private;
+	    if (ssl_state != kSSLConnected
+		|| context->session_was_resumed == FALSE
+		|| context->trust_proceed == FALSE
+		|| context->authentication_started == TRUE) {
+		syslog(LOG_NOTICE, "eapttls_request: unexpected %s frame",
+		       type == kRequestTypeAck ? "Ack" : "Start");
+		goto done;
+	    }
+	    /* server is forcing us to re-auth even though we resumed */
+	    syslog(LOG_NOTICE,
+		   "eapttls_request: server forcing re-auth after resume");
+	    eaptls_out
+		= eapttls_do_inner_auth(plugin, eaptls_in->identifier,
+					client_status);
+	    break;
 	}
 	if (read_buf->data == NULL) {
 	    read_buf->data = malloc(tls_message_length);
@@ -1431,8 +1462,7 @@ eapttls_require_props(EAPClientPluginDataRef plugin)
 	array = CFArrayCreate(NULL, (const void **)&str,
 			      1, &kCFTypeArrayCallBacks);
     }
-    else if (context->authentication_started == FALSE
-	     && plugin->password == NULL) {
+    else if (plugin->password == NULL) {
 	CFStringRef	str = kEAPClientPropUserPassword;
 	array = CFArrayCreate(NULL, (const void **)&str,
 			      1, &kCFTypeArrayCallBacks);

@@ -1,0 +1,13 @@
+diff -Naur net-snmp-5.4.1/snmplib/scapi.c net-snmp-5.4.1.fix/snmplib/scapi.c
+--- net-snmp-5.4.1/snmplib/scapi.c	2006-09-15 05:47:01.000000000 -0700
++++ net-snmp-5.4.1.fix/snmplib/scapi.c	2008-05-23 17:18:43.000000000 -0700
+@@ -562,6 +562,9 @@
+         QUITFUN(SNMPERR_GENERR, sc_check_keyed_hash_quit);
+     }
+ 
++    if (maclen != USM_MD5_AND_SHA_AUTH_LEN) {
++        QUITFUN(SNMPERR_GENERR, sc_check_keyed_hash_quit);
++    }
+ 
+     /*
+      * Generate a full hash of the message, then compare

@@ -9089,13 +9089,14 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
     if( bHaveServiceName )
     {
         char *endptr = NULL;
+        bool isString = false;
         
         int32_t iPort = strtol( pService, &endptr, 10 );
 
-        // if iPort is something other than 0, but pointer is non-NULL and is not pointing to a NULL char
-        // then this was an invalid string, so return NULL, otherwise we do a lookup
-        if( endptr != NULL && (*endptr) != '\0' && iPort != 0 )
-            iPort = 0;
+        // if pService had non-numeric characters, then flag it as a string and try to find the service
+        // note pService is tested for empty string so no need to look for empty string case
+        if ( endptr != NULL && (*endptr) != '\0' )
+            isString = true;
         
         int index = serviceCount;
         
@@ -9105,9 +9106,7 @@ kvbuf_t* CCachePlugin::DSgetaddrinfo( kvbuf_t *inBuffer, pid_t inPID )
 
             if ( protocolListStr[index] != NULL ) // this is a special case query, no protocol signifies a MX query
             {
-                
-                // if we don't have a port, we assume it is a name
-                if ( iPort == 0 )
+                if ( isString )
                 {
                     kvbuf_t *request = kvbuf_new();
                     if( request == NULL)

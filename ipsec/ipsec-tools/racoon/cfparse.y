@@ -758,7 +758,7 @@ sainfo_statement
 			/* duplicate check */
 			check = getsainfo(cur_sainfo->idsrc,
 					  cur_sainfo->iddst,
-					  cur_sainfo->id_i);
+					  cur_sainfo->id_i, 0);
 			if (check && (!check->idsrc && !cur_sainfo->idsrc)) {
 				yyerror("duplicated sainfo: %s",
 					sainfo2str(cur_sainfo));

@@ -33,6 +33,8 @@
 #include <security_cdsa_utilities/Schema.h>
 #include <security_utilities/simpleprefs.h>
 #include <sys/param.h>
+#include <syslog.h>
+
 
 CFTypeID
 SecIdentityGetTypeID(void)
@@ -120,13 +122,70 @@ SecIdentityCompare(
 	END_SECAPI1(kCFCompareGreaterThan);
 }
 
-OSStatus SecIdentityCopyPreference(
+CFArrayRef _SecIdentityCopyPossiblePaths(
+    CFStringRef name)
+{
+    // utility function to build and return an array of possible paths for the given name.
+    // if name is not a URL, this returns a single-element array.
+    // if name is a URL, the array may contain 1-N elements, one for each level of the path hierarchy.
+    
+    CFMutableArrayRef names = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (!name) {
+        return names;
+    }
+    CFIndex oldLength = CFStringGetLength(name);
+    CFArrayAppendValue(names, name);
+
+    CFURLRef url = CFURLCreateWithString(NULL, name, NULL);
+    if (url && CFURLCanBeDecomposed(url)) {
+        // first, remove the query portion of this URL, if any
+        CFStringRef qs = CFURLCopyQueryString(url, NULL);
+        if (qs) {
+            CFMutableStringRef newName = CFStringCreateMutableCopy(NULL, oldLength, name);
+            if (newName) {
+                CFIndex qsLength = CFStringGetLength(qs) + 1; // include the '?'
+                CFStringDelete(newName, CFRangeMake(oldLength-qsLength, qsLength));
+                CFRelease(url);
+                url = CFURLCreateWithString(NULL, newName, NULL);
+                CFArraySetValueAtIndex(names, 0, newName);
+                CFRelease(newName);
+            }
+            CFRelease(qs);
+        }
+        // now add an entry for each level of the path
+        while (url) {
+            CFURLRef parent = CFURLCreateCopyDeletingLastPathComponent(NULL, url);
+            if (parent) {
+                CFStringRef parentURLString = CFURLGetString(parent);
+                if (parentURLString) {
+                    CFIndex newLength = CFStringGetLength(parentURLString);
+                    // check that string length has decreased as expected; for file URLs,
+                    // CFURLCreateCopyDeletingLastPathComponent can insert './' or '../'
+                    if ((newLength >= oldLength) || (!CFStringHasPrefix(name, parentURLString))) {
+                        CFRelease(parent);
+                        CFRelease(url);
+                        break;
+                    }
+                    oldLength = newLength;
+                    CFArrayAppendValue(names, parentURLString);
+                }
+            }
+            CFRelease(url);
+            url = parent;
+        }
+    }
+    
+    return names;
+}
+
+OSStatus _SecIdentityCopyPreferenceMatchingName(
     CFStringRef name,
     CSSM_KEYUSE keyUsage,
     CFArrayRef validIssuers,
     SecIdentityRef *identity)
 {
-    BEGIN_SECAPI
+    // this is NOT exported, and called only from SecIdentityCopyPreference (below), so no BEGIN/END macros here;
+    // caller must handle exceptions
 
 	StorageManager::KeychainList keychains;
 	globals().storageManager.getSearchList(keychains);
@@ -144,7 +203,7 @@ OSStatus SecIdentityCopyPreference(
 
 	Item prefItem;
 	if (!cursor->next(prefItem))
-		MacOSError::throwMe(errSecItemNotFound);
+		return errSecItemNotFound;
 
 	// get persistent certificate reference
 	SecKeychainAttribute itemAttrs[] = { { kSecGenericItemAttr, 0, NULL } };
@@ -174,6 +233,99 @@ OSStatus SecIdentityCopyPreference(
 		CFRelease(certItemRef);
 
 	Required(identity) = identity_ptr->handle();
+
+    return status;
+}
+
+OSStatus SecIdentityCopyPreference(
+    CFStringRef name,
+    CSSM_KEYUSE keyUsage,
+    CFArrayRef validIssuers,
+    SecIdentityRef *identity)
+{
+    // The original implementation of SecIdentityCopyPreference matches the exact string only.
+    // That implementation has been moved to _SecIdentityCopyPreferenceMatchingName (above),
+    // and this function is a wrapper which calls it, so that existing clients will get the
+    // extended behavior of server domain matching for items that specify URLs.
+    // (Note that behavior is unchanged if the specified name is not a URL.)
+
+    BEGIN_SECAPI
+
+    CFTypeRef val = (CFTypeRef)CFPreferencesCopyValue(CFSTR("LogIdentityPreferenceLookup"),
+                    CFSTR("com.apple.security"),
+                    kCFPreferencesCurrentUser,
+                    kCFPreferencesAnyHost);
+    Boolean logging = false;
+    if (val && CFGetTypeID(val) == CFBooleanGetTypeID()) {
+        logging = CFBooleanGetValue((CFBooleanRef)val);
+        CFRelease(val);
+    }
+
+    OSStatus status = errSecItemNotFound;
+    CFArrayRef names = _SecIdentityCopyPossiblePaths(name);
+    if (!names) {
+        return status;
+    }
+
+    CFIndex idx, total = CFArrayGetCount(names);
+    for (idx = 0; idx < total; idx++) {
+        CFStringRef aName = (CFStringRef)CFArrayGetValueAtIndex(names, idx);
+        try {
+            status = _SecIdentityCopyPreferenceMatchingName(aName, keyUsage, validIssuers, identity);
+        }
+        catch (...) { status = errSecItemNotFound; }
+
+        if (logging) {
+            // get identity label
+            CFStringRef labelString = NULL;
+            if (!status && identity && *identity) {
+                try {
+                    SecPointer<Certificate> cert(Identity::required(*identity)->certificate());
+                    cert->inferLabel(false, &labelString);
+                }
+                catch (...) { labelString = NULL; };
+            }
+            char *labelBuf = NULL;
+            CFIndex labelBufSize = (labelString) ? CFStringGetLength(labelString) * 4 : 4;
+            labelBuf = (char *)malloc(labelBufSize);
+            if (!labelString || !CFStringGetCString(labelString, labelBuf, labelBufSize, kCFStringEncodingUTF8)) {
+                labelBuf[0] = 0;
+            }
+            if (labelString) {
+                CFRelease(labelString);
+            }
+
+            // get service name
+            char *serviceBuf = NULL;
+            CFIndex serviceBufSize = CFStringGetLength(aName) * 4;
+            serviceBuf = (char *)malloc(serviceBufSize);
+            if (!CFStringGetCString(aName, serviceBuf, serviceBufSize, kCFStringEncodingUTF8)) {
+                serviceBuf[0] = 0;
+            }
+
+            syslog(LOG_NOTICE, "preferred identity: \"%s\" found for \"%s\"\n", labelBuf, serviceBuf);
+            if (!status && name) {
+                char *nameBuf = NULL;
+                CFIndex nameBufSize = CFStringGetLength(name) * 4;
+                nameBuf = (char *)malloc(nameBufSize);
+                if (!CFStringGetCString(name, nameBuf, nameBufSize, kCFStringEncodingUTF8)) {
+                    nameBuf[0] = 0;
+                }
+                syslog(LOG_NOTICE, "lookup complete; will use: \"%s\" for \"%s\"\n", labelBuf, nameBuf);
+                free(nameBuf);
+            }
+            
+            free(labelBuf);
+            free(serviceBuf);
+        }
+
+        if (status == noErr) {
+            break; // match found
+        }
+    }
+
+    CFRelease(names);
+    return status;
 
     END_SECAPI2("SecIdentityCopyPreference")
 }
@@ -290,22 +442,23 @@ SecIdentityFindPreferenceItem(
     END_SECAPI2("SecIdentityFindPreferenceItem")
 }
 
-OSStatus SecIdentityAddPreferenceItem(
+OSStatus _SecIdentityAddPreferenceItemWithName(
 	SecKeychainRef keychainRef,
 	SecIdentityRef identityRef,
 	CFStringRef idString,
 	SecKeychainItemRef *itemRef)
 {
-    BEGIN_SECAPI
+    // this is NOT exported, and called only from SecIdentityAddPreferenceItem (below), so no BEGIN/END macros here;
+    // caller must handle exceptions
 
 	if (!identityRef || !idString)
-		MacOSError::throwMe(paramErr);
+		return paramErr;
 	SecPointer<Certificate> cert(Identity::required(identityRef)->certificate());
 	Item item(kSecGenericPasswordItemClass, 'aapl', 0, NULL, false);
 
 	char idUTF8[MAXPATHLEN];
 	if (!CFStringGetCString(idString, idUTF8, sizeof(idUTF8)-1, kCFStringEncodingUTF8))
-		MacOSError::throwMe(errSecDataTooLarge);
+		return errSecDataTooLarge;
 
 	// service (use provided string)
 	CssmData service(const_cast<void *>(reinterpret_cast<const void *>(idUTF8)), strlen(idUTF8));
@@ -321,7 +474,7 @@ OSStatus SecIdentityAddPreferenceItem(
 	CFStringRef labelString = nil;
 	cert->inferLabel(false, &labelString);
 	if (!labelString || !CFStringGetCString(labelString, idUTF8, sizeof(idUTF8)-1, kCFStringEncodingUTF8))
-		MacOSError::throwMe(errSecDataTooLarge);
+		return errSecDataTooLarge;
 	CssmData account(const_cast<void *>(reinterpret_cast<const void *>(idUTF8)), strlen(idUTF8));
 	item->setAttribute(Schema::attributeInfo(kSecAccountItemAttr), account);
 	CFRelease(labelString);
@@ -332,7 +485,7 @@ OSStatus SecIdentityAddPreferenceItem(
 	if (!pItemRef)
 		status = errSecInvalidItemRef;
 	if (status)
-		MacOSError::throwMe(status);
+		 return status;
 	const UInt8 *dataPtr = CFDataGetBytePtr(pItemRef);
 	CFIndex dataLen = CFDataGetLength(pItemRef);
 	CssmData pref(const_cast<void *>(reinterpret_cast<const void *>(dataPtr)), dataLen);
@@ -354,6 +507,57 @@ OSStatus SecIdentityAddPreferenceItem(
 
     if (itemRef)
 		*itemRef = item->handle();
+
+    return status;
+}
+
+OSStatus SecIdentityAddPreferenceItem(
+	SecKeychainRef keychainRef,
+	SecIdentityRef identityRef,
+	CFStringRef idString,
+	SecKeychainItemRef *itemRef)
+{
+    // The original implementation of SecIdentityAddPreferenceItem adds the exact string only.
+    // That implementation has been moved to _SecIdentityAddPreferenceItemWithName (above),
+    // and this function is a wrapper which calls it, so that existing clients will get the
+    // extended behavior of server domain matching for items that specify URLs.
+    // (Note that behavior is unchanged if the specified idString is not a URL.)
+
+    BEGIN_SECAPI
+
+    OSStatus status = internalComponentErr;
+    CFArrayRef names = _SecIdentityCopyPossiblePaths(idString);
+    if (!names) {
+        return status;
+    }
+
+    CFIndex total = CFArrayGetCount(names);
+    if (total > 0) {
+        // add item for name (first element in array)
+        CFStringRef aName = (CFStringRef)CFArrayGetValueAtIndex(names, 0);
+        try {
+            status = _SecIdentityAddPreferenceItemWithName(keychainRef, identityRef, aName, itemRef);
+        }
+        catch (const MacOSError &err)   { status=err.osStatus(); }
+        catch (const CommonError &err)  { status=SecKeychainErrFromOSStatus(err.osStatus()); }
+        catch (const std::bad_alloc &)  { status=memFullErr; }
+        catch (...)                     { status=internalComponentErr; }
+    }
+    if (total > 1) {
+        // add item for top path level (last element in array)
+        OSStatus tmpStatus = noErr;
+        CFStringRef aName = (CFStringRef)CFArrayGetValueAtIndex(names, total-1);
+        try {
+            tmpStatus = _SecIdentityAddPreferenceItemWithName(keychainRef, identityRef, aName, itemRef);
+        }
+        catch (const MacOSError &err)   { tmpStatus=err.osStatus(); }
+        catch (const CommonError &err)  { tmpStatus=SecKeychainErrFromOSStatus(err.osStatus()); }
+        catch (const std::bad_alloc &)  { tmpStatus=memFullErr; }
+        catch (...)                     { tmpStatus=internalComponentErr; }
+    }
+
+    CFRelease(names);
+    return status;
 
     END_SECAPI2("SecIdentityAddPreferenceItem")
 }

@@ -66,7 +66,7 @@ SDDLSession::GetDbNames(CSSM_NAME_LIST_PTR &outNameList)
 {
 	outNameList->String = this->PluginSession::alloc<char *>();
 	outNameList->NumStrings = 1;
-	outNameList->String[0] = "";	// empty name will trigger dynamic lookup
+	outNameList->String[0] = (char*) "";	// empty name will trigger dynamic lookup
 }
 
 
@@ -286,12 +286,12 @@ SDDLSession::DataGetFirst(CSSM_DB_HANDLE inDbHandle,
                           CssmData *inoutData,
                           CSSM_DB_UNIQUE_RECORD_PTR &outUniqueRecord)
 {
-    // Setup so we always retrive the attributes if the client asks for data,
+    // Setup so we always retrieve the attributes if the client asks for data,
 	// even if the client doesn't want them so we can figure out if we just
-	// retrived a key.
+	// retrieved a key.
     CssmDbRecordAttributeData attributes;
     CssmDbRecordAttributeData *pAttributes;
-    if (inoutAttributes || !inoutData)
+    if (inoutAttributes)
 		pAttributes = CssmDbRecordAttributeData::overlay(inoutAttributes);
 	else
     {
@@ -322,12 +322,12 @@ SDDLSession::DataGetNext(CSSM_DB_HANDLE inDbHandle,
                          CssmData *inoutData,
                          CSSM_DB_UNIQUE_RECORD_PTR &outUniqueRecord)
 {
-    // Setup so we always retrive the attributes if the client asks for data,
+    // Setup so we always retrieve the attributes if the client asks for data,
 	// even if the client doesn't want them so we can figure out if we just
-	// retrived a key.
+	// retrieved a key.
     CssmDbRecordAttributeData attributes;
     CssmDbRecordAttributeData *pAttributes;
-    if (inoutAttributes || !inoutData)
+    if (inoutAttributes)
 		pAttributes = CssmDbRecordAttributeData::overlay(inoutAttributes);
 	else
     {
@@ -362,12 +362,12 @@ SDDLSession::DataGetFromUniqueRecordId(CSSM_DB_HANDLE inDbHandle,
                                        CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR inoutAttributes,
                                        CssmData *inoutData)
 {
-    // Setup so we always retrive the attributes if the client asks for data,
+    // Setup so we always retrieve the attributes if the client asks for data,
 	// even if the client doesn't want them so we can figure out if we just
-	// retrived a key.
+	// retrieved a key.
     CssmDbRecordAttributeData attributes;
     CssmDbRecordAttributeData *pAttributes;
-    if (inoutAttributes || !inoutData)
+    if (inoutAttributes)
 		pAttributes = CssmDbRecordAttributeData::overlay(inoutAttributes);
 	else
     {
@@ -452,7 +452,7 @@ SDDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 			const AclEntryInfo &slot = acls.at(0);
 			if (acls.size() > 1)
 				secdebug("acl",
-					"Using entry handle %ld from %ld total candidates",
+					"Using entry handle %ld from %d total candidates",
 					slot.handle(), acls.size());
 			AclEdit edit(slot.handle(), slot.proto());
 			ChangeDbAcl(inDbHandle,

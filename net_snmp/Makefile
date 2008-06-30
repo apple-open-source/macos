@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 113
+Submission	= 112.1
 
 #
 # Settings for the net-snmp project.
@@ -35,7 +35,7 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 			--with-defaults \
 			--without-rpm \
 			--with-sys-contact="postmaster@example.com" \
-			--with-mib-modules="host ucd-snmp/diskio ucd-snmp/loadave" \
+			--with-mib-modules="host ucd-snmp/diskio ucd-snmp/loadave ucd-snmp/lmSensorsTables" \
 			--disable-static \
 			--disable-embedded-perl \
 			--without-kmem-usage
@@ -92,8 +92,8 @@ AEP_Version	= 5.4.1
 AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
 			cache.patch container.patch darwin-header.patch \
 			dir_utils.patch disk.patch host.patch \
-			swinst.patch swrun.patch copying.patch \
-			system.patch table.patch
+			lmsensors.patch darwin-sensors.patch swinst.patch swrun.patch \
+			system.patch table.patch 5956376.patch
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
 AEP_ConfigDir	= $(ETCDIR)/snmp
 AEP_ConfigFiles	= snmpd.conf
@@ -198,6 +198,8 @@ install-macosx:
 		$(STRIP) -x $(DSTROOT)$(USRLIBDIR)/$${file}.dylib; \
 	done
 	$(_v) $(FIND) $(DSTROOT)$(NSLIBRARYSUBDIR)/Perl -type f -name '*.bundle' -print -exec strip -S {} \;
+	@echo "Copying sensor data"
+	$(_v) $(INSTALL_FILE) $(SRCROOT)/SensorDat.xml $(DSTROOT)$(SHAREDIR)/snmp
 	@echo "Fixing permissions..."
 	$(_v) $(FIND) $(DSTROOT)$(USRINCLUDEDIR)/net-snmp -type f -exec chmod 644 {} \;
 	$(_v) $(FIND) $(DSTROOT)$(SHAREDIR)/snmp -type f -exec chmod 644 {} \;

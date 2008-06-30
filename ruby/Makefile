@@ -140,7 +140,7 @@ install-xray-template:
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 1.8.6-p111
+AEP_Version    = 1.8.6-p114
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -165,7 +165,11 @@ AEP_Patches    = patch-configure \
                  lib_irb_init.rb.diff \
                  dtrace.diff \
                  ruby_thread_hooks.diff \
-                 rexml_bugs.diff
+                 rexml_bugs.diff \
+                 5877968.diff \
+                 5884052.diff \
+                 5879206.diff \
+                 5876803.diff \
 
 # Extract the source.
 install_source::
