@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fastcgi.c,v 1.4.2.13.2.28 2007/09/07 08:26:47 dmitry Exp $ */
+/* $Id: fastcgi.c,v 1.4.2.13.2.30 2008/04/03 10:24:44 dmitry Exp $ */
 
 #include "php.h"
 #include "fastcgi.h"
@@ -593,6 +593,9 @@ static inline int fcgi_make_header(fcgi_header *hdr, fcgi_request_type type, int
 	hdr->reserved = 0;
 	hdr->type = type;
 	hdr->version = FCGI_VERSION_1;
+	if (pad) {
+		memset(((unsigned char*)hdr) + sizeof(fcgi_header) + len, 0, pad);
+	}
 	return pad;
 }
 
@@ -777,7 +780,7 @@ int fcgi_read(fcgi_request *req, char *str, int len)
 {
 	int ret, n, rest;
 	fcgi_header hdr;
-	unsigned char buf[8];
+	unsigned char buf[255];
 
 	n = 0;
 	rest = len;

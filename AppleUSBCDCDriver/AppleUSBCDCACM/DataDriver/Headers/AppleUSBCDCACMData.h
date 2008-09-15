@@ -39,7 +39,8 @@
 
 #define kDefaultBaudRate	9600
 #define kMaxBaudRate		230400
-#define kMaxCirBufferSize	4096
+//#define kMaxCirBufferSize	4096
+#define kMaxCirBufferSize	PAGE_SIZE*3
 
     // Default and Maximum buffer pool values
 
@@ -241,6 +242,9 @@ public:
 	bool			fEnumOnWake;				// Do we need to re-enumerate on wake
 	bool			fSuppressWarning;		// Are we suppressing the unplug warning dialog
 	
+	OSBoolean		*fWanDevice;
+	OSDictionary	*fInterfaceMappings;	
+
 	UInt16			fVendorID;				// Vendor ID
     UInt16			fProductID;				// Product ID
 
@@ -312,6 +316,8 @@ public:
     bool			WakeonRing(void);
 	void			setWakeFeature(void);
 	void			resurrectRead(void);
+
+	OSString		*getPortNameForInterface(UInt8 interfaceNumber);
 
 private:
 

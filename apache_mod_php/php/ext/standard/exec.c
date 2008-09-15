@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |         Ilia Alshanetsky <iliaa@php.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.113.2.3.2.2 2007/10/04 13:31:11 jani Exp $ */
+/* $Id: exec.c,v 1.113.2.3.2.10 2008/04/08 17:17:07 iliaa Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -25,6 +25,7 @@
 #include "safe_mode.h"
 #include "ext/standard/head.h"
 #include "ext/standard/file.h"
+#include "basic_functions.h"
 #include "exec.h"
 #include "php_globals.h"
 #include "SAPI.h"
@@ -265,11 +266,25 @@ char *php_escape_shell_cmd(char *str) {
 	register int x, y, l;
 	char *cmd;
 	char *p = NULL;
+	
+	TSRMLS_FETCH();
 
 	l = strlen(str);
 	cmd = safe_emalloc(2, l, 1);
 	
 	for (x = 0, y = 0; x < l; x++) {
+		int mb_len = php_mblen(str + x, (l - x));
+
+		/* skip non-valid multibyte characters */
+		if (mb_len < 0) {
+			continue;
+		} else if (mb_len > 1) {
+			memcpy(cmd + y, str + x, mb_len);
+			y += mb_len;
+			x += mb_len - 1;
+			continue;
+		}
+
 		switch (str[x]) {
 			case '"':
 			case '\'':
@@ -328,6 +343,7 @@ char *php_escape_shell_cmd(char *str) {
 char *php_escape_shell_arg(char *str) {
 	int x, y, l;
 	char *cmd;
+	TSRMLS_FETCH();
 
 	y = 0;
 	l = strlen(str);
@@ -341,6 +357,18 @@ char *php_escape_shell_arg(char *str) {
 #endif
 
 	for (x = 0; x < l; x++) {
+		int mb_len = php_mblen(str + x, (l - x));
+
+		/* skip non-valid multibyte characters */
+		if (mb_len < 0) {
+			continue;
+		} else if (mb_len > 1) {
+			memcpy(cmd + y, str + x, mb_len);
+			y += mb_len;
+			x += mb_len - 1;
+			continue;
+		}
+
 		switch (str[x]) {
 #ifdef PHP_WIN32
 		case '"':
@@ -372,18 +400,19 @@ char *php_escape_shell_arg(char *str) {
    Escape shell metacharacters */
 PHP_FUNCTION(escapeshellcmd)
 {
-	zval **arg1;
+	char *command;
+	int command_len;
 	char *cmd = NULL;
 
-	if (zend_get_parameters_ex(1, &arg1) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &command, &command_len) == FAILURE) {
+		return;
 	}
-	
-	convert_to_string_ex(arg1);
-	if (Z_STRLEN_PP(arg1)) {
-		cmd = php_escape_shell_cmd(Z_STRVAL_PP(arg1));
-		RETVAL_STRING(cmd, 1);
-		efree(cmd);
+
+	if (command_len) {
+		cmd = php_escape_shell_cmd(command);
+		RETVAL_STRING(cmd, 0);
+	} else {
+		RETVAL_EMPTY_STRING();
 	}
 }
 /* }}} */
@@ -392,18 +421,17 @@ PHP_FUNCTION(escapeshellcmd)
    Quote and escape an argument for use in a shell command */
 PHP_FUNCTION(escapeshellarg)
 {
-	zval **arg1;
+	char *argument;
+	int argument_len;
 	char *cmd = NULL;
 
-	if (zend_get_parameters_ex(1, &arg1) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &argument, &argument_len) == FAILURE) {
+		return;
 	}
-	
-	convert_to_string_ex(arg1);
-	if (Z_STRLEN_PP(arg1)) {
-		cmd = php_escape_shell_arg(Z_STRVAL_PP(arg1));
-		RETVAL_STRING(cmd, 1);
-		efree(cmd);
+
+	if (argument) {
+		cmd = php_escape_shell_arg(argument);
+		RETVAL_STRING(cmd, 0);
 	}
 }
 /* }}} */

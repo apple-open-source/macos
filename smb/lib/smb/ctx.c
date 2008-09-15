@@ -1422,9 +1422,17 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 		
 		/* Force an anon connection why I am not sure */
 		if (UseAnonymous)
-			ctx->ct_ssn.ioc_user[0] = '\0';		
+			ctx->ct_ssn.ioc_user[0] = '\0';
 	}
-
+	
+	/*
+	 * If we are given an empty username and password and they don't request Kerberos, 
+	 * Guest, or Anonymous then we should return EAUTH. Having an empty password and username
+	 * is Anonymous authentication. 
+	 */
+	if ((!ctx->ct_vc_shared) && (ctx->ct_ssn.ioc_user[0] == 0) && !UseGuest && !UseKerberos && !UseAnonymous)
+		return EAUTH;
+	
 	if (UseKerberos) {
 		CFStringRef kerbClientPrincipalRef = NULL;
 		CFStringRef kerbServicePrincipalRef = NULL;

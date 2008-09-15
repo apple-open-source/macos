@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: memory.c,v 1.8.2.6.2.17 2007/02/22 23:26:03 helly Exp $ */
+/* $Id: memory.c,v 1.8.2.6.2.19 2008/03/15 10:28:53 felipe Exp $ */
 
 #define _GNU_SOURCE
 #include "php.h"
@@ -234,6 +234,9 @@ static int php_stream_memory_stat(php_stream *stream, php_stream_statbuf *ssb TS
 
 #ifndef PHP_WIN32
 	ssb->sb.st_blksize = -1;
+#endif
+
+#if !defined(PHP_WIN32) && !defined(__BEOS__)
 	ssb->sb.st_blocks = -1;
 #endif
 

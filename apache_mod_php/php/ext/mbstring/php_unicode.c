@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -275,6 +275,11 @@ MBSTRING_API char *php_unicode_convert_case(int case_mode, char *srcstr, size_t 
 	unsigned char *unicode_ptr;
 	size_t i;
 	enum mbfl_no_encoding _src_encoding = mbfl_name2no_encoding(src_encoding);
+
+	if (_src_encoding == mbfl_no_encoding_invalid) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown encoding \"%s\"", src_encoding);
+		return NULL;
+	}	
 
 	unicode = php_mb_convert_encoding(srcstr, srclen, "UCS-4BE", src_encoding, &unicode_len TSRMLS_CC);
 	if (unicode == NULL)

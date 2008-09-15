@@ -1,27 +1,27 @@
 /*
-   Copyright (C) Andrew Tridgell 1999
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
-
-/* backup handling code */
+ * Backup handling code.
+ *
+ * Copyright (C) 1999 Andrew Tridgell
+ * Copyright (C) 2003, 2004, 2005, 2006 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
 #include "rsync.h"
 
 extern int verbose;
-extern int backup_suffix_len;
 extern int backup_dir_len;
 extern unsigned int backup_dir_remainder;
 extern char backup_dir_buf[MAXPATHLEN];
@@ -30,9 +30,8 @@ extern char *backup_dir;
 
 extern int am_root;
 extern int preserve_devices;
+extern int preserve_specials;
 extern int preserve_links;
-extern int preserve_hard_links;
-extern int orig_umask;
 extern int safe_symlinks;
 
 /* make a complete pathname for backup file */
@@ -55,21 +54,36 @@ char *get_backup_name(char *fname)
 /* simple backup creates a backup with a suffix in the same directory */
 static int make_simple_backup(char *fname)
 {
+	int rename_errno;
 	char *fnamebak = get_backup_name(fname);
 
 	if (!fnamebak)
 		return 0;
 
-	if (do_rename(fname, fnamebak) != 0) {
-		/* cygwin (at least version b19) reports EINVAL */
-		if (errno != ENOENT && errno != EINVAL) {
-			rsyserr(FERROR, errno,
-				"rename %s to backup %s", fname, fnamebak);
-			return 0;
+	while (1) {
+		if (do_rename(fname, fnamebak) == 0) {
+			if (verbose > 1) {
+				rprintf(FINFO, "backed up %s to %s\n",
+					fname, fnamebak);
+			}
+			break;
 		}
-	} else if (verbose > 1) {
-		rprintf(FINFO, "backed up %s to %s\n", fname, fnamebak);
+		/* cygwin (at least version b19) reports EINVAL */
+		if (errno == ENOENT || errno == EINVAL)
+			break;
+
+		rename_errno = errno;
+		if (errno == EISDIR && do_rmdir(fnamebak) == 0)
+			continue;
+		if (errno == ENOTDIR && do_unlink(fnamebak) == 0)
+			continue;
+
+		rsyserr(FERROR, rename_errno, "rename %s to backup %s",
+			fname, fnamebak);
+		errno = rename_errno;
+		return 0;
 	}
+
 	return 1;
 }
 
@@ -96,7 +110,7 @@ static int make_bak_dir(char *fullpath)
 		}
 		if (*p == '/') {
 			*p = '\0';
-			if (do_mkdir(fullpath, 0777 & ~orig_umask) == 0)
+			if (mkdir_defmode(fullpath) == 0)
 				break;
 			if (errno != ENOENT) {
 				rsyserr(FERROR, errno,
@@ -125,7 +139,7 @@ static int make_bak_dir(char *fullpath)
 		p += strlen(p);
 		if (p == end)
 			break;
-		if (do_mkdir(fullpath, 0777 & ~orig_umask) < 0) {
+		if (mkdir_defmode(fullpath) < 0) {
 			rsyserr(FERROR, errno, "make_bak_dir mkdir %s failed",
 				full_fname(fullpath));
 			goto failure;
@@ -133,7 +147,7 @@ static int make_bak_dir(char *fullpath)
 	}
 	return 0;
 
-failure:
+  failure:
 	while (p != end) {
 		*p = '/';
 		p += strlen(p);
@@ -144,8 +158,9 @@ failure:
 /* robustly move a file, creating new directory structures if necessary */
 static int robust_move(char *src, char *dst)
 {
-	if (robust_rename(src, dst, 0755) < 0 && (errno != ENOENT
-	    || make_bak_dir(dst) < 0 || robust_rename(src, dst, 0755) < 0))
+	if (robust_rename(src, dst, NULL, 0755) < 0
+	 && (errno != ENOENT || make_bak_dir(dst) < 0
+	  || robust_rename(src, dst, NULL, 0755) < 0))
 		return -1;
 	return 0;
 }
@@ -162,39 +177,31 @@ static int keep_backup(char *fname)
 	int ret_code;
 
 	/* return if no file to keep */
-#if SUPPORT_LINKS
-	ret_code = do_lstat(fname, &st);
-#else
-	ret_code = do_stat(fname, &st);
-#endif
-	if (ret_code < 0)
+	if (do_lstat(fname, &st) < 0)
 		return 1;
 
-	if (!(file = make_file(fname, NULL, NO_EXCLUDES)))
+	if (!(file = make_file(fname, NULL, NULL, 0, NO_FILTERS)))
 		return 1; /* the file could have disappeared */
 
 	if (!(buf = get_backup_name(fname)))
 		return 0;
 
-#ifdef HAVE_MKNOD
 	/* Check to see if this is a device file, or link */
-	if (IS_DEVICE(file->mode)) {
-		if (am_root && preserve_devices) {
-			if (do_mknod(buf, file->mode, file->u.rdev) < 0
-			    && (errno != ENOENT || make_bak_dir(buf) < 0
-			     || do_mknod(buf, file->mode, file->u.rdev) < 0)) {
-				rsyserr(FERROR, errno, "mknod %s failed",
-					full_fname(buf));
-			} else if (verbose > 2) {
-				rprintf(FINFO,
-					"make_backup: DEVICE %s successful.\n",
-					fname);
-			}
+	if ((am_root && preserve_devices && IS_DEVICE(file->mode))
+	 || (preserve_specials && IS_SPECIAL(file->mode))) {
+		do_unlink(buf);
+		if (do_mknod(buf, file->mode, file->u.rdev) < 0
+		    && (errno != ENOENT || make_bak_dir(buf) < 0
+		     || do_mknod(buf, file->mode, file->u.rdev) < 0)) {
+			rsyserr(FERROR, errno, "mknod %s failed",
+				full_fname(buf));
+		} else if (verbose > 2) {
+			rprintf(FINFO, "make_backup: DEVICE %s successful.\n",
+				fname);
 		}
 		kept = 1;
 		do_unlink(fname);
 	}
-#endif
 
 	if (!kept && S_ISDIR(file->mode)) {
 		/* make an empty directory */
@@ -213,7 +220,7 @@ static int keep_backup(char *fname)
 		kept = 1;
 	}
 
-#if SUPPORT_LINKS
+#ifdef SUPPORT_LINKS
 	if (!kept && preserve_links && S_ISLNK(file->mode)) {
 		if (safe_symlinks && unsafe_symlink(file->u.link, buf)) {
 			if (verbose) {
@@ -221,15 +228,18 @@ static int keep_backup(char *fname)
 					full_fname(buf), file->u.link);
 			}
 			kept = 1;
+		} else {
+			do_unlink(buf);
+			if (do_symlink(file->u.link, buf) < 0
+			    && (errno != ENOENT || make_bak_dir(buf) < 0
+			     || do_symlink(file->u.link, buf) < 0)) {
+				rsyserr(FERROR, errno, "link %s -> \"%s\"",
+					full_fname(buf),
+					file->u.link);
+			}
+			do_unlink(fname);
+			kept = 1;
 		}
-		if (do_symlink(file->u.link, buf) < 0
-		    && (errno != ENOENT || make_bak_dir(buf) < 0
-		     || do_symlink(file->u.link, buf) < 0)) {
-			rsyserr(FERROR, errno, "link %s -> \"%s\"",
-				full_fname(buf), file->u.link);
-		}
-		do_unlink(fname);
-		kept = 1;
 	}
 #endif
 
@@ -250,11 +260,13 @@ static int keep_backup(char *fname)
 			robust_unlink(fname); /* Just in case... */
 		}
 	}
-	set_perms(buf, file, NULL, 0);
+	set_file_attrs(buf, file, NULL, 0);
 	free(file);
 
-	if (verbose > 1)
-		rprintf(FINFO, "backed up %s to %s\n", fname, buf);
+	if (verbose > 1) {
+		rprintf(FINFO, "backed up %s to %s\n",
+			fname, buf);
+	}
 	return 1;
 }
 

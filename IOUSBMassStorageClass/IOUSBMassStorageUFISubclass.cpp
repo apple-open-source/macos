@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,9 +22,9 @@
  */
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Includes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 // This class' header file
 #include <IOKit/usb/IOUSBMassStorageUFISubclass.h>
@@ -40,9 +40,9 @@
 #include "Debugging.h"
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Macros
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #if ( USB_MASS_STORAGE_DEBUG == 1 )
 #define PANIC_NOW(x)		IOPanic x
@@ -56,9 +56,9 @@
 #define STATUS_LOG(x)
 #endif
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Constants
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #define kKeySwitchProperty			"Keyswitch"
 #define kAppleKeySwitchProperty		"AppleKeyswitch"
@@ -77,9 +77,9 @@ OSDefineMetaClassAndStructors( IOUSBMassStorageUFIDevice, IOSCSIPrimaryCommandsD
 #pragma mark *** Static Class Methods ***
 #pragma mark -
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ sProcessPoll - Gets scheduled to execute the polls.	   [STATIC][PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- sProcessPoll - Gets scheduled to execute the polls.	   [STATIC][PUBLIC]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::sProcessPoll( void * theUFIDriver, void * refCon )
@@ -115,9 +115,9 @@ ErrorExit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ AsyncReadWriteComplete - Completion routine for I/O	  [STATIC][PRIVATE]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- AsyncReadWriteComplete - Completion routine for I/O	  [STATIC][PRIVATE]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::AsyncReadWriteComplete( SCSITaskIdentifier request )
@@ -169,9 +169,9 @@ IOUSBMassStorageUFIDevice::AsyncReadWriteComplete( SCSITaskIdentifier request )
 #pragma mark -
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ InitializeDeviceSupport - Initializes device support			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- InitializeDeviceSupport - Initializes device support			[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::InitializeDeviceSupport( void )
@@ -212,9 +212,9 @@ ERROR_EXIT:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ StartDeviceSupport - Starts device support					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- StartDeviceSupport - Starts device support					[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void
 IOUSBMassStorageUFIDevice::StartDeviceSupport( void )
@@ -245,9 +245,9 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SuspendDeviceSupport - Suspends device support				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- SuspendDeviceSupport - Suspends device support				[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::SuspendDeviceSupport( void )
@@ -259,9 +259,9 @@ IOUSBMassStorageUFIDevice::SuspendDeviceSupport( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ResumeDeviceSupport - Resumes device support					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- ResumeDeviceSupport - Resumes device support					[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::ResumeDeviceSupport( void )
@@ -276,9 +276,9 @@ IOUSBMassStorageUFIDevice::ResumeDeviceSupport( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ StopDeviceSupport - Stops device support						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- StopDeviceSupport - Stops device support						[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void
 IOUSBMassStorageUFIDevice::StopDeviceSupport( void )
@@ -288,9 +288,9 @@ IOUSBMassStorageUFIDevice::StopDeviceSupport( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ TerminateDeviceSupport - Terminates device support			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- TerminateDeviceSupport - Terminates device support			[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::TerminateDeviceSupport( void )
@@ -305,9 +305,9 @@ IOUSBMassStorageUFIDevice::TerminateDeviceSupport( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ClearNotReadyStatus - Clears any NOT_READY status on device	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- ClearNotReadyStatus - Clears any NOT_READY status on device	[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::ClearNotReadyStatus( void )
@@ -421,9 +421,9 @@ IOUSBMassStorageUFIDevice::ClearNotReadyStatus( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ EnablePolling - Schedules the polling thread to run			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- EnablePolling - Schedules the polling thread to run			[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::EnablePolling( void )
@@ -444,10 +444,10 @@ IOUSBMassStorageUFIDevice::EnablePolling( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ DisablePolling - Unschedules the polling thread if it hasn't run yet
+//-----------------------------------------------------------------------------
+//	- DisablePolling - Unschedules the polling thread if it hasn't run yet
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::DisablePolling( void )
@@ -464,10 +464,10 @@ IOUSBMassStorageUFIDevice::DisablePolling( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ DetermineDeviceCharacteristics - Determines device characteristics
+//-----------------------------------------------------------------------------
+//	- DetermineDeviceCharacteristics - Determines device characteristics
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool 
 IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics( void )
@@ -627,9 +627,9 @@ ErrorExit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SetMediumCharacteristics - Sets medium characteristics		[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- SetMediumCharacteristics - Sets medium characteristics		[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::SetMediumCharacteristics( UInt32 blockSize, UInt32 blockCount )
@@ -644,10 +644,10 @@ IOUSBMassStorageUFIDevice::SetMediumCharacteristics( UInt32 blockSize, UInt32 bl
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ResetMediumCharacteristics -	Resets medium characteristics to known
+//-----------------------------------------------------------------------------
+//	- ResetMediumCharacteristics -	Resets medium characteristics to known
 //									values							[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::ResetMediumCharacteristics( void )
@@ -661,10 +661,10 @@ IOUSBMassStorageUFIDevice::ResetMediumCharacteristics( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ CreateStorageServiceNub - Creates the linkage object for IOStorageFamily
+//-----------------------------------------------------------------------------
+//	- CreateStorageServiceNub - Creates the linkage object for IOStorageFamily
 //								to use.								[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::CreateStorageServiceNub( void )
@@ -695,9 +695,9 @@ IOUSBMassStorageUFIDevice::CreateStorageServiceNub( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ProcessPoll - Processes a poll for media or media removal.	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- ProcessPoll - Processes a poll for media or media removal.	[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::ProcessPoll( void )
@@ -726,9 +726,9 @@ IOUSBMassStorageUFIDevice::ProcessPoll( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ PollForNewMedia - Polls for new media insertion.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- PollForNewMedia - Polls for new media insertion.				[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageUFIDevice::PollForNewMedia( void )
@@ -771,12 +771,12 @@ IOUSBMassStorageUFIDevice::PollForNewMedia( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ DetermineMediaPresence -	Checks if media has been inserted into the
+//-----------------------------------------------------------------------------
+//	- DetermineMediaPresence -	Checks if media has been inserted into the
 //								device. If medium is detected, this method
 //								will return true, else it will return false
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
@@ -1024,11 +1024,11 @@ CHECK_DONE:
 	return mediaFound;
 }
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ DetermineMediumCapacity - Determines capacity of the medium. Returns true
+//-----------------------------------------------------------------------------
+//	- DetermineMediumCapacity - Determines capacity of the medium. Returns true
 //								if the capacity could be determined, else it
 //								returns false.	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool 
 IOUSBMassStorageUFIDevice::DetermineMediumCapacity( UInt64 * blockSize, UInt64 * blockCount )
@@ -1099,10 +1099,10 @@ isDone:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ DetermineMediumWriteProtectState - Determines medium write protect state.
+//-----------------------------------------------------------------------------
+//	- DetermineMediumWriteProtectState - Determines medium write protect state.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::DetermineMediumWriteProtectState( void )
@@ -1181,9 +1181,9 @@ WP_CHECK_DONE:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ PollForMediaRemoval - Polls for media removal.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- PollForMediaRemoval - Polls for media removal.				[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void
 IOUSBMassStorageUFIDevice::PollForMediaRemoval( void )
@@ -1288,9 +1288,9 @@ REMOVE_CHECK_DONE:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetInitialPowerState - Currently does nothing.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- GetInitialPowerState - Currently does nothing.				[PROTECTED]
+//-----------------------------------------------------------------------------
 
 UInt32
 IOUSBMassStorageUFIDevice::GetInitialPowerState ( void )
@@ -1299,9 +1299,9 @@ IOUSBMassStorageUFIDevice::GetInitialPowerState ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ HandlePowerChange - Currently does nothing.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- HandlePowerChange - Currently does nothing.					[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void
 IOUSBMassStorageUFIDevice::HandlePowerChange ( void )
@@ -1310,9 +1310,9 @@ IOUSBMassStorageUFIDevice::HandlePowerChange ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ HandleCheckPowerState - Currently does nothing.				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- HandleCheckPowerState - Currently does nothing.				[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void
 IOUSBMassStorageUFIDevice::HandleCheckPowerState ( void )
@@ -1321,9 +1321,9 @@ IOUSBMassStorageUFIDevice::HandleCheckPowerState ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ TicklePowerManager - Currently does nothing.					[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- TicklePowerManager - Currently does nothing.					[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void
 IOUSBMassStorageUFIDevice::TicklePowerManager ( void )
@@ -1332,9 +1332,9 @@ IOUSBMassStorageUFIDevice::TicklePowerManager ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetNumberOfPowerStateTransitions - Currently does nothing.	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- GetNumberOfPowerStateTransitions - Currently does nothing.	[PROTECTED]
+//-----------------------------------------------------------------------------
 
 UInt32
 IOUSBMassStorageUFIDevice::GetNumberOfPowerStateTransitions ( void )
@@ -1349,9 +1349,9 @@ IOUSBMassStorageUFIDevice::GetNumberOfPowerStateTransitions ( void )
 
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IssueRead - Performs the Synchronous Read Request				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- IssueRead - Performs the Synchronous Read Request				[PROTECTED]
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageUFIDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
@@ -1395,9 +1395,9 @@ IOUSBMassStorageUFIDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IssueRead - Performs the Asynchronous Read Request			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- IssueRead - Performs the Asynchronous Read Request			[PROTECTED]
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageUFIDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
@@ -1436,9 +1436,9 @@ IOUSBMassStorageUFIDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IssueWrite - Performs the Synchronous Write Request			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- IssueWrite - Performs the Synchronous Write Request			[PROTECTED]
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageUFIDevice::IssueWrite( 	IOMemoryDescriptor *	buffer,
@@ -1481,9 +1481,9 @@ IOUSBMassStorageUFIDevice::IssueWrite( 	IOMemoryDescriptor *	buffer,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IssueWrite - Performs the Asynchronous Write Request			[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- IssueWrite - Performs the Asynchronous Write Request			[PROTECTED]
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageUFIDevice::IssueWrite(	IOMemoryDescriptor *	buffer,
@@ -1521,10 +1521,10 @@ IOUSBMassStorageUFIDevice::IssueWrite(	IOMemoryDescriptor *	buffer,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SyncReadWrite - 	Translates a synchronous I/O request into a
+//-----------------------------------------------------------------------------
+//	- SyncReadWrite - 	Translates a synchronous I/O request into a
 //						read or a write.							   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageUFIDevice::SyncReadWrite ( 	IOMemoryDescriptor *	buffer,
@@ -1557,10 +1557,10 @@ IOUSBMassStorageUFIDevice::SyncReadWrite ( 	IOMemoryDescriptor *	buffer,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ AsyncReadWrite - 	Translates a asynchronous I/O request into a
+//-----------------------------------------------------------------------------
+//	- AsyncReadWrite - 	Translates a asynchronous I/O request into a
 //						read or a write.							   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageUFIDevice::AsyncReadWrite (	IOMemoryDescriptor *	buffer,
@@ -1595,10 +1595,10 @@ IOUSBMassStorageUFIDevice::AsyncReadWrite (	IOMemoryDescriptor *	buffer,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ EjectTheMedium - Changes the polling mode to poll for medium removal.
+//-----------------------------------------------------------------------------
+//	- EjectTheMedium - Changes the polling mode to poll for medium removal.
 //																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageUFIDevice::EjectTheMedium( void )
@@ -1619,9 +1619,9 @@ IOUSBMassStorageUFIDevice::EjectTheMedium( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ FormatMedium - 	Currently does nothing.						   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- FormatMedium - 	Currently does nothing.						   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 IOReturn
 IOUSBMassStorageUFIDevice::FormatMedium( UInt64 blockCount, UInt64 blockSize )
@@ -1637,9 +1637,9 @@ IOUSBMassStorageUFIDevice::FormatMedium( UInt64 blockCount, UInt64 blockSize )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetFormatCapacities - Currently does nothing.					   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- GetFormatCapacities - Currently does nothing.					   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 UInt32
 IOUSBMassStorageUFIDevice::GetFormatCapacities(	UInt64 * capacities,
@@ -1658,9 +1658,9 @@ IOUSBMassStorageUFIDevice::GetFormatCapacities(	UInt64 * capacities,
 #pragma mark *** Device Information Retrieval Methods ***
 #pragma mark -
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetVendorString - Returns the vendor string.					   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- GetVendorString - Returns the vendor string.					   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 char *
 IOUSBMassStorageUFIDevice::GetVendorString ( void )
@@ -1681,9 +1681,9 @@ IOUSBMassStorageUFIDevice::GetVendorString ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetProductString - Returns the Product String.				   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- GetProductString - Returns the Product String.				   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 char *
 IOUSBMassStorageUFIDevice::GetProductString ( void )
@@ -1704,9 +1704,9 @@ IOUSBMassStorageUFIDevice::GetProductString ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetRevisionString - Returns the Revision String.			   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- GetRevisionString - Returns the Revision String.			   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 char *
 IOUSBMassStorageUFIDevice::GetRevisionString ( void )
@@ -1727,11 +1727,11 @@ IOUSBMassStorageUFIDevice::GetRevisionString ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetProtocolCharacteristicsDictionary - 	Returns the Protocol
+//-----------------------------------------------------------------------------
+//	- GetProtocolCharacteristicsDictionary - 	Returns the Protocol
 //												Characteristics Dictionary.
 //																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 OSDictionary *
 IOUSBMassStorageUFIDevice::GetProtocolCharacteristicsDictionary ( void )
@@ -1741,11 +1741,11 @@ IOUSBMassStorageUFIDevice::GetProtocolCharacteristicsDictionary ( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ GetDeviceCharacteristicsDictionary - 	Returns the Device
+//-----------------------------------------------------------------------------
+//	- GetDeviceCharacteristicsDictionary - 	Returns the Device
 //												Characteristics Dictionary.
 //																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 OSDictionary *
 IOUSBMassStorageUFIDevice::GetDeviceCharacteristicsDictionary ( void )
@@ -1759,11 +1759,11 @@ IOUSBMassStorageUFIDevice::GetDeviceCharacteristicsDictionary ( void )
 #pragma mark *** Query methods to report device characteristics ***
 #pragma mark -
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ReportDeviceMaxBlocksReadTransfer -	Reports the max number of blocks
+//-----------------------------------------------------------------------------
+//	- ReportDeviceMaxBlocksReadTransfer -	Reports the max number of blocks
 //											a device can handle per read.
 //																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt64
 IOUSBMassStorageUFIDevice::ReportDeviceMaxBlocksReadTransfer( void )
@@ -1778,11 +1778,11 @@ IOUSBMassStorageUFIDevice::ReportDeviceMaxBlocksReadTransfer( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ReportDeviceMaxBlocksWriteTransfer -	Reports the max number of blocks
+//-----------------------------------------------------------------------------
+//	- ReportDeviceMaxBlocksWriteTransfer -	Reports the max number of blocks
 //											a device can handle per write.
 //																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt64
 IOUSBMassStorageUFIDevice::ReportDeviceMaxBlocksWriteTransfer( void )
@@ -1801,9 +1801,9 @@ IOUSBMassStorageUFIDevice::ReportDeviceMaxBlocksWriteTransfer( void )
 #pragma mark *** Query methods to report installed medium characteristics ***
 #pragma mark -
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ReportMediumBlockSize -	Reports the medium block size.		   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- ReportMediumBlockSize -	Reports the medium block size.		   [PUBLIC]
+//-----------------------------------------------------------------------------
 
 UInt64 
 IOUSBMassStorageUFIDevice::ReportMediumBlockSize( void )
@@ -1813,10 +1813,10 @@ IOUSBMassStorageUFIDevice::ReportMediumBlockSize( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ReportMediumTotalBlockCount -	Reports the number of blocks on the medium
+//-----------------------------------------------------------------------------
+//	- ReportMediumTotalBlockCount -	Reports the number of blocks on the medium
 //																	   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 UInt64
 IOUSBMassStorageUFIDevice::ReportMediumTotalBlockCount( void )
@@ -1826,10 +1826,10 @@ IOUSBMassStorageUFIDevice::ReportMediumTotalBlockCount( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ ReportMediumWriteProtection -	Reports whether the medium is write 
+//-----------------------------------------------------------------------------
+//	- ReportMediumWriteProtection -	Reports whether the medium is write 
 //									protected						   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::ReportMediumWriteProtection( void )
@@ -1846,10 +1846,10 @@ IOUSBMassStorageUFIDevice::ReportMediumWriteProtection( void )
 
 // Utility routines used by all SCSI Command Set objects
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IsParameterValid - Validate Parameter used for 1 bit to 1 byte paramaters
+//-----------------------------------------------------------------------------
+//	- IsParameterValid - Validate Parameter used for 1 bit to 1 byte paramaters
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField1Byte param,
@@ -1867,10 +1867,10 @@ IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField1Byte param,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IsParameterValid - Validate Parameter used for 9 bit to 2 byte paramaters
+//-----------------------------------------------------------------------------
+//	- IsParameterValid - Validate Parameter used for 9 bit to 2 byte paramaters
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField2Byte param,
@@ -1888,10 +1888,10 @@ IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField2Byte param,
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ IsParameterValid -	Validate Parameter used for 17 bit to 4 byte
+//-----------------------------------------------------------------------------
+//	- IsParameterValid -	Validate Parameter used for 17 bit to 4 byte
 //							paramaters								[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField4Byte param,
@@ -1914,9 +1914,9 @@ IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField4Byte param,
 #pragma mark *** Command Builder Methods ***
 #pragma mark -
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ FORMAT_UNIT - Command Builder									[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- FORMAT_UNIT - Command Builder									[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::FORMAT_UNIT(
@@ -1976,9 +1976,9 @@ IOUSBMassStorageUFIDevice::FORMAT_UNIT(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ INQUIRY - Command Builder										[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- INQUIRY - Command Builder										[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::INQUIRY(
@@ -2035,9 +2035,9 @@ IOUSBMassStorageUFIDevice::INQUIRY(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ MODE_SELECT_10 - Command Builder								[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- MODE_SELECT_10 - Command Builder								[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool 
 IOUSBMassStorageUFIDevice::MODE_SELECT_10(
@@ -2105,9 +2105,9 @@ IOUSBMassStorageUFIDevice::MODE_SELECT_10(
 }
   
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ MODE_SENSE_10 - Command Builder								[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- MODE_SENSE_10 - Command Builder								[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool 
 IOUSBMassStorageUFIDevice::MODE_SENSE_10(
@@ -2181,9 +2181,9 @@ IOUSBMassStorageUFIDevice::MODE_SENSE_10(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ PREVENT_ALLOW_MEDIUM_REMOVAL - Command Builder				[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- PREVENT_ALLOW_MEDIUM_REMOVAL - Command Builder				[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::PREVENT_ALLOW_MEDIUM_REMOVAL( 
@@ -2220,9 +2220,9 @@ IOUSBMassStorageUFIDevice::PREVENT_ALLOW_MEDIUM_REMOVAL(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ READ_10 - Command Builder										[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- READ_10 - Command Builder										[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool 
 IOUSBMassStorageUFIDevice::READ_10(
@@ -2329,9 +2329,9 @@ IOUSBMassStorageUFIDevice::READ_10(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ READ_12 - Command Builder										[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- READ_12 - Command Builder										[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool 
 IOUSBMassStorageUFIDevice::READ_12(
@@ -2440,9 +2440,9 @@ IOUSBMassStorageUFIDevice::READ_12(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ READ_CAPACITY - Command Builder								[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- READ_CAPACITY - Command Builder								[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::READ_CAPACITY(
@@ -2508,9 +2508,9 @@ IOUSBMassStorageUFIDevice::READ_CAPACITY(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ READ_FORMAT_CAPACITIES - Command Builder						[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- READ_FORMAT_CAPACITIES - Command Builder						[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::READ_FORMAT_CAPACITIES(
@@ -2562,9 +2562,9 @@ IOUSBMassStorageUFIDevice::READ_FORMAT_CAPACITIES(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ REQUEST_SENSE - Command Builder								[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- REQUEST_SENSE - Command Builder								[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::REQUEST_SENSE(
@@ -2607,9 +2607,9 @@ IOUSBMassStorageUFIDevice::REQUEST_SENSE(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ REZERO_UNIT - Command Builder									[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- REZERO_UNIT - Command Builder									[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::REZERO_UNIT( 
@@ -2621,9 +2621,9 @@ IOUSBMassStorageUFIDevice::REZERO_UNIT(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SEEK - Command Builder										[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- SEEK - Command Builder										[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool 
 IOUSBMassStorageUFIDevice::SEEK( 
@@ -2637,9 +2637,9 @@ IOUSBMassStorageUFIDevice::SEEK(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SEND_DIAGNOSTICS - Command Builder							[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- SEND_DIAGNOSTICS - Command Builder							[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool 
 IOUSBMassStorageUFIDevice::SEND_DIAGNOSTICS( 
@@ -2698,9 +2698,9 @@ IOUSBMassStorageUFIDevice::SEND_DIAGNOSTICS(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ START_STOP_UNIT - Command Builder								[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- START_STOP_UNIT - Command Builder								[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::START_STOP_UNIT( 
@@ -2752,9 +2752,9 @@ IOUSBMassStorageUFIDevice::START_STOP_UNIT(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ TEST_UNIT_READY - Command Builder								[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- TEST_UNIT_READY - Command Builder								[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::TEST_UNIT_READY(  
@@ -2784,9 +2784,9 @@ IOUSBMassStorageUFIDevice::TEST_UNIT_READY(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ VERIFY - Command Builder										[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- VERIFY - Command Builder										[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::VERIFY( 
@@ -2808,9 +2808,9 @@ IOUSBMassStorageUFIDevice::VERIFY(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ WRITE_10 - Command Builder									[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- WRITE_10 - Command Builder									[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFIDevice::WRITE_10(
@@ -2917,9 +2917,9 @@ IOUSBMassStorageUFIDevice::WRITE_10(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ WRITE_12 - Command Builder									[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- WRITE_12 - Command Builder									[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool 
 IOUSBMassStorageUFIDevice::WRITE_12(
@@ -2945,9 +2945,9 @@ IOUSBMassStorageUFIDevice::WRITE_12(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ WRITE_AND_VERIFY - Command Builder							[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- WRITE_AND_VERIFY - Command Builder							[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool 
 IOUSBMassStorageUFIDevice::WRITE_AND_VERIFY(
@@ -2977,9 +2977,9 @@ IOUSBMassStorageUFIDevice::WRITE_AND_VERIFY(
 #pragma mark *** IOUSBMassStorageUFISubclass methods ***
 #pragma mark -
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ BeginProvidedServices											[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- BeginProvidedServices											[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool
 IOUSBMassStorageUFISubclass::BeginProvidedServices( void )
@@ -3015,9 +3015,9 @@ IOUSBMassStorageUFISubclass::BeginProvidedServices( void )
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ EndProvidedServices											[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- EndProvidedServices											[PROTECTED]
+//-----------------------------------------------------------------------------
 
 bool	
 IOUSBMassStorageUFISubclass::EndProvidedServices( void )

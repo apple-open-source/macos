@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
   | Author:                                                              |
   +----------------------------------------------------------------------+
 
-  $Id: phpmimemagic.h,v 1.3.2.2.2.1 2007/01/01 09:36:03 sebastian Exp $ 
+  $Id: phpmimemagic.h,v 1.3.2.2.2.2 2007/12/31 07:20:08 sebastian Exp $ 
 */
 
 #ifndef PHPMIMEMAGIC_H

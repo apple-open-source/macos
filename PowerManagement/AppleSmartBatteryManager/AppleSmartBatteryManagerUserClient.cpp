@@ -168,47 +168,58 @@ IOReturn AppleSmartBatteryManagerUserClient::clientClose( void )
         fOwningTask = 0;
     }   
     
+    // We only have one application client. If the app is closed,
+    // we can terminate the user client.
+    terminate();
+    
     return kIOReturnSuccess;
 }
 
-IOExternalMethod *
-AppleSmartBatteryManagerUserClient::getTargetAndMethodForIndex( 
-    IOService ** targetP, 
-    UInt32 index )
+IOReturn 
+AppleSmartBatteryManagerUserClient::externalMethod( 
+    uint32_t selector, 
+    IOExternalMethodArguments * arguments,
+    IOExternalMethodDispatch * dispatch __unused, 
+    OSObject * target __unused, 
+    void * reference __unused )
 {
-    static IOExternalMethod sMethods[] = {
-        { // kSBInflowDisable = 0
-            (IOService *)kCallOnSelf, 
-            (IOMethod)&AppleSmartBatteryManagerUserClient::secureInflowDisable, 
-            kIOUCScalarIScalarO, 1, 1
-        },
-        { // kSBChargeInhibit = 1
-            (IOService *)kCallOnSelf, 
-            (IOMethod)&AppleSmartBatteryManagerUserClient::secureChargeInhibit, 
-            kIOUCScalarIScalarO, 1, 1
-        },
-        { // kSBSetPollingInterval = 2
-            (IOService *)kCallOnOwner, 
-            (IOMethod)&AppleSmartBatteryManager::setPollingInterval, 
-            kIOUCScalarIScalarO, 1, 0
-        },
-        { // kSBSMBusReadWriteWord = 3
-            (IOService *)kCallOnOwner,
-            (IOMethod)&AppleSmartBatteryManager::performExternalTransaction,
-            kIOUCStructIStructO, sizeof(EXSMBUSInputStruct), sizeof(EXSMBUSOutputStruct)
-        }
-    };
-        
-    if(index >= kNumBattMethods) {
-        return NULL;
-    } else {
-        if (kCallOnSelf == (int)sMethods[index].object)
-            *targetP = this;
-        else
-            *targetP = fOwner;
+    if (selector >= kNumBattMethods) {
+        // Invalid selector
+        return kIOReturnBadArgument;
+    }
 
-        return &sMethods[index];
+    switch (selector)
+    {
+        case kSBInflowDisable:
+            // 1 scalar in, 1 scalar out
+            return this->secureInflowDisable((int)arguments->scalarInput[0],
+                                            (int *)&arguments->scalarOutput[0]);
+            break;
+
+        case kSBChargeInhibit:
+            // 1 scalar in, 1 scalar out
+            return this->secureChargeInhibit((int)arguments->scalarInput[0],
+                                            (int *)&arguments->scalarOutput[0]);
+            break;
+            
+        case kSBSetPollingInterval:
+            // 1 scalar in, no out
+            return fOwner->setPollingInterval((int)arguments->scalarInput[0]);
+            break;
+            
+        case kSBSMBusReadWriteWord:
+            // Struct in, struct out
+            return fOwner->performExternalTransaction(
+                                            (void *)arguments->structureInput,
+                                            (void *)arguments->structureOutput,
+                                            (IOByteCount)arguments->structureInputSize,
+                                            (IOByteCount *)&arguments->structureOutputSize);
+            break;
+
+        default:
+            // Unknown selector.
+            // With a very distinct return type.
+            return kIOReturnMessageTooLarge;
     }
 }
-
 

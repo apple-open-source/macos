@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: fopen_wrappers.h,v 1.44.2.1.2.2 2007/01/01 09:36:10 sebastian Exp $ */
+/* $Id: fopen_wrappers.h,v 1.44.2.1.2.4 2007/12/31 07:20:14 sebastian Exp $ */
 
 #ifndef FOPEN_WRAPPERS_H
 #define FOPEN_WRAPPERS_H
@@ -35,7 +35,6 @@ PHPAPI int php_check_safe_mode_include_dir(const char *path TSRMLS_DC);
 
 PHPAPI FILE *php_fopen_with_path(const char *filename, const char *mode, const char *path, char **opened_path TSRMLS_DC);
 
-PHPAPI int php_is_url(char *path);
 PHPAPI char *php_strip_url_passwd(char *path);
 END_EXTERN_C()
 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -25,7 +25,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: oci8_statement.c,v 1.7.2.14.2.28 2007/08/02 19:04:37 sixd Exp $ */
+/* $Id: oci8_statement.c,v 1.7.2.14.2.33 2008/04/02 14:56:43 tony2001 Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -106,7 +106,7 @@ php_oci_statement *php_oci_statement_create (php_oci_connection *connection, cha
 
 	statement->connection = connection;
 	statement->has_data = 0;
-	statement->nested = 0;
+	statement->parent_stmtid = 0;
 	zend_list_addref(statement->connection->rsrc_id);
 
 	if (OCI_G(default_prefetch) > 0) {
@@ -336,6 +336,7 @@ sb4 php_oci_define_callback(dvoid *ctx, OCIDefine *define, ub4 iter, dvoid **buf
 				if (!nested_stmt) {
 					return OCI_ERROR;
 				}
+				nested_stmt->parent_stmtid = outcol->statement->id;
 				zend_list_addref(outcol->statement->id);
 				outcol->nested_statement = nested_stmt;
 				outcol->stmtid = nested_stmt->id;
@@ -368,7 +369,6 @@ sb4 php_oci_define_callback(dvoid *ctx, OCIDefine *define, ub4 iter, dvoid **buf
 				if (!descr) {
 					return OCI_ERROR;
 				}
-				zend_list_addref(outcol->statement->id);
 				outcol->descid = descr->id;
 				descr->charset_form = outcol->charset_form;
 				
@@ -776,7 +776,11 @@ void php_oci_statement_free(php_oci_statement *statement TSRMLS_DC)
 		zend_hash_destroy(statement->defines);
 		efree(statement->defines);
 	}
-	
+
+	if (statement->parent_stmtid) {
+		zend_list_delete(statement->parent_stmtid);
+	}
+
 	zend_list_delete(statement->connection->rsrc_id);
 	efree(statement);
 	
@@ -1175,6 +1179,14 @@ sb4 php_oci_bind_out_callback(
 	}
 
 	if (Z_TYPE_P(val) == IS_RESOURCE) {
+		/* Processing for ref-cursor out binds */
+		if (phpbind->statement != NULL) {
+			*bufpp = phpbind->statement;
+			*alenpp = &phpbind->dummy_len;
+			*piecep = OCI_ONE_PIECE;
+			*rcodepp = &phpbind->retcode;
+			*indpp = &phpbind->indicator;
+		}
 		retval = OCI_CONTINUE;
 	} else if (Z_TYPE_P(val) == IS_OBJECT) {
 		if (!phpbind->descriptor) {

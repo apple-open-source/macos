@@ -170,6 +170,7 @@ AEP_Patches    = patch-configure \
                  5884052.diff \
                  5879206.diff \
                  5876803.diff \
+                 6046618.diff
 
 # Extract the source.
 install_source::

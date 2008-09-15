@@ -1,0 +1,29 @@
+				xinput
+				======
+
+Overview
+========
+
+xinput is a utility to configure and test XInput devices. It wasn't
+originally designed to be the primary tool for doing this but it's
+still pretty much the only program out there for doing it. :-)
+
+Requirements
+============
+
+xinput depends on the X11 headers and particularly the XInput headers.
+As xinput now supports the new device types added in Xserver 1.4 (Xorg 7.3),
+your headers must be from that version or newer.
+
+Otherwise it will just require a working ANSI C compiler.
+
+Building and Installation
+=========================
+
+xinput uses autotools so the usual pattern applies:
+
+./configure
+make
+make install
+
+See the INSTALL file for details.

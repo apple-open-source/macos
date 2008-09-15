@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_API.c,v 1.296.2.27.2.34 2007/08/31 12:36:13 tony2001 Exp $ */
+/* $Id: zend_API.c,v 1.296.2.27.2.38 2008/03/06 17:28:47 tony2001 Exp $ */
 
 #include "zend.h"
 #include "zend_execute.h"
@@ -168,9 +168,15 @@ ZEND_API int _zend_get_parameters_array_ex(int param_count, zval ***argument_arr
 			*value_ptr = **value;
 			INIT_PZVAL(value_ptr);
 			zend_error(E_STRICT, "Implicit cloning object of class '%s' because of 'zend.ze1_compatibility_mode'", class_name);
+
+			if (Z_OBJ_HANDLER_PP(value, clone_obj) == NULL) {
+				zend_error(E_CORE_ERROR, "Trying to clone uncloneable object of class %s", class_name);
+			}
+
 			if(!dup) {
 				efree(class_name);
 			}
+
 			value_ptr->value.obj = Z_OBJ_HANDLER_PP(value, clone_obj)(*value TSRMLS_CC);
 			zval_ptr_dtor(value);
 			*value = value_ptr;
@@ -1700,7 +1706,7 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, zend_function_entr
 				if (!(scope->ce_flags & ZEND_ACC_INTERFACE)) {
 					/* Since the class is not an interface it needs to be declared as a abstract class. */
 					/* Since here we are handling internal functions only we can add the keyword flag. */
-					/* This time we set the flag for the keyword 'abstratc'. */
+					/* This time we set the flag for the keyword 'abstract'. */
 					scope->ce_flags |= ZEND_ACC_EXPLICIT_ABSTRACT_CLASS;
 				}
 			}
@@ -1723,11 +1729,10 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, zend_function_entr
 			}
 		}
 		fname_len = strlen(ptr->fname);
-		lowercase_name = do_alloca(fname_len+1);
-		zend_str_tolower_copy(lowercase_name, ptr->fname, fname_len);
+		lowercase_name = zend_str_tolower_dup(ptr->fname, fname_len);
 		if (zend_hash_add(target_function_table, lowercase_name, fname_len+1, &function, sizeof(zend_function), (void**)&reg_function) == FAILURE) {
 			unload=1;
-			free_alloca(lowercase_name);
+			efree(lowercase_name);
 			break;
 		}
 		if (scope) {
@@ -1767,7 +1772,7 @@ ZEND_API int zend_register_functions(zend_class_entry *scope, zend_function_entr
 		}
 		ptr++;
 		count++;
-		free_alloca(lowercase_name);
+		efree(lowercase_name);
 	}
 	if (unload) { /* before unloading, display all remaining bad function in the module */
 		if (scope) {

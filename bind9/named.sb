@@ -14,21 +14,11 @@
 
 (deny default)
 (allow process*)
-; If this was commented out because it didn't work, i can be brought back.
-; if it was commented out because it broke named-xfer we can fix that with
-;   (allow process-fork)
-;   (allow process-exec (regex "^/usr/sbin/named$"))
-;   (allow process-exec (regex "^/usr/sbin/named-xfer$") (drop-profile!))
 (deny signal)
 (allow sysctl-read)
-; can this be
-;   (allow network* (tcp to "0.0.0.0/0:42"))
-;   (allow network* (udp to "0.0.0.0/0:42"))
-; or does named do other network traffic?  There is a control port on
-; modern named isn't there?
 (allow network*)
 
-;;; Allow named-specific files
+;; Allow named-specific files
 (allow file-write* file-read-data file-read-metadata
   (regex "^(/private)?/var/run/named\\.pid$"
          "^/Library/Logs/named\\.log$"))

@@ -2540,35 +2540,41 @@ PRIVSYM int
 smbfs_smb_tmpopen(struct smbnode *np, u_int32_t rights, struct smb_cred *scrp, u_int16_t *fidp)
 {
 	struct smb_vc	*vcp = SSTOVC(np->n_mount->sm_share);
-	int		searchOpenFiles = TRUE;
+	int		searchOpenFiles;
 	int		error = 0;
 	struct smbfattr fattr;
 
-	/* Check to see if the file needs to be reopened */
-	error = smbfs_smb_reopen_file(np, scrp->scr_vfsctx);
-	if (error) {
-		SMBDEBUG(" %s waiting to be revoked\n", np->n_name);
-	    return(error);
+	/* If no vnode or the vnode is a directory then don't use already open items */
+	if (!np->n_vnode || vnode_isdir(np->n_vnode))
+		searchOpenFiles = FALSE;
+	else {
+		/* Check to see if the file needs to be reopened */
+		error = smbfs_smb_reopen_file(np, scrp->scr_vfsctx);
+		if (error) {
+			SMBDEBUG(" %s waiting to be revoked\n", np->n_name);
+			return(error);
+		}
+		/*
+		 * A normal open can have the following rights 
+		 *	STD_RIGHT_READ_CONTROL_ACCESS - always set
+		 *	SA_RIGHT_FILE_READ_DATA
+		 *	SA_RIGHT_FILE_APPEND_DATA
+		 *	SA_RIGHT_FILE_WRITE_DATA
+		 *
+		 * A normal open will never have the following rights 
+		 *	STD_RIGHT_DELETE_ACCESS
+		 *	STD_RIGHT_WRITE_DAC_ACCESS
+		 *	STD_RIGHT_WRITE_OWNER_ACCESS
+		 *	SA_RIGHT_FILE_WRITE_ATTRIBUTES
+		 *	
+		 */
+		if (rights & (STD_RIGHT_DELETE_ACCESS | STD_RIGHT_WRITE_DAC_ACCESS | STD_RIGHT_WRITE_OWNER_ACCESS))
+			searchOpenFiles = FALSE;
+		else if ((vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS) && (rights & SA_RIGHT_FILE_WRITE_ATTRIBUTES))
+			searchOpenFiles = FALSE;
+		else
+			searchOpenFiles = TRUE;
 	}
-	
-	/*
-	 * A normal open can have the following rights 
-	 *	STD_RIGHT_READ_CONTROL_ACCESS - always set
-	 *	SA_RIGHT_FILE_READ_DATA
-	 *	SA_RIGHT_FILE_APPEND_DATA
-	 *	SA_RIGHT_FILE_WRITE_DATA
-	 *
-	 * A normal open will never have the following rights 
-	 *	STD_RIGHT_DELETE_ACCESS
-	 *	STD_RIGHT_WRITE_DAC_ACCESS
-	 *	STD_RIGHT_WRITE_OWNER_ACCESS
-	 *	SA_RIGHT_FILE_WRITE_ATTRIBUTES
-	 *	
-	 */
-	if (rights & (STD_RIGHT_DELETE_ACCESS | STD_RIGHT_WRITE_DAC_ACCESS | STD_RIGHT_WRITE_OWNER_ACCESS))
-		searchOpenFiles = FALSE;
-	if ((vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS) && (rights & SA_RIGHT_FILE_WRITE_ATTRIBUTES))
-		searchOpenFiles = FALSE;
 		
 	/* 
 	 * Remmeber we could have been called before the vnode is create. Conrads 
@@ -2629,9 +2635,12 @@ smbfs_smb_tmpclose(struct smbnode *np, u_int16_t fid, struct smb_cred *scrp)
 	/* 
 	 * Remeber we could have been called before the vnode is create. Conrads 
 	 * crazy symlink code. So if we have no vnode then we did not borrow the
-	 * fid. If we did not borrow the fid then just close the fid and get out. 
+	 * fid. If we did not borrow the fid then just close the fid and get out.
+	 *
+	 * If no vnode or the vnode is a directory then just close it, we are not
+	 * sharing the open.
 	 */
-	if (!vp || ((fid != np->f_fid) && (smbfs_findFileEntryByFID(vp, fid, &entry)))) {
+	if (!vp || vnode_isdir(vp) || ((fid != np->f_fid) && (smbfs_findFileEntryByFID(vp, fid, &entry)))) {
 		return(smbfs_smb_close(ssp, fid, scrp));
 	}
 	/* 

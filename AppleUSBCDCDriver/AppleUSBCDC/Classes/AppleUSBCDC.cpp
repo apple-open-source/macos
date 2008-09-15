@@ -288,7 +288,15 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 									
 									if ((fpDevice->GetVendorID() == 0xA5C) && (fpDevice->GetProductID() == 0x6300))
 									{
-										XTRACE(this, 0, 0, "initDevice - Ignoring the ACM configuration...");
+										XTRACE(this, 0, 0, "initDevice - Ignoring the ACM interface...");
+										cdc = false;
+									}
+									
+										// Check for vendor specific protocol and ignore the interface
+									
+									if (intf->bInterfaceProtocol == 0xFF)
+									{
+										XTRACE(this, 0, 0, "initDevice - Ignoring the ACM interface with vendor specific protocol...");
 										cdc = false;
 									}
 								}
@@ -636,10 +644,9 @@ bool AppleUSBCDC::confirmDriver(UInt8 subClass, UInt8 dataInterface)
         return false;
     }
 
-	controlInterfaceNumber = Comm->GetInterfaceNumber();
-
     while (Comm)
     {
+		controlInterfaceNumber = Comm->GetInterfaceNumber();
         intSubClass = Comm->GetInterfaceSubClass();
         if (intSubClass == subClass)					// Just to make sure...
         {

@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: soap.c,v 1.156.2.28.2.33 2007/11/01 15:41:13 dmitry Exp $ */
+/* $Id: soap.c,v 1.156.2.28.2.39 2008/03/04 12:23:10 dmitry Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -384,41 +384,47 @@ ZEND_GET_MODULE(soap)
 
 ZEND_INI_MH(OnUpdateCacheEnabled)
 {
-	long *p;
+	if (OnUpdateBool(entry, new_value, new_value_length, mh_arg1, mh_arg2, mh_arg3, stage TSRMLS_CC) == FAILURE) {
+		return FAILURE;
+	}
+	if (SOAP_GLOBAL(cache_enabled)) {
+		SOAP_GLOBAL(cache) = SOAP_GLOBAL(cache_mode);
+	} else {
+		SOAP_GLOBAL(cache) = 0;
+	}
+	return SUCCESS;
+}
+
+ZEND_INI_MH(OnUpdateCacheMode)
+{
+	char *p;
 #ifndef ZTS
 	char *base = (char *) mh_arg2;
 #else
-	char *base;
-
-	base = (char *) ts_resource(*((int *) mh_arg2));
+	char *base = (char *) ts_resource(*((int *) mh_arg2));
 #endif
 
-	p = (long*) (base+(size_t) mh_arg1);
+	p = (char*) (base+(size_t) mh_arg1);
 
-	if (new_value_length==2 && strcasecmp("on", new_value)==0) {
-		*p = 1;
-	} 
-	else if (new_value_length==3 && strcasecmp("yes", new_value)==0) {
-		*p = 1;
-	} 
-	else if (new_value_length==4 && strcasecmp("true", new_value)==0) {
-		*p = 1;
-	} 
-	else {
-		*p = (long) (atoi(new_value) != 0);
+	*p = (char)atoi(new_value);
+
+	if (SOAP_GLOBAL(cache_enabled)) {
+		SOAP_GLOBAL(cache) = SOAP_GLOBAL(cache_mode);
+	} else {
+		SOAP_GLOBAL(cache) = 0;
 	}
 	return SUCCESS;
 }
 
 PHP_INI_BEGIN()
 STD_PHP_INI_ENTRY("soap.wsdl_cache_enabled",     "1", PHP_INI_ALL, OnUpdateCacheEnabled,
-                  cache, zend_soap_globals, soap_globals)
+                  cache_enabled, zend_soap_globals, soap_globals)
 STD_PHP_INI_ENTRY("soap.wsdl_cache_dir",         "/tmp", PHP_INI_ALL, OnUpdateString,
                   cache_dir, zend_soap_globals, soap_globals)
 STD_PHP_INI_ENTRY("soap.wsdl_cache_ttl",         "86400", PHP_INI_ALL, OnUpdateLong,
                   cache_ttl, zend_soap_globals, soap_globals)
-STD_PHP_INI_ENTRY("soap.wsdl_cache",             "1", PHP_INI_ALL, OnUpdateLong,
-                  cache, zend_soap_globals, soap_globals)
+STD_PHP_INI_ENTRY("soap.wsdl_cache",             "1", PHP_INI_ALL, OnUpdateCacheMode,
+                  cache_mode, zend_soap_globals, soap_globals)
 STD_PHP_INI_ENTRY("soap.wsdl_cache_limit",       "5", PHP_INI_ALL, OnUpdateLong,
                   cache_limit, zend_soap_globals, soap_globals)
 PHP_INI_END()
@@ -505,6 +511,7 @@ PHP_RINIT_FUNCTION(soap)
 	SOAP_GLOBAL(encoding) = NULL;
 	SOAP_GLOBAL(class_map) = NULL;
 	SOAP_GLOBAL(features) = 0;
+	SOAP_GLOBAL(ref_map) = NULL;
 	return SUCCESS;
 }
 
@@ -2001,6 +2008,8 @@ static void soap_server_fault_ex(sdlFunctionPtr function, zval* fault, soapHeade
 	char cont_len[30];
 	int size;
 	xmlDocPtr doc_return;
+	zval **agent_name;
+	int use_http_error_status = 1;
 
 	soap_version = SOAP_GLOBAL(soap_version);
 
@@ -2008,11 +2017,21 @@ static void soap_server_fault_ex(sdlFunctionPtr function, zval* fault, soapHeade
 
 	xmlDocDumpMemory(doc_return, &buf, &size);
 
+	zend_is_auto_global("_SERVER", sizeof("_SERVER") - 1 TSRMLS_CC);
+	if (PG(http_globals)[TRACK_VARS_SERVER] &&
+		zend_hash_find(PG(http_globals)[TRACK_VARS_SERVER]->value.ht, "HTTP_USER_AGENT", sizeof("HTTP_USER_AGENT"), (void **) &agent_name) == SUCCESS &&
+		Z_TYPE_PP(agent_name) == IS_STRING) {
+		if (strncmp(Z_STRVAL_PP(agent_name), "Shockwave Flash", sizeof("Shockwave Flash")-1) == 0) {
+			use_http_error_status = 0;
+		}
+	}
 	/*
 	   Want to return HTTP 500 but apache wants to over write
 	   our fault code with their own handling... Figure this out later
 	*/
-	sapi_add_header("HTTP/1.1 500 Internal Service Error", sizeof("HTTP/1.1 500 Internal Service Error")-1, 1);
+	if (use_http_error_status) {
+		sapi_add_header("HTTP/1.1 500 Internal Service Error", sizeof("HTTP/1.1 500 Internal Service Error")-1, 1);
+	}
 	if (soap_version == SOAP_1_2) {
 		sapi_add_header("Content-Type: application/soap+xml; charset=utf-8", sizeof("Content-Type: application/soap+xml; charset=utf-8")-1, 1);
 	} else {
@@ -4486,6 +4505,7 @@ static sdlFunctionPtr get_doc_function(sdlPtr sdl, xmlNodePtr params)
 								break;
 							}
 							zend_hash_move_forward((*tmp)->requestParameters);
+							node = node->next;
 						}
 						if (ok /*&& node == NULL*/) {
 							return (*tmp);

@@ -1,4 +1,4 @@
-Greetings, and thanks for all of your work on the wonderful rsync!
+Jeremy Bornstein wrote:
 
 I recently had the need to transfer files only with different mod
 dates (and to *not* transfer them based on file size differences).
@@ -8,61 +8,60 @@ rsync didn't already have a --date-only flag, so I added one and am
 enclosing the diffs in case you (as I hope) decide to include this
 option in future releases.
 
-Again, thanks!
+To use this patch, run these commands for a successful build:
 
-Best Regards,
-Jeremy Bornstein
+    patch -p1 <patches/date-only.diff
+    ./configure                                 (optional if already run)
+    make
 
-[Patched update to have context and apply to latest CVS source.]
-
---- orig/generator.c	2004-09-20 19:50:13
-+++ generator.c	2004-07-03 20:16:51
-@@ -41,6 +41,7 @@ extern int make_backups;
+--- old/generator.c
++++ new/generator.c
+@@ -60,6 +60,7 @@ extern int append_mode;
+ extern int make_backups;
  extern int csum_length;
  extern int ignore_times;
- extern int size_only;
 +extern int date_only;
- extern int io_timeout;
- extern int protocol_version;
- extern int always_checksum;
-@@ -62,6 +63,8 @@ extern struct exclude_list_struct server
- /* choose whether to skip a particular file */
- static int skip_file(char *fname, struct file_struct *file, STRUCT_STAT *st)
+ extern int size_only;
+ extern OFF_T max_size;
+ extern OFF_T min_size;
+@@ -378,6 +379,8 @@ void itemize(struct file_struct *file, i
+ /* Perform our quick-check heuristic for determining if a file is unchanged. */
+ int unchanged_file(char *fn, struct file_struct *file, STRUCT_STAT *st)
  {
 +	if (date_only)
-+		return cmp_modtime(st->st_mtime, file->modtime) == 0;
++		return cmp_time(st->st_mtime, file->modtime) == 0;
  	if (st->st_size != file->length)
  		return 0;
- 	if (link_dest) {
---- orig/options.c	2004-09-23 17:42:07
-+++ options.c	2004-07-03 20:16:51
-@@ -84,6 +84,7 @@ int keep_partial = 0;
+ 
+--- old/options.c
++++ new/options.c
+@@ -99,6 +99,7 @@ int keep_partial = 0;
  int safe_symlinks = 0;
  int copy_unsafe_links = 0;
  int size_only = 0;
 +int date_only = 0;
+ int daemon_bwlimit = 0;
  int bwlimit = 0;
- size_t bwlimit_writemax = 0;
- int delete_after = 0;
-@@ -275,6 +276,7 @@ void usage(enum logcode F)
+ int fuzzy_basis = 0;
+@@ -343,6 +344,7 @@ void usage(enum logcode F)
    rprintf(F,"     --timeout=TIME          set I/O timeout in seconds\n");
-   rprintf(F," -I, --ignore-times          turn off mod time & file size quick check\n");
-   rprintf(F,"     --size-only             ignore mod time for quick check (use size)\n");
-+  rprintf(F,"     --date-only             ignore size for quick check (use mod time)\n");
-   rprintf(F,"     --modify-window=NUM     compare mod times with reduced accuracy\n");
+   rprintf(F," -I, --ignore-times          don't skip files that match in size and mod-time\n");
+   rprintf(F,"     --size-only             skip files that match in size\n");
++  rprintf(F,"     --date-only             skip files that match in mod-time\n");
+   rprintf(F,"     --modify-window=NUM     compare mod-times with reduced accuracy\n");
    rprintf(F," -T, --temp-dir=DIR          create temporary files in directory DIR\n");
-   rprintf(F,"     --compare-dest=DIR      also compare destination files relative to DIR\n");
-@@ -330,6 +332,7 @@ static struct poptOption long_options[] 
-   {"password-file",    0,  POPT_ARG_STRING, &password_file, 0, 0, 0 },
+   rprintf(F," -y, --fuzzy                 find similar file for basis if no dest file\n");
+@@ -463,6 +465,7 @@ static struct poptOption long_options[] 
+   {"chmod",            0,  POPT_ARG_STRING, 0, OPT_CHMOD, 0, 0 },
    {"ignore-times",    'I', POPT_ARG_NONE,   &ignore_times, 0, 0, 0 },
    {"size-only",        0,  POPT_ARG_NONE,   &size_only, 0, 0, 0 },
 +  {"date-only",        0,  POPT_ARG_NONE,   &date_only, 0, 0, 0 },
-   {"modify-window",    0,  POPT_ARG_INT,    &modify_window, OPT_MODIFY_WINDOW, 0, 0 },
-   {"one-file-system", 'x', POPT_ARG_NONE,   &one_file_system, 0, 0, 0 },
-   {"delete",           0,  POPT_ARG_NONE,   &delete_mode, 0, 0, 0 },
-@@ -1034,6 +1037,9 @@ void server_options(char **args,int *arg
- 	if (size_only)
- 		args[ac++] = "--size-only";
+   {"one-file-system", 'x', POPT_ARG_NONE,   0, 'x', 0, 0 },
+   {"update",          'u', POPT_ARG_NONE,   &update_only, 0, 0, 0 },
+   {"existing",         0,  POPT_ARG_NONE,   &ignore_non_existing, 0, 0, 0 },
+@@ -1676,6 +1679,9 @@ void server_options(char **args,int *arg
+ 			args[ac++] = "--size-only";
+ 	}
  
 +	if (date_only)
 +		args[ac++] = "--date-only";
@@ -70,17 +69,17 @@ Jeremy Bornstein
  	if (modify_window_set) {
  		if (asprintf(&arg, "--modify-window=%d", modify_window) < 0)
  			goto oom;
---- orig/rsync.yo	2004-09-24 16:42:30
-+++ rsync.yo	2004-07-03 20:16:51
-@@ -352,6 +352,7 @@ verb(
+--- old/rsync.yo
++++ new/rsync.yo
+@@ -360,6 +360,7 @@ to the detailed description below for a 
       --timeout=TIME          set I/O timeout in seconds
-  -I, --ignore-times          turn off mod time & file size quick check
-      --size-only             ignore mod time for quick check (use size)
-+     --date-only             ignore size for quick check (use mod time)
-      --modify-window=NUM     compare mod times with reduced accuracy
-  -T  --temp-dir=DIR          create temporary files in directory DIR
-      --compare-dest=DIR      also compare received files relative to DIR
-@@ -426,6 +427,12 @@ regardless of timestamp. This is useful 
+  -I, --ignore-times          don't skip files that match size and time
+      --size-only             skip files that match in size
++     --date-only             skip files that match in mod-time
+      --modify-window=NUM     compare mod-times with reduced accuracy
+  -T, --temp-dir=DIR          create temporary files in directory DIR
+  -y, --fuzzy                 find similar file for basis if no dest file
+@@ -477,6 +478,12 @@ regardless of timestamp. This is useful 
  after using another mirroring system which may not preserve timestamps
  exactly.
  
@@ -90,6 +89,30 @@ Jeremy Bornstein
 +timestamp, regardless of size. This may be useful when the remote
 +files have passed through a size-changing filter, e.g. for encryption.
 +
- dit(bf(--modify-window)) When comparing two timestamps rsync treats
- the timestamps as being equal if they are within the value of
- modify_window. This is normally zero, but you may find it useful to
+ dit(bf(--modify-window)) When comparing two timestamps, rsync treats the
+ timestamps as being equal if they differ by no more than the modify-window
+ value.  This is normally 0 (for an exact match), but you may find it useful
+--- old/rsync.1
++++ new/rsync.1
+@@ -426,6 +426,7 @@ to the detailed description below for a 
+      \-\-timeout=TIME          set I/O timeout in seconds
+  \-I, \-\-ignore\-times          don\&'t skip files that match size and time
+      \-\-size\-only             skip files that match in size
++     \-\-date\-only             skip files that match in mod-time
+      \-\-modify\-window=NUM     compare mod-times with reduced accuracy
+  \-T, \-\-temp\-dir=DIR          create temporary files in directory DIR
+  \-y, \-\-fuzzy                 find similar file for basis if no dest file
+@@ -556,6 +557,13 @@ regardless of timestamp\&. This is usefu
+ after using another mirroring system which may not preserve timestamps
+ exactly\&.
+ .IP 
++.IP "\fB\-\-date\-only\fP"
++Normally rsync will skip any files that are
++already the same size and have the same modification time-stamp\&. With the
++\-\-date\-only option, files will be skipped if they have the same
++timestamp, regardless of size\&. This may be useful when the remote
++files have passed through a size-changing filter, e\&.g\&. for encryption\&.
++.IP 
+ .IP "\fB\-\-modify\-window\fP"
+ When comparing two timestamps, rsync treats the
+ timestamps as being equal if they differ by no more than the modify-window

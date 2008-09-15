@@ -1,5 +1,5 @@
 /*
- * "$Id: image.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: image.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Base image support for the Common UNIX Printing System (CUPS).
  *
@@ -725,7 +725,7 @@ get_tile(cups_image_t *img,		/* I - Image */
     if ((img->tiles = calloc(sizeof(cups_itile_t *), ytiles)) == NULL)
       return (NULL);
 
-    if ((tile = calloc(sizeof(cups_itile_t), xtiles * ytiles)) == NULL)
+    if ((tile = calloc(xtiles * sizeof(cups_itile_t), ytiles)) == NULL)
       return (NULL);
 
     for (tiley = 0; tiley < ytiles; tiley ++)
@@ -838,5 +838,5 @@ get_tile(cups_image_t *img,		/* I - Image */
 
 
 /*
- * End of "$Id: image.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: image.c 7721 2008-07-11 22:48:49Z mike $".
  */

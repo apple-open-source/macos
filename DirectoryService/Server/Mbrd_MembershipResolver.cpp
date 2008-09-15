@@ -51,6 +51,9 @@
 extern dsBool	gDSLocalOnlyMode;
 extern dsBool	gDSInstallDaemonMode;
 extern StatBlock *gStatBlock;
+extern int		gDefaultExpiration;
+extern guid_t	gEveryoneGuid;
+extern ntsid_t	gEveryoneSID;
 DSMutexSemaphore gMbrGlobalMutex("::gMbrGlobalMutex");
 
 static const uint8_t _mbr_root_uuid[] = {0xff, 0xff, 0xee, 0xee, 0xdd, 0xdd, 0xcc, 0xcc, 0xbb, 0xbb, 0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00};
@@ -216,6 +219,21 @@ void Mbrd_ProcessLookup(struct kauth_identity_extlookup* request)
 		memcpy( &request->el_uguid, _mbr_root_uuid, sizeof(guid_t) );
 		request->el_result = KAUTH_EXTLOOKUP_SUCCESS;
 		DbgLog( kLogPlugin, "mbrmig - Dispatch - Lookup - UID 0 default answer FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000000 (root)" );
+		return;
+	}
+	
+	// special-case the everyone group.. if we had a valid group GUID that matches everyone
+	// and we have a valid UID, UGUID or USID, it's always true
+	// TODO: don't like hardcoding everyone GID, we should discover that from the directory
+	if ( (flags & KAUTH_EXTLOOKUP_WANT_MEMBERSHIP) != 0 &&
+		 ((flags & KAUTH_EXTLOOKUP_VALID_UGUID) != 0 || (flags & KAUTH_EXTLOOKUP_VALID_UID) != 0 || (flags & KAUTH_EXTLOOKUP_VALID_USID) != 0) &&
+		 (((flags & KAUTH_EXTLOOKUP_VALID_GID) != 0 && request->el_gid == 12) ||
+		  ((flags & KAUTH_EXTLOOKUP_VALID_GGUID) != 0 && memcmp(&gEveryoneGuid, &request->el_gguid, sizeof(guid_t)) == 0) ||
+		  ((flags & KAUTH_EXTLOOKUP_VALID_GSID) != 0 && memcmp(&gEveryoneSID, &request->el_gsid, sizeof(guid_t)) == 0)) )
+	{
+		request->el_member_valid = gDefaultExpiration;	// use longer expiration for this one, no reason to ask us very often
+		request->el_flags |= KAUTH_EXTLOOKUP_VALID_MEMBERSHIP | KAUTH_EXTLOOKUP_ISMEMBER;
+		DbgLog( kLogPlugin, "mbrmig - Dispatch - Membership - is user member of group everyone is always true" );
 		return;
 	}
 	

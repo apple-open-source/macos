@@ -1858,11 +1858,11 @@ Index: samba/source/passdb/pdb_odsam.c
 +		/* well-known group */
 +		map->sid_name_use = SID_NAME_WKN_GRP;
 +	} else if (sid_check_is_in_our_domain(&map->sid)) {
-+		/* local SAM group */
-+		map->sid_name_use = SID_NAME_ALIAS;
-+	} else {
 +		/* domain/network group */
 +		map->sid_name_use = SID_NAME_DOM_GRP;
++	} else {
++		/* local SAM group */
++		map->sid_name_use = SID_NAME_ALIAS;
 +	}
 +
 +	if (!get_single_attribute(entry, kDS1AttrPrimaryGroupID, temp)) {

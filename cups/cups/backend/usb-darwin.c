@@ -1,5 +1,5 @@
 /*
-* "$Id: usb-darwin.c 6996 2007-09-28 18:30:31Z mike $"
+* "$Id: usb-darwin.c 7721 2008-07-11 22:48:49Z mike $"
 *
 * Copyright 2005-2008 Apple Inc. All rights reserved.
 *
@@ -92,6 +92,7 @@
 #include <cups/debug.h>
 #include <cups/sidechannel.h>
 #include <cups/i18n.h>
+#include "backend-private.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/usb/IOUSBLib.h>
@@ -1008,25 +1009,21 @@ static Boolean list_device_cb(void *refcon,
     {
       CFStringRef make = NULL,  model = NULL, serial = NULL;
       char uristr[1024], makestr[1024], modelstr[1024], serialstr[1024];
-      char optionsstr[1024], idstr[1024];
+      char optionsstr[1024], idstr[1024], make_modelstr[1024];
 
       copy_deviceinfo(deviceIDString, &make, &model, &serial);
+      CFStringGetCString(deviceIDString, idstr, sizeof(idstr),
+                         kCFStringEncodingUTF8);
+      backendGetMakeModel(idstr, make_modelstr, sizeof(make_modelstr));
 
       modelstr[0] = '/';
 
-      CFStringGetCString(deviceIDString, idstr, sizeof(idstr),
-                         kCFStringEncodingUTF8);
-
-      if (make)
-        CFStringGetCString(make, makestr, sizeof(makestr),
-	                   kCFStringEncodingUTF8);
-      else
+      if (!CFStringGetCString(make, makestr, sizeof(makestr),
+			      kCFStringEncodingUTF8))
         strcpy(makestr, "Unknown");
 
-      if (model)
-	CFStringGetCString(model, &modelstr[1], sizeof(modelstr)-1,
-      			   kCFStringEncodingUTF8);
-      else
+      if (!CFStringGetCString(model, &modelstr[1], sizeof(modelstr)-1,
+			      kCFStringEncodingUTF8))
         strcpy(modelstr + 1, "Printer");
 
       optionsstr[0] = '\0';
@@ -1041,18 +1038,8 @@ static Boolean list_device_cb(void *refcon,
       httpAssembleURI(HTTP_URI_CODING_ALL, uristr, sizeof(uristr), "usb", NULL, makestr, 0, modelstr);
       strncat(uristr, optionsstr, sizeof(uristr));
 
-     /*
-      * Fix common HP 1284 bug...
-      */
-
-      if (!strcasecmp(makestr, "Hewlett-Packard"))
-        strcpy(makestr, "HP");
-
-      if (!strncasecmp(modelstr + 1, "hp ", 3))
-        _cups_strcpy(modelstr + 1, modelstr + 4);
-
-      printf("direct %s \"%s %s\" \"%s %s USB\" \"%s\"\n", uristr, makestr,
-             &modelstr[1], makestr, &modelstr[1], idstr);
+      printf("direct %s \"%s\" \"%s USB\" \"%s\"\n", uristr, make_modelstr,
+             make_modelstr, idstr);
 
       release_deviceinfo(&make, &model, &serial);
       CFRelease(deviceIDString);
@@ -1188,9 +1175,19 @@ static void copy_deviceinfo(CFStringRef deviceIDString,
   CFStringRef serialKeys[] = { CFSTR("SN:"),  CFSTR("SERN:"), NULL };
 
   if (make != NULL)
-    *make = copy_value_for_key(deviceIDString, makeKeys);
+  {
+    if ((*make = copy_value_for_key(deviceIDString, makeKeys)) == NULL)
+      *make = CFStringCreateWithCString(kCFAllocatorDefault, "Unknown",
+                                        kCFStringEncodingUTF8);
+  }
+
   if (model != NULL)
-    *model = copy_value_for_key(deviceIDString, modelKeys);
+  {
+    if ((*model = copy_value_for_key(deviceIDString, modelKeys)) == NULL)
+      *model = CFStringCreateWithCString(kCFAllocatorDefault, "Printer",
+                                         kCFStringEncodingUTF8);
+  }
+
   if (serial != NULL)
     *serial = copy_value_for_key(deviceIDString, serialKeys);
 }
@@ -2039,5 +2036,5 @@ static void get_device_id(cups_sc_status_t *status,
 
 
 /*
- * End of "$Id: usb-darwin.c 6996 2007-09-28 18:30:31Z mike $".
+ * End of "$Id: usb-darwin.c 7721 2008-07-11 22:48:49Z mike $".
  */

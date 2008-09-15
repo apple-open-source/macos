@@ -25,6 +25,7 @@ $g_admin_group = 'admin';
 $g_jabber_uid = getpwnam($g_jabber_user);
 $g_jabber_gid = getgrnam($g_jabber_group);
 $g_admin_gid = getgrnam($g_admin_group);
+$g_db_update_file = "$g_jabber_var_dir/db_update_10.5.5.sqlite";
 
 $DEBUG = 0;
 $VERBOSE = 1;
@@ -152,10 +153,19 @@ sub init_muc_spool_dir() {
 #  2: database file already exists
 #
 sub init_db() {
+	my $exec_string;
 	umask(007);
 	&_log("Creating SQLite database setup for jabberd...");
 	if (-e "$g_db_file") {
 		&_log("Already exists: $g_db_file");
+		
+		# If a SQL schema update file exists, update the database with it
+		if (-e $g_db_update_file) {
+			&_log("Found DB update file, executing SQL commands...");
+			$exec_string = "\"$g_sqlite3_path\" \"$g_db_file\" < \"$g_db_update_file\"";
+			$ret = system($exec_string);
+			rename("$g_db_update_file", "$g_db_update_file.done");
+		}
 		return 2;
 	}
 	

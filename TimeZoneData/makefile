@@ -52,5 +52,8 @@ install : installhdrs
 		$(INSTALL) -d -m 0775 $(DSTROOT)$(INSTALLDIR)/; \
 	fi;
 	$(INSTALL) -b -m 0644 $(SRCROOT)/tz*.tar.gz $(DSTROOT)$(INSTALLDIR)
+	(cd $(DSTROOT)$(INSTALLDIR); \
+	ln -sf $(notdir $(lastword $(wildcard $(SRCROOT)/tzdata*.tar.gz))) latest_tzdata.tar.gz; \
+	ln -sf $(notdir $(lastword $(wildcard $(SRCROOT)/tzcode*.tar.gz))) latest_tzcode.tar.gz;);
 
 clean :

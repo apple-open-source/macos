@@ -1,8 +1,10 @@
-/*  -*- c-file-style: "linux" -*-
+/*
+ * Routines used to setup various kinds of inter-process pipes.
  *
- * Copyright (C) 1996-2000 by Andrew Tridgell
- * Copyright (C) Paul Mackerras 1996
- * Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
+ * Copyright (C) 1996-2000 Andrew Tridgell
+ * Copyright (C) 1996 Paul Mackerras
+ * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
+ * Copyright (C) 2004, 2005, 2006 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,9 +16,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include "rsync.h"
@@ -24,12 +26,13 @@
 extern int am_sender;
 extern int am_server;
 extern int blocking_io;
-extern int orig_umask;
-extern int write_batch;
 extern int filesfrom_fd;
+extern mode_t orig_umask;
+extern char *logfile_name;
+extern struct chmod_mode_struct *chmod_modes;
 
 /**
- * Create a child connected to use on stdin/stdout.
+ * Create a child connected to us via its stdin/stdout.
  *
  * This is derived from CVS code
  *
@@ -111,6 +114,9 @@ pid_t local_child(int argc, char **argv, int *f_in, int *f_out,
 	int to_child_pipe[2];
 	int from_child_pipe[2];
 
+	/* The parent process is always the sender for a local rsync. */
+	assert(am_sender);
+
 	if (fd_pair(to_child_pipe) < 0 ||
 	    fd_pair(from_child_pipe) < 0) {
 		rsyserr(FERROR, errno, "pipe");
@@ -124,15 +130,10 @@ pid_t local_child(int argc, char **argv, int *f_in, int *f_out,
 	}
 
 	if (pid == 0) {
-		am_sender = !am_sender;
+		am_sender = 0;
 		am_server = 1;
-
-		/* The server side never writes the batch, even if it
-		 * is local (it makes the logic easier elsewhere). */
-		write_batch = 0;
-
-		if (!am_sender)
-			filesfrom_fd = -1;
+		filesfrom_fd = -1;
+		chmod_modes = NULL; /* Let the sending side handle this. */
 
 		if (dup2(to_child_pipe[0], STDIN_FILENO) < 0 ||
 		    close(to_child_pipe[1]) < 0 ||
@@ -148,8 +149,11 @@ pid_t local_child(int argc, char **argv, int *f_in, int *f_out,
 		child_main(argc, argv);
 	}
 
-	if (!am_sender)
-		filesfrom_fd = -1;
+	/* Let the client side handle this. */
+	if (logfile_name) {
+		logfile_name = NULL;
+		logfile_close();
+	}
 
 	if (close(from_child_pipe[1]) < 0 ||
 	    close(to_child_pipe[0]) < 0) {

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: syslog.c,v 1.49.2.3.2.2 2007/05/17 06:38:13 rasmus Exp $ */
+/* $Id: syslog.c,v 1.49.2.3.2.4 2008/02/20 15:28:37 iliaa Exp $ */
 
 #include "php.h"
 
@@ -110,6 +110,7 @@ PHP_RINIT_FUNCTION(syslog)
 	} else {
 		BG(syslog_started)=0;
 	}
+	BG(syslog_device) = NULL;
 	return SUCCESS;
 }
 
@@ -126,6 +127,7 @@ PHP_MSHUTDOWN_FUNCTION(syslog)
 {
 	if (BG(syslog_device)) {
 		free(BG(syslog_device));
+		BG(syslog_device) = NULL;
 	}
 	return SUCCESS;
 }

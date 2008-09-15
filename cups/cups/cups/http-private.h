@@ -1,5 +1,5 @@
 /*
- * "$Id: http-private.h 6934 2007-09-10 16:46:20Z mike $"
+ * "$Id: http-private.h 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Private HTTP definitions for the Common UNIX Printing System (CUPS).
  *
@@ -257,8 +257,14 @@ extern void	_cups_freeifaddrs(struct ifaddrs *addrs);
 #    endif /* HAVE_GETIFADDRS */
 #  endif /* !WIN32 */
 
+/*
+ * Common URI encoding function...
+ */
+
+extern char	*_httpEncodeURI(char *dst, const char *src, size_t dstsize);
+
 #endif /* !_CUPS_HTTP_PRIVATE_H_ */
 
 /*
- * End of "$Id: http-private.h 6934 2007-09-10 16:46:20Z mike $".
+ * End of "$Id: http-private.h 7721 2008-07-11 22:48:49Z mike $".
  */

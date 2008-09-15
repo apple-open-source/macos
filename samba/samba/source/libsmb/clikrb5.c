@@ -989,45 +989,30 @@ out:
  krb5_error_code krb5_rd_req_return_keyblock_from_keytab(krb5_context context,
 							krb5_auth_context *auth_context,
 							const krb5_data *inbuf,
-							krb5_const_principal server,
+							const krb5_keytab_entry *kt_entry,
 							krb5_keytab keytab,
-							krb5_flags *ap_req_options,
-							krb5_ticket **ticket, 
+							krb5_ticket **ticket,
 							krb5_keyblock **keyblock)
 {
 	krb5_error_code ret;
-	krb5_kvno kvno;
-	krb5_enctype enctype;
-	krb5_keyblock *local_keyblock;
+	krb5_keyblock *local_keyblock = NULL;
 
-	ret = krb5_rd_req(context, 
-			  auth_context, 
-			  inbuf, 
-			  server, 
-			  keytab, 
-			  ap_req_options, 
-			  ticket);
+	ret = krb5_rd_req(context, auth_context, inbuf,
+			  kt_entry->principal,
+			  keytab, NULL, ticket);
 	if (ret) {
 		return ret;
 	}
-	
-#ifdef KRB5_TICKET_HAS_KEYINFO
-	enctype = (*ticket)->enc_part.enctype;
-	kvno = (*ticket)->enc_part.kvno;
+
+#ifdef HAVE_KRB5_KEYTAB_ENTRY_KEYBLOCK /* Heimdal */
+	ret = krb5_copy_keyblock(context, &kt_entry->keyblock, &local_keyblock);
+#elif defined(HAVE_KRB5_KEYTAB_ENTRY_KEY) /* MIT */
+	ret = krb5_copy_keyblock(context, &kt_entry->key, &local_keyblock);
 #else
-	ret = smb_krb5_get_keyinfo_from_ap_req(context, inbuf, &kvno, &enctype);
-	if (ret) {
-		return ret;
-	}
+#error UNKNOWN_KRB5_KEYTAB_ENTRY_FORMAT
 #endif
-
-	ret = get_key_from_keytab(context, 
-				  server,
-				  enctype,
-				  kvno,
-				  &local_keyblock);
 	if (ret) {
-		DEBUG(0,("krb5_rd_req_return_keyblock_from_keytab: failed to call get_key_from_keytab\n"));
+		DEBUG(0,("krb5_rd_req_return_keyblock_from_keytab: failed to copy key: %s\n", error_message(ret)));
 		goto out;
 	}
 

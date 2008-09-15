@@ -1,53 +1,59 @@
 This patch from Sami Farin lets you specify --fsync if you want fsync()
 to be called on every file we write.
 
---- orig/options.c	2004-09-23 17:42:07
-+++ options.c	2004-07-03 20:18:13
-@@ -38,6 +38,7 @@ int make_backups = 0;
-  **/
- int whole_file = -1;
- 
-+int do_fsync = 0;
- int archive_mode = 0;
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/fsync.diff
+    ./configure                         (optional if already run)
+    make
+
+--- old/options.c
++++ new/options.c
+@@ -45,6 +45,7 @@ int append_mode = 0;
  int keep_dirlinks = 0;
+ int copy_dirlinks = 0;
  int copy_links = 0;
-@@ -240,6 +241,7 @@ void usage(enum logcode F)
-   rprintf(F," -b, --backup                make backups (see --suffix & --backup-dir)\n");
-   rprintf(F,"     --backup-dir            make backups into this directory\n");
-   rprintf(F,"     --suffix=SUFFIX         backup suffix (default %s w/o --backup-dir)\n",BACKUP_SUFFIX);
++int do_fsync = 0;
+ int preserve_links = 0;
+ int preserve_hard_links = 0;
+ int preserve_perms = 0;
+@@ -339,6 +340,7 @@ void usage(enum logcode F)
+   rprintf(F,"     --partial-dir=DIR       put a partially transferred file into DIR\n");
+   rprintf(F,"     --delay-updates         put all updated files into place at transfer's end\n");
+   rprintf(F," -m, --prune-empty-dirs      prune empty directory chains from the file-list\n");
 +  rprintf(F,"     --fsync                 fsync every written file\n");
-   rprintf(F," -u, --update                update only (don't overwrite newer files)\n");
-   rprintf(F,"     --inplace               update destination files inplace (SEE MAN PAGE)\n");
-   rprintf(F," -K, --keep-dirlinks         treat symlinked dir on receiver as dir\n");
-@@ -346,6 +348,7 @@ static struct poptOption long_options[] 
-   {"safe-links",       0,  POPT_ARG_NONE,   &safe_symlinks, 0, 0, 0 },
-   {"help",            'h', POPT_ARG_NONE,   0,              'h', 0, 0 },
-   {"backup",          'b', POPT_ARG_NONE,   &make_backups, 0, 0, 0 },
+   rprintf(F,"     --numeric-ids           don't map uid/gid values by user/group name\n");
+   rprintf(F,"     --timeout=TIME          set I/O timeout in seconds\n");
+   rprintf(F," -I, --ignore-times          don't skip files that match in size and mod-time\n");
+@@ -525,6 +527,7 @@ static struct poptOption long_options[] 
+   {"only-write-batch", 0,  POPT_ARG_STRING, &batch_name, OPT_ONLY_WRITE_BATCH, 0, 0 },
+   {"files-from",       0,  POPT_ARG_STRING, &files_from, 0, 0, 0 },
+   {"from0",           '0', POPT_ARG_NONE,   &eol_nulls, 0, 0, 0},
 +  {"fsync",            0,  POPT_ARG_NONE,   &do_fsync, 0, 0, 0 },
-   {"dry-run",         'n', POPT_ARG_NONE,   &dry_run, 0, 0, 0 },
-   {"sparse",          'S', POPT_ARG_NONE,   &sparse_files, 0, 0, 0 },
-   {"cvs-exclude",     'C', POPT_ARG_NONE,   &cvs_exclude, 0, 0, 0 },
-@@ -1078,6 +1081,9 @@ void server_options(char **args,int *arg
+   {"numeric-ids",      0,  POPT_ARG_NONE,   &numeric_ids, 0, 0, 0 },
+   {"timeout",          0,  POPT_ARG_INT,    &io_timeout, 0, 0, 0 },
+   {"rsh",             'e', POPT_ARG_STRING, &shell_cmd, 0, 0, 0 },
+@@ -1727,6 +1730,9 @@ void server_options(char **args,int *arg
  		args[ac++] = tmpdir;
  	}
  
 +	if (do_fsync && am_sender)
 +		args[ac++] = "--fsync";
 +
- 	if (compare_dest && am_sender) {
+ 	if (basis_dir[0] && am_sender) {
  		/* the server only needs this option if it is not the sender,
  		 *   and it may be an older version that doesn't know this
---- orig/receiver.c	2004-09-21 09:40:27
-+++ receiver.c	2004-07-16 20:13:31
-@@ -36,6 +36,7 @@ extern int preserve_hard_links;
+--- old/receiver.c
++++ new/receiver.c
+@@ -37,6 +37,7 @@ extern int protocol_version;
+ extern int relative_paths;
+ extern int preserve_hard_links;
  extern int preserve_perms;
- extern int cvs_exclude;
- extern int io_error;
 +extern int do_fsync;
- extern char *tmpdir;
- extern char *partial_dir;
- extern char *compare_dest;
-@@ -305,6 +306,12 @@ static int receive_data(int f_in, char *
+ extern int basis_dir_cnt;
+ extern int make_backups;
+ extern int cleanup_got_literal;
+@@ -258,6 +259,12 @@ static int receive_data(int f_in, char *
  		exit_cleanup(RERR_FILEIO);
  	}
  
@@ -60,17 +66,27 @@ to be called on every file we write.
  	sum_end(file_sum1);
  
  	if (mapbuf)
---- orig/util.c	2004-09-07 21:45:30
-+++ util.c	2004-07-03 20:18:13
-@@ -33,6 +33,7 @@ extern int module_id;
- extern int modify_window;
- extern char *partial_dir;
- extern struct exclude_list_struct server_exclude_list;
+--- old/t_stub.c
++++ new/t_stub.c
+@@ -22,6 +22,7 @@
+ 
+ #include "rsync.h"
+ 
++int do_fsync = 0;
+ int modify_window = 0;
+ int module_id = -1;
+ int relative_paths = 0;
+--- old/util.c
++++ new/util.c
+@@ -26,6 +26,7 @@
+ extern int verbose;
+ extern int dry_run;
+ extern int module_id;
 +extern int do_fsync;
- 
- int sanitize_paths = 0;
- 
-@@ -298,6 +299,12 @@ int copy_file(char *source, char *dest, 
+ extern int modify_window;
+ extern int relative_paths;
+ extern int human_readable;
+@@ -314,6 +315,12 @@ int copy_file(const char *source, const 
  		return -1;
  	}
  

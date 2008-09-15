@@ -193,6 +193,8 @@ session(void)
 	}
 
 	while (1) {
+		if (!TAILQ_EMPTY(&lcconf->saved_msg_queue))
+			pfkey_post_handler();
 		update_fds = 0;
 		/*
 		 * asynchronous requests via signal.

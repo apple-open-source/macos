@@ -44,7 +44,7 @@
     // Default and Maximum buffer pool values
 
 #define kInBufPool		4
-#define kOutBufPool		2
+#define kOutBufPool		8
 
 #define kMaxInBufPool		kInBufPool*16
 #define kMaxOutBufPool		kOutBufPool*16
@@ -91,6 +91,7 @@ private:
     bool			fNetifEnabled;
     bool			fWOL;
     UInt8			fLinkStatus;
+	bool			fSleeping;
     
     IOUSBPipe			*fInPipe;
     IOUSBPipe			*fOutPipe;
@@ -161,6 +162,7 @@ public:
     virtual IOReturn		getPacketFilters(const OSSymbol	*group, UInt32 *filters ) const;
     virtual IOReturn		selectMedium(const IONetworkMedium *medium);
     virtual IOReturn		getHardwareAddress(IOEthernetAddress *addr);
+	virtual IOReturn		getMaxPacketSize(UInt32 *maxSize) const;
     virtual IOReturn		setMulticastMode(IOEnetMulticastMode mode);
     virtual IOReturn		setMulticastList(IOEthernetAddress *addrs, UInt32 count);
     virtual IOReturn		setPromiscuousMode(IOEnetPromiscuousMode mode);
@@ -168,7 +170,8 @@ public:
     virtual const OSString	*newVendorString(void) const;
     virtual const OSString	*newModelString(void) const;
     virtual const OSString	*newRevisionString(void) const;
-    virtual bool		configureInterface(IONetworkInterface *netif);
+    virtual bool			configureInterface(IONetworkInterface *netif);
+	virtual IOReturn		registerWithPolicyMaker(IOService *policyMaker);
 												
 }; /* end class AppleUSBCDCECMData */
 #endif

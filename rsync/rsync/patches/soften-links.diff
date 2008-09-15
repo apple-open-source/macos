@@ -1,19 +1,20 @@
-Date: Fri, 12 Apr 2002 13:44:22 +0200
-From: Marco d'Itri <md@Linux.IT>
-To: mbp@samba.org
-Subject: rsync and debian mirrors
+Marco d'Itri wrote:
 
 I run one of the debian mirrors, and I had to write this patch because
 my archive is split between more than one disk. Would you accept a more
 polished version of this patch for inclusion in rsync?
 
-[Updated to latest CVS source by Wayne Davison.]
+To use this patch, run these commands for a successful build:
 
---- orig/syscall.c	2004-08-02 21:56:59
-+++ syscall.c	2004-04-22 23:48:45
-@@ -58,9 +58,14 @@ int do_symlink(char *fname1, char *fname
- #if HAVE_LINK
- int do_link(char *fname1, char *fname2)
+    patch -p1 <patches/soften-links.diff
+    ./configure                           (optional if already run)
+    make
+
+--- old/syscall.c
++++ new/syscall.c
+@@ -59,9 +59,14 @@ int do_symlink(const char *fname1, const
+ #ifdef HAVE_LINK
+ int do_link(const char *fname1, const char *fname2)
  {
 +	int st;
 +

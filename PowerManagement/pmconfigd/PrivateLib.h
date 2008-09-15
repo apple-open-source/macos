@@ -79,6 +79,9 @@ __private_extern__ CFArrayRef _copyLegacyBatteryInfo(void);
 __private_extern__ void _askNicelyThenShutdownSystem(void);
 __private_extern__ void _askNicelyThenSleepSystem(void);
 
+// getSystemManagementKeyInt32 - only valid for i386 platforms
+__private_extern__ IOReturn getSystemManagementKeyInt32(uint32_t key, uint32_t *val);
+
 #if !TARGET_OS_EMBEDDED
 __private_extern__ CFUserNotificationRef _showUPSWarning(void);
 #endif

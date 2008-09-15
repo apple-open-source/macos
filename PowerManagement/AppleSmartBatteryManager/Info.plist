@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
@@ -11,17 +11,17 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.driver.AppleSmartBatteryManager</string>
 	<key>CFBundleInfoDictionaryVersion</key>
-	<string>136.0</string>
+	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>AppleSmartBatteryManagerKEXT</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>136.0.0</string>
+	<string>143.11.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>136.0.0</string>
+	<string>143.11.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSmartBatteryManager</key>
@@ -43,6 +43,8 @@
 	<dict>
 		<key>com.apple.iokit.IOSMBusFamily</key>
 		<string>1.0.0</string>
+		<key>com.apple.iokit.IOACPIFamily</key>
+		<string>1.2.0</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>8.3.1</string>
 		<key>com.apple.kpi.iokit</key>

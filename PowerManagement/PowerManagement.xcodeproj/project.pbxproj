@@ -355,21 +355,21 @@
 		729A742C0A01EBB0000AB587 /* pmset */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pmset; sourceTree = BUILT_PRODUCTS_DIR; };
 		729A757E0A01EDED000AB587 /* ioupsd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioupsd; sourceTree = BUILT_PRODUCTS_DIR; };
 		729A759B0A01F1D7000AB587 /* PowerManagement.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PowerManagement.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		729A759C0A01F1D7000AB587 /* Power Management Bundle-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Power Management Bundle-Info.plist"; sourceTree = "<group>"; };
+		729A759C0A01F1D7000AB587 /* Power Management Bundle-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Power Management Bundle-Info.plist"; sourceTree = "<group>"; };
 		72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = PMSystemEvents.c; sourceTree = "<group>"; };
 		72A9DF020CDAA05B000FDB18 /* PMSystemEvents.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PMSystemEvents.h; sourceTree = "<group>"; };
-		72C2C512062F57BB000F5FC7 /* com.apple.SystemPowerProfileDefaults.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = com.apple.SystemPowerProfileDefaults.plist; sourceTree = "<group>"; };
+		72C2C512062F57BB000F5FC7 /* com.apple.SystemPowerProfileDefaults.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = com.apple.SystemPowerProfileDefaults.plist; sourceTree = "<group>"; };
 		72D0ECDF08F73D3000CCEA2F /* AppleSmartBatteryManager.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleSmartBatteryManager.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleSmartBattery.cpp; path = AppleSmartBatteryManager/AppleSmartBattery.cpp; sourceTree = "<group>"; };
 		72D0ECFA08F73FB600CCEA2F /* AppleSmartBattery.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleSmartBattery.h; path = AppleSmartBatteryManager/AppleSmartBattery.h; sourceTree = "<group>"; };
 		72D0ECFB08F73FB600CCEA2F /* AppleSmartBatteryCommands.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleSmartBatteryCommands.h; path = AppleSmartBatteryManager/AppleSmartBatteryCommands.h; sourceTree = "<group>"; };
 		72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleSmartBatteryManager.cpp; path = AppleSmartBatteryManager/AppleSmartBatteryManager.cpp; sourceTree = "<group>"; };
 		72D0ECFD08F73FB600CCEA2F /* AppleSmartBatteryManager.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleSmartBatteryManager.h; path = AppleSmartBatteryManager/AppleSmartBatteryManager.h; sourceTree = "<group>"; };
-		72D0ECFE08F73FB600CCEA2F /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = Info.plist; path = AppleSmartBatteryManager/Info.plist; sourceTree = "<group>"; };
+		72D0ECFE08F73FB600CCEA2F /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Info.plist; path = AppleSmartBatteryManager/Info.plist; sourceTree = "<group>"; };
 		72D984480B20BE7800D66087 /* TTYKeepAwake.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = TTYKeepAwake.c; sourceTree = "<group>"; };
 		72D984490B20BE7800D66087 /* TTYKeepAwake.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TTYKeepAwake.h; sourceTree = "<group>"; };
-		72E815720CFE470B00CF547E /* PowerManagement.bundle */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PowerManagement.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		72E815730CFE470B00CF547E /* Power Management Bundle-Info copy.plist */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Power Management Bundle-Info copy.plist"; sourceTree = "<group>"; };
+		72E815720CFE470B00CF547E /* PowerManagement.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PowerManagement.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		72E815730CFE470B00CF547E /* Power Management Bundle-Info copy.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Power Management Bundle-Info copy.plist"; sourceTree = "<group>"; };
 		72FE21330A0179A300885E24 /* BatteryFaker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BatteryFaker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FE21400A0179F400885E24 /* BatteryFaker.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BatteryFaker.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FE21560A017A8F00885E24 /* IOUPSPlugIn.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUPSPlugIn.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -381,7 +381,7 @@
 		72FE21720A017B4000885E24 /* FakeUPSObject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FakeUPSObject.h; sourceTree = "<group>"; };
 		72FE21730A017B4000885E24 /* main.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		72FE217B0A017B6000885E24 /* BatteryFakerKEXT.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BatteryFakerKEXT.h; sourceTree = "<group>"; };
-		72FE217C0A017B6000885E24 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		72FE217C0A017B6000885E24 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		72FE217D0A017B6000885E24 /* BatteryFakerKEXT.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BatteryFakerKEXT.cpp; sourceTree = "<group>"; };
 		72FE21800A017B7900885E24 /* Single_0.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_0.tif; sourceTree = "<group>"; };
 		72FE21810A017B7900885E24 /* Single_1.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_1.tif; sourceTree = "<group>"; };
@@ -404,8 +404,8 @@
 		72FE21920A017B7A00885E24 /* Single_NoBattery.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_NoBattery.tif; sourceTree = "<group>"; };
 		72FE21930A017B7A00885E24 /* Single_Plugged.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Single_Plugged.tif; sourceTree = "<group>"; };
 		72FE21A90A017BA000885E24 /* PluggedIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = PluggedIcon.icns; sourceTree = "<group>"; };
-		72FE21AB0A017BA000885E24 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
-		72FE21B10A017BC600885E24 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		72FE21AB0A017BA000885E24 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		72FE21B10A017BC600885E24 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		72FE21B20A017BC600885E24 /* fakeups.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = fakeups.defs; sourceTree = "<group>"; };
 		72FE21B30A017BC600885E24 /* IOUPSPlugIn.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUPSPlugIn.h; sourceTree = "<group>"; };
 		72FE21B40A017BC600885E24 /* FakeUPSPlugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FakeUPSPlugin.h; sourceTree = "<group>"; };
@@ -948,6 +948,9 @@
 			mainGroup = 08FB7794FE84155DC02AAC07 /* pmconfigd */;
 			projectDirPath = "";
 			projectRoot = "";
+			projectRoots = (
+				"",
+			);
 			targets = (
 				409C6E9901A0B1A80ACA2928 /* PowerManagement */,
 				A661C2440CFE1C3D00B7CC2B /* PowerManagement-Embedded */,
@@ -1442,7 +1445,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2008,7 +2010,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: info.c,v 1.249.2.10.2.14 2007/07/21 01:24:26 jani Exp $ */
+/* $Id: info.c,v 1.249.2.10.2.17 2008/03/05 21:09:29 pajoye Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -277,7 +277,7 @@ PHPAPI char *php_get_uname(char mode)
 				php_uname = tmp_uname;
 				break;
 			case PROCESSOR_ARCHITECTURE_MIPS :
-				php_uname = "MIPS R4000";
+				snprintf(tmp_uname, sizeof(tmp_uname), "MIPS R%d000", SysInfo.wProcessorLevel);
 				php_uname = tmp_uname;
 				break;
 			case PROCESSOR_ARCHITECTURE_ALPHA :
@@ -326,6 +326,30 @@ PHPAPI char *php_get_uname(char mode)
 	if (uname((struct utsname *)&buf) == -1) {
 		php_uname = PHP_UNAME;
 	} else {
+#ifdef NETWARE
+		if (mode == 's') {
+			php_uname = buf.sysname;
+		} else if (mode == 'r') {
+			snprintf(tmp_uname, sizeof(tmp_uname), "%d.%d.%d", 
+					 buf.netware_major, buf.netware_minor, buf.netware_revision);
+			php_uname = tmp_uname;
+		} else if (mode == 'n') {
+			php_uname = buf.servername;
+		} else if (mode == 'v') {
+			snprintf(tmp_uname, sizeof(tmp_uname), "libc-%d.%d.%d #%d",
+					 buf.libmajor, buf.libminor, buf.librevision, buf.libthreshold);
+			php_uname = tmp_uname;
+		} else if (mode == 'm') {
+			php_uname = buf.machine;
+		} else { /* assume mode == 'a' */
+			snprintf(tmp_uname, sizeof(tmp_uname), "%s %s %d.%d.%d libc-%d.%d.%d #%d %s",
+					 buf.sysname, buf.servername,
+					 buf.netware_major, buf.netware_minor, buf.netware_revision,
+					 buf.libmajor, buf.libminor, buf.librevision, buf.libthreshold,
+					 buf.machine);
+			php_uname = tmp_uname;
+		}
+#else
 		if (mode == 's') {
 			php_uname = buf.sysname;
 		} else if (mode == 'r') {
@@ -342,6 +366,7 @@ PHPAPI char *php_get_uname(char mode)
 					 buf.machine);
 			php_uname = tmp_uname;
 		}
+#endif /* NETWARE */
 	}
 #else
 	php_uname = PHP_UNAME;

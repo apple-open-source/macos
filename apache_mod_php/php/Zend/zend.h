@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.293.2.11.2.9 2007/07/23 16:17:10 jani Exp $ */
+/* $Id: zend.h,v 1.293.2.11.2.11 2008/02/15 07:44:45 dmitry Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H
@@ -181,9 +181,21 @@ char *alloca ();
 #if (HAVE_ALLOCA || (defined (__GNUC__) && __GNUC__ >= 2)) && !(defined(ZTS) && defined(ZEND_WIN32)) && !(defined(ZTS) && defined(NETWARE)) && !(defined(ZTS) && defined(HPUX)) && !defined(DARWIN)
 # define do_alloca(p) alloca(p)
 # define free_alloca(p)
+# define ZEND_ALLOCA_MAX_SIZE (32 * 1024)
+# define ALLOCA_FLAG(name) \
+	zend_bool name;
+# define do_alloca_with_limit_ex(size, limit, use_heap) \
+	((use_heap = ((size) > (limit))) ? emalloc(size) : alloca(size))
+# define do_alloca_with_limit(size, use_heap) \
+	do_alloca_with_limit_ex(size, ZEND_ALLOCA_MAX_SIZE, use_heap)
+# define free_alloca_with_limit(p, use_heap) \
+	do { if (use_heap) efree(p); } while (0)
 #else
 # define do_alloca(p)		emalloc(p)
 # define free_alloca(p)	efree(p)
+# define ALLOCA_FLAG(name)
+# define do_alloca_with_limit(p, use_heap)		emalloc(p)
+# define free_alloca_with_limit(p, use_heap)	efree(p)
 #endif
 
 #if ZEND_DEBUG

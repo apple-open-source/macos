@@ -160,6 +160,7 @@ protected:
 public:
   virtual bool init(OSDictionary * properties = 0);
   virtual bool start(IOService * provider);
+  virtual void stop(IOService * provider);
   virtual void free();
 
   virtual bool open(IOService *                client,

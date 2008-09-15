@@ -1463,6 +1463,7 @@ install/jabber_var_dirs:
 	@echo "# `date +%Y/%m/%d\ %H:%M:%S` ChatServer: [staging]: ...copying - creating Jabberd /var directories"
 	$(SILENT) $(MKDIR) -p -m 750 $(OBJROOT)/$(STAGING_DIR)/$(JABBER_VAR_DIR)
 	$(SILENT) $(CP) $(OBJROOT)/$(JABBERD2_SRC_DIR)/ppc/tools/db-setup.sqlite $(OBJROOT)/$(STAGING_DIR)/$(JABBER_VAR_DIR)/
+	$(SILENT) $(CP) $(SRCROOT)/db_update_10.5.5.sqlite $(OBJROOT)/$(STAGING_DIR)/$(JABBER_VAR_DIR)/
 	$(SILENT) $(MKDIR) -p -m 770 $(OBJROOT)/$(STAGING_DIR)/$(JABBER_VAR_DIR)/message_archives
 
 install/file_proxy:
@@ -1488,6 +1489,7 @@ install/copy_dstroot:
 	@echo "# `date +%Y/%m/%d\ %H:%M:%S` ChatServer: [staging]: ...fixing DESTROOT ownership & permissions"
 	$(SILENT) $(CHOWN) jabber:jabber $(DSTROOT)/private/var/jabberd
 	$(SILENT) $(CHOWN) jabber:jabber $(DSTROOT)/private/var/jabberd/db-setup.sqlite
+	$(SILENT) $(CHOWN) jabber:jabber $(DSTROOT)/private/var/jabberd/db_update_10.5.5.sqlite
 	$(SILENT) $(CHOWN) -R jabber:jabber $(DSTROOT)/private/var/jabberd/log
 	$(SILENT) $(CHOWN) -R jabber:admin $(DSTROOT)/private/var/jabberd/message_archives
 	$(SILENT) $(CHOWN) -R jabber:jabber $(DSTROOT)/private/var/jabberd/modules

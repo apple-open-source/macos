@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: streams.c,v 1.82.2.6.2.18 2007/08/08 07:01:49 jani Exp $ */
+/* $Id: streams.c,v 1.82.2.6.2.22 2008/03/24 16:28:56 tony2001 Exp $ */
 
 #define _GNU_SOURCE
 #include "php.h"
@@ -855,10 +855,17 @@ PHPAPI char *php_stream_get_record(php_stream *stream, size_t maxlen, size_t *re
 	if (delim_len == 0 || !delim) {
 		toread = maxlen;
 	} else {
+		size_t seek_len;
+
+		seek_len = stream->writepos - stream->readpos;
+		if (seek_len > maxlen) {
+			seek_len = maxlen;
+		}
+
 		if (delim_len == 1) {
-			e = memchr(stream->readbuf + stream->readpos, *delim, stream->writepos - stream->readpos);
+			e = memchr(stream->readbuf + stream->readpos, *delim, seek_len);
 		} else {
-			e = php_memnstr(stream->readbuf + stream->readpos, delim, delim_len, (stream->readbuf + stream->writepos));
+			e = php_memnstr(stream->readbuf + stream->readpos, delim, delim_len, (stream->readbuf + stream->readpos + seek_len));
 		}
 
 		if (!e) {
@@ -1208,26 +1215,6 @@ PHPAPI size_t _php_stream_copy_to_mem(php_stream *src, char **buf, size_t maxlen
 
 	if (maxlen == PHP_STREAM_COPY_ALL) {
 		maxlen = 0;
-	}
-
-	if (php_stream_mmap_possible(src)) {
-		char *p;
-		size_t mapped;
-
-		p = php_stream_mmap_range(src, php_stream_tell(src), maxlen, PHP_STREAM_MAP_MODE_SHARED_READONLY, &mapped);
-
-		if (p && mapped) {
-			*buf = pemalloc_rel_orig(mapped + 1, persistent);
-
-			if (*buf) {
-				memcpy(*buf, p, mapped);
-				(*buf)[mapped] = '\0';
-			}
-
-			php_stream_mmap_unmap(src);
-
-			return mapped;
-		}
 	}
 
 	if (maxlen > 0) {

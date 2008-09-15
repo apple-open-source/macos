@@ -41,6 +41,7 @@ extern const struct pfkey_satype pfkey_satypes[];
 extern const int pfkey_nsatypes;
 
 extern int pfkey_handler __P((void));
+extern void pfkey_post_handler __P((void));
 extern vchar_t *pfkey_dump_sadb __P((int));
 extern void pfkey_flush_sadb __P((u_int));
 extern int pfkey_init __P((void));

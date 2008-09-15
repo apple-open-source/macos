@@ -72,6 +72,13 @@ if($target eq 'install') {
 	push @font_packages, $_;
     }
 
+    foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
+        $arch_flags_all .= "-arch $arch ";
+        $arch_flags_32 .= "-arch $arch " unless $arch =~ /64/;
+    }
+
+    set_arch_32();
+
     build("font-util");
     build("encodings");
     sys_print("sed -i.bak 's_^prefix=.*_prefix=$ENV{DSTROOT}$prefix"."_' $ENV{DSTROOT}$prefix/lib/pkgconfig/*.pc");
@@ -81,7 +88,7 @@ if($target eq 'install') {
     sys_print("sed -i.bak 's_^prefix=.*_prefix=$prefix"."_' $ENV{DSTROOT}$prefix/lib/pkgconfig/*.pc");
     sys_print("rm $ENV{DSTROOT}$prefix/lib/pkgconfig/*.bak");
     build("font-alias");
-    unlink("$ENV{DSTROOT}$prefix/bin/ucs2any");
+    make_dsyms();
 }
 
 sub build {
@@ -115,6 +122,7 @@ sub build {
     if(-e $post_config_path) {
 	sys_print("cd .. && $post_config_path");
     }
+    sys_print("make -j".`sysctl -n hw.activecpu`);
     sys_print("make install");
     chdir('../..');
 }
@@ -128,6 +136,16 @@ sub get_workdir {
 	}
     }
     die "Unable to determine workdir";
+}
+
+sub set_arch_32 {
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_32 -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-pipe $arch_flags_32";
+}
+
+sub set_arch_all {
+    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags_all -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
+    $ENV{LDFLAGS}="-pipe $arch_flags_all";
 }
 
 sub sys_print {
@@ -144,5 +162,19 @@ sub sys_print_nodie {
     system $command;
     $retval=$? >> 8;
     print "returned code $retval\n" if $retval;
+}
+
+sub make_dsyms {
+    open(FIND,"find $ENV{DSTROOT} -type f -exec file {} +|");
+    while(<FIND>) {
+	if(/(.*): .*Mach-O/) {
+	    $basename=$1;
+	    $fullpath=$1;
+	    $basename =~ s/\/.*\///;
+	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullpath");
+	    sys_print_nodie("strip -S $fullpath");
+	}
+    }
+    close FIND;
 }
 

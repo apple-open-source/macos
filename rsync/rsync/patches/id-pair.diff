@@ -1,0 +1,351 @@
+This attempts to accomplish some per-file memory-savings by moving the
+uid+gid items out of the file-list (since their values are common to
+multiple file-list entries) and replacing them with an index to an
+array of structures.
+
+This only saves 4 bytes per file (not counting the overhead of the array).
+
+This probably needs a hashing algorithm to be added if the uid+gid list
+gets to be really large.
+
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/id-pair.diff
+    ./configure                         (optional if already run)
+    make
+
+--- old/flist.c
++++ new/flist.c
+@@ -54,6 +54,7 @@ extern int copy_unsafe_links;
+ extern int protocol_version;
+ extern int sanitize_paths;
+ extern struct stats stats;
++extern struct id_pair *id_pairs;
+ extern struct file_list *the_file_list;
+ 
+ extern char curr_dir[MAXPATHLEN];
+@@ -351,14 +352,14 @@ static void send_file_entry(struct file_
+ 		}
+ 	} else if (protocol_version < 28)
+ 		rdev = MAKEDEV(0, 0);
+-	if (file->uid == uid)
++	if (id_pairs[file->id_ndx].uid == uid)
+ 		flags |= XMIT_SAME_UID;
+ 	else
+-		uid = file->uid;
+-	if (file->gid == gid)
++		uid = id_pairs[file->id_ndx].uid;
++	if (id_pairs[file->id_ndx].gid == gid)
+ 		flags |= XMIT_SAME_GID;
+ 	else
+-		gid = file->gid;
++		gid = id_pairs[file->id_ndx].gid;
+ 	if (file->modtime == modtime)
+ 		flags |= XMIT_SAME_TIME;
+ 	else
+@@ -609,8 +610,7 @@ static struct file_struct *receive_file_
+ 	file->modtime = modtime;
+ 	file->length = file_length;
+ 	file->mode = mode;
+-	file->uid = uid;
+-	file->gid = gid;
++	file->id_ndx = id_pair(uid, gid);
+ 
+ 	if (dirname_len) {
+ 		file->dirname = lastdir = bp;
+@@ -862,8 +862,7 @@ struct file_struct *make_file(char *fnam
+ 	file->modtime = st.st_mtime;
+ 	file->length = st.st_size;
+ 	file->mode = st.st_mode;
+-	file->uid = st.st_uid;
+-	file->gid = st.st_gid;
++	file->id_ndx = id_pair(st.st_uid, st.st_gid);
+ 
+ #ifdef SUPPORT_HARD_LINKS
+ 	if (flist && flist->hlink_pool) {
+@@ -931,8 +930,7 @@ struct file_struct *make_file(char *fnam
+ 			file->modtime = st2.st_mtime;
+ 			file->length = st2.st_size;
+ 			file->mode = st2.st_mode;
+-			file->uid = st2.st_uid;
+-			file->gid = st2.st_gid;
++			file->id_ndx = id_pair(st2.st_uid, st2.st_gid);
+ 			file->u.link = NULL;
+ 		} else
+ 			file->mode = save_mode;
+@@ -1380,7 +1378,7 @@ struct file_list *recv_file_list(int f)
+ 	clean_flist(flist, relative_paths, 1);
+ 
+ 	if (f >= 0) {
+-		recv_uid_list(f, flist);
++		recv_uid_list(f);
+ 
+ 		/* Recv the io_error flag */
+ 		if (lp_ignore_errors(module_id) || ignore_errors)
+@@ -1696,13 +1694,15 @@ static void output_flist(struct file_lis
+ 
+ 	for (i = 0; i < flist->count; i++) {
+ 		file = flist->files[i];
+-		if ((am_root || am_sender) && preserve_uid)
+-			snprintf(uidbuf, sizeof uidbuf, " uid=%ld", (long)file->uid);
+-		else
++		if ((am_root || am_sender) && preserve_uid) {
++			snprintf(uidbuf, sizeof uidbuf, " uid=%ld",
++				(long)id_pairs[file->id_ndx].uid);
++		} else
+ 			*uidbuf = '\0';
+-		if (preserve_gid && file->gid != GID_NONE)
+-			snprintf(gidbuf, sizeof gidbuf, " gid=%ld", (long)file->gid);
+-		else
++		if (preserve_gid && id_pairs[file->id_ndx].gid != GID_NONE) {
++			snprintf(gidbuf, sizeof gidbuf, " gid=%ld",
++				(long)id_pairs[file->id_ndx].gid);
++		} else
+ 			*gidbuf = '\0';
+ 		if (!am_sender)
+ 			snprintf(depthbuf, sizeof depthbuf, "%d", file->dir.depth);
+--- old/generator.c
++++ new/generator.c
+@@ -90,6 +90,7 @@ extern dev_t filesystem_dev;
+ extern char *backup_dir;
+ extern char *backup_suffix;
+ extern int backup_suffix_len;
++extern struct id_pair *id_pairs;
+ extern struct file_list *the_file_list;
+ extern struct filter_list_struct server_filter_list;
+ 
+@@ -323,10 +324,12 @@ int unchanged_attrs(struct file_struct *
+ 	 && (st->st_mode & CHMOD_BITS) != (file->mode & CHMOD_BITS))
+ 		return 0;
+ 
+-	if (am_root && preserve_uid && st->st_uid != file->uid)
++	if (am_root && preserve_uid
++	 && st->st_uid != id_pairs[file->id_ndx].uid)
+ 		return 0;
+ 
+-	if (preserve_gid && file->gid != GID_NONE && st->st_gid != file->gid)
++	if (preserve_gid && id_pairs[file->id_ndx].gid != GID_NONE
++	 && st->st_gid != id_pairs[file->id_ndx].gid)
+ 		return 0;
+ 
+ 	return 1;
+@@ -339,6 +342,8 @@ void itemize(struct file_struct *file, i
+ 		int keep_time = !preserve_times ? 0
+ 		    : S_ISDIR(file->mode) ? !omit_dir_times
+ 		    : !S_ISLNK(file->mode);
++		uid_t uid = id_pairs[file->id_ndx].uid;
++		gid_t gid = id_pairs[file->id_ndx].gid;
+ 
+ 		if (S_ISREG(file->mode) && file->length != st->st_size)
+ 			iflags |= ITEM_REPORT_SIZE;
+@@ -348,10 +353,10 @@ void itemize(struct file_struct *file, i
+ 			iflags |= ITEM_REPORT_TIME;
+ 		if ((file->mode & CHMOD_BITS) != (st->st_mode & CHMOD_BITS))
+ 			iflags |= ITEM_REPORT_PERMS;
+-		if (preserve_uid && am_root && file->uid != st->st_uid)
++		if (preserve_uid && am_root && uid != st->st_uid)
+ 			iflags |= ITEM_REPORT_OWNER;
+-		if (preserve_gid && file->gid != GID_NONE
+-		    && st->st_gid != file->gid)
++		if (preserve_gid && gid != GID_NONE
++		    && st->st_gid != gid)
+ 			iflags |= ITEM_REPORT_GROUP;
+ 	} else
+ 		iflags |= ITEM_IS_NEW;
+--- old/log.c
++++ new/log.c
+@@ -46,6 +46,7 @@ extern char *auth_user;
+ extern char *stdout_format;
+ extern char *logfile_format;
+ extern char *logfile_name;
++extern struct id_pair *id_pairs;
+ #if defined HAVE_ICONV_OPEN && defined HAVE_ICONV_H
+ extern iconv_t ic_chck;
+ #endif
+@@ -470,16 +471,16 @@ static void log_formatted(enum logcode c
+ 		case 'U':
+ 			strlcat(fmt, "ld", sizeof fmt);
+ 			snprintf(buf2, sizeof buf2, fmt,
+-				 (long)file->uid);
++				 (long)id_pairs[file->id_ndx].uid);
+ 			n = buf2;
+ 			break;
+ 		case 'G':
+-			if (file->gid == GID_NONE)
++			if (id_pairs[file->id_ndx].gid == GID_NONE)
+ 				n = "DEFAULT";
+ 			else {
+ 				strlcat(fmt, "ld", sizeof fmt);
+ 				snprintf(buf2, sizeof buf2, fmt,
+-					 (long)file->gid);
++					 (long)id_pairs[file->id_ndx].gid);
+ 				n = buf2;
+ 			}
+ 			break;
+--- old/rsync.c
++++ new/rsync.c
+@@ -49,6 +49,7 @@ extern int keep_dirlinks;
+ extern int make_backups;
+ extern mode_t orig_umask;
+ extern struct stats stats;
++extern struct id_pair *id_pairs;
+ extern struct chmod_mode_struct *daemon_chmod_modes;
+ 
+ #if defined HAVE_ICONV_OPEN && defined HAVE_ICONV_H
+@@ -130,6 +131,8 @@ int set_file_attrs(char *fname, struct f
+ 	STRUCT_STAT st2;
+ 	int change_uid, change_gid;
+ 	mode_t new_mode = file->mode;
++	uid_t uid;
++	gid_t gid;
+ 
+ 	if (!st) {
+ 		if (dry_run)
+@@ -162,9 +165,11 @@ int set_file_attrs(char *fname, struct f
+ 			updated = 1;
+ 	}
+ 
+-	change_uid = am_root && preserve_uid && st->st_uid != file->uid;
+-	change_gid = preserve_gid && file->gid != GID_NONE
+-		&& st->st_gid != file->gid;
++	uid = id_pairs[file->id_ndx].uid;
++	gid = id_pairs[file->id_ndx].gid;
++	change_uid = am_root && preserve_uid && st->st_uid != uid;
++	change_gid = preserve_gid && gid != GID_NONE
++		&& st->st_gid != gid;
+ #if !defined HAVE_LCHOWN && !defined CHOWN_MODIFIES_SYMLINK
+ 	if (S_ISLNK(st->st_mode))
+ 		;
+@@ -176,18 +181,18 @@ int set_file_attrs(char *fname, struct f
+ 				rprintf(FINFO,
+ 					"set uid of %s from %ld to %ld\n",
+ 					fname,
+-					(long)st->st_uid, (long)file->uid);
++					(long)st->st_uid, (long)uid);
+ 			}
+ 			if (change_gid) {
+ 				rprintf(FINFO,
+ 					"set gid of %s from %ld to %ld\n",
+ 					fname,
+-					(long)st->st_gid, (long)file->gid);
++					(long)st->st_gid, (long)gid);
+ 			}
+ 		}
+ 		if (do_lchown(fname,
+-		    change_uid ? file->uid : st->st_uid,
+-		    change_gid ? file->gid : st->st_gid) != 0) {
++		    change_uid ? uid : st->st_uid,
++		    change_gid ? gid : st->st_gid) != 0) {
+ 			/* shouldn't have attempted to change uid or gid
+ 			 * unless have the privilege */
+ 			rsyserr(FERROR, errno, "%s %s failed",
+--- old/rsync.h
++++ new/rsync.h
+@@ -503,6 +503,11 @@ struct hlink {
+ 	unsigned short link_dest_used;
+ };
+ 
++struct id_pair {
++	uid_t uid;
++	gid_t gid;
++};
++
+ #define F_DEV	link_u.idev->dev
+ #define F_INODE	link_u.idev->inode
+ 
+@@ -527,8 +532,7 @@ struct file_struct {
+ 		struct hlink *links;
+ 	} link_u;
+ 	time_t modtime;
+-	uid_t uid;
+-	gid_t gid;
++	int id_ndx;
+ 	mode_t mode;
+ 	uchar flags;	/* this item MUST remain last */
+ };
+--- old/uidlist.c
++++ new/uidlist.c
+@@ -38,6 +38,8 @@ extern int preserve_gid;
+ extern int numeric_ids;
+ extern int am_root;
+ 
++struct id_pair *id_pairs;
++
+ struct idlist {
+ 	struct idlist *next;
+ 	int id, id2;
+@@ -47,6 +49,8 @@ struct idlist {
+ static struct idlist *uidlist;
+ static struct idlist *gidlist;
+ 
++static int pair_cnt = 0, pair_alloc = 0;
++
+ static struct idlist *add_to_list(struct idlist **root, int id, char *name,
+ 				  int id2)
+ {
+@@ -306,7 +310,7 @@ void send_uid_list(int f)
+ 
+ /* recv a complete uid/gid mapping from the peer and map the uid/gid
+  * in the file list to local names */
+-void recv_uid_list(int f, struct file_list *flist)
++void recv_uid_list(int f)
+ {
+ 	int id, i;
+ 	char *name;
+@@ -337,11 +341,40 @@ void recv_uid_list(int f, struct file_li
+ 
+ 	/* Now convert all the uids/gids from sender values to our values. */
+ 	if (am_root && preserve_uid && !numeric_ids) {
+-		for (i = 0; i < flist->count; i++)
+-			flist->files[i]->uid = match_uid(flist->files[i]->uid);
++		for (i = 0; i < pair_cnt; i++)
++			id_pairs[i].uid = match_uid(id_pairs[i].uid);
+ 	}
+ 	if (preserve_gid && (!am_root || !numeric_ids)) {
+-		for (i = 0; i < flist->count; i++)
+-			flist->files[i]->gid = match_gid(flist->files[i]->gid);
++		for (i = 0; i < pair_cnt; i++)
++			id_pairs[i].gid = match_gid(id_pairs[i].gid);
+ 	}
+ }
++
++int id_pair(uid_t uid, gid_t gid)
++{
++	static int j = 0;
++
++	if (pair_cnt) {
++		int start = j;
++		/* We start our search where we left off because
++		 * the IDs usually come in clumps. */
++		do {
++			if (uid == id_pairs[j].uid && gid == id_pairs[j].gid)
++				return j;
++			if (++j == pair_cnt)
++				j = 0;
++		} while (j != start);
++	}
++
++	if (pair_cnt == pair_alloc) {
++		pair_alloc += 128;
++		id_pairs = realloc_array(id_pairs, struct id_pair,
++					  pair_alloc);
++	}
++
++	j = pair_cnt++;
++	id_pairs[j].uid = uid;
++	id_pairs[j].gid = gid;
++
++	return j;
++}
+--- old/proto.h
++++ new/proto.h
+@@ -271,7 +271,8 @@ void see_token(char *data, int32 toklen)
+ void add_uid(uid_t uid);
+ void add_gid(gid_t gid);
+ void send_uid_list(int f);
+-void recv_uid_list(int f, struct file_list *flist);
++void recv_uid_list(int f);
++int id_pair(uid_t uid, gid_t gid);
+ void set_nonblocking(int fd);
+ void set_blocking(int fd);
+ int fd_pair(int fd[2]);

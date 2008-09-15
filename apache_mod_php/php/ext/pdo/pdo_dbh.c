@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: pdo_dbh.c,v 1.82.2.31.2.17 2007/09/12 18:26:49 iliaa Exp $ */
+/* $Id: pdo_dbh.c,v 1.82.2.31.2.22 2008/03/03 21:14:33 iliaa Exp $ */
 
 /* The PDO Database Handle Class */
 
@@ -669,8 +669,17 @@ static PHP_METHOD(PDO, rollBack)
 
 static int pdo_dbh_attribute_set(pdo_dbh_t *dbh, long attr, zval *value TSRMLS_DC) /* {{{ */
 {
+
+#define PDO_LONG_PARAM_CHECK \
+	if (Z_TYPE_P(value) != IS_LONG && Z_TYPE_P(value) != IS_STRING && Z_TYPE_P(value) != IS_BOOL) { \
+		pdo_raise_impl_error(dbh, NULL, "HY000", "attribute value must be an integer" TSRMLS_CC); \
+		PDO_HANDLE_DBH_ERR(); \
+		return FAILURE; \
+	} \
+
 	switch (attr) {
 		case PDO_ATTR_ERRMODE:
+			PDO_LONG_PARAM_CHECK;
 			convert_to_long(value);
 			switch (Z_LVAL_P(value)) {
 				case PDO_ERRMODE_SILENT:
@@ -686,6 +695,7 @@ static int pdo_dbh_attribute_set(pdo_dbh_t *dbh, long attr, zval *value TSRMLS_D
 			return FAILURE;
 
 		case PDO_ATTR_CASE:
+			PDO_LONG_PARAM_CHECK;
 			convert_to_long(value);
 			switch (Z_LVAL_P(value)) {
 				case PDO_CASE_NATURAL:
@@ -701,6 +711,7 @@ static int pdo_dbh_attribute_set(pdo_dbh_t *dbh, long attr, zval *value TSRMLS_D
 			return FAILURE;
 
 		case PDO_ATTR_ORACLE_NULLS:
+			PDO_LONG_PARAM_CHECK;
 			convert_to_long(value);
 			dbh->oracle_nulls = Z_LVAL_P(value);
 			return SUCCESS;
@@ -714,6 +725,8 @@ static int pdo_dbh_attribute_set(pdo_dbh_t *dbh, long attr, zval *value TSRMLS_D
 						return FAILURE;
 					}
 				}
+			} else {
+				PDO_LONG_PARAM_CHECK;
 			}
 			convert_to_long(value);
 			if (Z_LVAL_P(value) == PDO_FETCH_USE_DEFAULT) {
@@ -724,6 +737,7 @@ static int pdo_dbh_attribute_set(pdo_dbh_t *dbh, long attr, zval *value TSRMLS_D
 			return SUCCESS;
 
 		case PDO_ATTR_STRINGIFY_FETCHES:
+			PDO_LONG_PARAM_CHECK;
 			convert_to_long(value);
 			dbh->stringify = Z_LVAL_P(value) ? 1 : 0;
 			return SUCCESS;
@@ -815,9 +829,9 @@ static PHP_METHOD(PDO, setAttribute)
 {
 	pdo_dbh_t *dbh = zend_object_store_get_object(getThis() TSRMLS_CC);
 	long attr;
-	zval *value = NULL;
+	zval *value;
 
-	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz!", &attr, &value)) {
+	if (FAILURE == zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lz", &attr, &value)) {
 		RETURN_FALSE;
 	}
 
@@ -978,7 +992,7 @@ static PHP_METHOD(PDO, errorInfo)
 	pdo_dbh_t *dbh = zend_object_store_get_object(getThis() TSRMLS_CC);
 
 	if (ZEND_NUM_ARGS()) {
-		RETURN_FALSE;
+		WRONG_PARAM_COUNT;
 	}
 	PDO_CONSTRUCT_CHECK;
 
@@ -1119,6 +1133,10 @@ static PHP_METHOD(PDO, getAvailableDrivers)
 {
 	HashPosition pos;
 	pdo_driver_t **pdriver;
+
+	if (ZEND_NUM_ARGS()) {
+		WRONG_PARAM_COUNT;
+	}
 	
 	array_init(return_value);
 
@@ -1273,12 +1291,18 @@ static union _zend_function *dbh_method_get(
 
 		if (zend_hash_find(dbh->cls_methods[PDO_DBH_DRIVER_METHOD_KIND_DBH],
 				lc_method_name, method_len+1, (void**)&fbc) == FAILURE) {
-			fbc = NULL;
+			if (std_object_handlers.get_method) {
+				fbc = std_object_handlers.get_method(object_pp, lc_method_name, method_len TSRMLS_CC);
+			}
+			if (!fbc) {
+				fbc = NULL;
+			}
+
 			goto out;
 		}
 		/* got it */
 	}
-	
+
 out:
 	efree(lc_method_name);
 	return fbc;

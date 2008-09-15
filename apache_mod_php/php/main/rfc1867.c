@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: rfc1867.c,v 1.173.2.1.2.9 2007/07/17 23:46:40 iliaa Exp $ */
+/* $Id: rfc1867.c,v 1.173.2.1.2.11 2008/03/26 12:59:42 tony2001 Exp $ */
 
 /*
  *  This product includes software developed by the Apache Group
@@ -1090,8 +1090,14 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler)
 				} else if (blen > 0) {
 				
 					wlen = write(fd, buff, blen);
-			
-					if (wlen < blen) {
+
+					if (wlen == -1) {
+						/* write failed */
+#if DEBUG_FILE_UPLOAD
+						sapi_module.sapi_error(E_NOTICE, "write() failed - %s", strerror(errno));
+#endif
+						cancel_upload = UPLOAD_ERROR_F;
+					} else if (wlen < blen) {
 #if DEBUG_FILE_UPLOAD
 						sapi_module.sapi_error(E_NOTICE, "Only %d bytes were written, expected to write %d", wlen, blen);
 #endif

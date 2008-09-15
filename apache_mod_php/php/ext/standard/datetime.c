@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: datetime.c,v 1.134.2.2.2.4 2007/06/07 08:59:00 tony2001 Exp $ */
+/* $Id: datetime.c,v 1.134.2.2.2.5 2007/12/31 07:20:12 sebastian Exp $ */
 
 #include "php.h"
 #include "zend_operators.h"

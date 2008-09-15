@@ -6,6 +6,7 @@ if (!extension_loaded('pdo')) die('skip');
 $dir = getenv('REDIR_TEST_DIR');
 if (false == $dir) die('skip no driver');
 if (!strncasecmp(getenv('PDOTEST_DSN'), 'sqlite', strlen('sqlite'))) die('skip not relevant for sqlite driver');
+if (!strncasecmp(getenv('PDOTEST_DSN'), 'pgsql', strlen('pgsql'))) die('skip not relevant for pgsql driver');
 require_once $dir . 'pdo_test.inc';
 PDOTest::skip();
 ?>
@@ -27,5 +28,8 @@ $id = '1';
 $stmt->execute();
 var_dump($stmt->fetch(PDO::FETCH_COLUMN));
 ?>
---EXPECT--
-string(5) "test1"
+--EXPECTF--
+Warning: PDOStatement::execute(): SQLSTATE[HY093]: Invalid parameter number: parameter was not defined in %s on line %d
+
+Warning: PDOStatement::execute(): SQLSTATE[HY093]: Invalid parameter number in %s on line %d
+bool(false)

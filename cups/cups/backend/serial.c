@@ -1,5 +1,5 @@
 /*
- * "$Id: serial.c 6911 2007-09-04 20:35:08Z mike $"
+ * "$Id: serial.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Serial port backend for the Common UNIX Printing System (CUPS).
  *
@@ -556,7 +556,8 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
       if (!print_bytes)
 	FD_SET(print_fd, &input);
       FD_SET(device_fd, &input);
-      FD_SET(CUPS_SC_FD, &input);
+      if (!print_bytes)
+        FD_SET(CUPS_SC_FD, &input);
 
       FD_ZERO(&output);
       if (print_bytes)
@@ -570,7 +571,15 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
       */
 
       if (FD_ISSET(CUPS_SC_FD, &input))
+      {
+       /*
+	* Do the side-channel request, then start back over in the select
+	* loop since it may have read from print_fd...
+	*/
+
         side_cb(print_fd, device_fd, 1);
+	continue;
+      }
 
      /*
       * Check if we have back-channel data ready...
@@ -1286,5 +1295,5 @@ side_cb(int print_fd,			/* I - Print file */
 
 
 /*
- * End of "$Id: serial.c 6911 2007-09-04 20:35:08Z mike $".
+ * End of "$Id: serial.c 7721 2008-07-11 22:48:49Z mike $".
  */

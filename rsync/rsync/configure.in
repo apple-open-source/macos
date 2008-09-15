@@ -3,9 +3,9 @@ dnl Process this file with autoconf to produce a configure script.
 AC_INIT()
 AC_CONFIG_SRCDIR([byteorder.h])
 AC_CONFIG_HEADER(config.h)
-AC_PREREQ(2.52)
+AC_PREREQ(2.59)
 
-RSYNC_VERSION=2.6.3
+RSYNC_VERSION=2.6.9
 AC_SUBST(RSYNC_VERSION)
 AC_MSG_NOTICE([Configuring rsync $RSYNC_VERSION])
 
@@ -26,8 +26,7 @@ AC_SUBST(SHELL)
 AC_DEFINE([_GNU_SOURCE], 1,
           [Define _GNU_SOURCE so that we get all necessary prototypes])
 
-if test "x$ac_cv_prog_cc_stdc" = xno
-then
+if test x"$ac_cv_prog_cc_stdc" = x"no"; then
 	AC_MSG_WARN([rsync requires an ANSI C compiler and you don't seem to have one])
 fi
 
@@ -38,12 +37,10 @@ fi
 
 AC_MSG_CHECKING([whether to include debugging symbols])
 AC_ARG_ENABLE(debug,
-	AC_HELP_STRING([--enable-debug],
-		[including debugging symbols and features (default yes)]),
-		[], [])
+	AC_HELP_STRING([--disable-debug],
+		[turn off debugging symbols and features]))
 
-if test x"$enable_debug" = x"no"
-then
+if test x"$enable_debug" = x"no"; then
     AC_MSG_RESULT(no)
     CFLAGS=${CFLAGS-"-O"}
 else
@@ -54,25 +51,19 @@ else
 fi
 
 
-
-
 AC_ARG_ENABLE(profile,
-	AC_HELP_STRING([--enable-profile],	
-		[turn on CPU profiling (default no)],
-		[], []))
-if test x"$enable_profile" = xyes
-then
+	AC_HELP_STRING([--enable-profile],
+		[turn on CPU profiling]))
+if test x"$enable_profile" = x"yes"; then
 	CFLAGS="$CFLAGS -pg"
 fi
 
 
 # Specifically, this turns on panic_action handling.
 AC_ARG_ENABLE(maintainer-mode,
-	AC_HELP_STRING([--enable-maintainer-mode],	
-		[turn on extra debug features],
-		[], []))
-if test x"$enable_maintainer_mode" = xyes
-then
+	AC_HELP_STRING([--enable-maintainer-mode],
+		[turn on extra debug features]))
+if test x"$enable_maintainer_mode" = x"yes"; then
 	CFLAGS="$CFLAGS -DMAINTAINER_MODE"
 fi
 
@@ -82,16 +73,15 @@ fi
 CFLAGS="$CFLAGS -DHAVE_CONFIG_H"
 
 # If GCC, turn on warnings.
-if test "x$GCC" = "xyes"
-then
+if test x"$GCC" = x"yes"; then
 	CFLAGS="$CFLAGS -Wall -W"
 fi
 
 AC_ARG_WITH(included-popt,
-        [  --with-included-popt    use bundled popt library, not from system])
+        AC_HELP_STRING([--with-included-popt], [use bundled popt library, not from system]))
 
 AC_ARG_WITH(rsync-path,
-	[  --with-rsync-path=PATH  set default --rsync-path to PATH (default: rsync)],
+	AC_HELP_STRING([--with-rsync-path=PATH], [set default --rsync-path to PATH (default: rsync)]),
 	[ RSYNC_PATH="$with_rsync_path" ],
 	[ RSYNC_PATH="rsync" ])
 
@@ -122,18 +112,38 @@ AC_ARG_WITH(rsh,
 	AC_HELP_STRING([--with-rsh=CMD], [set remote shell command to CMD (default: ssh)]))
 
 AC_CHECK_PROG(HAVE_REMSH, remsh, 1, 0)
-AC_DEFINE_UNQUOTED(HAVE_REMSH, $HAVE_REMSH, [remote shell is remsh not rsh])
+if test x$HAVE_REMSH = x1; then
+	AC_DEFINE(HAVE_REMSH, 1, [Define to 1 if remote shell is remsh, not rsh])
+fi
 
-if test x"$with_rsh" != x
-then
+if test x"$with_rsh" != x; then
 	RSYNC_RSH="$with_rsh"
 else
 	RSYNC_RSH="ssh"
 fi
-
 AC_DEFINE_UNQUOTED(RSYNC_RSH, "$RSYNC_RSH", [default -e command])
 
-# arrgh. libc in the current debian stable screws up the largefile
+AC_ARG_WITH(nobody-group,
+    AC_HELP_STRING([--with-nobody-group=GROUP],
+		   [set the default unprivileged group (default nobody or nogroup)]),
+    [ NOBODY_GROUP="$with_nobody_group" ])
+
+if test x"$with_nobody_group" = x; then
+    AC_MSG_CHECKING([the group for user "nobody"])
+    if grep '^nobody:' /etc/group >/dev/null 2>&1; then
+	NOBODY_GROUP=nobody
+    elif grep '^nogroup:' /etc/group >/dev/null 2>&1; then
+	NOBODY_GROUP=nogroup
+    else
+	NOBODY_GROUP=nobody # test for others?
+    fi
+    AC_MSG_RESULT($NOBODY_GROUP)
+fi
+
+AC_DEFINE_UNQUOTED(NOBODY_USER, "nobody", [unprivileged user--e.g. nobody])
+AC_DEFINE_UNQUOTED(NOBODY_GROUP, "$NOBODY_GROUP", [unprivileged group for unprivileged user])
+
+# arrgh. libc in some old debian version screwed up the largefile
 # stuff, getting byte range locking wrong
 AC_CACHE_CHECK([for broken largefile support],rsync_cv_HAVE_BROKEN_LARGEFILE,[
 AC_TRY_RUN([
@@ -179,10 +189,9 @@ ipv6lib=none
 ipv6trylibc=yes
 
 AC_ARG_ENABLE(ipv6,
-	AC_HELP_STRING([--disable-ipv6], [don't even try to use IPv6]))
-
-if test "x$enable_ipv6" != xno
-then
+	AC_HELP_STRING([--disable-ipv6],
+		[don't even try to use IPv6]))
+if test x"$enable_ipv6" != x"no"; then
 	AC_MSG_CHECKING([ipv6 stack type])
 	for i in inria kame linux-glibc linux-inet6 toshiba v6d zeta; do
 		case $i in
@@ -271,11 +280,21 @@ yes
 	AC_SEARCH_LIBS(getaddrinfo, inet6)
 fi
 
+dnl Do you want to disable use of locale functions
+AC_ARG_ENABLE([locale],
+	AC_HELP_STRING([--disable-locale],
+		[turn off locale features]))
+AH_TEMPLATE([CONFIG_LOCALE],
+[Undefine if you don't want locale features.  By default this is defined.])
+if test x"$enable_locale" != x"no"; then
+	AC_DEFINE(CONFIG_LOCALE)
+fi
+
 AC_MSG_CHECKING([whether to call shutdown on all sockets])
 case $host_os in
 	*cygwin* ) AC_MSG_RESULT(yes)
                    AC_DEFINE(SHUTDOWN_ALL_SOCKETS, 1,
-			    [Define if sockets need to be shutdown])
+			    [Define to 1 if sockets need to be shutdown])
 		   ;;
 	       * ) AC_MSG_RESULT(no);;
 esac
@@ -287,15 +306,44 @@ AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(sys/fcntl.h sys/select.h fcntl.h sys/time.h sys/unistd.h \
     unistd.h utime.h grp.h compat.h sys/param.h ctype.h sys/wait.h \
     sys/ioctl.h sys/filio.h string.h stdlib.h sys/socket.h sys/mode.h \
-    sys/un.h glob.h mcheck.h arpa/inet.h arpa/nameser.h \
-    netdb.h malloc.h float.h)
+    sys/un.h glob.h mcheck.h arpa/inet.h arpa/nameser.h locale.h \
+    netdb.h malloc.h float.h limits.h iconv.h libcharset.h langinfo.h)
 AC_HEADER_MAJOR
+
+AC_CACHE_CHECK([if makedev takes 3 args],rsync_cv_MAKEDEV_TAKES_3_ARGS,[
+AC_TRY_RUN([
+#include <sys/types.h>
+#ifdef MAJOR_IN_MKDEV
+#include <sys/mkdev.h>
+# if !defined makedev && (defined mkdev || defined _WIN32 || defined __WIN32__)
+#  define makedev mkdev
+# endif
+#elif defined MAJOR_IN_SYSMACROS
+#include <sys/sysmacros.h>
+#endif
+
+int main(void)
+{
+	dev_t dev = makedev(0, 5, 7);
+	if (major(dev) != 5 || minor(dev) != 7)
+		exit(1);
+	return 0;
+}
+],
+rsync_cv_MAKEDEV_TAKES_3_ARGS=yes,rsync_cv_MAKEDEV_TAKES_3_ARGS=no,rsync_cv_MAKEDEV_TAKES_3_ARGS=no)])
+if test x"$rsync_cv_MAKEDEV_TAKES_3_ARGS" = x"yes"; then
+   AC_DEFINE(MAKEDEV_TAKES_3_ARGS, 1, [Define to 1 if makedev() takes 3 args])
+fi
 
 AC_CHECK_SIZEOF(int)
 AC_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(long long)
 AC_CHECK_SIZEOF(short)
+AC_CHECK_SIZEOF(off_t)
+AC_CHECK_SIZEOF(off64_t)
 
 AC_C_INLINE
+AC_C_LONG_DOUBLE
 
 AC_TYPE_SIGNAL
 AC_TYPE_UID_T
@@ -306,14 +354,13 @@ AC_TYPE_PID_T
 AC_TYPE_GETGROUPS
 AC_CHECK_MEMBERS([struct stat.st_rdev])
 
-AC_CHECK_TYPE([ino_t], [unsigned])
 TYPE_SOCKLEN_T
 
 AC_CACHE_CHECK([for errno in errno.h],rsync_cv_errno, [
     AC_TRY_COMPILE([#include <errno.h>],[int i = errno],
 	rsync_cv_errno=yes,rsync_cv_have_errno_decl=no)])
 if test x"$rsync_cv_errno" = x"yes"; then
-   AC_DEFINE(HAVE_ERRNO_DECL, 1, [ ])
+   AC_DEFINE(HAVE_ERRNO_DECL, 1, [Define to 1 if errno is declared in errno.h])
 fi
 
 # The following test taken from the cvs sources
@@ -348,11 +395,15 @@ if test x"$ac_cv_func_connect" = x"no"; then
        test x"$ac_cv_lib_inet_connect" = x"yes"; then
         # ac_cv_func_connect=yes
         # don't!  it would cause AC_CHECK_FUNC to succeed next time configure is run
-        AC_DEFINE(HAVE_CONNECT, 1, [ ])
+        AC_DEFINE(HAVE_CONNECT, 1, [Define to 1 if you have the "connect" function])
     fi
 fi
 
-AC_CHECK_LIB(resolv, inet_ntop)
+AC_SEARCH_LIBS(inet_ntop, resolv)
+
+# Solaris and HP-UX weirdness:
+# Search for libiconv_open (not iconv_open) to discover if -liconv is needed!
+AC_SEARCH_LIBS(libiconv_open, iconv)
 
 dnl AC_MSG_NOTICE([Looking in libraries: $LIBS])
 
@@ -383,7 +434,7 @@ if test x"$rsync_cv_HAVE_GETADDR_DEFINES" = x"yes"; then
 		#include <netdb.h>],[getaddrinfo(NULL, NULL, NULL, NULL);],
 			[AC_MSG_RESULT([yes])
 			AC_DEFINE(HAVE_GETADDRINFO, 1,
-				[Define if you have the `getaddrinfo' function.])],
+				[Define to 1 if you have the "getaddrinfo" function.])],
 			[AC_MSG_RESULT([no])
 			AC_LIBOBJ(lib/getaddrinfo)])])
 	AC_CHECK_FUNCS(getnameinfo, , [AC_LIBOBJ(lib/getnameinfo)])
@@ -409,13 +460,22 @@ AC_CHECK_MEMBER([struct sockaddr_in.sin_len],
 #include <netinet/in.h>
 ])
 
+AC_CHECK_MEMBER([struct sockaddr_un.sun_len],
+		[ AC_DEFINE(HAVE_SOCKADDR_UN_LEN, 1, [Do we have sockaddr_un.sun_len?]) ],
+		[],
+		[
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+])
+
 AC_MSG_CHECKING(struct sockaddr_storage)
 AC_TRY_COMPILE([#include <sys/types.h>
 #include <sys/socket.h>],
 [struct sockaddr_storage x;],
 	AC_MSG_RESULT(yes)
 	AC_DEFINE(HAVE_SOCKADDR_STORAGE, 1,
-		[Define if you have strct sockaddr_storage.] ),
+		[Define to 1 if you have struct sockaddr_storage.] ),
 	AC_MSG_RESULT(no))
 
 AC_CHECK_MEMBER([struct sockaddr_in6.sin6_scope_id],
@@ -426,6 +486,27 @@ AC_CHECK_MEMBER([struct sockaddr_in6.sin6_scope_id],
 #include <sys/socket.h>
 #include <netinet/in.h>
 ])
+
+AC_MSG_CHECKING(struct stat64)
+AC_TRY_COMPILE([#include <stdio.h>
+#if HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#if HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+#if STDC_HEADERS
+# include <stdlib.h>
+# include <stddef.h>
+#else
+# if HAVE_STDLIB_H
+#  include <stdlib.h>
+# endif
+#endif
+],[struct stat64 st;],
+    AC_MSG_RESULT(yes)
+	AC_DEFINE(HAVE_STRUCT_STAT64,1,[Define to 1 if you have struct stat64.]),
+    AC_MSG_RESULT(no))
 
 # if we can't find strcasecmp, look in -lresolv (for Unixware at least)
 #
@@ -441,11 +522,75 @@ dnl AC_FUNC_MEMCMP
 
 AC_FUNC_UTIME_NULL
 AC_FUNC_ALLOCA
-AC_CHECK_FUNCS(waitpid wait4 getcwd strdup strerror chown chmod mknod mkfifo \
-    fchmod fstat strchr readlink link utime utimes strftime mtrace ftruncate \
-    memmove lchown vsnprintf snprintf asprintf setsid glob strpbrk \
+AC_CHECK_FUNCS(waitpid wait4 getcwd strdup chown chmod lchmod mknod mkfifo \
+    fchmod fstat ftruncate strchr readlink link utime utimes lutimes strftime \
+    memmove lchown vsnprintf snprintf vasprintf asprintf setsid glob strpbrk \
     strlcat strlcpy strtol mallinfo getgroups setgroups geteuid getegid \
-    open64 mkstemp64)
+    setlocale setmode open64 lseek64 mkstemp64 mtrace va_copy __va_copy \
+    strerror putenv iconv_open locale_charset nl_langinfo \
+    sigaction sigprocmask)
+
+AC_CHECK_FUNCS(getpgrp tcgetpgrp)
+if test $ac_cv_func_getpgrp = yes; then
+    AC_FUNC_GETPGRP
+fi
+
+AC_CACHE_CHECK([whether chown() modifies symlinks],rsync_cv_chown_modifies_symlink,[
+  AC_TRY_RUN([
+#if HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+#include <stdlib.h>
+#include <errno.h>
+    main() {
+	char const *dangling_symlink = "conftest.dangle";
+	unlink(dangling_symlink);
+	if (symlink("conftest.no-such", dangling_symlink) < 0) abort();
+	if (chown(dangling_symlink, getuid(), getgid()) < 0 && errno == ENOENT) exit(1);
+	exit(0);
+    }],
+  rsync_cv_chown_modifies_symlink=yes,rsync_cv_chown_modifies_symlink=no,rsync_cv_chown_modifies_symlink=no)])
+if test $rsync_cv_chown_modifies_symlink = yes; then
+  AC_DEFINE(CHOWN_MODIFIES_SYMLINK, 1, [Define to 1 if chown modifies symlinks.])
+fi
+
+AC_CACHE_CHECK([whether link() can hard-link symlinks],rsync_cv_can_hardlink_symlink,[
+  AC_TRY_RUN([
+#if HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+#include <stdlib.h>
+#include <errno.h>
+#define FILENAME "conftest.dangle"
+    main() {
+	unlink(FILENAME);
+	if (symlink("conftest.no-such", FILENAME) < 0) abort();
+	if (link(FILENAME, FILENAME "2") < 0) exit(1);
+	exit(0);
+    }],
+  rsync_cv_can_hardlink_symlink=yes,rsync_cv_can_hardlink_symlink=no,rsync_cv_can_hardlink_symlink=no)])
+if test $rsync_cv_can_hardlink_symlink = yes; then
+  AC_DEFINE(CAN_HARDLINK_SYMLINK, 1, [Define to 1 if link() can hard-link symlinks.])
+fi
+
+AC_CACHE_CHECK([whether link() can hard-link special files],rsync_cv_can_hardlink_special,[
+  AC_TRY_RUN([
+#if HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+#include <stdlib.h>
+#include <errno.h>
+#define FILENAME "conftest.fifi"
+    main() {
+	unlink(FILENAME);
+	if (mkfifo(FILENAME, 0777) < 0) abort();
+	if (link(FILENAME, FILENAME "2") < 0) exit(1);
+	exit(0);
+    }],
+  rsync_cv_can_hardlink_special=yes,rsync_cv_can_hardlink_special=no,rsync_cv_can_hardlink_special=no)])
+if test $rsync_cv_can_hardlink_special = yes; then
+    AC_DEFINE(CAN_HARDLINK_SPECIAL, 1, [Define to 1 if link() can hard-link special files.])
+fi
 
 AC_CACHE_CHECK([for working socketpair],rsync_cv_HAVE_SOCKETPAIR,[
 AC_TRY_RUN([
@@ -458,17 +603,15 @@ main() {
 }],
 rsync_cv_HAVE_SOCKETPAIR=yes,rsync_cv_HAVE_SOCKETPAIR=no,rsync_cv_HAVE_SOCKETPAIR=cross)])
 if test x"$rsync_cv_HAVE_SOCKETPAIR" = x"yes"; then
-    AC_DEFINE(HAVE_SOCKETPAIR, 1, [ ])
+    AC_DEFINE(HAVE_SOCKETPAIR, 1, [Define to 1 if you have the "socketpair" function])
 fi
 
-if test x"$with_included_popt" != x"yes"
-then
+if test x"$with_included_popt" != x"yes"; then
     AC_CHECK_LIB(popt, poptGetContext, , [with_included_popt=yes])
 fi
 
 AC_MSG_CHECKING([whether to use included libpopt])
-if test x"$with_included_popt" = x"yes"
-then
+if test x"$with_included_popt" = x"yes"; then
     AC_MSG_RESULT($srcdir/popt)
     BUILD_POPT='$(popt_OBJS)'
     CFLAGS="$CFLAGS -I$srcdir/popt"
@@ -482,39 +625,11 @@ else
     AC_MSG_RESULT(no)
 fi
 
-AC_CACHE_CHECK([for long long],rsync_cv_HAVE_LONGLONG,[
-AC_TRY_RUN([#include <stdio.h>
-main() { long long x = 1000000; x *= x; exit(((x/1000000) == 1000000)? 0: 1); }],
-rsync_cv_HAVE_LONGLONG=yes,rsync_cv_HAVE_LONGLONG=no,rsync_cv_HAVE_LONGLONG=cross)])
-if test x"$rsync_cv_HAVE_LONGLONG" = x"yes"; then
-    AC_DEFINE(HAVE_LONGLONG, 1, [ ])
-fi
-
-AC_CACHE_CHECK([for off64_t],rsync_cv_HAVE_OFF64_T,[
-AC_TRY_RUN([#include <stdio.h>
-#include <sys/stat.h>
-main() { struct stat64 st; off64_t s; if (sizeof(off_t) == sizeof(off64_t)) exit(1); exit((lstat64("/dev/null", &st)==0)?0:1); }],
-rsync_cv_HAVE_OFF64_T=yes,rsync_cv_HAVE_OFF64_T=no,rsync_cv_HAVE_OFF64_T=cross)])
-if test x"$rsync_cv_HAVE_OFF64_T" = x"yes"; then
-    AC_DEFINE(HAVE_OFF64_T, 1, [ ])
-fi
-
-AC_CACHE_CHECK([for short ino_t],rsync_cv_HAVE_SHORT_INO_T,[
-AC_TRY_RUN([#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-main() { if (sizeof(ino_t) < sizeof(unsigned int)) return 0; return 1; }],
-rsync_cv_HAVE_SHORT_INO_T=yes,rsync_cv_HAVE_SHORT_INO_T=no,rsync_cv_HAVE_SHORT_INO_T=cross)])
-if test x"$rsync_cv_HAVE_SHORT_INO_T" = x"yes"; then
-    AC_DEFINE(HAVE_SHORT_INO_T, 1, [ ])
-fi
-
-AC_CACHE_CHECK([for unsigned char],rsync_cv_HAVE_UNSIGNED_CHAR,[
-AC_TRY_RUN([#include <stdio.h>
-main() { char c; c=250; exit((c > 0)?0:1); }],
-rsync_cv_HAVE_UNSIGNED_CHAR=yes,rsync_cv_HAVE_UNSIGNED_CHAR=no,rsync_cv_HAVE_UNSIGNED_CHAR=cross)])
-if test x"$rsync_cv_HAVE_UNSIGNED_CHAR" = x"yes"; then
-    AC_DEFINE(HAVE_UNSIGNED_CHAR, 1, [ ])
+AC_CACHE_CHECK([for unsigned char],rsync_cv_SIGNED_CHAR_OK,[
+AC_TRY_COMPILE([],[signed char *s = ""],
+rsync_cv_SIGNED_CHAR_OK=yes,rsync_cv_SIGNED_CHAR_OK=no)])
+if test x"$rsync_cv_SIGNED_CHAR_OK" = x"yes"; then
+    AC_DEFINE(SIGNED_CHAR_OK, 1, [Define to 1 if "signed char" is a valid type])
 fi
 
 AC_CACHE_CHECK([for broken readdir],rsync_cv_HAVE_BROKEN_READDIR,[
@@ -525,26 +640,25 @@ if (di && di->d_name[-2] == '.' && di->d_name[-1] == 0 &&
 di->d_name[0] == 0) exit(0); exit(1);} ],
 rsync_cv_HAVE_BROKEN_READDIR=yes,rsync_cv_HAVE_BROKEN_READDIR=no,rsync_cv_HAVE_BROKEN_READDIR=cross)])
 if test x"$rsync_cv_HAVE_BROKEN_READDIR" = x"yes"; then
-    AC_DEFINE(HAVE_BROKEN_READDIR, 1, [ ])
+    AC_DEFINE(HAVE_BROKEN_READDIR, 1, [Define to 1 if readdir() is broken])
 fi
 
 AC_CACHE_CHECK([for utimbuf],rsync_cv_HAVE_UTIMBUF,[
 AC_TRY_COMPILE([#include <sys/types.h>
 #include <utime.h>],
 [struct utimbuf tbuf;  tbuf.actime = 0; tbuf.modtime = 1; exit(utime("foo.c",&tbuf));],
-rsync_cv_HAVE_UTIMBUF=yes,rsync_cv_HAVE_UTIMBUF=no,rsync_cv_HAVE_UTIMBUF=cross)])
+rsync_cv_HAVE_UTIMBUF=yes,rsync_cv_HAVE_UTIMBUF=no)])
 if test x"$rsync_cv_HAVE_UTIMBUF" = x"yes"; then
-    AC_DEFINE(HAVE_UTIMBUF, 1, [ ])
+    AC_DEFINE(HAVE_UTIMBUF, 1, [Define to 1 if you have the "struct utimbuf" type])
 fi
 
 AC_CACHE_CHECK([if gettimeofday takes tz argument],rsync_cv_HAVE_GETTIMEOFDAY_TZ,[
-AC_TRY_RUN([
-#include <sys/time.h>
-#include <unistd.h>
-main() { struct timeval tv; exit(gettimeofday(&tv, NULL));}],
-           rsync_cv_HAVE_GETTIMEOFDAY_TZ=yes,rsync_cv_HAVE_GETTIMEOFDAY_TZ=no,rsync_cv_HAVE_GETTIMEOFDAY_TZ=cross)])
+AC_TRY_COMPILE([#include <sys/time.h>
+#include <unistd.h>],
+[struct timeval tv; exit(gettimeofday(&tv, NULL));],
+rsync_cv_HAVE_GETTIMEOFDAY_TZ=yes,rsync_cv_HAVE_GETTIMEOFDAY_TZ=no)])
 if test x"$rsync_cv_HAVE_GETTIMEOFDAY_TZ" != x"no"; then
-    AC_DEFINE(HAVE_GETTIMEOFDAY_TZ, 1, [ ])
+    AC_DEFINE(HAVE_GETTIMEOFDAY_TZ, 1, [Define to 1 if gettimeofday() takes a time-zone arg])
 fi
 
 AC_CACHE_CHECK([for C99 vsnprintf],rsync_cv_HAVE_C99_VSNPRINTF,[
@@ -569,7 +683,7 @@ main() { foo("hello"); }
 ],
 rsync_cv_HAVE_C99_VSNPRINTF=yes,rsync_cv_HAVE_C99_VSNPRINTF=no,rsync_cv_HAVE_C99_VSNPRINTF=cross)])
 if test x"$rsync_cv_HAVE_C99_VSNPRINTF" = x"yes"; then
-    AC_DEFINE(HAVE_C99_VSNPRINTF, 1, [ ])
+    AC_DEFINE(HAVE_C99_VSNPRINTF, 1, [Define to 1 if vsprintf has a C99-compatible return value])
 fi
 
 
@@ -592,37 +706,46 @@ rsync_cv_HAVE_SECURE_MKSTEMP=yes,
 rsync_cv_HAVE_SECURE_MKSTEMP=no,
 rsync_cv_HAVE_SECURE_MKSTEMP=cross)])
 if test x"$rsync_cv_HAVE_SECURE_MKSTEMP" = x"yes"; then
-    AC_DEFINE(HAVE_SECURE_MKSTEMP, 1, [ ])
+    case $target_os in
+    hpux*)
+	dnl HP-UX has a broken mkstemp() implementation they refuse to fix,
+	dnl so we noisily skip using it.  See HP change request JAGaf34426
+	dnl for details. (sbonds)
+	AC_MSG_WARN(Skipping broken HP-UX mkstemp() -- using mktemp() instead)
+	;;
+    *)
+	AC_DEFINE(HAVE_SECURE_MKSTEMP, 1, [Define to 1 if mkstemp() is available and works right])
+	;;
+    esac
 fi
 
 
-AC_CACHE_CHECK([for broken inet_ntoa],rsync_cv_REPLACE_INET_NTOA,[
+AC_CACHE_CHECK([if mknod creates FIFOs],rsync_cv_MKNOD_CREATES_FIFOS,[
 AC_TRY_RUN([
 #include <stdio.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-main() { struct in_addr ip; ip.s_addr = 0x12345678;
-if (strcmp(inet_ntoa(ip),"18.52.86.120") &&
-    strcmp(inet_ntoa(ip),"120.86.52.18")) { exit(1); }
-exit(0);}],
-           rsync_cv_REPLACE_INET_NTOA=no,rsync_cv_REPLACE_INET_NTOA=yes,rsync_cv_REPLACE_INET_NTOA=cross)])
-if test x"$rsync_cv_REPLACE_INET_NTOA" = x"yes"; then
-    AC_DEFINE(REPLACE_INET_NTOA, 1, [ ])
+#include <sys/stat.h>
+#include <errno.h>
+main() { int rc, ec; char *fn = "fifo-test";
+unlink(fn); rc = mknod(fn,S_IFIFO,0600); ec = errno; unlink(fn);
+if (rc) {printf("(%d %d) ",rc,ec); return ec;}
+return 0;}],
+           rsync_cv_MKNOD_CREATES_FIFOS=yes,rsync_cv_MKNOD_CREATES_FIFOS=no,rsync_cv_MKNOD_CREATES_FIFOS=cross)])
+if test x"$rsync_cv_MKNOD_CREATES_FIFOS" = x"yes"; then
+    AC_DEFINE(MKNOD_CREATES_FIFOS, 1, [Define to 1 if mknod() can create FIFOs.])
 fi
 
-
-AC_CACHE_CHECK([for broken inet_aton],rsync_cv_REPLACE_INET_ATON,[
+AC_CACHE_CHECK([if mknod creates sockets],rsync_cv_MKNOD_CREATES_SOCKETS,[
 AC_TRY_RUN([
 #include <stdio.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-main() { struct in_addr ip;
-if (inet_aton("example", &ip) == 0) exit(0); exit(1);}],
-           rsync_cv_REPLACE_INET_ATON=no,rsync_cv_REPLACE_INET_ATON=yes,rsync_cv_REPLACE_INET_ATON=cross)])
-if test x"$rsync_cv_REPLACE_INET_ATON" = x"yes"; then
-    AC_DEFINE(REPLACE_INET_ATON, 1, [ ])
+#include <sys/stat.h>
+#include <errno.h>
+main() { int rc, ec; char *fn = "sock-test";
+unlink(fn); rc = mknod(fn,S_IFSOCK,0600); ec = errno; unlink(fn);
+if (rc) {printf("(%d %d) ",rc,ec); return ec;}
+return 0;}],
+           rsync_cv_MKNOD_CREATES_SOCKETS=yes,rsync_cv_MKNOD_CREATES_SOCKETS=no,rsync_cv_MKNOD_CREATES_SOCKETS=cross)])
+if test x"$rsync_cv_MKNOD_CREATES_SOCKETS" = x"yes"; then
+    AC_DEFINE(MKNOD_CREATES_SOCKETS, 1, [Define to 1 if mknod() can create sockets.])
 fi
 
 #
@@ -656,38 +779,8 @@ AC_SUBST(OBJ_RESTORE)
 AC_SUBST(CC_SHOBJ_FLAG)
 AC_SUBST(BUILD_POPT)
 
-
-#################################################
-# check for extended attribute support
-AC_MSG_CHECKING(whether to support extended attributes)
-AC_ARG_ENABLE(ea-support,
-	AC_HELP_STRING([--enable-ea-support],
-		[allow support for copying extended attributes (default no)]),
-		[], [])
-AC_MSG_RESULT($enable_ea_support)
-if test x"$enable_ea_support" == x"yes"; then
-  AC_DEFINE(EA_SUPPORT, 1, [true if ea support enabled])
-  AC_CHECK_FUNCS(copyfile)
-  AC_CHECK_HEADERS(copyfile.h)
-fi
-
 AC_CONFIG_FILES([Makefile lib/dummy zlib/dummy popt/dummy shconfig])
 AC_OUTPUT
-
-if test x"$with_rsh" = x; then
-	if test x"$HAVE_REMSH" = x1; then
-		rmsh1='remsh:'
-		rmsh2='=remsh'
-	else
-		rmsh1='rsh:  '
-		rmsh2='=rsh  '
-	fi
-	AC_MSG_RESULT()
-	AC_MSG_RESULT([    **********************************************************************])
-	AC_MSG_RESULT([    *   As of v2.6.0, the default remote shell is ssh instead of rsh!!   *])
-	AC_MSG_RESULT([    *   To use previous default of $rmsh1 ./configure --with-rsh$rmsh2   *])
-	AC_MSG_RESULT([    **********************************************************************])
-fi
 
 AC_MSG_RESULT()
 AC_MSG_RESULT([    rsync ${RSYNC_VERSION} configuration successful])

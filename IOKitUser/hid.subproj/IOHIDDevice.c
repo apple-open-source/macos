@@ -100,6 +100,7 @@ typedef struct __IOHIDDevice
     IOCFPlugInInterface **          plugInInterface;
     CFDictionaryRef                 properties;
     IONotificationPortRef           notificationPort;
+    CFTypeRef                       asyncEventSource;
     io_object_t                     notification;
     CFRunLoopRef                    runLoop;
     CFStringRef                     runLoopMode;
@@ -438,6 +439,26 @@ void IOHIDDeviceScheduleWithRunLoop(
 {
     device->runLoop     = runLoop;
     device->runLoopMode = runLoopMode;
+
+    if ( !device->asyncEventSource) {
+        IOReturn ret;
+        
+        ret = (*device->deviceInterface)->getAsyncEventSource(
+                                                    device->deviceInterface,
+                                                    &device->asyncEventSource);
+        
+        if (ret != kIOReturnSuccess || !device->asyncEventSource)
+            return;
+    }
+
+    if (CFGetTypeID(device->asyncEventSource) == CFRunLoopSourceGetTypeID())
+        CFRunLoopAddSource( device->runLoop, 
+                            (CFRunLoopSourceRef)device->asyncEventSource, 
+                            device->runLoopMode);
+    else if (CFGetTypeID(device->asyncEventSource) == CFRunLoopTimerGetTypeID())
+        CFRunLoopAddTimer(  device->runLoop, 
+                            (CFRunLoopTimerRef)device->asyncEventSource, 
+                            device->runLoopMode);
     
     if ( device->notificationPort )
         CFRunLoopAddSource(
@@ -465,13 +486,27 @@ void IOHIDDeviceUnscheduleFromRunLoop(
                                 CFStringRef                     runLoopMode)
 {
     if ( CFEqual(device->runLoop, runLoop) && 
-            CFEqual(device->runLoopMode, runLoopMode) &&
-                device->notificationPort )
-        CFRunLoopRemoveSource(
+            CFEqual(device->runLoopMode, runLoopMode)) {
+            
+        if ( device->notificationPort ) {        
+            CFRunLoopRemoveSource(
                 device->runLoop, 
                 IONotificationPortGetRunLoopSource(device->notificationPort), 
                 device->runLoopMode);
-
+        }
+        
+        if (device->asyncEventSource) {
+            if (CFGetTypeID(device->asyncEventSource) == CFRunLoopSourceGetTypeID())
+                CFRunLoopRemoveSource( device->runLoop, 
+                                    (CFRunLoopSourceRef)device->asyncEventSource, 
+                                    device->runLoopMode);
+            else if (CFGetTypeID(device->asyncEventSource) == CFRunLoopTimerGetTypeID())
+                CFRunLoopAddTimer(  device->runLoop, 
+                                    (CFRunLoopTimerRef)device->asyncEventSource, 
+                                    device->runLoopMode);
+        
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

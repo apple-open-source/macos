@@ -1,5 +1,5 @@
 /*
-* "$Id: pap.c 6911 2007-09-04 20:35:08Z mike $"
+* "$Id: pap.c 7721 2008-07-11 22:48:49Z mike $"
 *
 * Copyright 2004-2008 Apple Inc. All rights reserved.
 * 
@@ -280,7 +280,6 @@ int main (int argc, const char * argv[])
  */
 static int listDevices(void)
 {
-  int  err = noErr;
   int  i;
   int  numberFound;
 
@@ -300,7 +299,7 @@ static int listDevices(void)
     return -1;  /* Network is down */
   }
 
-  if ((err = zip_getmyzone(ZIP_DEF_INTERFACE, &at_zone)) != 0)
+  if (zip_getmyzone(ZIP_DEF_INTERFACE, &at_zone))
   {
     perror("ERROR: Unable to get default AppleTalk zone");
     return -2;
@@ -409,14 +408,13 @@ static int printFile(char* name, char* type, char* zone, int fdin, int fdout, in
   at_inet_t	sendDataAddr;
   at_inet_t	src;
   at_resp_t	resp;
-  int		userdata, xo, reqlen;
+  int		userdata, xo = 0, reqlen;
   u_short	tid;
   u_char	bitmap;
   int		maxfdp1,
 		nbp_failures = 0;
   struct timeval timeout, *timeoutPtr;
   u_char	flowQuantum = 1;
-  u_short	recvSequence = 0;
   time_t	now,
 		start_time,
 		elasped_time, 
@@ -728,7 +726,7 @@ static int printFile(char* name, char* type, char* zone, int fdin, int fdout, in
       case AT_PAP_TYPE_SEND_DATA:            /* Send-Data packet */
         sendDataAddr.socket  = src.socket;
         gSendDataID     = tid;
-        recvSequence    = OSReadBigInt16(&SEQUENCE_NUM(userdata), 0);
+        OSReadBigInt16(&SEQUENCE_NUM(userdata), 0);
 
         if ((fileBufferNbytes > 0 || fileEOFRead) && fileEOFSent == false)
         {
@@ -906,8 +904,7 @@ static int papOpen(at_nbptuple_t* tuple, u_char* connID, int* fd,
 {
   int		result,
 		open_result,
-		userdata,
-		atp_err;
+		userdata;
   time_t	tm,
 		waitTime;
   char		data[10], 
@@ -956,8 +953,8 @@ static int papOpen(at_nbptuple_t* tuple, u_char* connID, int* fd,
 
     fprintf(stderr, "DEBUG: -> %s\n", packet_name(AT_PAP_TYPE_OPEN_CONN));
 
-    if ((atp_err = atp_sendreq(*fd, &tuple->enu_addr, data, 4, userdata, 1, 0, 
-			       0, &resp, &retry, 0)) < 0)
+    if (atp_sendreq(*fd, &tuple->enu_addr, data, 4, userdata, 1, 0, 
+		    0, &resp, &retry, 0) < 0)
     {
       statusUpdate("Destination unreachable", 23);
       result = EHOSTUNREACH;
@@ -1024,7 +1021,6 @@ static int papClose()
 {
   int		fd;
   u_short	tmpID;
-  int		result;
   unsigned char	rdata[ATP_DATA_SIZE];
   int		userdata;
   u_char	*puserdata = (u_char *)&userdata;
@@ -1077,9 +1073,9 @@ static int papClose()
     resp.resp[0].iov_base = rdata;
     resp.resp[0].iov_len = sizeof(rdata);
   
-    result = atp_sendreq(fd, &gSessionAddr, 0, 0, userdata, 1, 0, 0, &resp, &retry, 0);
+    atp_sendreq(fd, &gSessionAddr, 0, 0, userdata, 1, 0, 0, &resp, &retry, 0);
   
-    result = close(fd);
+    close(fd);
   }
   return noErr;
 }

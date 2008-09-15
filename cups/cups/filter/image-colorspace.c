@@ -1,9 +1,9 @@
 /*
- * "$Id: image-colorspace.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: image-colorspace.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Colorspace conversions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1993-2006 by Easy Software Products.
  *
  *   The color saturation/hue matrix stuff is provided thanks to Mr. Paul
@@ -507,8 +507,7 @@ cupsImageRGBAdjust(cups_ib_t *pixels,	/* IO - Input/output pixels */
   static cups_clut_t	*lut = NULL;	/* Lookup table for matrix */
 
 
-  if (saturation != last_sat ||
-      hue != last_hue)
+  if (saturation != last_sat || hue != last_hue || !lut)
   {
    /*
     * Build the color adjustment matrix...
@@ -1564,5 +1563,5 @@ zshear(float mat[3][3],			/* I - Matrix */
 
 
 /*
- * End of "$Id: image-colorspace.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: image-colorspace.c 7721 2008-07-11 22:48:49Z mike $".
  */

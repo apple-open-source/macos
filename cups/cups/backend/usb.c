@@ -1,5 +1,5 @@
 /*
- * "$Id: usb.c 6911 2007-09-04 20:35:08Z mike $"
+ * "$Id: usb.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   USB port backend for the Common UNIX Printing System (CUPS).
  *
@@ -266,5 +266,5 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
 
 /*
- * End of "$Id: usb.c 6911 2007-09-04 20:35:08Z mike $".
+ * End of "$Id: usb.c 7721 2008-07-11 22:48:49Z mike $".
  */

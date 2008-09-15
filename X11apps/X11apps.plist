@@ -292,6 +292,22 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
+		<string>2008-04-18</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>setxkbmap</string>
+		<key>OpenSourceSHA1</key>
+		<string>fa5eaae6804d3ee7fe5c1a95902eb0737facfb82</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/app/setxbkmap-1.0.4.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.4</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
 		<string>2007-03-12</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
@@ -643,6 +659,101 @@
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-02-09</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xinput</string>
+		<key>OpenSourceSHA1</key>
+		<string>84c8316950ebae8f28794759202391303148fd02</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/app/xinput-1.3.0.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.3.0</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-05-08</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xkbcomp</string>
+		<key>OpenSourceSHA1</key>
+		<string>9485bb7763ae06e48f12638deeed5b42abe61cbd</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/app/xkbcomp-1.0.5.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.5</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-05-28</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xkeyboard-config</string>
+		<key>OpenSourceSHA1</key>
+		<string>1bc9bb0eeb9ffe6d044cc2c7b5853b5f4d9a5277</string>
+		<key>OpenSourceURL</key>
+		<string>http://xlibs.freedesktop.org/xkbdesc/xkeyboard-config-1.3.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.3</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-04-18</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xkbevd</string>
+		<key>OpenSourceSHA1</key>
+		<string>825ba21524021c61d23e04ce4dd65d63c8cca6d8</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/app/xkbevd-1.0.2.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-04-18</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xkbprint</string>
+		<key>OpenSourceSHA1</key>
+		<string>20d20db7f95e0edb027d5013fe424cd2f508aa43</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/app/xkbprint-1.0.1.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.1</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-04-18</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xkbutils</string>
+		<key>OpenSourceSHA1</key>
+		<string>2ee3172f4b17cb9aa97d899c400493bbe83089d9</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/app/xkbutils-1.0.1.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.1</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>	<dict>
 		<key>OpenSourceImportDate</key>
 		<string>2006-12-01</string>
 		<key>OpenSourceLicense</key>
@@ -1028,19 +1139,19 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2008-04-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xterm</string>
 		<key>OpenSourceSHA1</key>
-		<string>12a37a18e337315a3526a6a71571aaea94d73ca8</string>
+		<string>4d449a9e50e342e0b7a6deba9d713e6ba9323d1e</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/apps/xterm-207.tar.gz</string>
+		<string>ftp://invisible-island.net/xterm/xterm-235.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>207</string>
+		<string>235</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.x.org</string>
+		<string>http://invisible-island.net/xterm</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>

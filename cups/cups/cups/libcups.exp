@@ -25,6 +25,7 @@ __cupsStrFormatd
 __cupsStrFree
 __cupsStrScand
 __cupsStrStatistics
+__httpEncodeURI
 __httpReadCDSA
 __httpWriteCDSA
 __ippAddAttr

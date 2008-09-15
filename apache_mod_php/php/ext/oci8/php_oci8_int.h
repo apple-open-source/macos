@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -25,7 +25,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_oci8_int.h,v 1.11.2.6.2.21 2007/08/06 20:32:55 sixd Exp $ */
+/* $Id: php_oci8_int.h,v 1.11.2.6.2.24 2008/02/25 23:52:10 sixd Exp $ */
 
 #if HAVE_OCI8
 # ifndef PHP_OCI8_INT_H
@@ -130,6 +130,7 @@ typedef struct { /* php_oci_descriptor {{{ */
 	ub4 chunk_size;					/* chunk size of the LOB. 0 - unknown */
 	ub1 charset_form;				/* charset form, required for NCLOBs */
 	ub2 charset_id;					/* charset ID */
+	unsigned is_open:1;				/* helps to determine if LOB is open or not */
 } php_oci_descriptor; /* }}} */
 
 typedef struct { /* php_oci_lob_ctx {{{ */
@@ -158,6 +159,7 @@ typedef struct { /* php_oci_define {{{ */
 
 typedef struct { /* php_oci_statement {{{ */
 	int id;
+	int parent_stmtid;				/* parent statement id */
 	php_oci_connection *connection; /* parent connection handle */
 	sword errcode;					/* last errcode*/
 	OCIError *err;					/* private error handle */
@@ -170,7 +172,6 @@ typedef struct { /* php_oci_statement {{{ */
 	int ncolumns;					/* number of columns in the result */
 	unsigned executed:1;			/* statement executed flag */
 	unsigned has_data:1;			/* statement has more data flag */
-	unsigned nested:1;			/* statement handle is valid */
 	ub2 stmttype;					/* statement type */
 } php_oci_statement; /* }}} */
 
@@ -342,6 +343,7 @@ int php_oci_lob_get_buffering (php_oci_descriptor *);
 int php_oci_lob_copy (php_oci_descriptor *, php_oci_descriptor *, long TSRMLS_DC);
 #ifdef HAVE_OCI8_TEMP_LOB
 int php_oci_lob_close (php_oci_descriptor * TSRMLS_DC);
+int php_oci_temp_lob_close (php_oci_descriptor * TSRMLS_DC);
 int php_oci_lob_write_tmp (php_oci_descriptor *, ub1, char *, int TSRMLS_DC);
 #endif
 void php_oci_lob_free(php_oci_descriptor * TSRMLS_DC);

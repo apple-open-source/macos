@@ -1,23 +1,23 @@
-/* 
-   Copyright (C) by Andrew Tridgell 1996, 2000
-   Copyright (C) Paul Mackerras 1996
-   Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
-   
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-   
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-   
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
-
+/*
+ * Copyright (C) 1996, 2000 Andrew Tridgell
+ * Copyright (C) 1996 Paul Mackerras
+ * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
+ * Copyright (C) 2003, 2004, 2005, 2006 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
 #define False 0
 #define True 1
@@ -32,6 +32,9 @@
 
 #define DEFAULT_LOCK_FILE "/var/run/rsyncd.lock"
 #define URL_PREFIX "rsync://"
+
+#define SYMLINK_PREFIX "/rsyncd-munged/"
+#define SYMLINK_PREFIX_LEN ((int)sizeof SYMLINK_PREFIX - 1)
 
 #define BACKUP_SUFFIX "~"
 
@@ -58,11 +61,16 @@
 /* These flags are used in the live flist data. */
 
 #define FLAG_TOP_DIR (1<<0)
-#define FLAG_HLINK_EOL (1<<1)	/* generator only */
-#define FLAG_MOUNT_POINT (1<<2)	/* sender only */
+#define FLAG_SENT (1<<1)	/* sender */
+#define FLAG_HLINK_EOL (1<<1)	/* receiver/generator */
+#define FLAG_MOUNT_POINT (1<<2)	/* sender/generator */
+#define FLAG_DEL_HERE (1<<3)	/* receiver/generator */
+#define FLAG_HLINK_TOL (1<<4)	/* receiver/generator */
+#define FLAG_NO_FUZZY (1<<5)	/* generator */
+#define FLAG_MISSING (1<<6)	/* generator */
 
 /* update this if you make incompatible changes */
-#define PROTOCOL_VERSION 28
+#define PROTOCOL_VERSION 29
 
 /* We refuse to interoperate with versions that are not in this range.
  * Note that we assume we'll work with later versions: the onus is on
@@ -92,26 +100,29 @@
 #define CHUNK_SIZE (32*1024)
 #define MAX_MAP_SIZE (256*1024)
 #define IO_BUFFER_SIZE (4092)
+#define MAX_BLOCK_SIZE ((int32)1 << 29)
 
 #define IOERR_GENERAL	(1<<0) /* For backward compatibility, this must == 1 */
 #define IOERR_VANISHED	(1<<1)
+#define IOERR_DEL_LIMIT (1<<2)
 
 #define MAX_ARGS 1000
+#define MAX_BASIS_DIRS 20
+#define MAX_SERVER_ARGS (MAX_BASIS_DIRS*2 + 100)
 
 #define MPLEX_BASE 7
 
-#define NO_EXCLUDES	0
-#define SERVER_EXCLUDES	1
-#define ALL_EXCLUDES	2
+#define NO_FILTERS	0
+#define SERVER_FILTERS	1
+#define ALL_FILTERS	2
 
 #define XFLG_FATAL_ERRORS	(1<<0)
-#define XFLG_DEF_INCLUDE	(1<<1)
-#define XFLG_WORDS_ONLY 	(1<<2)
-#define XFLG_WORD_SPLIT 	(1<<3)
-#define XFLG_DIRECTORY	 	(1<<4)
+#define XFLG_OLD_PREFIXES	(1<<1)
+#define XFLG_ANCHORED2ABS	(1<<2)
+#define XFLG_ABS_IF_SLASH	(1<<3)
 
-#define PERMS_REPORT		(1<<0)
-#define PERMS_SKIP_MTIME	(1<<1)
+#define ATTRS_REPORT		(1<<0)
+#define ATTRS_SKIP_MTIME	(1<<1)
 
 #define FULL_FLUSH	1
 #define NORMAL_FLUSH	0
@@ -119,18 +130,52 @@
 #define PDIR_CREATE	1
 #define PDIR_DELETE	0
 
+/* Note: 0x00 - 0x7F are used for basis_dir[] indexes! */
+#define FNAMECMP_BASIS_DIR_LOW	0x00 /* Must remain 0! */
+#define FNAMECMP_BASIS_DIR_HIGH 0x7F
+#define FNAMECMP_FNAME		0x80
+#define FNAMECMP_PARTIAL_DIR	0x81
+#define FNAMECMP_BACKUP 	0x82
+#define FNAMECMP_FUZZY		0x83
 
-/* Log-message categories.  FLOG is only used on the daemon side to
- * output messages to the log file. */
-enum logcode { FERROR=1, FINFO=2, FLOG=3 };
+/* For use by the itemize_changes code */
+#define ITEM_REPORT_ATIME (1<<0)
+#define ITEM_REPORT_CHECKSUM (1<<1)
+#define ITEM_REPORT_SIZE (1<<2)
+#define ITEM_REPORT_TIME (1<<3)
+#define ITEM_REPORT_PERMS (1<<4)
+#define ITEM_REPORT_OWNER (1<<5)
+#define ITEM_REPORT_GROUP (1<<6)
+#define ITEM_REPORT_ACL (1<<7)
+#define ITEM_REPORT_XATTR (1<<8)
+#define ITEM_BASIS_TYPE_FOLLOWS (1<<11)
+#define ITEM_XNAME_FOLLOWS (1<<12)
+#define ITEM_IS_NEW (1<<13)
+#define ITEM_LOCAL_CHANGE (1<<14)
+#define ITEM_TRANSFER (1<<15)
+/* These are outside the range of the transmitted flags. */
+#define ITEM_MISSING_DATA (1<<16)	   /* used by log_formatted() */
+#define ITEM_DELETED (1<<17)		   /* used by log_formatted() */
+
+#define SIGNIFICANT_ITEM_FLAGS (~(\
+	ITEM_BASIS_TYPE_FOLLOWS | ITEM_XNAME_FOLLOWS | ITEM_LOCAL_CHANGE))
+
+
+/* Log-message categories.  Only FERROR and FINFO get sent over the socket,
+ * but FLOG and FSOCKERR can be sent over the receiver -> generator pipe.
+ * FLOG only goes to the log file, not the client; FCLIENT is the opposite. */
+enum logcode { FNONE=0, FERROR=1, FINFO=2, FLOG=3, FCLIENT=4, FSOCKERR=5 };
 
 /* Messages types that are sent over the message channel.  The logcode
  * values must all be present here with identical numbers. */
 enum msgcode {
-	MSG_DONE=5,	/* current phase is done */
-	MSG_REDO=4,	/* reprocess indicated flist index */
-	MSG_ERROR=FERROR, MSG_INFO=FINFO, MSG_LOG=FLOG, /* remote logging */
-	MSG_DATA=0	/* raw data on the multiplexed stream */
+	MSG_DATA=0,	/* raw data on the multiplexed stream */
+	MSG_ERROR=FERROR, MSG_INFO=FINFO, /* remote logging */
+	MSG_LOG=FLOG, MSG_SOCKERR=FSOCKERR, /* sibling logging */
+	MSG_REDO=9,	/* reprocess indicated flist index */
+	MSG_SUCCESS=100,/* successfully updated indicated flist index */
+	MSG_DELETED=101,/* successfully deleted a file on receiving side */
+	MSG_DONE=86	/* current phase is done */
 };
 
 #include "errcode.h"
@@ -139,32 +184,44 @@ enum msgcode {
 
 /* The default RSYNC_RSH is always set in config.h. */
 
-#include <sys/types.h>
-
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 #include <stdio.h>
-#include <stddef.h>
+#ifdef HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+# include <sys/stat.h>
+#endif
+#ifdef STDC_HEADERS
+# include <stdlib.h>
+# include <stddef.h>
+#else
+# ifdef HAVE_STDLIB_H
+#  include <stdlib.h>
+# endif
+#endif
+#ifdef HAVE_STRING_H
+# if !defined STDC_HEADERS && defined HAVE_MEMORY_H
+#  include <memory.h>
+# endif
+# include <string.h>
+#endif
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
 
 #ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
 
-#ifdef HAVE_STDLIB_H
-#include <stdlib.h>
-#endif
-
-#if defined(HAVE_MALLOC_H) && (defined(HAVE_MALLINFO) || !defined(HAVE_STDLIB_H))
+#if defined HAVE_MALLOC_H && (defined HAVE_MALLINFO || !defined HAVE_STDLIB_H)
 #include <malloc.h>
 #endif
 
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
-#endif
-
-#ifdef HAVE_STRING_H
-#include <string.h>
 #endif
 
 #ifdef TIME_WITH_SYS_TIME
@@ -185,8 +242,6 @@ enum msgcode {
 #include <sys/fcntl.h>
 #endif
 #endif
-
-#include <sys/stat.h>
 
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
@@ -238,29 +293,42 @@ enum msgcode {
 #include <syslog.h>
 #include <sys/file.h>
 
-#if HAVE_DIRENT_H
+#ifdef HAVE_DIRENT_H
 # include <dirent.h>
 #else
 # define dirent direct
-# if HAVE_SYS_NDIR_H
+# ifdef HAVE_SYS_NDIR_H
 #  include <sys/ndir.h>
 # endif
-# if HAVE_SYS_DIR_H
+# ifdef HAVE_SYS_DIR_H
 #  include <sys/dir.h>
 # endif
-# if HAVE_NDIR_H
+# ifdef HAVE_NDIR_H
 #  include <ndir.h>
 # endif
 #endif
 
-#if MAJOR_IN_MKDEV
+#ifdef MAJOR_IN_MKDEV
 #include <sys/mkdev.h>
-#elif MAJOR_IN_SYSMACROS
+# if !defined makedev && (defined mkdev || defined _WIN32 || defined __WIN32__)
+#  define makedev mkdev
+# endif
+#elif defined MAJOR_IN_SYSMACROS
 #include <sys/sysmacros.h>
+#endif
+
+#ifdef MAKEDEV_TAKES_3_ARGS
+#define MAKEDEV(devmajor,devminor) makedev(0,devmajor,devminor)
+#else
+#define MAKEDEV(devmajor,devminor) makedev(devmajor,devminor)
 #endif
 
 #ifdef HAVE_COMPAT_H
 #include <compat.h>
+#endif
+
+#ifdef HAVE_LIMITS_H
+# include <limits.h>
 #endif
 
 #include <assert.h>
@@ -273,61 +341,85 @@ enum msgcode {
 #define uchar unsigned char
 #endif
 
-#if HAVE_UNSIGNED_CHAR
+#ifdef SIGNED_CHAR_OK
 #define schar signed char
 #else
 #define schar char
 #endif
 
+/* Find a variable that is either exactly 32-bits or longer.
+ * If some code depends on 32-bit truncation, it will need to
+ * take special action in a "#if SIZEOF_INT32 > 4" section. */
 #ifndef int32
-#if (SIZEOF_INT == 4)
-#define int32 int
-#elif (SIZEOF_LONG == 4)
-#define int32 long
-#elif (SIZEOF_SHORT == 4)
-#define int32 short
+#if SIZEOF_INT == 4
+# define int32 int
+# define SIZEOF_INT32 4
+#elif SIZEOF_LONG == 4
+# define int32 long
+# define SIZEOF_INT32 4
+#elif SIZEOF_SHORT == 4
+# define int32 short
+# define SIZEOF_INT32 4
+#elif SIZEOF_INT > 4
+# define int32 int
+# define SIZEOF_INT32 SIZEOF_INT
+#elif SIZEOF_LONG > 4
+# define int32 long
+# define SIZEOF_INT32 SIZEOF_LONG
 #else
-/* I hope this works */
-#define int32 int
-#define LARGE_INT32
+# error Could not find a 32-bit integer variable
 #endif
+#else
+# define SIZEOF_INT32 4
 #endif
 
 #ifndef uint32
 #define uint32 unsigned int32
 #endif
 
-#if HAVE_OFF64_T
-#define OFF_T off64_t
-#define STRUCT_STAT struct stat64
-#else
+#if SIZEOF_OFF_T == 8 || !SIZEOF_OFF64_T || !defined HAVE_STRUCT_STAT64
 #define OFF_T off_t
 #define STRUCT_STAT struct stat
+#else
+#define OFF_T off64_t
+#define STRUCT_STAT struct stat64
+#define USE_STAT64_FUNCS 1
 #endif
 
-#if HAVE_OFF64_T
-#define int64 off64_t
-#elif (SIZEOF_LONG == 8) 
-#define int64 long
-#elif (SIZEOF_INT == 8) 
-#define int64 int
-#elif HAVE_LONGLONG
-#define int64 long long
+/* CAVEAT: on some systems, int64 will really be a 32-bit integer IFF
+ * that's the maximum size the file system can handle and there is no
+ * 64-bit type available.  The rsync source must therefore take steps
+ * to ensure that any code that really requires a 64-bit integer has
+ * it (e.g. the checksum code uses two 32-bit integers for its 64-bit
+ * counter). */
+#if SIZEOF_LONG == 8
+# define int64 long
+# define SIZEOF_INT64 8
+#elif SIZEOF_INT == 8
+# define int64 int
+# define SIZEOF_INT64 8
+#elif SIZEOF_LONG_LONG == 8
+# define int64 long long
+# define SIZEOF_INT64 8
+#elif SIZEOF_OFF64_T == 8
+# define int64 off64_t
+# define SIZEOF_INT64 8
+#elif SIZEOF_OFF_T == 8
+# define int64 off_t
+# define SIZEOF_INT64 8
+#elif SIZEOF_INT > 8
+# define int64 int
+# define SIZEOF_INT64 SIZEOF_INT
+#elif SIZEOF_LONG > 8
+# define int64 long
+# define SIZEOF_INT64 SIZEOF_LONG
+#elif SIZEOF_LONG_LONG > 8
+# define int64 long long
+# define SIZEOF_INT64 SIZEOF_LONG_LONG
 #else
 /* As long as it gets... */
-#define int64 off_t
-#define INT64_IS_OFF_T
-#endif
-
-#if (SIZEOF_LONG == 8) 
-#define uint64 unsigned long
-#elif (SIZEOF_INT == 8) 
-#define uint64 unsigned int
-#elif HAVE_LONGLONG
-#define uint64 unsigned long long
-#else
-/* As long as it gets... */
-#define uint64 unsigned off_t
+# define int64 off_t
+# define SIZEOF_INT64 SIZEOF_OFF_T
 #endif
 
 /* Starting from protocol version 26, we always use 64-bit
@@ -354,11 +446,11 @@ enum msgcode {
  *
  * FIXME: I don't think the code in flist.c has ever worked on a system
  * where dev_t is a struct.
- */ 
+ */
 
 struct idev {
-	uint64 inode;
-	uint64 dev;
+	int64 inode;
+	int64 dev;
 };
 
 #ifndef MIN
@@ -383,6 +475,14 @@ struct idev {
 #define MAXPATHLEN 1024
 #endif
 
+/* We want a roomy line buffer that can hold more than MAXPATHLEN,
+ * and significantly more than an overly short MAXPATHLEN. */
+#if MAXPATHLEN < 4096
+#define BIGPATHBUFLEN (4096+1024)
+#else
+#define BIGPATHBUFLEN (MAXPATHLEN+1024)
+#endif
+
 #ifndef NAME_MAX
 #define NAME_MAX 255
 #endif
@@ -401,8 +501,9 @@ struct idev {
 #define HL_SKIP		1
 
 struct hlink {
-	int hlindex;
-	struct file_struct *next;
+	int32 next;
+	int32 hlindex;
+	unsigned short link_dest_used;
 };
 
 #define F_DEV	link_u.idev->dev
@@ -418,9 +519,12 @@ struct file_struct {
 		char *link;	/* Points to symlink string, if a symlink */
 	} u;
 	OFF_T length;
-	char *basename;
-	char *dirname;
-	char *basedir;
+	char *basename;		/* The current item's name (AKA filename) */
+	char *dirname;		/* The directory info inside the transfer */
+	union {
+		char *root;	/* Sender-side dir info outside transfer */
+		int depth;	/* Receiver-side directory depth info */
+	} dir;
 	union {
 		struct idev *idev;
 		struct hlink *links;
@@ -455,61 +559,83 @@ struct file_struct {
 #define WITHOUT_HLINK	0
 
 struct file_list {
-	int count;
-	int malloced;
+	struct file_struct **files;
 	alloc_pool_t file_pool;
 	alloc_pool_t hlink_pool;
-	struct file_struct **files;
+	int count;
+	int malloced;
+	int low, high;
 };
 
 #define SUMFLG_SAME_OFFSET	(1<<0)
 
 struct sum_buf {
 	OFF_T offset;		/**< offset in file of this chunk */
-	unsigned int len;	/**< length of chunk of file */
+	int32 len;		/**< length of chunk of file */
 	uint32 sum1;	        /**< simple checksum */
+	int32 chain;		/**< next hash-table collision */
 	short flags;		/**< flag bits */
 	char sum2[SUM_LENGTH];	/**< checksum  */
 };
 
 struct sum_struct {
 	OFF_T flength;		/**< total file length */
-	size_t count;		/**< how many chunks */
-	unsigned int blength;	/**< block_length */
-	unsigned int remainder;	/**< flength % block_length */
-	int s2length;		/**< sum2_length */
 	struct sum_buf *sums;	/**< points to info for each chunk */
+	int32 count;		/**< how many chunks */
+	int32 blength;		/**< block_length */
+	int32 remainder;	/**< flength % block_length */
+	int s2length;		/**< sum2_length */
 };
 
 struct map_struct {
-	char *p;		/* Window pointer			*/
-	int fd;			/* File Descriptor			*/
-	int p_size;		/* Largest window size we allocated	*/
-	int p_len;		/* Latest (rounded) window size		*/
-	int def_window_size;	/* Default window size			*/
-	int status;		/* first errno from read errors		*/
 	OFF_T file_size;	/* File size (from stat)		*/
 	OFF_T p_offset;		/* Window start				*/
 	OFF_T p_fd_offset;	/* offset of cursor in fd ala lseek	*/
+	char *p;		/* Window pointer			*/
+	int32 p_size;		/* Largest window size we allocated	*/
+	int32 p_len;		/* Latest (rounded) window size		*/
+	int32 def_window_size;	/* Default window size			*/
+	int fd;			/* File Descriptor			*/
+	int status;		/* first errno from read errors		*/
 };
 
 #define MATCHFLG_WILD		(1<<0) /* pattern has '*', '[', and/or '?' */
 #define MATCHFLG_WILD2		(1<<1) /* pattern has '**' */
-#define MATCHFLG_WILD2_PREFIX	(1<<2) /* pattern starts with '**' */
-#define MATCHFLG_ABS_PATH	(1<<3) /* path-match on absolute path */
-#define MATCHFLG_INCLUDE	(1<<4) /* this is an include, not an exclude */
-#define MATCHFLG_DIRECTORY	(1<<5) /* this matches only directories */
-#define MATCHFLG_CLEAR_LIST 	(1<<6) /* this item is the "!" token */
-struct exclude_struct {
-	struct exclude_struct *next;
+#define MATCHFLG_WILD2_PREFIX	(1<<2) /* pattern starts with "**" */
+#define MATCHFLG_WILD3_SUFFIX	(1<<3) /* pattern ends with "***" */
+#define MATCHFLG_ABS_PATH	(1<<4) /* path-match on absolute path */
+#define MATCHFLG_INCLUDE	(1<<5) /* this is an include, not an exclude */
+#define MATCHFLG_DIRECTORY	(1<<6) /* this matches only directories */
+#define MATCHFLG_WORD_SPLIT	(1<<7) /* split rules on whitespace */
+#define MATCHFLG_NO_INHERIT	(1<<8) /* don't inherit these rules */
+#define MATCHFLG_NO_PREFIXES	(1<<9) /* parse no prefixes from patterns */
+#define MATCHFLG_MERGE_FILE	(1<<10)/* specifies a file to merge */
+#define MATCHFLG_PERDIR_MERGE	(1<<11)/* merge-file is searched per-dir */
+#define MATCHFLG_EXCLUDE_SELF	(1<<12)/* merge-file name should be excluded */
+#define MATCHFLG_FINISH_SETUP	(1<<13)/* per-dir merge file needs setup */
+#define MATCHFLG_NEGATE 	(1<<14)/* rule matches when pattern does not */
+#define MATCHFLG_CVS_IGNORE	(1<<15)/* rule was -C or :C */
+#define MATCHFLG_SENDER_SIDE	(1<<16)/* rule applies to the sending side */
+#define MATCHFLG_RECEIVER_SIDE	(1<<17)/* rule applies to the receiving side */
+#define MATCHFLG_CLEAR_LIST 	(1<<18)/* this item is the "!" token */
+
+#define MATCHFLGS_FROM_CONTAINER (MATCHFLG_ABS_PATH | MATCHFLG_INCLUDE \
+				| MATCHFLG_DIRECTORY | MATCHFLG_SENDER_SIDE \
+				| MATCHFLG_NEGATE | MATCHFLG_RECEIVER_SIDE)
+
+struct filter_struct {
+	struct filter_struct *next;
 	char *pattern;
-	unsigned int match_flags;
-	int slash_cnt;
+	uint32 match_flags;
+	union {
+		int slash_cnt;
+		struct filter_list_struct *mergelist;
+	} u;
 };
 
-struct exclude_list_struct {
-	struct exclude_struct *head;
-	struct exclude_struct *tail;
+struct filter_list_struct {
+	struct filter_struct *head;
+	struct filter_struct *tail;
 	char *debug_type;
 };
 
@@ -520,27 +646,31 @@ struct stats {
 	int64 total_read;
 	int64 literal_data;
 	int64 matched_data;
+	int64 flist_buildtime;
+	int64 flist_xfertime;
 	int flist_size;
 	int num_files;
 	int num_transferred_files;
 	int current_file_index;
 };
 
-
-/* we need this function because of the silly way in which duplicate
-   entries are handled in the file lists - we can't change this
-   without breaking existing versions */
-static inline int flist_up(struct file_list *flist, int i)
-{
-	while (!flist->files[i]->basename) i++;
-	return i;
-}
+struct chmod_mode_struct;
 
 #include "byteorder.h"
 #include "lib/mdfour.h"
 #include "lib/wildmatch.h"
 #include "lib/permstring.h"
 #include "lib/addrinfo.h"
+
+#if !defined __GNUC__ || defined __APPLE__
+/* Apparently the OS X port of gcc gags on __attribute__.
+ *
+ * <http://www.opensource.apple.com/bugs/X/gcc/2512150.html> */
+#define __attribute__(x)
+#endif
+
+#define UNUSED(x) x __attribute__((__unused__))
+#define NORETURN __attribute__((__noreturn__))
 
 #include "proto.h"
 
@@ -553,18 +683,18 @@ int asprintf(char **ptr, const char *format, ...);
 int vasprintf(char **ptr, const char *format, va_list ap);
 #endif
 
-#if !defined(HAVE_VSNPRINTF) || !defined(HAVE_C99_VSNPRINTF)
+#if !defined HAVE_VSNPRINTF || !defined HAVE_C99_VSNPRINTF
 #define vsnprintf rsync_vsnprintf
 int vsnprintf(char *str, size_t count, const char *fmt, va_list args);
 #endif
 
-#if !defined(HAVE_SNPRINTF) || !defined(HAVE_C99_VSNPRINTF)
+#if !defined HAVE_SNPRINTF || !defined HAVE_C99_VSNPRINTF
 #define snprintf rsync_snprintf
 int snprintf(char *str,size_t count,const char *fmt,...);
 #endif
 
 
-#if !HAVE_STRERROR
+#ifndef HAVE_STRERROR
 extern char *sys_errlist[];
 #define strerror(i) sys_errlist[i]
 #endif
@@ -578,17 +708,19 @@ extern char *sys_errlist[];
 extern int errno;
 #endif
 
-#define SUPPORT_LINKS HAVE_READLINK
-#define SUPPORT_HARD_LINKS HAVE_LINK
-
-/* This could be bad on systems which have no lchown and where chown
- * follows symbollic links.  On such systems it might be better not to
- * try to chown symlinks at all. */
-#ifndef HAVE_LCHOWN
-#define lchown chown
+#ifdef HAVE_READLINK
+#define SUPPORT_LINKS 1
+#endif
+#ifdef HAVE_LINK
+#define SUPPORT_HARD_LINKS 1
 #endif
 
-#define SIGNAL_CAST (RETSIGTYPE (*)())
+#ifdef HAVE_SIGACTION
+#define SIGACTION(n,h) sigact.sa_handler=(h), sigaction((n),&sigact,NULL)
+#define signal(n,h) we_need_to_call_SIGACTION_not_signal(n,h)
+#else
+#define SIGACTION(n,h) signal(n,h)
+#endif
 
 #ifndef EWOULDBLOCK
 #define EWOULDBLOCK EAGAIN
@@ -671,9 +803,9 @@ extern int errno;
 /* work out what fcntl flag to use for non-blocking */
 #ifdef O_NONBLOCK
 # define NONBLOCK_FLAG O_NONBLOCK
-#elif defined(SYSV)
+#elif defined SYSV
 # define NONBLOCK_FLAG O_NDELAY
-#else 
+#else
 # define NONBLOCK_FLAG FNDELAY
 #endif
 
@@ -685,7 +817,8 @@ extern int errno;
 #define INADDR_NONE 0xffffffff
 #endif
 
-#define IS_DEVICE(mode) (S_ISCHR(mode) || S_ISBLK(mode) || S_ISSOCK(mode) || S_ISFIFO(mode))
+#define IS_SPECIAL(mode) (S_ISSOCK(mode) || S_ISFIFO(mode))
+#define IS_DEVICE(mode) (S_ISCHR(mode) || S_ISBLK(mode))
 
 /* Initial mask on permissions given to temporary files.  Mask off setuid
      bits and group access because of potential race-condition security
@@ -694,14 +827,6 @@ extern int errno;
 
 /* handler for null strings in printf format */
 #define NS(s) ((s)?(s):"<NULL>")
-
-#if !defined(__GNUC__) || defined(APPLE)
-/* Apparently the OS X port of gcc gags on __attribute__.
- *
- * <http://www.opensource.apple.com/bugs/X/gcc/2512150.html> */
-#define __attribute__(x) 
-
-#endif
 
 /* Convenient wrappers for malloc and realloc.  Use them. */
 #define new(type) ((type *)malloc(sizeof(type)))
@@ -719,10 +844,6 @@ void rsyserr(enum logcode, int, const char *, ...)
      __attribute__((format (printf, 3, 4)))
      ;
 
-#ifdef REPLACE_INET_NTOA
-#define inet_ntoa rep_inet_ntoa
-#endif
-
 /* Make sure that the O_BINARY flag is defined. */
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -738,6 +859,9 @@ size_t strlcat(char *d, const char *s, size_t bufsize);
 
 #ifndef WEXITSTATUS
 #define	WEXITSTATUS(stat)	((int)(((stat)>>8)&0xFF))
+#endif
+#ifndef WIFEXITED
+#define	WIFEXITED(stat)		((int)((stat)&0xFF) == 0)
 #endif
 
 #define exit_cleanup(code) _exit_cleanup(code, __FILE__, __LINE__)
@@ -757,9 +881,8 @@ size_t strlcat(char *d, const char *s, size_t bufsize);
 extern int verbose;
 
 #ifndef HAVE_INET_NTOP
-const char *                 
-inet_ntop(int af, const void *src, char *dst, size_t size);
-#endif /* !HAVE_INET_NTOP */
+const char *inet_ntop(int af, const void *src, char *dst, size_t size);
+#endif
 
 #ifndef HAVE_INET_PTON
 int inet_pton(int af, const char *src, void *dst);
@@ -767,14 +890,4 @@ int inet_pton(int af, const char *src, void *dst);
 
 #ifdef MAINTAINER_MODE
 const char *get_panic_action(void);
-#endif
-
-#define UNUSED(x) x __attribute__((__unused__))
-
-extern const char *io_write_phase, *io_read_phase;
- /* hack for building fat on Mac OS X */
-
-#if defined(__APPLE__) && defined(WORDS_BIGENDIAN)
-#undef WORDS_BIGENDIAN
-#define WORDS_BIGENDIAN __BIG_ENDIAN__
 #endif

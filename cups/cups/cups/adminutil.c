@@ -1,5 +1,5 @@
 /*
- * "$Id: adminutil.c 6741 2007-07-27 19:26:53Z mike $"
+ * "$Id: adminutil.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Administration utility API definitions for the Common UNIX Printing
  *   System (CUPS).
@@ -386,7 +386,7 @@ cupsAdminCreateWindowsPPD(
   {
     write_option(dstfp, jclorder ++, "cupsJobSheetsStart", "Start Banner",
                  "job-sheets", suppattr, defattr, 0, 2);
-    write_option(dstfp, jclorder ++, "cupsJobSheetsEnd", "End Banner",
+    write_option(dstfp, jclorder, "cupsJobSheetsEnd", "End Banner",
                  "job-sheets", suppattr, defattr, 1, 2);
   }
 
@@ -808,6 +808,9 @@ cupsAdminExportSamba(
   if (have_drivers == 0)
   {
     _cupsSetError(IPP_NOT_FOUND, message);
+
+    unlink(authfile);
+
     return (0);
   }
 
@@ -958,7 +961,7 @@ _cupsAdminGetServerSettings(
       if (!value && strncmp(line, "</", 2))
         value = line + strlen(line);
 
-      if (!strcasecmp(line, "Port") || !strcasecmp(line, "Listen"))
+      if ((!strcasecmp(line, "Port") || !strcasecmp(line, "Listen")) && value)
       {
 	char	*port;			/* Pointer to port number, if any */
 
@@ -1014,7 +1017,7 @@ _cupsAdminGetServerSettings(
       {
 	in_policy = 0;
       }
-      else if (!strcasecmp(line, "<Limit") && in_policy)
+      else if (!strcasecmp(line, "<Limit") && in_policy && value)
       {
        /*
 	* See if the policy limit is for the Cancel-Job operation...
@@ -1047,7 +1050,7 @@ _cupsAdminGetServerSettings(
       {
 	cancel_policy = 0;
       }
-      else if (!strcasecmp(line, "<Location"))
+      else if (!strcasecmp(line, "<Location") && value)
       {
         in_admin_location = !strcasecmp(value, "/admin");
 	in_location       = 1;
@@ -1057,7 +1060,7 @@ _cupsAdminGetServerSettings(
 	in_admin_location = 0;
 	in_location       = 0;
       }
-      else if (!strcasecmp(line, "Allow") &&
+      else if (!strcasecmp(line, "Allow") && value &&
                strcasecmp(value, "localhost") && strcasecmp(value, "127.0.0.1")
 #ifdef AF_LOCAL
 	       && *value != '/'
@@ -1221,8 +1224,8 @@ _cupsAdminSetServerSettings(
   * Get the cupsd.conf file...
   */
 
-  if ((status = get_cupsd_conf(http, cg, 0, cupsdconf, sizeof(cupsdconf),
-                               &remote)) == HTTP_OK)
+  if (get_cupsd_conf(http, cg, 0, cupsdconf, sizeof(cupsdconf),
+                     &remote) == HTTP_OK)
   {
     if ((cupsd = cupsFileOpen(cupsdconf, "r")) == NULL)
     {
@@ -2335,5 +2338,5 @@ write_option(cups_file_t     *dstfp,	/* I - PPD file */
 
 
 /*
- * End of "$Id: adminutil.c 6741 2007-07-27 19:26:53Z mike $".
+ * End of "$Id: adminutil.c 7721 2008-07-11 22:48:49Z mike $".
  */

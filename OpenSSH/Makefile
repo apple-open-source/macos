@@ -19,12 +19,12 @@ endif
 
 Extra_CC_Flags        = -fPIE -Wl,-pie -D_FORTIFY_SOURCE=2
 Extra_LD_Flags        = -L. -Lopenbsd-compat -Wl,-pie
-Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm CPPFLAGS="-D__APPLE_SACL__ -D_UTMPX_COMPAT -D__APPLE_UTMPX__ -DUSE_CCAPI -D__APPLE_LAUNCHD__ -D__APPLE_PRIVPTY__ -D__APPLE_GLOBBING__" --disable-libutil --disable-utmp --disable-wtmp --with-privsep-user=_sshd
+Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm CPPFLAGS="-D__APPLE_SACL__ -D_UTMPX_COMPAT -D__APPLE_UTMPX__ -DUSE_CCAPI -D__APPLE_LAUNCHD__ -D__APPLE_PRIVPTY__ -D__BROKEN_GLOB__ -Dcannot_audit" --disable-libutil --disable-utmp --with-keychain=apple --disable-wtmp --with-keychain=apple --with-privsep-user=_sshd
 Extra_Install_Flags		= sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
 GnuAfterInstall			= fixup-dstroot install-startup-item install-plist install-man-pages relocate-sym-files DVG-4859983_install_ssh-agent_plist install-strings
 
 ifeq ($(Embedded), YES)
-	Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir="$(SDKROOT)/usr/include/openssl" --with-random=/dev/urandom --without-zlib-version-check --with-4in6 CPPFLAGS="-D_UTMPX_COMPAT -D__APPLE_UTMPX__ -D__APPLE_LAUNCHD__ -D__APPLE_PRIVPTY__ -D__APPLE_GLOBBING__" --disable-libutil --disable-utmp --disable-wtmp --with-keychain=no --host=none-apple-darwin --with-privsep-user=_sshd
+	Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir="$(SDKROOT)/usr/include/openssl" --with-random=/dev/urandom --without-zlib-version-check --with-4in6 CPPFLAGS="-D_UTMPX_COMPAT -D__APPLE_UTMPX__ -D__APPLE_LAUNCHD__ -D__APPLE_PRIVPTY__ -D__BROKEN_GLOB__ -Dcannot_audit" --disable-libutil --disable-utmp --disable-wtmp --with-keychain=no --host=none-apple-darwin --with-privsep-user=_sshd
 	Extra_Environment	= ac_cv_header_endian_h=no
 	Extra_Install_Flags		= sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
 	GnuAfterInstall			= fixup-dstroot install-startup-item install-plist install-man-pages relocate-sym-files fix-startup-item-for-embedded
@@ -32,14 +32,14 @@ endif
 ifeq  ($(MACOSX_DEPLOYMENT_TARGET),10.4)
 	Extra_CC_Flags        =
 	Extra_LD_Flags = -L. -Lopenbsd-compat
-	Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm --without-keychain CPPFLAGS="-D__APPLE_SACL__ -DUSE_CCAPI -D__APPLE_GSSAPI_ENABLE__"
+	Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm --without-keychain CPPFLAGS="-D__APPLE_SACL__ -DUSE_CCAPI -D__APPLE_GSSAPI_ENABLE__ -Dcannot_audit"
 	Extra_Install_Flags		= sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
 	GnuAfterInstall			= fixup-dstroot install-startup-item install-plist install-man-pages relocate-sym-files
 endif
 ifeq ($(MACOSX_DEPLOYMENT_TARGET),10.3)
 	Extra_CC_Flags        =
 	Extra_LD_Flags = -L. -Lopenbsd-compat
-	Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm --without-keychain CPPFLAGS="-DUSE_CCAPI -D__APPLE_GSSAPI_ENABLE__"
+	Extra_Configure_Flags	= --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm --without-keychain CPPFLAGS="-DUSE_CCAPI -D__APPLE_GSSAPI_ENABLE__ -Dcannot_audit"
 	Extra_Install_Flags		= sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
 	GnuAfterInstall			= fixup-dstroot install-panther-startup-item install-plist install-man-pages relocate-sym-files
 endif
@@ -52,12 +52,11 @@ Install_Flags         = DESTDIR=$(DSTROOT)
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 4.7p1
+AEP_Version    = 5.1p1
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = bsm.patch pam.patch sacl.patch DVG-4122722+5277818_new_EA.patch DVG-3977221_manpage_tweaks.patch DVG-4212542_auth_error_logging_fix.patch DVG-4157448+4920695_corrected_UsePAM_comment.patch lastlog.patch openssh-4.4p1-gsskex-20061002.patch DVG-4808140_getpwuid_botch.patch DVG-4853931_enable_GSSAPI.patch DVG-4648874_preserve_EA_mtime.patch DVG-4748610+4897588_ssh-agent_via_launchd.patch DVG-4907495_name_resolution_error_message.patch DVG-4694589_16_group_limit_fix.patch DVG-5142987_launchd_DISPLAY_for_X11.patch DVG-5258734_pty_permission_fix.patch DVG+AJ-5370108_fix_globbing_in_Leopard_sftp.patch AJ-5491854-fix_unsafe_usage_of_getpwuid.patch DVG-4135812_add_SACLSupport_to_sshd_conf_manpage.patch
-AEP_Patches    = bsm.patch pam.patch sacl.patch DVG-4122722+5277818_new_EA.patch DVG-3977221_manpage_tweaks.patch DVG-4212542_auth_error_logging_fix.patch DVG-4157448+4920695_corrected_UsePAM_comment.patch lastlog.patch openssh-4.4p1-gsskex-20061002.patch DVG-4808140_getpwuid_botch.patch DVG-4853931_enable_GSSAPI.patch DVG-4648874_preserve_EA_mtime.patch DVG-4748610+4897588_ssh-agent_via_launchd.patch DVG-4907495_name_resolution_error_message.patch DVG-4694589_16_group_limit_fix.patch DVG-5142987_launchd_DISPLAY_for_X11.patch DVG-5258734_pty_permission_fix.patch DVG+AJ-5370108_fix_globbing_in_Leopard_sftp.patch AJ-5491854-fix_unsafe_usage_of_getpwuid.patch DVG-4135812_add_SACLSupport_to_sshd_conf_manpage.patch
+AEP_Patches    = pam.patch sacl.patch DVG-4122722+5277818_new_EA.patch DVG-3977221_manpage_tweaks.patch DVG-4212542_auth_error_logging_fix.patch DVG-4157448+4920695_corrected_UsePAM_comment.patch lastlog.patch openssh-5.0p1-gsskex-20080404.patch DVG-4853931_enable_GSSAPI.patch DVG-4648874_preserve_EA_mtime.patch DVG-4748610+4897588_ssh-agent_via_launchd.patch DVG-4694589_16_group_limit_fix.patch DVG-5142987_launchd_DISPLAY_for_X11.patch DVG-5258734_pty_permission_fix.patch AJ-5491854-fix_unsafe_usage_of_getpwuid.patch DVG-4135812_add_SACLSupport_to_sshd_conf_manpage.patch PR-6146452_do_not_use_pipes.patch
 ifeq  (, $(findstring $(MACOSX_DEPLOYMENT_TARGET), 10.4 10.3))
 	AEP_Patches   += AJ-5229538+5383306+5446006+5567447_keychain.patch
 endif

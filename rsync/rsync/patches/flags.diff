@@ -1,0 +1,562 @@
+This patch provides --flags, which preserves the st_flags field.
+Modified from a patch that was written by Rolf Grossmann.
+
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/flags.diff
+    ./prepare-source
+    ./configure
+    make
+
+--- old/configure.in
++++ new/configure.in
+@@ -527,7 +527,7 @@ AC_CHECK_FUNCS(waitpid wait4 getcwd strd
+     memmove lchown vsnprintf snprintf vasprintf asprintf setsid glob strpbrk \
+     strlcat strlcpy strtol mallinfo getgroups setgroups geteuid getegid \
+     setlocale setmode open64 lseek64 mkstemp64 mtrace va_copy __va_copy \
+-    strerror putenv iconv_open locale_charset nl_langinfo \
++    chflags strerror putenv iconv_open locale_charset nl_langinfo \
+     sigaction sigprocmask)
+ 
+ AC_CHECK_FUNCS(getpgrp tcgetpgrp)
+--- old/flist.c
++++ new/flist.c
+@@ -44,6 +44,7 @@ extern int preserve_links;
+ extern int preserve_hard_links;
+ extern int preserve_devices;
+ extern int preserve_specials;
++extern int preserve_flags;
+ extern int preserve_uid;
+ extern int preserve_gid;
+ extern int relative_paths;
+@@ -303,6 +304,9 @@ static void send_file_entry(struct file_
+ 	unsigned short flags;
+ 	static time_t modtime;
+ 	static mode_t mode;
++#ifdef SUPPORT_FLAGS
++	static uint32 fileflags;
++#endif
+ 	static int64 dev;
+ 	static dev_t rdev;
+ 	static uint32 rdev_major;
+@@ -333,6 +337,12 @@ static void send_file_entry(struct file_
+ 		flags |= XMIT_SAME_MODE;
+ 	else
+ 		mode = file->mode;
++#ifdef SUPPORT_FLAGS
++ 	if (file->fileflags == fileflags)
++		flags |= XMIT_SAME_FLAGS;
++	else
++		fileflags = file->fileflags;
++#endif
+ 	if ((preserve_devices && IS_DEVICE(mode))
+ 	 || (preserve_specials && IS_SPECIAL(mode))) {
+ 		if (protocol_version < 28) {
+@@ -416,6 +426,10 @@ static void send_file_entry(struct file_
+ 		write_int(f, modtime);
+ 	if (!(flags & XMIT_SAME_MODE))
+ 		write_int(f, to_wire_mode(mode));
++#ifdef SUPPORT_FLAGS
++ 	if (preserve_flags && !(flags & XMIT_SAME_FLAGS))
++		write_int(f, (int)fileflags);
++#endif
+ 	if (preserve_uid && !(flags & XMIT_SAME_UID)) {
+ 		if (!numeric_ids)
+ 			add_uid(uid);
+@@ -483,6 +497,9 @@ static struct file_struct *receive_file_
+ {
+ 	static time_t modtime;
+ 	static mode_t mode;
++#ifdef SUPPORT_FLAGS
++ 	static uint32 fileflags;
++#endif
+ 	static int64 dev;
+ 	static dev_t rdev;
+ 	static uint32 rdev_major;
+@@ -556,9 +573,12 @@ static struct file_struct *receive_file_
+ 		modtime = (time_t)read_int(f);
+ 	if (!(flags & XMIT_SAME_MODE))
+ 		mode = from_wire_mode(read_int(f));
+-
+ 	if (chmod_modes && !S_ISLNK(mode))
+ 		mode = tweak_mode(mode, chmod_modes);
++#ifdef SUPPORT_FLAGS
++ 	if (preserve_flags && !(flags & XMIT_SAME_FLAGS))
++		fileflags = (uint32)read_int(f);
++#endif
+ 
+ 	if (preserve_uid && !(flags & XMIT_SAME_UID))
+ 		uid = (uid_t)read_int(f);
+@@ -609,6 +629,9 @@ static struct file_struct *receive_file_
+ 	file->modtime = modtime;
+ 	file->length = file_length;
+ 	file->mode = mode;
++#ifdef SUPPORT_FLAGS
++	file->fileflags = fileflags;
++#endif
+ 	file->uid = uid;
+ 	file->gid = gid;
+ 
+@@ -862,6 +885,9 @@ struct file_struct *make_file(char *fnam
+ 	file->modtime = st.st_mtime;
+ 	file->length = st.st_size;
+ 	file->mode = st.st_mode;
++#ifdef SUPPORT_FLAGS
++	file->fileflags = st.st_flags;
++#endif
+ 	file->uid = st.st_uid;
+ 	file->gid = st.st_gid;
+ 
+--- old/generator.c
++++ new/generator.c
+@@ -99,6 +99,12 @@ static int deletion_count = 0; /* used t
+ #define DEL_FORCE_RECURSE	(1<<1) /* recurse even w/o --force */
+ #define DEL_TERSE		(1<<3)
+ 
++#ifdef SUPPORT_FLAGS
++#define FILEFLAGS(ff) ff
++#else
++#define FILEFLAGS(ff) 0
++#endif
++
+ 
+ static int is_backup_file(char *fn)
+ {
+@@ -113,7 +119,7 @@ static int is_backup_file(char *fn)
+  * Note that fname must point to a MAXPATHLEN buffer if the mode indicates it's
+  * a directory! (The buffer is used for recursion, but returned unchanged.)
+  */
+-static int delete_item(char *fname, int mode, int flags)
++static int delete_item(char *fname, int mode, uint32 fileflags, int flags)
+ {
+ 	struct file_list *dirlist;
+ 	int j, dlen, zap_dir, ok;
+@@ -124,6 +130,9 @@ static int delete_item(char *fname, int 
+ 	if (!S_ISDIR(mode)) {
+ 		if (max_delete && ++deletion_count > max_delete)
+ 			return 0;
++#ifdef SUPPORT_FLAGS
++		make_mutable(fname, mode, fileflags);
++#endif
+ 		if (make_backups && (backup_dir || !is_backup_file(fname)))
+ 			ok = make_backup(fname);
+ 		else
+@@ -148,10 +157,17 @@ static int delete_item(char *fname, int 
+ 		ok = 0;
+ 		errno = ENOTEMPTY;
+ 	} else if (make_backups && !backup_dir && !is_backup_file(fname)
+-	    && !(flags & DEL_FORCE_RECURSE))
++	    && !(flags & DEL_FORCE_RECURSE)) {
++#ifdef SUPPORT_FLAGS
++		make_mutable(fname, mode, fileflags);
++#endif
+ 		ok = make_backup(fname);
+-	else
++	} else {
++#ifdef SUPPORT_FLAGS
++		make_mutable(fname, mode, fileflags);
++#endif
+ 		ok = do_rmdir(fname) == 0;
++	}
+ 	if (ok) {
+ 		if (!(flags & DEL_TERSE))
+ 			log_delete(fname, mode);
+@@ -186,7 +202,7 @@ static int delete_item(char *fname, int 
+ 			continue;
+ 
+ 		strlcpy(p, fp->basename, remainder);
+-		delete_item(fname, fp->mode, flags & ~DEL_TERSE);
++		delete_item(fname, fp->mode, FILEFLAGS(fp->fileflags), flags & ~DEL_TERSE);
+ 	}
+ 	flist_free(dirlist);
+ 
+@@ -276,7 +292,7 @@ static void delete_in_dir(struct file_li
+ 			continue;
+ 		if (flist_find(flist, fp) < 0) {
+ 			f_name(fp, delbuf);
+-			delete_item(delbuf, fp->mode, DEL_FORCE_RECURSE);
++			delete_item(delbuf, fp->mode, FILEFLAGS(fp->fileflags), DEL_FORCE_RECURSE);
+ 		}
+ 	}
+ 
+@@ -905,7 +921,7 @@ static void recv_generator(char *fname, 
+ 		 * we need to delete it.  If it doesn't exist, then
+ 		 * (perhaps recursively) create it. */
+ 		if (statret == 0 && !S_ISDIR(st.st_mode)) {
+-			if (delete_item(fname, st.st_mode, del_opts) < 0)
++			if (delete_item(fname, st.st_mode, FILEFLAGS(st.st_flags), del_opts) < 0)
+ 				return;
+ 			statret = -1;
+ 		}
+@@ -996,7 +1012,7 @@ static void recv_generator(char *fname, 
+ 			}
+ 			/* Not the right symlink (or not a symlink), so
+ 			 * delete it. */
+-			if (delete_item(fname, st.st_mode, del_opts) < 0)
++			if (delete_item(fname, st.st_mode, FILEFLAGS(st.st_flags), del_opts) < 0)
+ 				return;
+ 			if (!S_ISLNK(st.st_mode))
+ 				statret = -1;
+@@ -1063,7 +1079,7 @@ static void recv_generator(char *fname, 
+ 		 || (st.st_mode & ~CHMOD_BITS) != (file->mode & ~CHMOD_BITS)
+ 		 || st.st_rdev != file->u.rdev) {
+ 			if (statret == 0
+-			 && delete_item(fname, st.st_mode, del_opts) < 0)
++			 && delete_item(fname, st.st_mode, FILEFLAGS(st.st_flags), del_opts) < 0)
+ 				return;
+ 			if (preserve_hard_links && file->link_u.links
+ 			    && hard_link_check(file, ndx, fname, -1, &st,
+@@ -1148,7 +1164,7 @@ static void recv_generator(char *fname, 
+ 	fnamecmp_type = FNAMECMP_FNAME;
+ 
+ 	if (statret == 0 && !S_ISREG(st.st_mode)) {
+-		if (delete_item(fname, st.st_mode, del_opts) != 0)
++		if (delete_item(fname, st.st_mode, FILEFLAGS(st.st_flags), del_opts) != 0)
+ 			return;
+ 		statret = -1;
+ 		stat_errno = ENOENT;
+--- old/options.c
++++ new/options.c
+@@ -48,6 +48,7 @@ int copy_links = 0;
+ int preserve_links = 0;
+ int preserve_hard_links = 0;
+ int preserve_perms = 0;
++int preserve_flags = 0;
+ int preserve_executability = 0;
+ int preserve_devices = 0;
+ int preserve_specials = 0;
+@@ -201,6 +202,7 @@ static void print_rsync_version(enum log
+ 	char const *hardlinks = "no ";
+ 	char const *links = "no ";
+ 	char const *ipv6 = "no ";
++ 	char const *flags = "no ";
+ 	STRUCT_STAT *dumstat;
+ 
+ #ifdef HAVE_SOCKETPAIR
+@@ -223,6 +225,10 @@ static void print_rsync_version(enum log
+ 	ipv6 = "";
+ #endif
+ 
++#ifdef SUPPORT_FLAGS
++	flags = "";
++#endif
++
+ 	rprintf(f, "%s  version %s  protocol version %d\n",
+ 		RSYNC_NAME, RSYNC_VERSION, PROTOCOL_VERSION);
+ 	rprintf(f, "Copyright (C) 1996-2006 by Andrew Tridgell, Wayne Davison, and others.\n");
+@@ -235,9 +241,9 @@ static void print_rsync_version(enum log
+ 	/* Note that this field may not have type ino_t.  It depends
+ 	 * on the complicated interaction between largefile feature
+ 	 * macros. */
+-	rprintf(f, "              %sinplace, %sIPv6, "
++	rprintf(f, "              %sinplace, %sIPv6, %sfile flags, "
+ 		"%d-bit system inums, %d-bit internal inums\n",
+-		have_inplace, ipv6,
++		have_inplace, ipv6, flags,
+ 		(int) (sizeof dumstat->st_ino * 8),
+ 		(int) (sizeof (int64) * 8));
+ #ifdef MAINTAINER_MODE
+@@ -304,6 +310,7 @@ void usage(enum logcode F)
+   rprintf(F," -K, --keep-dirlinks         treat symlinked dir on receiver as dir\n");
+   rprintf(F," -H, --hard-links            preserve hard links\n");
+   rprintf(F," -p, --perms                 preserve permissions\n");
++  rprintf(F,"     --flags                 preserve file flags\n");
+   rprintf(F," -E, --executability         preserve the file's executability\n");
+   rprintf(F,"     --chmod=CHMOD           affect file and/or directory permissions\n");
+   rprintf(F," -o, --owner                 preserve owner (super-user only)\n");
+@@ -424,6 +431,8 @@ static struct poptOption long_options[] 
+   {"perms",           'p', POPT_ARG_VAL,    &preserve_perms, 1, 0, 0 },
+   {"no-perms",         0,  POPT_ARG_VAL,    &preserve_perms, 0, 0, 0 },
+   {"no-p",             0,  POPT_ARG_VAL,    &preserve_perms, 0, 0, 0 },
++  {"flags",            0,  POPT_ARG_VAL,    &preserve_flags, 1, 0, 0 },
++  {"no-flags",         0,  POPT_ARG_VAL,    &preserve_flags, 0, 0, 0 },
+   {"executability",   'E', POPT_ARG_NONE,   &preserve_executability, 0, 0, 0 },
+   {"times",           't', POPT_ARG_VAL,    &preserve_times, 1, 0, 0 },
+   {"no-times",         0,  POPT_ARG_VAL,    &preserve_times, 0, 0, 0 },
+@@ -1128,6 +1137,15 @@ int parse_arguments(int *argc, const cha
+ 	}
+ #endif
+ 
++#ifndef SUPPORT_FLAGS
++	if (preserve_flags) {
++		snprintf(err_buf, sizeof err_buf,
++			 "file flags are not supported on this %s\n",
++			 am_server ? "server" : "client");
++		return 0;
++	}
++#endif
++
+ 	if (write_batch && read_batch) {
+ 		snprintf(err_buf, sizeof err_buf,
+ 			"--write-batch and --read-batch can not be used together\n");
+@@ -1581,6 +1599,9 @@ void server_options(char **args,int *arg
+ 	if (xfer_dirs && !recurse && delete_mode && am_sender)
+ 		args[ac++] = "--no-r";
+ 
++	if (preserve_flags)
++		args[ac++] = "--flags";
++
+ 	if (do_compression && def_compress_level != Z_DEFAULT_COMPRESSION) {
+ 		if (asprintf(&arg, "--compress-level=%d", def_compress_level) < 0)
+ 			goto oom;
+--- old/rsync.c
++++ new/rsync.c
+@@ -30,9 +30,12 @@
+ #include <langinfo.h>
+ #endif
+ 
++#define NOCHANGE_FLAGS (UF_IMMUTABLE|UF_APPEND|UF_NOUNLINK|SF_IMMUTABLE|SF_APPEND|SF_NOUNLINK)
++
+ extern int verbose;
+ extern int dry_run;
+ extern int preserve_perms;
++extern int preserve_flags;
+ extern int preserve_executability;
+ extern int preserve_times;
+ extern int omit_dir_times;
+@@ -123,6 +126,41 @@ mode_t dest_mode(mode_t flist_mode, mode
+ 	return new_mode;
+ }
+ 
++#ifdef SUPPORT_FLAGS
++/* Set a file's st_flags. */
++static int set_fileflags(const char *fname, uint32 fileflags)
++{
++	if (do_chflags(fname, fileflags) != 0) {
++		rsyserr(FERROR, errno,
++			"failed to set file flags on %s",
++			full_fname(fname));
++		return 0;
++	}
++
++	return 1;
++}
++
++/* Remove immutable flags from an object, so it can be altered/removed. */
++void make_mutable(char *fname, mode_t mode, uint32 fileflags)
++{
++	if (!preserve_flags && S_ISLNK(mode))
++		return;
++
++	if (fileflags & NOCHANGE_FLAGS)
++		set_fileflags(fname, fileflags & ~NOCHANGE_FLAGS);
++}
++
++/* Undo a prior make_mutable() call. */
++void undo_make_mutable(char *fname, mode_t mode, uint32 fileflags)
++{
++	if (!preserve_flags && S_ISLNK(mode))
++		return;
++
++	if (fileflags & NOCHANGE_FLAGS)
++		set_fileflags(fname, fileflags);
++}
++#endif
++
+ int set_file_attrs(char *fname, struct file_struct *file, STRUCT_STAT *st,
+ 		   int flags)
+ {
+@@ -221,6 +259,15 @@ int set_file_attrs(char *fname, struct f
+ 	}
+ #endif
+ 
++#ifdef SUPPORT_FLAGS
++	if (preserve_flags && !S_ISLNK(st->st_mode)
++	 && st->st_flags != file->fileflags) {
++		if (!set_fileflags(fname, file->fileflags))
++			return 0;
++		updated = 1;
++	}
++#endif
++
+ 	if (verbose > 1 && flags & ATTRS_REPORT) {
+ 		if (updated)
+ 			rprintf(FCLIENT, "%s\n", fname);
+@@ -268,6 +315,9 @@ void finish_transfer(char *fname, char *
+ 	set_file_attrs(fnametmp, file, NULL,
+ 		       ok_to_set_time ? 0 : ATTRS_SKIP_MTIME);
+ 
++#ifdef SUPPORT_FLAGS
++	make_mutable(fnametmp, file->mode, file->fileflags);
++#endif
+ 	/* move tmp file over real file */
+ 	if (verbose > 2)
+ 		rprintf(FINFO, "renaming %s to %s\n", fnametmp, fname);
+@@ -282,6 +332,9 @@ void finish_transfer(char *fname, char *
+ 	}
+ 	if (ret == 0) {
+ 		/* The file was moved into place (not copied), so it's done. */
++#ifdef SUPPORT_FLAGS
++		undo_make_mutable(fname, file->mode, file->fileflags);
++#endif
+ 		return;
+ 	}
+ 	/* The file was copied, so tweak the perms of the copied file.  If it
+--- old/rsync.h
++++ new/rsync.h
+@@ -54,6 +54,7 @@
+ #define XMIT_HAS_IDEV_DATA (1<<9)
+ #define XMIT_SAME_DEV (1<<10)
+ #define XMIT_RDEV_MINOR_IS_SMALL (1<<11)
++#define XMIT_SAME_FLAGS (1<<12)
+ 
+ /* These flags are used in the live flist data. */
+ 
+@@ -344,6 +345,10 @@ enum msgcode {
+ #define schar char
+ #endif
+ 
++#ifdef HAVE_CHFLAGS
++#define SUPPORT_FLAGS 1
++#endif
++
+ /* Find a variable that is either exactly 32-bits or longer.
+  * If some code depends on 32-bit truncation, it will need to
+  * take special action in a "#if SIZEOF_INT32 > 4" section. */
+@@ -527,6 +532,9 @@ struct file_struct {
+ 		struct hlink *links;
+ 	} link_u;
+ 	time_t modtime;
++#ifdef SUPPORT_FLAGS
++	uint32 fileflags;
++#endif
+ 	uid_t uid;
+ 	gid_t gid;
+ 	mode_t mode;
+--- old/rsync.yo
++++ new/rsync.yo
+@@ -321,6 +321,7 @@ to the detailed description below for a 
+  -K, --keep-dirlinks         treat symlinked dir on receiver as dir
+  -H, --hard-links            preserve hard links
+  -p, --perms                 preserve permissions
++     --flags                 preserve file flags
+  -E, --executability         preserve executability
+      --chmod=CHMOD           affect file and/or directory permissions
+  -o, --owner                 preserve owner (super-user only)
+@@ -509,7 +510,9 @@ specified, in which case bf(-r) is not i
+ 
+ Note that bf(-a) bf(does not preserve hardlinks), because
+ finding multiply-linked files is expensive.  You must separately
+-specify bf(-H).
++specify bf(-H).  Note also that for compatibility, bf(-a)
++currently bf(does not include --flags) (see there) to include preserving
++change file flags (if supported by the OS).
+ 
+ dit(--no-OPTION) You may turn off one or more implied options by prefixing
+ the option name with "no-".  Not all options may be prefixed with a "no-":
+@@ -804,6 +807,13 @@ quote(itemization(
+ 
+ If bf(--perms) is enabled, this option is ignored.
+ 
++dit(bf(--flags)) This option causes rsync to update the change file flags
++to be the same as the source file, if your OS supports the bf(chflags)(2)
++system call.  In any case, an attempt is made to remove flags that would
++prevent a file to be altered.  Some flags can only be altered by the
++super-user and can only be unset below a certain secure-level (usually
++single-user mode).
++
+ dit(bf(--chmod)) This option tells rsync to apply one or more
+ comma-separated "chmod" strings to the permission of the files in the
+ transfer.  The resulting value is treated as though it was the permissions
+--- old/syscall.c
++++ new/syscall.c
+@@ -152,6 +152,15 @@ int do_chmod(const char *path, mode_t mo
+ }
+ #endif
+ 
++#ifdef SUPPORT_FLAGS
++int do_chflags(const char *path, u_long flags)
++{
++	if (dry_run) return 0;
++	RETURN_ERROR_IF_RO_OR_LO;
++	return chflags(path, flags);
++}
++#endif
++
+ int do_rename(const char *fname1, const char *fname2)
+ {
+ 	if (dry_run) return 0;
+--- old/proto.h
++++ new/proto.h
+@@ -224,6 +224,8 @@ int recv_files(int f_in, struct file_lis
+ void setup_iconv();
+ void free_sums(struct sum_struct *s);
+ mode_t dest_mode(mode_t flist_mode, mode_t stat_mode, int exists);
++void make_mutable(char *fname, mode_t mode, uint32 fileflags);
++void undo_make_mutable(char *fname, mode_t mode, uint32 fileflags);
+ int set_file_attrs(char *fname, struct file_struct *file, STRUCT_STAT *st,
+ 		   int flags);
+ RETSIGTYPE sig_int(UNUSED(int val));
+@@ -254,6 +256,7 @@ int do_mknod(char *pathname, mode_t mode
+ int do_rmdir(const char *pathname);
+ int do_open(const char *pathname, int flags, mode_t mode);
+ int do_chmod(const char *path, mode_t mode);
++int do_chflags(const char *path, u_long flags);
+ int do_rename(const char *fname1, const char *fname2);
+ void trim_trailing_slashes(char *name);
+ int do_mkdir(char *fname, mode_t mode);
+--- old/configure
++++ new/configure
+@@ -13474,12 +13474,13 @@ fi
+ 
+ 
+ 
++
+ for ac_func in waitpid wait4 getcwd strdup chown chmod lchmod mknod mkfifo \
+     fchmod fstat ftruncate strchr readlink link utime utimes lutimes strftime \
+     memmove lchown vsnprintf snprintf vasprintf asprintf setsid glob strpbrk \
+     strlcat strlcpy strtol mallinfo getgroups setgroups geteuid getegid \
+     setlocale setmode open64 lseek64 mkstemp64 mtrace va_copy __va_copy \
+-    strerror putenv iconv_open locale_charset nl_langinfo \
++    chflags strerror putenv iconv_open locale_charset nl_langinfo \
+     sigaction sigprocmask
+ do
+ as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
+--- old/config.h.in
++++ new/config.h.in
+@@ -49,6 +49,9 @@
+ /* Define to 1 if vsprintf has a C99-compatible return value */
+ #undef HAVE_C99_VSNPRINTF
+ 
++/* Define to 1 if you have the `chflags' function. */
++#undef HAVE_CHFLAGS
++
+ /* Define to 1 if you have the `chmod' function. */
+ #undef HAVE_CHMOD
+ 
+--- old/rsync.1
++++ new/rsync.1
+@@ -387,6 +387,7 @@ to the detailed description below for a 
+  \-K, \-\-keep\-dirlinks         treat symlinked dir on receiver as dir
+  \-H, \-\-hard\-links            preserve hard links
+  \-p, \-\-perms                 preserve permissions
++     \-\-flags                 preserve file flags
+  \-E, \-\-executability         preserve executability
+      \-\-chmod=CHMOD           affect file and/or directory permissions
+  \-o, \-\-owner                 preserve owner (super-user only)
+@@ -591,7 +592,9 @@ specified, in which case \fB\-r\fP is no
+ .IP 
+ Note that \fB\-a\fP \fBdoes not preserve hardlinks\fP, because
+ finding multiply-linked files is expensive\&.  You must separately
+-specify \fB\-H\fP\&.
++specify \fB\-H\fP\&.  Note also that for compatibility, \fB\-a\fP
++currently \fBdoes not include \-\-flags\fP (see there) to include preserving
++change file flags (if supported by the OS)\&.
+ .IP 
+ .IP "\-\-no\-OPTION"
+ You may turn off one or more implied options by prefixing
+@@ -932,6 +935,14 @@ has a corresponding \&'r\&' permission e
+ .IP 
+ If \fB\-\-perms\fP is enabled, this option is ignored\&.
+ .IP 
++.IP "\fB\-\-flags\fP"
++This option causes rsync to update the change file flags
++to be the same as the source file, if your OS supports the \fBchflags\fP(2)
++system call\&.  In any case, an attempt is made to remove flags that would
++prevent a file to be altered\&.  Some flags can only be altered by the
++super-user and can only be unset below a certain secure-level (usually
++single-user mode)\&.
++.IP 
+ .IP "\fB\-\-chmod\fP"
+ This option tells rsync to apply one or more
+ comma-separated "chmod" strings to the permission of the files in the

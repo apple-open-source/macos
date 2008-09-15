@@ -1,40 +1,38 @@
-/* -*- c-file-style: "linux"; -*-
+/*
+ * Support rsync daemon authentication.
+ *
+ * Copyright (C) 1998-2000 Andrew Tridgell
+ * Copyright (C) 2002, 2004, 2005, 2006 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
-   Copyright (C) 1998-2000 by Andrew Tridgell
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
-
-/* support rsync authentication */
 #include "rsync.h"
 
 extern char *password_file;
-extern int am_root;
 
 /***************************************************************************
 encode a buffer using base64 - simple and slow algorithm. null terminates
 the result.
   ***************************************************************************/
-void base64_encode(char *buf, int len, char *out)
+void base64_encode(char *buf, int len, char *out, int pad)
 {
 	char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	int bit_offset, byte_offset, idx, i;
 	unsigned char *d = (unsigned char *)buf;
 	int bytes = (len*8 + 5)/6;
-
-	memset(out, 0, bytes+1);
 
 	for (i = 0; i < bytes; i++) {
 		byte_offset = (i*6)/8;
@@ -49,12 +47,18 @@ void base64_encode(char *buf, int len, char *out)
 		}
 		out[i] = b64[idx];
 	}
+
+	while (pad && (i % 4))
+		out[i++] = '=';
+
+	out[i] = '\0';
 }
 
-/* create a 16 byte challenge buffer */
+/* Generate a challenge buffer and return it base64-encoded. */
 static void gen_challenge(char *addr, char *challenge)
 {
 	char input[32];
+	char md4_out[MD4_SUM_LENGTH];
 	struct timeval tv;
 
 	memset(input, 0, sizeof input);
@@ -67,7 +71,9 @@ static void gen_challenge(char *addr, char *challenge)
 
 	sum_init(0);
 	sum_update(input, sizeof input);
-	sum_end(challenge);
+	sum_end(md4_out);
+
+	base64_encode(md4_out, MD4_SUM_LENGTH, challenge, 0);
 }
 
 
@@ -93,7 +99,7 @@ static int get_secret(int module, char *user, char *secret, int len)
 		if ((st.st_mode & 06) != 0) {
 			rprintf(FLOG, "secrets file must not be other-accessible (see strict modes option)\n");
 			ok = 0;
-		} else if (am_root && (st.st_uid != 0)) {
+		} else if (MY_UID() == 0 && st.st_uid != 0) {
 			rprintf(FLOG, "secrets file must be owned by root when running as root (see strict modes)\n");
 			ok = 0;
 		}
@@ -156,7 +162,8 @@ static char *getpassf(char *filename)
 		return NULL;
 
 	if ((fd = open(filename,O_RDONLY)) < 0) {
-		rsyserr(FERROR, errno, "could not open password file \"%s\"",filename);
+		rsyserr(FERROR, errno, "could not open password file \"%s\"",
+			filename);
 		if (envpw)
 			rprintf(FERROR, "falling back to RSYNC_PASSWORD environment variable.\n");
 		return NULL;
@@ -168,7 +175,7 @@ static char *getpassf(char *filename)
 	} else if ((st.st_mode & 06) != 0) {
 		rprintf(FERROR,"password file must not be other-accessible\n");
 		ok = 0;
-	} else if (am_root && st.st_uid != 0) {
+	} else if (MY_UID() == 0 && st.st_uid != 0) {
 		rprintf(FERROR,"password file must be owned by root when running as root\n");
 		ok = 0;
 	}
@@ -194,17 +201,18 @@ static char *getpassf(char *filename)
 	return NULL;
 }
 
-/* generate a 16 byte hash from a password and challenge */
+/* Generate an MD4 hash created from the combination of the password
+ * and the challenge string and return it base64-encoded. */
 static void generate_hash(char *in, char *challenge, char *out)
 {
-	char buf[16];
+	char buf[MD4_SUM_LENGTH];
 
 	sum_init(0);
 	sum_update(in, strlen(in));
 	sum_update(challenge, strlen(challenge));
 	sum_end(buf);
 
-	base64_encode(buf, 16, out);
+	base64_encode(buf, MD4_SUM_LENGTH, out, 0);
 }
 
 /* Possibly negotiate authentication with the client.  Use "leader" to
@@ -213,17 +221,15 @@ static void generate_hash(char *in, char *challenge, char *out)
  * Return NULL if authentication failed.  Return "" if anonymous access.
  * Otherwise return username.
  */
-char *auth_server(int f_in, int f_out, int module, char *addr, char *leader)
+char *auth_server(int f_in, int f_out, int module, char *host, char *addr,
+		  char *leader)
 {
 	char *users = lp_auth_users(module);
-	char challenge[16];
-	char b64_challenge[30];
-	char line[MAXPATHLEN];
-	static char user[100];
-	char secret[100];
-	char pass[30];
-	char pass2[30];
-	char *tok;
+	char challenge[MD4_SUM_LENGTH*2];
+	char line[BIGPATHBUFLEN];
+	char secret[512];
+	char pass2[MD4_SUM_LENGTH*2];
+	char *tok, *pass;
 
 	/* if no auth list then allow anyone in! */
 	if (!users || !*users)
@@ -231,52 +237,60 @@ char *auth_server(int f_in, int f_out, int module, char *addr, char *leader)
 
 	gen_challenge(addr, challenge);
 
-	base64_encode(challenge, 16, b64_challenge);
+	io_printf(f_out, "%s%s\n", leader, challenge);
 
-	io_printf(f_out, "%s%s\n", leader, b64_challenge);
-
-	if (!read_line(f_in, line, sizeof line - 1))
+	if (!read_line(f_in, line, sizeof line - 1)
+	 || (pass = strchr(line, ' ')) == NULL) {
+		rprintf(FLOG, "auth failed on module %s from %s (%s): "
+			"invalid challenge response\n",
+			lp_name(module), host, addr);
 		return NULL;
+	}
+	*pass++ = '\0';
 
-	memset(user, 0, sizeof user);
-	memset(pass, 0, sizeof pass);
+	if (!(users = strdup(users)))
+		out_of_memory("auth_server");
 
-	if (sscanf(line,"%99s %29s", user, pass) != 2)
-		return NULL;
-
-	users = strdup(users);
-	if (!users)
-		return NULL;
-
-	for (tok=strtok(users," ,\t"); tok; tok = strtok(NULL," ,\t")) {
-		if (wildmatch(tok, user))
+	for (tok = strtok(users, " ,\t"); tok; tok = strtok(NULL, " ,\t")) {
+		if (wildmatch(tok, line))
 			break;
 	}
 	free(users);
 
-	if (!tok)
-		return NULL;
-
-	memset(secret, 0, sizeof secret);
-	if (!get_secret(module, user, secret, sizeof secret - 1)) {
-		memset(secret, 0, sizeof secret);
+	if (!tok) {
+		rprintf(FLOG, "auth failed on module %s from %s (%s): "
+			"unauthorized user\n",
+			lp_name(module), host, addr);
 		return NULL;
 	}
 
-	generate_hash(secret, b64_challenge, pass2);
+	memset(secret, 0, sizeof secret);
+	if (!get_secret(module, line, secret, sizeof secret - 1)) {
+		memset(secret, 0, sizeof secret);
+		rprintf(FLOG, "auth failed on module %s from %s (%s): "
+			"missing secret for user \"%s\"\n",
+			lp_name(module), host, addr, line);
+		return NULL;
+	}
+
+	generate_hash(secret, challenge, pass2);
 	memset(secret, 0, sizeof secret);
 
-	if (strcmp(pass, pass2) == 0)
-		return user;
+	if (strcmp(pass, pass2) != 0) {
+		rprintf(FLOG, "auth failed on module %s from %s (%s): "
+			"password mismatch\n",
+			lp_name(module), host, addr);
+		return NULL;
+	}
 
-	return NULL;
+	return strdup(line);
 }
 
 
 void auth_client(int fd, char *user, char *challenge)
 {
 	char *pass;
-	char pass2[30];
+	char pass2[MD4_SUM_LENGTH*2];
 
 	if (!user || !*user)
 		user = "nobody";
@@ -301,5 +315,3 @@ void auth_client(int fd, char *user, char *challenge)
 	generate_hash(pass, challenge, pass2);
 	io_printf(fd, "%s %s\n", user, pass2);
 }
-
-

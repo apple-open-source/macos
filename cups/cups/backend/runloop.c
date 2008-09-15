@@ -1,5 +1,5 @@
 /*
- * "$Id: runloop.c 6835 2007-08-22 18:34:34Z mike $"
+ * "$Id: runloop.c 7648 2008-06-16 17:41:11Z mike $"
  *
  *   Common run loop APIs for the Common UNIX Printing System (CUPS).
  *
@@ -212,7 +212,7 @@ backendRunLoop(
       FD_SET(print_fd, &input);
     if (use_bc)
       FD_SET(device_fd, &input);
-    if (side_cb)
+    if (!print_bytes && side_cb)
       FD_SET(CUPS_SC_FD, &input);
 
     FD_ZERO(&output);
@@ -250,7 +250,15 @@ backendRunLoop(
     */
 
     if (side_cb && FD_ISSET(CUPS_SC_FD, &input))
+    {
+     /*
+      * Do the side-channel request, then start back over in the select
+      * loop since it may have read from print_fd...
+      */
+
       (*side_cb)(print_fd, device_fd, use_bc);
+      continue;
+    }
 
    /*
     * Check if we have back-channel data ready...
@@ -374,5 +382,5 @@ backendRunLoop(
 
 
 /*
- * End of "$Id: runloop.c 6835 2007-08-22 18:34:34Z mike $".
+ * End of "$Id: runloop.c 7648 2008-06-16 17:41:11Z mike $".
  */

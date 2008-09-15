@@ -17,7 +17,7 @@
 		72619B8C0CFBF9FC008EAB93 /* IOHIDSystem.h in Headers */ = {isa = PBXBuildFile; fileRef = F5AB66D102ADD67601FF6135 /* IOHIDSystem.h */; };
 		72619B8D0CFBF9FD008EAB93 /* IOHIDSystem.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5AB66C102ADD67601FF6135 /* IOHIDSystem.cpp */; };
 		72619B8F0CFBFA0D008EAB93 /* IOHIDTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = F5AB66D202ADD67601FF6135 /* IOHIDTypes.h */; };
-		72619B900CFBFA19008EAB93 /* IOHIKeyboard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5AB66C402ADD67601FF6135 /* IOHIKeyboard.cpp */; };
+		72619B900CFBFA19008EAB93 /* IOHIKeyboard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5AB66C402ADD67601FF6135 /* IOHIKeyboard.cpp */; settings = {COMPILER_FLAGS = "-Wall"; }; };
 		72619B910CFBFA1B008EAB93 /* IOHIKeyboard.h in Headers */ = {isa = PBXBuildFile; fileRef = F5AB66D402ADD67601FF6135 /* IOHIKeyboard.h */; };
 		72619B920CFBFA1C008EAB93 /* IOHIKeyboardMapper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5AB66C502ADD67601FF6135 /* IOHIKeyboardMapper.cpp */; };
 		72619B930CFBFA1D008EAB93 /* IOHIKeyboardMapper.h in Headers */ = {isa = PBXBuildFile; fileRef = F5AB66D502ADD67601FF6135 /* IOHIKeyboardMapper.h */; };
@@ -769,6 +769,7 @@
 		02CE16E9FFFAC28A11CA2CF6 /* IOHIDQueueClass.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDQueueClass.h; sourceTree = "<group>"; };
 		0A308BA3FFFA5B7A11CA29FD /* IOHIDEventQueue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDEventQueue.cpp; sourceTree = "<group>"; };
 		0A308BA4FFFA5B7A11CA29FD /* IOHIDEventQueue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDEventQueue.h; sourceTree = "<group>"; };
+		35639D670E22DE6900E15993 /* IOHIDFamily.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOHIDFamily.xcconfig; sourceTree = "<group>"; };
 		583C4C91030989AE04CA2A11 /* IOHIDKeyboard.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDKeyboard.h; sourceTree = "<group>"; };
 		583C4C92030989AE04CA2A11 /* IOHIDKeyboard.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDKeyboard.cpp; sourceTree = "<group>"; };
 		583C4D890309B2BA04CA2A11 /* Cosmo_USB2ADB.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = Cosmo_USB2ADB.c; sourceTree = "<group>"; };
@@ -991,6 +992,7 @@
 		014D176AFFE1C65511CA2CF6 /* IOHIDFamily */ = {
 			isa = PBXGroup;
 			children = (
+				35639D670E22DE6900E15993 /* IOHIDFamily.xcconfig */,
 				848E577F0CC55F2D00D5BE22 /* Info-IOHIDFamily.plist */,
 				84D291F50CC5EA7E00698218 /* Info-IOHIDFamily-Embedded.plist */,
 				848E578A0CC55F5800D5BE22 /* Info-IOHIDUserClient.plist */,
@@ -2910,13 +2912,17 @@
 		};
 		848E57C10CC56CFE00D5BE22 /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 35639D670E22DE6900E15993 /* IOHIDFamily.xcconfig */;
 			buildSettings = {
+				MODULE_VERSION = "$(IOHIDFAMILY_VERSION)";
 			};
 			name = "Development-Embedded";
 		};
 		848E57C20CC56CFE00D5BE22 /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 35639D670E22DE6900E15993 /* IOHIDFamily.xcconfig */;
 			buildSettings = {
+				MODULE_VERSION = "$(IOHIDFAMILY_VERSION)";
 			};
 			name = "Deployment-Embedded";
 		};
@@ -3805,13 +3811,17 @@
 		};
 		84EC18A608D8FA9B00E9F643 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 35639D670E22DE6900E15993 /* IOHIDFamily.xcconfig */;
 			buildSettings = {
+				MODULE_VERSION = "$(IOHIDFAMILY_VERSION)";
 			};
 			name = Development;
 		};
 		84EC18A708D8FA9B00E9F643 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 35639D670E22DE6900E15993 /* IOHIDFamily.xcconfig */;
 			buildSettings = {
+				MODULE_VERSION = "$(IOHIDFAMILY_VERSION)";
 			};
 			name = Deployment;
 		};

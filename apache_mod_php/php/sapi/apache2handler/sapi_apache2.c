@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.57.2.10.2.15 2007/06/28 17:23:07 tony2001 Exp $ */
+/* $Id: sapi_apache2.c,v 1.57.2.10.2.17 2008/01/16 15:50:37 iliaa Exp $ */
 
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
@@ -134,8 +134,6 @@ php_apache_sapi_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 		ctx->r->proto_num = 1000 + (sline[7]-'0');
 		if ((sline[7]-'0') == 0) {
 			apr_table_set(ctx->r->subprocess_env, "force-response-1.0", "true");
-		} else {
-			apr_table_set(ctx->r->subprocess_env, "force-response-1.1", "true");
 		}
 	}
 	

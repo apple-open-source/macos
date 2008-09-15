@@ -1,32 +1,33 @@
 /*
-   Copyright (C) Andrew Tridgell 1996
-   Copyright (C) Paul Mackerras 1996
+ * Handle the mapping of uid/gid and user/group names between systems.
+ *
+ * Copyright (C) 1996 Andrew Tridgell
+ * Copyright (C) 1996 Paul Mackerras
+ * Copyright (C) 2004, 2005, 2006 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
-
-/* handle the mapping of uid/gid and user/group names between systems.
-   If the source username/group does not exist on the target then use
-   the numeric IDs. Never do any mapping for uid=0 or gid=0 as these
-   are special.
-*/
+/* If the source username/group does not exist on the target then use
+ * the numeric IDs.  Never do any mapping for uid=0 or gid=0 as these
+ * are special. */
 
 #include "rsync.h"
 
 #ifdef HAVE_GETGROUPS
-# if !defined(GETGROUPS_T)
+# ifndef GETGROUPS_T
 #  define GETGROUPS_T gid_t
 # endif
 #endif
@@ -125,12 +126,10 @@ static int is_in_group(gid_t gid)
 			char *gidbuf = new_array(char, ngroups*21+32);
 			if (!gidbuf)
 				out_of_memory("is_in_group");
-			sprintf(gidbuf, "process has %d gid%s: ",
-			    ngroups, ngroups == 1? "" : "s");
-			pos = strlen(gidbuf);
+			pos = snprintf(gidbuf, 32, "process has %d gid%s: ",
+				       ngroups, ngroups == 1? "" : "s");
 			for (n = 0; n < ngroups; n++) {
-				sprintf(gidbuf+pos, " %d", (int)gidset[n]);
-				pos += strlen(gidbuf+pos);
+				pos += snprintf(gidbuf+pos, 21, " %d", (int)gidset[n]);
 			}
 			rprintf(FINFO, "%s\n", gidbuf);
 			free(gidbuf);
@@ -324,7 +323,6 @@ void recv_uid_list(int f, struct file_list *flist)
 		}
 	}
 
-
 	if (preserve_gid && !numeric_ids) {
 		/* read the gid list */
 		while ((id = read_int(f)) != 0) {
@@ -337,8 +335,7 @@ void recv_uid_list(int f, struct file_list *flist)
 		}
 	}
 
-	/* now convert the uid/gid of all files in the list to the mapped
-	 * uid/gid */
+	/* Now convert all the uids/gids from sender values to our values. */
 	if (am_root && preserve_uid && !numeric_ids) {
 		for (i = 0; i < flist->count; i++)
 			flist->files[i]->uid = match_uid(flist->files[i]->uid);

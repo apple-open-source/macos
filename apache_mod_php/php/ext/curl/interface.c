@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: interface.c,v 1.62.2.14.2.29 2007/10/13 11:35:35 bjori Exp $ */
+/* $Id: interface.c,v 1.62.2.14.2.34 2008/01/06 17:12:29 iliaa Exp $ */
 
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
@@ -153,7 +153,7 @@ static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 
 #define CAAL(s, v) add_assoc_long_ex(return_value, s, sizeof(s), (long) v);
 #define CAAD(s, v) add_assoc_double_ex(return_value, s, sizeof(s), (double) v);
-#define CAAS(s, v) add_assoc_string_ex(return_value, s, sizeof(s), (char *) v, 1);
+#define CAAS(s, v) add_assoc_string_ex(return_value, s, sizeof(s), (char *) (v ? v : ""), 1);
 #define CAAZ(s, v) add_assoc_zval_ex(return_value, s, sizeof(s), (zval *) v);
 
 #if defined(PHP_WIN32) || defined(__GNUC__)
@@ -173,7 +173,7 @@ static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 			php_curl_ret(__ret);											\
 		} 													\
 															\
-		if (!php_memnstr(str, tmp_url->path, strlen(tmp_url->path), str + len)) {				\
+		if (tmp_url->host || !php_memnstr(str, tmp_url->path, strlen(tmp_url->path), str + len)) {				\
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "URL '%s' contains unencoded control characters", str);	\
 			php_url_free(tmp_url); 																\
 			php_curl_ret(__ret);											\
@@ -931,7 +931,7 @@ static size_t curl_write_header(char *data, size_t size, size_t nmemb, void *ctx
 }
 /* }}} */
 
-static int curl_debug(CURL *cp, curl_infotype type, char *buf, size_t buf_len, void *ctx)
+static int curl_debug(CURL *cp, curl_infotype type, char *buf, size_t buf_len, void *ctx) /* {{{ */
 {
 	php_curl    *ch   = (php_curl *) ctx;
 
@@ -947,6 +947,7 @@ static int curl_debug(CURL *cp, curl_infotype type, char *buf, size_t buf_len, v
 
 	return 0;
 }
+/* }}} */
 
 #if CURLOPT_PASSWDFUNCTION != 0
 /* {{{ curl_passwd
@@ -1074,9 +1075,9 @@ static void alloc_curl_handle(php_curl **ch)
 		
 	memset(&(*ch)->err, 0, sizeof((*ch)->err));
 	
-	zend_llist_init(&(*ch)->to_free.str,   sizeof(char *),            (void(*)(void *)) curl_free_string, 0);
-	zend_llist_init(&(*ch)->to_free.slist, sizeof(struct curl_slist), (void(*)(void *)) curl_free_slist,  0);
-	zend_llist_init(&(*ch)->to_free.post,  sizeof(struct HttpPost),   (void(*)(void *)) curl_free_post,   0);
+	zend_llist_init(&(*ch)->to_free.str,   sizeof(char *),            (llist_dtor_func_t) curl_free_string, 0);
+	zend_llist_init(&(*ch)->to_free.slist, sizeof(struct curl_slist), (llist_dtor_func_t) curl_free_slist,  0);
+	zend_llist_init(&(*ch)->to_free.post,  sizeof(struct HttpPost),   (llist_dtor_func_t) curl_free_post,   0);
 }
 /* }}} */
 
@@ -1204,6 +1205,8 @@ PHP_FUNCTION(curl_copy_handle)
 	curl_easy_setopt(dupch->cp, CURLOPT_WRITEHEADER,       (void *) dupch);
 
 	zend_llist_copy(&dupch->to_free.str, &ch->to_free.str);
+	/* Don't try to free copied strings, they're free'd when the original handle is destroyed */
+	dupch->to_free.str.dtor = NULL;
 	zend_llist_copy(&dupch->to_free.slist, &ch->to_free.slist);
 	zend_llist_copy(&dupch->to_free.post, &ch->to_free.post);
 
@@ -1212,7 +1215,7 @@ PHP_FUNCTION(curl_copy_handle)
 }
 /* }}} */
 
-static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *return_value TSRMLS_DC)
+static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *return_value TSRMLS_DC) /* {{{ */
 {
 	CURLcode     error=CURLE_OK;
 
@@ -1601,6 +1604,7 @@ static int _php_curl_setopt(php_curl *ch, long option, zval **zvalue, zval *retu
 		return 0;
 	}
 }
+/* }}} */
 
 /* {{{ proto bool curl_setopt(resource ch, int option, mixed value)
    Set an option for a cURL transfer */

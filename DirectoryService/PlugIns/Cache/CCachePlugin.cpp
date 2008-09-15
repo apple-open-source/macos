@@ -2553,16 +2553,16 @@ sCacheValidation* ParsePasswdEntry( tDirReference inDirRef, tDirNodeReference in
             }
         }
         
-        if( valueRef != 0 )
+        if ( valueRef != 0 )
         {
             dsCloseAttributeValueList( valueRef );
             valueRef = 0;
         }
         
-        if (pAttrEntry != nil)
+        if ( pAttrEntry != NULL )
         {
-            dsDeallocAttributeEntry(inDirRef, pAttrEntry);
-            pAttrEntry = nil;
+            dsDeallocAttributeEntry( inDirRef, pAttrEntry );
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -2650,11 +2650,17 @@ sCacheValidation* ParseGroupEntry( tDirReference inDirRef, tDirNodeReference inN
                 pValueEntry = NULL;
             }
         }
-        dsCloseAttributeValueList(valueRef);
-        if (pAttrEntry != nil)
+        
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -2783,11 +2789,17 @@ sCacheValidation* ParseMountEntry( tDirReference inDirRef, tDirNodeReference inN
                 pValueEntry = NULL;
             }
         }
-        dsCloseAttributeValueList(valueRef);
-        if (pAttrEntry != nil)
+        
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -2878,11 +2890,17 @@ sCacheValidation* ParseAliasEntry( tDirReference inDirRef, tDirNodeReference inN
                 pValueEntry = NULL;
             }
         }
-        dsCloseAttributeValueList(valueRef);
-        if (pAttrEntry != nil)
+        
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -3024,12 +3042,17 @@ sCacheValidation* ParseServiceEntry( tDirReference inDirRef, tDirNodeReference i
                 pValueEntry = NULL;
             }
         }
-        dsCloseAttributeValueList(valueRef);
         
-        if (pAttrEntry != nil)
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -3142,11 +3165,17 @@ sCacheValidation* ParseProtocolEntry( tDirReference inDirRef, tDirNodeReference 
                 pValueEntry = NULL;
             }
         }
-        dsCloseAttributeValueList(valueRef);
-        if (pAttrEntry != nil)
+        
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -3226,11 +3255,17 @@ sCacheValidation* ParseRPCEntry( tDirReference inDirRef, tDirNodeReference inNod
                 pValueEntry = NULL;
             }
         }
-        dsCloseAttributeValueList(valueRef);
-        if (pAttrEntry != nil)
+        
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -3311,11 +3346,17 @@ sCacheValidation* ParseNetworkEntry( tDirReference inDirRef, tDirNodeReference i
                 pValueEntry = NULL;
             }
         }
-        dsCloseAttributeValueList(valueRef);
-        if (pAttrEntry != nil)
+        
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -3475,11 +3516,16 @@ nextValue:
             }
         }
         
-        dsCloseAttributeValueList(valueRef);
-        if (pAttrEntry != nil)
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -3600,11 +3646,17 @@ sCacheValidation* ParseHostEntry( tDirReference inDirRef, tDirNodeReference inNo
                 pValueEntry = NULL;
             }
         }
-        dsCloseAttributeValueList(valueRef);
-        if (pAttrEntry != nil)
+        
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -3664,11 +3716,17 @@ sCacheValidation* ParseEthernetEntry( tDirReference inDirRef, tDirNodeReference 
                 pValueEntry = NULL;
             }
         }
-        dsCloseAttributeValueList(valueRef);
-        if (pAttrEntry != nil)
+        
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     
@@ -3768,9 +3826,18 @@ sCacheValidation* ParseBootpEntry( tDirReference inDirRef, tDirNodeReference inN
                         }
                     }
                 }
-                
+            }
+            
+            if ( valueRef != 0 )
+            {
+                dsCloseAttributeValueList( valueRef );
+                valueRef = 0;
+            }
+                        
+            if ( pAttrEntry != NULL )
+            {
                 dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-                pAttrEntry = nil;
+                pAttrEntry = NULL;
             }
         }
     }
@@ -3864,11 +3931,17 @@ sCacheValidation* ParseBootpEntry( tDirReference inDirRef, tDirNodeReference inN
                 pValueEntry = NULL;
             }
         }
-        dsCloseAttributeValueList(valueRef);
-        if (pAttrEntry != nil)
+        
+        if ( valueRef != 0 )
+        {
+            dsCloseAttributeValueList( valueRef );
+            valueRef = 0;
+        }
+        
+        if ( pAttrEntry != NULL )
         {
             dsDeallocAttributeEntry( inDirRef, pAttrEntry );
-            pAttrEntry = nil;
+            pAttrEntry = NULL;
         }
     } //loop over attrs requested
     

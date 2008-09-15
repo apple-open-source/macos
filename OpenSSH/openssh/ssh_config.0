@@ -40,10 +40,12 @@ DESCRIPTION
 
      Host    Restricts the following declarations (up to the next Host key-
              word) to be only for those hosts that match one of the patterns
-             given after the keyword.  A single `*' as a pattern can be used
-             to provide global defaults for all hosts.  The host is the
-             hostname argument given on the command line (i.e. the name is not
-             converted to a canonicalized host name before matching).
+             given after the keyword.  If more than one pattern is provided,
+             they should be separated by whitepsace.  A single `*' as a pat-
+             tern can be used to provide global defaults for all hosts.  The
+             host is the hostname argument given on the command line (i.e. the
+             name is not converted to a canonicalized host name before match-
+             ing).
 
              See PATTERNS for more information on patterns.
 
@@ -324,6 +326,11 @@ DESCRIPTION
              It is possible to have multiple identity files specified in con-
              figuration files; all these identities will be tried in sequence.
 
+     KbdInteractiveAuthentication
+             Specifies whether to use keyboard-interactive authentication.
+             The argument to this keyword must be ``yes'' or ``no''.  The de-
+             fault is ``yes''.
+
      KbdInteractiveDevices
              Specifies the list of methods to use in keyboard-interactive au-
              thentication.  Multiple method names must be comma-separated.
@@ -335,8 +342,13 @@ DESCRIPTION
      LocalCommand
              Specifies a command to execute on the local machine after suc-
              cessfully connecting to the server.  The command string extends
-             to the end of the line, and is executed with /bin/sh.  This di-
-             rective is ignored unless PermitLocalCommand has been enabled.
+             to the end of the line, and is executed with the user's shell.
+             The following escape character substitutions will be performed:
+             `%d' (local user's home directory), `%h' (remote host name), `%l'
+             (local host name), `%n' (host name as provided on the command
+             line), `%p' (remote port), `%r' (remote user name) or `%u' (local
+             user name).  This directive is ignored unless PermitLocalCommand
+             has been enabled.
 
      LocalForward
              Specifies that a TCP port on the local machine be forwarded over
@@ -413,16 +425,16 @@ DESCRIPTION
      ProxyCommand
              Specifies the command to use to connect to the server.  The com-
              mand string extends to the end of the line, and is executed with
-             /bin/sh.  In the command string, `%h' will be substituted by the
-             host name to connect and `%p' by the port.  The command can be
-             basically anything, and should read from its standard input and
-             write to its standard output.  It should eventually connect an
-             sshd(8) server running on some machine, or execute sshd -i some-
-             where.  Host key management will be done using the HostName of
-             the host being connected (defaulting to the name typed by the us-
-             er).  Setting the command to ``none'' disables this option en-
-             tirely.  Note that CheckHostIP is not available for connects with
-             a proxy command.
+             the user's shell.  In the command string, `%h' will be substitut-
+             ed by the host name to connect and `%p' by the port.  The command
+             can be basically anything, and should read from its standard in-
+             put and write to its standard output.  It should eventually con-
+             nect an sshd(8) server running on some machine, or execute sshd
+             -i somewhere.  Host key management will be done using the Host-
+             Name of the host being connected (defaulting to the name typed by
+             the user).  Setting the command to ``none'' disables this option
+             entirely.  Note that CheckHostIP is not available for connects
+             with a proxy command.
 
              This directive is useful in conjunction with nc(1) and its proxy
              support.  For example, the following directive would connect via
@@ -595,6 +607,12 @@ DESCRIPTION
 
              See also VERIFYING HOST KEYS in ssh(1).
 
+     VisualHostKey
+             If this flag is set to ``yes'', an ASCII art representation of
+             the remote host key fingerprint is printed additionally to the
+             hex fingerprint string.  If this flag is set to ``no'', only the
+             hex fingerprint string will be printed.  The default is ``no''.
+
      XAuthLocation
              Specifies the full pathname of the xauth(1) program.  The default
              is /usr/X11R6/bin/xauth.
@@ -644,4 +662,4 @@ AUTHORS
      ated OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 4.2                     August 15, 2007                             10
+OpenBSD 4.4                      June 26, 2008                              11

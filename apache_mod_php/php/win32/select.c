@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -21,7 +21,7 @@
 
 #ifdef PHP_WIN32
 
-/* $Id: select.c,v 1.10.2.2.2.2 2007/04/16 08:09:56 dmitry Exp $ */
+/* $Id: select.c,v 1.10.2.2.2.3 2007/12/31 07:20:17 sebastian Exp $ */
 
 /* Win32 select() will only work with sockets, so we roll our own implementation here.
  * - If you supply only sockets, this simply passes through to winsock select().

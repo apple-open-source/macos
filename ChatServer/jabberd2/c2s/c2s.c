@@ -332,6 +332,29 @@ static int _c2s_client_sx_callback(sx_t s, sx_event_t e, void *data, void *arg) 
             /* they sasl auth'd, so we only want the new-style session start */
             else {
                 log_write(sess->c2s->log, LOG_NOTICE, "[%d] SASL authentication succeeded: mechanism=%s; authzid=%s", sess->s->tag, &sess->s->auth_method[5], sess->s->auth_id);
+
+                /* Apple SACL check */
+#ifdef APPLE_ENABLE_OD_AUTH
+                jid_t jid;
+                jid = jid_new(sess->c2s->pc, sess->s->auth_id, -1); 
+                if (NULL == jid) {
+                    log_debug(ZONE, "jid_new returned NULL for userid %s", sess->s->auth_id);
+                    sx_error(s, stream_err_INTERNAL_SERVER_ERROR, "failure during authorization");
+                    sx_close(s);
+                    jid_free(jid);
+                    break;
+                }
+                int iErr = od_auth_check_service_membership(jid->node, APPLE_CHAT_SACL_NAME);
+                log_debug(ZONE, "_ar_od_check_password(): od_auth_check_service_membership returned %d for %s", iErr, jid->node);
+                if (iErr != 1) {
+                    sx_error(s, stream_err_NOT_AUTHORIZED, "Authorization failed");
+                    sx_close(s);
+                    jid_free(jid);
+                    break;
+                }
+                jid_free(jid);
+#endif
+
                 sess->sasl_authd = 1;
             }
 

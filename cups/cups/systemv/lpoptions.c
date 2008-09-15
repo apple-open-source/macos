@@ -1,9 +1,9 @@
 /*
- * "$Id: lpoptions.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: lpoptions.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Printer option program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -96,7 +96,9 @@ main(int  argc,				/* I - Number of command-line arguments */
 	    if (num_dests == 0)
 	      num_dests = cupsGetDests(&dests);
 
-            if ((dest = cupsGetDest(printer, instance, num_dests, dests)) == NULL)
+            if (num_dests == 0 || !dests ||
+	        (dest = cupsGetDest(printer, instance, num_dests,
+		                    dests)) == NULL)
 	    {
 	      _cupsLangPuts(stderr,
 	                    _("lpoptions: Unknown printer or class!\n"));
@@ -487,5 +489,5 @@ usage(void)
 
 
 /*
- * End of "$Id: lpoptions.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: lpoptions.c 7721 2008-07-11 22:48:49Z mike $".
  */

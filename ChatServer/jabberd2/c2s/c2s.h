@@ -292,3 +292,11 @@ union xhashv
   char **char_val;
   sess_t *sess_val;
 };
+
+/* Apple OD authentication/authorization */
+#define APPLE_ENABLE_OD_AUTH 1
+
+#ifdef APPLE_ENABLE_OD_AUTH
+#define APPLE_CHAT_SACL_NAME "chat"
+
+#endif /* APPLE_ENABLE_OD_AUTH */

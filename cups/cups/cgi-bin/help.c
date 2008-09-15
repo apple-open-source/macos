@@ -1,5 +1,5 @@
 /*
- * "$Id$"
+ * "$Id: help.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   On-line help CGI for the Common UNIX Printing System (CUPS).
  *
@@ -375,5 +375,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id$".
+ * End of "$Id: help.c 7721 2008-07-11 22:48:49Z mike $".
  */

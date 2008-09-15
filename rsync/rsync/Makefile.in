@@ -2,6 +2,7 @@
 # Makefile
 
 prefix=@prefix@
+datarootdir=@datarootdir@
 exec_prefix=@exec_prefix@
 bindir=@bindir@
 mandir=@mandir@
@@ -28,20 +29,19 @@ VERSION=@VERSION@
 HEADERS=byteorder.h config.h errcode.h proto.h rsync.h lib/pool_alloc.h
 LIBOBJ=lib/wildmatch.o lib/compat.o lib/snprintf.o lib/mdfour.o \
 	lib/permstring.o lib/pool_alloc.o @LIBOBJS@
-ZLIBOBJ=zlib/deflate.o zlib/infblock.o zlib/infcodes.o zlib/inffast.o \
-	zlib/inflate.o zlib/inftrees.o zlib/infutil.o zlib/trees.o \
-	zlib/zutil.o zlib/adler32.o
+ZLIBOBJ=zlib/deflate.o zlib/inffast.o zlib/inflate.o zlib/inftrees.o \
+	zlib/trees.o zlib/zutil.o zlib/adler32.o zlib/compress.o zlib/crc32.o
 OBJS1=rsync.o generator.o receiver.o cleanup.o sender.o exclude.o util.o \
 	main.o checksum.o match.o syscall.o log.o backup.o
 OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o \
-	fileio.o batch.o clientname.o
+	fileio.o batch.o clientname.o chmod.o
 OBJS3=progress.o pipe.o
 DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
 popt_OBJS=popt/findme.o  popt/popt.o  popt/poptconfig.o \
 	popt/popthelp.o popt/poptparse.o
 OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(DAEMON_OBJ) $(LIBOBJ) $(ZLIBOBJ) @BUILD_POPT@
 
-TLS_OBJ = tls.o syscall.o lib/compat.o lib/permstring.o
+TLS_OBJ = tls.o syscall.o t_stub.o lib/compat.o lib/snprintf.o lib/permstring.o
 
 # Programs we must have to run the test cases
 CHECK_PROGS = rsync$(EXEEXT) tls$(EXEEXT) getgroups$(EXEEXT) getfsdev$(EXEEXT) \
@@ -83,7 +83,7 @@ getgroups$(EXEEXT): getgroups.o
 getfsdev$(EXEEXT): getfsdev.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ getfsdev.o $(LIBS)
 
-TRIMSLASH_OBJ = trimslash.o syscall.o lib/compat.o
+TRIMSLASH_OBJ = trimslash.o syscall.o t_stub.o lib/compat.o lib/snprintf.o
 trimslash$(EXEEXT): $(TRIMSLASH_OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(TRIMSLASH_OBJ) $(LIBS)
 
@@ -91,29 +91,14 @@ T_UNSAFE_OBJ = t_unsafe.o syscall.o util.o t_stub.o lib/compat.o lib/snprintf.o
 t_unsafe$(EXEEXT): $(T_UNSAFE_OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(T_UNSAFE_OBJ) $(LIBS)
 
-gen: $(srcdir)/configure $(srcdir)/config.h.in proto man
+gen:
+	cd $(srcdir) && $(MAKE) -f prepare-source.mak gen
 
-man: $(srcdir)/rsync.1 $(srcdir)/rsyncd.conf.5
-
-$(srcdir)/configure: $(srcdir)/configure.in $(srcdir)/aclocal.m4
-	cd $(srcdir); autoconf
-
-$(srcdir)/config.h.in: $(srcdir)/configure.in $(srcdir)/aclocal.m4
-	cd $(srcdir); autoheader
-
-$(srcdir)/rsync.1: $(srcdir)/rsync.yo
-	yodl2man -o $(srcdir)/rsync.1 $(srcdir)/rsync.yo
-
-$(srcdir)/rsyncd.conf.5: $(srcdir)/rsyncd.conf.yo
-	yodl2man -o $(srcdir)/rsyncd.conf.5 $(srcdir)/rsyncd.conf.yo
+man:
+	cd $(srcdir) && $(MAKE) -f prepare-source.mak man
 
 proto:
-	cat $(srcdir)/*.c $(srcdir)/lib/compat.c | awk -f $(srcdir)/mkproto.awk >$(srcdir)/proto.h.new
-	if diff $(srcdir)/proto.h $(srcdir)/proto.h.new >/dev/null; then \
-	  rm $(srcdir)/proto.h.new; \
-	else \
-	  mv $(srcdir)/proto.h.new $(srcdir)/proto.h; \
-	fi
+	cd $(srcdir) && $(MAKE) -f prepare-source.mak proto.h
 
 clean: cleantests
 	rm -f *~ $(OBJS) $(TLS_OBJ) $(CHECK_PROGS) $(CHECK_OBJS)
@@ -158,11 +143,11 @@ test: check
 # might lose in the future where POSIX diverges from old sh.
 
 check: all $(CHECK_PROGS)
-	POSIXLY_CORRECT=1 TOOLDIR=`pwd` rsync_bin=`pwd`/rsync$(EXEEXT) srcdir="$(srcdir)" $(srcdir)/runtests.sh
+	rsync_bin=`pwd`/rsync$(EXEEXT) $(srcdir)/runtests.sh
 
 wildtest.o: wildtest.c lib/wildmatch.c rsync.h
-wildtest$(EXEEXT): wildtest.o
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ wildtest.o @BUILD_POPT@ $(LIBS)
+wildtest$(EXEEXT): wildtest.o lib/compat.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ wildtest.o lib/compat.o @BUILD_POPT@ $(LIBS)
 
 # This does *not* depend on building or installing: you can use it to
 # check a version installed from a binary or some other source tree,

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -26,7 +26,7 @@
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_imap.c,v 1.208.2.7.2.26 2007/07/31 00:31:10 stas Exp $ */
+/* $Id: php_imap.c,v 1.208.2.7.2.31 2008/04/17 11:04:49 felipe Exp $ */
 
 #define IMAP41
 
@@ -792,7 +792,11 @@ static void php_imap_do_open(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 #ifdef SET_MAXLOGINTRIALS
 	if (myargc == 5) {
 		convert_to_long_ex(retries);
-		mail_parameters(NIL, SET_MAXLOGINTRIALS, (void *) Z_LVAL_PP(retries));
+		if (Z_LVAL_PP(retries) < 0) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING ,"Retries must be greater or equal to 0");
+		} else {
+			mail_parameters(NIL, SET_MAXLOGINTRIALS, (void *) Z_LVAL_PP(retries));
+		}
 	}
 #endif
 
@@ -1051,6 +1055,7 @@ PHP_FUNCTION(imap_setacl)
 	ZEND_FETCH_RESOURCE(imap_le_struct, pils *, streamind, -1, "imap", le_imap);
 
 	convert_to_string_ex(mailbox);
+	convert_to_string_ex(id);
 	convert_to_string_ex(rights);
 
 	RETURN_BOOL(imap_setacl(imap_le_struct->imap_stream, Z_STRVAL_PP(mailbox), Z_STRVAL_PP(id), Z_STRVAL_PP(rights)));
@@ -1582,8 +1587,8 @@ PHP_FUNCTION(imap_headerinfo)
 	convert_to_long_ex(msgno);
 	if (myargc >= 3) {
 		convert_to_long_ex(fromlength);
-		if (Z_LVAL_PP(fromlength) < 0) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "From length has to be greater than or equal to 0");
+		if (Z_LVAL_PP(fromlength) < 0 || Z_LVAL_PP(fromlength) >= MAILTMPLEN) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "From length has to be between 1 and %i", MAILTMPLEN);
 			RETURN_FALSE;
 		}
 	} else {
@@ -1591,8 +1596,8 @@ PHP_FUNCTION(imap_headerinfo)
 	}
 	if (myargc >= 4) {
 		convert_to_long_ex(subjectlength);
-		if (Z_LVAL_PP(subjectlength) < 0) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Subject length has to be greater than or equal to 0");
+		if (Z_LVAL_PP(subjectlength) < 0 || Z_LVAL_PP(subjectlength) >= MAILTMPLEN) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Subject length has to be between 1 and %i", MAILTMPLEN);
 			RETURN_FALSE;
 		}
 	} else {
@@ -3036,8 +3041,8 @@ PHP_FUNCTION(imap_mail_compose)
 	}
 
 	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(body));
-	if (zend_hash_get_current_data(Z_ARRVAL_PP(body), (void **) &data) != SUCCESS) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "body parameter cannot be empty");
+	if (zend_hash_get_current_data(Z_ARRVAL_PP(body), (void **) &data) != SUCCESS || Z_TYPE_PP(data) != IS_ARRAY) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "body parameter must be a non-empty array");
 		RETURN_FALSE;
 	}
 

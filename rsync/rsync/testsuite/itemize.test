@@ -1,0 +1,283 @@
+#! /bin/sh
+
+# Copyright (C) 2005 by Wayne Davison <wayned@samba.org>
+
+# This program is distributable under the terms of the GNU GPL (see
+# COPYING).
+
+# Test the output of various copy commands to ensure itemized output
+# and double-verbose output is correct.
+
+. "$suitedir/rsync.fns"
+
+lddir="$tmpdir/ld"
+
+chkfile="$scratchdir/rsync.chk"
+outfile="$scratchdir/rsync.out"
+
+makepath "$fromdir/foo"
+makepath "$fromdir/bar/baz"
+cp -p "$srcdir/configure.in" "$fromdir/foo/config1"
+cp -p "$srcdir/config.h.in" "$fromdir/foo/config2"
+cp -p "$srcdir/rsync.h" "$fromdir/bar/baz/rsync"
+chmod 600 "$fromdir"/foo/config? "$fromdir/bar/baz/rsync"
+umask 0
+ln -s ../bar/baz/rsync "$fromdir/foo/sym"
+umask 022
+ln "$fromdir/foo/config1" "$fromdir/foo/extra"
+
+$RSYNC -iplr "$fromdir/" "$todir/" \
+    | tee "$outfile"
+cat <<EOT >"$chkfile"
+cd+++++++ ./
+cd+++++++ bar/
+cd+++++++ bar/baz/
+>f+++++++ bar/baz/rsync
+cd+++++++ foo/
+>f+++++++ foo/config1
+>f+++++++ foo/config2
+>f+++++++ foo/extra
+cL+++++++ foo/sym -> ../bar/baz/rsync
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 1 failed"
+
+# Ensure there are no accidental directory-time problems.
+$RSYNC -a -f '-! */' "$fromdir/" "$todir"
+
+cp -p "$srcdir/configure.in" "$fromdir/foo/config2"
+chmod 601 "$fromdir/foo/config2"
+$RSYNC -iplrH "$fromdir/" "$todir/" \
+    | tee "$outfile"
+cat <<EOT >"$chkfile"
+>f..T.... bar/baz/rsync
+>f..T.... foo/config1
+>f.sTp... foo/config2
+hf..T.... foo/extra => foo/config1
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 2 failed"
+
+$RSYNC -a -f '-! */' "$fromdir/" "$todir"
+sleep 1 # For directory mod below to ensure time difference
+rm "$todir/foo/sym"
+umask 0
+ln -s ../bar/baz "$todir/foo/sym"
+umask 022
+cp -p "$srcdir/config.h.in" "$fromdir/foo/config2"
+chmod 600 "$fromdir/foo/config2"
+chmod 777 "$todir/bar/baz/rsync"
+
+$RSYNC -iplrtc "$fromdir/" "$todir/" \
+    | tee "$outfile"
+cat <<EOT >"$chkfile"
+.f..tp... bar/baz/rsync
+.d..t.... foo/
+.f..t.... foo/config1
+>fcstp... foo/config2
+cL..T.... foo/sym -> ../bar/baz/rsync
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 3 failed"
+
+cp -p "$srcdir/configure.in" "$fromdir/foo/config2"
+chmod 600 "$fromdir/foo/config2"
+# Lack of -t is for unchanged hard-link stress-test!
+$RSYNC -vvplrH "$fromdir/" "$todir/" \
+    | tee "$outfile"
+filter_outfile
+cat <<EOT >"$chkfile"
+bar/baz/rsync is uptodate
+foo/config1 is uptodate
+foo/config2
+"foo/extra" is a hard link
+foo/sym is uptodate
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 4 failed"
+
+chmod 747 "$todir/bar/baz/rsync"
+$RSYNC -a -f '-! */' "$fromdir/" "$todir"
+$RSYNC -ivvplrtH "$fromdir/" "$todir/" \
+    | tee "$outfile"
+filter_outfile
+cat <<EOT >"$chkfile"
+.d        ./
+.d        bar/
+.d        bar/baz/
+.f...p... bar/baz/rsync
+.d        foo/
+.f        foo/config1
+>f..t.... foo/config2
+hf        foo/extra
+.L        foo/sym -> ../bar/baz/rsync
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 5 failed"
+
+chmod 757 "$todir/foo/config1"
+touch "$todir/foo/config2"
+$RSYNC -vplrtH "$fromdir/" "$todir/" \
+    | tee "$outfile"
+filter_outfile
+cat <<EOT >"$chkfile"
+foo/config2
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 6 failed"
+
+chmod 757 "$todir/foo/config1"
+touch "$todir/foo/config2"
+$RSYNC -iplrtH "$fromdir/" "$todir/" \
+    | tee "$outfile"
+cat <<EOT >"$chkfile"
+.f...p... foo/config1
+>f..t.... foo/config2
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 7 failed"
+
+mv "$todir" "$lddir"
+$RSYNC -ivvplrtH --copy-dest=../ld "$fromdir/" "$todir/" \
+    | tee "$outfile"
+filter_outfile
+cat <<EOT >"$chkfile"
+cd+++++++ ./
+cd+++++++ bar/
+cd+++++++ bar/baz/
+cf        bar/baz/rsync
+cd+++++++ foo/
+cf        foo/config1
+cf        foo/config2
+hf        foo/extra => foo/config1
+cL..T.... foo/sym -> ../bar/baz/rsync
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 8 failed"
+
+rm -rf "$todir"
+$RSYNC -iplrtH --copy-dest=../ld "$fromdir/" "$todir/" \
+    | tee "$outfile"
+cat <<EOT >"$chkfile"
+cd+++++++ ./
+cd+++++++ bar/
+cd+++++++ bar/baz/
+cd+++++++ foo/
+hf        foo/extra => foo/config1
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 9 failed"
+
+rm -rf "$todir"
+$RSYNC -vvplrtH --copy-dest="$lddir" "$fromdir/" "$todir/" \
+    | tee "$outfile"
+filter_outfile
+cat <<EOT >"$chkfile"
+./
+bar/
+bar/baz/
+bar/baz/rsync is uptodate
+foo/
+foo/config1 is uptodate
+foo/config2 is uptodate
+"foo/extra" is a hard link
+foo/extra => foo/config1
+foo/sym is uptodate
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 10 failed"
+
+rm -rf "$todir"
+$RSYNC -ivvplrtH --link-dest="$lddir" "$fromdir/" "$todir/" \
+    | tee "$outfile"
+filter_outfile
+cat <<EOT >"$chkfile"
+cd+++++++ ./
+cd+++++++ bar/
+cd+++++++ bar/baz/
+hf        bar/baz/rsync
+cd+++++++ foo/
+hf        foo/config1
+hf        foo/config2
+hf        foo/extra => foo/config1
+hL        foo/sym -> ../bar/baz/rsync
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 11 failed"
+
+rm -rf "$todir"
+$RSYNC -iplrtH --dry-run --link-dest=../ld "$fromdir/" "$todir/" \
+    | tee "$outfile"
+cat <<EOT >"$chkfile"
+cd+++++++ ./
+cd+++++++ bar/
+cd+++++++ bar/baz/
+cd+++++++ foo/
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 12 failed"
+
+rm -rf "$todir"
+$RSYNC -iplrtH --link-dest=../ld "$fromdir/" "$todir/" \
+    | tee "$outfile"
+cat <<EOT >"$chkfile"
+cd+++++++ ./
+cd+++++++ bar/
+cd+++++++ bar/baz/
+cd+++++++ foo/
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 13 failed"
+
+rm -rf "$todir"
+$RSYNC -vvplrtH --link-dest="$lddir" "$fromdir/" "$todir/" \
+    | tee "$outfile"
+filter_outfile
+cat <<EOT >"$chkfile"
+./
+bar/
+bar/baz/
+bar/baz/rsync is uptodate
+foo/
+foo/config1 is uptodate
+foo/config2 is uptodate
+"foo/extra" is a hard link
+foo/sym is uptodate
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 14 failed"
+
+rm -rf "$todir"
+$RSYNC -ivvplrtH --compare-dest="$lddir" "$fromdir/" "$todir/" \
+    | tee "$outfile"
+filter_outfile
+# TODO fix really-old problem when combining -H with --compare-dest:
+# missing output for foo/extra hard-link (and it might not be updated)!
+cat <<EOT >"$chkfile"
+cd+++++++ ./
+cd+++++++ bar/
+cd+++++++ bar/baz/
+.f        bar/baz/rsync
+cd+++++++ foo/
+.f        foo/config1
+.f        foo/config2
+.L        foo/sym -> ../bar/baz/rsync
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 15 failed"
+
+rm -rf "$todir"
+$RSYNC -iplrtH --compare-dest="$lddir" "$fromdir/" "$todir/" \
+    | tee "$outfile"
+cat <<EOT >"$chkfile"
+cd+++++++ ./
+cd+++++++ bar/
+cd+++++++ bar/baz/
+cd+++++++ foo/
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 16 failed"
+
+rm -rf "$todir"
+$RSYNC -vvplrtH --compare-dest="$lddir" "$fromdir/" "$todir/" \
+    | tee "$outfile"
+filter_outfile
+cat <<EOT >"$chkfile"
+./
+bar/
+bar/baz/
+bar/baz/rsync is uptodate
+foo/
+foo/config1 is uptodate
+foo/config2 is uptodate
+"foo/extra" is a hard link
+foo/sym is uptodate
+EOT
+diff $diffopt "$chkfile" "$outfile" || test_fail "test 17 failed"
+
+# The script would have aborted on error, so getting here means we've won.
+exit 0

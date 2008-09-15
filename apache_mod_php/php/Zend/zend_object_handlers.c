@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_object_handlers.c,v 1.135.2.6.2.22 2007/07/24 11:39:55 dmitry Exp $ */
+/* $Id: zend_object_handlers.c,v 1.135.2.6.2.28 2008/02/21 13:55:22 dmitry Exp $ */
 
 #include "zend.h"
 #include "zend_globals.h"
@@ -354,7 +354,7 @@ zval *zend_std_read_property(zval *object, zval *member, int type TSRMLS_DC)
 			}
 		} else {
 			if (!silent) {
-				zend_error(E_NOTICE,"Undefined property:  %s::$%s", zobj->ce->name, Z_STRVAL_P(member));
+				zend_error(E_NOTICE,"Undefined property: %s::$%s", zobj->ce->name, Z_STRVAL_P(member));
 			}
 			retval = &EG(uninitialized_zval_ptr);
 		}
@@ -758,14 +758,15 @@ static union _zend_function *zend_std_get_method(zval **object_ptr, char *method
 	zend_function *fbc;
 	char *lc_method_name;
 	zval *object = *object_ptr;
+	ALLOCA_FLAG(use_heap)
 	
-	lc_method_name = do_alloca(method_len+1);
+	lc_method_name = do_alloca_with_limit(method_len+1, use_heap);
 	/* Create a zend_copy_str_tolower(dest, src, src_length); */
 	zend_str_tolower_copy(lc_method_name, method_name, method_len);
 		
 	zobj = Z_OBJ_P(object);
 	if (zend_hash_find(&zobj->ce->function_table, lc_method_name, method_len+1, (void **)&fbc) == FAILURE) {
-		free_alloca(lc_method_name);
+		free_alloca_with_limit(lc_method_name, use_heap);
 		if (zobj->ce->__call) {
 			zend_internal_function *call_user_call = emalloc(sizeof(zend_internal_function));
 			call_user_call->type = ZEND_INTERNAL_FUNCTION;
@@ -820,7 +821,7 @@ static union _zend_function *zend_std_get_method(zval **object_ptr, char *method
 		}
 	}
 
-	free_alloca(lc_method_name);
+	free_alloca_with_limit(lc_method_name, use_heap);
 	return fbc;
 }
 
@@ -831,12 +832,32 @@ ZEND_API zend_function *zend_std_get_static_method(zend_class_entry *ce, char *f
 	zend_function *fbc;
 
 	if (zend_hash_find(&ce->function_table, function_name_strval, function_name_strlen+1, (void **) &fbc)==FAILURE) {
-		char *class_name = ce->name;
+		if (ce->__call &&
+		    EG(This) &&
+		    Z_OBJ_HT_P(EG(This))->get_class_entry &&
+		    instanceof_function(Z_OBJCE_P(EG(This)), ce TSRMLS_CC)) {
+			zend_internal_function *call_user_call = emalloc(sizeof(zend_internal_function));
 
-		if (!class_name) {
-			class_name = "";
+			call_user_call->type = ZEND_INTERNAL_FUNCTION;
+			call_user_call->module = ce->module;
+			call_user_call->handler = zend_std_call_user_call;
+			call_user_call->arg_info = NULL;
+			call_user_call->num_args = 0;
+			call_user_call->scope = ce;
+			call_user_call->fn_flags = 0;
+			call_user_call->function_name = estrndup(function_name_strval, function_name_strlen);
+			call_user_call->pass_rest_by_reference = 0;
+			call_user_call->return_reference = ZEND_RETURN_VALUE;
+
+			return (union _zend_function *)call_user_call;
+		} else {
+			char *class_name = ce->name;
+
+			if (!class_name) {
+				class_name = "";
+			}
+			zend_error(E_ERROR, "Call to undefined method %s::%s()", class_name, function_name_strval);
 		}
-		zend_error(E_ERROR, "Call to undefined method %s::%s()", class_name, function_name_strval);
 	}
 	if (fbc->op_array.fn_flags & ZEND_ACC_PUBLIC) {
 		/* No further checks necessary, most common case */
@@ -897,7 +918,7 @@ ZEND_API zval **zend_std_get_static_property(zend_class_entry *ce, char *propert
 		if (silent) {
 			return NULL;
 		} else {
-			zend_error(E_ERROR, "Access to undeclared static property:  %s::$%s", ce->name, property_name);
+			zend_error(E_ERROR, "Access to undeclared static property: %s::$%s", ce->name, property_name);
 		}
 	}
 
@@ -923,7 +944,7 @@ ZEND_API union _zend_function *zend_std_get_constructor(zval *object TSRMLS_DC)
 		} else if (constructor->op_array.fn_flags & ZEND_ACC_PRIVATE) {
 			/* Ensure that if we're calling a private function, we're allowed to do so.
 			 */
-			if (Z_OBJ_HANDLER_P(object, get_class_entry)(object TSRMLS_CC) != EG(scope)) {
+			if (constructor->common.scope != EG(scope)) {
 				if (EG(scope)) {
 					zend_error(E_ERROR, "Call to private %s::%s() from context '%s'", constructor->common.scope->name, constructor->common.function_name, EG(scope)->name);
 				} else {
@@ -1085,6 +1106,9 @@ ZEND_API int zend_std_cast_object_tostring(zval *readobj, zval *writeobj, int ty
                 }
 				if (Z_TYPE_P(retval) == IS_STRING) {
 					INIT_PZVAL(writeobj);
+					if (readobj == writeobj) {
+						zval_dtor(readobj);
+					}
 					ZVAL_ZVAL(writeobj, retval, 1, 1);
 					if (Z_TYPE_P(writeobj) != type) {
 						convert_to_explicit_type(writeobj, type);
@@ -1093,6 +1117,9 @@ ZEND_API int zend_std_cast_object_tostring(zval *readobj, zval *writeobj, int ty
 				} else {
 					zval_ptr_dtor(&retval);
 					INIT_PZVAL(writeobj);
+					if (readobj == writeobj) {
+						zval_dtor(readobj);
+					}
 					ZVAL_EMPTY_STRING(writeobj);
 					zend_error(E_RECOVERABLE_ERROR, "Method %s::__toString() must return a string value", ce->name);
 					return SUCCESS;
@@ -1107,15 +1134,23 @@ ZEND_API int zend_std_cast_object_tostring(zval *readobj, zval *writeobj, int ty
 			ce = Z_OBJCE_P(readobj);
 			zend_error(E_NOTICE, "Object of class %s could not be converted to int", ce->name);
 			INIT_PZVAL(writeobj);
+			if (readobj == writeobj) {
+				zval_dtor(readobj);
+			}
 			ZVAL_LONG(writeobj, 1);
 			return SUCCESS;
 		case IS_DOUBLE:
 			ce = Z_OBJCE_P(readobj);
 			zend_error(E_NOTICE, "Object of class %s could not be converted to double", ce->name);
 			INIT_PZVAL(writeobj);
+			if (readobj == writeobj) {
+				zval_dtor(readobj);
+			}
 			ZVAL_DOUBLE(writeobj, 1);
 			return SUCCESS;
 		default:
+			INIT_PZVAL(writeobj);
+			Z_TYPE_P(writeobj) = IS_NULL;
 			break;
 	}
 	return FAILURE;

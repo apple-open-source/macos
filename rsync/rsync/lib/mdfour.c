@@ -1,30 +1,31 @@
 /* 
-   Unix SMB/Netbios implementation.
-   Version 1.9.
-   a implementation of MD4 designed for use in the SMB authentication protocol
-   Copyright (C) Andrew Tridgell 1997-1998.
-   
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-   
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-   
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
+ * Unix SMB/Netbios implementation.
+ * Version 1.9.
+ * An implementation of MD4 designed for use in the SMB authentication protocol.
+ *
+ * Copyright (C) 1997-1998 Andrew Tridgell
+ * Copyright (C) 2005 Wayne Davison
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
 #include "rsync.h"
 
 /* NOTE: This code makes no attempt to be fast! 
-
-   It assumes that a int is at least 32 bits long
-*/
+ *
+ * It assumes that a int is at least 32 bits long. */
 
 static struct mdfour *m;
 
@@ -206,9 +207,11 @@ void mdfour(unsigned char *out, unsigned char *in, int n)
 }
 
 #ifdef TEST_MDFOUR
+int protocol_version = 28;
+
 static void file_checksum1(char *fname)
 {
-	int fd, i;
+	int fd, i, was_multiple_of_64 = 1;
 	struct mdfour md;
 	unsigned char buf[64*1024], sum[16];
 	
@@ -222,9 +225,13 @@ static void file_checksum1(char *fname)
 
 	while (1) {
 		int n = read(fd, buf, sizeof(buf));
-		if (n <= 0) break;
+		if (n <= 0)
+			break;
+		was_multiple_of_64 = !(n % 64);
 		mdfour_update(&md, buf, n);
 	}
+	if (was_multiple_of_64 && protocol_version >= 27)
+		mdfour_update(&md, buf, 0);
 
 	close(fd);
 

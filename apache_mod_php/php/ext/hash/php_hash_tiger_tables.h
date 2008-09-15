@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: php_hash_tiger_tables.h,v 1.2.2.3.2.1 2007/01/01 09:36:01 sebastian Exp $ */
+/* $Id: php_hash_tiger_tables.h,v 1.2.2.3.2.2 2007/12/31 07:20:07 sebastian Exp $ */
 
 #define t1 (table)
 #define t2 (table+256)

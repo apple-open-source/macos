@@ -44,6 +44,7 @@ sub build_app {
     build("xfsinfo");
     build("xgc");
     build("xhost");
+    build("xinput");
     build("xkill");
     build("xlogo");
     build("xlsatoms");
@@ -71,6 +72,12 @@ sub build_app {
     build("xwd");
     build("xwininfo");
     build("xwud");
+    build("setxkbmap");
+    build("xkbcomp");
+#    build("xkeyboard-config");
+    build("xkbevd");
+    build("xkbprint");
+    build("xkbutils");
 }
 
 if($target eq 'installsrc') {
@@ -104,7 +111,7 @@ if($target eq 'clean') {
 if($target eq 'install') {
     sys_print("mkdir $ENV{DSTROOT}") unless -e $ENV{DSTROOT};
     sys_print("mkdir $ENV{OBJROOT}") unless -e $ENV{OBJROOT};
-    $ENV{DESTDIR}=$ENV{DSTROOT};
+#    $ENV{DESTDIR}=$ENV{DSTROOT};
 
     print "Install phase: \n";
     $prefix="/usr/X11";
@@ -140,6 +147,9 @@ if($target eq 'install') {
     set_arch_32();
 
     build_app();
+
+#    sys_print("rm $ENV{DSTROOT}/usr/X11/share/X11/xkb/xkbcomp");
+#    sys_print("ln -s ../../../bin/xkbcomp $ENV{DSTROOT}/usr/X11/share/X11/xkb/xkbcomp");
     make_dsyms();
 }
 
@@ -166,14 +176,14 @@ sub build {
     sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
 
     chdir("$ENV{OBJROOT}/$full_path");
-    sys_print("autoreconf -fvi") unless $module eq 'xterm';
+    sys_print("autoreconf -fvi") unless($module eq 'xterm');
+
+    if($module eq 'xkeyboard-config') {
+        sys_print("sed -e 's/_description/description/g' -e 's/_shortDescription/shortDescription/g' rules/base.xml.in > rules/base.xml")
+    }
 
     print "Configuring...\n";
-    if($module eq 'xterm') {
-	$conf_flags=" --prefix=$ENV{DSTROOT}/$prefix --disable-static --disable-dependency-tracking --disable-nls --mandir=$ENV{DSTROOT}$prefix/man ";
-    } else {
-	$conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --mandir=$prefix/man ";
-    }
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --mandir=$prefix/man ";
 
     $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
     $post_config_path=$ENV{OBJROOT}."/$module/post-config";
@@ -187,8 +197,8 @@ sub build {
     if(-e $post_config_path) {
 	sys_print("cd .. && $post_config_path");
     }
-    sys_print("make -j2");
-    sys_print("make install");
+    sys_print("make -j".`sysctl -n hw.activecpu`);
+    sys_print("make install DESTDIR='$ENV{DSTROOT}'");
     chdir('../..');
 }
 

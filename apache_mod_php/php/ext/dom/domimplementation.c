@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: domimplementation.c,v 1.15.2.2.2.2 2007/01/01 09:36:00 sebastian Exp $ */
+/* $Id: domimplementation.c,v 1.15.2.2.2.4 2008/02/04 15:23:11 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -27,6 +27,32 @@
 #if HAVE_LIBXML && HAVE_DOM
 #include "php_dom.h"
 
+/* {{{ arginfo */
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_implementation_get_feature, 0, 0, 2)
+	ZEND_ARG_INFO(0, feature)
+	ZEND_ARG_INFO(0, version)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_implementation_has_feature, 0, 0, 0)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_implementation_create_documenttype, 0, 0, 3)
+	ZEND_ARG_INFO(0, qualifiedName)
+	ZEND_ARG_INFO(0, publicId)
+	ZEND_ARG_INFO(0, systemId)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_implementation_create_document, 0, 0, 3)
+	ZEND_ARG_INFO(0, namespaceURI)
+	ZEND_ARG_INFO(0, qualifiedName)
+	ZEND_ARG_OBJ_INFO(0, docType, DOMDocumentType, 0)
+ZEND_END_ARG_INFO();
+/* }}} */
+
 /*
 * class DOMImplementation 
 *
@@ -35,10 +61,10 @@
 */
 
 zend_function_entry php_dom_domimplementation_class_functions[] = {
-	PHP_ME(domimplementation, getFeature, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
-	PHP_ME(domimplementation, hasFeature, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
-	PHP_ME(domimplementation, createDocumentType, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
-	PHP_ME(domimplementation, createDocument, NULL, ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
+	PHP_ME(domimplementation, getFeature, arginfo_dom_implementation_get_feature, ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
+	PHP_ME(domimplementation, hasFeature, arginfo_dom_implementation_has_feature, ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
+	PHP_ME(domimplementation, createDocumentType, arginfo_dom_implementation_create_documenttype, ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
+	PHP_ME(domimplementation, createDocument, arginfo_dom_implementation_create_document, ZEND_ACC_PUBLIC|ZEND_ACC_ALLOW_STATIC)
 	{NULL, NULL, NULL}
 };
 

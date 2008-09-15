@@ -6,19 +6,25 @@ with the latest codebase, but even in its original form it didn't
 handle relative symlinks properly, and that has not yet been fixed
 in this modified version.
 
---- orig/flist.c	2004-09-21 09:40:27
-+++ flist.c	2004-07-16 16:58:04
-@@ -50,6 +50,7 @@ extern int filesfrom_fd;
- extern int one_file_system;
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/links-depth.diff
+    ./configure                          (optional if already run)
+    make
+
+--- old/flist.c
++++ new/flist.c
+@@ -41,6 +41,7 @@ extern int one_file_system;
+ extern int copy_dirlinks;
  extern int keep_dirlinks;
  extern int preserve_links;
 +extern int follow_links_depth;
  extern int preserve_hard_links;
- extern int preserve_perms;
  extern int preserve_devices;
-@@ -726,6 +727,30 @@ void receive_file_entry(struct file_stru
+ extern int preserve_specials;
+@@ -702,6 +703,30 @@ static struct file_struct *receive_file_
+ 	return file;
  }
- 
  
 +#if SUPPORT_LINKS
 +static int links_depth(char *linkname, STRUCT_STAT *st_ptr)
@@ -47,10 +53,10 @@ in this modified version.
  /**
   * Create a file_struct for a named file by reading its stat()
   * information and performing extensive checks against global
-@@ -845,7 +870,13 @@ skip_excludes:
+@@ -837,7 +862,13 @@ struct file_struct *make_file(char *fnam
  	basename_len = strlen(basename) + 1; /* count the '\0' */
  
- #if SUPPORT_LINKS
+ #ifdef SUPPORT_LINKS
 -	linkname_len = S_ISLNK(st.st_mode) ? strlen(linkname) + 1 : 0;
 +	if (S_ISLNK(st.st_mode)) {
 +		if (follow_links_depth && links_depth(linkname, &st))
@@ -62,29 +68,49 @@ in this modified version.
  #else
  	linkname_len = 0;
  #endif
---- orig/options.c	2004-09-23 17:42:07
-+++ options.c	2004-07-16 16:12:29
-@@ -42,6 +42,7 @@ int archive_mode = 0;
- int keep_dirlinks = 0;
+--- old/options.c
++++ new/options.c
+@@ -46,6 +46,7 @@ int keep_dirlinks = 0;
+ int copy_dirlinks = 0;
  int copy_links = 0;
  int preserve_links = 0;
 +int follow_links_depth = 0;
  int preserve_hard_links = 0;
  int preserve_perms = 0;
- int preserve_devices = 0;
-@@ -244,6 +245,7 @@ void usage(enum logcode F)
-   rprintf(F,"     --inplace               update destination files inplace (SEE MAN PAGE)\n");
-   rprintf(F," -K, --keep-dirlinks         treat symlinked dir on receiver as dir\n");
+ int preserve_executability = 0;
+@@ -297,6 +298,7 @@ void usage(enum logcode F)
+   rprintf(F,"     --append                append data onto shorter files\n");
+   rprintf(F," -d, --dirs                  transfer directories without recursing\n");
    rprintf(F," -l, --links                 copy symlinks as symlinks\n");
 +  rprintf(F,"     --links-depth=NUM       follow symlinks up to NUM depth\n");
-   rprintf(F," -L, --copy-links            copy the referent of all symlinks\n");
-   rprintf(F,"     --copy-unsafe-links     copy the referent of \"unsafe\" symlinks\n");
-   rprintf(F,"     --safe-links            ignore \"unsafe\" symlinks\n");
-@@ -353,6 +355,7 @@ static struct poptOption long_options[] 
-   {"inplace",          0,  POPT_ARG_NONE,   &inplace, 0, 0, 0 },
-   {"keep-dirlinks",   'K', POPT_ARG_NONE,   &keep_dirlinks, 0, 0, 0 },
-   {"links",           'l', POPT_ARG_NONE,   &preserve_links, 0, 0, 0 },
+   rprintf(F," -L, --copy-links            transform symlink into referent file/dir\n");
+   rprintf(F,"     --copy-unsafe-links     only \"unsafe\" symlinks are transformed\n");
+   rprintf(F,"     --safe-links            ignore symlinks that point outside the source tree\n");
+@@ -447,6 +449,7 @@ static struct poptOption long_options[] 
+   {"links",           'l', POPT_ARG_VAL,    &preserve_links, 1, 0, 0 },
+   {"no-links",         0,  POPT_ARG_VAL,    &preserve_links, 0, 0, 0 },
+   {"no-l",             0,  POPT_ARG_VAL,    &preserve_links, 0, 0, 0 },
 +  {"links-depth",      0,  POPT_ARG_INT,    &follow_links_depth , 0, 0, 0 },
    {"copy-links",      'L', POPT_ARG_NONE,   &copy_links, 0, 0, 0 },
-   {"whole-file",      'W', POPT_ARG_VAL,    &whole_file, 1, 0, 0 },
-   {"no-whole-file",    0,  POPT_ARG_VAL,    &whole_file, 0, 0, 0 },
+   {"copy-unsafe-links",0,  POPT_ARG_NONE,   &copy_unsafe_links, 0, 0, 0 },
+   {"safe-links",       0,  POPT_ARG_NONE,   &safe_symlinks, 0, 0, 0 },
+--- old/rsync.yo
++++ new/rsync.yo
+@@ -314,6 +314,7 @@ to the detailed description below for a 
+      --append                append data onto shorter files
+  -d, --dirs                  transfer directories without recursing
+  -l, --links                 copy symlinks as symlinks
++     --links-depth=NUM       follow symlinks up to NUM depth
+  -L, --copy-links            transform symlink into referent file/dir
+      --copy-unsafe-links     only "unsafe" symlinks are transformed
+      --safe-links            ignore symlinks that point outside the tree
+--- old/rsync.1
++++ new/rsync.1
+@@ -380,6 +380,7 @@ to the detailed description below for a 
+      \-\-append                append data onto shorter files
+  \-d, \-\-dirs                  transfer directories without recursing
+  \-l, \-\-links                 copy symlinks as symlinks
++     \-\-links\-depth=NUM       follow symlinks up to NUM depth
+  \-L, \-\-copy\-links            transform symlink into referent file/dir
+      \-\-copy\-unsafe\-links     only "unsafe" symlinks are transformed
+      \-\-safe\-links            ignore symlinks that point outside the tree

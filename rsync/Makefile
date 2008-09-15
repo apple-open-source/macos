@@ -7,27 +7,33 @@ Project         = rsync
 UserType        = Administration
 ToolType        = Commands
 GnuAfterInstall = install-plist populate-symroot
+CommonNoInstallSource	= YES
 
-ifeq ($(shell tconf --test TARGET_OS_EMBEDDED),YES)
+ifeq ($(shell test -x /usr/local/bin/tconf && tconf --test TARGET_OS_EMBEDDED),YES)
 GnuAfterInstall+= install-config
 endif
 
+ifneq ($(MACOSX_DEPLOYMENT_TARGET),10.4)
+NO_POINTER_SIGN=-Wno-pointer-sign
+endif
+SDKROOT ?= /
 # CFLAGS is set in the Makefile, but overridden in the environment.
 # To work around, just pass the extra flags that the Makefile contains.
-Extra_CC_Flags  = -mdynamic-no-pic -DHAVE_CONFIG_H -I$(Sources)/popt
+Extra_CC_Flags  = -mdynamic-no-pic -DHAVE_CONFIG_H -I$(Sources)/popt -D_FORTIFY_SOURCE=2 $(NO_POINTER_SIGN) \
+	$(ifneq /,$(SDKROOT),-isysroot $(SDKROOT))
 Extra_Configure_Flags = --enable-ea-support
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 # Automatic Extract & Patch
-AEP            = YES
+AEP            = NO
 AEP_Project    = $(Project)
-AEP_Version    = 2.6.3
+AEP_Version    = 2.6.9
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = EA.diff PR-3945747-endian.diff
+AEP_Patches    =
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -44,7 +50,8 @@ ifeq ($(AEP),YES)
 	for patchfile in $(AEP_Patches); do \
 		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
-	cd $(SRCROOT)/$(Project) && patch -p0 < patches/mkfifo.diff
+else
+	rsync -aC ./ "$(SRCROOT)/"
 endif
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions

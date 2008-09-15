@@ -116,7 +116,7 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-02-12</string>
+		<string>2008-04-10</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD with credit clause</string>
 		<key>OpenSourceLicenseFile</key>
@@ -124,11 +124,11 @@
 		<key>OpenSourceProject</key>
 		<string>libpng</string>
 		<key>OpenSourceSHA1</key>
-		<string>67ea40f216348cc1d9952e972899cd17d175ec6f</string>
+		<string>f8a0c4631d24cd527e4ed9c1c233fb34c5f1d01e</string>
 		<key>OpenSourceURL</key>
-		<string>http://downloads.sourceforge.net/libpng/libpng-1.2.24.tar.bz2</string>
+		<string>http://downloads.sourceforge.net/libpng/libpng-1.2.26.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.2.24</string>
+		<string>1.2.26</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.libpng.org</string>
 	</dict>
@@ -694,17 +694,33 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-12-03</string>
+		<string>2008-07-19</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>pixman</string>
+		<key>OpenSourceSHA1</key>
+		<string>8db43d9fe094073cfcb03c1b1c86296b5a7df1aa</astring>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.x.org/pub/individual/lib/pixman-0.11.8.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>0.11.8</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.cairographics.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-07-02</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xtrans</string>
 		<key>OpenSourceSHA1</key>
-		<string>9e6dd0970b72253f9558be43abd30bb8a802aa66</string>
+		<string>66d7916e5386d2e0485af04a3b2314fbccc2d23a</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/libs/xtrans-1.0.4.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/lib/xtrans-1.2.1.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.4</string>
+		<string>1.2.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>

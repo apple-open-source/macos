@@ -1,0 +1,318 @@
+This patches creates two new command line options as follows:
+	--backup-dir-dels=DIR
+	--suffix-dels=SUFFIX
+
+The backup-dir-dels and suffix-dels options give the ability to store
+backup of removed files on the receiver in different directories or with
+different suffix than the backup of files that have been changed but that
+are still on the source drive.  Both commands can be combined.
+
+The default behaviour if one or both of the options are not specified
+is the previous behaviour, both backups use the same directory or
+suffix.
+
+Marc St-Onge
+
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/backup-dir-dels.diff
+    ./configure                                 (optional if already run)
+    make
+
+--- old/backup.c
++++ new/backup.c
+@@ -23,10 +23,15 @@
+ 
+ extern int verbose;
+ extern int backup_dir_len;
++extern int backup_dir_dels_len;
+ extern unsigned int backup_dir_remainder;
++extern unsigned int backup_dir_dels_remainder;
+ extern char backup_dir_buf[MAXPATHLEN];
++extern char backup_dir_dels_buf[MAXPATHLEN];
+ extern char *backup_suffix;
++extern char *backup_suffix_dels;
+ extern char *backup_dir;
++extern char *backup_dir_dels;
+ 
+ extern int am_root;
+ extern int preserve_devices;
+@@ -34,6 +39,8 @@ extern int preserve_specials;
+ extern int preserve_links;
+ extern int safe_symlinks;
+ 
++static int deleting;
++
+ /* make a complete pathname for backup file */
+ char *get_backup_name(char *fname)
+ {
+@@ -51,11 +58,28 @@ char *get_backup_name(char *fname)
+ 	return NULL;
+ }
+ 
++static char *get_delete_name(char *fname)
++{
++	if (backup_dir_dels) {
++		if (stringjoin(backup_dir_dels_buf + backup_dir_dels_len, backup_dir_dels_remainder,
++			       fname, backup_suffix_dels, NULL) < backup_dir_dels_remainder)
++			return backup_dir_dels_buf;
++	} else {
++		if (stringjoin(backup_dir_dels_buf, MAXPATHLEN,
++			       fname, backup_suffix_dels, NULL) < MAXPATHLEN)
++			return backup_dir_dels_buf;
++	}
++
++	rprintf(FERROR, "delete filename too long\n");
++	return NULL;
++}
++
+ /* simple backup creates a backup with a suffix in the same directory */
+ static int make_simple_backup(char *fname)
+ {
+ 	int rename_errno;
+-	char *fnamebak = get_backup_name(fname);
++	char *fnamebak = deleting ? get_delete_name(fname)
++				  : get_backup_name(fname);
+ 
+ 	if (!fnamebak)
+ 		return 0;
+@@ -95,7 +119,8 @@ path
+ static int make_bak_dir(char *fullpath)
+ {
+ 	STRUCT_STAT st;
+-	char *rel = fullpath + backup_dir_len;
++	int dir_len = deleting ? backup_dir_dels_len : backup_dir_len;
++	char *rel = fullpath + dir_len;
+ 	char *end = rel + strlen(rel);
+ 	char *p = end;
+ 
+@@ -183,7 +208,8 @@ static int keep_backup(char *fname)
+ 	if (!(file = make_file(fname, NULL, NULL, 0, NO_FILTERS)))
+ 		return 1; /* the file could have disappeared */
+ 
+-	if (!(buf = get_backup_name(fname)))
++	buf = deleting ? get_delete_name(fname) : get_backup_name(fname);
++	if (!buf)
+ 		return 0;
+ 
+ 	/* Check to see if this is a device file, or link */
+@@ -278,3 +304,13 @@ int make_backup(char *fname)
+ 		return keep_backup(fname);
+ 	return make_simple_backup(fname);
+ }
++
++/* backup switch routine called only when backing-up removed file */
++int safe_delete(char *fname)
++{
++	int ret;
++	deleting = 1;
++	ret = make_backup(fname);
++	deleting = 0;
++	return ret;
++}
+--- old/generator.c
++++ new/generator.c
+@@ -90,6 +90,9 @@ extern dev_t filesystem_dev;
+ extern char *backup_dir;
+ extern char *backup_suffix;
+ extern int backup_suffix_len;
++extern char *backup_dir_dels;
++extern char *backup_suffix_dels;
++extern int backup_suffix_dels_len;
+ extern struct file_list *the_file_list;
+ extern struct filter_list_struct server_filter_list;
+ 
+@@ -100,10 +103,14 @@ static int deletion_count = 0; /* used t
+ #define DEL_TERSE		(1<<3)
+ 
+ 
++/* Function now compares both backup_suffix and backup_suffix_dels. */
+ static int is_backup_file(char *fn)
+ {
+ 	int k = strlen(fn) - backup_suffix_len;
+-	return k > 0 && strcmp(fn+k, backup_suffix) == 0;
++	if (k > 0 && strcmp(fn+k, backup_suffix) == 0)
++		return 1;
++	k += backup_suffix_len - backup_suffix_dels_len;
++	return k > 0 && strcmp(fn+k, backup_suffix_dels) == 0;
+ }
+ 
+ 
+@@ -124,8 +131,8 @@ static int delete_item(char *fname, int 
+ 	if (!S_ISDIR(mode)) {
+ 		if (max_delete && ++deletion_count > max_delete)
+ 			return 0;
+-		if (make_backups && (backup_dir || !is_backup_file(fname)))
+-			ok = make_backup(fname);
++		if (make_backups && (backup_dir_dels || !is_backup_file(fname)))
++			ok = safe_delete(fname);
+ 		else
+ 			ok = robust_unlink(fname) == 0;
+ 		if (ok) {
+@@ -147,9 +154,9 @@ static int delete_item(char *fname, int 
+ 	    || (dry_run && zap_dir)) {
+ 		ok = 0;
+ 		errno = ENOTEMPTY;
+-	} else if (make_backups && !backup_dir && !is_backup_file(fname)
++	} else if (make_backups && !backup_dir_dels && !is_backup_file(fname)
+ 	    && !(flags & DEL_FORCE_RECURSE))
+-		ok = make_backup(fname);
++		ok = safe_delete(fname);
+ 	else
+ 		ok = do_rmdir(fname) == 0;
+ 	if (ok) {
+--- old/options.c
++++ new/options.c
+@@ -138,10 +138,14 @@ int no_detach
+ int write_batch = 0;
+ int read_batch = 0;
+ int backup_dir_len = 0;
++int backup_dir_dels_len = 0;	
+ int backup_suffix_len;
++int backup_suffix_dels_len;
+ unsigned int backup_dir_remainder;
++unsigned int backup_dir_dels_remainder;
+ 
+ char *backup_suffix = NULL;
++char *backup_suffix_dels = NULL;
+ char *tmpdir = NULL;
+ char *partial_dir = NULL;
+ char *basis_dir[MAX_BASIS_DIRS+1];
+@@ -153,7 +157,9 @@ char *stdout_format = NULL;
+ char *password_file = NULL;
+ char *rsync_path = RSYNC_PATH;
+ char *backup_dir = NULL;
++char *backup_dir_dels = NULL;
+ char backup_dir_buf[MAXPATHLEN];
++char backup_dir_dels_buf[MAXPATHLEN];
+ char *sockopts = NULL;
+ int rsync_port = 0;
+ int compare_dest = 0;
+@@ -292,6 +298,8 @@ void usage(enum logcode F)
+   rprintf(F," -b, --backup                make backups (see --suffix & --backup-dir)\n");
+   rprintf(F,"     --backup-dir=DIR        make backups into hierarchy based in DIR\n");
+   rprintf(F,"     --suffix=SUFFIX         set backup suffix (default %s w/o --backup-dir)\n",BACKUP_SUFFIX);
++  rprintf(F,"     --backup-dir-dels       make backups of removed files into current dir\n");
++  rprintf(F,"     --suffix-dels=SUFFIX    set removed-files suffix (defaults to --suffix)\n");
+   rprintf(F," -u, --update                skip files that are newer on the receiver\n");
+   rprintf(F,"     --inplace               update destination files in-place (SEE MAN PAGE)\n");
+   rprintf(F,"     --append                append data onto shorter files\n");
+@@ -518,7 +526,9 @@ static struct poptOption long_options[] 
+   {"bwlimit",          0,  POPT_ARG_INT,    &bwlimit, 0, 0, 0 },
+   {"backup",          'b', POPT_ARG_NONE,   &make_backups, 0, 0, 0 },
+   {"backup-dir",       0,  POPT_ARG_STRING, &backup_dir, 0, 0, 0 },
++  {"backup-dir-dels",  0,  POPT_ARG_STRING, &backup_dir_dels, 0, 0, 0 },
+   {"suffix",           0,  POPT_ARG_STRING, &backup_suffix, 0, 0, 0 },
++  {"suffix-dels",      0,  POPT_ARG_STRING, &backup_suffix_dels, 0, 0, 0 },
+   {"list-only",        0,  POPT_ARG_VAL,    &list_only, 2, 0, 0 },
+   {"read-batch",       0,  POPT_ARG_STRING, &batch_name, OPT_READ_BATCH, 0, 0 },
+   {"write-batch",      0,  POPT_ARG_STRING, &batch_name, OPT_WRITE_BATCH, 0, 0 },
+@@ -1232,6 +1242,8 @@ int parse_arguments(int *argc, const cha
+ 			tmpdir = sanitize_path(NULL, tmpdir, NULL, 0, NULL);
+ 		if (backup_dir)
+ 			backup_dir = sanitize_path(NULL, backup_dir, NULL, 0, NULL);
++		if (backup_dir_dels)
++			backup_dir_dels = sanitize_path(NULL, backup_dir_dels, NULL, 0, NULL);
+ 	}
+ 	if (server_filter_list.head && !am_sender) {
+ 		struct filter_list_struct *elp = &server_filter_list;
+@@ -1253,6 +1265,14 @@ int parse_arguments(int *argc, const cha
+ 				return 0;
+ 			}
+ 		}
++		/* Clean backup_dir_dels same as for backup_dir */
++		if (backup_dir_dels) {
++			if (!*backup_dir_dels)
++				goto options_rejected;
++			clean_fname(backup_dir_dels, 1);
++			if (check_filter(elp, backup_dir_dels, 1) < 0)
++				goto options_rejected;
++		}
+ 	}
+ 
+ 	if (!backup_suffix)
+@@ -1264,6 +1284,16 @@ int parse_arguments(int *argc, const cha
+ 			backup_suffix);
+ 		return 0;
+ 	}
++	/* if backup_suffix_dels not supplied, default to backup_suffix */
++	if (!backup_suffix_dels)
++		backup_suffix_dels = backup_dir_dels ? "" : backup_suffix;
++	backup_suffix_dels_len = strlen(backup_suffix_dels);
++	if (strchr(backup_suffix_dels, '/') != NULL) {
++		snprintf(err_buf, sizeof err_buf,
++			"--suffix-dels cannot contain slashes: %s\n",
++			backup_suffix_dels);	
++		return 0;
++	}
+ 	if (backup_dir) {
+ 		backup_dir_len = strlcpy(backup_dir_buf, backup_dir, sizeof backup_dir_buf);
+ 		backup_dir_remainder = sizeof backup_dir_buf - backup_dir_len;
+@@ -1287,6 +1317,31 @@ int parse_arguments(int *argc, const cha
+ 			"P *%s", backup_suffix);
+ 		parse_rule(&filter_list, backup_dir_buf, 0, 0);
+ 	}
++	/* If backup_dir_dels not supplied default to backup_dir if it has been supplied */
++	if (backup_dir && !backup_dir_dels) {
++		backup_dir_dels = backup_dir;
++		backup_dir_dels_len = backup_dir_len;
++		backup_dir_dels_remainder = backup_dir_remainder;
++		strlcpy(backup_dir_dels_buf, backup_dir_buf, sizeof backup_dir_buf);
++	} else if (backup_dir_dels) {
++		backup_dir_dels_len = strlcpy(backup_dir_dels_buf, backup_dir_dels, sizeof backup_dir_dels_buf);
++		backup_dir_dels_remainder = sizeof backup_dir_dels_buf - backup_dir_dels_len;
++		if (backup_dir_dels_remainder < 32) {
++			snprintf(err_buf, sizeof err_buf,
++				"the --backup-dir-dels path is WAY too long.\n");
++			return 0;
++		}
++		if (backup_dir_dels_buf[backup_dir_dels_len - 1] != '/') {
++			backup_dir_dels_buf[backup_dir_dels_len++] = '/';
++			backup_dir_dels_buf[backup_dir_dels_len] = '\0';
++		}
++		if (verbose > 1 && !am_sender)
++			rprintf(FINFO, "backup_dir_dels is %s\n", backup_dir_dels_buf);
++	} else if (!backup_suffix_dels_len && (!am_server || !am_sender)) {
++		snprintf(err_buf, sizeof err_buf,
++			"--suffix-dels cannot be a null string without --backup-dir-dels\n");
++		return 0;
++	}
+ 	if (make_backups && !backup_dir)
+ 		omit_dir_times = 1;
+ 
+@@ -1646,6 +1701,10 @@ void server_options(char **args,int *arg
+ 		args[ac++] = "--backup-dir";
+ 		args[ac++] = backup_dir;
+ 	}
++	if (backup_dir_dels && backup_dir_dels != backup_dir) {
++		args[ac++] = "--backup-dir-dels";
++		args[ac++] = backup_dir_dels;
++	}
+ 
+ 	/* Only send --suffix if it specifies a non-default value. */
+ 	if (strcmp(backup_suffix, backup_dir ? "" : BACKUP_SUFFIX) != 0) {
+@@ -1654,7 +1713,13 @@ void server_options(char **args,int *arg
+ 			goto oom;
+ 		args[ac++] = arg;
+ 	}
+-
++	/* Only send --suffix-dels if it specifies a non-default value. */
++	if (strcmp(backup_suffix_dels, backup_dir_dels ? "" : BACKUP_SUFFIX) != 0) {
++		/* We use the following syntax to avoid weirdness with '~'. */
++		if (asprintf(&arg, "--suffix-dels=%s", backup_suffix_dels) < 0)
++			goto oom;
++		args[ac++] = arg;
++	}
+ 	if (am_sender) {
+ 		if (delete_excluded)
+ 			args[ac++] = "--delete-excluded";
+--- old/proto.h
++++ new/proto.h
+@@ -7,6 +7,7 @@ char *auth_server(int f_in, int f_out, i
+ void auth_client(int fd, char *user, char *challenge);
+ char *get_backup_name(char *fname);
+ int make_backup(char *fname);
++int safe_delete(char *fname);
+ void write_stream_flags(int fd);
+ void read_stream_flags(int fd);
+ void write_batch_shell_file(int argc, char *argv[], int file_arg_cnt);

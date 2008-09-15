@@ -1,5 +1,5 @@
 /*
- * "$Id: lpstat.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: lpstat.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   "lpstat" command for the Common UNIX Printing System (CUPS).
  *
@@ -1979,21 +1979,29 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
 	    * Get the current active job on this queue...
 	    */
 
+            ipp_jstate_t jobstate = IPP_JOB_PENDING;
 	    jobid = 0;
 
 	    for (jobattr = jobs->attrs; jobattr; jobattr = jobattr->next)
 	    {
 	      if (!jobattr->name)
-	        continue;
+	      {
+	        if (jobstate == IPP_JOB_PROCESSING)
+		  break;
+	        else
+		  continue;
+              }
 
 	      if (!strcmp(jobattr->name, "job-id") &&
 	          jobattr->value_tag == IPP_TAG_INTEGER)
 		jobid = jobattr->values[0].integer;
               else if (!strcmp(jobattr->name, "job-state") &&
-	               jobattr->value_tag == IPP_TAG_ENUM &&
-		       jobattr->values[0].integer == IPP_JOB_PROCESSING)
-		break;
+	               jobattr->value_tag == IPP_TAG_ENUM)
+		jobstate = jobattr->values[0].integer;
 	    }
+
+            if (jobstate != IPP_JOB_PROCESSING)
+	      jobid = 0;
 
             ippDelete(jobs);
 	  }
@@ -2258,5 +2266,5 @@ show_scheduler(http_t *http)	/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: lpstat.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: lpstat.c 7721 2008-07-11 22:48:49Z mike $".
  */

@@ -7,6 +7,9 @@
 /* Define if your AIX loginfailed() function takes 4 arguments (AIX >= 5.2) */
 #undef AIX_LOGINFAILED_4ARG
 
+/* System only supports IPv4 audit records */
+#undef AU_IPv4
+
 /* Define if your resolver libs need this for getrrsetbyname */
 #undef BIND_8_COMPAT
 
@@ -18,6 +21,9 @@
 
 /* getgroups(0,NULL) will return -1 */
 #undef BROKEN_GETGROUPS
+
+/* FreeBSD glob does not do what we need */
+#undef BROKEN_GLOB
 
 /* Define if you system's inet_ntoa is busted (e.g. Irix gcc issue) */
 #undef BROKEN_INET_NTOA
@@ -31,6 +37,9 @@
 /* Define if your struct dirent expects you to allocate extra space for d_name
    */
 #undef BROKEN_ONE_BYTE_DIRENT_D_NAME
+
+/* Can't do comparisons on readv */
+#undef BROKEN_READV_COMPARISON
 
 /* Define if you have a broken realpath. */
 #undef BROKEN_REALPATH
@@ -52,6 +61,9 @@
 
 /* LynxOS has broken setvbuf() implementation */
 #undef BROKEN_SETVBUF
+
+/* QNX shadow support is broken */
+#undef BROKEN_SHADOW_EXPIRE
 
 /* Define if your snprintf is busted */
 #undef BROKEN_SNPRINTF
@@ -119,11 +131,11 @@
 /* Define if you don't want to use wtmpx */
 #undef DISABLE_WTMPX
 
-/* Workaround more Linux IPv6 quirks */
-#undef DONT_TRY_OTHER_AF
-
 /* Builtin PRNG command timeout */
 #undef ENTROPY_TIMEOUT_MSEC
+
+/* f_fsid has members */
+#undef FSID_HAS_VAL
 
 /* Define to 1 if the `getpgrp' function requires zero arguments. */
 #undef GETPGRP_VOID
@@ -161,6 +173,12 @@
 /* Define to 1 if you have the `arc4random' function. */
 #undef HAVE_ARC4RANDOM
 
+/* Define to 1 if you have the `arc4random_buf' function. */
+#undef HAVE_ARC4RANDOM_BUF
+
+/* Define to 1 if you have the `arc4random_uniform' function. */
+#undef HAVE_ARC4RANDOM_UNIFORM
+
 /* Define to 1 if you have the `asprintf' function. */
 #undef HAVE_ASPRINTF
 
@@ -172,6 +190,9 @@
 
 /* OpenBSD's gcc has sentinel */
 #undef HAVE_ATTRIBUTE__SENTINEL__
+
+/* Define to 1 if you have the `aug_get_machine' function. */
+#undef HAVE_AUG_GET_MACHINE
 
 /* Define to 1 if you have the `b64_ntop' function. */
 #undef HAVE_B64_NTOP
@@ -332,8 +353,20 @@
 /* Define to 1 if you have the <floatingpoint.h> header file. */
 #undef HAVE_FLOATINGPOINT_H
 
+/* Define to 1 if you have the `fmt_scaled' function. */
+#undef HAVE_FMT_SCALED
+
 /* Define to 1 if you have the `freeaddrinfo' function. */
 #undef HAVE_FREEADDRINFO
+
+/* Define to 1 if the system has the type `fsblkcnt_t'. */
+#undef HAVE_FSBLKCNT_T
+
+/* Define to 1 if the system has the type `fsfilcnt_t'. */
+#undef HAVE_FSFILCNT_T
+
+/* Define to 1 if you have the `fstatvfs' function. */
+#undef HAVE_FSTATVFS
 
 /* Define to 1 if you have the `futimes' function. */
 #undef HAVE_FUTIMES
@@ -355,6 +388,9 @@
 
 /* Define to 1 if you have the `getgrouplist' function. */
 #undef HAVE_GETGROUPLIST
+
+/* Define to 1 if you have the `getgrset' function. */
+#undef HAVE_GETGRSET
 
 /* Define to 1 if you have the `getluid' function. */
 #undef HAVE_GETLUID
@@ -505,6 +541,9 @@
 
 /* Define to 1 if you have the <libgen.h> header file. */
 #undef HAVE_LIBGEN_H
+
+/* Define if system has libiaf that supports set_id */
+#undef HAVE_LIBIAF
 
 /* Define to 1 if you have the `nsl' library (-lnsl). */
 #undef HAVE_LIBNSL
@@ -804,6 +843,12 @@
 /* Fields in struct sockaddr_storage */
 #undef HAVE_SS_FAMILY_IN_SS
 
+/* Define to 1 if you have the `statfs' function. */
+#undef HAVE_STATFS
+
+/* Define to 1 if you have the `statvfs' function. */
+#undef HAVE_STATVFS
+
 /* Define to 1 if you have the <stddef.h> header file. */
 #undef HAVE_STDDEF_H
 
@@ -906,11 +951,17 @@
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #undef HAVE_SYS_MMAN_H
 
+/* Define to 1 if you have the <sys/mount.h> header file. */
+#undef HAVE_SYS_MOUNT_H
+
 /* Define to 1 if you have the <sys/ndir.h> header file. */
 #undef HAVE_SYS_NDIR_H
 
 /* Define if your system defines sys_nerr */
 #undef HAVE_SYS_NERR
+
+/* Define to 1 if you have the <sys/poll.h> header file. */
+#undef HAVE_SYS_POLL_H
 
 /* Define to 1 if you have the <sys/prctl.h> header file. */
 #undef HAVE_SYS_PRCTL_H
@@ -923,6 +974,9 @@
 
 /* Define to 1 if you have the <sys/select.h> header file. */
 #undef HAVE_SYS_SELECT_H
+
+/* Define to 1 if you have the <sys/statvfs.h> header file. */
+#undef HAVE_SYS_STATVFS_H
 
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H

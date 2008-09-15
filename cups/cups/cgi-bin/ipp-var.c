@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp-var.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: ipp-var.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   CGI <-> IPP variable routines for the Common UNIX Printing System (CUPS).
  *
@@ -474,10 +474,16 @@ cgiMoveJobs(http_t     *http,		/* I - Connection to server */
 
     if (cupsLastError() <= IPP_OK_CONFLICT)
     {
-      cgiRewriteURL(job_printer_uri, resource, sizeof(resource), NULL);
-      cgiFormEncode(uri, resource, sizeof(uri));
-      snprintf(refresh, sizeof(refresh), "2;URL=%s", uri);
-      cgiSetVariable("refresh_page", refresh);
+      const char *path = strstr(job_printer_uri, "/printers/");
+      if (!path)
+        path = strstr(job_printer_uri, "/classes/");
+
+      if (path)
+      {
+        cgiFormEncode(uri, path, sizeof(uri));
+        snprintf(refresh, sizeof(refresh), "2;URL=%s", uri);
+	cgiSetVariable("refresh_page", refresh);
+      }
     }
 
     if (job_id)
@@ -1416,5 +1422,5 @@ cgiText(const char *message)		/* I - Message */
 
 
 /*
- * End of "$Id: ipp-var.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: ipp-var.c 7721 2008-07-11 22:48:49Z mike $".
  */

@@ -1,5 +1,5 @@
 /*
- * "$Id: auth.c 6779 2007-08-08 19:49:48Z mike $"
+ * "$Id: auth.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Authentication functions for the Common UNIX Printing System (CUPS).
  *
@@ -270,8 +270,7 @@ cupsDoAuthentication(http_t     *http,	/* I - HTTP connection to server */
 
     if (http->gssctx != GSS_C_NO_CONTEXT)
     {
-      major_status = gss_delete_sec_context(&minor_status, &http->gssctx,
-					    GSS_C_NO_BUFFER);
+      gss_delete_sec_context(&minor_status, &http->gssctx, GSS_C_NO_BUFFER);
       http->gssctx = GSS_C_NO_CONTEXT;
     }
 
@@ -323,14 +322,14 @@ cupsDoAuthentication(http_t     *http,	/* I - HTTP connection to server */
       httpEncode64_2(http->authstring + 10, authsize - 10, output_token.value,
 		     output_token.length);
  
-      major_status = gss_release_buffer(&minor_status, &output_token);
+      gss_release_buffer(&minor_status, &output_token);
     }
     else
     {
       DEBUG_printf(("cupsDoAuthentication: Kerberos credentials too large - "
                     "%d bytes!\n", output_token.length));
 
-      major_status = gss_release_buffer(&minor_status, &output_token);
+      gss_release_buffer(&minor_status, &output_token);
 
       return (-1);
     }
@@ -683,5 +682,5 @@ cups_local_auth(http_t *http)		/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: auth.c 6779 2007-08-08 19:49:48Z mike $".
+ * End of "$Id: auth.c 7721 2008-07-11 22:48:49Z mike $".
  */

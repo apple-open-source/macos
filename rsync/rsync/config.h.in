@@ -1,5 +1,17 @@
 /* config.h.in.  Generated from configure.in by autoheader.  */
 
+/* Define to 1 if link() can hard-link special files. */
+#undef CAN_HARDLINK_SPECIAL
+
+/* Define to 1 if link() can hard-link symlinks. */
+#undef CAN_HARDLINK_SYMLINK
+
+/* Define to 1 if chown modifies symlinks. */
+#undef CHOWN_MODIFIES_SYMLINK
+
+/* Undefine if you don't want locale features. By default this is defined. */
+#undef CONFIG_LOCALE
+
 /* Define to one of `_getb67', `GETB67', `getb67' for Cray-2 and Cray-YMP
    systems. This function is required for `alloca.c' support on those systems.
    */
@@ -9,11 +21,18 @@
 #undef C_ALLOCA
 
 /* true if ea support enabled */
+#ifdef __APPLE__
+#define EA_SUPPORT
+#else
 #undef EA_SUPPORT
+#endif
 
 /* Define to the type of elements in the array set by `getgroups'. Usually
    this is either `int' or `gid_t'. */
 #undef GETGROUPS_T
+
+/* Define to 1 if the `getpgrp' function requires zero arguments. */
+#undef GETPGRP_VOID
 
 /* Define to 1 if you have `alloca', as a function or macro. */
 #undef HAVE_ALLOCA
@@ -31,10 +50,10 @@
 /* Define to 1 if you have the `asprintf' function. */
 #undef HAVE_ASPRINTF
 
-/* */
+/* Define to 1 if readdir() is broken */
 #undef HAVE_BROKEN_READDIR
 
-/* */
+/* Define to 1 if vsprintf has a C99-compatible return value */
 #undef HAVE_C99_VSNPRINTF
 
 /* Define to 1 if you have the `chmod' function. */
@@ -46,14 +65,21 @@
 /* Define to 1 if you have the <compat.h> header file. */
 #undef HAVE_COMPAT_H
 
-/* */
+/* Define to 1 if you have the "connect" function */
 #undef HAVE_CONNECT
 
 /* Define to 1 if you have the `copyfile' function. */
+#ifdef __APPLE__
+#define HAVE_COPYFILE
+#else
 #undef HAVE_COPYFILE
-
+#endif
 /* Define to 1 if you have the <copyfile.h> header file. */
+#ifdef __APPLE__
+#define HAVE_COPYFILE_H
+#else
 #undef HAVE_COPYFILE_H
+#endif
 
 /* Define to 1 if you have the <ctype.h> header file. */
 #undef HAVE_CTYPE_H
@@ -62,7 +88,7 @@
    */
 #undef HAVE_DIRENT_H
 
-/* */
+/* Define to 1 if errno is declared in errno.h */
 #undef HAVE_ERRNO_DECL
 
 /* Define to 1 if you have the `fchmod' function. */
@@ -80,7 +106,7 @@
 /* Define to 1 if you have the `ftruncate' function. */
 #undef HAVE_FTRUNCATE
 
-/* Define if you have the `getaddrinfo' function. */
+/* Define to 1 if you have the "getaddrinfo" function. */
 #undef HAVE_GETADDRINFO
 
 /* Define to 1 if you have the `getcwd' function. */
@@ -98,7 +124,10 @@
 /* Define to 1 if you have the `getnameinfo' function. */
 #undef HAVE_GETNAMEINFO
 
-/* */
+/* Define to 1 if you have the `getpgrp' function. */
+#undef HAVE_GETPGRP
+
+/* Define to 1 if gettimeofday() takes a time-zone arg */
 #undef HAVE_GETTIMEOFDAY_TZ
 
 /* Define to 1 if you have the `glob' function. */
@@ -110,6 +139,12 @@
 /* Define to 1 if you have the <grp.h> header file. */
 #undef HAVE_GRP_H
 
+/* Define to 1 if you have the <iconv.h> header file. */
+#undef HAVE_ICONV_H
+
+/* Define to 1 if you have the `iconv_open' function. */
+#undef HAVE_ICONV_OPEN
+
 /* Define to 1 if you have the `inet_ntop' function. */
 #undef HAVE_INET_NTOP
 
@@ -119,8 +154,17 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have the <langinfo.h> header file. */
+#undef HAVE_LANGINFO_H
+
+/* Define to 1 if you have the `lchmod' function. */
+#undef HAVE_LCHMOD
+
 /* Define to 1 if you have the `lchown' function. */
 #undef HAVE_LCHOWN
+
+/* Define to 1 if you have the <libcharset.h> header file. */
+#undef HAVE_LIBCHARSET_H
 
 /* Define to 1 if you have the `inet' library (-linet). */
 #undef HAVE_LIBINET
@@ -140,11 +184,31 @@
 /* Define to 1 if you have the `socket' library (-lsocket). */
 #undef HAVE_LIBSOCKET
 
+/* Define to 1 if you have the <limits.h> header file. */
+#undef HAVE_LIMITS_H
+
 /* Define to 1 if you have the `link' function. */
 #undef HAVE_LINK
 
-/* */
-#undef HAVE_LONGLONG
+/* Define to 1 if you have the `locale_charset' function. */
+#undef HAVE_LOCALE_CHARSET
+
+/* Define to 1 if you have the <locale.h> header file. */
+#undef HAVE_LOCALE_H
+
+/* Define to 1 if the type `long double' works and has more range or precision
+   than `double'. */
+#undef HAVE_LONG_DOUBLE
+
+/* Define to 1 if the type `long double' works and has more range or precision
+   than `double'. */
+#undef HAVE_LONG_DOUBLE_WIDER
+
+/* Define to 1 if you have the `lseek64' function. */
+#undef HAVE_LSEEK64
+
+/* Define to 1 if you have the `lutimes' function. */
+#undef HAVE_LUTIMES
 
 /* Define to 1 if you have the `mallinfo' function. */
 #undef HAVE_MALLINFO
@@ -179,29 +243,41 @@
 /* Define to 1 if you have the <netdb.h> header file. */
 #undef HAVE_NETDB_H
 
-/* */
-#undef HAVE_OFF64_T
+/* Define to 1 if you have the `nl_langinfo' function. */
+#undef HAVE_NL_LANGINFO
 
 /* Define to 1 if you have the `open64' function. */
 #undef HAVE_OPEN64
 
+/* Define to 1 if you have the `putenv' function. */
+#undef HAVE_PUTENV
+
 /* Define to 1 if you have the `readlink' function. */
 #undef HAVE_READLINK
 
-/* remote shell is remsh not rsh */
+/* Define to 1 if remote shell is remsh, not rsh */
 #undef HAVE_REMSH
 
-/* */
+/* Define to 1 if mkstemp() is available and works right */
 #undef HAVE_SECURE_MKSTEMP
 
 /* Define to 1 if you have the `setgroups' function. */
 #undef HAVE_SETGROUPS
 
+/* Define to 1 if you have the `setlocale' function. */
+#undef HAVE_SETLOCALE
+
+/* Define to 1 if you have the `setmode' function. */
+#undef HAVE_SETMODE
+
 /* Define to 1 if you have the `setsid' function. */
 #undef HAVE_SETSID
 
-/* */
-#undef HAVE_SHORT_INO_T
+/* Define to 1 if you have the `sigaction' function. */
+#undef HAVE_SIGACTION
+
+/* Define to 1 if you have the `sigprocmask' function. */
+#undef HAVE_SIGPROCMASK
 
 /* Define to 1 if you have the `snprintf' function. */
 #undef HAVE_SNPRINTF
@@ -215,10 +291,13 @@
 /* Do we have sockaddr.sa_len? */
 #undef HAVE_SOCKADDR_LEN
 
-/* Define if you have strct sockaddr_storage. */
+/* Define to 1 if you have struct sockaddr_storage. */
 #undef HAVE_SOCKADDR_STORAGE
 
-/* */
+/* Do we have sockaddr_un.sun_len? */
+#undef HAVE_SOCKADDR_UN_LEN
+
+/* Define to 1 if you have the "socketpair" function */
 #undef HAVE_SOCKETPAIR
 
 /* Define to 1 if you have the <stdint.h> header file. */
@@ -259,6 +338,9 @@
 
 /* Define to 1 if you have the `strtol' function. */
 #undef HAVE_STRTOL
+
+/* Define to 1 if you have struct stat64. */
+#undef HAVE_STRUCT_STAT64
 
 /* Define to 1 if `st_rdev' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_RDEV
@@ -310,13 +392,13 @@
 /* Define to 1 if you have the <sys/wait.h> header file. */
 #undef HAVE_SYS_WAIT_H
 
+/* Define to 1 if you have the `tcgetpgrp' function. */
+#undef HAVE_TCGETPGRP
+
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* */
-#undef HAVE_UNSIGNED_CHAR
-
-/* */
+/* Define to 1 if you have the "struct utimbuf" type */
 #undef HAVE_UTIMBUF
 
 /* Define to 1 if you have the `utime' function. */
@@ -331,6 +413,12 @@
 /* Define to 1 if `utime(file, NULL)' sets file's timestamp to the present. */
 #undef HAVE_UTIME_NULL
 
+/* Define to 1 if you have the `vasprintf' function. */
+#undef HAVE_VASPRINTF
+
+/* Define to 1 if you have the `va_copy' function. */
+#undef HAVE_VA_COPY
+
 /* Define to 1 if you have the `vsnprintf' function. */
 #undef HAVE_VSNPRINTF
 
@@ -339,6 +427,9 @@
 
 /* Define to 1 if you have the `waitpid' function. */
 #undef HAVE_WAITPID
+
+/* Define to 1 if you have the `__va_copy' function. */
+#undef HAVE___VA_COPY
 
 /* true if you have IPv6 */
 #undef INET6
@@ -350,6 +441,21 @@
 /* Define to 1 if `major', `minor', and `makedev' are declared in
    <sysmacros.h>. */
 #undef MAJOR_IN_SYSMACROS
+
+/* Define to 1 if makedev() takes 3 args */
+#undef MAKEDEV_TAKES_3_ARGS
+
+/* Define to 1 if mknod() can create FIFOs. */
+#undef MKNOD_CREATES_FIFOS
+
+/* Define to 1 if mknod() can create sockets. */
+#undef MKNOD_CREATES_SOCKETS
+
+/* unprivileged group for unprivileged user */
+#undef NOBODY_GROUP
+
+/* unprivileged user--e.g. nobody */
+#undef NOBODY_USER
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
@@ -366,12 +472,6 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* */
-#undef REPLACE_INET_ATON
-
-/* */
-#undef REPLACE_INET_NTOA
-
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
 
@@ -387,21 +487,33 @@
 /* rsync release version */
 #undef RSYNC_VERSION
 
-/* Define if sockets need to be shutdown */
+/* Define to 1 if sockets need to be shutdown */
 #undef SHUTDOWN_ALL_SOCKETS
 
-/* The size of a `int', as computed by sizeof. */
+/* Define to 1 if "signed char" is a valid type */
+#undef SIGNED_CHAR_OK
+
+/* The size of `int', as computed by sizeof. */
 #undef SIZEOF_INT
 
-/* The size of a `long', as computed by sizeof. */
+/* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
-/* The size of a `short', as computed by sizeof. */
+/* The size of `long long', as computed by sizeof. */
+#undef SIZEOF_LONG_LONG
+
+/* The size of `off64_t', as computed by sizeof. */
+#undef SIZEOF_OFF64_T
+
+/* The size of `off_t', as computed by sizeof. */
+#undef SIZEOF_OFF_T
+
+/* The size of `short', as computed by sizeof. */
 #undef SIZEOF_SHORT
 
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be
-   automatically deduced at run-time.
+   automatically deduced at runtime.
 	STACK_DIRECTION > 0 => grows toward higher addresses
 	STACK_DIRECTION < 0 => grows toward lower addresses
 	STACK_DIRECTION = 0 => direction of growth unknown */
@@ -435,19 +547,16 @@
 #undef inline
 #endif
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
-#undef ino_t
-
 /* Define to `int' if <sys/types.h> does not define. */
 #undef mode_t
 
-/* Define to `long' if <sys/types.h> does not define. */
+/* Define to `long int' if <sys/types.h> does not define. */
 #undef off_t
 
 /* Define to `int' if <sys/types.h> does not define. */
 #undef pid_t
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
+/* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t
 
 /* type to use in place of socklen_t if not defined */

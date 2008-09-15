@@ -120,6 +120,7 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 	krb5_principal princ;
 	OM_uint32 maj_status, min_status;
 	int len;
+	const char *new_ccname;
 
 	if (client->creds == NULL) {
 		debug("No credentials stored");
@@ -168,7 +169,7 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 		return;
 	}
 
-	const char* new_ccname = krb5_cc_get_name(krb_context, ccache);
+	new_ccname = krb5_cc_get_name(krb_context, ccache);
 
 	client->store.envvar = "KRB5CCNAME";
 #ifdef USE_CCAPI

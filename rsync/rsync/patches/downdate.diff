@@ -1,0 +1,68 @@
+A patch from Stefan Müller to add the --downdate option, which works
+in the opposite manner as --update.
+
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/downdate.diff
+    ./configure                                 (optional if already run)
+    make
+
+--- old/generator.c
++++ new/generator.c
+@@ -53,6 +53,7 @@ extern int ignore_errors;
+ extern int remove_source_files;
+ extern int delay_updates;
+ extern int update_only;
++extern int downdate_only;
+ extern int ignore_existing;
+ extern int ignore_non_existing;
+ extern int inplace;
+@@ -1144,6 +1145,13 @@ static void recv_generator(char *fname, 
+ 		return;
+ 	}
+ 
++	if (downdate_only && statret == 0
++	    && cmp_time(st.st_mtime, file->modtime) < 0) {
++		if (verbose > 1)
++			rprintf(FINFO, "%s is older\n", fname);
++		return;
++	}
++
+ 	fnamecmp = fname;
+ 	fnamecmp_type = FNAMECMP_FNAME;
+ 
+@@ -1452,7 +1460,7 @@ void generate_files(int f_out, struct fi
+ 	phase++;
+ 	csum_length = SUM_LENGTH;
+ 	max_size = min_size = ignore_existing = ignore_non_existing = 0;
+-	update_only = always_checksum = size_only = 0;
++	downdate_only = update_only = always_checksum = size_only = 0;
+ 	ignore_times = 1;
+ 	if (append_mode)  /* resend w/o append mode */
+ 		append_mode = -1; /* ... but only longer files */
+--- old/options.c
++++ new/options.c
+@@ -56,6 +56,7 @@ int preserve_gid = 0;
+ int preserve_times = 0;
+ int omit_dir_times = 0;
+ int update_only = 0;
++int downdate_only = 0;
+ int cvs_exclude = 0;
+ int dry_run = 0;
+ int do_xfers = 1;
+@@ -293,6 +294,7 @@ void usage(enum logcode F)
+   rprintf(F,"     --backup-dir=DIR        make backups into hierarchy based in DIR\n");
+   rprintf(F,"     --suffix=SUFFIX         set backup suffix (default %s w/o --backup-dir)\n",BACKUP_SUFFIX);
+   rprintf(F," -u, --update                skip files that are newer on the receiver\n");
++  rprintf(F," -w, --downdate              skip files that are older on the receiver\n");
+   rprintf(F,"     --inplace               update destination files in-place (SEE MAN PAGE)\n");
+   rprintf(F,"     --append                append data onto shorter files\n");
+   rprintf(F," -d, --dirs                  transfer directories without recursing\n");
+@@ -465,6 +467,7 @@ static struct poptOption long_options[] 
+   {"size-only",        0,  POPT_ARG_NONE,   &size_only, 0, 0, 0 },
+   {"one-file-system", 'x', POPT_ARG_NONE,   0, 'x', 0, 0 },
+   {"update",          'u', POPT_ARG_NONE,   &update_only, 0, 0, 0 },
++  {"downdate",        'w', POPT_ARG_NONE,   &downdate_only, 0, 0, 0 },
+   {"existing",         0,  POPT_ARG_NONE,   &ignore_non_existing, 0, 0, 0 },
+   {"ignore-non-existing",0,POPT_ARG_NONE,   &ignore_non_existing, 0, 0, 0 },
+   {"ignore-existing",  0,  POPT_ARG_NONE,   &ignore_existing, 0, 0, 0 },

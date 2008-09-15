@@ -4,19 +4,23 @@
 	<key>OpenSourceProject</key>
 	<string>rsync</string>
 	<key>OpenSourceVersion</key>
-	<string>2.6.3</string>
+	<string>2.6.9</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://rsync.samba.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://rsync.samba.org/ftp/rsync/rsync-2.6.3.tar.gz</string>
-	<key>OpenSourceMD5</key>
-	<string>2beb30caafa69a01182e71c528fb0393</string>
+	<string>http://rsync.samba.org/ftp/rsync/rsync-2.6.9.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>341618e230ea2e0e551d0ccf06f840d4f824c843</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-10-07</string>
+	<string>2007-10-30</string>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>rsync.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+	  <string>munge-symlinks patch http://rsync.samba.org/ftp/rsync/munge-symlinks-2.6.9.diff</string>
+	</array>
 </dict>
 </array>
 </plist>

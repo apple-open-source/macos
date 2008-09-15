@@ -1,5 +1,5 @@
 /*
- * "$Id: ipptest.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: ipptest.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   IPP test command for the Common UNIX Printing System (CUPS).
  *
@@ -308,7 +308,6 @@ do_tests(const char *uri,		/* I - URI to connect on */
     request       = ippNew();
     op            = (ipp_op_t)0;
     group         = IPP_TAG_ZERO;
-    value         = IPP_TAG_ZERO;
     num_statuses  = 0;
     num_expects   = 0;
     num_displayed = 0;
@@ -945,5 +944,5 @@ usage(const char *option)		/* I - Option string or NULL */
 
 
 /*
- * End of "$Id: ipptest.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: ipptest.c 7721 2008-07-11 22:48:49Z mike $".
  */

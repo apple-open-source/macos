@@ -1,5 +1,5 @@
 /*
- * "$Id: cups-deviced.c 6693 2007-07-19 21:02:36Z mike $"
+ * "$Id: cups-deviced.c 7622 2008-06-06 19:04:31Z mike $"
  *
  *   Device scanning mini-daemon for the Common UNIX Printing System (CUPS).
  *
@@ -17,7 +17,6 @@
  *   main()            - Scan for devices and return an IPP response.
  *   add_dev()         - Add a new device to the list.
  *   compare_devs()    - Compare device names for sorting.
- *   run_backend()     - Run a backend to gather the available devices.
  *   sigalrm_handler() - Handle alarm signals for backends that get hung
  */
 
@@ -64,7 +63,6 @@ static dev_info_t	*add_dev(const char *device_class,
 				 const char *device_uri,
 				 const char *device_id);
 static int		compare_devs(dev_info_t *p0, dev_info_t *p1);
-static FILE		*run_backend(const char *backend, int uid, int *pid);
 static void		sigalrm_handler(int sig);
 
 
@@ -85,7 +83,8 @@ main(int  argc,				/* I - Number of command-line args */
   int		request_id;		/* Request ID */
   int		count;			/* Number of devices from backend */
   int		compat;			/* Compatibility device? */
-  FILE		*fp;			/* Pipe to device backend */
+  char		*backend_argv[2];	/* Arguments for backend */
+  cups_file_t	*fp;			/* Pipe to device backend */
   int		pid;			/* Process ID of backend */
   cups_dir_t	*dir;			/* Directory pointer */
   cups_dentry_t *dent;			/* Directory entry */
@@ -211,10 +210,12 @@ main(int  argc,				/* I - Number of command-line args */
     * all others run as the unprivileged user...
     */
 
-    fp = run_backend(filename,
-                     (dent->fileinfo.st_mode & (S_IRWXG | S_IRWXO))
-		         ? normal_user : 0,
-		     &pid);
+    backend_argv[0] = dent->filename;
+    backend_argv[1] = NULL;
+
+    fp = cupsdPipeCommand(&pid, filename, backend_argv,
+                          (dent->fileinfo.st_mode & (S_IRWXG | S_IRWXO))
+		              ? normal_user : 0);
 
    /*
     * Collect the output from the backend...
@@ -246,7 +247,7 @@ main(int  argc,				/* I - Number of command-line args */
 
       alarm(30);
 
-      while (fgets(line, sizeof(line), fp) != NULL)
+      while (cupsFileGets(fp, line, sizeof(line)))
       {
        /*
         * Reset the alarm clock...
@@ -291,7 +292,7 @@ main(int  argc,				/* I - Number of command-line args */
 	  if (!dev)
 	  {
             cupsDirClose(dir);
-	    fclose(fp);
+	    cupsFileClose(fp);
             kill(pid, SIGTERM);
 	    return (1);
 	  }
@@ -312,7 +313,7 @@ main(int  argc,				/* I - Number of command-line args */
         fprintf(stderr, "WARNING: [cups-deviced] Backend \"%s\" did not "
 	                "respond within 30 seconds!\n", dent->filename);
 
-      fclose(fp);
+      cupsFileClose(fp);
       kill(pid, SIGTERM);
 
      /*
@@ -482,71 +483,6 @@ compare_devs(dev_info_t *d0,		/* I - First device */
 
 
 /*
- * 'run_backend()' - Run a backend to gather the available devices.
- */
-
-static FILE *				/* O - stdout of backend */
-run_backend(const char *backend,	/* I - Backend to run */
-            int        uid,		/* I - User ID to run as */
-	    int        *pid)		/* O - Process ID of backend */
-{
-  int	fds[2];				/* Pipe file descriptors */
-
-
-  if (pipe(fds))
-  {
-    fprintf(stderr, "ERROR: Unable to create a pipe for \"%s\" - %s\n",
-            backend, strerror(errno));
-    return (NULL);
-  }
-
-  if ((*pid = fork()) < 0)
-  {
-   /*
-    * Error!
-    */
-
-    fprintf(stderr, "ERROR: Unable to fork for \"%s\" - %s\n", backend,
-            strerror(errno));
-    close(fds[0]);
-    close(fds[1]);
-    return (NULL);
-  }
-  else if (!*pid)
-  {
-   /*
-    * Child comes here...
-    */
-
-    if (!getuid() && uid)
-      setuid(uid);			/* Run as restricted user */
-
-    close(0);				/* </dev/null */
-    open("/dev/null", O_RDONLY);
-
-    close(1);				/* >pipe */
-    dup(fds[1]);
-
-    close(fds[0]);			/* Close copies of pipes */
-    close(fds[1]);
-
-    execl(backend, backend, (char *)0);	/* Run it! */
-    fprintf(stderr, "ERROR: Unable to execute \"%s\" - %s\n", backend,
-            strerror(errno));
-    exit(1);
-  }
-
- /*
-  * Parent comes here, make a FILE * from the input side of the pipe...
-  */
-
-  close(fds[1]);
-
-  return (fdopen(fds[0], "r"));
-}
-
-
-/*
  * 'sigalrm_handler()' - Handle alarm signals for backends that get hung
  *                       trying to list the available devices...
  */
@@ -561,5 +497,5 @@ sigalrm_handler(int sig)		/* I - Signal number */
 
 
 /*
- * End of "$Id: cups-deviced.c 6693 2007-07-19 21:02:36Z mike $".
+ * End of "$Id: cups-deviced.c 7622 2008-06-06 19:04:31Z mike $".
  */

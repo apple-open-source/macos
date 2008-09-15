@@ -1,10 +1,10 @@
 //
-// "$Id: pdftops.cxx 6649 2007-07-11 21:46:42Z mike $"
+// "$Id: pdftops.cxx 7726 2008-07-14 17:53:24Z mike $"
 //
 //   PDF to PostScript filter front-end for the Common UNIX Printing
 //   System (CUPS).
 //
-//   Copyright 2007 by Apple Inc.
+//   Copyright 2007-2008 by Apple Inc.
 //   Copyright 1997-2006 by Easy Software Products.
 //
 //   These coded instructions, statements, and computer programs are the
@@ -70,8 +70,6 @@ main(int  argc,				// I - Number of command-line args
   char		buffer[8192];		// Copy buffer
   int		bytes;			// Bytes copied
   int		width, length;		// Size in points
-  int		left, bottom, right, top;
-					// Imageable area in points
   int		orientation;		// Orientation
   int		temp;			// Temporary var
   int		duplex;			// Duplex the output?
@@ -110,10 +108,6 @@ main(int  argc,				// I - Number of command-line args
   }
 
   // Default to "Universal" size - min of A4 and Letter...
-  left   = 0;
-  bottom = 0;
-  right  = 595;
-  top    = 792;
   width  = 595;
   length = 792;
   level  = psLevel2;
@@ -132,10 +126,6 @@ main(int  argc,				// I - Number of command-line args
 
     if ((size = ppdPageSize(ppd, NULL)) != NULL)
     {
-      left   = (int)size->left;
-      bottom = (int)size->bottom;
-      right  = (int)size->right;
-      top    = (int)size->top;
       width  = (int)size->width;
       length = (int)size->length;
     }
@@ -172,49 +162,11 @@ main(int  argc,				// I - Number of command-line args
   switch (orientation & 3)
   {
     case 0 : /* Portait */
+    case 2 : /* Reverse Portrait */
         break;
 
     case 1 : /* Landscape */
-	temp   = left;
-	left   = bottom;
-	bottom = temp;
-
-	temp   = right;
-	right  = top;
-	top    = temp;
-
-	temp   = width;
-	width  = length;
-	length = temp;
-	break;
-
-    case 2 : /* Reverse Portrait */
-	temp   = width - left;
-	left   = width - right;
-	right  = temp;
-
-	temp   = length - bottom;
-	bottom = length - top;
-	top    = temp;
-        break;
-
     case 3 : /* Reverse Landscape */
-	temp   = width - left;
-	left   = width - right;
-	right  = temp;
-
-	temp   = length - bottom;
-	bottom = length - top;
-	top    = temp;
-
-	temp   = left;
-	left   = bottom;
-	bottom = temp;
-
-	temp   = right;
-	right  = top;
-	top    = temp;
-
 	temp   = width;
 	width  = length;
 	length = temp;
@@ -277,9 +229,13 @@ main(int  argc,				// I - Number of command-line args
     // Only set paper size and area if we are fitting to the job's
     // page size or the pdftops.conf file does not contain
     // "psPaperSize match"...
+
+    fprintf(stderr, "DEBUG: Setting paper dimensions to %dx%d!\n", width,
+            length);
+
     globalParams->setPSPaperWidth(width);
     globalParams->setPSPaperHeight(length);
-    globalParams->setPSImageableArea(left, bottom, right, top);
+    globalParams->setPSImageableArea(0, 0, width, length);
   }
 
   globalParams->setPSDuplex(duplex);
@@ -340,5 +296,5 @@ main(int  argc,				// I - Number of command-line args
 
 
 //
-// End of "$Id: pdftops.cxx 6649 2007-07-11 21:46:42Z mike $".
+// End of "$Id: pdftops.cxx 7726 2008-07-14 17:53:24Z mike $".
 //

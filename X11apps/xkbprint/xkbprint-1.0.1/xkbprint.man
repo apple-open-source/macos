@@ -1,0 +1,113 @@
+.\" $Xorg: xkbprint.man,v 1.3 2000/08/17 19:54:50 cpqbld Exp $
+.\"
+.\" $XFree86: xc/programs/xkbprint/xkbprint.man,v 1.7 2001/01/27 18:21:16 dawes Exp $
+.\"
+.TH XKBPRINT 1 __xorgversion__
+.SH NAME
+xkbprint \- print an XKB keyboard description
+.SH SYNOPSIS
+.B xkbprint 
+[options] source [ output_file ]
+.SH DESCRIPTION
+.PP
+The
+.I xkbprint
+comman generates a printable or encapsulated PostScript description of the 
+XKB keyboard description specified by \fIsource\fP.  The \fIsource\fP can be 
+any compiled keymap (.xkm) file that includes a geometry description or an 
+X display specification.  If an \fIoutput_file\fP is specified, xkbprint 
+writes to it.  If no output file is specified, xkbprint creates replaces
+the extension of the source file with \fI.ps\fP or \fI.eps\fP depending
+on the requested format.  If the source is a non-local X display (e.g.:0), 
+xkbprint appends the appropriate prefix to the display specification, 
+replacing the colon with a dash.  For a local display, xkprint uses
+server-\fIn\fP where \fIn\fP is the number of the display.
+.SH OPTIONS
+.TP 8
+.B \-?, -help
+Prints a usage message.
+.TP 8
+.B \-color
+Print using the colors specified in the geometry file;  by default, xkbprint
+prints a black-and-white image of the keyboard.
+.TP 8
+.B \-dflts
+Attempt to compute default names for any missing components, such as keys.
+.TP 8
+.B \-diffs
+Show symbols only where they are explicitly bound.
+.TP 8
+.B \-eps
+Generate an encapsulated PostScript file.
+.TP 8
+.B \-fit
+Fit the keyboard image on the page (default).
+.TP 8
+.B \-full
+Print the keyboard at full size.
+.TP 8
+.B \-grid\ \fIres\fP
+Print a grid with \fIres\fPmm resolution over the keyboard.
+.TP 8
+.B \-if\ \fIfontName\fP
+Specifies an internal PostScript type 1 font to dump to the specified
+output file or to \fIfontName\fP.pfa, if no output file is specified.
+No keyboard description is printed if an internal font is dumped.
+.TP 8
+.B \-label\ \fItype\fP
+Specifies the labels to be printed on keys;  legal types are: \fInone\fP,
+\fIname\fP,\fIcode\fP,\fIsymbols\fP.
+.TP 8
+.B \-lc\ \fI<locale>\fP
+Specifies a locale in which KeySyms should be resolved.
+.TP 8
+.B \-level1
+Generate level 1 PostScript.
+.TP 8
+.B \-level2
+Generate level 2 PostScript.
+.TP 8
+.B \-lg\ \fIgroup\fP
+Print symbols in keyboard groups starting from \fIgroup\fP.
+.TP 8
+.B \-ll\ \fIlevel\fP
+Print symbols starting from shift level \fIlevel\fP.
+.TP 8
+.B \-mono
+Generate black-and-white image of keyboard (default).
+.TP 8
+.B \-n\ \fInum\fP
+Print \fInum\fP copies.
+.TP 8
+.B \-nkg\ \fInum\fP
+Print the symbols in \fInum\fP keyboard groups.
+.TP 8
+.B \-npk\ \fInum\fP
+Number of keyboard images to print on each page; for EPS files, this 
+specifies the total number of keyboard images to print.
+.TP 8
+.B \-o\ \fIfile\fP
+Write output to \fIfile\fP.
+.TP 8
+.B \-R\fIdirectory\fP
+Use \fIdirectory\fP as the root directory; all path names are interpreted
+relative to \fIdirectory\fP.
+.TP 8
+.B -pict \fIwhich\fP
+Controls use of pictographs instead of keysym names where available. 
+\fIwhich\fP can be any of \fIall\fP, \fInone\fP, or \fIcommon\fP(default).
+.TP 8
+.B -synch
+Forces synchronization for X requests.
+.TP 8
+.B -w\ \fIlevel\fP
+Sets warning level (0 for no warning, 10 for all warnings).
+.SH "SEE ALSO"
+X(__miscmansuffix__),xkbcomp(1)
+.SH COPYRIGHT
+Copyright 1995, Silicon Graphics Computer Systems
+Copyright 1995, 1998  The Open Group
+.br
+See \fIX(__miscmansuffix__)\fP for a full statement of rights and permissions.
+.SH AUTHOR
+Erik Fortune, Silicon Graphics

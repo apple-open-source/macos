@@ -8,6 +8,7 @@
    Copyright (C) Jim McDonough (jmcd@us.ibm.com) 2003
    Copyright (C) Andrew Bartlett <abartlet@samba.org> 2004-2005
    Copyright (C) Jeremy Allison 2007
+   Copyright (C) Apple Inc. 2008
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -32,6 +33,69 @@
 const krb5_data *krb5_princ_component(krb5_context, krb5_principal, int );
 #endif
 
+static krb5_error_code ads_keytab_verify_for_principal(krb5_context context,
+					krb5_auth_context   auth_context,
+					const krb5_keytab_entry * kt_entry,
+					const DATA_BLOB *   ticket,
+					const char *	    svc_principal,
+					krb5_ticket **	    pp_tkt,
+					krb5_keyblock **    keyblock)
+{
+	krb5_error_code ret = 0;
+	krb5_keytab keytab = NULL;
+	krb5_data   packet;
+	char *	    entry_princ_s = NULL;
+
+	ret = krb5_kt_default(context, &keytab);
+	if (ret) {
+		DEBUG(1, ("ads_keytab_verify_for_principal: krb5_kt_default failed (%s)\n", error_message(ret)));
+		goto out;
+	}
+
+	ret = smb_krb5_unparse_name(context, kt_entry->principal, &entry_princ_s);
+	if (ret) {
+		DEBUG(1, ("ads_keytab_verify_for_principal: smb_krb5_unparse_name failed (%s)\n",
+			error_message(ret)));
+		goto out;
+	}
+
+	if (!strequal(entry_princ_s, svc_principal)) {
+		ret = KRB5KRB_AP_ERR_BADMATCH;
+		goto out;
+	}
+
+	packet.length = ticket->length;
+	packet.data = (char *)ticket->data;
+	*pp_tkt = NULL;
+
+	ret = krb5_rd_req_return_keyblock_from_keytab(context,
+				&auth_context, &packet,
+				kt_entry, keytab,
+				pp_tkt, keyblock);
+
+	if (ret) {
+		DEBUG(3,("ads_keytab_verify_for_principal: "
+			    "failed for principal %s: %s\n",
+			entry_princ_s, error_message(ret)));
+		goto out;
+	}
+
+
+	DEBUG(3,("ads_keytab_verify_for_principal: succeeded for principal %s\n",
+		entry_princ_s));
+
+out:
+	/* Free the name we parsed. */
+	SAFE_FREE(entry_princ_s);
+
+	if (keytab) {
+		krb5_kt_close(context, keytab);
+		keytab = NULL;
+	}
+
+	return ret;
+}
+
 /**********************************************************************************
  Try to verify a ticket using the system keytab... the system keytab has kvno -1 entries, so
  it's more like what microsoft does... see comment in utils/net_ads.c in the
@@ -51,11 +115,8 @@ static BOOL ads_keytab_verify_ticket(krb5_context context,
 	krb5_kt_cursor kt_cursor;
 	krb5_keytab_entry kt_entry;
 	char *valid_princ_formats[9];
-	char *entry_princ_s = NULL;
 	fstring my_name, my_fqdn;
 	int i;
-	int number_matched_principals = 0;
-	krb5_data packet;
 
 	const char * lkdc_realm = lp_parm_talloc_string(GLOBAL_SECTION_SNUM,
 					"com.apple", "lkdc realm", NULL);
@@ -90,104 +151,82 @@ static BOOL ads_keytab_verify_ticket(krb5_context context,
 			"cifs/%s@%s", lkdc_realm, lkdc_realm);
 	}
 
-	ZERO_STRUCT(kt_entry);
-	ZERO_STRUCT(kt_cursor);
+	for (i = 0; i < ARRAY_SIZE(valid_princ_formats); i++) {
 
-	ret = krb5_kt_default(context, &keytab);
-	if (ret) {
-		DEBUG(1, ("ads_keytab_verify_ticket: krb5_kt_default failed (%s)\n", error_message(ret)));
-		goto out;
-	}
+		ZERO_STRUCT(kt_entry);
+		ZERO_STRUCT(kt_cursor);
 
-	/* Iterate through the keytab.  For each key, if the principal
-	 * name case-insensitively matches one of the allowed formats,
-	 * try verifying the ticket using that principal. */
-
-	ret = krb5_kt_start_seq_get(context, keytab, &kt_cursor);
-	if (ret) {
-		DEBUG(1, ("ads_keytab_verify_ticket: krb5_kt_start_seq_get failed (%s)\n", error_message(ret)));
-		goto out;
-	}
-  
-	while (!auth_ok && (krb5_kt_next_entry(context, keytab, &kt_entry, &kt_cursor) == 0)) {
-		ret = smb_krb5_unparse_name(context, kt_entry.principal, &entry_princ_s);
+		ret = krb5_kt_default(context, &keytab);
 		if (ret) {
-			DEBUG(1, ("ads_keytab_verify_ticket: smb_krb5_unparse_name failed (%s)\n",
-				error_message(ret)));
+			DEBUG(1, ("ads_keytab_verify_ticket: krb5_kt_default failed (%s)\n", error_message(ret)));
 			goto out;
 		}
 
-		for (i = 0; i < ARRAY_SIZE(valid_princ_formats); i++) {
+		/* Iterate through the keytab.  For each key, if the principal
+		 * name case-insensitively matches one of the allowed formats,
+		 * try verifying the ticket using that principal.
+		 */
 
-			if (!strequal(entry_princ_s, valid_princ_formats[i])) {
-				continue;
-			}
-
-			number_matched_principals++;
-			packet.length = ticket->length;
-			packet.data = (char *)ticket->data;
-			*pp_tkt = NULL;
-
-			ret = krb5_rd_req_return_keyblock_from_keytab(context, &auth_context, &packet,
-							  	      kt_entry.principal, keytab,
-								      NULL, pp_tkt, keyblock);
-
-			if (ret) {
-				DEBUG(10,("ads_keytab_verify_ticket: "
-					"krb5_rd_req_return_keyblock_from_keytab(%s) failed: %s\n",
-					entry_princ_s, error_message(ret)));
-
-				/* workaround for MIT: 
-				* as krb5_ktfile_get_entry will explicitly
-				* close the krb5_keytab as soon as krb5_rd_req
-				* has sucessfully decrypted the ticket but the
-				* ticket is not valid yet (due to clockskew)
-				* there is no point in querying more keytab
-				* entries - Guenther */
-					
-				if (ret == KRB5KRB_AP_ERR_TKT_NYV || 
-				    ret == KRB5KRB_AP_ERR_TKT_EXPIRED ||
-				    ret == KRB5KRB_AP_ERR_SKEW) {
-					break;
-				}
-			} else {
-				DEBUG(3,("ads_keytab_verify_ticket: "
-					"krb5_rd_req_return_keyblock_from_keytab succeeded for principal %s\n",
-					entry_princ_s));
-				auth_ok = True;
-				break;
-			}
+		ret = krb5_kt_start_seq_get(context, keytab, &kt_cursor);
+		if (ret) {
+			DEBUG(1, ("ads_keytab_verify_ticket: krb5_kt_start_seq_get failed (%s)\n", error_message(ret)));
+			goto out;
 		}
 
-		/* Free the name we parsed. */
-		SAFE_FREE(entry_princ_s);
+		while (!auth_ok && (krb5_kt_next_entry(context, keytab, &kt_entry, &kt_cursor) == 0)) {
 
-		/* Free the entry we just read. */
-		smb_krb5_kt_free_entry(context, &kt_entry);
-		ZERO_STRUCT(kt_entry);
+			/* In MIT Kerberos, it is not legal to interleave krb5_rd_req()
+			 * with krb5_kt_start_seq_get() and krb5_kt_end_seq_get() on the
+			 * same krb5_keytab object. We have to keep a separate
+			 * krb5_keytab object around for the krb5_rd_req().
+			 */
+			ret = ads_keytab_verify_for_principal(context,
+				auth_context, &kt_entry, ticket,
+				valid_princ_formats[i], pp_tkt, keyblock);
+
+			if (ret == 0) {
+				auth_ok = True;
+			}
+
+			/* Free the entry we just read. */
+			smb_krb5_kt_free_entry(context, &kt_entry);
+			ZERO_STRUCT(kt_entry);
+
+			if (auth_ok) {
+				/* success, let's go. */
+				break;
+			}
+
+			/* workaround for MIT:
+			* as krb5_ktfile_get_entry will explicitly
+			* close the krb5_keytab as soon as krb5_rd_req
+			* has sucessfully decrypted the ticket but the
+			* ticket is not valid yet (due to clockskew)
+			* there is no point in querying more keytab
+			* entries - Guenther */
+			if (ret == KRB5KRB_AP_ERR_TKT_NYV ||
+			    ret == KRB5KRB_AP_ERR_TKT_EXPIRED ||
+			    ret == KRB5KRB_AP_ERR_SKEW ||
+			    ret == KRB5KRB_AP_ERR_REPEAT) {
+			    break;
+			}
+
+		}
+
+		krb5_kt_end_seq_get(context, keytab, &kt_cursor);
+		krb5_kt_close(context, keytab);
+		keytab = NULL;
 	}
-	krb5_kt_end_seq_get(context, keytab, &kt_cursor);
 
 	ZERO_STRUCT(kt_cursor);
 
-  out:
-	
+out:
+
 	TALLOC_FREE(lkdc_realm);
 
 	for (i = 0; i < ARRAY_SIZE(valid_princ_formats); i++) {
 		SAFE_FREE(valid_princ_formats[i]);
 	}
-	
-	if (!auth_ok) {
-		if (!number_matched_principals) {
-			DEBUG(3, ("ads_keytab_verify_ticket: no keytab principals matched expected file service name.\n"));
-		} else {
-			DEBUG(3, ("ads_keytab_verify_ticket: krb5_rd_req failed for all %d matched keytab principals\n",
-				number_matched_principals));
-		}
-	}
-
-	SAFE_FREE(entry_princ_s);
 
 	{
 		krb5_keytab_entry zero_kt_entry;

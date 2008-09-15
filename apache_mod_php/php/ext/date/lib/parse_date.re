@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: parse_date.re,v 1.26.2.27.2.12 2007/07/12 18:58:00 derick Exp $ */
+/* $Id: parse_date.re,v 1.26.2.27.2.13 2008/02/25 18:28:18 derick Exp $ */
 
 #include "timelib.h"
 
@@ -667,7 +667,7 @@ static long timelib_lookup_zone(char **ptr, int *dst, char **tz_abbr, int *found
 	long  value = 0;
 	const timelib_tz_lookup_table *tp;
 
-	while (**ptr != '\0' && **ptr != ')') {
+	while (**ptr != '\0' && **ptr != ')' && **ptr != ' ') {
 		++*ptr;
 	}
 	end = *ptr;

@@ -1,7 +1,9 @@
-/* -*- c-file-style: "linux"; -*-
+/*
+ * The socket based protocol for setting up a connection with rsyncd.
  *
- * Copyright (C) 1998-2001 by Andrew Tridgell <tridge@samba.org>
- * Copyright (C) 2001-2002 by Martin Pool <mbp@samba.org>
+ * Copyright (C) 1998-2001 Andrew Tridgell <tridge@samba.org>
+ * Copyright (C) 2001-2002 Martin Pool <mbp@samba.org>
+ * Copyright (C) 2002, 2003, 2004, 2005, 2006 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -13,46 +15,55 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
  */
-
-/**
- * @file
- *
- * The socket based protocol for setting up a connection with
- * rsyncd.
- **/
 
 #include "rsync.h"
 
+extern int verbose;
+extern int quiet;
+extern int output_motd;
+extern int list_only;
 extern int am_sender;
 extern int am_server;
 extern int am_daemon;
 extern int am_root;
-extern int module_id;
-extern int read_only;
-extern int verbose;
 extern int rsync_port;
-extern int kludge_around_eof;
+extern int kluge_around_eof;
 extern int daemon_over_rsh;
-extern int list_only;
 extern int sanitize_paths;
 extern int filesfrom_fd;
 extern int remote_protocol;
 extern int protocol_version;
 extern int io_timeout;
-extern int orig_umask;
 extern int no_detach;
 extern int default_af_hint;
+extern int logfile_format_has_i;
+extern int logfile_format_has_o_or_i;
+extern mode_t orig_umask;
 extern char *bind_address;
-extern struct exclude_list_struct server_exclude_list;
-extern char *exclude_path_prefix;
+extern char *sockopts;
 extern char *config_file;
+extern char *logfile_format;
 extern char *files_from;
+extern char *tmpdir;
+extern struct chmod_mode_struct *chmod_modes;
+extern struct filter_list_struct server_filter_list;
 
 char *auth_user;
+int read_only = 0;
+int module_id = -1;
+int munge_symlinks = 0;
+struct chmod_mode_struct *daemon_chmod_modes;
+
+/* Length of lp_path() string when in daemon mode & not chrooted, else 0. */
+unsigned int module_dirlen = 0;
+
+#ifdef HAVE_SIGACTION
+static struct sigaction sigact;
+#endif
 
 /**
  * Run a client connected to an rsyncd.  The alternative to this
@@ -82,7 +93,7 @@ int start_socket_client(char *host, char *path, int argc, char *argv[])
 		return -1;
 	}
 
-	if ((p = strchr(host, '@')) != NULL) {
+	if ((p = strrchr(host, '@')) != NULL) {
 		user = host;
 		host = p+1;
 		*p = '\0';
@@ -93,22 +104,24 @@ int start_socket_client(char *host, char *path, int argc, char *argv[])
 	if (fd == -1)
 		exit_cleanup(RERR_SOCKETIO);
 
+	set_socket_options(fd, sockopts);
+
 	ret = start_inband_exchange(user, path, fd, fd, argc);
 
-	return ret < 0? ret : client_run(fd, fd, -1, argc, argv);
+	return ret ? ret : client_run(fd, fd, -1, argc, argv);
 }
 
-int start_inband_exchange(char *user, char *path, int f_in, int f_out, 
+int start_inband_exchange(char *user, char *path, int f_in, int f_out,
 			  int argc)
 {
 	int i;
 	char *sargs[MAX_ARGS];
 	int sargc = 0;
-	char line[MAXPATHLEN];
+	char line[BIGPATHBUFLEN];
 	char *p;
 
 	if (argc == 0 && !am_sender)
-		list_only = 1;
+		list_only |= 1;
 
 	if (*path == '/') {
 		rprintf(FERROR,
@@ -120,19 +133,6 @@ int start_inband_exchange(char *user, char *path, int f_in, int f_out,
 		user = getenv("USER");
 	if (!user)
 		user = getenv("LOGNAME");
-
-	/* set daemon_over_rsh to false since we need to build the
-	 * true set of args passed through the rsh/ssh connection;
-	 * this is a no-op for direct-socket-connection mode */
-	daemon_over_rsh = 0;
-	server_options(sargs, &sargc);
-
-	sargs[sargc++] = ".";
-
-	if (path && *path)
-		sargs[sargc++] = path;
-
-	sargs[sargc] = NULL;
 
 	io_printf(f_out, "@RSYNCD: %d\n", protocol_version);
 
@@ -150,6 +150,25 @@ int start_inband_exchange(char *user, char *path, int f_in, int f_out,
 	if (protocol_version > remote_protocol)
 		protocol_version = remote_protocol;
 
+	if (list_only && protocol_version >= 29)
+		list_only |= 2;
+
+	/* set daemon_over_rsh to false since we need to build the
+	 * true set of args passed through the rsh/ssh connection;
+	 * this is a no-op for direct-socket-connection mode */
+	daemon_over_rsh = 0;
+	server_options(sargs, &sargc);
+
+	sargs[sargc++] = ".";
+
+	if (path && *path)
+		sargs[sargc++] = path;
+
+	sargs[sargc] = NULL;
+
+	if (verbose > 1)
+		print_child_argv(sargs);
+
 	p = strchr(path,'/');
 	if (p) *p = 0;
 	io_printf(f_out, "%s\n", path);
@@ -157,7 +176,7 @@ int start_inband_exchange(char *user, char *path, int f_in, int f_out,
 
 	/* Old servers may just drop the connection here,
 	 rather than sending a proper EXIT command.  Yuck. */
-	kludge_around_eof = list_only && (protocol_version < 25);
+	kluge_around_eof = list_only && protocol_version < 25 ? 1 : 0;
 
 	while (1) {
 		if (!read_line(f_in, line, sizeof line - 1)) {
@@ -185,12 +204,15 @@ int start_inband_exchange(char *user, char *path, int f_in, int f_out,
 			rprintf(FERROR, "%s\n", line);
 			/* This is always fatal; the server will now
 			 * close the socket. */
-			return RERR_STARTCLIENT;
-		} else {
-			rprintf(FINFO,"%s\n", line);
+			return -1;
 		}
+
+		/* This might be a MOTD line or a module listing, but there is
+		 * no way to differentiate it.  The manpage mentions this. */
+		if (output_motd)
+			rprintf(FINFO, "%s\n", line);
 	}
-	kludge_around_eof = False;
+	kluge_around_eof = 0;
 
 	for (i = 0; i < sargc; i++) {
 		io_printf(f_out, "%s\n", sargs[i]);
@@ -205,24 +227,62 @@ int start_inband_exchange(char *user, char *path, int f_in, int f_out,
 	return 0;
 }
 
+static char *finish_pre_exec(pid_t pid, int fd, char *request,
+			     int argc, char *argv[])
+{
+	int j, status = -1;
 
+	if (request) {
+		write_buf(fd, request, strlen(request)+1);
+		for (j = 0; j < argc; j++)
+			write_buf(fd, argv[j], strlen(argv[j])+1);
+	}
 
-static int rsync_module(int f_in, int f_out, int i)
+	write_byte(fd, 0);
+
+	close(fd);
+
+	if (wait_process(pid, &status, 0) < 0
+	 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+		char *e;
+		if (asprintf(&e, "pre-xfer exec returned failure (%d)\n", status) < 0)
+			out_of_memory("finish_pre_exec");
+		return e;
+	}
+	return NULL;
+}
+
+static int read_arg_from_pipe(int fd, char *buf, int limit)
+{
+	char *bp = buf, *eob = buf + limit - 1;
+
+	while (1) {
+	    if (read(fd, bp, 1) != 1)
+		return -1;
+	    if (*bp == '\0')
+		break;
+	    if (bp < eob)
+		bp++;
+	}
+	*bp = '\0';
+
+	return bp - buf;
+}
+
+static int rsync_module(int f_in, int f_out, int i, char *addr, char *host)
 {
 	int argc = 0;
 	int maxargs;
 	char **argv;
-	char **argp;
-	char line[MAXPATHLEN];
+	char line[BIGPATHBUFLEN];
 	uid_t uid = (uid_t)-2;  /* canonically "nobody" */
 	gid_t gid = (gid_t)-2;
-	char *p;
-	char *addr = client_addr(f_in);
-	char *host = client_name(f_in);
+	char *p, *err_msg = NULL;
 	char *name = lp_name(i);
 	int use_chroot = lp_use_chroot(i);
 	int start_glob = 0;
-	int ret;
+	int ret, pre_exec_fd = -1;
+	pid_t pre_exec_pid = 0;
 	char *request = NULL;
 
 	if (!allow_access(addr, host, lp_hosts_allow(i), lp_hosts_deny(i))) {
@@ -247,27 +307,34 @@ static int rsync_module(int f_in, int f_out, int i)
 		if (errno) {
 			rsyserr(FLOG, errno, "failed to open lock file %s",
 				lp_lock_file(i));
-			io_printf(f_out, "@ERROR: failed to open lock file %s\n",
-				  lp_lock_file(i));
+			io_printf(f_out, "@ERROR: failed to open lock file\n");
 		} else {
 			rprintf(FLOG, "max connections (%d) reached\n",
 				lp_max_connections(i));
-			io_printf(f_out, "@ERROR: max connections (%d) reached - try again later\n",
+			io_printf(f_out, "@ERROR: max connections (%d) reached -- try again later\n",
 				lp_max_connections(i));
 		}
 		return -1;
 	}
 
-	auth_user = auth_server(f_in, f_out, i, addr, "@RSYNCD: AUTHREQD ");
+	auth_user = auth_server(f_in, f_out, i, host, addr, "@RSYNCD: AUTHREQD ");
 
 	if (!auth_user) {
-		rprintf(FLOG, "auth failed on module %s from %s (%s)\n",
-			name, host, addr);
 		io_printf(f_out, "@ERROR: auth failed on module %s\n", name);
 		return -1;
 	}
 
 	module_id = i;
+
+	if (lp_read_only(i))
+		read_only = 1;
+
+	if (lp_transfer_logging(i) && !logfile_format)
+		logfile_format = lp_log_format(i);
+	if (log_format_has(logfile_format, 'i'))
+		logfile_format_has_i = 1;
+	if (logfile_format_has_i || log_format_has(logfile_format, 'o'))
+		logfile_format_has_o_or_i = 1;
 
 	am_root = (MY_UID() == 0);
 
@@ -300,28 +367,126 @@ static int rsync_module(int f_in, int f_out, int i)
 	/* TODO: Perhaps take a list of gids, and make them into the
 	 * supplementary groups. */
 
-	exclude_path_prefix = use_chroot? "" : lp_path(i);
-	if (*exclude_path_prefix == '/' && !exclude_path_prefix[1])
-		exclude_path_prefix = "";
+	if (use_chroot || (module_dirlen = strlen(lp_path(i))) == 1) {
+		module_dirlen = 0;
+		set_filter_dir("/", 1);
+	} else
+		set_filter_dir(lp_path(i), module_dirlen);
+
+	p = lp_filter(i);
+	parse_rule(&server_filter_list, p, MATCHFLG_WORD_SPLIT,
+		   XFLG_ABS_IF_SLASH);
 
 	p = lp_include_from(i);
-	add_exclude_file(&server_exclude_list, p,
-			 XFLG_FATAL_ERRORS | XFLG_DEF_INCLUDE);
+	parse_filter_file(&server_filter_list, p, MATCHFLG_INCLUDE,
+	    XFLG_ABS_IF_SLASH | XFLG_OLD_PREFIXES | XFLG_FATAL_ERRORS);
 
 	p = lp_include(i);
-	add_exclude(&server_exclude_list, p,
-		    XFLG_WORD_SPLIT | XFLG_DEF_INCLUDE);
+	parse_rule(&server_filter_list, p,
+		   MATCHFLG_INCLUDE | MATCHFLG_WORD_SPLIT,
+		   XFLG_ABS_IF_SLASH | XFLG_OLD_PREFIXES);
 
 	p = lp_exclude_from(i);
-	add_exclude_file(&server_exclude_list, p,
-			 XFLG_FATAL_ERRORS);
+	parse_filter_file(&server_filter_list, p, 0,
+	    XFLG_ABS_IF_SLASH | XFLG_OLD_PREFIXES | XFLG_FATAL_ERRORS);
 
 	p = lp_exclude(i);
-	add_exclude(&server_exclude_list, p, XFLG_WORD_SPLIT);
+	parse_rule(&server_filter_list, p, MATCHFLG_WORD_SPLIT,
+		   XFLG_ABS_IF_SLASH | XFLG_OLD_PREFIXES);
 
-	exclude_path_prefix = NULL;
+	log_init(1);
 
-	log_init();
+#ifdef HAVE_PUTENV
+	if (*lp_prexfer_exec(i) || *lp_postxfer_exec(i)) {
+		char *modname, *modpath, *hostaddr, *hostname, *username;
+		int status;
+		if (asprintf(&modname, "RSYNC_MODULE_NAME=%s", name) < 0
+		 || asprintf(&modpath, "RSYNC_MODULE_PATH=%s", lp_path(i)) < 0
+		 || asprintf(&hostaddr, "RSYNC_HOST_ADDR=%s", addr) < 0
+		 || asprintf(&hostname, "RSYNC_HOST_NAME=%s", host) < 0
+		 || asprintf(&username, "RSYNC_USER_NAME=%s", auth_user) < 0)
+			out_of_memory("rsync_module");
+		putenv(modname);
+		putenv(modpath);
+		putenv(hostaddr);
+		putenv(hostname);
+		putenv(username);
+		umask(orig_umask);
+		/* For post-xfer exec, fork a new process to run the rsync
+		 * daemon while this process waits for the exit status and
+		 * runs the indicated command at that point. */
+		if (*lp_postxfer_exec(i)) {
+			pid_t pid = fork();
+			if (pid < 0) {
+				rsyserr(FLOG, errno, "fork failed");
+				io_printf(f_out, "@ERROR: fork failed\n");
+				return -1;
+			}
+			if (pid) {
+				if (asprintf(&p, "RSYNC_PID=%ld", (long)pid) > 0)
+					putenv(p);
+				if (wait_process(pid, &status, 0) < 0)
+					status = -1;
+				if (asprintf(&p, "RSYNC_RAW_STATUS=%d", status) > 0)
+					putenv(p);
+				if (WIFEXITED(status))
+					status = WEXITSTATUS(status);
+				else
+					status = -1;
+				if (asprintf(&p, "RSYNC_EXIT_STATUS=%d", status) > 0)
+					putenv(p);
+				system(lp_postxfer_exec(i));
+				_exit(status);
+			}
+		}
+		/* For pre-xfer exec, fork a child process to run the indicated
+		 * command, though it first waits for the parent process to
+		 * send us the user's request via a pipe. */
+		if (*lp_prexfer_exec(i)) {
+			int fds[2];
+			if (asprintf(&p, "RSYNC_PID=%ld", (long)getpid()) > 0)
+				putenv(p);
+			if (pipe(fds) < 0 || (pre_exec_pid = fork()) < 0) {
+				rsyserr(FLOG, errno, "pre-xfer exec preparation failed");
+				io_printf(f_out, "@ERROR: pre-xfer exec preparation failed\n");
+				return -1;
+			}
+			if (pre_exec_pid == 0) {
+				char buf[BIGPATHBUFLEN];
+				int j, len;
+				close(fds[1]);
+				set_blocking(fds[0]);
+				len = read_arg_from_pipe(fds[0], buf, BIGPATHBUFLEN);
+				if (len <= 0)
+					_exit(1);
+				if (asprintf(&p, "RSYNC_REQUEST=%s", buf) > 0)
+					putenv(p);
+				for (j = 0; ; j++) {
+					len = read_arg_from_pipe(fds[0], buf,
+								 BIGPATHBUFLEN);
+					if (len <= 0) {
+						if (!len)
+							break;
+						_exit(1);
+					}
+					if (asprintf(&p, "RSYNC_ARG%d=%s", j, buf) > 0)
+						putenv(p);
+				}
+				close(fds[0]);
+				close(STDIN_FILENO);
+				close(STDOUT_FILENO);
+				status = system(lp_prexfer_exec(i));
+				if (!WIFEXITED(status))
+					_exit(1);
+				_exit(WEXITSTATUS(status));
+			}
+			close(fds[0]);
+			set_blocking(fds[1]);
+			pre_exec_fd = fds[1];
+		}
+		umask(0);
+	}
+#endif
 
 	if (use_chroot) {
 		/*
@@ -337,24 +502,39 @@ static int rsync_module(int f_in, int f_out, int i)
 		 * in which case we fail.
 		 */
 		if (chroot(lp_path(i))) {
-			rsyserr(FLOG, errno, "chroot %s failed", lp_path(i));
+			rsyserr(FLOG, errno, "chroot %s failed",
+				lp_path(i));
 			io_printf(f_out, "@ERROR: chroot failed\n");
 			return -1;
 		}
 
-		if (!push_dir("/")) {
-			rsyserr(FLOG, errno, "chdir %s failed\n", lp_path(i));
+		if (!push_dir("/", 0)) {
+			rsyserr(FLOG, errno, "chdir %s failed\n",
+				lp_path(i));
 			io_printf(f_out, "@ERROR: chdir failed\n");
 			return -1;
 		}
 
 	} else {
-		if (!push_dir(lp_path(i))) {
-			rsyserr(FLOG, errno, "chdir %s failed\n", lp_path(i));
+		if (!push_dir(lp_path(i), 0)) {
+			rsyserr(FLOG, errno, "chdir %s failed\n",
+				lp_path(i));
 			io_printf(f_out, "@ERROR: chdir failed\n");
 			return -1;
 		}
 		sanitize_paths = 1;
+	}
+
+	if ((munge_symlinks = lp_munge_symlinks(i)) < 0)
+		munge_symlinks = !use_chroot;
+	if (munge_symlinks) {
+		STRUCT_STAT st;
+		if (stat(SYMLINK_PREFIX, &st) == 0 && S_ISDIR(st.st_mode)) {
+			rprintf(FLOG, "Symlink munging is unsupported when a %s directory exists.\n",
+				SYMLINK_PREFIX);
+			io_printf(f_out, "@ERROR: daemon security issue -- contact admin\n", name);
+			exit_cleanup(RERR_UNSUPPORTED);
+		}
 	}
 
 	if (am_root) {
@@ -392,6 +572,16 @@ static int rsync_module(int f_in, int f_out, int i)
 		am_root = (MY_UID() == 0);
 	}
 
+	if (lp_temp_dir(i) && *lp_temp_dir(i)) {
+		tmpdir = lp_temp_dir(i);
+		if (strlen(tmpdir) >= MAXPATHLEN - 10) {
+			rprintf(FLOG,
+				"the 'temp dir' value for %s is WAY too long -- ignoring.\n",
+				name);
+			tmpdir = NULL;
+		}
+	}
+
 	io_printf(f_out, "@RSYNCD: OK\n");
 
 	maxargs = MAX_ARGS;
@@ -416,21 +606,37 @@ static int rsync_module(int f_in, int f_out, int i)
 		if (!(argv[argc] = strdup(p)))
 			out_of_memory("rsync_module");
 
-		if (start_glob) {
-			if (start_glob == 1) {
-				request = strdup(p);
-				start_glob++;
-			}
-			glob_expand(name, &argv, &argc, &maxargs);
-		} else
+		switch (start_glob) {
+		case 0:
 			argc++;
-
-		if (strcmp(line, ".") == 0)
-			start_glob = 1;
+			if (strcmp(line, ".") == 0)
+				start_glob = 1;
+			break;
+		case 1:
+			if (pre_exec_pid) {
+				err_msg = finish_pre_exec(pre_exec_pid,
+							  pre_exec_fd, p,
+							  argc, argv);
+				pre_exec_pid = 0;
+			}
+			request = strdup(p);
+			start_glob = 2;
+			/* FALL THROUGH */
+		default:
+			if (!err_msg)
+				glob_expand(name, &argv, &argc, &maxargs);
+			break;
+		}
 	}
 
-	argp = argv;
-	ret = parse_arguments(&argc, (const char ***) &argp, 0);
+	if (pre_exec_pid) {
+		err_msg = finish_pre_exec(pre_exec_pid, pre_exec_fd, request,
+					  argc, argv);
+	}
+
+	verbose = 0; /* future verbosity is controlled by client options */
+	ret = parse_arguments(&argc, (const char ***) &argv, 0);
+	quiet = 0; /* Don't let someone try to be tricky. */
 
 	if (filesfrom_fd == 0)
 		filesfrom_fd = f_in;
@@ -450,33 +656,65 @@ static int rsync_module(int f_in, int f_out, int i)
 
 #ifndef DEBUG
 	/* don't allow the logs to be flooded too fast */
-	if (verbose > lp_max_verbosity())
-		verbose = lp_max_verbosity();
+	if (verbose > lp_max_verbosity(i))
+		verbose = lp_max_verbosity(i);
 #endif
 
 	if (protocol_version < 23
 	    && (protocol_version == 22 || am_sender))
 		io_start_multiplex_out();
-	else if (!ret) {
+	else if (!ret || err_msg) {
 		/* We have to get I/O multiplexing started so that we can
 		 * get the error back to the client.  This means getting
 		 * the protocol setup finished first in later versions. */
 		setup_protocol(f_out, f_in);
-		if (files_from && !am_sender && strcmp(files_from, "-") != 0)
-			write_byte(f_out, 0);
+		if (!am_sender) {
+			/* Since we failed in our option parsing, we may not
+			 * have finished parsing that the client sent us a
+			 * --files-from option, so look for it manually.
+			 * Without this, the socket would be in the wrong
+			 * state for the upcoming error message. */
+			if (!files_from) {
+				int i;
+				for (i = 0; i < argc; i++) {
+					if (strncmp(argv[i], "--files-from", 12) == 0) {
+						files_from = "";
+						break;
+					}
+				}
+			}
+			if (files_from)
+				write_byte(f_out, 0);
+		}
 		io_start_multiplex_out();
 	}
 
-	if (!ret) {
-		option_error();
+	if (!ret || err_msg) {
+		if (err_msg)
+			rprintf(FERROR, err_msg);
+		else
+			option_error();
 		msleep(400);
 		exit_cleanup(RERR_UNSUPPORTED);
 	}
 
-	if (lp_timeout(i))
-		io_timeout = lp_timeout(i);
+	if (lp_timeout(i) && lp_timeout(i) > io_timeout)
+		set_io_timeout(lp_timeout(i));
 
-	start_server(f_in, f_out, argc, argp);
+	/* If we have some incoming/outgoing chmod changes, append them to
+	 * any user-specified changes (making our changes have priority).
+	 * We also get a pointer to just our changes so that a receiver
+	 * process can use them separately if --perms wasn't specified. */
+	if (am_sender)
+		p = lp_outgoing_chmod(i);
+	else
+		p = lp_incoming_chmod(i);
+	if (*p && !(daemon_chmod_modes = parse_chmod(p, &chmod_modes))) {
+		rprintf(FLOG, "Invalid \"%sing chmod\" directive: %s\n",
+			am_sender ? "outgo" : "incom", p);
+	}
+
+	start_server(f_in, f_out, argc, argv);
 
 	return 0;
 }
@@ -502,20 +740,29 @@ static void send_listing(int fd)
    here */
 int start_daemon(int f_in, int f_out)
 {
-	char line[200];
-	char *motd;
+	char line[1024];
+	char *motd, *addr, *host;
 	int i;
 
 	io_set_sock_fds(f_in, f_out);
 
+	/* We must load the config file before calling any function that
+	 * might cause log-file output to occur.  This ensures that the
+	 * "log file" param gets honored for the 2 non-forked use-cases
+	 * (when rsync is run by init and run by a remote shell). */
 	if (!lp_load(config_file, 0))
 		exit_cleanup(RERR_SYNTAX);
 
-	log_init();
+	addr = client_addr(f_in);
+	host = client_name(f_in);
+	rprintf(FLOG, "connect from %s (%s)\n", host, addr);
 
 	if (!am_server) {
 		set_socket_options(f_in, "SO_KEEPALIVE");
-		set_socket_options(f_in, lp_socket_options());
+		if (sockopts)
+			set_socket_options(f_in, sockopts);
+		else
+			set_socket_options(f_in, lp_socket_options());
 		set_nonblocking(f_in);
 	}
 
@@ -551,6 +798,8 @@ int start_daemon(int f_in, int f_out)
 		return -1;
 
 	if (!*line || strcmp(line, "#list") == 0) {
+		rprintf(FLOG, "module-list request from %s (%s)\n",
+			host, addr);
 		send_listing(f_out);
 		return -1;
 	}
@@ -562,17 +811,19 @@ int start_daemon(int f_in, int f_out)
 	}
 
 	if ((i = lp_number(line)) < 0) {
-		char *addr = client_addr(f_in);
-		char *host = client_name(f_in);
 		rprintf(FLOG, "unknown module '%s' tried from %s (%s)\n",
 			line, host, addr);
 		io_printf(f_out, "@ERROR: Unknown module '%s'\n", line);
 		return -1;
 	}
 
-	return rsync_module(f_in, f_out, i);
-}
+#ifdef HAVE_SIGACTION
+	sigact.sa_flags = SA_NOCLDSTOP;
+#endif
+	SIGACTION(SIGCHLD, remember_children);
 
+	return rsync_module(f_in, f_out, i, addr, host);
+}
 
 int daemon_main(void)
 {
@@ -598,7 +849,12 @@ int daemon_main(void)
 	if (!lp_load(config_file, 1))
 		exit_cleanup(RERR_SYNTAX);
 
-	log_init();
+	if (rsync_port == 0 && (rsync_port = lp_rsync_port()) == 0)
+		rsync_port = RSYNC_PORT;
+	if (bind_address == NULL && *lp_bind_address())
+		bind_address = lp_bind_address();
+
+	log_init(0);
 
 	rprintf(FLOG, "rsyncd version %s starting, listening on port %d\n",
 		RSYNC_VERSION, rsync_port);
@@ -614,7 +870,8 @@ int daemon_main(void)
 		if ((fd = do_open(lp_pid_file(), O_WRONLY|O_CREAT|O_TRUNC,
 					0666 & ~orig_umask)) == -1) {
 			cleanup_set_pid(0);
-			rsyserr(FLOG, errno, "failed to create pid file %s", pid_file);
+			rsyserr(FLOG, errno, "failed to create pid file %s",
+				pid_file);
 			exit_cleanup(RERR_FILEIO);
 		}
 		snprintf(pidbuf, sizeof pidbuf, "%ld\n", (long)pid);

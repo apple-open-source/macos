@@ -1,30 +1,31 @@
-After applying this patch and running configure, you MUST run this
-command before "make":
-
-    make proto
-
-Jason M. Felice writes:
+Jason M. Felice wrote:
 
 This patch adds the --link-by-hash=DIR option, which hard links received
 files in a link farm arranged by MD4 file hash.  The result is that the system
 will only store one copy of the unique contents of each file, regardless of
 the file's name.
 
+To use this patch, run these commands for a successful build:
 
---- orig/Makefile.in	2004-08-13 07:18:58
-+++ Makefile.in	2004-07-03 20:20:15
+    patch -p1 <patches/link-by-hash.diff
+    ./prepare-source
+    ./configure
+    make
+
+--- old/Makefile.in
++++ new/Makefile.in
 @@ -35,7 +35,7 @@ OBJS1=rsync.o generator.o receiver.o cle
  	main.o checksum.o match.o syscall.o log.o backup.o
  OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o \
- 	fileio.o batch.o clientname.o
+ 	fileio.o batch.o clientname.o chmod.o
 -OBJS3=progress.o pipe.o
 +OBJS3=progress.o pipe.o hashlink.o
  DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
  popt_OBJS=popt/findme.o  popt/popt.o  popt/poptconfig.o \
  	popt/popthelp.o popt/poptparse.o
---- orig/hashlink.c	2004-09-24 16:44:25
-+++ hashlink.c	2004-09-24 16:44:25
-@@ -0,0 +1,340 @@
+--- old/hashlink.c
++++ new/hashlink.c
+@@ -0,0 +1,339 @@
 +/*
 +   Copyright (C) Cronosys, LLC 2004
 +
@@ -49,7 +50,7 @@ the file's name.
 +
 +extern char *link_by_hash_dir;
 +
-+#ifdef HAVE_LINK
++#if HAVE_LINK
 +
 +char* make_hash_name(struct file_struct *file)
 +{
@@ -130,7 +131,7 @@ the file's name.
 +		if (this_fnbr > *fnbr)
 +			*fnbr = this_fnbr;
 +
-+		hashfile = (struct hashfile_struct*)malloc(sizeof(struct hashfile_struct));
++		hashfile = new_array(struct hashfile_struct, 1);
 +		asprintf(&hashfile->name,"%s/%s",hashname,
 +			 di->d_name);
 +		if (do_stat(hashfile->name,&st) == -1) {
@@ -254,9 +255,8 @@ the file's name.
 +	char *linkname;
 +	long last_fnbr;
 +
-+	if (file->length == 0) {
-+		return robust_rename(fnametmp,fname,0644);
-+	}
++	if (file->length == 0)
++		return robust_rename(fnametmp, fname, NULL, 0644);
 +
 +	if (do_stat(hashname, &st) == -1) {
 +		char *dirname;
@@ -268,14 +268,14 @@ the file's name.
 +			rsyserr(FERROR, errno, "mkdir failed: %s", dirname);
 +			free(hashname);
 +			free(dirname);
-+			return robust_rename(fnametmp,fname,0644);
++			return robust_rename(fnametmp, fname, NULL, 0644);
 +		}
 +		free(dirname);
 +
 +		if (do_mkdir(hashname, 0755) == -1 && errno != EEXIST) {
 +			rsyserr(FERROR, errno, "mkdir failed: %s", hashname);
 +			free(hashname);
-+			return robust_rename(fnametmp,fname,0644);
++			return robust_rename(fnametmp, fname, NULL, 0644);
 +		}
 +
 +		first = 1;
@@ -336,7 +336,7 @@ the file's name.
 +			} else {
 +				rsyserr(FERROR, errno, "link \"%s\" -> \"%s\"",
 +					linkname, full_fname(fname));
-+				rc = robust_rename(fnametmp,fname,0644);
++				rc = robust_rename(fnametmp, fname, NULL, 0644);
 +			}
 +		} else {
 +			do_unlink(fnametmp);
@@ -347,7 +347,7 @@ the file's name.
 +		rprintf(FINFO, "link-by-hash (new): %s -> \"%s\"\n",
 +				full_fname(fname),linkname);
 +
-+		rc = robust_rename(fnametmp,fname,0644);
++		rc = robust_rename(fnametmp, fname, NULL, 0644);
 +		if (rc != 0) {
 +			rsyserr(FERROR, errno, "rename \"%s\" -> \"%s\"",
 +				full_fname(fnametmp), full_fname(fname));
@@ -365,50 +365,50 @@ the file's name.
 +}
 +
 +#endif
---- orig/options.c	2004-09-23 17:42:07
-+++ options.c	2004-08-13 18:13:18
-@@ -126,6 +126,7 @@ char *log_format = NULL;
- char *password_file = NULL;
- char *rsync_path = RSYNC_PATH;
- char *backup_dir = NULL;
+--- old/options.c
++++ new/options.c
+@@ -145,6 +145,7 @@ char *backup_suffix = NULL;
+ char *tmpdir = NULL;
+ char *partial_dir = NULL;
+ char *basis_dir[MAX_BASIS_DIRS+1];
 +char *link_by_hash_dir = NULL;
- char backup_dir_buf[MAXPATHLEN];
- int rsync_port = RSYNC_PORT;
- int link_dest = 0;
-@@ -279,6 +280,7 @@ void usage(enum logcode F)
-   rprintf(F," -T, --temp-dir=DIR          create temporary files in directory DIR\n");
+ char *config_file = NULL;
+ char *shell_cmd = NULL;
+ char *logfile_name = NULL;
+@@ -349,6 +350,7 @@ void usage(enum logcode F)
    rprintf(F,"     --compare-dest=DIR      also compare destination files relative to DIR\n");
-   rprintf(F,"     --link-dest=DIR         create hardlinks to DIR for unchanged files\n");
-+  rprintf(F,"     --link-by-hash=DIR      create hardlinks by hash to DIR for regular files\n");
-   rprintf(F," -P                          equivalent to --partial --progress\n");
-   rprintf(F," -z, --compress              compress file data\n");
-   rprintf(F," -C, --cvs-exclude           auto ignore files in the same way CVS does\n");
-@@ -319,7 +321,7 @@ void usage(enum logcode F)
- enum {OPT_VERSION = 1000, OPT_SENDER, OPT_EXCLUDE, OPT_EXCLUDE_FROM,
-       OPT_DELETE_AFTER, OPT_DELETE_EXCLUDED, OPT_LINK_DEST,
-       OPT_INCLUDE, OPT_INCLUDE_FROM, OPT_MODIFY_WINDOW,
--      OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_TIMEOUT,
-+      OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_TIMEOUT, OPT_LINK_BY_HASH,
-       OPT_REFUSED_BASE = 9000};
+   rprintf(F,"     --copy-dest=DIR         ... and include copies of unchanged files\n");
+   rprintf(F,"     --link-dest=DIR         hardlink to files in DIR when unchanged\n");
++  rprintf(F,"     --link-by-hash=DIR      create hardlinks by hash into DIR\n");
+   rprintf(F," -z, --compress              compress file data during the transfer\n");
+   rprintf(F,"     --compress-level=NUM    explicitly set compression level\n");
+   rprintf(F," -C, --cvs-exclude           auto-ignore files the same way CVS does\n");
+@@ -398,7 +400,7 @@ enum {OPT_VERSION = 1000, OPT_DAEMON, OP
+       OPT_FILTER, OPT_COMPARE_DEST, OPT_COPY_DEST, OPT_LINK_DEST, OPT_HELP,
+       OPT_INCLUDE, OPT_INCLUDE_FROM, OPT_MODIFY_WINDOW, OPT_MIN_SIZE, OPT_CHMOD,
+       OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_ONLY_WRITE_BATCH, OPT_MAX_SIZE,
+-      OPT_NO_D,
++      OPT_NO_D, OPT_LINK_BY_HASH,
+       OPT_SERVER, OPT_REFUSED_BASE = 9000};
  
  static struct poptOption long_options[] = {
-@@ -378,6 +380,7 @@ static struct poptOption long_options[] 
-   {"temp-dir",        'T', POPT_ARG_STRING, &tmpdir, 0, 0, 0 },
-   {"compare-dest",     0,  POPT_ARG_STRING, &compare_dest, 0, 0, 0 },
-   {"link-dest",        0,  POPT_ARG_STRING, &compare_dest,  OPT_LINK_DEST, 0, 0 },
-+  {"link-by-hash",     0,  POPT_ARG_STRING, 0,              OPT_LINK_BY_HASH, 0, 0},
-   /* TODO: Should this take an optional int giving the compression level? */
-   {"compress",        'z', POPT_ARG_NONE,   &do_compression, 0, 0, 0 },
-   {"daemon",           0,  POPT_ARG_NONE,   &daemon_opt, 0, 0, 0 },
-@@ -616,6 +619,21 @@ int parse_arguments(int *argc, const cha
- 			return 0;
- #endif
+@@ -499,6 +501,7 @@ static struct poptOption long_options[] 
+   {"compare-dest",     0,  POPT_ARG_STRING, 0, OPT_COMPARE_DEST, 0, 0 },
+   {"copy-dest",        0,  POPT_ARG_STRING, 0, OPT_COPY_DEST, 0, 0 },
+   {"link-dest",        0,  POPT_ARG_STRING, 0, OPT_LINK_DEST, 0, 0 },
++  {"link-by-hash",     0,  POPT_ARG_STRING, 0, OPT_LINK_BY_HASH, 0, 0},
+   {"fuzzy",           'y', POPT_ARG_NONE,   &fuzzy_basis, 0, 0, 0 },
+   {"compress",        'z', POPT_ARG_NONE,   0, 'z', 0, 0 },
+   {"compress-level",   0,  POPT_ARG_INT,    &def_compress_level, 'z', 0, 0 },
+@@ -1089,6 +1092,21 @@ int parse_arguments(int *argc, const cha
+ 			usage(FINFO);
+ 			exit_cleanup(0);
  
 +                case OPT_LINK_BY_HASH:
 +#if HAVE_LINK
 +			arg = poptGetOptArg(pc);
 +			if (sanitize_paths)
-+				arg = sanitize_path(NULL, arg, NULL, 0);
++				arg = sanitize_path(NULL, arg, NULL, 0, NULL);
 +			link_by_hash_dir = (char *)arg;
 +			break;
 +#else
@@ -421,9 +421,9 @@ the file's name.
 +
  		default:
  			/* A large opt value means that set_refuse_options()
- 			 * turned this option off (opt-BASE is its index). */
-@@ -1087,6 +1105,11 @@ void server_options(char **args,int *arg
- 		args[ac++] = compare_dest;
+ 			 * turned this option off. */
+@@ -1739,6 +1757,11 @@ void server_options(char **args,int *arg
+ 		}
  	}
  
 +	if (link_by_hash_dir && am_sender) {
@@ -431,20 +431,20 @@ the file's name.
 +		args[ac++] = link_by_hash_dir;
 +	}
 +
- 	if (files_from && (!am_sender || remote_filesfrom_file)) {
- 		if (remote_filesfrom_file) {
+ 	if (files_from && (!am_sender || filesfrom_host)) {
+ 		if (filesfrom_host) {
  			args[ac++] = "--files-from";
---- orig/receiver.c	2004-09-21 09:40:27
-+++ receiver.c	2004-07-20 21:44:05
-@@ -39,6 +39,7 @@ extern int io_error;
+--- old/receiver.c
++++ new/receiver.c
+@@ -50,6 +50,7 @@ extern int delay_updates;
+ extern struct stats stats;
+ extern char *stdout_format;
  extern char *tmpdir;
- extern char *partial_dir;
- extern char *compare_dest;
 +extern char *link_by_hash_dir;
- extern int make_backups;
- extern int do_progress;
- extern char *backup_dir;
-@@ -202,12 +203,13 @@ static int get_tmpname(char *fnametmp, c
+ extern char *partial_dir;
+ extern char *basis_dir[];
+ extern struct file_list *the_file_list;
+@@ -124,12 +125,13 @@ static int get_tmpname(char *fnametmp, c
  
  
  static int receive_data(int f_in, char *fname_r, int fd_r, OFF_T size_r,
@@ -456,10 +456,10 @@ the file's name.
  	struct map_struct *mapbuf;
  	struct sum_struct sum;
 +	struct mdfour mdfour_data;
- 	unsigned int len;
+ 	int32 len;
  	OFF_T offset = 0;
  	OFF_T offset2;
-@@ -227,6 +229,9 @@ static int receive_data(int f_in, char *
+@@ -149,6 +151,9 @@ static int receive_data(int f_in, char *
  	} else
  		mapbuf = NULL;
  
@@ -468,26 +468,26 @@ the file's name.
 +
  	sum_init(checksum_seed);
  
- 	while ((i = recv_token(f_in, &data)) != 0) {
-@@ -243,6 +248,8 @@ static int receive_data(int f_in, char *
+ 	if (append_mode) {
+@@ -191,6 +196,8 @@ static int receive_data(int f_in, char *
  			cleanup_got_literal = 1;
  
- 			sum_update(data,i);
+ 			sum_update(data, i);
 +			if (md4)
-+				mdfour_update(&mdfour_data,data,i);
++				mdfour_update(&mdfour_data, (uchar*)data, i);
  
  			if (fd != -1 && write_file(fd,data,i) != i)
  				goto report_write_error;
-@@ -267,6 +274,8 @@ static int receive_data(int f_in, char *
+@@ -217,6 +224,8 @@ static int receive_data(int f_in, char *
  
  			see_token(map, len);
- 			sum_update(map,len);
+ 			sum_update(map, len);
 +			if (md4)
-+				mdfour_update(&mdfour_data,map,len);
++				mdfour_update(&mdfour_data, (uchar*)map, len);
  		}
  
- 		if (inplace) {
-@@ -306,6 +315,8 @@ static int receive_data(int f_in, char *
+ 		if (updating_basis) {
+@@ -259,6 +268,8 @@ static int receive_data(int f_in, char *
  	}
  
  	sum_end(file_sum1);
@@ -496,7 +496,7 @@ the file's name.
  
  	if (mapbuf)
  		unmap_file(mapbuf);
-@@ -321,7 +332,7 @@ static int receive_data(int f_in, char *
+@@ -274,7 +285,7 @@ static int receive_data(int f_in, char *
  
  static void discard_receive_data(int f_in, OFF_T length)
  {
@@ -504,48 +504,52 @@ the file's name.
 +	receive_data(f_in, NULL, -1, 0, NULL, -1, length, NULL);
  }
  
- 
-@@ -542,8 +553,12 @@ int recv_files(int f_in, struct file_lis
- 			rprintf(FINFO, "%s\n", safe_fname(fname));
+ static void handle_delayed_updates(struct file_list *flist, char *local_name)
+@@ -611,8 +622,12 @@ int recv_files(int f_in, struct file_lis
+ 			rprintf(FINFO, "%s\n", fname);
  
  		/* recv file data */
-+#ifdef HAVE_LINK
++#if HAVE_LINK
 +		if (link_by_hash_dir)
-+			file->u.sum = (char*)malloc(MD4_SUM_LENGTH);
++			file->u.sum = new_array(char, MD4_SUM_LENGTH);
 +#endif
  		recv_ok = receive_data(f_in, fnamecmp, fd1, st.st_size,
 -				       fname, fd2, file->length);
 +				       fname, fd2, file->length, file->u.sum);
  
- 		log_recv(file, &initial_stats);
+ 		log_item(log_code, file, &initial_stats, iflags, NULL);
  
---- orig/rsync.c	2004-09-07 21:45:30
-+++ rsync.c	2004-08-13 18:14:34
-@@ -34,6 +34,7 @@ extern int force_delete;
- extern int recurse;
+--- old/rsync.c
++++ new/rsync.c
+@@ -48,6 +48,7 @@ extern int inplace;
  extern int keep_dirlinks;
  extern int make_backups;
+ extern mode_t orig_umask;
 +extern char *link_by_hash_dir;
- extern char *backup_dir;
- extern int inplace;
+ extern struct stats stats;
+ extern struct chmod_mode_struct *daemon_chmod_modes;
  
-@@ -254,7 +255,12 @@ void finish_transfer(char *fname, char *
+@@ -271,8 +272,15 @@ void finish_transfer(char *fname, char *
  	/* move tmp file over real file */
  	if (verbose > 2)
  		rprintf(FINFO, "renaming %s to %s\n", fnametmp, fname);
--	ret = robust_rename(fnametmp, fname, file->mode & INITACCESSPERMS);
-+#ifdef HAVE_LINK
+-	ret = robust_rename(fnametmp, fname, partialptr,
+-			    file->mode & INITACCESSPERMS);
++#if HAVE_LINK
 +	if (link_by_hash_dir)
 +		ret = link_by_hash(fnametmp, fname, file);
 +	else
 +#endif
-+		ret = robust_rename(fnametmp, fname, file->mode & INITACCESSPERMS);
++	{
++		ret = robust_rename(fnametmp, fname, partialptr,
++				    file->mode & INITACCESSPERMS);
++	}
  	if (ret < 0) {
  		rsyserr(FERROR, errno, "%s %s -> \"%s\"",
- 		    ret == -2 ? "copy" : "rename",
---- orig/rsync.h	2004-09-22 08:47:31
-+++ rsync.h	2004-07-03 20:20:15
-@@ -526,6 +526,14 @@ struct stats {
+ 			ret == -2 ? "copy" : "rename",
+--- old/rsync.h
++++ new/rsync.h
+@@ -651,6 +651,14 @@ struct stats {
  	int current_file_index;
  };
  
@@ -557,6 +561,40 @@ the file's name.
 +	uint32 nlink;
 +};
 +
+ struct chmod_mode_struct;
  
- /* we need this function because of the silly way in which duplicate
-    entries are handled in the file lists - we can't change this
+ #include "byteorder.h"
+--- old/rsync.yo
++++ new/rsync.yo
+@@ -366,6 +366,7 @@ to the detailed description below for a 
+      --compare-dest=DIR      also compare received files relative to DIR
+      --copy-dest=DIR         ... and include copies of unchanged files
+      --link-dest=DIR         hardlink to files in DIR when unchanged
++     --link-by-hash=DIR      create hardlinks by hash into DIR
+  -z, --compress              compress file data during the transfer
+      --compress-level=NUM    explicitly set compression level
+  -C, --cvs-exclude           auto-ignore files in the same way CVS does
+--- old/proto.h
++++ new/proto.h
+@@ -89,6 +89,11 @@ void itemize(struct file_struct *file, i
+ int unchanged_file(char *fn, struct file_struct *file, STRUCT_STAT *st);
+ void check_for_finished_hlinks(int itemizing, enum logcode code);
+ void generate_files(int f_out, struct file_list *flist, char *local_name);
++void kill_hashfile(struct hashfile_struct *hashfile);
++void kill_hashfiles(struct hashfile_struct *hashfiles);
++struct hashfile_struct *find_hashfiles(char *hashname, int64 size, long *fnbr);
++struct hashfile_struct *compare_hashfiles(int fd,struct hashfile_struct *files);
++int link_by_hash(char *fnametmp,char *fname,struct file_struct *file);
+ void init_hard_links(void);
+ int hard_link_check(struct file_struct *file, int ndx, char *fname,
+ 		    int statret, STRUCT_STAT *st, int itemizing,
+--- old/rsync.1
++++ new/rsync.1
+@@ -432,6 +432,7 @@ to the detailed description below for a 
+      \-\-compare\-dest=DIR      also compare received files relative to DIR
+      \-\-copy\-dest=DIR         \&.\&.\&. and include copies of unchanged files
+      \-\-link\-dest=DIR         hardlink to files in DIR when unchanged
++     \-\-link\-by\-hash=DIR      create hardlinks by hash into DIR
+  \-z, \-\-compress              compress file data during the transfer
+      \-\-compress\-level=NUM    explicitly set compression level
+  \-C, \-\-cvs\-exclude           auto-ignore files in the same way CVS does

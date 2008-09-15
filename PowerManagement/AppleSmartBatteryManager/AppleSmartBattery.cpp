@@ -207,6 +207,7 @@ bool AppleSmartBattery::init(void)
 
 bool AppleSmartBattery::start(IOService *provider)
 {
+    IORegistryEntry *p = NULL;
     IOReturn        err;
     OSNumber        *debugPollingSetting;
    
@@ -265,6 +266,18 @@ bool AppleSmartBattery::start(IOService *provider)
       || (kIOReturnSuccess != fWorkLoop->addEventSource(fPollTimer)) )
     {
         return false;
+    }
+    
+    // Find an object of class IOACPIPlatformDevice in my parent's
+    // IORegistry service plane ancsetry.
+    fACPIProvider = NULL;
+    p = this;
+    while (p) {
+        p = p->getParentEntry(gIOServicePlane);
+        if (OSDynamicCast(IOACPIPlatformDevice, p)) {
+            fACPIProvider = (IOACPIPlatformDevice *)p;
+            break;
+        }
     }
     
     // Publish the intended period in seconds that our "time remaining"
@@ -400,26 +413,103 @@ void AppleSmartBattery::handleChargeInhibited(bool charge_state)
     pollBatteryState(kExistingBatteryPath);
 }
 
-void AppleSmartBattery::handleUCStalled(bool stall)
-{
-    if (stall) 
-    {
-        setProperty("BatteryUpdatesUserClientStalled", true);
-    
-        /* Stalled by user client. Halt all activity. */
-        fStalledByUserClient = true;
-        fPollTimer->cancelTimeout();    
+// One "wait interval" is 100ms
+#define kWaitExclusiveIntervals 30
 
-        if (fPollingNow)
-        {
-            fCancelPolling = true;
-            fBatteryReadAllTimer->cancelTimeout();
+void AppleSmartBattery::handleExclusiveAccess(bool exclusive)
+{
+    /* Write exclusive access bit to SMC via ACPI registers
+     *
+     * #define ACPIIO_SMB_MODE       ACPIIO_SMB_BASE + 0x29
+     * Mode bit masks: 0x01 - OS requests exclusive access to battery
+     *                 0x10 - SMC acknowledges OS exclusive access to battery
+     *                            (resets to non-exclusive (0) on warm restart
+     *                              or leaving S0 or timeout)
+     */
+
+    IOACPIAddress       ecBehaviorsAddress;
+    IOReturn            ret = kIOReturnSuccess;
+    UInt64              value64 = 0;
+    int                 waitCount = 0;
+
+    // Shut off SMC hardware communications with the batteries
+    do {
+
+        if (!fACPIProvider) 
+            break;
+            
+        /* Read BYTE */
+        // Register address is 0x29 + SMB base 0x20
+        ecBehaviorsAddress.addr64 = 0x20 + 0x29;
+        ret = fACPIProvider->readAddressSpace( &value64, 
+                        kIOACPIAddressSpaceIDEmbeddedController,
+                        ecBehaviorsAddress, 8, 0, 0);
+        if (kIOReturnSuccess != ret) {
+            break;
         }
+                    
+        /* Modify - set 0x01 to indicate the SMC should not communicate with battery*/
+        if (exclusive) {
+            value64 |= 1;
+        } else {
+            // Zero'ing out bit 0x01
+            value64 &= ~1;
+        }
+
+        /* Write BYTE */
+        ret = fACPIProvider->writeAddressSpace( value64, 
+                        kIOACPIAddressSpaceIDEmbeddedController,
+                        ecBehaviorsAddress, 8, 0, 0);
+        if (kIOReturnSuccess != ret) {
+            break;
+        }
+
+        // Wait up to 3 seconds for the SMC to set/clear bit 0x10
+        // As-implemented, this waits at least 100 msec before proceeding.
+        // That is OK - this is a very infrequent code path.
+
+        waitCount = 0;
+        value64 = 0;
+        ret = kIOReturnSuccess;
+        while ((waitCount < kWaitExclusiveIntervals) 
+            && (kIOReturnSuccess == ret))
+        {
+            waitCount++;
+            IOSleep(100);
+
+            ret = fACPIProvider->readAddressSpace( &value64, 
+                            kIOACPIAddressSpaceIDEmbeddedController,
+                            ecBehaviorsAddress, 8, 0, 0);
+
+            if (exclusive) {
+                // wait for 0x10 bit to set
+                if ((value64 & 0x10) == 0x10)
+                    break;
+            } else {
+                // wait for 0x10 bit to clear
+                if ((value64 & 0x10) == 0)
+                    break;
+            }
+        }
+
+    } while (0);
+
+
+    if (exclusive) 
+    {
+        // Communications with battery have been shutdown for
+        // exclusive access by the user client.
+        setProperty("BatteryUpdatesBlockedExclusiveAccess", true);    
+        fStalledByUserClient = true;
+        
     } else {
-        removeProperty("BatteryUpdatesUserClientStalled");
-        /* Unstalled! restart polling */
+        // Exclusive access disabled! restart polling
+        removeProperty("BatteryUpdatesBlockedExclusiveAccess");
         fStalledByUserClient = false;
-        pollBatteryState(kNewBatteryPath);
+
+        // Restore battery state
+        // Do a complete battery poll
+        pollBatteryState( kNewBatteryPath );
     }
 }
 
@@ -497,6 +587,15 @@ bool AppleSmartBattery::transactionCompletion(
     char        recv_str[kIOSMBusMaxDataCount+1];
     OSNumber    *cell_volt_num;
 
+    /* If a user client has exclusive access to the SMBus, 
+     * we'll exit immediately.
+     */
+    if (fStalledByUserClient)
+    {
+        fPollingNow = false;
+        return true; 
+    }
+
     /* Do we need to abort an ongoing polling session? 
        Example: If a battery has just been removed in the midst of our polling, we
        need to abort the remainder of our scheduled SMBus reads. 
@@ -512,7 +611,6 @@ bool AppleSmartBattery::transactionCompletion(
             return true;
         }
     }
-
 
     /* 
      * Retry a failed transaction

@@ -944,6 +944,9 @@ bool AppleUSBCDCACMData::start(IOService *provider)
     OSNumber	*bufNumber = NULL;
     UInt16		bufValue = 0;
 	
+	IOUSBDevice *usbDevice;
+
+	
 	XTRACE(this, 0, provider, "start");
     
     fSessions = 0;
@@ -956,6 +959,7 @@ bool AppleUSBCDCACMData::start(IOService *provider)
 	fPMRootDomain = NULL;
 	fWoR = false;
 	fWakeSettingControllerHandle = NULL;
+	fWanDevice = NULL;
     
     initStructure();
     
@@ -973,6 +977,16 @@ bool AppleUSBCDCACMData::start(IOService *provider)
         ALERT(0, 0, "start - provider invalid");
         return false;
     }
+
+	usbDevice = OSDynamicCast (IOUSBDevice, fDataInterface->GetDevice());
+ 	fWanDevice = (OSBoolean *) usbDevice->getProperty("WWAN");	
+	fInterfaceMappings = (OSDictionary *) usbDevice->getProperty("InterfaceMapping");	
+	
+	if (fInterfaceMappings == NULL)
+	{
+		IOLog ("AppleUSBCDCACMData: start: InterfaceMappings dictionary not found for this device. Assume CDC Device...\n");
+		fWanDevice = NULL;
+	}
 
     fPort.DataInterfaceNumber = fDataInterface->GetInterfaceNumber();
     
@@ -1285,7 +1299,8 @@ bool AppleUSBCDCACMData::createSuffix(unsigned char *sufKey)
         {
             if ((strlen((char *)&serBuf) < 9) && (strlen((char *)&serBuf) > 0))
             {
-                strcpy((char *)sufKey, (const char *)&serBuf);
+				strlcpy((char *)sufKey, (const char *)&serBuf, strlen((char *)&serBuf));
+//                strcpy((char *)sufKey, (const char *)&serBuf);
                 sig = strlen((char *)sufKey);
                 keyOK = true;
             }			
@@ -1302,7 +1317,7 @@ bool AppleUSBCDCACMData::createSuffix(unsigned char *sufKey)
         if (location)
         {
             locVal = location->unsigned32BitValue();
-			snprintf((char *)sufKey, (sizeof(locVal)*2)+1, "%x", locVal);
+			snprintf((char *)sufKey, (sizeof(locVal)*2)+1, "%x", (unsigned int)locVal);
 			sig = strlen((const char *)sufKey)-1;
 			for (i=sig; i>=0; i--)
 			{
@@ -1350,6 +1365,7 @@ bool AppleUSBCDCACMData::createSerialStream()
     UInt8			indx;
     IOReturn			rc;
     unsigned char		rname[20];
+	OSString			*s;
     const char			*suffix = (const char *)&rname;
 	
     XTRACE(this, 0, pNub, "createSerialStream");
@@ -1372,9 +1388,26 @@ bool AppleUSBCDCACMData::createSerialStream()
         return false;
     }
 
-        // Report the base name to be used for generating device nodes
+	if (fWanDevice)
+		pNub->setProperty("WWAN", true);
+	else
+		IOLog("AppleUSBCDC::createSerialStream NON WAN CDC Device \n");
 	
+
+	// Get the name from the InterfaceMapping dictionary.
+	s = getPortNameForInterface(fDataInterface->GetInterfaceNumber());
+	
+	if (s != NULL)
+	{
+		pNub->setProperty(kIOTTYBaseNameKey, s->getCStringNoCopy());
+		IOLog("AppleUSBCDC::createSerialStream using CellPhone Helper name...\n");
+	}
+	else
+	{	
+        // Report the base name to be used for generating device nodes
     pNub->setProperty(kIOTTYBaseNameKey, baseName);
+		IOLog("AppleUSBCDC::createSerialStream using default naming and suffix...\n");
+
 	
         // Create suffix key and set it
 	
@@ -1382,6 +1415,7 @@ bool AppleUSBCDCACMData::createSerialStream()
     {		
         pNub->setProperty(kIOTTYSuffixKey, suffix);
     }
+	}
 
     pNub->registerService();
 	
@@ -1395,7 +1429,8 @@ bool AppleUSBCDCACMData::createSerialStream()
         {
             if (strlen((char *)fProductName) == 0)		// Believe it or not this sometimes happens - null string with an index defined???
             {
-                strcpy((char *)fProductName, defaultName);
+				strlcpy((char *)fProductName, defaultName, sizeof(defaultName));
+//                strcpy((char *)fProductName, defaultName);
             }
             pNub->setProperty((const char *)propertyTag, (const char *)fProductName);
         }
@@ -1644,10 +1679,13 @@ IOReturn AppleUSBCDCACMData::releasePort(void *refCon)
 			if (fPort.OutPipe)
 				checkPipe(fPort.OutPipe, true);
 
-			ret = fDataInterface->GetDevice()->ResetDevice();
-			if (ret != kIOReturnSuccess)
+			if (fDataInterface)
 			{
-				XTRACE(this, 0, ret, "releasePort - ResetDevice failed");
+				ret = fDataInterface->GetDevice()->ResetDevice();
+				if (ret != kIOReturnSuccess)
+				{
+					XTRACE(this, 0, ret, "releasePort - ResetDevice failed");
+				}
 			}
 		}
     }
@@ -1906,8 +1944,8 @@ IOReturn AppleUSBCDCACMData::setStateGated(UInt32 state, UInt32 mask)
 	bool	controlUpdate = false;
 	UInt32	DTRstate;
 	UInt32	RTSstate;
-	bool	DTRnew;
-	bool	RTSnew;
+	bool	DTRnew = false;
+	bool	RTSnew = false;
 	
     XTRACE(this, state, mask, "setStateGated");
     
@@ -1923,8 +1961,18 @@ IOReturn AppleUSBCDCACMData::setStateGated(UInt32 state, UInt32 mask)
 		DTRstate = fPort.State & PD_RS232_S_DTR;
 		RTSstate = fPort.State & PD_RS232_S_RTS;
 		XTRACE(this, DTRstate, RTSstate, "setState - DTRstate and RTSstate");
-		DTRnew = (bool)fPort.State & PD_RS232_S_DTR;
-		RTSnew = (bool)fPort.State & PD_RS232_S_RTS;
+		
+			// Set the new state based on the current setting
+			
+		if (fPort.State & PD_RS232_S_DTR)
+		{
+			DTRnew = true;
+		}
+		if (fPort.State & PD_RS232_S_RTS)
+		{
+			RTSnew = true;
+		}
+		XTRACE(this, DTRnew, RTSnew, "setState - DTRstate and RTSstate");
 		
 			// Handle DTR and RTS changes for the modem
 		
@@ -1962,6 +2010,8 @@ IOReturn AppleUSBCDCACMData::setStateGated(UInt32 state, UInt32 mask)
 				XTRACE(this, 0, RTSstate, "setState - RTS state unchanged");
 			}
 		}
+		
+		XTRACE(this, DTRnew, RTSnew, "setState - DTRnew and RTSnew");
 		
 		if ((!fTerminate) && (controlUpdate))
 		{
@@ -2290,8 +2340,10 @@ IOReturn AppleUSBCDCACMData::executeEventGated(UInt32 event, UInt32 data)
                 {
                     setStructureDefaults();
                     setStateGated((UInt32)PD_S_ACTIVE, (UInt32)PD_S_ACTIVE); 			// activate port
-				
-                    setControlLineState(true, true);						// set RTS and set DTR
+
+					setStateGated((UInt32)PD_RS232_S_RTS, (UInt32)PD_RS232_S_RTS);
+					setStateGated((UInt32)PD_RS232_S_DTR, (UInt32)PD_RS232_S_DTR);
+ //                   setControlLineState(true, true);						// set RTS and set DTR
                 }
             } else {
                 if ((state & PD_S_ACTIVE))
@@ -3822,6 +3874,22 @@ IOReturn AppleUSBCDCACMData::message(UInt32 type, IOService *provider, void *arg
     return kIOReturnUnsupported;
     
 }/* end message */
+
+
+OSString * AppleUSBCDCACMData::getPortNameForInterface(UInt8 interfaceNumber)
+{
+	OSSymbol *ttyName = NULL;
+	char	 endPointAddrStr[16];
+
+	if (fInterfaceMappings)
+	{		 
+		snprintf(endPointAddrStr,sizeof(endPointAddrStr),"%x",interfaceNumber);		
+		ttyName = (OSSymbol *)fInterfaceMappings->getObject(endPointAddrStr);			
+	 }
+
+	return ttyName;
+}
+
 
 #undef  super
 #define super IOUserClient

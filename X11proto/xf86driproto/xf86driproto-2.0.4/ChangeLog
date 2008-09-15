@@ -1,0 +1,133 @@
+commit beafefcb82089ec0bd629a66054e2982bdcaee51
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:39:12 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 55dd8f55f3f99051c4579e9574c10ecc9863830e
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Mon Oct 29 20:35:58 2007 -0400
+
+    dri_interface.h doesn't belong here, remove function protos from xf86dri.h.
+
+commit 28590a910f78fcdac526c61e9e427360128f3131
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:54:29 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit a9000b5b3756af2bddb9f3212a682ef647712ff8
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:56:46 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 3b20ea7958208c3ada4d6949c0f0da5525f0980c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:30:07 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 43fec892e803cb16399e104570ec2fdbaa325d07
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:32:25 2005 +0000
+
+    Stub COPYING files
+
+commit 02508b373e5a11b7c2cd2b4b8d7cb4180ffd436c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:39 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 61151bb21165ca3bde0adad4d7b05ce1203779ac
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 1 03:11:36 2005 +0000
+
+    Mesa 6.4.1 import
+
+commit 035d99d0f33c9ef3ec1715b0ada02a072a9f427e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:16 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit f863e56ae8d60345523a493a0fe77c1080aa0892
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Tue Oct 18 06:05:04 2005 +0000
+
+    dri_interface.h in xf86driproto
+
+commit a2df5606ccf0402178efcb04e198d474a20e4528
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Oct 18 02:51:49 2005 +0000
+
+    Mesa 6.4 20051017 import
+
+commit c519c132d102b08d6d6953833e3d62f7e83111b3
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Aug 2 19:19:40 2005 +0000
+
+    Add basic .cvsignore files for proto modules.
+
+commit 9b14371827ade0593d580fcf531484c88013ddef
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Sun Jul 31 16:45:58 2005 +0000
+
+    Mesa 6.3.1 import
+
+commit 27eed01842ea01f890b160a197810359ba7f107f
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Sun Jul 31 16:45:58 2005 +0000
+
+    Initial revision
+
+commit 13245a0c846a04833b37a0c61e4cec02a6c23b02
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:57 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 10bc0e6d7b8c056459928d97e238027b5c016708
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Jul 14 22:19:19 2005 +0000
+
+    Install xf86drstr.h as well Update the .pc file to include the correct path
+
+commit fa615bf684434a31c637eba45ba0fe01906a765e
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Sun Jul 10 23:15:32 2005 +0000
+
+    DRI protocol module
+
+commit 267dc158de53bd25b8ad55c75d043570425d5bff
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Tue Dec 14 19:26:25 2004 +0000
+
+    Import Mesa 6.2.1 (trimmed).
+
+commit 19d9bf1b083dc6717dde51952a10a77c85515b38
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Thu Jul 22 06:49:46 2004 +0000
+
+    Mesa 6.1 20040721 import
+
+commit be488358cb2ffeeb86e9fa458d9955191222ef75
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Wed Jun 16 09:16:34 2004 +0000
+
+    Mesa 6.1 20040613 import
+
+commit c32e91d7460e39cecd345f4cf3caffcce128a6e6
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Wed Jun 16 09:16:34 2004 +0000
+
+    Initial revision

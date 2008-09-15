@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute_API.c,v 1.331.2.20.2.24 2007/07/21 00:35:14 jani Exp $ */
+/* $Id: zend_execute_API.c,v 1.331.2.20.2.27 2008/03/04 11:46:09 dmitry Exp $ */
 
 #include <stdio.h>
 #include <signal.h>
@@ -452,6 +452,19 @@ ZEND_API int zend_is_true(zval *op)
 #define IS_CONSTANT_VISITED(p)    (Z_TYPE_P(p) & IS_VISITED_CONSTANT)
 #define MARK_CONSTANT_VISITED(p)  Z_TYPE_P(p) |= IS_VISITED_CONSTANT
 
+static void zval_deep_copy(zval **p)
+{
+	zval *value;
+
+	ALLOC_ZVAL(value);
+	*value = **p;
+	Z_TYPE_P(value) &= ~IS_CONSTANT_INDEX;
+	zval_copy_ctor(value);
+	Z_TYPE_P(value) = Z_TYPE_PP(p);
+	INIT_PZVAL(value);
+	*p = value;
+}
+
 ZEND_API int zval_update_constant_ex(zval **pp, void *arg, zend_class_entry *scope TSRMLS_DC)
 {
 	zval *p = *pp;
@@ -502,6 +515,16 @@ ZEND_API int zval_update_constant_ex(zval **pp, void *arg, zend_class_entry *sco
 		SEPARATE_ZVAL_IF_NOT_REF(pp);
 		p = *pp;
 		Z_TYPE_P(p) = IS_ARRAY;
+
+		if (!inline_change) {
+			zval *tmp;
+			HashTable *tmp_ht = NULL;
+
+			ALLOC_HASHTABLE(tmp_ht);
+			zend_hash_init(tmp_ht, zend_hash_num_elements(Z_ARRVAL_P(p)), NULL, ZVAL_PTR_DTOR, 0);
+			zend_hash_copy(tmp_ht, Z_ARRVAL_P(p), (copy_ctor_func_t) zval_deep_copy, (void *) &tmp, sizeof(zval *));
+			Z_ARRVAL_P(p) = tmp_ht;
+		} 
 
 		/* First go over the array and see if there are any constant indices */
 		zend_hash_internal_pointer_reset(Z_ARRVAL_P(p));
@@ -1034,19 +1057,20 @@ ZEND_API int zend_lookup_class_ex(char *name, int name_length, int use_autoload,
 	int retval;
 	char *lc_name;
 	zval *exception;
-	char dummy = 1;
 	zend_fcall_info fcall_info;
 	zend_fcall_info_cache fcall_cache;
+	char dummy = 1;
+	ALLOCA_FLAG(use_heap)
 
 	if (name == NULL || !name_length) {
 		return FAILURE;
 	}
 	
-	lc_name = do_alloca(name_length + 1);
+	lc_name = do_alloca_with_limit(name_length + 1, use_heap);
 	zend_str_tolower_copy(lc_name, name, name_length);
 
 	if (zend_hash_find(EG(class_table), lc_name, name_length+1, (void **) ce) == SUCCESS) {
-		free_alloca(lc_name);
+		free_alloca_with_limit(lc_name, use_heap);
 		return SUCCESS;
 	}
 
@@ -1054,7 +1078,7 @@ ZEND_API int zend_lookup_class_ex(char *name, int name_length, int use_autoload,
 	 * (doesn't impact fuctionality of __autoload()
 	*/
 	if (!use_autoload || zend_is_compiling(TSRMLS_C)) {
-		free_alloca(lc_name);
+		free_alloca_with_limit(lc_name, use_heap);
 		return FAILURE;
 	}
 
@@ -1064,7 +1088,7 @@ ZEND_API int zend_lookup_class_ex(char *name, int name_length, int use_autoload,
 	}
 	
 	if (zend_hash_add(EG(in_autoload), lc_name, name_length+1, (void**)&dummy, sizeof(char), NULL) == FAILURE) {
-		free_alloca(lc_name);
+		free_alloca_with_limit(lc_name, use_heap);
 		return FAILURE;
 	}
 
@@ -1102,12 +1126,12 @@ ZEND_API int zend_lookup_class_ex(char *name, int name_length, int use_autoload,
 
 	if (retval == FAILURE) {
 		EG(exception) = exception;
-		free_alloca(lc_name);
+		free_alloca_with_limit(lc_name, use_heap);
 		return FAILURE;
 	}
 
 	if (EG(exception) && exception) {
-		free_alloca(lc_name);
+		free_alloca_with_limit(lc_name, use_heap);
 		zend_error(E_ERROR, "Function %s(%s) threw an exception of type '%s'", ZEND_AUTOLOAD_FUNC_NAME, name, Z_OBJCE_P(EG(exception))->name);
 		return FAILURE;
 	}
@@ -1119,7 +1143,7 @@ ZEND_API int zend_lookup_class_ex(char *name, int name_length, int use_autoload,
 	}
 
 	retval = zend_hash_find(EG(class_table), lc_name, name_length + 1, (void **) ce);
-	free_alloca(lc_name);
+	free_alloca_with_limit(lc_name, use_heap);
 	return retval;
 }
 

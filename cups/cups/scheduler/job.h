@@ -1,5 +1,5 @@
 /*
- * "$Id: job.h 6755 2007-08-01 19:02:47Z mike $"
+ * "$Id: job.h 7222 2008-01-16 22:20:33Z mike $"
  *
  *   Print job definitions for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -127,5 +127,5 @@ extern void		cupsdUnloadCompletedJobs(void);
 
 
 /*
- * End of "$Id: job.h 6755 2007-08-01 19:02:47Z mike $".
+ * End of "$Id: job.h 7222 2008-01-16 22:20:33Z mike $".
  */

@@ -1,0 +1,1424 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN""http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>FUNCTIONS</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+HREF="index.html"><LINK
+REL="PREVIOUS"
+TITLE="Datatypes"
+HREF="x31.html"></HEAD
+><BODY
+CLASS="SECT1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x31.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+>&nbsp;</TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="AEN102"
+>4. FUNCTIONS</A
+></H1
+><P
+>These are grouped by functionality, often using the main datatype being
+manipulated.
+  </P
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN105"
+>4.1. Initialization</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r108.html"
+>FcInitLoadConfig</A
+>&nbsp;--&nbsp;load configuration</DT
+><DT
+><A
+HREF="r129.html"
+>FcInitLoadConfigAndFonts</A
+>&nbsp;--&nbsp;load configuration and font data</DT
+><DT
+><A
+HREF="r150.html"
+>FcInit</A
+>&nbsp;--&nbsp;initialize fontconfig library</DT
+><DT
+><A
+HREF="r171.html"
+>FcFini</A
+>&nbsp;--&nbsp;finalize fonconfig library</DT
+><DT
+><A
+HREF="r192.html"
+>FcGetVersion</A
+>&nbsp;--&nbsp;library version number</DT
+><DT
+><A
+HREF="r213.html"
+>FcInitReinitialize</A
+>&nbsp;--&nbsp;re-initialize library</DT
+><DT
+><A
+HREF="r234.html"
+>FcInitBringUptoDate</A
+>&nbsp;--&nbsp;reload configuration files if needed</DT
+></DL
+></DIV
+><P
+>These functions provide some control over how the library is initialized.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN255"
+>4.2. FcPattern</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r258.html"
+>FcPatternCreate</A
+>&nbsp;--&nbsp;Create a pattern</DT
+><DT
+><A
+HREF="r279.html"
+>FcPatternDuplicate</A
+>&nbsp;--&nbsp;Copy a pattern</DT
+><DT
+><A
+HREF="r301.html"
+>FcPatternReference</A
+>&nbsp;--&nbsp;Increment pattern reference count</DT
+><DT
+><A
+HREF="r323.html"
+>FcPatternDestroy</A
+>&nbsp;--&nbsp;Destroy a pattern</DT
+><DT
+><A
+HREF="r344.html"
+>FcPatternEqual</A
+>&nbsp;--&nbsp;Compare patterns</DT
+><DT
+><A
+HREF="r369.html"
+>FcPatternEqualSubset</A
+>&nbsp;--&nbsp;Compare portions of patterns</DT
+><DT
+><A
+HREF="r397.html"
+>FcPatternHash</A
+>&nbsp;--&nbsp;Compute a pattern hash value</DT
+><DT
+><A
+HREF="r418.html"
+>FcPatternAdd</A
+>&nbsp;--&nbsp;Add a value to a pattern</DT
+><DT
+><A
+HREF="r446.html"
+>FcPatternAddWeak</A
+>&nbsp;--&nbsp;Add a value to a pattern with weak binding</DT
+><DT
+><A
+HREF="r475.html"
+>FcPatternAdd-Type</A
+>&nbsp;--&nbsp;Add a typed value to a pattern</DT
+><DT
+><A
+HREF="r570.html"
+>FcPatternGet</A
+>&nbsp;--&nbsp;Return a value from a pattern</DT
+><DT
+><A
+HREF="r600.html"
+>FcPatternGet-Type</A
+>&nbsp;--&nbsp;Return a typed value from a pattern</DT
+><DT
+><A
+HREF="r707.html"
+>FcPatternBuild</A
+>&nbsp;--&nbsp;Create patterns from arguments</DT
+><DT
+><A
+HREF="r759.html"
+>FcPatternDel</A
+>&nbsp;--&nbsp;Delete a property from a pattern</DT
+><DT
+><A
+HREF="r782.html"
+>FcPatternRemove</A
+>&nbsp;--&nbsp;Remove one object of the specified type from the pattern</DT
+><DT
+><A
+HREF="r807.html"
+>FcPatternPrint</A
+>&nbsp;--&nbsp;Print a pattern for debugging</DT
+><DT
+><A
+HREF="r828.html"
+>FcDefaultSubstitute</A
+>&nbsp;--&nbsp;Perform default substitutions in a pattern</DT
+><DT
+><A
+HREF="r856.html"
+>FcNameParse</A
+>&nbsp;--&nbsp;Parse a pattern string</DT
+><DT
+><A
+HREF="r878.html"
+>FcNameUnparse</A
+>&nbsp;--&nbsp;Convert a pattern back into a string that can be parsed</DT
+></DL
+></DIV
+><P
+>An FcPattern is an opaque type that holds both patterns to match against the
+available fonts, as well as the information about each font.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN899"
+>4.3. FcFontSet</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r902.html"
+>FcFontSetCreate</A
+>&nbsp;--&nbsp;Create a font set</DT
+><DT
+><A
+HREF="r923.html"
+>FcFontSetDestroy</A
+>&nbsp;--&nbsp;Destroy a font set</DT
+><DT
+><A
+HREF="r944.html"
+>FcFontSetAdd</A
+>&nbsp;--&nbsp;Add to a font set</DT
+><DT
+><A
+HREF="r967.html"
+>FcFontSetList</A
+>&nbsp;--&nbsp;List fonts from a set of font sets</DT
+><DT
+><A
+HREF="r999.html"
+>FcFontSetMatch</A
+>&nbsp;--&nbsp;Return the best font from a set of font sets</DT
+><DT
+><A
+HREF="r1034.html"
+>FcFontSetPrint</A
+>&nbsp;--&nbsp;Print a set of patterns to stdout</DT
+><DT
+><A
+HREF="r1056.html"
+>FcFontSetSort</A
+>&nbsp;--&nbsp;Add to a font set</DT
+><DT
+><A
+HREF="r1099.html"
+>FcFontSetSortDestroy</A
+>&nbsp;--&nbsp;DEPRECATED destroy a font set</DT
+></DL
+></DIV
+><P
+>An FcFontSet simply holds a list of patterns; these are used to return the
+results of listing available fonts.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN1124"
+>4.4. FcObjectSet</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r1127.html"
+>FcObjectSetCreate</A
+>&nbsp;--&nbsp;Create an object set</DT
+><DT
+><A
+HREF="r1148.html"
+>FcObjectSetAdd</A
+>&nbsp;--&nbsp;Add to an object set</DT
+><DT
+><A
+HREF="r1171.html"
+>FcObjectSetDestroy</A
+>&nbsp;--&nbsp;Destroy an object set</DT
+><DT
+><A
+HREF="r1192.html"
+>FcObjectSetBuild</A
+>&nbsp;--&nbsp;Build object set from args</DT
+></DL
+></DIV
+><P
+>An FcObjectSet holds a list of pattern property names; it is used to
+indiciate which properties are to be returned in the patterns from
+FcFontList.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN1234"
+>4.5. FreeType specific functions</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r1237.html"
+>FcFreeTypeCharIndex</A
+>&nbsp;--&nbsp;map Unicode to glyph id</DT
+><DT
+><A
+HREF="r1260.html"
+>FcFreeTypeCharSet</A
+>&nbsp;--&nbsp;compute unicode coverage</DT
+><DT
+><A
+HREF="r1283.html"
+>FcFreeTypeCharSetAndSpacing</A
+>&nbsp;--&nbsp;compute unicode coverage and spacing type</DT
+><DT
+><A
+HREF="r1309.html"
+>FcFreeTypeQuery</A
+>&nbsp;--&nbsp;compute pattern from font file (and index)</DT
+><DT
+><A
+HREF="r1336.html"
+>FcFreeTypeQueryFace</A
+>&nbsp;--&nbsp;compute pattern from FT_Face</DT
+></DL
+></DIV
+><P
+>While the fontconfig library doesn't insist that FreeType be used as the
+rasterization mechanism for fonts, it does provide some convenience
+functions.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN1363"
+>4.6. FcValue</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r1367.html"
+>FcValueDestroy</A
+>&nbsp;--&nbsp;Free a value</DT
+><DT
+><A
+HREF="r1389.html"
+>FcValueSave</A
+>&nbsp;--&nbsp;Copy a value</DT
+><DT
+><A
+HREF="r1412.html"
+>FcValuePrint</A
+>&nbsp;--&nbsp;Print a value to stdout</DT
+><DT
+><A
+HREF="r1434.html"
+>FcValueEqual</A
+>&nbsp;--&nbsp;Test two values for equality</DT
+></DL
+></DIV
+><P
+>FcValue is a structure containing a type tag and a union of all possible
+datatypes.  The tag is an enum of type 
+<SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>FcType</I
+></SPAN
+>
+and is intended to provide a measure of run-time
+typechecking, although that depends on careful programming.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN1457"
+>4.7. FcCharSet</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r1460.html"
+>FcCharSetCreate</A
+>&nbsp;--&nbsp;Create an empty character set</DT
+><DT
+><A
+HREF="r1482.html"
+>FcCharSetDestroy</A
+>&nbsp;--&nbsp;Destroy a character set</DT
+><DT
+><A
+HREF="r1505.html"
+>FcCharSetAddChar</A
+>&nbsp;--&nbsp;Add a character to a charset</DT
+><DT
+><A
+HREF="r1529.html"
+>FcCharSetCopy</A
+>&nbsp;--&nbsp;Copy a charset</DT
+><DT
+><A
+HREF="r1552.html"
+>FcCharSetEqual</A
+>&nbsp;--&nbsp;Compare two charsets</DT
+><DT
+><A
+HREF="r1577.html"
+>FcCharSetIntersect</A
+>&nbsp;--&nbsp;Intersect charsets</DT
+><DT
+><A
+HREF="r1602.html"
+>FcCharSetUnion</A
+>&nbsp;--&nbsp;Add charsets</DT
+><DT
+><A
+HREF="r1627.html"
+>FcCharSetSubtract</A
+>&nbsp;--&nbsp;Subtract charsets</DT
+><DT
+><A
+HREF="r1652.html"
+>FcCharSetHasChar</A
+>&nbsp;--&nbsp;Check a charset for a char</DT
+><DT
+><A
+HREF="r1677.html"
+>FcCharSetCount</A
+>&nbsp;--&nbsp;Count entries in a charset</DT
+><DT
+><A
+HREF="r1699.html"
+>FcCharSetIntersectCount</A
+>&nbsp;--&nbsp;Intersect and count charsets</DT
+><DT
+><A
+HREF="r1724.html"
+>FcCharSetSubtractCount</A
+>&nbsp;--&nbsp;Subtract and count charsets</DT
+><DT
+><A
+HREF="r1749.html"
+>FcCharSetIsSubset</A
+>&nbsp;--&nbsp;Test for charset inclusion</DT
+><DT
+><A
+HREF="r1774.html"
+>FcCharSetFirstPage</A
+>&nbsp;--&nbsp;Start enumerating charset contents</DT
+><DT
+><A
+HREF="r1801.html"
+>FcCharSetNextPage</A
+>&nbsp;--&nbsp;Continue enumerating charset contents</DT
+><DT
+><A
+HREF="r1829.html"
+>FcCharSetCoverage</A
+>&nbsp;--&nbsp;DEPRECATED return coverage for a Unicode page</DT
+><DT
+><A
+HREF="r1858.html"
+>FcCharSetNew</A
+>&nbsp;--&nbsp;DEPRECATED alias for FcCharSetCreate</DT
+></DL
+></DIV
+><P
+>An FcCharSet is a boolean array indicating a set of unicode chars.  Those
+associated with a font are marked constant and cannot be edited.
+FcCharSets may be reference counted internally to reduce memory consumption;
+this may be visible to applications as the result of FcCharSetCopy may
+return it's argument, and that CharSet may remain unmodifiable.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN1880"
+>4.8. FcLangSet</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r1883.html"
+>FcLangSetCreate</A
+>&nbsp;--&nbsp;create a langset object</DT
+><DT
+><A
+HREF="r1905.html"
+>FcLangSetDestroy</A
+>&nbsp;--&nbsp;destroy a langset object</DT
+><DT
+><A
+HREF="r1927.html"
+>FcLangSetCopy</A
+>&nbsp;--&nbsp;copy a langset object</DT
+><DT
+><A
+HREF="r1950.html"
+>FcLangSetAdd</A
+>&nbsp;--&nbsp;add a language to a langset</DT
+><DT
+><A
+HREF="r1976.html"
+>FcLangSetCompare</A
+>&nbsp;--&nbsp;compare language sets</DT
+><DT
+><A
+HREF="r2002.html"
+>FcLangSetContains</A
+>&nbsp;--&nbsp;check langset subset relation</DT
+><DT
+><A
+HREF="r2032.html"
+>FcLangSetEqual</A
+>&nbsp;--&nbsp;test for matching langsets</DT
+><DT
+><A
+HREF="r2057.html"
+>FcLangSetHash</A
+>&nbsp;--&nbsp;return a hash value for a langset</DT
+><DT
+><A
+HREF="r2081.html"
+>FcLangSetHasLang</A
+>&nbsp;--&nbsp;test langset for language support</DT
+><DT
+><A
+HREF="r2110.html"
+>FcGetLangs</A
+>&nbsp;--&nbsp;Get list of languages</DT
+><DT
+><A
+HREF="r2131.html"
+>FcLangGetCharSet</A
+>&nbsp;--&nbsp;Get character map for a language</DT
+></DL
+></DIV
+><P
+>An FcLangSet is a set of language names (each of which include language and
+an optional territory). They are used when selecting fonts to indicate which
+languages the fonts need to support. Each font is marked, using language
+orthography information built into fontconfig, with the set of supported
+languages.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN2152"
+>4.9. FcMatrix</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r2155.html"
+>FcMatrixInit</A
+>&nbsp;--&nbsp;initialize an FcMatrix structure</DT
+><DT
+><A
+HREF="r2178.html"
+>FcMatrixCopy</A
+>&nbsp;--&nbsp;Copy a matrix</DT
+><DT
+><A
+HREF="r2201.html"
+>FcMatrixEqual</A
+>&nbsp;--&nbsp;Compare two matrices</DT
+><DT
+><A
+HREF="r2227.html"
+>FcMatrixMultiply</A
+>&nbsp;--&nbsp;Multiply matrices</DT
+><DT
+><A
+HREF="r2256.html"
+>FcMatrixRotate</A
+>&nbsp;--&nbsp;Rotate a matrix</DT
+><DT
+><A
+HREF="r2286.html"
+>FcMatrixScale</A
+>&nbsp;--&nbsp;Scale a matrix</DT
+><DT
+><A
+HREF="r2316.html"
+>FcMatrixShear</A
+>&nbsp;--&nbsp;Shear a matrix</DT
+></DL
+></DIV
+><P
+>FcMatrix structures hold an affine transformation in matrix form.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN2346"
+>4.10. FcConfig</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r2349.html"
+>FcConfigCreate</A
+>&nbsp;--&nbsp;Create a configuration</DT
+><DT
+><A
+HREF="r2370.html"
+>FcConfigDestroy</A
+>&nbsp;--&nbsp;Destroy a configuration</DT
+><DT
+><A
+HREF="r2391.html"
+>FcConfigSetCurrent</A
+>&nbsp;--&nbsp;Set configuration as default</DT
+><DT
+><A
+HREF="r2413.html"
+>FcConfigGetCurrent</A
+>&nbsp;--&nbsp;Return current configuration</DT
+><DT
+><A
+HREF="r2434.html"
+>FcConfigUptoDate</A
+>&nbsp;--&nbsp;Check timestamps on config files</DT
+><DT
+><A
+HREF="r2456.html"
+>FcConfigHome</A
+>&nbsp;--&nbsp;return the current home directory.</DT
+><DT
+><A
+HREF="r2478.html"
+>FcConfigEnableHome</A
+>&nbsp;--&nbsp;controls use of the home directory.</DT
+><DT
+><A
+HREF="r2501.html"
+>FcConfigBuildFonts</A
+>&nbsp;--&nbsp;Build font database</DT
+><DT
+><A
+HREF="r2522.html"
+>FcConfigGetConfigDirs</A
+>&nbsp;--&nbsp;Get config directories</DT
+><DT
+><A
+HREF="r2544.html"
+>FcConfigGetFontDirs</A
+>&nbsp;--&nbsp;Get font directories</DT
+><DT
+><A
+HREF="r2566.html"
+>FcConfigGetConfigFiles</A
+>&nbsp;--&nbsp;Get config files</DT
+><DT
+><A
+HREF="r2588.html"
+>FcConfigGetCache</A
+>&nbsp;--&nbsp;DEPRECATED used to return per-user cache filename</DT
+><DT
+><A
+HREF="r2609.html"
+>FcConfigGetCacheDirs</A
+>&nbsp;--&nbsp;return the list of directories searched for cache files</DT
+><DT
+><A
+HREF="r2631.html"
+>FcConfigGetFonts</A
+>&nbsp;--&nbsp;Get config font set</DT
+><DT
+><A
+HREF="r2655.html"
+>FcConfigGetBlanks</A
+>&nbsp;--&nbsp;Get config blanks</DT
+><DT
+><A
+HREF="r2676.html"
+>FcConfigGetRescanInterval</A
+>&nbsp;--&nbsp;Get config rescan interval</DT
+><DT
+><A
+HREF="r2698.html"
+>FcConfigSetRescanInterval</A
+>&nbsp;--&nbsp;Set config rescan interval</DT
+><DT
+><A
+HREF="r2721.html"
+>FcConfigAppFontAddFile</A
+>&nbsp;--&nbsp;Add font file to font database</DT
+><DT
+><A
+HREF="r2744.html"
+>FcConfigAppFontAddDir</A
+>&nbsp;--&nbsp;Add fonts from directory to font database</DT
+><DT
+><A
+HREF="r2767.html"
+>FcConfigAppFontClear</A
+>&nbsp;--&nbsp;Remove all app fonts from font database</DT
+><DT
+><A
+HREF="r2788.html"
+>FcConfigSubstituteWithPat</A
+>&nbsp;--&nbsp;Execute substitutions</DT
+><DT
+><A
+HREF="r2817.html"
+>FcConfigSubstitute</A
+>&nbsp;--&nbsp;Execute substitutions</DT
+><DT
+><A
+HREF="r2842.html"
+>FcFontMatch</A
+>&nbsp;--&nbsp;Return best font</DT
+><DT
+><A
+HREF="r2873.html"
+>FcFontSort</A
+>&nbsp;--&nbsp;Return list of matching fonts</DT
+><DT
+><A
+HREF="r2911.html"
+>FcFontRenderPrepare</A
+>&nbsp;--&nbsp;Prepare pattern for loading font file</DT
+><DT
+><A
+HREF="r2942.html"
+>FcFontList</A
+>&nbsp;--&nbsp;List fonts</DT
+><DT
+><A
+HREF="r2969.html"
+>FcConfigFilename</A
+>&nbsp;--&nbsp;Find a config file</DT
+><DT
+><A
+HREF="r2993.html"
+>FcConfigParseAndLoad</A
+>&nbsp;--&nbsp;load a configuration file</DT
+></DL
+></DIV
+><P
+>An FcConfig object holds the internal representation of a configuration.
+There is a default configuration which applications may use by passing 0 to
+any function using the data within an FcConfig.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN3018"
+>4.11. FcObjectType</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r3021.html"
+>FcNameRegisterObjectTypes</A
+>&nbsp;--&nbsp;Register object types</DT
+><DT
+><A
+HREF="r3045.html"
+>FcNameUnregisterObjectTypes</A
+>&nbsp;--&nbsp;Unregister object types</DT
+><DT
+><A
+HREF="r3069.html"
+>FcNameGetObjectType</A
+>&nbsp;--&nbsp;Lookup an object type</DT
+></DL
+></DIV
+><P
+>Provides for applcation-specified font name object types so that new
+pattern elements can be generated from font names.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN3091"
+>4.12. FcConstant</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r3094.html"
+>FcNameRegisterConstants</A
+>&nbsp;--&nbsp;Register symbolic constants</DT
+><DT
+><A
+HREF="r3118.html"
+>FcNameUnregisterConstants</A
+>&nbsp;--&nbsp;Unregister symbolic constants</DT
+><DT
+><A
+HREF="r3142.html"
+>FcNameGetConstant</A
+>&nbsp;--&nbsp;Lookup symbolic constant</DT
+><DT
+><A
+HREF="r3164.html"
+>FcNameConstant</A
+>&nbsp;--&nbsp;Get the value for a symbolic constant</DT
+></DL
+></DIV
+><P
+>Provides for application-specified symbolic constants for font names.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN3189"
+>4.13. FcBlanks</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r3192.html"
+>FcBlanksCreate</A
+>&nbsp;--&nbsp;Create an FcBlanks</DT
+><DT
+><A
+HREF="r3213.html"
+>FcBlanksDestroy</A
+>&nbsp;--&nbsp;Destroy and FcBlanks</DT
+><DT
+><A
+HREF="r3234.html"
+>FcBlanksAdd</A
+>&nbsp;--&nbsp;Add a character to an FcBlanks</DT
+><DT
+><A
+HREF="r3257.html"
+>FcBlanksIsMember</A
+>&nbsp;--&nbsp;Query membership in an FcBlanks</DT
+></DL
+></DIV
+><P
+>An FcBlanks object holds a list of Unicode chars which are expected to
+be blank when drawn.  When scanning new fonts, any glyphs which are
+empty and not in this list will be assumed to be broken and not placed in
+the FcCharSet associated with the font.  This provides a significantly more
+accurate CharSet for applications.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN3280"
+>4.14. FcAtomic</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r3283.html"
+>FcAtomicCreate</A
+>&nbsp;--&nbsp;create an FcAtomic object</DT
+><DT
+><A
+HREF="r3305.html"
+>FcAtomicLock</A
+>&nbsp;--&nbsp;lock a file</DT
+><DT
+><A
+HREF="r3327.html"
+>FcAtomicNewFile</A
+>&nbsp;--&nbsp;return new temporary file name</DT
+><DT
+><A
+HREF="r3349.html"
+>FcAtomicOrigFile</A
+>&nbsp;--&nbsp;return original file name</DT
+><DT
+><A
+HREF="r3371.html"
+>FcAtomicReplaceOrig</A
+>&nbsp;--&nbsp;replace original with new</DT
+><DT
+><A
+HREF="r3393.html"
+>FcAtomicDeleteNew</A
+>&nbsp;--&nbsp;delete new file</DT
+><DT
+><A
+HREF="r3414.html"
+>FcAtomicUnlock</A
+>&nbsp;--&nbsp;unlock a file</DT
+><DT
+><A
+HREF="r3435.html"
+>FcAtomicDestroy</A
+>&nbsp;--&nbsp;destroy an FcAtomic object</DT
+></DL
+></DIV
+><P
+>These functions provide a safe way to update config files, allowing ongoing
+reading of the old config file while locked for writing and ensuring that a
+consistent and complete version of the config file is always available.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN3457"
+>4.15. File and Directory routines</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r3460.html"
+>FcFileScan</A
+>&nbsp;--&nbsp;scan a font file</DT
+><DT
+><A
+HREF="r3496.html"
+>FcFileIsDir</A
+>&nbsp;--&nbsp;check whether a file is a directory</DT
+><DT
+><A
+HREF="r3518.html"
+>FcDirScan</A
+>&nbsp;--&nbsp;DEPRECATED: formerly used to scan a font directory</DT
+><DT
+><A
+HREF="r3553.html"
+>FcDirSave</A
+>&nbsp;--&nbsp;DEPRECATED: formerly used to save a directory cache</DT
+><DT
+><A
+HREF="r3581.html"
+>FcDirCacheUnlink</A
+>&nbsp;--&nbsp;Remove all caches related to <CODE
+CLASS="PARAMETER"
+>dir</CODE
+></DT
+><DT
+><A
+HREF="r3607.html"
+>FcDirCacheValid</A
+>&nbsp;--&nbsp;check directory cache</DT
+><DT
+><A
+HREF="r3629.html"
+>FcDirCacheLoad</A
+>&nbsp;--&nbsp;load a directory cache</DT
+><DT
+><A
+HREF="r3656.html"
+>FcDirCacheRead</A
+>&nbsp;--&nbsp;read or construct a directory cache</DT
+><DT
+><A
+HREF="r3683.html"
+>FcDirCacheLoadFile</A
+>&nbsp;--&nbsp;load a cache file</DT
+><DT
+><A
+HREF="r3708.html"
+>FcDirCacheUnload</A
+>&nbsp;--&nbsp;unload a cache file</DT
+></DL
+></DIV
+><P
+>These routines work with font files and directories, including font
+directory cache files.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN3730"
+>4.16. FcCache routines</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r3733.html"
+>FcCacheDir</A
+>&nbsp;--&nbsp;Return directory of <CODE
+CLASS="PARAMETER"
+>cache</CODE
+></DT
+><DT
+><A
+HREF="r3755.html"
+>FcCacheCopySet</A
+>&nbsp;--&nbsp;Returns a copy of the fontset from <CODE
+CLASS="PARAMETER"
+>cache</CODE
+></DT
+><DT
+><A
+HREF="r3778.html"
+>FcCacheSubdir</A
+>&nbsp;--&nbsp;Return the <CODE
+CLASS="PARAMETER"
+>i</CODE
+>'th subdirectory.</DT
+><DT
+><A
+HREF="r3805.html"
+>FcCacheNumSubdir</A
+>&nbsp;--&nbsp;Return the number of subdirectories in <CODE
+CLASS="PARAMETER"
+>cache</CODE
+>.</DT
+><DT
+><A
+HREF="r3827.html"
+>FcCacheNumFont</A
+>&nbsp;--&nbsp;Returns the number of fonts in <CODE
+CLASS="PARAMETER"
+>cache</CODE
+>.</DT
+></DL
+></DIV
+><P
+>These routines work with font directory caches, accessing their contents in
+limited ways. It is not expected that normal applications will need to use
+these functions.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN3849"
+>4.17. FcStrSet and FcStrList</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r3852.html"
+>FcStrSetCreate</A
+>&nbsp;--&nbsp;create a string set</DT
+><DT
+><A
+HREF="r3873.html"
+>FcStrSetMember</A
+>&nbsp;--&nbsp;check set for membership</DT
+><DT
+><A
+HREF="r3898.html"
+>FcStrSetEqual</A
+>&nbsp;--&nbsp;check sets for equality</DT
+><DT
+><A
+HREF="r3923.html"
+>FcStrSetAdd</A
+>&nbsp;--&nbsp;add to a string set</DT
+><DT
+><A
+HREF="r3948.html"
+>FcStrSetAddFilename</A
+>&nbsp;--&nbsp;add a filename to a string set</DT
+><DT
+><A
+HREF="r3973.html"
+>FcStrSetDel</A
+>&nbsp;--&nbsp;delete from a string set</DT
+><DT
+><A
+HREF="r3999.html"
+>FcStrSetDestroy</A
+>&nbsp;--&nbsp;destroy a string set</DT
+><DT
+><A
+HREF="r4021.html"
+>FcStrListCreate</A
+>&nbsp;--&nbsp;create a string iterator</DT
+><DT
+><A
+HREF="r4043.html"
+>FcStrListNext</A
+>&nbsp;--&nbsp;get next string in iteration</DT
+><DT
+><A
+HREF="r4065.html"
+>FcStrListDone</A
+>&nbsp;--&nbsp;destroy a string iterator</DT
+></DL
+></DIV
+><P
+>A data structure for enumerating strings, used to list directories while
+scanning the configuration as directories are added while scanning.
+    </P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN4087"
+>4.18. String utilities</A
+></H2
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+><A
+HREF="r4090.html"
+>FcUtf8ToUcs4</A
+>&nbsp;--&nbsp;convert UTF-8 to UCS4</DT
+><DT
+><A
+HREF="r4119.html"
+>FcUcs4ToUtf8</A
+>&nbsp;--&nbsp;convert UCS4 to UTF-8</DT
+><DT
+><A
+HREF="r4144.html"
+>FcUtf8Len</A
+>&nbsp;--&nbsp;count UTF-8 encoded chars</DT
+><DT
+><A
+HREF="r4176.html"
+>FcUtf16ToUcs4</A
+>&nbsp;--&nbsp;convert UTF-16 to UCS4</DT
+><DT
+><A
+HREF="r4209.html"
+>FcUtf16Len</A
+>&nbsp;--&nbsp;count UTF-16 encoded chars</DT
+><DT
+><A
+HREF="r4245.html"
+>FcIsLower</A
+>&nbsp;--&nbsp;check for lower case ASCII character</DT
+><DT
+><A
+HREF="r4267.html"
+>FcIsUpper</A
+>&nbsp;--&nbsp;check for upper case ASCII character</DT
+><DT
+><A
+HREF="r4289.html"
+>FcToLower</A
+>&nbsp;--&nbsp;convert upper case ASCII to lower case</DT
+><DT
+><A
+HREF="r4311.html"
+>FcStrCopy</A
+>&nbsp;--&nbsp;duplicate a string</DT
+><DT
+><A
+HREF="r4334.html"
+>FcStrDowncase</A
+>&nbsp;--&nbsp;create a lower case translation of a string</DT
+><DT
+><A
+HREF="r4356.html"
+>FcStrCopyFilename</A
+>&nbsp;--&nbsp;create a complete path from a filename</DT
+><DT
+><A
+HREF="r4380.html"
+>FcStrCmp</A
+>&nbsp;--&nbsp;compare UTF-8 strings</DT
+><DT
+><A
+HREF="r4405.html"
+>FcStrCmpIgnoreCase</A
+>&nbsp;--&nbsp;compare UTF-8 strings ignoring case</DT
+><DT
+><A
+HREF="r4430.html"
+>FcStrStr</A
+>&nbsp;--&nbsp;locate UTF-8 substring</DT
+><DT
+><A
+HREF="r4457.html"
+>FcStrStrIgnoreCase</A
+>&nbsp;--&nbsp;locate UTF-8 substring ignoring ASCII case</DT
+><DT
+><A
+HREF="r4484.html"
+>FcStrPlus</A
+>&nbsp;--&nbsp;concatenate two strings</DT
+><DT
+><A
+HREF="r4509.html"
+>FcStrFree</A
+>&nbsp;--&nbsp;free a string</DT
+><DT
+><A
+HREF="r4530.html"
+>FcStrBasename</A
+>&nbsp;--&nbsp;last component of filename</DT
+></DL
+></DIV
+><P
+>Fontconfig manipulates many UTF-8 strings represented with the FcChar8 type.
+These functions are exposed to help applications deal with these UTF-8
+strings in a locale-insensitive manner.
+    </P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x31.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>&nbsp;</TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Datatypes</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+>&nbsp;</TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>&nbsp;</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

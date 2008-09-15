@@ -8,7 +8,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>-encodings</string>
 		<key>OpenSourceSHA1</key>
 		<string>02fb48ea1d48675db07c3b13acc5f8124cbd8818</string>
 		<key>OpenSourceURL</key>
@@ -24,7 +24,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-adobe-100dpi</string>
 		<key>OpenSourceSHA1</key>
 		<string>2329a1de4d0994590df147af287fab27c92d365b</string>
 		<key>OpenSourceURL</key>
@@ -40,7 +40,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-adobe-75dpi</string>
 		<key>OpenSourceSHA1</key>
 		<string>4af33c64e9c67f845d46ba3a7398c553887ab687</string>
 		<key>OpenSourceURL</key>
@@ -56,7 +56,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-adobe-utopia-100dpi</string>
 		<key>OpenSourceSHA1</key>
 		<string>2d4d739132ce1e8af47641f663fb28a1766f95c4</string>
 		<key>OpenSourceURL</key>
@@ -72,7 +72,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-adobe-utopia-75dpi</string>
 		<key>OpenSourceSHA1</key>
 		<string>9761f51875796a1f2ce9b3167f90a042a6a216c9</string>
 		<key>OpenSourceURL</key>
@@ -88,7 +88,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-adobe-utopia-type1</string>
 		<key>OpenSourceSHA1</key>
 		<string>b6e50368daaea074964cf4e1f35ec854483bdb50</string>
 		<key>OpenSourceURL</key>
@@ -104,7 +104,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-alias</string>
 		<key>OpenSourceSHA1</key>
 		<string>ddb3da5930396a4698f1d5eeb77763fb002f9a42</string>
 		<key>OpenSourceURL</key>
@@ -120,7 +120,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-arabic-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>cfdeb22e312d952071b40102ccda6b41ae30a8a7</string>
 		<key>OpenSourceURL</key>
@@ -136,7 +136,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-bh-100dpi</string>
 		<key>OpenSourceSHA1</key>
 		<string>93795a38dc17caba7195c6aa64bbda1843190e14</string>
 		<key>OpenSourceURL</key>
@@ -152,7 +152,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-bh-75dpi</string>
 		<key>OpenSourceSHA1</key>
 		<string>e54788c3640f3cd381ed7cf140494b1a15d86a4d</string>
 		<key>OpenSourceURL</key>
@@ -168,7 +168,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-bh-lucidatypewriter-100dpi</string>
 		<key>OpenSourceSHA1</key>
 		<string>c026a313c8f2dc25fc9fbaf28cd18e8b197de237</string>
 		<key>OpenSourceURL</key>
@@ -184,7 +184,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-bh-lucidatypewriter-75dpi</string>
 		<key>OpenSourceSHA1</key>
 		<string>917b3ea7a0b6c9326580701ee8812a1a9899868a</string>
 		<key>OpenSourceURL</key>
@@ -200,7 +200,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-bh-ttf</string>
 		<key>OpenSourceSHA1</key>
 		<string>ed6ad45506bcffeaad44d01771500d6a52266a6a</string>
 		<key>OpenSourceURL</key>
@@ -216,7 +216,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-bh-type1</string>
 		<key>OpenSourceSHA1</key>
 		<string>b2f0e156b6ba3e728f968bc1cb8897023ed7ea0b</string>
 		<key>OpenSourceURL</key>
@@ -232,7 +232,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-bitstream-100dpi</string>
 		<key>OpenSourceSHA1</key>
 		<string>b93bc253211f3ba9d7882f3d4f1a7c15aea8f313</string>
 		<key>OpenSourceURL</key>
@@ -248,7 +248,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-bitstream-75dpi</string>
 		<key>OpenSourceSHA1</key>
 		<string>5ca125b6809c0ddcdf92be4159d5e71cdc55e558</string>
 		<key>OpenSourceURL</key>
@@ -264,7 +264,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-bitstream-speedo</string>
 		<key>OpenSourceSHA1</key>
 		<string>83c41fd11700f7f634dcdfcf6122c2a17ba9e587</string>
 		<key>OpenSourceURL</key>
@@ -280,7 +280,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-bitstream-type1</string>
 		<key>OpenSourceSHA1</key>
 		<string>599a268b2b23453e51c7581c829ad7bc3028f06a</string>
 		<key>OpenSourceURL</key>
@@ -296,7 +296,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-cronyx-cyrillic</string>
 		<key>OpenSourceSHA1</key>
 		<string>68203b370816197ba027f84da88a512905866c20</string>
 		<key>OpenSourceURL</key>
@@ -312,7 +312,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-cursor-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>1c56039b359d802525c118bc042f4f93f1b60bcc</string>
 		<key>OpenSourceURL</key>
@@ -328,7 +328,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-daewoo-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>f05f55a944cd4a0d10332ebf280bf342dede1a03</string>
 		<key>OpenSourceURL</key>
@@ -344,7 +344,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-dec-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>e946f033d6d432db3555ee58995c7bbbe758522c</string>
 		<key>OpenSourceURL</key>
@@ -360,7 +360,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-ibm-type1</string>
 		<key>OpenSourceSHA1</key>
 		<string>aaf02fc64441dd44b942a5b9f8d25ffc0ee8a8f5</string>
 		<key>OpenSourceURL</key>
@@ -376,7 +376,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-isas-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>ecb35c59bb4e396f8c4f9b98c78fd759b8dfc860</string>
 		<key>OpenSourceURL</key>
@@ -392,7 +392,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string></string>
 		<key>OpenSourceSHA1</key>
 		<string>f1aa789f9caa746bd7b0fbe0476463f81324f89c</string>
 		<key>OpenSourceURL</key>
@@ -408,7 +408,8 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-
+</string>
 		<key>OpenSourceSHA1</key>
 		<string>07d9c802836f58f191586594de1aa7b2a90f0ed7</string>
 		<key>OpenSourceURL</key>
@@ -424,7 +425,8 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-
+</string>
 		<key>OpenSourceSHA1</key>
 		<string>246c9c9e424dc4bf28fea1cb3fa72e2c59a1deb4</string>
 		<key>OpenSourceURL</key>
@@ -440,7 +442,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-misc-ethiopic</string>
 		<key>OpenSourceSHA1</key>
 		<string>721bc2192d8fd9c0886e7390931ec2670cc0011d</string>
 		<key>OpenSourceURL</key>
@@ -456,7 +458,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-misc-meltho</string>
 		<key>OpenSourceSHA1</key>
 		<string>cc1d11dbe0c9f81df01d935cf705c7fff5be9cd9</string>
 		<key>OpenSourceURL</key>
@@ -472,7 +474,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-misc-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>6447f235f7ebf23fcb6878b9befefd16facca05f</string>
 		<key>OpenSourceURL</key>
@@ -488,7 +490,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-mutt-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>3663a10a07160481c1ef6ab902e3c468feef09a6</string>
 		<key>OpenSourceURL</key>
@@ -504,7 +506,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-schumacher-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>f00bda5a23280d1b4797ba6861ca72adc3a772cf</string>
 		<key>OpenSourceURL</key>
@@ -520,7 +522,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-screen-cyrillic</string>
 		<key>OpenSourceSHA1</key>
 		<string>c827aa216dd8829a1c5c8e22898edec5e7222c62</string>
 		<key>OpenSourceURL</key>
@@ -536,7 +538,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-sony-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>3d604d39f714b0973a0db61741583d12c96eba72</string>
 		<key>OpenSourceURL</key>
@@ -552,7 +554,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-sun-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>3f7aa3fc7ca9000c13d7d35151781babaf2df025</string>
 		<key>OpenSourceURL</key>
@@ -568,7 +570,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-util</string>
 		<key>OpenSourceSHA1</key>
 		<string>b0e920fbc3dfe0e67ff00ac3edd770c3acc37742</string>
 		<key>OpenSourceURL</key>
@@ -584,7 +586,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-winitzki-cyrillic</string>
 		<key>OpenSourceSHA1</key>
 		<string>18daaa5433fede2e34ef940d2bf3483cd2b74635</string>
 		<key>OpenSourceURL</key>
@@ -600,7 +602,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>font-xfree86-type1</string>
 		<key>OpenSourceSHA1</key>
 		<string>224af61e572d4145a41dcc28fc7c587fc7aefe72</string>
 		<key>OpenSourceURL</key>
@@ -616,7 +618,7 @@
 		<key>OpenSourceLicenseFile</key>
 		<string>bitstreamvera.txt</string>
 		<key>OpenSourceProject</key>
-		<string>X11fonts</string>
+		<string>ttf-bitstream-vera</string>
 		<key>OpenSourceSHA1</key>
 		<string>c3e8505a58d52e198a02960a2bd295e4c7a14242</string>
 		<key>OpenSourceURL</key>

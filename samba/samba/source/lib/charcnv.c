@@ -872,9 +872,9 @@ size_t push_ascii(void *dest, const char *src, size_t dest_len, int flags)
 	size_t src_len = strlen(src);
 	pstring tmpbuf;
 
-	/* No longer allow a length of -1 */
+	/* treat a pstring as "unlimited" length */
 	if (dest_len == (size_t)-1)
-		smb_panic("push_ascii - dest_len == -1");
+	    dest_len = sizeof(pstring);
 
 	if (flags & STR_UPPER) {
 		pstrcpy(tmpbuf, src);

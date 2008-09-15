@@ -27,6 +27,7 @@
 #include <IOKit/IOService.h>
 #include <IOKit/pwr_mgt/IOPMPowerSource.h>
 #include <IOKit/smbus/IOSMBusController.h>
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
 
 #include "AppleSmartBatteryCommands.h"
 #include "AppleSmartBatteryManager.h"
@@ -67,6 +68,8 @@ protected:
     bool                        fACConnected;
     int                         fAvgCurrent;
     OSArray                     *fCellVoltages;
+
+    IOACPIPlatformDevice        *fACPIProvider;
 
     // Accessor for MaxError reading
     // Percent error in MaxCapacity reading
@@ -133,7 +136,7 @@ public:
 
     void    handleChargeInhibited(bool charge_state);
     
-    void    handleUCStalled(bool stall);
+    void    handleExclusiveAccess(bool exclusive);
 
 protected:
     void    logReadError( const char *error_type, 

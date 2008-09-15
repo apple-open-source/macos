@@ -1,18 +1,12 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
+NOTE: this patch is for _gzip_!
 
-[NOTE: this patch is for _gzip_! --Wayne]
+This is pending for actual inclusion in gzip.  It is currently being
+tried out in the default gzip for Debian Sarge, and may go into the
+upstream gzip at somepoint in the not-too-distant future.
 
-It's pending for actual gzip inclusion!  The maintainer was dug up and
-everything: it'll even be on by default.
-
-But here's the old patch,
-Rusty.
---
-  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
-
---- gzip-1.2.4.orig/deflate.c	Fri Aug 13 22:35:31 1993
-+++ gzip-1.2.4-rsync/deflate.c	Sat Dec 30 15:33:25 2000
-@@ -121,6 +121,14 @@
+--- gzip-1.3.5/deflate.c	1999-10-07 23:46:28 -0700
++++ rsyncable/deflate.c	2005-02-05 09:40:33 -0800
+@@ -122,6 +122,14 @@
  #endif
  /* Matches of length 3 are discarded if their distance exceeds TOO_FAR */
  
@@ -27,7 +21,7 @@ Rusty.
  /* ===========================================================================
   * Local data used by the "longest match" routines.
   */
-@@ -202,6 +210,8 @@
+@@ -203,6 +211,8 @@
  unsigned near good_match;
  /* Use a faster search when the previous match is longer than this */
  
@@ -36,7 +30,7 @@ Rusty.
  
  /* Values for max_lazy_match, good_match and max_chain_length, depending on
   * the desired pack level (0..9). The values given below have been tuned to
-@@ -300,6 +310,10 @@
+@@ -301,6 +311,10 @@
  #endif
      /* prev will be initialized on the fly */
  
@@ -47,7 +41,7 @@ Rusty.
      /* Set the default configuration parameters:
       */
      max_lazy_match   = configuration_table[pack_level].max_lazy;
-@@ -536,6 +550,8 @@
+@@ -537,6 +551,8 @@
          memcpy((char*)window, (char*)window+WSIZE, (unsigned)WSIZE);
          match_start -= WSIZE;
          strstart    -= WSIZE; /* we now have strstart >= MAX_DIST: */
@@ -56,7 +50,7 @@ Rusty.
  
          block_start -= (long) WSIZE;
  
-@@ -563,13 +579,46 @@
+@@ -564,13 +580,46 @@
      }
  }
  
@@ -104,8 +98,8 @@ Rusty.
  
  /* ===========================================================================
   * Processes a new input file and return its compressed length. This
-@@ -580,7 +629,7 @@
- local ulg deflate_fast()
+@@ -581,7 +630,7 @@
+ local off_t deflate_fast()
  {
      IPos hash_head; /* head of the hash chain */
 -    int flush;      /* set if current block must be flushed */
@@ -113,7 +107,7 @@ Rusty.
      unsigned match_length = 0;  /* length of best match */
  
      prev_length = MIN_MATCH-1;
-@@ -609,6 +658,7 @@
+@@ -610,6 +659,7 @@
  
              lookahead -= match_length;
  
@@ -121,7 +115,7 @@ Rusty.
  	    /* Insert new strings in the hash table only if the match length
               * is not too large. This saves time but degrades compression.
               */
-@@ -637,9 +687,14 @@
+@@ -638,9 +688,14 @@
              /* No match, output a literal byte */
              Tracevv((stderr,"%c",window[strstart]));
              flush = ct_tally (0, window[strstart]);
@@ -136,7 +130,7 @@ Rusty.
          if (flush) FLUSH_BLOCK(0), block_start = strstart;
  
          /* Make sure that we always have enough lookahead, except
-@@ -715,6 +770,7 @@
+@@ -713,6 +768,7 @@
               */
              lookahead -= prev_length-1;
              prev_length -= 2;
@@ -144,7 +138,7 @@ Rusty.
              do {
                  strstart++;
                  INSERT_STRING(strstart, hash_head);
-@@ -727,24 +783,39 @@
+@@ -725,24 +781,39 @@
              match_available = 0;
              match_length = MIN_MATCH-1;
              strstart++;
@@ -188,9 +182,9 @@ Rusty.
              strstart++;
              lookahead--;
          }
---- gzip-1.2.4.orig/gzip.c	Thu Aug 19 23:39:43 1993
-+++ gzip-1.2.4-rsync/gzip.c	Fri Dec 29 21:20:54 2000
-@@ -239,6 +239,7 @@
+--- gzip-1.3.5/gzip.c	2002-09-28 00:38:43 -0700
++++ rsyncable/gzip.c	2005-02-05 09:40:33 -0800
+@@ -256,6 +256,7 @@
  unsigned insize;           /* valid bytes in inbuf */
  unsigned inptr;            /* index of next byte to be processed in inbuf */
  unsigned outcnt;           /* bytes in output buffer */
@@ -198,7 +192,7 @@ Rusty.
  
  struct option longopts[] =
  {
-@@ -268,6 +269,7 @@
+@@ -285,6 +286,7 @@
      {"best",       0, 0, '9'}, /* compress better */
      {"lzw",        0, 0, 'Z'}, /* make output compatible with old compress */
      {"bits",       1, 0, 'b'}, /* max number of bits per code (implies -Z) */
@@ -206,15 +200,15 @@ Rusty.
      { 0, 0, 0, 0 }
  };
  
-@@ -357,6 +359,7 @@
+@@ -365,6 +367,7 @@
   " -Z --lzw         produce output compatible with old compress",
   " -b --bits maxbits   max number of bits per code (implies -Z)",
  #endif
 + "    --rsyncable   Make rsync-friendly archive",
   " file...          files to (de)compress. If none given, use standard input.",
+  "Report bugs to <bug-gzip@gnu.org>.",
    0};
-     char **p = help_msg;
-@@ -516,6 +519,9 @@
+@@ -543,6 +546,9 @@
  #else
  	    recursive = 1; break;
  #endif
@@ -224,34 +218,34 @@ Rusty.
  	case 'S':
  #ifdef NO_MULTIPLE_DOTS
              if (*optarg == '.') optarg++;
---- gzip-1.2.4.orig/gzip.h	Fri Aug 13 22:35:33 1993
-+++ gzip-1.2.4-rsync/gzip.h	Sat Dec 30 15:26:56 2000
-@@ -131,6 +131,7 @@
+--- gzip-1.3.5/gzip.h	2001-09-30 23:53:41 -0700
++++ rsyncable/gzip.h	2005-02-05 09:40:33 -0800
+@@ -133,6 +133,7 @@
  extern unsigned insize; /* valid bytes in inbuf */
  extern unsigned inptr;  /* index of next byte to be processed in inbuf */
  extern unsigned outcnt; /* bytes in output buffer */
 +extern int rsync;  /* deflate into rsyncable chunks */
  
- extern long bytes_in;   /* number of input bytes */
- extern long bytes_out;  /* number of output bytes */
-@@ -282,7 +283,7 @@
+ extern off_t bytes_in;   /* number of input bytes */
+ extern off_t bytes_out;  /* number of output bytes */
+@@ -281,7 +282,7 @@
          /* in trees.c */
  void ct_init     OF((ush *attr, int *method));
  int  ct_tally    OF((int dist, int lc));
--ulg  flush_block OF((char *buf, ulg stored_len, int eof));
-+ulg  flush_block OF((char *buf, ulg stored_len, int pad, int eof));
+-off_t flush_block OF((char *buf, ulg stored_len, int eof));
++off_t flush_block OF((char *buf, ulg stored_len, int pad, int eof));
  
          /* in bits.c */
  void     bi_init    OF((file_t zipfile));
---- gzip-1.2.4.orig/gzip.texi	Thu Aug 19 06:42:50 1993
-+++ gzip-1.2.4-rsync/gzip.texi	Fri Dec 29 21:20:54 2000
-@@ -316,6 +316,14 @@
+--- gzip-1.3.5/gzip.texi	2002-09-29 23:57:29 -0700
++++ rsyncable/gzip.texi	2005-02-05 09:40:33 -0800
+@@ -334,6 +334,14 @@
  into the directory and compress all the files it finds there (or
  decompress them in the case of @code{gunzip}).
  
 +@item --rsyncable
 +While compressing, synchronize the output occasionally based on the
-+input.  This reduces compression by about 1 percent most cases, but
++input.  This increases size by less than 1 percent most cases, but
 +means that the @code{rsync} program can take advantage of similarities
 +in the uncompressed input when syncronizing two files compressed with
 +this flag.  @code{gunzip} cannot tell the difference between a
@@ -260,22 +254,40 @@ Rusty.
  @item --suffix @var{suf}
  @itemx -S @var{suf}
  Use suffix @samp{@var{suf}} instead of @samp{.gz}. Any suffix can be
---- gzip-1.2.4.orig/trees.c	Wed Aug 18 03:36:32 1993
-+++ gzip-1.2.4-rsync/trees.c	Sat Dec 30 15:37:00 2000
-@@ -850,9 +850,10 @@
+--- gzip-1.3.5/trees.c	1999-10-05 22:00:00 -0700
++++ rsyncable/trees.c	2005-02-05 09:40:33 -0800
+@@ -46,12 +46,13 @@
+  *      void ct_tally (int dist, int lc);
+  *          Save the match info and tally the frequency counts.
+  *
+- *      off_t flush_block (char *buf, ulg stored_len, int eof)
++ *      off_t flush_block (char *buf, ulg stored_len, int pad, int eof)
+  *          Determine the best encoding for the current block: dynamic trees,
+  *          static trees or store, and output the encoded block to the zip
+- *          file. Returns the total compressed length for the file so far.
+- *
+- */
++ *          file. If pad is set, pads the block to the next
++ *          byte. Returns the total compressed length for the file so
++ *          far.
++ * */
+ 
+ #include <config.h>
+ #include <ctype.h>
+@@ -847,9 +848,10 @@
   * trees or store, and output the encoded block to the zip file. This function
   * returns the total compressed length for the file so far.
   */
--ulg flush_block(buf, stored_len, eof)
-+ulg flush_block(buf, stored_len, pad, eof)
+-off_t flush_block(buf, stored_len, eof)
++off_t flush_block(buf, stored_len, pad, eof)
      char *buf;        /* input block, or NULL if too old */
      ulg stored_len;   /* length of input block */
 +    int pad;          /* pad output to byte boundary */
      int eof;          /* true if this is the last block for a file */
  {
      ulg opt_lenb, static_lenb; /* opt_len and static_len in bytes */
-@@ -944,6 +967,10 @@
-         Assert (input_len == isize, "bad input size");
+@@ -941,6 +943,10 @@
+         Assert (input_len == bytes_in, "bad input size");
          bi_windup();
          compressed_len += 7;  /* align on byte boundary */
 +    } else if (pad && (compressed_len % 8) != 0) {
@@ -283,5 +295,5 @@ Rusty.
 +        compressed_len = (compressed_len + 3 + 7) & ~7L;
 +        copy_block(buf, 0, 1); /* with header */
      }
-     Tracev((stderr,"\ncomprlen %lu(%lu) ", compressed_len>>3,
-            compressed_len-7*eof));
+ 
+     return compressed_len >> 3;

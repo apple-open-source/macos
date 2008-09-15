@@ -1,0 +1,913 @@
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/atimes.diff
+    ./prepare-source
+    ./configure                      (optional if already run)
+    make
+
+
+--- old/flist.c
++++ new/flist.c
+@@ -46,6 +46,7 @@ extern int preserve_devices;
+ extern int preserve_specials;
+ extern int preserve_uid;
+ extern int preserve_gid;
++extern int preserve_atimes;
+ extern int relative_paths;
+ extern int implied_dirs;
+ extern int prune_empty_dirs;
+@@ -79,7 +80,13 @@ void init_flist(void)
+ 	struct file_struct f;
+ 
+ 	/* Figure out how big the file_struct is without trailing padding */
+-	file_struct_len = offsetof(struct file_struct, flags) + sizeof f.flags;
++	if (preserve_atimes)
++		file_struct_len = offsetof(struct file_struct, fl4g5);
++	else
++		file_struct_len = offsetof(struct file_struct, atime);
++	/* The "flags" uchar is no longer accessed directly, so I
++	 * mangled the name to fl4g5 as a reminder. */
++	file_struct_len += sizeof f.fl4g5;
+ 	checksum_len = protocol_version < 21 ? 2 : MD4_SUM_LENGTH;
+ }
+ 
+@@ -135,16 +142,18 @@ static void list_file_entry(struct file_
+ 
+ #ifdef SUPPORT_LINKS
+ 	if (preserve_links && S_ISLNK(f->mode)) {
+-		rprintf(FINFO, "%s %11.0f %s %s -> %s\n",
++		rprintf(FINFO, "%s %11.0f %s %s %s -> %s\n",
+ 			permbuf,
+ 			(double)f->length, timestring(f->modtime),
++			preserve_atimes ? timestring(f->atime) : "",
+ 			f_name(f, NULL), f->u.link);
+ 	} else
+ #endif
+ 	{
+-		rprintf(FINFO, "%s %11.0f %s %s\n",
++		rprintf(FINFO, "%s %11.0f %s %s %s\n",
+ 			permbuf,
+ 			(double)f->length, timestring(f->modtime),
++			preserve_atimes ? timestring(f->atime) : "",
+ 			f_name(f, NULL));
+ 	}
+ }
+@@ -302,6 +311,7 @@ static void send_file_entry(struct file_
+ {
+ 	unsigned short flags;
+ 	static time_t modtime;
++	static time_t atime;
+ 	static mode_t mode;
+ 	static int64 dev;
+ 	static dev_t rdev;
+@@ -317,7 +327,7 @@ static void send_file_entry(struct file_
+ 
+ 	if (!file) {
+ 		write_byte(f, 0);
+-		modtime = 0, mode = 0;
++		modtime = 0, atime = 0, mode = 0;
+ 		dev = 0, rdev = MAKEDEV(0, 0);
+ 		rdev_major = 0;
+ 		uid = 0, gid = 0;
+@@ -327,7 +337,7 @@ static void send_file_entry(struct file_
+ 
+ 	f_name(file, fname);
+ 
+-	flags = file->flags & XMIT_TOP_DIR;
++	flags = FFLAGS(file) & XMIT_TOP_DIR;
+ 
+ 	if (file->mode == mode)
+ 		flags |= XMIT_SAME_MODE;
+@@ -363,6 +373,12 @@ static void send_file_entry(struct file_
+ 		flags |= XMIT_SAME_TIME;
+ 	else
+ 		modtime = file->modtime;
++	if (preserve_atimes && !S_ISDIR(mode)) {
++		if (file->atime == atime)
++			flags |= XMIT_SAME_ATIME;
++		else
++			atime = file->atime;
++	}
+ 
+ #ifdef SUPPORT_HARD_LINKS
+ 	if (file->link_u.idev) {
+@@ -416,6 +432,8 @@ static void send_file_entry(struct file_
+ 		write_int(f, modtime);
+ 	if (!(flags & XMIT_SAME_MODE))
+ 		write_int(f, to_wire_mode(mode));
++	if (preserve_atimes && !S_ISDIR(mode) && !(flags & XMIT_SAME_ATIME))
++		write_int(f, atime);
+ 	if (preserve_uid && !(flags & XMIT_SAME_UID)) {
+ 		if (!numeric_ids)
+ 			add_uid(uid);
+@@ -482,6 +500,7 @@ static struct file_struct *receive_file_
+ 					      unsigned short flags, int f)
+ {
+ 	static time_t modtime;
++	static time_t atime;
+ 	static mode_t mode;
+ 	static int64 dev;
+ 	static dev_t rdev;
+@@ -500,7 +519,7 @@ static struct file_struct *receive_file_
+ 	struct file_struct *file;
+ 
+ 	if (!flist) {
+-		modtime = 0, mode = 0;
++		modtime = 0, atime = 0, mode = 0;
+ 		dev = 0, rdev = MAKEDEV(0, 0);
+ 		rdev_major = 0;
+ 		uid = 0, gid = 0;
+@@ -556,6 +575,8 @@ static struct file_struct *receive_file_
+ 		modtime = (time_t)read_int(f);
+ 	if (!(flags & XMIT_SAME_MODE))
+ 		mode = from_wire_mode(read_int(f));
++	if (preserve_atimes && !S_ISDIR(mode) && !(flags & XMIT_SAME_ATIME))
++		atime = (time_t)read_int(f);
+ 
+ 	if (chmod_modes && !S_ISLNK(mode))
+ 		mode = tweak_mode(mode, chmod_modes);
+@@ -611,6 +632,8 @@ static struct file_struct *receive_file_
+ 	file->mode = mode;
+ 	file->uid = uid;
+ 	file->gid = gid;
++	if (preserve_atimes)
++		file->atime = atime;
+ 
+ 	if (dirname_len) {
+ 		file->dirname = lastdir = bp;
+@@ -636,12 +659,12 @@ static struct file_struct *receive_file_
+ 			    && lastname[del_hier_name_len-1] == '.'
+ 			    && lastname[del_hier_name_len-2] == '/')
+ 				del_hier_name_len -= 2;
+-			file->flags |= FLAG_TOP_DIR | FLAG_DEL_HERE;
++			FFLAGS(file) |= FLAG_TOP_DIR | FLAG_DEL_HERE;
+ 		} else if (in_del_hier) {
+ 			if (!relative_paths || !del_hier_name_len
+ 			 || (l1 >= del_hier_name_len
+ 			  && lastname[del_hier_name_len] == '/'))
+-				file->flags |= FLAG_DEL_HERE;
++				FFLAGS(file) |= FLAG_DEL_HERE;
+ 			else
+ 				in_del_hier = 0;
+ 		}
+@@ -858,12 +881,14 @@ struct file_struct *make_file(char *fnam
+ 	memset(bp, 0, file_struct_len);
+ 	bp += file_struct_len;
+ 
+-	file->flags = flags;
++	FFLAGS(file) = flags;
+ 	file->modtime = st.st_mtime;
+ 	file->length = st.st_size;
+ 	file->mode = st.st_mode;
+ 	file->uid = st.st_uid;
+ 	file->gid = st.st_gid;
++	if (preserve_atimes)
++		file->atime = st.st_atime;
+ 
+ #ifdef SUPPORT_HARD_LINKS
+ 	if (flist && flist->hlink_pool) {
+@@ -976,7 +1001,7 @@ static void send_if_directory(int f, str
+ 	char is_dot_dir = fbuf[ol-1] == '.' && (ol == 1 || fbuf[ol-2] == '/');
+ 
+ 	if (S_ISDIR(file->mode)
+-	    && !(file->flags & FLAG_MOUNT_POINT) && f_name(file, fbuf)) {
++	    && !(FFLAGS(file) & FLAG_MOUNT_POINT) && f_name(file, fbuf)) {
+ 		void *save_filters;
+ 		unsigned int len = strlen(fbuf);
+ 		if (len > 1 && fbuf[len-1] == '/')
+@@ -1586,8 +1611,9 @@ static void clean_flist(struct file_list
+ 			}
+ 			/* Make sure we don't lose track of a user-specified
+ 			 * top directory. */
+-			flist->files[keep]->flags |= flist->files[drop]->flags
+-						   & (FLAG_TOP_DIR|FLAG_DEL_HERE);
++			FFLAGS(flist->files[keep])
++			    |= FFLAGS(flist->files[drop])
++			     & (FLAG_TOP_DIR|FLAG_DEL_HERE);
+ 
+ 			clear_file(flist->files[drop], flist);
+ 
+@@ -1711,7 +1737,7 @@ static void output_flist(struct file_lis
+ 			file->dirname ? file->dirname : "",
+ 			file->dirname ? "/" : "", NS(file->basename),
+ 			S_ISDIR(file->mode) ? "/" : "", (int)file->mode,
+-			(double)file->length, uidbuf, gidbuf, file->flags);
++			(double)file->length, uidbuf, gidbuf, FFLAGS(file));
+ 	}
+ }
+ 
+--- old/generator.c
++++ new/generator.c
+@@ -43,6 +43,7 @@ extern int preserve_perms;
+ extern int preserve_uid;
+ extern int preserve_gid;
+ extern int preserve_times;
++extern int preserve_atimes;
+ extern int omit_dir_times;
+ extern int delete_mode;
+ extern int delete_before;
+@@ -90,6 +91,7 @@ extern dev_t filesystem_dev;
+ extern char *backup_dir;
+ extern char *backup_suffix;
+ extern int backup_suffix_len;
++extern unsigned int file_struct_len;
+ extern struct file_list *the_file_list;
+ extern struct filter_list_struct server_filter_list;
+ 
+@@ -182,7 +184,7 @@ static int delete_item(char *fname, int 
+ 	for (j = dirlist->count; j--; ) {
+ 		struct file_struct *fp = dirlist->files[j];
+ 
+-		if (fp->flags & FLAG_MOUNT_POINT)
++		if (FFLAGS(fp) & FLAG_MOUNT_POINT)
+ 			continue;
+ 
+ 		strlcpy(p, fp->basename, remainder);
+@@ -260,7 +262,7 @@ static void delete_in_dir(struct file_li
+ 	filt_array[cur_depth] = push_local_filters(fbuf, dlen);
+ 
+ 	if (one_file_system) {
+-		if (file->flags & FLAG_TOP_DIR)
++		if (FFLAGS(file) & FLAG_TOP_DIR)
+ 			filesystem_dev = stp->st_dev;
+ 		else if (filesystem_dev != stp->st_dev)
+ 			return;
+@@ -272,7 +274,7 @@ static void delete_in_dir(struct file_li
+ 	 * from the filesystem. */
+ 	for (i = dirlist->count; i--; ) {
+ 		struct file_struct *fp = dirlist->files[i];
+-		if (!fp->basename || fp->flags & FLAG_MOUNT_POINT)
++		if (!fp->basename || FFLAGS(fp) & FLAG_MOUNT_POINT)
+ 			continue;
+ 		if (flist_find(flist, fp) < 0) {
+ 			f_name(fp, delbuf);
+@@ -298,11 +300,11 @@ static void do_delete_pass(struct file_l
+ 	for (j = 0; j < flist->count; j++) {
+ 		struct file_struct *file = flist->files[j];
+ 
+-		if (!(file->flags & FLAG_DEL_HERE))
++		if (!(FFLAGS(file) & FLAG_DEL_HERE))
+ 			continue;
+ 
+ 		f_name(file, fbuf);
+-		if (verbose > 1 && file->flags & FLAG_TOP_DIR)
++		if (verbose > 1 && FFLAGS(file) & FLAG_TOP_DIR)
+ 			rprintf(FINFO, "deleting in %s\n", fbuf);
+ 
+ 		if (link_stat(fbuf, &st, keep_dirlinks) < 0
+@@ -346,6 +348,9 @@ void itemize(struct file_struct *file, i
+ 		     && (!(iflags & ITEM_XNAME_FOLLOWS) || *xname))
+ 		    || (keep_time && cmp_time(file->modtime, st->st_mtime) != 0))
+ 			iflags |= ITEM_REPORT_TIME;
++		if (preserve_atimes && !S_ISDIR(file->mode) && !S_ISLNK(file->mode)
++		 && cmp_time(file->atime, st->st_atime) != 0)
++			iflags |= ITEM_REPORT_ATIME;
+ 		if ((file->mode & CHMOD_BITS) != (st->st_mode & CHMOD_BITS))
+ 			iflags |= ITEM_REPORT_PERMS;
+ 		if (preserve_uid && am_root && file->uid != st->st_uid)
+@@ -549,7 +554,7 @@ static int find_fuzzy(struct file_struct
+ 		uint32 dist;
+ 
+ 		if (!S_ISREG(fp->mode) || !fp->length
+-		    || fp->flags & FLAG_NO_FUZZY)
++		    || FFLAGS(fp) & FLAG_NO_FUZZY)
+ 			continue;
+ 
+ 		name = fp->basename;
+@@ -658,6 +663,8 @@ static int try_dests_reg(struct file_str
+ 					  itemizing && verbose > 1,
+ 					  code) < 0)
+ 				goto try_a_copy;
++			if (preserve_atimes)
++				set_file_attrs(fname, file, stp, 0);
+ 			if (preserve_hard_links && file->link_u.links) {
+ 				if (dry_run)
+ 					file->link_u.links->link_dest_used = j + 1;
+@@ -930,7 +937,7 @@ static void recv_generator(char *fname, 
+ 				rsyserr(FERROR, errno,
+ 					"recv_generator: mkdir %s failed",
+ 					full_fname(fname));
+-				file->flags |= FLAG_MISSING;
++				FFLAGS(file) |= FLAG_MISSING;
+ 				if (ndx+1 < the_file_list->count
+ 				 && the_file_list->files[ndx+1]->dir.depth > file->dir.depth) {
+ 					rprintf(FERROR,
+@@ -944,7 +951,7 @@ static void recv_generator(char *fname, 
+ 		    && verbose && code != FNONE && f_out != -1)
+ 			rprintf(code, "%s/\n", fname);
+ 		if (delete_during && f_out != -1 && !phase && dry_run < 2
+-		    && (file->flags & FLAG_DEL_HERE))
++		    && (FFLAGS(file) & FLAG_DEL_HERE))
+ 			delete_in_dir(the_file_list, fname, file, &st);
+ 		return;
+ 	}
+@@ -1252,7 +1259,7 @@ static void recv_generator(char *fname, 
+ 	if (fuzzy_dirlist) {
+ 		int j = flist_find(fuzzy_dirlist, file);
+ 		if (j >= 0) /* don't use changing file as future fuzzy basis */
+-			fuzzy_dirlist->files[j]->flags |= FLAG_NO_FUZZY;
++			FFLAGS(fuzzy_dirlist->files[j]) |= FLAG_NO_FUZZY;
+ 	}
+ 
+ 	/* open the file */
+@@ -1517,7 +1524,7 @@ void generate_files(int f_out, struct fi
+ 				continue;
+ 			if (!need_retouch_dir_times && file->mode & S_IWUSR)
+ 				continue;
+-			if (file->flags & FLAG_MISSING) {
++			if (FFLAGS(file) & FLAG_MISSING) {
+ 				int missing = file->dir.depth;
+ 				while (++i < flist->count) {
+ 					file = flist->files[i];
+--- old/hlink.c
++++ new/hlink.c
+@@ -30,6 +30,7 @@ extern int make_backups;
+ extern int remove_source_files;
+ extern int stdout_format_has_i;
+ extern char *basis_dir[];
++extern unsigned int file_struct_len;
+ extern struct file_list *the_file_list;
+ 
+ #ifdef SUPPORT_HARD_LINKS
+@@ -91,10 +92,10 @@ static void link_idev_data(void)
+ 			FPTR(cur)->link_u.links = pool_talloc(hlink_pool,
+ 			    struct hlink, 1, "hlink_list");
+ 
+-			FPTR(head)->flags |= FLAG_HLINK_TOL;
++			FFLAGS(FPTR(head)) |= FLAG_HLINK_TOL;
+ 			FPTR(cur)->F_HLINDEX = to;
+ 			FPTR(cur)->F_NEXT = head;
+-			FPTR(cur)->flags |= FLAG_HLINK_EOL;
++			FFLAGS(FPTR(cur)) |= FLAG_HLINK_EOL;
+ 			FPTR(cur)->link_u.links->link_dest_used = 0;
+ 			hlink_list[to++] = head;
+ 		} else
+@@ -181,7 +182,7 @@ int hard_link_check(struct file_struct *
+ {
+ #ifdef SUPPORT_HARD_LINKS
+ 	int head;
+-	if (skip && !(file->flags & FLAG_HLINK_EOL))
++	if (skip && !(FFLAGS(file) & FLAG_HLINK_EOL))
+ 		head = hlink_list[file->F_HLINDEX] = file->F_NEXT;
+ 	else
+ 		head = hlink_list[file->F_HLINDEX];
+@@ -289,8 +290,8 @@ void hard_link_cluster(struct file_struc
+ 	file->F_HLINDEX = FINISHED_LINK;
+ 	if (link_stat(f_name(file, hlink1), &st1, 0) < 0)
+ 		return;
+-	if (!(file->flags & FLAG_HLINK_TOL)) {
+-		while (!(file->flags & FLAG_HLINK_EOL)) {
++	if (!(FFLAGS(file) & FLAG_HLINK_TOL)) {
++		while (!(FFLAGS(file) & FLAG_HLINK_EOL)) {
+ 			ndx = file->F_NEXT;
+ 			file = FPTR(ndx);
+ 		}
+@@ -310,6 +311,6 @@ void hard_link_cluster(struct file_struc
+ 			send_msg(MSG_SUCCESS, numbuf, 4);
+ 		}
+ 		file->F_HLINDEX = FINISHED_LINK;
+-	} while (!(file->flags & FLAG_HLINK_EOL));
++	} while (!(FFLAGS(file) & FLAG_HLINK_EOL));
+ #endif
+ }
+--- old/log.c
++++ new/log.c
+@@ -37,6 +37,7 @@ extern int msg_fd_out;
+ extern int allow_8bit_chars;
+ extern int protocol_version;
+ extern int preserve_times;
++extern int preserve_atimes;
+ extern int stdout_format_has_i;
+ extern int stdout_format_has_o_or_i;
+ extern int logfile_format_has_i;
+@@ -606,7 +607,8 @@ static void log_formatted(enum logcode c
+ 			n[5] = !(iflags & ITEM_REPORT_PERMS) ? '.' : 'p';
+ 			n[6] = !(iflags & ITEM_REPORT_OWNER) ? '.' : 'o';
+ 			n[7] = !(iflags & ITEM_REPORT_GROUP) ? '.' : 'g';
+-			n[8] = '.';
++			n[8] = !(iflags & ITEM_REPORT_ATIME) ? '.'
++			     : S_ISLNK(file->mode) ? 'U' : 'u';
+ 			n[9] = '\0';
+ 
+ 			if (iflags & (ITEM_IS_NEW|ITEM_MISSING_DATA)) {
+--- old/options.c
++++ new/options.c
+@@ -55,6 +55,7 @@ int preserve_uid = 0;
+ int preserve_gid = 0;
+ int preserve_times = 0;
+ int omit_dir_times = 0;
++int preserve_atimes = 0;
+ int update_only = 0;
+ int cvs_exclude = 0;
+ int dry_run = 0;
+@@ -311,8 +312,9 @@ void usage(enum logcode F)
+   rprintf(F,"     --devices               preserve device files (super-user only)\n");
+   rprintf(F,"     --specials              preserve special files\n");
+   rprintf(F," -D                          same as --devices --specials\n");
+-  rprintf(F," -t, --times                 preserve times\n");
+-  rprintf(F," -O, --omit-dir-times        omit directories when preserving times\n");
++  rprintf(F," -t, --times                 preserve modify times\n");
++  rprintf(F," -O, --omit-dir-times        omit directories when preserving modify times\n");
++  rprintf(F," -U, --atimes                preserve access (use) times\n");
+   rprintf(F,"     --super                 receiver attempts super-user activities\n");
+   rprintf(F," -S, --sparse                handle sparse files efficiently\n");
+   rprintf(F," -n, --dry-run               show what would have been transferred\n");
+@@ -428,6 +430,9 @@ static struct poptOption long_options[] 
+   {"times",           't', POPT_ARG_VAL,    &preserve_times, 1, 0, 0 },
+   {"no-times",         0,  POPT_ARG_VAL,    &preserve_times, 0, 0, 0 },
+   {"no-t",             0,  POPT_ARG_VAL,    &preserve_times, 0, 0, 0 },
++  {"atimes",          'U', POPT_ARG_VAL,    &preserve_atimes, 1, 0, 0 },
++  {"no-atimes",        0,  POPT_ARG_VAL,    &preserve_atimes, 0, 0, 0 },
++  {"no-k",             0,  POPT_ARG_VAL,    &preserve_atimes, 0, 0, 0 },
+   {"omit-dir-times",  'O', POPT_ARG_VAL,    &omit_dir_times, 2, 0, 0 },
+   {"modify-window",    0,  POPT_ARG_INT,    &modify_window, OPT_MODIFY_WINDOW, 0, 0 },
+   {"super",            0,  POPT_ARG_VAL,    &am_root, 2, 0, 0 },
+@@ -1538,6 +1543,8 @@ void server_options(char **args,int *arg
+ 		argstr[x++] = 'D';
+ 	if (preserve_times)
+ 		argstr[x++] = 't';
++	if (preserve_atimes)
++		argstr[x++] = 'U';
+ 	if (preserve_perms)
+ 		argstr[x++] = 'p';
+ 	else if (preserve_executability && am_sender)
+--- old/rsync.c
++++ new/rsync.c
+@@ -34,6 +34,7 @@ extern int verbose;
+ extern int dry_run;
+ extern int preserve_perms;
+ extern int preserve_executability;
++extern int preserve_atimes;
+ extern int preserve_times;
+ extern int omit_dir_times;
+ extern int am_root;
+@@ -129,6 +130,7 @@ int set_file_attrs(char *fname, struct f
+ 	int updated = 0;
+ 	STRUCT_STAT st2;
+ 	int change_uid, change_gid;
++	time_t atime, mtime;
+ 	mode_t new_mode = file->mode;
+ 
+ 	if (!st) {
+@@ -148,18 +150,33 @@ int set_file_attrs(char *fname, struct f
+ 		}
+ 	}
+ 
++	/* This code must be the first update in the function due to
++	 * how it uses the "updated" variable. */
+ 	if (!preserve_times || (S_ISDIR(st->st_mode) && omit_dir_times))
+ 		flags |= ATTRS_SKIP_MTIME;
++	if (!preserve_atimes || S_ISDIR(st->st_mode))
++		flags |= ATTRS_SKIP_ATIME;
+ 	if (!(flags & ATTRS_SKIP_MTIME)
+ 	    && cmp_time(st->st_mtime, file->modtime) != 0) {
+-		int ret = set_modtime(fname, file->modtime, st->st_mode);
++		mtime = file->modtime;
++		updated = 1;
++	} else
++		mtime = st->st_mtime;
++	if (!(flags & ATTRS_SKIP_ATIME)
++	    && cmp_time(st->st_atime, file->atime) != 0) {
++		atime = file->atime;
++		updated = 1;
++	} else
++		atime = st->st_atime;
++	if (updated) {
++		int ret = set_times(fname, mtime, atime, st->st_mode);
+ 		if (ret < 0) {
+ 			rsyserr(FERROR, errno, "failed to set times on %s",
+ 				full_fname(fname));
+ 			return 0;
+ 		}
+-		if (ret == 0) /* ret == 1 if symlink could not be set */
+-			updated = 1;
++		if (ret > 0) /* ret == 1 if symlink could not be set */
++			updated = 0;
+ 	}
+ 
+ 	change_uid = am_root && preserve_uid && st->st_uid != file->uid;
+--- old/rsync.h
++++ new/rsync.h
+@@ -54,6 +54,7 @@
+ #define XMIT_HAS_IDEV_DATA (1<<9)
+ #define XMIT_SAME_DEV (1<<10)
+ #define XMIT_RDEV_MINOR_IS_SMALL (1<<11)
++#define XMIT_SAME_ATIME (1<<12)
+ 
+ /* These flags are used in the live flist data. */
+ 
+@@ -120,6 +121,7 @@
+ 
+ #define ATTRS_REPORT		(1<<0)
+ #define ATTRS_SKIP_MTIME	(1<<1)
++#define ATTRS_SKIP_ATIME	(1<<2)
+ 
+ #define FULL_FLUSH	1
+ #define NORMAL_FLUSH	0
+@@ -530,9 +532,12 @@ struct file_struct {
+ 	uid_t uid;
+ 	gid_t gid;
+ 	mode_t mode;
+-	uchar flags;	/* this item MUST remain last */
++	time_t atime;   /* this MUST be second to last */
++	uchar fl4g5;	/* this item MUST remain last */
+ };
+ 
++#define FFLAGS(f) ((uchar*)(f))[file_struct_len-1]
++
+ /*
+  * Start the flist array at FLIST_START entries and grow it
+  * by doubling until FLIST_LINEAR then grow by FLIST_LINEAR
+--- old/rsync.yo
++++ new/rsync.yo
+@@ -328,8 +328,9 @@ to the detailed description below for a 
+      --devices               preserve device files (super-user only)
+      --specials              preserve special files
+  -D                          same as --devices --specials
+- -t, --times                 preserve times
+- -O, --omit-dir-times        omit directories when preserving times
++ -t, --times                 preserve modify times
++ -O, --omit-dir-times        omit directories when preserving mod-times
++ -U, --atimes                preserve access (use) times
+      --super                 receiver attempts super-user activities
+  -S, --sparse                handle sparse files efficiently
+  -n, --dry-run               show what would have been transferred
+@@ -869,6 +870,12 @@ it is preserving modification times (see
+ the directories on the receiving side, it is a good idea to use bf(-O).
+ This option is inferred if you use bf(--backup) without bf(--backup-dir).
+ 
++dit(bf(-U, --atimes)) This tells rsync to set the access (use) times of the
++destination files to the same value as the source files.  Note that the
++reading of the source file may update the atime of the source files, so
++repeated rsync runs with --atimes may be needed if you want to force the
++access-time values to be 100% identical on the two systems.
++
+ dit(bf(--super)) This tells the receiving side to attempt super-user
+ activities even if the receiving rsync wasn't run by the super-user.  These
+ activities include: preserving users via the bf(--owner) option, preserving
+@@ -1390,7 +1397,7 @@ with older versions of rsync, but that a
+ verbose messages).
+ 
+ The "%i" escape has a cryptic output that is 9 letters long.  The general
+-format is like the string bf(YXcstpogz), where bf(Y) is replaced by the
++format is like the string bf(YXcstpogu), where bf(Y) is replaced by the
+ type of update being done, bf(X) is replaced by the file-type, and the
+ other letters represent attributes that may be output if they are being
+ modified.
+@@ -1430,7 +1437,7 @@ quote(itemization(
+   by the file transfer.
+   it() A bf(t) means the modification time is different and is being updated
+   to the sender's value (requires bf(--times)).  An alternate value of bf(T)
+-  means that the time will be set to the transfer time, which happens
++  means that the modify time will be set to the transfer time, which happens
+   anytime a symlink is transferred, or when a file or device is transferred
+   without bf(--times).
+   it() A bf(p) means the permissions are different and are being updated to
+@@ -1439,7 +1446,10 @@ quote(itemization(
+   sender's value (requires bf(--owner) and super-user privileges).
+   it() A bf(g) means the group is different and is being updated to the
+   sender's value (requires bf(--group) and the authority to set the group).
+-  it() The bf(z) slot is reserved for future use.
++  it() A bf(u) means the access (use) time is different and is being updated to
++  the sender's value (requires bf(--atimes)).  An alternate value of bf(U)
++  means that the access time will be set to the transfer time, which happens
++  when a symlink or directory is updated.
+ ))
+ 
+ One other output is possible:  when deleting files, the "%i" will output
+--- old/sender.c
++++ new/sender.c
+@@ -41,6 +41,7 @@ extern int do_progress;
+ extern int inplace;
+ extern int batch_fd;
+ extern int write_batch;
++extern unsigned int file_struct_len;
+ extern struct stats stats;
+ extern struct file_list *the_file_list;
+ extern char *stdout_format;
+@@ -373,7 +374,7 @@ void send_files(struct file_list *flist,
+ 			rprintf(FINFO, "sender finished %s\n", fname);
+ 
+ 		/* Flag that we actually sent this entry. */
+-		file->flags |= FLAG_SENT;
++		FFLAGS(file) |= FLAG_SENT;
+ 	}
+ 	make_backups = save_make_backups;
+ 
+--- old/testsuite/atimes.test
++++ new/testsuite/atimes.test
+@@ -0,0 +1,19 @@
++#! /bin/sh
++
++# Test rsync copying atimes
++
++. "$suitedir/rsync.fns"
++
++set -x
++
++mkdir "$fromdir"
++
++touch "$fromdir/foo"
++touch -a -t 200102031717.42 "$fromdir/foo"
++
++TLS_ARGS=--atime
++
++checkit "$RSYNC -rtUgvvv \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir"
++
++# The script would have aborted on error, so getting here means we've won.
++exit 0
+--- old/testsuite/rsync.fns
++++ new/testsuite/rsync.fns
+@@ -66,7 +66,7 @@ printmsg() {
+ }
+ 
+ rsync_ls_lR() {
+-    find "$@" -print | sort | sed 's/ /\\ /g' | xargs "$TOOLDIR/tls"
++    find "$@" -print | sort | sed 's/ /\\ /g' | xargs "$TOOLDIR/tls" $TLS_ARGS
+ }
+ 
+ check_perms() {
+@@ -184,6 +184,10 @@ checkit() {
+     # We can just write everything to stdout/stderr, because the
+     # wrapper hides it unless there is a problem.
+ 
++    if test x$TLS_ARGS = x--atime; then
++	( cd "$2" && rsync_ls_lR . ) > "$tmpdir/ls-from"
++    fi
++
+     echo "Running: \"$1\""  
+     eval "$1" 
+     status=$?
+@@ -191,10 +195,13 @@ checkit() {
+ 	failed="YES";
+     fi
+ 
++    if test x$TLS_ARGS != x--atime; then
++	( cd "$2" && rsync_ls_lR . ) > "$tmpdir/ls-from"
++    fi
++
+     echo "-------------"
+     echo "check how the directory listings compare with diff:"
+     echo ""
+-    ( cd "$2" && rsync_ls_lR . ) > "$tmpdir/ls-from"
+     ( cd "$3" && rsync_ls_lR . ) > "$tmpdir/ls-to"
+     diff $diffopt "$tmpdir/ls-from" "$tmpdir/ls-to" || failed=YES
+ 
+--- old/tls.c
++++ new/tls.c
+@@ -34,6 +34,7 @@
+  * change. */
+ 
+ #include "rsync.h"
++#include "popt.h"
+ 
+ #define PROGRAM "tls"
+ 
+@@ -43,6 +44,8 @@ int read_only = 1;
+ int list_only = 0;
+ int preserve_perms = 0;
+ 
++static int display_atime = 0;
++ 
+ static void failed(char const *what, char const *where)
+ {
+ 	fprintf(stderr, PROGRAM ": %s %s: %s\n",
+@@ -50,12 +53,29 @@ static void failed(char const *what, cha
+ 	exit(1);
+ }
+ 
++static void storetime(char *dest, time_t t, size_t destsize)
++{
++	if (t) {
++		struct tm *mt = gmtime(&t);
++
++		snprintf(dest, destsize,
++			"%04d-%02d-%02d %02d:%02d:%02d ",
++			(int)mt->tm_year + 1900,
++			(int)mt->tm_mon + 1,
++			(int)mt->tm_mday,
++			(int)mt->tm_hour,
++			(int)mt->tm_min,
++			(int)mt->tm_sec);
++	} else
++		strlcpy(dest, "                    ", destsize);
++}
++
+ static void list_file(const char *fname)
+ {
+ 	STRUCT_STAT buf;
+ 	char permbuf[PERMSTRING_SIZE];
+-	struct tm *mt;
+-	char datebuf[50];
++	char mtimebuf[50];
++	char atimebuf[50];
+ 	char linkbuf[4096];
+ 
+ 	if (do_lstat(fname, &buf) < 0)
+@@ -88,19 +108,8 @@ static void list_file(const char *fname)
+ 
+ 	permstring(permbuf, buf.st_mode);
+ 
+-	if (buf.st_mtime) {
+-		mt = gmtime(&buf.st_mtime);
+-
+-		snprintf(datebuf, sizeof datebuf,
+-			"%04d-%02d-%02d %02d:%02d:%02d",
+-			(int)mt->tm_year + 1900,
+-			(int)mt->tm_mon + 1,
+-			(int)mt->tm_mday,
+-			(int)mt->tm_hour,
+-			(int)mt->tm_min,
+-			(int)mt->tm_sec);
+-	} else
+-		strlcpy(datebuf, "                   ", sizeof datebuf);
++	storetime(mtimebuf, buf.st_mtime, sizeof mtimebuf);
++	storetime(atimebuf, buf.st_atime, sizeof atimebuf);
+ 
+ 	/* TODO: Perhaps escape special characters in fname? */
+ 
+@@ -111,23 +120,55 @@ static void list_file(const char *fname)
+ 		    (long)minor(buf.st_rdev));
+ 	} else /* NB: use double for size since it might not fit in a long. */
+ 		printf("%12.0f", (double)buf.st_size);
+-	printf(" %6ld.%-6ld %6ld %s %s%s\n",
++	printf(" %6ld.%-6ld %6ld %s%s%s%s\n",
+ 	       (long)buf.st_uid, (long)buf.st_gid, (long)buf.st_nlink,
+-	       datebuf, fname, linkbuf);
++ 	       mtimebuf, display_atime && !S_ISDIR(buf.st_mode) ? atimebuf : "",
++	       fname, linkbuf);
++}
++
++static struct poptOption long_options[] = {
++  /* longName, shortName, argInfo, argPtr, value, descrip, argDesc */
++  {"atime",           'u', POPT_ARG_NONE,   &display_atime, 0,   0, 0},
++  {"help",            'h', POPT_ARG_NONE,   0,              'h', 0, 0},
++  {0,0,0,0,0,0,0}
++};
++
++static void tls_usage(int ret)
++{
++	fprintf(stderr, "usage: " PROGRAM " [--atime | -u] DIR ...\n"
++	    "Trivial file listing program for portably checking rsync\n");
++	exit(ret);
+ }
+ 
+ int
+ main(int argc, char *argv[])
+ {
+-	if (argc < 2) {
+-		fprintf(stderr, "usage: " PROGRAM " DIR ...\n"
+-			"Trivial file listing program for portably checking rsync\n");
+-		return 1;
+-	}
++	poptContext pc;
++	const char **extra_args;
++	int opt;
+ 
+-	for (argv++; *argv; argv++) {
+-		list_file(*argv);
++	pc = poptGetContext(PROGRAM, argc, (const char **)argv,
++			    long_options, 0);
++	while ((opt = poptGetNextOpt(pc)) != -1) {
++		switch (opt) {
++		case 'h':
++			tls_usage(0);
++		default:
++			fprintf(stderr,
++			        "%s: %s\n",
++				poptBadOption(pc, POPT_BADOPTION_NOALIAS),
++				poptStrerror(opt));
++			tls_usage(1);
++		}
+ 	}
+ 
++	extra_args = poptGetArgs(pc);
++	if (*extra_args == NULL)
++		tls_usage(1);
++
++	for (; *extra_args; extra_args++)
++		list_file(*extra_args);
++	poptFreeContext(pc);
++
+ 	return 0;
+ }
+--- old/util.c
++++ new/util.c
+@@ -121,7 +121,7 @@ NORETURN void overflow_exit(char *str)
+ 	exit_cleanup(RERR_MALLOC);
+ }
+ 
+-int set_modtime(char *fname, time_t modtime, mode_t mode)
++int set_times(char *fname, time_t modtime, time_t atime, mode_t mode)
+ {
+ #if !defined HAVE_LUTIMES || !defined HAVE_UTIMES
+ 	if (S_ISLNK(mode))
+@@ -129,9 +129,13 @@ int set_modtime(char *fname, time_t modt
+ #endif
+ 
+ 	if (verbose > 2) {
+-		rprintf(FINFO, "set modtime of %s to (%ld) %s",
++		char mtimebuf[200];
++
++		strlcpy(mtimebuf, timestring(modtime), sizeof mtimebuf);
++		rprintf(FINFO,
++			"set modtime, atime of %s to (%ld) %s, (%ld) %s\n",
+ 			fname, (long)modtime,
+-			asctime(localtime(&modtime)));
++			mtimebuf, (long)atime, timestring(atime));
+ 	}
+ 
+ 	if (dry_run)
+@@ -140,7 +144,7 @@ int set_modtime(char *fname, time_t modt
+ 	{
+ #ifdef HAVE_UTIMES
+ 		struct timeval t[2];
+-		t[0].tv_sec = time(NULL);
++		t[0].tv_sec = atime;
+ 		t[0].tv_usec = 0;
+ 		t[1].tv_sec = modtime;
+ 		t[1].tv_usec = 0;
+@@ -151,12 +155,12 @@ int set_modtime(char *fname, time_t modt
+ 		return utimes(fname, t);
+ #elif defined HAVE_UTIMBUF
+ 		struct utimbuf tbuf;
+-		tbuf.actime = time(NULL);
++		tbuf.actime = atime;
+ 		tbuf.modtime = modtime;
+ 		return utime(fname,&tbuf);
+ #elif defined HAVE_UTIME
+ 		time_t t[2];
+-		t[0] = time(NULL);
++		t[0] = atime;
+ 		t[1] = modtime;
+ 		return utime(fname,t);
+ #else
+--- old/proto.h
++++ new/proto.h
+@@ -278,7 +278,7 @@ int fd_pair(int fd[2]);
+ void print_child_argv(char **cmd);
+ NORETURN void out_of_memory(char *str);
+ NORETURN void overflow_exit(char *str);
+-int set_modtime(char *fname, time_t modtime, mode_t mode);
++int set_times(char *fname, time_t modtime, time_t atime, mode_t mode);
+ int mkdir_defmode(char *fname);
+ int create_directory_path(char *fname);
+ int full_write(int desc, char *ptr, size_t len);
+--- old/rsync.1
++++ new/rsync.1
+@@ -394,8 +394,9 @@ to the detailed description below for a 
+      \-\-devices               preserve device files (super-user only)
+      \-\-specials              preserve special files
+  \-D                          same as \-\-devices \-\-specials
+- \-t, \-\-times                 preserve times
+- \-O, \-\-omit\-dir\-times        omit directories when preserving times
++ \-t, \-\-times                 preserve modify times
++ \-O, \-\-omit\-dir\-times        omit directories when preserving mod-times
++ \-U, \-\-atimes                preserve access (use) times
+      \-\-super                 receiver attempts super-user activities
+  \-S, \-\-sparse                handle sparse files efficiently
+  \-n, \-\-dry\-run               show what would have been transferred
+@@ -1008,6 +1009,13 @@ it is preserving modification times (see
+ the directories on the receiving side, it is a good idea to use \fB\-O\fP\&.
+ This option is inferred if you use \fB\-\-backup\fP without \fB\-\-backup\-dir\fP\&.
+ .IP 
++.IP "\fB\-U, \-\-atimes\fP"
++This tells rsync to set the access (use) times of the
++destination files to the same value as the source files\&.  Note that the
++reading of the source file may update the atime of the source files, so
++repeated rsync runs with \-\-atimes may be needed if you want to force the
++access-time values to be 100% identical on the two systems\&.
++.IP 
+ .IP "\fB\-\-super\fP"
+ This tells the receiving side to attempt super-user
+ activities even if the receiving rsync wasn\&'t run by the super-user\&.  These
+@@ -1606,7 +1614,7 @@ with older versions of rsync, but that a
+ verbose messages)\&.
+ .IP 
+ The "%i" escape has a cryptic output that is 9 letters long\&.  The general
+-format is like the string \fBYXcstpogz\fP, where \fBY\fP is replaced by the
++format is like the string \fBYXcstpogu\fP, where \fBY\fP is replaced by the
+ type of update being done, \fBX\fP is replaced by the file-type, and the
+ other letters represent attributes that may be output if they are being
+ modified\&.
+@@ -1655,7 +1663,7 @@ by the file transfer\&.
+ .IP o 
+ A \fBt\fP means the modification time is different and is being updated
+ to the sender\&'s value (requires \fB\-\-times\fP)\&.  An alternate value of \fBT\fP
+-means that the time will be set to the transfer time, which happens
++means that the modify time will be set to the transfer time, which happens
+ anytime a symlink is transferred, or when a file or device is transferred
+ without \fB\-\-times\fP\&.
+ .IP o 
+@@ -1668,7 +1676,10 @@ sender\&'s value (requires \fB\-\-owner\
+ A \fBg\fP means the group is different and is being updated to the
+ sender\&'s value (requires \fB\-\-group\fP and the authority to set the group)\&.
+ .IP o 
+-The \fBz\fP slot is reserved for future use\&.
++A \fBu\fP means the access (use) time is different and is being updated to
++the sender\&'s value (requires \fB\-\-atimes\fP)\&.  An alternate value of \fBU\fP
++means that the access time will be set to the transfer time, which happens
++when a symlink or directory is updated\&.
+ .RE
+ 
+ .IP 

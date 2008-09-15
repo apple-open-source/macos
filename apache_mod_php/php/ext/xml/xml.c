@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: xml.c,v 1.157.2.4.2.5 2007/01/01 09:36:09 sebastian Exp $ */
+/* $Id: xml.c,v 1.157.2.4.2.8 2008/01/30 08:50:02 rasmus Exp $ */
 
 #define IS_EXT_MODULE
 
@@ -579,15 +579,27 @@ PHPAPI char *xml_utf8_decode(const XML_Char *s, int len, int *newlen, const XML_
 	while (pos > 0) {
 		c = (unsigned char)(*s);
 		if (c >= 0xf0) { /* four bytes encoded, 21 bits */
-			c = ((s[0]&7)<<18) | ((s[1]&63)<<12) | ((s[2]&63)<<6) | (s[3]&63);
+			if(pos-4 >= 0) {
+				c = ((s[0]&7)<<18) | ((s[1]&63)<<12) | ((s[2]&63)<<6) | (s[3]&63);
+			} else {
+				c = '?';	
+			}
 			s += 4;
 			pos -= 4;
 		} else if (c >= 0xe0) { /* three bytes encoded, 16 bits */
-			c = ((s[0]&63)<<12) | ((s[1]&63)<<6) | (s[2]&63);
+			if(pos-3 >= 0) {
+				c = ((s[0]&63)<<12) | ((s[1]&63)<<6) | (s[2]&63);
+			} else {
+				c = '?';
+			}
 			s += 3;
 			pos -= 3;
 		} else if (c >= 0xc0) { /* two bytes encoded, 11 bits */
-			c = ((s[0]&63)<<6) | (s[1]&63);
+			if(pos-2 >= 0) {
+				c = ((s[0]&63)<<6) | (s[1]&63);
+			} else {
+				c = '?';
+			}
 			s += 2;
 			pos -= 2;
 		} else {

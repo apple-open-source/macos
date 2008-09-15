@@ -3,24 +3,29 @@ to be simpler and more efficient by Wayne Davison.
 
 Do we need configure support for mktime()?
 
---- orig/io.c	2004-08-02 02:44:26
-+++ io.c	2004-07-17 15:28:36
-@@ -49,6 +49,7 @@ extern int am_sender;
- extern int eol_nulls;
- extern int checksum_seed;
- extern int protocol_version;
-+extern time_t stop_at_utime;
- extern char *remote_filesfrom_file;
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/time-limit.diff
+    ./configure                              (optional if already run)
+    make
+
+--- old/io.c
++++ new/io.c
+@@ -50,6 +50,7 @@ extern int remove_source_files;
+ extern int preserve_hard_links;
+ extern char *filesfrom_host;
  extern struct stats stats;
++extern time_t stop_at_utime;
+ extern struct file_list *the_file_list;
  
-@@ -135,17 +136,22 @@ static void check_timeout(void)
+ const char phase_unknown[] = "unknown";
+@@ -147,16 +148,24 @@ static void check_timeout(void)
  {
  	time_t t;
  
--	if (!io_timeout)
-+	if (!io_timeout && !stop_at_utime)
- 		return;
- 
++	if ((!io_timeout || ignore_timeout) && !stop_at_utime)
++		return;
++
 +	t = time(NULL);
 +
 +	if (stop_at_utime && t >= stop_at_utime) {
@@ -28,58 +33,60 @@ Do we need configure support for mktime()?
 +		exit_cleanup(RERR_TIMEOUT);
 +	}
 +
- 	if (!last_io) {
--		last_io = time(NULL);
-+		last_io = t;
+ 	if (!io_timeout || ignore_timeout)
+ 		return;
+ 
+ 	if (!last_io_in) {
+-		last_io_in = time(NULL);
++		last_io_in = t;
  		return;
  	}
  
 -	t = time(NULL);
 -
--	if (t - last_io >= io_timeout) {
-+	if (io_timeout && t - last_io >= io_timeout) {
+ 	if (t - last_io_in >= io_timeout) {
  		if (!am_server && !am_daemon) {
- 			rprintf(FERROR, "io timeout after %d seconds - exiting\n",
- 				(int)(t-last_io));
---- orig/options.c	2004-09-23 17:42:07
-+++ options.c	2004-07-15 17:06:09
-@@ -96,6 +96,7 @@ int blocking_io = -1;
- int checksum_seed = 0;
+ 			rprintf(FERROR, "io timeout after %d seconds -- exiting\n",
+--- old/options.c
++++ new/options.c
+@@ -116,6 +116,7 @@ int checksum_seed = 0;
  int inplace = 0;
- unsigned int block_size = 0;
+ int delay_updates = 0;
+ long block_size = 0; /* "long" because popt can't set an int32. */
 +time_t stop_at_utime = 0;
  
  
  /** Network address family. **/
-@@ -301,6 +302,8 @@ void usage(enum logcode F)
-   rprintf(F,"     --log-format=FORMAT     log file transfers using specified format\n");
-   rprintf(F,"     --password-file=FILE    get password from FILE\n");
-   rprintf(F,"     --bwlimit=KBPS          limit I/O bandwidth, KBytes per second\n");
+@@ -377,6 +378,8 @@ void usage(enum logcode F)
+   rprintf(F,"     --password-file=FILE    read password from FILE\n");
+   rprintf(F,"     --list-only             list the files instead of copying them\n");
+   rprintf(F,"     --bwlimit=KBPS          limit I/O bandwidth; KBytes per second\n");
 +  rprintf(F,"     --stop-at=y-m-dTh:m     Stop rsync at year-month-dayThour:minute\n");
 +  rprintf(F,"     --time-limit=MINS       Stop rsync after MINS minutes have elapsed\n");
-   rprintf(F,"     --write-batch=FILE      write a batch to FILE\n");
-   rprintf(F,"     --read-batch=FILE       read a batch from FILE\n");
-   rprintf(F,"     --checksum-seed=NUM     set block/file checksum seed\n");
-@@ -320,6 +323,7 @@ enum {OPT_VERSION = 1000, OPT_SENDER, OP
-       OPT_DELETE_AFTER, OPT_DELETE_EXCLUDED, OPT_LINK_DEST,
-       OPT_INCLUDE, OPT_INCLUDE_FROM, OPT_MODIFY_WINDOW,
-       OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_TIMEOUT,
-+      OPT_STOP_AT, OPT_TIME_LIMIT,
-       OPT_REFUSED_BASE = 9000};
+   rprintf(F,"     --write-batch=FILE      write a batched update to FILE\n");
+   rprintf(F,"     --only-write-batch=FILE like --write-batch but w/o updating destination\n");
+   rprintf(F,"     --read-batch=FILE       read a batched update from FILE\n");
+@@ -398,7 +401,7 @@ enum {OPT_VERSION = 1000, OPT_DAEMON, OP
+       OPT_FILTER, OPT_COMPARE_DEST, OPT_COPY_DEST, OPT_LINK_DEST, OPT_HELP,
+       OPT_INCLUDE, OPT_INCLUDE_FROM, OPT_MODIFY_WINDOW, OPT_MIN_SIZE, OPT_CHMOD,
+       OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_ONLY_WRITE_BATCH, OPT_MAX_SIZE,
+-      OPT_NO_D,
++      OPT_NO_D, OPT_STOP_AT, OPT_TIME_LIMIT,
+       OPT_SERVER, OPT_REFUSED_BASE = 9000};
  
  static struct poptOption long_options[] = {
-@@ -394,6 +398,8 @@ static struct poptOption long_options[] 
-   {"port",             0,  POPT_ARG_INT,    &rsync_port, 0, 0, 0 },
-   {"log-format",       0,  POPT_ARG_STRING, &log_format, 0, 0, 0 },
+@@ -516,6 +519,8 @@ static struct poptOption long_options[] 
+   {"log-format",       0,  POPT_ARG_STRING, &stdout_format, 0, 0, 0 }, /* DEPRECATED */
+   {"itemize-changes", 'i', POPT_ARG_NONE,   0, 'i', 0, 0 },
    {"bwlimit",          0,  POPT_ARG_INT,    &bwlimit, 0, 0, 0 },
 +  {"stop-at",          0,  POPT_ARG_STRING, 0, OPT_STOP_AT, 0, 0 },
 +  {"time-limit",       0,  POPT_ARG_STRING, 0, OPT_TIME_LIMIT, 0, 0 },
-   {"address",          0,  POPT_ARG_STRING, &bind_address, 0, 0, 0 },
+   {"backup",          'b', POPT_ARG_NONE,   &make_backups, 0, 0, 0 },
    {"backup-dir",       0,  POPT_ARG_STRING, &backup_dir, 0, 0, 0 },
-   {"hard-links",      'H', POPT_ARG_NONE,   &preserve_hard_links, 0, 0, 0 },
-@@ -616,6 +622,36 @@ int parse_arguments(int *argc, const cha
- 			return 0;
- #endif
+   {"suffix",           0,  POPT_ARG_STRING, &backup_suffix, 0, 0, 0 },
+@@ -1089,6 +1094,36 @@ int parse_arguments(int *argc, const cha
+ 			usage(FINFO);
+ 			exit_cleanup(0);
  
 +		case OPT_STOP_AT:
 +			arg = poptGetOptArg(pc);
@@ -113,8 +120,8 @@ Do we need configure support for mktime()?
 +
  		default:
  			/* A large opt value means that set_refuse_options()
- 			 * turned this option off (opt-BASE is its index). */
-@@ -1005,6 +1041,15 @@ void server_options(char **args,int *arg
+ 			 * turned this option off. */
+@@ -1642,6 +1677,15 @@ void server_options(char **args,int *arg
  		args[ac++] = arg;
  	}
  
@@ -130,18 +137,18 @@ Do we need configure support for mktime()?
  	if (backup_dir) {
  		args[ac++] = "--backup-dir";
  		args[ac++] = backup_dir;
---- orig/rsync.yo	2004-09-24 16:42:30
-+++ rsync.yo	2004-07-15 02:44:40
-@@ -378,6 +378,8 @@ verb(
-      --log-format=FORMAT     log file transfers using specified format
-      --password-file=FILE    get password from FILE
-      --bwlimit=KBPS          limit I/O bandwidth, KBytes per second
+--- old/rsync.yo
++++ new/rsync.yo
+@@ -394,6 +394,8 @@ to the detailed description below for a 
+      --password-file=FILE    read password from FILE
+      --list-only             list the files instead of copying them
+      --bwlimit=KBPS          limit I/O bandwidth; KBytes per second
 +     --stop-at=y-m-dTh:m     Stop rsync at year-month-dayThour:minute
 +     --time-limit=MINS       Stop rsync after MINS minutes have elapsed
-      --write-batch=FILE      write a batch to FILE 
-      --read-batch=FILE       read a batch from FILE
-      --checksum-seed=NUM     set block/file checksum seed
-@@ -1001,6 +1003,19 @@ transfer was too fast, it will wait befo
+      --write-batch=FILE      write a batched update to FILE
+      --only-write-batch=FILE like --write-batch but w/o updating dest
+      --read-batch=FILE       read a batched update from FILE
+@@ -1733,6 +1735,19 @@ transfer was too fast, it will wait befo
  result is an average transfer rate equaling the specified limit. A value
  of zero specifies no limit.
  
@@ -159,11 +166,11 @@ Do we need configure support for mktime()?
 +number of minutes rsync will run for.
 +
  dit(bf(--write-batch=FILE)) Record a file that can later be applied to
- another identical destination with --read-batch. See the "BATCH MODE"
- section for details.
---- orig/util.c	2004-09-07 21:45:30
-+++ util.c	2004-07-03 20:23:22
-@@ -126,6 +126,132 @@ void overflow(char *str)
+ another identical destination with bf(--read-batch). See the "BATCH MODE"
+ section for details, and also the bf(--only-write-batch) option.
+--- old/util.c
++++ new/util.c
+@@ -121,6 +121,133 @@ NORETURN void overflow_exit(char *str)
  	exit_cleanup(RERR_MALLOC);
  }
  
@@ -293,6 +300,50 @@ Do we need configure support for mktime()?
 +	}
 +	return val;
 +}
- 
- 
- int set_modtime(char *fname, time_t modtime)
++
+ int set_modtime(char *fname, time_t modtime, mode_t mode)
+ {
+ #if !defined HAVE_LUTIMES || !defined HAVE_UTIMES
+--- old/proto.h
++++ new/proto.h
+@@ -278,6 +278,7 @@ int fd_pair(int fd[2]);
+ void print_child_argv(char **cmd);
+ NORETURN void out_of_memory(char *str);
+ NORETURN void overflow_exit(char *str);
++time_t parse_time(const char *arg);
+ int set_modtime(char *fname, time_t modtime, mode_t mode);
+ int mkdir_defmode(char *fname);
+ int create_directory_path(char *fname);
+--- old/rsync.1
++++ new/rsync.1
+@@ -460,6 +460,8 @@ to the detailed description below for a 
+      \-\-password\-file=FILE    read password from FILE
+      \-\-list\-only             list the files instead of copying them
+      \-\-bwlimit=KBPS          limit I/O bandwidth; KBytes per second
++     \-\-stop\-at=y-m-dTh:m     Stop rsync at year-month-dayThour:minute
++     \-\-time\-limit=MINS       Stop rsync after MINS minutes have elapsed
+      \-\-write\-batch=FILE      write a batched update to FILE
+      \-\-only\-write\-batch=FILE like \-\-write\-batch but w/o updating dest
+      \-\-read\-batch=FILE       read a batched update from FILE
+@@ -2009,6 +2011,21 @@ transfer was too fast, it will wait befo
+ result is an average transfer rate equaling the specified limit\&. A value
+ of zero specifies no limit\&.
+ .IP 
++.IP "\fB\-\-stop\-at=y-m-dTh:m\fP"
++This option allows you to specify at what
++time to stop rsync, in year-month-dayThour:minute numeric format (e\&.g\&.
++2004\-12\-31T23:59)\&.  You can specify a 2 or 4-digit year\&.  You can also
++leave off various items and the result will be the next possible time
++that matches the specified data\&.  For example, "1\-30" specifies the next
++January 30th (at midnight), "04:00" specifies the next 4am, "1"
++specifies the next 1st of the month at midnight, and ":59" specifies the
++next 59th minute after the hour\&.  If you prefer, you may separate the
++date numbers using slashes instead of dashes\&.
++.IP 
++.IP "\fB\-\-time\-limit=MINS\fP"
++This option allows you to specify the maximum
++number of minutes rsync will run for\&.
++.IP 
+ .IP "\fB\-\-write\-batch=FILE\fP"
+ Record a file that can later be applied to
+ another identical destination with \fB\-\-read\-batch\fP\&. See the "BATCH MODE"

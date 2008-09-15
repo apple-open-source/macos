@@ -1,5 +1,5 @@
 /*
- * "$Id: testadmin.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: testadmin.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Admin function test program for the Common UNIX Printing System (CUPS).
  *
@@ -61,7 +61,7 @@ main(int  argc,				/* I - Number of command-line args */
 
   if (argc > 1)
   {
-    for (i = 1, num_settings = 0; i < argc; i ++)
+    for (i = 1, num_settings = 0, settings = NULL; i < argc; i ++)
       num_settings = cupsParseOptions(argv[i], num_settings, &settings);
 
     if (cupsAdminSetServerSettings(http, num_settings, settings))
@@ -116,5 +116,5 @@ show_settings(
 
 
 /*
- * End of "$Id: testadmin.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: testadmin.c 7721 2008-07-11 22:48:49Z mike $".
  */

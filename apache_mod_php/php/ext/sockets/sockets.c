@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sockets.c,v 1.171.2.9.2.14 2007/09/26 10:55:07 tony2001 Exp $ */
+/* $Id: sockets.c,v 1.171.2.9.2.17 2008/02/21 02:39:43 felipe Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -584,7 +584,10 @@ static int php_sock_array_from_fd_set(zval *sock_array, fd_set *fds TSRMLS_DC) /
 	zval		**dest_element;
 	php_socket	*php_sock;
 	HashTable	*new_hash;
+	char 		*key;
 	int			num = 0;
+	ulong       num_key;
+	uint 		key_len;
 
 	if (Z_TYPE_P(sock_array) != IS_ARRAY) return 0;
 
@@ -599,7 +602,14 @@ static int php_sock_array_from_fd_set(zval *sock_array, fd_set *fds TSRMLS_DC) /
 
 		if (PHP_SAFE_FD_ISSET(php_sock->bsd_socket, fds)) {
 			/* Add fd to new array */
-			zend_hash_next_index_insert(new_hash, (void *)element, sizeof(zval *), (void **)&dest_element);
+			switch (zend_hash_get_current_key_ex(Z_ARRVAL_P(sock_array), &key, &key_len, &num_key, 0, NULL)) {
+				case HASH_KEY_IS_STRING:
+					zend_hash_add(new_hash, key, key_len, (void *)element, sizeof(zval *), (void **)&dest_element);
+					break;
+				case HASH_KEY_IS_LONG:
+					zend_hash_index_update(new_hash, num_key, (void *)element, sizeof(zval *), (void **)&dest_element);
+					break;
+			}
 			if (dest_element) zval_add_ref(dest_element);
 		}
 		num++;

@@ -20,17 +20,65 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2007-12-01</string>
+		<string>2008-04-14</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>MesaLib</string>
+		<key>OpenSourceSHA1</key>
+		<string>49b92094a25f189b411f393174ee666e73dddf36</string>
+		<key>OpenSourceURL</key>
+		<string>http://downloads.sourceforge.net/mesa3d/MesaLib-7.0.3.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>7.0.3</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.mesa3d.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-07-27</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xorg-server</string>
 		<key>OpenSourceSHA1</key>
-		<string>a342805b556e32c831c700f8b24f94110fd2d957</string>
+		<string>fd12d9f66fe5e6a4cd565215dfcbcc69277ad78d</string>
 		<key>OpenSourceURL</key>
-		<string>http://xquartz.macosforge.org/downloads/xorg-server-1.3.0-apple5.tar.bz2</string>
+		<string>http://xquartz.macosforge.org/downloads/src/xorg-server-1.3.0-apple22.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.3.0-apple5</string>
+		<string>1.3.0-apple22</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://xquartz.macosforge.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-07-15</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xorg-server</string>
+		<key>OpenSourceSHA1</key>
+		<string>c0678ff676fc7902365246634307d9be2bea99dd</string>
+		<key>OpenSourceURL</key>
+		<string>http://xquartz.macosforge.org/downloads/src/xorg-server-1.4.2-apple5.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.4.2-apple5</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://xquartz.macosforge.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2008-07-02</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>xinit</string>
+		<key>OpenSourceSHA1</key>
+		<string>c4d3d8314ddd94c4950349d23a3e387af65186da</string>
+		<key>OpenSourceURL</key>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xinit-1.1.0.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.1.0-git-2008.07.02</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>

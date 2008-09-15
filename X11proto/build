@@ -132,12 +132,12 @@ sub build {
     sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
 
     chdir("$ENV{OBJROOT}/$full_path");
-    if($module eq 'freetype') {
-	chdir('builds/unix');
+#    if($module eq 'freetype') {
+#	chdir('builds/unix');
 #	sys_print("autoreconf -fvi");
-	sys_print("/usr/bin/glibtoolize --force --copy");
-	chdir('../..');
-    }
+#	sys_print("/usr/bin/glibtoolize --force --copy");
+#	chdir('../..');
+#    }
     print "Configuring...\n";
     $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --mandir=/usr/X11/man ";
 
@@ -149,7 +149,7 @@ sub build {
     }
 
     sys_print("./configure $conf_flags");
-    sys_print("make -j2");
+    sys_print("make -j".`sysctl -n hw.activecpu`);
     sys_print("make install");
     chdir('../..');
 }
@@ -161,6 +161,7 @@ sub build_proto {
     build("compositeproto");
     build("damageproto");
     build("dmxproto");
+    build("dri2proto");
     build("evieext");
     build("fixesproto");
     build("fontcacheproto");
@@ -178,6 +179,7 @@ sub build_proto {
     build("xcmiscproto");
     build("xextproto");
     build("xcbproto");
+    build("xf86bigfontproto");
     build("xf86dgaproto");
     build("xf86driproto");
     build("xf86miscproto");

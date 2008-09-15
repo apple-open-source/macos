@@ -1,5 +1,5 @@
 /*
- * "$Id: classes.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: classes.c 7725 2008-07-14 06:16:34Z mike $"
  *
  *   Printer class routines for the Common UNIX Printing System (CUPS).
  *
@@ -210,7 +210,8 @@ cupsdDeletePrinterFromClasses(
        c = (cupsd_printer_t *)cupsArrayNext(ImplicitPrinters))
     if (c->num_printers == 0)
     {
-      cupsArrayRemove(ImplicitPrinters, c);
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "Deleting implicit class \"%s\"...",
+                      c->name);
       cupsdDeletePrinter(c, 0);
     }
 }
@@ -600,7 +601,7 @@ cupsdLoadAllClasses(void)
 	       valueptr ++);
 
 	  if (*valueptr)
-            *valueptr++ = '\0';
+            *valueptr = '\0';
 
 	  cupsdSetString(&p->job_sheets[1], value);
 	}
@@ -939,5 +940,5 @@ cupsdUpdateImplicitClasses(void)
 
 
 /*
- * End of "$Id: classes.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: classes.c 7725 2008-07-14 06:16:34Z mike $".
  */

@@ -1,8 +1,10 @@
-/*  -*- c-file-style: "linux" -*-
+/*
+ * Routines to output progress information during a file transfer.
  *
- * Copyright (C) 1996-2000 by Andrew Tridgell
- * Copyright (C) Paul Mackerras 1996
- * Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
+ * Copyright (C) 1996-2000 Andrew Tridgell
+ * Copyright (C) 1996 Paul Mackerras
+ * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
+ * Copyright (C) 2003, 2004, 2005, 2006 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,9 +16,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 #include "rsync.h"
@@ -25,6 +27,12 @@ extern struct stats stats;
 extern int am_server;
 
 #define PROGRESS_HISTORY_SECS 5
+
+#ifdef GETPGRP_VOID
+#define GETPGRP_ARG
+#else
+#define GETPGRP_ARG 0
+#endif
 
 struct progress_history {
 	struct timeval time;
@@ -61,17 +69,18 @@ static void rprint_progress(OFF_T ofs, OFF_T size, struct timeval *now,
 
 	if (is_last) {
 		/* Compute stats based on the starting info. */
-		diff = msdiff(&ph_start.time, now);
-		if (!diff)
+		if (!ph_start.time.tv_sec
+		    || !(diff = msdiff(&ph_start.time, now)))
 			diff = 1;
 		rate = (double) (ofs - ph_start.ofs) * 1000.0 / diff / 1024.0;
 		/* Switch to total time taken for our last update. */
 		remain = (double) diff / 1000.0;
 	} else {
 		/* Compute stats based on recent progress. */
-		diff = msdiff(&ph_list[oldest_hpos].time, now);
-		rate = diff ? (double) (ofs - ph_list[oldest_hpos].ofs) * 1000.0
-		    / diff / 1024.0 : 0;
+		if (!(diff = msdiff(&ph_list[oldest_hpos].time, now)))
+			diff = 1;
+		rate = (double) (ofs - ph_list[oldest_hpos].ofs) * 1000.0
+		     / diff / 1024.0;
 		remain = rate ? (double) (size - ofs) / rate / 1000.0 : 0.0;
 	}
 
@@ -90,15 +99,14 @@ static void rprint_progress(OFF_T ofs, OFF_T size, struct timeval *now,
 	remain_h = (int) (remain / 3600.0);
 
 	if (is_last) {
-		snprintf(eol, sizeof eol, "  (%d, %.1f%% of %d)\n",
+		snprintf(eol, sizeof eol, " (xfer#%d, to-check=%d/%d)\n",
 			stats.num_transferred_files,
-			(float)((stats.current_file_index+1) * 100)
-				/ stats.num_files,
+			stats.num_files - stats.current_file_index - 1,
 			stats.num_files);
 	} else
-		strcpy(eol, "\r");
-	rprintf(FINFO, "%12.0f %3d%% %7.2f%s %4d:%02d:%02d%s",
-		(double) ofs, pct, rate, units,
+		strlcpy(eol, "\r", sizeof eol);
+	rprintf(FCLIENT, "%12s %3d%% %7.2f%s %4d:%02d:%02d%s",
+		human_num(ofs), pct, rate, units,
 		remain_h, remain_m, remain_s, eol);
 }
 
@@ -115,9 +123,18 @@ void end_progress(OFF_T size)
 void show_progress(OFF_T ofs, OFF_T size)
 {
 	struct timeval now;
+#if defined HAVE_GETPGRP && defined HAVE_TCGETPGRP
+	static pid_t pgrp = -1;
+	pid_t tc_pgrp;
+#endif
 
 	if (am_server)
 		return;
+
+#if defined HAVE_GETPGRP && defined HAVE_TCGETPGRP
+	if (pgrp == -1)
+		pgrp = getpgrp(GETPGRP_ARG);
+#endif
 
 	gettimeofday(&now, NULL);
 
@@ -149,6 +166,12 @@ void show_progress(OFF_T ofs, OFF_T size)
 		ph_list[newest_hpos].time.tv_usec = now.tv_usec;
 		ph_list[newest_hpos].ofs = ofs;
 	}
+
+#if defined HAVE_GETPGRP && defined HAVE_TCGETPGRP
+	tc_pgrp = tcgetpgrp(STDOUT_FILENO);
+	if (tc_pgrp != pgrp && tc_pgrp != -1)
+		return;
+#endif
 
 	rprint_progress(ofs, size, &now, False);
 }

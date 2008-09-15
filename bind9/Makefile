@@ -1,7 +1,7 @@
 Project		= bind9
 UserType	= Developer
 ToolType	= Commands
-Extra_Configure_Flags = --sysconfdir="/private/etc" --localstatedir="/private/var"
+Extra_Configure_Flags = --sysconfdir="/private/etc" --localstatedir="/private/var" --enable-atomic="no"
 Extra_Environment = sysconfdir="/private/etc"                               \
                     includedir="/usr/local/include"			\
                     libdir="/usr/local/"				\
@@ -48,3 +48,4 @@ install-extra:
 install-sandbox-profile:
 	mkdir -p $(DSTROOT)/usr/share/sandbox
 	install -c -m 644 named.sb $(DSTROOT)/usr/share/sandbox
+

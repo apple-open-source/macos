@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: tm2unixtime.c,v 1.13.2.3.2.2 2007/01/01 09:35:59 sebastian Exp $ */
+/* $Id: tm2unixtime.c,v 1.13.2.3.2.4 2008/01/26 16:26:47 derick Exp $ */
 
 #include "timelib.h"
 
@@ -98,6 +98,7 @@ static void do_adjust_for_weekday(timelib_time* time)
 	} else {
 		time->d -= (7 - (abs(time->relative.weekday) - current_dow));
 	}
+	time->have_weekday_relative = 0;
 }
 
 static void do_normalize(timelib_time* time)
@@ -130,6 +131,7 @@ static void do_adjust_relative(timelib_time* time)
 	do_normalize(time);
 
 	memset(&(time->relative), 0, sizeof(time->relative));
+	time->have_relative = 0;
 }
 
 static void do_adjust_special_weekday(timelib_time* time)

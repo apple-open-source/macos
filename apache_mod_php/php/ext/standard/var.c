@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: var.c,v 1.203.2.7.2.19 2007/10/04 13:31:11 jani Exp $ */
+/* $Id: var.c,v 1.203.2.7.2.22 2007/12/31 07:20:13 sebastian Exp $ */
 
 
 
@@ -355,13 +355,15 @@ static int php_array_element_export(zval **zv, int num_args, va_list args, zend_
 	if (hash_key->nKeyLength==0) { /* numeric key */
 		php_printf("%*c%ld => ", level + 1, ' ', hash_key->h);
 	} else { /* string key */
-		char *key;
-		int key_len;
+		char *key, *tmp_str;
+		int key_len, tmp_len;
 		key = php_addcslashes(hash_key->arKey, hash_key->nKeyLength - 1, &key_len, 0, "'\\", 2 TSRMLS_CC);
+		tmp_str = php_str_to_str_ex(key, key_len, "\0", 1, "' . \"\\0\" . '", 12, &tmp_len, 0, NULL);
 		php_printf("%*c'", level + 1, ' ');
-		PHPWRITE(key, key_len);
+		PHPWRITE(tmp_str, tmp_len);
 		php_printf("' => ");
 		efree(key);
+		efree(tmp_str);
 	}
 	php_var_export(zv, level + 2 TSRMLS_CC);
 	PUTS (",\n");
@@ -389,8 +391,8 @@ static int php_object_element_export(zval **zv, int num_args, va_list args, zend
 PHPAPI void php_var_export(zval **struc, int level TSRMLS_DC)
 {
 	HashTable *myht;
-	char*     tmp_str;
-	int       tmp_len;
+ 	char *tmp_str, *tmp_str2;
+ 	int tmp_len, tmp_len2;
 	char *class_name;
 	zend_uint class_name_len;
 
@@ -408,11 +410,13 @@ PHPAPI void php_var_export(zval **struc, int level TSRMLS_DC)
 		php_printf("%.*H", (int) EG(precision), Z_DVAL_PP(struc));
 		break;
 	case IS_STRING:
-		tmp_str = php_addcslashes(Z_STRVAL_PP(struc), Z_STRLEN_PP(struc), &tmp_len, 0, "'\\\0", 3 TSRMLS_CC);
+		tmp_str = php_addcslashes(Z_STRVAL_PP(struc), Z_STRLEN_PP(struc), &tmp_len, 0, "'\\", 2 TSRMLS_CC);
+		tmp_str2 = php_str_to_str_ex(tmp_str, tmp_len, "\0", 1, "' . \"\\0\" . '", 12, &tmp_len2, 0, NULL);
 		PUTS ("'");
-		PHPWRITE(tmp_str, tmp_len);
+		PHPWRITE(tmp_str2, tmp_len2);
 		PUTS ("'");
-		efree (tmp_str);
+		efree(tmp_str2);
+		efree(tmp_str);
 		break;
 	case IS_ARRAY:
 		myht = Z_ARRVAL_PP(struc);

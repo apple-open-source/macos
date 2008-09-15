@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: streamsfuncs.c,v 1.58.2.6.2.16 2007/10/04 13:31:11 jani Exp $ */
+/* $Id: streamsfuncs.c,v 1.58.2.6.2.19 2008/02/03 16:15:30 iliaa Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -1325,6 +1325,9 @@ PHP_FUNCTION(stream_socket_enable_crypto)
 		if (php_stream_xport_crypto_setup(stream, cryptokind, sessstream TSRMLS_CC) < 0) {
 			RETURN_FALSE;
 		}
+	} else if (enable) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "When enabling encryption you must specify the crypto type");
+		RETURN_FALSE;
 	}
 
 	ret = php_stream_xport_crypto_enable(stream, enable TSRMLS_CC);
@@ -1361,7 +1364,7 @@ PHP_FUNCTION(stream_is_local)
 		wrapper = stream->wrapper;
 	} else {
 		convert_to_string_ex(&zstream);
-		wrapper = php_stream_locate_url_wrapper(Z_STRVAL_P(zstream), NULL, STREAM_LOCATE_WRAPPERS_ONLY TSRMLS_CC);
+		wrapper = php_stream_locate_url_wrapper(Z_STRVAL_P(zstream), NULL, 0 TSRMLS_CC);
 	}
 
 	if(!wrapper) {

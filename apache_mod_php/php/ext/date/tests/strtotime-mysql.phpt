@@ -1,5 +1,7 @@
 --TEST--
-strtotime() and mysql timestamps
+strtotime() and mysql timestamps (32 bit)
+--SKIPIF--
+<?php echo PHP_INT_SIZE == 8 ? "skip 32-bit only" : "OK"; ?>
 --FILE--
 <?php
 date_default_timezone_set('UTC');

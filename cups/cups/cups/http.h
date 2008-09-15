@@ -1,5 +1,5 @@
 /*
- * "$Id: http.h 6722 2007-07-25 17:19:09Z mike $"
+ * "$Id: http.h 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Hyper-Text Transport Protocol definitions for the Common UNIX Printing
  *   System (CUPS).
@@ -457,5 +457,5 @@ extern void		httpSetAuthString(http_t *http, const char *scheme,
 #endif /* !_CUPS_HTTP_H_ */
 
 /*
- * End of "$Id: http.h 6722 2007-07-25 17:19:09Z mike $".
+ * End of "$Id: http.h 7721 2008-07-11 22:48:49Z mike $".
  */

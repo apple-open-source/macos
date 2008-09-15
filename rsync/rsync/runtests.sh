@@ -1,6 +1,7 @@
 #! /bin/sh
 
 # Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
+# Copyright (C) 2003, 2004, 2005, 2006 Wayne Davison
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version
@@ -13,8 +14,7 @@
 # 
 # You should have received a copy of the GNU Lesser General Public
 # License along with this program; if not, write to the Free Software
-# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 # rsync top-level test script -- this invokes all the other more
 # detailed tests in order.  This script can either be called by `make
@@ -85,7 +85,7 @@
 # they're explicitly given on the command line.
 
 # Also, we can't count on 'cp -a' or 'mkdir -p', although they're
-# pretty handy.
+# pretty handy (see function makepath for the latter).
 
 # I think some of the GNU documentation suggests that we shouldn't
 # rely on shell functions.  However, the Bash manual seems to say that
@@ -100,6 +100,8 @@
 # You cannot do "export VAR=VALUE" all on one line; the export must be
 # separate from the assignment.  (SCO SysV)
 
+# Don't rely on grep -q, as that doesn't work everywhere -- just redirect
+# stdout to /dev/null to keep it quiet.
 
 
 # STILL TO DO:
@@ -124,53 +126,81 @@ set -e
 . "./shconfig"
 
 RUNSHFLAGS='-e'
+export RUNSHFLAGS
 
 # for Solaris
-PATH="/usr/xpg4/bin/:$PATH"
+[ -d /usr/xpg4/bin ] && PATH="/usr/xpg4/bin/:$PATH"
 
-if [ -n "$loglevel" ] && [ "$loglevel" -gt 8 ]
-then
-    if set -x
-    then
+if [ "x$loglevel" != x ] && [ "$loglevel" -gt 8 ]; then
+    if set -x; then
 	# If it doesn't work the first time, don't keep trying.
 	RUNSHFLAGS="$RUNSHFLAGS -x"
     fi
 fi
 
+POSIXLY_CORRECT=1 
+if test x"$TOOLDIR" = x; then
+    TOOLDIR=`pwd`
+fi
+srcdir=`dirname $0`
+if test x"$srcdir" = x -o x"$srcdir" = x.; then
+    srcdir="$TOOLDIR"
+fi
+if test x"$rsync_bin" = x; then
+    rsync_bin="$TOOLDIR/rsync"
+fi
+
+# This allows the user to specify extra rsync options -- use carefully!
+RSYNC="$rsync_bin $*"
+#RSYNC="valgrind $rsync_bin $*"
+
+export POSIXLY_CORRECT TOOLDIR srcdir RSYNC
+
 echo "============================================================"
-echo "$0 running in `pwd`"
-echo "    rsync_bin=$rsync_bin"
+echo "$0 running in $TOOLDIR"
+echo "    rsync_bin=$RSYNC"
 echo "    srcdir=$srcdir"
 
-testuser=`id -un || whoami || echo UNKNOWN`
+if [ -f /usr/bin/whoami ]; then
+    testuser=`/usr/bin/whoami`
+elif [ -f /usr/ucb/whoami ]; then
+    testuser=`/usr/ucb/whoami`
+elif [ -f /bin/whoami ]; then
+    testuser=`/bin/whoami`
+else
+    testuser=`id -un 2>/dev/null || echo ${LOGNAME:-${USERNAME:-${USER:-'UNKNOWN'}}}`
+fi
 
 echo "    testuser=$testuser"
 echo "    os=`uname -a`"
 
 # It must be "yes", not just nonnull
-if test "x$preserve_scratch" = xyes
-then
+if [ "x$preserve_scratch" = xyes ]; then
     echo "    preserve_scratch=yes"
 else
     echo "    preserve_scratch=no"
 fi    
 
+# Check if setfacl is around and if it supports the -k or -s option.
+if setfacl --help 2>&1 | grep ' -k,\|\[-[a-z]*k' >/dev/null; then
+    setfacl_nodef='setfacl -k'
+elif setfacl -s u::7,g::5,o:5 testsuite 2>/dev/null; then
+    setfacl_nodef='setfacl -s u::7,g::5,o:5'
+else
+    setfacl_nodef=true
+fi
 
-if test ! -f $rsync_bin
-then
+export setfacl_nodef
+
+if [ ! -f "$rsync_bin" ]; then
     echo "rsync_bin $rsync_bin is not a file" >&2
     exit 2
 fi
 
-if test ! -d $srcdir
-then
+if [ ! -d "$srcdir" ]; then
     echo "srcdir $srcdir is not a directory" >&2
     exit 2
 fi
-
-RSYNC="$rsync_bin"
-
-export rsync_bin RSYNC
 
 skipped=0
 missing=0
@@ -180,7 +210,7 @@ failed=0
 # Prefix for scratch directory.  We create separate directories for
 # each test case, so that they can be left behind in case of failure
 # to aid investigation.
-scratchbase="`pwd`"/testtmp
+scratchbase="$TOOLDIR"/testtmp
 echo "    scratchbase=$scratchbase"
 
 suitedir="$srcdir/testsuite"
@@ -190,6 +220,9 @@ export scratchdir suitedir
 prep_scratch() {
     [ -d "$scratchdir" ] && rm -rf "$scratchdir"
     mkdir "$scratchdir"
+    # Get rid of default ACLs and dir-setgid to avoid confusing some tests.
+    $setfacl_nodef "$scratchdir" || true
+    chmod g-s "$scratchdir"
     return 0
 }
 
@@ -198,14 +231,13 @@ maybe_discard_scratch() {
     return 0
 }
 
-if [ "x$whichtests" = x ]
-then
+if [ "x$whichtests" = x ]; then
     whichtests="*.test"
 fi
 
 for testscript in $suitedir/$whichtests
 do
-    testbase=`echo $testscript | sed 's!.*/!!' | sed -e 's/.test\$//'`
+    testbase=`echo $testscript | sed -e 's!.*/!!' -e 's/.test\$//'`
     scratchdir="$scratchbase.$testbase"
 
     prep_scratch
@@ -250,8 +282,7 @@ do
     *)
 	echo "FAIL    $testbase"
 	failed=`expr $failed + 1`
-	if [ "x$nopersist" = "xyes" ]
-	then
+	if [ "x$nopersist" = xyes ]; then
 	    exit 1
 	fi
     esac

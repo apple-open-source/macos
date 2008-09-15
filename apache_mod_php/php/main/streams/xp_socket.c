@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: xp_socket.c,v 1.33.2.2.2.6 2007/07/24 14:24:44 dmitry Exp $ */
+/* $Id: xp_socket.c,v 1.33.2.2.2.9 2008/03/10 20:09:22 andrey Exp $ */
 
 #include "php.h"
 #include "ext/standard/file.h"
@@ -33,6 +33,10 @@
 
 #ifndef MSG_DONTWAIT
 # define MSG_DONTWAIT 0
+#endif
+
+#ifndef MSG_PEEK
+# define MSG_PEEK 0
 #endif
 
 php_stream_ops php_stream_generic_socket_ops;
@@ -597,7 +601,7 @@ static inline int php_tcp_sockop_connect(php_stream *stream, php_netstream_data_
 {
 	char *host = NULL, *bindto = NULL;
 	int portno, bindport = 0;
-	int err;
+	int err = 0;
 	int ret;
 	zval **tmpzval = NULL;
 

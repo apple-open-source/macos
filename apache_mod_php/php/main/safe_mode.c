@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: safe_mode.c,v 1.62.2.1.2.13 2007/10/11 09:33:53 jani Exp $ */
+/* $Id: safe_mode.c,v 1.62.2.1.2.15 2007/12/31 07:20:15 sebastian Exp $ */
 
 #include "php.h"
 
@@ -122,10 +122,17 @@ PHPAPI int php_checkuid_ex(const char *filename, const char *fopen_mode, int mod
 
 		/* Trim off filename */
 		if ((s = strrchr(path, DEFAULT_SLASH))) {
-			if (s == path)
-				path[1] = '\0';
-			else
+			if (*(s + 1) == '\0' && s != path) { /* make sure that the / is not the last character */
 				*s = '\0';
+				s = strrchr(path, DEFAULT_SLASH);
+			}
+			if (s) {
+				if (s == path) {
+					path[1] = '\0';
+				} else {
+					*s = '\0';
+				}
+			}
 		}
 	} else { /* CHECKUID_ALLOW_ONLY_DIR */
 		s = strrchr(filename, DEFAULT_SLASH);

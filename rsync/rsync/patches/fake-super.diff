@@ -1,0 +1,1451 @@
+This patch adds a new option:  --fake-super, which tells rsync to copy in a
+fake super-user mode that stores various file attributes in an extended-
+attribute value instead of as real file-system attributes.  See the changes
+to the manpages for details.
+
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/acls.diff
+    patch -p1 <patches/xattrs.diff
+    patch -p1 <patches/fake-super.diff
+    ./prepare-source
+    ./configure --enable-xattr-support
+    make
+
+If you want ACL support too, use this configure command instead of the one
+above:
+
+    ./configure --enable-acl-support --enable-xattr-support
+
+--- old/backup.c
++++ new/backup.c
+@@ -129,7 +129,7 @@ static int make_bak_dir(char *fullpath)
+ 		if (p >= rel) {
+ 			/* Try to transfer the directory settings of the
+ 			 * actual dir that the files are coming from. */
+-			if (do_stat(rel, &sx.st) < 0) {
++			if (x_stat(rel, &sx.st, NULL) < 0) {
+ 				rsyserr(FERROR, errno,
+ 					"make_bak_dir stat %s failed",
+ 					full_fname(rel));
+@@ -200,7 +200,7 @@ static int keep_backup(char *fname)
+ 	int ret_code;
+ 
+ 	/* return if no file to keep */
+-	if (do_lstat(fname, &sx.st) < 0)
++	if (x_lstat(fname, &sx.st, NULL) < 0)
+ 		return 1;
+ #ifdef SUPPORT_ACLS
+ 	sx.acc_acl = sx.def_acl = NULL;
+--- old/clientserver.c
++++ new/clientserver.c
+@@ -625,6 +625,11 @@ static int rsync_module(int f_in, int f_
+ 	ret = parse_arguments(&argc, (const char ***) &argv, 0);
+ 	quiet = 0; /* Don't let someone try to be tricky. */
+ 
++	if (lp_fake_super(i))
++		am_root = -1;
++	else if (am_root < 0) /* Treat --fake-super from client as --super. */
++		am_root = 2;
++
+ 	if (filesfrom_fd == 0)
+ 		filesfrom_fd = f_in;
+ 
+--- old/flist.c
++++ new/flist.c
+@@ -181,7 +181,7 @@ static int readlink_stat(const char *pat
+ 	}
+ 	return 0;
+ #else
+-	return do_stat(path, stp);
++	return x_stat(path, stp, NULL);
+ #endif
+ }
+ 
+@@ -189,17 +189,17 @@ int link_stat(const char *path, STRUCT_S
+ {
+ #ifdef SUPPORT_LINKS
+ 	if (copy_links)
+-		return do_stat(path, stp);
+-	if (do_lstat(path, stp) < 0)
++		return x_stat(path, stp, NULL);
++	if (x_lstat(path, stp, NULL) < 0)
+ 		return -1;
+ 	if (follow_dirlinks && S_ISLNK(stp->st_mode)) {
+ 		STRUCT_STAT st;
+-		if (do_stat(path, &st) == 0 && S_ISDIR(st.st_mode))
++		if (x_stat(path, &st, NULL) == 0 && S_ISDIR(st.st_mode))
+ 			*stp = st;
+ 	}
+ 	return 0;
+ #else
+-	return do_stat(path, stp);
++	return x_stat(path, stp, NULL);
+ #endif
+ }
+ 
+@@ -234,26 +234,6 @@ static int is_excluded(char *fname, int 
+ 	return 0;
+ }
+ 
+-static int to_wire_mode(mode_t mode)
+-{
+-#ifdef SUPPORT_LINKS
+-#if _S_IFLNK != 0120000
+-	if (S_ISLNK(mode))
+-		return (mode & ~(_S_IFMT)) | 0120000;
+-#endif
+-#endif
+-	return mode;
+-}
+-
+-static mode_t from_wire_mode(int mode)
+-{
+-#if _S_IFLNK != 0120000
+-	if ((mode & (_S_IFMT)) == 0120000)
+-		return (mode & ~(_S_IFMT)) | _S_IFLNK;
+-#endif
+-	return mode;
+-}
+-
+ static void send_directory(int f, struct file_list *flist,
+ 			   char *fbuf, int len);
+ 
+@@ -793,7 +773,7 @@ struct file_struct *make_file(char *fnam
+ 		if (save_errno == ENOENT) {
+ #ifdef SUPPORT_LINKS
+ 			/* Avoid "vanished" error if symlink points nowhere. */
+-			if (copy_links && do_lstat(thisname, &st) == 0
++			if (copy_links && x_lstat(thisname, &st, NULL) == 0
+ 			    && S_ISLNK(st.st_mode)) {
+ 				io_error |= IOERR_GENERAL;
+ 				rprintf(FERROR, "symlink has no referent: %s\n",
+@@ -963,7 +943,7 @@ struct file_struct *make_file(char *fnam
+ 		int save_mode = file->mode;
+ 		file->mode = S_IFDIR; /* Find a directory with our name. */
+ 		if (flist_find(the_file_list, file) >= 0
+-		    && do_stat(thisname, &st2) == 0 && S_ISDIR(st2.st_mode)) {
++		    && x_stat(thisname, &st2, NULL) == 0 && S_ISDIR(st2.st_mode)) {
+ 			file->modtime = st2.st_mtime;
+ 			file->length = st2.st_size;
+ 			file->mode = st2.st_mode;
+--- old/loadparm.c
++++ new/loadparm.c
+@@ -150,6 +150,7 @@ typedef struct
+ 	int syslog_facility;
+ 	int timeout;
+ 
++	BOOL fake_super;
+ 	BOOL ignore_errors;
+ 	BOOL ignore_nonreadable;
+ 	BOOL list;
+@@ -197,6 +198,7 @@ static service sDefault =
+  /* syslog_facility; */		LOG_DAEMON,
+  /* timeout; */			0,
+ 
++ /* fake_super; */		False,
+  /* ignore_errors; */		False,
+  /* ignore_nonreadable; */	False,
+  /* list; */			True,
+@@ -298,6 +300,7 @@ static struct parm_struct parm_table[] =
+  {"dont compress",     P_STRING, P_LOCAL, &sDefault.dont_compress,     NULL,0},
+  {"exclude from",      P_STRING, P_LOCAL, &sDefault.exclude_from,      NULL,0},
+  {"exclude",           P_STRING, P_LOCAL, &sDefault.exclude,           NULL,0},
++ {"fake super",        P_BOOL,   P_LOCAL, &sDefault.fake_super,        NULL,0},
+  {"filter",            P_STRING, P_LOCAL, &sDefault.filter,            NULL,0},
+  {"gid",               P_STRING, P_LOCAL, &sDefault.gid,               NULL,0},
+  {"hosts allow",       P_STRING, P_LOCAL, &sDefault.hosts_allow,       NULL,0},
+@@ -412,6 +415,7 @@ FN_LOCAL_INTEGER(lp_max_connections, max
+ FN_LOCAL_INTEGER(lp_max_verbosity, max_verbosity)
+ FN_LOCAL_INTEGER(lp_timeout, timeout)
+ 
++FN_LOCAL_BOOL(lp_fake_super, fake_super)
+ FN_LOCAL_BOOL(lp_ignore_errors, ignore_errors)
+ FN_LOCAL_BOOL(lp_ignore_nonreadable, ignore_nonreadable)
+ FN_LOCAL_BOOL(lp_list, list)
+@@ -816,7 +820,7 @@ BOOL lp_load(char *pszFname, int globals
+ 
+ 	if (pszFname)
+ 	    pstrcpy(n2,pszFname);
+-	else if (am_server && !am_root)
++	else if (am_server && am_root <= 0)
+ 	    pstrcpy(n2,RSYNCD_USERCONF);
+ 	else
+ 	    pstrcpy(n2,RSYNCD_SYSCONF);
+--- old/options.c
++++ new/options.c
+@@ -73,7 +73,7 @@ int protocol_version = PROTOCOL_VERSION;
+ int sparse_files = 0;
+ int do_compression = 0;
+ int def_compress_level = Z_DEFAULT_COMPRESSION;
+-int am_root = 0;
++int am_root = 0; /* 0 = normal, 1 = root, 2 = --super, -1 = --fake-super */
+ int am_server = 0;
+ int am_sender = 0;
+ int am_generator = 0;
+@@ -329,6 +329,9 @@ void usage(enum logcode F)
+   rprintf(F," -t, --times                 preserve times\n");
+   rprintf(F," -O, --omit-dir-times        omit directories when preserving times\n");
+   rprintf(F,"     --super                 receiver attempts super-user activities\n");
++#ifdef SUPPORT_XATTRS
++  rprintf(F,"     --fake-super            store/recover privileged attrs using xattrs\n");
++#endif
+   rprintf(F," -S, --sparse                handle sparse files efficiently\n");
+   rprintf(F," -n, --dry-run               show what would have been transferred\n");
+   rprintf(F," -W, --whole-file            copy files whole (without rsync algorithm)\n");
+@@ -453,6 +456,7 @@ static struct poptOption long_options[] 
+   {"modify-window",    0,  POPT_ARG_INT,    &modify_window, OPT_MODIFY_WINDOW, 0, 0 },
+   {"super",            0,  POPT_ARG_VAL,    &am_root, 2, 0, 0 },
+   {"no-super",         0,  POPT_ARG_VAL,    &am_root, 0, 0, 0 },
++  {"fake-super",       0,  POPT_ARG_VAL,    &am_root, -1, 0, 0 },
+   {"owner",           'o', POPT_ARG_VAL,    &preserve_uid, 1, 0, 0 },
+   {"no-owner",         0,  POPT_ARG_VAL,    &preserve_uid, 0, 0, 0 },
+   {"no-o",             0,  POPT_ARG_VAL,    &preserve_uid, 0, 0, 0 },
+@@ -1178,6 +1182,14 @@ int parse_arguments(int *argc, const cha
+ 	}
+ #endif
+ 
++#ifndef SUPPORT_XATTRS
++	if (am_root < 0) {
++		snprintf(err_buf, sizeof err_buf,
++			 "--fake-super requires an rsync with extended attributes enabled\n");
++		return 0;
++	}
++#endif
++
+ 	if (write_batch && read_batch) {
+ 		snprintf(err_buf, sizeof err_buf,
+ 			"--write-batch and --read-batch can not be used together\n");
+--- old/rsync.c
++++ new/rsync.c
+@@ -196,7 +196,9 @@ int set_file_attrs(char *fname, struct f
+ 					(long)sxp->st.st_gid, (long)file->gid);
+ 			}
+ 		}
+-		if (do_lchown(fname,
++		if (am_root < 0) {
++			;
++		} else if (do_lchown(fname,
+ 		    change_uid ? file->uid : sxp->st.st_uid,
+ 		    change_gid ? file->gid : sxp->st.st_gid) != 0) {
+ 			/* shouldn't have attempted to change uid or gid
+@@ -205,7 +207,7 @@ int set_file_attrs(char *fname, struct f
+ 			    change_uid ? "chown" : "chgrp",
+ 			    full_fname(fname));
+ 			goto cleanup;
+-		}
++		} else
+ 		/* a lchown had been done - we have to re-stat if the
+ 		 * destination had the setuid or setgid bits set due
+ 		 * to the side effect of the chown call */
+@@ -222,6 +224,8 @@ int set_file_attrs(char *fname, struct f
+ #ifdef SUPPORT_XATTRS
+ 	if (preserve_xattrs && set_xattr(fname, file, sxp) == 0)
+ 		updated = 1;
++	if (am_root < 0)
++		set_stat_xattr(fname, file);
+ #endif
+ #ifdef SUPPORT_ACLS
+ 	/* It's OK to call set_acl() now, even for a dir, as the generator
+@@ -236,7 +240,7 @@ int set_file_attrs(char *fname, struct f
+ 
+ #ifdef HAVE_CHMOD
+ 	if ((sxp->st.st_mode & CHMOD_BITS) != (new_mode & CHMOD_BITS)) {
+-		int ret = do_chmod(fname, new_mode);
++		int ret = am_root < 0 ? 0 : do_chmod(fname, new_mode);
+ 		if (ret < 0) {
+ 			rsyserr(FERROR, errno,
+ 				"failed to set permissions on %s",
+--- old/rsync.h
++++ new/rsync.h
+@@ -707,6 +707,12 @@ typedef struct {
+ 
+ #include "proto.h"
+ 
++#ifndef SUPPORT_XATTRS
++#define x_stat(fn,fst,xst) do_stat(fn,fst)
++#define x_lstat(fn,fst,xst) do_lstat(fn,fst)
++#define x_fstat(fd,fst,xst) do_fstat(fd,fst)
++#endif
++
+ /* We have replacement versions of these if they're missing. */
+ #ifndef HAVE_ASPRINTF
+ int asprintf(char **ptr, const char *format, ...);
+@@ -924,3 +930,23 @@ int inet_pton(int af, const char *src, v
+ #ifdef MAINTAINER_MODE
+ const char *get_panic_action(void);
+ #endif
++
++static inline int to_wire_mode(mode_t mode)
++{
++#ifdef SUPPORT_LINKS
++#if _S_IFLNK != 0120000
++	if (S_ISLNK(mode))
++		return (mode & ~(_S_IFMT)) | 0120000;
++#endif
++#endif
++	return mode;
++}
++
++static inline mode_t from_wire_mode(int mode)
++{
++#if _S_IFLNK != 0120000
++	if ((mode & (_S_IFMT)) == 0120000)
++		return (mode & ~(_S_IFMT)) | _S_IFLNK;
++#endif
++	return mode;
++}
+--- old/rsync.yo
++++ new/rsync.yo
+@@ -333,6 +333,7 @@ to the detailed description below for a 
+  -t, --times                 preserve times
+  -O, --omit-dir-times        omit directories when preserving times
+      --super                 receiver attempts super-user activities
++     --fake-super            store/recover privileged attrs using xattrs
+  -S, --sparse                handle sparse files efficiently
+  -n, --dry-run               show what would have been transferred
+  -W, --whole-file            copy files whole (without rsync algorithm)
+@@ -846,7 +847,7 @@ permission value can be applied to the f
+ dit(bf(-o, --owner)) This option causes rsync to set the owner of the
+ destination file to be the same as the source file, but only if the
+ receiving rsync is being run as the super-user (see also the bf(--super)
+-option to force rsync to attempt super-user activities).
++and bf(--fake-super) options).
+ Without this option, the owner is set to the invoking user on the
+ receiving side.
+ 
+@@ -869,7 +870,7 @@ default, but may fall back to using the 
+ dit(bf(--devices)) This option causes rsync to transfer character and
+ block device files to the remote system to recreate these devices.
+ This option has no effect if the receiving rsync is not run as the
+-super-user and bf(--super) is not specified.
++super-user (see also the bf(--super) and bf(--fake-super) options).
+ 
+ dit(bf(--specials)) This option causes rsync to transfer special files
+ such as named sockets and fifos.
+@@ -899,6 +900,33 @@ also for ensuring that you will get erro
+ being running as the super-user.  To turn off super-user activities, the
+ super-user can use bf(--no-super).
+ 
++dit(bf(--fake-super)) When this option is enabled, rsync simulates
++super-user activities by saving/restoring the privileged attributes via a
++special extended attribute that is attached to each file (as needed).  This
++includes the file's owner and group (if it is not the default), the file's
++device info (device & special files are created as empty text files), and
++any permission bits that we won't allow to be set on the real file (e.g.
++the real file gets u-s,g-s,o-t for safety) or that would limit the owner's
++access (since the real super-user can always access/change a file or
++directory, the files we create can always be accessed/changed by the
++creating user).
++
++The bf(--fake-super) option only affects the side where the option is used.
++To affect the remote side of a remote-shell connection, specify an rsync
++path:
++
++quote(tt(  rsync -av --rsync-path="rsync --fake-super" /src/ host:/dest/))
++
++Since there is only one "side" in a local copy, this option affects both
++the sending and recieving of files.  You'll need to specify a copy using
++"localhost" if you need to avoid this.  Note, however, that it is always
++safe to copy from some non-fake-super files into some fake-super files
++using a local bf(--fake-super) command because the non-fake source files
++will just have their normal attributes.
++
++See also the "fake super" setting in the daemon's rsyncd.conf file.
++This option is overridden by both bf(--super) and bf(--no-super).
++
+ dit(bf(-S, --sparse)) Try to handle sparse files efficiently so they take
+ up less space on the destination.  Conflicts with bf(--inplace) because it's
+ not possible to overwrite data in a sparse fashion.
+--- old/rsyncd.conf.yo
++++ new/rsyncd.conf.yo
+@@ -226,6 +226,11 @@ file transfers to and from that module s
+ was run as root. This complements the "uid" option. The default is gid -2,
+ which is normally the group "nobody".
+ 
++dit(bf(fake super)) Setting "fake super = yes" for a module causes the
++daemon side to behave as if the bf(--fake-user) command-line option had
++been specified.  This allows the full attributes of a file to be stored
++without having to have the daemon actually running as root.
++
+ dit(bf(filter)) The "filter" option allows you to specify a space-separated
+ list of filter rules that the daemon will not allow to be read or written.
+ This is only superficially equivalent to the client specifying these
+--- old/syscall.c
++++ new/syscall.c
+@@ -28,6 +28,7 @@
+ #endif
+ 
+ extern int dry_run;
++extern int am_root;
+ extern int read_only;
+ extern int list_only;
+ extern int preserve_perms;
+@@ -79,6 +80,15 @@ int do_mknod(char *pathname, mode_t mode
+ {
+ 	if (dry_run) return 0;
+ 	RETURN_ERROR_IF_RO_OR_LO;
++
++	/* For --fake-super, we create a normal file with mode 0600. */
++	if (am_root < 0) {
++		int fd = open(pathname, O_WRONLY|O_CREAT|O_TRUNC, S_IWUSR|S_IRUSR);
++		if (fd < 0 || close(fd) < 0)
++			return -1;
++		return 0;
++	}
++
+ #if !defined MKNOD_CREATES_FIFOS && defined HAVE_MKFIFO
+ 	if (S_ISFIFO(mode))
+ 		return mkfifo(pathname, mode);
+--- old/t_unsafe.c
++++ new/t_unsafe.c
+@@ -24,7 +24,11 @@
+ 
+ #include "rsync.h"
+ 
+-int dry_run, read_only, list_only, verbose;
++int dry_run = 0;
++int am_root = 0;
++int read_only = 0;
++int list_only = 0;
++int verbose = 0;
+ int preserve_perms = 0;
+ 
+ int
+--- old/tls.c
++++ new/tls.c
+@@ -39,6 +39,7 @@
+ 
+ /* These are to make syscall.o shut up. */
+ int dry_run = 0;
++int am_root = 0;
+ int read_only = 1;
+ int list_only = 0;
+ int preserve_perms = 0;
+--- old/trimslash.c
++++ new/trimslash.c
+@@ -23,6 +23,7 @@
+ 
+ /* These are to make syscall.o shut up. */
+ int dry_run = 0;
++int am_root = 0;
+ int read_only = 1;
+ int list_only = 0;
+ int preserve_perms = 0;
+--- old/xattr.c
++++ new/xattr.c
+@@ -43,11 +43,16 @@ extern unsigned int file_struct_len;
+ #define SPRE_LEN ((int)sizeof SYSTEM_PREFIX - 1)
+ 
+ #ifdef HAVE_LINUX_XATTRS
+-#define RPRE_LEN 0
++#define MIGHT_NEED_RPRE (am_root < 0)
++#define RSYNC_PREFIX USER_PREFIX "rsync."
+ #else
++#define MIGHT_NEED_RPRE am_root
+ #define RSYNC_PREFIX "rsync."
+-#define RPRE_LEN ((int)sizeof RSYNC_PREFIX - 1)
+ #endif
++#define RPRE_LEN ((int)sizeof RSYNC_PREFIX - 1)
++
++#define XSTAT_ATTR RSYNC_PREFIX "%stat"
++#define XSTAT_LEN ((int)sizeof XSTAT_ATTR - 1)
+ 
+ typedef struct {
+ 	char *datum, *name;
+@@ -148,6 +153,10 @@ static int rsync_xal_get(const char *fna
+ 			continue;
+ #endif
+ 
++		if (am_root < 0 && name_len == XSTAT_LEN + 1
++		 && name[RPRE_LEN] == '%' && strcmp(name, XSTAT_ATTR) == 0)
++			continue;
++
+ 		datum_len = sys_lgetxattr(fname, name, NULL, 0);
+ 		if (datum_len < 0) {
+ 			if (errno == ENOTSUP)
+@@ -177,6 +186,13 @@ static int rsync_xal_get(const char *fna
+ 				return -1;
+ 			}
+ 		}
++#ifdef HAVE_LINUX_XATTRS
++		if (am_root < 0 && name_len > RPRE_LEN
++		 && HAS_PREFIX(name, RSYNC_PREFIX)) {
++			name += RPRE_LEN;
++			name_len -= RPRE_LEN;
++		}
++#endif
+ 		rxas = EXPAND_ITEM_LIST(xalp, rsync_xa, RSYNC_XAL_INITIAL);
+ 		rxas->name = ptr + datum_len;
+ 		rxas->datum = ptr;
+@@ -298,13 +314,9 @@ void receive_xattr(struct file_struct *f
+ 			rsync_xa *rxa;
+ 			size_t name_len = read_int(f);
+ 			size_t datum_len = read_int(f);
+-#ifdef HAVE_LINUX_XATTRS
+-			size_t extra_len = 0;
+-#else
+-			size_t extra_len = am_root ? RPRE_LEN : 0;
++			size_t extra_len = MIGHT_NEED_RPRE ? RPRE_LEN : 0;
+ 			if (datum_len + extra_len < datum_len)
+ 				out_of_memory("receive_xattr"); /* overflow */
+-#endif
+ 			if (name_len + datum_len + extra_len < name_len)
+ 				out_of_memory("receive_xattr"); /* overflow */
+ 			ptr = new_array(char, name_len + datum_len + extra_len);
+@@ -315,9 +327,14 @@ void receive_xattr(struct file_struct *f
+ 			read_buf(f, ptr, datum_len);
+ #ifdef HAVE_LINUX_XATTRS
+ 			/* Non-root can only save the user namespace. */
+-			if (!am_root && !HAS_PREFIX(name, USER_PREFIX)) {
+-				free(ptr);
+-				continue;
++			if (am_root <= 0 && !HAS_PREFIX(name, USER_PREFIX)) {
++				if (!am_root) {
++					free(ptr);
++					continue;
++				}
++				name -= RPRE_LEN;
++				name_len += RPRE_LEN;
++				memcpy(name, RSYNC_PREFIX, RPRE_LEN);
+ 			}
+ #else
+ 			/* This OS only has a user namespace, so we either
+@@ -335,6 +352,12 @@ void receive_xattr(struct file_struct *f
+ 				continue;
+ 			}
+ #endif
++			if (am_root < 0 && name_len == XSTAT_LEN + 1
++			 && name[RPRE_LEN] == '%'
++			 && strcmp(name, XSTAT_ATTR) == 0) {
++				free(ptr);
++				continue;
++			}
+ 			rxa = EXPAND_ITEM_LIST(&temp_xattr, rsync_xa, count);
+ 			rxa->name = name;
+ 			rxa->datum = ptr;
+@@ -414,4 +437,149 @@ int set_xattr(const char *fname, const s
+ 	return rsync_xal_set(fname, lst + ndx); /* TODO:  This needs to return 1 if no xattrs changed! */
+ }
+ 
++int get_stat_xattr(const char *fname, int fd, STRUCT_STAT *fst, STRUCT_STAT *xst)
++{
++	int mode, rdev_major, rdev_minor, uid, gid, len;
++	char buf[256];
++
++	if (am_root >= 0 || IS_DEVICE(fst->st_mode) || IS_SPECIAL(fst->st_mode))
++		return -1;
++
++	if (xst)
++		*xst = *fst;
++	else
++		xst = fst;
++	if (fname) {
++		fd = -1;
++		len = sys_lgetxattr(fname, XSTAT_ATTR, buf, sizeof buf - 1);
++	} else {
++		fname = "fd";
++		len = sys_fgetxattr(fd, XSTAT_ATTR, buf, sizeof buf - 1);
++	}
++	if (len >= (int)sizeof buf) {
++		len = -1;
++		errno = ERANGE;
++	}
++	if (len < 0) {
++		if (errno == ENOTSUP || errno == ENOATTR)
++			return -1;
++		if (errno == EPERM && S_ISLNK(fst->st_mode)) {
++			xst->st_uid = 0;
++			xst->st_gid = 0;
++			return 0;
++		}
++		rsyserr(FERROR, errno, "failed to read xattr %s for %s",
++			XSTAT_ATTR, full_fname(fname));
++		return -1;
++	}
++	buf[len] = '\0';
++
++	if (sscanf(buf, "%o %d,%d %d:%d",
++		   &mode, &rdev_major, &rdev_minor, &uid, &gid) != 5) {
++		rprintf(FERROR, "Corrupt %s xattr attached to %s: \"%s\"\n",
++			XSTAT_ATTR, full_fname(fname), buf);
++		exit_cleanup(RERR_FILEIO);
++	}
++
++	xst->st_mode = from_wire_mode(mode);
++	xst->st_rdev = MAKEDEV(rdev_major, rdev_minor);
++	xst->st_uid = uid;
++	xst->st_gid = gid;
++
++	return 0;
++}
++
++int set_stat_xattr(const char *fname, struct file_struct *file)
++{
++	STRUCT_STAT fst, xst;
++	dev_t rdev;
++	mode_t mode, fmode;
++
++	if (dry_run)
++		return 0;
++
++	if (read_only || list_only) {
++		rsyserr(FERROR, EROFS, "failed to write xattr %s for %s",
++			XSTAT_ATTR, full_fname(fname));
++		return -1;
++	}
++
++	if (x_lstat(fname, &fst, &xst) < 0) {
++		rsyserr(FERROR, errno, "failed to re-stat %s",
++			full_fname(fname));
++		return -1;
++	}
++
++	fst.st_mode &= (_S_IFMT | CHMOD_BITS);
++	fmode = file->mode & (_S_IFMT | CHMOD_BITS);
++
++	if (IS_DEVICE(fmode) || IS_SPECIAL(fmode))
++		rdev = file->u.rdev;
++	else
++		rdev = 0;
++
++	/* Dump the special permissions and enable full owner access. */
++	mode = (fst.st_mode & _S_IFMT) | (fmode & ACCESSPERMS)
++	     | (S_ISDIR(fst.st_mode) ? 0700 : 0600);
++	if (fst.st_mode != mode)
++		do_chmod(fname, mode);
++	if (!IS_DEVICE(fst.st_mode) && !IS_SPECIAL(fst.st_mode))
++		fst.st_rdev = 0; /* just in case */
++
++	if (mode == fmode && fst.st_rdev == rdev
++	 && fst.st_uid == file->uid && fst.st_gid == file->gid) {
++		/* xst.st_mode will be 0 if there's no current stat xattr */
++		if (xst.st_mode && sys_lremovexattr(fname, XSTAT_ATTR) < 0) {
++			rsyserr(FERROR, errno,
++				"delete of stat xattr failed for %s",
++				full_fname(fname));
++			return -1;
++		}
++		return 0;
++	}
++
++	if (xst.st_mode != fmode || xst.st_rdev != rdev
++	 || xst.st_uid != file->uid || xst.st_gid != file->gid) {
++		char buf[256];
++		int len = snprintf(buf, sizeof buf, "%o %u,%u %u:%u",
++			to_wire_mode(fmode),
++			(int)major(rdev), (int)minor(rdev),
++			(int)file->uid, (int)file->gid);
++		if (sys_lsetxattr(fname, XSTAT_ATTR, buf, len) < 0) {
++			if (errno == EPERM && S_ISLNK(fst.st_mode))
++				return 0;
++			rsyserr(FERROR, errno,
++				"failed to write xattr %s for %s",
++				XSTAT_ATTR, full_fname(fname));
++			return -1;
++		}
++	}
++
++	return 0;
++}
++
++int x_stat(const char *fname, STRUCT_STAT *fst, STRUCT_STAT *xst)
++{
++	int ret = do_stat(fname, fst);
++	if ((ret < 0 || get_stat_xattr(fname, -1, fst, xst) < 0) && xst)
++		xst->st_mode = 0;
++	return ret;
++}
++
++int x_lstat(const char *fname, STRUCT_STAT *fst, STRUCT_STAT *xst)
++{
++	int ret = do_lstat(fname, fst);
++	if ((ret < 0 || get_stat_xattr(fname, -1, fst, xst) < 0) && xst)
++		xst->st_mode = 0;
++	return ret;
++}
++
++int x_fstat(int fd, STRUCT_STAT *fst, STRUCT_STAT *xst)
++{
++	int ret = do_fstat(fd, fst);
++	if ((ret < 0 || get_stat_xattr(NULL, fd, fst, xst) < 0) && xst)
++		xst->st_mode = 0;
++	return ret;
++}
++
+ #endif /* SUPPORT_XATTRS */
+--- old/proto.h
++++ new/proto.h
+@@ -182,6 +182,7 @@ char *lp_uid(int );
+ int lp_max_connections(int );
+ int lp_max_verbosity(int );
+ int lp_timeout(int );
++BOOL lp_fake_super(int );
+ BOOL lp_ignore_errors(int );
+ BOOL lp_ignore_nonreadable(int );
+ BOOL lp_list(int );
+@@ -332,4 +333,15 @@ int bitbag_check_bit(struct bitbag *bb, 
+ int bitbag_next_bit(struct bitbag *bb, int after);
+ void *expand_item_list(item_list *lp, size_t item_size,
+ 		       const char *desc, int incr);
++void free_xattr(statx *sxp);
++int get_xattr(const char *fname, statx *sxp);
++void send_xattr(statx *sxp, int f);
++void receive_xattr(struct file_struct *file, int f);
++void cache_xattr(struct file_struct *file, statx *sxp);
++int set_xattr(const char *fname, const struct file_struct *file, UNUSED(statx *sxp));
++int get_stat_xattr(const char *fname, int fd, STRUCT_STAT *fst, STRUCT_STAT *xst);
++int set_stat_xattr(const char *fname, struct file_struct *file);
++int x_stat(const char *fname, STRUCT_STAT *fst, STRUCT_STAT *xst);
++int x_lstat(const char *fname, STRUCT_STAT *fst, STRUCT_STAT *xst);
++int x_fstat(int fd, STRUCT_STAT *fst, STRUCT_STAT *xst);
+ int sys_gettimeofday(struct timeval *tv);
+--- old/configure
++++ new/configure
+@@ -1259,6 +1259,7 @@ Optional Features:
+   --disable-ipv6          don't even try to use IPv6
+   --disable-locale        turn off locale features
+   --enable-acl-support    Include ACL support (default=no)
++  --enable-xattr-support  Include extended attribute support (default=no)
+ 
+ Optional Packages:
+   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+@@ -15628,6 +15629,559 @@ echo "${ECHO_T}no" >&6; }
+ fi
+ 
+ 
++
++for ac_header in attr/xattr.h
++do
++as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
++if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
++  { echo "$as_me:$LINENO: checking for $ac_header" >&5
++echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
++if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++fi
++ac_res=`eval echo '${'$as_ac_Header'}'`
++	       { echo "$as_me:$LINENO: result: $ac_res" >&5
++echo "${ECHO_T}$ac_res" >&6; }
++else
++  # Is the header compilable?
++{ echo "$as_me:$LINENO: checking $ac_header usability" >&5
++echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6; }
++cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++$ac_includes_default
++#include <$ac_header>
++_ACEOF
++rm -f conftest.$ac_objext
++if { (ac_try="$ac_compile"
++case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_compile") 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } &&
++	 { ac_try='test -z "$ac_c_werror_flag" || test ! -s conftest.err'
++  { (case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_try") 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; } &&
++	 { ac_try='test -s conftest.$ac_objext'
++  { (case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_try") 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; }; then
++  ac_header_compiler=yes
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++	ac_header_compiler=no
++fi
++
++rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
++{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
++echo "${ECHO_T}$ac_header_compiler" >&6; }
++
++# Is the header present?
++{ echo "$as_me:$LINENO: checking $ac_header presence" >&5
++echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6; }
++cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++#include <$ac_header>
++_ACEOF
++if { (ac_try="$ac_cpp conftest.$ac_ext"
++case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } >/dev/null; then
++  if test -s conftest.err; then
++    ac_cpp_err=$ac_c_preproc_warn_flag
++    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
++  else
++    ac_cpp_err=
++  fi
++else
++  ac_cpp_err=yes
++fi
++if test -z "$ac_cpp_err"; then
++  ac_header_preproc=yes
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++  ac_header_preproc=no
++fi
++
++rm -f conftest.err conftest.$ac_ext
++{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
++echo "${ECHO_T}$ac_header_preproc" >&6; }
++
++# So?  What about this header?
++case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
++  yes:no: )
++    { echo "$as_me:$LINENO: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
++echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the compiler's result" >&5
++echo "$as_me: WARNING: $ac_header: proceeding with the compiler's result" >&2;}
++    ac_header_preproc=yes
++    ;;
++  no:yes:* )
++    { echo "$as_me:$LINENO: WARNING: $ac_header: present but cannot be compiled" >&5
++echo "$as_me: WARNING: $ac_header: present but cannot be compiled" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header:     check for missing prerequisite headers?" >&5
++echo "$as_me: WARNING: $ac_header:     check for missing prerequisite headers?" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: see the Autoconf documentation" >&5
++echo "$as_me: WARNING: $ac_header: see the Autoconf documentation" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&5
++echo "$as_me: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
++echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: in the future, the compiler will take precedence" >&5
++echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
++
++    ;;
++esac
++{ echo "$as_me:$LINENO: checking for $ac_header" >&5
++echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
++if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++else
++  eval "$as_ac_Header=\$ac_header_preproc"
++fi
++ac_res=`eval echo '${'$as_ac_Header'}'`
++	       { echo "$as_me:$LINENO: result: $ac_res" >&5
++echo "${ECHO_T}$ac_res" >&6; }
++
++fi
++if test `eval echo '${'$as_ac_Header'}'` = yes; then
++  cat >>confdefs.h <<_ACEOF
++#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
++_ACEOF
++
++fi
++
++done
++
++
++for ac_header in sys/xattr.h
++do
++as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
++if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
++  { echo "$as_me:$LINENO: checking for $ac_header" >&5
++echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
++if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++fi
++ac_res=`eval echo '${'$as_ac_Header'}'`
++	       { echo "$as_me:$LINENO: result: $ac_res" >&5
++echo "${ECHO_T}$ac_res" >&6; }
++else
++  # Is the header compilable?
++{ echo "$as_me:$LINENO: checking $ac_header usability" >&5
++echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6; }
++cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++$ac_includes_default
++#include <$ac_header>
++_ACEOF
++rm -f conftest.$ac_objext
++if { (ac_try="$ac_compile"
++case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_compile") 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } &&
++	 { ac_try='test -z "$ac_c_werror_flag" || test ! -s conftest.err'
++  { (case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_try") 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; } &&
++	 { ac_try='test -s conftest.$ac_objext'
++  { (case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_try") 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; }; then
++  ac_header_compiler=yes
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++	ac_header_compiler=no
++fi
++
++rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
++{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
++echo "${ECHO_T}$ac_header_compiler" >&6; }
++
++# Is the header present?
++{ echo "$as_me:$LINENO: checking $ac_header presence" >&5
++echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6; }
++cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++#include <$ac_header>
++_ACEOF
++if { (ac_try="$ac_cpp conftest.$ac_ext"
++case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } >/dev/null; then
++  if test -s conftest.err; then
++    ac_cpp_err=$ac_c_preproc_warn_flag
++    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
++  else
++    ac_cpp_err=
++  fi
++else
++  ac_cpp_err=yes
++fi
++if test -z "$ac_cpp_err"; then
++  ac_header_preproc=yes
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++  ac_header_preproc=no
++fi
++
++rm -f conftest.err conftest.$ac_ext
++{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
++echo "${ECHO_T}$ac_header_preproc" >&6; }
++
++# So?  What about this header?
++case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
++  yes:no: )
++    { echo "$as_me:$LINENO: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
++echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the compiler's result" >&5
++echo "$as_me: WARNING: $ac_header: proceeding with the compiler's result" >&2;}
++    ac_header_preproc=yes
++    ;;
++  no:yes:* )
++    { echo "$as_me:$LINENO: WARNING: $ac_header: present but cannot be compiled" >&5
++echo "$as_me: WARNING: $ac_header: present but cannot be compiled" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header:     check for missing prerequisite headers?" >&5
++echo "$as_me: WARNING: $ac_header:     check for missing prerequisite headers?" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: see the Autoconf documentation" >&5
++echo "$as_me: WARNING: $ac_header: see the Autoconf documentation" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&5
++echo "$as_me: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
++echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: in the future, the compiler will take precedence" >&5
++echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
++
++    ;;
++esac
++{ echo "$as_me:$LINENO: checking for $ac_header" >&5
++echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
++if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++else
++  eval "$as_ac_Header=\$ac_header_preproc"
++fi
++ac_res=`eval echo '${'$as_ac_Header'}'`
++	       { echo "$as_me:$LINENO: result: $ac_res" >&5
++echo "${ECHO_T}$ac_res" >&6; }
++
++fi
++if test `eval echo '${'$as_ac_Header'}'` = yes; then
++  cat >>confdefs.h <<_ACEOF
++#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
++_ACEOF
++
++fi
++
++done
++
++
++for ac_header in sys/extattr.h
++do
++as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
++if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
++  { echo "$as_me:$LINENO: checking for $ac_header" >&5
++echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
++if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++fi
++ac_res=`eval echo '${'$as_ac_Header'}'`
++	       { echo "$as_me:$LINENO: result: $ac_res" >&5
++echo "${ECHO_T}$ac_res" >&6; }
++else
++  # Is the header compilable?
++{ echo "$as_me:$LINENO: checking $ac_header usability" >&5
++echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6; }
++cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++$ac_includes_default
++#include <$ac_header>
++_ACEOF
++rm -f conftest.$ac_objext
++if { (ac_try="$ac_compile"
++case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_compile") 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } &&
++	 { ac_try='test -z "$ac_c_werror_flag" || test ! -s conftest.err'
++  { (case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_try") 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; } &&
++	 { ac_try='test -s conftest.$ac_objext'
++  { (case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_try") 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; }; then
++  ac_header_compiler=yes
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++	ac_header_compiler=no
++fi
++
++rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
++{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
++echo "${ECHO_T}$ac_header_compiler" >&6; }
++
++# Is the header present?
++{ echo "$as_me:$LINENO: checking $ac_header presence" >&5
++echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6; }
++cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++#include <$ac_header>
++_ACEOF
++if { (ac_try="$ac_cpp conftest.$ac_ext"
++case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } >/dev/null; then
++  if test -s conftest.err; then
++    ac_cpp_err=$ac_c_preproc_warn_flag
++    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
++  else
++    ac_cpp_err=
++  fi
++else
++  ac_cpp_err=yes
++fi
++if test -z "$ac_cpp_err"; then
++  ac_header_preproc=yes
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++  ac_header_preproc=no
++fi
++
++rm -f conftest.err conftest.$ac_ext
++{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
++echo "${ECHO_T}$ac_header_preproc" >&6; }
++
++# So?  What about this header?
++case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
++  yes:no: )
++    { echo "$as_me:$LINENO: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
++echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the compiler's result" >&5
++echo "$as_me: WARNING: $ac_header: proceeding with the compiler's result" >&2;}
++    ac_header_preproc=yes
++    ;;
++  no:yes:* )
++    { echo "$as_me:$LINENO: WARNING: $ac_header: present but cannot be compiled" >&5
++echo "$as_me: WARNING: $ac_header: present but cannot be compiled" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header:     check for missing prerequisite headers?" >&5
++echo "$as_me: WARNING: $ac_header:     check for missing prerequisite headers?" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: see the Autoconf documentation" >&5
++echo "$as_me: WARNING: $ac_header: see the Autoconf documentation" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&5
++echo "$as_me: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
++echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;}
++    { echo "$as_me:$LINENO: WARNING: $ac_header: in the future, the compiler will take precedence" >&5
++echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
++
++    ;;
++esac
++{ echo "$as_me:$LINENO: checking for $ac_header" >&5
++echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
++if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++else
++  eval "$as_ac_Header=\$ac_header_preproc"
++fi
++ac_res=`eval echo '${'$as_ac_Header'}'`
++	       { echo "$as_me:$LINENO: result: $ac_res" >&5
++echo "${ECHO_T}$ac_res" >&6; }
++
++fi
++if test `eval echo '${'$as_ac_Header'}'` = yes; then
++  cat >>confdefs.h <<_ACEOF
++#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
++_ACEOF
++
++fi
++
++done
++
++{ echo "$as_me:$LINENO: checking whether to support extended attributes" >&5
++echo $ECHO_N "checking whether to support extended attributes... $ECHO_C" >&6; }
++# Check whether --enable-xattr-support was given.
++if test "${enable_xattr_support+set}" = set; then
++  enableval=$enable_xattr_support;  case "$enableval" in
++  yes)
++      case "$host_os" in
++      *linux*)
++            { echo "$as_me:$LINENO: result: Using Linux xattrs" >&5
++echo "${ECHO_T}Using Linux xattrs" >&6; }
++
++cat >>confdefs.h <<\_ACEOF
++#define HAVE_LINUX_XATTRS 1
++_ACEOF
++
++            ;;
++      darwin*)
++            { echo "$as_me:$LINENO: result: Using OS X xattrs" >&5
++echo "${ECHO_T}Using OS X xattrs" >&6; }
++
++cat >>confdefs.h <<\_ACEOF
++#define HAVE_OSX_XATTRS 1
++_ACEOF
++
++            ;;
++      freebsd*)
++            { echo "$as_me:$LINENO: result: Using FreeBSD extattrs" >&5
++echo "${ECHO_T}Using FreeBSD extattrs" >&6; }
++
++cat >>confdefs.h <<\_ACEOF
++#define HAVE_FREEBSD_XATTRS 1
++_ACEOF
++
++            ;;
++      *)
++            { echo "$as_me:$LINENO: result: Xattrs requested but not Linux or OS X.  Good luck..." >&5
++echo "${ECHO_T}Xattrs requested but not Linux or OS X.  Good luck..." >&6; }
++            ;;
++      esac
++      ;;
++  *)
++      { echo "$as_me:$LINENO: result: no" >&5
++echo "${ECHO_T}no" >&6; }
++
++cat >>confdefs.h <<\_ACEOF
++#define HAVE_NO_XATTRS 1
++_ACEOF
++
++  esac
++else
++  { echo "$as_me:$LINENO: result: no" >&5
++echo "${ECHO_T}no" >&6; }
++
++cat >>confdefs.h <<\_ACEOF
++#define HAVE_NO_XATTRS 1
++_ACEOF
++
++
++fi
++
++
+ ac_config_files="$ac_config_files Makefile lib/dummy zlib/dummy popt/dummy shconfig"
+ 
+ cat >confcache <<\_ACEOF
+--- old/config.h.in
++++ new/config.h.in
+@@ -55,6 +55,9 @@
+ /* Define to 1 if you have the `asprintf' function. */
+ #undef HAVE_ASPRINTF
+ 
++/* Define to 1 if you have the <attr/xattr.h> header file. */
++#undef HAVE_ATTR_XATTR_H
++
+ /* Define to 1 if readdir() is broken */
+ #undef HAVE_BROKEN_READDIR
+ 
+@@ -92,6 +95,9 @@
+ /* Define to 1 if you have the <float.h> header file. */
+ #undef HAVE_FLOAT_H
+ 
++/* True if you have FreeBSD xattrs */
++#undef HAVE_FREEBSD_XATTRS
++
+ /* Define to 1 if you have the `fstat' function. */
+ #undef HAVE_FSTAT
+ 
+@@ -194,6 +200,9 @@
+ /* Define to 1 if you have the `link' function. */
+ #undef HAVE_LINK
+ 
++/* True if you have Linux xattrs */
++#undef HAVE_LINUX_XATTRS
++
+ /* Define to 1 if you have the `locale_charset' function. */
+ #undef HAVE_LOCALE_CHARSET
+ 
+@@ -253,9 +262,15 @@
+ /* true if you don't have ACLs */
+ #undef HAVE_NO_ACLS
+ 
++/* True if you don't have extended attributes */
++#undef HAVE_NO_XATTRS
++
+ /* Define to 1 if you have the `open64' function. */
+ #undef HAVE_OPEN64
+ 
++/* True if you have Mac OS X xattrs */
++#undef HAVE_OSX_XATTRS
++
+ /* true if you have posix ACLs */
+ #undef HAVE_POSIX_ACLS
+ 
+@@ -365,6 +380,9 @@
+    */
+ #undef HAVE_SYS_DIR_H
+ 
++/* Define to 1 if you have the <sys/extattr.h> header file. */
++#undef HAVE_SYS_EXTATTR_H
++
+ /* Define to 1 if you have the <sys/fcntl.h> header file. */
+ #undef HAVE_SYS_FCNTL_H
+ 
+@@ -408,6 +426,9 @@
+ /* Define to 1 if you have the <sys/wait.h> header file. */
+ #undef HAVE_SYS_WAIT_H
+ 
++/* Define to 1 if you have the <sys/xattr.h> header file. */
++#undef HAVE_SYS_XATTR_H
++
+ /* Define to 1 if you have the `tcgetpgrp' function. */
+ #undef HAVE_TCGETPGRP
+ 
+--- old/rsync.1
++++ new/rsync.1
+@@ -367,7 +367,7 @@ to the detailed description below for a 
+  \-q, \-\-quiet                 suppress non-error messages
+      \-\-no\-motd               suppress daemon-mode MOTD (see caveat)
+  \-c, \-\-checksum              skip based on checksum, not mod-time & size
+- \-a, \-\-archive               archive mode; same as \-rlptgoD (no \-H, \-A)
++ \-a, \-\-archive               archive mode; equals \-rlptgoD (no \-H,\-A,\-X)
+      \-\-no\-OPTION             turn off an implied OPTION (e\&.g\&. \-\-no\-D)
+  \-r, \-\-recursive             recurse into directories
+  \-R, \-\-relative              use relative path names
+@@ -390,6 +390,7 @@ to the detailed description below for a 
+  \-E, \-\-executability         preserve executability
+      \-\-chmod=CHMOD           affect file and/or directory permissions
+  \-A, \-\-acls                  preserve ACLs (implies \-p) [non-standard]
++ \-X, \-\-xattrs                preserve extended attrs (implies \-p) [n\&.s\&.]
+  \-o, \-\-owner                 preserve owner (super-user only)
+  \-g, \-\-group                 preserve group
+      \-\-devices               preserve device files (super-user only)
+@@ -398,6 +399,7 @@ to the detailed description below for a 
+  \-t, \-\-times                 preserve times
+  \-O, \-\-omit\-dir\-times        omit directories when preserving times
+      \-\-super                 receiver attempts super-user activities
++     \-\-fake\-super            store/recover privileged attrs using xattrs
+  \-S, \-\-sparse                handle sparse files efficiently
+  \-n, \-\-dry\-run               show what would have been transferred
+  \-W, \-\-whole\-file            copy files whole (without rsync algorithm)
+@@ -947,6 +949,12 @@ version makes it incompatible with sendi
+ rsync unless you double the \fB\-\-acls\fP option (e\&.g\&. \fB\-AA\fP)\&.  This
+ doubling is not needed when pulling files from an older rsync\&.
+ .IP 
++.IP "\fB\-X, \-\-xattrs\fP"
++This option causes rsync to update the remote
++extended attributes to be the same as the local ones\&.  This will work
++only if the remote machine\&'s rsync supports this option also\&. This is
++a non-standard option\&.
++.IP 
+ .IP "\fB\-\-chmod\fP"
+ This option tells rsync to apply one or more
+ comma-separated "chmod" strings to the permission of the files in the
+@@ -974,7 +982,7 @@ permission value can be applied to the f
+ This option causes rsync to set the owner of the
+ destination file to be the same as the source file, but only if the
+ receiving rsync is being run as the super-user (see also the \fB\-\-super\fP
+-option to force rsync to attempt super-user activities)\&.
++and \fB\-\-fake\-super\fP options)\&.
+ Without this option, the owner is set to the invoking user on the
+ receiving side\&.
+ .IP 
+@@ -999,7 +1007,7 @@ default, but may fall back to using the 
+ This option causes rsync to transfer character and
+ block device files to the remote system to recreate these devices\&.
+ This option has no effect if the receiving rsync is not run as the
+-super-user and \fB\-\-super\fP is not specified\&.
++super-user (see also the \fB\-\-super\fP and \fB\-\-fake\-super\fP options)\&.
+ .IP 
+ .IP "\fB\-\-specials\fP"
+ This option causes rsync to transfer special files
+@@ -1034,6 +1042,37 @@ also for ensuring that you will get erro
+ being running as the super-user\&.  To turn off super-user activities, the
+ super-user can use \fB\-\-no\-super\fP\&.
+ .IP 
++.IP "\fB\-\-fake\-super\fP"
++When this option is enabled, rsync simulates
++super-user activities by saving/restoring the privileged attributes via a
++special extended attribute that is attached to each file (as needed)\&.  This
++includes the file\&'s owner and group (if it is not the default), the file\&'s
++device info (device & special files are created as empty text files), and
++any permission bits that we won\&'t allow to be set on the real file (e\&.g\&.
++the real file gets u-s,g-s,o-t for safety) or that would limit the owner\&'s
++access (since the real super-user can always access/change a file or
++directory, the files we create can always be accessed/changed by the
++creating user)\&.
++.IP 
++The \fB\-\-fake\-super\fP option only affects the side where the option is used\&.
++To affect the remote side of a remote-shell connection, specify an rsync
++path:
++.IP 
++.RS 
++\f(CW  rsync \-av \-\-rsync\-path="rsync \-\-fake\-super" /src/ host:/dest/\fP
++.RE
++
++.IP 
++Since there is only one "side" in a local copy, this option affects both
++the sending and recieving of files\&.  You\&'ll need to specify a copy using
++"localhost" if you need to avoid this\&.  Note, however, that it is always
++safe to copy from some non-fake-super files into some fake-super files
++using a local \fB\-\-fake\-super\fP command because the non-fake source files
++will just have their normal attributes\&.
++.IP 
++See also the "fake super" setting in the daemon\&'s rsyncd\&.conf file\&.
++This option is overridden by both \fB\-\-super\fP and \fB\-\-no\-super\fP\&.
++.IP 
+ .IP "\fB\-S, \-\-sparse\fP"
+ Try to handle sparse files efficiently so they take
+ up less space on the destination\&.  Conflicts with \fB\-\-inplace\fP because it\&'s
+--- old/rsyncd.conf.5
++++ new/rsyncd.conf.5
+@@ -263,6 +263,12 @@ file transfers to and from that module s
+ was run as root\&. This complements the "uid" option\&. The default is gid \-2,
+ which is normally the group "nobody"\&.
+ .IP 
++.IP "\fBfake super\fP"
++Setting "fake super = yes" for a module causes the
++daemon side to behave as if the \fB\-\-fake\-user\fP command-line option had
++been specified\&.  This allows the full attributes of a file to be stored
++without having to have the daemon actually running as root\&.
++.IP 
+ .IP "\fBfilter\fP"
+ The "filter" option allows you to specify a space-separated
+ list of filter rules that the daemon will not allow to be read or written\&.

@@ -1,21 +1,24 @@
 /*
-   Copyright (C) Andrew Tridgell 1996
-   Copyright (C) Paul Mackerras 1996
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
+ * Routines only used by the sending process.
+ *
+ * Copyright (C) 1996 Andrew Tridgell
+ * Copyright (C) 1996 Paul Mackerras
+ * Copyright (C) 2003, 2004, 2005, 2006 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
 #include "rsync.h"
 
@@ -24,19 +27,31 @@
 #endif
 
 extern int verbose;
-extern int csum_length;
-extern struct stats stats;
-extern int io_error;
-extern int dry_run;
+extern int do_xfers;
 extern int am_server;
 extern int am_daemon;
+extern int log_before_transfer;
+extern int stdout_format_has_i;
+extern int logfile_format_has_i;
+extern int csum_length;
+extern int append_mode;
+extern int io_error;
+extern int allowed_lull;
 extern int protocol_version;
+extern int remove_source_files;
+extern int updating_basis_file;
 extern int make_backups;
+extern int do_progress;
+extern int inplace;
+extern int batch_fd;
+extern int write_batch;
+extern struct stats stats;
+extern struct file_list *the_file_list;
+extern char *stdout_format;
 #ifdef EA_SUPPORT
 extern int extended_attributes;
 extern int preserve_links;
 #endif
-extern struct stats stats;
 
 
 /**
@@ -46,22 +61,6 @@ extern struct stats stats;
  * and transmits them to the receiver.  The sender process runs on the
  * machine holding the source files.
  **/
-void read_sum_head(int f, struct sum_struct *sum)
-{
-	sum->count = read_int(f);
-	sum->blength = read_int(f);
-	if (protocol_version < 27) {
-		sum->s2length = csum_length;
-	} else {
-		sum->s2length = read_int(f);
-		if (sum->s2length > MD4_SUM_LENGTH) {
-			rprintf(FERROR, "Invalid checksum length %ld\n",
-			    (long)sum->s2length);
-			exit_cleanup(RERR_PROTOCOL);
-		}
-	}
-	sum->remainder = read_int(f);
-}
 
 /**
  * Receive the checksums for a buffer
@@ -69,7 +68,8 @@ void read_sum_head(int f, struct sum_struct *sum)
 static struct sum_struct *receive_sums(int f)
 {
 	struct sum_struct *s;
-	int i;
+	int32 i;
+	int lull_mod = allowed_lull * 5;
 	OFF_T offset = 0;
 
 	if (!(s = new(struct sum_struct)))
@@ -80,8 +80,15 @@ static struct sum_struct *receive_sums(int f)
 	s->sums = NULL;
 
 	if (verbose > 3) {
-		rprintf(FINFO, "count=%ld n=%u rem=%u\n",
-			(long)s->count, s->blength, s->remainder);
+		rprintf(FINFO, "count=%.0f n=%ld rem=%ld\n",
+			(double)s->count, (long)s->blength, (long)s->remainder);
+	}
+
+	if (append_mode) {
+		s->flength = (OFF_T)s->count * s->blength;
+		if (s->remainder)
+			s->flength -= s->blength - s->remainder;
+		return s;
 	}
 
 	if (s->count == 0)
@@ -90,18 +97,21 @@ static struct sum_struct *receive_sums(int f)
 	if (!(s->sums = new_array(struct sum_buf, s->count)))
 		out_of_memory("receive_sums");
 
-	for (i = 0; i < (int)s->count; i++) {
+	for (i = 0; i < s->count; i++) {
 		s->sums[i].sum1 = read_int(f);
 		read_buf(f, s->sums[i].sum2, s->s2length);
 
 		s->sums[i].offset = offset;
 		s->sums[i].flags = 0;
 
-		if (i == (int)s->count-1 && s->remainder != 0)
+		if (i == s->count-1 && s->remainder != 0)
 			s->sums[i].len = s->remainder;
 		else
 			s->sums[i].len = s->blength;
 		offset += s->sums[i].len;
+
+		if (allowed_lull && !(i % lull_mod))
+			maybe_send_keepalive();
 
 		if (verbose > 3) {
 			rprintf(FINFO,
@@ -116,7 +126,99 @@ static struct sum_struct *receive_sums(int f)
 	return s;
 }
 
+void successful_send(int ndx)
+{
+	char fname[MAXPATHLEN];
+	struct file_struct *file;
+	unsigned int offset;
 
+	if (ndx < 0 || ndx >= the_file_list->count)
+		return;
+
+	file = the_file_list->files[ndx];
+	if (file->dir.root) {
+		offset = stringjoin(fname, sizeof fname,
+				    file->dir.root, "/", NULL);
+	} else
+		offset = 0;
+	if (offset == 0)
+		f_name(file, fname);
+	else {
+		char fname2[MAXPATHLEN];
+		f_name(file, fname2);
+		strlcpy(fname + offset, fname2, sizeof(fname)-offset);
+	}
+	if (remove_source_files) {
+		if (do_unlink(fname) == 0) {
+			if (verbose > 1)
+				rprintf(FINFO, "sender removed %s\n", fname + offset);
+		} else
+			rsyserr(FERROR, errno, "sender failed to remove %s", fname + offset);
+	}
+}
+
+static void write_ndx_and_attrs(int f_out, int ndx, int iflags,
+				uchar fnamecmp_type, char *buf, int len)
+{
+	write_int(f_out, ndx);
+	if (protocol_version < 29)
+		return;
+	write_shortint(f_out, iflags);
+	if (iflags & ITEM_BASIS_TYPE_FOLLOWS)
+		write_byte(f_out, fnamecmp_type);
+	if (iflags & ITEM_XNAME_FOLLOWS)
+		write_vstring(f_out, buf, len);
+}
+
+/* This is also used by receive.c with f_out = -1. */
+int read_item_attrs(int f_in, int f_out, int ndx, uchar *type_ptr,
+		    char *buf, int *len_ptr)
+{
+	int len;
+	uchar fnamecmp_type = FNAMECMP_FNAME;
+	int iflags = protocol_version >= 29 ? read_shortint(f_in)
+		   : ITEM_TRANSFER | ITEM_MISSING_DATA;
+
+	/* Handle the new keep-alive (no-op) packet. */
+	if (ndx == the_file_list->count && iflags == ITEM_IS_NEW)
+		;
+	else if (ndx < 0 || ndx >= the_file_list->count) {
+		rprintf(FERROR, "Invalid file index: %d (count=%d) [%s]\n",
+			ndx, the_file_list->count, who_am_i());
+		exit_cleanup(RERR_PROTOCOL);
+	} else if (iflags == ITEM_IS_NEW) {
+		rprintf(FERROR, "Invalid itemized flag word: %x [%s]\n",
+			iflags, who_am_i());
+		exit_cleanup(RERR_PROTOCOL);
+	}
+
+	if (iflags & ITEM_BASIS_TYPE_FOLLOWS)
+		fnamecmp_type = read_byte(f_in);
+	*type_ptr = fnamecmp_type;
+
+	if (iflags & ITEM_XNAME_FOLLOWS) {
+		if ((len = read_vstring(f_in, buf, MAXPATHLEN)) < 0)
+			exit_cleanup(RERR_PROTOCOL);
+	} else {
+		*buf = '\0';
+		len = -1;
+	}
+	*len_ptr = len;
+
+	if (iflags & ITEM_TRANSFER) {
+		if (!S_ISREG(the_file_list->files[ndx]->mode)) {
+			rprintf(FERROR,
+				"received request to transfer non-regular file: %d [%s]\n",
+				ndx, who_am_i());
+			exit_cleanup(RERR_PROTOCOL);
+		}
+	} else if (f_out >= 0) {
+		write_ndx_and_attrs(f_out, ndx, iflags,
+				    fnamecmp_type, buf, len);
+	}
+
+	return iflags;
+}
 
 void send_files(struct file_list *flist, int f_out, int f_in)
 {
@@ -125,13 +227,18 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 	struct map_struct *mbuf = NULL;
 	STRUCT_STAT st;
 	char *fname2, fname[MAXPATHLEN];
-	int i;
+	char xname[MAXPATHLEN];
+	uchar fnamecmp_type;
+	int iflags, xlen;
 	struct file_struct *file;
-	int phase = 0;
+	int phase = 0, max_phase = protocol_version >= 29 ? 2 : 1;
 	struct stats initial_stats;
 	int save_make_backups = make_backups;
-	int j;
-#if HAVE_COPYFILE
+	int itemizing = am_server ? logfile_format_has_i : stdout_format_has_i;
+	enum logcode log_code = log_before_transfer ? FLOG : FINFO;
+	int f_xfer = write_batch < 0 ? batch_fd : f_out;
+	int i, j;
+#ifdef HAVE_COPYFILE
 	char fname_tmp[MAXPATHLEN];
 #endif
 
@@ -143,48 +250,66 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 
 		i = read_int(f_in);
 		if (i == -1) {
-			if (phase == 0) {
-				phase++;
-				csum_length = SUM_LENGTH;
-				write_int(f_out, -1);
-				if (verbose > 2)
-					rprintf(FINFO, "send_files phase=%d\n", phase);
-				/* For inplace: redo phase turns off the backup
-				 * flag so that we do a regular inplace send. */
-				make_backups = 0;
-				continue;
-			}
-			break;
+			if (++phase > max_phase)
+				break;
+			csum_length = SUM_LENGTH;
+			if (verbose > 2)
+				rprintf(FINFO, "send_files phase=%d\n", phase);
+			write_int(f_out, -1);
+			/* For inplace: redo phase turns off the backup
+			 * flag so that we do a regular inplace send. */
+			make_backups = 0;
+			append_mode = 0;
+			continue;
 		}
 
-		if (i < 0 || i >= flist->count) {
-			rprintf(FERROR, "Invalid file index %d (count=%d)\n",
-				i, flist->count);
+		iflags = read_item_attrs(f_in, f_out, i, &fnamecmp_type,
+					 xname, &xlen);
+		if (iflags == ITEM_IS_NEW) /* no-op packet */
+			continue;
+
+		file = flist->files[i];
+		if (file->dir.root) {
+			/* N.B. We're sure that this fits, so offset is OK. */
+			offset = strlcpy(fname, file->dir.root, sizeof fname);
+			if (!offset || fname[offset-1] != '/')
+				fname[offset++] = '/';
+		} else
+			offset = 0;
+		if (offset == 0)
+			fname2 = f_name(file, fname);
+		else {
+			char fname3[MAXPATHLEN];
+			f_name(file, fname3);
+			strlcpy(fname + offset, fname3, sizeof(fname) - offset);
+			fname2 = fname;
+		}
+
+		if (verbose > 2)
+			rprintf(FINFO, "send_files(%d, %s)\n", i, fname);
+
+		if (!(iflags & ITEM_TRANSFER)) {
+			maybe_log_item(file, iflags, itemizing, xname);
+			continue;
+		}
+		if (phase == 2) {
+			rprintf(FERROR,
+				"got transfer request in phase 2 [%s]\n",
+				who_am_i());
 			exit_cleanup(RERR_PROTOCOL);
 		}
 
-		file = flist->files[i];
+		updating_basis_file = inplace && (protocol_version >= 29
+			? fnamecmp_type == FNAMECMP_FNAME : !make_backups);
 
 		stats.current_file_index = i;
 		stats.num_transferred_files++;
 		stats.total_transferred_size += file->length;
 
-		if (file->basedir) {
-			/* N.B. We're sure that this fits, so offset is OK. */
-			offset = strlcpy(fname, file->basedir, sizeof fname);
-			if (!offset || fname[offset-1] != '/')
-				fname[offset++] = '/';
-		} else
-			offset = 0;
-		fname2 = f_name_to(file, fname + offset);
-
-		if (verbose > 2)
-			rprintf(FINFO, "send_files(%d, %s)\n", i, fname);
-
-		if (dry_run) {
-			if (!am_server && verbose) /* log the transfer */
-				rprintf(FINFO, "%s\n", safe_fname(fname2));
-			write_int(f_out, i);
+		if (!do_xfers) { /* log the transfer */
+			log_item(FCLIENT, file, &stats, iflags, NULL);
+			write_ndx_and_attrs(f_out, i, iflags, fnamecmp_type,
+					    xname, xlen);
 			continue;
 		}
 
@@ -203,28 +328,26 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 			    extern char *tmpdir;
 
 			    if (tmpdir == NULL)
-				tmpdir = "/tmp";
+				    tmpdir = "/tmp";
 
 			    strlcpy(fname_src, fname, MAXPATHLEN);
 
-			    if (file->dirname)
-			       sprintf(fname_src + offset, "%s/%s",
-					   file->dirname, file->basename + 2);
-			   else
-			       strlcpy(fname_src + offset, file->basename + 2, MAXPATHLEN);
+			    if (file->dirname) /* should use snprint */
+				    sprintf(fname_src + offset, "%s/%s",
+					    file->dirname, file->basename + 2);
+			    else
+				    strlcpy(fname_src + offset, file->basename + 2, MAXPATHLEN);
 
-			   if(!get_tmpname(fname_tmp, file->basename))
-			       continue;
+			    if(!get_tmpname(fname_tmp, file->basename))
+				    continue;
 
 			    if(mktemp(fname_tmp)
-				&& !copyfile(fname_src, fname_tmp, NULL,
+			       && !copyfile(fname_src, fname_tmp, NULL,
 					     COPYFILE_PACK | COPYFILE_ACL | COPYFILE_XATTR | (preserve_links ? COPYFILE_NOFOLLOW : 0))) {
 				    fd = do_open(fname_tmp, O_RDONLY, 0);
-			    }
-			    else
-			    {
+			    } else {
 				    rprintf(FERROR, "send_files failed to open %s: %s\n",
-				       full_fname(fname_tmp), strerror(errno));
+					    full_fname(fname_tmp), strerror(errno));
 				    continue;
 			    }
 		   } else
@@ -258,31 +381,35 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 		}
 
 		if (st.st_size) {
-			OFF_T map_size = MAX(s->blength * 3, MAX_MAP_SIZE);
-			mbuf = map_file(fd, st.st_size, map_size, s->blength);
+			int32 read_size = MAX(s->blength * 3, MAX_MAP_SIZE);
+			mbuf = map_file(fd, st.st_size, read_size, s->blength);
 		} else
 			mbuf = NULL;
 
 		if (verbose > 2) {
 			rprintf(FINFO, "send_files mapped %s of size %.0f\n",
-				safe_fname(fname), (double)st.st_size);
+				fname, (double)st.st_size);
 		}
 
-		write_int(f_out, i);
-		write_sum_head(f_out, s);
+		write_ndx_and_attrs(f_out, i, iflags, fnamecmp_type,
+				    xname, xlen);
+		write_sum_head(f_xfer, s);
 
-		if (verbose > 2) {
-			rprintf(FINFO, "calling match_sums %s\n",
-				safe_fname(fname));
-		}
+		if (verbose > 2)
+			rprintf(FINFO, "calling match_sums %s\n", fname);
 
-		if (!am_server && verbose) /* log the transfer */
-			rprintf(FINFO, "%s\n", safe_fname(fname2));
+		if (log_before_transfer)
+			log_item(FCLIENT, file, &initial_stats, iflags, NULL);
+		else if (!am_server && verbose && do_progress)
+			rprintf(FCLIENT, "%s\n", fname2);
 
 		set_compression(fname);
 
-		match_sums(f_out, s, mbuf, st.st_size);
-		log_send(file, &initial_stats);
+		match_sums(f_xfer, s, mbuf, st.st_size);
+		if (do_progress)
+			end_progress(st.st_size);
+
+		log_item(log_code, file, &initial_stats, iflags, NULL);
 
 		if (mbuf) {
 			j = unmap_file(mbuf);
@@ -297,14 +424,15 @@ void send_files(struct file_list *flist, int f_out, int f_in)
 
 		free_sums(s);
 
-		if (verbose > 2) {
-			rprintf(FINFO, "sender finished %s\n",
-				safe_fname(fname));
-		}
-#if HAVE_COPYFILE
+		if (verbose > 2)
+			rprintf(FINFO, "sender finished %s\n", fname);
+
+		/* Flag that we actually sent this entry. */
+		file->flags |= FLAG_SENT;
+#ifdef HAVE_COPYFILE
 		if (extended_attributes
 		    && !strncmp(file->basename, "._", 2)) {
-				    unlink(fname_tmp);
+			unlink(fname_tmp);
 		}
 #endif
 	}

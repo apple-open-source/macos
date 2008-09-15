@@ -101,7 +101,7 @@ struct fileRefEntry {
 };
 
 struct smb_open_dir {
-	int 			refcnt;
+	u_int32_t		refcnt;
 	struct smbfs_fctx *	dirseq;		/* ff context */
 	long			dirofs;	/* last ff offset */
 };

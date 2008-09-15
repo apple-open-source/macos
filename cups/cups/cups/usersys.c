@@ -1,5 +1,5 @@
 /*
- * "$Id: usersys.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: usersys.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   User, system, and password routines for the Common UNIX Printing
  *   System (CUPS).
@@ -491,5 +491,5 @@ cups_open_client_conf(void)
 
 
 /*
- * End of "$Id: usersys.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: usersys.c 7721 2008-07-11 22:48:49Z mike $".
  */

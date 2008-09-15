@@ -1,9 +1,10 @@
+#!/usr/bin/php
 <?php
 /*
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -23,7 +24,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: run-tests.php,v 1.226.2.37.2.35 2007/09/14 15:28:03 nlopess Exp $ */
+/* $Id: run-tests.php,v 1.226.2.37.2.45 2008/03/13 13:51:40 felipe Exp $ */
 
 /* Sanity check to ensure that pcre extension needed by this script is available.
  * In the event it is not, print a nice error message indicating that this script will
@@ -75,6 +76,8 @@ putenv('SSH_CONNECTION=deleted');
 $cwd = getcwd();
 set_time_limit(0);
 
+$valgrind_version = 0;
+
 // delete as much output buffers as possible
 while(@ob_end_clean());
 if (ob_get_level()) echo "Not all buffers were deleted.\n";
@@ -103,11 +106,22 @@ $environment = isset($_ENV) ? $_ENV : array();
 // Require the explicit specification.
 // Otherwise we could end up testing the wrong file!
 
+$php = NULL;
+$php_cgi = NULL;
+
 if (getenv('TEST_PHP_EXECUTABLE')) {
 	$php = getenv('TEST_PHP_EXECUTABLE');
 	if ($php=='auto') {
 		$php = $cwd.'/sapi/cli/php';
 		putenv("TEST_PHP_EXECUTABLE=$php");
+		if (!getenv('TEST_PHP_CGI_EXECUTABLE')) {
+			$php_cgi = $cwd.'/sapi/cgi/php-cgi';
+			if (file_exists($php_cgi)) {
+				putenv("TEST_PHP_CGI_EXECUTABLE=$php_cgi");
+			} else {
+				$php_cgi = NULL;
+			}
+		}
 	}
 	$environment['TEST_PHP_EXECUTABLE'] = $php;
 }
@@ -173,11 +187,12 @@ $ini_overwrites = array(
 		'auto_prepend_file=',
 		'auto_append_file=',
 		'magic_quotes_runtime=0',
+		'ignore_repeated_errors=0',
 	);
 
 function write_information($show_html)
 {
-	global $cwd, $php, $php_info, $user_tests, $ini_overwrites, $pass_options, $exts_to_test;
+	global $cwd, $php, $php_cgi, $php_info, $user_tests, $ini_overwrites, $pass_options, $exts_to_test;
 
 	// Get info from php
 	$info_file = realpath(dirname(__FILE__)) . '/run-test-info.php';
@@ -194,6 +209,13 @@ More .INIs  : " . (function_exists(\'php_ini_scanned_files\') ? str_replace("\n"
 	settings2array($ini_overwrites,$info_params);
 	settings2params($info_params);
 	$php_info = `$php $pass_options $info_params "$info_file"`;
+	if ($php_cgi && $php != $php_cgi) {
+		$php_info_cgi = `$php_cgi $pass_options $info_params -q "$info_file"`;
+		$php_info_sep = "\n---------------------------------------------------------------------";
+		$php_cgi_info = "$php_info_sep\nPHP         : $php_cgi $php_info_cgi$php_info_sep";
+	} else {
+		$php_cgi_info = '';
+	}
 	@unlink($info_file);
 	define('TESTED_PHP_VERSION', `$php -r "echo PHP_VERSION;"`);
 
@@ -217,8 +239,8 @@ More .INIs  : " . (function_exists(\'php_ini_scanned_files\') ? str_replace("\n"
 	// Write test context information.
 	echo "
 =====================================================================
+PHP         : $php $php_info $php_cgi_info
 CWD         : $cwd
-PHP         : $php $php_info
 Extra dirs  : ";
 	foreach ($user_tests as $test_dir) {
 		echo "{$test_dir}\n              ";
@@ -399,7 +421,7 @@ if (isset($argc) && $argc > 1) {
 					$html_output = is_resource($html_file);
 					break;
 				case '--version':
-					echo '$Revision: 1.226.2.37.2.35 $'."\n";
+					echo '$Revision: 1.226.2.37.2.45 $'."\n";
 					exit(1);
 
 				case 'u':
@@ -948,6 +970,7 @@ function run_test($php, $file, $env)
 	global $pass_options, $DETAILED, $IN_REDIRECT, $test_cnt, $test_idx;
 	global $leak_check, $temp_source, $temp_target, $cfg, $environment;
 	global $no_clean;
+	global $valgrind_version;
 
 	$temp_filenames = null;
 	$org_file = $file;
@@ -999,7 +1022,7 @@ TEST $file
 		if (preg_match('/^--([_A-Z]+)--/', $line, $r)) {
 			$section = $r[1];
 			$section_text[$section] = '';
-			$secfile = $section == 'FILE' || $section == 'FILEEOF';
+			$secfile = $section == 'FILE' || $section == 'FILEEOF' || $section == 'FILE_EXTERNAL';
 			$secdone = false;
 			continue;
 		}
@@ -1025,13 +1048,24 @@ TEST $file
 			$borked = false;
 		}
 	} else {
-		if (@count($section_text['FILE']) + @count($section_text['FILEEOF']) != 1) {
+		if (@count($section_text['FILE']) + @count($section_text['FILEEOF']) + @count($section_text['FILE_EXTERNAL']) != 1) {
 			$bork_info = "missing section --FILE--";
 			$borked = true;
 		}
 		if (@count($section_text['FILEEOF']) == 1) {
 			$section_text['FILE'] = preg_replace("/[\r\n]+$/", '', $section_text['FILEEOF']);
 			unset($section_text['FILEEOF']);
+		}
+		if (@count($section_text['FILE_EXTERNAL']) == 1) {
+			// don't allow tests to retrieve files from anywhere but this subdirectory
+			$section_text['FILE_EXTERNAL'] = dirname($file) . '/' . trim(str_replace('..', '', $section_text['FILE_EXTERNAL']));
+			if (@file_exists($section_text['FILE_EXTERNAL'])) {
+				$section_text['FILE'] = file_get_contents($section_text['FILE_EXTERNAL']);
+				unset($section_text['FILE_EXTERNAL']);
+			} else {
+				$bork_info = "could not load --FILE_EXTERNAL-- " . dirname($file) . '/' . trim($section_text['FILE_EXTERNAL']);
+				$borked = true;
+			}
 		}
 		if ((@count($section_text['EXPECT']) + @count($section_text['EXPECTF']) + @count($section_text['EXPECTREGEX'])) != 1) {
 			$bork_info = "missing section --EXPECT--, --EXPECTF-- or --EXPECTREGEX--";
@@ -1058,7 +1092,7 @@ TEST $file
 	$tested = trim($section_text['TEST']);
 
 	/* For GET/POST tests, check if cgi sapi is available and if it is, use it. */
-	if (!empty($section_text['GET']) || !empty($section_text['POST']) || !empty($section_text['POST_RAW']) || !empty($section_text['COOKIE'])) {
+	if (!empty($section_text['GET']) || !empty($section_text['POST']) || !empty($section_text['POST_RAW']) || !empty($section_text['COOKIE']) || !empty($section_text['EXPECTHEADERS'])) {
 		if (isset($php_cgi)) {
 			$old_php = $php;
 			$php = $php_cgi .' -C ';
@@ -1328,12 +1362,15 @@ TEST $file
 		$raw_lines = explode("\n", $post);
 
 		$request = '';
+		$started = false;
 		foreach ($raw_lines as $line) {
 			if (empty($env['CONTENT_TYPE']) && preg_match('/^Content-Type:(.*)/i', $line, $res)) {
 				$env['CONTENT_TYPE'] = trim(str_replace("\r", '', $res[1]));
 				continue;
 			}
-			$request .= $line . "\n";
+			if ($started) $request .= "\n";
+			$started = true;
+			$request .= $line;
 		}
 
 		$env['CONTENT_LENGTH'] = strlen($request);
@@ -1376,7 +1413,26 @@ TEST $file
 
 	if ($leak_check) {
 		$env['USE_ZEND_ALLOC'] = '0';
-		$cmd = "valgrind -q --tool=memcheck --trace-children=yes --log-file-exactly=$memcheck_filename $cmd";
+		if (!$valgrind_version) {
+			$valgrind_cmd = "valgrind --version";
+			$out = system_with_timeout($valgrind_cmd);
+			$replace_count = 0;
+
+			if (!$out) {
+				error("Valgrind returned no version info, cannot proceed.\nPlease check if Valgrind is installed.");
+			} else {
+				$valgrind_version = preg_replace("/valgrind-([0-9])\.([0-9])\.([0-9]+)(?:-\w+)?\s*/", '$1$2$3', $out, 1, $replace_count);
+				if ($replace_count != 1 || !is_numeric($valgrind_version)) {
+					error("Valgrind returned invalid version info (\"$out\"), cannot proceed.");
+				}
+			}
+		}
+		if ($valgrind_version < 330) {
+			$cmd = "valgrind -q --tool=memcheck --trace-children=yes --log-file-exactly=$memcheck_filename $cmd";
+		} else {
+			/* valgrind 3.3.0+ doesn't have --log-file-exactly option */
+			$cmd = "valgrind -q --tool=memcheck --trace-children=yes --log-file=$memcheck_filename $cmd";
+		}
 	} else {
 		$env['USE_ZEND_ALLOC'] = '1';
 	}
@@ -1493,7 +1549,7 @@ COMMAND $cmd
 			$wanted_re = str_replace('%i', '[+-]?\d+', $wanted_re);
 			$wanted_re = str_replace('%d', '\d+', $wanted_re);
 			$wanted_re = str_replace('%x', '[0-9a-fA-F]+', $wanted_re);
-			$wanted_re = str_replace('%f', '[+-]?\.?\d+\.?\d*(?:E-?\d+)?', $wanted_re);
+			$wanted_re = str_replace('%f', '[+-]?\.?\d+\.?\d*(?:[Ee][+-]?\d+)?', $wanted_re);
 			$wanted_re = str_replace('%c', '.', $wanted_re);
 			// %f allows two points "-.0.0" but that is the best *simple* expression
 		}
@@ -1541,7 +1597,7 @@ COMMAND $cmd
 		$wanted = $wanted_headers . "\n--HEADERS--\n" . $wanted;
 		$output = $output_headers . "\n--HEADERS--\n" . $output;
 		if (isset($wanted_re)) {
-			$wanted_re = $wanted_headers . "\n--HEADERS--\n" . $wanted_re;
+			$wanted_re = preg_quote($wanted_headers . "\n--HEADERS--\n", '/') . $wanted_re;
 		}
 	}
 

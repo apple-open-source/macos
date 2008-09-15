@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,12 +16,15 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: timelib.h,v 1.10.2.11.2.3 2007/07/20 23:53:40 jani Exp $ */
+/* $Id: timelib.h,v 1.10.2.11.2.5 2008/02/22 09:48:18 derick Exp $ */
 
 #ifndef __TIMELIB_H__
 #define __TIMELIB_H__
 
 #include "timelib_structs.h"
+#if HAVE_LIMITS_H
+#include <limits.h>
+#endif
 
 #define TIMELIB_NONE             0x00
 #define TIMELIB_OVERRIDE_TIME    0x01

@@ -1,5 +1,5 @@
 /*
- * "$Id: mark.c 6942 2007-09-10 22:55:00Z mike $"
+ * "$Id: mark.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Option marking routines for the Common UNIX Printing System (CUPS).
  *
@@ -197,11 +197,14 @@ ppdFindChoice(ppd_option_t *o,		/* I - Pointer to option */
   ppd_choice_t	*c;			/* Current choice */
 
 
-  if (o == NULL || choice == NULL)
+  if (!o || !choice)
     return (NULL);
 
+  if (choice[0] == '{' || !strncasecmp(choice, "Custom.", 7))
+    choice = "Custom";
+
   for (i = o->num_choices, c = o->choices; i > 0; i --, c ++)
-    if (strcasecmp(c->choice, choice) == 0)
+    if (!strcasecmp(c->choice, choice))
       return (c);
 
   return (NULL);
@@ -724,5 +727,5 @@ ppd_defaults(ppd_file_t  *ppd,	/* I - PPD file */
 
 
 /*
- * End of "$Id: mark.c 6942 2007-09-10 22:55:00Z mike $".
+ * End of "$Id: mark.c 7721 2008-07-11 22:48:49Z mike $".
  */

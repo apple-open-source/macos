@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,16 +22,16 @@
  */
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Includes
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 #include <IOKit/usb/IOUSBMassStorageClass.h>
 #include "Debugging.h"
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 //	Macros
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 // Macros for printing debugging information
 #if (USB_MASS_STORAGE_DEBUG == 1)
@@ -61,11 +61,11 @@ enum
 #pragma mark Protocol Services Methods
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ AbortSCSICommandForCBIProtocol -	The AbortSCSICommand helper method for
+//-----------------------------------------------------------------------------
+//	- AbortSCSICommandForCBIProtocol -	The AbortSCSICommand helper method for
 //										CBI and CB protocol devices.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageClass::AbortSCSICommandForCBIProtocol(
@@ -77,11 +77,11 @@ IOUSBMassStorageClass::AbortSCSICommandForCBIProtocol(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ SendSCSICommandForCBIProtocol -	The SendSCSICommand helper method for
+//-----------------------------------------------------------------------------
+//	- SendSCSICommandForCBIProtocol -	The SendSCSICommand helper method for
 //										CBI and CB protocol devices.
 //																	[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageClass::SendSCSICommandForCBIProtocol( SCSITaskIdentifier request )
@@ -142,9 +142,9 @@ IOUSBMassStorageClass::SendSCSICommandForCBIProtocol( SCSITaskIdentifier request
 #pragma mark SendSCSICommand Helper methods
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ CBIProtocolUSBCompletionAction								[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- CBIProtocolUSBCompletionAction								[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageClass::CBIProtocolUSBCompletionAction(
@@ -164,9 +164,9 @@ IOUSBMassStorageClass::CBIProtocolUSBCompletionAction(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ CBIProtocolTransferData										[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- CBIProtocolTransferData										[PROTECTED]
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageClass::CBIProtocolTransferData( 
@@ -203,9 +203,9 @@ IOUSBMassStorageClass::CBIProtocolTransferData(
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ CBIProtocolReadInterrupt										[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- CBIProtocolReadInterrupt										[PROTECTED]
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageClass::CBIProtocolReadInterrupt( 
@@ -231,9 +231,9 @@ Exit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ CBIGetStatusEndpointStatus									[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- CBIGetStatusEndpointStatus									[PROTECTED]
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageClass::CBIGetStatusEndpointStatus( 
@@ -263,9 +263,9 @@ ErrorExit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ CBIClearFeatureEndpointStall									[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- CBIClearFeatureEndpointStall									[PROTECTED]
+//-----------------------------------------------------------------------------
 
 IOReturn 
 IOUSBMassStorageClass::CBIClearFeatureEndpointStall( 
@@ -295,9 +295,9 @@ ErrorExit:
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ CBIProtocolCommandCompletion									[PROTECTED]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//-----------------------------------------------------------------------------
+//	- CBIProtocolCommandCompletion									[PROTECTED]
+//-----------------------------------------------------------------------------
 
 void 
 IOUSBMassStorageClass::CBIProtocolCommandCompletion(

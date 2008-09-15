@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: html.c,v 1.111.2.2.2.15 2007/10/03 04:53:05 stas Exp $ */
+/* $Id: html.c,v 1.111.2.2.2.20 2008/04/11 19:01:25 felipe Exp $ */
 
 /*
  * HTML entity resources:
@@ -847,7 +847,7 @@ det_charset:
 		
 		/* now walk the charset map and look for the codeset */
 		for (i = 0; charset_map[i].codeset; i++) {
-			if (strncasecmp(charset_hint, charset_map[i].codeset, len) == 0) {
+			if (len == strlen(charset_map[i].codeset) && strncasecmp(charset_hint, charset_map[i].codeset, len) == 0) {
 				charset = charset_map[i].charset;
 				found = 1;
 				break;
@@ -954,6 +954,7 @@ PHPAPI char *php_unescape_html_entities(unsigned char *old, int oldlen, int *new
 					case cs_cp1251:
 					case cs_8859_5:
 					case cs_cp866:
+					case cs_koi8r:
 						replacement[0] = k;
 						replacement[1] = '\0';
 						replacement_len = 1;

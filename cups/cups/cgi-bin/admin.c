@@ -1,5 +1,5 @@
 /*
- * "$Id: admin.c 6733 2007-07-26 18:09:46Z mike $"
+ * "$Id: admin.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Administration CGI for the Common UNIX Printing System (CUPS).
  *
@@ -309,6 +309,16 @@ do_add_rss_subscription(http_t *http)	/* I - HTTP connection */
   }
 
  /*
+  * Make sure we have a username...
+  */
+
+  if ((user = getenv("REMOTE_USER")) == NULL)
+  {
+    puts("Status: 401\n");
+    exit(0);
+  }
+
+ /*
   * Validate the subscription name...
   */
 
@@ -351,9 +361,6 @@ do_add_rss_subscription(http_t *http)	/* I - HTTP connection */
   else
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
                  NULL, printer_uri);
-
-  if ((user = getenv("REMOTE_USER")) == NULL)
-    user = "guest";
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name",
                NULL, user);
@@ -897,7 +904,7 @@ do_am_printer(http_t *http,		/* I - HTTP connection */
     cgiCopyTemplateLang("choose-serial.tmpl");
     cgiEndHTML();
   }
-  else if (!file && (var = cgiGetVariable("PPD_NAME")) == NULL)
+  else if (!file && !cgiGetVariable("PPD_NAME"))
   {
     if (modify)
     {
@@ -1269,6 +1276,16 @@ do_cancel_subscription(http_t *http)/* I - HTTP connection */
   }
 
  /*
+  * Require a username...
+  */
+
+  if ((user = getenv("REMOTE_USER")) == NULL)
+  {
+    puts("Status: 401\n");
+    exit(0);
+  }
+
+ /*
   * Cancel the subscription...
   */
 
@@ -1278,9 +1295,6 @@ do_cancel_subscription(http_t *http)/* I - HTTP connection */
                NULL, "ipp://localhost/");
   ippAddInteger(request, IPP_TAG_OPERATION, IPP_TAG_INTEGER,
                 "notify-subscription-id", id);
-
-  if ((user = getenv("REMOTE_USER")) == NULL)
-    user = "guest";
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name",
                NULL, user);
@@ -2998,15 +3012,15 @@ do_set_options(http_t *http,		/* I - HTTP connection */
 
         cgiSetVariable("KEYWORD", "job_sheets_start");
 	cgiSetVariable("KEYTEXT", cgiText(_("Starting Banner")));
-        cgiSetVariable("DEFCHOICE", attr == NULL ?
-	                            "" : attr->values[0].string.text);
+        cgiSetVariable("DEFCHOICE", attr != NULL ?
+	                            attr->values[0].string.text : "");
 
 	cgiCopyTemplateLang("option-pickone.tmpl");
 
         cgiSetVariable("KEYWORD", "job_sheets_end");
 	cgiSetVariable("KEYTEXT", cgiText(_("Ending Banner")));
-        cgiSetVariable("DEFCHOICE", attr == NULL && attr->num_values > 1 ?
-	                            "" : attr->values[1].string.text);
+        cgiSetVariable("DEFCHOICE", attr != NULL && attr->num_values > 1 ?
+	                            attr->values[1].string.text : "");
 
 	cgiCopyTemplateLang("option-pickone.tmpl");
 
@@ -3193,7 +3207,7 @@ do_set_options(http_t *http,		/* I - HTTP connection */
       }
 
       if ((var = cgiGetVariable("protocol")) != NULL)
-	cupsFilePrintf(out, "*cupsProtocol: %s\n", cgiGetVariable("protocol"));
+	cupsFilePrintf(out, "*cupsProtocol: %s\n", var);
 
       cupsFileClose(in);
       cupsFileClose(out);
@@ -3232,12 +3246,12 @@ do_set_options(http_t *http,		/* I - HTTP connection */
     attr->values[1].string.text = _cupsStrAlloc(cgiGetVariable("job_sheets_end"));
 
     if ((var = cgiGetVariable("printer_error_policy")) != NULL)
-      attr = ippAddString(request, IPP_TAG_PRINTER, IPP_TAG_NAME,
-                          "printer-error-policy", NULL, var);
+      ippAddString(request, IPP_TAG_PRINTER, IPP_TAG_NAME,
+		   "printer-error-policy", NULL, var);
 
     if ((var = cgiGetVariable("printer_op_policy")) != NULL)
-      attr = ippAddString(request, IPP_TAG_PRINTER, IPP_TAG_NAME,
-                          "printer-op-policy", NULL, var);
+      ippAddString(request, IPP_TAG_PRINTER, IPP_TAG_NAME,
+		   "printer-op-policy", NULL, var);
 
    /*
     * Do the request and get back a response...
@@ -3431,5 +3445,5 @@ match_string(const char *a,		/* I - First string */
 
     
 /*
- * End of "$Id: admin.c 6733 2007-07-26 18:09:46Z mike $".
+ * End of "$Id: admin.c 7721 2008-07-11 22:48:49Z mike $".
  */

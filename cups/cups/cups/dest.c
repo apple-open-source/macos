@@ -1,10 +1,10 @@
 /*
- * "$Id: dest.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: dest.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   User-defined destination (and option) support for the Common UNIX
  *   Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -89,7 +89,7 @@ cupsAddDest(const char  *name,		/* I  - Destination name */
   if (!name || !dests)
     return (0);
 
-  if ((dest = cupsGetDest(name, instance, num_dests, *dests)) != NULL)
+  if (cupsGetDest(name, instance, num_dests, *dests))
     return (num_dests);
 
  /*
@@ -1293,5 +1293,5 @@ cups_get_sdests(http_t      *http,	/* I - HTTP connection */
 
 
 /*
- * End of "$Id: dest.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: dest.c 7721 2008-07-11 22:48:49Z mike $".
  */

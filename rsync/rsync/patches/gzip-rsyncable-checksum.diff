@@ -1,0 +1,551 @@
+NOTE: this patch is for _gzip_!
+
+Kevin Day's version of the gzip-rsyncable patch that uses the rsync
+checksum algorithm.
+
+--- gzip-1.2.2/deflate.c	2004-09-15 10:28:14.000000000 -0700
++++ rsyncable/deflate.c	2005-02-17 14:37:14.660957200 -0700
+@@ -98,6 +98,10 @@
+                             int length));
+ #endif
+ 
++local void rsync_roll(deflate_state *s, unsigned start, unsigned num);
++local void rsync_roll_noop(deflate_state *s, unsigned start, unsigned num);
++local void rsync_roll2(deflate_state *s, unsigned start, unsigned num);
++
+ /* ===========================================================================
+  * Local data
+  */
+@@ -115,6 +119,39 @@
+  * See deflate.c for comments about the MIN_MATCH+1.
+  */
+ 
++
++
++/* 
++	Valid values for RSYNC_DEFAULT_CHECKSUM_TYPE are:
++
++	Z_RSYNCABLE_OFF
++	Z_RSYNCABLE_SIMPLESUM
++	Z_RSYNCABLE_RSSUM
++*/
++
++#ifndef RSYNC_DEFAULT_CHECKSUM_TYPE
++#	define RSYNC_DEFAULT_CHECKSUM_TYPE Z_RSYNCABLE_RSSUM
++#endif
++
++#ifndef RSYNC_DEFAULT_WINDOW_SIZE
++#	define RSYNC_DEFAULT_WINDOW_SIZE 30
++#endif
++
++#ifndef RSYNC_DEFAULT_RESET_BLOCK_SIZE
++#	define RSYNC_DEFAULT_RESET_BLOCK_SIZE 4096 
++#endif
++
++#ifndef RSYNC_RESET_MAGIC_VALUE
++#	define RSYNC_RESET_MAGIC_VALUE 0
++#endif
++
++#define RSYNC_SUM_MATCH(s) ((s)->rsync_sum % (s)->rsync_reset_block_size == RSYNC_RESET_MAGIC_VALUE)
++/* Whether window sum matches magic value */
++
++/* Global rsync mode control variable */
++int zlib_rsync = 1 ;
++
++
+ /* Values for max_lazy_match, good_match and max_chain_length, depending on
+  * the desired pack level (0..9). The values given below have been tuned to
+  * exclude worst case performance for pathological files. Better values may be
+@@ -212,6 +249,36 @@
+     /* To do: ignore strm->next_in if we use it as window */
+ }
+ 
++int ZEXPORT deflateSetRsyncParameters_(strm, checksum_type, window_size, reset_block_size)
++    z_streamp strm;
++    int  checksum_type;
++	ulg window_size;
++	ulg reset_block_size;
++{
++	deflate_state *s = strm->state;
++
++	switch(checksum_type){
++		case Z_RSYNCABLE_SIMPLESUM: 
++			s->rsync_rollfunction = rsync_roll; 
++			break;
++		case Z_RSYNCABLE_RSSUM: 
++			s->rsync_rollfunction = rsync_roll2; 
++			break;
++		default: 
++			s->rsync_rollfunction = rsync_roll_noop;
++	}
++
++	s->rsync_window_size = window_size != 0 ? window_size : RSYNC_DEFAULT_WINDOW_SIZE;
++	s->rsync_reset_block_size = reset_block_size != 0 ? reset_block_size : s->rsync_window_size;
++
++    s->rsync_chunk_end = 0xFFFFFFFFUL;
++    s->rsync_sum = 0;
++	s->rsync_s1 = 0;
++	s->rsync_s2 = 0;
++
++	return Z_OK;
++}
++
+ /* ========================================================================= */
+ int ZEXPORT deflateInit2_(strm, level, method, windowBits, memLevel, strategy,
+                   version, stream_size)
+@@ -307,9 +374,13 @@
+     s->strategy = strategy;
+     s->method = (Byte)method;
+ 
++	deflateSetRsyncParameters_(strm, RSYNC_DEFAULT_CHECKSUM_TYPE, RSYNC_DEFAULT_WINDOW_SIZE, RSYNC_DEFAULT_RESET_BLOCK_SIZE);
++
+     return deflateReset(strm);
+ }
+ 
++
++
+ /* ========================================================================= */
+ int ZEXPORT deflateSetDictionary (strm, dictionary, dictLength)
+     z_streamp strm;
+@@ -841,6 +912,13 @@
+ #ifdef ASMV
+     match_init(); /* initialize the asm code */
+ #endif
++
++    /* rsync params */
++    s->rsync_chunk_end = 0xFFFFFFFFUL;
++    s->rsync_sum = 0;
++	s->rsync_s1 = 0;
++	s->rsync_s2 = 0;
++
+ }
+ 
+ #ifndef FASTEST
+@@ -1123,6 +1201,8 @@
+             zmemcpy(s->window, s->window+wsize, (unsigned)wsize);
+             s->match_start -= wsize;
+             s->strstart    -= wsize; /* we now have strstart >= MAX_DIST */
++            if (s->rsync_chunk_end != 0xFFFFFFFFUL)
++                s->rsync_chunk_end -= wsize;
+             s->block_start -= (long) wsize;
+ 
+             /* Slide the hash table (could be avoided with 32 bit values
+@@ -1184,15 +1264,98 @@
+     } while (s->lookahead < MIN_LOOKAHEAD && s->strm->avail_in != 0);
+ }
+ 
++local void rsync_roll(s, start, num)
++    deflate_state *s;
++    unsigned start;
++    unsigned num;
++{
++    unsigned i;
++
++    if (start < s->rsync_window_size) {
++	/* before window fills. */
++	for (i = start; i < s->rsync_window_size; i++) {
++	    if (i == start + num) return;
++	    s->rsync_sum += (ulg)s->window[i];
++	}
++	num -= (s->rsync_window_size - start);
++	start = s->rsync_window_size;
++    }
++
++    /* buffer after window full */
++    for (i = start; i < start+num; i++) {
++	/* New character in */
++	s->rsync_sum += (ulg)s->window[i];
++	/* Old character out */
++	s->rsync_sum -= (ulg)s->window[i - s->rsync_window_size];
++	if (s->rsync_chunk_end == 0xFFFFFFFFUL
++            && RSYNC_SUM_MATCH(s))
++	    s->rsync_chunk_end = i;
++    }
++}
++
++local void rsync_roll_noop(s, start, num)
++    deflate_state *s;
++    unsigned start;
++    unsigned num;
++{
++}
++
++/*
++ Implements the 2 part rsync checksum, instead of a simple summation checksum.
++*/
++local void rsync_roll2(deflate_state *s, unsigned start, unsigned num)
++{
++    unsigned i;
++
++    if (start < s->rsync_window_size) {
++		/* before window fills. */
++		for (i = start; i < s->rsync_window_size; i++) {
++			if (i == start + num) return;
++			s->rsync_s1 = (s->rsync_s1 + (ulg)s->window[i]) & 0xffff;
++			s->rsync_s2 = (s->rsync_s2 + s->rsync_s1) & 0xffff;
++		}
++		num -= (s->rsync_window_size - start);
++		start = s->rsync_window_size;
++    }
++
++    /* buffer after window full */
++    for (i = start; i < start+num; i++) {
++		/* Old character out */
++
++		s->rsync_s1 = (s->rsync_s1 - (ulg)s->window[i - s->rsync_window_size]) & 0xffff;
++		s->rsync_s2 = (s->rsync_s2 - s->rsync_window_size * (ulg)s->window[i - s->rsync_window_size]) & 0xffff;
++
++		/* New character in */
++		s->rsync_s1 = (s->rsync_s1 + (ulg)s->window[i]) & 0xffff;
++		s->rsync_s2 = (s->rsync_s2 + s->rsync_s1) & 0xffff;
++
++		// add the two together for the match calculation
++		s->rsync_sum = s->rsync_s1 + s->rsync_s2;
++
++
++		if (s->rsync_chunk_end == 0xFFFFFFFFUL
++			&& RSYNC_SUM_MATCH(s)){
++			s->rsync_chunk_end = i;
++		}
++    }
++}
++
++/* ===========================================================================
++ * Set rsync_chunk_end if window sum matches magic value.
++ */
++#define RSYNC_ROLL(s, start, num) \
++   do { if (zlib_rsync) (s)->rsync_rollfunction((s), (start), (num)); } while(0)
++
+ /* ===========================================================================
+  * Flush the current block, with given end-of-file flag.
+  * IN assertion: strstart is set to the end of the current match.
+  */
+-#define FLUSH_BLOCK_ONLY(s, eof) { \
++#define FLUSH_BLOCK_ONLY(s, eof, pad) { \
+    _tr_flush_block(s, (s->block_start >= 0L ? \
+                    (charf *)&s->window[(unsigned)s->block_start] : \
+                    (charf *)Z_NULL), \
+                 (ulg)((long)s->strstart - s->block_start), \
++                (pad), \
+                 (eof)); \
+    s->block_start = s->strstart; \
+    flush_pending(s->strm); \
+@@ -1200,8 +1363,8 @@
+ }
+ 
+ /* Same but force premature exit if necessary. */
+-#define FLUSH_BLOCK(s, eof) { \
+-   FLUSH_BLOCK_ONLY(s, eof); \
++#define FLUSH_BLOCK(s, eof, pad) { \
++   FLUSH_BLOCK_ONLY(s, eof, pad); \
+    if (s->strm->avail_out == 0) return (eof) ? finish_started : need_more; \
+ }
+ 
+@@ -1252,16 +1415,16 @@
+             /* strstart == 0 is possible when wraparound on 16-bit machine */
+             s->lookahead = (uInt)(s->strstart - max_start);
+             s->strstart = (uInt)max_start;
+-            FLUSH_BLOCK(s, 0);
++            FLUSH_BLOCK(s, 0, 0);
+         }
+         /* Flush if we may have to slide, otherwise block_start may become
+          * negative and the data will be gone:
+          */
+         if (s->strstart - (uInt)s->block_start >= MAX_DIST(s)) {
+-            FLUSH_BLOCK(s, 0);
++            FLUSH_BLOCK(s, 0, 0);
+         }
+     }
+-    FLUSH_BLOCK(s, flush == Z_FINISH);
++    FLUSH_BLOCK(s, flush == Z_FINISH, 0);
+     return flush == Z_FINISH ? finish_done : block_done;
+ }
+ 
+@@ -1330,6 +1493,7 @@
+ 
+             s->lookahead -= s->match_length;
+ 
++            RSYNC_ROLL(s, s->strstart, s->match_length);
+             /* Insert new strings in the hash table only if the match length
+              * is not too large. This saves time but degrades compression.
+              */
+@@ -1363,12 +1527,17 @@
+             /* No match, output a literal byte */
+             Tracevv((stderr,"%c", s->window[s->strstart]));
+             _tr_tally_lit (s, s->window[s->strstart], bflush);
++            RSYNC_ROLL(s, s->strstart, 1);
+             s->lookahead--;
+             s->strstart++;
+         }
+-        if (bflush) FLUSH_BLOCK(s, 0);
++	if (zlib_rsync && s->strstart > s->rsync_chunk_end) {
++	    s->rsync_chunk_end = 0xFFFFFFFFUL;
++	    bflush = 2;
++	}
++        if (bflush) FLUSH_BLOCK(s, 0, bflush-1);
+     }
+-    FLUSH_BLOCK(s, flush == Z_FINISH);
++    FLUSH_BLOCK(s, flush == Z_FINISH, bflush-1);
+     return flush == Z_FINISH ? finish_done : block_done;
+ }
+ 
+@@ -1457,6 +1626,7 @@
+              */
+             s->lookahead -= s->prev_length-1;
+             s->prev_length -= 2;
++            RSYNC_ROLL(s, s->strstart, s->prev_length+1);
+             do {
+                 if (++s->strstart <= max_insert) {
+                     INSERT_STRING(s, s->strstart, hash_head);
+@@ -1466,7 +1636,11 @@
+             s->match_length = MIN_MATCH-1;
+             s->strstart++;
+ 
+-            if (bflush) FLUSH_BLOCK(s, 0);
++            if (zlib_rsync && s->strstart > s->rsync_chunk_end) {
++                s->rsync_chunk_end = 0xFFFFFFFFUL;
++                bflush = 2;
++            } 
++            if (bflush) FLUSH_BLOCK(s, 0, bflush-1);
+ 
+         } else if (s->match_available) {
+             /* If there was no match at the previous position, output a
+@@ -1475,9 +1649,14 @@
+              */
+             Tracevv((stderr,"%c", s->window[s->strstart-1]));
+             _tr_tally_lit(s, s->window[s->strstart-1], bflush);
++            if (zlib_rsync && s->strstart > s->rsync_chunk_end) {
++                s->rsync_chunk_end = 0xFFFFFFFFUL;
++		bflush = 2;
++            } 
+             if (bflush) {
+-                FLUSH_BLOCK_ONLY(s, 0);
++                FLUSH_BLOCK_ONLY(s, 0, bflush-1);
+             }
++            RSYNC_ROLL(s, s->strstart, 1);
+             s->strstart++;
+             s->lookahead--;
+             if (s->strm->avail_out == 0) return need_more;
+@@ -1485,7 +1664,14 @@
+             /* There is no previous match to compare with, wait for
+              * the next step to decide.
+              */
++            if (zlib_rsync && s->strstart > s->rsync_chunk_end) {
++                /* Reset huffman tree */
++                s->rsync_chunk_end = 0xFFFFFFFFUL;
++                bflush = 2;
++                FLUSH_BLOCK(s, 0, bflush-1);
++            } 
+             s->match_available = 1;
++            RSYNC_ROLL(s, s->strstart, 1);
+             s->strstart++;
+             s->lookahead--;
+         }
+@@ -1496,7 +1682,7 @@
+         _tr_tally_lit(s, s->window[s->strstart-1], bflush);
+         s->match_available = 0;
+     }
+-    FLUSH_BLOCK(s, flush == Z_FINISH);
++    FLUSH_BLOCK(s, flush == Z_FINISH, bflush-1);
+     return flush == Z_FINISH ? finish_done : block_done;
+ }
+ #endif /* FASTEST */
+--- gzip-1.2.2/deflate.h	2004-02-24 07:38:44.000000000 -0700
++++ rsyncable/deflate.h	2005-02-17 13:46:12.056551200 -0700
+@@ -254,6 +254,17 @@
+      * are always zero.
+      */
+ 
++    ulg rsync_sum;      /* rolling sum of rsync window */
++    ulg rsync_chunk_end; /* next rsync sequence point */
++	ulg rsync_window_size; /* the number of bytes used in computing the rolling checksum */
++	ulg rsync_reset_block_size; /* the compressed stream will be reset approximately every 'rsync_reset_block_size' bytes */
++	ulg rsync_s1; /* part 1 of the checksum for use with checksum type Z_RSYNCABLE_RSSUM*/
++	ulg rsync_s2; /* part 2 of the checksum for use with checksum type Z_RSYNCABLE_RSSUM*/
++
++	/* the function that should be called for performing the rsyncable checksum roll */
++	void (*rsync_rollfunction)(struct internal_state*s , unsigned start, unsigned num);
++
++
+ } FAR deflate_state;
+ 
+ /* Output a byte on the stream.
+@@ -276,7 +287,7 @@
+ void _tr_init         OF((deflate_state *s));
+ int  _tr_tally        OF((deflate_state *s, unsigned dist, unsigned lc));
+ void _tr_flush_block  OF((deflate_state *s, charf *buf, ulg stored_len,
+-                          int eof));
++                          int pad, int eof));
+ void _tr_align        OF((deflate_state *s));
+ void _tr_stored_block OF((deflate_state *s, charf *buf, ulg stored_len,
+                           int eof));
+--- gzip-1.2.2/minigzip.c	2003-11-04 18:19:26.000000000 -0700
++++ rsyncable/minigzip.c	2005-02-17 13:11:35.472851600 -0700
+@@ -215,7 +215,7 @@
+     }
+     gz_compress(in, out);
+ 
+-    unlink(file);
++    //unlink(file);
+ }
+ 
+ 
+@@ -236,7 +236,10 @@
+     if (len > SUFFIX_LEN && strcmp(file+len-SUFFIX_LEN, GZ_SUFFIX) == 0) {
+         infile = file;
+         outfile = buf;
+-        outfile[len-3] = '\0';
++        outfile[len-3] = '.';
++        outfile[len-2] = 'u';
++        outfile[len-1] = 'z';
++        outfile[len-0] = '\0';
+     } else {
+         outfile = file;
+         infile = buf;
+@@ -255,7 +258,7 @@
+ 
+     gz_uncompress(in, out);
+ 
+-    unlink(infile);
++    //unlink(infile);
+ }
+ 
+ 
+--- gzip-1.2.2/trees.c	2004-02-24 07:36:38.000000000 -0700
++++ rsyncable/trees.c	2005-02-17 13:09:38.768435100 -0700
+@@ -918,10 +918,11 @@
+  * Determine the best encoding for the current block: dynamic trees, static
+  * trees or store, and output the encoded block to the zip file.
+  */
+-void _tr_flush_block(s, buf, stored_len, eof)
++void _tr_flush_block(s, buf, stored_len, pad, eof)
+     deflate_state *s;
+     charf *buf;       /* input block, or NULL if too old */
+     ulg stored_len;   /* length of input block */
++    int pad;          /* pad output to byte boundary */
+     int eof;          /* true if this is the last block for a file */
+ {
+     ulg opt_lenb, static_lenb; /* opt_len and static_len in bytes */
+@@ -1009,6 +1010,12 @@
+ #ifdef DEBUG
+         s->compressed_len += 7;  /* align on byte boundary */
+ #endif
++#ifdef DEBUG
++    } else if (pad && (s->compressed_len % 8) != 0) {
++#else
++    } else if (pad) {
++#endif
++        _tr_stored_block(s, buf, 0, eof);
+     }
+     Tracev((stderr,"\ncomprlen %lu(%lu) ", s->compressed_len>>3,
+            s->compressed_len-7*eof));
+--- gzip-1.2.2/zlib.def	1969-12-31 17:00:00.000000000 -0700
++++ rsyncable/zlib.def	2005-02-17 14:01:48.972258000 -0700
+@@ -0,0 +1,61 @@
++LIBRARY
++; zlib data compression library
++
++EXPORTS
++; basic functions
++    zlibVersion
++    deflate
++    deflateEnd
++    inflate
++    inflateEnd
++; advanced functions
++    deflateSetDictionary
++    deflateCopy
++    deflateReset
++    deflateParams
++    deflateBound
++    deflatePrime
++    inflateSetDictionary
++    inflateSync
++    inflateCopy
++    inflateReset
++    inflateBack
++    inflateBackEnd
++    zlibCompileFlags
++; utility functions
++    compress
++    compress2
++    compressBound
++    uncompress
++    gzopen
++    gzdopen
++    gzsetparams
++    gzread
++    gzwrite
++    gzprintf
++    gzputs
++    gzgets
++    gzputc
++    gzgetc
++    gzungetc
++    gzflush
++    gzseek
++    gzrewind
++    gztell
++    gzeof
++    gzclose
++    gzerror
++    gzclearerr
++; checksum functions
++    adler32
++    crc32
++; various hacks, don't look :)
++    deflateInit_
++    deflateInit2_
++    inflateInit_
++    inflateInit2_
++    inflateBackInit_
++    inflateSyncPoint
++    get_crc_table
++    zError
++	deflateSetRsyncParameters_
+\ No newline at end of file
+--- gzip-1.2.2/zlib.h	2004-10-03 22:57:26.000000000 -0700
++++ rsyncable/zlib.h	2005-02-17 14:02:11.753362200 -0700
+@@ -179,6 +179,13 @@
+ 
+ #define Z_NULL  0  /* for initializing zalloc, zfree, opaque */
+ 
++
++/* Constants used for selecting Rsyncable checksum type */
++#define Z_RSYNCABLE_OFF			0
++#define Z_RSYNCABLE_SIMPLESUM	1
++#define Z_RSYNCABLE_RSSUM		2
++
++
+ #define zlib_version zlibVersion()
+ /* for compatibility with versions < 1.0.2 */
+ 
+@@ -1185,6 +1192,17 @@
+         ZLIB_VERSION, sizeof(z_stream))
+ 
+ 
++
++/* deflateSetRsyncParameters allows for setting rsyncable parameters on a stream.
++	These parameters MUST be set immediately after the stream is created, and before
++	any data is written to the stream.
++ */
++ZEXTERN int ZEXPORT deflateSetRsyncParameters_ OF((z_stream FAR *strm, int checksum_type, unsigned long window_size, unsigned long reset_block_size));
++
++#define deflateSetRsyncParameters(strm, checksum_type, window_size, reset_block_size) \
++        deflateSetRsyncParameters_((strm), (checksum_type), (window_size), (reset_block_size))
++
++
+ #if !defined(ZUTIL_H) && !defined(NO_DUMMY_DECL)
+     struct internal_state {int dummy;}; /* hack for buggy compilers */
+ #endif
+@@ -1193,6 +1211,10 @@
+ ZEXTERN int            ZEXPORT inflateSyncPoint OF((z_streamp z));
+ ZEXTERN const uLongf * ZEXPORT get_crc_table    OF((void));
+ 
++/* Global rsync mode control variable */
++extern int zlib_rsync;
++
++
+ #ifdef __cplusplus
+ }
+ #endif

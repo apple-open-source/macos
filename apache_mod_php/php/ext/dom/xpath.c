@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: xpath.c,v 1.26.2.1.2.1 2007/01/01 09:36:00 sebastian Exp $ */
+/* $Id: xpath.c,v 1.26.2.1.2.3 2008/01/29 15:55:29 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -36,11 +36,36 @@
 
 #if defined(LIBXML_XPATH_ENABLED)
 
+/* {{{ arginfo */
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_xpath_construct, 0, 0, 1)
+	ZEND_ARG_OBJ_INFO(0, doc, DOMDocument, 0)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_xpath_register_ns, 0, 0, 2)
+	ZEND_ARG_INFO(0, prefix)
+	ZEND_ARG_INFO(0, uri)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_xpath_query, 0, 0, 1)
+	ZEND_ARG_INFO(0, expr)
+	ZEND_ARG_OBJ_INFO(0, context, DOMNode, 0)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_xpath_evaluate, 0, 0, 1)
+	ZEND_ARG_INFO(0, expr)
+	ZEND_ARG_OBJ_INFO(0, context, DOMNode, 0)
+ZEND_END_ARG_INFO();
+/* }}} */
+
 zend_function_entry php_dom_xpath_class_functions[] = {
-	PHP_ME(domxpath, __construct, NULL, ZEND_ACC_PUBLIC)
-	PHP_FALIAS(registerNamespace, dom_xpath_register_ns, NULL)
-	PHP_FALIAS(query, dom_xpath_query, NULL)
-	PHP_FALIAS(evaluate, dom_xpath_evaluate, NULL)
+	PHP_ME(domxpath, __construct, arginfo_dom_xpath_construct, ZEND_ACC_PUBLIC)
+	PHP_FALIAS(registerNamespace, dom_xpath_register_ns, arginfo_dom_xpath_register_ns)
+	PHP_FALIAS(query, dom_xpath_query, arginfo_dom_xpath_query)
+	PHP_FALIAS(evaluate, dom_xpath_evaluate, arginfo_dom_xpath_evaluate)
 	{NULL, NULL, NULL}
 };
 

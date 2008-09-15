@@ -1,0 +1,196 @@
+commit 1a3f6429362c505c1ab5df5fcc00cb913381c8c0
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Dec 14 01:09:37 2007 -0500
+
+    Update package version number for devPrivates rework.
+
+commit f53c6b6069407a005b7911b5275761ff10c270cb
+Merge: e580369... 257f711...
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Dec 7 20:20:45 2007 -0500
+
+    Merge branch 'master' into XACE-SELINUX
+
+commit 257f7118e71ef4aa59bec55cd43bf1bdd228d152
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:39:03 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 378417f12b1a8839c2943822545e8a9a74543d6d
+Merge: d284123... 4524de4...
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 06:17:42 2007 -0400
+
+    Merge branch 'master' of ssh://git.freedesktop.org/git/xorg/proto/printproto
+
+commit d284123348eeffdc8419144c7999c2b82b0cddc0
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:54:11 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit e58036978c7c9077fe90517cd9e3e3c8035ca1f2
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Tue Aug 28 09:50:44 2007 -0400
+
+    Updates to printproto as part of devPrivates rework.
+
+commit 4524de4602ba112cef88fc01aaa3dedfa3e13b5d
+Merge: 4f039c9... e0972b5...
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Mon Aug 27 11:48:46 2007 -0400
+
+    Merge branch 'XACE-SELINUX'
+
+commit 4f039c9a8c7e9270cb41c3584a53a78610a804fd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:56:25 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit edf1eb2c9b0cb27f703a647c313f991df01a7a2c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:38 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit fd24d13432838905386228344ef915cbfa4c228a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:46 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 353a1f812eb7fcf560df8e8b4e08bc229ef78c0a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:48 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit 9aba897159ed942e5399a4b2b6fff665deeac8d5
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:14 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 46bc30b476513df72ad9ef1fa0484338c69b2b33
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Aug 2 19:19:39 2005 +0000
+
+    Add basic .cvsignore files for proto modules.
+
+commit 89dbcc4915ae60e4a03142fe2b013ca7023499d1
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:56 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 73623780051fecab6397cf075f87c707eca1a5ab
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Jul 25 16:15:05 2005 +0000
+
+    #include "fontstruct.h" -> <X11/fonts/fontstruct.h> for modularization
+        (Drew Parsons)
+
+commit 6b9a6d5696f2324b7982ee958f51de9a21297285
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat May 21 04:13:23 2005 +0000
+
+    Set version to 1.0.
+
+commit 1cdce3bdede75f204d241c254c51b60c248369dc
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:22:39 2005 +0000
+
+    revert last change, didn't do right thing at all, sorry for the noise
+
+commit 14bb8b2c0366c09f234c438a357adc0e40d767ad
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:10:18 2005 +0000
+
+    Require automake 1.7 in AM_INIT_AUTOMAKE
+
+commit edb479dbcee12685ced059a70e4ad7a462d6a793
+Author: Josh Triplett <josh@speakeasy.net>
+Date:   Mon May 16 08:42:55 2005 +0000
+
+    Add COPYING file for Print.
+
+commit 163d7443ea3776eeb00f85fdebebb53938924fb0
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon May 9 18:20:05 2005 +0000
+
+    Change all the protonames from <extension>Ext to <extension>Proto.
+
+commit 61968cefee6fa47e6a2e99ac1277aa7496555d9b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri May 6 01:46:31 2005 +0000
+
+    Initial build system files for proto module.
+
+commit 3450fba3cd4e37d66f612c06dae92b416ba267d7
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:06 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit e33d669067beddc3f89cd5fbd91371a5f735ad27
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:31:35 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit e0972b5ba2e9a39f5afa6ad17668dfa517e04cea
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Mar 5 13:38:51 2004 +0000
+
+    23. Merged with XFree86 4.4.0. Added changes that went into infected files.
+        Reverted darwin/bundle/**/Credits.rtf to XFree86 versions to avoid
+        future conflicts on ASCII but not humal readable files. (There should
+        probably be separate CreditsXorg.rtf files) (Egbert Eich).
+
+commit 3501dfac1febcaf4a6fd615216258cec5f8bdf98
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:10:54 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 53d3ca9ad964d55afc04916ada912c06d10d5209
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:11 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit e91280eaba1651b9e600fe87c1760601981b9edf
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:27 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 498f7aff528f11f2ad33a659c1634ae74d291aba
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Mon Nov 17 19:03:40 2003 +0000
+
+    merge XFree86 4.3.0.1 to -CURRENT
+
+commit 2e88b0d462b9dc068096c6be7f0ba49e21f7e1c7
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:42 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 4382611f85dc0dcbfc7cca9a4ba175b3bc83da14
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:35 2003 +0000
+
+    R6.6 is the Xorg base-line

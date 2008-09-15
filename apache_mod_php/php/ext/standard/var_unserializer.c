@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: var_unserializer.c,v 1.70.2.4.2.7 2007/08/06 18:33:29 jani Exp $ */
+/* $Id: var_unserializer.c,v 1.70.2.4.2.8 2008/03/19 03:00:40 felipe Exp $ */
 
 #include "php.h"
 #include "ext/standard/php_var.h"
@@ -288,10 +288,10 @@ static inline int process_nested_data(UNSERIALIZE_PARAMETER, HashTable *ht, long
 				zend_hash_index_update(ht, Z_LVAL_P(key), &data, sizeof(data), NULL);
 				break;
 			case IS_STRING:
-				if (zend_hash_find(ht, Z_STRVAL_P(key), Z_STRLEN_P(key) + 1, (void **)&old_data)==SUCCESS) {
+				if (zend_symtable_find(ht, Z_STRVAL_P(key), Z_STRLEN_P(key) + 1, (void **)&old_data)==SUCCESS) {
 					var_push_dtor(var_hash, old_data);
 				}
-				zend_hash_update(ht, Z_STRVAL_P(key), Z_STRLEN_P(key) + 1, &data, sizeof(data), NULL);
+				zend_symtable_update(ht, Z_STRVAL_P(key), Z_STRLEN_P(key) + 1, &data, sizeof(data), NULL);
 				break;
 		}
 		

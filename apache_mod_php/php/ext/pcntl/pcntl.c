@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: pcntl.c,v 1.48.2.2.2.4 2007/01/01 09:36:04 sebastian Exp $ */
+/* $Id: pcntl.c,v 1.48.2.2.2.6 2007/12/31 07:20:09 sebastian Exp $ */
 
 #define PCNTL_DEBUG 0
 
@@ -225,7 +225,7 @@ PHP_FUNCTION(pcntl_fork)
 
 	id = fork();
 	if (id == -1) {
-		php_error_docref(NULL TSRMLS_CC, E_ERROR, "Error %d", errno);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Error %d", errno);
 	}
 	
 	RETURN_LONG((long) id);

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_compile.c,v 1.647.2.27.2.41 2007/09/20 14:11:31 jani Exp $ */
+/* $Id: zend_compile.c,v 1.647.2.27.2.48 2008/02/20 12:04:49 dmitry Exp $ */
 
 #include <zend_language_parser.h>
 #include "zend.h"
@@ -541,8 +541,39 @@ static zend_bool opline_is_fetch_this(zend_op *opline TSRMLS_DC)
 
 void zend_do_assign(znode *result, znode *variable, znode *value TSRMLS_DC)
 {
-	int last_op_number = get_next_op_number(CG(active_op_array));
-	zend_op *opline = get_next_op(CG(active_op_array) TSRMLS_CC);
+	int last_op_number;
+	zend_op *opline;
+
+	if (value->op_type == IS_CV) {
+		zend_llist *fetch_list_ptr;
+
+		zend_stack_top(&CG(bp_stack), (void **) &fetch_list_ptr);
+		if (fetch_list_ptr && fetch_list_ptr->head) {
+			opline = (zend_op *)fetch_list_ptr->head->data;
+
+			if (opline->opcode == ZEND_FETCH_DIM_W &&
+			    opline->op1.op_type == IS_CV &&
+			    opline->op1.u.var == value->u.var) {
+
+				opline = get_next_op(CG(active_op_array) TSRMLS_CC);
+				opline->opcode = ZEND_FETCH_R;
+				opline->result.op_type = IS_VAR;
+				opline->result.u.EA.type = 0;
+				opline->result.u.var = get_temporary_variable(CG(active_op_array));
+				opline->op1.op_type = IS_CONST;
+				ZVAL_STRINGL(&opline->op1.u.constant,
+					CG(active_op_array)->vars[value->u.var].name, 
+					CG(active_op_array)->vars[value->u.var].name_len, 1);
+				SET_UNUSED(opline->op2);
+				value = &opline->result;
+			}
+		}
+	}
+
+	zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC);
+
+	last_op_number = get_next_op_number(CG(active_op_array));
+	opline = get_next_op(CG(active_op_array) TSRMLS_CC);
 
 	if (variable->op_type == IS_VAR) {
 		int n = 0;
@@ -654,8 +685,14 @@ static inline void do_begin_loop(TSRMLS_D)
 }
 
 
-static inline void do_end_loop(int cont_addr TSRMLS_DC)
+static inline void do_end_loop(int cont_addr, int has_loop_var TSRMLS_DC)
 {
+	if (!has_loop_var) {
+		/* The start fileld is used to free temporary variables in case of exceptions.
+		 * We won't try to free something of we don't have loop variable.
+		 */
+		CG(active_op_array)->brk_cont_array[CG(active_op_array)->current_brk_cont].start = -1;
+	}
 	CG(active_op_array)->brk_cont_array[CG(active_op_array)->current_brk_cont].cont = cont_addr;
 	CG(active_op_array)->brk_cont_array[CG(active_op_array)->current_brk_cont].brk = get_next_op_number(CG(active_op_array));
 	CG(active_op_array)->current_brk_cont = CG(active_op_array)->brk_cont_array[CG(active_op_array)->current_brk_cont].parent;
@@ -690,7 +727,7 @@ void zend_do_while_end(znode *while_token, znode *close_bracket_token TSRMLS_DC)
 	/* update while's conditional jmp */
 	CG(active_op_array)->opcodes[close_bracket_token->u.opline_num].op2.u.opline_num = get_next_op_number(CG(active_op_array));
 
-	do_end_loop(while_token->u.opline_num TSRMLS_CC);
+	do_end_loop(while_token->u.opline_num, 0 TSRMLS_CC);
 
 	DEC_BPC(CG(active_op_array));
 }
@@ -734,7 +771,7 @@ void zend_do_for_end(znode *second_semicolon_token TSRMLS_DC)
 	SET_UNUSED(opline->op1);
 	SET_UNUSED(opline->op2);
 
-	do_end_loop(second_semicolon_token->u.opline_num+1 TSRMLS_CC);
+	do_end_loop(second_semicolon_token->u.opline_num+1, 0 TSRMLS_CC);
 
 	DEC_BPC(CG(active_op_array));
 }
@@ -1069,6 +1106,7 @@ void zend_do_begin_function_declaration(znode *function_token, znode *function_n
 	zend_uint fn_flags;
 	char *lcname;
 	zend_bool orig_interactive;
+	ALLOCA_FLAG(use_heap)
 
 	if (is_method) {
 		if (CG(active_class_entry)->ce_flags & ZEND_ACC_INTERFACE) {
@@ -1129,7 +1167,7 @@ void zend_do_begin_function_declaration(znode *function_token, znode *function_n
 		}
 
 		if (!(CG(active_class_entry)->ce_flags & ZEND_ACC_INTERFACE)) {
-			short_class_name = do_alloca(short_class_name_length + 1);
+			short_class_name = do_alloca_with_limit(short_class_name_length + 1, use_heap);
 			zend_str_tolower_copy(short_class_name, CG(active_class_entry)->name, short_class_name_length);
 			/* Improve after RC: cache the lowercase class name */
 
@@ -1163,7 +1201,7 @@ void zend_do_begin_function_declaration(znode *function_token, znode *function_n
 			} else if (!(fn_flags & ZEND_ACC_STATIC)) {
 				CG(active_op_array)->fn_flags |= ZEND_ACC_ALLOW_STATIC;
 			}
-			free_alloca(short_class_name);
+			free_alloca_with_limit(short_class_name, use_heap);
 		}
 
 		efree(lcname);
@@ -1990,7 +2028,7 @@ static zend_bool zend_do_perform_implementation_check(zend_function *fe, zend_fu
 			return 0;
 		}
 		if (fe->common.arg_info[i].class_name
-			&& strcmp(fe->common.arg_info[i].class_name, proto->common.arg_info[i].class_name)!=0) {
+			&& strcasecmp(fe->common.arg_info[i].class_name, proto->common.arg_info[i].class_name)!=0) {
 			return 0;
 		}
 		if (fe->common.arg_info[i].array_type_hint != proto->common.arg_info[i].array_type_hint) {
@@ -2191,7 +2229,7 @@ static inline void do_implement_interface(zend_class_entry *ce, zend_class_entry
 		zend_error(E_CORE_ERROR, "Class %s could not implement interface %s", ce->name, iface->name);
 	}
 	if (ce == iface) {
-		zend_error(E_ERROR, "Interface %s cannot not implement itself", ce->name);
+		zend_error(E_ERROR, "Interface %s cannot implement itself", ce->name);
 	}
 }
 
@@ -2614,7 +2652,7 @@ void zend_do_do_while_end(znode *do_token, znode *expr_open_bracket, znode *expr
 	opline->op2.u.opline_num = do_token->u.opline_num;
 	SET_UNUSED(opline->op2);
 
-	do_end_loop(expr_open_bracket->u.opline_num TSRMLS_CC);
+	do_end_loop(expr_open_bracket->u.opline_num, 0 TSRMLS_CC);
 
 	DEC_BPC(CG(active_op_array));
 }
@@ -3005,7 +3043,7 @@ void zend_do_declare_property(znode *var_name, znode *value, zend_uint access_ty
 	}
 
 	if (access_type & ZEND_ACC_FINAL) {
-		zend_error(E_COMPILE_ERROR, "Cannot declare property %s::$%s final, the final modifier is allowed only for methods",
+		zend_error(E_COMPILE_ERROR, "Cannot declare property %s::$%s final, the final modifier is allowed only for methods and classes",
 				   CG(active_class_entry)->name, var_name->u.constant.value.str.val);
 	}
 
@@ -3420,8 +3458,6 @@ void zend_do_list_end(znode *result, znode *expr TSRMLS_DC)
 	zend_llist_element *dimension;
 	zend_op *opline;
 	znode last_container;
-	int last_op_number;
-	zend_op *last_op;
 
 	le = CG(list_llist).head;
 	while (le) {
@@ -3461,9 +3497,6 @@ void zend_do_list_end(znode *result, znode *expr TSRMLS_DC)
 		}
 		((list_llist_element *) le->data)->value = last_container;
 		zend_llist_destroy(&((list_llist_element *) le->data)->dimensions);
-		zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC);
-		last_op_number = get_next_op_number(CG(active_op_array))-1;
-		last_op = &CG(active_op_array)->opcodes[last_op_number];
 		zend_do_assign(result, &((list_llist_element *) le->data)->var, &((list_llist_element *) le->data)->value TSRMLS_CC);
 		zend_do_free(result TSRMLS_CC);
 		le = le->next;
@@ -3824,9 +3857,9 @@ void zend_do_foreach_cont(znode *foreach_token, znode *open_brackets_token, znod
 
 	value_node = opline->result;
 
-	zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC);
 	if (assign_by_ref) {
 		/* Mark FE_FETCH as IS_VAR as it holds the data directly as a value */
+		zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC);
 		zend_do_assign_ref(NULL, value, &value_node TSRMLS_CC);
 	} else {
 		zend_do_assign(&dummy, value, &value_node TSRMLS_CC);
@@ -3836,7 +3869,6 @@ void zend_do_foreach_cont(znode *foreach_token, znode *open_brackets_token, znod
 	if (key->op_type != IS_UNUSED) {
 		znode key_node;
 
-		zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC);
 		opline = &CG(active_op_array)->opcodes[as_token->u.opline_num+1];
 		opline->result.op_type = IS_TMP_VAR;
 		opline->result.u.EA.type = 0;
@@ -3865,7 +3897,7 @@ void zend_do_foreach_end(znode *foreach_token, znode *as_token TSRMLS_DC)
 	CG(active_op_array)->opcodes[foreach_token->u.opline_num].op2.u.opline_num = get_next_op_number(CG(active_op_array)); /* FE_RESET */
 	CG(active_op_array)->opcodes[as_token->u.opline_num].op2.u.opline_num = get_next_op_number(CG(active_op_array)); /* FE_FETCH */
 
-	do_end_loop(as_token->u.opline_num TSRMLS_CC);
+	do_end_loop(as_token->u.opline_num, 1 TSRMLS_CC);
 
 	zend_stack_top(&CG(foreach_copy_stack), (void **) &container_ptr);
 	generate_free_foreach_copy(container_ptr TSRMLS_CC);

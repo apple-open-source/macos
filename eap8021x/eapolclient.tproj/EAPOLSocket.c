@@ -743,14 +743,11 @@ EAPOLSocket_transmit(EAPOLSocket * sock,
     }
     if (sendto(FDHandler_fd(sock->handler), eh_p, size, 
 	       0, (struct sockaddr *)&ndrv, sizeof(ndrv)) < size) {
-	my_log(LOG_NOTICE, "EAPOLSocket_receive: sendto failed, %s",
+	my_log(LOG_NOTICE, "EAPOLSocket_transmit: sendto failed, %s",
 	       strerror(errno));
-	goto failed;
+	return (-1);
     }
     return (0);
-
- failed:
-    return (-1);
 }
 
 boolean_t

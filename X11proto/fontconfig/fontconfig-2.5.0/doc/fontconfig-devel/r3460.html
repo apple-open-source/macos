@@ -1,0 +1,224 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN""http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>FcFileScan</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="File and Directory routines"
+HREF="x102.html#AEN3457"><LINK
+REL="PREVIOUS"
+TITLE="FUNCTIONS"
+HREF="x102.html"><LINK
+REL="NEXT"
+TITLE="FcFileIsDir"
+HREF="r3496.html"></HEAD
+><BODY
+CLASS="REFENTRY"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="x102.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="r3496.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="FCFILESCAN"
+></A
+>FcFileScan</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN3464"
+></A
+><H2
+>Name</H2
+>FcFileScan&nbsp;--&nbsp;scan a font file</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN3467"
+></A
+><H2
+>Synopsis</H2
+><DIV
+CLASS="FUNCSYNOPSIS"
+><P
+></P
+><A
+NAME="AEN3468"
+></A
+><PRE
+CLASS="FUNCSYNOPSISINFO"
+>#include &lt;fontconfig.h&gt;
+	</PRE
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcBool FcFileScan</CODE
+>(FcFontSet *set, FcStrSet *dirs, FcFileCache *cache, FcBlanks *blanks, const FcChar8 *file, FcBool force);</CODE
+></P
+><P
+></P
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN3485"
+></A
+><H2
+>Description</H2
+><P
+>Scans a single file and adds all fonts found to <CODE
+CLASS="PARAMETER"
+>set</CODE
+>.
+If <CODE
+CLASS="PARAMETER"
+>force</CODE
+> is FcTrue, then the file is scanned even if
+associated information is found in <CODE
+CLASS="PARAMETER"
+>cache</CODE
+>.  If
+<CODE
+CLASS="PARAMETER"
+>file</CODE
+> is a directory, it is added to
+<CODE
+CLASS="PARAMETER"
+>dirs</CODE
+>. Whether fonts are found depends on fontconfig
+policy as well as the current configuration. Internally, fontconfig will
+ignore BDF and PCF fonts which are not in Unicode (or the effectively
+equivalent ISO Latin-1) encoding as those are not usable by Unicode-based
+applications. The configuration can ignore fonts based on filename or
+contents of the font file itself. Returns FcFalse if any of the fonts cannot be
+added (due to allocation failure). Otherwise returns FcTrue.
+	    </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN3493"
+></A
+><H2
+>Version</H2
+><P
+>Fontconfig version 2.5.0
+
+	    </P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="x102.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="r3496.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>FUNCTIONS</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="x102.html#AEN3457"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>FcFileIsDir</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

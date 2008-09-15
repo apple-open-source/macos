@@ -1,5 +1,5 @@
 /*
- * "$Id: file.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: file.h 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Public file definitions for the Common UNIX Printing System (CUPS).
  *
@@ -100,5 +100,5 @@ extern ssize_t		cupsFileWrite(cups_file_t *fp, const char *buf, size_t bytes);
 #endif /* !_CUPS_FILE_H_ */
 
 /*
- * End of "$Id: file.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: file.h 7721 2008-07-11 22:48:49Z mike $".
  */

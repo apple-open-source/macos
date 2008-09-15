@@ -1,75 +1,92 @@
 /*
-   Copyright (C) Andrew Tridgell 1996
-   Copyright (C) Paul Mackerras 1996
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
+ * Routines used by the file-transfer code.
+ *
+ * Copyright (C) 1996 Andrew Tridgell
+ * Copyright (C) 1996 Paul Mackerras
+ * Copyright (C) 2003, 2004, 2005 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
 #include "rsync.h"
 #include "zlib/zlib.h"
 
 extern int do_compression;
 extern int module_id;
+extern int def_compress_level;
 
-static int compression_level = Z_DEFAULT_COMPRESSION;
+static int compression_level, per_file_default_level;
 
 /* determine the compression level based on a wildcard filename list */
 void set_compression(char *fname)
 {
-	char *dont;
-	char *tok;
+	static char *match_list;
+	char *s;
 
 	if (!do_compression)
 		return;
 
-	compression_level = Z_DEFAULT_COMPRESSION;
-	dont = lp_dont_compress(module_id);
-
-	if (!dont || !*dont)
-		return;
-
-	if (dont[0] == '*' && !dont[1]) {
-		/* an optimization to skip the rest of this routine */
-		compression_level = 0;
-		return;
+	if (!match_list) {
+		char *t, *f = lp_dont_compress(module_id);
+		int len = strlen(f);
+		if (!(match_list = t = new_array(char, len + 2)))
+			out_of_memory("set_compression");
+		while (*f) {
+			if (*f == ' ') {
+				f++;
+				continue;
+			}
+			do {
+				if (isupper(*(unsigned char *)f))
+					*t++ = tolower(*(unsigned char *)f);
+				else
+					*t++ = *f;
+			} while (*++f != ' ' && *f);
+			*t++ = '\0';
+		}
+		/* Optimize a match-string of "*". */
+		if (t - match_list == 2 && match_list[0] == '*') {
+			t = match_list;
+			per_file_default_level = 0;
+		} else
+			per_file_default_level = def_compress_level;
+		*t++ = '\0';
 	}
 
-	dont = strdup(dont);
-	fname = strdup(fname);
-	if (!dont || !fname)
+	compression_level = per_file_default_level;
+
+	if (!*match_list)
 		return;
 
-	strlower(dont);
-	strlower(fname);
+	if ((s = strrchr(fname, '/')) != NULL)
+		fname = s + 1;
 
-	for (tok = strtok(dont, " "); tok; tok = strtok(NULL, " ")) {
-		if (wildmatch(tok, fname)) {
+	for (s = match_list; *s; s += strlen(s) + 1) {
+		if (iwildmatch(s, fname)) {
 			compression_level = 0;
 			break;
 		}
 	}
-	free(dont);
-	free(fname);
 }
 
 /* non-compressing recv token */
-static int simple_recv_token(int f,char **data)
+static int32 simple_recv_token(int f, char **data)
 {
-	static int residue;
+	static int32 residue;
 	static char *buf;
-	int n;
+	int32 n;
 
 	if (!buf) {
 		buf = new_array(char, CHUNK_SIZE);
@@ -78,7 +95,7 @@ static int simple_recv_token(int f,char **data)
 	}
 
 	if (residue == 0) {
-		int i = read_int(f);
+		int32 i = read_int(f);
 		if (i <= 0)
 			return i;
 		residue = i;
@@ -91,26 +108,23 @@ static int simple_recv_token(int f,char **data)
 	return n;
 }
 
-
 /* non-compressing send token */
-static void simple_send_token(int f,int token,
-			      struct map_struct *buf,OFF_T offset,int n)
+static void simple_send_token(int f, int32 token, struct map_struct *buf,
+			      OFF_T offset, int32 n)
 {
 	if (n > 0) {
-		int l = 0;
-		while (l < n) {
-			int n1 = MIN(CHUNK_SIZE,n-l);
-			write_int(f,n1);
-			write_buf(f,map_ptr(buf,offset+l,n1),n1);
-			l += n1;
+		int32 len = 0;
+		while (len < n) {
+			int32 n1 = MIN(CHUNK_SIZE, n-len);
+			write_int(f, n1);
+			write_buf(f, map_ptr(buf, offset+len, n1), n1);
+			len += n1;
 		}
 	}
 	/* a -2 token means to send data only and no token */
-	if (token != -2) {
-		write_int(f,-(token+1));
-	}
+	if (token != -2)
+		write_int(f, -(token+1));
 }
-
 
 /* Flag bytes in compressed stream are encoded as follows: */
 #define END_FLAG	0	/* that's all folks */
@@ -129,9 +143,9 @@ static void simple_send_token(int f,int token,
 #define AVAIL_OUT_SIZE(avail_in_size) ((avail_in_size)*1001/1000+16)
 
 /* For coding runs of tokens */
-static int last_token = -1;
-static int run_start;
-static int last_run_end;
+static int32 last_token = -1;
+static int32 run_start;
+static int32 last_run_end;
 
 /* Deflation state */
 static z_stream tx_strm;
@@ -149,10 +163,10 @@ static char *obuf;
 
 /* Send a deflated token */
 static void
-send_deflated_token(int f, int token,
-		    struct map_struct *buf, OFF_T offset, int nb, int toklen)
+send_deflated_token(int f, int32 token, struct map_struct *buf, OFF_T offset,
+		    int32 nb, int32 toklen)
 {
-	int n, r;
+	int32 n, r;
 	static int init_done, flush_pending;
 
 	if (last_token == -1) {
@@ -175,10 +189,8 @@ send_deflated_token(int f, int token,
 		last_run_end = 0;
 		run_start = token;
 		flush_pending = 0;
-
 	} else if (last_token == -2) {
 		run_start = token;
-
 	} else if (nb != 0 || token != last_token + 1
 		   || token >= run_start + 65536) {
 		/* output previous run */
@@ -261,21 +273,26 @@ send_deflated_token(int f, int token,
 		/* end of file - clean up */
 		write_byte(f, END_FLAG);
 	} else if (token != -2) {
-		/* add the data in the current block to the compressor's
-		   history and hash table */
-		tx_strm.next_in = (Bytef *) map_ptr(buf, offset, toklen);
-		tx_strm.avail_in = toklen;
-		tx_strm.next_out = (Bytef *) obuf;
-		tx_strm.avail_out = AVAIL_OUT_SIZE(CHUNK_SIZE);
-		r = deflate(&tx_strm, Z_INSERT_ONLY);
-		if (r != Z_OK || tx_strm.avail_in != 0) {
-			rprintf(FERROR, "deflate on token returned %d (%d bytes left)\n",
-				r, tx_strm.avail_in);
-			exit_cleanup(RERR_STREAMIO);
-		}
+		/* Add the data in the current block to the compressor's
+		 * history and hash table. */
+		do {
+			/* Break up long sections in the same way that
+			 * see_deflate_token() does. */
+			int32 n1 = toklen > 0xffff ? 0xffff : toklen;
+			toklen -= n1;
+			tx_strm.next_in = (Bytef *)map_ptr(buf, offset, n1);
+			tx_strm.avail_in = n1;
+			tx_strm.next_out = (Bytef *) obuf;
+			tx_strm.avail_out = AVAIL_OUT_SIZE(CHUNK_SIZE);
+			r = deflate(&tx_strm, Z_INSERT_ONLY);
+			if (r != Z_OK || tx_strm.avail_in != 0) {
+				rprintf(FERROR, "deflate on token returned %d (%d bytes left)\n",
+					r, tx_strm.avail_in);
+				exit_cleanup(RERR_STREAMIO);
+			}
+		} while (toklen > 0);
 	}
 }
-
 
 /* tells us what the receiver is in the middle of doing */
 static enum { r_init, r_idle, r_running, r_inflating, r_inflated } recv_state;
@@ -286,16 +303,16 @@ static char *cbuf;
 static char *dbuf;
 
 /* for decoding runs of tokens */
-static int rx_token;
-static int rx_run;
+static int32 rx_token;
+static int32 rx_run;
 
 /* Receive a deflated token and inflate it */
-static int
-recv_deflated_token(int f, char **data)
+static int32 recv_deflated_token(int f, char **data)
 {
-	int n, r, flag;
 	static int init_done;
-	static int saved_flag;
+	static int32 saved_flag;
+	int32 n, flag;
+	int r;
 
 	for (;;) {
 		switch (recv_state) {
@@ -422,9 +439,10 @@ recv_deflated_token(int f, char **data)
  * put the data corresponding to a token that we've just returned
  * from recv_deflated_token into the decompressor's history buffer.
  */
-static void see_deflate_token(char *buf, int len)
+static void see_deflate_token(char *buf, int32 len)
 {
-	int r, blklen;
+	int r;
+	int32 blklen;
 	unsigned char hdr[5];
 
 	rx_strm.avail_in = 0;
@@ -465,16 +483,14 @@ static void see_deflate_token(char *buf, int len)
  * If token == -1 then we have reached EOF
  * If n == 0 then don't send a buffer
  */
-void send_token(int f,int token,struct map_struct *buf,OFF_T offset,
-		int n,int toklen)
+void send_token(int f, int32 token, struct map_struct *buf, OFF_T offset,
+		int32 n, int32 toklen)
 {
-	if (!do_compression) {
-		simple_send_token(f,token,buf,offset,n);
-	} else {
+	if (!do_compression)
+		simple_send_token(f, token, buf, offset, n);
+	else
 		send_deflated_token(f, token, buf, offset, n, toklen);
-	}
 }
-
 
 /*
  * receive a token or buffer from the other end. If the reurn value is >0 then
@@ -482,7 +498,7 @@ void send_token(int f,int token,struct map_struct *buf,OFF_T offset,
  * if the return value is -i then it represents token i-1
  * if the return value is 0 then the end has been reached
  */
-int recv_token(int f,char **data)
+int32 recv_token(int f, char **data)
 {
 	int tok;
 
@@ -497,7 +513,7 @@ int recv_token(int f,char **data)
 /*
  * look at the data corresponding to a token, if necessary
  */
-void see_token(char *data, int toklen)
+void see_token(char *data, int32 toklen)
 {
 	if (do_compression)
 		see_deflate_token(data, toklen);

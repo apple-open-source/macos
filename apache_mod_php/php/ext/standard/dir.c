@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dir.c,v 1.147.2.3.2.12 2007/09/19 22:37:58 iliaa Exp $ */
+/* $Id: dir.c,v 1.147.2.3.2.16 2008/03/05 12:10:18 tony2001 Exp $ */
 
 /* {{{ includes/startup/misc */
 
@@ -256,14 +256,16 @@ PHP_FUNCTION(closedir)
 {
 	zval **id, **tmp, *myself;
 	php_stream *dirp;
+	int rsrc_id;
 
 	FETCH_DIRP();
 
-	if (dirp->rsrc_id == DIRG(default_dir)) {
+	rsrc_id = dirp->rsrc_id;
+	zend_list_delete(dirp->rsrc_id);
+
+	if (rsrc_id == DIRG(default_dir)) {
 		php_set_default_dir(-1 TSRMLS_CC);
 	}
-
-	zend_list_delete(dirp->rsrc_id);
 }
 /* }}} */
 
@@ -467,7 +469,7 @@ no_results:
 	array_init(return_value);
 	for (n = 0; n < globbuf.gl_pathc; n++) {
 		if (PG(safe_mode) || (PG(open_basedir) && *PG(open_basedir))) {
-			if (PG(safe_mode) && (!php_checkuid(globbuf.gl_pathv[n], NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+			if (PG(safe_mode) && (!php_checkuid_ex(globbuf.gl_pathv[n], NULL, CHECKUID_CHECK_FILE_AND_DIR, CHECKUID_NO_ERRORS))) {
 				basedir_limit = 1;
 				continue;
 			} else if (php_check_open_basedir_ex(globbuf.gl_pathv[n], 0 TSRMLS_CC)) {

@@ -1,0 +1,100 @@
+.\" $XdotOrg: app/xkbevd/xkbevd.man,v 1.3 2006/02/03 19:06:09 alanc Exp $
+.\" $Xorg: xkbevd.man,v 1.3 2000/08/17 19:54:49 cpqbld Exp $
+.\"
+.\" $XFree86: xc/programs/xkbevd/xkbevd.man,v 1.7 2001/01/27 18:21:16 dawes Exp $
+.\"
+.TH XKBEVD 1 __xorgversion__
+.SH NAME
+xkbevd \- XKB event daemon
+.SH SYNOPSIS
+.B xkbevd
+[ options ]
+.SH DESCRIPTION
+.PP
+This command is very raw and is therefore only partially implemented;  we 
+present it here as a rough prototype for developers, not as a general purpose 
+tool for end users.  Something like this might make a suitable replacement
+for xev;  I'm not signing up, mind you, but it's an interesting idea.
+.PP
+The
+.I xkbevd
+event daemon listens for specified XKB events and executes requested commands
+if they occur.   The configuration file consists of a list of event 
+specification/action pairs and/or variable definitions.   
+.PP
+An event specification consists of a short XKB event name followed by a 
+string or identifier which serves as a qualifier in parentheses;  empty 
+parenthesis indicate no qualification and serve to specify the default 
+command which is applied to events which do not match any of the other 
+specifications.  The interpretation of the qualifier depends on the type 
+of the event:  Bell events match using the name of the bell, message events 
+match on the contents of the message string and slow key events accept 
+any of \fIpress\fP, \fIrelease\fP, \fIaccept\fP, or \fIreject\fP.   No 
+other events are currently recognized.
+.PP
+An action consists of an optional keyword followed by an optional string 
+argument.  Currently, \fIxkbev\fP recognizes the actions: \fInone\fP, 
+\fIignore\fP, \fIecho\fP, \fIprintEvent\fP, \fIsound\fP, and \fIshell\fP.
+If the action is not specified, the string is taken as the name of a sound
+file to be played unless it begins with an exclamation point, in which case
+it is taken as a shell command.
+.PP
+Variable definitions in the argument string are expanded with fields from
+the event in question before the argument string is passed to the action
+processor.   The general syntax for a variable is 
+either $\fIc\P or $(\fIstr\fP), where \fIc\fP is a single character and
+\fIstr\fP is a string of arbitrary length.  All parameters have both 
+single-character and long names.    
+.PP
+The list of recognized parameters varies from event to event and is too long 
+to list here right now.   This is a developer release anyway, so you can
+be expected to look at the source code (evargs.c is of particular interest).
+.PP
+The \fIignore\fP, \fIecho\fP, \fIprintEvent\fP, \fIsound\fP,and \fIshell\fP
+actions do what you would expect commands named \fIignore\fP, \fIecho\fP,
+\fIprintEvent\fP, \fIsound\fP, and \fIshell\fP to do, except that the sound
+command has only been implemented and tested for SGI machines.   It launches
+an external program right now, so it should be pretty easy to adapt, 
+especially if you like audio cues that arrive about a half-second after you
+expect them.
+.PP
+The only currently recognized variables are \fIsoundDirectory\fP and
+\fIsoundCmd\fP.  I'm sure you can figure out what they do.
+.SH OPTIONS
+.TP 8
+.B \-help
+Prints a usage message that is far more up-to-date than anything in this
+man page.
+.TP 8
+.B \-cfg \fIfile\fP
+Specifies the configuration file to read.   If no configuration file is
+specified, \fIxkbevd\fP looks for ~/.xkb/xkbevd.cf and $(LIBDIR)/xkb/xkbevd.cf
+in that order.
+.TP 8
+.B \-sc\ \fIcmd\fP
+Specifies the command used to play sounds.
+.TP 8
+.B \-sd\ \fIdirectory\fP
+Specifies a top-level directory for sound files.
+.TP 8
+.B \-display\ \fIdisplay\fP
+Specifies the display to use.  If not present, \fIxkbevd\fP uses $DISPLAY.
+.TP 8
+.B \-bg
+Tells \fIxkbevd\fP to fork itself (and run in the background).
+.TP 8
+.B \-synch
+Forces synchronization of all X requests.  Slow.
+.TP 8
+.B \-v
+Print more information, including debugging messages.   Multiple 
+specifications of \fI-v\fP cause more output, to a point.
+.SH "SEE ALSO"
+X(__miscmansuffix__)
+.SH COPYRIGHT
+Copyright 1995, Silicon Graphics Computer Systems
+Copyright 1995, 1998  The Open Group
+.br
+See \fIX(__miscmansuffix__)\fP for a full statement of rights and permissions.
+.SH AUTHOR
+Erik Fortune, Silicon Graphics

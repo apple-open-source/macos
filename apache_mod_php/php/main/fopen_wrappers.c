@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: fopen_wrappers.c,v 1.175.2.3.2.16 2007/10/09 10:06:34 scottmac Exp $ */
+/* $Id: fopen_wrappers.c,v 1.175.2.3.2.19 2008/01/29 14:23:19 dmitry Exp $ */
 
 /* {{{ includes
  */
@@ -148,6 +148,9 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 			path_len = path_file - path_tmp + 1;
 #if defined(PHP_WIN32) || defined(NETWARE)
 			if (path_len > 1 && path_tmp[path_len - 2] == ':') {
+				if (path_len != 3) {
+					return -1;
+				} 
 				/* this is c:\ */
 				path_tmp[path_len] = '\0';
 			} else {
@@ -620,6 +623,7 @@ PHPAPI char *expand_filepath(const char *filepath, char *real_path TSRMLS_DC)
 				 * relatively referenced file is accessible */
 				copy_len = strlen(filepath) > MAXPATHLEN - 1 ? MAXPATHLEN - 1 : strlen(filepath);
 				real_path = estrndup(filepath, copy_len);
+				close(fdtest);
 				return real_path;
 			} else {
 				cwd[0] = '\0';

@@ -1,5 +1,5 @@
 /*
- * "$Id: var.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: var.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   CGI form variable and array functions.
  *
@@ -1044,5 +1044,5 @@ cgi_unlink_file(void)
 
 
 /*
- * End of "$Id: var.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: var.c 7721 2008-07-11 22:48:49Z mike $".
  */

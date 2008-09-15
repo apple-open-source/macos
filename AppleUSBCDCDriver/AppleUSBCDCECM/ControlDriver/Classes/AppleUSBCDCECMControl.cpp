@@ -61,11 +61,13 @@ extern "C"
 #include "AppleUSBCDCECM.h"
 #include "AppleUSBCDCECMControl.h"
 
+#if 0
 static IOPMPowerState gOurPowerStates[kNumCDCStates] =
 {
     {1,0,0,0,0,0,0,0,0,0,0,0},
     {1,IOPMDeviceUsable,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0}
 };
+#endif
 
 #define	numStats	13
 UInt16	stats[numStats] = { kXMIT_OK_REQ,
@@ -509,12 +511,14 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
         ALERT(0, 0, "start - allocateResources failed");
         return false;
     }
-    
+
+#if 0    
     if (!initForPM(provider))
     {
         ALERT(0, 0, "start - initForPM failed");
         return false;
     }
+#endif
     
     registerService();
     
@@ -543,7 +547,7 @@ void AppleUSBCDCECMControl::stop(IOService *provider)
     
     releaseResources();
 	
-	PMstop();
+//	PMstop();
     
     super::stop(provider);
     
@@ -1394,6 +1398,7 @@ IOReturn AppleUSBCDCECMControl::message(UInt32 type, IOService *provider, void *
     
 }/* end message */
 
+#if 0
 /****************************************************************************************************/
 //
 //		Method:		AppleUSBCDCECMControl::initForPM
@@ -1488,3 +1493,4 @@ IOReturn AppleUSBCDCECMControl::setPowerState(unsigned long powerStateOrdinal, I
     return IOPMNoSuchState;
     
 }/* end setPowerState */
+#endif

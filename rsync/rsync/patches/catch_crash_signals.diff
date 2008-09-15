@@ -1,0 +1,124 @@
+Igor Yu. Zhbanov wrote:
+> I am using rsync compiled with Cygwin on windows. 
+> I must call rsync from the *.bat script (I don't want to use a bash on Windows)
+> and I have noticed that in the case when program compiled by Cygwin crashes
+> via segmentation fault and default SIGSEGV handler is called, then it
+> terminates process with exit status 0 as I see it from my *.bat script.
+> (But if I invoke a program from bash (compiled with Cygwin too) I will see
+> error code 139 as expected.)
+> 
+> It is a Cygwin's problem, not an rsync's, but to use it on windows and
+> to distinguish situations when rsync crashes and when it exits normally,
+> I have written signal handler which terminates process with code 50.
+> You may use conventional 139. Also signal handler writes corresponding
+> message to log file.
+> 
+> By the way. When I terminate rsync in daemon mode by pressing Control-C,
+> it writes an error to log. May be this is not an error but info or notice?
+
+I'm not sure I like this, but if you run into the cygwin problem, this might
+prove helpful.
+
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/catch_crash_signals.diff
+    ./configure                                  (optional if already run)
+    make
+
+--- old/errcode.h
++++ new/errcode.h
+@@ -47,6 +47,8 @@
+ 
+ #define RERR_TIMEOUT    30      /* timeout in data send/receive */
+ 
++#define RERR_WECRASHED	 50      /* We have crashed. */
++
+ /* Although it doesn't seem to be specified anywhere,
+  * ssh and the shell seem to return these values:
+  *
+--- old/log.c
++++ new/log.c
+@@ -77,6 +77,7 @@ struct {
+ 	{ RERR_TERMINATED , "sibling process terminated abnormally" },
+ 	{ RERR_SIGNAL1    , "received SIGUSR1" },
+ 	{ RERR_SIGNAL     , "received SIGINT, SIGTERM, or SIGHUP" },
++	{ RERR_WECRASHED  , "rsync caught a CRASH-causing signal" },
+ 	{ RERR_WAITCHILD  , "waitpid() failed" },
+ 	{ RERR_MALLOC     , "error allocating core memory buffers" },
+ 	{ RERR_PARTIAL    , "some files could not be transferred" },
+--- old/main.c
++++ new/main.c
+@@ -149,8 +149,11 @@ static void wait_process_with_flush(pid_
+ 			*exit_code_ptr = RERR_TERMINATED;
+ 		else
+ 			*exit_code_ptr = RERR_WAITCHILD;
+-	} else
++	} else {
+ 		*exit_code_ptr = WEXITSTATUS(status);
++		if (*exit_code_ptr == RERR_WECRASHED)
++			*exit_code_ptr = RERR_CRASHED;
++	}
+ }
+ 
+ /* This function gets called from all 3 processes.  We want the client side
+@@ -1211,6 +1214,14 @@ RETSIGTYPE remember_children(UNUSED(int 
+ 				break;
+ 			}
+ 		}
++		if (WIFSIGNALED(status)) {
++			rprintf(FLOG,
++				"rsync error: (1) Child proccess has unexpectedly died with signal %d\n",
++				WTERMSIG(status));
++		} else if (WIFEXITED(status) && WEXITSTATUS(status) == RERR_WECRASHED) {
++			rprintf(FLOG,
++				"rsync error: (1) Child proccess has CRASHED.\n");
++		}
+ 	}
+ #endif
+ #ifndef HAVE_SIGACTION
+@@ -1269,6 +1280,12 @@ static RETSIGTYPE rsync_panic_handler(UN
+ }
+ #endif
+ 
++static RETSIGTYPE rsync_crash_handler(UNUSED(int whatsig))
++{
++	log_exit(RERR_WECRASHED, __FILE__, __LINE__);
++	logfile_close();
++	_exit(RERR_WECRASHED);
++}
+ 
+ int main(int argc,char *argv[])
+ {
+@@ -1291,6 +1308,11 @@ int main(int argc,char *argv[])
+ 	SIGACTMASK(SIGFPE, rsync_panic_handler);
+ 	SIGACTMASK(SIGABRT, rsync_panic_handler);
+ 	SIGACTMASK(SIGBUS, rsync_panic_handler);
++#else
++	SIGACTMASK(SIGSEGV, rsync_crash_handler);
++	SIGACTMASK(SIGFPE, rsync_crash_handler);
++	SIGACTMASK(SIGABRT, rsync_crash_handler);
++	SIGACTMASK(SIGBUS, rsync_crash_handler);
+ #endif
+ 
+ 	starttime = time(NULL);
+--- old/socket.c
++++ new/socket.c
+@@ -454,7 +454,17 @@ int is_a_socket(int fd)
+ static RETSIGTYPE sigchld_handler(UNUSED(int val))
+ {
+ #ifdef WNOHANG
+-	while (waitpid(-1, NULL, WNOHANG) > 0) {}
++	int status;
++	while (waitpid(-1, &status, WNOHANG) > 0) {
++		if (WIFSIGNALED(status)) {
++			rprintf(FLOG,
++				"rsync error: (3) Child proccess has unexpectedly died with signal %d\n",
++				WTERMSIG(status));
++		} else if (WIFEXITED(status) && WEXITSTATUS(status) == RERR_WECRASHED) {
++			rprintf(FLOG,
++				"rsync error: (3) Child proccess has CRASHED.\n");
++		}
++	}
+ #endif
+ #ifndef HAVE_SIGACTION
+ 	signal(SIGCHLD, sigchld_handler);

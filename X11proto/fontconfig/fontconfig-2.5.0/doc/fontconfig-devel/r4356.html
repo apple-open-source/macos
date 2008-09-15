@@ -1,0 +1,215 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN""http://www.w3.org/TR/html4/loose.dtd">
+<HTML
+><HEAD
+><TITLE
+>FcStrCopyFilename</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.79"><LINK
+REL="HOME"
+HREF="index.html"><LINK
+REL="UP"
+TITLE="String utilities"
+HREF="x102.html#AEN4087"><LINK
+REL="PREVIOUS"
+TITLE="FcStrDowncase"
+HREF="r4334.html"><LINK
+REL="NEXT"
+TITLE="FcStrCmp"
+HREF="r4380.html"></HEAD
+><BODY
+CLASS="REFENTRY"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+SUMMARY="Header navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+></TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="r4334.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="r4380.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><H1
+><A
+NAME="FCSTRCOPYFILENAME"
+></A
+>FcStrCopyFilename</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN4360"
+></A
+><H2
+>Name</H2
+>FcStrCopyFilename&nbsp;--&nbsp;create a complete path from a filename</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN4363"
+></A
+><H2
+>Synopsis</H2
+><DIV
+CLASS="FUNCSYNOPSIS"
+><P
+></P
+><A
+NAME="AEN4364"
+></A
+><PRE
+CLASS="FUNCSYNOPSISINFO"
+>#include &lt;fontconfig.h&gt;
+	</PRE
+><P
+><CODE
+><CODE
+CLASS="FUNCDEF"
+>FcChar8 * FcStrCopyFilename</CODE
+>(const FcChar8 *s);</CODE
+></P
+><P
+></P
+></DIV
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN4371"
+></A
+><H2
+>Description</H2
+><P
+><CODE
+CLASS="FUNCTION"
+>FcStrCopyFilename</CODE
+> constructs an absolute pathname from
+<CODE
+CLASS="PARAMETER"
+>s</CODE
+>. It converts any leading '~' characters in
+to the value of the HOME environment variable, and any relative paths are
+converted to absolute paths using the current working directory. Sequences
+of '/' characters are converted to a single '/', and names containing the
+current directory '.' or parent directory '..' are correctly reconstructed.
+Returns NULL if '~' is the leading character and HOME is unset or disabled
+(see <CODE
+CLASS="FUNCTION"
+>FcConfigEnableHome</CODE
+>).
+	    </P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN4377"
+></A
+><H2
+>Version</H2
+><P
+>Fontconfig version 2.5.0
+
+	    </P
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+SUMMARY="Footer navigation table"
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="r4334.html"
+ACCESSKEY="P"
+>Prev</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="index.html"
+ACCESSKEY="H"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="r4380.html"
+ACCESSKEY="N"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>FcStrDowncase</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="x102.html#AEN4087"
+ACCESSKEY="U"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>FcStrCmp</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

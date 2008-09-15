@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: simplexml.c,v 1.151.2.22.2.35 2007/07/31 15:40:49 rrichards Exp $ */
+/* $Id: simplexml.c,v 1.151.2.22.2.39 2008/03/20 16:48:45 rrichards Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -422,19 +422,12 @@ static void change_node_zval(xmlNodePtr node, zval *value TSRMLS_DC)
 			convert_to_string(value);
 			/* break missing intentionally */
 		case IS_STRING:
-			if (node->type == XML_ATTRIBUTE_NODE) {
-				buffer = xmlEncodeEntitiesReentrant(node->doc, (xmlChar *)Z_STRVAL_P(value));
-				buffer_len = xmlStrlen(buffer);
-			} else {
-				buffer = (xmlChar *)Z_STRVAL_P(value);
-				buffer_len = Z_STRLEN_P(value);
-			}
+			buffer = xmlEncodeEntitiesReentrant(node->doc, (xmlChar *)Z_STRVAL_P(value));
+			buffer_len = xmlStrlen(buffer);
 			/* check for NULL buffer in case of memory error in xmlEncodeEntitiesReentrant */
 			if (buffer) {
 				xmlNodeSetContentLen(node, buffer, buffer_len);
-				if (node->type == XML_ATTRIBUTE_NODE) {
-					xmlFree(buffer);
-				}
+				xmlFree(buffer);
 			}
 			if (value == &value_copy) {
 				zval_dtor(value);
@@ -1635,6 +1628,13 @@ SXE_METHOD(addAttribute)
 
 	localname = xmlSplitQName2((xmlChar *)qname, &prefix);
 	if (localname == NULL) {
+		if (nsuri_len > 0) {
+			if (prefix != NULL) {
+				xmlFree(prefix);
+			}
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Attribute requires prefix for namespace");
+			return;
+		}
 		localname = xmlStrdup((xmlChar *)qname);
 	}
 
@@ -1731,6 +1731,11 @@ static int sxe_object_cast(zval *readobj, zval *writeobj, int type TSRMLS_DC)
 				contents = xmlNodeListGetString((xmlDocPtr) sxe->document->ptr, sxe->node->node->children, 1);
 			}
 		}
+	}
+
+	if (readobj == writeobj) {
+		INIT_PZVAL(writeobj);
+		zval_dtor(readobj);
 	}
 
 	rv = cast_object(writeobj, type, (char *)contents TSRMLS_CC);
@@ -2440,7 +2445,7 @@ PHP_MINFO_FUNCTION(simplexml)
 {
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Simplexml support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.151.2.22.2.35 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.151.2.22.2.39 $");
 	php_info_print_table_row(2, "Schema support",
 #ifdef LIBXML_SCHEMAS_ENABLED
 		"enabled");

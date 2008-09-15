@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: php_zip.c,v 1.1.2.38 2007/08/06 22:02:32 bjori Exp $ */
+/* $Id: php_zip.c,v 1.1.2.43 2008/01/18 00:51:38 pajoye Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -31,16 +31,17 @@
 #include "lib/zip.h"
 #include "lib/zipint.h"
 
-static PHP_FUNCTION(zip_open);
-static PHP_FUNCTION(zip_read);
-static PHP_FUNCTION(zip_close);
-static PHP_FUNCTION(zip_entry_read);
-static PHP_FUNCTION(zip_entry_filesize);
-static PHP_FUNCTION(zip_entry_name);
-static PHP_FUNCTION(zip_entry_compressedsize);
-static PHP_FUNCTION(zip_entry_compressionmethod);
-static PHP_FUNCTION(zip_entry_open);
-static PHP_FUNCTION(zip_entry_close);
+/* zip_open is a macro for renaming libzip zipopen, so we need to use PHP_NAMED_FUNCTION */
+static PHP_NAMED_FUNCTION(zif_zip_open);
+static PHP_NAMED_FUNCTION(zif_zip_read);
+static PHP_NAMED_FUNCTION(zif_zip_close);
+static PHP_NAMED_FUNCTION(zif_zip_entry_read);
+static PHP_NAMED_FUNCTION(zif_zip_entry_filesize);
+static PHP_NAMED_FUNCTION(zif_zip_entry_name);
+static PHP_NAMED_FUNCTION(zif_zip_entry_compressedsize);
+static PHP_NAMED_FUNCTION(zif_zip_entry_compressionmethod);
+static PHP_NAMED_FUNCTION(zif_zip_entry_open);
+static PHP_NAMED_FUNCTION(zif_zip_entry_close);
 
 /* {{{ Resource le */
 static int le_zip_dir;
@@ -273,9 +274,9 @@ static char * php_zipobj_get_zip_comment(struct zip *za, int *len TSRMLS_DC) /* 
 
 /* {{{ zend_function_entry */
 static zend_function_entry zip_functions[] = {
-	PHP_FE(zip_open,			NULL)
-	PHP_FE(zip_close,			NULL)
-	PHP_FE(zip_read,			NULL)
+	ZEND_RAW_FENTRY("zip_open", zif_zip_open, NULL, 0)
+	ZEND_RAW_FENTRY("zip_close", zif_zip_close, NULL, 0)
+	ZEND_RAW_FENTRY("zip_read", zif_zip_read, NULL, 0)
 	PHP_FE(zip_entry_open,		NULL)
 	PHP_FE(zip_entry_close,		NULL)
 	PHP_FE(zip_entry_read,		NULL)
@@ -634,6 +635,8 @@ static void php_zip_free_entry(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 
 /* }}}*/
 
+/* reset macro */
+#undef zip
 /* {{{ function prototypes */
 static PHP_MINIT_FUNCTION(zip);
 static PHP_MSHUTDOWN_FUNCTION(zip);
@@ -651,7 +654,7 @@ zend_module_entry zip_module_entry = {
 	NULL,
 	NULL,
 	PHP_MINFO(zip),
-	"1.4.0",
+	"2.0.0",
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
@@ -659,10 +662,12 @@ zend_module_entry zip_module_entry = {
 #ifdef COMPILE_DL_ZIP
 ZEND_GET_MODULE(zip)
 #endif
+/* set macro */
+#define zip php_ziplib__zip
 
 /* {{{ proto resource zip_open(string filename)
 Create new zip using source uri for output */
-static PHP_FUNCTION(zip_open)
+static PHP_NAMED_FUNCTION(zif_zip_open)
 {
 	char     *filename;
 	int       filename_len;
@@ -704,7 +709,7 @@ static PHP_FUNCTION(zip_open)
 
 /* {{{ proto void zip_close(resource zip)
    Close a Zip archive */
-static PHP_FUNCTION(zip_close)
+static PHP_NAMED_FUNCTION(zif_zip_close)
 {
 	zval * zip;
 	zip_rsrc *z_rsrc = NULL;
@@ -721,7 +726,7 @@ static PHP_FUNCTION(zip_close)
 
 /* {{{ proto resource zip_read(resource zip)
    Returns the next file in the archive */
-static PHP_FUNCTION(zip_read)
+static PHP_NAMED_FUNCTION(zif_zip_read)
 {
 	zval *zip_dp;
 	zip_read_rsrc *zr_rsrc;
@@ -765,7 +770,7 @@ static PHP_FUNCTION(zip_read)
 /* {{{ proto bool zip_entry_open(resource zip_dp, resource zip_entry [, string mode])
    Open a Zip File, pointed by the resource entry */
 /* Dummy function to follow the old API */
-static PHP_FUNCTION(zip_entry_open)
+static PHP_NAMED_FUNCTION(zif_zip_entry_open)
 {
 	zval * zip;
 	zval * zip_entry;
@@ -792,7 +797,7 @@ static PHP_FUNCTION(zip_entry_open)
 /* {{{ proto void zip_entry_close(resource zip_ent)
    Close a zip entry */
 /* another dummy function to fit in the old api*/
-static PHP_FUNCTION(zip_entry_close)
+static PHP_NAMED_FUNCTION(zif_zip_entry_close)
 {
 	zval * zip_entry;
 	zip_read_rsrc * zr_rsrc;
@@ -809,7 +814,7 @@ static PHP_FUNCTION(zip_entry_close)
 
 /* {{{ proto mixed zip_entry_read(resource zip_entry [, int len])
    Read from an open directory entry */
-static PHP_FUNCTION(zip_entry_read)
+static PHP_NAMED_FUNCTION(zif_zip_entry_read)
 {
 	zval * zip_entry;
 	long len = 0;
@@ -909,7 +914,7 @@ static void php_zip_entry_get_info(INTERNAL_FUNCTION_PARAMETERS, int opt) /* {{{
 
 /* {{{ proto string zip_entry_name(resource zip_entry)
    Return the name given a ZZip entry */
-static PHP_FUNCTION(zip_entry_name)
+static PHP_NAMED_FUNCTION(zif_zip_entry_name)
 {
 	php_zip_entry_get_info(INTERNAL_FUNCTION_PARAM_PASSTHRU, 0);
 }
@@ -917,7 +922,7 @@ static PHP_FUNCTION(zip_entry_name)
 
 /* {{{ proto int zip_entry_compressedsize(resource zip_entry)
    Return the compressed size of a ZZip entry */
-static PHP_FUNCTION(zip_entry_compressedsize)
+static PHP_NAMED_FUNCTION(zif_zip_entry_compressedsize)
 {
 	php_zip_entry_get_info(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
 }
@@ -925,7 +930,7 @@ static PHP_FUNCTION(zip_entry_compressedsize)
 
 /* {{{ proto int zip_entry_filesize(resource zip_entry)
    Return the actual filesize of a ZZip entry */
-static PHP_FUNCTION(zip_entry_filesize)
+static PHP_NAMED_FUNCTION(zif_zip_entry_filesize)
 {
 	php_zip_entry_get_info(INTERNAL_FUNCTION_PARAM_PASSTHRU, 2);
 }
@@ -933,13 +938,13 @@ static PHP_FUNCTION(zip_entry_filesize)
 
 /* {{{ proto string zip_entry_compressionmethod(resource zip_entry)
    Return a string containing the compression method used on a particular entry */
-static PHP_FUNCTION(zip_entry_compressionmethod)
+static PHP_NAMED_FUNCTION(zif_zip_entry_compressionmethod)
 {
 	php_zip_entry_get_info(INTERNAL_FUNCTION_PARAM_PASSTHRU, 3);
 }
 /* }}} */
 
-/* {{{ proto mixed open(string source [, int flags])
+/* {{{ proto mixed ZipArchive::open(string source [, int flags])
 Create new zip using source uri for output, return TRUE on success or the error code */
 static ZIPARCHIVE_METHOD(open)
 {
@@ -997,7 +1002,7 @@ static ZIPARCHIVE_METHOD(open)
 }
 /* }}} */
 
-/* {{{ proto bool close()
+/* {{{ proto bool ZipArchive::close()
 close the zip archive */
 static ZIPARCHIVE_METHOD(close)
 {
@@ -1026,7 +1031,7 @@ static ZIPARCHIVE_METHOD(close)
 }
 /* }}} */
 
-/* {{{ proto bool createEmptyDir(string dirname) U
+/* {{{ proto bool ZipArchive::createEmptyDir(string dirname)
 Returns the index of the entry named filename in the archive */
 static ZIPARCHIVE_METHOD(addEmptyDir)
 {
@@ -1085,7 +1090,7 @@ static ZIPARCHIVE_METHOD(addEmptyDir)
 }
 /* }}} */
 
-/* {{{ proto bool addFile(string filepath[, string entryname[, int start [, int length]]])
+/* {{{ proto bool ZipArchive::addFile(string filepath[, string entryname[, int start [, int length]]])
 Add a file in a Zip archive using its path and the name to use. */
 static ZIPARCHIVE_METHOD(addFile)
 {
@@ -1157,7 +1162,7 @@ static ZIPARCHIVE_METHOD(addFile)
 }
 /* }}} */
 
-/* {{{ proto bool addFromString(string name, string content)
+/* {{{ proto bool ZipArchive::addFromString(string name, string content)
 Add a file using content and the entry name */
 static ZIPARCHIVE_METHOD(addFromString)
 {
@@ -1222,7 +1227,7 @@ static ZIPARCHIVE_METHOD(addFromString)
 }
 /* }}} */
 
-/* {{{ proto array statName(string filename[, int flags])
+/* {{{ proto array ZipArchive::statName(string filename[, int flags])
 Returns the information about a the zip entry filename */
 static ZIPARCHIVE_METHOD(statName)
 {
@@ -1250,7 +1255,7 @@ static ZIPARCHIVE_METHOD(statName)
 }
 /* }}} */
 
-/* {{{ proto resource statIndex(int index[, int flags])
+/* {{{ proto resource ZipArchive::statIndex(int index[, int flags])
 Returns the zip entry informations using its index */
 static ZIPARCHIVE_METHOD(statIndex)
 {
@@ -1278,7 +1283,7 @@ static ZIPARCHIVE_METHOD(statIndex)
 }
 /* }}} */
 
-/* {{{ proto int locateName(string filename[, int flags])
+/* {{{ proto int ZipArchive::locateName(string filename[, int flags])
 Returns the index of the entry named filename in the archive */
 static ZIPARCHIVE_METHOD(locateName)
 {
@@ -1318,7 +1323,7 @@ static ZIPARCHIVE_METHOD(locateName)
 }
 /* }}} */
 
-/* {{{ proto string getNameIndex(int index [, int flags])
+/* {{{ proto string ZipArchive::getNameIndex(int index [, int flags])
 Returns the name of the file at position index */
 static ZIPARCHIVE_METHOD(getNameIndex)
 {
@@ -1348,7 +1353,7 @@ static ZIPARCHIVE_METHOD(getNameIndex)
 }
 /* }}} */
 
-/* {{{ proto bool setArchiveComment(string name, string comment)
+/* {{{ proto bool ZipArchive::setArchiveComment(string name, string comment)
 Set or remove (NULL/'') the comment of the archive */
 static ZIPARCHIVE_METHOD(setArchiveComment)
 {
@@ -1374,7 +1379,7 @@ static ZIPARCHIVE_METHOD(setArchiveComment)
 }
 /* }}} */
 
-/* {{{ proto string getArchiveComment()
+/* {{{ proto string ZipArchive::getArchiveComment()
 Returns the comment of an entry using its index */
 static ZIPARCHIVE_METHOD(getArchiveComment)
 {
@@ -1399,7 +1404,7 @@ static ZIPARCHIVE_METHOD(getArchiveComment)
 }
 /* }}} */
 
-/* {{{ proto bool setCommentName(string name, string comment)
+/* {{{ proto bool ZipArchive::setCommentName(string name, string comment)
 Set or remove (NULL/'') the comment of an entry using its Name */
 static ZIPARCHIVE_METHOD(setCommentName)
 {
@@ -1432,7 +1437,7 @@ static ZIPARCHIVE_METHOD(setCommentName)
 }
 /* }}} */
 
-/* {{{ proto bool setCommentIndex(int index, string comment)
+/* {{{ proto bool ZipArchive::setCommentIndex(int index, string comment)
 Set or remove (NULL/'') the comment of an entry using its index */
 static ZIPARCHIVE_METHOD(setCommentIndex)
 {
@@ -1459,7 +1464,7 @@ static ZIPARCHIVE_METHOD(setCommentIndex)
 }
 /* }}} */
 
-/* {{{ proto string getCommentName(string name)
+/* {{{ proto string ZipArchive::getCommentName(string name)
 Returns the comment of an entry using its name */
 static ZIPARCHIVE_METHOD(getCommentName)
 {
@@ -1496,7 +1501,7 @@ static ZIPARCHIVE_METHOD(getCommentName)
 }
 /* }}} */
 
-/* {{{ proto string getCommentIndex(int index)
+/* {{{ proto string ZipArchive::getCommentIndex(int index)
 Returns the comment of an entry using its index */
 static ZIPARCHIVE_METHOD(getCommentIndex)
 {
@@ -1524,7 +1529,7 @@ static ZIPARCHIVE_METHOD(getCommentIndex)
 }
 /* }}} */
 
-/* {{{ proto bool deleteIndex(int index)
+/* {{{ proto bool ZipArchive::deleteIndex(int index)
 Delete a file using its index */
 static ZIPARCHIVE_METHOD(deleteIndex)
 {
@@ -1554,7 +1559,7 @@ static ZIPARCHIVE_METHOD(deleteIndex)
 }
 /* }}} */
 
-/* {{{ proto bool deleteName(string name)
+/* {{{ proto bool ZipArchive::deleteName(string name)
 Delete a file using its index */
 static ZIPARCHIVE_METHOD(deleteName)
 {
@@ -1585,7 +1590,7 @@ static ZIPARCHIVE_METHOD(deleteName)
 }
 /* }}} */
 
-/* {{{ proto bool renameIndex(int index, string new_name)
+/* {{{ proto bool ZipArchive::renameIndex(int index, string new_name)
 Rename an entry selected by its index to new_name */
 static ZIPARCHIVE_METHOD(renameIndex)
 {
@@ -1621,7 +1626,7 @@ static ZIPARCHIVE_METHOD(renameIndex)
 }
 /* }}} */
 
-/* {{{ proto bool renameName(string name, string new_name)
+/* {{{ proto bool ZipArchive::renameName(string name, string new_name)
 Rename an entry selected by its name to new_name */
 static ZIPARCHIVE_METHOD(renameName)
 {
@@ -1655,7 +1660,7 @@ static ZIPARCHIVE_METHOD(renameName)
 }
 /* }}} */
 
-/* {{{ proto bool unchangeIndex(int index)
+/* {{{ proto bool ZipArchive::unchangeIndex(int index)
 Changes to the file at position index are reverted */
 static ZIPARCHIVE_METHOD(unchangeIndex)
 {
@@ -1685,7 +1690,7 @@ static ZIPARCHIVE_METHOD(unchangeIndex)
 }
 /* }}} */
 
-/* {{{ proto bool unchangeName(string name)
+/* {{{ proto bool ZipArchive::unchangeName(string name)
 Changes to the file named 'name' are reverted */
 static ZIPARCHIVE_METHOD(unchangeName)
 {
@@ -1719,7 +1724,7 @@ static ZIPARCHIVE_METHOD(unchangeName)
 }
 /* }}} */
 
-/* {{{ proto bool unchangeAll()
+/* {{{ proto bool ZipArchive::unchangeAll()
 All changes to files and global information in archive are reverted */
 static ZIPARCHIVE_METHOD(unchangeAll)
 {
@@ -1740,7 +1745,7 @@ static ZIPARCHIVE_METHOD(unchangeAll)
 }
 /* }}} */
 
-/* {{{ proto bool unchangeAll()
+/* {{{ proto bool ZipArchive::unchangeAll()
 Revert all global changes to the archive archive.  For now, this only reverts archive comment changes. */
 static ZIPARCHIVE_METHOD(unchangeArchive)
 {
@@ -1761,7 +1766,7 @@ static ZIPARCHIVE_METHOD(unchangeArchive)
 }
 /* }}} */
 
-/* {{{ array bool extractTo(string pathto[, mixed files])
+/* {{{ proto bool ZipArchive::extractTo(string pathto[, mixed files])
 Extract one or more file from a zip archive */
 /* TODO:
  * - allow index or array of indeces
@@ -1918,7 +1923,7 @@ static void php_zip_get_from(INTERNAL_FUNCTION_PARAMETERS, int type) /* {{{ */
 }
 /* }}} */
 
-/* {{{ proto string getFromName(string entryname[, int len [, int flags]])
+/* {{{ proto string ZipArchive::getFromName(string entryname[, int len [, int flags]])
 get the contents of an entry using its name */
 static ZIPARCHIVE_METHOD(getFromName)
 {
@@ -1926,7 +1931,7 @@ static ZIPARCHIVE_METHOD(getFromName)
 }
 /* }}} */
 
-/* {{{ proto string getFromIndex(string entryname[, int len [, int flags]])
+/* {{{ proto string ZipArchive::getFromIndex(string entryname[, int len [, int flags]])
 get the contents of an entry using its index */
 static ZIPARCHIVE_METHOD(getFromIndex)
 {
@@ -1934,7 +1939,7 @@ static ZIPARCHIVE_METHOD(getFromIndex)
 }
 /* }}} */
 
-/* {{{ proto resource getStream(string entryname)
+/* {{{ proto resource ZipArchive::getStream(string entryname)
 get a stream for an entry using its name */
 static ZIPARCHIVE_METHOD(getStream)
 {
@@ -2004,7 +2009,9 @@ static zend_function_entry zip_class_functions[] = {
 /* }}} */
 
 /* {{{ PHP_MINIT_FUNCTION */
+#undef zip
 static PHP_MINIT_FUNCTION(zip)
+#define zip php_ziplib__zip
 {
 	zend_class_entry ce;
 
@@ -2085,7 +2092,9 @@ static PHP_MINIT_FUNCTION(zip)
 
 /* {{{ PHP_MSHUTDOWN_FUNCTION
  */
+#undef zip
 static PHP_MSHUTDOWN_FUNCTION(zip)
+#define zip php_ziplib__zip
 {
 	zend_hash_destroy(&zip_prop_handlers);
 	php_unregister_url_stream_wrapper("zip" TSRMLS_CC);
@@ -2096,14 +2105,15 @@ static PHP_MSHUTDOWN_FUNCTION(zip)
 
 /* {{{ PHP_MINFO_FUNCTION
  */
+#undef zip
 static PHP_MINFO_FUNCTION(zip)
 {
 	php_info_print_table_start();
 
 	php_info_print_table_row(2, "Zip", "enabled");
-	php_info_print_table_row(2, "Extension Version","$Id: php_zip.c,v 1.1.2.38 2007/08/06 22:02:32 bjori Exp $");
-	php_info_print_table_row(2, "Zip version", "2.0.0");
-	php_info_print_table_row(2, "Libzip version", "0.7.1");
+	php_info_print_table_row(2, "Extension Version","$Id: php_zip.c,v 1.1.2.43 2008/01/18 00:51:38 pajoye Exp $");
+	php_info_print_table_row(2, "Zip version", PHP_ZIP_VERSION_STRING);
+	php_info_print_table_row(2, "Libzip version", "0.8.0-compatible");
 
 	php_info_print_table_end();
 }

@@ -174,8 +174,6 @@
 		520A42CF0B939E9F0032410A /* AppleIncRoot042506.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = AppleIncRoot042506.cer; sourceTree = "<group>"; };
 		523A83080C3440BE00537400 /* X509Anchors */ = {isa = PBXFileReference; lastKnownFileType = file; path = X509Anchors; sourceTree = "<group>"; };
 		523B509207BC3E28004F47BA /* AppleROOTCA.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = AppleROOTCA.der; sourceTree = "<group>"; };
-		523B509407BC3E3D004F47BA /* AppleDOTMAC.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = AppleDOTMAC.der; sourceTree = "<group>"; };
-		523B509507BC3E3D004F47BA /* AppleSWUPDATE.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = AppleSWUPDATE.der; sourceTree = "<group>"; };
 		526890F00B3725F9007C1B9A /* AppCAG2.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = AppCAG2.cer; sourceTree = "<group>"; };
 		526890F10B3725F9007C1B9A /* MPHPT_CA.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = MPHPT_CA.cer; sourceTree = "<group>"; };
 		526890F40B372631007C1B9A /* DODCA_13.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = DODCA_13.cer; sourceTree = "<group>"; };
@@ -191,7 +189,6 @@
 		526890FE0B372631007C1B9A /* DODEMAILCA_17.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = DODEMAILCA_17.cer; sourceTree = "<group>"; };
 		526890FF0B372631007C1B9A /* DODEMAILCA_18.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = DODEMAILCA_18.cer; sourceTree = "<group>"; };
 		526BD5300BB9A7EB00312142 /* DigiCertAssuredIDRootCA.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = DigiCertAssuredIDRootCA.crt; sourceTree = "<group>"; };
-		526BD5310BB9A7EB00312142 /* GlobalSignRootCA-2014.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = "GlobalSignRootCA-2014.cer"; sourceTree = "<group>"; };
 		526BD5320BB9A7EB00312142 /* GlobalSignRootCA-R2-2021.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = "GlobalSignRootCA-R2-2021.cer"; sourceTree = "<group>"; };
 		526BD5340BB9A7EB00312142 /* qvrca2.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = qvrca2.crt; sourceTree = "<group>"; };
 		526BD5350BB9A7EB00312142 /* qvrca3.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = qvrca3.crt; sourceTree = "<group>"; };
@@ -208,7 +205,6 @@
 		5290BC380CA878770040B90A /* SwissSign-Platinum_G2.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SwissSign-Platinum_G2.der"; sourceTree = "<group>"; };
 		5290BC390CA878770040B90A /* SwissSign-Silver_G2.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SwissSign-Silver_G2.der"; sourceTree = "<group>"; };
 		5298925B084E35670049FF6A /* wf_root.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = wf_root.crt; sourceTree = "<group>"; };
-		5298925D084E357C0049FF6A /* wf_ext_01.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = wf_ext_01.crt; sourceTree = "<group>"; };
 		529B79F00A5F0E8500501894 /* CommonPolicyRootCA.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = CommonPolicyRootCA.cer; sourceTree = "<group>"; };
 		529B79F10A5F0E8500501894 /* DoDRootCA2.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = DoDRootCA2.der; sourceTree = "<group>"; };
 		529B79F20A5F0E8500501894 /* ECARootCA.der */ = {isa = PBXFileReference; lastKnownFileType = file; path = ECARootCA.der; sourceTree = "<group>"; };
@@ -257,6 +253,21 @@
 		52D8CBD007C51BF60074667F /* TDC_ocesca.cer */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = TDC_ocesca.cer; sourceTree = "<group>"; };
 		52D8CBD107C51BF60074667F /* TDC_rootca.cer */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = TDC_rootca.cer; sourceTree = "<group>"; };
 		52D8CBD207C51BF60074667F /* UTN_DATACorp_SGC.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = UTN_DATACorp_SGC.cer; sourceTree = "<group>"; };
+		52EDB73C0E2E57C1003B666C /* ac_offline_raiz_certicamara.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = ac_offline_raiz_certicamara.crt; sourceTree = "<group>"; };
+		52EDB73D0E2E57C1003B666C /* cisco-ca2048.cer */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "cisco-ca2048.cer"; sourceTree = "<group>"; };
+		52EDB73E0E2E57C1003B666C /* EBG_KOKSM.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = EBG_KOKSM.cer; sourceTree = "<group>"; };
+		52EDB73F0E2E57C1003B666C /* staatDerNederlandenRootCA-G2.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = "staatDerNederlandenRootCA-G2.crt"; sourceTree = "<group>"; };
+		52EDB7400E2E57C1003B666C /* turktrust-root1.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = "turktrust-root1.cer"; sourceTree = "<group>"; };
+		52EDB7410E2E57C1003B666C /* turktrust-root3.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = "turktrust-root3.cer"; sourceTree = "<group>"; };
+		52EDB7460E2E5812003B666C /* DODCA_19.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = DODCA_19.cer; sourceTree = "<group>"; };
+		52EDB7470E2E5812003B666C /* DODCA_20.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = DODCA_20.cer; sourceTree = "<group>"; };
+		52EDB7480E2E5812003B666C /* DODEMAILCA_19.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = DODEMAILCA_19.cer; sourceTree = "<group>"; };
+		52EDB7490E2E5812003B666C /* DODEMAILCA_20.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = DODEMAILCA_20.cer; sourceTree = "<group>"; };
+		52EDB74A0E2E5812003B666C /* DODINTERMEDIATECA_1.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = DODINTERMEDIATECA_1.cer; sourceTree = "<group>"; };
+		52EDB74B0E2E5812003B666C /* IDENTRUSTECA1.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = IDENTRUSTECA1.cer; sourceTree = "<group>"; };
+		52EDB74C0E2E5812003B666C /* ORCECA2.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = ORCECA2.cer; sourceTree = "<group>"; };
+		52EDB74D0E2E5812003B666C /* ORCECAFOREIGNNATIONALSCA1.cer */ = {isa = PBXFileReference; lastKnownFileType = file; path = ORCECAFOREIGNNATIONALSCA1.cer; sourceTree = "<group>"; };
+		52EDB7550E2E5E53003B666C /* startcom-sfsca.crt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "startcom-sfsca.crt"; sourceTree = "<group>"; };
 		C2F9CFA607BB0495000111FE /* X509Anchors */ = {isa = PBXFileReference; lastKnownFileType = file; path = X509Anchors; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -285,6 +296,14 @@
 		4CFDFC2C06309AFB00519F96 /* certs */ = {
 			isa = PBXGroup;
 			children = (
+				52EDB7460E2E5812003B666C /* DODCA_19.cer */,
+				52EDB7470E2E5812003B666C /* DODCA_20.cer */,
+				52EDB7480E2E5812003B666C /* DODEMAILCA_19.cer */,
+				52EDB7490E2E5812003B666C /* DODEMAILCA_20.cer */,
+				52EDB74A0E2E5812003B666C /* DODINTERMEDIATECA_1.cer */,
+				52EDB74B0E2E5812003B666C /* IDENTRUSTECA1.cer */,
+				52EDB74C0E2E5812003B666C /* ORCECA2.cer */,
+				52EDB74D0E2E5812003B666C /* ORCECAFOREIGNNATIONALSCA1.cer */,
 				526890F40B372631007C1B9A /* DODCA_13.cer */,
 				526890F50B372631007C1B9A /* DODCA_14.cer */,
 				526890F60B372631007C1B9A /* DODCA_15.cer */,
@@ -306,9 +325,6 @@
 				529B7A180A5F0EC600501894 /* ORC_ECA.cer */,
 				529B7A190A5F0EC600501894 /* VeriSignClientExternalCertificationAuthority.cer */,
 				52AADF0508ABBEED00654A97 /* belgiumrs.crt */,
-				5298925D084E357C0049FF6A /* wf_ext_01.crt */,
-				523B509407BC3E3D004F47BA /* AppleDOTMAC.der */,
-				523B509507BC3E3D004F47BA /* AppleSWUPDATE.der */,
 				05440F25072D600D002245F3 /* e-Visa.crt */,
 				05440F26072D600D002245F3 /* VeriSign_TSA_CA.crt */,
 				05440F27072D600D002245F3 /* VisaNet.crt */,
@@ -345,6 +361,13 @@
 		4CFDFC4E06309AFB00519F96 /* roots */ = {
 			isa = PBXGroup;
 			children = (
+				52EDB7550E2E5E53003B666C /* startcom-sfsca.crt */,
+				52EDB73C0E2E57C1003B666C /* ac_offline_raiz_certicamara.crt */,
+				52EDB73D0E2E57C1003B666C /* cisco-ca2048.cer */,
+				52EDB73E0E2E57C1003B666C /* EBG_KOKSM.cer */,
+				52EDB73F0E2E57C1003B666C /* staatDerNederlandenRootCA-G2.crt */,
+				52EDB7400E2E57C1003B666C /* turktrust-root1.cer */,
+				52EDB7410E2E57C1003B666C /* turktrust-root3.cer */,
 				52C2C0590D130CC200C58916 /* A-Trust-nQual-01.cer */,
 				52C2C05A0D130CC200C58916 /* A-Trust-nQual-03.cer */,
 				52C2C05B0D130CC200C58916 /* A-Trust-Qual-01.cer */,
@@ -361,7 +384,6 @@
 				529C10950BE7F0B200EFBC3A /* netlockQA-01-minositett.cer */,
 				526BD55D0BB9C97B00312142 /* A-Trust-Qual-02a.crt */,
 				526BD5300BB9A7EB00312142 /* DigiCertAssuredIDRootCA.crt */,
-				526BD5310BB9A7EB00312142 /* GlobalSignRootCA-2014.cer */,
 				526BD5320BB9A7EB00312142 /* GlobalSignRootCA-R2-2021.cer */,
 				526BD5340BB9A7EB00312142 /* qvrca2.crt */,
 				526BD5350BB9A7EB00312142 /* qvrca3.crt */,
@@ -539,7 +561,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 32854;
+				CURRENT_PROJECT_VERSION = 34618;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -553,7 +575,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 32854;
+				CURRENT_PROJECT_VERSION = 34618;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = security_certificates;
 				ZERO_LINK = NO;
@@ -563,7 +585,7 @@
 		C27AD4460987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 32854;
+				CURRENT_PROJECT_VERSION = 34618;
 				PRODUCT_NAME = security_certificates;
 			};
 			name = Default;
@@ -572,7 +594,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 32854;
+				CURRENT_PROJECT_VERSION = 34618;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -586,7 +608,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 32854;
+				CURRENT_PROJECT_VERSION = 34618;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "copy certs";
 				ZERO_LINK = NO;
@@ -596,7 +618,7 @@
 		C27AD44A0987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 32854;
+				CURRENT_PROJECT_VERSION = 34618;
 				PRODUCT_NAME = "copy certs";
 			};
 			name = Default;

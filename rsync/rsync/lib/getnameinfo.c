@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
  *
- * Changes Copyright (C) 2001 by Martin Pool <mbp@samba.org>
+ * Changes Copyright (C) 2001 Martin Pool <mbp@samba.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -91,15 +91,14 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 	u_long v4a;
 #ifdef INET6
 	u_char pfx;
-#endif
 	int h_error;
-	char numserv[512];
+#endif
 	char numaddr[512];
 
 	if (sa == NULL)
 		return ENI_NOSOCKET;
 
-#if HAVE_SOCKADDR_LEN
+#ifdef HAVE_SOCKADDR_LEN
 	if (sa->sa_len != salen) return ENI_SALEN;
 #endif
 	
@@ -112,7 +111,8 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 	return ENI_FAMILY;
 	
  found:
-	if (salen != afd->a_socklen) return ENI_SALEN;
+	if (salen != (size_t)afd->a_socklen)
+		return ENI_SALEN;
 	
 	port = ((struct sockinet *)sa)->si_port; /* network byte order */
 	addr = (char *)sa + afd->a_off;
@@ -120,16 +120,13 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 	if (serv == NULL || servlen == 0) {
 		/* what we should do? */
 	} else if (flags & NI_NUMERICSERV) {
-		snprintf(numserv, sizeof(numserv), "%d", ntohs(port));
-		if (strlen(numserv) > servlen)
+		if ((size_t)snprintf(serv, servlen+1, "%d", ntohs(port)) > servlen)
 			return ENI_MEMORY;
-		strcpy(serv, numserv);
 	} else {
 		sp = getservbyport(port, (flags & NI_DGRAM) ? "udp" : "tcp");
 		if (sp) {
-			if (strlen(sp->s_name) > servlen)
+			if (strlcpy(serv, sp->s_name, servlen + 1) > servlen)
 				return ENI_MEMORY;
-			strcpy(serv, sp->s_name);
 		} else
 			return ENI_NOSERVNAME;
 	}
@@ -156,15 +153,14 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 	} else if (flags & NI_NUMERICHOST) {
 		if (!inet_ntop(afd->a_af, addr, numaddr, sizeof(numaddr)))
 			return ENI_SYSTEM;
-		if (strlen(numaddr) > hostlen)
+		if (strlcpy(host, numaddr, hostlen + 1) > hostlen)
 			return ENI_MEMORY;
-		strcpy(host, numaddr);
 	} else {
 #ifdef INET6
 		hp = getipnodebyaddr(addr, afd->a_addrlen, afd->a_af, &h_error);
 #else
 		hp = gethostbyaddr(addr, afd->a_addrlen, afd->a_af);
-		h_error = h_errno;
+		/*h_error = h_errno;*/
 #endif
 
 		if (hp) {
@@ -172,13 +168,12 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 				p = strchr(hp->h_name, '.');
 				if (p) *p = '\0';
 			}
-			if (strlen(hp->h_name) > hostlen) {
+			if (strlcpy(host, hp->h_name, hostlen + 1) > hostlen) {
 #ifdef INET6
 				freehostent(hp);
 #endif
 				return ENI_MEMORY;
 			}
-			strcpy(host, hp->h_name);
 #ifdef INET6
 			freehostent(hp);
 #endif
@@ -187,9 +182,8 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 				return ENI_NOHOSTNAME;
 			if (!inet_ntop(afd->a_af, addr, numaddr, sizeof(numaddr)))
 				return ENI_NOHOSTNAME;
-			if (strlen(numaddr) > hostlen)
+			if (strlcpy(host, numaddr, hostlen + 1) > hostlen)
 				return ENI_MEMORY;
-			strcpy(host, numaddr);
 		}
 	}
 	return SUCCESS;

@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_scanner.l,v 1.131.2.11.2.13 2007/09/09 16:33:34 iliaa Exp $ */
+/* $Id: zend_language_scanner.l,v 1.131.2.11.2.15 2008/04/09 21:40:13 scottmac Exp $ */
 
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)
@@ -723,7 +723,7 @@ ZEND_API int zend_multibyte_yyinput(zend_file_handle *file_handle, char *buf, si
 
 	/* TODO: support widechars */
 
-	for (n = 0; n < sizeof(buf) && (c = zend_stream_getc(yyin TSRMLS_CC)) != EOF && c != '\n'; ++n) {
+	for (n = 0; n < len && (c = zend_stream_getc(yyin TSRMLS_CC)) != EOF && c != '\n'; ++n) {
 		buf[n] = (char)c;
 	}
 	if (c == '\n') {
@@ -731,8 +731,8 @@ ZEND_API int zend_multibyte_yyinput(zend_file_handle *file_handle, char *buf, si
 	}
 
 	SCNG(script_org_size) = n;
-	SCNG(script_org) = (char*)emalloc(SCNG(script_org_size)+1);
-	memcpy(SCNG(script_org)+SCNG(script_org_size)-n, buf, n);
+	SCNG(script_org) = (char*)emalloc(SCNG(script_org_size) + 1);
+	memcpy(SCNG(script_org), buf, n);
 
 	return n;
 }
@@ -749,29 +749,18 @@ ZEND_API int zend_multibyte_read_script(TSRMLS_D)
 	SCNG(script_org) = NULL;
 	SCNG(script_org_size) = 0;
 
-	for (;;) {
-		n = zend_stream_read(yyin, buf, sizeof(buf) TSRMLS_CC);
-		if (n <= 0) {
-			break;
-		}
-
+	for (; (n = zend_stream_read(yyin, buf, sizeof(buf) TSRMLS_CC)) > 0; ) {
 		SCNG(script_org_size) += n;
-		if (SCNG(script_org)) {
-			SCNG(script_org) = (char*)erealloc(SCNG(script_org), SCNG(script_org_size)+1);
-		} else {
-			SCNG(script_org) = (char*)emalloc(SCNG(script_org_size)+1);
-		}
-		memcpy(SCNG(script_org)+SCNG(script_org_size)-n, buf, n);
+		SCNG(script_org) = (char*)erealloc(SCNG(script_org), SCNG(script_org_size));
+		memcpy(SCNG(script_org) + SCNG(script_org_size) - n, buf, n);
 	}
 
 	if (n < 0) {
 		return -1;
 	}
 
-	if (!SCNG(script_org)) {
-		SCNG(script_org) = emalloc(SCNG(script_org_size)+1);
-	}
-	*(SCNG(script_org)+SCNG(script_org_size)) = (char)NULL;
+	SCNG(script_org) = (char*)erealloc(SCNG(script_org), SCNG(script_org_size) + 1);
+	*(SCNG(script_org)+SCNG(script_org_size)) = '\0';
 
 	return 0;
 }
@@ -1930,8 +1919,13 @@ HEREDOC_CHARS       ("{"*([^$\n\r\\{]|("\\"[^\n\r]))|{HEREDOC_LITERAL_DOLLAR}|({
 	if (yyleng > CG(heredoc_len) && !memcmp(end - CG(heredoc_len), CG(heredoc), CG(heredoc_len))) {
 		int len = yyleng - CG(heredoc_len) - 2; /* 2 for newline before and after label */
 
-		if (len > 0 && yytext[len - 1] == '\r' && yytext[len] == '\n') {
-			len--;
+		/* May have matched fooLABEL; make sure there's a newline before it */
+		if (yytext[len] != '\n') {
+			if (yytext[len] != '\r') {
+				goto wrong_label;
+			}
+		} else if (len > 0 && yytext[len - 1] == '\r') {
+			len--; /* Windows newline */
 		}
 
 		/* Go back before last label char, to match in ST_END_HEREDOC state */
@@ -1948,6 +1942,7 @@ HEREDOC_CHARS       ("{"*([^$\n\r\\{]|("\\"[^\n\r]))|{HEREDOC_LITERAL_DOLLAR}|({
 	} else {
 		/* Go back to end of label, so the next match works correctly in case of
 		 * a variable or another label at the beginning of the next line */
+wrong_label:
 		yyless(yyleng - 1);
 		yymore();
 	}

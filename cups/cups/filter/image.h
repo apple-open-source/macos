@@ -1,5 +1,5 @@
 /*
- * "$Id: image.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: image.h 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Image library definitions for the Common UNIX Printing System (CUPS).
  *
@@ -126,5 +126,5 @@ extern void		cupsImageWhiteToWhite(const cups_ib_t *in,
 #endif /* !_CUPS_IMAGE_H_ */
 
 /*
- * End of "$Id: image.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: image.h 7721 2008-07-11 22:48:49Z mike $".
  */

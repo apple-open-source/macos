@@ -1,4 +1,4 @@
-# $Id: Makefile.in,v 1.285 2007/06/11 04:01:42 djm Exp $
+# $Id: Makefile.in,v 1.297 2008/07/08 14:21:12 djm Exp $
 
 # uncomment if you run a non bourne compatable shell. Ie. csh
 #SHELL = @SH@
@@ -68,14 +68,14 @@ LIBSSH_OBJS=acss.o authfd.o authfile.o bufaux.o bufbn.o buffer.o \
 	cipher-bf1.o cipher-ctr.o cipher-3des1.o cleanup.o \
 	compat.o compress.o crc32.o deattack.o fatal.o hostfile.o \
 	log.o match.o md-sha256.o moduli.o nchan.o packet.o \
-	readpass.o rsa.o ttymodes.o xmalloc.o \
+	readpass.o rsa.o ttymodes.o xmalloc.o addrmatch.o \
 	atomicio.o key.o dispatch.o kex.o mac.o uidswap.o uuencode.o misc.o \
 	monitor_fdpass.o rijndael.o ssh-dss.o ssh-rsa.o dh.o kexdh.o \
 	kexgex.o kexdhc.o kexgexc.o scard.o msg.o progressmeter.o dns.o \
 	entropy.o scard-opensc.o gss-genr.o umac.o kexgssc.o
 
 SSHOBJS= ssh.o readconf.o clientloop.o sshtty.o \
-	sshconnect.o sshconnect1.o sshconnect2.o
+	sshconnect.o sshconnect1.o sshconnect2.o mux.o
 
 SSHDOBJS=sshd.o auth-rhosts.o auth-passwd.o auth-rsa.o auth-rh-rsa.o \
 	sshpty.o sshlogin.o servconf.o serverloop.o \
@@ -85,14 +85,14 @@ SSHDOBJS=sshd.o auth-rhosts.o auth-passwd.o auth-rsa.o auth-rh-rsa.o \
 	auth2-none.o auth2-passwd.o auth2-pubkey.o \
 	monitor_mm.o monitor.o monitor_wrap.o kexdhs.o kexgexs.o \
 	auth-krb5.o \
-	auth2-gss.o gss-serv.o gss-serv-krb5.o kexgsss.o \
+	auth2-gss.o gss-serv.o gss-serv-krb5.o kexgsss.o\
 	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
-	audit.o audit-bsm.o platform.o
+	audit.o audit-bsm.o platform.o sftp-server.o sftp-common.o
 
 KEYCHAINOBJS=keychain.o
 
-MANPAGES	= scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-rand-helper.8.out ssh-keysign.8.out sshd_config.5.out ssh_config.5.out
-MANPAGES_IN	= scp.1 ssh-add.1 ssh-agent.1 ssh-keygen.1 ssh-keyscan.1 ssh.1 sshd.8 sftp-server.8 sftp.1 ssh-rand-helper.8 ssh-keysign.8 sshd_config.5 ssh_config.5
+MANPAGES	= moduli.5.out scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-rand-helper.8.out ssh-keysign.8.out sshd_config.5.out ssh_config.5.out
+MANPAGES_IN	= moduli.5 scp.1 ssh-add.1 ssh-agent.1 ssh-keygen.1 ssh-keyscan.1 ssh.1 sshd.8 sftp-server.8 sftp.1 ssh-rand-helper.8 ssh-keysign.8 sshd_config.5 ssh_config.5
 MANTYPE		= @MANTYPE@
 
 CONFIGFILES=sshd_config.out ssh_config.out moduli.out
@@ -109,6 +109,7 @@ PATHSUBS	= \
 	-e 's|/etc/ssh/ssh_host_dsa_key|$(sysconfdir)/ssh_host_dsa_key|g' \
 	-e 's|/etc/ssh/ssh_host_rsa_key|$(sysconfdir)/ssh_host_rsa_key|g' \
 	-e 's|/var/run/sshd.pid|$(piddir)/sshd.pid|g' \
+	-e 's|/etc/moduli|$(sysconfdir)/moduli|g' \
 	-e 's|/etc/ssh/moduli|$(sysconfdir)/moduli|g' \
 	-e 's|/etc/ssh/sshrc|$(sysconfdir)/sshrc|g' \
 	-e 's|/usr/X11R6/bin/xauth|$(XAUTH_PATH)|g' \
@@ -160,8 +161,8 @@ ssh-keysign$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keysign.o
 ssh-keyscan$(EXEEXT): $(LIBCOMPAT) libssh.a ssh-keyscan.o
 	$(LD) -o $@ ssh-keyscan.o $(LDFLAGS) -lssh -lopenbsd-compat -lssh $(LIBS)
 
-sftp-server$(EXEEXT): $(LIBCOMPAT) libssh.a sftp.o sftp-common.o sftp-server.o
-	$(LD) -o $@ sftp-server.o sftp-common.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
+sftp-server$(EXEEXT): $(LIBCOMPAT) libssh.a sftp.o sftp-common.o sftp-server.o sftp-server-main.o
+	$(LD) -o $@ sftp-server.o sftp-common.o sftp-server-main.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS)
 
 sftp$(EXEEXT): $(LIBCOMPAT) libssh.a sftp.o sftp-client.o sftp-common.o sftp-glob.o progressmeter.o
 	$(LD) -o $@ progressmeter.o sftp.o sftp-client.o sftp-common.o sftp-glob.o $(LDFLAGS) -lssh -lopenbsd-compat $(LIBS) $(LIBEDIT)
@@ -274,6 +275,7 @@ install-files: scard-install
 	$(INSTALL) -m 644 ssh-agent.1.out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh-agent.1
 	$(INSTALL) -m 644 ssh-keygen.1.out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh-keygen.1
 	$(INSTALL) -m 644 ssh-keyscan.1.out $(DESTDIR)$(mandir)/$(mansubdir)1/ssh-keyscan.1
+	$(INSTALL) -m 644 moduli.5.out $(DESTDIR)$(mandir)/$(mansubdir)5/moduli.5
 	$(INSTALL) -m 644 sshd_config.5.out $(DESTDIR)$(mandir)/$(mansubdir)5/sshd_config.5
 	$(INSTALL) -m 644 ssh_config.5.out $(DESTDIR)$(mandir)/$(mansubdir)5/ssh_config.5
 	$(INSTALL) -m 644 sshd.8.out $(DESTDIR)$(mandir)/$(mansubdir)8/sshd.8
@@ -382,7 +384,7 @@ uninstall:
 	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)8/ssh-keysign.8
 	-rm -f $(DESTDIR)$(mandir)/$(mansubdir)1/slogin.1
 
-tests:	$(TARGETS)
+tests interop-tests:	$(TARGETS)
 	BUILDDIR=`pwd`; \
 	[ -d `pwd`/regress ]  ||  mkdir -p `pwd`/regress; \
 	[ -f `pwd`/regress/Makefile ]  || \
@@ -396,6 +398,10 @@ tests:	$(TARGETS)
 	TEST_SSH_SSHKEYSCAN="$${BUILDDIR}/ssh-keyscan"; \
 	TEST_SSH_SFTP="$${BUILDDIR}/sftp"; \
 	TEST_SSH_SFTPSERVER="$${BUILDDIR}/sftp-server"; \
+	TEST_SSH_PLINK="plink"; \
+	TEST_SSH_PUTTYGEN="puttygen"; \
+	TEST_SSH_CONCH="conch"; \
+	TEST_SSH_IPV6="@TEST_SSH_IPV6@" ; \
 	cd $(srcdir)/regress || exit $$?; \
 	$(MAKE) \
 		.OBJDIR="$${BUILDDIR}/regress" \
@@ -412,8 +418,12 @@ tests:	$(TARGETS)
 		TEST_SSH_SSHKEYSCAN="$${TEST_SSH_SSHKEYSCAN}" \
 		TEST_SSH_SFTP="$${TEST_SSH_SFTP}" \
 		TEST_SSH_SFTPSERVER="$${TEST_SSH_SFTPSERVER}" \
+		TEST_SSH_PLINK="$${TEST_SSH_PLINK}" \
+		TEST_SSH_PUTTYGEN="$${TEST_SSH_PUTTYGEN}" \
+		TEST_SSH_CONCH="$${TEST_SSH_CONCH}" \
+		TEST_SSH_IPV6="@TEST_SSH_IPV6@" \
 		EXEEXT="$(EXEEXT)" \
-		$@
+		$@ && echo all tests passed
 
 compat-tests: $(LIBCOMPAT)
 	(cd openbsd-compat/regress && $(MAKE))

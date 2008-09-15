@@ -1,40 +1,41 @@
-/* -*- c-file-style: "linux" -*-
-
-   rsync -- fast file replication program
-
-   Copyright (C) 1992-2001 by Andrew Tridgell <tridge@samba.org>
-   Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
-
-/**
- * @file socket.c
- *
+/*
  * Socket functions used in rsync.
  *
- * This file is now converted to use the new-style getaddrinfo()
+ * Copyright (C) 1992-2001 Andrew Tridgell <tridge@samba.org>
+ * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
+ * Copyright (C) 2003, 2004, 2005, 2006 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
+
+/* This file is now converted to use the new-style getaddrinfo()
  * interface, which supports IPv6 but is also supported on recent
  * IPv4-only machines.  On systems that don't have that interface, we
- * emulate it using the KAME implementation.
- **/
+ * emulate it using the KAME implementation. */
 
 #include "rsync.h"
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
 
 extern char *bind_address;
 extern int default_af_hint;
+
+#ifdef HAVE_SIGACTION
+static struct sigaction sigact;
+#endif
 
 /**
  * Establish a proxy connection on an open socket to a web proxy by
@@ -54,13 +55,13 @@ static int establish_proxy_connection(int fd, char *host, int port,
 			 proxy_user, ":", proxy_pass, NULL);
 		len = strlen(buffer);
 
-		if ((len*8 + 5) / 6 >= (int)sizeof authbuf) {
+		if ((len*8 + 5) / 6 >= (int)sizeof authbuf - 3) {
 			rprintf(FERROR,
 				"authentication information is too long\n");
 			return -1;
 		}
 
-		base64_encode(buffer, len, authbuf);
+		base64_encode(buffer, len, authbuf, 1);
 		authhdr = "\r\nProxy-Authorization: Basic ";
 	} else {
 		*authbuf = '\0';
@@ -90,7 +91,7 @@ static int establish_proxy_connection(int fd, char *host, int port,
 	if (*cp == '\r')
 		*cp = '\0';
 	if (strncmp(buffer, "HTTP/", 5) != 0) {
-		rprintf(FERROR, "bad response from proxy - %s\n",
+		rprintf(FERROR, "bad response from proxy -- %s\n",
 			buffer);
 		return -1;
 	}
@@ -98,7 +99,7 @@ static int establish_proxy_connection(int fd, char *host, int port,
 	while (*cp == ' ')
 		cp++;
 	if (*cp != '2') {
-		rprintf(FERROR, "bad response from proxy - %s\n",
+		rprintf(FERROR, "bad response from proxy -- %s\n",
 			buffer);
 		return -1;
 	}
@@ -127,7 +128,7 @@ static int establish_proxy_connection(int fd, char *host, int port,
  * if this fails.
  **/
 int try_bind_local(int s, int ai_family, int ai_socktype,
-		   const char *bind_address)
+		   const char *bind_addr)
 {
 	int error;
 	struct addrinfo bhints, *bres_all, *r;
@@ -136,9 +137,9 @@ int try_bind_local(int s, int ai_family, int ai_socktype,
 	bhints.ai_family = ai_family;
 	bhints.ai_socktype = ai_socktype;
 	bhints.ai_flags = AI_PASSIVE;
-	if ((error = getaddrinfo(bind_address, NULL, &bhints, &bres_all))) {
+	if ((error = getaddrinfo(bind_addr, NULL, &bhints, &bres_all))) {
 		rprintf(FERROR, RSYNC_NAME ": getaddrinfo %s: %s\n",
-			bind_address, gai_strerror(error));
+			bind_addr, gai_strerror(error));
 		return -1;
 	}
 
@@ -172,12 +173,12 @@ int try_bind_local(int s, int ai_family, int ai_socktype,
  * reachable, perhaps because we can't e.g. route ipv6 to that network
  * but we can get ip4 packets through.
  *
- * @param bind_address Local address to use.  Normally NULL to bind
+ * @param bind_addr Local address to use.  Normally NULL to bind
  * the wildcard address.
  *
  * @param af_hint Address family, e.g. AF_INET or AF_INET6.
  **/
-int open_socket_out(char *host, int port, const char *bind_address,
+int open_socket_out(char *host, int port, const char *bind_addr,
 		    int af_hint)
 {
 	int type = SOCK_STREAM;
@@ -198,7 +199,7 @@ int open_socket_out(char *host, int port, const char *bind_address,
 		strlcpy(buffer, h, sizeof buffer);
 
 		/* Is the USER:PASS@ prefix present? */
-		if ((cp = strchr(buffer, '@')) != NULL) {
+		if ((cp = strrchr(buffer, '@')) != NULL) {
 			*cp++ = '\0';
 			/* The remainder is the HOST:PORT part. */
 			h = cp;
@@ -253,9 +254,9 @@ int open_socket_out(char *host, int port, const char *bind_address,
 		if (s < 0)
 			continue;
 
-		if (bind_address
+		if (bind_addr
 		 && try_bind_local(s, res->ai_family, type,
-				   bind_address) == -1) {
+				   bind_addr) == -1) {
 			close(s);
 			s = -1;
 			continue;
@@ -293,9 +294,9 @@ int open_socket_out(char *host, int port, const char *bind_address,
  *
  * This is based on the Samba LIBSMB_PROG feature.
  *
- * @param bind_address Local address to use.  Normally NULL to get the stack default.
+ * @param bind_addr Local address to use.  Normally NULL to get the stack default.
  **/
-int open_socket_out_wrapped(char *host, int port, const char *bind_address,
+int open_socket_out_wrapped(char *host, int port, const char *bind_addr,
 			    int af_hint)
 {
 	char *prog = getenv("RSYNC_CONNECT_PROG");
@@ -307,7 +308,7 @@ int open_socket_out_wrapped(char *host, int port, const char *bind_address,
 	}
 	if (prog)
 		return sock_exec(prog);
-	return open_socket_out(host, port, bind_address, af_hint);
+	return open_socket_out(host, port, bind_addr, af_hint);
 }
 
 
@@ -322,16 +323,16 @@ int open_socket_out_wrapped(char *host, int port, const char *bind_address,
  * We return an array of file-descriptors to the sockets, with a trailing
  * -1 value to indicate the end of the list.
  *
- * @param bind_address Local address to bind, or NULL to allow it to
+ * @param bind_addr Local address to bind, or NULL to allow it to
  * default.
  **/
-static int *open_socket_in(int type, int port, const char *bind_address,
+static int *open_socket_in(int type, int port, const char *bind_addr,
 			   int af_hint)
 {
 	int one = 1;
-	int s, *socks, maxs, i;
+	int s, *socks, maxs, i, ecnt;
 	struct addrinfo hints, *all_ai, *resp;
-	char portbuf[10];
+	char portbuf[10], **errmsgs;
 	int error;
 
 	memset(&hints, 0, sizeof hints);
@@ -339,27 +340,35 @@ static int *open_socket_in(int type, int port, const char *bind_address,
 	hints.ai_socktype = type;
 	hints.ai_flags = AI_PASSIVE;
 	snprintf(portbuf, sizeof portbuf, "%d", port);
-	error = getaddrinfo(bind_address, portbuf, &hints, &all_ai);
+	error = getaddrinfo(bind_addr, portbuf, &hints, &all_ai);
 	if (error) {
 		rprintf(FERROR, RSYNC_NAME ": getaddrinfo: bind address %s: %s\n",
-			bind_address, gai_strerror(error));
+			bind_addr, gai_strerror(error));
 		return NULL;
 	}
 
 	/* Count max number of sockets we might open. */
 	for (maxs = 0, resp = all_ai; resp; resp = resp->ai_next, maxs++) {}
 
-	if (!(socks = new_array(int, maxs + 1)))
+	socks = new_array(int, maxs + 1);
+	errmsgs = new_array(char *, maxs);
+	if (!socks || !errmsgs)
 		out_of_memory("open_socket_in");
 
 	/* We may not be able to create the socket, if for example the
 	 * machine knows about IPv6 in the C library, but not in the
 	 * kernel. */
-	for (resp = all_ai, i = 0; resp; resp = resp->ai_next) {
+	for (resp = all_ai, i = ecnt = 0; resp; resp = resp->ai_next) {
 		s = socket(resp->ai_family, resp->ai_socktype,
 			   resp->ai_protocol);
 
 		if (s == -1) {
+			int r = asprintf(&errmsgs[ecnt++],
+				"socket(%d,%d,%d) failed: %s\n",
+				(int)resp->ai_family, (int)resp->ai_socktype,
+				(int)resp->ai_protocol, strerror(errno));
+			if (r < 0)
+				out_of_memory("open_socket_in");
 			/* See if there's another address that will work... */
 			continue;
 		}
@@ -381,6 +390,11 @@ static int *open_socket_in(int type, int port, const char *bind_address,
 		/* Now we've got a socket - we need to bind it. */
 		if (bind(s, resp->ai_addr, resp->ai_addrlen) < 0) {
 			/* Nope, try another */
+			int r = asprintf(&errmsgs[ecnt++],
+				"bind() failed: %s (address-family %d)\n",
+				strerror(errno), (int)resp->ai_family);
+			if (r < 0)
+				out_of_memory("open_socket_in");
 			close(s);
 			continue;
 		}
@@ -391,6 +405,15 @@ static int *open_socket_in(int type, int port, const char *bind_address,
 
 	if (all_ai)
 		freeaddrinfo(all_ai);
+
+	/* Only output the socket()/bind() messages if we were totally
+	 * unsuccessful, or if the daemon is being run with -vv. */
+	for (s = 0; s < ecnt; s++) {
+		if (!i || verbose > 1)
+			rwrite(FLOG, errmsgs[s], strlen(errmsgs[s]));
+		free(errmsgs[s]);
+	}
+	free(errmsgs);
 
 	if (!i) {
 		rprintf(FERROR,
@@ -433,7 +456,9 @@ static RETSIGTYPE sigchld_handler(UNUSED(int val))
 #ifdef WNOHANG
 	while (waitpid(-1, NULL, WNOHANG) > 0) {}
 #endif
+#ifndef HAVE_SIGACTION
 	signal(SIGCHLD, sigchld_handler);
+#endif
 }
 
 
@@ -441,6 +466,10 @@ void start_accept_loop(int port, int (*fn)(int, int))
 {
 	fd_set deffds;
 	int *sp, maxfd, i;
+
+#ifdef HAVE_SIGACTION
+	sigact.sa_flags = SA_NOCLDSTOP;
+#endif
 
 	/* open an incoming socket */
 	sp = open_socket_in(SOCK_STREAM, port, bind_address, default_af_hint);
@@ -455,7 +484,7 @@ void start_accept_loop(int port, int (*fn)(int, int))
 #ifdef INET6
 			if (errno == EADDRINUSE && i > 0) {
 				rprintf(FINFO,
-				    "Try using --ipv4 or --ipv6 to avoid this listen() error.");
+				    "Try using --ipv4 or --ipv6 to avoid this listen() error.\n");
 			}
 #endif
 			exit_cleanup(RERR_SOCKETIO);
@@ -464,7 +493,6 @@ void start_accept_loop(int port, int (*fn)(int, int))
 		if (maxfd < sp[i])
 			maxfd = sp[i];
 	}
-
 
 	/* now accept incoming connections - forking a new process
 	 * for each incoming connection */
@@ -478,7 +506,7 @@ void start_accept_loop(int port, int (*fn)(int, int))
 		/* close log file before the potentially very long select so
 		 * file can be trimmed by another process instead of growing
 		 * forever */
-		log_close();
+		logfile_close();
 
 #ifdef FD_COPY
 		FD_COPY(&deffds, &fds);
@@ -500,15 +528,15 @@ void start_accept_loop(int port, int (*fn)(int, int))
 		if (fd < 0)
 			continue;
 
-		signal(SIGCHLD, sigchld_handler);
+		SIGACTION(SIGCHLD, sigchld_handler);
 
 		if ((pid = fork()) == 0) {
 			int ret;
 			for (i = 0; sp[i] >= 0; i++)
 				close(sp[i]);
-			/* open log file in child before possibly giving
-			 * up privileges  */
-			log_open();
+			/* Re-open log file in child before possibly giving
+			 * up privileges (see logfile_close() above). */
+			logfile_reopen();
 			ret = fn(fd, fd);
 			close_all();
 			_exit(ret);
@@ -525,7 +553,6 @@ void start_accept_loop(int port, int (*fn)(int, int))
 			close(fd);
 		}
 	}
-	free(sp);
 }
 
 
@@ -620,7 +647,7 @@ void set_socket_options(int fd, char *options)
 
 		case OPT_ON:
 			if (got_value)
-				rprintf(FERROR,"syntax error - %s does not take a value\n",tok);
+				rprintf(FERROR,"syntax error -- %s does not take a value\n",tok);
 
 			{
 				int on = socket_options[i].value;
@@ -654,14 +681,12 @@ void become_daemon(void)
 	/* detach from the terminal */
 #ifdef HAVE_SETSID
 	setsid();
-#else
-#ifdef TIOCNOTTY
+#elif defined TIOCNOTTY
 	i = open("/dev/tty", O_RDWR);
 	if (i >= 0) {
 		ioctl(i, (int)TIOCNOTTY, (char *)0);
 		close(i);
 	}
-#endif /* TIOCNOTTY */
 #endif
 	/* make sure that stdin, stdout an stderr don't stuff things
 	 * up (library functions, for example) */
@@ -697,7 +722,7 @@ static int socketpair_tcp(int fd[2])
 		goto failed;
 
 	memset(&sock2, 0, sizeof sock2);
-#if HAVE_SOCKADDR_IN_LEN
+#ifdef HAVE_SOCKADDR_IN_LEN
 	sock2.sin_len = sizeof sock2;
 #endif
 	sock2.sin_family = PF_INET;

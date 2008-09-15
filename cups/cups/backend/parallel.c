@@ -1,5 +1,5 @@
 /*
- * "$Id: parallel.c 6835 2007-08-22 18:34:34Z mike $"
+ * "$Id: parallel.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Parallel port backend for the Common UNIX Printing System (CUPS).
  *
@@ -670,5 +670,5 @@ side_cb(int print_fd,			/* I - Print file */
 
 
 /*
- * End of "$Id: parallel.c 6835 2007-08-22 18:34:34Z mike $".
+ * End of "$Id: parallel.c 7721 2008-07-11 22:48:49Z mike $".
  */

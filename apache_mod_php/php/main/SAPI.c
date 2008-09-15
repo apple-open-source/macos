@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: SAPI.c,v 1.202.2.7.2.15 2007/05/25 09:20:01 rasmus Exp $ */
+/* $Id: SAPI.c,v 1.202.2.7.2.18 2008/01/28 16:12:55 scottmac Exp $ */
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -301,6 +301,7 @@ SAPI_API void sapi_activate_headers_only(TSRMLS_D)
 
 	/* SG(sapi_headers).http_response_code = 200; */ 
 	SG(sapi_headers).http_status_line = NULL;
+	SG(sapi_headers).mimetype = NULL;
 	SG(read_post_bytes) = 0;
 	SG(request_info).post_data = NULL;
 	SG(request_info).raw_post_data = NULL;
@@ -340,6 +341,7 @@ SAPI_API void sapi_activate(TSRMLS_D)
 	SG(sapi_headers).http_response_code = 200;
 	*/
 	SG(sapi_headers).http_status_line = NULL;
+	SG(sapi_headers).mimetype = NULL;
 	SG(headers_sent) = 0;
 	SG(read_post_bytes) = 0;
 	SG(request_info).post_data = NULL;
@@ -591,6 +593,10 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 		&& !strncasecmp(header_line, "HTTP/", 5)) {
 		/* filter out the response code */
 		sapi_update_response_code(sapi_extract_response_code(header_line) TSRMLS_CC);
+		/* sapi_update_response_code doesn't free the status line if the code didn't change */
+		if (SG(sapi_headers).http_status_line) {
+			efree(SG(sapi_headers).http_status_line);
+		}
 		SG(sapi_headers).http_status_line = header_line;
 		return SUCCESS;
 	} else {

@@ -11,12 +11,12 @@ diff -uNr ../openssh-4.7p1.orig/Makefile.in ./Makefile.in
  INSTALL_SSH_RAND_HELPER=@INSTALL_SSH_RAND_HELPER@
 @@ -88,6 +89,8 @@
  	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
- 	audit.o audit-bsm.o platform.o
+ 	audit.o audit-bsm.o platform.o sftp-server.o sftp-common.o
  
 +KEYCHAINOBJS=keychain.o
 +
- MANPAGES	= scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-rand-helper.8.out ssh-keysign.8.out sshd_config.5.out ssh_config.5.out
- MANPAGES_IN	= scp.1 ssh-add.1 ssh-agent.1 ssh-keygen.1 ssh-keyscan.1 ssh.1 sshd.8 sftp-server.8 sftp.1 ssh-rand-helper.8 ssh-keysign.8 sshd_config.5 ssh_config.5
+ MANPAGES	= moduli.5.out scp.1.out ssh-add.1.out ssh-agent.1.out ssh-keygen.1.out ssh-keyscan.1.out ssh.1.out sshd.8.out sftp-server.8.out sftp.1.out ssh-rand-helper.8.out ssh-keysign.8.out sshd_config.5.out ssh_config.5.out
+ MANPAGES_IN	= moduli.5 scp.1 ssh-add.1 ssh-agent.1 ssh-keygen.1 ssh-keyscan.1 ssh.1 sshd.8 sftp-server.8 sftp.1 ssh-rand-helper.8 ssh-keysign.8 sshd_config.5 ssh_config.5
  MANTYPE		= @MANTYPE@
 @@ -119,6 +122,7 @@
  $(LIBSSH_OBJS): Makefile.in config.h
@@ -99,18 +99,17 @@ diff -uNr ../openssh-4.7p1.orig/authfd.h ./authfd.h
  #define	SSH_AGENT_CONSTRAIN_LIFETIME		1
  #define	SSH_AGENT_CONSTRAIN_CONFIRM		2
  
-diff -uNr ../openssh-4.7p1.orig/configure ./configure
---- ../openssh-4.7p1.orig/configure	2007-09-03 23:50:09.000000000 -0700
-+++ ./configure	2008-01-14 15:35:44.000000000 -0800
+--- ./configure.jv	2008-07-31 09:54:49.000000000 -0700
++++ ./configure	2008-07-31 10:05:34.000000000 -0700
 @@ -723,6 +723,7 @@
  mansubdir
  user_path
  piddir
 +KEYCHAIN_LDFLAGS
+ TEST_SSH_IPV6
  LIBOBJS
  LTLIBOBJS'
- ac_subst_files=''
-@@ -1363,6 +1364,7 @@
+@@ -1364,6 +1365,7 @@
    --with-bsd-auth         Enable BSD auth support
    --with-pid-dir=PATH     Specify location of ssh.pid file
    --with-lastlog=FILE|DIR specify lastlog location common locations
@@ -118,18 +117,137 @@ diff -uNr ../openssh-4.7p1.orig/configure ./configure
  
  Some influential environment variables:
    CC          C compiler command
-@@ -7113,6 +7115,7 @@
+@@ -7249,6 +7251,117 @@
  #define SSH_TUN_PREPEND_AF 1
  _ACEOF
+ 
++	{ echo "$as_me:$LINENO: checking if we have the Security Authorization Session API" >&5
++echo $ECHO_N "checking if we have the Security Authorization Session API... $ECHO_C" >&6; }
++	cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++#include <Security/AuthSession.h>
++int
++main ()
++{
++SessionCreate(0, 0);
++  ;
++  return 0;
++}
++_ACEOF
++rm -f conftest.$ac_objext
++if { (ac_try="$ac_compile"
++case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_compile") 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } && {
++	 test -z "$ac_c_werror_flag" ||
++	 test ! -s conftest.err
++       } && test -s conftest.$ac_objext; then
++  ac_cv_use_security_session_api="yes"
++
++cat >>confdefs.h <<\_ACEOF
++#define USE_SECURITY_SESSION_API 1
++_ACEOF
++
++		 LIBS="$LIBS -framework Security"
++		 { echo "$as_me:$LINENO: result: yes" >&5
++echo "${ECHO_T}yes" >&6; }
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++	ac_cv_use_security_session_api="no"
++		 { echo "$as_me:$LINENO: result: no" >&5
++echo "${ECHO_T}no" >&6; }
++fi
++
++rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
++	{ echo "$as_me:$LINENO: checking if we have an in-memory credentials cache" >&5
++echo $ECHO_N "checking if we have an in-memory credentials cache... $ECHO_C" >&6; }
++	cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++#include <Kerberos/Kerberos.h>
++int
++main ()
++{
++cc_context_t c;
++		 (void) cc_initialize (&c, 0, NULL, NULL);
++  ;
++  return 0;
++}
++_ACEOF
++rm -f conftest.$ac_objext
++if { (ac_try="$ac_compile"
++case "(($ac_try" in
++  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
++  *) ac_try_echo=$ac_try;;
++esac
++eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++  (eval "$ac_compile") 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } && {
++	 test -z "$ac_c_werror_flag" ||
++	 test ! -s conftest.err
++       } && test -s conftest.$ac_objext; then
++
++cat >>confdefs.h <<\_ACEOF
++#define USE_CCAPI 1
++_ACEOF
++
++		 LIBS="$LIBS -framework Security"
++		 { echo "$as_me:$LINENO: result: yes" >&5
++echo "${ECHO_T}yes" >&6; }
++		 if test "x$ac_cv_use_security_session_api" = "xno"; then
++			{ { echo "$as_me:$LINENO: error: *** Need a security framework to use the credentials cache API ***" >&5
++echo "$as_me: error: *** Need a security framework to use the credentials cache API ***" >&2;}
++   { (exit 1); exit 1; }; }
++		fi
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++	{ echo "$as_me:$LINENO: result: no" >&5
++echo "${ECHO_T}no" >&6; }
++
++fi
++
++rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+ 
+ 	{ echo "$as_me:$LINENO: checking whether AU_IPv4 is declared" >&5
+ echo $ECHO_N "checking whether AU_IPv4 is declared... $ECHO_C" >&6; }
+@@ -7314,6 +7427,7 @@
+ 
+ fi
  
 +	KEYCHAIN="apple"
  	;;
  *-*-dragonfly*)
  	SSHDLIBS="$SSHDLIBS -lcrypt"
-@@ -28387,6 +28390,181 @@
+@@ -28870,6 +28870,183 @@
  echo "$as_me: WARNING: Please check and edit blibpath in LDFLAGS in Makefile" >&2;}
  fi
  
++
 +# Check whether --with-keychain was given.
 +if test "${with_keychain+set}" = set; then
 +  withval=$with_keychain;
@@ -305,43 +423,48 @@ diff -uNr ../openssh-4.7p1.orig/configure ./configure
 +		;;
 +	esac
 +fi
++
  CFLAGS="$CFLAGS $werror_flags"
  
- 
-@@ -29012,7 +29190,6 @@
- _ACEOF
- 
- 
--
- ac_delim='%!_!# '
- for ac_last_try in false false false false false :; do
-   cat >conf$$subs.sed <<_ACEOF
-@@ -29164,11 +29341,12 @@
- mansubdir!$mansubdir$ac_delim
+ if grep "#define BROKEN_GETADDRINFO 1" confdefs.h >/dev/null || \
+@@ -28885,9 +29062,9 @@
+ for ac_func in copyfile
+ do
+ as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
+-echo "$as_me:$LINENO: checking for $ac_func" >&5
+-echo $ECHO_N "checking for $ac_func... $ECHO_C" >&6
+-if eval "test \"\${$as_ac_var+set}\" = set"; then
++{ echo "$as_me:$LINENO: checking for $ac_func" >&5
++echo $ECHO_N "checking for $ac_func... $ECHO_C" >&6; }
++if { as_var=$as_ac_var; eval "test \"\${$as_var+set}\" = set"; }; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+   cat >conftest.$ac_ext <<_ACEOF
+@@ -29635,11 +29913,12 @@
  user_path!$user_path$ac_delim
  piddir!$piddir$ac_delim
+ TEST_SSH_IPV6!$TEST_SSH_IPV6$ac_delim
 +KEYCHAIN_LDFLAGS!$KEYCHAIN_LDFLAGS$ac_delim
  LIBOBJS!$LIBOBJS$ac_delim
  LTLIBOBJS!$LTLIBOBJS$ac_delim
  _ACEOF
  
--  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 12; then
-+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 13; then
+-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 13; then
++  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 14; then
      break
    elif $ac_last_try; then
      { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
-diff -uNr ../openssh-4.7p1.orig/configure.ac ./configure.ac
---- ../openssh-4.7p1.orig/configure.ac	2007-08-09 21:36:12.000000000 -0700
-+++ ./configure.ac	2008-01-14 15:35:44.000000000 -0800
-@@ -412,6 +412,7 @@
- 	    [Use tunnel device compatibility to OpenBSD])
- 	AC_DEFINE(SSH_TUN_PREPEND_AF, 1,
- 	    [Prepend the address family to IP tunnel traffic])
+--- ./configure.ac.jv	2008-07-31 09:54:25.000000000 -0700
++++ ./configure.ac	2008-07-31 10:04:13.000000000 -0700
+@@ -488,6 +488,7 @@
+ 	    AC_DEFINE(AU_IPv4, 0, [System only supports IPv4 audit records])
+ 	    [#include <bsm/audit.h>]
+ 	)
 +	KEYCHAIN="apple"
  	;;
  *-*-dragonfly*)
  	SSHDLIBS="$SSHDLIBS -lcrypt"
-@@ -3978,6 +3979,33 @@
+@@ -4059,6 +4060,33 @@
  	AC_MSG_WARN([Please check and edit blibpath in LDFLAGS in Makefile])
  fi
  
@@ -1129,8 +1252,8 @@ diff -uNr ../openssh-4.7p1.orig/ssh-add.0 ./ssh-add.0
       ated OpenSSH.  Markus Friedl contributed the support for SSH protocol
       versions 1.5 and 2.0.
  
--OpenBSD 4.2                      June 12, 2007                               2
-+BSD                           September 25, 1999                           BSD
+-OpenBSD 4.4                      June 12, 2007                               2
++BSD                           June 12, 2007                           BSD
 diff -uNr ../openssh-4.7p1.orig/ssh-add.1 ./ssh-add.1
 --- ../openssh-4.7p1.orig/ssh-add.1	2007-06-12 07:00:27.000000000 -0700
 +++ ./ssh-add.1	2008-01-14 15:35:44.000000000 -0800

@@ -1,5 +1,5 @@
 /*
- * "$Id: auth.h 6780 2007-08-08 20:50:42Z mike $"
+ * "$Id: auth.h 7319 2008-02-15 23:26:51Z mike $"
  *
  *   Authorization definitions for the Common UNIX Printing System (CUPS)
  *   scheduler.
@@ -153,5 +153,5 @@ extern http_status_t	cupsdIsAuthorized(cupsd_client_t *con, const char *owner);
 
 
 /*
- * End of "$Id: auth.h 6780 2007-08-08 20:50:42Z mike $".
+ * End of "$Id: auth.h 7319 2008-02-15 23:26:51Z mike $".
  */

@@ -81,6 +81,7 @@ initlcconf()
 	setdefault();
 	lcconf->sock_vpncontrol = -1;	/* not to be done during flush */
 	lcconf->racoon_conf = LC_DEFAULT_CF;
+	TAILQ_INIT(&lcconf->saved_msg_queue);
 }
 
 void

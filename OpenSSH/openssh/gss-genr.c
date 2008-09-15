@@ -104,7 +104,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_supported, ssh_gssapi_check_fn *check,
 		xfree(gss_enc2oid);
 	}
 
-	gss_enc2oid = xmalloc(sizeof(ssh_gss_kex_mapping)*
+	gss_enc2oid = xmalloc(sizeof(ssh_gss_kex_mapping) *
 	    (gss_supported->count + 1));
 
 	buffer_init(&buf);
@@ -113,6 +113,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_supported, ssh_gssapi_check_fn *check,
 	for (i = 0; i < gss_supported->count; i++) {
 		if (gss_supported->elements[i].length < 128 &&
 		    (*check)(NULL, &(gss_supported->elements[i]), data)) {
+
 			deroid[0] = SSH_GSS_OIDTYPE;
 			deroid[1] = gss_supported->elements[i].length;
 
@@ -395,8 +396,8 @@ ssh_gssapi_checkmic(Gssctxt *ctx, gss_buffer_t gssbuf, gss_buffer_t gssmic)
 
 	ctx->major = gss_verify_mic(&ctx->minor, ctx->context,
 	    gssbuf, gssmic, NULL);
- 
- 	return (ctx->major);
+
+	return (ctx->major);
 }
 
 void
@@ -439,7 +440,7 @@ ssh_gssapi_check_mechanism(Gssctxt **ctx, gss_OID oid, const char *host)
 			    GSS_C_NO_BUFFER);
 	}
 
-	if (GSS_ERROR(major) || intctx != NULL)
+	if (GSS_ERROR(major) || intctx != NULL) 
 		ssh_gssapi_delete_ctx(ctx);
 
 	return (!GSS_ERROR(major));

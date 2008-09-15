@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: Makefile 7207 2008-01-09 19:12:35Z mike $"
 #
 #   Notifier makefile for the Common UNIX Printing System (CUPS).
 #
@@ -108,5 +108,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: Makefile 7207 2008-01-09 19:12:35Z mike $".
 #

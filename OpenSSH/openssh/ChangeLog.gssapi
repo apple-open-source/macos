@@ -1,3 +1,18 @@
+20080404
+  - [ gss-serv.c ]
+    Add code to actually implement GSSAPIStrictAcceptCheck, which had somehow
+    been omitted from a previous version of this patch. Reported by Borislav
+    Stoichkov
+
+20070317
+  - [ gss-serv-krb5.c ]
+    Remove C99ism, where new_ccname was being declared in the middle of a 
+    function
+
+20061220
+  - [ servconf.c ]
+    Make default for GSSAPIStrictAcceptorCheck be Yes, to match previous, and 
+    documented, behaviour. Reported by Dan Watson.
 
 20060910
   - [ gss-genr.c kexgssc.c kexgsss.c kex.h monitor.c sshconnect2.c sshd.c

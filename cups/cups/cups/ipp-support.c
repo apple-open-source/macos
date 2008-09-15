@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp-support.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: ipp-support.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Internet Printing Protocol support functions for the Common UNIX
  *   Printing System (CUPS).
@@ -361,5 +361,5 @@ ippSetPort(int p)			/* I - Port number to use */
 
 
 /*
- * End of "$Id: ipp-support.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: ipp-support.c 7721 2008-07-11 22:48:49Z mike $".
  */

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    |          Jaakko Hyvätti <jaakko@hyvatti.iki.fi>                      | 
    +----------------------------------------------------------------------+
  */
-/* $Id: reg.c,v 1.82.2.3.2.2 2007/01/01 09:36:08 sebastian Exp $ */
+/* $Id: reg.c,v 1.82.2.3.2.5 2008/04/20 01:43:18 felipe Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -564,7 +564,9 @@ static void php_split(INTERNAL_FUNCTION_PARAMETERS, int icase)
 		} else if (subs[0].rm_so == 0 && subs[0].rm_eo == 0) {
 			/* No more matches */
 			regfree(&re);
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid Regular Expression to split()");
+
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid Regular Expression");
+			
 			zend_hash_destroy(Z_ARRVAL_P(return_value));
 			efree(Z_ARRVAL_P(return_value));
 			RETURN_FALSE;

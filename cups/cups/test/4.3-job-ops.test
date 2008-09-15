@@ -1,8 +1,29 @@
 #
-# "$Id: 4.3-job-ops.test 6379 2007-03-21 14:57:22Z mike $"
+# "$Id: 4.3-job-ops.test 7551 2008-05-12 16:41:44Z mike $"
 #
 #   Verify that the IPP job operations work.
 #
+{
+	# The name of the test...
+	NAME "Print PostScript Job with bad job-sheets value to Test1"
+
+	# The operation to use
+	OPERATION print-job
+	RESOURCE /printers/Test1
+
+	# The attributes to send
+	GROUP operation
+	ATTR charset attributes-charset utf-8
+	ATTR language attributes-natural-language en
+	ATTR uri printer-uri $method://$hostname:$port/printers/Test1
+	ATTR name requesting-user-name $user
+	ATTR name job-sheets "none\,none"
+
+	FILE testfile.ps
+
+	# What statuses are OK?
+	STATUS client-error-bad-request
+}
 {
 	# The name of the test...
 	NAME "Print PostScript Job to Test1"
@@ -69,7 +90,7 @@
 	ATTR name requesting-user-name $user
 
         GROUP subscription
-	ATTR uri notify-recipient-uri testnotify
+	ATTR uri notify-recipient-uri testnotify:///
 
 	FILE testfile.jpg
 
@@ -147,32 +168,10 @@
 	ATTR uri printer-uri $method://$hostname:$port/printers/Test1
 	ATTR name requesting-user-name $user
 
+	GROUP job
+	ATTR keyword job-hold-until weekend
+
 	FILE testfile.pdf
-
-	# What statuses are OK?
-	STATUS successful-ok
-
-	# What attributes do we expect?
-	EXPECT attributes-charset
-	EXPECT attributes-natural-language
-	EXPECT job-id
-}
-{
-	# The name of the test...
-	NAME "Print Image Job to Test1"
-
-	# The operation to use
-	OPERATION print-job
-	RESOURCE /printers/Test1
-
-	# The attributes to send
-	GROUP operation
-	ATTR charset attributes-charset utf-8
-	ATTR language attributes-natural-language en
-	ATTR uri printer-uri $method://$hostname:$port/printers/Test1
-	ATTR name requesting-user-name $user
-
-	FILE testfile.jpg
 
 	# What statuses are OK?
 	STATUS successful-ok
@@ -230,6 +229,55 @@
 }
 {
 	# The name of the test...
+	NAME "Print Held Image Job to Test1"
+
+	# The operation to use
+	OPERATION print-job
+	RESOURCE /printers/Test1
+
+	# The attributes to send
+	GROUP operation
+	ATTR charset attributes-charset utf-8
+	ATTR language attributes-natural-language en
+	ATTR uri printer-uri $method://$hostname:$port/printers/Test1
+	ATTR name requesting-user-name $user
+	GROUP job
+	ATTR keyword job-hold-until indefinite
+
+	FILE testfile.jpg
+
+	# What statuses are OK?
+	STATUS successful-ok
+
+	# What attributes do we expect?
+	EXPECT attributes-charset
+	EXPECT attributes-natural-language
+	EXPECT job-id
+}
+{
+	# The name of the test...
+	NAME "Cancel Job"
+
+	# The operation to use
+	OPERATION cancel-job
+	RESOURCE /jobs
+
+	# The attributes to send
+	GROUP operation
+	ATTR charset attributes-charset utf-8
+	ATTR language attributes-natural-language en
+	ATTR uri job-uri $method://$hostname:$port/jobs/$job-id
+	ATTR name requesting-user-name $user
+
+	# What statuses are OK?
+	STATUS successful-ok
+
+	# What attributes do we expect?
+	EXPECT attributes-charset
+	EXPECT attributes-natural-language
+}
+{
+	# The name of the test...
 	NAME "Get Job List on Test1"
 
 	# The operation to use
@@ -273,29 +321,7 @@
 	EXPECT job-id
 	EXPECT job-state
 }
-{
-	# The name of the test...
-	NAME "Cancel Job"
-
-	# The operation to use
-	OPERATION cancel-job
-	RESOURCE /jobs
-
-	# The attributes to send
-	GROUP operation
-	ATTR charset attributes-charset utf-8
-	ATTR language attributes-natural-language en
-	ATTR uri job-uri $method://$hostname:$port/jobs/$job-id
-	ATTR name requesting-user-name $user
-
-	# What statuses are OK?
-	STATUS successful-ok
-
-	# What attributes do we expect?
-	EXPECT attributes-charset
-	EXPECT attributes-natural-language
-}
 
 #
-# End of "$Id: 4.3-job-ops.test 6379 2007-03-21 14:57:22Z mike $"
+# End of "$Id: 4.3-job-ops.test 7551 2008-05-12 16:41:44Z mike $"
 #

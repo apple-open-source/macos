@@ -1,5 +1,5 @@
 /*
- * "$Id: jobs.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: jobs.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Job status CGI for the Common UNIX Printing System (CUPS).
  *
@@ -209,5 +209,5 @@ do_job_op(http_t      *http,		/* I - HTTP connection */
 
 
 /*
- * End of "$Id: jobs.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: jobs.c 7721 2008-07-11 22:48:49Z mike $".
  */

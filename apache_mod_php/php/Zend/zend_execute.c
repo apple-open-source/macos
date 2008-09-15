@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_execute.c,v 1.716.2.12.2.24 2007/07/19 15:29:30 jani Exp $ */
+/* $Id: zend_execute.c,v 1.716.2.12.2.28 2008/03/04 11:48:53 dmitry Exp $ */
 
 #define ZEND_INTENSIVE_DEBUGGING 0
 
@@ -645,7 +645,13 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
 
 			if (((int)T->str_offset.offset < 0)) {
 				zend_error(E_WARNING, "Illegal string offset:  %d", T->str_offset.offset);
-				break;
+				if (!RETURN_VALUE_UNUSED(result)) {
+					T(result->u.var).var.ptr_ptr = &EG(uninitialized_zval_ptr);
+					PZVAL_LOCK(*T(result->u.var).var.ptr_ptr);
+					AI_USE_PTR(T(result->u.var).var);
+				}
+				FREE_OP_VAR_PTR(free_op1);
+				return;
 			}
 			if (T->str_offset.offset >= Z_STRLEN_P(T->str_offset.str)) {
 				zend_uint i;
@@ -665,7 +671,7 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
 
 			if (Z_TYPE_P(value)!=IS_STRING) {
 				tmp = *value;
-				if (op2->op_type & (IS_VAR|IS_CV)) {
+				if (op2->op_type != IS_TMP_VAR) {
 					zval_copy_ctor(&tmp);
 				}
 				convert_to_string(&tmp);
@@ -674,16 +680,13 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
 
 			Z_STRVAL_P(T->str_offset.str)[T->str_offset.offset] = Z_STRVAL_P(final_value)[0];
 
-			if (op2->op_type == IS_TMP_VAR) {
-				if (final_value == &T(op2->u.var).tmp_var) {
-					/* we can safely free final_value here
-					 * because separation is done only
-					 * in case op2->op_type == IS_VAR */
-					STR_FREE(Z_STRVAL_P(final_value));
-				}
-			}
 			if (final_value == &tmp) {
 				zval_dtor(final_value);
+			} else if (op2->op_type == IS_TMP_VAR) {
+				/* we can safely free final_value here
+				 * because separation is done only
+				 * in case op2->op_type == IS_VAR */
+				STR_FREE(Z_STRVAL_P(final_value));
 			}
 			/*
 			 * the value of an assignment to a string offset is undefined
@@ -692,11 +695,11 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
 		} while (0);
 		/* zval_ptr_dtor(&T->str_offset.str); Nuke this line if it doesn't cause a leak */
 
-/*		T(result->u.var).var.ptr_ptr = &EG(uninitialized_zval_ptr); */
 		if (!RETURN_VALUE_UNUSED(result)) {
-			T(result->u.var).var.ptr_ptr = &value;
-			PZVAL_LOCK(*T(result->u.var).var.ptr_ptr);
-			AI_USE_PTR(T(result->u.var).var);
+			T(result->u.var).var.ptr_ptr = &T(result->u.var).var.ptr;
+			ALLOC_ZVAL(T(result->u.var).var.ptr);
+			INIT_PZVAL(T(result->u.var).var.ptr);
+			ZVAL_STRINGL(T(result->u.var).var.ptr, Z_STRVAL_P(T->str_offset.str)+T->str_offset.offset, 1, 1);
 		}
 		FREE_OP_VAR_PTR(free_op1);
 		return;
@@ -736,18 +739,12 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
  				zend_uint refcount = variable_ptr->refcount;
  				zval garbage;
  
- 				if (type != IS_TMP_VAR) {
- 					value->refcount++;
- 				}
  				garbage = *variable_ptr;
  				*variable_ptr = *value;
  				variable_ptr->refcount = refcount;
  				variable_ptr->is_ref = 1;
  				zend_error(E_STRICT, "Implicit cloning object of class '%s' because of 'zend.ze1_compatibility_mode'", class_name);
  				variable_ptr->value.obj = Z_OBJ_HANDLER_P(value, clone_obj)(value TSRMLS_CC);
- 				if (type != IS_TMP_VAR) {
- 					value->refcount--;
- 				}
  				zendi_zval_dtor(garbage);
  			}
  		} else {
@@ -775,16 +772,12 @@ static inline void zend_assign_to_variable(znode *result, znode *op1, znode *op2
 			zend_uint refcount = variable_ptr->refcount;
 			zval garbage;
 
-			if (type!=IS_TMP_VAR) {
-				value->refcount++;
-			}
 			garbage = *variable_ptr;
 			*variable_ptr = *value;
 			variable_ptr->refcount = refcount;
 			variable_ptr->is_ref = 1;
 			if (type!=IS_TMP_VAR) {
 				zendi_zval_copy_ctor(*variable_ptr);
-				value->refcount--;
 			}
 			zendi_zval_dtor(garbage);
 		}
@@ -1234,12 +1227,7 @@ static void zend_fetch_property_address(temp_variable *result, zval **container_
 	zval *container;
 
 	if (!container_ptr) {
-		zend_error(E_WARNING, "Cannot use string offset as an array");
-		if (result) {
-			result->var.ptr_ptr = &EG(error_zval_ptr);
-			PZVAL_LOCK(*result->var.ptr_ptr);
-		}
-		return;
+		zend_error_noreturn(E_ERROR, "Cannot use string offset as an object");
 	}
 
 	container = *container_ptr;

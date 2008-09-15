@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: pgsql_statement.c,v 1.31.2.12.2.7 2007/04/17 15:29:13 iliaa Exp $ */
+/* $Id: pgsql_statement.c,v 1.31.2.12.2.11 2008/02/26 00:14:04 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -238,7 +238,7 @@ static int pgsql_stmt_param_hook(pdo_stmt_t *stmt, struct pdo_bound_param_data *
 								param->name, param->namelen + 1, (void**)&nameptr)) {
 							param->paramno = atoi(nameptr + 1) - 1;
 						} else {
-							pdo_pgsql_error_stmt(stmt, PGRES_FATAL_ERROR, "HY093");
+							pdo_raise_impl_error(stmt->dbh, stmt, "HY093", param->name TSRMLS_CC);
 							return 0;
 						}
 					}
@@ -250,6 +250,9 @@ static int pgsql_stmt_param_hook(pdo_stmt_t *stmt, struct pdo_bound_param_data *
 				return 1;
 
 			case PDO_PARAM_EVT_EXEC_PRE:
+				if (!stmt->bound_param_map) {
+					return 0;
+				}
 				if (!S->param_values) {
 					S->param_values = ecalloc(
 							zend_hash_num_elements(stmt->bound_param_map),
@@ -265,6 +268,11 @@ static int pgsql_stmt_param_hook(pdo_stmt_t *stmt, struct pdo_bound_param_data *
 							sizeof(Oid));
 				}
 				if (param->paramno >= 0) {
+					if (param->paramno > zend_hash_num_elements(stmt->bound_param_map)) {
+						pdo_pgsql_error_stmt(stmt, PGRES_FATAL_ERROR, "HY105");
+						return 0;
+					}
+
 					if (PDO_PARAM_TYPE(param->param_type) == PDO_PARAM_LOB &&
 							Z_TYPE_P(param->parameter) == IS_RESOURCE) {
 						php_stream *stm;

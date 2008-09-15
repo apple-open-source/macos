@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: xsltprocessor.c,v 1.39.2.2.2.10 2007/10/06 21:35:53 tony2001 Exp $ */
+/* $Id: xsltprocessor.c,v 1.39.2.2.2.13 2008/01/29 21:21:28 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -27,6 +27,57 @@
 #include "php_xsl.h"
 #include "ext/libxml/php_libxml.h"
 
+/* {{{ arginfo */
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_xsl_xsltprocessor_import_stylesheet, 0, 0, 1)
+	ZEND_ARG_OBJ_INFO(0, doc, DOMDocument, 0)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_xsl_xsltprocessor_transform_to_doc, 0, 0, 1)
+	ZEND_ARG_OBJ_INFO(0, doc, DOMNode, 0)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_xsl_xsltprocessor_transform_to_uri, 0, 0, 2)
+	ZEND_ARG_OBJ_INFO(0, doc, DOMDocument, 0)
+	ZEND_ARG_INFO(0, uri)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_xsl_xsltprocessor_transform_to_xml, 0, 0, 1)
+	ZEND_ARG_OBJ_INFO(0, doc, DOMDocument, 0)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_xsl_xsltprocessor_set_parameter, 0, 0, 2)
+	ZEND_ARG_INFO(0, namespace)
+	ZEND_ARG_INFO(0, name)
+	ZEND_ARG_INFO(0, value)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_xsl_xsltprocessor_get_parameter, 0, 0, 2)
+	ZEND_ARG_INFO(0, namespace)
+	ZEND_ARG_INFO(0, name)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_xsl_xsltprocessor_remove_parameter, 0, 0, 2)
+	ZEND_ARG_INFO(0, namespace)
+	ZEND_ARG_INFO(0, name)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_xsl_xsltprocessor_has_exslt_support, 0, 0, 0)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_xsl_xsltprocessor_register_php_functions, 0, 0, 0)
+	ZEND_ARG_INFO(0, restrict)
+ZEND_END_ARG_INFO();
+/* }}} */
+
 /*
 * class xsl_xsltprocessor 
 *
@@ -35,15 +86,15 @@
 */
 
 zend_function_entry php_xsl_xsltprocessor_class_functions[] = {
-	PHP_FALIAS(importStylesheet, xsl_xsltprocessor_import_stylesheet, NULL)
-	PHP_FALIAS(transformToDoc, xsl_xsltprocessor_transform_to_doc, NULL)
-	PHP_FALIAS(transformToUri, xsl_xsltprocessor_transform_to_uri, NULL)
-	PHP_FALIAS(transformToXml, xsl_xsltprocessor_transform_to_xml, NULL)
-	PHP_FALIAS(setParameter, xsl_xsltprocessor_set_parameter, NULL)
-	PHP_FALIAS(getParameter, xsl_xsltprocessor_get_parameter, NULL)
-	PHP_FALIAS(removeParameter, xsl_xsltprocessor_remove_parameter, NULL)
-	PHP_FALIAS(hasExsltSupport, xsl_xsltprocessor_has_exslt_support, NULL)
-	PHP_FALIAS(registerPHPFunctions, xsl_xsltprocessor_register_php_functions, NULL)
+	PHP_FALIAS(importStylesheet, xsl_xsltprocessor_import_stylesheet, arginfo_xsl_xsltprocessor_import_stylesheet)
+	PHP_FALIAS(transformToDoc, xsl_xsltprocessor_transform_to_doc, arginfo_xsl_xsltprocessor_transform_to_doc)
+	PHP_FALIAS(transformToUri, xsl_xsltprocessor_transform_to_uri, arginfo_xsl_xsltprocessor_transform_to_uri)
+	PHP_FALIAS(transformToXml, xsl_xsltprocessor_transform_to_xml, arginfo_xsl_xsltprocessor_transform_to_xml)
+	PHP_FALIAS(setParameter, xsl_xsltprocessor_set_parameter, arginfo_xsl_xsltprocessor_set_parameter)
+	PHP_FALIAS(getParameter, xsl_xsltprocessor_get_parameter, arginfo_xsl_xsltprocessor_get_parameter)
+	PHP_FALIAS(removeParameter, xsl_xsltprocessor_remove_parameter, arginfo_xsl_xsltprocessor_remove_parameter)
+	PHP_FALIAS(hasExsltSupport, xsl_xsltprocessor_has_exslt_support, arginfo_xsl_xsltprocessor_has_exslt_support)
+	PHP_FALIAS(registerPHPFunctions, xsl_xsltprocessor_register_php_functions, arginfo_xsl_xsltprocessor_register_php_functions)
 	{NULL, NULL, NULL}
 };
 
@@ -723,7 +774,7 @@ PHP_FUNCTION(xsl_xsltprocessor_remove_parameter)
 }
 /* }}} end xsl_xsltprocessor_remove_parameter */
 
-/* {{{ proto void xsl_xsltprocessor_register_php_functions();
+/* {{{ proto void xsl_xsltprocessor_register_php_functions([mixed $restrict]);
 */
 PHP_FUNCTION(xsl_xsltprocessor_register_php_functions)
 {

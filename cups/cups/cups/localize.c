@@ -1,5 +1,5 @@
 /*
- * "$Id: localize.c 6883 2007-08-29 21:05:17Z mike $"
+ * "$Id: localize.c 7667 2008-06-17 21:28:59Z mike $"
  *
  *   PPD custom option routines for the Common UNIX Printing System (CUPS).
  *
@@ -436,13 +436,6 @@ ppd_ll_CC(char *ll_CC,			/* O - Country-specific locale name */
       strlcpy(ll_CC, "sv_SE", ll_CC_size);
     else if (!strcmp(ll_CC, "zh"))	/* Simplified Chinese */
       strlcpy(ll_CC, "zh_CN", ll_CC_size);
-    else if (ll_CC_size >= 6)
-    {
-      ll_CC[2] = '_';
-      ll_CC[3] = toupper(ll_CC[0] & 255);
-      ll_CC[4] = toupper(ll_CC[1] & 255);
-      ll_CC[5] = '\0';
-    }
   }
 
   DEBUG_printf(("ppd_ll_CC: lang->language=\"%s\", ll=\"%s\", ll_CC=\"%s\"...\n",
@@ -520,5 +513,5 @@ ppd_localized_attr(ppd_file_t *ppd,	/* I - PPD file */
 
 
 /*
- * End of "$Id: localize.c 6883 2007-08-29 21:05:17Z mike $".
+ * End of "$Id: localize.c 7667 2008-06-17 21:28:59Z mike $".
  */

@@ -1,5 +1,5 @@
 /*
- * "$Id: auth.c 6949 2007-09-12 21:33:23Z mike $"
+ * "$Id: auth.c 7485 2008-04-21 23:13:22Z mike $"
  *
  *   Authorization routines for the Common UNIX Printing System (CUPS).
  *
@@ -111,7 +111,8 @@ static int		compare_locations(cupsd_location_t *a,
 static char		*cups_crypt(const char *pw, const char *salt);
 #endif /* !HAVE_LIBPAM && !HAVE_USERSEC_H */
 #ifdef HAVE_GSSAPI
-static gss_cred_id_t	get_gss_creds(const char *service_name);
+static gss_cred_id_t	get_gss_creds(const char *service_name,
+			              const char *con_server_name);
 #endif /* HAVE_GSSAPI */
 static char		*get_md5_password(const char *username,
 			                  const char *group, char passwd[33]);
@@ -340,7 +341,7 @@ cupsdAuthorize(cupsd_client_t *con)	/* I - Client connection */
   char		*ptr,			/* Pointer into string */
 		username[256],		/* Username string */
 		password[33];		/* Password string */
-  const char	*localuser;		/* Certificate username */
+  cupsd_cert_t	*localuser;		/* Certificate username */
   char		nonce[HTTP_MAX_VALUE],	/* Nonce value from client */
 		md5[33],		/* MD5 password */
 		basicmd5[33];		/* MD5 of Basic password */
@@ -542,7 +543,7 @@ cupsdAuthorize(cupsd_client_t *con)	/* I - Client connection */
 
     if ((localuser = cupsdFindCert(authorization)) != NULL)
     {
-      strlcpy(username, localuser, sizeof(username));
+      strlcpy(username, localuser->username, sizeof(username));
 
       cupsdLogMessage(CUPSD_LOG_DEBUG,
 		      "cupsdAuthorize: Authorized as %s using Local",
@@ -556,7 +557,12 @@ cupsdAuthorize(cupsd_client_t *con)	/* I - Client connection */
       return;
     }
 
-    con->type = CUPSD_AUTH_BASIC;
+#ifdef HAVE_GSSAPI
+    if (localuser->ccache)
+      con->type = CUPSD_AUTH_NEGOTIATE;
+    else
+#endif /* HAVE_GSSAPI */
+      con->type = CUPSD_AUTH_BASIC;
   }
   else if (!strncmp(authorization, "Basic", 5))
   {
@@ -659,7 +665,6 @@ cupsdAuthorize(cupsd_client_t *con)	/* I - Client connection */
 	      cupsdLogMessage(CUPSD_LOG_ERROR,
 	                      "cupsdAuthorize: pam_start() returned %d (%s)!\n",
         	              pamerr, pam_strerror(pamh, pamerr));
-	      pam_end(pamh, 0);
 	      return;
 	    }
 
@@ -975,7 +980,7 @@ cupsdAuthorize(cupsd_client_t *con)	/* I - Client connection */
     * Get the server credentials...
     */
 
-    if ((server_creds = get_gss_creds(GSSServiceName)) == NULL)
+    if ((server_creds = get_gss_creds(GSSServiceName, con->servername)) == NULL)
       return;	
 
    /*
@@ -2435,7 +2440,9 @@ cups_crypt(const char *pw,		/* I - Password string */
  */
 
 static gss_cred_id_t			/* O - Server credentials */
-get_gss_creds(const char *service_name)	/* I - Service name */
+get_gss_creds(
+    const char *service_name, 		/* I - Service name */
+    const char *con_server_name)	/* I - Hostname of server */
 {
   OM_uint32	major_status,		/* Major status code */
 		minor_status;		/* Minor status code */
@@ -2443,12 +2450,10 @@ get_gss_creds(const char *service_name)	/* I - Service name */
   gss_cred_id_t	server_creds;		/* Server credentials */
   gss_buffer_desc token = GSS_C_EMPTY_BUFFER;
 					/* Service name token */
-  char		buf[1024],		/* Service name buffer */
-		fqdn[HTTP_MAX_URI];	/* Hostname of server */
+  char		buf[1024];		/* Service name buffer */
 
 
-  snprintf(buf, sizeof(buf), "%s@%s", service_name,
-	   httpGetHostname(NULL, fqdn, sizeof(fqdn)));
+  snprintf(buf, sizeof(buf), "%s@%s", service_name, con_server_name);
 
   token.value  = buf;
   token.length = strlen(buf);
@@ -2681,5 +2686,5 @@ to64(char          *s,			/* O - Output string */
 
 
 /*
- * End of "$Id: auth.c 6949 2007-09-12 21:33:23Z mike $".
+ * End of "$Id: auth.c 7485 2008-04-21 23:13:22Z mike $".
  */

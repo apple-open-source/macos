@@ -2284,18 +2284,29 @@ link_status_changed(SupplicantRef supp)
     bool 		active;
     struct timeval	t = {0, 0};
 
+    /* update the link information */
+    EAPOLSocket_link_update(supp->sock);
+
     active = is_link_active(supp->store, supp->if_name_cf);
     if (active) {
-	/*
-	 * wait awhile before entering connecting state to avoid
-	 * disrupting an existing conversation
-	 */
-	t.tv_sec = S_link_active_period_secs;
-	Timer_set_relative(supp->timer, t,
-			   (void *)Supplicant_connecting,
-			   (void *)supp,
-			   (void *)kSupplicantEventStart,
-			   NULL);
+	switch (supp->state) {
+	case kSupplicantStateInactive:
+	case kSupplicantStateConnecting:
+	    Supplicant_connecting(supp, kSupplicantEventStart, NULL);
+	    break;
+	default:
+	    /*
+	     * wait awhile before entering connecting state to avoid
+	     * disrupting an existing conversation
+	     */
+	    t.tv_sec = S_link_active_period_secs;
+	    Timer_set_relative(supp->timer, t,
+			       (void *)Supplicant_connecting,
+			       (void *)supp,
+			       (void *)kSupplicantEventStart,
+			       NULL);
+	    break;
+	}
     }
     else {
 	/*
@@ -2318,7 +2329,6 @@ static void
 link_changed(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 {
     int			count = 0;
-    Boolean		link_changed = FALSE;
     SupplicantRef	supp = (SupplicantRef)arg;
 
     if (changes != NULL) {
@@ -2327,42 +2337,12 @@ link_changed(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
     if (count == 0) {
 	return;
     }
-    if (EAPOLSocket_is_wireless(supp->sock) == FALSE) {
-	link_changed = TRUE;
-    }
-    else {
-	Boolean		airport_changed = FALSE;
-	int		i;
-
-	for (i = 0; i < count; i++) {
-	    CFStringRef	key = CFArrayGetValueAtIndex(changes, i);
-	    
-	    if (CFStringHasSuffix(key, kSCEntNetAirPort)) {
-		airport_changed = TRUE;
-	    }
-	    else {
-		link_changed = TRUE;
-	    }
-	}
-	if (airport_changed) {
-	    Boolean	bssid_changed;
-	    bssid_changed = EAPOLSocket_link_update(supp->sock);
-	    if (bssid_changed) {
-		link_changed = TRUE;
-	    }
-	}
-	else {
-	    EAPOLSocket_link_update(supp->sock);
-	}
-    }
-    if (link_changed) {
-	link_status_changed(supp);
-    }
+    link_status_changed(supp);
     return;
 }
 
 static SCDynamicStoreRef
-link_event_register(CFStringRef if_name_cf, Boolean is_wireless,
+link_event_register(CFStringRef if_name_cf,
 		    SCDynamicStoreCallBack func, void * arg)
 {
     CFMutableArrayRef		keys = NULL;
@@ -2387,14 +2367,6 @@ link_event_register(CFStringRef if_name_cf, Boolean is_wireless,
 							kSCEntNetLink);
     CFArrayAppendValue(keys, key);
     my_CFRelease(&key);
-    if (is_wireless) {
-	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
-							    kSCDynamicStoreDomainState,
-							    if_name_cf,
-							    kSCEntNetAirPort);
-	CFArrayAppendValue(keys, key);
-	my_CFRelease(&key);
-    }
     SCDynamicStoreSetNotificationKeys(store, keys, NULL);
     my_CFRelease(&keys);
 
@@ -2480,7 +2452,6 @@ Supplicant_create(int fd, const struct sockaddr_dl * link, bool system_mode)
 				    kCFStringEncodingASCII);
     supp->if_name_cf = if_name_cf;
     store = link_event_register(supp->if_name_cf,
-				EAPOLSocket_is_wireless(supp->sock),
 				link_changed, supp);
     supp->store = store;
     client = EAPOLClientAttach(EAPOLSocket_if_name(supp->sock, NULL), 

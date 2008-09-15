@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: bz2_filter.c,v 1.3.2.2.2.5 2007/08/09 23:27:22 iliaa Exp $ */
+/* $Id: bz2_filter.c,v 1.3.2.2.2.9 2008/01/12 22:04:03 cellog Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -101,11 +101,6 @@ static php_stream_filter_status_t php_bz2_decompress_filter(
 			consumed += desired;
 			bin += desired;
 
-			if (!desired) {
-				flags |= PSFS_FLAG_FLUSH_CLOSE;
-				break;
-			}
-
 			if (data->strm.avail_out < data->outbuf_len) {
 				php_stream_bucket *out_bucket;
 				size_t bucketlen = data->outbuf_len - data->strm.avail_out;
@@ -114,6 +109,10 @@ static php_stream_filter_status_t php_bz2_decompress_filter(
 				data->strm.avail_out = data->outbuf_len;
 				data->strm.next_out = data->outbuf;
 				exit_status = PSFS_PASS_ON;
+			} else if (status == BZ_STREAM_END && data->strm.avail_out >= data->outbuf_len) {
+				/* no more data to decompress, and nothing was spat out */
+				php_stream_bucket_delref(bucket TSRMLS_CC);
+				return PSFS_PASS_ON;
 			}
 		}
 		php_stream_bucket_delref(bucket TSRMLS_CC);
@@ -132,6 +131,8 @@ static php_stream_filter_status_t php_bz2_decompress_filter(
 				data->strm.avail_out = data->outbuf_len;
 				data->strm.next_out = data->outbuf;
 				exit_status = PSFS_PASS_ON;
+			} else if (status == BZ_OK) {
+				break;
 			}
 		}
 	}

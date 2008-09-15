@@ -1,9 +1,9 @@
 /*
- * "$Id: lpr.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: lpr.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   "lpr" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -420,8 +420,6 @@ main(int  argc,				/* I - Number of command-line arguments */
   }
   else
   {
-    num_files = 1;
-
 #ifndef WIN32
 #  if defined(HAVE_SIGSET)
     sigset(SIGHUP, sighandler);
@@ -520,5 +518,5 @@ sighandler(int s)			/* I - Signal number */
 
 
 /*
- * End of "$Id: lpr.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: lpr.c 7721 2008-07-11 22:48:49Z mike $".
  */

@@ -1,5 +1,5 @@
 /*
- * "$Id: langprintf.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: langprintf.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Localized printf/puts functions for the Common UNIX Printing
  *   System (CUPS).
@@ -63,8 +63,8 @@ _cupsLangPrintf(FILE        *fp,	/* I - File to write to */
   */
 
   va_start(ap, message);
-  bytes = vsnprintf(buffer, sizeof(buffer),
-                    _cupsLangString(cg->lang_default, message), ap);
+  vsnprintf(buffer, sizeof(buffer),
+            _cupsLangString(cg->lang_default, message), ap);
   va_end(ap);
 
  /*
@@ -215,5 +215,5 @@ _cupsSetLocale(char *argv[])		/* IO - Command-line arguments */
 
 
 /*
- * End of "$Id: langprintf.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: langprintf.c 7721 2008-07-11 22:48:49Z mike $".
  */

@@ -1,0 +1,199 @@
+This patch changes the way the --checksum option works by having the
+receiving side perform a checksum-read of every file in the file list
+as the list is received (if the sizes are equal), marking non-matching
+items with a flag.  The idea is that the checksum pass on the sender and
+the receiver can then happen in parallel instead of having the reciever
+to its checksum pass during its normal find-the-different-files pass.
+
+I have benchmarked this a little, and it appears to slow things down
+for a local copy, so the old algorithm is used for local copies.
+
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/early-checksum.diff
+    ./configure                                 (optional if already run)
+    make
+
+--- old/flist.c
++++ new/flist.c
+@@ -31,6 +31,7 @@ extern int am_daemon;
+ extern int am_sender;
+ extern int do_progress;
+ extern int always_checksum;
++extern int pre_checksum;
+ extern int module_id;
+ extern int ignore_errors;
+ extern int numeric_ids;
+@@ -697,6 +698,16 @@ static struct file_struct *receive_file_
+ 			sum = empty_sum;
+ 		}
+ 		read_buf(f, sum, checksum_len);
++		if (pre_checksum) {
++			char sum2[MD4_SUM_LENGTH];
++			STRUCT_STAT st;
++			char *fname = f_name(file, NULL);
++			if (stat(fname, &st) == 0 && st.st_size == file_length) {
++				file_checksum(fname, sum2, st.st_size);
++				if (memcmp(sum, sum2, checksum_len) != 0)
++					file->flags |= FLAG_SUM_DIFFERS;
++			}
++		}
+ 	}
+ 
+ 	return file;
+--- old/generator.c
++++ new/generator.c
+@@ -70,6 +70,7 @@ extern int ignore_timeout;
+ extern int protocol_version;
+ extern int fuzzy_basis;
+ extern int always_checksum;
++extern int pre_checksum;
+ extern int checksum_len;
+ extern char *partial_dir;
+ extern char *basis_dir[];
+@@ -376,7 +377,8 @@ void itemize(struct file_struct *file, i
+ 
+ 
+ /* Perform our quick-check heuristic for determining if a file is unchanged. */
+-int unchanged_file(char *fn, struct file_struct *file, STRUCT_STAT *st)
++int unchanged_file(char *fn, int fnamecmp_type, struct file_struct *file,
++		   STRUCT_STAT *st)
+ {
+ 	if (st->st_size != file->length)
+ 		return 0;
+@@ -385,6 +387,8 @@ int unchanged_file(char *fn, struct file
+ 	   of the file time to determine whether to sync */
+ 	if (always_checksum && S_ISREG(st->st_mode)) {
+ 		char sum[MD4_SUM_LENGTH];
++		if (pre_checksum && fnamecmp_type == FNAMECMP_FNAME)
++			return !(file->flags & FLAG_SUM_DIFFERS);
+ 		file_checksum(fn, sum, st->st_size);
+ 		return memcmp(sum, file->u.sum, checksum_len) == 0;
+ 	}
+@@ -622,7 +626,7 @@ static int try_dests_reg(struct file_str
+ 			match_level = 1;
+ 			/* FALL THROUGH */
+ 		case 1:
+-			if (!unchanged_file(cmpbuf, file, stp))
++			if (!unchanged_file(cmpbuf, 0, file, stp))
+ 				continue;
+ 			best_match = j;
+ 			match_level = 2;
+@@ -1215,7 +1219,7 @@ static void recv_generator(char *fname, 
+ 		;
+ 	else if (fnamecmp_type == FNAMECMP_FUZZY)
+ 		;
+-	else if (unchanged_file(fnamecmp, file, &st)) {
++	else if (unchanged_file(fnamecmp, fnamecmp_type, file, &st)) {
+ 		if (partialptr) {
+ 			do_unlink(partialptr);
+ 			handle_partial_dir(partialptr, PDIR_DELETE);
+--- old/hlink.c
++++ new/hlink.c
+@@ -224,7 +224,7 @@ int hard_link_check(struct file_struct *
+ 						}
+ 						break;
+ 					}
+-					if (!unchanged_file(cmpbuf, file, &st3))
++					if (!unchanged_file(cmpbuf, 0, file, &st3))
+ 						continue;
+ 					statret = 1;
+ 					st = &st3;
+--- old/main.c
++++ new/main.c
+@@ -47,6 +47,7 @@ extern int copy_dirlinks;
+ extern int keep_dirlinks;
+ extern int preserve_hard_links;
+ extern int protocol_version;
++extern int always_checksum;
+ extern int recurse;
+ extern int relative_paths;
+ extern int sanitize_paths;
+@@ -71,6 +72,9 @@ extern char *batch_name;
+ extern char curr_dir[MAXPATHLEN];
+ extern struct filter_list_struct server_filter_list;
+ 
++extern char curr_dir[MAXPATHLEN];
++
++int pre_checksum = 0;
+ int local_server = 0;
+ int new_root_dir = 0;
+ mode_t orig_umask = 0;
+@@ -784,6 +788,7 @@ static void do_server_recv(int f_in, int
+ 	struct file_list *flist;
+ 	char *local_name = NULL;
+ 	char *dir = NULL;
++	char olddir[sizeof curr_dir];
+ 	int save_verbose = verbose;
+ 
+ 	if (filesfrom_fd >= 0) {
+@@ -827,6 +832,10 @@ static void do_server_recv(int f_in, int
+ 		filesfrom_fd = -1;
+ 	}
+ 
++	strlcpy(olddir, curr_dir, sizeof olddir);
++	if (always_checksum && !local_server && argc > 0)
++		pre_checksum = push_dir(argv[0], 0);
++
+ 	flist = recv_file_list(f_in);
+ 	verbose = save_verbose;
+ 	if (!flist) {
+@@ -835,6 +844,9 @@ static void do_server_recv(int f_in, int
+ 	}
+ 	the_file_list = flist;
+ 
++	if (pre_checksum)
++		pop_dir(olddir);
++
+ 	if (argc > 0)
+ 		local_name = get_local_name(flist,argv[0]);
+ 
+@@ -916,6 +928,7 @@ int client_run(int f_in, int f_out, pid_
+ {
+ 	struct file_list *flist = NULL;
+ 	int exit_code = 0, exit_code2 = 0;
++	char olddir[sizeof curr_dir];
+ 	char *local_name = NULL;
+ 
+ 	cleanup_child_pid = pid;
+@@ -990,11 +1003,18 @@ int client_run(int f_in, int f_out, pid_
+ 		filesfrom_fd = -1;
+ 	}
+ 
++	strlcpy(olddir, curr_dir, sizeof olddir);
++	if (always_checksum && !local_server)
++		pre_checksum = push_dir(argv[0], 0);
++
+ 	if (write_batch && !am_server)
+ 		start_write_batch(f_in);
+ 	flist = recv_file_list(f_in);
+ 	the_file_list = flist;
+ 
++	if (pre_checksum)
++		pop_dir(olddir);
++
+ 	if (flist && flist->count > 0) {
+ 		local_name = get_local_name(flist, argv[0]);
+ 
+--- old/rsync.h
++++ new/rsync.h
+@@ -65,6 +65,7 @@
+ #define FLAG_HLINK_TOL (1<<4)	/* receiver/generator */
+ #define FLAG_NO_FUZZY (1<<5)	/* generator */
+ #define FLAG_MISSING (1<<6)	/* generator */
++#define FLAG_SUM_DIFFERS (1<<7)	/* receiver/generator */
+ 
+ /* update this if you make incompatible changes */
+ #define PROTOCOL_VERSION 29
+--- old/proto.h
++++ new/proto.h
+@@ -86,7 +86,8 @@ struct file_list *get_dirlist(char *dirn
+ int unchanged_attrs(struct file_struct *file, STRUCT_STAT *st);
+ void itemize(struct file_struct *file, int ndx, int statret, STRUCT_STAT *st,
+ 	     int32 iflags, uchar fnamecmp_type, char *xname);
+-int unchanged_file(char *fn, struct file_struct *file, STRUCT_STAT *st);
++int unchanged_file(char *fn, int fnamecmp_type, struct file_struct *file,
++		   STRUCT_STAT *st);
+ void check_for_finished_hlinks(int itemizing, enum logcode code);
+ void generate_files(int f_out, struct file_list *flist, char *local_name);
+ void init_hard_links(void);

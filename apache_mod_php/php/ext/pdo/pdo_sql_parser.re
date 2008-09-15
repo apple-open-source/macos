@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: pdo_sql_parser.re,v 1.28.2.4.2.10 2007/10/29 22:37:25 iliaa Exp $ */
+/* $Id: pdo_sql_parser.re,v 1.28.2.4.2.12 2007/12/31 07:17:40 sebastian Exp $ */
 
 #include "php.h"
 #include "php_pdo_driver.h"
@@ -46,7 +46,7 @@ static int scan(Scanner *s)
 
 	s->tok = cursor;
 	/*!re2c
-	BINDCHR		= [:][a-zA-Z0-9_-]+;
+	BINDCHR		= [:][a-zA-Z0-9_]+;
 	QUESTION	= [?];
 	SPECIALS	= [:?"'];
 	MULTICHAR	= [:?];

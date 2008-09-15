@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_iterators.c,v 1.73.2.30.2.29 2007/10/18 05:26:55 helly Exp $ */
+/* $Id: spl_iterators.c,v 1.73.2.30.2.31 2008/03/12 13:24:24 colder Exp $ */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -693,8 +693,13 @@ static union _zend_function *spl_recursive_it_get_method(zval **object_ptr, char
 	union _zend_function    *function_handler;
 	spl_recursive_it_object *object = (spl_recursive_it_object*)zend_object_store_get_object(*object_ptr TSRMLS_CC);
 	long                     level = object->level;
-	zval                    *zobj = object->iterators[level].zobject;
-	
+	zval                    *zobj;
+
+	if (!object->iterators) {
+		php_error_docref(NULL TSRMLS_CC, E_ERROR, "The %s instance wasn't initialized properly", Z_OBJCE_PP(object_ptr)->name);
+	}
+	zobj = object->iterators[level].zobject;
+
 	function_handler = std_object_handlers.get_method(object_ptr, method, method_len TSRMLS_CC);
 	if (!function_handler) {
 		if (zend_hash_find(&Z_OBJCE_P(zobj)->function_table, method, method_len+1, (void **) &function_handler) == FAILURE) {

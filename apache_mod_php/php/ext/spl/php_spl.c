@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_spl.c,v 1.52.2.28.2.17 2007/05/19 18:40:27 iliaa Exp $ */
+/* $Id: php_spl.c,v 1.52.2.28.2.18 2007/12/31 07:20:11 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 	#include "config.h"

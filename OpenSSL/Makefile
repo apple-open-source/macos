@@ -41,7 +41,8 @@ AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = NLS_openssl_097b_to_097g.patch SC-64bit.patch DVG-4574759_manpage_tweaks.patch        \
 		 DVG-4582901_bn_manpage_tweak.patch DVG-4602255_overlapping_manpage_fix.patch 		   \
-		 NLS_noinstfips.patch NLS_PR_4296241.patch DVG-3874266+4862555_data_pig_fix.patch
+		 NLS_noinstfips.patch NLS_PR_4296241.patch DVG-3874266+4862555_data_pig_fix.patch      \
+		 DVG-5770109_SSL_get_shared_ciphers.patch
 
 MANPAGES       = man/openssl_fips_fingerprint.1
 

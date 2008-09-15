@@ -593,7 +593,7 @@ bool AppleUSBCDCACMControl::getFunctionalDescriptors()
                     if (!(fCMCapabilities & CM_ManagementData))
                     {
                         XTRACE(this, 0, 0, "getFunctionalDescriptors - Interface doesn't support Call Management");
-                        return false;
+                        // return false;				// We'll relax this check too
                     }
                     if (!(fCMCapabilities & CM_ManagementOnData))
                     {

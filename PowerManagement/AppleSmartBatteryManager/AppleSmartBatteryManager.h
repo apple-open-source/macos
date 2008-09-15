@@ -44,10 +44,13 @@ enum {
 };
 
 enum {
-    kEXReadWord = 0,
-    kEXWriteWord = 1,
-    kEXReadBlock = 2,
-    kEXWriteBlock = 3
+    kEXReadWord     = 0,
+    kEXWriteWord    = 1,
+    kEXReadBlock    = 2,
+    kEXWriteBlock   = 3,
+    kEXReadByte     = 4,
+    kEXWriteByte    = 5,
+    kEXSendByte     = 6
 };    
 
 enum {

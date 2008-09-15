@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 6945 2007-09-12 17:08:32Z mike $"
+# "$Id: Makefile 7768 2008-07-18 21:03:34Z mike $"
 #
 #   Top-level Makefile for the Common UNIX Printing System (CUPS).
 #
@@ -82,6 +82,22 @@ depend:
 		echo Making dependencies in $$dir... ;\
 		(cd $$dir; $(MAKE) $(MFLAGS) depend) || exit 1;\
 	done
+
+
+#
+# Run the clang.llvm.org static code analysis tool on the C sources.
+#
+
+.PHONY: clang
+clang:
+	if test ! -d clang; then \
+		mkdir clang; \
+	else \
+		rm -rf clang/*; \
+	fi
+	$(MAKE) $(MFLAGS) CC="scan-build -o ../clang $(CC)" \
+		CXX="scan-build -o ../clang $(CXX)" clean all
+	test `ls -1 clang | wc -l` != 0 || exit 1
 
 
 #
@@ -285,5 +301,5 @@ dist:	all
 
 
 #
-# End of "$Id: Makefile 6945 2007-09-12 17:08:32Z mike $".
+# End of "$Id: Makefile 7768 2008-07-18 21:03:34Z mike $".
 #

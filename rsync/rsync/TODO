@@ -1,60 +1,38 @@
 -*- indented-text -*-
 
-BUGS ---------------------------------------------------------------
-Fix progress indicator to not corrupt log
-lchmod question	
-Do not rely on having a group called "nobody"
-Incorrect timestamps (Debian #100295)
-Win32
-
 FEATURES ------------------------------------------------------------
-server-imposed bandwidth limits
-rsyncd over ssh
 Use chroot only if supported
 Allow supplementary groups in rsyncd.conf			2002/04/09
 Handling IPv6 on old machines
-Other IPv6 stuff:
+Other IPv6 stuff
 Add ACL support							2001/12/02
-Lazy directory creation
 proxy authentication						2002/01/23
 SOCKS								2002/01/23
 FAT support
-Allow forcing arbitrary permissions				2002/03/12
 --diff						david.e.sewell	2002/03/15
 Add daemon --no-fork option
-Create more granular verbosity				jw	2003/05/15
+Create more granular verbosity					2003/05/15
 
 DOCUMENTATION --------------------------------------------------------
-Update README
 Keep list of open issues and todos on the web site
 Perhaps redo manual as SGML
 
 LOGGING --------------------------------------------------------------
-Make dry run list all updates					2002/04/03
 Memory accounting
 Improve error messages
-Better statistics:					Rasmus	2002/03/08
+Better statistics					Rasmus	2002/03/08
 Perhaps flush stdout like syslog
-Log deamon sessions that just list modules
 Log child death on signal
-Keep stderr and stdout properly separated (Debian #23626)
-Log errors with function that reports process of origin
 verbose output					David Stein	2001/12/20
-Add reason for transfer to file logging
-debugging of daemon						2002/04/08
 internationalization
 
 DEVELOPMENT --------------------------------------------------------
 Handling duplicate names
 Use generic zlib						2002/02/25
-TDB:								2002/03/12
+TDB								2002/03/12
 Splint								2002/03/12
-Memory debugger
-Create release script
-Add machines to build farm
 
 PERFORMANCE ----------------------------------------------------------
-File list structure in memory
 Traverse just one directory at a time
 Allow skipping MD4 file_sum					2002/04/08
 Accelerate MD4
@@ -66,8 +44,6 @@ Test on kernel source
 Test large files
 Create mutator program for testing
 Create configure option to enable dangerous tests
-If tests are skipped, say why.
-Test daemon feature to disallow particular options.
 Create pipe program for testing
 Create test makefile target for some tests
 
@@ -80,81 +56,7 @@ reverse rsync over HTTP Range
 
 
 
-BUGS ---------------------------------------------------------------
-
-Fix progress indicator to not corrupt log
-
-  Progress indicator can produce corrupt output when transferring directories:
-
-  main/binary-arm/
-  main/binary-arm/admin/
-  main/binary-arm/base/
-  main/binary-arm/comm/8.56kB/s    0:00:52
-  main/binary-arm/devel/
-  main/binary-arm/doc/
-  main/binary-arm/editors/
-  main/binary-arm/electronics/s    0:00:53
-  main/binary-arm/games/
-  main/binary-arm/graphics/
-  main/binary-arm/hamradio/
-  main/binary-arm/interpreters/
-  main/binary-arm/libs/6.61kB/s    0:00:54
-  main/binary-arm/mail/
-  main/binary-arm/math/
-  main/binary-arm/misc/
-
-                      --          --
-
-
-lchmod question	
-
-  I don't think we handle this properly on systems that don't have the
-  call.  Are there any such?
-
-                      --          --
-
-
-Do not rely on having a group called "nobody"
-
-  http://www.linuxbase.org/spec/refspecs/LSB_1.1.0/gLSB/usernames.html
-
-  On Debian it's "nogroup"
-
-                      --          --
-
-
-Incorrect timestamps (Debian #100295)
-
-  A bit hard to believe, but apparently it happens.
-
-                      --          --
-
-
-Win32
-
-  Don't detach, because this messes up --srvany.
-
-  http://sources.redhat.com/ml/cygwin/2001-08/msg00234.html
-
-
-
-                      --          --
-
 FEATURES ------------------------------------------------------------
-
-server-imposed bandwidth limits
-
-                      --          --
-
-
-rsyncd over ssh
-
-  There are already some patches to do this.
-
-  BitKeeper uses a server whose login shell is set to bkd.  That's
-  probably a reasonable approach.
-
-                      --          --
 
 
 Use chroot only if supported
@@ -210,7 +112,7 @@ Handling IPv6 on old machines
                       --          --
 
 
-Other IPv6 stuff:
+Other IPv6 stuff
   
   Implement suggestions from http://www.kame.net/newsletter/19980604/
   and ftp://ftp.iij.ad.jp/pub/RFC/rfc2553.txt
@@ -223,14 +125,6 @@ Other IPv6 stuff:
   multiple passive addresses.  This might be a bit harder, because we
   may need to select on all of them.  Hm.
 
-  Define a syntax for IPv6 literal addresses.  Since they include
-  colons, they tend to break most naming systems, including ours.
-  Based on the HTTP IPv6 syntax, I think we should use
- 
-     rsync://[::1]/foo/bar [::1]::bar
-
-  which should just take a small change to the parser code.
-
                       --          --
 
 
@@ -239,15 +133,7 @@ Add ACL support							2001/12/02
   Transfer ACLs.  Need to think of a standard representation.
   Probably better not to even try to convert between NT and POSIX.
   Possibly can share some code with Samba.
-
-                      --          --
-
-
-Lazy directory creation
-
-  With the current common --include '*/' --exclude '*' pattern, people
-  can end up with many empty directories.  We might avoid this by
-  lazily creating such directories.
+  NOTE: there is a patch that implements this in the "patches" subdir.
 
                       --          --
 
@@ -283,33 +169,6 @@ FAT support
                       --          --
 
 
-Allow forcing arbitrary permissions				2002/03/12
-
-  On 12 Mar 2002, Dave Dykstra <dwd@bell-labs.com> wrote:
-  > If we would add an option to do that functionality, I
-  > would vote for one that was more general which could mask
-  > off any set of permission bits and possibly add any set of
-  > bits.  Perhaps a chmod-like syntax if it could be
-  > implemented simply.
-
-  I think that would be good too.  For example, people uploading files
-  to a web server might like to say
-
-  rsync -avzP --chmod a+rX ./ sourcefrog.net:/home/www/sourcefrog/
-
-  Ideally the patch would implement as many of the gnu chmod semantics
-  as possible.  I think the mode parser should be a separate function
-  that passes back something like (mask,set) description to the rest
-  of the program.  For bonus points there would be a test case for the
-  parser.
-
-  Possibly also --chown
-
-  (Debian #23628)
-
-                      --          --
-
-
 --diff						david.e.sewell	2002/03/15
 
   Allow people to specify the diff command.  (Might want to use wdiff,
@@ -334,7 +193,7 @@ Add daemon --no-fork option
                       --          --
 
 
-Create more granular verbosity				jw	2003/05/15
+Create more granular verbosity					2003/05/15
 
   Control output with the --report option.
 
@@ -350,10 +209,6 @@ Create more granular verbosity				jw	2003/05/15
                       --          --
 
 DOCUMENTATION --------------------------------------------------------
-
-Update README
-
-                      --          --
 
 
 Keep list of open issues and todos on the web site
@@ -375,17 +230,6 @@ Perhaps redo manual as SGML
                       --          --
 
 LOGGING --------------------------------------------------------------
-
-Make dry run list all updates					2002/04/03
-
-  --dry-run is too dry
-
-  Mark Santcroos points out that -n fails to list files which have
-  only metadata changes, though it probably should.
-
-  There may be a Debian bug about this as well.
-
-                      --          --
 
 
 Memory accounting
@@ -419,14 +263,10 @@ Improve error messages
   our load?  (Debian #28416) Probably fixed now, but a test case would
   be good.
 
-  When running as a daemon, some errors should both be returned to the
-  user and logged.  This will make interacting with a daemon less
-  cryptic.
-
                       --          --
 
 
-Better statistics:					Rasmus	2002/03/08
+Better statistics					Rasmus	2002/03/08
 
   <Rasmus>
       hey, how about an rsync option that just gives you the
@@ -452,14 +292,6 @@ Perhaps flush stdout like syslog
                       --          --
 
 
-Log deamon sessions that just list modules
-
-  At the connections that just get a list of modules are not logged,
-  but they should be.
-
-                      --          --
-
-
 Log child death on signal
 
   If a child of the rsync daemon dies with a signal, we should notice
@@ -468,41 +300,10 @@ Log child death on signal
                       --          --
 
 
-Keep stderr and stdout properly separated (Debian #23626)
-
-                      --          --
-
-
-Log errors with function that reports process of origin
-
-  Use a separate function for reporting errors; prefix it with
-  "rsync:" or "rsync(remote)", or perhaps even "rsync(local
-  generator): ".
-
-                      --          --
-
-
 verbose output					David Stein	2001/12/20
   
-  Indicate whether files are new, updated, or deleted
-
   At end of transfer, show how many files were or were not transferred
   correctly.
-
-                      --          --
-
-
-Add reason for transfer to file logging
-
-  Explain *why* every file is transferred or not (e.g. "local mtime
-  123123 newer than 1283198")
-
-                      --          --
-
-
-debugging of daemon						2002/04/08
-
-  Add an rsyncd.conf parameter to turn on debugging on the server.
 
                       --          --
 
@@ -524,46 +325,16 @@ DEVELOPMENT --------------------------------------------------------
 
 Handling duplicate names
 
-  We need to be careful of duplicate names getting into the file list.
-  See clean_flist().  This could happen if multiple arguments include
-  the same file.  Bad.
-
-  I think duplicates are only a problem if they're both flowing
-  through the pipeline at the same time.  For example we might have
-  updated the first occurrence after reading the checksums for the
-  second.  So possibly we just need to make sure that we don't have
-  both in the pipeline at the same time.
-
-  Possibly if we did one directory at a time that would be sufficient.
-
-  Alternatively we could pre-process the arguments to make sure no
-  duplicates will ever be inserted.  There could be some bad cases
-  when we're collapsing symlinks.
-
-  We could have a hash table.
-
-  The root of the problem is that we do not want more than one file
-  list entry referring to the same file.  At first glance there are
-  several ways this could happen: symlinks, hardlinks, and repeated
-  names on the command line.
-
-  If names are repeated on the command line, they may be present in
-  different forms, perhaps by traversing directory paths in different
-  ways, traversing paths including symlinks.  Also we need to allow
-  for expansion of globs by rsync.
-
-  At the moment, clean_flist() requires having the entire file list in
-  memory.  Duplicate names are detected just by a string comparison.
-
-  We don't need to worry about hard links causing duplicates because
-  files are never updated in place.  Similarly for symlinks.
-
-  I think even if we're using a different symlink mode we don't need
-  to worry.
-
-  Unless we're really clever this will introduce a protocol
-  incompatibility, so we need to be able to accept the old format as
-  well.
+  Some folks would like rsync to be deterministic in how it handles
+  duplicate names that come from mering multiple source directories
+  into a single destination directory; e.g. the last name wins.  We
+  could do this by switching our sort algorithm to one that will
+  guarantee that the names won't be reordered.  Alternately, we could
+  assign an ever-increasing number to each item as we insert it into
+  the list and then make sure that we leave the largest number when
+  cleaning the file list (see clean_flist()).  Another solution would
+  be to add a hash table, and thus never put any duplicate names into
+  the file list (and bump the protocol to handle this).
 
                       --          --
 
@@ -594,7 +365,7 @@ Use generic zlib						2002/02/25
                       --          --
 
 
-TDB:								2002/03/12
+TDB								2002/03/12
 
   Rather than storing the file list in memory, store it in a TDB.
 
@@ -619,60 +390,7 @@ Splint								2002/03/12
 
                       --          --
 
-
-Memory debugger
-
-  jra recommends Valgrind:
-
-    http://devel-home.kde.org/~sewardj/
-
-                      --          --
-
-
-Create release script
-  
-  Script would:
-
-     Update spec files
-
-     Build tar file; upload
-
-     Send announcement to mailing list and c.o.l.a.
-  
-     Make freshmeat announcement
-
-     Update web site
-
-                      --          --
-
-
-Add machines to build farm
-
-  Cygwin (on different versions of Win32?)
-
-  HP-UX variants (via HP?)
-
-  SCO
-
-
-
-                      --          --
-
 PERFORMANCE ----------------------------------------------------------
-
-File list structure in memory
-
-  Rather than one big array, perhaps have a tree in memory mirroring
-  the directory tree.
-
-  This might make sorting much faster!  (I'm not sure it's a big CPU
-  problem, mind you.)
-
-  It might also reduce memory use in storing repeated directory names
-  -- again I'm not sure this is a problem.
-
-                      --          --
-
 
 Traverse just one directory at a time
 
@@ -692,14 +410,10 @@ Allow skipping MD4 file_sum					2002/04/08
   calculating MD4 checksums uses 90% of CPU and is unlikely to be
   useful.
 
-  Indeed for transfers over zlib or ssh we can also rely on the
-  transport to have quite strong protection against corruption.
-
-  Perhaps we should have an option to disable this,
-  analogous to --whole-file, although it would default to
-  disabled.  The file checksum takes up a definite space in
-  the protocol -- we can either set it to 0, or perhaps just
-  leave it out.
+  We should not allow it to be disabled separately from -W, though
+  as it is the only thing that lets us know when the rsync algorithm
+  got out of sync and messed the file up (i.e. if the basis file
+  changed between checksum generation and reception).
 
                       --          --
 
@@ -778,16 +492,6 @@ Create configure option to enable dangerous tests
                       --          --
 
 
-If tests are skipped, say why.
-
-                      --          --
-
-
-Test daemon feature to disallow particular options.
-
-                      --          --
-
-
 Create pipe program for testing
 
   Create pipe program that makes slow/jerky connections for
@@ -841,6 +545,10 @@ reverse rsync over HTTP Range
 
   Goswin Brederlow suggested this on Debian; I think tridge and I
   talked about it previous in relation to rproxy.
+
+  Addendum:  It looks like someone is working on a version of this:
+
+    http://zsync.moria.org.uk/
 
                       --          --
 

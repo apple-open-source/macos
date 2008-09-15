@@ -1,5 +1,5 @@
 /*
- * "$Id: mime.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: mime.c 7224 2008-01-16 23:42:35Z mike $"
  *
  *   MIME database file routines for the Common UNIX Printing System (CUPS).
  *
@@ -732,5 +732,5 @@ load_types(mime_t     *mime,		/* I - MIME database */
 
 
 /*
- * End of "$Id: mime.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: mime.c 7224 2008-01-16 23:42:35Z mike $".
  */

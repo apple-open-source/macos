@@ -1,9 +1,9 @@
 /*
- * "$Id: texttops.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: texttops.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Text to PostScript filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -1005,7 +1005,7 @@ write_line(int     row,		/* I - Row number (0 to N) */
   lchar_t	*start;		/* First character in sequence */
 
 
-  for (col = 0, start = line; col < SizeColumns;)
+  for (col = 0; col < SizeColumns;)
   {
     while (col < SizeColumns && (line->ch == ' ' || line->ch == 0))
     {
@@ -1299,5 +1299,5 @@ write_text(const char *s)	/* I - String to write */
 
 
 /*
- * End of "$Id: texttops.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: texttops.c 7721 2008-07-11 22:48:49Z mike $".
  */

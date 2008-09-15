@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: main.c,v 1.640.2.23.2.59 2007/10/18 13:11:30 dmitry Exp $ */
+/* $Id: main.c,v 1.640.2.23.2.62 2008/03/05 20:58:08 pajoye Exp $ */
 
 /* {{{ includes
  */
@@ -58,6 +58,7 @@
 #include "php_main.h"
 #include "fopen_wrappers.h"
 #include "ext/standard/php_standard.h"
+#include "ext/standard/php_string.h"
 #include "php_variables.h"
 #include "ext/standard/credits.h"
 #ifdef PHP_WIN32
@@ -351,9 +352,8 @@ static PHP_INI_MH(OnChangeMailForceExtra)
 #	define PHP_SAFE_MODE_EXEC_DIR ""
 #endif
 
-#if defined(PHP_PROG_SENDMAIL) && !defined(NETWARE)
-#	define DEFAULT_SENDMAIL_PATH PHP_PROG_SENDMAIL " -t -i "
-#elif defined(PHP_WIN32)
+/* Windows and Netware use the internal mail */
+#if defined(PHP_WIN32) || defined(NETWARE)
 #	define DEFAULT_SENDMAIL_PATH NULL
 #else
 #	define DEFAULT_SENDMAIL_PATH "/usr/sbin/sendmail -t -i" 
@@ -647,15 +647,16 @@ PHPAPI void php_verror(const char *docref, const char *params, int type, const c
 
 	/* no docref given but function is known (the default) */
 	if (!docref && is_function) {
+		int doclen;
 		if (space[0] == '\0') {
-			spprintf(&docref_buf, 0, "function.%s", function);
+			doclen = spprintf(&docref_buf, 0, "function.%s", function);
 		} else {
-			spprintf(&docref_buf, 0, "function.%s-%s", class_name, function);
+			doclen = spprintf(&docref_buf, 0, "%s.%s", class_name, function);
 		}
 		while((p = strchr(docref_buf, '_')) != NULL) {
 			*p = '-';
 		}
-		docref = docref_buf;
+		docref = php_strtolower(docref_buf, doclen);
 	}
 
 	/* we have a docref for a function AND

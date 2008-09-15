@@ -2,7 +2,7 @@
    Unix SMB/CIFS implementation.
    passdb opendirectory backend
 
-   Copyright (c) 2003-2007 Apple Inc. All rights reserved.
+   Copyright (c) 2003-2008 Apple Inc. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -1814,11 +1814,11 @@ static BOOL init_group_from_ods(struct odssam_privates *ods_state,
 		/* well-known group */
 		map->sid_name_use = SID_NAME_WKN_GRP;
 	} else if (sid_check_is_in_our_domain(&map->sid)) {
-		/* local SAM group */
-		map->sid_name_use = SID_NAME_ALIAS;
-	} else {
 		/* domain/network group */
 		map->sid_name_use = SID_NAME_DOM_GRP;
+	} else {
+		/* local SAM group */
+		map->sid_name_use = SID_NAME_ALIAS;
 	}
 
 	if (!get_single_attribute(entry, kDS1AttrPrimaryGroupID, temp)) {

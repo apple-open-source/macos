@@ -517,7 +517,11 @@ lookagain:
 			memcpy(&result->fGUID, guidData, sizeof(guid_t));
 			result->fID = GetTempIDForGUID((guid_t*)guidData);
 			AddToHash(gGUIDHash, result);
-			AddToHash(gGIDHash, result);
+			
+			if ( recordType == TYPE_USER || recordType == TYPE_COMPUTER )
+				AddToHash(gUIDHash, result);
+			else
+				AddToHash(gGIDHash, result);
 		}
 		else if (sid != NULL)
 		{
@@ -525,16 +529,32 @@ lookagain:
 			memcpy(result->fSID, sid, sizeof(ntsid_t));
 			result->fID = GetTempIDForSID(sid);
 			long* temp = (long*)&result->fGUID;
-			temp[0] = htonl(0xAAAABBBB);
-			temp[1] = htonl(0xCCCCDDDD);
-			temp[2] = htonl(0xEEEEFFFF);
-			temp[3] = htonl(result->fID);
+			
+			if ( recordType == TYPE_USER || recordType == TYPE_COMPUTER )
+			{
+				temp[0] = htonl(0xFFFFEEEE);
+				temp[1] = htonl(0xDDDDCCCC);
+				temp[2] = htonl(0xBBBBAAAA);
+				temp[3] = htonl(result->fID);
+				
+				AddToHash(gUIDHash, result);
+			}
+			else
+			{
+				temp[0] = htonl(0xAAAABBBB);
+				temp[1] = htonl(0xCCCCDDDD);
+				temp[2] = htonl(0xEEEEFFFF);
+				temp[3] = htonl(result->fID);
+				
+				AddToHash(gGIDHash, result);
+			}
+			
 			AddToHash(gGUIDHash, result);
 			AddToHash(gSIDHash, result);
-			AddToHash(gGIDHash, result);
 		}
 		else if (name != NULL)
 		{
+			// note there is no such thing as temporary IDs for non-existent names
 			result->fName = (char*)malloc(strlen(name) + 1);
 			strcpy(result->fName, name);
 			if (recordType == TYPE_USER)
@@ -546,47 +566,54 @@ lookagain:
 		}
 		else
 		{
+			ntsid_t* tempsidPtr = NULL;
+			guid_t* tempguid = NULL;
+
 			result->fID = id;
-			if (recordType == TYPE_USER)
-				AddToHash(gUIDHash, result);
+			FindTempID(id, &tempguid, &tempsidPtr);
+			if (tempsidPtr != NULL && tempsidPtr->sid_authcount <= KAUTH_NTSID_MAX_AUTHORITIES)
+			{
+				result->fSID = (ntsid_t*)malloc(sizeof(ntsid_t));
+				memset(result->fSID, 0, sizeof(ntsid_t));
+				memcpy(result->fSID, tempsidPtr, KAUTH_NTSID_SIZE(tempsidPtr));
+				AddToHash(gSIDHash, result);
+			}
+			
+			if (tempguid != NULL)
+			{
+				memcpy(&result->fGUID, tempguid, sizeof(guid_t));
+			}
 			else
 			{
-				ntsid_t* tempsidPtr = NULL;
-				guid_t* tempguid;
-				FindTempID(id, &tempguid, &tempsidPtr);
-				if (tempsidPtr != NULL && tempsidPtr->sid_authcount <= KAUTH_NTSID_MAX_AUTHORITIES)
+				long* temp = (long*)&result->fGUID;
+
+				if ( recordType == TYPE_USER || recordType == TYPE_COMPUTER )
 				{
-					result->fSID = (ntsid_t*)malloc(sizeof(ntsid_t));
-					memset(result->fSID, 0, sizeof(ntsid_t));
-					memcpy(result->fSID, tempsidPtr, KAUTH_NTSID_SIZE(tempsidPtr));
-					AddToHash(gSIDHash, result);
-				}
-				if (tempguid != NULL)
-				{
-					memcpy(&result->fGUID, tempguid, sizeof(guid_t));
+					temp[0] = htonl(0xFFFFEEEE);
+					temp[1] = htonl(0xDDDDCCCC);
+					temp[2] = htonl(0xBBBBAAAA);
+					temp[3] = htonl(result->fID);
 				}
 				else
 				{
-					long* temp = (long*)&result->fGUID;
 					temp[0] = htonl(0xAAAABBBB);
 					temp[1] = htonl(0xCCCCDDDD);
 					temp[2] = htonl(0xEEEEFFFF);
 					temp[3] = htonl(result->fID);
-				} 
-				AddToHash(gGUIDHash, result);
-				
+				}
+			} 
+			
+			AddToHash(gGUIDHash, result);
+			
+			if ( recordType == TYPE_USER || recordType == TYPE_COMPUTER )
+				AddToHash(gUIDHash, result);
+			else
 				AddToHash(gGIDHash, result);
-			}
 		}
 
 		result->fNotFound = 1;
 		result->fExpiration = GetElapsedSeconds() + gDefaultNegativeExpiration;
 		result->fLoginExpiration = GetElapsedSeconds() + gLoginExpiration;
-	}
-	
-	if ((recordType == TYPE_USER) && result->fNotFound)
-	{
-		result = NULL;
 	}
 	
 	return result;
@@ -645,7 +672,11 @@ UserGroup* GetGroupWithGID(int gid)
 
 UserGroup* GetUserWithName(char* name)
 {
-	return GetItem(TYPE_USER, kDSNAttrRecordName, NULL, NULL, 0, name);
+	UserGroup* result = GetItem(TYPE_USER, kDSNAttrRecordName, NULL, NULL, 0, name);
+	if (result->fNotFound)
+		result = NULL;
+	
+	return result;
 }
 
 UserGroup* GetGroupWithName(char* name)

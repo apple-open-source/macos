@@ -248,7 +248,7 @@
 		B41FC0EB09F6BDD900006FAE /* xar.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xar.c; path = xar/src/xar.c; sourceTree = "<group>"; };
 		B41FC0F409F6BE2F00006FAE /* libxar.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libxar.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		B41FC12409F6BF3300006FAE /* README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
-		B41FC12509F6BF3300006FAE /* xar.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = xar.plist; sourceTree = "<group>"; };
+		B41FC12509F6BF3300006FAE /* xar.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = xar.plist; sourceTree = "<group>"; };
 		B41FC12609F6BF3300006FAE /* xar.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = xar.txt; sourceTree = "<group>"; };
 		B41FC16309F6C56600006FAE /* config.h.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = config.h.in; path = xar/include/config.h.in; sourceTree = "<group>"; };
 		B41FC16409F6C56600006FAE /* xar.h.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = xar.h.in; path = xar/include/xar.h.in; sourceTree = "<group>"; };
@@ -481,7 +481,9 @@
 			productRefGroup = B41FC06009F6B7C200006FAE /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
+			projectRoots = (
+				"",
+			);
 			targets = (
 				B41FC12F09F6BF5900006FAE /* All */,
 				B41FC04F09F6B76200006FAE /* configure */,
@@ -641,7 +643,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 30;
 				STRIP_STYLE = debugging;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -703,7 +705,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 30;
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
@@ -789,7 +791,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 30;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;

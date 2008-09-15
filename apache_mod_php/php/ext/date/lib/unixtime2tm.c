@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: unixtime2tm.c,v 1.12.2.4.2.3 2007/07/12 18:58:00 derick Exp $ */
+/* $Id: unixtime2tm.c,v 1.12.2.4.2.4 2007/12/31 07:20:05 sebastian Exp $ */
 
 #include "timelib.h"
 

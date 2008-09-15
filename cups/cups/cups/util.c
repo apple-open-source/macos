@@ -1,5 +1,5 @@
 /*
- * "$Id: util.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: util.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Printing utilities for the Common UNIX Printing System (CUPS).
  *
@@ -772,7 +772,7 @@ cupsGetPPD2(http_t     *http,		/* I - HTTP connection */
                             resource, sizeof(resource), 0))
     return (NULL);
 
-  DEBUG_printf(("Printer hostname=\"%s\", port=%d\n", hostname, port));
+  DEBUG_printf(("cupsGetPPD3: Printer hostname=\"%s\", port=%d\n", hostname, port));
 
  /*
   * Remap local hostname to localhost...
@@ -1611,6 +1611,16 @@ cups_get_printer_uri(
 		      host, hostsize, port, resource, resourcesize);
       ippDelete(response);
 
+      if (!strncmp(resource, "/classes/", 9))
+      {
+        _cupsSetError(IPP_INTERNAL_ERROR, _("No printer-uri found for class!"));
+
+	*host     = '\0';
+	*resource = '\0';
+
+	return (0);
+      }
+
       return (1);
     }
 
@@ -1618,7 +1628,7 @@ cups_get_printer_uri(
   }
 
   if (cupsLastError() != IPP_NOT_FOUND)
-    _cupsSetError(IPP_INTERNAL_ERROR, "No printer-uri found!");
+    _cupsSetError(IPP_INTERNAL_ERROR, _("No printer-uri found!"));
 
   *host     = '\0';
   *resource = '\0';
@@ -1628,5 +1638,5 @@ cups_get_printer_uri(
 
 
 /*
- * End of "$Id: util.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: util.c 7721 2008-07-11 22:48:49Z mike $".
  */

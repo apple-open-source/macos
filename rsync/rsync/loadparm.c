@@ -1,26 +1,26 @@
 /* This is based on loadparm.c from Samba, written by Andrew Tridgell
    and Karl Auer */
 
-/* some fixes
+/*
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/*
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
+/* some fixes
+ *
+ * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
+ */
 
 /*
  *  Load parameters.
@@ -56,6 +56,10 @@
 #define BOOLSTR(b) ((b) ? "Yes" : "No")
 typedef char pstring[1024];
 #define pstrcpy(a,b) strlcpy(a,b,sizeof(pstring))
+
+#ifndef LOG_DAEMON
+#define LOG_DAEMON 0
+#endif
 
 /* the following are used by loadparm for option lists */
 typedef enum
@@ -98,91 +102,111 @@ struct parm_struct
  */
 typedef struct
 {
+	char *bind_address;
 	char *motd_file;
-	char *log_file;
 	char *pid_file;
 	char *socket_options;
-	int syslog_facility;
-	int max_verbosity;
+
+	int rsync_port;
 } global;
 
 static global Globals;
 
 
 /*
- * This structure describes a single service.
+ * This structure describes a single service.  Their order must match the
+ * initializers below, which you can accomplish by keeping each sub-section
+ * sorted.  (e.g. in vim, just visually select each subsection and use !sort.)
  */
 typedef struct
 {
-	char *name;
-	char *path;
+	char *auth_users;
 	char *comment;
-	char *lock_file;
-	BOOL read_only;
-	BOOL write_only;
-	BOOL list;
-	BOOL use_chroot;
-	BOOL transfer_logging;
-	BOOL ignore_errors;
-	char *uid;
+	char *dont_compress;
+	char *exclude;
+	char *exclude_from;
+	char *filter;
 	char *gid;
 	char *hosts_allow;
 	char *hosts_deny;
-	char *auth_users;
-	char *secrets_file;
-	BOOL strict_modes;
-	char *exclude;
-	char *exclude_from;
 	char *include;
 	char *include_from;
+	char *incoming_chmod;
+	char *lock_file;
+	char *log_file;
 	char *log_format;
+	char *name;
+	char *outgoing_chmod;
+	char *path;
+	char *postxfer_exec;
+	char *prexfer_exec;
 	char *refuse_options;
-	char *dont_compress;
-	int timeout;
+	char *secrets_file;
+	char *temp_dir;
+	char *uid;
+
 	int max_connections;
+	int max_verbosity;
+	int syslog_facility;
+	int timeout;
+
+	BOOL ignore_errors;
 	BOOL ignore_nonreadable;
+	BOOL list;
+	BOOL munge_symlinks;
+	BOOL read_only;
+	BOOL strict_modes;
+	BOOL transfer_logging;
+	BOOL use_chroot;
+	BOOL write_only;
 } service;
 
 
-/* This is a default service used to prime a services structure */
+/* This is a default service used to prime a services structure.  In order
+ * to make these easy to keep sorted in the same way as the variables
+ * above, use the variable name in the leading comment, including a
+ * trailing ';' (to avoid a sorting problem with trailing digits). */
 static service sDefault =
 {
-	NULL,    /* name */
-	NULL,    /* path */
-	NULL,    /* comment */
-	DEFAULT_LOCK_FILE,    /* lock file */
-	True,    /* read only */
-	False,   /* write only */
-	True,    /* list */
-	True,    /* use chroot */
-	False,   /* transfer logging */
-	False,   /* ignore errors */
-	"nobody",/* uid */
+ /* auth_users; */		NULL,
+ /* comment; */			NULL,
+ /* dont_compress; */		"*.gz *.tgz *.zip *.z *.rpm *.deb *.iso *.bz2 *.tbz",
+ /* exclude; */			NULL,
+ /* exclude_from; */		NULL,
+ /* filter; */			NULL,
+ /* gid; */			NOBODY_GROUP,
+ /* hosts_allow; */		NULL,
+ /* hosts_deny; */		NULL,
+ /* include; */			NULL,
+ /* include_from; */		NULL,
+ /* incoming_chmod; */		NULL,
+ /* lock_file; */		DEFAULT_LOCK_FILE,
+ /* log_file; */		NULL,
+ /* log_format; */		"%o %h [%a] %m (%u) %f %l",
+ /* name; */			NULL,
+ /* outgoing_chmod; */		NULL,
+ /* path; */			NULL,
+ /* postxfer_exec; */		NULL,
+ /* prexfer_exec; */		NULL,
+ /* refuse_options; */		NULL,
+ /* secrets_file; */		NULL,
+ /* temp_dir; */ 		NULL,
+ /* uid; */			NOBODY_USER,
 
-	/* TODO: This causes problems on Debian, where it is called
-	 * "nogroup".  Debian patch this in their version of the
-	 * package, but it would be nice to be consistent.  Possibly
-	 * other systems are different again.
-	 *
-	 * What is the best behaviour?  Perhaps always using (gid_t)
-	 * -2? */
-	"nobody",/* gid */
+ /* max_connections; */		0,
+ /* max_verbosity; */		1,
+ /* syslog_facility; */		LOG_DAEMON,
+ /* timeout; */			0,
 
-	NULL,    /* hosts allow */
-	NULL,    /* hosts deny */
-	NULL,    /* auth users */
-	NULL,    /* secrets file */
-	True,   /* strict modes */
-	NULL,    /* exclude */
-	NULL,    /* exclude from */
-	NULL,    /* include */
-	NULL,    /* include from */
-	"%o %h [%a] %m (%u) %f %l",    /* log format */
-	NULL,    /* refuse options */
-	"*.gz *.tgz *.zip *.z *.rpm *.deb *.iso *.bz2 *.tbz",    /* dont compress */
-	0,        /* timeout */
-	0,        /* max connections */
-	False     /* ignore nonreadable */
+ /* ignore_errors; */		False,
+ /* ignore_nonreadable; */	False,
+ /* list; */			True,
+ /* munge_symlinks; */		(BOOL)-1,
+ /* read_only; */		True,
+ /* strict_modes; */		True,
+ /* transfer_logging; */	False,
+ /* use_chroot; */		True,
+ /* write_only; */		False,
 };
 
 
@@ -265,58 +289,65 @@ static struct enum_list enum_facilities[] = {
 /* note that we do not initialise the defaults union - it is not allowed in ANSI C */
 static struct parm_struct parm_table[] =
 {
-  {"motd file",        P_STRING,  P_GLOBAL, &Globals.motd_file,    NULL,   0},
-  {"syslog facility",  P_ENUM,    P_GLOBAL, &Globals.syslog_facility, enum_facilities,0},
-  {"socket options",   P_STRING,  P_GLOBAL, &Globals.socket_options,NULL,  0},
-  {"log file",         P_STRING,  P_GLOBAL, &Globals.log_file,      NULL,  0},
-  {"pid file",         P_STRING,  P_GLOBAL, &Globals.pid_file,      NULL,  0},
-  {"max verbosity",    P_INTEGER, P_GLOBAL, &Globals.max_verbosity, NULL,  0},
+ {"address",           P_STRING, P_GLOBAL,&Globals.bind_address,       NULL,0},
+ {"motd file",         P_STRING, P_GLOBAL,&Globals.motd_file,          NULL,0},
+ {"pid file",          P_STRING, P_GLOBAL,&Globals.pid_file,           NULL,0},
+ {"port",              P_INTEGER,P_GLOBAL,&Globals.rsync_port,         NULL,0},
+ {"socket options",    P_STRING, P_GLOBAL,&Globals.socket_options,     NULL,0},
 
-  {"timeout",          P_INTEGER, P_LOCAL,  &sDefault.timeout,     NULL,  0},
-  {"max connections",  P_INTEGER, P_LOCAL,  &sDefault.max_connections,NULL, 0},
-  {"name",             P_STRING,  P_LOCAL,  &sDefault.name,        NULL,   0},
-  {"comment",          P_STRING,  P_LOCAL,  &sDefault.comment,     NULL,   0},
-  {"lock file",        P_STRING,  P_LOCAL,  &sDefault.lock_file,   NULL,   0},
-  {"path",             P_PATH,    P_LOCAL,  &sDefault.path,        NULL,   0},
-  {"read only",        P_BOOL,    P_LOCAL,  &sDefault.read_only,   NULL,   0},
-  {"write only",       P_BOOL,    P_LOCAL,  &sDefault.write_only,  NULL,   0},
-  {"list",             P_BOOL,    P_LOCAL,  &sDefault.list,        NULL,   0},
-  {"use chroot",       P_BOOL,    P_LOCAL,  &sDefault.use_chroot,  NULL,   0},
-  {"ignore nonreadable",P_BOOL,   P_LOCAL,  &sDefault.ignore_nonreadable,  NULL,   0},
-  {"uid",              P_STRING,  P_LOCAL,  &sDefault.uid,         NULL,   0},
-  {"gid",              P_STRING,  P_LOCAL,  &sDefault.gid,         NULL,   0},
-  {"hosts allow",      P_STRING,  P_LOCAL,  &sDefault.hosts_allow, NULL,   0},
-  {"hosts deny",       P_STRING,  P_LOCAL,  &sDefault.hosts_deny,  NULL,   0},
-  {"auth users",       P_STRING,  P_LOCAL,  &sDefault.auth_users,  NULL,   0},
-  {"secrets file",     P_STRING,  P_LOCAL,  &sDefault.secrets_file,NULL,   0},
-  {"strict modes",     P_BOOL,    P_LOCAL,  &sDefault.strict_modes,NULL,   0},
-  {"exclude",          P_STRING,  P_LOCAL,  &sDefault.exclude,     NULL,   0},
-  {"exclude from",     P_STRING,  P_LOCAL,  &sDefault.exclude_from,NULL,   0},
-  {"include",          P_STRING,  P_LOCAL,  &sDefault.include,     NULL,   0},
-  {"include from",     P_STRING,  P_LOCAL,  &sDefault.include_from,NULL,   0},
-  {"transfer logging", P_BOOL,    P_LOCAL,  &sDefault.transfer_logging,NULL,0},
-  {"ignore errors",    P_BOOL,    P_LOCAL,  &sDefault.ignore_errors,NULL,0},
-  {"log format",       P_STRING,  P_LOCAL,  &sDefault.log_format,  NULL,   0},
-  {"refuse options",   P_STRING,  P_LOCAL,  &sDefault.refuse_options,NULL, 0},
-  {"dont compress",    P_STRING,  P_LOCAL,  &sDefault.dont_compress,NULL,  0},
-  {NULL,               P_BOOL,    P_NONE,   NULL,                  NULL,   0}
+ {"auth users",        P_STRING, P_LOCAL, &sDefault.auth_users,        NULL,0},
+ {"comment",           P_STRING, P_LOCAL, &sDefault.comment,           NULL,0},
+ {"dont compress",     P_STRING, P_LOCAL, &sDefault.dont_compress,     NULL,0},
+ {"exclude from",      P_STRING, P_LOCAL, &sDefault.exclude_from,      NULL,0},
+ {"exclude",           P_STRING, P_LOCAL, &sDefault.exclude,           NULL,0},
+ {"filter",            P_STRING, P_LOCAL, &sDefault.filter,            NULL,0},
+ {"gid",               P_STRING, P_LOCAL, &sDefault.gid,               NULL,0},
+ {"hosts allow",       P_STRING, P_LOCAL, &sDefault.hosts_allow,       NULL,0},
+ {"hosts deny",        P_STRING, P_LOCAL, &sDefault.hosts_deny,        NULL,0},
+ {"ignore errors",     P_BOOL,   P_LOCAL, &sDefault.ignore_errors,     NULL,0},
+ {"ignore nonreadable",P_BOOL,   P_LOCAL, &sDefault.ignore_nonreadable,NULL,0},
+ {"include from",      P_STRING, P_LOCAL, &sDefault.include_from,      NULL,0},
+ {"include",           P_STRING, P_LOCAL, &sDefault.include,           NULL,0},
+ {"incoming chmod",    P_STRING, P_LOCAL, &sDefault.incoming_chmod,    NULL,0},
+ {"list",              P_BOOL,   P_LOCAL, &sDefault.list,              NULL,0},
+ {"lock file",         P_STRING, P_LOCAL, &sDefault.lock_file,         NULL,0},
+ {"log file",          P_STRING, P_LOCAL, &sDefault.log_file,          NULL,0},
+ {"log format",        P_STRING, P_LOCAL, &sDefault.log_format,        NULL,0},
+ {"max connections",   P_INTEGER,P_LOCAL, &sDefault.max_connections,   NULL,0},
+ {"max verbosity",     P_INTEGER,P_LOCAL, &sDefault.max_verbosity,     NULL,0},
+ {"munge symlinks",    P_BOOL,   P_LOCAL, &sDefault.munge_symlinks,    NULL,0},
+ {"name",              P_STRING, P_LOCAL, &sDefault.name,              NULL,0},
+ {"outgoing chmod",    P_STRING, P_LOCAL, &sDefault.outgoing_chmod,    NULL,0},
+ {"path",              P_PATH,   P_LOCAL, &sDefault.path,              NULL,0},
+#ifdef HAVE_PUTENV
+ {"post-xfer exec",    P_STRING, P_LOCAL, &sDefault.postxfer_exec,     NULL,0},
+ {"pre-xfer exec",     P_STRING, P_LOCAL, &sDefault.prexfer_exec,      NULL,0},
+#endif
+ {"read only",         P_BOOL,   P_LOCAL, &sDefault.read_only,         NULL,0},
+ {"refuse options",    P_STRING, P_LOCAL, &sDefault.refuse_options,    NULL,0},
+ {"secrets file",      P_STRING, P_LOCAL, &sDefault.secrets_file,      NULL,0},
+ {"strict modes",      P_BOOL,   P_LOCAL, &sDefault.strict_modes,      NULL,0},
+ {"syslog facility",   P_ENUM,   P_LOCAL, &sDefault.syslog_facility,enum_facilities,0},
+ {"temp dir",          P_PATH,   P_LOCAL, &sDefault.temp_dir,          NULL,0},
+ {"timeout",           P_INTEGER,P_LOCAL, &sDefault.timeout,           NULL,0},
+ {"transfer logging",  P_BOOL,   P_LOCAL, &sDefault.transfer_logging,  NULL,0},
+ {"uid",               P_STRING, P_LOCAL, &sDefault.uid,               NULL,0},
+ {"use chroot",        P_BOOL,   P_LOCAL, &sDefault.use_chroot,        NULL,0},
+ {"write only",        P_BOOL,   P_LOCAL, &sDefault.write_only,        NULL,0},
+ {NULL,                P_BOOL,   P_NONE,  NULL,                        NULL,0}
 };
 
 
 /***************************************************************************
-Initialise the global parameter structure.
+* Initialise the global parameter structure.
 ***************************************************************************/
 static void init_globals(void)
 {
 	memset(&Globals, 0, sizeof Globals);
-#ifdef LOG_DAEMON
-	Globals.syslog_facility = LOG_DAEMON;
-#endif
-	Globals.max_verbosity = 1;
 }
 
 /***************************************************************************
-Initialise the sDefault parameter structure.
+* Initialise the sDefault parameter structure.
 ***************************************************************************/
 static void init_locals(void)
 {
@@ -347,40 +378,52 @@ static void init_locals(void)
  int fn_name(int i) {return(LP_SNUM_OK(i)? pSERVICE(i)->val : sDefault.val);}
 
 
+FN_GLOBAL_STRING(lp_bind_address, &Globals.bind_address)
 FN_GLOBAL_STRING(lp_motd_file, &Globals.motd_file)
-FN_GLOBAL_STRING(lp_log_file, &Globals.log_file)
 FN_GLOBAL_STRING(lp_pid_file, &Globals.pid_file)
 FN_GLOBAL_STRING(lp_socket_options, &Globals.socket_options)
-FN_GLOBAL_INTEGER(lp_syslog_facility, &Globals.syslog_facility)
-FN_GLOBAL_INTEGER(lp_max_verbosity, &Globals.max_verbosity)
 
-FN_LOCAL_STRING(lp_name, name)
+FN_GLOBAL_INTEGER(lp_rsync_port, &Globals.rsync_port)
+
+FN_LOCAL_STRING(lp_auth_users, auth_users)
 FN_LOCAL_STRING(lp_comment, comment)
-FN_LOCAL_STRING(lp_path, path)
-FN_LOCAL_STRING(lp_lock_file, lock_file)
-FN_LOCAL_BOOL(lp_read_only, read_only)
-FN_LOCAL_BOOL(lp_write_only, write_only)
-FN_LOCAL_BOOL(lp_list, list)
-FN_LOCAL_BOOL(lp_use_chroot, use_chroot)
-FN_LOCAL_BOOL(lp_transfer_logging, transfer_logging)
-FN_LOCAL_BOOL(lp_ignore_errors, ignore_errors)
-FN_LOCAL_BOOL(lp_ignore_nonreadable, ignore_nonreadable)
-FN_LOCAL_STRING(lp_uid, uid)
+FN_LOCAL_STRING(lp_dont_compress, dont_compress)
+FN_LOCAL_STRING(lp_exclude, exclude)
+FN_LOCAL_STRING(lp_exclude_from, exclude_from)
+FN_LOCAL_STRING(lp_filter, filter)
 FN_LOCAL_STRING(lp_gid, gid)
 FN_LOCAL_STRING(lp_hosts_allow, hosts_allow)
 FN_LOCAL_STRING(lp_hosts_deny, hosts_deny)
-FN_LOCAL_STRING(lp_auth_users, auth_users)
-FN_LOCAL_STRING(lp_secrets_file, secrets_file)
-FN_LOCAL_BOOL(lp_strict_modes, strict_modes)
-FN_LOCAL_STRING(lp_exclude, exclude)
-FN_LOCAL_STRING(lp_exclude_from, exclude_from)
 FN_LOCAL_STRING(lp_include, include)
 FN_LOCAL_STRING(lp_include_from, include_from)
+FN_LOCAL_STRING(lp_incoming_chmod, incoming_chmod)
+FN_LOCAL_STRING(lp_lock_file, lock_file)
+FN_LOCAL_STRING(lp_log_file, log_file)
 FN_LOCAL_STRING(lp_log_format, log_format)
+FN_LOCAL_STRING(lp_name, name)
+FN_LOCAL_STRING(lp_outgoing_chmod, outgoing_chmod)
+FN_LOCAL_STRING(lp_path, path)
+FN_LOCAL_STRING(lp_postxfer_exec, postxfer_exec)
+FN_LOCAL_STRING(lp_prexfer_exec, prexfer_exec)
 FN_LOCAL_STRING(lp_refuse_options, refuse_options)
-FN_LOCAL_STRING(lp_dont_compress, dont_compress)
-FN_LOCAL_INTEGER(lp_timeout, timeout)
+FN_LOCAL_STRING(lp_secrets_file, secrets_file)
+FN_LOCAL_INTEGER(lp_syslog_facility, syslog_facility)
+FN_LOCAL_STRING(lp_temp_dir, temp_dir)
+FN_LOCAL_STRING(lp_uid, uid)
+
 FN_LOCAL_INTEGER(lp_max_connections, max_connections)
+FN_LOCAL_INTEGER(lp_max_verbosity, max_verbosity)
+FN_LOCAL_INTEGER(lp_timeout, timeout)
+
+FN_LOCAL_BOOL(lp_ignore_errors, ignore_errors)
+FN_LOCAL_BOOL(lp_ignore_nonreadable, ignore_nonreadable)
+FN_LOCAL_BOOL(lp_list, list)
+FN_LOCAL_BOOL(lp_munge_symlinks, munge_symlinks)
+FN_LOCAL_BOOL(lp_read_only, read_only)
+FN_LOCAL_BOOL(lp_strict_modes, strict_modes)
+FN_LOCAL_BOOL(lp_transfer_logging, transfer_logging)
+FN_LOCAL_BOOL(lp_use_chroot, use_chroot)
+FN_LOCAL_BOOL(lp_write_only, write_only)
 
 /* local prototypes */
 static int    strwicmp(char *psz1, char *psz2);
@@ -393,7 +436,7 @@ static BOOL   do_section(char *sectionname);
 
 
 /***************************************************************************
-initialise a service to the defaults
+* initialise a service to the defaults
 ***************************************************************************/
 static void init_service(service *pservice)
 {
@@ -427,8 +470,8 @@ static void string_set(char **s, const char *v)
 
 
 /***************************************************************************
-add a new service to the services array initialising it with the given
-service
+* add a new service to the services array initialising it with the given
+* service
 ***************************************************************************/
 static int add_a_service(service *pservice, char *name)
 {
@@ -467,7 +510,7 @@ static int add_a_service(service *pservice, char *name)
 }
 
 /***************************************************************************
-Do a case-insensitive, whitespace-ignoring string compare.
+* Do a case-insensitive, whitespace-ignoring string compare.
 ***************************************************************************/
 static int strwicmp(char *psz1, char *psz2)
 {
@@ -499,8 +542,8 @@ static int strwicmp(char *psz1, char *psz2)
 }
 
 /***************************************************************************
-Map a parameter's string representation to something we can use.
-Returns False if the parameter string is not recognised, else TRUE.
+* Map a parameter's string representation to something we can use.
+* Returns False if the parameter string is not recognised, else TRUE.
 ***************************************************************************/
 static int map_parameter(char *parmname)
 {
@@ -519,9 +562,9 @@ static int map_parameter(char *parmname)
 
 
 /***************************************************************************
-Set a boolean variable from the text value stored in the passed string.
-Returns True in success, False if the passed string does not correctly
-represent a boolean.
+* Set a boolean variable from the text value stored in the passed string.
+* Returns True in success, False if the passed string does not correctly
+* represent a boolean.
 ***************************************************************************/
 static BOOL set_boolean(BOOL *pb, char *parmvalue)
 {
@@ -547,7 +590,7 @@ static BOOL set_boolean(BOOL *pb, char *parmvalue)
 }
 
 /***************************************************************************
-Find a service by name. Otherwise works like get_service.
+* Find a service by name. Otherwise works like get_service.
 ***************************************************************************/
 static int getservicebyname(char *name, service *pserviceDest)
 {
@@ -567,8 +610,7 @@ static int getservicebyname(char *name, service *pserviceDest)
 
 
 /***************************************************************************
-Copy a service structure to another
-
+* Copy a service structure to another
 ***************************************************************************/
 static void copy_service(service *pserviceDest,
                          service *pserviceSource)
@@ -613,8 +655,8 @@ static void copy_service(service *pserviceDest,
 
 
 /***************************************************************************
-Process a parameter for a particular service number. If snum < 0
-then assume we are in the globals
+* Process a parameter for a particular service number. If snum < 0
+* then assume we are in the globals
 ***************************************************************************/
 static BOOL lp_do_parameter(int snum, char *parmname, char *parmvalue)
 {
@@ -705,7 +747,7 @@ static BOOL lp_do_parameter(int snum, char *parmname, char *parmvalue)
 }
 
 /***************************************************************************
-Process a parameter.
+* Process a parameter.
 ***************************************************************************/
 static BOOL do_parameter(char *parmname, char *parmvalue)
 {
@@ -713,9 +755,9 @@ static BOOL do_parameter(char *parmname, char *parmvalue)
 }
 
 /***************************************************************************
-Process a new section (service). At this stage all sections are services.
-Later we'll have special sections that permit server parameters to be set.
-Returns True on success, False on failure.
+* Process a new section (service). At this stage all sections are services.
+* Later we'll have special sections that permit server parameters to be set.
+* Returns True on success, False on failure.
 ***************************************************************************/
 static BOOL do_section(char *sectionname)
 {
@@ -760,13 +802,12 @@ static BOOL do_section(char *sectionname)
 
 
 /***************************************************************************
-Load the services array from the services file. Return True on success,
-False on failure.
+* Load the services array from the services file. Return True on success,
+* False on failure.
 ***************************************************************************/
 BOOL lp_load(char *pszFname, int globals_only)
 {
 	extern int am_server;
-	extern int am_daemon;
 	extern int am_root;
 	pstring n2;
 	BOOL bRetval;
@@ -779,7 +820,7 @@ BOOL lp_load(char *pszFname, int globals_only)
 
 	if (pszFname)
 	    pstrcpy(n2,pszFname);
-	else if (am_server && am_daemon && !am_root)
+	else if (am_server && !am_root)
 	    pstrcpy(n2,RSYNCD_USERCONF);
 	else
 	    pstrcpy(n2,RSYNCD_SYSCONF);
@@ -793,7 +834,7 @@ BOOL lp_load(char *pszFname, int globals_only)
 
 
 /***************************************************************************
-return the max number of services
+* return the max number of services
 ***************************************************************************/
 int lp_numservices(void)
 {
@@ -801,10 +842,10 @@ int lp_numservices(void)
 }
 
 /***************************************************************************
-Return the number of the service with the given name, or -1 if it doesn't
-exist. Note that this is a DIFFERENT ANIMAL from the internal function
-getservicebyname()! This works ONLY if all services have been loaded, and
-does not copy the found service.
+* Return the number of the service with the given name, or -1 if it doesn't
+* exist. Note that this is a DIFFERENT ANIMAL from the internal function
+* getservicebyname()! This works ONLY if all services have been loaded, and
+* does not copy the found service.
 ***************************************************************************/
 int lp_number(char *name)
 {

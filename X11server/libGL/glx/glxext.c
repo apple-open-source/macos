@@ -1308,7 +1308,7 @@ static Bool MakeContextCurrent(Display *dpy,
 #endif
         _glapi_check_multithread();
 	/* Send a glXMakeCurrent request to bind the new context. */
-	LockDisplay(dpy);
+	//LockDisplay(dpy); SendMakeCurrentRequests locks, and OS X doesn't like recursive locks.
 
 	bindReturnValue = SendMakeCurrentRequest( dpy, opcode, 
 						  gc ? gc->xid : None,
@@ -1321,7 +1321,8 @@ static Bool MakeContextCurrent(Display *dpy,
 
     if (!bindReturnValue) {
 	/* The make current failed. */
-	if (gc && !gc->isDirect) {
+	if (!gc || !gc->isDirect) {
+	    UnlockDisplay(dpy);
 	    SyncHandle();
 	}
 
@@ -1376,6 +1377,7 @@ static Bool MakeContextCurrent(Display *dpy,
 	}
 	return GL_FALSE;
     }
+    UnlockDisplay(dpy);
 
     /* Update our notion of what is current */
     __glXLock();

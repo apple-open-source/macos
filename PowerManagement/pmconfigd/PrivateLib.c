@@ -103,7 +103,6 @@ _setRootDomainProperty(
     CFStringRef                 key, 
     CFTypeRef                   val) 
 {
-    io_iterator_t               it;
     io_registry_entry_t         root_domain;
     IOReturn                    ret;
 
@@ -113,7 +112,6 @@ _setRootDomainProperty(
     ret = IORegistryEntrySetCFProperty(root_domain, key, val);
 
     IOObjectRelease(root_domain);
-    IOObjectRelease(it);
     return ret;
 }
 
@@ -554,4 +552,210 @@ callerIsConsole(
 void _oneOffHacksSetup(void) 
 {
     registerForCalendarChangedNotification();
+}
+
+
+#if !TARGET_OS_EMBEDDED
+
+/************************************************************************/
+/************************************************************************/
+/************************************************************************/
+/************************************************************************/
+/************************************************************************/
+
+// Code to read AppleSMC
+
+/************************************************************************/
+/************************************************************************/
+/************************************************************************/
+/************************************************************************/
+/************************************************************************/
+
+/* Do not modify - defined by AppleSMC.kext */
+enum {
+	kSMCSuccess	= 0,
+	kSMCError	= 1
+};
+enum {
+	kSMCUserClientOpen  = 0,
+	kSMCUserClientClose = 1,
+	kSMCHandleYPCEvent  = 2,	
+    kSMCReadKey         = 5,
+	kSMCWriteKey        = 6,
+	kSMCGetKeyCount     = 7,
+	kSMCGetKeyFromIndex = 8,
+	kSMCGetKeyInfo      = 9
+};
+/* Do not modify - defined by AppleSMC.kext */
+typedef struct SMCVersion 
+{
+    unsigned char    major;
+    unsigned char    minor;
+    unsigned char    build;
+    unsigned char    reserved;
+    unsigned short   release;
+    
+} SMCVersion;
+/* Do not modify - defined by AppleSMC.kext */
+typedef struct SMCPLimitData 
+{
+    uint16_t    version;
+    uint16_t    length;
+    uint32_t    cpuPLimit;
+    uint32_t    gpuPLimit;
+    uint32_t    memPLimit;
+
+} SMCPLimitData;
+/* Do not modify - defined by AppleSMC.kext */
+typedef struct SMCKeyInfoData 
+{
+    IOByteCount         dataSize;
+    uint32_t            dataType;
+    uint8_t             dataAttributes;
+
+} SMCKeyInfoData;
+/* Do not modify - defined by AppleSMC.kext */
+typedef struct {
+    uint32_t            key;
+    SMCVersion          vers;
+    SMCPLimitData       pLimitData;
+    SMCKeyInfoData      keyInfo;
+    uint8_t             result;
+    uint8_t             status;
+    uint8_t             data8;
+    uint32_t            data32;    
+    uint8_t             bytes[32];
+}  SMCParamStruct;
+
+// Forwards
+__private_extern__ IOReturn getSMCKey(
+    uint32_t key,
+    uint8_t *outBuf,
+    uint8_t outBufMax);
+static IOReturn callSMCFunction(
+    int which, 
+    SMCParamStruct *inputValues, 
+    SMCParamStruct *outputValues) ;
+
+
+// Methods
+__private_extern__ IOReturn getSMCKey(
+    uint32_t key,
+    uint8_t *outBuf,
+    uint8_t outBufMax)
+{
+    SMCParamStruct  stuffMeIn;
+    SMCParamStruct  stuffMeOut;
+    IOReturn        ret;
+    int             i;
+
+    if (key == 0 || outBuf == NULL) 
+        return kIOReturnCannotWire;
+
+    bzero(outBuf, outBufMax);
+    bzero(&stuffMeIn, sizeof(SMCParamStruct));
+    bzero(&stuffMeOut, sizeof(SMCParamStruct));
+
+    stuffMeIn.data8 = kSMCGetKeyInfo;
+    stuffMeIn.key = key;
+
+    ret = callSMCFunction(kSMCHandleYPCEvent, &stuffMeIn, &stuffMeOut);
+
+    if (stuffMeOut.result != kSMCSuccess)
+    {
+        ret = kIOReturnInternalError;
+        goto exit;
+    }
+
+    stuffMeIn.data8 = kSMCReadKey;
+    stuffMeIn.key = key;
+    stuffMeIn.keyInfo.dataSize = stuffMeOut.keyInfo.dataSize;
+
+    bzero(&stuffMeOut, sizeof(SMCParamStruct));
+
+    ret = callSMCFunction(kSMCHandleYPCEvent, &stuffMeIn, &stuffMeOut);
+
+    if (stuffMeOut.result != kSMCSuccess)
+    {
+        ret = kIOReturnInternalError;
+        goto exit;
+    }
+
+    if (outBufMax == 1) {
+        *outBuf = stuffMeOut.data8;
+    } else if (outBufMax == 4) {
+        *outBuf = stuffMeOut.data32;
+    } else {
+        if (outBufMax > stuffMeIn.keyInfo.dataSize)
+            outBufMax = stuffMeIn.keyInfo.dataSize;
+        for (i=0; i<outBufMax; i++)
+        {
+            outBuf[i] = stuffMeOut.bytes[i];
+        }
+    }
+exit:
+    return ret;
+}
+
+static IOReturn callSMCFunction(
+    int which, 
+    SMCParamStruct *inputValues, 
+    SMCParamStruct *outputValues) 
+{
+    IOReturn result = kIOReturnError;
+
+    IOByteCount    inStructSize = sizeof(SMCParamStruct);
+    IOByteCount    outStructSize = sizeof(SMCParamStruct);
+    
+    io_connect_t    _SMCConnect = IO_OBJECT_NULL;
+    io_service_t    smc = IO_OBJECT_NULL;
+
+    smc = IOServiceGetMatchingService(
+        kIOMasterPortDefault, 
+        IOServiceMatching("AppleSMC"));
+    if (IO_OBJECT_NULL == smc) {
+        return kIOReturnNotFound;
+    }
+    
+    result = IOServiceOpen(smc, mach_task_self(), 1, &_SMCConnect);        
+    if (result != kIOReturnSuccess || 
+        IO_OBJECT_NULL == _SMCConnect) 
+    {
+        _SMCConnect = IO_OBJECT_NULL;
+        goto exit;
+    }
+    
+    result = IOConnectCallMethod(_SMCConnect, kSMCUserClientOpen, 
+                    NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
+    if (result != kIOReturnSuccess) {
+        goto exit;
+    }
+    
+    result = IOConnectCallStructMethod(_SMCConnect, which, 
+                        inputValues, inStructSize,
+                        outputValues, &outStructSize);
+
+exit:    
+    if (IO_OBJECT_NULL != _SMCConnect) {
+        IOConnectCallMethod(_SMCConnect, kSMCUserClientClose, 
+                    NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
+        IOServiceClose(_SMCConnect);    
+    }
+
+    return result;
+}
+
+#endif /* TARGET_OS_EMBEDDED */
+
+
+
+__private_extern__ IOReturn getSystemManagementKeyInt32(
+    uint32_t key, 
+    uint32_t *val)
+{
+#if !TARGET_OS_EMBEDDED    
+    return getSMCKey(key, (void *)val, 4);
+#else
+    return kIOReturnNotReadable;
+#endif
 }

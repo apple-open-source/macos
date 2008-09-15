@@ -1,40 +1,35 @@
-/* -*- c-file-style: "linux" -*-
-
-   rsync -- fast file replication program
-
-   Copyright (C) 1992-2001 by Andrew Tridgell <tridge@samba.org>
-   Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
-
-/**
- * @file clientname.c
- *
+/*
  * Functions for looking up the remote name or addr of a socket.
  *
+ * Copyright (C) 1992-2001 Andrew Tridgell <tridge@samba.org>
+ * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
+ * Copyright (C) 2002, 2003, 2004 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
+
+/*
  * This file is now converted to use the new-style getaddrinfo()
  * interface, which supports IPv6 but is also supported on recent
  * IPv4-only machines.  On systems that don't have that interface, we
  * emulate it using the KAME implementation.
- **/
+ */
 
 #include "rsync.h"
 
 static const char default_name[] = "UNKNOWN";
-extern int am_daemon;
 extern int am_server;
 
 
@@ -55,7 +50,7 @@ char *client_addr(int fd)
 	initialised = 1;
 
 	if (am_server) {	/* daemon over --rsh mode */
-		strcpy(addr_buf, "0.0.0.0");
+		strlcpy(addr_buf, "0.0.0.0", sizeof addr_buf);
 		if ((ssh_info = getenv("SSH_CONNECTION")) != NULL
 		    || (ssh_info = getenv("SSH_CLIENT")) != NULL
 		    || (ssh_info = getenv("SSH2_CLIENT")) != NULL) {
@@ -104,7 +99,7 @@ char *client_name(int fd)
 	if (initialised)
 		return name_buf;
 
-	strcpy(name_buf, default_name);
+	strlcpy(name_buf, default_name, sizeof name_buf);
 	initialised = 1;
 
 	memset(&ss, 0, sizeof ss);
@@ -138,6 +133,8 @@ char *client_name(int fd)
 			memcpy(&ss, answer->ai_addr, ss_len);
 			break;
 #endif
+		default:
+			exit_cleanup(RERR_SOCKETIO);
 		}
 		freeaddrinfo(answer);
 	} else {
@@ -147,7 +144,7 @@ char *client_name(int fd)
 
 	if (lookup_name(fd, &ss, ss_len, name_buf, sizeof name_buf,
 			port_buf, sizeof port_buf) == 0)
-		check_name(fd, &ss, name_buf);
+		check_name(fd, &ss, name_buf, sizeof name_buf);
 
 	return name_buf;
 }
@@ -189,7 +186,7 @@ void client_sockaddr(int fd,
 		memset(sin, 0, sizeof *sin);
 		sin->sin_family = AF_INET;
 		*ss_len = sizeof (struct sockaddr_in);
-#if HAVE_SOCKADDR_IN_LEN
+#ifdef HAVE_SOCKADDR_IN_LEN
 		sin->sin_len = *ss_len;
 #endif
 		sin->sin_port = sin6.sin6_port;
@@ -211,18 +208,18 @@ void client_sockaddr(int fd,
  **/
 int lookup_name(int fd, const struct sockaddr_storage *ss,
 		socklen_t ss_len,
-		char *name_buf, size_t name_buf_len,
-		char *port_buf, size_t port_buf_len)
+		char *name_buf, size_t name_buf_size,
+		char *port_buf, size_t port_buf_size)
 {
 	int name_err;
 
 	/* reverse lookup */
 	name_err = getnameinfo((struct sockaddr *) ss, ss_len,
-			       name_buf, name_buf_len,
-			       port_buf, port_buf_len,
+			       name_buf, name_buf_size,
+			       port_buf, port_buf_size,
 			       NI_NAMEREQD | NI_NUMERICSERV);
 	if (name_err != 0) {
-		strcpy(name_buf, default_name);
+		strlcpy(name_buf, default_name, name_buf_size);
 		rprintf(FLOG, "name lookup failed for %s: %s\n",
 			client_addr(fd), gai_strerror(name_err));
 		return name_err;
@@ -303,7 +300,7 @@ int compare_addrinfo_sockaddr(const struct addrinfo *ai,
  **/
 int check_name(int fd,
 	       const struct sockaddr_storage *ss,
-	       char *name_buf)
+	       char *name_buf, size_t name_buf_size)
 {
 	struct addrinfo hints, *res, *res0;
 	int error;
@@ -317,10 +314,9 @@ int check_name(int fd,
 	if (error) {
 		rprintf(FLOG, "forward name lookup for %s failed: %s\n",
 			name_buf, gai_strerror(error));
-		strcpy(name_buf, default_name);
+		strlcpy(name_buf, default_name, name_buf_size);
 		return error;
 	}
-
 
 	/* Given all these results, we expect that one of them will be
 	 * the same as ss.  The comparison is a bit complicated. */
@@ -334,13 +330,13 @@ int check_name(int fd,
 		 * address that was the same as ss. */
 		rprintf(FLOG, "no known address for \"%s\": "
 			"spoofed address?\n", name_buf);
-		strcpy(name_buf, default_name);
+		strlcpy(name_buf, default_name, name_buf_size);
 	} else if (res == NULL) {
 		/* We hit the end of the list without finding an
 		 * address that was the same as ss. */
 		rprintf(FLOG, "%s is not a known address for \"%s\": "
 			"spoofed address?\n", client_addr(fd), name_buf);
-		strcpy(name_buf, default_name);
+		strlcpy(name_buf, default_name, name_buf_size);
 	}
 
 	freeaddrinfo(res0);

@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: filter.c,v 1.52.2.39 2007/04/04 20:50:26 pajoye Exp $ */
+/* $Id: filter.c,v 1.52.2.42 2008/02/24 18:34:30 felipe Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -275,7 +275,7 @@ PHP_MINFO_FUNCTION(filter)
 {
 	php_info_print_table_start();
 	php_info_print_table_row( 2, "Input Validation and Filtering", "enabled" );
-	php_info_print_table_row( 2, "Revision", "$Revision: 1.52.2.39 $");
+	php_info_print_table_row( 2, "Revision", "$Revision: 1.52.2.42 $");
 	php_info_print_table_end();
 
 	DISPLAY_INI_ENTRIES();
@@ -322,7 +322,7 @@ static void php_zval_filter(zval **value, long filter, long flags, zval *options
 	filter_func.function(*value, flags, options, charset TSRMLS_CC);
 
 	if (
-		options &&
+		options && (Z_TYPE_P(options) == IS_ARRAY || Z_TYPE_P(options) == IS_OBJECT) &&
 		((flags & FILTER_NULL_ON_FAILURE && Z_TYPE_PP(value) == IS_NULL) || 
 		(!(flags & FILTER_NULL_ON_FAILURE) && Z_TYPE_PP(value) == IS_BOOL && Z_LVAL_PP(value) == 0)) &&
 		zend_hash_exists(HASH_OF(options), "default", sizeof("default"))
@@ -453,15 +453,16 @@ static void php_zval_filter_recursive(zval **value, long filter, long flags, zva
 
 		for (zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(value), &pos);
 			 zend_hash_get_current_data_ex(Z_ARRVAL_PP(value), (void **) &element, &pos) == SUCCESS;
-			 zend_hash_move_forward_ex(Z_ARRVAL_PP(value), &pos)) {
-
-				if (Z_TYPE_PP(element) == IS_ARRAY) {
-					Z_ARRVAL_PP(element)->nApplyCount++;
-					php_zval_filter_recursive(element, filter, flags, options, charset, copy TSRMLS_CC);
-					Z_ARRVAL_PP(element)->nApplyCount--;
-				} else {
-					php_zval_filter(element, filter, flags, options, charset, copy TSRMLS_CC);
-				}
+			 zend_hash_move_forward_ex(Z_ARRVAL_PP(value), &pos)
+		) {
+			SEPARATE_ZVAL_IF_NOT_REF(element);
+			if (Z_TYPE_PP(element) == IS_ARRAY) {
+				Z_ARRVAL_PP(element)->nApplyCount++;
+				php_zval_filter_recursive(element, filter, flags, options, charset, copy TSRMLS_CC);
+				Z_ARRVAL_PP(element)->nApplyCount--;
+			} else {
+				php_zval_filter(element, filter, flags, options, charset, copy TSRMLS_CC);
+			}
 		}
 	} else {
 		php_zval_filter(value, filter, flags, options, charset, copy TSRMLS_CC);

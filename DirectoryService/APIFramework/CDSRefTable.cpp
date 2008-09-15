@@ -27,6 +27,9 @@
  * "client side buffer parsing" operations on plugin data
  * returned in standard buffer format.
  * References here always use 0x00300000 bits
+ *                              XX			= table number (0x01 - 0x0f)
+ *                                30		= CSBP tag (always 0x30)
+ *                                  XXXX	= reference value (1 - kMaxTableItems)
  */
 
 #include "CDSRefTable.h"
@@ -397,7 +400,7 @@ tDirStatus CDSRefTable::RemoveAttrValueRef ( UInt32 inAttrValueRef, SInt32 inPID
 sFWRefEntry* CDSRefTable::GetTableRef ( UInt32 inRefNum )
 {
 	UInt32			uiSlot			= 0;
-	UInt32			uiRefNum		= (inRefNum & 0x00FFFFFF);
+	UInt32			uiRefNum		= (inRefNum & 0x0000FFFF);
 	UInt32			uiTableNum		= (inRefNum & 0xFF000000) >> 24;
 	sRefFWTable	   *pTable			= nil;
 	sFWRefEntry	   *pOutEntry		= nil;
@@ -452,7 +455,7 @@ sRefFWTable* CDSRefTable::GetNextTable ( sRefFWTable *inTable )
 			if ( fRefTables[ 1 ] == nil )
 			{
 				// No tables have been allocated yet so lets make one
-				fRefTables[ 1 ] = (sRefFWTable *)::calloc( sizeof( sRefFWTable ), sizeof( char ) );
+				fRefTables[ 1 ] = (sRefFWTable *) calloc( 1, sizeof(sRefFWTable) );
 				if ( fRefTables[ 1 ] == nil )  throw((SInt32)eMemoryAllocError);
 
 				fRefTables[ 1 ]->fTableNum = 1;
@@ -473,7 +476,7 @@ sRefFWTable* CDSRefTable::GetNextTable ( sRefFWTable *inTable )
 				fTableCount = uiTblNum;
 
 				// No tables have been allocated yet so lets make one
-				fRefTables[ uiTblNum ] = (sRefFWTable *)::calloc( sizeof( sRefFWTable ), sizeof( char ) );
+				fRefTables[ uiTblNum ] = (sRefFWTable *) calloc( 1, sizeof(sRefFWTable) );
 				if ( fRefTables[ uiTblNum ] == nil ) throw((SInt32)eMemoryAllocError);
 
 				if (uiTblNum == 0) throw( (SInt32)eDSInvalidReference );
@@ -527,9 +530,7 @@ tDirStatus CDSRefTable::GetNewRef (	UInt32		   *outRef,
 	tDirStatus		outResult	= eDSNoErr;
 	sRefFWTable	   *pCurTable	= nil;
 	UInt32			uiRefNum	= 0;
-	UInt32			uiCntr		= 0;
 	UInt32			uiSlot		= 0;
-	UInt32			uiTableNum	= 0;
 
 	fTableMutex.WaitLock();
 
@@ -542,31 +543,23 @@ tDirStatus CDSRefTable::GetNewRef (	UInt32		   *outRef,
 			pCurTable = GetNextTable( pCurTable );
 			if ( pCurTable == nil ) throw( (SInt32)eDSRefTableCSBPAllocError );
 
-			if ( pCurTable->fItemCnt < kMaxFWTableItems )
+			// we don't use slot #1 so we need to compare against kMaxFWTableItems - 1
+			if ( pCurTable->fItemCnt < (kMaxFWTableItems - 1) )
 			{
-				uiCntr = 0;
-				uiTableNum = pCurTable->fTableNum;
-				while ( (uiCntr < kMaxFWTableItems) && !done )	//KW80 - uiCntr was a condition never used
-																//fixed below with uiCntr++; code addition
+				if ( pCurTable->fCurRefNum == 0 || pCurTable->fCurRefNum > kMaxFWTableItems )
+					pCurTable->fCurRefNum = 1;
+
+				for ( uiRefNum = pCurTable->fCurRefNum; uiRefNum < kMaxFWTableItems; uiRefNum++ )
 				{
-					if ( (pCurTable->fCurRefNum == 0) || 
-						 (pCurTable->fCurRefNum > 0x000FFFFF) )
-					{
-						// Either it's the first reference for this table or we have
-						//	used 1024*1024 references and need to start over
-						pCurTable->fCurRefNum = 1;
-					}
-
-					// Get the ref num and increment its place holder
-					uiRefNum = pCurTable->fCurRefNum++;
-					uiRefNum += 0x00300000;
-
 					// Find a slot in the table for this ref number
 					uiSlot = uiRefNum % kMaxFWTableItems;
 					if ( pCurTable->fTableData[ uiSlot ] == nil )
 					{
-						pCurTable->fTableData[ uiSlot ] = (sFWRefEntry *)::calloc( sizeof( sFWRefEntry ), sizeof( char ) );
+						pCurTable->fTableData[ uiSlot ] = (sFWRefEntry *) calloc( 1, sizeof(sFWRefEntry) );
 						if ( pCurTable->fTableData[ uiSlot ] == nil ) throw( (SInt32)eDSRefTableCSBPAllocError );
+						
+						// Add the table number to the reference number
+						*outRef = (pCurTable->fTableNum << 24) | 0x00300000 | uiRefNum;
 						
 						// We found an empty slot, now set this table entry
 						pCurTable->fTableData[ uiSlot ]->fRefNum		= uiRefNum;
@@ -578,12 +571,6 @@ tDirStatus CDSRefTable::GetNewRef (	UInt32		   *outRef,
 						pCurTable->fTableData[ uiSlot ]->fChildren		= nil;
 						pCurTable->fTableData[ uiSlot ]->fChildPID		= nil;
 
-						// Add the table number to the reference number
-						uiTableNum = (uiTableNum << 24);
-						uiRefNum = uiRefNum | uiTableNum;
-
-						*outRef = uiRefNum;
-
 						// Up the item count
 						pCurTable->fItemCnt++;
 						
@@ -592,15 +579,16 @@ tDirStatus CDSRefTable::GetNewRef (	UInt32		   *outRef,
 
 						outResult = eDSNoErr;
 						done = true;
+						break;
 					}
-					uiCntr++;	//KW80 needed for us to only go through the table once
-								//ie the uiCntr does not get used directly BUT the uiRefNum gets
-								//incremented only kMaxFWTableItems times since uiCntr is in the while condition
 				}
+				
+				// skip forward 1 so we can avoid immediate reference number re-use
+				pCurTable->fCurRefNum = uiRefNum + 1;
 			}
 		}
 
-		if ( inParentID != 0 )
+		if ( outResult == eDSNoErr && inParentID != 0 )
 		{
 			outResult = LinkToParent( *outRef, inType, inParentID, inPID );
 		}
@@ -612,7 +600,23 @@ tDirStatus CDSRefTable::GetNewRef (	UInt32		   *outRef,
 	}
 
 	fTableMutex.SignalLock();
-
+	
+	if ( outResult == eDSNoErr )
+	{
+		static uint32_t warnRefCount = 0x000001ff; // start at 512 as our first warning point
+		
+		// warn if we have exceeded the next level
+		if ( fRefCount > warnRefCount )
+		{
+			syslog( LOG_WARNING, "DirectoryService CSBP significant amount of refs - %d", fRefCount );
+			warnRefCount = ((warnRefCount << 1) | 0x00000001) & 0x00007fff; // up to the next level
+		}
+		// see if we happen to be less than the last warning level
+		else if ( warnRefCount > 0x000001ff && fRefCount < (warnRefCount >> 1) ) {
+			warnRefCount >>= 1;
+		}		
+	}
+	
 	return( outResult );
 
 } // GetNewRef
@@ -781,11 +785,7 @@ tDirStatus CDSRefTable::RemoveRef ( UInt32 inRefNum, UInt32 inType, SInt32 inPID
 	sRefFWTable	   *pTable			= nil;
 	UInt32			uiSlot			= 0;
 	UInt32			uiTableNum		= (inRefNum & 0xFF000000) >> 24;
-	UInt32			uiRefNum		= (inRefNum & 0x00FFFFFF);
-	bool			doFree			= false;
-	sPIDFWInfo	   *pPIDInfo		= nil;
-	sPIDFWInfo	   *pPrevPIDInfo	= nil;
-
+	UInt32			uiRefNum		= (inRefNum & 0x0000FFFF);
 
 	fTableMutex.WaitLock();
 
@@ -806,11 +806,9 @@ tDirStatus CDSRefTable::RemoveRef ( UInt32 inRefNum, UInt32 inType, SInt32 inPID
 				if ( dsResult != eDSNoErr ) throw( (SInt32)dsResult );
 			}
 
-			pCurrRef = GetTableRef( inRefNum );	//KW80 - here we need to know where the sFWRefEntry is in the table to delete it
-												//that is all the code added above
-												// getting this sFWRefEntry is the same path used by uiSlot and pTable above
+			pCurrRef = GetTableRef( inRefNum ); // getting this sFWRefEntry is the same path used by uiSlot and pTable above
 			if ( pCurrRef == nil ) throw( (SInt32)eDSInvalidReference );
-			if (inType != pCurrRef->fType) throw( (SInt32)eDSInvalidReference );
+			if ( inType != pCurrRef->fType ) throw( (SInt32)eDSInvalidReference );
 
 			if ( pCurrRef->fChildren != nil )
 			{
@@ -819,85 +817,36 @@ tDirStatus CDSRefTable::RemoveRef ( UInt32 inRefNum, UInt32 inType, SInt32 inPID
 				fTableMutex.WaitLock();
 			}
 
-			//Now we check to see if this was a child or parent client PID that we removed - only applies to case of Node refs really
-			if (pCurrRef->fPID == inPID)
+			// always remove the slot since we don't have any child PIDs for CSBP
+			if ( pTable->fTableData[ uiSlot ] != nil )
 			{
-				pCurrRef->fPID = -1;
-				if (pCurrRef->fChildPID == nil)
+				if ( uiRefNum == pTable->fTableData[ uiSlot ]->fRefNum )
 				{
-					doFree = true;
-				}
-			}
-			else
-			{
-				pPIDInfo		= pCurrRef->fChildPID;
-				pPrevPIDInfo	= pCurrRef->fChildPID;
-				//remove all child client PIDs that match since all children refs for that PID removed already above
-				//ie. within scope of a PID the refs are NOT ref counted
-				while (pPIDInfo != nil)
-				{
-					if (pPIDInfo->fPID == inPID)
-					{
-						//need to remove this particular PID entry
-						if (pPIDInfo == pCurrRef->fChildPID)
-						{
-							pCurrRef->fChildPID = pCurrRef->fChildPID->fNext;
-							free(pPIDInfo);
-							pPIDInfo			= pCurrRef->fChildPID;
-							pPrevPIDInfo		= pCurrRef->fChildPID;
-						}
-						else
-						{
-							pPrevPIDInfo->fNext = pPIDInfo->fNext;
-							free(pPIDInfo);
-							pPIDInfo			= pPrevPIDInfo->fNext;
-						}
-					}
-					else
-					{
-						pPrevPIDInfo = pPIDInfo;
-						pPIDInfo = pPIDInfo->fNext;
-					}
-				}
-				//child client PIDs now removed so re-eval free
-				if ( (pCurrRef->fPID == -1) && (pCurrRef->fChildPID == nil) )
-				{
-					doFree = true;
-				}
-			}
-			
-			if (doFree)
-			{
-				if ( pTable->fTableData[ uiSlot ] != nil )
-				{
-					if ( uiRefNum == pTable->fTableData[ uiSlot ]->fRefNum )
-					{
-						// need to callback to make sure that the plug-ins clean up
-						pCurrRef = pTable->fTableData[ uiSlot ];
-						pTable->fTableData[ uiSlot ] = nil;
-						pTable->fItemCnt--;
+					// need to callback to make sure that the plug-ins clean up
+					pCurrRef = pTable->fTableData[ uiSlot ];
+					pTable->fTableData[ uiSlot ] = nil;
+					pTable->fItemCnt--;
 
-						//keep track of the total ref count here
-						fRefCount--;
-
-						if ( (pCurrRef->fBufTag == 'DbgA') || (pCurrRef->fBufTag == 'DbgB') )
+					//keep track of the total ref count here
+					fRefCount--;
+					
+					if ( (pCurrRef->fBufTag == 'DbgA') || (pCurrRef->fBufTag == 'DbgB') )
+					{
+						if (inType == eAttrListRefType)
 						{
-							if (inType == eAttrListRefType)
-							{
-								syslog(LOG_CRIT, "DS:dsCloseAttributeList:CDSRefTable::RemoveAttrListRef ref = %d", inRefNum);
-							}
-							else if (inType == eAttrValueListRefType)
-							{
-								syslog(LOG_CRIT, "DS:dsCloseAttributeValueList:CDSRefTable::RemoveAttrValueRef ref = %d", inRefNum);
-							}
+							syslog(LOG_CRIT, "DS:dsCloseAttributeList:CDSRefTable::RemoveAttrListRef ref = %d", inRefNum);
 						}
-						free(pCurrRef);
-						pCurrRef = nil;
+						else if (inType == eAttrValueListRefType)
+						{
+							syslog(LOG_CRIT, "DS:dsCloseAttributeValueList:CDSRefTable::RemoveAttrValueRef ref = %d", inRefNum);
+						}
 					}
+					
+					free(pCurrRef);
+					pCurrRef = nil;
 				}
 			}
 		}
-			
 	}
 
 	catch( SInt32 err )
@@ -906,7 +855,7 @@ tDirStatus CDSRefTable::RemoveRef ( UInt32 inRefNum, UInt32 inType, SInt32 inPID
 	}
 
 	fTableMutex.SignalLock();
-
+	
 	return( dsResult );
 
 } // RemoveRef

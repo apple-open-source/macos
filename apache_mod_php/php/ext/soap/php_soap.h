@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: php_soap.h,v 1.38.2.6.2.6 2007/09/05 11:20:45 dmitry Exp $ */
+/* $Id: php_soap.h,v 1.38.2.6.2.8 2008/01/09 16:45:28 dmitry Exp $ */
 
 #ifndef PHP_SOAP_H
 #define PHP_SOAP_H
@@ -160,7 +160,9 @@ ZEND_BEGIN_MODULE_GLOBALS(soap)
 	zend_bool  use_soap_error_handler;
 	char*      error_code;
 	zval*      error_object;
-	long       cache;
+	char       cache;
+	char       cache_mode;
+	char       cache_enabled;
 	char*      cache_dir;
 	long       cache_ttl;
 	long       cache_limit;

@@ -2,7 +2,7 @@ Index: samba/source/modules/vfs_darwin_acls.c
 ===================================================================
 --- /dev/null
 +++ samba/source/modules/vfs_darwin_acls.c
-@@ -0,0 +1,1565 @@
+@@ -0,0 +1,1566 @@
 +/*
 + * Darwin ACL VFS module
 + *
@@ -514,7 +514,7 @@ Index: samba/source/modules/vfs_darwin_acls.c
 +		DEBUG(0, ("%s: unable to reverse map UUID %s\n",
 +		    MODULE_NAME, uustr));
 +
-+		smb_panic("UUID mapping is broken");
++		return False;
 +	}
 +
 +	switch (id_type) {
@@ -553,6 +553,7 @@ Index: samba/source/modules/vfs_darwin_acls.c
 +	if (!validate_memberd_uuid(*uuid)) {
 +		DEBUG(10, ("%s: failing mapping for faked uuid=%s\n",
 +				MODULE_NAME, uustr));
++		return False;
 +	}
 +
 +	if (mbr_uuid_to_id(*uuid, &id, &id_type) != 0) {

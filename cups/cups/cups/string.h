@@ -1,5 +1,5 @@
 /*
- * "$Id: string.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: string.h 7721 2008-07-11 22:48:49Z mike $"
  *
  *   String definitions for the Common UNIX Printing System (CUPS).
  *
@@ -149,5 +149,5 @@ extern double	_cupsStrScand(const char *buf, char **bufptr,
 #endif /* !_CUPS_STRING_H_ */
 
 /*
- * End of "$Id: string.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: string.h 7721 2008-07-11 22:48:49Z mike $".
  */

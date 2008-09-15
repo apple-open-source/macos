@@ -1,5 +1,5 @@
 /*
- * "$Id: http-addrlist.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: http-addrlist.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   HTTP address list routines for the Common UNIX Printing System (CUPS).
  *
@@ -528,8 +528,6 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 
         if (addr)
 	  addr->next = temp;
-	else
-          addr = temp;
       }
     }
     else if (!hostname)
@@ -583,8 +581,6 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 
         if (addr)
 	  addr->next = temp;
-	else
-          addr = temp;
       }
     }
   }
@@ -598,5 +594,5 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 
 
 /*
- * End of "$Id: http-addrlist.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: http-addrlist.c 7721 2008-07-11 22:48:49Z mike $".
  */

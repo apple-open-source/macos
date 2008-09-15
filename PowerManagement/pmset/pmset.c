@@ -135,6 +135,7 @@
 #define ARG_BATT            "batt"
 #define ARG_PS              "ps"
 #define ARG_PSLOG           "pslog"
+#define ARG_TRCOLUMNS       "trcolumns"
 #define ARG_PSRAW           "rawlog"
 #define ARG_THERMLOG        "thermlog"
 
@@ -199,9 +200,10 @@ char    *all_features[kNUM_PM_FEATURES] =
 };
 
 enum ArgumentType {
-    ApplyToBattery = 1,
-    ApplyToCharger = 2,
-    ApplyToUPS     = 4
+    kApplyToBattery = 1,
+    kApplyToCharger = 2,
+    kApplyToUPS     = 4,
+    kShowColumns    = 8
 };
 
 enum AssertionBitField {
@@ -543,15 +545,15 @@ int main(int argc, char *argv[]) {
         }
         // For each power source we modified settings for, flip that 
         // source's profile to -1
-        if(modified_power_sources & ApplyToCharger) {
+        if(modified_power_sources & kApplyToCharger) {
             CFDictionarySetValue( customize_active_profiles, 
                                     CFSTR(kIOPMACPowerKey), neg1);
         }
-        if(modified_power_sources & ApplyToBattery) {
+        if(modified_power_sources & kApplyToBattery) {
             CFDictionarySetValue( customize_active_profiles, 
                                     CFSTR(kIOPMBatteryPowerKey), neg1);
         }
-        if(modified_power_sources & ApplyToUPS) {
+        if(modified_power_sources & kApplyToUPS) {
             CFDictionarySetValue( customize_active_profiles, 
                                     CFSTR(kIOPMUPSPowerKey), neg1);
         }
@@ -1620,6 +1622,7 @@ static void show_power_sources(int which)
     CFArrayRef          list = NULL;
     CFStringRef         ps_name = NULL;
     static CFStringRef  last_ps = NULL;
+    static CFAbsoluteTime   invocationTime = 0.0;        
     CFDictionaryRef     one_ps = NULL;
     char                strbuf[100];
     int                 count;
@@ -1648,8 +1651,62 @@ static void show_power_sources(int which)
         printf("No power source info available\n");
         return;
     }
+    
+    /* Output path for Time Remaining Columns
+     *  - Only displays battery
+     */
+    if (kShowColumns & which) 
+    {    
+        CFTypeRef               one_ps_descriptor = NULL;
+        CFAbsoluteTime          nowTime = CFAbsoluteTimeGetCurrent();
+        uint32_t                minutesSinceInvocation = 0;
+        int32_t                 estimatedMinutesRemaining = 0;
+    
+        if (invocationTime == 0.0) {
+            invocationTime = nowTime;
+        }
+    
+        // Note: We assume a one-battery system.
+        one_ps_descriptor = IOPSGetActiveBattery(ps_info);
+        if (one_ps_descriptor) {
+            one_ps = IOPSGetPowerSourceDescription(ps_info, one_ps_descriptor);
+        }
+        if(!one_ps) {
+            printf("Logging power sources: unable to locate battery.\n");
+        };
+
+        charging = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsChargingKey));
+        state = CFDictionaryGetValue(one_ps, CFSTR(kIOPSPowerSourceStateKey));
+        if (CFEqual(state, CFSTR(kIOPSBatteryPowerValue)))
+        {
+            remaining = CFDictionaryGetValue(one_ps, CFSTR(kIOPSTimeToEmptyKey));
+        } else {
+            remaining = CFDictionaryGetValue(one_ps, CFSTR(kIOPSTimeToFullChargeKey));
+        }       
+        
+        if (remaining) {
+            CFNumberGetValue(remaining, kCFNumberIntType, &estimatedMinutesRemaining);
+        } else {
+            estimatedMinutesRemaining = -1;
+        }
+
+        minutesSinceInvocation = (nowTime - invocationTime)/60;
+
+        charge = CFDictionaryGetValue(one_ps, CFSTR(kIOPSCurrentCapacityKey));
+        if(charge) CFNumberGetValue(charge, kCFNumberIntType, &_charge);
+        
+        //  "Elapsed", "TimeRemaining", "Percent""Charge", "Timestamp");
+        printf("%10d\t%15d\t%10d%%\t%10s\t", minutesSinceInvocation, estimatedMinutesRemaining,
+                    _charge, (kCFBooleanTrue == charging) ? "charge" : "discharge");
+        print_pretty_date(true);
+        
+        return;
+    }
+    /* Completed output path
+     */
+    
     ps_name = IOPSGetProvidingPowerSourceType(ps_info);
-    if(!CFStringGetCString(ps_name, strbuf, 100, kCFStringEncodingUTF8))
+    if(!ps_name || !CFStringGetCString(ps_name, strbuf, 100, kCFStringEncodingUTF8))
     {
         goto exit;
     }
@@ -1674,10 +1731,10 @@ static void show_power_sources(int which)
         if(kCFCompareEqualTo != CFStringCompare(transport, CFSTR(kIOPSInternalType), 0))
         {
             // Internal transport means internal battery
-            if(!(which & ApplyToBattery)) continue;
+            if(!(which & kApplyToBattery)) continue;
         } else {
             // Any specified non-Internal transport is a UPS
-            if(!(which & ApplyToUPS)) continue;
+            if(!(which & kApplyToUPS)) continue;
         }
         
         charging = CFDictionaryGetValue(one_ps, CFSTR(kIOPSIsChargingKey));
@@ -1741,7 +1798,8 @@ static void show_power_sources(int which)
                     printf("; (no estimate)");
                 }
             }
-            if(health && confidence) {
+            if (health && confidence
+                && !CFEqual(CFSTR("Good"), health)) {
                 printf(" (%s/%s)", _health, _confidence);
             }
             if(failure) {
@@ -1793,7 +1851,9 @@ static void log_ps_change_handler(void *info)
 {
     int                 which = (int)info;
     
-    print_pretty_date(true);
+    if (!(which & kShowColumns)) {
+        print_pretty_date(true);
+    }
     show_power_sources(which);
 }
 
@@ -1819,9 +1879,18 @@ static int log_power_source_changes(int which)
     
     rls = IOPSNotificationCreateRunLoopSource(log_ps_change_handler, (void *)which);
     if(!rls) return kParseInternalError;
+    
     printf("pmset is in logging mode now. Hit ctrl-c to exit.\n");
+
+    if (kShowColumns & which)
+    {
+        printf("%10s\t%15s\t%10s\t%10s\t%20s\n", 
+            "Elapsed", "TimeRemaining", "Charge", "Charging", "Timestamp");
+    }
+
     // and show initial power source state:
     log_ps_change_handler((void *)which);
+
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
     CFRelease(rls);
     CFRunLoopRun();
@@ -2238,11 +2307,11 @@ static int checkAndSetIntValue(
 
     cfnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &val);
     if(!cfnum) return -1;
-    if(apply & ApplyToBattery)
+    if(apply & kApplyToBattery)
         CFDictionarySetValue(batt, settingKey, cfnum);
-    if(apply & ApplyToCharger)
+    if(apply & kApplyToCharger)
         CFDictionarySetValue(ac, settingKey, cfnum);
-    if(apply & ApplyToUPS)
+    if(apply & kApplyToUPS)
         CFDictionarySetValue(ups, settingKey, cfnum);
     CFRelease(cfnum);
     return 0;
@@ -2258,11 +2327,11 @@ static int checkAndSetStrValue(char *valstr, CFStringRef settingKey, int apply,
     cfstr = CFStringCreateWithCString(kCFAllocatorDefault, 
                         valstr, kCFStringEncodingMacRoman);
     if(!cfstr) return -1;
-    if(apply & ApplyToBattery)
+    if(apply & kApplyToBattery)
         CFDictionarySetValue(batt, settingKey, cfstr);
-    if(apply & ApplyToCharger)
+    if(apply & kApplyToCharger)
         CFDictionarySetValue(ac, settingKey, cfstr);
-    if(apply & ApplyToUPS)
+    if(apply & kApplyToUPS)
         CFDictionarySetValue(ups, settingKey, cfstr);
     CFRelease(cfstr);
     return 0;
@@ -2307,7 +2376,7 @@ static int setUPSValue(char *valstr,
     };
 
     // bail if -u or -a hasn't been specified:
-    if(!(apply & ApplyToUPS)) return -1;
+    if(!(apply & kApplyToUPS)) return -1;
     
     // Create the nested dictionaries of UPS settings
     tmp_ups_setting = CFDictionaryGetValue(thresholds, settingKey);
@@ -2828,9 +2897,9 @@ static int parseArgs(int argc,
                                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     
     // Unless specified, apply changes to both battery and AC
-    if(battery) apply |= ApplyToBattery;
-    if(ac) apply |= ApplyToCharger;
-    if(ups) apply |= ApplyToUPS;
+    if(battery) apply |= kApplyToBattery;
+    if(ac) apply |= kApplyToCharger;
+    if(ups) apply |= kApplyToUPS;
 
     for(i=0; i<argc; i++)
     {
@@ -2854,18 +2923,18 @@ static int parseArgs(int argc,
             switch (argv[i][1])
             {
                 case 'a':
-                    if(battery) apply |= ApplyToBattery;
-                    if(ac) apply |= ApplyToCharger;
-                    if(ups) apply |= ApplyToUPS;
+                    if(battery) apply |= kApplyToBattery;
+                    if(ac) apply |= kApplyToCharger;
+                    if(ups) apply |= kApplyToUPS;
                     break;
                 case 'b':
-                    if(battery) apply = ApplyToBattery;
+                    if(battery) apply = kApplyToBattery;
                     break;
                 case 'c':
-                    if(ac) apply = ApplyToCharger;
+                    if(ac) apply = kApplyToCharger;
                     break;
                 case 'u':
-                    if(ups) apply = ApplyToUPS;
+                    if(ups) apply = kApplyToUPS;
                     break;
                 case 'g':
                     // One of the "gets"
@@ -2906,12 +2975,16 @@ static int parseArgs(int argc,
                            || !strcmp(argv[i], ARG_BATT))
                     {
                         // show battery & UPS state
-                        show_power_sources(ApplyToBattery | ApplyToUPS);
+                        show_power_sources(kApplyToBattery | kApplyToUPS);
                     } else if(!strcmp(argv[i], ARG_PSLOG))
                     {
                         // continuously log PS changes until user ctrl-c exits
                         // or return kParseInternalError if something screwy happened
-                        return log_power_source_changes(ApplyToBattery | ApplyToUPS);
+                        return log_power_source_changes(kApplyToBattery | kApplyToUPS);
+                    } else if(!strcmp(argv[i], ARG_TRCOLUMNS))
+                    {
+                        // continuously log time remaining into column format
+                        return log_power_source_changes(kShowColumns);
                     } else if(!strcmp(argv[i], ARG_PSRAW))
                     {
                         // continuously log PS changes until user ctrl-c exits
@@ -3217,13 +3290,13 @@ static int parseArgs(int argc,
                 if(!prof_val) return kParseInternalError;
                 if(!local_profiles) return kParseInternalError;
                 // setting a profile
-                if(ApplyToBattery & apply) {
+                if(kApplyToBattery & apply) {
                     CFDictionarySetValue(local_profiles, CFSTR(kIOPMBatteryPowerKey), prof_val);
                 }
-                if(ApplyToCharger & apply) {
+                if(kApplyToCharger & apply) {
                     CFDictionarySetValue(local_profiles, CFSTR(kIOPMACPowerKey), prof_val);                
                 }
-                if(ApplyToUPS & apply) {
+                if(kApplyToUPS & apply) {
                     CFDictionarySetValue(local_profiles, CFSTR(kIOPMUPSPowerKey), prof_val);
                 }
                 CFRelease(prof_val);

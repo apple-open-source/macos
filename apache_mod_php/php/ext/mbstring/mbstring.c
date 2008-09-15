@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.c,v 1.224.2.22.2.25 2007/09/24 11:51:36 hirokawa Exp $ */
+/* $Id: mbstring.c,v 1.224.2.22.2.30 2008/02/17 02:06:56 hirokawa Exp $ */
 
 /*
  * PHP 4 Multibyte String module "mbstring"
@@ -888,6 +888,8 @@ PHP_RINIT_FUNCTION(mbstring)
 	const struct mb_overload_def *p;
 
 	MBSTRG(current_language) = MBSTRG(language);
+	php_mb_nls_get_default_detect_order_list(MBSTRG(language), 
+        &MBSTRG(default_detect_order_list), &MBSTRG(default_detect_order_list_size));
 
 	if (MBSTRG(internal_encoding) == mbfl_no_encoding_invalid) {
 		char *default_enc = NULL;
@@ -1611,7 +1613,7 @@ PHP_FUNCTION(mb_strpos)
 		}
 	}
 
-	if (offset < 0 || (unsigned long)offset > haystack.len) {
+	if (offset < 0 || (unsigned long)offset > (unsigned long)mbfl_strlen(&haystack)) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Offset not contained in string.");
 		RETURN_FALSE;
 	}
@@ -1724,6 +1726,13 @@ PHP_FUNCTION(mb_strrpos)
 	if (needle.len <= 0) {
 		RETURN_FALSE;
 	}
+
+	if ((offset > 0 && offset > mbfl_strlen(&haystack)) ||
+		(offset < 0 && -offset > mbfl_strlen(&haystack))) {
+		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Offset is greater than the length of haystack string");
+		RETURN_FALSE;
+	}
+
 	n = mbfl_strpos(&haystack, &needle, offset, 1);
 	if (n >= 0) {
 		RETVAL_LONG(n);
@@ -2325,7 +2334,7 @@ PHP_FUNCTION(mb_strimwidth)
 	convert_to_long_ex(arg2);
 	from = Z_LVAL_PP(arg2);
 	if (from < 0 || from > Z_STRLEN_PP(arg1)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Start position is out of reange");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Start position is out of range");
 		RETURN_FALSE;
 	}
 

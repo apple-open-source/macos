@@ -1,5 +1,5 @@
 /*
- * "$Id: main.c 6915 2007-09-05 21:05:17Z mike $"
+ * "$Id: main.c 7725 2008-07-14 06:16:34Z mike $"
  *
  *   Scheduler main loop for the Common UNIX Printing System (CUPS).
  *
@@ -133,7 +133,8 @@ main(int  argc,				/* I - Number of command-line args */
 			browse_time,	/* Next browse send time */
 			senddoc_time,	/* Send-Document time */
 			expire_time,	/* Subscription expire time */
-			report_time;	/* Malloc/client/job report time */
+			report_time,	/* Malloc/client/job report time */
+			event_time;	/* Last time an event notification was done */
   long			timeout;	/* Timeout for cupsdDoSelect() */
   struct rlimit		limit;		/* Runtime limit */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
@@ -642,11 +643,13 @@ main(int  argc,				/* I - Number of command-line args */
   * Loop forever...
   */
 
-  browse_time   = time(NULL);
-  expire_time   = time(NULL);
+  current_time  = time(NULL);
+  browse_time   = current_time;
+  event_time    = current_time;
+  expire_time   = current_time;
   fds           = 1;
   report_time   = 0;
-  senddoc_time  = time(NULL);
+  senddoc_time  = current_time;
 
   while (!stop_scheduler)
   {
@@ -750,7 +753,8 @@ main(int  argc,				/* I - Number of command-line args */
     * times.
     */
 
-    timeout = select_timeout(fds);
+    if ((timeout = select_timeout(fds)) > 1 && LastEvent)
+      timeout = 1;
 
 #if HAVE_LAUNCHD
    /*
@@ -906,7 +910,7 @@ main(int  argc,				/* I - Number of command-line args */
 #endif /* HAVE_LDAP */
     }
 
-    if (Browsing && BrowseLocalProtocols && current_time > browse_time)
+    if (Browsing && current_time > browse_time)
     {
       cupsdSendBrowseList();
       browse_time = current_time;
@@ -1023,7 +1027,7 @@ main(int  argc,				/* I - Number of command-line args */
     * accumulated.  Don't send these more than once a second...
     */
 
-    if (LastEvent)
+    if (LastEvent && (current_time - event_time) >= 1)
     {
 #ifdef HAVE_NOTIFY_POST
       if (LastEvent & (CUPSD_EVENT_PRINTER_ADDED |
@@ -1056,7 +1060,8 @@ main(int  argc,				/* I - Number of command-line args */
       * Reset the accumulated events...
       */
 
-      LastEvent = CUPSD_EVENT_NONE;
+      LastEvent  = CUPSD_EVENT_NONE;
+      event_time = current_time;
     }
   }
 
@@ -1596,27 +1601,6 @@ process_children(void)
 
     cupsdFinishProcess(pid, name, sizeof(name));
 
-    if (status == SIGTERM)
-      status = 0;
-
-    if (status)
-    {
-      if (WIFEXITED(status))
-	cupsdLogMessage(CUPSD_LOG_ERROR, "PID %d (%s) stopped with status %d!",
-	                pid, name, WEXITSTATUS(status));
-      else
-	cupsdLogMessage(CUPSD_LOG_ERROR, "PID %d (%s) crashed on signal %d!",
-	                pid, name, WTERMSIG(status));
-
-      if (LogLevel < CUPSD_LOG_DEBUG)
-        cupsdLogMessage(CUPSD_LOG_INFO,
-	                "Hint: Try setting the LogLevel to \"debug\" to find "
-			"out more.");
-    }
-    else
-      cupsdLogMessage(CUPSD_LOG_DEBUG, "PID %d (%s) exited with no errors.",
-                      pid, name);
-
    /*
     * Delete certificates for CGI processes...
     */
@@ -1647,6 +1631,9 @@ process_children(void)
 	    job->filters[i] = -pid;
 	  else
 	    job->backend = -pid;
+
+          if (job->state_value == IPP_JOB_CANCELED)
+	    status = 0;			/* Ignore errors when canceling jobs */
 
           if (status && job->status >= 0)
 	  {
@@ -1695,6 +1682,31 @@ process_children(void)
 	  break;
 	}
       }
+
+   /*
+    * Show the exit status as needed...
+    */
+
+    if (status == SIGTERM)
+      status = 0;
+
+    if (status)
+    {
+      if (WIFEXITED(status))
+	cupsdLogMessage(CUPSD_LOG_ERROR, "PID %d (%s) stopped with status %d!",
+	                pid, name, WEXITSTATUS(status));
+      else
+	cupsdLogMessage(CUPSD_LOG_ERROR, "PID %d (%s) crashed on signal %d!",
+	                pid, name, WTERMSIG(status));
+
+      if (LogLevel < CUPSD_LOG_DEBUG)
+        cupsdLogMessage(CUPSD_LOG_INFO,
+	                "Hint: Try setting the LogLevel to \"debug\" to find "
+			"out more.");
+    }
+    else
+      cupsdLogMessage(CUPSD_LOG_DEBUG, "PID %d (%s) exited with no errors.",
+                      pid, name);
   }
 }
 
@@ -1969,5 +1981,5 @@ usage(int status)			/* O - Exit status */
 
 
 /*
- * End of "$Id: main.c 6915 2007-09-05 21:05:17Z mike $".
+ * End of "$Id: main.c 7725 2008-07-14 06:16:34Z mike $".
  */

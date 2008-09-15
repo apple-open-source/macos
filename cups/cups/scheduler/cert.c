@@ -1,5 +1,5 @@
 /*
- * "$Id: cert.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: cert.c 7384 2008-03-20 20:58:16Z mike $"
  *
  *   Authentication certificate routines for the Common UNIX
  *   Printing System (CUPS).
@@ -362,7 +362,7 @@ cupsdDeleteAllCerts(void)
  * 'cupsdFindCert()' - Find a certificate.
  */
 
-const char *				/* O - Matching username or NULL */
+cupsd_cert_t *				/* O - Matching certificate or NULL */
 cupsdFindCert(const char *certificate)	/* I - Certificate */
 {
   cupsd_cert_t	*cert;			/* Current certificate */
@@ -373,7 +373,7 @@ cupsdFindCert(const char *certificate)	/* I - Certificate */
     if (!strcasecmp(certificate, cert->certificate))
     {
       DEBUG_printf(("    returning %s...\n", cert->username));
-      return (cert->username);
+      return (cert);
     }
 
   DEBUG_puts("    certificate not found!");
@@ -437,5 +437,5 @@ cupsdInitCerts(void)
 
 
 /*
- * End of "$Id: cert.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: cert.c 7384 2008-03-20 20:58:16Z mike $".
  */

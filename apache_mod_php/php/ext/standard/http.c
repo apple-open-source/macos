@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: http.c,v 1.14.2.4.2.4 2007/10/04 13:31:11 jani Exp $ */
+/* $Id: http.c,v 1.14.2.4.2.6 2008/01/10 20:32:41 shire Exp $ */
 
 #include "php_http.h"
 #include "php_ini.h"
@@ -105,7 +105,7 @@ PHPAPI int php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 				*p = '\0';
 			} else {
 				/* Is an integer key */
-				ekey_len = spprintf(&ekey, 12, "%ld", idx);
+				ekey_len = spprintf(&ekey, 0, "%ld", idx);
 				newprefix_len = key_prefix_len + num_prefix_len + ekey_len + key_suffix_len + 3 /* %5B */;
 				newprefix = emalloc(newprefix_len + 1);
 				p = newprefix;
@@ -153,7 +153,7 @@ PHPAPI int php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 				if (num_prefix) {
 					smart_str_appendl(formstr, num_prefix, num_prefix_len);
 				}
-				ekey_len = spprintf(&ekey, 12, "%ld", idx);
+				ekey_len = spprintf(&ekey, 0, "%ld", idx);
 				smart_str_appendl(formstr, ekey, ekey_len);
 				efree(ekey);
 			}
@@ -165,10 +165,10 @@ PHPAPI int php_url_encode_hash_ex(HashTable *ht, smart_str *formstr,
 					break;
 				case IS_LONG:
 				case IS_BOOL:
-					ekey_len = spprintf(&ekey, 12, "%ld", Z_LVAL_PP(zdata));
+					ekey_len = spprintf(&ekey, 0, "%ld", Z_LVAL_PP(zdata));
 					break;
 				case IS_DOUBLE:
-					ekey_len = spprintf(&ekey, 48, "%.*G", (int) EG(precision), Z_DVAL_PP(zdata));
+					ekey_len = spprintf(&ekey, 0, "%.*G", (int) EG(precision), Z_DVAL_PP(zdata));
 					break;
 				default:
 					/* fall back on convert to string */

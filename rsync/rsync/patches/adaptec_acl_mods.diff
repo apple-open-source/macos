@@ -1,0 +1,123 @@
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/acls.diff
+    patch -p1 <patches/adaptec_acl_mods.diff
+    ./prepare-source
+    ./configure --enable-acl-support
+    make
+
+Philip Lowman wrote:
+> Attached is a small patch which is meant to be applied to a copy of
+> rsync which has already been patched with acl support (the acls.diff
+> file in the patches folder).  It allows the preservation of the delete,
+> chmod, and chown bits which Adaptec has added to XFS on their SnapOS NAS
+> units.  This is nice for backing up files between different NAS units
+> and preserving all of the Samba ACLs.
+> 
+> I'm not sure how useful this patch will be because I'm not sure if any
+> other NAS vendors have standardized on their extensions to POSIX ACLs to
+> support Samba in the same manner that Adaptec has.  FWIW, though, this
+> will allow you to preserve acls when copying between different Adaptec
+> based NAS units running SnapOS.
+
+I (Wayne) tweaked the patch for style and to avoid using SMB_* constants
+with literal values were needed.
+
+I've also updated it to apply to the updated version of the acls.diff,
+though I don't know if there might be some bits lost in the current
+algorithm when using the file's mode bits to reconstruct a stripped ACL
+entry.
+
+--- old/acls.c
++++ new/acls.c
+@@ -282,6 +282,9 @@ static BOOL unpack_smb_acl(rsync_acl *ra
+ 		}
+ 		access = (sys_acl_get_perm(permset, SMB_ACL_READ) ? 4 : 0)
+ 		       | (sys_acl_get_perm(permset, SMB_ACL_WRITE) ? 2 : 0)
++		       | (sys_acl_get_perm(permset, SMB_ACL_DELETE) ? 8 : 0)
++		       | (sys_acl_get_perm(permset, SMB_ACL_CHMOD) ? 16 : 0)
++		       | (sys_acl_get_perm(permset, SMB_ACL_CHOWN) ? 32 : 0)
+ 		       | (sys_acl_get_perm(permset, SMB_ACL_EXECUTE) ? 1 : 0);
+ 		/* continue == done with entry; break == store in temporary ida list */
+ 		switch (tag_type) {
+@@ -376,6 +379,12 @@ static int store_access_in_entry(uchar a
+ 
+ 	COE( sys_acl_get_permset,(entry, &permset) );
+ 	COE( sys_acl_clear_perms,(permset) );
++	if (access & 32)
++		COE( sys_acl_add_perm(permset, SMB_ACL_CHOWN) );
++	if (access & 16)
++		COE( sys_acl_add_perm(permset, SMB_ACL_CHMOD) );
++	if (access & 8)
++		COE( sys_acl_add_perm(permset, SMB_ACL_DELETE) );
+ 	if (access & 4)
+ 		COE( sys_acl_add_perm,(permset, SMB_ACL_READ) );
+ 	if (access & 2)
+@@ -409,7 +418,7 @@ static BOOL pack_smb_acl(SMB_ACL_T *smb_
+ 
+ 	COE( sys_acl_create_entry,(smb_acl, &entry) );
+ 	COE( sys_acl_set_tag_type,(entry, SMB_ACL_USER_OBJ) );
+-	COE2( store_access_in_entry,(racl->user_obj & 7, entry) );
++	COE2( store_access_in_entry,(racl->user_obj & 077, entry) );
+ 
+ 	for (ida = racl->users.idas, count = racl->users.count; count--; ida++) {
+ 		COE( sys_acl_create_entry,(smb_acl, &entry) );
+@@ -420,7 +429,7 @@ static BOOL pack_smb_acl(SMB_ACL_T *smb_
+ 
+ 	COE( sys_acl_create_entry,(smb_acl, &entry) );
+ 	COE( sys_acl_set_tag_type,(entry, SMB_ACL_GROUP_OBJ) );
+-	COE2( store_access_in_entry,(racl->group_obj & 7, entry) );
++	COE2( store_access_in_entry,(racl->group_obj & 077, entry) );
+ 
+ 	for (ida = racl->groups.idas, count = racl->groups.count; count--; ida++) {
+ 		COE( sys_acl_create_entry,(smb_acl, &entry) );
+@@ -430,7 +439,7 @@ static BOOL pack_smb_acl(SMB_ACL_T *smb_
+ 	}
+ 
+ #ifdef ACLS_NEED_MASK
+-	mask_bits = racl->mask == NO_ENTRY ? racl->group_obj & 7 : racl->mask;
++	mask_bits = racl->mask == NO_ENTRY ? racl->group_obj & 077 : racl->mask;
+ 	COE( sys_acl_create_entry,(smb_acl, &entry) );
+ 	COE( sys_acl_set_tag_type,(entry, SMB_ACL_MASK) );
+ 	COE2( store_access_in_entry,(mask_bits, entry) );
+@@ -444,7 +453,7 @@ static BOOL pack_smb_acl(SMB_ACL_T *smb_
+ 
+ 	COE( sys_acl_create_entry,(smb_acl, &entry) );
+ 	COE( sys_acl_set_tag_type,(entry, SMB_ACL_OTHER) );
+-	COE2( store_access_in_entry,(racl->other & 7, entry) );
++	COE2( store_access_in_entry,(racl->other & 077, entry) );
+ 
+ #ifdef DEBUG
+ 	if (sys_acl_valid(*smb_acl) < 0)
+@@ -649,7 +658,7 @@ static void receive_rsync_acl(rsync_acl 
+ 	while (count--) {
+ 		char tag = read_byte(f);
+ 		uchar access = read_byte(f);
+-		if (access & ~ (4 | 2 | 1)) {
++		if (access & ~(32 | 16 | 8 | 4 | 2 | 1)) {
+ 			rprintf(FERROR, "receive_rsync_acl: bogus permset %o\n",
+ 				access);
+ 			exit_cleanup(RERR_STREAMIO);
+@@ -725,7 +734,7 @@ static void receive_rsync_acl(rsync_acl 
+ 			racl->mask = NO_ENTRY;
+ 		}
+ 	} else if (racl->mask == NO_ENTRY) /* Must be non-empty with lists. */
+-		racl->mask = computed_mask_bits | (racl->group_obj & 7);
++		racl->mask = computed_mask_bits | (racl->group_obj & 077);
+ }
+ 
+ /* Receive the ACL info the sender has included for this file-list entry. */
+--- old/smb_acls.h
++++ new/smb_acls.h
+@@ -33,6 +33,11 @@
+ #define SMB_ACL_READ		ACL_READ
+ #define SMB_ACL_WRITE		ACL_WRITE
+ #define SMB_ACL_EXECUTE		ACL_EXECUTE
++/* These are custom ACL bits used by Adaptec's modifications
++ * to XFS on their SnapOS units. */
++#define SMB_ACL_DELETE		0x08
++#define SMB_ACL_CHMOD		0x10
++#define SMB_ACL_CHOWN		0x20
+ 
+ /* Types of ACLs. */
+ #define SMB_ACL_USER		ACL_USER

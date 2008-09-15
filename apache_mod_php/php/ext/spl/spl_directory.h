@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_directory.h,v 1.12.2.5.2.4 2007/01/01 09:36:07 sebastian Exp $ */
+/* $Id: spl_directory.h,v 1.12.2.5.2.10 2008/02/13 12:23:26 helly Exp $ */
 
 #ifndef SPL_DIRECTORY_H
 #define SPL_DIRECTORY_H
@@ -35,7 +35,7 @@ PHP_MINIT_FUNCTION(spl_directory);
 typedef enum {
 	SPL_FS_INFO, /* must be 0 */
 	SPL_FS_DIR,
-	SPL_FS_FILE,
+	SPL_FS_FILE
 } SPL_FS_OBJ_TYPE;
 
 typedef struct _spl_filesystem_object  spl_filesystem_object;
@@ -55,7 +55,7 @@ struct _spl_filesystem_object {
 	char               *path;
 	int                path_len;
 	char               *file_name;
-	int                file_name_len; 
+	int                file_name_len;
 	SPL_FS_OBJ_TYPE    type;
 	long               flags;
 	zend_class_entry   *file_class;
@@ -93,12 +93,16 @@ struct _spl_filesystem_object {
 #define SPL_FILE_OBJECT_SKIP_EMPTY         0x00000006 /* skip empty lines */
 #define SPL_FILE_OBJECT_READ_CSV           0x00000008 /* read via fgetcsv */
 
-#define SPL_FILE_DIR_CURRENT_AS_FILEINFO   0x00000010 /* make RecursiveDirectoryTree::current() return SplFileInfo */
+#define SPL_FILE_DIR_CURRENT_AS_FILEINFO   0x00000000 /* make RecursiveDirectoryTree::current() return SplFileInfo */
+#define SPL_FILE_DIR_CURRENT_AS_SELF       0x00000010 /* make RecursiveDirectoryTree::current() return getSelf() */
 #define SPL_FILE_DIR_CURRENT_AS_PATHNAME   0x00000020 /* make RecursiveDirectoryTree::current() return getPathname() */
 #define SPL_FILE_DIR_CURRENT_MODE_MASK     0x000000F0 /* mask RecursiveDirectoryTree::current() */
+#define SPL_FILE_DIR_CURRENT(intern,mode)  ((intern->flags&SPL_FILE_DIR_CURRENT_MODE_MASK)==mode)
 
+#define SPL_FILE_DIR_KEY_AS_PATHNAME       0x00000000 /* make RecursiveDirectoryTree::key() return getPathname() */
 #define SPL_FILE_DIR_KEY_AS_FILENAME       0x00000100 /* make RecursiveDirectoryTree::key() return getFilename() */
 #define SPL_FILE_DIR_KEY_MODE_MASK         0x00000F00 /* mask RecursiveDirectoryTree::key() */
+#define SPL_FILE_DIR_KEY(intern,mode)      ((intern->flags&SPL_FILE_DIR_KEY_MODE_MASK)==mode)
 
 #endif /* SPL_DIRECTORY_H */
 

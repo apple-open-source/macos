@@ -1,5 +1,5 @@
 /*
- * "$Id: conf.c 6783 2007-08-10 19:48:57Z mike $"
+ * "$Id: conf.c 7648 2008-06-16 17:41:11Z mike $"
  *
  *   Configuration routines for the Common UNIX Printing System (CUPS).
  *
@@ -113,6 +113,7 @@ static const cupsd_var_t	variables[] =
 #ifdef HAVE_GSSAPI
   { "GSSServiceName",		&GSSServiceName,	CUPSD_VARTYPE_STRING },
 #endif /* HAVE_GSSAPI */
+  { "HideImplicitMembers",	&HideImplicitMembers,	CUPSD_VARTYPE_BOOLEAN },
   { "ImplicitClasses",		&ImplicitClasses,	CUPSD_VARTYPE_BOOLEAN },
   { "ImplicitAnyClasses",	&ImplicitAnyClasses,	CUPSD_VARTYPE_BOOLEAN },
   { "JobRetryLimit",		&JobRetryLimit,		CUPSD_VARTYPE_INTEGER },
@@ -412,7 +413,7 @@ cupsdReadConfiguration(void)
   cupsdSetString(&PrintcapGUI, "/usr/bin/glpoptions");
   cupsdSetString(&FontPath, CUPS_FONTPATH);
   cupsdSetString(&RemoteRoot, "remroot");
-  cupsdSetString(&ServerHeader, "CUPS/1.2");
+  cupsdSetString(&ServerHeader, "CUPS/1.3");
   cupsdSetString(&StateDir, CUPS_STATEDIR);
 #ifdef HAVE_GSSAPI
   cupsdSetString(&GSSServiceName, CUPS_DEFAULT_GSSSERVICENAME);
@@ -776,9 +777,13 @@ cupsdReadConfiguration(void)
   * writable by the user and group in the cupsd.conf file...
   */
 
+  snprintf(temp, sizeof(temp), "%s/rss", CacheDir);
+
   if (cupsdCheckPermissions(RequestRoot, NULL, 0710, RunUser,
 			    Group, 1, 1) < 0 ||
       cupsdCheckPermissions(CacheDir, NULL, 0775, RunUser,
+			    Group, 1, 1) < 0 ||
+      cupsdCheckPermissions(temp, NULL, 0775, RunUser,
 			    Group, 1, 1) < 0 ||
       cupsdCheckPermissions(StateDir, NULL, 0755, RunUser,
 			    Group, 1, 1) < 0 ||
@@ -2087,7 +2092,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
     * Decode the directive...
     */
 
-    if (!strcasecmp(line, "Include"))
+    if (!strcasecmp(line, "Include") && value)
     {
      /*
       * Include filename
@@ -2108,72 +2113,39 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	cupsFileClose(incfile);
       }
     }
-    else if (!strcasecmp(line, "<Location"))
+    else if (!strcasecmp(line, "<Location") && value)
     {
      /*
       * <Location path>
       */
 
-      if (value)
-      {
-	linenum = read_location(fp, value, linenum);
-	if (linenum == 0)
-	  return (0);
-      }
-      else
-      {
-        cupsdLogMessage(CUPSD_LOG_ERROR, "Syntax error on line %d.",
-	           linenum);
-        return (0);
-      }
+      linenum = read_location(fp, value, linenum);
+      if (linenum == 0)
+	return (0);
     }
-    else if (!strcasecmp(line, "<Policy"))
+    else if (!strcasecmp(line, "<Policy") && value)
     {
      /*
       * <Policy name>
       */
 
-      if (value)
-      {
-	linenum = read_policy(fp, value, linenum);
-	if (linenum == 0)
-	  return (0);
-      }
-      else
-      {
-        cupsdLogMessage(CUPSD_LOG_ERROR, "Syntax error on line %d.", linenum);
-        return (0);
-      }
+      linenum = read_policy(fp, value, linenum);
+      if (linenum == 0)
+	return (0);
     }
-    else if (!strcasecmp(line, "FaxRetryInterval"))
+    else if (!strcasecmp(line, "FaxRetryInterval") && value)
     {
-      if (value)
-      {
-        JobRetryInterval = atoi(value);
-	cupsdLogMessage(CUPSD_LOG_WARN,
-	                "FaxRetryInterval is deprecated; use "
-			"JobRetryInterval on line %d.", linenum);
-      }
-      else
-      {
-        cupsdLogMessage(CUPSD_LOG_ERROR, "Syntax error on line %d.", linenum);
-        return (0);
-      }
+      JobRetryInterval = atoi(value);
+      cupsdLogMessage(CUPSD_LOG_WARN,
+		      "FaxRetryInterval is deprecated; use "
+		      "JobRetryInterval on line %d.", linenum);
     }
-    else if (!strcasecmp(line, "FaxRetryLimit"))
+    else if (!strcasecmp(line, "FaxRetryLimit") && value)
     {
-      if (value)
-      {
-        JobRetryLimit = atoi(value);
-	cupsdLogMessage(CUPSD_LOG_WARN,
-	                "FaxRetryLimit is deprecated; use "
-			"JobRetryLimit on line %d.", linenum);
-      }
-      else
-      {
-        cupsdLogMessage(CUPSD_LOG_ERROR, "Syntax error on line %d.", linenum);
-        return (0);
-      }
+      JobRetryLimit = atoi(value);
+      cupsdLogMessage(CUPSD_LOG_WARN,
+		      "FaxRetryLimit is deprecated; use "
+		      "JobRetryLimit on line %d.", linenum);
     }
     else if (!strcasecmp(line, "Port") || !strcasecmp(line, "Listen")
 #ifdef HAVE_SSL
@@ -2267,7 +2239,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 
       httpAddrFreeList(addrlist);
     }
-    else if (!strcasecmp(line, "BrowseAddress"))
+    else if (!strcasecmp(line, "BrowseAddress") && value)
     {
      /*
       * Add a browse address to the list...
@@ -2348,7 +2320,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
         cupsdLogMessage(CUPSD_LOG_ERROR, "Bad BrowseAddress %s at line %d.",
 	                value, linenum);
     }
-    else if (!strcasecmp(line, "BrowseOrder"))
+    else if (!strcasecmp(line, "BrowseOrder") && value)
     {
      /*
       * "BrowseOrder Deny,Allow" or "BrowseOrder Allow,Deny"...
@@ -2394,8 +2366,8 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
       if (strcasecmp(line, "BrowseRemoteProtocols"))
         BrowseLocalProtocols = protocols;
     }
-    else if (!strcasecmp(line, "BrowseAllow") ||
-             !strcasecmp(line, "BrowseDeny"))
+    else if ((!strcasecmp(line, "BrowseAllow") ||
+              !strcasecmp(line, "BrowseDeny")) && value)
     {
      /*
       * BrowseAllow [From] host/ip...
@@ -2499,7 +2471,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	}
       }
     }
-    else if (!strcasecmp(line, "BrowseRelay"))
+    else if (!strcasecmp(line, "BrowseRelay") && value)
     {
      /*
       * BrowseRelay [from] source [to] destination
@@ -2675,7 +2647,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	                value, linenum);
       }
     }
-    else if (!strcasecmp(line, "BrowsePoll"))
+    else if (!strcasecmp(line, "BrowsePoll") && value)
     {
      /*
       * BrowsePoll address[:port]
@@ -2737,7 +2709,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
       cupsdLogMessage(CUPSD_LOG_INFO, "Polling %s:%d", pollp->hostname,
 	              pollp->port);
     }
-    else if (!strcasecmp(line, "DefaultAuthType"))
+    else if (!strcasecmp(line, "DefaultAuthType") && value)
     {
      /*
       * DefaultAuthType {basic,digest,basicdigest,negotiate}
@@ -2786,7 +2758,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
     }
 #endif /* HAVE_SSL */
 #ifdef HAVE_GSSAPI
-    else if (!strcasecmp(line, "Krb5Keytab"))
+    else if (!strcasecmp(line, "Krb5Keytab") && value)
     {
       cupsdSetStringf(&Krb5Keytab, "KRB5_KTNAME=%s", value);
       putenv(Krb5Keytab);
@@ -2798,13 +2770,13 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 #  endif /* HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY */
     }
 #endif /* HAVE_GSSAPI */
-    else if (!strcasecmp(line, "User"))
+    else if (!strcasecmp(line, "User") && value)
     {
      /*
       * User ID to run as...
       */
 
-      if (value && isdigit(value[0] & 255))
+      if (isdigit(value[0] & 255))
       {
         int uid = atoi(value);
 
@@ -2817,7 +2789,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
         else
 	  User = atoi(value);
       }
-      else if (value)
+      else
       {
         struct passwd *p;	/* Password information */
 
@@ -2840,12 +2812,8 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	                  "Unknown User \"%s\" on line %d, ignoring!",
 	                  value, linenum);
       }
-      else
-	cupsdLogMessage(CUPSD_LOG_ERROR,
-	                "User directive on line %d missing the username!",
-	                linenum);
     }
-    else if (!strcasecmp(line, "Group"))
+    else if (!strcasecmp(line, "Group") && value)
     {
      /*
       * Group ID to run as...
@@ -2866,7 +2834,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	                  value, linenum);
       }
     }
-    else if (!strcasecmp(line, "SystemGroup"))
+    else if (!strcasecmp(line, "SystemGroup") && value)
     {
      /*
       * SystemGroup (admin) group(s)...
@@ -2877,15 +2845,17 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	                "Unknown SystemGroup \"%s\" on line %d, ignoring!",
 	                value, linenum);
     }
-    else if (!strcasecmp(line, "HostNameLookups"))
+    else if (!strcasecmp(line, "HostNameLookups") && value)
     {
      /*
       * Do hostname lookups?
       */
 
-      if (!strcasecmp(value, "off"))
+      if (!strcasecmp(value, "off") || !strcasecmp(value, "no") ||
+          !strcasecmp(value, "false"))
         HostNameLookups = 0;
-      else if (!strcasecmp(value, "on"))
+      else if (!strcasecmp(value, "on") || !strcasecmp(value, "yes") ||
+          !strcasecmp(value, "true"))
         HostNameLookups = 1;
       else if (!strcasecmp(value, "double"))
         HostNameLookups = 2;
@@ -2893,7 +2863,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	cupsdLogMessage(CUPSD_LOG_WARN, "Unknown HostNameLookups %s on line %d.",
 	                value, linenum);
     }
-    else if (!strcasecmp(line, "LogLevel"))
+    else if (!strcasecmp(line, "LogLevel") && value)
     {
      /*
       * Amount of logging to do...
@@ -2923,7 +2893,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
         cupsdLogMessage(CUPSD_LOG_WARN, "Unknown LogLevel %s on line %d.",
 	                value, linenum);
     }
-    else if (!strcasecmp(line, "PrintcapFormat"))
+    else if (!strcasecmp(line, "PrintcapFormat") && value)
     {
      /*
       * Format of printcap file?
@@ -2937,7 +2907,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	cupsdLogMessage(CUPSD_LOG_WARN, "Unknown PrintcapFormat %s on line %d.",
 	                value, linenum);
     }
-    else if (!strcasecmp(line, "ServerTokens"))
+    else if (!strcasecmp(line, "ServerTokens") && value)
     {
      /*
       * Set the string used for the Server header...
@@ -2953,7 +2923,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
       else if (!strcasecmp(value, "Major"))
 	cupsdSetString(&ServerHeader, "CUPS/1");
       else if (!strcasecmp(value, "Minor"))
-	cupsdSetString(&ServerHeader, "CUPS/1.2");
+	cupsdSetString(&ServerHeader, "CUPS/1.3");
       else if (!strcasecmp(value, "Minimal"))
 	cupsdSetString(&ServerHeader, CUPS_MINIMAL);
       else if (!strcasecmp(value, "OS"))
@@ -2967,7 +2937,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	cupsdLogMessage(CUPSD_LOG_WARN, "Unknown ServerTokens %s on line %d.",
                         value, linenum);
     }
-    else if (!strcasecmp(line, "PassEnv"))
+    else if (!strcasecmp(line, "PassEnv") && value)
     {
      /*
       * PassEnv variable [... variable]
@@ -2992,7 +2962,7 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	    break;
       }
     }
-    else if (!strcasecmp(line, "SetEnv"))
+    else if (!strcasecmp(line, "SetEnv") && value)
     {
      /*
       * SetEnv variable value
@@ -3032,8 +3002,12 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
         * Unknown directive!  Output an error message and continue...
 	*/
 
-        cupsdLogMessage(CUPSD_LOG_ERROR, "Unknown directive %s on line %d.",
-	                line, linenum);
+        if (!value)
+	  cupsdLogMessage(CUPSD_LOG_ERROR, "Missing value for %s on line %d.",
+	                  line, linenum);
+	else
+	  cupsdLogMessage(CUPSD_LOG_ERROR, "Unknown directive %s on line %d.",
+	                  line, linenum);
         continue;
       }
 
@@ -3097,7 +3071,15 @@ read_configuration(cups_file_t *fp)	/* I - File to read from */
 	    break;
 
 	case CUPSD_VARTYPE_PATHNAME :
-            if (value[0] == '/')
+            if (!value)
+	    {
+	      cupsdLogMessage(CUPSD_LOG_ERROR,
+	                      "Missing pathname value for %s on line %d!",
+			      line, linenum);
+              break;
+	    }
+
+	    if (value[0] == '/')
 	      strlcpy(temp, value, sizeof(temp));
 	    else
 	      snprintf(temp, sizeof(temp), "%s/%s", ServerRoot, value);
@@ -3372,5 +3354,5 @@ read_policy(cups_file_t *fp,		/* I - Configuration file */
 
 
 /*
- * End of "$Id: conf.c 6783 2007-08-10 19:48:57Z mike $".
+ * End of "$Id: conf.c 7648 2008-06-16 17:41:11Z mike $".
  */

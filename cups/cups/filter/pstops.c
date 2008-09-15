@@ -1,5 +1,5 @@
 /*
- * "$Id: pstops.c 6759 2007-08-02 04:10:23Z mike $"
+ * "$Id: pstops.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   PostScript filter for the Common UNIX Printing System (CUPS).
  *
@@ -1054,7 +1054,7 @@ copy_dsc(cups_file_t  *fp,		/* I - File to read from */
   */
 
   if (!JobCanceled)
-    linelen = copy_trailer(fp, doc, ppd, number, line, linelen, linesize);
+    copy_trailer(fp, doc, ppd, number, line, linelen, linesize);
 }
 
 
@@ -1259,6 +1259,7 @@ copy_page(cups_file_t  *fp,		/* I - File to read from */
   int		level;			/* Embedded document level */
   pstops_page_t	*pageinfo;		/* Page information */
   int		first_page;		/* First page on N-up output? */
+  int		has_page_setup;		/* Does the page have %%Begin/EndPageSetup? */
   int		bounding_box[4];	/* PageBoundingBox */
 
 
@@ -1506,11 +1507,62 @@ copy_page(cups_file_t  *fp,		/* I - File to read from */
   */
 
   if (first_page)
+    doc_puts(doc, "%%BeginPageSetup\n");
+
+  if ((has_page_setup = !strncmp(line, "%%BeginPageSetup", 16)) != 0)
+  {
+    int	feature = 0;			/* In a Begin/EndFeature block? */
+
+    while ((linelen = cupsFileGetLine(fp, line, linesize)) > 0)
+    {
+      if (!strncmp(line, "%%EndPageSetup", 14))
+	break;
+      else if (!strncmp(line, "%%BeginFeature:", 15))
+      {
+	feature = 1;
+
+	if (doc->number_up > 1 || doc->fitplot)
+	  continue;
+      }
+      else if (!strncmp(line, "%%EndFeature", 12))
+      {
+	feature = 0;
+
+	if (doc->number_up > 1 || doc->fitplot)
+	  continue;
+      }
+      else if (!strncmp(line, "%%IncludeFeature:", 17))
+      {
+	pageinfo->num_options = include_feature(ppd, line,
+						pageinfo->num_options,
+						&(pageinfo->options));
+	continue;
+      }
+      else if (!strncmp(line, "%%Include", 9))
+	continue;
+
+      if (line[0] != '%' && !feature)
+        break;
+
+      if (!feature || (doc->number_up == 1 && !doc->fitplot))
+	doc_write(doc, line, linelen);
+    }
+
+   /*
+    * Skip %%EndPageSetup...
+    */
+
+    if (linelen > 0 && !strncmp(line, "%%EndPageSetup", 14))
+    {
+      linelen        = cupsFileGetLine(fp, line, linesize);
+      has_page_setup = 0;
+    }
+  }
+
+  if (first_page)
   {
     char	*page_setup;		/* PageSetup commands to send */
 
-
-    doc_puts(doc, "%%BeginPageSetup\n");
 
     if (pageinfo->num_options > 0)
     {
@@ -1581,34 +1633,35 @@ copy_page(cups_file_t  *fp,		/* I - File to read from */
   start_nup(doc, number, 1, bounding_box);
 
  /*
-  * Copy page setup commands as needed...
+  * Finish the PageSetup section as needed...
   */
 
-  if (!strncmp(line, "%%BeginPageSetup", 16))
+  if (has_page_setup)
   {
     int	feature = 0;			/* In a Begin/EndFeature block? */
 
+    doc_write(doc, line, linelen);
 
     while ((linelen = cupsFileGetLine(fp, line, linesize)) > 0)
     {
       if (!strncmp(line, "%%EndPageSetup", 14))
-        break;
+	break;
       else if (!strncmp(line, "%%BeginFeature:", 15))
       {
-        feature = 1;
+	feature = 1;
 
 	if (doc->number_up > 1 || doc->fitplot)
 	  continue;
       }
       else if (!strncmp(line, "%%EndFeature", 12))
       {
-        feature = 0;
+	feature = 0;
 
 	if (doc->number_up > 1 || doc->fitplot)
 	  continue;
       }
       else if (!strncmp(line, "%%Include", 9))
-        continue;
+	continue;
 
       if (!feature || (doc->number_up == 1 && !doc->fitplot))
 	doc_write(doc, line, linelen);
@@ -1618,13 +1671,9 @@ copy_page(cups_file_t  *fp,		/* I - File to read from */
     * Skip %%EndPageSetup...
     */
 
-    if (linelen > 0)
+    if (linelen > 0 && !strncmp(line, "%%EndPageSetup", 14))
       linelen = cupsFileGetLine(fp, line, linesize);
   }
-
- /*
-  * Finish the PageSetup section as needed...
-  */
 
   if (first_page)
     doc_puts(doc, "%%EndPageSetup\n");
@@ -1789,8 +1838,6 @@ copy_setup(cups_file_t  *fp,		/* I - File to read from */
 
   doc_puts(doc, "%%BeginSetup\n");
   
-  do_setup(doc, ppd);
-
   if (!strncmp(line, "%%BeginSetup", 12))
   {
     while (strncmp(line, "%%EndSetup", 10))
@@ -1819,6 +1866,8 @@ copy_setup(cups_file_t  *fp,		/* I - File to read from */
     else
       fputs(_("ERROR: Missing %%EndSetup!\n"), stderr);
   }
+
+  do_setup(doc, ppd);
 
   doc_puts(doc, "%%EndSetup\n");
 
@@ -2178,7 +2227,6 @@ include_feature(
   char		name[255],		/* Option name */
 		value[255];		/* Option value */
   ppd_option_t	*option;		/* Option in file */
-  ppd_choice_t	*choice;		/* Choice */
 
 
  /*
@@ -2209,7 +2257,7 @@ include_feature(
     return (num_options);
   }
 
-  if ((choice = ppdFindChoice(option, value)) == NULL)
+  if (!ppdFindChoice(option, value))
   {
     fprintf(stderr, _("WARNING: Unknown choice \"%s\" for option \"%s\"!\n"),
             value, name + 1);
@@ -2868,10 +2916,7 @@ start_nup(pstops_doc_t *doc,		/* I - Document information */
 	             w / bboxw, l / bboxl);
 	}
 	else
-	{
           w = PageWidth;
-	  l = PageLength;
-	}
 	break;
 
     case 2 :
@@ -3366,5 +3411,5 @@ write_labels(pstops_doc_t *doc,		/* I - Document information */
 
 
 /*
- * End of "$Id: pstops.c 6759 2007-08-02 04:10:23Z mike $".
+ * End of "$Id: pstops.c 7721 2008-07-11 22:48:49Z mike $".
  */

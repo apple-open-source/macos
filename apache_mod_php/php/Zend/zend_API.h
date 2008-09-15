@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_API.h,v 1.207.2.8.2.8 2007/04/16 08:09:54 dmitry Exp $ */
+/* $Id: zend_API.h,v 1.207.2.8.2.9 2007/12/31 07:20:02 sebastian Exp $ */
 
 #ifndef ZEND_API_H
 #define ZEND_API_H

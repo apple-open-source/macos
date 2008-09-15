@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: multi.c,v 1.19.2.3.2.7 2007/01/01 09:35:48 sebastian Exp $ */
+/* $Id: multi.c,v 1.19.2.3.2.9 2007/12/31 07:20:05 sebastian Exp $ */
 
 #define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
@@ -122,13 +122,13 @@ void _php_curl_multi_cleanup_list(void *data) /* {{{ */
 /* }}} */
 
 /* Used internally as comparison routine passed to zend_list_del_element */
-static int curl_compare_resources( zval *z1, zval **z2 )
+static int curl_compare_resources( zval *z1, zval **z2 ) /* {{{ */
 {
 	return (Z_TYPE_P( z1 ) == Z_TYPE_PP( z2 ) && 
             Z_TYPE_P( z1 ) == IS_RESOURCE     &&
             Z_LVAL_P( z1 ) == Z_LVAL_PP( z2 ) );
 }
-
+/* }}} */
 
 /* {{{ proto int curl_multi_remove_handle(resource mh, resource ch)
    Remove a multi handle from a set of cURL handles */
@@ -155,7 +155,7 @@ PHP_FUNCTION(curl_multi_remove_handle)
 }
 /* }}} */
 
-static void _make_timeval_struct(struct timeval *to, double timeout)
+static void _make_timeval_struct(struct timeval *to, double timeout) /* {{{ */
 {
 	unsigned long conv;
 
@@ -163,6 +163,7 @@ static void _make_timeval_struct(struct timeval *to, double timeout)
 	to->tv_sec = conv / 1000000;
 	to->tv_usec = conv % 1000000;
 }
+/* }}} */
 
 /* {{{ proto int curl_multi_select(resource mh[, double timeout])
    Get all the sockets associated with the cURL extension, which can then be "selected" */
@@ -319,7 +320,7 @@ PHP_FUNCTION(curl_multi_close)
 }
 /* }}} */
 
-void _php_curl_multi_close(zend_rsrc_list_entry *rsrc TSRMLS_DC)
+void _php_curl_multi_close(zend_rsrc_list_entry *rsrc TSRMLS_DC) /* {{{ */
 {
 	php_curlm *mh = (php_curlm *) rsrc->ptr;
 	if (mh) {
@@ -329,6 +330,7 @@ void _php_curl_multi_close(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 		rsrc->ptr = NULL;
 	}
 }
+/* }}} */
 
 #endif
 

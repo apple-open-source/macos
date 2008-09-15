@@ -220,6 +220,9 @@ static mod_ret_t _roster_in_sess_s10n(mod_instance_t mi, sess_t sess, pkt_t pkt)
         pres_roster(sess, item);
     }
 
+    if (storage_rate_limit(sess->user->sm->st, jid_user(sess->user->jid)) == st_RATELIMITED)
+        return -stanza_err_RESOURCE_CONSTRAINT;
+
     /* save changes */
     _roster_save_item(sess->user, item);
     
@@ -389,6 +392,9 @@ static void _roster_set_item(pkt_t pkt, int elem, sess_t sess, mod_instance_t mi
     log_debug(ZONE, "added %s to roster (to %d from %d ask %d name %s ngroups %d)", jid_full(item->jid), item->to, item->from, item->ask, item->name, item->ngroups);
 
     /* save changes */
+    if (storage_rate_limit(sess->user->sm->st, jid_user(sess->user->jid)) == st_RATELIMITED)
+        return -stanza_err_RESOURCE_CONSTRAINT;
+        
     _roster_save_item(sess->user, item);
 
     /* build a new packet to push out to everyone */
@@ -560,6 +566,9 @@ static mod_ret_t _roster_pkt_user(mod_instance_t mi, user_t user, pkt_t pkt)
 
     item->ask = 0;
 
+    if (storage_rate_limit(user->sm->st, pkt->from) == st_RATELIMITED)
+        return -stanza_err_RESOURCE_CONSTRAINT;
+        
     /* save changes */
     _roster_save_item(user, item);
 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: math.c,v 1.131.2.2.2.6 2007/05/23 15:01:00 iliaa Exp $ */
+/* $Id: math.c,v 1.131.2.2.2.9 2008/02/21 11:53:51 tony2001 Exp $ */
 
 #include "php.h"
 #include "php_math.h"
@@ -471,14 +471,13 @@ PHP_FUNCTION(pow)
    Returns e raised to the power of the number */
 PHP_FUNCTION(exp)
 {
-	zval **num;
+	double num;
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &num) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "d", &num) == FAILURE) {
+		return;
 	}
-	convert_to_double_ex(num);
-	Z_DVAL_P(return_value) = exp(Z_DVAL_PP(num));
-	Z_TYPE_P(return_value) = IS_DOUBLE;
+
+	RETURN_DOUBLE(exp(num));
 }
 /* }}} */
 

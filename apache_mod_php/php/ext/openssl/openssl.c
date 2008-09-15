@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: openssl.c,v 1.98.2.5.2.42 2007/10/31 13:23:06 jani Exp $ */
+/* $Id: openssl.c,v 1.98.2.5.2.45 2008/04/07 10:44:03 tony2001 Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1962,7 +1962,7 @@ PHP_FUNCTION(openssl_csr_sign)
 	X509 * cert = NULL, *new_cert = NULL;
 	X509_REQ * csr;
 	EVP_PKEY * key = NULL, *priv_key = NULL;
-	long csr_resource, certresource, keyresource;
+	long csr_resource, certresource = 0, keyresource;
 	int i;
 	struct php_x509_request req;
 	
@@ -3522,6 +3522,7 @@ PHP_FUNCTION(openssl_sign)
 		efree(sigbuf);
 		RETVAL_FALSE;
 	}
+	EVP_MD_CTX_cleanup(&md_ctx);
 	if (keyresource == -1) {
 		EVP_PKEY_free(pkey);
 	}
@@ -3561,6 +3562,7 @@ PHP_FUNCTION(openssl_verify)
 	EVP_VerifyInit   (&md_ctx, mdtype);
 	EVP_VerifyUpdate (&md_ctx, data, data_len);
 	err = EVP_VerifyFinal (&md_ctx, (unsigned char *)signature, signature_len, pkey);
+	EVP_MD_CTX_cleanup(&md_ctx);
 
 	if (keyresource == -1) {
 		EVP_PKEY_free(pkey);

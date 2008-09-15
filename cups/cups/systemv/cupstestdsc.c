@@ -1,9 +1,9 @@
 /*
- * "$Id: cupstestdsc.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: cupstestdsc.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   DSC test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -192,7 +192,6 @@ check_file(const char *filename)	/* I - File to read from */
 	if (!status)
           _cupsLangPuts(stdout, _("FAIL\n"));
 
-	status ++;
 	_cupsLangPuts(stdout,
 	              _("    Missing %!PS-Adobe-3.0 on first line!\n"
 		        "        REF: Page 17, 3.1 Conforming Documents\n"));
@@ -443,5 +442,5 @@ usage(void)
 
 
 /*
- * End of "$Id: cupstestdsc.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: cupstestdsc.c 7721 2008-07-11 22:48:49Z mike $".
  */

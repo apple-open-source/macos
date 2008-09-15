@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: pdo_stmt.c,v 1.118.2.38.2.26 2007/10/31 12:58:24 iliaa Exp $ */
+/* $Id: pdo_stmt.c,v 1.118.2.38.2.34 2008/02/26 00:14:04 iliaa Exp $ */
 
 /* The PDO Statement Handle Class */
 
@@ -894,6 +894,7 @@ static int do_fetch(pdo_stmt_t *stmt, int do_bind, zval *return_value,
 	int flags = how & PDO_FETCH_FLAGS, idx, old_arg_count = 0;
 	zend_class_entry *ce = NULL, *old_ce = NULL;
 	zval grp_val, *grp, **pgrp, *retval, *old_ctor_args = NULL;
+	int colno;
 
 	if (how == PDO_FETCH_USE_DEFAULT) {
 		how = stmt->default_fetch_type;
@@ -907,6 +908,12 @@ static int do_fetch(pdo_stmt_t *stmt, int do_bind, zval *return_value,
 	if (how == PDO_FETCH_BOUND) {
 		RETVAL_TRUE;
 		return 1;
+	}
+
+	if (flags & PDO_FETCH_GROUP && stmt->fetch.column == -1) {
+		colno = 1;
+	} else {
+		colno = stmt->fetch.column;
 	}
 
 	if (return_value) {
@@ -945,13 +952,21 @@ static int do_fetch(pdo_stmt_t *stmt, int do_bind, zval *return_value,
 				break;
 
 			case PDO_FETCH_COLUMN:
-				if (stmt->fetch.column >= 0 && stmt->fetch.column < stmt->column_count) {
-					fetch_value(stmt, return_value, stmt->fetch.column, NULL TSRMLS_CC);
+				if (colno >= 0 && colno < stmt->column_count) {
+					if (flags == PDO_FETCH_GROUP && stmt->fetch.column == -1) {
+						fetch_value(stmt, return_value, 1, NULL TSRMLS_CC);
+					} else if (flags == PDO_FETCH_GROUP && colno) {
+						fetch_value(stmt, return_value, 0, NULL TSRMLS_CC);
+					} else {
+						fetch_value(stmt, return_value, colno, NULL TSRMLS_CC); 
+					}
 					if (!return_all) {
 						return 1;
 					} else {
 						break;
 					}
+				} else {
+					pdo_raise_impl_error(stmt->dbh, stmt, "HY000", "Invalid column index" TSRMLS_CC);
 				}
 				return 0;
 
@@ -1049,7 +1064,11 @@ static int do_fetch(pdo_stmt_t *stmt, int do_bind, zval *return_value,
 		
 		if (return_all && how != PDO_FETCH_KEY_PAIR) {
 			INIT_PZVAL(&grp_val);
-			fetch_value(stmt, &grp_val, i, NULL TSRMLS_CC);
+			if (flags == PDO_FETCH_GROUP && how == PDO_FETCH_COLUMN && stmt->fetch.column > 0) {
+				fetch_value(stmt, &grp_val, colno, NULL TSRMLS_CC);
+			} else {
+				fetch_value(stmt, &grp_val, i, NULL TSRMLS_CC);
+			}
 			convert_to_string(&grp_val);
 			if (how == PDO_FETCH_COLUMN) {
 				i = stmt->column_count; /* no more data to fetch */
@@ -1527,7 +1546,7 @@ static PHP_METHOD(PDOStatement, fetchAll)
 		switch(ZEND_NUM_ARGS()) {
 		case 0:
 		case 1:
-			stmt->fetch.column = how & PDO_FETCH_GROUP ? 1 : 0;
+			stmt->fetch.column = how & PDO_FETCH_GROUP ? -1 : 0;
 			break;
 		case 2:
 			convert_to_long(arg2);

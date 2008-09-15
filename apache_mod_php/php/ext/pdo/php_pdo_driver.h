@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: php_pdo_driver.h,v 1.66.2.11.2.6 2007/07/23 11:53:58 jani Exp $ */
+/* $Id: php_pdo_driver.h,v 1.66.2.11.2.8 2007/12/31 07:20:09 sebastian Exp $ */
 
 #ifndef PHP_PDO_DRIVER_H
 #define PHP_PDO_DRIVER_H
@@ -67,7 +67,7 @@ enum pdo_param_type {
 	PDO_PARAM_STMT, /* hierarchical result set */
 
 	/* get_col ptr should point to a zend_bool */
-	PDO_PARAM_BOOL,
+	PDO_PARAM_BOOL
 };
 
 /* magic flag to denote a parameter as being input/output */

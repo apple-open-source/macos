@@ -1,26 +1,30 @@
 /*
-   Copyright (C) Andrew Tridgell 1998
-   Copyright (C) 2002 by Martin Pool
+ * File IO utilities used in rsync.
+ *
+ * Copyright (C) 1998 Andrew Tridgell
+ * Copyright (C) 2002 Martin Pool
+ * Copyright (C) 2004, 2005, 2006 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
-
-/*
-  File IO utilities used in rsync
-  */
 #include "rsync.h"
+
+#ifndef ENODATA
+#define ENODATA EAGAIN
+#endif
 
 extern int sparse_files;
 
@@ -143,56 +147,52 @@ int write_file(int f,char *buf,size_t len)
  * It gives sliding window access to a file.  mmap() is not used because of
  * the possibility of another program (such as a mailer) truncating the
  * file thus giving us a SIGBUS. */
-struct map_struct *map_file(int fd, OFF_T len, OFF_T map_size,
-			    size_t block_size)
+struct map_struct *map_file(int fd, OFF_T len, int32 read_size,
+			    int32 blk_size)
 {
 	struct map_struct *map;
 
 	if (!(map = new(struct map_struct)))
 		out_of_memory("map_file");
 
-	if (block_size && (map_size % block_size))
-		map_size += block_size - (map_size % block_size);
+	if (blk_size && (read_size % blk_size))
+		read_size += blk_size - (read_size % blk_size);
 
 	memset(map, 0, sizeof map[0]);
 	map->fd = fd;
 	map->file_size = len;
-	map->def_window_size = map_size;
+	map->def_window_size = read_size;
 
 	return map;
 }
 
 
 /* slide the read window in the file */
-char *map_ptr(struct map_struct *map,OFF_T offset,int len)
+char *map_ptr(struct map_struct *map, OFF_T offset, int32 len)
 {
-	int nread;
+	int32 nread;
 	OFF_T window_start, read_start;
-	int window_size, read_size, read_offset;
+	int32 window_size, read_size, read_offset;
 
 	if (len == 0)
 		return NULL;
-
-	/* can't go beyond the end of file */
-	if (len > (map->file_size - offset)) {
-		len = map->file_size - offset;
+	if (len < 0) {
+		rprintf(FERROR, "invalid len passed to map_ptr: %ld\n",
+			(long)len);
+		exit_cleanup(RERR_FILEIO);
 	}
 
 	/* in most cases the region will already be available */
-	if (offset >= map->p_offset &&
-	    offset+len <= map->p_offset+map->p_len) {
-		return (map->p + (offset - map->p_offset));
-	}
+	if (offset >= map->p_offset && offset+len <= map->p_offset+map->p_len)
+		return map->p + (offset - map->p_offset);
 
 	/* nope, we are going to have to do a read. Work out our desired window */
 	window_start = offset;
 	window_size = map->def_window_size;
-	if (window_start + window_size > map->file_size) {
+	if (window_start + window_size > map->file_size)
 		window_size = map->file_size - window_start;
-	}
-	if (offset + len > window_start + window_size) {
-		window_size = (offset+len) - window_start;
-	}
+	if (len > window_size)
+		window_size = len;
 
 	/* make sure we have allocated enough memory for the window */
 	if (window_size > map->p_size) {
@@ -202,8 +202,8 @@ char *map_ptr(struct map_struct *map,OFF_T offset,int len)
 		map->p_size = window_size;
 	}
 
-	/* now try to avoid re-reading any bytes by reusing any bytes from the previous
-	   buffer. */
+	/* Now try to avoid re-reading any bytes by reusing any bytes
+	 * from the previous buffer. */
 	if (window_start >= map->p_offset &&
 	    window_start < map->p_offset + map->p_len &&
 	    window_start + window_size >= map->p_offset + map->p_len) {
@@ -218,33 +218,39 @@ char *map_ptr(struct map_struct *map,OFF_T offset,int len)
 	}
 
 	if (read_size <= 0) {
-		rprintf(FINFO,"Warning: unexpected read size of %d in map_ptr\n", read_size);
-	} else {
-		if (map->p_fd_offset != read_start) {
-			if (do_lseek(map->fd,read_start,SEEK_SET) != read_start) {
-				rprintf(FERROR,"lseek failed in map_ptr\n");
-				exit_cleanup(RERR_FILEIO);
-			}
-			map->p_fd_offset = read_start;
-		}
-
-		if ((nread=read(map->fd,map->p + read_offset,read_size)) != read_size) {
-			if (nread < 0) {
-				nread = 0;
-				if (!map->status)
-					map->status = errno;
-			}
-			/* the best we can do is zero the buffer - the file
-			   has changed mid transfer! */
-			memset(map->p+read_offset+nread, 0, read_size - nread);
-		}
-		map->p_fd_offset += nread;
+		rprintf(FERROR, "invalid read_size of %ld in map_ptr\n",
+			(long)read_size);
+		exit_cleanup(RERR_FILEIO);
 	}
 
+	if (map->p_fd_offset != read_start) {
+		OFF_T ret = do_lseek(map->fd, read_start, SEEK_SET);
+		if (ret != read_start) {
+			rsyserr(FERROR, errno, "lseek returned %.0f, not %.0f",
+				(double)ret, (double)read_start);
+			exit_cleanup(RERR_FILEIO);
+		}
+		map->p_fd_offset = read_start;
+	}
 	map->p_offset = window_start;
 	map->p_len = window_size;
 
-	return map->p + (offset - map->p_offset);
+	while (read_size > 0) {
+		nread = read(map->fd, map->p + read_offset, read_size);
+		if (nread <= 0) {
+			if (!map->status)
+				map->status = nread ? errno : ENODATA;
+			/* The best we can do is zero the buffer -- the file
+			 * has changed mid transfer! */
+			memset(map->p + read_offset, 0, read_size);
+			break;
+		}
+		map->p_fd_offset += nread;
+		read_offset += nread;
+		read_size -= nread;
+	}
+
+	return map->p;
 }
 
 

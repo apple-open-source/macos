@@ -1,5 +1,5 @@
 /*
- * "$Id: usb-unix.c 6911 2007-09-04 20:35:08Z mike $"
+ * "$Id: usb-unix.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   USB port backend for the Common UNIX Printing System (CUPS).
  *
@@ -414,11 +414,10 @@ open_device(const char *uri,		/* I - Device URI */
       */
 
       if (busy)
-      {
 	_cupsLangPuts(stderr,
 	              _("INFO: Printer busy; will retry in 5 seconds...\n"));
-	sleep(5);
-      }
+
+      sleep(5);
     }
   }
 #elif defined(__sun) && defined(ECPPIOC_GETDEVID)
@@ -606,5 +605,5 @@ side_cb(int print_fd,			/* I - Print file */
 
 
 /*
- * End of "$Id: usb-unix.c 6911 2007-09-04 20:35:08Z mike $".
+ * End of "$Id: usb-unix.c 7721 2008-07-11 22:48:49Z mike $".
  */

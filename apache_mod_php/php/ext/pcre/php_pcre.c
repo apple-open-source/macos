@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcre.c,v 1.168.2.9.2.21 2007/09/20 08:10:44 tony2001 Exp $ */
+/* $Id: php_pcre.c,v 1.168.2.9.2.25 2008/02/20 22:08:18 felipe Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -48,7 +48,7 @@ enum {
 	PHP_PCRE_INTERNAL_ERROR,
 	PHP_PCRE_BACKTRACK_LIMIT_ERROR,
 	PHP_PCRE_RECURSION_LIMIT_ERROR,
-	PHP_PCRE_BAD_UTF8_ERROR,
+	PHP_PCRE_BAD_UTF8_ERROR
 };
 
 
@@ -1535,7 +1535,9 @@ PHPAPI void php_pcre_split_impl(pcre_cache_entry *pce, char *subject, int subjec
 	}
 
 
-	if (!no_empty || start_offset != subject_len)
+	start_offset = last_match - subject; /* the offset might have been incremented, but without further successful matches */
+
+	if (!no_empty || start_offset < subject_len)
 	{
 		if (offset_capture) {
 			/* Add the last (match, offset) pair to the return value */
@@ -1742,7 +1744,7 @@ PHPAPI void  php_pcre_grep_impl(pcre_cache_entry *pce, zval *input, zval *return
 		
 		zend_hash_move_forward(Z_ARRVAL_P(input));
 	}
-	
+	zend_hash_internal_pointer_reset(Z_ARRVAL_P(input));
 	/* Clean up */
 	efree(offsets);
 }

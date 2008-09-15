@@ -1,18 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2007-12-17</string>
+	<string>2008-07-24</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>OpenSSH.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>Storing keys in Keychin on Leopard and later.</string>
-		<string>Two getpwuid usage fixes.</string>
-		<string>Globbing fix for Leoaprd and later</string>
+		<string>Storing keys in Keychain on Leopard and later.</string>
+		<string>A getpwuid usage fix.</string>
 		<string>Some manpage fixes.</string>
 		<string>Added EAs to scp.</string>
 		<string>SACL support for sshd.</string>
@@ -22,9 +21,7 @@
 		<string>Allow more than 16 groups.</string>
 		<string>Launch ssh-agent via launchd.</string>
 		<string>Enable GSSAPI by default (pre-Leopard).</string>
-		<string>Better name resolution error message.</string>
 		<string>Correct X11 display for Leopard ans later.</string>
-		<string>BSM support.</string>
 		<string>PAM support.</string>
 		<string>A lastlog fix.</string>
 		<string>A GSSKEX patch.</string>
@@ -32,12 +29,12 @@
 	<key>OpenSourceProject</key>
 	<string>OpenSSH</string>
 	<key>OpenSourceSHA1</key>
-	<string>58357db9e64ba6382bef3d73d1d386fcdc0508f4</string>
+	<string>877ea5b283060fe0160e376ea645e8e168047ff5</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.openssh.org/</string>
+	<string>ftp://ftp5.usa.openbsd.org/pub/OpenBSD/OpenSSH/portable/</string>
 	<key>OpenSourceVersion</key>
-	<string>4.7p1</string>
+	<string>5.1p1</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://openssh.org/</string>
+	<string>http://www.openssh.org/</string>
 </dict>
 </plist>

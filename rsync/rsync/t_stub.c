@@ -1,35 +1,35 @@
-/*  -*- c-file-style: "linux" -*-
- * 
- * Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
+/*
+ * This file contains really simple implementations for rsync global
+ * functions, so that module test harnesses can run standalone.
+ *
+ * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
+ * Copyright (C) 2003, 2004, 2005, 2006 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-   
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-   
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
 #include "rsync.h"
 
-/**
- * @file t_stub.c
- *
- * This file contains really simple implementations for rsync global
- * functions, so that module test harnesses can run standalone.
- **/
-
 int modify_window = 0;
 int module_id = -1;
+int relative_paths = 0;
+int human_readable = 0;
+int module_dirlen = 0;
+mode_t orig_umask = 002;
 char *partial_dir;
-struct exclude_list_struct server_exclude_list;
+struct filter_list_struct server_filter_list;
 
  void rprintf(UNUSED(enum logcode code), const char *format, ...)
 {
@@ -56,7 +56,7 @@ struct exclude_list_struct server_exclude_list;
 	exit(code);
 }
 
- int check_exclude(UNUSED(struct exclude_list_struct *listp), UNUSED(char *name),
+ int check_filter(UNUSED(struct filter_list_struct *listp), UNUSED(char *name),
 		   UNUSED(int name_is_dir))
 {
 	/* This function doesn't really get called in this test context, so
@@ -66,16 +66,20 @@ struct exclude_list_struct server_exclude_list;
 
  char *lp_name(UNUSED(int mod))
 {
-    return NULL;
+	return NULL;
 }
 
  BOOL lp_use_chroot(UNUSED(int mod))
 {
-    return 0;
+	return 0;
 }
 
  char *lp_path(UNUSED(int mod))
 {
-    return NULL;
+	return NULL;
 }
 
+ const char *who_am_i(void)
+{
+	return "tester";
+}

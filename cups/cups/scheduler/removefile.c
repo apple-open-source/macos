@@ -1,5 +1,5 @@
 /*
- * "$Id$"
+ * "$Id: removefile.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   "Secure" file removal function for the Common UNIX Printing System (CUPS).
  *
@@ -196,8 +196,9 @@ overwrite_data(int        fd,		/* I - File descriptor */
 
 
 #ifdef TEST
+#  define testmain main
 int
-main(void)
+testmain(void)
 {
   FILE	*fp;
 
@@ -223,5 +224,5 @@ main(void)
 
 
 /*
- * End of "$Id$".
+ * End of "$Id: removefile.c 7721 2008-07-11 22:48:49Z mike $".
  */

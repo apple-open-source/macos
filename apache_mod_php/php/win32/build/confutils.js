@@ -17,7 +17,7 @@
   +----------------------------------------------------------------------+
 */
 
-// $Id: confutils.js,v 1.60.2.1.2.8 2007/07/26 22:45:59 jani Exp $
+// $Id: confutils.js,v 1.60.2.1.2.10 2008/01/17 21:17:29 cellog Exp $
 
 var STDOUT = WScript.StdOut;
 var STDERR = WScript.StdErr;
@@ -429,7 +429,7 @@ can be built that way. \
 
 	STDOUT.WriteLine("Saving configure options to config.nice.bat");
 	var nicefile = FSO.CreateTextFile("config.nice.bat", true);
-	nicefile.WriteLine(nice);
+	nicefile.WriteLine(nice +  " %*");
 	nicefile.Close();
 
 	AC_DEFINE('CONFIGURE_COMMAND', nice);
@@ -1009,6 +1009,14 @@ function ADD_EXTENSION_DEP(extname, dependson, optional)
 		ADD_FLAG("LDFLAGS_" + EXT, "/libpath:$(BUILD_DIR)");
 		ADD_FLAG("LIBS_" + EXT, "php_" + dependson + ".lib");
 		ADD_FLAG("DEPS_" + EXT, "$(BUILD_DIR)\\php_" + dependson + ".lib");
+	} else {
+		if (dep_present == "no") {
+			if (ext_shared) {
+				WARNING(extname + " has a missing dependency: " + dependson);
+			} else {
+				ERROR("Cannot build " + extname + "; " + dependson + " not enabled");
+			}
+		}
 	}
 }
 

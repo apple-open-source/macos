@@ -301,8 +301,18 @@ static int smbfs_update_acl_cache(struct smb_share *ssp, struct smbnode *np, str
 	nanouptime(&ts);
 	if (timespeccmp(&np->acl_cache_timer, &ts, >)) {
 		/* Ok the cache is still good take a lock and retrieve the data */
-		lck_mtx_lock(&np->f_ACLCacheLock);		
-		goto done;
+		lck_mtx_lock(&np->f_ACLCacheLock);
+		if (timespeccmp(&np->acl_cache_timer, &ts, >)) {
+			/* We have the lock and the cache is still good, use the cached ACL */
+			goto done;
+		}
+		else {
+			/* 
+			 * Cache expired while we were waiting on the lock, release the lock 
+			 * and get the ACL from the network.
+			 */
+			lck_mtx_unlock(&np->f_ACLCacheLock);
+		}
 	}
 	
 	error = smbfs_smb_tmpopen(np, STD_RIGHT_READ_CONTROL_ACCESS, credp, &fid);
@@ -318,24 +328,24 @@ static int smbfs_update_acl_cache(struct smb_share *ssp, struct smbnode *np, str
 	}
 	
 	/* Don't let anyone play with the acl cache until we are done */
-	lck_mtx_lock(&np->f_ACLCacheLock);		
-	/* We have new information reset our timer  */
-	SET_ACL_CACHE_TIME(np);
+	lck_mtx_lock(&np->f_ACLCacheLock);
 	/* Free the old data no longer needed */
 	if (np->acl_cache_data)
 		FREE(np->acl_cache_data, M_TEMP);
 	np->acl_cache_data = acl_cache_data;
 	np->acl_cache_len = acl_cache_len;
 	np->acl_error = error;
+	/* We have new information reset our timer  */
+	SET_ACL_CACHE_TIME(np);
 	
 done:
 	if (np->acl_error)
 		*w_sec = NULL;
 	else if (np->acl_cache_data) {
-		MALLOC(*w_sec, struct ntsecdesc *, np->acl_cache_len, M_TEMP, M_WAITOK);
+		MALLOC(*w_sec, struct ntsecdesc *, np->acl_cache_len, M_TEMP, M_NOWAIT);
 		if (*w_sec)
 			bcopy(np->acl_cache_data, *w_sec, np->acl_cache_len);
-		else {	/* Should never happen, but just to be safe */
+		else {
 			*w_sec = np->acl_cache_data;
 			np->acl_cache_data = NULL;
 			np->acl_cache_len = 0;
@@ -344,6 +354,7 @@ done:
 		}
 	} else
 		np->acl_error =  EBADRPC;	/* Should never happen, but just to be safe */
+		
 	error = np->acl_error;
 	lck_mtx_unlock(&np->f_ACLCacheLock);		
 	return error;	
@@ -1618,7 +1629,7 @@ smbfs_getids(struct smbnode *np, struct smb_cred *scrp)
 	}
 	w_sidp = sdowner(w_sec);
 	if (!w_sidp) {
-		SMBERROR("no owner, file %.*s\n", np->n_nmlen, np->n_name);
+		SMBWARNING("no owner, file %.*s\n", np->n_nmlen, np->n_name);
 		error = ESRCH;
 		goto out;
 	}
@@ -1656,7 +1667,7 @@ smbfs_getids(struct smbnode *np, struct smb_cred *scrp)
 	}
 	w_sidp = sdgroup(w_sec);
 	if (!w_sidp) {
-		SMBERROR("no group sid, file %.*s\n", np->n_nmlen, np->n_name);
+		SMBWARNING("no group sid, file %.*s\n", np->n_nmlen, np->n_name);
 		error = ESRCH;
 		goto out;
 	}
@@ -1670,6 +1681,9 @@ smbfs_getids(struct smbnode *np, struct smb_cred *scrp)
 	np->n_uid = uid;
 	np->n_gid = gid;
 out:
+	
+	if (w_sec)
+		FREE(w_sec, M_TEMP);
 	return (error);
 }
 
@@ -2045,7 +2059,7 @@ PRIVSYM int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t vfsc
 		 */ 
 		if ((vcp->vc_flags & (SMBV_WIN98 | SMBV_NT4)) || 
 			(smp->sm_flags & kRequiresFileInfoTime) ||
-			(np->f_refcnt && (np->f_rights & rights))) {
+			((!vnode_isdir(vp)) && np->f_refcnt && (np->f_rights & rights))) {
 			
 			/*
 			 * np->f_rights holds different values depending on 

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_constants.c,v 1.71.2.5.2.7 2007/07/27 16:29:11 dmitry Exp $ */
+/* $Id: zend_constants.c,v 1.71.2.5.2.9 2008/02/19 12:00:36 dmitry Exp $ */
 
 #include "zend.h"
 #include "zend_constants.h"
@@ -274,6 +274,7 @@ ZEND_API int zend_get_constant_ex(char *name, uint name_len, zval *result, zend_
 			zval_update_constant_ex(ret_constant, (void*)1, *ce TSRMLS_CC);
 			*result = **ret_constant;
 			zval_copy_ctor(result);
+			INIT_PZVAL(result);
 		}
 
 		return retval;

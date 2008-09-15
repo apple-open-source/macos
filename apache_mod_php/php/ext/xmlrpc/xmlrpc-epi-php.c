@@ -37,7 +37,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -51,7 +51,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: xmlrpc-epi-php.c,v 1.39.2.5.2.6 2007/09/18 19:49:53 iliaa Exp $ */
+/* $Id: xmlrpc-epi-php.c,v 1.39.2.5.2.8 2007/12/31 07:20:14 sebastian Exp $ */
 
 /**********************************************************************
 * BUGS:                                                               *
@@ -874,10 +874,9 @@ static XMLRPC_VALUE php_xmlrpc_callback(XMLRPC_SERVER server, XMLRPC_REQUEST xRe
 
    pData->php_executed = 1;
 
-	zval_dtor(xmlrpc_params);
-	FREE_ZVAL(xmlrpc_params);
+   zval_ptr_dtor(&xmlrpc_params);
 
-	return NULL;
+   return NULL;
 }
 
 /* called by the C server when it first receives an introspection request.  We pass this on to

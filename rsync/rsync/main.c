@@ -1,54 +1,58 @@
-/* -*- c-file-style: "linux" -*-
-
-   Copyright (C) 1996-2001 by Andrew Tridgell <tridge@samba.org>
-   Copyright (C) Paul Mackerras 1996
-   Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
+/*
+ * The startup routines, including main(), for rsync.
+ *
+ * Copyright (C) 1996-2001 Andrew Tridgell <tridge@samba.org>
+ * Copyright (C) 1996 Paul Mackerras
+ * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
+ * Copyright (C) 2003, 2004, 2005, 2006 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
 #include "rsync.h"
+#if defined CONFIG_LOCALE && defined HAVE_LOCALE_H
+#include <locale.h>
+#endif
 
-time_t starttime = 0;
-
-extern struct stats stats;
+extern int verbose;
+extern int dry_run;
+extern int list_only;
 extern int am_root;
 extern int am_server;
 extern int am_sender;
 extern int am_generator;
 extern int am_daemon;
-extern int verbose;
 extern int blocking_io;
-extern int cvs_exclude;
-extern int delete_mode;
-extern int delete_excluded;
-extern int delete_after;
+extern int remove_source_files;
 extern int daemon_over_rsh;
+extern int need_messages_from_generator;
+extern int kluge_around_eof;
 extern int do_stats;
-extern int dry_run;
-extern int list_only;
-extern int local_server;
 extern int log_got_error;
 extern int module_id;
-extern int orig_umask;
 extern int copy_links;
+extern int copy_dirlinks;
 extern int keep_dirlinks;
 extern int preserve_hard_links;
 extern int protocol_version;
 extern int recurse;
 extern int relative_paths;
+extern int sanitize_paths;
+extern int curr_dir_depth;
+extern int curr_dir_len;
+extern int module_id;
 extern int rsync_port;
 extern int whole_file;
 extern int read_batch;
@@ -60,57 +64,96 @@ extern int filesfrom_fd;
 extern int extended_attributes;
 #endif
 extern pid_t cleanup_child_pid;
-extern char *files_from;
-extern char *remote_filesfrom_file;
+extern struct stats stats;
+extern char *filesfrom_host;
+extern char *partial_dir;
+extern char *basis_dir[];
 extern char *rsync_path;
 extern char *shell_cmd;
 extern char *batch_name;
+extern char curr_dir[MAXPATHLEN];
+extern struct filter_list_struct server_filter_list;
 
+int local_server = 0;
+int new_root_dir = 0;
+mode_t orig_umask = 0;
+struct file_list *the_file_list;
 
-/* there's probably never more than at most 2 outstanding child processes,
- * but set it higher just in case.
- */
-#define MAXCHILDPROCS 5
+/* There's probably never more than at most 2 outstanding child processes,
+ * but set it higher, just in case. */
+#define MAXCHILDPROCS 7
+
+#ifdef HAVE_SIGACTION
+# ifdef HAVE_SIGPROCMASK
+#  define SIGACTMASK(n,h) SIGACTION(n,h), sigaddset(&sigmask,(n))
+# else
+#  define SIGACTMASK(n,h) SIGACTION(n,h)
+# endif
+static struct sigaction sigact;
+#endif
 
 struct pid_status {
 	pid_t pid;
-	int   status;
+	int status;
 } pid_stat_table[MAXCHILDPROCS];
+
+static time_t starttime, endtime;
+static int64 total_read, total_written;
 
 static void show_malloc_stats(void);
 
-/****************************************************************************
-wait for a process to exit, calling io_flush while waiting
-****************************************************************************/
-void wait_process(pid_t pid, int *status)
+/* Works like waitpid(), but if we already harvested the child pid in our
+ * remember_children(), we succeed instead of returning an error. */
+pid_t wait_process(pid_t pid, int *status_ptr, int flags)
 {
-	pid_t waited_pid;
-	int cnt;
-
-	while ((waited_pid = waitpid(pid, status, WNOHANG)) == 0) {
-		msleep(20);
-		io_flush(FULL_FLUSH);
-	}
+	pid_t waited_pid = waitpid(pid, status_ptr, flags);
 
 	if (waited_pid == -1 && errno == ECHILD) {
-		/* status of requested child no longer available.
-		 * check to see if it was processed by the sigchld_handler.
-		 */
-		for (cnt = 0;  cnt < MAXCHILDPROCS; cnt++) {
+		/* Status of requested child no longer available:  check to
+		 * see if it was processed by remember_children(). */
+		int cnt;
+		for (cnt = 0; cnt < MAXCHILDPROCS; cnt++) {
 			if (pid == pid_stat_table[cnt].pid) {
-				*status = pid_stat_table[cnt].status;
+				*status_ptr = pid_stat_table[cnt].status;
 				pid_stat_table[cnt].pid = 0;
-				break;
+				return pid;
 			}
 		}
+	}
+
+	return waited_pid;
+}
+
+/* Wait for a process to exit, calling io_flush while waiting. */
+static void wait_process_with_flush(pid_t pid, int *exit_code_ptr)
+{
+	pid_t waited_pid;
+	int status;
+
+	while ((waited_pid = wait_process(pid, &status, WNOHANG)) == 0) {
+		msleep(20);
+		io_flush(FULL_FLUSH);
 	}
 
 	/* TODO: If the child exited on a signal, then log an
 	 * appropriate error message.  Perhaps we should also accept a
 	 * message describing the purpose of the child.  Also indicate
-	 * this to the caller so that thhey know something went
-	 * wrong.  */
-	*status = WEXITSTATUS(*status);
+	 * this to the caller so that they know something went wrong. */
+	if (waited_pid < 0) {
+		rsyserr(FERROR, errno, "waitpid");
+		*exit_code_ptr = RERR_WAITCHILD;
+	} else if (!WIFEXITED(status)) {
+#ifdef WCOREDUMP
+		if (WCOREDUMP(status))
+			*exit_code_ptr = RERR_CRASHED;
+		else
+#endif
+		if (WIFSIGNALED(status))
+			*exit_code_ptr = RERR_TERMINATED;
+		else
+			*exit_code_ptr = RERR_WAITCHILD;
+	} else
+		*exit_code_ptr = WEXITSTATUS(status);
 }
 
 /* This function gets called from all 3 processes.  We want the client side
@@ -121,12 +164,13 @@ void wait_process(pid_t pid, int *status)
  * the report.  All processes might also generate a set of debug stats, if
  * the verbose level is high enough (this is the only thing that the
  * generator process and the server receiver ever do here). */
-static void report(int f)
+static void handle_stats(int f)
 {
+	endtime = time(NULL);
+
 	/* Cache two stats because the read/write code can change it. */
-	int64 total_read = stats.total_read;
-	int64 total_written = stats.total_written;
-	time_t t = time(NULL);
+	total_read = stats.total_read;
+	total_written = stats.total_written;
 
 	if (do_stats && verbose > 1) {
 		/* These come out from every process */
@@ -138,7 +182,6 @@ static void report(int f)
 		return;
 
 	if (am_daemon) {
-		log_exit(0, __FILE__, __LINE__);
 		if (f == -1 || !am_sender)
 			return;
 	}
@@ -148,52 +191,79 @@ static void report(int f)
 			write_longint(f, total_read);
 			write_longint(f, total_written);
 			write_longint(f, stats.total_size);
+			if (protocol_version >= 29) {
+				write_longint(f, stats.flist_buildtime);
+				write_longint(f, stats.flist_xfertime);
+			}
 		}
 		return;
 	}
 
 	/* this is the client */
 
-	if (!am_sender) {
+	if (f < 0 && !am_sender) /* e.g. when we got an empty file list. */
+		;
+	else if (!am_sender) {
 		/* Read the first two in opposite order because the meaning of
 		 * read/write swaps when switching from sender to receiver. */
 		total_written = read_longint(f);
 		total_read = read_longint(f);
 		stats.total_size = read_longint(f);
+		if (protocol_version >= 29) {
+			stats.flist_buildtime = read_longint(f);
+			stats.flist_xfertime = read_longint(f);
+		}
 	} else if (write_batch) {
 		/* The --read-batch process is going to be a client
 		 * receiver, so we need to give it the stats. */
 		write_longint(batch_fd, total_read);
 		write_longint(batch_fd, total_written);
 		write_longint(batch_fd, stats.total_size);
+		if (protocol_version >= 29) {
+			write_longint(batch_fd, stats.flist_buildtime);
+			write_longint(batch_fd, stats.flist_xfertime);
+		}
 	}
+}
 
+static void output_summary(void)
+{
 	if (do_stats) {
-		rprintf(FINFO,"\nNumber of files: %d\n", stats.num_files);
+		rprintf(FCLIENT, "\n");
+		rprintf(FINFO,"Number of files: %d\n", stats.num_files);
 		rprintf(FINFO,"Number of files transferred: %d\n",
 			stats.num_transferred_files);
-		rprintf(FINFO,"Total file size: %.0f bytes\n",
-			(double)stats.total_size);
-		rprintf(FINFO,"Total transferred file size: %.0f bytes\n",
-			(double)stats.total_transferred_size);
-		rprintf(FINFO,"Literal data: %.0f bytes\n",
-			(double)stats.literal_data);
-		rprintf(FINFO,"Matched data: %.0f bytes\n",
-			(double)stats.matched_data);
+		rprintf(FINFO,"Total file size: %s bytes\n",
+			human_num(stats.total_size));
+		rprintf(FINFO,"Total transferred file size: %s bytes\n",
+			human_num(stats.total_transferred_size));
+		rprintf(FINFO,"Literal data: %s bytes\n",
+			human_num(stats.literal_data));
+		rprintf(FINFO,"Matched data: %s bytes\n",
+			human_num(stats.matched_data));
 		rprintf(FINFO,"File list size: %d\n", stats.flist_size);
-		rprintf(FINFO,"Total bytes sent: %.0f\n",
-			(double)total_written);
-		rprintf(FINFO,"Total bytes received: %.0f\n",
-			(double)total_read);
+		if (stats.flist_buildtime) {
+			rprintf(FINFO,
+				"File list generation time: %.3f seconds\n",
+				(double)stats.flist_buildtime / 1000);
+			rprintf(FINFO,
+				"File list transfer time: %.3f seconds\n",
+				(double)stats.flist_xfertime / 1000);
+		}
+		rprintf(FINFO,"Total bytes sent: %s\n",
+			human_num(total_written));
+		rprintf(FINFO,"Total bytes received: %s\n",
+			human_num(total_read));
 	}
 
 	if (verbose || do_stats) {
+		rprintf(FCLIENT, "\n");
 		rprintf(FINFO,
-			"\nsent %.0f bytes  received %.0f bytes  %.2f bytes/sec\n",
-			(double)total_written, (double)total_read,
-			(total_written + total_read)/(0.5 + (t - starttime)));
-		rprintf(FINFO, "total size is %.0f  speedup is %.2f\n",
-			(double)stats.total_size,
+			"sent %s bytes  received %s bytes  %s bytes/sec\n",
+			human_num(total_written), human_num(total_read),
+			human_dnum((total_written + total_read)/(0.5 + (endtime - starttime)), 2));
+		rprintf(FINFO, "total size is %s  speedup is %.2f\n",
+			human_num(stats.total_size),
 			(double)stats.total_size / (total_written+total_read));
 	}
 
@@ -212,23 +282,32 @@ static void show_malloc_stats(void)
 
 	mi = mallinfo();
 
-	rprintf(FINFO, "\n" RSYNC_NAME "[%d] (%s%s%s) heap statistics:\n",
-		getpid(),
-		am_server ? "server " : "",
-		am_daemon ? "daemon " : "",
-		who_am_i());
-	rprintf(FINFO, "  arena:     %10d   (bytes from sbrk)\n", mi.arena);
-	rprintf(FINFO, "  ordblks:   %10d   (chunks not in use)\n", mi.ordblks);
-	rprintf(FINFO, "  smblks:    %10d\n", mi.smblks);
-	rprintf(FINFO, "  hblks:     %10d   (chunks from mmap)\n", mi.hblks);
-	rprintf(FINFO, "  hblkhd:    %10d   (bytes from mmap)\n", mi.hblkhd);
-	rprintf(FINFO, "  allmem:    %10d   (bytes from sbrk + mmap)\n",
-	    mi.arena + mi.hblkhd);
-	rprintf(FINFO, "  usmblks:   %10d\n", mi.usmblks);
-	rprintf(FINFO, "  fsmblks:   %10d\n", mi.fsmblks);
-	rprintf(FINFO, "  uordblks:  %10d   (bytes used)\n", mi.uordblks);
-	rprintf(FINFO, "  fordblks:  %10d   (bytes free)\n", mi.fordblks);
-	rprintf(FINFO, "  keepcost:  %10d   (bytes in releasable chunk)\n", mi.keepcost);
+	rprintf(FCLIENT, "\n");
+	rprintf(FINFO, RSYNC_NAME "[%d] (%s%s%s) heap statistics:\n",
+		getpid(), am_server ? "server " : "",
+		am_daemon ? "daemon " : "", who_am_i());
+	rprintf(FINFO, "  arena:     %10ld   (bytes from sbrk)\n",
+		(long)mi.arena);
+	rprintf(FINFO, "  ordblks:   %10ld   (chunks not in use)\n",
+		(long)mi.ordblks);
+	rprintf(FINFO, "  smblks:    %10ld\n",
+		(long)mi.smblks);
+	rprintf(FINFO, "  hblks:     %10ld   (chunks from mmap)\n",
+		(long)mi.hblks);
+	rprintf(FINFO, "  hblkhd:    %10ld   (bytes from mmap)\n",
+		(long)mi.hblkhd);
+	rprintf(FINFO, "  allmem:    %10ld   (bytes from sbrk + mmap)\n",
+		(long)mi.arena + mi.hblkhd);
+	rprintf(FINFO, "  usmblks:   %10ld\n",
+		(long)mi.usmblks);
+	rprintf(FINFO, "  fsmblks:   %10ld\n",
+		(long)mi.fsmblks);
+	rprintf(FINFO, "  uordblks:  %10ld   (bytes used)\n",
+		(long)mi.uordblks);
+	rprintf(FINFO, "  fordblks:  %10ld   (bytes free)\n",
+		(long)mi.fordblks);
+	rprintf(FINFO, "  keepcost:  %10ld   (bytes in releasable chunk)\n",
+		(long)mi.keepcost);
 #endif /* HAVE_MALLINFO */
 }
 
@@ -240,10 +319,11 @@ static pid_t do_cmd(char *cmd, char *machine, char *user, char *path,
 	int i, argc = 0;
 	char *args[MAX_ARGS];
 	pid_t ret;
-	char *tok, *dir = NULL;
+	char *dir = NULL;
 	int dash_l_set = 0;
 
 	if (!read_batch && !local_server) {
+		char *t, *f, in_quote = '\0';
 		char *rsh_env = getenv(RSYNC_RSH_ENV);
 		if (!cmd)
 			cmd = rsh_env;
@@ -253,13 +333,39 @@ static pid_t do_cmd(char *cmd, char *machine, char *user, char *path,
 		if (!cmd)
 			goto oom;
 
-		for (tok = strtok(cmd, " "); tok; tok = strtok(NULL, " ")) {
+		for (t = f = cmd; *f; f++) {
+			if (*f == ' ')
+				continue;
 			/* Comparison leaves rooms for server_options(). */
-			if (argc >= MAX_ARGS - 100) {
+			if (argc >= MAX_ARGS - MAX_SERVER_ARGS) {
 				rprintf(FERROR, "internal: args[] overflowed in do_cmd()\n");
 				exit_cleanup(RERR_SYNTAX);
 			}
-			args[argc++] = tok;
+			args[argc++] = t;
+			while (*f != ' ' || in_quote) {
+				if (!*f) {
+					if (in_quote) {
+						rprintf(FERROR,
+						    "Missing trailing-%c in remote-shell command.\n",
+						    in_quote);
+						exit_cleanup(RERR_SYNTAX);
+					}
+					f--;
+					break;
+				}
+				if (*f == '\'' || *f == '"') {
+					if (!in_quote) {
+						in_quote = *f++;
+						continue;
+					}
+					if (*f == in_quote && *++f != in_quote) {
+						in_quote = '\0';
+						continue;
+					}
+				}
+				*t++ = *f++;
+			}
+			*t++ = '\0';
 		}
 
 		/* check to see if we've already been given '-l user' in
@@ -269,7 +375,7 @@ static pid_t do_cmd(char *cmd, char *machine, char *user, char *path,
 				dash_l_set = 1;
 		}
 
-#if HAVE_REMSH
+#ifdef HAVE_REMSH
 		/* remsh (on HPUX) takes the arguments the other way around */
 		args[argc++] = machine;
 		if (user && !(daemon_over_rsh && dash_l_set)) {
@@ -312,10 +418,9 @@ static pid_t do_cmd(char *cmd, char *machine, char *user, char *path,
 	args[argc] = NULL;
 
 	if (verbose > 3) {
-		rprintf(FINFO,"cmd=");
 		for (i = 0; i < argc; i++)
-			rprintf(FINFO,"%s ",args[i]);
-		rprintf(FINFO,"\n");
+			rprintf(FCLIENT, "cmd[%d]=%s ", i, args[i]);
+		rprintf(FCLIENT, "\n");
 	}
 
 	if (read_batch) {
@@ -342,29 +447,45 @@ static pid_t do_cmd(char *cmd, char *machine, char *user, char *path,
 
 	return ret;
 
-oom:
+  oom:
 	out_of_memory("do_cmd");
 	return 0; /* not reached */
 }
 
-
-static char *get_local_name(struct file_list *flist,char *name)
+/* The receiving side operates in one of two modes:
+ *
+ * 1. it receives any number of files into a destination directory,
+ * placing them according to their names in the file-list.
+ *
+ * 2. it receives a single file and saves it using the name in the
+ * destination path instead of its file-list name.  This requires a
+ * "local name" for writing out the destination file.
+ *
+ * So, our task is to figure out what mode/local-name we need.
+ * For mode 1, we change into the destination directory and return NULL.
+ * For mode 2, we change into the directory containing the destination
+ * file (if we aren't already there) and return the local-name. */
+static char *get_local_name(struct file_list *flist, char *dest_path)
 {
 	STRUCT_STAT st;
-	int e;
+	int statret;
+	char *cp;
 
-	if (verbose > 2)
-		rprintf(FINFO,"get_local_name count=%d %s\n",
-			flist->count, NS(name));
+	if (verbose > 2) {
+		rprintf(FINFO, "get_local_name count=%d %s\n",
+			flist->count, NS(dest_path));
+	}
 
-	if (!name)
+	if (!dest_path || list_only)
 		return NULL;
 
-	if (do_stat(name,&st) == 0) {
+	/* See what currently exists at the destination. */
+	if ((statret = do_stat(dest_path, &st)) == 0) {
+		/* If the destination is a dir, enter it and use mode 1. */
 		if (S_ISDIR(st.st_mode)) {
-			if (!push_dir(name)) {
+			if (!push_dir(dest_path, 0)) {
 				rsyserr(FERROR, errno, "push_dir#1 %s failed",
-					full_fname(name));
+					full_fname(dest_path));
 				exit_cleanup(RERR_FILESELECT);
 			}
 			return NULL;
@@ -372,50 +493,156 @@ static char *get_local_name(struct file_list *flist,char *name)
 #ifdef EA_SUPPORT
 		if (extended_attributes) {
 			if(flist->count == 2 && !strncmp(flist->files[0]->basename, "._", 2))
-				return name;
+				return dest_path;
 		}
 #endif
 		if (flist->count > 1) {
-			rprintf(FERROR,"ERROR: destination must be a directory when copying more than 1 file\n");
+			rprintf(FERROR,
+				"ERROR: destination must be a directory when"
+				" copying more than 1 file\n");
 			exit_cleanup(RERR_FILESELECT);
 		}
-		return name;
+		/* Caution: flist->count could be 0! */
+		if (flist->count == 1 && S_ISDIR(flist->files[0]->mode)) {
+			rprintf(FERROR,
+				"ERROR: cannot overwrite non-directory"
+				" with a directory\n");
+			exit_cleanup(RERR_FILESELECT);
+		}
+	} else if (errno != ENOENT) {
+		/* If we don't know what's at the destination, fail. */
+		rsyserr(FERROR, errno, "ERROR: cannot stat destination %s",
+			full_fname(dest_path));
+		exit_cleanup(RERR_FILESELECT);
 	}
-
 #ifdef EA_SUPPORT
 	if (extended_attributes) {
 		if(flist->count == 2 && !strncmp(flist->files[0]->basename, "._", 2))
-			return name;
+			return dest_path;
 	}
 #endif
-	if (flist->count <= 1 && ((e = strlen(name)) <= 1 || name[e-1] != '/'))
-		return name;
 
-	if (do_mkdir(name,0777 & ~orig_umask) != 0) {
-		rsyserr(FERROR, errno, "mkdir %s failed", full_fname(name));
-		exit_cleanup(RERR_FILEIO);
-	}
-	if (verbose > 0)
-		rprintf(FINFO, "created directory %s\n", name);
+	cp = strrchr(dest_path, '/');
 
-	if (dry_run) {
-		dry_run++;
+	/* If we need a destination directory because the transfer is not
+	 * of a single non-directory or the user has requested one via a
+	 * destination path ending in a slash, create one and use mode 1. */
+	if (flist->count > 1 || (cp && !cp[1])) {
+		/* Lop off the final slash (if any). */
+		if (cp && !cp[1])
+			*cp = '\0';
+
+		if (statret == 0) {
+			rprintf(FERROR,
+			    "ERROR: destination path is not a directory\n");
+			exit_cleanup(RERR_SYNTAX);
+		}
+
+		if (mkdir_defmode(dest_path) != 0) {
+			rsyserr(FERROR, errno, "mkdir %s failed",
+				full_fname(dest_path));
+			exit_cleanup(RERR_FILEIO);
+		}
+
+		new_root_dir = 1;
+
+		if (verbose)
+			rprintf(FINFO, "created directory %s\n", dest_path);
+
+		if (dry_run) {
+			/* Indicate that dest dir doesn't really exist. */
+			dry_run++;
+		}
+
+		if (!push_dir(dest_path, dry_run > 1)) {
+			rsyserr(FERROR, errno, "push_dir#2 %s failed",
+				full_fname(dest_path));
+			exit_cleanup(RERR_FILESELECT);
+		}
+
 		return NULL;
 	}
 
-	if (!push_dir(name)) {
-		rsyserr(FERROR, errno, "push_dir#2 %s failed",
-			full_fname(name));
+	/* Otherwise, we are writing a single file, possibly on top of an
+	 * existing non-directory.  Change to the item's parent directory
+	 * (if it has a path component), return the basename of the
+	 * destination file as the local name, and use mode 2. */
+	if (!cp)
+		return dest_path;
+
+	if (cp == dest_path)
+		dest_path = "/";
+
+	*cp = '\0';
+	if (!push_dir(dest_path, 0)) {
+		rsyserr(FERROR, errno, "push_dir#3 %s failed",
+			full_fname(dest_path));
 		exit_cleanup(RERR_FILESELECT);
 	}
+	*cp = '/';
 
-	return NULL;
+	return cp + 1;
+}
+
+/* Call this if the destination dir (which is assumed to be in curr_dir)
+ * does not yet exist and we can't create it due to being in dry-run
+ * mode.  We'll fix dirs that can be relative to the non-existent dir. */
+static void fix_basis_dirs(void)
+{
+	char **dir, *new, *slash;
+	int len;
+
+	if (dry_run <= 1)
+		return;
+
+	slash = strrchr(curr_dir, '/');
+
+	for (dir = basis_dir; *dir; dir++) {
+		if (**dir == '/')
+			continue;
+		len = curr_dir_len + 1 + strlen(*dir) + 1;
+		if (!(new = new_array(char, len)))
+			out_of_memory("fix_basis_dirs");
+		if (slash && strncmp(*dir, "../", 3) == 0) {
+		    /* We want to remove only one leading "../" prefix for
+		     * the directory we couldn't create in dry-run mode:
+		     * this ensures that any other ".." references get
+		     * evaluated the same as they would for a live copy. */
+		    *slash = '\0';
+		    pathjoin(new, len, curr_dir, *dir + 3);
+		    *slash = '/';
+		} else
+		    pathjoin(new, len, curr_dir, *dir);
+		*dir = new;
+	}
+}
+
+/* This is only called by the sender. */
+static void read_final_goodbye(int f_in, int f_out)
+{
+	int i;
+
+	if (protocol_version < 29)
+		i = read_int(f_in);
+	else {
+		while ((i = read_int(f_in)) == the_file_list->count
+		    && read_shortint(f_in) == ITEM_IS_NEW) {
+			/* Forward the keep-alive (no-op) to the receiver. */
+			write_int(f_out, the_file_list->count);
+			write_shortint(f_out, ITEM_IS_NEW);
+		}
+	}
+
+	if (i != -1) {
+		rprintf(FERROR, "Invalid packet at end of run (%d) [%s]\n",
+			i, who_am_i());
+		exit_cleanup(RERR_PROTOCOL);
+	}
 }
 
 
-static void do_server_sender(int f_in, int f_out, int argc,char *argv[])
+static void do_server_sender(int f_in, int f_out, int argc, char *argv[])
 {
-	int i;
 	struct file_list *flist;
 	char *dir = argv[0];
 
@@ -429,24 +656,25 @@ static void do_server_sender(int f_in, int f_out, int argc,char *argv[])
 		exit_cleanup(RERR_SYNTAX);
 		return;
 	}
+	if (am_daemon && lp_read_only(module_id) && remove_source_files) {
+		rprintf(FERROR,
+		    "ERROR: --remove-%s-files cannot be used with a read-only module\n",
+		    remove_source_files == 1 ? "source" : "sent");
+		exit_cleanup(RERR_SYNTAX);
+		return;
+	}
 
-	if (!relative_paths && !push_dir(dir)) {
-		rsyserr(FERROR, errno, "push_dir#3 %s failed",
-			full_fname(dir));
-		exit_cleanup(RERR_FILESELECT);
+	if (!relative_paths) {
+		if (!push_dir(dir, 0)) {
+			rsyserr(FERROR, errno, "push_dir#3 %s failed",
+				full_fname(dir));
+			exit_cleanup(RERR_FILESELECT);
+		}
 	}
 	argc--;
 	argv++;
 
-	if (strcmp(dir,".")) {
-		int l = strlen(dir);
-		if (strcmp(dir,"/") == 0)
-			l = 0;
-		for (i = 0; i < argc; i++)
-			argv[i] += l+1;
-	}
-
-	if (argc == 0 && recurse) {
+	if (argc == 0 && (recurse || list_only)) {
 		argc = 1;
 		argv--;
 		argv[0] = ".";
@@ -456,17 +684,16 @@ static void do_server_sender(int f_in, int f_out, int argc,char *argv[])
 	if (!flist || flist->count == 0) {
 		exit_cleanup(0);
 	}
+	the_file_list = flist;
 
 	io_start_buffering_in();
 	io_start_buffering_out();
 
 	send_files(flist,f_out,f_in);
 	io_flush(FULL_FLUSH);
-	report(f_out);
-	if (protocol_version >= 24) {
-		/* final goodbye message */
-		read_int(f_in);
-	}
+	handle_stats(f_out);
+	if (protocol_version >= 24)
+		read_final_goodbye(f_in, f_out);
 	io_flush(FULL_FLUSH);
 	exit_cleanup(0);
 }
@@ -475,30 +702,29 @@ static void do_server_sender(int f_in, int f_out, int argc,char *argv[])
 static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 {
 	int pid;
-	int status = 0;
+	int exit_code = 0;
 	int error_pipe[2];
 
 	/* The receiving side mustn't obey this, or an existing symlink that
 	 * points to an identical file won't be replaced by the referent. */
-	copy_links = 0;
+	copy_links = copy_dirlinks = 0;
 
 	if (preserve_hard_links)
-		init_hard_links(flist);
-
-	if (!delete_after) {
-		/* I moved this here from recv_files() to prevent a race condition */
-		if (recurse && delete_mode && !local_name && flist->count > 0)
-			delete_files(flist);
-	}
+		init_hard_links();
 
 	if (fd_pair(error_pipe) < 0) {
-		rprintf(FERROR,"error pipe failed in do_recv\n");
-		exit_cleanup(RERR_SOCKETIO);
+		rsyserr(FERROR, errno, "pipe failed in do_recv");
+		exit_cleanup(RERR_IPC);
 	}
 
 	io_flush(NORMAL_FLUSH);
 
-	if ((pid = do_fork()) == 0) {
+	if ((pid = do_fork()) == -1) {
+		rsyserr(FERROR, errno, "fork failed in do_recv");
+		exit_cleanup(RERR_IPC);
+	}
+
+	if (pid == 0) {
 		close(error_pipe[0]);
 		if (f_in != f_out)
 			close(f_out);
@@ -509,22 +735,37 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 		/* set place to send errors */
 		set_msg_fd_out(error_pipe[1]);
 
-		recv_files(f_in,flist,local_name);
+		recv_files(f_in, flist, local_name);
 		io_flush(FULL_FLUSH);
-		report(f_in);
+		handle_stats(f_in);
 
 		send_msg(MSG_DONE, "", 0);
 		io_flush(FULL_FLUSH);
-		/* finally we go to sleep until our parent kills us
-		 * with a USR2 signal. We sleep for a short time as on
-		 * some OSes a signal won't interrupt a sleep! */
+
+		/* Handle any keep-alive packets from the post-processing work
+		 * that the generator does. */
+		if (protocol_version >= 29) {
+			kluge_around_eof = -1;
+
+			/* This should only get stopped via a USR2 signal. */
+			while (read_int(f_in) == flist->count
+			    && read_shortint(f_in) == ITEM_IS_NEW) {}
+
+			rprintf(FERROR, "Invalid packet at end of run [%s]\n",
+				who_am_i());
+			exit_cleanup(RERR_PROTOCOL);
+		}
+
+		/* Finally, we go to sleep until our parent kills us with a
+		 * USR2 signal.  We sleep for a short time, as on some OSes
+		 * a signal won't interrupt a sleep! */
 		while (1)
 			msleep(20);
 	}
 
 	am_generator = 1;
 	close_multiplexing_in();
-	if (write_batch)
+	if (write_batch && !am_server)
 		stop_write_batch();
 
 	close(error_pipe[1]);
@@ -537,8 +778,7 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 
 	generate_files(f_out, flist, local_name);
 
-	get_redo_num(); /* Read final MSG_DONE and any prior messages. */
-	report(-1);
+	handle_stats(-1);
 	io_flush(FULL_FLUSH);
 	if (protocol_version >= 24) {
 		/* send a final goodbye message */
@@ -548,17 +788,24 @@ static int do_recv(int f_in,int f_out,struct file_list *flist,char *local_name)
 
 	set_msg_fd_in(-1);
 	kill(pid, SIGUSR2);
-	wait_process(pid, &status);
-	return status;
+	wait_process_with_flush(pid, &exit_code);
+	return exit_code;
 }
 
 
 static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 {
-	int status;
+	int exit_code;
 	struct file_list *flist;
 	char *local_name = NULL;
 	char *dir = NULL;
+	int save_verbose = verbose;
+
+	if (filesfrom_fd >= 0) {
+		/* We can't mix messages with files-from data on the socket,
+		 * so temporarily turn off verbose messages. */
+		verbose = 0;
+	}
 
 	if (verbose > 2) {
 		rprintf(FINFO, "server_recv(%d) starting pid=%ld\n",
@@ -571,12 +818,11 @@ static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 		return;
 	}
 
-
 	if (argc > 0) {
 		dir = argv[0];
 		argc--;
 		argv++;
-		if (!am_daemon && !push_dir(dir)) {
+		if (!am_daemon && !push_dir(dir, 0)) {
 			rsyserr(FERROR, errno, "push_dir#4 %s failed",
 				full_fname(dir));
 			exit_cleanup(RERR_FILESELECT);
@@ -584,35 +830,61 @@ static void do_server_recv(int f_in, int f_out, int argc,char *argv[])
 	}
 
 	io_start_buffering_in();
-	if (delete_mode && !delete_excluded)
-		recv_exclude_list(f_in);
+	recv_filter_list(f_in);
 
 	if (filesfrom_fd >= 0) {
-		/* We're receiving the file info from the sender, so we need
-		 * the IO routines to automatically write out the names onto
-		 * our f_out socket as we read the list info from the sender.
-		 * This avoids both deadlock and extra delays/buffers. */
+		/* We need to send the files-from names to the sender at the
+		 * same time that we receive the file-list from them, so we
+		 * need the IO routines to automatically write out the names
+		 * onto our f_out socket as we read the file-list.  This
+		 * avoids both deadlock and extra delays/buffers. */
 		io_set_filesfrom_fds(filesfrom_fd, f_out);
 		filesfrom_fd = -1;
 	}
 
 	flist = recv_file_list(f_in);
+	verbose = save_verbose;
 	if (!flist) {
 		rprintf(FERROR,"server_recv: recv_file_list error\n");
 		exit_cleanup(RERR_FILESELECT);
 	}
+	the_file_list = flist;
 
-	if (argc > 0) {
-		if (strcmp(dir,".")) {
-			argv[0] += strlen(dir);
-			if (argv[0][0] == '/')
-				argv[0]++;
-		}
+	if (argc > 0)
 		local_name = get_local_name(flist,argv[0]);
+
+	/* Now that we know what our destination directory turned out to be,
+	 * we can sanitize the --link-/copy-/compare-dest args correctly. */
+	if (sanitize_paths) {
+		char **dir;
+		for (dir = basis_dir; *dir; dir++) {
+			*dir = sanitize_path(NULL, *dir, NULL, curr_dir_depth, NULL);
+		}
+		if (partial_dir) {
+			partial_dir = sanitize_path(NULL, partial_dir, NULL, curr_dir_depth, NULL);
+		}
+	}
+	fix_basis_dirs();
+
+	if (server_filter_list.head) {
+		char **dir;
+		struct filter_list_struct *elp = &server_filter_list;
+
+		for (dir = basis_dir; *dir; dir++) {
+			if (check_filter(elp, *dir, 1) < 0)
+				goto options_rejected;
+		}
+		if (partial_dir && *partial_dir == '/'
+		 && check_filter(elp, partial_dir, 1) < 0) {
+		    options_rejected:
+			rprintf(FERROR,
+				"Your options have been rejected by the server.\n");
+			exit_cleanup(RERR_SYNTAX);
+		}
 	}
 
-	status = do_recv(f_in,f_out,flist,local_name);
-	exit_cleanup(status);
+	exit_code = do_recv(f_in,f_out,flist,local_name);
+	exit_cleanup(exit_code);
 }
 
 
@@ -630,16 +902,19 @@ void start_server(int f_in, int f_out, int argc, char *argv[])
 
 	io_set_sock_fds(f_in, f_out);
 	setup_protocol(f_out, f_in);
+#if defined HAVE_ICONV_OPEN && defined HAVE_ICONV_H
+	setup_iconv();
+#endif
 
 	if (protocol_version >= 23)
 		io_start_multiplex_out();
 
 	if (am_sender) {
 		keep_dirlinks = 0; /* Must be disabled on the sender. */
+		if (need_messages_from_generator)
+			io_start_multiplex_in();
 
-		recv_exclude_list(f_in);
-		if (cvs_exclude)
-			add_cvs_excludes();
+		recv_filter_list(f_in);
 		do_server_sender(f_in, f_out, argc, argv);
 	} else {
 		do_server_recv(f_in, f_out, argc, argv);
@@ -655,19 +930,20 @@ void start_server(int f_in, int f_out, int argc, char *argv[])
 int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 {
 	struct file_list *flist = NULL;
-	int status = 0, status2 = 0;
+	int exit_code = 0, exit_code2 = 0;
 	char *local_name = NULL;
 
 	cleanup_child_pid = pid;
-	if (read_batch) {
-		assert(am_sender == 0);
-	} else {
+	if (!read_batch) {
 		set_nonblocking(f_in);
 		set_nonblocking(f_out);
 	}
 
 	io_set_sock_fds(f_in, f_out);
 	setup_protocol(f_out,f_in);
+#if defined HAVE_ICONV_OPEN && defined HAVE_ICONV_H
+	setup_iconv();
+#endif
 
 	if (protocol_version >= 23 && !read_batch)
 		io_start_multiplex_in();
@@ -685,71 +961,74 @@ int client_run(int f_in, int f_out, pid_t pid, int argc, char *argv[])
 	if (am_sender) {
 		keep_dirlinks = 0; /* Must be disabled on the sender. */
 		io_start_buffering_out();
-		if (cvs_exclude)
-			add_cvs_excludes();
-		if (delete_mode && !delete_excluded)
-			send_exclude_list(f_out);
-		if (remote_filesfrom_file)
+		if (!filesfrom_host)
+			set_msg_fd_in(f_in);
+		send_filter_list(f_out);
+		if (filesfrom_host)
 			filesfrom_fd = f_in;
 
-		if (write_batch)
+		if (write_batch && !am_server)
 			start_write_batch(f_out);
-		if (!read_batch) /* don't write to pipe */
-			flist = send_file_list(f_out,argc,argv);
+		flist = send_file_list(f_out, argc, argv);
+		set_msg_fd_in(-1);
 		if (verbose > 3)
 			rprintf(FINFO,"file list sent\n");
+		the_file_list = flist;
 
 		io_flush(NORMAL_FLUSH);
 		send_files(flist,f_out,f_in);
 		io_flush(FULL_FLUSH);
-		if (protocol_version >= 24) {
-			/* final goodbye message */
-			read_int(f_in);
-		}
+		handle_stats(-1);
+		if (protocol_version >= 24)
+			read_final_goodbye(f_in, f_out);
 		if (pid != -1) {
 			if (verbose > 3)
 				rprintf(FINFO,"client_run waiting on %d\n", (int) pid);
 			io_flush(FULL_FLUSH);
-			wait_process(pid, &status);
+			wait_process_with_flush(pid, &exit_code);
 		}
-		report(-1);
+		output_summary();
 		io_flush(FULL_FLUSH);
-		exit_cleanup(status);
+		exit_cleanup(exit_code);
 	}
 
-	if (argc == 0)
-		list_only = 1;
+	if (need_messages_from_generator && !read_batch)
+		io_start_multiplex_out();
 
-	if (!read_batch)
-		send_exclude_list(f_out);
+	if (argc == 0)
+		list_only |= 1;
+
+	send_filter_list(read_batch ? -1 : f_out);
 
 	if (filesfrom_fd >= 0) {
 		io_set_filesfrom_fds(filesfrom_fd, f_out);
 		filesfrom_fd = -1;
 	}
 
-	if (write_batch)
+	if (write_batch && !am_server)
 		start_write_batch(f_in);
 	flist = recv_file_list(f_in);
-	if (!flist || flist->count == 0) {
-		rprintf(FINFO, "client: nothing to do: "
-			"perhaps you need to specify some filenames or "
-			"the --recursive option?\n");
-		exit_cleanup(0);
+	the_file_list = flist;
+
+	if (flist && flist->count > 0) {
+		local_name = get_local_name(flist, argv[0]);
+
+		fix_basis_dirs();
+
+		exit_code2 = do_recv(f_in, f_out, flist, local_name);
+	} else {
+		handle_stats(-1);
+		output_summary();
 	}
-
-	local_name = get_local_name(flist,argv[0]);
-
-	status2 = do_recv(f_in,f_out,flist,local_name);
 
 	if (pid != -1) {
 		if (verbose > 3)
 			rprintf(FINFO,"client_run2 waiting on %d\n", (int) pid);
 		io_flush(FULL_FLUSH);
-		wait_process(pid, &status);
+		wait_process_with_flush(pid, &exit_code);
 	}
 
-	return MAX(status, status2);
+	return MAX(exit_code, exit_code2);
 }
 
 static int copy_argv (char *argv[])
@@ -792,134 +1071,73 @@ static int start_client(int argc, char *argv[])
 	if ((rc = copy_argv(argv)))
 		return rc;
 
-	/* rsync:// always uses rsync server over direct socket connection */
-	if (strncasecmp(URL_PREFIX, argv[0], strlen(URL_PREFIX)) == 0
-	    && !read_batch) {
-		char *host, *path;
-
-		host = argv[0] + strlen(URL_PREFIX);
-		p = strchr(host,'/');
-		if (p) {
-			*p = '\0';
-			path = p+1;
-		} else
-			path = "";
-		if (*host == '[' && (p = strchr(host, ']')) != NULL) {
-			host++;
-			*p++ = '\0';
-			if (*p != ':')
-				p = NULL;
-		} else
-			p = strchr(host, ':');
-		if (p) {
-			rsync_port = atoi(p+1);
-			*p = '\0';
-		}
-		return start_socket_client(host, path, argc-1, argv+1);
-	}
-
 	if (!read_batch) { /* for read_batch, NO source is specified */
-		p = find_colon(argv[0]);
-		if (p) { /* source is remote */
-			if (remote_filesfrom_file
-			 && remote_filesfrom_file != files_from + 1
-			 && strncmp(files_from, argv[0], p-argv[0]+1) != 0) {
+		shell_path = check_for_hostspec(argv[0], &shell_machine, &rsync_port);
+		if (shell_path) { /* source is remote */
+			char *dummy1;
+			int dummy2;
+			if (--argc
+			 && check_for_hostspec(argv[argc], &dummy1, &dummy2)) {
+				rprintf(FERROR,
+					"The source and destination cannot both be remote.\n");
+				exit_cleanup(RERR_SYNTAX);
+			}
+			argv++;
+			if (filesfrom_host && *filesfrom_host
+			    && strcmp(filesfrom_host, shell_machine) != 0) {
 				rprintf(FERROR,
 					"--files-from hostname is not the same as the transfer hostname\n");
 				exit_cleanup(RERR_SYNTAX);
 			}
-			if (p[1] == ':') { /* double colon */
-				*p = 0;
+			if (rsync_port) {
 				if (!shell_cmd) {
-					return start_socket_client(argv[0], p+2,
-								   argc-1, argv+1);
+					return start_socket_client(shell_machine,
+								   shell_path,
+								   argc, argv);
 				}
-				p++;
 				daemon_over_rsh = 1;
 			}
 
-			if (argc < 1) { /* destination required */
-				usage(FERROR);
-				exit_cleanup(RERR_SYNTAX);
-			}
-
 			am_sender = 0;
-			*p = 0;
-			shell_machine = argv[0];
-			shell_path = p+1;
-			argv++;
-		} else { /* source is local */
+		} else { /* source is local, check dest arg */
 			am_sender = 1;
 
-			/* rsync:// destination uses rsync server over direct socket */
-			if (strncasecmp(URL_PREFIX, argv[argc-1], strlen(URL_PREFIX)) == 0) {
-				char *host, *path;
-
-				host = argv[argc-1] + strlen(URL_PREFIX);
-				p = strchr(host,'/');
-				if (p) {
-					*p = '\0';
-					path = p+1;
-				} else
-					path = "";
-				if (*host == '[' && (p = strchr(host, ']')) != NULL) {
-					host++;
-					*p++ = '\0';
-					if (*p != ':')
-						p = NULL;
-				} else
-					p = strchr(host, ':');
-				if (p) {
-					rsync_port = atoi(p+1);
-					*p = '\0';
-				}
-				return start_socket_client(host, path, argc-1, argv);
+			if (argc > 1)
+				p = argv[--argc];
+			else {
+				p = ".";
+				list_only = 1;
 			}
 
-			p = find_colon(argv[argc-1]); /* look in dest arg */
-			if (p && remote_filesfrom_file
-			 && remote_filesfrom_file != files_from + 1
-			 && strncmp(files_from, argv[argc-1], p-argv[argc-1]+1) != 0) {
+			shell_path = check_for_hostspec(p, &shell_machine, &rsync_port);
+			if (shell_path && filesfrom_host && *filesfrom_host
+			    && strcmp(filesfrom_host, shell_machine) != 0) {
 				rprintf(FERROR,
 					"--files-from hostname is not the same as the transfer hostname\n");
 				exit_cleanup(RERR_SYNTAX);
 			}
-			if (!p) { /* no colon found, so src & dest are local */
+			if (!shell_path) { /* no hostspec found, so src & dest are local */
 				local_server = 1;
-				if (remote_filesfrom_file) {
+				if (filesfrom_host) {
 					rprintf(FERROR,
 						"--files-from cannot be remote when the transfer is local\n");
 					exit_cleanup(RERR_SYNTAX);
 				}
-			} else if (p[1] == ':') { /* double colon */
-				*p = 0;
+				shell_machine = NULL;
+				shell_path = p;
+			} else if (rsync_port) {
 				if (!shell_cmd) {
-					return start_socket_client(argv[argc-1], p+2,
-								   argc-1, argv);
+					return start_socket_client(shell_machine,
+								   shell_path,
+								   argc, argv);
 				}
-				p++;
 				daemon_over_rsh = 1;
 			}
-
-			if (argc < 2) {
-				usage(FERROR);
-				exit_cleanup(RERR_SYNTAX);
-			}
-
-			if (local_server) {
-				shell_machine = NULL;
-				shell_path = argv[argc-1];
-			} else {
-				*p = 0;
-				shell_machine = argv[argc-1];
-				shell_path = p+1;
-			}
 		}
-		argc--;
 	} else {  /* read_batch */
 		local_server = 1;
 		shell_path = argv[argc-1];
-		if (find_colon(shell_path)) {
+		if (check_for_hostspec(shell_path, &shell_machine, &rsync_port)) {
 			rprintf(FERROR, "remote destination is not allowed with --read-batch\n");
 			exit_cleanup(RERR_SYNTAX);
 		}
@@ -936,10 +1154,10 @@ static int start_client(int argc, char *argv[])
 
 	if (verbose > 3) {
 		rprintf(FINFO,"cmd=%s machine=%s user=%s path=%s\n",
-			shell_cmd?shell_cmd:"",
-			shell_machine?shell_machine:"",
-			shell_user?shell_user:"",
-			shell_path?shell_path:"");
+			shell_cmd ? shell_cmd : "",
+			shell_machine ? shell_machine : "",
+			shell_user ? shell_user : "",
+			shell_path ? shell_path : "");
 	}
 
 	/* for remote source, only single dest arg can remain ... */
@@ -949,9 +1167,8 @@ static int start_client(int argc, char *argv[])
 	}
 
 	/* ... or no dest at all */
-	if (!am_sender && argc == 0) {
-		list_only = 1;
-	}
+	if (!am_sender && argc == 0)
+		list_only |= 1;
 
 	pid = do_cmd(shell_cmd,shell_machine,shell_user,shell_path,
 		     &f_in,&f_out);
@@ -977,16 +1194,20 @@ static int start_client(int argc, char *argv[])
 
 static RETSIGTYPE sigusr1_handler(UNUSED(int val))
 {
-	exit_cleanup(RERR_SIGNAL);
+	exit_cleanup(RERR_SIGNAL1);
 }
 
 static RETSIGTYPE sigusr2_handler(UNUSED(int val))
 {
-	if (log_got_error) _exit(RERR_PARTIAL);
+	if (!am_server)
+		output_summary();
+	close_all();
+	if (log_got_error)
+		_exit(RERR_PARTIAL);
 	_exit(0);
 }
 
-static RETSIGTYPE sigchld_handler(UNUSED(int val))
+RETSIGTYPE remember_children(UNUSED(int val))
 {
 #ifdef WNOHANG
 	int cnt, status;
@@ -995,8 +1216,7 @@ static RETSIGTYPE sigchld_handler(UNUSED(int val))
 	 * get him to explain why he put it in, so rather than taking it
 	 * out we're instead saving the child exit statuses for later use.
 	 * The waitpid() loop presumably eliminates all possibility of leaving
-	 * zombie children, maybe that's why he did it.
-	 */
+	 * zombie children, maybe that's why he did it. */
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		/* save the child's exit status */
 		for (cnt = 0; cnt < MAXCHILDPROCS; cnt++) {
@@ -1007,6 +1227,9 @@ static RETSIGTYPE sigchld_handler(UNUSED(int val))
 			}
 		}
 	}
+#endif
+#ifndef HAVE_SIGACTION
+	signal(SIGCHLD, remember_children);
 #endif
 }
 
@@ -1050,8 +1273,8 @@ static RETSIGTYPE rsync_panic_handler(UNUSED(int whatsig))
 	char cmd_buf[300];
 	int ret;
 
-	sprintf(cmd_buf, get_panic_action(),
-		getpid(), getpid());
+	snprintf(cmd_buf, sizeof cmd_buf, get_panic_action(),
+		 getpid(), getpid());
 
 	/* Unless we failed to execute gdb, we allow the process to
 	 * continue.  I'm not sure if that's right. */
@@ -1067,16 +1290,23 @@ int main(int argc,char *argv[])
 	int ret;
 	int orig_argc = argc;
 	char **orig_argv = argv;
+#ifdef HAVE_SIGACTION
+# ifdef HAVE_SIGPROCMASK
+	sigset_t sigmask;
 
-	signal(SIGUSR1, sigusr1_handler);
-	signal(SIGUSR2, sigusr2_handler);
-	signal(SIGCHLD, sigchld_handler);
+	sigemptyset(&sigmask);
+# endif
+	sigact.sa_flags = SA_NOCLDSTOP;
+#endif
+	SIGACTMASK(SIGUSR1, sigusr1_handler);
+	SIGACTMASK(SIGUSR2, sigusr2_handler);
+	SIGACTMASK(SIGCHLD, remember_children);
 #ifdef MAINTAINER_MODE
-	signal(SIGSEGV, rsync_panic_handler);
-	signal(SIGFPE, rsync_panic_handler);
-	signal(SIGABRT, rsync_panic_handler);
-	signal(SIGBUS, rsync_panic_handler);
-#endif /* def MAINTAINER_MODE */
+	SIGACTMASK(SIGSEGV, rsync_panic_handler);
+	SIGACTMASK(SIGFPE, rsync_panic_handler);
+	SIGACTMASK(SIGABRT, rsync_panic_handler);
+	SIGACTMASK(SIGBUS, rsync_panic_handler);
+#endif
 
 	starttime = time(NULL);
 	am_root = (MY_UID() == 0);
@@ -1090,7 +1320,11 @@ int main(int argc,char *argv[])
 
 	/* we set a 0 umask so that correct file permissions can be
 	 * carried across */
-	orig_umask = (int)umask(0);
+	orig_umask = umask(0);
+
+#if defined CONFIG_LOCALE && defined HAVE_SETLOCALE
+	setlocale(LC_CTYPE, "");
+#endif
 
 	if (!parse_arguments(&argc, (const char ***) &argv, 1)) {
 		/* FIXME: We ought to call the same error-handling
@@ -1099,23 +1333,29 @@ int main(int argc,char *argv[])
 		exit_cleanup(RERR_SYNTAX);
 	}
 
-	signal(SIGINT,SIGNAL_CAST sig_int);
-	signal(SIGHUP,SIGNAL_CAST sig_int);
-	signal(SIGTERM,SIGNAL_CAST sig_int);
+	SIGACTMASK(SIGINT, sig_int);
+	SIGACTMASK(SIGHUP, sig_int);
+	SIGACTMASK(SIGTERM, sig_int);
+#if defined HAVE_SIGACTION && HAVE_SIGPROCMASK
+	sigprocmask(SIG_UNBLOCK, &sigmask, NULL);
+#endif
 
 	/* Ignore SIGPIPE; we consistently check error codes and will
 	 * see the EPIPE. */
-	signal(SIGPIPE, SIG_IGN);
+	SIGACTION(SIGPIPE, SIG_IGN);
+#ifdef SIGXFSZ
+	SIGACTION(SIGXFSZ, SIG_IGN);
+#endif
 
 	/* Initialize push_dir here because on some old systems getcwd
 	 * (implemented by forking "pwd" and reading its output) doesn't
 	 * work when there are other child processes.  Also, on all systems
 	 * that implement getcwd that way "pwd" can't be found after chroot. */
-	push_dir(NULL);
+	push_dir(NULL, 0);
 
 	init_flist();
 
-	if (write_batch || read_batch) {
+	if ((write_batch || read_batch) && !am_server) {
 		if (write_batch)
 			write_batch_shell_file(orig_argc, orig_argv, argc);
 
@@ -1128,12 +1368,14 @@ int main(int argc,char *argv[])
 		}
 		if (batch_fd < 0) {
 			rsyserr(FERROR, errno, "Batch file %s open error",
-				batch_name);
+				full_fname(batch_name));
 			exit_cleanup(RERR_FILEIO);
 		}
 		if (read_batch)
 			read_stream_flags(batch_fd);
 	}
+	if (write_batch < 0)
+		dry_run = 1;
 
 	if (am_daemon && !am_server)
 		return daemon_main();
@@ -1142,9 +1384,6 @@ int main(int argc,char *argv[])
 		usage(FERROR);
 		exit_cleanup(RERR_SYNTAX);
 	}
-
-	if (dry_run)
-		verbose = MAX(verbose,1);
 
 	if (am_server) {
 		set_nonblocking(STDIN_FILENO);

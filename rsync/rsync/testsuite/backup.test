@@ -17,14 +17,14 @@ name2="$fromdir/name2"
 
 outfile="$scratchdir/rsync.out"
 
-cat $srcdir/[gr]*.[ch] > "$name1"
-cat $srcdir/[et]*.[ch] > "$name2"
+cat "$srcdir"/[gr]*.[ch] > "$name1"
+cat "$srcdir"/[et]*.[ch] > "$name2"
 
 checkit "$RSYNC -avv \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir"
 
 checkit "$RSYNC -avv \"$fromdir/\" \"$chkdir/\"" "$fromdir" "$chkdir"
-cat $srcdir/[fgpr]*.[ch] > "$name1"
-cat $srcdir/[etw]*.[ch] > "$name2"
+cat "$srcdir"/[fgpr]*.[ch] > "$name1"
+cat "$srcdir"/[etw]*.[ch] > "$name2"
 
 $RSYNC -avv --no-whole-file --backup "$fromdir/" "$todir/" \
     | tee "$outfile"
@@ -35,17 +35,22 @@ for fn in name1 name2; do
     mv "$todir/$fn~" "$todir/$fn"
 done
 
-checkit "$RSYNC -avv --no-whole-file --backup --backup-dir=\"$bakdir\" \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir" \
+echo deleted-file >"$todir/dname"
+cp -p "$todir/dname" "$chkdir"
+
+checkit "$RSYNC -avv --no-whole-file --delete-after \
+    --backup --backup-dir=\"$bakdir\" \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir" \
     | tee "$outfile"
 
 for fn in name1 name2; do
     grep "backed up $fn to .*/$fn$" "$outfile" >/dev/null || test_fail "no backup message output for $fn"
 done
 diff -r $diffopt "$chkdir" "$bakdir" || test_fail "backup dir contents are bogus"
+rm "$bakdir/dname"
 
-checkit "$RSYNC -avv \"$fromdir/\" \"$chkdir/\"" "$fromdir" "$chkdir"
-cat $srcdir/[efgr]*.[ch] > "$name1"
-cat $srcdir/[ew]*.[ch] > "$name2"
+checkit "$RSYNC -avv --del \"$fromdir/\" \"$chkdir/\"" "$fromdir" "$chkdir"
+cat "$srcdir"/[efgr]*.[ch] > "$name1"
+cat "$srcdir"/[ew]*.[ch] > "$name2"
 
 checkit "$RSYNC -avv --inplace --no-whole-file --backup --backup-dir=\"$bakdir\" \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir" \
     | tee "$outfile"

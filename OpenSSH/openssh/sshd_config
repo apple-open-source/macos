@@ -1,4 +1,4 @@
-#	$OpenBSD: sshd_config,v 1.75 2007/03/19 01:01:29 djm Exp $
+#	$OpenBSD: sshd_config,v 1.80 2008/07/02 02:24:18 djm Exp $
 
 # This is the sshd server system-wide configuration file.  See
 # sshd_config(5) for more information.
@@ -28,7 +28,7 @@ Protocol 2
 
 # Lifetime and size of ephemeral version 1 server key
 #KeyRegenerationInterval 1h
-#ServerKeyBits 768
+#ServerKeyBits 1024
 
 # Logging
 # obsoletes QuietMode and FascistLogging
@@ -41,6 +41,7 @@ SyslogFacility AUTHPRIV
 #PermitRootLogin yes
 #StrictModes yes
 #MaxAuthTries 6
+#MaxSessions 10
 
 #RSAAuthentication yes
 #PubkeyAuthentication yes
@@ -93,6 +94,7 @@ SyslogFacility AUTHPRIV
 # securityserver.so line in /etc/pam.d/sshd.
 #UsePAM yes
 
+#AllowAgentForwarding yes
 #AllowTcpForwarding yes
 #GatewayPorts no
 #X11Forwarding no
@@ -111,9 +113,10 @@ SyslogFacility AUTHPRIV
 #PidFile /var/run/sshd.pid
 #MaxStartups 10
 #PermitTunnel no
+#ChrootDirectory none
 
 # no default banner path
-#Banner /some/path
+#Banner none
 
 # override default of no subsystems
 Subsystem	sftp	/usr/libexec/sftp-server

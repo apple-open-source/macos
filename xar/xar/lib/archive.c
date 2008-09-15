@@ -281,6 +281,43 @@ xar_t xar_open(const char *file, int32_t flags) {
 			return NULL;
 		}
 
+		/* check for inconsistency between checksum style in header, and the one described
+		 * in the TOC; otherwise, you can flip the header bit to XAR_CKSUM_NONE, and nothing
+		 * will ever verify that the TOC matches the checksum stored in the heap, and the
+		 * signature check will pass on a modified file! <rdar://problem/6134714>
+		 */
+		int cksum_match = 0;
+		const char* cksum_style = xar_attr_get(XAR_FILE(ret), "checksum", "style");
+		switch(XAR(ret)->header.cksum_alg) {
+			case XAR_CKSUM_NONE:
+				cksum_match = (cksum_style == NULL || strcmp(cksum_style, XAR_OPT_VAL_NONE) == 0);
+				break;
+			case XAR_CKSUM_SHA1:
+				cksum_match = (cksum_style != NULL && strcmp(cksum_style, XAR_OPT_VAL_SHA1) == 0);
+				break;
+			case XAR_CKSUM_MD5:
+				cksum_match = (cksum_style != NULL && strcmp(cksum_style, XAR_OPT_VAL_MD5) == 0);
+				break;
+			default:
+				cksum_match = 0;
+				break;
+		}
+		if( !cksum_match ) {
+			fprintf(stderr, "Checksum style mismatch!\n");
+			xar_close(ret);
+			return NULL;
+		}
+		
+		/* also check for consistency between the checksum style and the existence (or not) of
+		 * signatures: since the signature is signing the checksum, we must have a checksum
+		 * to verify that the TOC has not been modified <rdar://problem/6134714>
+		 */
+		if( xar_signature_first(ret) != NULL && XAR(ret)->header.cksum_alg == XAR_CKSUM_NONE ) {
+			fprintf(stderr, "Checksum/signature mismatch!\n");
+			xar_close(ret);
+			return NULL;
+		}
+			
 		if( !XAR(ret)->docksum )
 			return ret;
 

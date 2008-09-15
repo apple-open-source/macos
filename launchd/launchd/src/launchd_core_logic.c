@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23585 $";
+static const char *const __rcs_file_version__ = "$Revision: 23646 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -420,6 +420,7 @@ static void job_setup_attributes(job_t j);
 static bool job_setup_machport(job_t j);
 static void job_setup_fd(job_t j, int target_fd, const char *path, int flags);
 static void job_postfork_become_user(job_t j);
+static void job_enable_audit_for_user(job_t j, uid_t u, char *name);
 static void job_find_and_blame_pids_with_weird_uids(job_t j);
 static void job_force_sampletool(job_t j);
 static void job_setup_exception_port(job_t j, task_t target_task);
@@ -2259,6 +2260,8 @@ job_reap(job_t j)
 	}
 	j->last_exit_status = status;
 	j->sent_sigkill = false;
+	j->lastlookup = NULL;
+	j->lastlookup_gennum = 0;
 	j->p = 0;
 
 	/*
@@ -2610,6 +2613,11 @@ job_start(job_t j)
 
 	if (!j->legacy_mach_job) {
 		sipc = (!SLIST_EMPTY(&j->sockets) || !SLIST_EMPTY(&j->machservices));
+#if TARGET_OS_EMBEDDED
+		if (j->username && strcmp(j->username, "mobile") == 0 && strncmp(j->label, "com.apple.", strlen("com.apple.")) != 0) {
+			sipc = false;
+		}
+#endif
 	}
 
 	j->checkedin = false;
@@ -2918,6 +2926,28 @@ out:
 }
 
 void
+job_enable_audit_for_user(job_t j, uid_t u, char *name)
+{
+	auditinfo_t auinfo = {
+		.ai_auid = u,
+		.ai_asid = j->p,
+	};
+	long au_cond;
+
+	if (!job_assumes(j, auditon(A_GETCOND, &au_cond, sizeof(long)) == 0)) {
+		_exit(EXIT_FAILURE);
+	}
+
+	if (au_cond != AUC_NOAUDIT) {
+		if (!job_assumes(j, au_user_mask(name, &auinfo.ai_mask) == 0)) {
+			_exit(EXIT_FAILURE);
+		} else if (!job_assumes(j, setaudit(&auinfo) == 0)) {
+			_exit(EXIT_FAILURE);
+		}
+	}
+}
+
+void
 job_postfork_become_user(job_t j)
 {
 	char loginname[2000];
@@ -2993,6 +3023,8 @@ job_postfork_become_user(job_t j)
 
 		desired_gid = gre->gr_gid;
 	}
+
+	job_enable_audit_for_user(j, desired_uid, loginname);
 
 	if (!job_assumes(j, setlogin(loginname) != -1)) {
 		_exit(EXIT_FAILURE);
@@ -5244,6 +5276,10 @@ job_mig_create_server(job_t j, cmd_t server_cmd, uid_t server_uid, boolean_t on_
 	struct ldcred ldc;
 	job_t js;
 
+#if TARGET_OS_EMBEDDED
+	return BOOTSTRAP_NOT_PRIVILEGED;
+#endif
+
 	if (!launchd_assumes(j != NULL)) {
 		return BOOTSTRAP_NO_MEMORY;
 	}
@@ -5732,6 +5768,10 @@ job_mig_lookup_per_user_context(job_t j, uid_t which_user, mach_port_t *up_cont)
 	struct ldcred ldc;
 	job_t ji;
 
+#if TARGET_OS_EMBEDDED
+	return BOOTSTRAP_NOT_PRIVILEGED;
+#endif
+
 	if (!launchd_assumes(j != NULL)) {
 		return BOOTSTRAP_NO_MEMORY;
 	}
@@ -5942,7 +5982,7 @@ job_mig_look_up2(job_t j, name_t servicename, mach_port_t *serviceportp, mach_ms
 		ms = jobmgr_lookup_service(j->mgr, servicename, true, 0);
 	}
 
-	if (ms && machservice_hidden(ms) && !job_active(machservice_job(ms))) {
+	if (ms && machservice_hidden(ms) && !machservice_active(ms)) {
 		ms = NULL;
 	} else if (ms && ms->per_user_hack) {
 		ms = NULL;
@@ -6017,6 +6057,10 @@ job_mig_info(job_t j, name_array_t *servicenamesp, unsigned int *servicenames_cn
 	struct machservice *ms;
 	jobmgr_t jm;
 	job_t ji;
+
+#if TARGET_OS_EMBEDDED
+	return BOOTSTRAP_NOT_PRIVILEGED;
+#endif
 
 	if (!launchd_assumes(j != NULL)) {
 		return BOOTSTRAP_NO_MEMORY;
@@ -6139,6 +6183,10 @@ job_mig_move_subset(job_t j, mach_port_t target_subset, name_t session_type)
 	launch_data_t out_obj_array = NULL;
 	struct ldcred ldc;
 	jobmgr_t jmr = NULL;
+
+#if TARGET_OS_EMBEDDED
+	return BOOTSTRAP_NOT_PRIVILEGED;
+#endif
 
 	if (!launchd_assumes(j != NULL)) {
 		return BOOTSTRAP_NO_MEMORY;
@@ -6315,6 +6363,10 @@ job_mig_take_subset(job_t j, mach_port_t *reqport, mach_port_t *rcvright,
 	struct machservice *ms;
 	jobmgr_t jm;
 	job_t ji;
+
+#if TARGET_OS_EMBEDDED
+	return BOOTSTRAP_NOT_PRIVILEGED;
+#endif
 
 	if (!launchd_assumes(j != NULL)) {
 		return BOOTSTRAP_NO_MEMORY;
@@ -6606,10 +6658,21 @@ job_mig_uncork_fork(job_t j)
 kern_return_t
 job_mig_set_service_policy(job_t j, pid_t target_pid, uint64_t flags, name_t target_service)
 {
+	struct ldcred ldc;
 	job_t target_j;
 
 	if (!launchd_assumes(j != NULL)) {
 		return BOOTSTRAP_NO_MEMORY;
+	}
+
+	runtime_get_caller_creds(&ldc);
+
+#if TARGET_OS_EMBEDDED
+	if (ldc.euid) {
+#else
+	if (ldc.euid && (ldc.euid != getuid())) {
+#endif
+		return BOOTSTRAP_NOT_PRIVILEGED;
 	}
 
 	if (!job_assumes(j, (target_j = jobmgr_find_by_pid(j->mgr, target_pid, true)) != NULL)) {
@@ -6639,6 +6702,10 @@ job_mig_spawn(job_t j, vm_offset_t indata, mach_msg_type_number_t indataCnt, pid
 	size_t data_offset = 0;
 	struct ldcred ldc;
 	job_t jr;
+
+#if TARGET_OS_EMBEDDED
+	return BOOTSTRAP_NOT_PRIVILEGED;
+#endif
 
 	runtime_get_caller_creds(&ldc);
 

@@ -1,3 +1,4 @@
+fix-trans2-ascii-charset-panic -p0
 CVE-2007-5398-nmbd-buffer-overflow -p0
 CVE-2007-4138-idmap_ad-default-uid-bug -p0
 CVE-2007-4572-GETDC-buffer-overrun-in-nmbd -p0
@@ -94,3 +95,4 @@ allow-guest-auth-for-local-account -p0
 support-cmdline-workgroup-in-net-setdomainsid -p0
 create-computer-account-in-od -p0
 CVE-2008-1105-receive_smb_raw-overflow -p0
+fix-bogus-keytab-iteration -p0

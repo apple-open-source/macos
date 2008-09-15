@@ -151,6 +151,20 @@
 		<!-- Busy timeout (ms) -->
 		<busy-timeout>10000</busy-timeout>
     </sqlite>
+    <limits>
+      <!-- Maximum database queries per second, per user - if more than X queries are
+           triggered by a single user in Y seconds, that user is disconnected, and throttled
+           for Z seconds. A database query attempt during the throttle period will result
+           in the user being disconnected again. 
+           NOTE: Only applies to roster-groups and vcard operations at the present.
+           The format is:
+
+             <queries seconds='Y' throttle='Z'>X</queries>
+
+           Default Y is ?, default Z is ?. set X to 0 to disable. -->
+      <!-- <queries seconds='20' throttle='160'>300</queries> -->
+      <queries seconds='20' throttle='160'>0</queries>
+    </limits>
   </storage>
   
   <!-- Access control information -->

@@ -1,0 +1,61 @@
+2006-04-01  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Bump to 1.0.2.
+
+2006-02-03  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* xkbevd.man: 
+	Bug #5802 <https://bugs.freedesktop.org/show_bug.cgi?id=5802>
+	Wrong name in .TH line in xkbevd man page (Masatake YAMATO)
+
+2005-12-20  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version for X11R7 release.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-06  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-11-19  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update dependencies to work with separate build roots.
+
+2005-11-09  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC2 release.
+
+2005-10-20  Donnie Berkholz  <spyderous@gentoo.org>
+
+	* Makefile.am: Set DFLT_XKB_CONFIG_ROOT instead of using hard-coded default.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-10-15  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am: Have generated files be cleaned by maintainer in
+	order to pass check-tarball test.
+
+2005-08-02  Keith Packard  <keithp@keithp.com>
+
+	* Makefile.am:
+	Mark generated files as BUILT_SOURCES and CLEANFILES
+	to ensure they are regenerated after 'make clean' and
+	to make parallel builds work right.

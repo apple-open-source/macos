@@ -27,14 +27,9 @@
 
 #ifdef STORAGE_SQLITE
 
-/* Un-comment the following line to enable Open Directory authentication */
-#define APPLE_ENABLE_OD_AUTH 1
-
 #ifdef APPLE_ENABLE_OD_AUTH
 #include <apple_authenticate.h>
 #include <apple_authorize.h>
-
-#define APPLE_CHAT_SACL_NAME "chat"
 #endif /* APPLE_ENABLE_OD_AUTH */
 
 #ifdef APPLE_ENABLE_OD_AUTH

@@ -425,18 +425,21 @@ smb_gss_negotiate(struct smb_vc *vcp, struct smb_cred *scred, caddr_t token)
 	struct smb_gss *gp = &vcp->vc_gss;
 	kern_return_t kr;
 
+	if (IPC_PORT_VALID(gp->gss_mp))
+		return (1);
+	
+	DBG_ASSERT(scred);
+	/* Should never happen, but just in case */
+	if (scred == NULL)
+		return (0);	
+	
 	if (gp->gss_spn) 
 		free(gp->gss_spn, M_TEMP);
+
 	if (!smb_reply2principal(vcp, (uint8_t *)token + SMB_GUIDLEN,
 		&gp->gss_spn, &gp->gss_spnlen))
 		return (0);
-	if (IPC_PORT_VALID(gp->gss_mp))
-		return (1);
-	if (scred == NULL) {
-		SMBERROR("Program ERROR!!!!!!\n");
-		free(gp->gss_spn, M_TEMP);
-		return (0);	
-	}
+
 	SMBDEBUG("sgp->gss_spn %s\n", gp->gss_spn);
 	kr = vfs_context_get_special_port(scred->scr_vfsctx, TASK_GSSD_PORT, &gp->gss_mp);
 	if (kr != KERN_SUCCESS || !IPC_PORT_VALID(gp->gss_mp)) {
@@ -445,6 +448,30 @@ smb_gss_negotiate(struct smb_vc *vcp, struct smb_cred *scred, caddr_t token)
 		return (0);
 	}
 	return (1);
+}
+/*
+ * smb_gss_reset:
+ *
+ * Reset in case we need to reconnect or reauth after an error
+ */
+static void
+smb_gss_reset(struct smb_gss *gp)
+{
+	
+	if (gp->gss_token)
+		free(gp->gss_token, M_TEMP);
+	gp->gss_token = NULL;
+	gp->gss_tokenlen = 0;
+
+	/* Need to look at this one closer */
+	if (gp->gss_skey)
+		free(gp->gss_skey, M_TEMP);
+	gp->gss_skeylen = 0;
+	gp->gss_ctx = 0;
+	gp->gss_verif = 0;
+	gp->gss_cred = 0;
+	gp->gss_major = 0;
+	gp->gss_minor = 0;	
 }
 
 /*
@@ -810,14 +837,20 @@ smb_gss_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred)
 		if ((vcp->vc_gss.gss_tokenlen) && ((error = smb_gss_ssandx(vcp, scred, caps))))
 			break;
 	} while (SMB_GSS_CONTINUE_NEEDED(&vcp->vc_gss));
-
-	if (error) {
-		smb_gss_destroy(&vcp->vc_gss);
-		return (error);
-	}
 	
 	/* We now have session keys in vcp->vc_gss.gss_skey */
-	if (vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) {
+	if ((error == 0) && (vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE)) {
+		/* 
+		 * May want to do this in vc_reset, but for now do it here. In the
+		 * future we should remove the gss entries and just use these. The
+		 * NTLMSSP code will clean this up for us.
+		 */
+		if (vcp->vc_mackey != NULL) {
+			free(vcp->vc_mackey, M_SMBTEMP);
+			vcp->vc_mackey = NULL;
+			vcp->vc_mackeylen = 0;
+			vcp->vc_seqno = 0;
+		}		
 		/*
 		 * GROSS HACK HERE, since we want the new GSS code to work
 		 * with the current code and we only use the session key for signing,
@@ -831,6 +864,7 @@ smb_gss_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred)
 		vcp->vc_gss.gss_skeylen = 0;
 	}
 
-	return (0);
+	smb_gss_reset(&vcp->vc_gss);
+	return error;
 }
 

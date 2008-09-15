@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_strtod.h,v 1.3.2.1.2.4 2007/04/22 21:33:10 tony2001 Exp $ */
+/* $Id: zend_strtod.h,v 1.3.2.1.2.5 2007/12/31 07:20:03 sebastian Exp $ */
 
 /* This is a header file for the strtod implementation by David M. Gay which
  * can be found in zend_strtod.c */

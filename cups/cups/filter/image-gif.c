@@ -1,5 +1,5 @@
 /*
- * "$Id: image-gif.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: image-gif.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   GIF image routines for the Common UNIX Printing System (CUPS).
  *
@@ -372,7 +372,6 @@ gif_get_code(FILE *fp,			/* I - File to read from */
     lastbit   = last_byte * 8;
   }
 
-  ret = 0;
   for (ret = 0, i = curbit + code_size - 1, j = code_size;
        j > 0;
        i --, j --)
@@ -611,6 +610,8 @@ gif_read_lzw(FILE *fp,			/* I - File to read from */
 
     return (firstcode);
   }
+  else if (!table)
+    return (0);
 
   if (sp > stack)
     return (*--sp);
@@ -693,5 +694,5 @@ gif_read_lzw(FILE *fp,			/* I - File to read from */
 
 
 /*
- * End of "$Id: image-gif.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: image-gif.c 7721 2008-07-11 22:48:49Z mike $".
  */

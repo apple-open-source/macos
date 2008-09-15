@@ -1,5 +1,5 @@
 /*
- * "$Id: conf.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: conf.h 7319 2008-02-15 23:26:51Z mike $"
  *
  *   Configuration file definitions for the Common UNIX Printing System (CUPS)
  *   scheduler.
@@ -233,5 +233,5 @@ extern int	cupsdReadConfiguration(void);
 
 
 /*
- * End of "$Id: conf.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: conf.h 7319 2008-02-15 23:26:51Z mike $".
  */

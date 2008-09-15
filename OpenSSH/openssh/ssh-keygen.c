@@ -1,4 +1,4 @@
-/* $OpenBSD: ssh-keygen.c,v 1.160 2007/01/21 01:41:54 stevesk Exp $ */
+/* $OpenBSD: ssh-keygen.c,v 1.171 2008/07/13 21:22:52 sthen Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1994 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -21,6 +21,7 @@
 
 #include <openssl/evp.h>
 #include <openssl/pem.h>
+#include "openbsd-compat/openssl-compat.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -70,6 +71,8 @@ int change_passphrase = 0;
 int change_comment = 0;
 
 int quiet = 0;
+
+int log_level = SYSLOG_LEVEL_INFO;
 
 /* Flag indicating that we want to hash a known_hosts file */
 int hash_hosts = 0;
@@ -141,8 +144,7 @@ ask_filename(struct passwd *pw, const char *prompt)
 	fprintf(stderr, "%s (%s): ", prompt, identity_file);
 	if (fgets(buf, sizeof(buf), stdin) == NULL)
 		exit(1);
-	if (strchr(buf, '\n'))
-		*strchr(buf, '\n') = 0;
+	buf[strcspn(buf, "\n")] = '\0';
 	if (strcmp(buf, "") != 0)
 		strlcpy(identity_file, buf, sizeof(identity_file));
 	have_identity = 1;
@@ -504,8 +506,8 @@ do_fingerprint(struct passwd *pw)
 {
 	FILE *f;
 	Key *public;
-	char *comment = NULL, *cp, *ep, line[16*1024], *fp;
-	int i, skip = 0, num = 1, invalid = 1;
+	char *comment = NULL, *cp, *ep, line[16*1024], *fp, *ra;
+	int i, skip = 0, num = 0, invalid = 1;
 	enum fp_rep rep;
 	enum fp_type fptype;
 	struct stat st;
@@ -522,9 +524,14 @@ do_fingerprint(struct passwd *pw)
 	public = key_load_public(identity_file, &comment);
 	if (public != NULL) {
 		fp = key_fingerprint(public, fptype, rep);
-		printf("%u %s %s\n", key_size(public), fp, comment);
+		ra = key_fingerprint(public, fptype, SSH_FP_RANDOMART);
+		printf("%u %s %s (%s)\n", key_size(public), fp, comment,
+		    key_type(public));
+		if (log_level >= SYSLOG_LEVEL_VERBOSE)
+			printf("%s\n", ra);
 		key_free(public);
 		xfree(comment);
+		xfree(ra);
 		xfree(fp);
 		exit(0);
 	}
@@ -536,9 +543,9 @@ do_fingerprint(struct passwd *pw)
 	f = fopen(identity_file, "r");
 	if (f != NULL) {
 		while (fgets(line, sizeof(line), f)) {
-			i = strlen(line) - 1;
-			if (line[i] != '\n') {
-				error("line %d too long: %.40s...", num, line);
+			if ((cp = strchr(line, '\n')) == NULL) {
+				error("line %d too long: %.40s...",
+				    num + 1, line);
 				skip = 1;
 				continue;
 			}
@@ -547,7 +554,7 @@ do_fingerprint(struct passwd *pw)
 				skip = 0;
 				continue;
 			}
-			line[i] = '\0';
+			*cp = '\0';
 
 			/* Skip leading whitespace, empty and comment lines. */
 			for (cp = line; *cp == ' ' || *cp == '\t'; cp++)
@@ -582,8 +589,12 @@ do_fingerprint(struct passwd *pw)
 			}
 			comment = *cp ? cp : comment;
 			fp = key_fingerprint(public, fptype, rep);
-			printf("%u %s %s\n", key_size(public), fp,
-			    comment ? comment : "no comment");
+			ra = key_fingerprint(public, fptype, SSH_FP_RANDOMART);
+			printf("%u %s %s (%s)\n", key_size(public), fp,
+			    comment ? comment : "no comment", key_type(public));
+			if (log_level >= SYSLOG_LEVEL_VERBOSE)
+				printf("%s\n", ra);
+			xfree(ra);
 			xfree(fp);
 			key_free(public);
 			invalid = 0;
@@ -598,14 +609,31 @@ do_fingerprint(struct passwd *pw)
 }
 
 static void
-print_host(FILE *f, char *name, Key *public, int hash)
+print_host(FILE *f, const char *name, Key *public, int hash)
 {
-	if (hash && (name = host_hash(name, NULL, 0)) == NULL)
-		fatal("hash_host failed");
-	fprintf(f, "%s ", name);
-	if (!key_write(public, f))
-		fatal("key_write failed");
-	fprintf(f, "\n");
+	if (print_fingerprint) {
+		enum fp_rep rep;
+		enum fp_type fptype;
+		char *fp, *ra;
+
+		fptype = print_bubblebabble ? SSH_FP_SHA1 : SSH_FP_MD5;
+		rep =    print_bubblebabble ? SSH_FP_BUBBLEBABBLE : SSH_FP_HEX;
+		fp = key_fingerprint(public, fptype, rep);
+		ra = key_fingerprint(public, fptype, SSH_FP_RANDOMART);
+		printf("%u %s %s (%s)\n", key_size(public), fp, name,
+		    key_type(public));
+		if (log_level >= SYSLOG_LEVEL_VERBOSE)
+			printf("%s\n", ra);
+		xfree(ra);
+		xfree(fp);
+	} else {
+		if (hash && (name = host_hash(name, NULL, 0)) == NULL)
+			fatal("hash_host failed");
+		fprintf(f, "%s ", name);
+		if (!key_write(public, f))
+			fatal("key_write failed");
+		fprintf(f, "\n");
+	}
 }
 
 static void
@@ -615,7 +643,7 @@ do_known_hosts(struct passwd *pw, const char *name)
 	Key *public;
 	char *cp, *cp2, *kp, *kp2;
 	char line[16*1024], tmp[MAXPATHLEN], old[MAXPATHLEN];
-	int c, i, skip = 0, inplace = 0, num = 0, invalid = 0, has_unhashed = 0;
+	int c, skip = 0, inplace = 0, num = 0, invalid = 0, has_unhashed = 0;
 
 	if (!have_identity) {
 		cp = tilde_expand_filename(_PATH_SSH_USER_HOSTFILE, pw->pw_uid);
@@ -650,19 +678,18 @@ do_known_hosts(struct passwd *pw, const char *name)
 	}
 
 	while (fgets(line, sizeof(line), in)) {
-		num++;
-		i = strlen(line) - 1;
-		if (line[i] != '\n') {
-			error("line %d too long: %.40s...", num, line);
+		if ((cp = strchr(line, '\n')) == NULL) {
+			error("line %d too long: %.40s...", num + 1, line);
 			skip = 1;
 			invalid = 1;
 			continue;
 		}
+		num++;
 		if (skip) {
 			skip = 0;
 			continue;
 		}
-		line[i] = '\0';
+		*cp = '\0';
 
 		/* Skip leading whitespace, empty and comment lines. */
 		for (cp = line; *cp == ' ' || *cp == '\t'; cp++)
@@ -726,7 +753,8 @@ do_known_hosts(struct passwd *pw, const char *name)
 					printf("# Host %s found: "
 					    "line %d type %s\n", name,
 					    num, key_type(public));
-					print_host(out, cp, public, hash_hosts);
+					print_host(out, name, public,
+					    hash_hosts);
 				}
 				if (delete_host && !c)
 					print_host(out, cp, public, 0);
@@ -750,7 +778,7 @@ do_known_hosts(struct passwd *pw, const char *name)
 	fclose(in);
 
 	if (invalid) {
-		fprintf(stderr, "%s is not a valid known_host file.\n",
+		fprintf(stderr, "%s is not a valid known_hosts file.\n",
 		    identity_file);
 		if (inplace) {
 			fprintf(stderr, "Not replacing existing known_hosts "
@@ -962,8 +990,7 @@ do_change_comment(struct passwd *pw)
 			key_free(private);
 			exit(1);
 		}
-		if (strchr(new_comment, '\n'))
-			*strchr(new_comment, '\n') = 0;
+		new_comment[strcspn(new_comment, "\n")] = '\0';
 	}
 
 	/* Save the file using the new passphrase. */
@@ -1006,7 +1033,7 @@ do_change_comment(struct passwd *pw)
 static void
 usage(void)
 {
-	fprintf(stderr, "Usage: %s [options]\n", __progname);
+	fprintf(stderr, "usage: %s [options]\n", __progname);
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  -a trials   Number of trials for screening DH-GEX moduli.\n");
 	fprintf(stderr, "  -B          Show bubblebabble digest of key file.\n");
@@ -1059,7 +1086,6 @@ main(int argc, char **argv)
 	int opt, type, fd, download = 0;
 	u_int32_t memory = 0, generator_wanted = 0, trials = 100;
 	int do_gen_candidates = 0, do_screen_candidates = 0;
-	int log_level = SYSLOG_LEVEL_INFO;
 	BIGNUM *start = NULL;
 	FILE *f;
 	const char *errstr;
@@ -1230,6 +1256,10 @@ main(int argc, char **argv)
 	}
 	if (change_passphrase && change_comment) {
 		printf("Can only have one of -p and -c.\n");
+		usage();
+	}
+	if (print_fingerprint && (delete_host || hash_hosts)) {
+		printf("Cannot use -l with -D or -R.\n");
 		usage();
 	}
 	if (delete_host || hash_hosts || find_host)
@@ -1436,10 +1466,15 @@ passphrase_again:
 
 	if (!quiet) {
 		char *fp = key_fingerprint(public, SSH_FP_MD5, SSH_FP_HEX);
+		char *ra = key_fingerprint(public, SSH_FP_MD5,
+		    SSH_FP_RANDOMART);
 		printf("Your public key has been saved in %s.\n",
 		    identity_file);
 		printf("The key fingerprint is:\n");
 		printf("%s %s\n", fp, comment);
+		printf("The key's randomart image is:\n");
+		printf("%s\n", ra);
+		xfree(ra);
 		xfree(fp);
 	}
 

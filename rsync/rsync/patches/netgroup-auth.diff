@@ -3,18 +3,24 @@ and hosts deny.
 
 This patch still needs autoconf support for portability.
 
---- orig/access.c	2004-09-25 16:57:35
-+++ access.c	2004-04-25 17:20:47
-@@ -22,11 +22,14 @@
-   */
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/netgroup-auth.diff
+    ./configure                           (optional if already run)
+    make
+
+--- old/access.c
++++ new/access.c
+@@ -20,11 +20,14 @@
+  */
  
  #include "rsync.h"
 +#include <netdb.h>
  
- 
  static int match_hostname(char *host, char *tok)
  {
- 	if (!host || !*host) return 0;
+ 	if (!host || !*host)
+ 		return 0;
 + 	if (*tok == '@' && tok[1])
 +		return innetgr(tok + 1, host, NULL, NULL);
  	return wildmatch(tok, host);

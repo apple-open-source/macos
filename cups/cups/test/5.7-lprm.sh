@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id: 5.7-lprm.sh 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: 5.7-lprm.sh 7410 2008-03-29 00:34:23Z mike $"
 #
 #   Test the lprm command.
 #
@@ -16,6 +16,8 @@
 
 echo "LPRM Current Test"
 echo ""
+echo "    lpr -o job-hold-until=indefinite testfile.jpg"
+../berkeley/lpr -o job-hold-until=indefinite testfile.jpg 2>&1
 echo "    lprm"
 ../berkeley/lprm 2>&1
 if test $? != 0; then
@@ -28,6 +30,8 @@ echo ""
 
 echo "LPRM Destination Test"
 echo ""
+echo "    lpr -P Test1 -o job-hold-until=indefinite testfile.jpg"
+../berkeley/lpr -P Test1 -o job-hold-until=indefinite testfile.jpg 2>&1
 echo "    lprm Test1"
 ../berkeley/lprm Test1 2>&1
 if test $? != 0; then
@@ -39,5 +43,5 @@ fi
 echo ""
 
 #
-# End of "$Id: 5.7-lprm.sh 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: 5.7-lprm.sh 7410 2008-03-29 00:34:23Z mike $".
 #

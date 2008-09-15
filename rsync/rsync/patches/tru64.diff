@@ -1,9 +1,13 @@
-Depends-On-Patch: mkfifo.diff
-
 This is an adapted version of the original by Zoong Pham.
 
---- orig/lib/getaddrinfo.c	2004-03-16 01:26:36
-+++ lib/getaddrinfo.c	2004-06-18 17:38:35
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/tru64.diff
+    ./configure                          (optional if already run)
+    make
+
+--- old/lib/getaddrinfo.c
++++ new/lib/getaddrinfo.c
 @@ -41,6 +41,20 @@
  
  #include <rsync.h>
@@ -25,12 +29,12 @@ This is an adapted version of the original by Zoong Pham.
  #if defined(__KAME__) && defined(INET6)
  # define FAITH
  #endif
---- orig/syscall.c	2004-09-23 05:46:46
-+++ syscall.c	2004-09-23 18:11:06
-@@ -27,6 +27,7 @@
+--- old/syscall.c
++++ new/syscall.c
+@@ -24,6 +24,7 @@
  #include "rsync.h"
  
- #if HAVE_SYS_UN_H
+ #if !defined MKNOD_CREATES_SOCKETS && defined HAVE_SYS_UN_H
 +#define _SOCKADDR_LEN
  #include <sys/un.h>
  #endif

@@ -1,5 +1,5 @@
 /*
- * "$Id: dirsvc.c 6974 2007-09-18 17:51:32Z mike $"
+ * "$Id: dirsvc.c 7766 2008-07-18 20:30:23Z mike $"
  *
  *   Directory services routines for the Common UNIX Printing System (CUPS).
  *
@@ -547,7 +547,7 @@ cupsdLoadRemoteCache(void)
           for (value = valueptr; *valueptr && !isspace(*valueptr & 255); valueptr ++);
 
 	  if (*valueptr)
-            *valueptr++ = '\0';
+            *valueptr = '\0';
 
 	  cupsdSetString(&p->job_sheets[1], value);
 	}
@@ -793,7 +793,7 @@ cupsdSendBrowseList(void)
   int			write_printcap;	/* Write the printcap file? */
 
 
-  if (!Browsing || !BrowseLocalProtocols || !Printers)
+  if (!Browsing || !Printers)
     return;
 
  /*
@@ -807,7 +807,7 @@ cupsdSendBrowseList(void)
   * Figure out how many printers need an update...
   */
 
-  if (BrowseInterval > 0)
+  if (BrowseInterval > 0 && BrowseLocalProtocols)
   {
     int	max_count;			/* Maximum number to update */
 
@@ -885,7 +885,7 @@ cupsdSendBrowseList(void)
   }
 
  /*
-  * Loop through all of the printers and send local updates as needed...
+  * Loop through all of the printers and timeout old printers as needed...
   */
 
   for (p = (cupsd_printer_t *)cupsArrayFirst(Printers), write_printcap = 0;
@@ -896,25 +896,24 @@ cupsdSendBrowseList(void)
     * If this is a remote queue, see if it needs to be timed out...
     */
 
-    if (p->type & CUPS_PRINTER_DISCOVERED)
+    if ((p->type & CUPS_PRINTER_DISCOVERED) &&
+        !(p->type & CUPS_PRINTER_IMPLICIT) &&
+	p->browse_expire < to)
     {
-      if (p->browse_expire < to)
-      {
-	cupsdAddEvent(CUPSD_EVENT_PRINTER_DELETED, p, NULL,
-                      "%s \'%s\' deleted by directory services (timeout).",
-		      (p->type & CUPS_PRINTER_CLASS) ? "Class" : "Printer",
+      cupsdAddEvent(CUPSD_EVENT_PRINTER_DELETED, p, NULL,
+		    "%s \'%s\' deleted by directory services (timeout).",
+		    (p->type & CUPS_PRINTER_CLASS) ? "Class" : "Printer",
+		    p->name);
+
+      cupsdLogMessage(CUPSD_LOG_DEBUG,
+		      "Remote destination \"%s\" has timed out; "
+		      "deleting it...",
 		      p->name);
 
-        cupsdLogMessage(CUPSD_LOG_DEBUG,
-	                "Remote destination \"%s\" has timed out; "
-			"deleting it...",
-	                p->name);
-
-        cupsArraySave(Printers);
-        cupsdDeletePrinter(p, 1);
-        cupsArrayRestore(Printers);
-	write_printcap = 1;
-      }
+      cupsArraySave(Printers);
+      cupsdDeletePrinter(p, 1);
+      cupsArrayRestore(Printers);
+      write_printcap = 1;
     }
   }
 
@@ -1673,12 +1672,22 @@ process_browse_data(
 		newname[IPP_MAX_NAME],	/* New name of printer */
 		*hptr,			/* Pointer into hostname */
 		*sptr;			/* Pointer into ServerName */
+  const char	*shortname;		/* Short queue name (queue) */
   char		local_make_model[IPP_MAX_NAME];
 					/* Local make and model */
   cupsd_printer_t *p;			/* Printer information */
   const char	*ipp_options,		/* ipp-options value */
 		*lease_duration;	/* lease-duration value */
+  int		is_class;		/* Is this queue a class? */
 
+
+  cupsdLogMessage(CUPSD_LOG_DEBUG2,
+                  "process_browse_data(uri=\"%s\", host=\"%s\", "
+		  "resource=\"%s\", type=%x, state=%d, location=\"%s\", "
+		  "info=\"%s\", make_model=\"%s\", num_attrs=%d, attrs=%p)",
+		  uri, host, resource, type, state,
+		  location ? location : "(nil)", info ? info : "(nil)",
+		  make_model ? make_model : "(nil)", num_attrs, attrs);
 
  /*
   * Determine if the URI contains any illegal characters in it...
@@ -1688,9 +1697,7 @@ process_browse_data(
       (strncmp(resource, "/printers/", 10) &&
        strncmp(resource, "/classes/", 9)))
   {
-    cupsdLogMessage(CUPSD_LOG_ERROR,
-                    "process_browse_data: Bad printer URI in browse data: %s",
-                    uri);
+    cupsdLogMessage(CUPSD_LOG_ERROR, "Bad printer URI in browse data: %s", uri);
     return;
   }
 
@@ -1698,8 +1705,7 @@ process_browse_data(
       (!strncmp(resource, "/printers/", 10) && strchr(resource + 10, '/')) ||
       (!strncmp(resource, "/classes/", 9) && strchr(resource + 9, '/')))
   {
-    cupsdLogMessage(CUPSD_LOG_ERROR,
-                    "process_browse_data: Bad resource in browse data: %s",
+    cupsdLogMessage(CUPSD_LOG_ERROR, "Bad resource in browse data: %s",
                     resource);
     return;
   }
@@ -1760,6 +1766,7 @@ process_browse_data(
   write_printcap = 0;
   hptr           = strchr(host, '.');
   sptr           = strchr(ServerName, '.');
+  is_class       = type & CUPS_PRINTER_CLASS;
 
   if (!ServerNameIsIP && sptr != NULL && hptr != NULL)
   {
@@ -1779,7 +1786,7 @@ process_browse_data(
     }
   }
 
-  if (type & CUPS_PRINTER_CLASS)
+  if (is_class)
   {
    /*
     * Remote destination is a class...
@@ -1790,101 +1797,7 @@ process_browse_data(
     else
       return;
 
-    if (hptr && !*hptr)
-      *hptr = '.';			/* Resource FQDN */
-
-    if ((p = cupsdFindDest(name)) == NULL && BrowseShortNames)
-    {
-      if ((p = cupsdFindDest(resource + 9)) != NULL)
-      {
-        if (p->hostname && strcasecmp(p->hostname, host))
-	{
-	 /*
-	  * Nope, this isn't the same host; if the hostname isn't the local host,
-	  * add it to the other class and then find a class using the full host
-	  * name...
-	  */
-
-	  if (p->type & CUPS_PRINTER_REMOTE)
-	  {
-	    cupsdLogMessage(CUPSD_LOG_DEBUG,
-	                    "Renamed remote class \"%s\" to \"%s@%s\"...",
-	                    p->name, p->name, p->hostname);
-	    cupsdAddEvent(CUPSD_EVENT_PRINTER_DELETED, p, NULL,
-                	  "Class \'%s\' deleted by directory services.",
-			  p->name);
-
-            snprintf(newname, sizeof(newname), "%s@%s", p->name, p->hostname);
-            cupsdRenamePrinter(p, newname);
-
-	    cupsdAddEvent(CUPSD_EVENT_PRINTER_ADDED, p, NULL,
-                	  "Class \'%s\' added by directory services.",
-			  p->name);
-	  }
-
-          p = NULL;
-	}
-	else if (!p->hostname)
-	{
-	 /*
-	  * Hostname not set, so this must be a cached remote printer
-	  * that was created for a pending print job...
-	  */
-
-          cupsdSetString(&p->hostname, host);
-	  cupsdSetString(&p->uri, uri);
-	  cupsdSetString(&p->device_uri, uri);
-          update = 1;
-        }
-      }
-      else
-      {
-       /*
-        * Use the short name for this shared class.
-	*/
-
-        strlcpy(name, resource + 9, sizeof(name));
-      }
-    }
-    else if (p && !p->hostname)
-    {
-     /*
-      * Hostname not set, so this must be a cached remote printer
-      * that was created for a pending print job...
-      */
-
-      cupsdSetString(&p->hostname, host);
-      cupsdSetString(&p->uri, uri);
-      cupsdSetString(&p->device_uri, uri);
-      update = 1;
-    }
-
-    if (!p)
-    {
-     /*
-      * Class doesn't exist; add it...
-      */
-
-      p = cupsdAddClass(name);
-
-      cupsdLogMessage(CUPSD_LOG_DEBUG, "Added remote class \"%s\"...", name);
-
-      cupsdAddEvent(CUPSD_EVENT_PRINTER_ADDED, p, NULL,
-                    "Class \'%s\' added by directory services.", name);
-
-     /*
-      * Force the URI to point to the real server...
-      */
-
-      p->type      = type & ~CUPS_PRINTER_REJECTING;
-      p->accepting = 1;
-      cupsdSetString(&p->uri, uri);
-      cupsdSetString(&p->device_uri, uri);
-      cupsdSetString(&p->hostname, host);
-
-      update         = 1;
-      write_printcap = 1;
-    }
+    shortname = resource + 9;
   }
   else
   {
@@ -1897,101 +1810,124 @@ process_browse_data(
     else
       return;
 
-    if (hptr && !*hptr)
-      *hptr = '.';			/* Resource FQDN */
+    shortname = resource + 10;
+  }
 
-    if ((p = cupsdFindDest(name)) == NULL && BrowseShortNames)
+  if (hptr && !*hptr)
+    *hptr = '.';			/* Resource FQDN */
+
+  if ((p = cupsdFindDest(name)) == NULL && BrowseShortNames)
+  {
+   /*
+    * Long name doesn't exist, try short name...
+    */
+
+    cupsdLogMessage(CUPSD_LOG_DEBUG, "process_browse_data: %s not found...",
+                    name);
+
+    if ((p = cupsdFindDest(shortname)) == NULL)
     {
-      if ((p = cupsdFindDest(resource + 10)) != NULL)
-      {
-        if (p->hostname && strcasecmp(p->hostname, host))
-	{
-	 /*
-	  * Nope, this isn't the same host; if the hostname isn't the local host,
-	  * add it to the other printer and then find a printer using the full host
-	  * name...
-	  */
+     /*
+      * Short name doesn't exist, use it for this shared queue.
+      */
 
-	  if (p->type & CUPS_PRINTER_REMOTE)
-	  {
-	    cupsdLogMessage(CUPSD_LOG_DEBUG,
-	                    "Renamed remote printer \"%s\" to \"%s@%s\"...",
-	                    p->name, p->name, p->hostname);
-	    cupsdAddEvent(CUPSD_EVENT_PRINTER_DELETED, p, NULL,
-                	  "Printer \'%s\' deleted by directory services.",
-			  p->name);
+      cupsdLogMessage(CUPSD_LOG_DEBUG2, "process_browse_data: %s not found...",
+		      shortname);
+      strlcpy(name, shortname, sizeof(name));
+    }
+    else
+    {
+     /*
+      * Short name exists...
+      */
 
-            snprintf(newname, sizeof(newname), "%s@%s", p->name, p->hostname);
-            cupsdRenamePrinter(p, newname);
+      cupsdLogMessage(CUPSD_LOG_DEBUG2,
+                      "process_browse_data: %s found, type=%x, hostname=%s...",
+		      shortname, p->type, p->hostname ? p->hostname : "(nil)");
 
-	    cupsdAddEvent(CUPSD_EVENT_PRINTER_ADDED, p, NULL,
-                	  "Printer \'%s\' added by directory services.",
-			  p->name);
-	  }
-
-          p = NULL;
-	}
-	else if (!p->hostname)
-	{
-	 /*
-	  * Hostname not set, so this must be a cached remote printer
-	  * that was created for a pending print job...
-	  */
-
-          cupsdSetString(&p->hostname, host);
-	  cupsdSetString(&p->uri, uri);
-	  cupsdSetString(&p->device_uri, uri);
-          update = 1;
-        }
-      }
-      else
+      if (p->type & CUPS_PRINTER_IMPLICIT)
+        p = NULL;			/* Don't replace implicit classes */
+      else if (p->hostname && strcasecmp(p->hostname, host))
       {
        /*
-        * Use the short name for this shared printer.
+	* Short name exists but is for a different host.  If this is a remote
+	* queue, rename it and use the long name...
 	*/
 
-        strlcpy(name, resource + 10, sizeof(name));
+	if (p->type & CUPS_PRINTER_REMOTE)
+	{
+	  cupsdLogMessage(CUPSD_LOG_DEBUG,
+			  "Renamed remote %s \"%s\" to \"%s@%s\"...",
+			  is_class ? "class" : "printer", p->name, p->name,
+			  p->hostname);
+	  cupsdAddEvent(CUPSD_EVENT_PRINTER_DELETED, p, NULL,
+			"%s \'%s\' deleted by directory services.",
+			is_class ? "Class" : "Printer", p->name);
+
+	  snprintf(newname, sizeof(newname), "%s@%s", p->name, p->hostname);
+	  cupsdRenamePrinter(p, newname);
+
+	  cupsdAddEvent(CUPSD_EVENT_PRINTER_ADDED, p, NULL,
+			"%s \'%s\' added by directory services.",
+			is_class ? "Class" : "Printer", p->name);
+	}
+
+       /*
+        * Force creation with long name...
+	*/
+
+	p = NULL;
       }
     }
-    else if (p && !p->hostname)
-    {
-     /*
-      * Hostname not set, so this must be a cached remote printer
-      * that was created for a pending print job...
-      */
+  }
+  else if (p)
+    cupsdLogMessage(CUPSD_LOG_DEBUG2,
+		    "process_browse_data: %s found, type=%x, hostname=%s...",
+		    name, p->type, p->hostname ? p->hostname : "(nil)");
 
-      cupsdSetString(&p->hostname, host);
-      cupsdSetString(&p->uri, uri);
-      cupsdSetString(&p->device_uri, uri);
-      update = 1;
-    }
+  if (!p)
+  {
+   /*
+    * Queue doesn't exist; add it...
+    */
 
-    if (!p)
-    {
-     /*
-      * Printer doesn't exist; add it...
-      */
-
+    if (is_class)
+      p = cupsdAddClass(name);
+    else
       p = cupsdAddPrinter(name);
 
-      cupsdAddEvent(CUPSD_EVENT_PRINTER_ADDED, p, NULL,
-                    "Printer \'%s\' added by directory services.", name);
+    cupsdClearString(&(p->hostname));
 
-      cupsdLogMessage(CUPSD_LOG_DEBUG, "Added remote printer \"%s\"...", name);
+    cupsdLogMessage(CUPSD_LOG_DEBUG, "Added remote %s \"%s\"...",
+                    is_class ? "class" : "printer", name);
 
-     /*
-      * Force the URI to point to the real server...
-      */
+    cupsdAddEvent(CUPSD_EVENT_PRINTER_ADDED, p, NULL,
+		  "%s \'%s\' added by directory services.",
+		  is_class ? "Class" : "Printer", name);
 
-      p->type      = type & ~CUPS_PRINTER_REJECTING;
-      p->accepting = 1;
-      cupsdSetString(&p->hostname, host);
-      cupsdSetString(&p->uri, uri);
-      cupsdSetString(&p->device_uri, uri);
+   /*
+    * Force the URI to point to the real server...
+    */
 
-      write_printcap = 1;
-      update         = 1;
-    }
+    p->type        = type & ~CUPS_PRINTER_REJECTING;
+    p->accepting   = 1;
+    write_printcap = 1;
+  }
+
+  if (!p)
+    return;
+
+  if (!p->hostname)
+  {
+   /*
+    * Hostname not set, so this must be a cached remote printer
+    * that was created for a pending print job...
+    */
+
+    cupsdSetString(&p->hostname, host);
+    cupsdSetString(&p->uri, uri);
+    cupsdSetString(&p->device_uri, uri);
+    update = 1;
   }
 
  /*
@@ -2055,7 +1991,7 @@ process_browse_data(
 
   if (!make_model || !make_model[0])
   {
-    if (type & CUPS_PRINTER_CLASS)
+    if (is_class)
       snprintf(local_make_model, sizeof(local_make_model),
                "Remote Class on %s", host);
     else
@@ -2109,7 +2045,7 @@ process_browse_data(
   {
     cupsdAddEvent(CUPSD_EVENT_PRINTER_DELETED, p, NULL,
                   "%s \'%s\' deleted by directory services.",
-		  (type & CUPS_PRINTER_CLASS) ? "Class" : "Printer", p->name);
+		  is_class ? "Class" : "Printer", p->name);
 
     cupsdExpireSubscriptions(p, NULL);
  
@@ -2622,8 +2558,7 @@ dnssdRegisterPrinter(cupsd_printer_t *p)/* I - Printer */
     */
 
     /* A TTL of 0 means use record's original value (Radar 3176248) */
-    se = DNSServiceUpdateRecord(p->dnssd_ipp_ref, NULL, 0,
-				txt_len, txt_record, 0);
+    DNSServiceUpdateRecord(p->dnssd_ipp_ref, NULL, 0, txt_len, txt_record, 0);
 
     if (p->txt_record)
       free(p->txt_record);
@@ -3828,5 +3763,5 @@ update_polling(void)
 
 
 /*
- * End of "$Id: dirsvc.c 6974 2007-09-18 17:51:32Z mike $".
+ * End of "$Id: dirsvc.c 7766 2008-07-18 20:30:23Z mike $".
  */

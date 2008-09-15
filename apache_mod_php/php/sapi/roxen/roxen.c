@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: roxen.c,v 1.61.2.2.2.1 2007/01/01 09:36:13 sebastian Exp $ */
+/* $Id: roxen.c,v 1.61.2.2.2.2 2007/12/31 07:20:16 sebastian Exp $ */
 
 #include "php.h"
 #ifdef HAVE_ROXEN
@@ -438,7 +438,7 @@ static void php_info_roxen(ZEND_MODULE_INFO_FUNC_ARGS)
 {
   /*  char buf[512]; */
   php_info_print_table_start();
-  php_info_print_table_row(2, "SAPI module version", "$Id: roxen.c,v 1.61.2.2.2.1 2007/01/01 09:36:13 sebastian Exp $");
+  php_info_print_table_row(2, "SAPI module version", "$Id: roxen.c,v 1.61.2.2.2.2 2007/12/31 07:20:16 sebastian Exp $");
   /*  php_info_print_table_row(2, "Build date", Ns_InfoBuildDate());
       php_info_print_table_row(2, "Config file path", Ns_InfoConfigFile());
       php_info_print_table_row(2, "Error Log path", Ns_InfoErrorLog());

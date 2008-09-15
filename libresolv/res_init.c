@@ -134,7 +134,6 @@ res_state
 res_build_start(res_state x)
 {
 	res_state res;
-	int rf;
 
 	res = NULL;
 
@@ -158,10 +157,7 @@ res_build_start(res_state x)
 
 	res->retry = RES_DFLRETRY;
 	res->options = RES_DEFAULT;
-	
-	rf = open("/dev/random", O_RDONLY, 0);
-	read(rf, &(res->id), 2);
-	close(rf);
+	res->id = res_randomid();
 	
 	res->ndots = 1;
 	res->_vcsock = -1;
@@ -1367,33 +1363,15 @@ net_mask(in)		/* XXX - should really use system's version of this */
 #endif
 
 u_int
-res_randomid(void) {
-	struct timeval now;
+res_randomid(void)
+{
 #ifdef __APPLE__
-	int rf;
-	static u_int x = 0;
-
-	if (x == 0)
-	{
-		rf = open("/dev/random", O_RDONLY, 0);
-		if (rf >= 0)
-		{
-			read(rf, &x, sizeof(u_int));
-			close(rf);
-		}
-		else
-		{
-			x = (getpid() << 10) + time(NULL);
-		}
-
-		srandom(x);
-	}
-
-	return random();
-#endif
-
+	return arc4random();
+#else
+	struct timeval now;
 	gettimeofday(&now, NULL);
 	return (0xffff & (now.tv_sec ^ now.tv_usec ^ getpid()));
+#endif
 }
 
 /*

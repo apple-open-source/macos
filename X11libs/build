@@ -80,8 +80,8 @@ if($target eq 'install') {
 	$arch_flags .= " -arch $arch ";
     }
     $ENV{CC}="gcc -I$ENV{DSTROOT}$prefix/include ";
-    $ENV{CFLAGS}="-I$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags -O3 ";
-    $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags";
+    $ENV{CFLAGS}="-I$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags -O3  -DHAVE_LAUNCHD -DTRANS_REOPEN ";
+    $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags  -DHAVE_LAUNCHD -DTRANS_REOPEN ";
     $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
      
     build_lib();
@@ -129,7 +129,7 @@ sub build {
     }
 
     sys_print("./configure $conf_flags");
-    sys_print("make -j2");
+    sys_print("make -j".`sysctl -n hw.activecpu`);
     sys_print("make install");
     fix_la();
     sys_print_nodie("rm $ENV{DSTROOT}$prefix/lib/*.bak");
@@ -152,6 +152,7 @@ sub build {
 # Xp before XprintUtil before XprintAppUtil
 sub build_lib {
     build("libpng");
+    build("pixman");
     build("xtrans");
     build("libpthread-stubs");
     build("libXau");

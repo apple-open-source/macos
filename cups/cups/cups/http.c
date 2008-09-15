@@ -1,5 +1,5 @@
 /*
- * "$Id: http.c 6724 2007-07-25 20:39:33Z mike $"
+ * "$Id: http.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   HTTP routines for the Common UNIX Printing System (CUPS).
  *
@@ -293,8 +293,7 @@ void
 httpClose(http_t *http)			/* I - HTTP connection */
 {
 #ifdef HAVE_GSSAPI
-  OM_uint32	minor_status,		/* Minor status code */
-		major_status;		/* Major status code */
+  OM_uint32	minor_status;		/* Minor status code */
 #endif /* HAVE_GSSAPI */
 
 
@@ -321,11 +320,10 @@ httpClose(http_t *http)			/* I - HTTP connection */
 
 #ifdef HAVE_GSSAPI
   if (http->gssctx != GSS_C_NO_CONTEXT)
-    major_status = gss_delete_sec_context(&minor_status, &http->gssctx,
-                                          GSS_C_NO_BUFFER);
+    gss_delete_sec_context(&minor_status, &http->gssctx, GSS_C_NO_BUFFER);
 
   if (http->gssname != GSS_C_NO_NAME)
-    major_status = gss_release_name(&minor_status, &http->gssname);
+    gss_release_name(&minor_status, &http->gssname);
 #endif /* HAVE_GSSAPI */
 
 #ifdef HAVE_AUTHORIZATION_H
@@ -2522,8 +2520,7 @@ http_send(http_t       *http,	/* I - HTTP connection */
 	  const char   *uri)	/* I - URI */
 {
   int		i;		/* Looping var */
-  char		*ptr,		/* Pointer in buffer */
-		buf[1024];	/* Encoded URI buffer */
+  char		buf[1024];	/* Encoded URI buffer */
   static const char * const codes[] =
 		{		/* Request code strings */
 		  NULL,
@@ -2540,8 +2537,6 @@ http_send(http_t       *http,	/* I - HTTP connection */
 		  "TRACE",
 		  "CLOSE"
 		};
-  static const char hex[] = "0123456789ABCDEF";
-				/* Hex digits */
 
 
   DEBUG_printf(("http_send(http=%p, request=HTTP_%s, uri=\"%s\")\n",
@@ -2561,20 +2556,7 @@ http_send(http_t       *http,	/* I - HTTP connection */
   * Encode the URI as needed...
   */
 
-  for (ptr = buf; *uri != '\0' && ptr < (buf + sizeof(buf) - 1); uri ++)
-    if (*uri <= ' ' || *uri >= 127)
-    {
-      if (ptr < (buf + sizeof(buf) - 1))
-        *ptr ++ = '%';
-      if (ptr < (buf + sizeof(buf) - 1))
-        *ptr ++ = hex[(*uri >> 4) & 15];
-      if (ptr < (buf + sizeof(buf) - 1))
-        *ptr ++ = hex[*uri & 15];
-    }
-    else
-      *ptr ++ = *uri;
-
-  *ptr = '\0';
+  _httpEncodeURI(buf, uri, sizeof(buf));
 
  /*
   * See if we had an error the last time around; if so, reconnect...
@@ -3241,5 +3223,5 @@ http_write_ssl(http_t     *http,	/* I - HTTP connection */
 
 
 /*
- * End of "$Id: http.c 6724 2007-07-25 20:39:33Z mike $".
+ * End of "$Id: http.c 7721 2008-07-11 22:48:49Z mike $".
  */

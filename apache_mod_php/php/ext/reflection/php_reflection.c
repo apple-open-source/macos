@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_reflection.c,v 1.164.2.33.2.47 2007/10/28 13:47:14 iliaa Exp $ */
+/* $Id: php_reflection.c,v 1.164.2.33.2.50 2008/03/13 15:56:21 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -836,7 +836,7 @@ static int _extension_ini_string(zend_ini_entry *ini_entry, int num_args, va_lis
 
 	if (number == ini_entry->module_number) {
 		string_printf(str, "    %sEntry [ %s <", indent, ini_entry->name);
-		if (ini_entry->modifiable == ZEND_INI_ALL) {
+		if (ini_entry->modifiable & ZEND_INI_ALL) {
 			string_printf(str, "ALL");
 		} else {
 			if (ini_entry->modifiable & ZEND_INI_USER) {
@@ -2144,7 +2144,6 @@ ZEND_METHOD(reflection_parameter, getDefaultValue)
 	reflection_object *intern;
 	parameter_reference *param;
 	zend_op *precv;
-	zval *zv, zv_copy;
 
 	METHOD_NOTSTATIC_NUMPARAMS(reflection_parameter_ptr, 0);
 	GET_REFLECTION_OBJECT_PTR(param);
@@ -2164,10 +2163,12 @@ ZEND_METHOD(reflection_parameter, getDefaultValue)
 		return;
 	}
 
-	zv_copy = precv->op2.u.constant;
-	zv = &zv_copy;
-	zval_update_constant_ex(&zv, (void*)0, param->fptr->common.scope TSRMLS_CC);
-	RETURN_ZVAL(zv, 1, 1);
+	*return_value = precv->op2.u.constant;
+	INIT_PZVAL(return_value);
+	if (Z_TYPE_P(return_value) != IS_CONSTANT) {
+		zval_copy_ctor(return_value);
+	}
+	zval_update_constant_ex(&return_value, (void*)0, param->fptr->common.scope TSRMLS_CC);
 }
 /* }}} */
 
@@ -4907,7 +4908,7 @@ PHP_MINFO_FUNCTION(reflection) /* {{{ */
 	php_info_print_table_start();
 	php_info_print_table_header(2, "Reflection", "enabled");
 
-	php_info_print_table_row(2, "Version", "$Id: php_reflection.c,v 1.164.2.33.2.47 2007/10/28 13:47:14 iliaa Exp $");
+	php_info_print_table_row(2, "Version", "$Id: php_reflection.c,v 1.164.2.33.2.50 2008/03/13 15:56:21 iliaa Exp $");
 
 	php_info_print_table_end();
 } /* }}} */

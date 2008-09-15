@@ -1,7 +1,7 @@
-/* $OpenBSD: gss-serv.c,v 1.21 2007/06/12 08:20:00 djm Exp $ */
+/* $OpenBSD: gss-serv.c,v 1.22 2008/05/08 12:02:23 djm Exp $ */
 
 /*
- * Copyright (c) 2001-2007 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2008 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "openbsd-compat/sys-queue.h"
 #include "xmalloc.h"
 #include "buffer.h"
 #include "key.h"
@@ -84,25 +85,32 @@ ssh_gssapi_acquire_cred(Gssctxt *ctx)
 	char lname[MAXHOSTNAMELEN];
 	gss_OID_set oidset;
 
-	gss_create_empty_oid_set(&status, &oidset);
-	gss_add_oid_set_member(&status, ctx->oid, &oidset);
+	if (options.gss_strict_acceptor) {
+		gss_create_empty_oid_set(&status, &oidset);
+		gss_add_oid_set_member(&status, ctx->oid, &oidset);
 
-	if (gethostname(lname, MAXHOSTNAMELEN)) {
-		gss_release_oid_set(&status, &oidset);
-		return (-1);
-	}
+		if (gethostname(lname, MAXHOSTNAMELEN)) {
+			gss_release_oid_set(&status, &oidset);
+			return (-1);
+		}
 
-	if (GSS_ERROR(ssh_gssapi_import_name(ctx, lname))) {
+		if (GSS_ERROR(ssh_gssapi_import_name(ctx, lname))) {
+			gss_release_oid_set(&status, &oidset);
+			return (ctx->major);
+		}
+
+		if ((ctx->major = gss_acquire_cred(&ctx->minor,
+		    ctx->name, 0, oidset, GSS_C_ACCEPT, &ctx->creds, 
+		    NULL, NULL)))
+			ssh_gssapi_error(ctx);
+
 		gss_release_oid_set(&status, &oidset);
 		return (ctx->major);
+	} else {
+		ctx->name = GSS_C_NO_NAME;
+		ctx->creds = GSS_C_NO_CREDENTIAL;
 	}
-
-	if ((ctx->major = gss_acquire_cred(&ctx->minor,
-	    ctx->name, 0, oidset, GSS_C_ACCEPT, &ctx->creds, NULL, NULL)))
-		ssh_gssapi_error(ctx);
-
-	gss_release_oid_set(&status, &oidset);
-	return (ctx->major);
+	return GSS_S_COMPLETE;
 }
 
 /* Privileged */
@@ -162,6 +170,7 @@ ssh_gssapi_supported_oids(gss_OID_set *oidset)
 
 	gss_release_oid_set(&min_status, &supported);
 }
+
 
 /* Wrapper around accept_sec_context
  * Requires that the context contains:

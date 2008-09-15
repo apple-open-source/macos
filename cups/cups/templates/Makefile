@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: Makefile 7336 2008-02-20 21:04:09Z mike $"
 #
 #   Template makefile for the Common UNIX Printing System (CUPS).
 #
@@ -125,7 +125,7 @@ install-languages:
 		if test -d $$lang; then \
 			$(INSTALL_DIR) -m 755 $(DATADIR)/templates/$$lang; \
 			for file in $(FILES); do \
-				$(INSTALL_DATA) $$lang/$$file $(DATADIR)/templates/$$lang || true; \
+				$(INSTALL_DATA) $$lang/$$file $(DATADIR)/templates/$$lang 2>/dev/null || true; \
 			done \
 		fi \
 	done
@@ -151,5 +151,5 @@ uninstall-languages:
 
 
 #
-# End of "$Id: Makefile 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: Makefile 7336 2008-02-20 21:04:09Z mike $".
 #

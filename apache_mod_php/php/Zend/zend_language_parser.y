@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_language_parser.y,v 1.160.2.4.2.8 2007/08/13 21:16:57 stas Exp $ */
+/* $Id: zend_language_parser.y,v 1.160.2.4.2.10 2008/03/10 14:54:47 felipe Exp $ */
 
 /*
  * LALR shift/reduce conflicts and how they are resolved:
@@ -551,7 +551,7 @@ non_empty_for_expr:
 
 expr_without_variable:
 		T_LIST '(' { zend_do_list_init(TSRMLS_C); } assignment_list ')' '=' expr { zend_do_list_end(&$$, &$7 TSRMLS_CC); }
-	|	variable '=' expr		{ zend_check_writable_variable(&$1); zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC); zend_do_assign(&$$, &$1, &$3 TSRMLS_CC); }
+	|	variable '=' expr		{ zend_check_writable_variable(&$1); zend_do_assign(&$$, &$1, &$3 TSRMLS_CC); }
 	|	variable '=' '&' variable { zend_check_writable_variable(&$1); zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC); zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC); zend_do_assign_ref(&$$, &$1, &$4 TSRMLS_CC); }
 	|	variable '=' '&' T_NEW class_name_reference { zend_error(E_STRICT, "Assigning the return value of new by reference is deprecated");  zend_check_writable_variable(&$1); zend_do_extended_fcall_begin(TSRMLS_C); zend_do_begin_new_object(&$4, &$5 TSRMLS_CC); } ctor_arguments { zend_do_end_new_object(&$3, &$4, &$7 TSRMLS_CC); zend_do_extended_fcall_end(TSRMLS_C); zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC); zend_do_assign_ref(&$$, &$1, &$3 TSRMLS_CC); }
 	|	T_NEW class_name_reference { zend_do_extended_fcall_begin(TSRMLS_C); zend_do_begin_new_object(&$1, &$2 TSRMLS_CC); } ctor_arguments { zend_do_end_new_object(&$$, &$1, &$4 TSRMLS_CC); zend_do_extended_fcall_end(TSRMLS_C);}
@@ -740,13 +740,13 @@ r_variable:
 
 
 w_variable:
-	variable	{ zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC); $$ = $1; }
-				{ zend_check_writable_variable(&$1); }
+	variable	{ zend_do_end_variable_parse(BP_VAR_W, 0 TSRMLS_CC); $$ = $1;
+				zend_check_writable_variable(&$1); }
 ;
 
 rw_variable:
-	variable	{ zend_do_end_variable_parse(BP_VAR_RW, 0 TSRMLS_CC); $$ = $1; }
-				{ zend_check_writable_variable(&$1); }
+	variable	{ zend_do_end_variable_parse(BP_VAR_RW, 0 TSRMLS_CC); $$ = $1;
+				zend_check_writable_variable(&$1); }
 ;
 
 variable:

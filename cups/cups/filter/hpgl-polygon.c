@@ -1,5 +1,5 @@
 /*
- * "$Id: hpgl-polygon.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: hpgl-polygon.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   HP-GL/2 polygon routines for the Common UNIX Printing System (CUPS).
  *
@@ -381,5 +381,5 @@ WG_fill_wedge(int     num_params,	/* I - Number of parameters */
 
 
 /*
- * End of "$Id: hpgl-polygon.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: hpgl-polygon.c 7721 2008-07-11 22:48:49Z mike $".
  */

@@ -882,7 +882,7 @@ _pdns_get_default_handles(sdns_handle_t *sdns, pdns_handle_t ***pdns)
 }
 
 static uint32_t
-_pdns_get_handles_for_name(sdns_handle_t *sdns, const char *name, pdns_handle_t ***pdns)
+_pdns_get_handles_for_name(sdns_handle_t *sdns, const char *name, uint32_t nlabels, pdns_handle_t ***pdns)
 {
 	char *p, *vname;
 	int i, j, k, count;
@@ -905,6 +905,9 @@ _pdns_get_handles_for_name(sdns_handle_t *sdns, const char *name, pdns_handle_t 
 		for (i = 0; i < sdns->client_count; i++)
 		{
 			if (sdns->client[i]->name == NULL) continue;
+
+			/* Special case:  Don't send to ".local[.]" queries to mDNSResponder if nlabels > 2 */
+			if ((nlabels > 2) && (sdns->client[i]->flags & DNS_FLAG_FORWARD_TO_MDNSRESPONDER) && (!strcasecmp(sdns->client[i]->name, "local"))) continue;
 
 			if (!strcasecmp(sdns->client[i]->name, p))
 			{
@@ -1248,7 +1251,7 @@ _pdns_delay(sdns_handle_t *sdns)
 		tick = time(NULL);
 		/*
 		 * Subsequent threads sleep for the remaining duration.
-		 * We add one to round up the interval since our garnularity is coarse.
+		 * We add one to round up the interval since our granularity is coarse.
 		 */
 		snooze = 1 + (sdns->dns_delay - tick);
 		if (snooze < 0) snooze = 0;
@@ -1355,7 +1358,7 @@ _pdns_search(sdns_handle_t *sdns, pdns_handle_t *pdns, const char *name, uint32_
 }
 
 static int
-_sdns_send(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type, uint32_t fqdn, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen, int *min)
+_sdns_send(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type, uint32_t fqdn, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen, uint32_t nlabels, int *min)
 {
 	char *qname;
 	pdns_handle_t **pdns;
@@ -1370,7 +1373,7 @@ _sdns_send(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type,
 	*min = -1;
 	m = -1;
 
-	pdns_count = _pdns_get_handles_for_name(sdns, name, &pdns);
+	pdns_count = _pdns_get_handles_for_name(sdns, name, nlabels, &pdns);
 
 	if (pdns_count == 0) return -1;
 
@@ -1409,7 +1412,7 @@ __private_extern__ int
 _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t type, uint32_t fqdn, uint32_t recurse, char *buf, uint32_t len, struct sockaddr *from, uint32_t *fromlen, int *min)
 {
 	pdns_handle_t *primary, **pdns;
-	int i, n, ndots, status;
+	int i, n, ndots, nlabels, status;
 	int m, tmin, minstate;
 	char *dot, *qname;
 	uint32_t pdns_count;
@@ -1452,6 +1455,9 @@ _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t typ
 	/* the last dot is the last character, name is fully qualified */
 	if ((fqdn == 0) && (dot != NULL) && (*(dot + 1) == '\0')) fqdn = 1;
 
+	/* number of labels */
+	nlabels = n + 1 - fqdn;
+
 	/*
 	 * If n >= ndots, or it's a FQDN, or if it's a PTR query,
 	 * we try a query with the name "as is".
@@ -1459,7 +1465,7 @@ _sdns_search(sdns_handle_t *sdns, const char *name, uint32_t class, uint32_t typ
 	if ((n >= ndots) || (fqdn == 1) || (type == ns_t_ptr))
 	{
 		tmin = -1;
-		status = _sdns_send(sdns, name, class, type, fqdn, buf, len, from, fromlen, &tmin);
+		status = _sdns_send(sdns, name, class, type, fqdn, buf, len, from, fromlen, nlabels, &tmin);
 		if (status > 0) return status;
 
 		if (tmin < 0) minstate = -1;

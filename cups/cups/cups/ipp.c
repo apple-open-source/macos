@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: ipp.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Internet Printing Protocol support functions for the Common UNIX
  *   Printing System (CUPS).
@@ -1049,7 +1049,7 @@ ippReadIO(void       *src,		/* I - Data source */
           * Get the request header...
 	  */
 
-          if ((n = (*cb)(src, buffer, 8)) < 8)
+          if ((*cb)(src, buffer, 8) < 8)
 	  {
 	    DEBUG_printf(("ippReadIO: Unable to read header (%d bytes read)!\n", n));
 	    return (IPP_ERROR);
@@ -1553,6 +1553,12 @@ ippReadIO(void       *src,		/* I - Data source */
 		if (n > IPP_MAX_LENGTH)
 		{
 		  DEBUG_printf(("ippReadIO: bad value length %d!\n", n));
+		  return (IPP_ERROR);
+		}
+
+		if (!value)
+		{
+		  DEBUG_puts("ippReadIO: NULL value!");
 		  return (IPP_ERROR);
 		}
 
@@ -2904,5 +2910,5 @@ _ipp_free_attr(ipp_attribute_t *attr)	/* I - Attribute to free */
 
 
 /*
- * End of "$Id: ipp.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: ipp.c 7721 2008-07-11 22:48:49Z mike $".
  */

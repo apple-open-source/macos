@@ -1,13 +1,29 @@
 /*
-**  wildmatch test suite.
-*/
+ * Test suite for the wildmatch code.
+ *
+ * Copyright (C) 2003, 2004, 2006 Wayne Davison
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
+ */
 
 /*#define COMPARE_WITH_FNMATCH*/
 
 #define WILD_TEST_ITERATIONS
 #include "lib/wildmatch.c"
 
-#include "popt.h"
+#include <popt.h>
 
 #ifdef COMPARE_WITH_FNMATCH
 #include <fnmatch.h>
@@ -20,10 +36,16 @@ int wildmatch_errors = 0;
 typedef char bool;
 
 int output_iterations = 0;
+int explode_mod = 0;
+int empties_mod = 0;
+int empty_at_start = 0;
+int empty_at_end = 0;
 
 static struct poptOption long_options[] = {
   /* longName, shortName, argInfo, argPtr, value, descrip, argDesc */
   {"iterations",     'i', POPT_ARG_NONE,   &output_iterations, 0, 0, 0},
+  {"empties",        'e', POPT_ARG_STRING, 0, 'e', 0, 0},
+  {"explode",        'x', POPT_ARG_INT,    &explode_mod, 0, 0, 0},
   {0,0,0,0, 0, 0, 0}
 };
 
@@ -40,7 +62,28 @@ run_test(int line, bool matches, bool same_as_fnmatch,
     same_as_fnmatch = 0; /* Get rid of unused-variable compiler warning. */
 #endif
 
-    matched = wildmatch(pattern, text);
+    if (explode_mod) {
+	char buf[MAXPATHLEN*2], *texts[MAXPATHLEN];
+	int pos = 0, cnt = 0, ndx = 0, len = strlen(text);
+
+	if (empty_at_start)
+	    texts[ndx++] = "";
+	/* An empty string must turn into at least one empty array item. */
+	while (1) {
+	    texts[ndx] = buf + ndx * (explode_mod + 1);
+	    strlcpy(texts[ndx++], text + pos, explode_mod + 1);
+	    if (pos + explode_mod >= len)
+		break;
+	    pos += explode_mod;
+	    if (!(++cnt % empties_mod))
+		texts[ndx++] = "";
+	}
+	if (empty_at_end)
+	    texts[ndx++] = "";
+	texts[ndx] = NULL;
+	matched = wildmatch_array(pattern, (const char**)texts, 0);
+    } else
+	matched = wildmatch(pattern, text);
 #ifdef COMPARE_WITH_FNMATCH
     fn_matched = !fnmatch(pattern, text, flags);
 #endif
@@ -66,6 +109,7 @@ int
 main(int argc, char **argv)
 {
     char buf[2048], *s, *string[2], *end[2];
+    const char *arg;
     FILE *fp;
     int opt, line, i, flag[2];
     poptContext pc = poptGetContext("wildtest", argc, (const char**)argv,
@@ -73,6 +117,16 @@ main(int argc, char **argv)
 
     while ((opt = poptGetNextOpt(pc)) != -1) {
 	switch (opt) {
+	  case 'e':
+	    arg = poptGetOptArg(pc);
+	    empties_mod = atoi(arg);
+	    if (strchr(arg, 's'))
+		empty_at_start = 1;
+	    if (strchr(arg, 'e'))
+		empty_at_end = 1;
+	    if (!explode_mod)
+		explode_mod = 1024;
+	    break;
 	  default:
 	    fprintf(stderr, "%s: %s\n",
 		    poptBadOption(pc, POPT_BADOPTION_NOALIAS),
@@ -81,9 +135,12 @@ main(int argc, char **argv)
 	}
     }
 
+    if (explode_mod && !empties_mod)
+	empties_mod = 1024;
+
     argv = (char**)poptGetArgs(pc);
     if (!argv || argv[1]) {
-	fprintf(stderr, "Usage: wildtest TESTFILE\n");
+	fprintf(stderr, "Usage: wildtest [OPTIONS] TESTFILE\n");
 	exit(1);
     }
 

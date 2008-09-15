@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
   |          Dmitry Stogov <dmitry@zend.com>                             |
   +----------------------------------------------------------------------+
 */
-/* $Id: php_http.c,v 1.77.2.11.2.13 2007/10/17 11:17:46 dmitry Exp $ */
+/* $Id: php_http.c,v 1.77.2.11.2.15 2008/04/08 14:11:49 jorton Exp $ */
 
 #include "php_soap.h"
 #include "ext/standard/base64.h"
@@ -33,7 +33,7 @@ static int get_http_headers(php_stream *socketd,char **response, int *out_size T
 
 static int stream_alive(php_stream *stream  TSRMLS_DC)
 {
-	long socket;
+	int socket;
 	char buf;
 
 	/* maybe better to use:

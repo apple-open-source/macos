@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_stream_filter_api.h,v 1.13.2.1.2.1 2007/01/01 09:36:12 sebastian Exp $ */
+/* $Id: php_stream_filter_api.h,v 1.13.2.1.2.3 2007/12/31 07:20:15 sebastian Exp $ */
 
 /* The filter API works on the principle of "Bucket-Brigades".  This is
  * partially inspired by the Apache 2 method of doing things, although
@@ -62,7 +62,7 @@ struct _php_stream_bucket_brigade {
 typedef enum {
 	PSFS_ERR_FATAL,	/* error in data stream */
 	PSFS_FEED_ME,	/* filter needs more data; stop processing chain until more is available */
-	PSFS_PASS_ON,	/* filter generated output buckets; pass them on to next in chain */
+	PSFS_PASS_ON	/* filter generated output buckets; pass them on to next in chain */
 } php_stream_filter_status_t;
 
 /* Buckets API. */

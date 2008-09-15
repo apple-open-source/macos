@@ -1,9 +1,9 @@
 /*
- * "$Id$"
+ * "$Id: testcups.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   CUPS API test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -70,8 +70,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   printf("cupsGetDest(\"%s\"): ", dests[num_dests / 2].name);
   fflush(stdout);
 
-  if ((dest = cupsGetDest(dests[num_dests / 2].name, NULL, num_dests,
-                          dests)) == NULL)
+  if (!cupsGetDest(dests[num_dests / 2].name, NULL, num_dests, dests))
   {
     status = 1;
     puts("FAIL");
@@ -88,8 +87,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if ((dest = cupsGetDest(NULL, NULL, num_dests, dests)) == NULL)
   {
-    status = 1;
     puts("FAIL");
+    return (1);
   }
   else
     puts("PASS");
@@ -104,7 +103,6 @@ main(int  argc,				/* I - Number of command-line arguments */
   if (cupsPrintFile(dest->name, "../data/testprint.ps", "Test Page",
                     dest->num_options, dest->options) <= 0)
   {
-    status = 1;
     puts("FAIL");
     return (1);
   }
@@ -171,5 +169,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: testfile.c 6192 2007-01-10 19:26:48Z mike $".
+ * End of "$Id: testcups.c 7721 2008-07-11 22:48:49Z mike $".
  */

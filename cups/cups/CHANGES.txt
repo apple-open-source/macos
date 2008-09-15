@@ -1,5 +1,146 @@
-CHANGES.txt - 2008-02-15
+CHANGES.txt - 2008-07-21
 ------------------------
+
+CHANGES IN CUPS V1.3.8
+
+	- Documentation updates (STR #2785, STR #2861, STR #2862)
+	- The scheduler did not add the ending job sheet when the
+	  job was released.
+	- The IPP backend did not relay marker-* attributes.
+	- The CUPS GNOME/KDE menu item was not localized for
+	  Chinese (STR #2880)
+	- The CUPS GNOME/KDE menu item was not localized for
+	  Japanese (STR #2876)
+	- The cupstestppd utility reported mixed line endings for
+	  Mac OS and Windows PPD files (STR #2874)
+	- The pdftops filter did not print landscape orientation PDF
+	  pages correctly on all printers (STR #2850)
+	- The scheduler did not handle expiring of implicit classes
+	  or their members properly, leading to a configuration where
+	  one of the members would have a short name (STR #2766)
+	- The scheduler and cupstestppd utilities did not support
+	  cupsFilter and cupsPreFilter programs with spaces in their
+	  names (STR #2866)
+	- Removed unused variables and assignments found by the
+	  LLVM "clang" tool.
+	- Added NULL checks recommended by the LLVM "clang" tool.
+	- The scheduler would crash if you started a printer that
+	  pointed to a backend that did not exist (STR #2865)
+	- The ppdLocalize functions incorrectly mapped all generic
+	  locales to country-specific locales.
+	- The cups-driverd program did not support Simplified Chinese
+	  or Traditional Chinese language version strings (STR #2851)
+	- Added an Indonesian translation (STR #2792)
+	- Fixed a timing issue in the backends that could cause data
+	  corruption with the CUPS_SC_CMD_DRAIN_OUTPUT side-channel
+	  command (STR #2858)
+	- The scheduler did not support "HostNameLookups" with all of
+	  the boolean names (STR #2861)
+	- Fixed a compile problem with glibc 2.8 (STR #2860)
+	- The PostScript filter did not support %%IncludeFeature lines
+	  in the page setup section of each page (STR #2831)
+	- The scheduler did not generate printer-state events when the
+	  default printer was changed (STR #2764)
+	- cupstestppd incorrectly reported a warning about the PPD format
+	  version in some locales (STR #2854)
+	- cupsGetPPD() and friends incorrectly returned a PPD file for
+	  a class with no printers.
+	- The member-uris values for local printers in a class returned
+	  by the scheduler did not reflect the connected hostname or
+	  port.
+	- The CUPS PHP extension was not thread-safe (STR #2828)
+	- The scheduler incorrectly added the document-format-default
+	  attribute to the list of "common" printer attributes, which
+	  over time would slow down the printing system (STR #2755,
+	  STR #2836)
+	- The cups-deviced and cups-driverd helper programs did not set
+	  the CFProcessPath environment variable on Mac OS X (STR #2837)
+	- "lpstat -p" could report the wrong job as printing (STR #2845)
+	- The scheduler would crash when some cupsd.conf directives
+	  were missing values (STR #2849)
+	- The web interface "move jobs" operation redirected users to
+	  the wrong URL (STR #2815)
+	- The Polish web interface translation contained errors
+	  (STR #2815)
+	- The scheduler did not report PostScript printer PPDs with
+	  filters as PostScript devices.
+	- The scheduler did not set the job document-format attribute
+	  for jobs submitted using Create-Job and Send-Document.
+	- cupsFileTell() did not work for log files opened in append
+	  mode (STR #2810)
+	- The scheduler did not set QUERY_STRING all of the time
+	  for CGI scripts (STR #2781, STR #2816)
+	- The scheduler now returns an error for bad job-sheets
+	  values (STR #2775)
+	- Authenticated remote printing did not work over domain
+	  sockets (STR #2750)
+	- The scheduler incorrectly logged errors for print filters
+	  when a job was canceled (STR #2806, #2808)
+	- The scheduler no longer allows multiple RSS subscriptions
+	  with the same URI (STR #2789)
+	- The scheduler now supports Kerberized printing with
+	  multiple server names (STR #2783)
+	- "Satisfy any" did not work in IPP policies (STR #2782)
+	- The CUPS imaging library would crash with very large
+	  images - more than 16Mx16M pixels (STR #2805)
+	- The PNG image loading code would crash with large images
+	  (STR #2790)
+	- The scheduler did not limit the total number of filters.
+	- The scheduler now ensures that the RSS directory has
+	  the correct permissions.
+	- The RSS notifier did not quote the feed URL in the RSS
+	  file it created (STR #2801)
+	- The web interface allowed the creation and cancellation
+	  of RSS subscriptions without a username (STR #2774)
+	- Increased the default MaxCopies value on Mac OS X to
+	  9999 to match the limit imposed by the print dialog.
+	- The scheduler did not reject requests with an empty
+	  Content-Length field (STR #2787)
+	- The scheduler did not log the current date and time and
+	  did not escape special characters in request URIs when
+	  logging bad requests to the access_log file (STR #2788)
+
+
+CHANGES IN CUPS V1.3.7
+
+	- CVE-2008-0047: cgiCompileSearch buffer overflow (STR #2729)
+	- CVE-2008-1373: CUPS GIF image filter overflow (STR #2765)
+	- Updated the "make check" tests to do a more thorough
+	  automated test.
+	- cups-driverd complained about missing directories (STR
+	  #2777)
+	- cupsaddsmb would leave the Samba username and password on
+	  disk if no Windows drivers were installed (STR #2779)
+	- The Linux USB backend used 100% CPU when a printer was
+	  disconnected (STR #2769)
+	- The sample raster drivers did not properly handle SIGTERM
+	  (STR #2770)
+	- The scheduler sent notify_post() messages too often on
+	  Mac OS X.
+	- Kerberos access to the web interface did not work
+	  (STR #2748)
+	- The scheduler did not support "AuthType Default" in IPP
+	  policies (STR #2749)
+	- The scheduler did not support the "HideImplicitMembers"
+	  directive as documented (STR #2760)
+	- "make check" didn't return a non-zero exit code on
+	  error (STR #2758)
+	- The scheduler incorrectly logged AUTH_foo environment
+	  variables in debug mode (STR #2751)
+	- The image filters inverted PBM files (STR #2746)
+	- cupsctl would crash if the scheduler was not running
+	  (STR #2741)
+	- The scheduler could crash when printing using a port
+	  monitor (STR #2742)
+	- The scheduler would crash if PAM was broken (STR #2734)
+	- The image filters did not work with some CMYK JPEG files
+	  produced by Adobe applications (STR #2727)
+	- The Mac OS X USB backend did not work with printers that
+	  did not report a make or model.
+	- The job-sheets option was not encoded properly (STR #2715)
+	- The scheduler incorrectly complained about missing LSB
+	  PPD directories.
+
 
 CHANGES IN CUPS V1.3.6
 

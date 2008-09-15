@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_highlight.c,v 1.49.2.3.2.2 2007/09/26 15:43:58 iliaa Exp $ */
+/* $Id: zend_highlight.c,v 1.49.2.3.2.3 2007/12/31 07:20:03 sebastian Exp $ */
 
 #include "zend.h"
 #include <zend_language_parser.h>

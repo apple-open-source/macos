@@ -1,5 +1,5 @@
 /*
- * "$Id: ppd.c 6942 2007-09-10 22:55:00Z mike $"
+ * "$Id: ppd.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   PPD file routines for the Common UNIX Printing System (CUPS).
  *
@@ -623,11 +623,8 @@ ppdOpen2(cups_file_t *fp)		/* I - File to read from */
     puts("");
 #endif /* DEBUG */
 
-    if (strcmp(keyword, "CloseUI") && strcmp(keyword, "CloseGroup") &&
-	strcmp(keyword, "CloseSubGroup") && strncmp(keyword, "Default", 7) &&
-        strcmp(keyword, "JCLCloseUI") && strcmp(keyword, "JCLOpenUI") &&
-	strcmp(keyword, "OpenUI") && strcmp(keyword, "OpenGroup") &&
-	strcmp(keyword, "OpenSubGroup") && string == NULL)
+    if (strncmp(keyword, "Default", 7) && !string &&
+        cg->ppd_conform != PPD_CONFORM_RELAXED)
     {
      /*
       * Need a string value!
@@ -1098,7 +1095,7 @@ ppdOpen2(cups_file_t *fp)		/* I - File to read from */
       else if (!strcmp(string, "Plus90"))
         ppd->landscape = 90;
     }
-    else if (!strcmp(keyword, "Emulators"))
+    else if (!strcmp(keyword, "Emulators") && string)
     {
       for (count = 1, sptr = string; sptr != NULL;)
         if ((sptr = strchr(sptr, ' ')) != NULL)
@@ -2865,8 +2862,6 @@ ppd_read(cups_file_t    *fp,		/* I - File to read from */
 	    if (ch == 0x0a)
 	      cupsFileGetChar(fp);
 	  }
-
-	  ch = '\n';
 	}
 	else if (ch < ' ' && ch != '\t' && cg->ppd_conform == PPD_CONFORM_STRICT)
 	{
@@ -3218,5 +3213,5 @@ ppd_read(cups_file_t    *fp,		/* I - File to read from */
 
 
 /*
- * End of "$Id: ppd.c 6942 2007-09-10 22:55:00Z mike $".
+ * End of "$Id: ppd.c 7721 2008-07-11 22:48:49Z mike $".
  */

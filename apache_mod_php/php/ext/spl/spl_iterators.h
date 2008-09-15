@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: spl_iterators.h,v 1.18.2.7.2.12 2007/05/11 00:15:25 helly Exp $ */
+/* $Id: spl_iterators.h,v 1.18.2.7.2.14 2007/12/31 07:20:11 sebastian Exp $ */
 
 #ifndef SPL_ITERATORS_H
 #define SPL_ITERATORS_H
@@ -94,7 +94,7 @@ enum {
 enum {
 	/* public */
 	REGIT_USE_KEY            = 0x00000001,
-	REGIT_INVERTED           = 0x00000002,
+	REGIT_INVERTED           = 0x00000002
 };
 
 typedef enum {
@@ -103,7 +103,7 @@ typedef enum {
 	REGIT_MODE_ALL_MATCHES,
 	REGIT_MODE_SPLIT,
 	REGIT_MODE_REPLACE,
-	REGIT_MODE_MAX,
+	REGIT_MODE_MAX
 } regex_mode;
 
 typedef struct _spl_dual_it_object {

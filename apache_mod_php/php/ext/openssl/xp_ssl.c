@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: xp_ssl.c,v 1.22.2.3.2.9 2007/07/02 16:42:10 iliaa Exp $ */
+/* $Id: xp_ssl.c,v 1.22.2.3.2.11 2008/04/08 14:11:49 jorton Exp $ */
 
 #include "php.h"
 #include "ext/standard/file.h"
@@ -728,7 +728,7 @@ static int php_openssl_sockop_cast(php_stream *stream, int castas, void **ret TS
 
 		case PHP_STREAM_AS_FD_FOR_SELECT:
 			if (ret) {
-				*ret = (void*)sslsock->s.socket;
+				*(int *)ret = sslsock->s.socket;
 			}
 			return SUCCESS;
 
@@ -738,7 +738,7 @@ static int php_openssl_sockop_cast(php_stream *stream, int castas, void **ret TS
 				return FAILURE;
 			}
 			if (ret) {
-				*ret = (void*)sslsock->s.socket;
+				*(int *)ret = sslsock->s.socket;
 			}
 			return SUCCESS;
 		default:

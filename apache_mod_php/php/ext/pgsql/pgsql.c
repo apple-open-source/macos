@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: pgsql.c,v 1.331.2.13.2.25 2007/10/03 23:31:58 iliaa Exp $ */
+/* $Id: pgsql.c,v 1.331.2.13.2.27 2007/12/31 07:20:10 sebastian Exp $ */
 
 #include <stdlib.h>
 
@@ -4083,6 +4083,7 @@ PHP_FUNCTION(pg_send_query_params)
 		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "There are results on this connection. Call pg_get_result() until it returns FALSE");
 	}
 
+	SEPARATE_ZVAL(pv_param_arr);
 	zend_hash_internal_pointer_reset(Z_ARRVAL_PP(pv_param_arr));
 	num_params = zend_hash_num_elements(Z_ARRVAL_PP(pv_param_arr));
 	if (num_params > 0) {
@@ -4097,7 +4098,8 @@ PHP_FUNCTION(pg_send_query_params)
 			}
 
 			otype = (*tmp)->type;
-			convert_to_string(*tmp);
+			SEPARATE_ZVAL(tmp);
+			convert_to_string_ex(tmp);
 			if (Z_TYPE_PP(tmp) != IS_STRING) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING,"Error converting parameter");
 				_php_pgsql_free_params(params, num_params);

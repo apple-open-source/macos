@@ -5,7 +5,7 @@
  /* config.h.in.  Generated from configure.in by autoheader.  */
  
 +/* Apple build version number */
-+#define APPLE_VERSION "2.0s9-263"
++#define APPLE_VERSION "2.0s9-263.1"
 +
 +/* UserID for components to setuid to */
 +#define JABBER_USER "jabber"

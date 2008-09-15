@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
  *
- * Changes Copyright (C) 2001 by Martin Pool <mbp@samba.org>
+ * Changes Copyright (C) 2001 Martin Pool <mbp@samba.org>
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -64,13 +64,15 @@ static struct in6_addr faith_prefix = IN6ADDR_ANY_INIT;
 #endif /* ndef NO_DATA */
 
 static const char in_addrany[] = { 0, 0, 0, 0 };
+static const char in_loopback[] = { 127, 0, 0, 1 }; 
+#ifdef INET6
 static const char in6_addrany[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
-static const char in_loopback[] = { 127, 0, 0, 1 }; 
 static const char in6_loopback[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
 };
+#endif
 
 struct sockinet {
 	u_char	si_len;
@@ -137,8 +139,9 @@ static char *ai_errlist[] = {
 
 #define GET_CANONNAME(ai, str) \
 if (pai->ai_flags & AI_CANONNAME) {\
-	if (((ai)->ai_canonname = (char *)malloc(strlen(str) + 1)) != NULL) {\
-		strcpy((ai)->ai_canonname, (str));\
+	int name_size = strlen(str) + 1;\
+	if (((ai)->ai_canonname = (char *)malloc(name_size)) != NULL) {\
+		memcpy((ai)->ai_canonname, (str), name_size);\
 	} else {\
 		error = EAI_MEMORY;\
 		goto free;\
@@ -161,7 +164,7 @@ static int get_ai(struct addrinfo ** to_ai,
 	(*to_ai)->ai_addr = (struct sockaddr *)((*to_ai) + 1);
 	memset((*to_ai)->ai_addr, 0, (afd)->a_socklen);
 	(*to_ai)->ai_addrlen = (afd)->a_socklen;
-#if HAVE_SOCKADDR_LEN
+#ifdef HAVE_SOCKADDR_LEN
 	(*to_ai)->ai_addr->sa_len = (afd)->a_socklen;
 #endif
 	(*to_ai)->ai_addr->sa_family = (*to_ai)->ai_family = (afd)->a_af;

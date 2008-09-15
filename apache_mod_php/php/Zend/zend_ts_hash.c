@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_ts_hash.c,v 1.14.2.1.2.2 2007/05/11 12:21:26 tony2001 Exp $ */
+/* $Id: zend_ts_hash.c,v 1.14.2.1.2.3 2007/12/31 07:20:03 sebastian Exp $ */
 
 #include "zend.h"
 #include "zend_ts_hash.h"

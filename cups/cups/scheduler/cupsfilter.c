@@ -1,5 +1,5 @@
 /*
- * "$Id: cupsfilter.c 6816 2007-08-20 20:16:00Z mike $"
+ * "$Id: cupsfilter.c 7222 2008-01-16 22:20:33Z mike $"
  *
  *   CUPS filtering program for the Common UNIX Printing System (CUPS).
  *
@@ -996,5 +996,5 @@ usage(const char *command,		/* I - Command name */
 
 
 /*
- * End of "$Id: cupsfilter.c 6816 2007-08-20 20:16:00Z mike $".
+ * End of "$Id: cupsfilter.c 7222 2008-01-16 22:20:33Z mike $".
  */

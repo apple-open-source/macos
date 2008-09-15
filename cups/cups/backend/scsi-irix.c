@@ -1,5 +1,5 @@
 /*
- * "$Id: scsi-irix.c 6835 2007-08-22 18:34:34Z mike $"
+ * "$Id: scsi-irix.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   IRIX SCSI printer support for the Common UNIX Printing System (CUPS).
  *
@@ -236,5 +236,5 @@ print_device(const char *resource,	/* I - SCSI device */
 
 
 /*
- * End of "$Id: scsi-irix.c 6835 2007-08-22 18:34:34Z mike $".
+ * End of "$Id: scsi-irix.c 7721 2008-07-11 22:48:49Z mike $".
  */

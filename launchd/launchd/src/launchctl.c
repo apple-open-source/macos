@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23566 $";
+static const char *const __rcs_file_version__ = "$Revision: 23642 $";
 
 #include "liblaunch_public.h"
 #include "liblaunch_private.h"
@@ -69,7 +69,6 @@ static const char *const __rcs_file_version__ = "$Revision: 23566 $";
 #include <readline/history.h>
 #include <dns_sd.h>
 #include <paths.h>
-#include <utmp.h>
 #include <utmpx.h>
 #include <bootfiles.h>
 #include <sysexits.h>
@@ -2805,7 +2804,10 @@ out:
 #if TARGET_OS_EMBEDDED
 	if (path_check("/etc/fstab")) {
 		const char *mount_tool[] = { "mount", "-vat", "nonfs", NULL };
-		assumes(fwexec(mount_tool, true) != -1);
+		if (!assumes(fwexec(mount_tool, true) != -1)) {
+			assumes(fwexec(nvram_tool, true) != -1);
+			assumes(reboot(RB_AUTOBOOT) != -1);
+		}
 	} else
 #endif
 	{

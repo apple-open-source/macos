@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sybase_ct.c,v 1.103.2.5.2.13 2007/04/10 15:56:31 helly Exp $ */
+/* $Id: php_sybase_ct.c,v 1.103.2.5.2.14 2007/12/31 07:20:13 sebastian Exp $ */
 
 
 #ifdef HAVE_CONFIG_H

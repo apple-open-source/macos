@@ -2,7 +2,7 @@
 ziparchive::properties isset()/empty() checks
 --SKIPIF--
 <?php
-/* $Id: oo_properties.phpt,v 1.1.2.4 2007/08/13 12:46:40 tony2001 Exp $ */
+/* $Id: oo_properties.phpt,v 1.1.2.5 2007/11/19 11:12:36 tony2001 Exp $ */
 if(!extension_loaded('zip')) die('skip');
 ?>
 --FILE--
@@ -41,7 +41,7 @@ zip->numFiles (4):
 	empty(): 0
 	isset(): 1
 
-Notice: Undefined property:  ZipArchive::$bogus in %s on line %d
+Notice: Undefined property: ZipArchive::$bogus in %s on line %d
 zip->bogus (0):
 	empty(): 1
 	isset(): 0

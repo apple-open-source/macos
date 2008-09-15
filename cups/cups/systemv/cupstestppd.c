@@ -1,5 +1,5 @@
 /*
- * "$Id: cupstestppd.c 6928 2007-09-07 18:05:14Z mike $"
+ * "$Id: cupstestppd.c 7729 2008-07-14 18:06:16Z mike $"
  *
  *   PPD test program for the Common UNIX Printing System (CUPS).
  *
@@ -137,12 +137,14 @@ main(int  argc,				/* I - Number of command-line args */
   ppd_group_t	*group2;		/* UI group */
   ppd_option_t	*option2;		/* Standard UI option */
   ppd_choice_t	*choice;		/* Standard UI option choice */
+  struct lconv	*loc;			/* Locale data */
   static char	*uis[] = { "BOOLEAN", "PICKONE", "PICKMANY" };
   static char	*sections[] = { "ANY", "DOCUMENT", "EXIT",
                                 "JCL", "PAGE", "PROLOG" };
 
 
   _cupsSetLocale(argv);
+  loc = localeconv();
 
  /*
   * Display PPD files for each file listed on the command-line...
@@ -364,7 +366,7 @@ main(int  argc,				/* I - Number of command-line args */
 
       if ((attr = ppdFindAttr(ppd, "FormatVersion", NULL)) != NULL &&
           attr->value)
-        ppdversion = (int)(10 * atof(attr->value) + 0.5);
+        ppdversion = (int)(10 * _cupsStrScand(attr->value, NULL, loc) + 0.5);
 
       for (j = 0; j < ppd->num_filters; j ++)
         if (strstr(ppd->filters[j], "application/vnd.cups-raster"))
@@ -1651,12 +1653,12 @@ check_basics(const char *filename)	/* I - PPD file to check */
 
           if (eol == EOL_NONE)
 	    eol = EOL_CRLF;
-	  else
+	  else if (eol != EOL_CRLF)
 	    mixed = 1;
 	}
 	else if (eol == EOL_NONE)
 	  eol = EOL_CR;
-        else
+        else if (eol != EOL_CR)
 	  mixed = 1;
       }
       
@@ -1854,12 +1856,13 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
 	      int        verbose,	/* I - Verbosity level */
 	      int        warn)		/* I - Warnings only? */
 {
+  int		i;			/* Looping var */
   ppd_attr_t	*attr;			/* PPD attribute */
   const char	*ptr;			/* Pointer into string */
   struct stat	statbuf;		/* File information */
   char		super[16],		/* Super-type for filter */
 		type[256],		/* Type for filter */
-		program[256],		/* Program/filter name */
+		program[1024],		/* Program/filter name */
 		pathprog[1024];		/* Complete path to program/filter */
   int		cost;			/* Cost of filter */
   const char	*prefix;		/* WARN/FAIL prefix */
@@ -1867,13 +1870,10 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
 
   prefix = warn ? "  WARN  " : "**FAIL**";
 
-  for (attr = ppdFindAttr(ppd, "cupsFilter", NULL);
-       attr;
-       attr = ppdFindNextAttr(ppd, "cupsFilter", NULL))
+  for (i = 0; i < ppd->num_filters; i ++)
   {
-    if (!attr->value ||
-	sscanf(attr->value, "%15[^/]/%255s%d%255s", super, type, &cost,
-	       program) != 4)
+    if (sscanf(ppd->filters[i], "%15[^/]/%255s%d%*[ \t]%1023[^\n]", super, type,
+               &cost, program) != 4)
     {
       if (!warn && !errors && !verbose)
 	_cupsLangPuts(stdout, _(" FAIL\n"));
@@ -1881,7 +1881,7 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
       if (verbose >= 0)
 	_cupsLangPrintf(stdout,
 			_("      %s  Bad cupsFilter value \"%s\"!\n"),
-			prefix, attr->value ? attr->value : "");
+			prefix, ppd->filters[i]);
 
       if (!warn)
         errors ++;
@@ -1923,8 +1923,8 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
        attr = ppdFindNextAttr(ppd, "cupsPreFilter", NULL))
   {
     if (!attr->value ||
-	sscanf(attr->value, "%15[^/]/%255s%d%255s", super, type, &cost,
-	       program) != 4)
+	sscanf(attr->value, "%15[^/]/%255s%d%*[ \t]%1023[^\n]", super, type,
+	       &cost, program) != 4)
     {
       if (!warn && !errors && !verbose)
 	_cupsLangPuts(stdout, _(" FAIL\n"));
@@ -2246,7 +2246,8 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 
 	strlcpy(ll, langptr, sizeof(ll));
 
-	if (!cupsArrayFind(langlist, ll) && strcmp(ll, "zh"))
+	if (!cupsArrayFind(langlist, ll) &&
+	    strcmp(ll, "zh") && strcmp(ll, "en"))
 	{
 	  if (!warn && !errors && !verbose)
 	    _cupsLangPuts(stdout, _(" FAIL\n"));
@@ -2529,5 +2530,5 @@ valid_utf8(const char *s)		/* I - String to check */
 
 
 /*
- * End of "$Id: cupstestppd.c 6928 2007-09-07 18:05:14Z mike $".
+ * End of "$Id: cupstestppd.c 7729 2008-07-14 18:06:16Z mike $".
  */

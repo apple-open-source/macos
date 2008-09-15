@@ -1,5 +1,5 @@
 /*
- * "$Id$"
+ * "$Id: po2strings.c 7721 2008-07-11 22:48:49Z mike $"
  *
  * Convert GNU gettext .po files to Apple .strings file (UTF-16 BE text file).
  *
@@ -140,5 +140,5 @@ write_string(FILE       *strings,	/* I - .strings file */
 
 
 /*
- * End of "$Id$".
+ * End of "$Id: po2strings.c 7721 2008-07-11 22:48:49Z mike $".
  */

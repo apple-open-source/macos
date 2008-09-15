@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: namednodemap.c,v 1.15.2.2.2.1 2007/01/01 09:36:00 sebastian Exp $ */
+/* $Id: namednodemap.c,v 1.15.2.2.2.3 2008/02/04 15:23:11 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -28,6 +28,45 @@
 #include "php_dom.h"
 
 
+/* {{{ arginfo */
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_namednodemap_get_named_item, 0, 0, 1)
+	ZEND_ARG_INFO(0, name)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_namednodemap_set_named_item, 0, 0, 1)
+	ZEND_ARG_OBJ_INFO(0, arg, DOMNode, 0)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_namednodemap_remove_named_item, 0, 0, 0)
+	ZEND_ARG_INFO(0, name)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_namednodemap_item, 0, 0, 0)
+	ZEND_ARG_INFO(0, index)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_namednodemap_get_named_item_ns, 0, 0, 0)
+	ZEND_ARG_INFO(0, namespaceURI)
+	ZEND_ARG_INFO(0, localName)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_namednodemap_set_named_item_ns, 0, 0, 0)
+	ZEND_ARG_OBJ_INFO(0, arg, DOMNode, 0)
+ZEND_END_ARG_INFO();
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_namednodemap_remove_named_item_ns, 0, 0, 0)
+	ZEND_ARG_INFO(0, namespaceURI)
+	ZEND_ARG_INFO(0, localName)
+ZEND_END_ARG_INFO();
+/* }}} */
+
 /*
 * class DOMNamedNodeMap 
 *
@@ -36,13 +75,13 @@
 */
 
 zend_function_entry php_dom_namednodemap_class_functions[] = {
-	PHP_FALIAS(getNamedItem, dom_namednodemap_get_named_item, NULL)
-	PHP_FALIAS(setNamedItem, dom_namednodemap_set_named_item, NULL)
-	PHP_FALIAS(removeNamedItem, dom_namednodemap_remove_named_item, NULL)
-	PHP_FALIAS(item, dom_namednodemap_item, NULL)
-	PHP_FALIAS(getNamedItemNS, dom_namednodemap_get_named_item_ns, NULL)
-	PHP_FALIAS(setNamedItemNS, dom_namednodemap_set_named_item_ns, NULL)
-	PHP_FALIAS(removeNamedItemNS, dom_namednodemap_remove_named_item_ns, NULL)
+	PHP_FALIAS(getNamedItem, dom_namednodemap_get_named_item, arginfo_dom_namednodemap_get_named_item)
+	PHP_FALIAS(setNamedItem, dom_namednodemap_set_named_item, arginfo_dom_namednodemap_set_named_item)
+	PHP_FALIAS(removeNamedItem, dom_namednodemap_remove_named_item, arginfo_dom_namednodemap_remove_named_item)
+	PHP_FALIAS(item, dom_namednodemap_item, arginfo_dom_namednodemap_item)
+	PHP_FALIAS(getNamedItemNS, dom_namednodemap_get_named_item_ns, arginfo_dom_namednodemap_get_named_item_ns)
+	PHP_FALIAS(setNamedItemNS, dom_namednodemap_set_named_item_ns, arginfo_dom_namednodemap_set_named_item_ns)
+	PHP_FALIAS(removeNamedItemNS, dom_namednodemap_remove_named_item_ns, arginfo_dom_namednodemap_remove_named_item_ns)
 	{NULL, NULL, NULL}
 };
 

@@ -1,9 +1,9 @@
 /*
- * "$Id: raster.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: raster.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Raster file routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   This file is part of the CUPS Imaging library.
@@ -981,8 +981,7 @@ cups_raster_write(
 			*plast;		/* Pointer to last pixel */
   unsigned char		*wptr;		/* Pointer into write buffer */
   int			bpp,		/* Bytes per pixel */
-			count,		/* Count */
-			maxrun;		/* Maximum run of 128 * bpp */
+			count;		/* Count */
 
 
   DEBUG_printf(("cups_raster_write(r=%p, pixels=%p)\n", r, pixels));
@@ -1015,7 +1014,6 @@ cups_raster_write(
   plast   = pend - bpp;
   wptr    = r->buffer;
   *wptr++ = r->count - 1;
-  maxrun  = 128 * bpp;
 
  /*
   * Write using a modified TIFF "packbits" compression...
@@ -1167,5 +1165,5 @@ cups_write(int                 fd,	/* I - File descriptor */
 
 
 /*
- * End of "$Id: raster.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: raster.c 7721 2008-07-11 22:48:49Z mike $".
  */

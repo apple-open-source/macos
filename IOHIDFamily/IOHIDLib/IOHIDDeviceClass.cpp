@@ -1514,12 +1514,8 @@ void IOHIDDeviceClass::_hidReportHandlerCallback(void * refcon, IOReturn result,
             bcopy(IOHIDValueGetBytePtr(event), self->fInputReportBuffer, size);
         }
         
-        CFRelease(event);
-
-        if (!self->fInputReportCallback)
-            return;
-            
-        (self->fInputReportCallback)(
+        if (self->fInputReportCallback)            
+            (self->fInputReportCallback)(
                                         self->fInputReportRefcon, 
                                         result, 
                                         &(self->fHIDDevice),
@@ -1527,6 +1523,8 @@ void IOHIDDeviceClass::_hidReportHandlerCallback(void * refcon, IOReturn result,
                                         IOHIDElementGetReportID(IOHIDValueGetElement(event)),
                                         self->fInputReportBuffer,
                                         size);
+
+        CFRelease(event);
     }
 }
 

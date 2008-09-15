@@ -1,0 +1,20 @@
+The fix for CVE-2007-4572 added a gratuitous smb_panic() call to
+push_ascii, which broke ASCII clients something awful. This patch
+reverts that change.
+
+Index: samba/source/lib/charcnv.c
+===================================================================
+--- samba/source/lib/charcnv.c.orig
++++ samba/source/lib/charcnv.c
+@@ -872,9 +872,9 @@ size_t push_ascii(void *dest, const char
+ 	size_t src_len = strlen(src);
+ 	pstring tmpbuf;
+ 
+-	/* No longer allow a length of -1 */
++	/* treat a pstring as "unlimited" length */
+ 	if (dest_len == (size_t)-1)
+-		smb_panic("push_ascii - dest_len == -1");
++	    dest_len = sizeof(pstring);
+ 
+ 	if (flags & STR_UPPER) {
+ 		pstrcpy(tmpbuf, src);

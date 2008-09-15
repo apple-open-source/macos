@@ -1,9 +1,9 @@
 /*
- * "$Id: config.h 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: config.h 7730 2008-07-14 18:06:47Z mike $"
  *
  *   Configuration file for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -28,8 +28,8 @@
  * Version of software...
  */
 
-#define CUPS_SVERSION		"CUPS v1.2svn"
-#define CUPS_MINIMAL		"CUPS/1.2svn"
+#define CUPS_SVERSION		"CUPS v1.3.8"
+#define CUPS_MINIMAL		"CUPS/1.3.8"
 
 
 /*
@@ -339,5 +339,5 @@
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: config.h 7730 2008-07-14 18:06:47Z mike $".
  */

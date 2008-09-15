@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_pcre.h,v 1.41.2.1.2.5 2007/01/01 09:36:04 sebastian Exp $ */
+/* $Id: php_pcre.h,v 1.41.2.1.2.6 2007/12/31 07:20:09 sebastian Exp $ */
 
 #ifndef PHP_PCRE_H
 #define PHP_PCRE_H

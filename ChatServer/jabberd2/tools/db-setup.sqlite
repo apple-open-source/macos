@@ -60,6 +60,9 @@ CREATE TABLE 'roster-groups' (
     'jid' TEXT,
     'group' TEXT );
 
+CREATE INDEX i_rosterg_owner ON "roster-groups"("collection-owner");
+CREATE INDEX i_rosterg_owner_jid ON "roster-groups"("collection-owner", "jid");
+
 --
 -- vCard (user profile information)
 -- Used by: mod_iq_vcard
@@ -89,6 +92,8 @@ CREATE TABLE 'vcard' (
     'photo-type' TEXT,
     'photo-binval' BLOB );
 
+CREATE INDEX i_vcard_owner ON "vcard"("collection-owner");
+
 --
 -- Offline message queue
 -- Used by: mod_offline
@@ -97,6 +102,8 @@ CREATE TABLE 'queue' (
     'collection-owner' TEXT NOT NULL,
     'object-sequence' INTEGER PRIMARY KEY,
     'xml' TEXT );
+
+CREATE INDEX i_queue_owner ON "queue"("collection-owner");
 
 --
 -- Private XML storage
@@ -107,6 +114,8 @@ CREATE TABLE 'private' (
     'object-sequence' INTEGER PRIMARY KEY,
     'ns' TEXT,
     'xml' TEXT );
+
+CREATE INDEX i_private_owner ON "private"("collection-owner");
 
 --
 -- Message Of The Day (MOTD) messages (announcements)
@@ -137,6 +146,8 @@ CREATE TABLE 'disco-items' (
     'name' TEXT,
     'node' TEXT );
 
+CREATE INDEX i_discoi_owner ON "disco-items"("collection-owner");
+
 --
 -- Default privacy list
 -- Used by: mod_privacy
@@ -159,6 +170,8 @@ CREATE TABLE 'privacy-items' (
     'deny' BOOL,
     'order' INTEGER,
     'block' INTEGER );
+
+CREATE INDEX i_privacyi_owner ON "privacy-items"("collection-owner");
 
 --
 -- Vacation settings

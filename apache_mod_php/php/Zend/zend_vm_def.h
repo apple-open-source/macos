@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2008 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_vm_def.h,v 1.59.2.29.2.51 2007/10/04 23:23:41 iliaa Exp $ */
+/* $Id: zend_vm_def.h,v 1.59.2.29.2.56 2008/03/04 11:46:09 dmitry Exp $ */
 
 /* If you change this file, please regenerate the zend_vm_execute.h and
  * zend_vm_opcodes.h files by running:
@@ -1064,6 +1064,10 @@ ZEND_VM_HANDLER(84, ZEND_FETCH_DIM_W, VAR|CV, CONST|TMP|VAR|UNUSED|CV)
 	    READY_TO_DESTROY(free_op1.var) &&
 	    !RETURN_VALUE_UNUSED(&opline->result)) {
 		AI_USE_PTR(EX_T(opline->result.u.var).var);
+		if (!PZVAL_IS_REF(*EX_T(opline->result.u.var).var.ptr_ptr) &&
+		    ZVAL_REFCOUNT(*EX_T(opline->result.u.var).var.ptr_ptr) > 2) {
+			SEPARATE_ZVAL(EX_T(opline->result.u.var).var.ptr_ptr);
+		}
 	}
 	FREE_OP1_VAR_PTR();
 	ZEND_VM_NEXT_OPCODE();
@@ -1081,6 +1085,10 @@ ZEND_VM_HANDLER(87, ZEND_FETCH_DIM_RW, VAR|CV, CONST|TMP|VAR|UNUSED|CV)
 	    READY_TO_DESTROY(free_op1.var) &&
 	    !RETURN_VALUE_UNUSED(&opline->result)) {
 		AI_USE_PTR(EX_T(opline->result.u.var).var);
+		if (!PZVAL_IS_REF(*EX_T(opline->result.u.var).var.ptr_ptr) &&
+		    ZVAL_REFCOUNT(*EX_T(opline->result.u.var).var.ptr_ptr) > 2) {
+			SEPARATE_ZVAL(EX_T(opline->result.u.var).var.ptr_ptr);
+		}
 	}
 	FREE_OP1_VAR_PTR();
 	ZEND_VM_NEXT_OPCODE();
@@ -1115,6 +1123,10 @@ ZEND_VM_HANDLER(93, ZEND_FETCH_DIM_FUNC_ARG, VAR|CV, CONST|TMP|VAR|UNUSED|CV)
 	    READY_TO_DESTROY(free_op1.var) &&
 	    !RETURN_VALUE_UNUSED(&opline->result)) {
 		AI_USE_PTR(EX_T(opline->result.u.var).var);
+		if (!PZVAL_IS_REF(*EX_T(opline->result.u.var).var.ptr_ptr) &&
+		    ZVAL_REFCOUNT(*EX_T(opline->result.u.var).var.ptr_ptr) > 2) {
+			SEPARATE_ZVAL(EX_T(opline->result.u.var).var.ptr_ptr);
+		}
 	}
 	FREE_OP1_VAR_PTR();
 	ZEND_VM_NEXT_OPCODE();
@@ -1143,6 +1155,10 @@ ZEND_VM_HANDLER(96, ZEND_FETCH_DIM_UNSET, VAR|CV, CONST|TMP|VAR|CV)
 	    READY_TO_DESTROY(free_op1.var) &&
 	    !RETURN_VALUE_UNUSED(&opline->result)) {
 		AI_USE_PTR(EX_T(opline->result.u.var).var);
+		if (!PZVAL_IS_REF(*EX_T(opline->result.u.var).var.ptr_ptr) &&
+		    ZVAL_REFCOUNT(*EX_T(opline->result.u.var).var.ptr_ptr) > 2) {
+			SEPARATE_ZVAL(EX_T(opline->result.u.var).var.ptr_ptr);
+		}
 	}
 	FREE_OP1_VAR_PTR();
 	if (EX_T(opline->result.u.var).var.ptr_ptr == NULL) {
@@ -1249,6 +1265,10 @@ ZEND_VM_HANDLER(85, ZEND_FETCH_OBJ_W, VAR|UNUSED|CV, CONST|TMP|VAR|CV)
 	    READY_TO_DESTROY(free_op1.var) &&
 	    !RETURN_VALUE_UNUSED(&opline->result)) {
 		AI_USE_PTR(EX_T(opline->result.u.var).var);
+		if (!PZVAL_IS_REF(*EX_T(opline->result.u.var).var.ptr_ptr) &&
+		    ZVAL_REFCOUNT(*EX_T(opline->result.u.var).var.ptr_ptr) > 2) {
+			SEPARATE_ZVAL(EX_T(opline->result.u.var).var.ptr_ptr);
+		}
 	}
 	FREE_OP1_VAR_PTR();
 	ZEND_VM_NEXT_OPCODE();
@@ -1273,6 +1293,10 @@ ZEND_VM_HANDLER(88, ZEND_FETCH_OBJ_RW, VAR|UNUSED|CV, CONST|TMP|VAR|CV)
 	    READY_TO_DESTROY(free_op1.var) &&
 	    !RETURN_VALUE_UNUSED(&opline->result)) {
 		AI_USE_PTR(EX_T(opline->result.u.var).var);
+		if (!PZVAL_IS_REF(*EX_T(opline->result.u.var).var.ptr_ptr) &&
+		    ZVAL_REFCOUNT(*EX_T(opline->result.u.var).var.ptr_ptr) > 2) {
+			SEPARATE_ZVAL(EX_T(opline->result.u.var).var.ptr_ptr);
+		}
 	}
 	FREE_OP1_VAR_PTR();
 	ZEND_VM_NEXT_OPCODE();
@@ -1305,6 +1329,10 @@ ZEND_VM_HANDLER(94, ZEND_FETCH_OBJ_FUNC_ARG, VAR|UNUSED|CV, CONST|TMP|VAR|CV)
 		    READY_TO_DESTROY(free_op1.var) &&
 		    !RETURN_VALUE_UNUSED(&opline->result)) {
 			AI_USE_PTR(EX_T(opline->result.u.var).var);
+			if (!PZVAL_IS_REF(*EX_T(opline->result.u.var).var.ptr_ptr) &&
+			    ZVAL_REFCOUNT(*EX_T(opline->result.u.var).var.ptr_ptr) > 2) {
+				SEPARATE_ZVAL(EX_T(opline->result.u.var).var.ptr_ptr);
+			}
 		}
 		FREE_OP1_VAR_PTR();
 		ZEND_VM_NEXT_OPCODE();
@@ -1338,6 +1366,10 @@ ZEND_VM_HANDLER(97, ZEND_FETCH_OBJ_UNSET, VAR|UNUSED|CV, CONST|TMP|VAR|CV)
 	    READY_TO_DESTROY(free_op1.var) &&
 	    !RETURN_VALUE_UNUSED(&opline->result)) {
 		AI_USE_PTR(EX_T(opline->result.u.var).var);
+		if (!PZVAL_IS_REF(*EX_T(opline->result.u.var).var.ptr_ptr) &&
+		    ZVAL_REFCOUNT(*EX_T(opline->result.u.var).var.ptr_ptr) > 2) {
+			SEPARATE_ZVAL(EX_T(opline->result.u.var).var.ptr_ptr);
+		}
 	}
 	FREE_OP1_VAR_PTR();
 
@@ -1995,6 +2027,8 @@ ZEND_VM_HELPER(zend_do_fcall_common_helper, ANY, ANY)
 		}
 	}
 
+	EX(function_state).function = (zend_function *) EX(op_array);
+	EG(function_state_ptr) = &EX(function_state);
 	ctor_opline = (zend_op*)zend_ptr_stack_pop(&EG(arg_types_stack));
 
 	if (EG(This)) {
@@ -2017,8 +2051,6 @@ ZEND_VM_HELPER(zend_do_fcall_common_helper, ANY, ANY)
 	}
 	zend_ptr_stack_2_pop(&EG(arg_types_stack), (void**)&EX(object), (void**)&EX(fbc));
 
-	EX(function_state).function = (zend_function *) EX(op_array);
-	EG(function_state_ptr) = &EX(function_state);
 	zend_ptr_stack_clear_multiple(TSRMLS_C);
 
 	if (EG(exception)) {
@@ -2371,9 +2403,6 @@ ZEND_VM_HANDLER(64, ZEND_RECV_INIT, ANY, CONST)
 
 			ALLOC_ZVAL(default_value);
 			*default_value = opline->op2.u.constant;
-			if (Z_TYPE(opline->op2.u.constant)==IS_CONSTANT_ARRAY) {
-				zval_copy_ctor(default_value);
-			}
 			default_value->refcount=1;
 			zval_update_constant(&default_value, 0 TSRMLS_CC);
 			default_value->refcount=0;
@@ -3794,11 +3823,12 @@ ZEND_VM_HANDLER(149, ZEND_HANDLE_EXCEPTION, ANY, ANY)
 	}
 
 	for (i=0; i<EX(op_array)->last_brk_cont; i++) {
-		if (EX(op_array)->brk_cont_array[i].start > op_num) {
+		if (EX(op_array)->brk_cont_array[i].start < 0) {
+			continue;
+		} else if (EX(op_array)->brk_cont_array[i].start > op_num) {
 			/* further blocks will not be relevant... */
 			break;
-		}
-		if (op_num < EX(op_array)->brk_cont_array[i].brk) {
+		} else if (op_num < EX(op_array)->brk_cont_array[i].brk) {
 			if (!catched ||
 			    catch_op_num >= EX(op_array)->brk_cont_array[i].brk) {
 				zend_op *brk_opline = &EX(op_array)->opcodes[EX(op_array)->brk_cont_array[i].brk];

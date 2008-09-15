@@ -1,6 +1,7 @@
---- loginrec.c.orig	2004-04-07 23:16:06.000000000 -0700
-+++ loginrec.c	2005-12-21 18:10:44.000000000 -0800
-@@ -1395,6 +1395,38 @@
+diff -uNr ../openssh-5.0p1.orig/loginrec.c ./loginrec.c
+--- ../openssh-5.0p1.orig/loginrec.c	2007-04-28 19:10:58.000000000 -0700
++++ ./loginrec.c	2008-04-17 12:43:18.000000000 -0700
+@@ -1456,6 +1456,38 @@
   **/
  
  #ifdef USE_LASTLOG
@@ -39,9 +40,11 @@
  #define LL_FILE 1
  #define LL_DIR 2
  #define LL_OTHER 3
-@@ -1551,4 +1583,5 @@
+@@ -1613,6 +1645,7 @@
  	/* NOTREACHED */
  	return (0);
  }
 +#endif /* __APPLE_UTMPX__ */
  #endif /* USE_LASTLOG */
+ 
+ #ifdef USE_BTMP

@@ -509,7 +509,7 @@ static BOOL validate_memberd_uuid(const uuid_t uuid)
 		DEBUG(0, ("%s: unable to reverse map UUID %s\n",
 		    MODULE_NAME, uustr));
 
-		smb_panic("UUID mapping is broken");
+		return False;
 	}
 
 	switch (id_type) {
@@ -548,6 +548,7 @@ static BOOL map_uuid_to_sid(uuid_t *uuid, DOM_SID *sid)
 	if (!validate_memberd_uuid(*uuid)) {
 		DEBUG(10, ("%s: failing mapping for faked uuid=%s\n",
 				MODULE_NAME, uustr));
+		return False;
 	}
 
 	if (mbr_uuid_to_id(*uuid, &id, &id_type) != 0) {

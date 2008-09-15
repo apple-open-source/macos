@@ -138,14 +138,6 @@ bool IOHIKeyboard::init(OSDictionary * properties)
 
   bzero(_keyState, _keyStateSize);
   
-  AppendNewKeyboardReservedStructForService(this);
-  KeyboardReserved * tempReservedStruct = GetKeyboardReservedStructEventForService(this);
-
-  if (tempReservedStruct)
-  {
-    tempReservedStruct->repeat_thread_call = thread_call_allocate(_autoRepeat, this);
-  }
-
   return true;
 }
 
@@ -158,9 +150,36 @@ bool IOHIKeyboard::start(IOService * provider)
    * life).  Register ourselves as a nub to kick off matching.
    */
 
+  AppendNewKeyboardReservedStructForService(this);
+  KeyboardReserved * tempReservedStruct = GetKeyboardReservedStructEventForService(this);
+
+  if (tempReservedStruct)
+  {
+    tempReservedStruct->repeat_thread_call = thread_call_allocate(_autoRepeat, this);
+  }
+
   registerService(kIOServiceSynchronous);
 
   return true;
+}
+
+void IOHIKeyboard::stop(IOService * provider)
+{
+	super::stop(provider);
+
+	KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this);        
+
+	if (tempReservedStruct) {
+		thread_call_cancel(tempReservedStruct->repeat_thread_call);
+		thread_call_free(tempReservedStruct->repeat_thread_call);
+		tempReservedStruct->repeat_thread_call = NULL;
+
+		if ( tempReservedStruct->keyboardNub )
+			tempReservedStruct->keyboardNub->release();
+		tempReservedStruct->keyboardNub = NULL;
+		
+		RemoveKeyboardReservedStructForService(this);
+	}
 }
 
 void IOHIKeyboard::free()
@@ -182,18 +201,6 @@ void IOHIKeyboard::free()
     if( _keyState )
         IOFree( _keyState, _keyStateSize);
 
-    KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this);        
-    
-    if (tempReservedStruct) {
-        thread_call_cancel(tempReservedStruct->repeat_thread_call);
-        thread_call_free(tempReservedStruct->repeat_thread_call);
-
-        if ( tempReservedStruct->keyboardNub )
-            tempReservedStruct->keyboardNub->release();
-        
-        RemoveKeyboardReservedStructForService(this);
-    }
-    
     // RY: MENTAL NOTE Do this last
     if ( lock )
     {
@@ -283,7 +290,7 @@ IOReturn IOHIKeyboard::setParamProperties( OSDictionary * dict )
 			err = kIOReturnBadArgument;
 		} 
     }
-    if ( number = OSDynamicCast(OSNumber, dict->getObject(kIOHIDSubinterfaceIDKey)) )
+    if (NULL != (number = OSDynamicCast(OSNumber, dict->getObject(kIOHIDSubinterfaceIDKey))))
     {
         _deviceType = number->unsigned32BitValue();
         updated = true;

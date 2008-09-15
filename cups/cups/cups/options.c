@@ -1,5 +1,5 @@
 /*
- * "$Id: options.c 6703 2007-07-20 21:28:10Z mike $"
+ * "$Id: options.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Option routines for the Common UNIX Printing System (CUPS).
  *
@@ -63,9 +63,14 @@ cupsAddOption(const char    *name,	/* I - Name of option */
   cups_option_t	*temp;			/* Pointer to new option */
 
 
-  if (name == NULL || !name[0] || value == NULL ||
-      options == NULL || num_options < 0)
+  DEBUG_printf(("cupsAddOption(name=\"%s\", value=\"%s\", num_options=%d, "
+                "options=%p)\n", name, value, num_options, options));
+ 
+  if (!name || !name[0] || !value || !options || num_options < 0)
+  {
+    DEBUG_printf(("cupsAddOption: Returning %d\n", num_options));
     return (num_options);
+  }
 
  /*
   * Look for an existing option with the same name...
@@ -81,6 +86,8 @@ cupsAddOption(const char    *name,	/* I - Name of option */
     * No matching option name...
     */
 
+    DEBUG_puts("cupsAddOption: New option...");
+
     if (num_options == 0)
       temp = (cups_option_t *)malloc(sizeof(cups_option_t));
     else
@@ -88,7 +95,10 @@ cupsAddOption(const char    *name,	/* I - Name of option */
                                         	(num_options + 1));
 
     if (temp == NULL)
+    {
+      DEBUG_puts("cupsAddOption: Unable to expand option array, returning 0");
       return (0);
+    }
 
     *options    = temp;
     temp        += num_options;
@@ -122,7 +132,10 @@ cupsFreeOptions(
   int	i;				/* Looping var */
 
 
-  if (num_options <= 0 || options == NULL)
+  DEBUG_printf(("cupsFreeOptions(num_options=%d, options=%p)\n", num_options,
+                options));
+
+  if (num_options <= 0 || !options)
     return;
 
   for (i = 0; i < num_options; i ++)
@@ -147,13 +160,23 @@ cupsGetOption(const char    *name,	/* I - Name of option */
   int	i;				/* Looping var */
 
 
-  if (name == NULL || num_options <= 0 || options == NULL)
+  DEBUG_printf(("cupsGetOption(name=\"%s\", num_options=%d, options=%p)\n",
+                name, num_options, options));
+
+  if (!name || num_options <= 0 || !options)
+  {
+    DEBUG_puts("cupsGetOption: Returning NULL");
     return (NULL);
+  }
 
   for (i = 0; i < num_options; i ++)
-    if (strcasecmp(options[i].name, name) == 0)
+    if (!strcasecmp(options[i].name, name))
+    {
+      DEBUG_printf(("cupsGetOption: Returning \"%s\"\n", options[i].value));
       return (options[i].value);
+    }
 
+  DEBUG_puts("cupsGetOption: Returning NULL");
   return (NULL);
 }
 
@@ -474,22 +497,35 @@ cupsParseOptions(
 	quote;				/* Quote character */
 
 
+  DEBUG_printf(("cupsParseOptions(arg=\"%s\", num_options=%d, options=%p)\n",
+                arg, num_options, options));
+
  /*
   * Range check input...
   */
 
   if (!arg)
+  {
+    DEBUG_printf(("cupsParseOptions: Returning %d\n", num_options));
     return (num_options);
+  }
 
   if (!options || num_options < 0)
+  {
+    DEBUG_puts("cupsParseOptions: Returning 0");
     return (0);
+  }
 
  /*
   * Make a copy of the argument string and then divide it up...
   */
 
   if ((copyarg = strdup(arg)) == NULL)
+  {
+    DEBUG_puts("cupsParseOptions: Unable to copy arg string");
+    DEBUG_printf(("cupsParseOptions: Returning %d\n", num_options));
     return (num_options);
+  }
 
   ptr = copyarg;
 
@@ -528,6 +564,8 @@ cupsParseOptions(
     while (isspace(*ptr & 255))
       *ptr++ = '\0';
 
+    DEBUG_printf(("cupsParseOptions: name=\"%s\"\n", name));
+
     if (*ptr != '=')
     {
      /*
@@ -548,80 +586,84 @@ cupsParseOptions(
     */
 
     *ptr++ = '\0';
+    value  = ptr;
 
-    if (*ptr == '\'' || *ptr == '\"')
+    while (*ptr && !isspace(*ptr & 255))
     {
-     /*
-      * Quoted string constant...
-      */
-
-      quote = *ptr++;
-      value = ptr;
-
-      while (*ptr != quote && *ptr)
-      {
-        if (*ptr == '\\' && ptr[1])
-	  _cups_strcpy(ptr, ptr + 1);
-
+      if (*ptr == ',')
         ptr ++;
-      }
+      else if (*ptr == '\'' || *ptr == '\"')
+      {
+       /*
+	* Quoted string constant...
+	*/
 
-      if (*ptr != '\0')
-        *ptr++ = '\0';
-    }
-    else if (*ptr == '{')
-    {
-     /*
-      * Collection value...
-      */
+	quote = *ptr;
+	_cups_strcpy(ptr, ptr + 1);
 
-      int depth;
-
-      value = ptr;
-
-      for (depth = 1; *ptr; ptr ++)
-        if (*ptr == '{')
-	  depth ++;
-	else if (*ptr == '}')
+	while (*ptr != quote && *ptr)
 	{
-	  depth --;
-	  if (!depth)
-	  {
-	    ptr ++;
+	  if (*ptr == '\\' && ptr[1])
+	    _cups_strcpy(ptr, ptr + 1);
 
-	    if (*ptr != ',')
-	      break;
-	  }
-        }
-        else if (*ptr == '\\' && ptr[1])
+	  ptr ++;
+	}
+
+	if (*ptr)
 	  _cups_strcpy(ptr, ptr + 1);
-
-      if (*ptr != '\0')
-        *ptr++ = '\0';
-    }
-    else
-    {
-     /*
-      * Normal space-delimited string...
-      */
-
-      value = ptr;
-
-      while (!isspace(*ptr & 255) && *ptr)
+      }
+      else if (*ptr == '{')
       {
-        if (*ptr == '\\' && ptr[1])
-	  _cups_strcpy(ptr, ptr + 1);
+       /*
+	* Collection value...
+	*/
 
-        ptr ++;
+	int depth;
+
+	for (depth = 0; *ptr; ptr ++)
+	{
+	  if (*ptr == '{')
+	    depth ++;
+	  else if (*ptr == '}')
+	  {
+	    depth --;
+	    if (!depth)
+	    {
+	      ptr ++;
+	      break;
+	    }
+	  }
+	  else if (*ptr == '\\' && ptr[1])
+	    _cups_strcpy(ptr, ptr + 1);
+	}
+      }
+      else
+      {
+       /*
+	* Normal space-delimited string...
+	*/
+
+	while (!isspace(*ptr & 255) && *ptr)
+	{
+	  if (*ptr == '\\' && ptr[1])
+	    _cups_strcpy(ptr, ptr + 1);
+
+	  ptr ++;
+	}
       }
     }
+
+    if (*ptr != '\0')
+      *ptr++ = '\0';
+
+    DEBUG_printf(("cupsParseOptions: value=\"%s\"\n", value));
 
    /*
     * Skip trailing whitespace...
     */
 
     while (isspace(*ptr & 255))
-      *ptr++ = '\0';
+      ptr ++;
 
    /*
     * Add the string value...
@@ -636,6 +678,8 @@ cupsParseOptions(
   */
 
   free(copyarg);
+
+  DEBUG_printf(("cupsParseOptions: Returning %d\n", num_options));
 
   return (num_options);
 }
@@ -657,12 +701,18 @@ cupsRemoveOption(
   cups_option_t	*option;		/* Current option */
 
 
+  DEBUG_printf(("cupsRemoveOption(name=\"%s\", num_options=%d, options=%p)\n",
+                name, num_options, options));
+
  /*
   * Range check input...
   */
 
   if (!name || num_options < 1 || !options)
+  {
+    DEBUG_printf(("cupsRemoveOption: Returning %d\n", num_options));
     return (num_options);
+  }
 
  /*
   * Loop for the option...
@@ -677,6 +727,8 @@ cupsRemoveOption(
    /*
     * Remove this option from the array...
     */
+
+    DEBUG_puts("cupsRemoveOption: Found option, removing it...");
 
     num_options --;
     i --;
@@ -693,6 +745,7 @@ cupsRemoveOption(
   * Return the new number of options...
   */
 
+  DEBUG_printf(("cupsRemoveOption: Returning %d\n", num_options));
   return (num_options);
 }
 
@@ -802,5 +855,5 @@ ppd_mark_choices(ppd_file_t *ppd,	/* I - PPD file */
 
 
 /*
- * End of "$Id: options.c 6703 2007-07-20 21:28:10Z mike $".
+ * End of "$Id: options.c 7721 2008-07-11 22:48:49Z mike $".
  */

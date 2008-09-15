@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: exif.c,v 1.173.2.5.2.20 2007/06/10 20:12:45 iliaa Exp $ */
+/* $Id: exif.c,v 1.173.2.5.2.25 2008/03/12 17:33:14 iliaa Exp $ */
 
 /*  ToDos
  *
@@ -142,7 +142,7 @@ zend_function_entry exif_functions[] = {
 };
 /* }}} */
 
-#define EXIF_VERSION "1.4 $Id: exif.c,v 1.173.2.5.2.20 2007/06/10 20:12:45 iliaa Exp $"
+#define EXIF_VERSION "1.4 $Id: exif.c,v 1.173.2.5.2.25 2008/03/12 17:33:14 iliaa Exp $"
 
 /* {{{ PHP_MINFO_FUNCTION
  */
@@ -241,12 +241,21 @@ PHP_MSHUTDOWN_FUNCTION(exif)
 }
 /* }}} */
 
+/* {{{ exif dependencies */
+static zend_module_dep exif_module_deps[] = {
+	ZEND_MOD_REQUIRED("standard")
+#if EXIF_USE_MBSTRING
+	ZEND_MOD_REQUIRED("mbstring")
+#endif
+	{NULL, NULL, NULL}
+};
+/* }}} */
+
 /* {{{ exif_module_entry
  */
 zend_module_entry exif_module_entry = {
-#if ZEND_MODULE_API_NO >= 20010901
-	STANDARD_MODULE_HEADER,
-#endif
+	STANDARD_MODULE_HEADER_EX, NULL,
+	exif_module_deps,
 	"exif",
 	exif_functions,
 	PHP_MINIT(exif), 
@@ -2868,7 +2877,7 @@ static int exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, cha
 					/* exception are IFD pointers */
 					exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Process tag(x%04X=%s): Illegal pointer offset(x%04X + x%04X = x%04X > x%04X)", tag, exif_get_tagname(tag, tagname, -12, tag_table TSRMLS_CC), offset_val, byte_count, offset_val+byte_count, IFDlength);
 				}
-				return TRUE;
+				return FALSE;
 			}
 			if (byte_count>sizeof(cbuf)) {
 				/* mark as outside range and get buffer */

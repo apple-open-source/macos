@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-defaults.m4 6754 2007-08-01 19:00:07Z mike $"
+dnl "$Id: cups-defaults.m4 7448 2008-04-14 18:10:27Z mike $"
 dnl
 dnl   Default cupsd configuration settings for the Common UNIX Printing System
 dnl   (CUPS).
@@ -290,10 +290,10 @@ fi
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_PRINTCAP, "$CUPS_DEFAULT_PRINTCAP")
 
 dnl Default MaxCopies value...
-AC_ARG_WITH(max-copies, [  --with-max-copies       set max copies value, default=100 ],
+AC_ARG_WITH(max-copies, [  --with-max-copies       set default max copies value, default=auto ],
 	CUPS_MAX_COPIES="$withval",
 	if test "x$uname" = xDarwin; then
-		CUPS_MAX_COPIES="999"
+		CUPS_MAX_COPIES="9999"
 	else
 		CUPS_MAX_COPIES="100"
 	fi)
@@ -346,5 +346,5 @@ AC_SUBST(DEFAULT_IPP_PORT)
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_IPP_PORT,$DEFAULT_IPP_PORT)
 
 dnl
-dnl End of "$Id: cups-defaults.m4 6754 2007-08-01 19:00:07Z mike $".
+dnl End of "$Id: cups-defaults.m4 7448 2008-04-14 18:10:27Z mike $".
 dnl

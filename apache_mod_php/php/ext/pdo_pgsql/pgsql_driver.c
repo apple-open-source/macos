@@ -2,7 +2,7 @@
   +----------------------------------------------------------------------+
   | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
+  | Copyright (c) 1997-2008 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 3.01 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: pgsql_driver.c,v 1.53.2.14.2.9 2007/06/28 03:13:29 iliaa Exp $ */
+/* $Id: pgsql_driver.c,v 1.53.2.14.2.11 2007/12/31 07:20:10 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -692,14 +692,14 @@ static int pdo_pgsql_handle_factory(pdo_dbh_t *dbh, zval *driver_options TSRMLS_
 	}
 
 	/* support both full connection string & connection string + login and/or password */
-	if (!dbh->username || !dbh->password) {
-		spprintf(&conn_str, 0, "%s connect_timeout=%ld", (char *) dbh->data_source, connect_timeout);
-	} else if (dbh->username && dbh->password) {
+	if (dbh->username && dbh->password) {
 		spprintf(&conn_str, 0, "%s user=%s password=%s connect_timeout=%ld", dbh->data_source, dbh->username, dbh->password, connect_timeout);
 	} else if (dbh->username) {
 		spprintf(&conn_str, 0, "%s user=%s connect_timeout=%ld", dbh->data_source, dbh->username, connect_timeout);
-	} else {
+	} else if (dbh->password) {
 		spprintf(&conn_str, 0, "%s password=%s connect_timeout=%ld", dbh->data_source, dbh->password, connect_timeout);
+	} else {
+		spprintf(&conn_str, 0, "%s connect_timeout=%ld", (char *) dbh->data_source, connect_timeout);
 	}
 
 	H->server = PQconnectdb(conn_str);

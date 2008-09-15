@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 6824 2007-08-20 22:21:15Z mike $"
+# "$Id: Makefile 7336 2008-02-20 21:04:09Z mike $"
 #
 #   Documentation makefile for the Common UNIX Printing System (CUPS).
 #
@@ -217,18 +217,14 @@ install:	all $(INSTALL_LANGUAGES)
 
 install-languages:
 	for lang in $(LANGUAGES); do \
-		$(INSTALL_DIR) -m 755 $(DOCDIR)/$$lang/images; \
-		if test -f $$lang/index.html; then \
-			$(INSTALL_MAN) $$lang/index.html $(DOCDIR)/$$lang; \
+		if test -d $$lang; then \
+			$(INSTALL_DIR) -m 755 $(DOCDIR)/$$lang/images; \
+			$(INSTALL_MAN) $$lang/index.html $(DOCDIR)/$$lang 2>/dev/null || true; \
+			$(INSTALL_MAN) $$lang/cups.css $(DOCDIR)/$$lang 2>/dev/null || true; \
+			for file in $(WEBBUTTONS); do \
+				$(INSTALL_MAN) $$lang/$$file $(DOCDIR)/$$lang/images 2>/dev/null || true; \
+			done \
 		fi; \
-		if test -f $$lang/cups.css; then \
-			$(INSTALL_MAN) $$lang/cups.css $(DOCDIR)/$$lang; \
-		fi; \
-		for file in $(WEBBUTTONS); do \
-			if test -f $$lang/$$file; then \
-				$(INSTALL_MAN) $$lang/$$file $(DOCDIR)/$$lang/images; \
-			fi; \
-		done \
 	done
 
 

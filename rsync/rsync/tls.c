@@ -1,6 +1,8 @@
-/* -*- c-file-style: "linux" -*-
+/*
+ * Trivial ls for comparing two directories after running an rsync.
  *
- * Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
+ * Copyright (C) 2001, 2002 Martin Pool <mbp@samba.org>
+ * Copyright (C) 2003, 2004, 2005 Wayne Davison
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -11,17 +13,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/**
- * @file tls.c
- *
- * Trivial @c ls for comparing two directories after running an rsync.
- *
- * The problem with using the system's own ls is that some features
+/* The problem with using the system's own ls is that some features
  * have little quirks that make directories look different when for
  * our purposes they're the same -- for example, the BSD braindamage
  * about setting the mode on symlinks based on your current umask.
@@ -34,9 +31,7 @@
  *
  * A key requirement for this program is that the output be "very
  * reproducible."  So we mask away information that can accidentally
- * change.
- **/
-
+ * change. */
 
 #include "rsync.h"
 
@@ -47,10 +42,10 @@ int dry_run = 0;
 int read_only = 1;
 int list_only = 0;
 int preserve_perms = 0;
+int preserve_links = 0;
 #ifdef EA_SUPPORT
 int extended_attributes = 0;
 #endif
-
 
 static void failed(char const *what, char const *where)
 {
@@ -58,8 +53,6 @@ static void failed(char const *what, char const *where)
 		what, where, strerror(errno));
 	exit(1);
 }
-
-
 
 static void list_file(const char *fname)
 {
@@ -69,7 +62,7 @@ static void list_file(const char *fname)
 	char datebuf[50];
 	char linkbuf[4096];
 
-	if (do_lstat(fname, &buf) == -1)
+	if (do_lstat(fname, &buf) < 0)
 		failed("stat", fname);
 
 	/* The size of anything but a regular file is probably not
@@ -85,7 +78,7 @@ static void list_file(const char *fname)
 		buf.st_mode &= ~0777;
 		buf.st_mtime = (time_t)0;
 		buf.st_uid = buf.st_gid = 0;
-		strcpy(linkbuf, " -> ");
+		strlcpy(linkbuf, " -> ", sizeof linkbuf);
 		/* const-cast required for silly UNICOS headers */
 		len = readlink((char *) fname, linkbuf+4, sizeof(linkbuf) - 4);
 		if (len == -1)
@@ -102,16 +95,16 @@ static void list_file(const char *fname)
 	if (buf.st_mtime) {
 		mt = gmtime(&buf.st_mtime);
 
-		sprintf(datebuf, "%04d-%02d-%02d %02d:%02d:%02d",
-			mt->tm_year + 1900,
-			mt->tm_mon + 1,
-			mt->tm_mday,
-			mt->tm_hour,
-			mt->tm_min,
-			mt->tm_sec);
-	} else {
-		strcpy(datebuf, "                   ");
-	}
+		snprintf(datebuf, sizeof datebuf,
+			"%04d-%02d-%02d %02d:%02d:%02d",
+			(int)mt->tm_year + 1900,
+			(int)mt->tm_mon + 1,
+			(int)mt->tm_mday,
+			(int)mt->tm_hour,
+			(int)mt->tm_min,
+			(int)mt->tm_sec);
+	} else
+		strlcpy(datebuf, "                   ", sizeof datebuf);
 
 	/* TODO: Perhaps escape special characters in fname? */
 
@@ -126,7 +119,6 @@ static void list_file(const char *fname)
 	       (long)buf.st_uid, (long)buf.st_gid, (long)buf.st_nlink,
 	       datebuf, fname, linkbuf);
 }
-
 
 int
 main(int argc, char *argv[])

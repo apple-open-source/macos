@@ -1,10 +1,10 @@
 #!/bin/sh
 #
-# "$Id: 5.8-cancel.sh 6649 2007-07-11 21:46:42Z mike $"
+# "$Id: 5.8-cancel.sh 7410 2008-03-29 00:34:23Z mike $"
 #
 #   Test the cancel command.
 #
-#   Copyright 2007 by Apple Inc.
+#   Copyright 2007-2008 by Apple Inc.
 #   Copyright 1997-2006 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -16,6 +16,8 @@
 
 echo "Cancel Destination Test"
 echo ""
+echo "    lp -d Test1 -o job-hold-until=indefinite testfile.jpg"
+../systemv/lp -d Test1 -o job-hold-until=indefinite testfile.jpg 2>&1
 echo "    cancel Test1"
 ../systemv/cancel Test1 2>&1
 if test $? != 0; then
@@ -39,5 +41,5 @@ fi
 echo ""
 
 #
-# End of "$Id: 5.8-cancel.sh 6649 2007-07-11 21:46:42Z mike $".
+# End of "$Id: 5.8-cancel.sh 7410 2008-03-29 00:34:23Z mike $".
 #

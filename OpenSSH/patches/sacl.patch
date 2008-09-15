@@ -1,7 +1,7 @@
-diff -Naur ../openssh-4.4p1.orig/auth.c ./auth.c
---- ../openssh-4.4p1.orig/auth.c	2006-09-06 17:36:43.000000000 -0700
-+++ ./auth.c	2006-10-19 17:22:43.000000000 -0700
-@@ -45,6 +45,11 @@
+diff -uNr ../openssh-5.1p1.orig/auth.c ./auth.c
+--- ../openssh-5.1p1.orig/auth.c	2008-07-09 03:54:51.000000000 -0700
++++ ./auth.c	2008-08-04 10:55:43.000000000 -0700
+@@ -46,6 +46,11 @@
  #ifdef HAVE_LIBGEN_H
  #include <libgen.h>
  #endif
@@ -13,7 +13,7 @@ diff -Naur ../openssh-4.4p1.orig/auth.c ./auth.c
  #include <stdarg.h>
  #include <stdio.h>
  #include <string.h>
-@@ -233,6 +238,46 @@
+@@ -234,6 +239,46 @@
  			}
  		ga_free();
  	}
@@ -60,26 +60,26 @@ diff -Naur ../openssh-4.4p1.orig/auth.c ./auth.c
  
  #ifdef CUSTOM_SYS_AUTH_ALLOWED_USER
  	if (!sys_auth_allowed_user(pw, &loginmsg))
-diff -Naur ../openssh-4.4p1.orig/servconf.c ./servconf.c
---- ../openssh-4.4p1.orig/servconf.c	2006-08-18 07:23:15.000000000 -0700
-+++ ./servconf.c	2006-10-19 17:24:47.000000000 -0700
-@@ -97,6 +97,7 @@
+diff -uNr ../openssh-5.1p1.orig/servconf.c ./servconf.c
+--- ../openssh-5.1p1.orig/servconf.c	2008-07-03 20:51:12.000000000 -0700
++++ ./servconf.c	2008-08-04 10:56:41.000000000 -0700
+@@ -99,6 +99,7 @@
  	options->permit_empty_passwd = -1;
  	options->permit_user_env = -1;
  	options->use_login = -1;
 +	options->sacl_support = -1;
  	options->compression = -1;
  	options->allow_tcp_forwarding = -1;
- 	options->num_allow_users = 0;
-@@ -293,6 +294,7 @@
+ 	options->allow_agent_forwarding = -1;
+@@ -302,6 +303,7 @@
  	sGssAuthentication, sGssCleanupCreds, sAcceptEnv, sPermitTunnel,
- 	sMatch, sPermitOpen, sForceCommand,
- 	sUsePrivilegeSeparation,
+ 	sMatch, sPermitOpen, sForceCommand, sChrootDirectory,
+ 	sUsePrivilegeSeparation, sAllowAgentForwarding,
 +	sSACLSupport,
  	sDeprecated, sUnsupported
  } ServerOpCodes;
  
-@@ -398,6 +400,7 @@
+@@ -409,6 +411,7 @@
  	{ "authorizedkeysfile", sAuthorizedKeysFile, SSHCFG_GLOBAL },
  	{ "authorizedkeysfile2", sAuthorizedKeysFile2, SSHCFG_GLOBAL },
  	{ "useprivilegeseparation", sUsePrivilegeSeparation, SSHCFG_GLOBAL },
@@ -87,7 +87,7 @@ diff -Naur ../openssh-4.4p1.orig/servconf.c ./servconf.c
  	{ "acceptenv", sAcceptEnv, SSHCFG_GLOBAL },
  	{ "permittunnel", sPermitTunnel, SSHCFG_GLOBAL },
   	{ "match", sMatch, SSHCFG_ALL },
-@@ -912,6 +915,10 @@
+@@ -922,6 +925,10 @@
  		charptr = &options->xauth_location;
  		goto parse_filename;
  
@@ -98,10 +98,10 @@ diff -Naur ../openssh-4.4p1.orig/servconf.c ./servconf.c
  	case sStrictModes:
  		intptr = &options->strict_modes;
  		goto parse_flag;
-diff -Naur ../openssh-4.4p1.orig/servconf.h ./servconf.h
---- ../openssh-4.4p1.orig/servconf.h	2006-08-18 07:23:15.000000000 -0700
-+++ ./servconf.h	2006-10-19 17:25:18.000000000 -0700
-@@ -137,6 +137,7 @@
+diff -uNr ../openssh-5.1p1.orig/servconf.h ./servconf.h
+--- ../openssh-5.1p1.orig/servconf.h	2008-06-10 06:01:51.000000000 -0700
++++ ./servconf.h	2008-08-04 10:57:02.000000000 -0700
+@@ -143,6 +143,7 @@
  	char   *adm_forced_command;
  
  	int	use_pam;		/* Enable auth via PAM */
@@ -109,10 +109,10 @@ diff -Naur ../openssh-4.4p1.orig/servconf.h ./servconf.h
  
  	int	permit_tun;
  
-diff -Naur ../openssh-4.4p1.orig/sshd_config ./sshd_config
---- ../openssh-4.4p1.orig/sshd_config	2006-07-23 21:06:47.000000000 -0700
-+++ ./sshd_config	2006-10-19 17:26:01.000000000 -0700
-@@ -56,6 +56,9 @@
+diff -uNr ../openssh-5.1p1.orig/sshd_config ./sshd_config
+--- ../openssh-5.1p1.orig/sshd_config	2008-07-02 05:35:43.000000000 -0700
++++ ./sshd_config	2008-08-04 10:58:34.000000000 -0700
+@@ -61,6 +61,9 @@
  #PasswordAuthentication yes
  #PermitEmptyPasswords no
  

@@ -69,8 +69,10 @@ public:
 
     virtual IOReturn clientClose( void );
     
-    virtual IOExternalMethod * getTargetAndMethodForIndex( 
-                    IOService ** targetP, UInt32 index );
+    virtual IOReturn externalMethod( uint32_t selector, 
+                                IOExternalMethodArguments * arguments,
+                                IOExternalMethodDispatch * dispatch = 0, 
+                                OSObject * targe    = 0, void * reference = 0 );
 
     virtual bool start( IOService * provider );
 

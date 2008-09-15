@@ -539,7 +539,7 @@ opendirectory_add_data_buffer_item(tDataBufferPtr dataBuffer,
 		goto cleanup;
 	}
 
-	status = opendirectory_authenticate_node(&session, nodeRef);
+	status = opendirectory_authenticate_node_r(&session, nodeRef);
 	if (status != eDSNoErr) {
 		goto cleanup;
 	}
@@ -623,7 +623,7 @@ cleanup:
 	authenticator = get_opendirectory_authenticator();
 
 #ifdef AUTH_NODE_BEFORE_AUTH_AND_SESS_KEY
-	status = opendirectory_authenticate_node(session->ref, inUserNodeRef);
+	status = opendirectory_authenticate_node_r(session->ref, inUserNodeRef);
 
 	if (status != eDSNoErr)
 		goto cleanup;
@@ -711,7 +711,7 @@ cleanup:
 	tDataNodePtr		recordType	= NULL;
 	tDirNodeReference nodeRef = inUserNodeRef;
 
-	status = opendirectory_authenticate_node(session, nodeRef);
+	status = opendirectory_authenticate_node_r(session, nodeRef);
 	if (status != eDSNoErr) {
 		goto cleanup;
 	}
@@ -787,7 +787,7 @@ cleanup:
 		goto cleanup;
 	}
 
-	status = opendirectory_authenticate_node(&session, nodeRef);
+	status = opendirectory_authenticate_node_r(&session, nodeRef);
 	if (status != eDSNoErr) {
 		goto cleanup;
 	}
@@ -873,7 +873,7 @@ cleanup:
 		goto cleanup;
 	}
 
-	status = opendirectory_authenticate_node(&session, nodeRef);
+	status = opendirectory_authenticate_node_r(&session, nodeRef);
 	if (status != eDSNoErr) {
 		goto cleanup;
 	}
@@ -947,7 +947,7 @@ cleanup:
 		goto cleanup;
 	}
 
-	status = opendirectory_authenticate_node(&session, nodeRef);
+	status = opendirectory_authenticate_node_r(&session, nodeRef);
 	if (status != eDSNoErr) {
 		goto cleanup;
 	}
@@ -1052,6 +1052,76 @@ cleanup:
 		authenticator_secret(authenticator));
 
 	status = dsDoDirNodeAuthOnRecordType(nodeRef, authType, 0,
+			authBuff, stepBuff, NULL,  recordType);
+
+cleanup:
+
+	opendirectory_free_buffer(session, stepBuff);
+	opendirectory_free_buffer(session,authBuff);
+	opendirectory_free_node(session, authType);
+	opendirectory_free_node(session, recordType);
+
+	delete_opendirectory_authenticator(authenticator);
+	return status;
+}
+/*
+ * opendirectory_authenticate_node_r uses dsAuthMethodStandard:dsAuthNodeNativeRetainCredential
+ * to provide another level of granularity where you need multi-master access to Password Server authentication methods
+ * but NOT write access to the single write enabled LDAP server on an OD Master.
+ */
+ tDirStatus opendirectory_authenticate_node_r(
+			struct opendirectory_session *session,
+			tDirNodeReference nodeRef)
+{
+	tDirStatus 		status		= eDSNoErr;
+	tDataBufferPtr		authBuff  	= NULL;
+	tDataBufferPtr		stepBuff  	= NULL;
+	tDataNodePtr		authType	= NULL;
+	tDataNodePtr		recordType	= NULL;
+	void *			authenticator = NULL;
+
+	authenticator = get_opendirectory_authenticator();
+
+	if (authenticator == NULL ||
+	    authenticator_accountlen(authenticator) == 0 ||
+	    authenticator_secretlen(authenticator) == 0) {
+		return eDSNullParameter;
+	}
+
+	authBuff = DS_DEFAULT_BUFFER(session->ref);
+	if (authBuff == NULL) {
+		status = eDSDeAllocateFailed;
+		goto cleanup;
+	}
+
+	authBuff->fBufferLength = 0;
+	stepBuff = DS_DEFAULT_BUFFER(session->ref);
+	if (stepBuff == NULL) {
+		status = eDSDeAllocateFailed;
+		goto cleanup;
+	}
+
+	authType = dsDataNodeAllocateString(session->ref,
+			"dsAuthMethodStandard:dsAuthNodeNativeRetainCredential");
+	recordType = dsDataNodeAllocateString(session->ref,
+			kDSStdRecordTypeUsers);
+
+	if (authType == NULL || recordType == NULL) {
+		status = eDSDeAllocateFailed;
+		goto cleanup;
+	}
+
+	// Account Name (authenticator)
+	opendirectory_add_data_buffer_item(authBuff,
+		authenticator_accountlen(authenticator),
+		authenticator_account(authenticator));
+
+	// Password (authenticator password)
+	opendirectory_add_data_buffer_item(authBuff,
+		authenticator_secretlen(authenticator),
+		authenticator_secret(authenticator));
+
+	status = dsDoDirNodeAuthOnRecordType(nodeRef, authType, 1,
 			authBuff, stepBuff, NULL,  recordType);
 
 cleanup:

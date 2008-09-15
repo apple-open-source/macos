@@ -1,5 +1,7 @@
 --TEST--
-mktime() [3]
+mktime() [3] (32-bit)
+--SKIPIF--
+<?php echo PHP_INT_SIZE == 8 ? "skip 32-bit only" : "OK" ?>
 --INI--
 error_reporting=2047
 --FILE--

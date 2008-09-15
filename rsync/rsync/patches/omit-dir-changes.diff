@@ -1,0 +1,131 @@
+This patch from Antti Tapaninen added the --omit-dir-changes option, which
+tells rsync to not affect any attributes on the directories in the transfer.
+
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/omit-dir-changes.diff
+    ./configure                              (optional if already run)
+    make
+
+--- old/generator.c
++++ new/generator.c
+@@ -44,6 +44,7 @@ extern int preserve_uid;
+ extern int preserve_gid;
+ extern int preserve_times;
+ extern int omit_dir_times;
++extern int omit_dir_changes;
+ extern int delete_mode;
+ extern int delete_before;
+ extern int delete_during;
+@@ -348,10 +349,11 @@ void itemize(struct file_struct *file, i
+ 			iflags |= ITEM_REPORT_TIME;
+ 		if ((file->mode & CHMOD_BITS) != (st->st_mode & CHMOD_BITS))
+ 			iflags |= ITEM_REPORT_PERMS;
+-		if (preserve_uid && am_root && file->uid != st->st_uid)
++		if (preserve_uid && am_root && file->uid != st->st_uid
++		 && !(omit_dir_changes && S_ISDIR(st->st_mode)))
+ 			iflags |= ITEM_REPORT_OWNER;
+-		if (preserve_gid && file->gid != GID_NONE
+-		    && st->st_gid != file->gid)
++		if (preserve_gid && file->gid != GID_NONE && st->st_gid != file->gid
++		 && !(omit_dir_changes && S_ISDIR(st->st_mode)))
+ 			iflags |= ITEM_REPORT_GROUP;
+ 	} else
+ 		iflags |= ITEM_IS_NEW;
+@@ -892,7 +894,7 @@ static void recv_generator(char *fname, 
+ 
+ 	/* If we're not preserving permissions, change the file-list's
+ 	 * mode based on the local permissions and some heuristics. */
+-	if (!preserve_perms) {
++	if (!preserve_perms || (omit_dir_changes && S_ISDIR(st.st_mode))) {
+ 		int exists = statret == 0
+ 			  && S_ISDIR(st.st_mode) == S_ISDIR(file->mode);
+ 		file->mode = dest_mode(file->mode, st.st_mode, exists);
+--- old/options.c
++++ new/options.c
+@@ -55,6 +55,7 @@ int preserve_uid = 0;
+ int preserve_gid = 0;
+ int preserve_times = 0;
+ int omit_dir_times = 0;
++int omit_dir_changes = 0;
+ int update_only = 0;
+ int cvs_exclude = 0;
+ int dry_run = 0;
+@@ -313,6 +314,7 @@ void usage(enum logcode F)
+   rprintf(F," -D                          same as --devices --specials\n");
+   rprintf(F," -t, --times                 preserve times\n");
+   rprintf(F," -O, --omit-dir-times        omit directories when preserving times\n");
++  rprintf(F,"     --omit-dir-changes      omit directories when preserving any attributes\n");
+   rprintf(F,"     --super                 receiver attempts super-user activities\n");
+   rprintf(F," -S, --sparse                handle sparse files efficiently\n");
+   rprintf(F," -n, --dry-run               show what would have been transferred\n");
+@@ -429,6 +431,7 @@ static struct poptOption long_options[] 
+   {"no-times",         0,  POPT_ARG_VAL,    &preserve_times, 0, 0, 0 },
+   {"no-t",             0,  POPT_ARG_VAL,    &preserve_times, 0, 0, 0 },
+   {"omit-dir-times",  'O', POPT_ARG_VAL,    &omit_dir_times, 2, 0, 0 },
++  {"omit-dir-changes", 0,  POPT_ARG_NONE,   &omit_dir_changes, 0, 0, 0 },
+   {"modify-window",    0,  POPT_ARG_INT,    &modify_window, OPT_MODIFY_WINDOW, 0, 0 },
+   {"super",            0,  POPT_ARG_VAL,    &am_root, 2, 0, 0 },
+   {"no-super",         0,  POPT_ARG_VAL,    &am_root, 0, 0, 0 },
+@@ -1287,6 +1290,9 @@ int parse_arguments(int *argc, const cha
+ 			"P *%s", backup_suffix);
+ 		parse_rule(&filter_list, backup_dir_buf, 0, 0);
+ 	}
++
++	if (omit_dir_changes)
++		omit_dir_times = 2;
+ 	if (make_backups && !backup_dir)
+ 		omit_dir_times = 1;
+ 
+@@ -1515,6 +1521,8 @@ void server_options(char **args,int *arg
+ 			argstr[x++] = 'm';
+ 		if (omit_dir_times == 2)
+ 			argstr[x++] = 'O';
++		if (omit_dir_changes == 1)
++			args[ac++] = "--omit-dir-changes";
+ 	} else {
+ 		if (copy_links)
+ 			argstr[x++] = 'L';
+--- old/receiver.c
++++ new/receiver.c
+@@ -37,6 +37,7 @@ extern int protocol_version;
+ extern int relative_paths;
+ extern int preserve_hard_links;
+ extern int preserve_perms;
++extern int omit_dir_changes;
+ extern int basis_dir_cnt;
+ extern int make_backups;
+ extern int cleanup_got_literal;
+@@ -551,7 +552,7 @@ int recv_files(int f_in, struct file_lis
+ 
+ 		/* If we're not preserving permissions, change the file-list's
+ 		 * mode based on the local permissions and some heuristics. */
+-		if (!preserve_perms) {
++		if (!preserve_perms || (omit_dir_changes && S_ISDIR(st.st_mode))) {
+ 			int exists = fd1 != -1;
+ 			file->mode = dest_mode(file->mode, st.st_mode, exists);
+ 		}
+--- old/rsync.c
++++ new/rsync.c
+@@ -36,6 +36,7 @@ extern int preserve_perms;
+ extern int preserve_executability;
+ extern int preserve_times;
+ extern int omit_dir_times;
++extern int omit_dir_changes;
+ extern int am_root;
+ extern int am_server;
+ extern int am_sender;
+@@ -162,9 +163,11 @@ int set_file_attrs(char *fname, struct f
+ 			updated = 1;
+ 	}
+ 
+-	change_uid = am_root && preserve_uid && st->st_uid != file->uid;
++	change_uid = am_root && preserve_uid && st->st_uid != file->uid
++		&& !(omit_dir_changes && S_ISDIR(st->st_mode));
+ 	change_gid = preserve_gid && file->gid != GID_NONE
+-		&& st->st_gid != file->gid;
++		&& st->st_gid != file->gid
++		&& !(omit_dir_changes && S_ISDIR(st->st_mode));
+ #if !defined HAVE_LCHOWN && !defined CHOWN_MODIFIES_SYMLINK
+ 	if (S_ISLNK(st->st_mode))
+ 		;

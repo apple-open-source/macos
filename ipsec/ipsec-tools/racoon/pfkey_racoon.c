@@ -191,34 +191,14 @@ static int addnewsp __P((caddr_t *));
 #endif
 #endif
 
-/*
- * PF_KEY packet handler
- *	0: success
- *	-1: fail
- */
+	
 int
-pfkey_handler()
-{
+pfkey_process(msg)
 	struct sadb_msg *msg;
-	int len;
+{
 	caddr_t mhp[SADB_EXT_MAX + 1];
 	int error = -1;
-
-	/* receive pfkey message. */
-	len = 0;
-	msg = (struct sadb_msg *)pk_recv(lcconf->sock_pfkey, &len);
-	if (msg == NULL) {
-		if (len < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to recv from pfkey (%s)\n",
-				strerror(errno));
-			goto end;
-		} else {
-			/* short message - msg not ready */
-			return 0;
-		}
-	}
-
+	
 	plog(LLV_DEBUG, LOCATION, NULL, "get pfkey %s message\n",
 		s_pfkey_type(msg->sadb_msg_type));
 	plogdump(LLV_DEBUG2, msg, msg->sadb_msg_len << 3);
@@ -283,6 +263,62 @@ end:
 }
 
 /*
+ * PF_KEY packet handler
+ *	0: success
+ *	-1: fail
+ */
+int
+pfkey_handler()
+{
+	struct sadb_msg *msg;
+	int len;
+
+	/* receive pfkey message. */
+	len = 0;
+	msg = (struct sadb_msg *)pk_recv(lcconf->sock_pfkey, &len);
+	if (msg == NULL) {
+		if (len < 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to recv from pfkey (%s)\n",
+				 strerror(errno));
+			return -1;			
+		} else {
+			/* short message - msg not ready */
+			return 0;
+		}
+	}
+	return pfkey_process(msg);
+}
+
+void
+pfkey_post_handler()
+{
+	struct saved_msg_elem *elem;
+	struct saved_msg_elem *elem_tmp = NULL;
+	
+	TAILQ_FOREACH_SAFE(elem, &lcconf->saved_msg_queue, chain, elem_tmp) {
+		pfkey_process((struct sadb_msg *)elem->msg);
+		TAILQ_REMOVE(&lcconf->saved_msg_queue, elem, chain);
+		racoon_free(elem);
+
+	}
+}
+
+int
+pfkey_save_msg(msg)
+	struct sadb_msg *msg;
+{
+	struct saved_msg_elem *elem;
+	
+	elem = (struct saved_msg_elem *)racoon_calloc(sizeof(struct saved_msg_elem), 1);
+	if (elem == NULL)
+		return -1;
+	elem->msg = msg;
+	TAILQ_INSERT_TAIL(&lcconf->saved_msg_queue, elem, chain);
+	return 0;
+}
+
+/*
  * dump SADB
  */
 vchar_t *
@@ -321,8 +357,18 @@ pfkey_dump_sadb(satype)
 				continue;
 		}
 
-		if (msg->sadb_msg_type != SADB_DUMP || msg->sadb_msg_pid != pid)
+		if (msg->sadb_msg_pid != pid)
 			continue;
+		
+		/*
+		 * for multi-processor system this had to be added because the messages can
+		 * be interleaved - they won't all be dump messages
+		 */
+		if (msg->sadb_msg_type != SADB_DUMP) {	/* save for later processing */
+			pfkey_save_msg(msg);
+			msg = NULL;
+			continue;
+		}
 
 		ml = msg->sadb_msg_len << 3;
 		bl = buf ? buf->l : 0;
@@ -2774,6 +2820,7 @@ int *lenp;
 	
 	return newmsg;
 }
+
 
 
 /* see handler.h */

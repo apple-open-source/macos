@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mbregex.c,v 1.53.2.1.2.4 2007/01/11 22:23:20 tony2001 Exp $ */
+/* $Id: php_mbregex.c,v 1.53.2.1.2.7 2008/02/17 02:04:12 hirokawa Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -546,6 +546,13 @@ static void _php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
 		convert_to_string_ex(arg_pattern);
 		/* don't bother doing an extended regex with just a number */
 	}
+
+	if (!Z_STRVAL_PP(arg_pattern) || Z_STRLEN_PP(arg_pattern) == 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "empty pattern");
+		RETVAL_FALSE;
+		goto out;
+	}
+
 	re = php_mbregex_compile_pattern(Z_STRVAL_PP(arg_pattern), Z_STRLEN_PP(arg_pattern), options, MBSTRG(current_mbctype), MBSTRG(regex_default_syntax) TSRMLS_CC);
 	if (re == NULL) {
 		RETVAL_FALSE;
@@ -737,7 +744,12 @@ static void _php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, OnigOp
 				/* null terminate buffer */
 				smart_str_appendc(&eval_buf, '\0');
 				/* do eval */
-				zend_eval_string(eval_buf.c, &v, description TSRMLS_CC);
+				if (zend_eval_string(eval_buf.c, &v, description TSRMLS_CC) == FAILURE) {
+					efree(description);
+					php_error_docref(NULL TSRMLS_CC,E_ERROR, "Failed evaluating code: %s%s", PHP_EOL, eval_buf.c);
+					/* zend_error() does not return in this case */
+				}
+
 				/* result of eval */
 				convert_to_string(&v);
 				smart_str_appendl(&out_buf, Z_STRVAL(v), Z_STRLEN(v));

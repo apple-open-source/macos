@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zlib_filter.c,v 1.6.2.2.2.4 2007/01/25 12:22:21 tony2001 Exp $ */
+/* $Id: zlib_filter.c,v 1.6.2.2.2.11 2008/02/12 23:29:18 cellog Exp $ */
 
 #include "php.h"
 #include "php_zlib.h"
@@ -100,11 +100,6 @@ static php_stream_filter_status_t php_zlib_inflate_filter(
 			consumed += desired;
 			bin += desired;
 
-			if (!desired) {
-				flags |= PSFS_FLAG_FLUSH_CLOSE;
-				break;
-			}
-
 			if (data->strm.avail_out < data->outbuf_len) {
 				php_stream_bucket *out_bucket;
 				size_t bucketlen = data->outbuf_len - data->strm.avail_out;
@@ -113,7 +108,12 @@ static php_stream_filter_status_t php_zlib_inflate_filter(
 				data->strm.avail_out = data->outbuf_len;
 				data->strm.next_out = data->outbuf;
 				exit_status = PSFS_PASS_ON;
+			} else if (status == Z_STREAM_END && data->strm.avail_out >= data->outbuf_len) {
+				/* no more data to decompress, and nothing was spat out */
+				php_stream_bucket_delref(bucket TSRMLS_CC);
+				return PSFS_PASS_ON;
 			}
+
 		}
 		php_stream_bucket_delref(bucket TSRMLS_CC);
 	}
@@ -212,11 +212,6 @@ static php_stream_filter_status_t php_zlib_deflate_filter(
 			data->strm.avail_in = 0;
 			consumed += desired;
 			bin += desired;
-
-			if (!desired) {
-				flags |= PSFS_FLAG_FLUSH_CLOSE;
-				break;
-			}
 
 			if (data->strm.avail_out < data->outbuf_len) {
 				php_stream_bucket *out_bucket;
@@ -320,15 +315,17 @@ static php_stream_filter *php_zlib_filter_create(const char *filtername, zval *f
 
 			if ((Z_TYPE_P(filterparams) == IS_ARRAY || Z_TYPE_P(filterparams) == IS_OBJECT) &&
 				zend_hash_find(HASH_OF(filterparams), "window", sizeof("window"), (void **) &tmpzval) == SUCCESS) {
+				zval tmp;
+
 				/* log-2 base of history window (9 - 15) */
-				SEPARATE_ZVAL(tmpzval);
-				convert_to_long_ex(tmpzval);
-				if (Z_LVAL_PP(tmpzval) < -MAX_WBITS || Z_LVAL_PP(tmpzval) > MAX_WBITS) {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid parameter give for window size. (%ld)", Z_LVAL_PP(tmpzval));
+				tmp = **tmpzval;
+				zval_copy_ctor(&tmp);
+				convert_to_long(&tmp);
+				if (Z_LVAL(tmp) < -MAX_WBITS || Z_LVAL(tmp) > MAX_WBITS + 32) {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid parameter give for window size. (%ld)", Z_LVAL(tmp));
 				} else {
-					windowBits = Z_LVAL_PP(tmpzval);
+					windowBits = Z_LVAL(tmp);
 				}
-				zval_ptr_dtor(tmpzval);
 			}
 		}
 
@@ -352,27 +349,33 @@ static php_stream_filter *php_zlib_filter_create(const char *filtername, zval *f
 				case IS_ARRAY:
 				case IS_OBJECT:
 					if (zend_hash_find(HASH_OF(filterparams), "memory", sizeof("memory"), (void**) &tmpzval) == SUCCESS) {
+						zval tmp;
+		
+						tmp = **tmpzval;
+						zval_copy_ctor(&tmp);
+						convert_to_long(&tmp);
+
 						/* Memory Level (1 - 9) */
-						SEPARATE_ZVAL(tmpzval);
-						convert_to_long_ex(tmpzval);
-						if (Z_LVAL_PP(tmpzval) < 1 || Z_LVAL_PP(tmpzval) > MAX_MEM_LEVEL) {
-							php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid parameter give for memory level. (%ld)", Z_LVAL_PP(tmpzval));
+						if (Z_LVAL(tmp) < 1 || Z_LVAL(tmp) > MAX_MEM_LEVEL) {
+							php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid parameter give for memory level. (%ld)", Z_LVAL(tmp));
 						} else {
-							memLevel = Z_LVAL_PP(tmpzval);
+							memLevel = Z_LVAL(tmp);
 						}
-						zval_ptr_dtor(tmpzval);
 					}
 
 					if (zend_hash_find(HASH_OF(filterparams), "window", sizeof("window"), (void**) &tmpzval) == SUCCESS) {
+						zval tmp;
+		
+						tmp = **tmpzval;
+						zval_copy_ctor(&tmp);
+						convert_to_long(&tmp);
+
 						/* log-2 base of history window (9 - 15) */
-						SEPARATE_ZVAL(tmpzval);
-						convert_to_long_ex(tmpzval);
-						if (Z_LVAL_PP(tmpzval) < -MAX_WBITS || Z_LVAL_PP(tmpzval) > MAX_WBITS) {
-							php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid parameter give for window size. (%ld)", Z_LVAL_PP(tmpzval));
+						if (Z_LVAL(tmp) < -MAX_WBITS || Z_LVAL(tmp) > MAX_WBITS + 16) {
+							php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid parameter give for window size. (%ld)", Z_LVAL(tmp));
 						} else {
-							windowBits = Z_LVAL_PP(tmpzval);
+							windowBits = Z_LVAL(tmp);
 						}
-						zval_ptr_dtor(tmpzval);
 					}
 
 					if (zend_hash_find(HASH_OF(filterparams), "level", sizeof("level"), (void**) &tmpzval) == SUCCESS) {
@@ -383,17 +386,20 @@ static php_stream_filter *php_zlib_filter_create(const char *filtername, zval *f
 				case IS_STRING:
 				case IS_DOUBLE:
 				case IS_LONG:
-					tmpzval = &filterparams;
+					{
+						zval tmp;
+		
+						tmp = *filterparams;
+						zval_copy_ctor(&tmp);
+						convert_to_long(&tmp);
 factory_setlevel:
-					/* Set compression level within reason (-1 == default, 0 == none, 1-9 == least to most compression */
-					SEPARATE_ZVAL(tmpzval);
-					convert_to_long_ex(tmpzval);
-					if (Z_LVAL_PP(tmpzval) < -1 || Z_LVAL_PP(tmpzval) > 9) {
-						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid compression level specified. (%ld)", Z_LVAL_PP(tmpzval));
-					} else {
-						level = Z_LVAL_PP(tmpzval);
+						/* Set compression level within reason (-1 == default, 0 == none, 1-9 == least to most compression */
+						if (Z_LVAL(tmp) < -1 || Z_LVAL(tmp) > 9) {
+							php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid compression level specified. (%ld)", Z_LVAL(tmp));
+						} else {
+							level = Z_LVAL(tmp);
+						}
 					}
-					zval_ptr_dtor(tmpzval);
 					break;
 				default:
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid filter parameter, ignored.");

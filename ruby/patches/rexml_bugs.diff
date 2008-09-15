@@ -1,6 +1,6 @@
---- lib/rexml/document.rb.old	2007-11-17 00:06:28.000000000 +0100
-+++ lib/rexml/document.rb	2007-11-17 00:06:53.000000000 +0100
-@@ -167,7 +167,7 @@
+--- lib/rexml/document.rb.old	2008-07-21 12:18:10.000000000 -0700
++++ lib/rexml/document.rb	2008-07-21 12:19:11.000000000 -0700
+@@ -168,7 +168,7 @@
      #   indentation will be twice this number of spaces, and children will be
      #   indented an additional amount.  For a value of 3, every item will be 
      #   indented 3 more levels, or 6 more spaces (2 * 3). Defaults to -1
@@ -9,7 +9,7 @@
      #   If transitive is true and indent is >= 0, then the output will be
      #   pretty-printed in such a way that the added whitespace does not affect
      #   the absolute *value* of the document -- that is, it leaves the value
-@@ -178,7 +178,7 @@
+@@ -179,12 +179,12 @@
      #   unable to parse proper XML, we have to provide a hack to generate XML
      #   that IE's limited abilities can handle.  This hack inserts a space 
      #   before the /> on empty tags.  Defaults to false
@@ -18,6 +18,12 @@
        if xml_decl.encoding != "UTF-8" && !output.kind_of?(Output)
          output = Output.new( output, xml_decl.encoding )
        end
+       formatter = if indent > -1
+-          if trans
++          if transitive
+             REXML::Formatters::Transitive.new( indent, ie_hack )
+           else
+             REXML::Formatters::Pretty.new( indent, ie_hack )
 --- lib/rexml/doctype.rb.old	2007-11-17 00:13:31.000000000 +0100
 +++ lib/rexml/doctype.rb	2007-11-17 00:14:32.000000000 +0100
 @@ -65,6 +65,10 @@

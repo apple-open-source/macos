@@ -333,7 +333,7 @@ smb_iod_ssnsetup(struct smbiod *iod)
 		 * it hasn't change from the time we came in here. If the connection goes
 		 * down(server dies) then we shouldn't change the state. 
 		 */
-		if (iod->iod_state == SMBIOD_ST_VCACTIVE)
+		if (iod->iod_state == SMBIOD_ST_SSNSETUP)
 			iod->iod_state = SMBIOD_ST_NEGOACTIVE;
 	} ifinally {
 	} iendtry;

@@ -61,23 +61,6 @@
 		D29B84B10916BE3C003A7DBC /* AppleUSBCDCACMDataUser.h in Headers */ = {isa = PBXBuildFile; fileRef = D29B84B00916BE3C003A7DBC /* AppleUSBCDCACMDataUser.h */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildStyle section */
-		D250E5150B85345900A7B34D /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-			};
-			name = Development;
-		};
-		D250E5160B85345900A7B34D /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXContainerItemProxy section */
 		D2277A8507417BFA002AF184 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -712,15 +695,11 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 973C88020897FD9100B1007D /* Build configuration list for PBXProject "AppleUSBCDC" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				D250E5150B85345900A7B34D /* Development */,
-				D250E5160B85345900A7B34D /* Deployment */,
-			);
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleUSBCDCEthernet */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				D2277A0007417BF9002AF184 /* Build All */,
 				D2277A0A07417BF9002AF184 /* AppleUSBCDC */,
@@ -1122,7 +1101,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDC;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.10;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
@@ -1153,7 +1132,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDC;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.9;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1215,7 +1194,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.10;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
@@ -1248,7 +1227,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMControl;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.8;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1312,7 +1291,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.10;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
@@ -1345,7 +1324,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCACMData;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.8;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1409,7 +1388,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCWCM;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.10;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
@@ -1442,7 +1421,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCWCM;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.8;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1506,7 +1485,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.10;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
@@ -1539,7 +1518,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMControl;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.8;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1603,7 +1582,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.10;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
@@ -1616,7 +1595,7 @@
 					"-Wno-unknown-pragmas",
 				);
 				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
+				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
@@ -1636,7 +1615,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCECMData;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.8;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1699,7 +1678,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCDMM;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.10;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
@@ -1731,7 +1710,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBCDCDMM;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.8;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1792,7 +1771,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_NAME = com.apple.driver.AppleUSBCDCEEM;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.10;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
@@ -1823,7 +1802,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOUSBFamily.kext/Contents/PlugIns";
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_NAME = com.apple.driver.AppleUSBCDCEEM;
-				MODULE_VERSION = 3.1.6;
+				MODULE_VERSION = 3.2.8;
 				OTHER_CFLAGS = "-D__MBUF_TRANSITION_";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

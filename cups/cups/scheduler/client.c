@@ -1,5 +1,5 @@
 /*
- * "$Id: client.c 7000 2007-09-28 19:47:00Z mike $"
+ * "$Id: client.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Client routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -227,7 +227,7 @@ cupsdAcceptClient(cupsd_listener_t *lis)/* I - Listener socket */
       cupsdLogMessage(CUPSD_LOG_WARN,
                       "Possible DoS attack - more than %d clients connecting "
 		      "from %s!",
-	              MaxClientsPerHost, tempcon->http.hostname);
+	              MaxClientsPerHost, con->http.hostname);
     }
 
 #ifdef WIN32
@@ -523,15 +523,15 @@ cupsdCloseClient(cupsd_client_t *con)	/* I - Client to close */
     switch (SSL_shutdown(conn))
     {
       case 1 :
-          cupsdLogMessage(CUPSD_LOG_INFO,
-	                  "cupsdCloseClient: SSL shutdown successful!");
+          cupsdLogMessage(CUPSD_LOG_DEBUG,
+	                  "SSL shutdown successful!");
 	  break;
       case -1 :
           cupsdLogMessage(CUPSD_LOG_ERROR,
-	                  "cupsdCloseClient: Fatal error during SSL shutdown!");
+	                  "Fatal error during SSL shutdown!");
       default :
 	  while ((error = ERR_get_error()) != 0)
-	    cupsdLogMessage(CUPSD_LOG_ERROR, "cupsdCloseClient: %s",
+	    cupsdLogMessage(CUPSD_LOG_ERROR, "SSL shutdown failed: %s",
 	                    ERR_error_string(error, NULL));
           break;
     }
@@ -547,12 +547,12 @@ cupsdCloseClient(cupsd_client_t *con)	/* I - Client to close */
     switch (error)
     {
       case GNUTLS_E_SUCCESS:
-	cupsdLogMessage(CUPSD_LOG_INFO,
-	                "cupsdCloseClient: SSL shutdown successful!");
+	cupsdLogMessage(CUPSD_LOG_DEBUG,
+	                "SSL shutdown successful!");
 	break;
       default:
 	cupsdLogMessage(CUPSD_LOG_ERROR,
-	                "cupsdCloseClient: %s", gnutls_strerror(error));
+	                "SSL shutdown failed: %s", gnutls_strerror(error));
 	break;
     }
 
@@ -850,11 +850,14 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
         switch (sscanf(line, "%63s%1023s%63s", operation, con->uri, version))
 	{
 	  case 1 :
-	      cupsdLogMessage(CUPSD_LOG_ERROR,
-	                      "Bad request line \"%s\" from %s!", line,
-	                      con->http.hostname);
-	      cupsdSendError(con, HTTP_BAD_REQUEST, CUPSD_AUTH_NONE);
-	      cupsdCloseClient(con);
+	      if (line[0])
+	      {
+		cupsdLogMessage(CUPSD_LOG_ERROR,
+				"Bad request line \"%s\" from %s!", line,
+				con->http.hostname);
+		cupsdSendError(con, HTTP_BAD_REQUEST, CUPSD_AUTH_NONE);
+		cupsdCloseClient(con);
+              }
 	      return;
 	  case 2 :
 	      con->http.version = HTTP_0_9;
@@ -1451,7 +1454,9 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
 	      break;
             }
-	    else if (con->http.data_remaining < 0)
+	    else if (con->http.data_remaining < 0 ||
+	             (!con->http.fields[HTTP_FIELD_CONTENT_LENGTH][0] &&
+		      con->http.data_encoding == HTTP_ENCODE_LENGTH))
 	    {
 	     /*
 	      * Negative content lengths are invalid!
@@ -3187,15 +3192,15 @@ get_cdsa_certificate(cupsd_client_t *con)	/* I - Client connection */
 			ssl_options;	/* SSL Option for hostname */
 
 
-  if ((err = SecPolicySearchCreate(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_SSL, 
-			      NULL, &policy_search)))
+  if (SecPolicySearchCreate(CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_SSL, 
+			    NULL, &policy_search))
   {
     cupsdLogMessage(CUPSD_LOG_ERROR, "Cannot create a policy search reference");
     CFRelease(keychain);
     return (NULL);
   }
 
-  if ((err = SecPolicySearchCopyNext(policy_search, &policy)))
+  if (SecPolicySearchCopyNext(policy_search, &policy))
   {
     cupsdLogMessage(CUPSD_LOG_ERROR, 
 		    "Cannot find a policy to use for searching");
@@ -3212,7 +3217,7 @@ get_cdsa_certificate(cupsd_client_t *con)	/* I - Client connection */
   options.Data = (uint8 *)&ssl_options;
   options.Length = sizeof(ssl_options);
 
-  if ((err = SecPolicySetValue(policy, &options)))
+  if (SecPolicySetValue(policy, &options))
   {
     cupsdLogMessage(CUPSD_LOG_ERROR, 
 		    "Cannot set policy value to use for searching");
@@ -3647,9 +3652,7 @@ is_cgi(cupsd_client_t *con,		/* I - Client connection */
   if ((options = strchr(con->uri, '?')) != NULL)
   {
     options ++;
-
-    if (strchr(options, '='))
-      cupsdSetStringf(&(con->query_string), "QUERY_STRING=%s", options);
+    cupsdSetStringf(&(con->query_string), "QUERY_STRING=%s", options);
   }
 
  /*
@@ -3671,9 +3674,8 @@ is_cgi(cupsd_client_t *con,		/* I - Client connection */
 
     cupsdSetString(&con->command, filename);
 
-    filename = strrchr(filename, '/') + 1; /* Filename always absolute */
-
-    cupsdSetString(&con->options, options);
+    if (options)
+      cupsdSetStringf(&con->options, " %s", options);
 
     cupsdLogMessage(CUPSD_LOG_DEBUG2,
                     "is_cgi: Returning 1 with command=\"%s\" and options=\"%s\"",
@@ -4671,6 +4673,8 @@ pipe_command(cupsd_client_t *con,	/* I - Client connection */
 
       envp[envc ++] = con->query_string;
     }
+    else
+      envp[envc ++] = "QUERY_STRING=";
   }
   else
   {
@@ -4830,5 +4834,5 @@ write_pipe(cupsd_client_t *con)		/* I - Client connection */
 
 
 /*
- * End of "$Id: client.c 7000 2007-09-28 19:47:00Z mike $".
+ * End of "$Id: client.c 7721 2008-07-11 22:48:49Z mike $".
  */

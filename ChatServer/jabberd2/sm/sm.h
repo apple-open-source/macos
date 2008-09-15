@@ -220,6 +220,12 @@ struct sm_st {
     int                 started;            /**< true if we've connected to the router at least once */
 
     int                 online;             /**< true if we're currently bound in the router */
+
+    /** Database query rate limits */
+    int                 query_rate_total;
+    int                 query_rate_seconds;
+    int                 query_rate_wait;
+    xht                 query_rates;
 };
 
 /** data for a single user */
@@ -564,7 +570,8 @@ typedef enum {
     st_SUCCESS,                 /**< call completed successful */
     st_FAILED,                  /**< call failed (driver internal error) */
     st_NOTFOUND,                /**< no matching objects were found */
-    st_NOTIMPL                  /**< call not implemented */
+    st_NOTIMPL,                 /**< call not implemented */
+    st_RATELIMITED              /**< Failure due to query rate limiting */
 } st_ret_t;
 
 typedef struct st_driver_st *st_driver_t;
@@ -620,6 +627,8 @@ st_ret_t        storage_get(storage_t st, const char *type, const char *owner, c
 st_ret_t        storage_delete(storage_t st, const char *type, const char *owner, const char *filter);
 /** replace objects matching this filter with objects in this set (atomic delete + get) */
 st_ret_t        storage_replace(storage_t st, const char *type, const char *owner, const char *filter, os_t os);
+/** Apple: Rate limiting for storage  */
+st_ret_t        storage_rate_limit(storage_t st, const char *owner);
 
 /** type for the driver init function */
 typedef st_ret_t (*st_driver_init_fn)(st_driver_t);

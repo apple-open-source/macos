@@ -1166,8 +1166,6 @@ void PSOutputDev::writeHeader(int firstPage, int lastPage,
 
   if (width > height && width > imgWidth) cups_rotate = 90;
 
-  writePSFmt("%%cupsRotation: %d\n", cups_rotate);
-
   writePSFmt("%%Producer: xpdf/pdftops %s\n", xpdfVersion);
   xref->getDocInfo(&info);
   if (info.isDict() && info.dictLookup("Creator", &obj1)->isString()) {
@@ -2519,8 +2517,9 @@ GBool PSOutputDev::startPage(int pageNum, GfxState *state) {
     } else {
       rotate = (360 - state->getRotate()) % 360;
 
-      fprintf(stderr, "DEBUG: Page rotate=%d, width=%d, height=%d, imgWidth=%d, imgHeight=%d\n",
-              state->getRotate(), width, height, imgWidth, imgHeight);
+      fprintf(stderr, "DEBUG: getRotate=%d, rotate=%d, width=%d, height=%d, "
+                      "imgWidth=%d, imgHeight=%d\n",
+              state->getRotate(), rotate, width, height, imgWidth, imgHeight);
 
       if (rotate == 0 || rotate == 180) {
 	if (width > height && width > imgWidth) {
@@ -2538,6 +2537,9 @@ GBool PSOutputDev::startPage(int pageNum, GfxState *state) {
 	}
       }
     }
+
+    fprintf(stderr, "DEBUG: Using rotate=%d, width=%d, height=%d, imgWidth=%d, imgHeight=%d\n",
+	    rotate, width, height, imgWidth, imgHeight);
 
     writePSFmt("%%%%PageOrientation: %s\n",
 	       landscape ? "Landscape" : "Portrait");

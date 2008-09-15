@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: sha1.h,v 1.5.2.1.2.2 2007/01/01 09:36:08 sebastian Exp $ */
+/* $Id: sha1.h,v 1.5.2.1.2.3 2007/12/31 07:20:13 sebastian Exp $ */
 
 #ifndef SHA1_H
 #define SHA1_H

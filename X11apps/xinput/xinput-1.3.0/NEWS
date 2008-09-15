@@ -1,0 +1,5 @@
+xinput 1.3.0 - 2008/01/09
+=========================
+
+ * Add support for Xorg 1.4
+ * Warn if a specified device name is ambiguous.

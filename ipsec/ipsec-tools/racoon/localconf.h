@@ -88,6 +88,10 @@ struct redirect {
 	u_int16_t	force;
 };
 
+struct saved_msg_elem {
+	TAILQ_ENTRY(saved_msg_elem) chain;
+	void* msg;
+};
 
 struct localconf {
 	char *racoon_conf;		/* configuration filename */
@@ -110,6 +114,7 @@ struct localconf {
 	int	auto_exit_delay;		/* auto exit delay until exit */
 	struct sched *auto_exit_sched;	/* auto exit schedule */
 	
+	TAILQ_HEAD(_saved_msg_elem, saved_msg_elem) saved_msg_queue;
 	int autograbaddr;
 	struct myaddrs *myaddrs;
 

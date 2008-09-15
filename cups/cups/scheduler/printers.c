@@ -1,5 +1,5 @@
 /*
- * "$Id: printers.c 7271 2008-01-30 06:09:39Z mike $"
+ * "$Id: printers.c 7725 2008-07-14 06:16:34Z mike $"
  *
  *   Printer routines for the Common UNIX Printing System (CUPS).
  *
@@ -133,6 +133,8 @@ cupsdAddPrinter(const char *name)	/* I - Name of printer */
   if (!Printers)
     Printers = cupsArrayNew(compare_printers, NULL);
 
+  cupsdLogMessage(CUPSD_LOG_DEBUG2,
+                  "cupsdAddPrinter: Adding %s to Printers", p->name);
   cupsArrayAdd(Printers, p);
 
   if (!ImplicitPrinters)
@@ -631,10 +633,17 @@ cupsdDeletePrinter(
   * Remove the printer from the list...
   */
 
+  cupsdLogMessage(CUPSD_LOG_DEBUG2,
+                  "cupsdDeletePrinter: Removing %s from Printers", p->name);
   cupsArrayRemove(Printers, p);
 
   if (p->type & CUPS_PRINTER_IMPLICIT)
+  {
+    cupsdLogMessage(CUPSD_LOG_DEBUG2,
+		    "cupsdDeletePrinter: Removing %s from ImplicitPrinters",
+		    p->name);
     cupsArrayRemove(ImplicitPrinters, p);
+  }
 
  /*
   * Remove the dummy interface/icon/option files under IRIX...
@@ -1119,7 +1128,7 @@ cupsdLoadAllPrinters(void)
           for (value = valueptr; *valueptr && !isspace(*valueptr & 255); valueptr ++);
 
 	  if (*valueptr)
-            *valueptr++ = '\0';
+            *valueptr = '\0';
 
 	  cupsdSetString(&p->job_sheets[1], value);
 	}
@@ -1256,10 +1265,17 @@ cupsdRenamePrinter(
   * Remove the printer from the array(s) first...
   */
 
+  cupsdLogMessage(CUPSD_LOG_DEBUG2,
+                  "cupsdRenamePrinter: Removing %s from Printers", p->name);
   cupsArrayRemove(Printers, p);
 
   if (p->type & CUPS_PRINTER_IMPLICIT)
+  {
+    cupsdLogMessage(CUPSD_LOG_DEBUG2,
+		    "cupsdRenamePrinter: Removing %s from ImplicitPrinters",
+		    p->name);
     cupsArrayRemove(ImplicitPrinters, p);
+  }
 
  /*
   * Rename the printer type...
@@ -1287,10 +1303,17 @@ cupsdRenamePrinter(
   * Add the printer back to the printer array(s)...
   */
 
+  cupsdLogMessage(CUPSD_LOG_DEBUG2,
+                  "cupsdRenamePrinter: Adding %s to Printers", p->name);
   cupsArrayAdd(Printers, p);
 
   if (p->type & CUPS_PRINTER_IMPLICIT)
+  {
+    cupsdLogMessage(CUPSD_LOG_DEBUG2,
+		    "cupsdRenamePrinter: Adding %s to ImplicitPrinters",
+		    p->name);
     cupsArrayAdd(ImplicitPrinters, p);
+  }
 }
 
 
@@ -1717,6 +1740,8 @@ cupsdSetPrinterAttr(
 
     if (!strcmp(name, "marker-types"))
       value_tag = IPP_TAG_KEYWORD;
+    else if (!strcmp(name, "marker-message"))
+      value_tag = IPP_TAG_TEXT;
     else
       value_tag = IPP_TAG_NAME;
 
@@ -1728,7 +1753,12 @@ cupsdSetPrinterAttr(
     }
 
     if (attr)
+    {
+      for (i = 0; i < attr->num_values; i ++)
+	_cupsStrFree(attr->values[i].string.text);
+
       attr->num_values = count;
+    }
     else
       attr = ippAddStrings(p->attrs, IPP_TAG_PRINTER, value_tag, name,
                            count, NULL, NULL);
@@ -1746,7 +1776,6 @@ cupsdSetPrinterAttr(
       if ((ptr = strchr(value, ',')) != NULL)
         *ptr++ = '\0';
 
-      _cupsStrFree(attr->values[i].string.text);
       attr->values[i].string.text = _cupsStrAlloc(value);
 
       if (ptr)
@@ -2005,28 +2034,19 @@ cupsdSetPrinterAttrs(cupsd_printer_t *p)/* I - Printer to setup */
       if (p->num_printers > 0)
       {
        /*
-	* Add a list of member URIs and names...
+	* Add a list of member names; URIs are added in copy_printer_attrs...
 	*/
 
-	attr = ippAddStrings(p->attrs, IPP_TAG_PRINTER, IPP_TAG_URI,
-                             "member-uris", p->num_printers, NULL, NULL);
+	attr    = ippAddStrings(p->attrs, IPP_TAG_PRINTER, IPP_TAG_NAME,
+                                "member-names", p->num_printers, NULL, NULL);
         p->type |= CUPS_PRINTER_OPTIONS;
 
 	for (i = 0; i < p->num_printers; i ++)
 	{
           if (attr != NULL)
-            attr->values[i].string.text = _cupsStrAlloc(p->printers[i]->uri);
+            attr->values[i].string.text = _cupsStrAlloc(p->printers[i]->name);
 
 	  p->type &= ~CUPS_PRINTER_OPTIONS | p->printers[i]->type;
-        }
-
-	attr = ippAddStrings(p->attrs, IPP_TAG_PRINTER, IPP_TAG_NAME,
-                             "member-names", p->num_printers, NULL, NULL);
-
-	if (attr != NULL)
-	{
-	  for (i = 0; i < p->num_printers; i ++)
-            attr->values[i].string.text = _cupsStrAlloc(p->printers[i]->name);
         }
       }
     }
@@ -2773,7 +2793,8 @@ cupsdSetPrinterState(
   * Let the browse protocols reflect the change...
   */
 
-  cupsdRegisterPrinter(p);
+  if (update)
+    cupsdRegisterPrinter(p);
 
  /*
   * Save the printer configuration if a printer goes from idle or processing
@@ -3289,7 +3310,7 @@ add_printer_defaults(cupsd_printer_t *p)/* I - Printer */
   * Add all of the default options from the .conf files...
   */
 
-  for (num_options = 0, i = p->num_options, option = p->options;
+  for (num_options = 0, options = NULL, i = p->num_options, option = p->options;
        i > 0;
        i --, option ++)
   {
@@ -3321,7 +3342,7 @@ add_printer_defaults(cupsd_printer_t *p)/* I - Printer */
                   1);
 
   if (!cupsGetOption("document-format", p->num_options, p->options))
-    ippAddString(CommonData, IPP_TAG_PRINTER, IPP_TAG_MIMETYPE,
+    ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_TAG_MIMETYPE,
         	 "document-format-default", NULL, "application/octet-stream");
 
   if (!cupsGetOption("job-hold-until", p->num_options, p->options))
@@ -3374,7 +3395,8 @@ add_printer_filter(
   *     super/type cost program
   */
 
-  if (sscanf(filter, "%15[^/]/%31s%d%1023s", super, type, &cost, program) != 4)
+  if (sscanf(filter, "%15[^/]/%31s%d%*[ \t]%1023[^\n]", super, type, &cost,
+             program) != 4)
   {
     cupsdLogMessage(CUPSD_LOG_ERROR, "%s: invalid filter string \"%s\"!",
                     p->name, filter);
@@ -3884,5 +3906,5 @@ write_irix_state(cupsd_printer_t *p)	/* I - Printer to update */
 
 
 /*
- * End of "$Id: printers.c 7271 2008-01-30 06:09:39Z mike $".
+ * End of "$Id: printers.c 7725 2008-07-14 06:16:34Z mike $".
  */

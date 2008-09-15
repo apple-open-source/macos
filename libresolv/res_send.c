@@ -133,6 +133,11 @@ static const int highestFD = FD_SETSIZE - 1;
 
 #define MAX_HOOK_RETRIES 42
 
+/* port randomization */
+#define RANDOM_BIND_MAX_TRIES 16
+#define RANDOM_BIND_FIRST IPPORT_HIFIRSTAUTO
+#define RANDOM_BIND_LAST IPPORT_HILASTAUTO
+
 /* Forward. */
 
 static int		get_salen __P((const struct sockaddr *));
@@ -148,6 +153,29 @@ static int		pselect(int, void *, void *, void *, struct timespec *, const sigset
 static const int niflags = NI_NUMERICHOST | NI_NUMERICSERV;
 static int interrupt_pipe_enabled = 0;
 static pthread_key_t interrupt_pipe_key;
+
+static int
+bind_random(int sock)
+{
+	int i, status;
+	uint16_t src_port;
+	struct sockaddr_in local;
+
+	src_port = 0;
+	status = -1;
+
+	for (i = 0; (i < RANDOM_BIND_MAX_TRIES) && (status < 0); i++)
+	{		
+		/* random port in the range RANDOM_BIND_FIRST to RANDOM_BIND_LAST */
+		src_port = (res_randomid() % (RANDOM_BIND_LAST - RANDOM_BIND_FIRST)) + RANDOM_BIND_FIRST;
+		memset(&local, 0, sizeof(struct sockaddr_in));
+		local.sin_port = htons(src_port);
+
+		status = bind(sock, (struct sockaddr *)&local, sizeof(struct sockaddr_in));
+	}
+
+	return status;
+}
 
 void
 res_delete_interrupt_token(void *token)
@@ -1154,6 +1182,8 @@ send_dg(res_state statp, const u_char *buf, int buflen, u_char *ans, int *anssiz
 			Perror(statp, stderr, "socket(dg)", errno);
 			return DNS_RES_STATUS_SYSTEM_ERROR;
 		}
+
+		bind_random(EXT(statp).nssocks[ns]);
 
 #ifndef CANNOT_CONNECT_DGRAM
 		/*

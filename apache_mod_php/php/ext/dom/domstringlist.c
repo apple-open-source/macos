@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: domstringlist.c,v 1.6.2.1.2.1 2007/01/01 09:36:00 sebastian Exp $ */
+/* $Id: domstringlist.c,v 1.6.2.1.2.3 2008/02/04 15:23:11 sebastian Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -28,6 +28,13 @@
 #include "php_dom.h"
 
 
+/* {{{ arginfo */
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dom_stringlist_item, 0, 0, 1)
+	ZEND_ARG_INFO(0, index)
+ZEND_END_ARG_INFO();
+/* }}} */
+
 /*
 * class domstringlist 
 *
@@ -36,7 +43,7 @@
 */
 
 zend_function_entry php_dom_domstringlist_class_functions[] = {
-	PHP_FALIAS(item, dom_domstringlist_item, NULL)
+	PHP_FALIAS(item, dom_domstringlist_item, arginfo_dom_stringlist_item)
 	{NULL, NULL, NULL}
 };
 

@@ -1,5 +1,5 @@
 /*
- * "$Id: cups-driverd.c 6762 2007-08-02 18:05:03Z mike $"
+ * "$Id: cups-driverd.c 7654 2008-06-16 17:57:44Z mike $"
  *
  *   PPD/driver support for the Common UNIX Printing System (CUPS).
  *
@@ -300,6 +300,7 @@ cat_ppd(const char *name,		/* I - PPD name */
     */
 
     const char	*serverbin;		/* CUPS_SERVERBIN env var */
+    char	*argv[4];		/* Arguments for program */
 
 
     if ((serverbin = getenv("CUPS_SERVERBIN")) == NULL)
@@ -346,7 +347,12 @@ cat_ppd(const char *name,		/* I - PPD name */
       cupsdSendIPPTrailer();
     }
 
-    if (execl(line, scheme, "cat", name, (char *)NULL))
+    argv[0] = scheme;
+    argv[1] = (char *)"cat";
+    argv[2] = (char *)name;
+    argv[3] = NULL;
+
+    if (cupsdExec(line, argv))
     {
      /*
       * Unable to execute driver...
@@ -684,9 +690,12 @@ list_ppds(int        request_id,	/* I - Request ID */
   * Load PPDs from LSB-defined locations...
   */
 
-  load_ppds("/usr/local/share/ppd", "lsb/local", 1);
-  load_ppds("/usr/share/ppd", "lsb/usr", 1);
-  load_ppds("/opt/share/ppd", "lsb/opt", 1);
+  if (!access("/usr/local/share/ppd", 0))
+    load_ppds("/usr/local/share/ppd", "lsb/local", 1);
+  if (!access("/usr/share/ppd", 0))
+    load_ppds("/usr/share/ppd", "lsb/usr", 1);
+  if (!access("/opt/share/ppd", 0))
+    load_ppds("/opt/share/ppd", "lsb/opt", 1);
 #endif /* __APPLE__ */
 
  /*
@@ -1075,33 +1084,39 @@ load_ppds(const char *d,		/* I - Actual directory */
 		*language;		/* Language code */
   }		languages[] =
   {
-    { "chinese",	"zh" },
-    { "danish",		"da" },
-    { "dutch",		"nl" },
-    { "english",	"en" },
-    { "finnish",	"fi" },
-    { "french",		"fr" },
-    { "german",		"de" },
-    { "greek",		"el" },
-    { "italian",	"it" },
-    { "japanese",	"ja" },
-    { "korean",		"ko" },
-    { "norwegian",	"no" },
-    { "polish",		"pl" },
-    { "portuguese",	"pt" },
-    { "russian",	"ru" },
-    { "slovak",		"sk" },
-    { "spanish",	"es" },
-    { "swedish",	"sv" },
-    { "turkish",	"tr" }
+    { "chinese",		"zh" },
+    { "czech",			"cs" },
+    { "danish",			"da" },
+    { "dutch",			"nl" },
+    { "english",		"en" },
+    { "finnish",		"fi" },
+    { "french",			"fr" },
+    { "german",			"de" },
+    { "greek",			"el" },
+    { "hungarian",		"hu" },
+    { "italian",		"it" },
+    { "japanese",		"ja" },
+    { "korean",			"ko" },
+    { "norwegian",		"no" },
+    { "polish",			"pl" },
+    { "portuguese",		"pt" },
+    { "russian",		"ru" },
+    { "simplified chinese",	"zh_CN" },
+    { "slovak",			"sk" },
+    { "spanish",		"es" },
+    { "swedish",		"sv" },
+    { "traditional chinese",	"zh_TW" },
+    { "turkish",		"tr" }
   };
 
 
   if ((dir = cupsDirOpen(d)) == NULL)
   {
-    fprintf(stderr,
-            "ERROR: [cups-driverd] Unable to open PPD directory \"%s\": %s\n",
-            d, strerror(errno));
+    if (errno != ENOENT)
+      fprintf(stderr,
+	      "ERROR: [cups-driverd] Unable to open PPD directory \"%s\": %s\n",
+	      d, strerror(errno));
+
     return (0);
   }
 
@@ -1264,15 +1279,12 @@ load_ppds(const char *d,		/* I - Actual directory */
 	if (!strncasecmp(ptr, "true", 4))
           type = PPD_TYPE_FAX;
       }
-      else if (!strncmp(line, "*cupsFilter:", 12) &&
-               (type == PPD_TYPE_POSTSCRIPT || type == PPD_TYPE_UNKNOWN))
+      else if (!strncmp(line, "*cupsFilter:", 12) && type == PPD_TYPE_POSTSCRIPT)
       {
         if (strstr(line + 12, "application/vnd.cups-raster"))
 	  type = PPD_TYPE_RASTER;
         else if (strstr(line + 12, "application/vnd.cups-pdf"))
 	  type = PPD_TYPE_PDF;
-	else
-	  type = PPD_TYPE_UNKNOWN;
       }
       else if (!strncmp(line, "*cupsModelNumber:", 17))
         sscanf(line, "*cupsModelNumber:%d", &model_number);
@@ -1550,10 +1562,12 @@ load_drivers(void)
 		*ptr;			/* Pointer into string */
   const char	*server_bin;		/* CUPS_SERVERBIN env variable */
   char		drivers[1024];		/* Location of driver programs */
-  FILE		*fp;			/* Pipe to driver program */
+  int		pid;			/* Process ID for driver program */
+  cups_file_t	*fp;			/* Pipe to driver program */
   cups_dir_t	*dir;			/* Directory pointer */
   cups_dentry_t *dent;			/* Directory entry */
-  char		filename[1024],		/* Name of driver */
+  char		*argv[3],		/* Arguments for command */
+		filename[1024],		/* Name of driver */
 		line[2048],		/* Line from driver */
 		name[512],		/* ppd-name */
 		make[128],		/* ppd-make */
@@ -1579,14 +1593,17 @@ load_drivers(void)
   if ((dir = cupsDirOpen(drivers)) == NULL)
   {
     fprintf(stderr, "ERROR: [cups-driverd] Unable to open driver directory "
-                    "\"%s\": %s\n",
-            drivers, strerror(errno));
+		    "\"%s\": %s\n",
+	    drivers, strerror(errno));
     return (0);
   }
 
  /*
   * Loop through all of the device drivers...
   */
+
+  argv[1] = (char *)"list";
+  argv[2] = NULL;
 
   while ((dent = cupsDirRead(dir)) != NULL)
   {
@@ -1601,10 +1618,12 @@ load_drivers(void)
     * Run the driver with no arguments and collect the output...
     */
 
-    snprintf(filename, sizeof(filename), "%s/%s list", drivers, dent->filename);
-    if ((fp = popen(filename, "r")) != NULL)
+    argv[0] = dent->filename;
+    snprintf(filename, sizeof(filename), "%s/%s", drivers, dent->filename);
+
+    if ((fp = cupsdPipeCommand(&pid, filename, argv, 0)) != NULL)
     {
-      while (fgets(line, sizeof(line), fp) != NULL)
+      while (cupsFileGets(fp, line, sizeof(line)))
       {
        /*
         * Each line is of the form:
@@ -1653,7 +1672,8 @@ load_drivers(void)
 
 	  if (type >= (int)(sizeof(ppd_types) / sizeof(ppd_types[0])))
 	  {
-	    fprintf(stderr, "ERROR: [cups-driverd] Bad ppd-type \"%s\" ignored!\n",
+	    fprintf(stderr,
+	            "ERROR: [cups-driverd] Bad ppd-type \"%s\" ignored!\n",
         	    type_str);
 	    type = PPD_TYPE_UNKNOWN;
 	  }
@@ -1664,7 +1684,7 @@ load_drivers(void)
           if (!ppd)
 	  {
             cupsDirClose(dir);
-	    pclose(fp);
+	    cupsFileClose(fp);
 	    return (0);
 	  }
 
@@ -1689,7 +1709,7 @@ load_drivers(void)
 	}
       }
 
-      pclose(fp);
+      cupsFileClose(fp);
     }
     else
       fprintf(stderr, "WARNING: [cups-driverd] Unable to execute \"%s\": %s\n",
@@ -1703,5 +1723,5 @@ load_drivers(void)
 
 
 /*
- * End of "$Id: cups-driverd.c 6762 2007-08-02 18:05:03Z mike $".
+ * End of "$Id: cups-driverd.c 7654 2008-06-16 17:57:44Z mike $".
  */

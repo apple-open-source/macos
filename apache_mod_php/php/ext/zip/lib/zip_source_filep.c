@@ -2,7 +2,7 @@
   $NiH: zip_source_filep.c,v 1.6 2005/06/09 19:57:10 dillo Exp $
 
   zip_source_filep.c -- create data source from FILE *
-  Copyright (C) 1999-2007 Dieter Baron and Thomas Klausner
+  Copyright (C) 1999-2008 Dieter Baron and Thomas Klausner
 
   This file is part of libzip, a library to manipulate ZIP archives.
   The authors can be contacted at <nih@giga.or.at>
@@ -57,7 +57,7 @@ static ssize_t read_file(void *state, void *data, size_t len,
 
 
 
-struct zip_source *
+PHPZIPAPI struct zip_source *
 zip_source_filep(struct zip *za, FILE *file, off_t start, off_t len)
 {
     struct read_file *f;

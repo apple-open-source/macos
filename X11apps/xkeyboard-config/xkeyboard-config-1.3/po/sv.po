@@ -1,0 +1,3455 @@
+# Swedish messages for xkeyboard-config.
+# Copyright (C) 2007, 2008 Free Software Foundation, Inc.
+# Daniel Nylander <po@danielnylander.se>, 2006, 2007, 2008.
+# Christian Rose <menthos@menthos.com>, 2004.
+#
+# Detta är till största delen översättningar av namnen på olika
+# tangentbordslayouter i XFree86, vilket kan vara värt att komma ihåg.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: xkeyboard-config 1.2-pre1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2008-01-15 21:41+0000\n"
+"PO-Revision-Date: 2008-01-17 23:27+0100\n"
+"Last-Translator: Daniel Nylander <po@danielnylander.se>\n"
+"Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../rules/base.xml.in.h:1
+msgid "(F)"
+msgstr "(F)"
+
+#: ../rules/base.xml.in.h:2
+msgid "(Legacy) Alternative"
+msgstr "(Äldre) Alternativ"
+
+#: ../rules/base.xml.in.h:3
+msgid "(Legacy) Alternative, Sun dead keys"
+msgstr "(Äldre) Alternativ, Sun stumma tangenter"
+
+#: ../rules/base.xml.in.h:4
+msgid "(Legacy) Alternative, eliminate dead keys"
+msgstr "(Äldre) Alternativ, eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:5
+msgid "(Legacy) Dvorak"
+msgstr "(Äldre) Dvorak"
+
+#: ../rules/base.xml.in.h:6
+msgid "101/104 key Compatible"
+msgstr "101/104-tangenters kompatibel"
+
+#: ../rules/base.xml.in.h:7 ../rules/sun.xml.in.h:2
+msgid "101/qwerty/comma/Dead keys"
+msgstr "101/qwerty/komma/Stumma tangenter"
+
+#: ../rules/base.xml.in.h:8 ../rules/sun.xml.in.h:3
+msgid "101/qwerty/comma/Eliminate dead keys"
+msgstr "101/qwerty/komma/Eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:9 ../rules/sun.xml.in.h:4
+msgid "101/qwerty/dot/Dead keys"
+msgstr "101/qwerty/punkt/Stumma tangenter"
+
+#: ../rules/base.xml.in.h:10 ../rules/sun.xml.in.h:5
+msgid "101/qwerty/dot/Eliminate dead keys"
+msgstr "101/qwerty/punkt/Eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:11 ../rules/sun.xml.in.h:6
+msgid "101/qwertz/comma/Dead keys"
+msgstr "101/qwertz/komma/Stumma tangenter"
+
+#: ../rules/base.xml.in.h:12
+msgid "101/qwertz/comma/Eliminate dead keys"
+msgstr "101/qwertz/komma/Eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:13 ../rules/sun.xml.in.h:7
+msgid "101/qwertz/dot/Dead keys"
+msgstr "101/qwertz/punkt/Stumma tangenter"
+
+#: ../rules/base.xml.in.h:14 ../rules/sun.xml.in.h:8
+msgid "101/qwertz/dot/Eliminate dead keys"
+msgstr "101/qwertz/punkt/Eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:15 ../rules/sun.xml.in.h:9
+msgid "102/qwerty/comma/Dead keys"
+msgstr "102/qwerty/komma/Stumma tangenter"
+
+#: ../rules/base.xml.in.h:16 ../rules/sun.xml.in.h:10
+msgid "102/qwerty/comma/Eliminate dead keys"
+msgstr "102/qwerty/komma/Eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:17 ../rules/sun.xml.in.h:11
+msgid "102/qwerty/dot/Dead keys"
+msgstr "102/qwerty/punkt/Stumma tangenter"
+
+#: ../rules/base.xml.in.h:18 ../rules/sun.xml.in.h:12
+msgid "102/qwerty/dot/Eliminate dead keys"
+msgstr "102/qwerty/punkt/Eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:19 ../rules/sun.xml.in.h:13
+msgid "102/qwertz/comma/Dead keys"
+msgstr "102/qwertz/komma/Stumma tangenter"
+
+#: ../rules/base.xml.in.h:20 ../rules/sun.xml.in.h:14
+msgid "102/qwertz/comma/Eliminate dead keys"
+msgstr "102/qwertz/komma/Eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:21 ../rules/sun.xml.in.h:15
+msgid "102/qwertz/dot/Dead keys"
+msgstr "102/qwertz/punkt/Stumma tangenter"
+
+#: ../rules/base.xml.in.h:22 ../rules/sun.xml.in.h:16
+msgid "102/qwertz/dot/Eliminate dead keys"
+msgstr "102/qwertz/punkt/Eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:23
+msgid "A4Tech KB-21"
+msgstr "A4Tech KB-21"
+
+#: ../rules/base.xml.in.h:24
+msgid "A4Tech KBS-8"
+msgstr "A4Tech KBS-8"
+
+#: ../rules/base.xml.in.h:25
+msgid "A4Tech Wireless Desktop RFKB-23"
+msgstr "A4Tech Wireless Desktop RFKB-23"
+
+#: ../rules/base.xml.in.h:26
+msgid "ACPI Standard"
+msgstr "ACPI-standard"
+
+#: ../rules/base.xml.in.h:27
+msgid "Acer AirKey V"
+msgstr "Acer AirKey V"
+
+#: ../rules/base.xml.in.h:28
+msgid "Acer C300"
+msgstr "Acer C300"
+
+#: ../rules/base.xml.in.h:29
+msgid "Acer Ferrari 4000"
+msgstr "Acer Ferrari 4000"
+
+#: ../rules/base.xml.in.h:30
+msgid "Acer Laptop"
+msgstr "Bärbar Acer-dator"
+
+#: ../rules/base.xml.in.h:31
+msgid "Add the EuroSign to the 2 key."
+msgstr "Lägg till eurotecknet till tangenten 2."
+
+#: ../rules/base.xml.in.h:32
+msgid "Add the EuroSign to the 4 key."
+msgstr "Lägg till eurotecknet till tangenten 4."
+
+#: ../rules/base.xml.in.h:33
+msgid "Add the EuroSign to the 5 key."
+msgstr "Lägg till eurotecknet till tangenten 5."
+
+#: ../rules/base.xml.in.h:34
+msgid "Add the EuroSign to the E key."
+msgstr "Lägg till eurotecknet till tangenten E."
+
+#: ../rules/base.xml.in.h:35
+msgid "Add the standard behavior to Menu key."
+msgstr "Lägg till standardbeteendet till Meny-tangenten."
+
+#: ../rules/base.xml.in.h:36
+msgid "Adding the EuroSign to certain keys"
+msgstr "Lägger till eurotecknet till vissa tangenter"
+
+#: ../rules/base.xml.in.h:37
+msgid "Advance Scorpius KI"
+msgstr "Advance Scorpius KI"
+
+#: ../rules/base.xml.in.h:38
+msgid "Afg"
+msgstr "Afg"
+
+#: ../rules/base.xml.in.h:39
+msgid "Afghanistan"
+msgstr "Afganistan"
+
+#: ../rules/base.xml.in.h:40
+msgid "Akan"
+msgstr "Akan"
+
+#: ../rules/base.xml.in.h:41
+msgid "Alb"
+msgstr "Alb"
+
+#: ../rules/base.xml.in.h:42
+msgid "Albania"
+msgstr "Albanien"
+
+#: ../rules/base.xml.in.h:43
+msgid "Alt and Meta are on the Alt keys."
+msgstr "Alt och Meta finns på Alt-tangenterna."
+
+#: ../rules/base.xml.in.h:44
+msgid "Alt is mapped to the right Win-key and Super to Menu."
+msgstr "Alt är mappad till högra Win-tangenten och Super till Meny."
+
+#: ../rules/base.xml.in.h:45
+msgid "Alt+CapsLock changes layout."
+msgstr "Alt+CapsLock byter layout."
+
+#: ../rules/base.xml.in.h:46
+msgid "Alt+Ctrl change layout."
+msgstr "Alt+Ctrl byter layout."
+
+#: ../rules/base.xml.in.h:47
+msgid "Alt+Shift change layout."
+msgstr "Alt+Shift byter layout."
+
+#: ../rules/base.xml.in.h:48
+msgid "Alt-Q"
+msgstr "Alt-Q"
+
+#: ../rules/base.xml.in.h:49
+msgid "Alt/Win key behavior"
+msgstr "Alt/Win-tangentbeteende"
+
+#: ../rules/base.xml.in.h:50
+msgid "Alternative"
+msgstr "Alternativ"
+
+#: ../rules/base.xml.in.h:51
+msgid "Alternative Eastern"
+msgstr "Alternativ östlig"
+
+#: ../rules/base.xml.in.h:52
+msgid "Alternative Phonetic"
+msgstr "Alternativ fonetisk"
+
+#: ../rules/base.xml.in.h:53
+msgid "Alternative international (former us_intl)"
+msgstr "Alternativ internationell (tidigare us_intl)"
+
+#: ../rules/base.xml.in.h:54
+msgid "Alternative, Sun dead keys"
+msgstr "Alternativ, Sun stumma tangenter"
+
+#: ../rules/base.xml.in.h:55
+msgid "Alternative, eliminate dead keys"
+msgstr "Alternativ, eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:56
+msgid "Alternative, latin-9 only"
+msgstr "Alternativ, endast latin-9"
+
+#: ../rules/base.xml.in.h:57
+msgid "And"
+msgstr "And"
+
+#: ../rules/base.xml.in.h:58
+msgid "Andorra"
+msgstr "Andorra"
+
+#: ../rules/base.xml.in.h:59
+msgid "Apostrophe (') variant"
+msgstr "Apostrof (') variant"
+
+#: ../rules/base.xml.in.h:60
+msgid "Apple"
+msgstr "Apple"
+
+#: ../rules/base.xml.in.h:61
+msgid "Apple Laptop"
+msgstr "Bärbar Apple-dator"
+
+#: ../rules/base.xml.in.h:62
+msgid "Ara"
+msgstr "Ara"
+
+#: ../rules/base.xml.in.h:63
+msgid "Arabic"
+msgstr "Arabisk"
+
+#: ../rules/base.xml.in.h:64
+msgid "Arm"
+msgstr "Arm"
+
+#: ../rules/base.xml.in.h:65
+msgid "Armenia"
+msgstr "Armenien"
+
+#: ../rules/base.xml.in.h:66
+msgid "Asus Laptop"
+msgstr "Bärbar Asus-dator"
+
+#: ../rules/base.xml.in.h:67
+msgid "Aze"
+msgstr "Aze"
+
+#: ../rules/base.xml.in.h:68
+msgid "Azerbaijan"
+msgstr "Azerbajdzjan"
+
+#: ../rules/base.xml.in.h:69
+msgid "Azona RF2300 wireless Internet Keyboard"
+msgstr "Azona RF2300 wireless Internet Keyboard"
+
+#: ../rules/base.xml.in.h:70
+msgid "BTC 5090"
+msgstr "BTC 5090"
+
+#: ../rules/base.xml.in.h:71
+msgid "BTC 5113RF Multimedia"
+msgstr "BTC 5113RF Multimedia"
+
+#: ../rules/base.xml.in.h:72
+msgid "BTC 5126T"
+msgstr "BTC 5126T"
+
+#: ../rules/base.xml.in.h:73
+msgid "BTC 6301URF"
+msgstr "BTC 6301URF"
+
+#: ../rules/base.xml.in.h:74
+msgid "BTC 9000"
+msgstr "BTC 9000"
+
+#: ../rules/base.xml.in.h:75
+msgid "BTC 9000A"
+msgstr "BTC 9000A"
+
+#: ../rules/base.xml.in.h:76
+msgid "BTC 9001AH"
+msgstr "BTC 9001AH"
+
+#: ../rules/base.xml.in.h:77
+msgid "BTC 9019U"
+msgstr "BTC 9019U"
+
+#: ../rules/base.xml.in.h:78
+msgid "Ban"
+msgstr "Ban"
+
+#: ../rules/base.xml.in.h:79
+msgid "Bangladesh"
+msgstr "Bangladesh"
+
+#: ../rules/base.xml.in.h:80 ../rules/sun.xml.in.h:22
+msgid "Bel"
+msgstr "Bel"
+
+#: ../rules/base.xml.in.h:81
+msgid "Belarus"
+msgstr "Vitryssland"
+
+#: ../rules/base.xml.in.h:82
+msgid "Belgium"
+msgstr "Belgien"
+
+#: ../rules/base.xml.in.h:83
+msgid "BenQ X-Touch"
+msgstr "BenQ X-Touch"
+
+#: ../rules/base.xml.in.h:84
+msgid "Bengali"
+msgstr "Bengalisk"
+
+#: ../rules/base.xml.in.h:85
+msgid "Bengali Probhat"
+msgstr "Bengali Probhat"
+
+#: ../rules/base.xml.in.h:86
+msgid "Bepo, ergonomic, Dvorak way"
+msgstr "Bepo, ergonomisk, Dvorak"
+
+#: ../rules/base.xml.in.h:87
+msgid "Bepo, ergonomic, Dvorak way, latin-9 only"
+msgstr "Bepo, ergonomisk, Dvorak, endast latin-9"
+
+#: ../rules/base.xml.in.h:88 ../rules/sun.xml.in.h:24
+msgid "Bgr"
+msgstr "Bgr"
+
+#: ../rules/base.xml.in.h:89
+msgid "Bhu"
+msgstr "Bhu"
+
+#: ../rules/base.xml.in.h:90
+msgid "Bhutan"
+msgstr "Bhutan"
+
+#: ../rules/base.xml.in.h:91
+msgid "Biblical Hebrew (Tiro)"
+msgstr "Biblisk hebreisk (Tiro)"
+
+#: ../rules/base.xml.in.h:92
+msgid "Bih"
+msgstr "Bih"
+
+#: ../rules/base.xml.in.h:93
+msgid "Blr"
+msgstr "Blr"
+
+#: ../rules/base.xml.in.h:94
+msgid "Bosnia and Herzegovina"
+msgstr "Bosnien och Herzegovina"
+
+#: ../rules/base.xml.in.h:95
+msgid "Both Alt keys together change layout."
+msgstr "Båda Alt-tangenterna tillsammans byter layout."
+
+#: ../rules/base.xml.in.h:96
+msgid "Both Ctrl keys together change layout."
+msgstr "Båda Ctrl-tangenterna tillsammans byter layout."
+
+#: ../rules/base.xml.in.h:97
+msgid "Both Shift keys together change layout."
+msgstr "Båda Skift-tangenterna tillsammans byter layout."
+
+#: ../rules/base.xml.in.h:98
+msgid "Both Win-keys switch layout while pressed."
+msgstr "Båda Win-tangenterna byter layout då de trycks ned."
+
+#: ../rules/base.xml.in.h:99
+msgid "Bra"
+msgstr "Bra"
+
+#: ../rules/base.xml.in.h:100
+msgid "Braille"
+msgstr "Braille"
+
+#: ../rules/base.xml.in.h:101
+msgid "Brazil"
+msgstr "Brasilien"
+
+#: ../rules/base.xml.in.h:102
+msgid "Brazilian ABNT2"
+msgstr "Brasiliansk ABNT2"
+
+#: ../rules/base.xml.in.h:103
+msgid "Brl"
+msgstr "Brl"
+
+#: ../rules/base.xml.in.h:104
+msgid "Brother Internet Keyboard"
+msgstr "Brother Internettangentbord"
+
+#: ../rules/base.xml.in.h:105
+msgid "Buckwalter"
+msgstr "Buckwalter"
+
+#: ../rules/base.xml.in.h:106
+msgid "Bulgaria"
+msgstr "Bulgarien"
+
+#: ../rules/base.xml.in.h:107
+msgid "Cambodia"
+msgstr "Cambodia"
+
+#: ../rules/base.xml.in.h:108 ../rules/sun.xml.in.h:29
+msgid "Can"
+msgstr "Can"
+
+#: ../rules/base.xml.in.h:109
+msgid "Canada"
+msgstr "Kanada"
+
+#: ../rules/base.xml.in.h:110
+msgid "Caps Lock is Compose."
+msgstr "Caps Lock är Compose."
+
+#: ../rules/base.xml.in.h:111
+msgid "CapsLock LED shows alternative layout."
+msgstr "CapsLock-lampan visar alternativ layout."
+
+#: ../rules/base.xml.in.h:112
+msgid "CapsLock acts as Shift with locking. Shift \"pauses\" CapsLock."
+msgstr "CapsLock fungerar som Skift med låsning. Skift \"pausar\" Caps Lock."
+
+#: ../rules/base.xml.in.h:113
+msgid "CapsLock acts as Shift with locking. Shift doesn't affect CapsLock."
+msgstr "CapsLock fungerar som Skift med låsning. Skift påverkar inte Caps Lock."
+
+#: ../rules/base.xml.in.h:114
+msgid "CapsLock just locks the Shift modifier."
+msgstr "CapsLock låser bara Skift-modifieraren."
+
+#: ../rules/base.xml.in.h:115 ../rules/sun.xml.in.h:33
+msgid "CapsLock key behavior"
+msgstr "Beteende för Caps Lock-tangenten"
+
+#: ../rules/base.xml.in.h:116
+msgid "CapsLock key changes layout."
+msgstr "CapsLock-tangenten byter layout."
+
+#: ../rules/base.xml.in.h:117
+msgid "CapsLock toggles Shift so all keys are affected."
+msgstr "CapsLock växlar Skift så alla tangenter påverkas."
+
+#: ../rules/base.xml.in.h:118
+msgid "CapsLock toggles normal capitalization of alphabetic characters."
+msgstr "CapsLock växla normalt skiftläge på alfabetiska tecken."
+
+#: ../rules/base.xml.in.h:119
+msgid "CapsLock uses internal capitalization. Shift \"pauses\" CapsLock."
+msgstr "CapsLock använder intern skiftlägesstyrning. Skift \"pausar\" CapsLock."
+
+#: ../rules/base.xml.in.h:120
+msgid "CapsLock uses internal capitalization. Shift doesn't affect CapsLock."
+msgstr "CapsLock använder intern skiftlägesstyrning. Skift påverkar inte CapsLock."
+
+#: ../rules/base.xml.in.h:121
+msgid "Catalan variant with middle-dot L"
+msgstr "Katalansk variant med mittenpunkts L"
+
+#: ../rules/base.xml.in.h:122
+msgid "Che"
+msgstr "Che"
+
+#: ../rules/base.xml.in.h:123
+msgid "Cherry Blue Line CyBo@rd"
+msgstr "Cherry Blue Line CyBo@rd"
+
+#: ../rules/base.xml.in.h:124
+msgid "Cherry Blue Line CyBo@rd (alternate option)"
+msgstr "Cherry Blue Line CyBo@rd (alternativ)"
+
+#: ../rules/base.xml.in.h:125
+msgid "Cherry CyBo@rd USB-Hub"
+msgstr "Cherry CyBo@rd USB-hubb"
+
+#: ../rules/base.xml.in.h:126
+msgid "Cherry CyMotion Master Linux"
+msgstr "Cherry CyMotion Master Linux"
+
+#: ../rules/base.xml.in.h:127
+msgid "Cherry CyMotion Master XPress"
+msgstr "Cherry CyMotion Master XPress"
+
+#: ../rules/base.xml.in.h:128
+msgid "Chicony Internet Keyboard"
+msgstr "Chicony Internettangentbord"
+
+#: ../rules/base.xml.in.h:129
+msgid "Chicony KB-9885"
+msgstr "Chicony KB-9885"
+
+#: ../rules/base.xml.in.h:130
+msgid "Chicony KU-0108"
+msgstr "Chicony KU-0108"
+
+#: ../rules/base.xml.in.h:131
+msgid "China"
+msgstr "Kina"
+
+#: ../rules/base.xml.in.h:132
+msgid "Chuvash"
+msgstr "Tjuvasjiska"
+
+#: ../rules/base.xml.in.h:133
+msgid "Chuvash Latin"
+msgstr "Tjuvasjiska latin"
+
+#: ../rules/base.xml.in.h:134
+msgid "Classic"
+msgstr "Klassisk"
+
+#: ../rules/base.xml.in.h:135
+msgid "Classic Dvorak"
+msgstr "Klassisk Dvorak"
+
+#: ../rules/base.xml.in.h:136
+msgid "Classmate PC"
+msgstr "Classmate PC"
+
+#: ../rules/base.xml.in.h:137
+msgid "CloGaelach"
+msgstr "CloGaelach"
+
+#: ../rules/base.xml.in.h:138
+msgid "Colemak"
+msgstr "Colemak"
+
+#: ../rules/base.xml.in.h:139
+msgid "Commabelow"
+msgstr "Commabelow"
+
+#: ../rules/base.xml.in.h:140
+msgid "Compaq Easy Access Keyboard"
+msgstr "Compaq Easy Access-tangentbord"
+
+#: ../rules/base.xml.in.h:141
+msgid "Compaq Internet Keyboard (13 keys)"
+msgstr "Compaq Internettangentbord (13 tangenter)"
+
+#: ../rules/base.xml.in.h:142
+msgid "Compaq Internet Keyboard (18 keys)"
+msgstr "Compaq Internettangentbord (18 tangenter)"
+
+#: ../rules/base.xml.in.h:143
+msgid "Compaq Internet Keyboard (7 keys)"
+msgstr "Compaq Internettangentbord (7 tangenter)"
+
+#: ../rules/base.xml.in.h:144
+msgid "Compaq iPaq Keyboard"
+msgstr "Compaq iPaq-tangentbord"
+
+#: ../rules/base.xml.in.h:145
+msgid "Compose key position"
+msgstr "Position för Compose-tangenten"
+
+#: ../rules/base.xml.in.h:146
+msgid "Congo, Democratic Republic of the"
+msgstr "Kongo, Demokratiska republiken"
+
+#: ../rules/base.xml.in.h:147
+msgid "Control is mapped to the Win-keys (and the usual Ctrl keys)."
+msgstr "Control är mappat till Win-tangenterna (och de vanliga Ctrl-tangenterna)."
+
+#: ../rules/base.xml.in.h:148
+msgid "Croatia"
+msgstr "Kroatien"
+
+#: ../rules/base.xml.in.h:149
+msgid "Ctrl key at bottom left"
+msgstr "Ctrl-tangenten nere till vänster"
+
+#: ../rules/base.xml.in.h:150
+msgid "Ctrl key at left of 'A'"
+msgstr "Ctrl-tangenten till vänster om \"A\""
+
+#: ../rules/base.xml.in.h:151
+msgid "Ctrl key position"
+msgstr "Position för Ctrl-tangenten"
+
+#: ../rules/base.xml.in.h:152
+msgid "Ctrl+Shift change layout."
+msgstr "Ctrl+Skift byter layout."
+
+#: ../rules/base.xml.in.h:153
+msgid "Cyrillic"
+msgstr "Kyrillisk"
+
+#: ../rules/base.xml.in.h:154
+msgid "Cyrillic with guillemets"
+msgstr "Kyrillisk med gåsögon"
+
+#: ../rules/base.xml.in.h:155
+msgid "Cyrillic, Z and ZHE swapped"
+msgstr "Kyrillisk, Z och ZHE utbytta"
+
+#: ../rules/base.xml.in.h:156 ../rules/sun.xml.in.h:39
+msgid "Cze"
+msgstr "Cze"
+
+#: ../rules/base.xml.in.h:157
+msgid "Czechia"
+msgstr "Tjeckien"
+
+#: ../rules/base.xml.in.h:158
+msgid "DRC"
+msgstr "DRC"
+
+#: ../rules/base.xml.in.h:159
+msgid "DTK2000"
+msgstr "DTK2000"
+
+#: ../rules/base.xml.in.h:160 ../rules/sun.xml.in.h:42
+msgid "Dead acute"
+msgstr "Stum akut accent"
+
+#: ../rules/base.xml.in.h:161 ../rules/sun.xml.in.h:43
+msgid "Dead grave acute"
+msgstr "Stum grav och akut accent"
+
+#: ../rules/base.xml.in.h:162
+msgid "Default numeric keypad keys."
+msgstr "Standardtangenter för numeriskt tangentbord."
+
+#: ../rules/base.xml.in.h:163
+msgid "Dell"
+msgstr "Dell"
+
+#: ../rules/base.xml.in.h:164
+msgid "Dell 101-key PC"
+msgstr "Dell 101-tangenters PC"
+
+#: ../rules/base.xml.in.h:165
+msgid "Dell Laptop/notebook Inspiron 6xxx/8xxx"
+msgstr "Bärbar Dell Inspiron 6xxx/8xxx"
+
+#: ../rules/base.xml.in.h:166
+msgid "Dell Laptop/notebook Precision M series"
+msgstr "Bärbar Dell Precision M series"
+
+#: ../rules/base.xml.in.h:167
+msgid "Dell Latitude series laptop"
+msgstr "Bärbar Dell Latitude-serien"
+
+#: ../rules/base.xml.in.h:168
+msgid "Dell Precision M65"
+msgstr "Dell Precision M65"
+
+#: ../rules/base.xml.in.h:169
+msgid "Dell USB Multimedia Keybard"
+msgstr "Dell USB Multimedia Keybard"
+
+#: ../rules/base.xml.in.h:170
+msgid "Denmark"
+msgstr "Danmark"
+
+#: ../rules/base.xml.in.h:171 ../rules/sun.xml.in.h:44
+msgid "Deu"
+msgstr "Deu"
+
+#: ../rules/base.xml.in.h:172
+msgid "Dexxa Wireless Desktop Keyboard"
+msgstr "Dexxa trådlöst skrivbordstangentbord"
+
+#: ../rules/base.xml.in.h:173
+msgid "Diamond 9801 / 9802 series"
+msgstr "Diamond 9801/9802-serien"
+
+#: ../rules/base.xml.in.h:174 ../rules/sun.xml.in.h:46
+msgid "Dnk"
+msgstr "Dnk"
+
+#: ../rules/base.xml.in.h:175 ../rules/sun.xml.in.h:48
+msgid "Dvorak"
+msgstr "Dvorak"
+
+#: ../rules/base.xml.in.h:176
+msgid "Dvorak international"
+msgstr "Dvorak internationell"
+
+#: ../rules/base.xml.in.h:177
+msgid "Dvorak, Polish quotes on key \"1/!\""
+msgstr "Dvorak, polska citattecken på tangent \"1/!\""
+
+#: ../rules/base.xml.in.h:178
+msgid "Dvorak, Polish quotes on quotemark key"
+msgstr "Dvorak, polska citattecken på citattangent"
+
+#: ../rules/base.xml.in.h:179
+msgid "Eastern"
+msgstr "Östlig"
+
+#: ../rules/base.xml.in.h:180 ../rules/sun.xml.in.h:49
+msgid "Eliminate dead keys"
+msgstr "Eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:181
+msgid "Ennyah DKB-1008"
+msgstr "Ennyah DKB-1008"
+
+#: ../rules/base.xml.in.h:182
+msgid "Epo"
+msgstr "Epo"
+
+#: ../rules/base.xml.in.h:183
+msgid "Ergonomic"
+msgstr "Ergonomisk"
+
+#: ../rules/base.xml.in.h:184 ../rules/sun.xml.in.h:50
+msgid "Esp"
+msgstr "Esp"
+
+#: ../rules/base.xml.in.h:185
+msgid "Esperanto"
+msgstr "Esperanto"
+
+#: ../rules/base.xml.in.h:186
+msgid "Est"
+msgstr "Est"
+
+#: ../rules/base.xml.in.h:187
+msgid "Estonia"
+msgstr "Estland"
+
+#: ../rules/base.xml.in.h:188
+msgid "Eth"
+msgstr "Eth"
+
+#: ../rules/base.xml.in.h:189
+msgid "Ethiopia"
+msgstr "Etiopien"
+
+#: ../rules/base.xml.in.h:190
+msgid "Evdev-managed keyboard"
+msgstr "Evdev-hanterat tangentbord"
+
+#: ../rules/base.xml.in.h:191
+msgid "Everex STEPnote"
+msgstr "Everex STEPnote"
+
+#: ../rules/base.xml.in.h:192
+msgid "Ewe"
+msgstr "Ewe"
+
+#: ../rules/base.xml.in.h:193
+msgid "Extended"
+msgstr "Utökad"
+
+#: ../rules/base.xml.in.h:194
+msgid "Extended Backslash"
+msgstr "Utökat omvänt snedstreck"
+
+#: ../rules/base.xml.in.h:195
+msgid "F-letter (F) variant"
+msgstr "F-bokstavs (F) variant"
+
+#: ../rules/base.xml.in.h:196
+msgid "Fao"
+msgstr "Fao"
+
+#: ../rules/base.xml.in.h:197
+msgid "Faroe Islands"
+msgstr "Färöarna"
+
+#: ../rules/base.xml.in.h:198 ../rules/sun.xml.in.h:51
+msgid "Fin"
+msgstr "Fin"
+
+#: ../rules/base.xml.in.h:199
+msgid "Finland"
+msgstr "Finland"
+
+#. This assumes the KP_ abstract symbols are actually useful for some apps
+#. The description needs to be rewritten
+#: ../rules/base.xml.in.h:202
+msgid "Four-level key with abstract separators"
+msgstr "Fjärdenivåstangent med abstrakta avgränsare"
+
+#: ../rules/base.xml.in.h:203
+msgid "Four-level key with comma"
+msgstr "Fjärdenivåstangent med komma"
+
+#: ../rules/base.xml.in.h:204
+msgid "Four-level key with dot"
+msgstr "Fjärdenivåstangent med punkt"
+
+#: ../rules/base.xml.in.h:205
+msgid "Four-level key with momayyez"
+msgstr "Fjärdenivåstangent med momayyez"
+
+#: ../rules/base.xml.in.h:206 ../rules/sun.xml.in.h:53
+msgid "Fra"
+msgstr "Fra"
+
+#: ../rules/base.xml.in.h:207
+msgid "France"
+msgstr "Frankrike"
+
+#: ../rules/base.xml.in.h:208 ../rules/sun.xml.in.h:55
+msgid "French"
+msgstr "Fransk"
+
+#: ../rules/base.xml.in.h:209
+msgid "French (Macintosh)"
+msgstr "Fransk (Macintosh)"
+
+#: ../rules/base.xml.in.h:210 ../rules/sun.xml.in.h:56
+msgid "French (legacy)"
+msgstr "Fransk (äldre)"
+
+#: ../rules/base.xml.in.h:211
+msgid "French Dvorak"
+msgstr "Fransk Dvorak"
+
+#: ../rules/base.xml.in.h:212
+msgid "French, Sun dead keys"
+msgstr "Fransk, Sun stumma tangenter"
+
+#: ../rules/base.xml.in.h:213
+msgid "French, eliminate dead keys"
+msgstr "Fransk, eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:214
+msgid "Fujitsu-Siemens Computers AMILO A1667G laptop"
+msgstr "Fujitsu-Siemens Computers AMILO A1667G"
+
+#: ../rules/base.xml.in.h:215
+msgid "Fula"
+msgstr "Fula"
+
+#: ../rules/base.xml.in.h:216
+msgid "GBr"
+msgstr "GBr"
+
+#: ../rules/base.xml.in.h:217
+msgid "Ga"
+msgstr "Ga"
+
+#: ../rules/base.xml.in.h:218
+msgid "Generic 101-key PC"
+msgstr "Allmän 101-tangenters PC"
+
+#: ../rules/base.xml.in.h:219
+msgid "Generic 102-key (Intl) PC"
+msgstr "Allmän 102-tangenters (internationell) PC"
+
+#: ../rules/base.xml.in.h:220
+msgid "Generic 104-key PC"
+msgstr "Allmän 104-tangenters PC"
+
+#: ../rules/base.xml.in.h:221
+msgid "Generic 105-key (Intl) PC"
+msgstr "Allmän 105-tangenters (internationell) PC"
+
+#: ../rules/base.xml.in.h:222
+msgid "Genius Comfy KB-12e"
+msgstr "Genius Comfy KB-12e"
+
+#: ../rules/base.xml.in.h:223
+msgid "Genius Comfy KB-16M / Genius MM Keyboard KWD-910"
+msgstr "Genius Comfy KB-16M / Genius MM-tangentbord KWD-910"
+
+#: ../rules/base.xml.in.h:224
+msgid "Genius Comfy KB-21e-Scroll"
+msgstr "Genius Comfy KB-21e-Scroll"
+
+#: ../rules/base.xml.in.h:225
+msgid "Genius KB-19e NB"
+msgstr "Genius KB-19e NB"
+
+#: ../rules/base.xml.in.h:226
+msgid "Geo"
+msgstr "Geo"
+
+#: ../rules/base.xml.in.h:227
+msgid "Georgia"
+msgstr "Georgien"
+
+#: ../rules/base.xml.in.h:228
+msgid "Georgian"
+msgstr "Georgisk"
+
+#: ../rules/base.xml.in.h:229
+msgid "Georgian AZERTY Tskapo"
+msgstr "Georgian AZERTY Tskapo"
+
+#: ../rules/base.xml.in.h:230
+msgid "German (Macintosh)"
+msgstr "Tysk (Macintosh)"
+
+#: ../rules/base.xml.in.h:231
+msgid "German, Sun dead keys"
+msgstr "Tysk, Sun stumma tangenter"
+
+#: ../rules/base.xml.in.h:232
+msgid "German, eliminate dead keys"
+msgstr "Tysk, eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:233
+msgid "Germany"
+msgstr "Tyskland"
+
+#: ../rules/base.xml.in.h:234
+msgid "Gha"
+msgstr "Gha"
+
+#: ../rules/base.xml.in.h:235
+msgid "Ghana"
+msgstr "Ghana"
+
+#: ../rules/base.xml.in.h:236
+msgid "Gre"
+msgstr "Gre"
+
+#: ../rules/base.xml.in.h:237
+msgid "Greece"
+msgstr "Grekland"
+
+#: ../rules/base.xml.in.h:238
+msgid "Group toggle on multiply/divide key"
+msgstr "Gruppväxling på multiplicera/dividera-tangent"
+
+#: ../rules/base.xml.in.h:239
+msgid "Gui"
+msgstr "Gui"
+
+#: ../rules/base.xml.in.h:240
+msgid "Guinea"
+msgstr "Guinea"
+
+#: ../rules/base.xml.in.h:241
+msgid "Gujarati"
+msgstr "Gujaratisk"
+
+#: ../rules/base.xml.in.h:242
+msgid "Gurmukhi"
+msgstr "Gurmukhisk"
+
+#: ../rules/base.xml.in.h:243
+msgid "Gyration"
+msgstr "Gyration"
+
+#: ../rules/base.xml.in.h:244
+msgid "Happy Hacking Keyboard"
+msgstr "Happy Hacking-tangentbord"
+
+#: ../rules/base.xml.in.h:245
+msgid "Happy Hacking Keyboard for Mac"
+msgstr "Happy Hacking-tangentbord för Mac"
+
+#: ../rules/base.xml.in.h:246
+msgid "Hausa"
+msgstr "Hausa"
+
+#: ../rules/base.xml.in.h:247
+msgid "Hewlett-Packard Internet Keyboard"
+msgstr "Hewlett-Packard Internettangentbord"
+
+#: ../rules/base.xml.in.h:248
+msgid "Hewlett-Packard Omnibook 500 FA"
+msgstr "Hewlett-Packard Omnibook 500 FA"
+
+#: ../rules/base.xml.in.h:249
+msgid "Hewlett-Packard Omnibook 5xx"
+msgstr "Hewlett-Packard Omnibook 5xx"
+
+#: ../rules/base.xml.in.h:250
+msgid "Hewlett-Packard Omnibook 6000/6100"
+msgstr "Hewlett-Packard Omnibook 6000/6100"
+
+#: ../rules/base.xml.in.h:251
+msgid "Hewlett-Packard Omnibook XE3 GC"
+msgstr "Hewlett-Packard Omnibook XE3 GC"
+
+#: ../rules/base.xml.in.h:252
+msgid "Hewlett-Packard Omnibook XE3 GF"
+msgstr "Hewlett-Packard Omnibook XE3 GF"
+
+#: ../rules/base.xml.in.h:253
+msgid "Hewlett-Packard Omnibook XT1000"
+msgstr "Hewlett-Packard Omnibook XT1000"
+
+#: ../rules/base.xml.in.h:254
+msgid "Hewlett-Packard Pavilion ZT11xx"
+msgstr "Hewlett-Packard Pavilion ZT11xx"
+
+#: ../rules/base.xml.in.h:255
+msgid "Hewlett-Packard SK-2501 Multimedia Keyboard"
+msgstr "Hewlett-Packard SK-2501 multimediatangentbord"
+
+#: ../rules/base.xml.in.h:256
+msgid "Hewlett-Packard SK-2505 Internet Keyboard"
+msgstr "Hewlett-Packard SK-2505 Internettangentbord"
+
+#: ../rules/base.xml.in.h:257
+msgid "Hindi Bolnagri"
+msgstr "Hindi bolnagri"
+
+#: ../rules/base.xml.in.h:258
+msgid "Honeywell Euroboard"
+msgstr "Honeywell Euroboard"
+
+#: ../rules/base.xml.in.h:259
+msgid "Hrv"
+msgstr "Hrv"
+
+#: ../rules/base.xml.in.h:260 ../rules/sun.xml.in.h:59
+msgid "Hun"
+msgstr "Hun"
+
+#: ../rules/base.xml.in.h:261
+msgid "Hungary"
+msgstr "Ungern"
+
+#: ../rules/base.xml.in.h:262
+msgid "Hyper is mapped to the Win-keys."
+msgstr "Hyper är mappat till Win-tangenterna."
+
+#: ../rules/base.xml.in.h:263
+msgid "IBM (LST 1205-92)"
+msgstr "IBM (LST 1205-92)"
+
+#: ../rules/base.xml.in.h:264
+msgid "IBM Rapid Access"
+msgstr "IBM Rapid Access"
+
+#: ../rules/base.xml.in.h:265
+msgid "IBM Rapid Access II"
+msgstr "IBM Rapid Access II"
+
+#: ../rules/base.xml.in.h:266
+msgid "IBM Rapid Access II (alternate option)"
+msgstr "IBM Rapid Access II (alternativ)"
+
+#: ../rules/base.xml.in.h:267
+msgid "IBM ThinkPad 560Z/600/600E/A22E"
+msgstr "IBM ThinkPad 560Z/600/600E/A22E"
+
+#: ../rules/base.xml.in.h:268
+msgid "IBM ThinkPad 560Z/600/600E/A22E, Intl"
+msgstr "IBM ThinkPad 560Z/600/600E/A22E, Intl"
+
+#: ../rules/base.xml.in.h:269
+msgid "IBM ThinkPad R60/T60/Z60m/Z60t/R61/T61/Z61m/Z61t"
+msgstr "IBM ThinkPad R60/T60/Z60m/Z60t/R61/T61/Z61m/Z61t"
+
+#: ../rules/base.xml.in.h:270 ../rules/sun.xml.in.h:61
+msgid "ISO Alternate"
+msgstr "ISO-alternativ"
+
+#: ../rules/base.xml.in.h:271
+msgid "Iceland"
+msgstr "Island"
+
+#: ../rules/base.xml.in.h:272
+msgid "Igbo"
+msgstr "Igbo"
+
+#: ../rules/base.xml.in.h:273
+msgid "Ind"
+msgstr "Ind"
+
+#: ../rules/base.xml.in.h:274
+msgid "India"
+msgstr "Indien"
+
+#: ../rules/base.xml.in.h:275
+msgid "International (AltGr dead keys)"
+msgstr "Internationell (AltGr med stumma tangenter)"
+
+#: ../rules/base.xml.in.h:276 ../rules/sun.xml.in.h:62
+msgid "International (with dead keys)"
+msgstr "Internationell (med stumma tangenter)"
+
+#: ../rules/base.xml.in.h:277
+msgid "Inuktitut"
+msgstr "Inuktitut"
+
+#: ../rules/base.xml.in.h:278
+msgid "Iran"
+msgstr "Iran"
+
+#: ../rules/base.xml.in.h:279
+msgid "Iraq"
+msgstr "Irak"
+
+#: ../rules/base.xml.in.h:280
+msgid "Ireland"
+msgstr "Irland"
+
+#: ../rules/base.xml.in.h:281
+msgid "Irl"
+msgstr "Irl"
+
+#: ../rules/base.xml.in.h:282
+msgid "Irn"
+msgstr "Irn"
+
+#: ../rules/base.xml.in.h:283
+msgid "Irq"
+msgstr "Irk"
+
+#: ../rules/base.xml.in.h:284
+msgid "Isl"
+msgstr "Isl"
+
+#: ../rules/base.xml.in.h:285
+msgid "Isr"
+msgstr "Isr"
+
+#: ../rules/base.xml.in.h:286
+msgid "Israel"
+msgstr "Israel"
+
+#: ../rules/base.xml.in.h:287 ../rules/sun.xml.in.h:63
+msgid "Ita"
+msgstr "Ita"
+
+#: ../rules/base.xml.in.h:288
+msgid "Italy"
+msgstr "Italien"
+
+#: ../rules/base.xml.in.h:289
+msgid "Japan"
+msgstr "Japan"
+
+#: ../rules/base.xml.in.h:290
+msgid "Japan (PC-98xx Series)"
+msgstr "Japan (PC-98xx-serien)"
+
+#: ../rules/base.xml.in.h:291
+msgid "Japanese 106-key"
+msgstr "Japansk 106-tangenters"
+
+#: ../rules/base.xml.in.h:292
+msgid "Japanese keyboard options"
+msgstr "Tangentbordsalternativ för japanska"
+
+#: ../rules/base.xml.in.h:293 ../rules/sun.xml.in.h:66
+msgid "Jpn"
+msgstr "Jpn"
+
+# Även kanaresisk (äldre form)
+#: ../rules/base.xml.in.h:294
+msgid "Kana"
+msgstr "Kana"
+
+#: ../rules/base.xml.in.h:295
+msgid "Kana Lock key is locking"
+msgstr "Kana Lock-tangent låser"
+
+# Även kanaresisk (äldre form)
+#: ../rules/base.xml.in.h:296
+msgid "Kannada"
+msgstr "Kannada"
+
+#: ../rules/base.xml.in.h:297
+msgid "Kashubian"
+msgstr "Kashubian"
+
+#: ../rules/base.xml.in.h:298
+msgid "Kaz"
+msgstr "Kaz"
+
+#: ../rules/base.xml.in.h:299
+msgid "Kazakh with Russian"
+msgstr "Kazakisk med ryska"
+
+#: ../rules/base.xml.in.h:300
+msgid "Kazakhstan"
+msgstr "Kazakstan"
+
+#: ../rules/base.xml.in.h:301
+msgid "Keypad"
+msgstr "Knappsats"
+
+#: ../rules/base.xml.in.h:302
+msgid "Keypad with unicode additions (arrows and math operators)"
+msgstr "Numeriskt tangentbord med unicode-tillägg (pilar och matematikoperatorer)"
+
+#: ../rules/base.xml.in.h:303
+msgid "Keypad with unicode additions (arrows and math operators). Math operators on default level."
+msgstr "Numeriskt tangentbord med unicode-tillägg (pilar och matematikoperatorer). Matematikoperatorer på standardnivå."
+
+#: ../rules/base.xml.in.h:304
+msgid "Keytronic FlexPro"
+msgstr "Keytronic FlexPro"
+
+#: ../rules/base.xml.in.h:305
+msgid "Khm"
+msgstr "Khm"
+
+#: ../rules/base.xml.in.h:306
+msgid "Komi"
+msgstr "Komi"
+
+#: ../rules/base.xml.in.h:307
+msgid "Kor"
+msgstr "Kor"
+
+#: ../rules/base.xml.in.h:308
+msgid "Korea, Republic of"
+msgstr "Korea, Republiken"
+
+#: ../rules/base.xml.in.h:309
+msgid "Korean 106-key"
+msgstr "Koreansk 106-tangenters"
+
+#: ../rules/base.xml.in.h:310
+msgid "Kurdish, (F)"
+msgstr "Kurdisk, (F)"
+
+#: ../rules/base.xml.in.h:311
+msgid "Kurdish, Arabic-Latin"
+msgstr "Kurdisk, Arabisk-Latin"
+
+#: ../rules/base.xml.in.h:312
+msgid "Kurdish, Latin Alt-Q"
+msgstr "Kurdisk, Latin Alt-Q"
+
+#: ../rules/base.xml.in.h:313
+msgid "Kurdish, Latin Q"
+msgstr "Kurdisk, Latin Q"
+
+#: ../rules/base.xml.in.h:314
+msgid "Kyr"
+msgstr "Kyr"
+
+#: ../rules/base.xml.in.h:315
+msgid "Kyrgyzstan"
+msgstr "Kirgizistan"
+
+#: ../rules/base.xml.in.h:316
+msgid "LAm"
+msgstr "LAm"
+
+#: ../rules/base.xml.in.h:317
+msgid "LCtrl+LShift change layout."
+msgstr "Vänster Ctrl + vänster Skift byter layout."
+
+#: ../rules/base.xml.in.h:318
+msgid "Lao"
+msgstr "Lao"
+
+#: ../rules/base.xml.in.h:319
+msgid "Laos"
+msgstr "Laos"
+
+#: ../rules/base.xml.in.h:320
+msgid "Laptop/notebook Compaq (eg. Armada) Laptop Keyboard"
+msgstr "Laptop-tangentbord för bärbar Compaq-dator (t.ex. Armada)"
+
+#: ../rules/base.xml.in.h:321
+msgid "Laptop/notebook Compaq (eg. Presario) Internet Keyboard"
+msgstr "Internettangentbord för bärbar Compaq-dator (t.ex. Presario)"
+
+#: ../rules/base.xml.in.h:322
+msgid "Laptop/notebook eMachines m68xx"
+msgstr "Bärbar eMachines m68xx"
+
+#: ../rules/base.xml.in.h:323
+msgid "Latin"
+msgstr "Latin"
+
+#: ../rules/base.xml.in.h:324
+msgid "Latin American"
+msgstr "Latin Amerikansk"
+
+#: ../rules/base.xml.in.h:325
+msgid "Latin Unicode"
+msgstr "Latin Unicode"
+
+#: ../rules/base.xml.in.h:326
+msgid "Latin Unicode qwerty"
+msgstr "Latin Unicode qwerty"
+
+#: ../rules/base.xml.in.h:327
+msgid "Latin qwerty"
+msgstr "Latin qwerty"
+
+#: ../rules/base.xml.in.h:328
+msgid "Latin unicode"
+msgstr "Latin unicode"
+
+#: ../rules/base.xml.in.h:329
+msgid "Latin unicode qwerty"
+msgstr "Latin unicode qwerty"
+
+#: ../rules/base.xml.in.h:330
+msgid "Latin with guillemets"
+msgstr "Latin med gåsögon"
+
+#: ../rules/base.xml.in.h:331
+msgid "Latvia"
+msgstr "Lettland"
+
+#: ../rules/base.xml.in.h:332
+msgid "Layout switching"
+msgstr "Layoutväxling"
+
+#: ../rules/base.xml.in.h:333
+msgid "Left Alt is swapped with left Win-key."
+msgstr "Vänster Alt är mappat till vänster Win-tangent."
+
+#: ../rules/base.xml.in.h:334
+msgid "Left Alt key changes layout."
+msgstr "Vänster Alt-tangent byter layout."
+
+#: ../rules/base.xml.in.h:335
+msgid "Left Alt key switches layout while pressed."
+msgstr "Vänster Alt-tangent byter layout då den trycks ned."
+
+#: ../rules/base.xml.in.h:336
+msgid "Left Ctrl key changes layout."
+msgstr "Vänster Ctrl-tangent byter layout."
+
+#: ../rules/base.xml.in.h:337
+msgid "Left Shift key changes layout."
+msgstr "Vänster Skift-tangent byter layout."
+
+#: ../rules/base.xml.in.h:338
+msgid "Left Win-key changes layout."
+msgstr "Vänster Win-tangent byter layout."
+
+#: ../rules/base.xml.in.h:339
+msgid "Left Win-key is Compose."
+msgstr "Vänster Win-tangent är Compose."
+
+#: ../rules/base.xml.in.h:340
+msgid "Left Win-key switches layout while pressed."
+msgstr "Vänster Win-tangent byter layout då den trycks ned."
+
+#: ../rules/base.xml.in.h:341
+msgid "Left hand"
+msgstr "Vänsterhänt"
+
+#: ../rules/base.xml.in.h:342
+msgid "Left handed Dvorak"
+msgstr "Vänsterhänt Dvorak"
+
+#: ../rules/base.xml.in.h:343
+msgid "Legacy Wang 724 keypad"
+msgstr "Legacy Wang 724 numeriskt tangentbord"
+
+#. Actually, with KP_SEPARATOR, as the old keypad(comma)
+#: ../rules/base.xml.in.h:345
+msgid "Legacy key with comma"
+msgstr "Äldre tangent med komma"
+
+#: ../rules/base.xml.in.h:346
+msgid "Legacy key with dot"
+msgstr "Äldre tangent med punkt"
+
+#: ../rules/base.xml.in.h:347
+msgid "Legacy keypad"
+msgstr "Äldre numeriskt tangentbord"
+
+#: ../rules/base.xml.in.h:348
+msgid "Lithuania"
+msgstr "Litauen"
+
+#: ../rules/base.xml.in.h:349
+msgid "Logitech Access Keyboard"
+msgstr "Logitech Access Keyboard"
+
+#: ../rules/base.xml.in.h:350
+msgid "Logitech Cordless Desktop"
+msgstr "Logitech Cordless Desktop"
+
+#: ../rules/base.xml.in.h:351
+msgid "Logitech Cordless Desktop (alternate option)"
+msgstr "Logitech Cordless Desktop (alternativ)"
+
+#: ../rules/base.xml.in.h:352
+msgid "Logitech Cordless Desktop EX110"
+msgstr "Logitech Cordless Desktop EX110"
+
+#: ../rules/base.xml.in.h:353
+msgid "Logitech Cordless Desktop LX-300"
+msgstr "Logitech Cordless Desktop LX-300"
+
+#: ../rules/base.xml.in.h:354
+msgid "Logitech Cordless Desktop Navigator"
+msgstr "Logitech Cordless Desktop Navigator"
+
+#: ../rules/base.xml.in.h:355
+msgid "Logitech Cordless Desktop Pro (alternate option2)"
+msgstr "Logitech Cordless Desktop Pro (alternativ2)"
+
+#: ../rules/base.xml.in.h:356
+msgid "Logitech Cordless Freedom/Desktop Navigator"
+msgstr "Logitech Cordless Freedom/Desktop Navigator"
+
+#: ../rules/base.xml.in.h:357
+msgid "Logitech G15 extra keys via G15daemon"
+msgstr "Logitech G15 extratangenter via G15daemon"
+
+#: ../rules/base.xml.in.h:358
+msgid "Logitech Internet Keyboard"
+msgstr "Logitech Internettangentbord"
+
+#: ../rules/base.xml.in.h:359
+msgid "Logitech Internet Navigator Keyboard"
+msgstr "Logitech Internet Navigator-tangentbord"
+
+#: ../rules/base.xml.in.h:360
+msgid "Logitech Ultra-X Cordless Media Desktop Keyboard"
+msgstr "Logitech Ultra-X Cordless Media Desktop Keyboard"
+
+#: ../rules/base.xml.in.h:361
+msgid "Logitech Ultra-X Keyboard"
+msgstr "Logitech Ultra-X Keyboard"
+
+#: ../rules/base.xml.in.h:362
+msgid "Logitech diNovo Edge Keyboard"
+msgstr "Logitech diNovo Edge Keyboard"
+
+#: ../rules/base.xml.in.h:363
+msgid "Logitech diNovo Keyboard"
+msgstr "Logitech diNovo Keyboard"
+
+#: ../rules/base.xml.in.h:364
+msgid "Logitech iTouch"
+msgstr "Logitech iTouch"
+
+#: ../rules/base.xml.in.h:365
+msgid "Logitech iTouch Cordless Keyboard (model Y-RB6)"
+msgstr "Logitech iTouch Cordless Keyboard (modell Y-RB6)"
+
+#: ../rules/base.xml.in.h:366
+msgid "Logitech iTouch Internet Navigator Keyboard SE"
+msgstr "Logitech iTouch Internet Navigator Keyboard SE"
+
+#: ../rules/base.xml.in.h:367
+msgid "Logitech iTouch Internet Navigator Keyboard SE (USB)"
+msgstr "Logitech iTouch Internet Navigator Keyboard SE (USB)"
+
+#: ../rules/base.xml.in.h:368
+msgid "Ltu"
+msgstr "Ltu"
+
+#: ../rules/base.xml.in.h:369
+msgid "Lva"
+msgstr "Lva"
+
+#: ../rules/base.xml.in.h:370
+msgid "MESS"
+msgstr "MESS"
+
+#: ../rules/base.xml.in.h:371
+msgid "MNE"
+msgstr "MNE"
+
+#: ../rules/base.xml.in.h:372
+msgid "MacBook/MacBook Pro"
+msgstr "MacBook/MacBook Pro"
+
+#: ../rules/base.xml.in.h:373
+msgid "MacBook/MacBook Pro (Intl)"
+msgstr "MacBook/MacBook Pro (Intl)"
+
+#: ../rules/base.xml.in.h:374
+msgid "Macedonia"
+msgstr "Makedonien"
+
+#: ../rules/base.xml.in.h:375
+msgid "Macintosh"
+msgstr "Macintosh"
+
+#: ../rules/base.xml.in.h:376
+msgid "Macintosh Old"
+msgstr "Macintosh gammal"
+
+#: ../rules/base.xml.in.h:377
+msgid "Macintosh, Sun dead keys"
+msgstr "Macintosh, Sun stumma tangenter"
+
+#: ../rules/base.xml.in.h:378
+msgid "Macintosh, eliminate dead keys"
+msgstr "Macintosh, eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:379
+msgid "Make CapsLock an additional Ctrl."
+msgstr "Gör CapsLock till ytterligare en Ctrl-tangent."
+
+#: ../rules/base.xml.in.h:380
+msgid "Mal"
+msgstr "Mal"
+
+#: ../rules/base.xml.in.h:381
+msgid "Malayalam"
+msgstr "Malayalam"
+
+#: ../rules/base.xml.in.h:382
+msgid "Malayalam Lalitha"
+msgstr "Malayalam Lalitha"
+
+#: ../rules/base.xml.in.h:383
+msgid "Maldives"
+msgstr "Maldiverna"
+
+#: ../rules/base.xml.in.h:384
+msgid "Malta"
+msgstr "Malta"
+
+#: ../rules/base.xml.in.h:385
+msgid "Maltese keyboard with US layout"
+msgstr "Maltesiskt tangentbord med USA-layout"
+
+#: ../rules/base.xml.in.h:386
+msgid "Mao"
+msgstr "Mao"
+
+#: ../rules/base.xml.in.h:387
+msgid "Maori"
+msgstr "Maori"
+
+#: ../rules/base.xml.in.h:388
+msgid "Memorex MX1998"
+msgstr "Memorex MX1998"
+
+#: ../rules/base.xml.in.h:389
+msgid "Memorex MX2500 EZ-Access Keyboard"
+msgstr "Memorex MX2500 EZ-Access-tangentbord"
+
+#: ../rules/base.xml.in.h:390
+msgid "Memorex MX2750"
+msgstr "Memorex MX2750"
+
+#: ../rules/base.xml.in.h:391
+msgid "Menu is Compose."
+msgstr "Meny är Compose."
+
+#: ../rules/base.xml.in.h:392
+msgid "Menu key changes layout."
+msgstr "Meny-tangenten byter layout."
+
+#: ../rules/base.xml.in.h:393
+msgid "Meta is mapped to the Win-keys."
+msgstr "Meta är mappat till Win-tangenterna."
+
+#: ../rules/base.xml.in.h:394
+msgid "Meta is mapped to the left Win-key."
+msgstr "Meta är mappat till vänster Win-tangent."
+
+#: ../rules/base.xml.in.h:395
+msgid "Microsoft Internet Keyboard"
+msgstr "Microsoft Internet Keyboard"
+
+#: ../rules/base.xml.in.h:396
+msgid "Microsoft Internet Keyboard Pro, Swedish"
+msgstr "Microsoft Internet Keyboard Pro, svensk"
+
+#: ../rules/base.xml.in.h:397
+msgid "Microsoft Natural"
+msgstr "Microsoft Natural"
+
+#: ../rules/base.xml.in.h:398
+msgid "Microsoft Natural Keyboard Elite"
+msgstr "Microsoft Natural Keyboard Elite"
+
+#: ../rules/base.xml.in.h:399
+msgid "Microsoft Natural Keyboard Pro / Microsoft Internet Keyboard Pro"
+msgstr "Microsoft Natural Keyboard Pro / Microsoft Internet Keyboard Pro"
+
+#: ../rules/base.xml.in.h:400
+msgid "Microsoft Natural Keyboard Pro OEM"
+msgstr "Microsoft Natural Keyboard Pro OEM"
+
+#: ../rules/base.xml.in.h:401
+msgid "Microsoft Natural Keyboard Pro USB / Microsoft Internet Keyboard Pro"
+msgstr "Microsoft Natural Keyboard Pro USB / Microsoft Internet Keyboard Pro"
+
+#: ../rules/base.xml.in.h:402
+msgid "Microsoft Office Keyboard"
+msgstr "Microsoft Office-tangentbord"
+
+#: ../rules/base.xml.in.h:403
+msgid "Microsoft Wireless Multimedia Keyboard 1.0A"
+msgstr "Microsoft Wireless Multimedia Keyboard 1.0A"
+
+#: ../rules/base.xml.in.h:404 ../rules/sun.xml.in.h:72
+msgid "Miscellaneous compatibility options"
+msgstr "Diverse kompatibilitetsalternativ"
+
+#: ../rules/base.xml.in.h:405
+msgid "Mkd"
+msgstr "Mkd"
+
+#: ../rules/base.xml.in.h:406
+msgid "Mlt"
+msgstr "Mlt"
+
+#: ../rules/base.xml.in.h:407
+msgid "Mmr"
+msgstr "Mmr"
+
+#: ../rules/base.xml.in.h:408
+msgid "Mng"
+msgstr "Mng"
+
+#: ../rules/base.xml.in.h:409
+msgid "Mongolia"
+msgstr "Mongoliet"
+
+#: ../rules/base.xml.in.h:410
+msgid "Montenegro"
+msgstr "Montenegro"
+
+#: ../rules/base.xml.in.h:411
+msgid "Morocco"
+msgstr "Marocko"
+
+#: ../rules/base.xml.in.h:412 ../rules/sun.xml.in.h:73
+msgid "Multilingual"
+msgstr "Flerspråkig"
+
+#: ../rules/base.xml.in.h:413
+msgid "Multilingual, first part"
+msgstr "Flerspråkig, första delen"
+
+#: ../rules/base.xml.in.h:414 ../rules/sun.xml.in.h:74
+msgid "Multilingual, second part"
+msgstr "Flerspråkig, andra delen"
+
+#: ../rules/base.xml.in.h:415
+msgid "Myanmar"
+msgstr "Myanmar"
+
+#: ../rules/base.xml.in.h:416
+msgid "NICOLA-F style Backspace"
+msgstr "Backsteg i NICOLA-F-stil"
+
+#: ../rules/base.xml.in.h:417
+msgid "Neostyle"
+msgstr "Neostyle"
+
+#: ../rules/base.xml.in.h:418
+msgid "Nep"
+msgstr "Nep"
+
+#: ../rules/base.xml.in.h:419
+msgid "Nepal"
+msgstr "Nepal"
+
+#: ../rules/base.xml.in.h:420
+msgid "Netherlands"
+msgstr "Nederländerna"
+
+#: ../rules/base.xml.in.h:421
+msgid "Nig"
+msgstr "Nig"
+
+#: ../rules/base.xml.in.h:422
+msgid "Nigeria"
+msgstr "Nigeria"
+
+#: ../rules/base.xml.in.h:423
+msgid "Nld"
+msgstr "Nld"
+
+#: ../rules/base.xml.in.h:424 ../rules/sun.xml.in.h:75
+msgid "Nor"
+msgstr "Nor"
+
+#: ../rules/base.xml.in.h:425
+msgid "Northern Saami"
+msgstr "Nordsamisk"
+
+#: ../rules/base.xml.in.h:426
+msgid "Northern Saami, eliminate dead keys"
+msgstr "Nordsamisk, eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:427
+msgid "Northgate OmniKey 101"
+msgstr "Northgate OmniKey 101"
+
+#: ../rules/base.xml.in.h:428
+msgid "Norway"
+msgstr "Norge"
+
+#: ../rules/base.xml.in.h:429
+msgid "NumLock LED shows alternative layout."
+msgstr "NumLock-lampan visar alternativ layout."
+
+# KONTROLLERA DENNA
+#: ../rules/base.xml.in.h:430
+msgid "Numeric keypad delete key behaviour"
+msgstr "Beteende för Delete-tangent på numeriskt tangentbord"
+
+#: ../rules/base.xml.in.h:431
+msgid "Numeric keypad keys work as with Mac."
+msgstr "Tangenter på det numeriska tangentbordet fungerar som på Mac."
+
+#: ../rules/base.xml.in.h:432
+msgid "Numeric keypad layout selection"
+msgstr "Layoutval för numeriskt tangentbord"
+
+#: ../rules/base.xml.in.h:433
+msgid "OADG 109A"
+msgstr "OADG 109A"
+
+#: ../rules/base.xml.in.h:434
+msgid "OLPC"
+msgstr "OLPC"
+
+#: ../rules/base.xml.in.h:435
+msgid "OLPC Dari"
+msgstr "OLPC Dari"
+
+#: ../rules/base.xml.in.h:436
+msgid "OLPC Pashto"
+msgstr "OLPC Pashto"
+
+#: ../rules/base.xml.in.h:437
+msgid "OLPC Southern Uzbek"
+msgstr "OLPC Södra Uzbekistan"
+
+#: ../rules/base.xml.in.h:438
+msgid "Ogham"
+msgstr "Ogham"
+
+#: ../rules/base.xml.in.h:439
+msgid "Ogham IS434"
+msgstr "Ogham IS434"
+
+#: ../rules/base.xml.in.h:440
+msgid "Oriya"
+msgstr "Oriya"
+
+#: ../rules/base.xml.in.h:441
+msgid "Ortek MCK-800 MM/Internet keyboard"
+msgstr "Ortek MCK-800 MM/Internet-tangentbord"
+
+#: ../rules/base.xml.in.h:442
+msgid "Ossetian"
+msgstr "Ossetisk"
+
+#: ../rules/base.xml.in.h:443
+msgid "Ossetian, Winkeys"
+msgstr "Ossetisk, Win-tangenter"
+
+#: ../rules/base.xml.in.h:444
+msgid "PC-98xx Series"
+msgstr "PC-98xx-serien"
+
+#: ../rules/base.xml.in.h:445
+msgid "Pak"
+msgstr "Pak"
+
+#: ../rules/base.xml.in.h:446
+msgid "Pakistan"
+msgstr "Pakistan"
+
+#: ../rules/base.xml.in.h:447
+msgid "Pashto"
+msgstr "Pashto"
+
+#: ../rules/base.xml.in.h:448
+msgid "Pattachote"
+msgstr "Pattachote"
+
+#: ../rules/base.xml.in.h:449 ../rules/sun.xml.in.h:78
+msgid "Phonetic"
+msgstr "Fonetisk"
+
+#: ../rules/base.xml.in.h:450 ../rules/sun.xml.in.h:79
+msgid "Pol"
+msgstr "Pol"
+
+#: ../rules/base.xml.in.h:451
+msgid "Poland"
+msgstr "Polen"
+
+#: ../rules/base.xml.in.h:452
+msgid "Polytonic"
+msgstr "Polytonic"
+
+#: ../rules/base.xml.in.h:453
+msgid "Portugal"
+msgstr "Portugal"
+
+#: ../rules/base.xml.in.h:454
+msgid "Press Left Alt key to choose 3rd level."
+msgstr "Tryck vänster Alt-tangent för att välja tredjenivå."
+
+#: ../rules/base.xml.in.h:455
+msgid "Press Left Win-key to choose 3rd level."
+msgstr "Tryck vänster Win-tangent för att välja tredjenivå."
+
+#: ../rules/base.xml.in.h:456
+msgid "Press Menu key to choose 3rd level."
+msgstr "Tryck Meny-tangenten för att välja tredjenivå."
+
+#: ../rules/base.xml.in.h:457
+msgid "Press Right Alt key to choose 3rd level, Shift+Right Alt key is Multi_Key."
+msgstr "Tryck höger Alt-tangent för att välja tredjenivå. Skft+höger Alt-tangent är Multi_Key."
+
+#: ../rules/base.xml.in.h:458
+msgid "Press Right Alt key to choose 3rd level."
+msgstr "Tryck höger Alt-tangent för att välja tredjenivå."
+
+#: ../rules/base.xml.in.h:459
+msgid "Press Right Ctrl to choose 3rd level."
+msgstr "Tryck höger Ctrl-tangent för att välja tredjenivå."
+
+#: ../rules/base.xml.in.h:460
+msgid "Press Right Win-key to choose 3rd level."
+msgstr "Tryck höger Win-tangent för att välja tredjenivå."
+
+#: ../rules/base.xml.in.h:461
+msgid "Press any of Alt keys to choose 3rd level."
+msgstr "Tryck valfri Alt-tangent för att välja tredjenivå."
+
+#: ../rules/base.xml.in.h:462
+msgid "Press any of Win-keys to choose 3rd level."
+msgstr "Tryck valfri Win-tangent för att välja tredjenivå."
+
+#: ../rules/base.xml.in.h:463
+msgid "Pro"
+msgstr "Pro"
+
+#: ../rules/base.xml.in.h:464
+msgid "Pro Keypad"
+msgstr "Pro Keypad"
+
+#: ../rules/base.xml.in.h:465
+msgid "Probhat"
+msgstr "Probhat"
+
+#: ../rules/base.xml.in.h:466
+msgid "Propeller Voyager (KTEZ-1000)"
+msgstr "Propeller Voyager (KTEZ-1000)"
+
+#: ../rules/base.xml.in.h:467 ../rules/sun.xml.in.h:88
+msgid "Prt"
+msgstr "Prt"
+
+#: ../rules/base.xml.in.h:468
+msgid "QTronix Scorpius 98N+"
+msgstr "QTronix Scorpius 98N+"
+
+#: ../rules/base.xml.in.h:469
+msgid "R-Alt switches layout while pressed."
+msgstr "Höger Alt-tangent byter layout då den trycks ned."
+
+#: ../rules/base.xml.in.h:470
+msgid "Right Alt is Compose."
+msgstr "Höger Alt är Compose."
+
+#: ../rules/base.xml.in.h:471
+msgid "Right Alt key changes layout."
+msgstr "Höger Alt-tangent byter layout."
+
+#: ../rules/base.xml.in.h:472 ../rules/sun.xml.in.h:90
+msgid "Right Alt key never chooses 3rd level."
+msgstr "Höger Alt-tangent väljer aldrig tredje nivån."
+
+#: ../rules/base.xml.in.h:473
+msgid "Right Ctrl is Compose."
+msgstr "Höger Ctrl är Compose."
+
+#: ../rules/base.xml.in.h:474
+msgid "Right Ctrl key changes layout."
+msgstr "Höger Ctrl-tangent byter layout."
+
+#: ../rules/base.xml.in.h:475
+msgid "Right Ctrl key switches layout while pressed."
+msgstr "Höger Ctrl-tangent byter layout då den trycks ned."
+
+#: ../rules/base.xml.in.h:476
+msgid "Right Ctrl key works as Right Alt."
+msgstr "Höger Ctrl-tangent fungerar som höger Alt."
+
+#: ../rules/base.xml.in.h:477
+msgid "Right Shift key changes layout."
+msgstr "Höger Skift-tangent byter layout."
+
+#: ../rules/base.xml.in.h:478
+msgid "Right Win-key changes layout."
+msgstr "Höger Win-tangent byter layout."
+
+#: ../rules/base.xml.in.h:479
+msgid "Right Win-key is Compose."
+msgstr "Höger Win-tangent är Compose."
+
+#: ../rules/base.xml.in.h:480
+msgid "Right Win-key switches layout while pressed."
+msgstr "Höger Win-tangent byter layout då den trycks ned."
+
+#: ../rules/base.xml.in.h:481
+msgid "Right hand"
+msgstr "Högerhänt"
+
+#: ../rules/base.xml.in.h:482
+msgid "Right handed Dvorak"
+msgstr "Högerhänt Dvorak"
+
+#: ../rules/base.xml.in.h:483
+msgid "Romania"
+msgstr "Rumänien"
+
+#: ../rules/base.xml.in.h:484
+msgid "Romanian keyboard with German letters"
+msgstr "Rumänskt tangentbord med tyska bokstäver"
+
+#: ../rules/base.xml.in.h:485
+msgid "Romanian keyboard with German letters, eliminate dead keys"
+msgstr "Rumänskt tangentbord med tyska bokstäver, eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:486
+msgid "Rou"
+msgstr "Rou"
+
+#: ../rules/base.xml.in.h:487 ../rules/sun.xml.in.h:95
+msgid "Rus"
+msgstr "Rus"
+
+#: ../rules/base.xml.in.h:488
+msgid "Russia"
+msgstr "Ryssland"
+
+#: ../rules/base.xml.in.h:489 ../rules/sun.xml.in.h:96
+msgid "Russian"
+msgstr "Rysk"
+
+#: ../rules/base.xml.in.h:490
+msgid "Russian phonetic"
+msgstr "Rysk fonetiskt"
+
+#: ../rules/base.xml.in.h:491
+msgid "Russian phonetic Dvorak"
+msgstr "Rysk fonetisk dvorak"
+
+#: ../rules/base.xml.in.h:492
+msgid "Russian phonetic, eliminate dead keys"
+msgstr "Rysk fonetiskt, eliminera stumma tangenter"
+
+#: ../rules/base.xml.in.h:493
+msgid "Russian with Kazakh"
+msgstr "Ryska med kazakiska"
+
+#: ../rules/base.xml.in.h:494
+msgid "SILVERCREST Multimedia Wireless Keyboard"
+msgstr "SILVERCREST Multimedia Wireless Keyboard"
+
+#: ../rules/base.xml.in.h:495
+msgid "SK-1300"
+msgstr "SK-1300"
+
+#: ../rules/base.xml.in.h:496
+msgid "SK-2500"
+msgstr "SK-2500"
+
+#: ../rules/base.xml.in.h:497
+msgid "SK-6200"
+msgstr "SK-6200"
+
+#: ../rules/base.xml.in.h:498
+msgid "SK-7100"
+msgstr "SK-7100"
+
+#: ../rules/base.xml.in.h:499
+msgid "SRB"
+msgstr "SRB"
+
+#: ../rules/base.xml.in.h:500
+msgid "SVEN Ergonomic 2500"
+msgstr "SVEN Ergonomic 2500"
+
+#: ../rules/base.xml.in.h:501
+msgid "Samsung SDM 4500P"
+msgstr "Samsung SDM 4500P"
+
+#: ../rules/base.xml.in.h:502
+msgid "Samsung SDM 4510P"
+msgstr "Samsung SDM 4510P"
+
+#: ../rules/base.xml.in.h:503
+msgid "ScrollLock LED shows alternative layout."
+msgstr "ScrollLock-lampan visar alternativ layout."
+
+#: ../rules/base.xml.in.h:504
+msgid "Serbia"
+msgstr "Serbien"
+
+#: ../rules/base.xml.in.h:505
+msgid "Shift cancels CapsLock."
+msgstr "Skift avbryter CapsLock."
+
+#: ../rules/base.xml.in.h:506
+msgid "Shift with numeric keypad keys works as in MS Windows."
+msgstr "Skift med tangenterna på numeriska tangentbordet fungerar som i MS Windows."
+
+#: ../rules/base.xml.in.h:507
+msgid "Shift+CapsLock changes layout."
+msgstr "Skift+CapsLock-tangenten byter layout."
+
+#: ../rules/base.xml.in.h:508
+msgid "Slovakia"
+msgstr "Slovakien"
+
+#: ../rules/base.xml.in.h:509
+msgid "Slovenia"
+msgstr "Slovenien"
+
+#: ../rules/base.xml.in.h:510
+msgid "South Africa"
+msgstr "Sydafrika"
+
+#: ../rules/base.xml.in.h:511
+msgid "Southern Uzbek"
+msgstr "Södra Uzbekistan"
+
+#: ../rules/base.xml.in.h:512
+msgid "Space key outputs non-breakable space character at fourth level, thin non-breakable space character at sixth level"
+msgstr "Blankstegstangenten skriver ut icke-brytande blanksteg på fjärde nivån, tunt icke-brytande blankstegstecken på sjätte nivån"
+
+#: ../rules/base.xml.in.h:513
+msgid "Space key outputs non-breakable space character at fourth level."
+msgstr "Blankstegstangenten skriver ut icke-brytande blanksteg på fjärde nivån."
+
+#: ../rules/base.xml.in.h:514
+msgid "Space key outputs non-breakable space character at second level."
+msgstr "Blankstegstangenten skriver ut icke-brytande blanksteg på andra nivån."
+
+#: ../rules/base.xml.in.h:515
+msgid "Space key outputs non-breakable space character at third level, nothing at fourth level."
+msgstr "Blankstegstangenten skriver ut icke-brytande blanksteg på tredje nivån, ingenting på fjärde nivån."
+
+#: ../rules/base.xml.in.h:516
+msgid "Space key outputs non-breakable space character at third level, thin non-breakable space character at fourth level"
+msgstr "Blankstegstangenten skriver ut icke-brytande blanksteg på tredje nivån, tunt icke-brytande blankstegstecken på fjärde nivån"
+
+#: ../rules/base.xml.in.h:517
+msgid "Space key outputs non-breakable space character at third level."
+msgstr "Blankstegstangenten skriver ut icke-brytande blanksteg på tredje nivån."
+
+#: ../rules/base.xml.in.h:518
+msgid "Space key outputs usual space at any level."
+msgstr "Blankstegstangenten skriver ut blanksteg på alla nivåer."
+
+#: ../rules/base.xml.in.h:519
+msgid "Spain"
+msgstr "Spanien"
+
+#: ../rules/base.xml.in.h:520 ../rules/sun.xml.in.h:103
+msgid "Special keys (Ctrl+Alt+&lt;key&gt;) handled in a server."
+msgstr "Specialtangenter (Ctrl+Alt+&lt;tangent&gt;) hanteras i en server."
+
+#: ../rules/base.xml.in.h:521
+msgid "SrL"
+msgstr "SrL"
+
+#: ../rules/base.xml.in.h:522
+msgid "Sri Lanka"
+msgstr "Sri Lanka"
+
+#: ../rules/base.xml.in.h:523 ../rules/sun.xml.in.h:104
+msgid "Standard"
+msgstr "Standard"
+
+#: ../rules/base.xml.in.h:524
+msgid "Standard (Cedilla)"
+msgstr "Standard (Cedilj)"
+
+#: ../rules/base.xml.in.h:525
+msgid "Standard (Commabelow)"
+msgstr "Standard (Commabelow)"
+
+#. RSTU 2019-91
+#: ../rules/base.xml.in.h:527
+msgid "Standard RSTU"
+msgstr "Standard RSTU"
+
+#. RSTU 2019-91
+#: ../rules/base.xml.in.h:529
+msgid "Standard RSTU on Russian layout"
+msgstr "Standard RSTU på rysk layout"
+
+#: ../rules/base.xml.in.h:530 ../rules/sun.xml.in.h:112
+msgid "Sun dead keys"
+msgstr "Sun stumma tangenter"
+
+#: ../rules/base.xml.in.h:531
+msgid "Super Power Multimedia Keyboard"
+msgstr "Super Power Multimedia Keyboard"
+
+#: ../rules/base.xml.in.h:532
+msgid "Super is mapped to the Win-keys."
+msgstr "Super-tangenten är mappad till Win-tangenterna."
+
+#: ../rules/base.xml.in.h:533
+msgid "Svdvorak"
+msgstr "Svdvorak"
+
+#: ../rules/base.xml.in.h:534 ../rules/sun.xml.in.h:113
+msgid "Svk"
+msgstr "Svk"
+
+#: ../rules/base.xml.in.h:535
+msgid "Svn"
+msgstr "Svn"
+
+#: ../rules/base.xml.in.h:536
+msgid "Swap Ctrl and CapsLock."
+msgstr "Byt Ctrl och CapsLock."
+
+#: ../rules/base.xml.in.h:537
+msgid "Swap ESC and CapsLock."
+msgstr "Byt ESC och CapsLock."
+
+#: ../rules/base.xml.in.h:538
+msgid "Swap keycodes of two keys when Mac keyboards are misdetected by kernel."
+msgstr "Byt tangentkoder för två tangenter när Mac-tangentbord identifieras fel av kärnan."
+
+#: ../rules/base.xml.in.h:539 ../rules/sun.xml.in.h:115
+msgid "Swe"
+msgstr "Swe"
+
+#: ../rules/base.xml.in.h:540
+msgid "Sweden"
+msgstr "Sverige"
+
+#: ../rules/base.xml.in.h:541
+msgid "Switzerland"
+msgstr "Schweiz"
+
+#: ../rules/base.xml.in.h:542
+msgid "Symplon PaceBook (tablet PC)"
+msgstr "Symplon PaceBook (tablet PC)"
+
+#: ../rules/base.xml.in.h:543
+msgid "Syr"
+msgstr "Syr"
+
+#: ../rules/base.xml.in.h:544
+msgid "Syria"
+msgstr "Syrien"
+
+#: ../rules/base.xml.in.h:545
+msgid "Syriac"
+msgstr "Syrisk"
+
+#: ../rules/base.xml.in.h:546
+msgid "Syriac phonetic"
+msgstr "Syrisk fonetisk"
+
+#: ../rules/base.xml.in.h:547
+msgid "TIS-820.2538"
+msgstr "TIS-820.2538"
+
+#: ../rules/base.xml.in.h:548
+msgid "Tajikistan"
+msgstr "Tajikistan"
+
+#: ../rules/base.xml.in.h:549
+msgid "Tamil"
+msgstr "Tamilsk"
+
+#: ../rules/base.xml.in.h:550
+msgid "Tamil TAB Typewriter"
+msgstr "Tamil TAB Typewriter"
+
+#: ../rules/base.xml.in.h:551
+msgid "Tamil TSCII Typewriter"
+msgstr "Tamil TSCII Typewriter"
+
+#: ../rules/base.xml.in.h:552
+msgid "Tamil Unicode"
+msgstr "Tamilisk Unicode"
+
+#: ../rules/base.xml.in.h:553
+msgid "Tatar"
+msgstr "Tatar"
+
+#: ../rules/base.xml.in.h:554
+msgid "Telugu"
+msgstr "Telugo"
+
+#: ../rules/base.xml.in.h:555
+msgid "Tha"
+msgstr "Tha"
+
+#: ../rules/base.xml.in.h:556
+msgid "Thailand"
+msgstr "Thailand"
+
+#: ../rules/base.xml.in.h:557 ../rules/sun.xml.in.h:119
+msgid "Third level choosers"
+msgstr "Tredjenivåsväljare"
+
+#: ../rules/base.xml.in.h:558
+msgid "Tibetan"
+msgstr "Tibetisk"
+
+#: ../rules/base.xml.in.h:559
+msgid "Tibetan (with ASCII numerals)"
+msgstr "Tibetisk (med ASCII-taltecken)"
+
+#: ../rules/base.xml.in.h:560
+msgid "Tifinagh"
+msgstr "Tifinagh"
+
+#: ../rules/base.xml.in.h:561
+msgid "Tifinagh Alternative"
+msgstr "Tifinagh alternativ"
+
+#: ../rules/base.xml.in.h:562
+msgid "Tifinagh Alternative Phonetic"
+msgstr "Tifinagh alternativ fonetisk"
+
+#: ../rules/base.xml.in.h:563
+msgid "Tifinagh Extended"
+msgstr "Tifinagh utökad"
+
+#: ../rules/base.xml.in.h:564
+msgid "Tifinagh Extended Phonetic"
+msgstr "Tifinagh utökad fonetisk"
+
+#: ../rules/base.xml.in.h:565
+msgid "Tifinagh Phonetic"
+msgstr "Tifinagh fonetisk"
+
+#: ../rules/base.xml.in.h:566
+msgid "Tilde (~) variant"
+msgstr "Tilde (~) variant"
+
+#: ../rules/base.xml.in.h:567
+msgid "Tjk"
+msgstr "Tjk"
+
+#: ../rules/base.xml.in.h:568
+msgid "Toshiba Satellite S3000"
+msgstr "Toshiba Satellite S3000"
+
+#: ../rules/base.xml.in.h:569
+msgid "Trust Direct Access Keyboard"
+msgstr "Trust Direct Access-tangentbord"
+
+#: ../rules/base.xml.in.h:570
+msgid "Trust Wireless Keyboard Classic"
+msgstr "Trust Wireless Keyboard Classic"
+
+#: ../rules/base.xml.in.h:571 ../rules/sun.xml.in.h:120
+msgid "Tur"
+msgstr "Tur"
+
+#: ../rules/base.xml.in.h:572
+msgid "Turkey"
+msgstr "Turkiet"
+
+#: ../rules/base.xml.in.h:573
+msgid "Typewriter"
+msgstr "Skrivmaskin"
+
+#: ../rules/base.xml.in.h:574
+msgid "US keyboard with Bosnian digraphs"
+msgstr "USA-tangentbord med bosniska digrafer"
+
+#: ../rules/base.xml.in.h:575
+msgid "US keyboard with Bosnian letters"
+msgstr "USA-tangentbord med bosniska bokstäver"
+
+#: ../rules/base.xml.in.h:576
+msgid "US keyboard with Croatian digraphs"
+msgstr "USA-tangentbord med kroatiska digrafer"
+
+#: ../rules/base.xml.in.h:577
+msgid "US keyboard with Croatian letters"
+msgstr "USA-tangentbord med kroatiska bokstäver"
+
+#: ../rules/base.xml.in.h:578
+msgid "US keyboard with Estonian letters"
+msgstr "USA-tangentbord med estniska bokstäver"
+
+#: ../rules/base.xml.in.h:579
+msgid "US keyboard with Lithuanian letters"
+msgstr "USA-tangentbord med litauiska bokstäver"
+
+#: ../rules/base.xml.in.h:580
+msgid "US keyboard with Slovenian digraphs"
+msgstr "USA-tangentbord med slovenska digrafer"
+
+#: ../rules/base.xml.in.h:581
+msgid "US keyboard with Slovenian letters"
+msgstr "USA-tangentbord med slovenska bokstäver"
+
+#: ../rules/base.xml.in.h:582 ../rules/sun.xml.in.h:126
+msgid "USA"
+msgstr "USA"
+
+#: ../rules/base.xml.in.h:583
+msgid "Udmurt"
+msgstr "Udmurt"
+
+#: ../rules/base.xml.in.h:584
+msgid "Ukr"
+msgstr "Ukr"
+
+#: ../rules/base.xml.in.h:585
+msgid "Ukraine"
+msgstr "Ukraina"
+
+#: ../rules/base.xml.in.h:586
+msgid "UnicodeExpert"
+msgstr "UnicodeExpert"
+
+#: ../rules/base.xml.in.h:587 ../rules/sun.xml.in.h:127
+msgid "United Kingdom"
+msgstr "Storbritannien"
+
+#: ../rules/base.xml.in.h:588
+msgid "Urdu"
+msgstr "Urdu"
+
+#: ../rules/base.xml.in.h:589
+msgid "Use Bosnian digraphs"
+msgstr "Använd bosniska digrafer"
+
+#: ../rules/base.xml.in.h:590
+msgid "Use Croatian digraphs"
+msgstr "Använd kroatiska digrafer"
+
+#: ../rules/base.xml.in.h:591
+msgid "Use Slovenian digraphs"
+msgstr "Använd slovenska digrafer"
+
+#: ../rules/base.xml.in.h:592
+msgid "Use guillemets for quotes"
+msgstr "Använd gåsögon för citattecken"
+
+#: ../rules/base.xml.in.h:593
+msgid "Use keyboard LED to show alternative layout."
+msgstr "Använd tangentbordslampa för att visa alternativ layout."
+
+#: ../rules/base.xml.in.h:594
+msgid "Using space key to input non-breakable space character"
+msgstr "Använder blankstegstangenten för att mata in icke-brytande blankstegstecken"
+
+#: ../rules/base.xml.in.h:595
+msgid "Uzb"
+msgstr "Uzb"
+
+#: ../rules/base.xml.in.h:596
+msgid "Uzbekistan"
+msgstr "Uzbekistan"
+
+#: ../rules/base.xml.in.h:597
+msgid "Vietnam"
+msgstr "Vietnam"
+
+#: ../rules/base.xml.in.h:598
+msgid "Vnm"
+msgstr "Vnm"
+
+#: ../rules/base.xml.in.h:599
+msgid "Wang 724 keypad with unicode additions (arrows and math operators)"
+msgstr "Wang 724 numeriskt tangentbord med unicode-tillägg (pilar och matematikoperatorer)"
+
+#: ../rules/base.xml.in.h:600
+msgid "Wang 724 keypad with unicode additions (arrows and math operators). Math operators on default level."
+msgstr "Wang 724 numeriskt tangentbord med unicode-tillägg (pilar och matematikoperatorer). Matematikoperatorer på standardnivå."
+
+#: ../rules/base.xml.in.h:601
+msgid "Wang model 724 azerty"
+msgstr "Wang modell 724 azerty"
+
+#: ../rules/base.xml.in.h:602
+msgid "Western"
+msgstr "Västlig"
+
+#: ../rules/base.xml.in.h:603
+msgid "Winbook Model XP5"
+msgstr "Winbook Model XP5"
+
+#: ../rules/base.xml.in.h:604
+msgid "Winkeys"
+msgstr "Win-tangenter"
+
+#: ../rules/base.xml.in.h:605
+msgid "With &lt;\\|&gt; key"
+msgstr "Med &lt;\\|&gt;-tangent"
+
+#: ../rules/base.xml.in.h:606
+msgid "With EuroSign on 5"
+msgstr "Med eurotecknet till tangenten 5"
+
+#: ../rules/base.xml.in.h:607
+msgid "With guillemets"
+msgstr "Med gåsögon"
+
+#: ../rules/base.xml.in.h:608
+msgid "Yahoo! Internet Keyboard"
+msgstr "Yahoo! Internettangentbord"
+
+#: ../rules/base.xml.in.h:609
+msgid "Yoruba"
+msgstr "Yoruba"
+
+#: ../rules/base.xml.in.h:610
+msgid "Z and ZHE swapped"
+msgstr "Z och ZHE utbytta"
+
+#: ../rules/base.xml.in.h:611
+msgid "Zar"
+msgstr "Zar"
+
+#: ../rules/base.xml.in.h:612
+msgid "azerty"
+msgstr "azerty"
+
+#: ../rules/base.xml.in.h:613
+msgid "azerty/digits"
+msgstr "azerty/siffror"
+
+#: ../rules/base.xml.in.h:614
+msgid "digits"
+msgstr "siffror"
+
+#: ../rules/base.xml.in.h:615
+msgid "displaced semicolon and quote (obsolete)"
+msgstr "flyttat semikolon och citattecken (föråldrat)"
+
+#: ../rules/base.xml.in.h:616
+msgid "lyx"
+msgstr "lyx"
+
+#: ../rules/base.xml.in.h:617 ../rules/sun.xml.in.h:132
+msgid "qwerty"
+msgstr "qwerty"
+
+#: ../rules/base.xml.in.h:618
+msgid "qwerty, extended Backslash"
+msgstr "qwerty, utökat omvänt snedstreck"
+
+#: ../rules/base.xml.in.h:619
+msgid "qwerty/digits"
+msgstr "qwerty/siffror"
+
+#: ../rules/base.xml.in.h:620
+msgid "qwertz"
+msgstr "qwertz"
+
+#: ../rules/sun.xml.in.h:1
+msgid "\"Typewriter\""
+msgstr "\"Skrivmaskin\""
+
+#: ../rules/sun.xml.in.h:17
+msgid "Acts as Shift with locking. Shift cancels Caps."
+msgstr "Fungerar som Skift med låsning. Skift \"pausar\" Caps Lock."
+
+#: ../rules/sun.xml.in.h:18
+msgid "Acts as Shift with locking. Shift doesn't cancel Caps."
+msgstr "Fungerar som Skift med låsning. Skift påverkar inte Caps Lock."
+
+#: ../rules/sun.xml.in.h:19
+msgid "Alt+Control changes group"
+msgstr "Alt+Control byter grupp"
+
+#: ../rules/sun.xml.in.h:20
+msgid "Alt+Shift changes group"
+msgstr "Alt+Shift byter grupp"
+
+#: ../rules/sun.xml.in.h:21
+msgid "Basic"
+msgstr "Grundläggande"
+
+#: ../rules/sun.xml.in.h:23
+msgid "Belgian"
+msgstr "Belgisk"
+
+#: ../rules/sun.xml.in.h:25
+msgid "Both Alt keys together change group"
+msgstr "Båda Alt-tangenterna tillsammans byter grupp"
+
+#: ../rules/sun.xml.in.h:26
+msgid "Both Ctrl keys together change group"
+msgstr "Båda Ctrl-tangenterna tillsammans byter grupp"
+
+#: ../rules/sun.xml.in.h:27
+msgid "Both Shift keys together change group"
+msgstr "Båda Skift-tangenterna tillsammans byter grupp"
+
+#: ../rules/sun.xml.in.h:28
+msgid "Bulgarian"
+msgstr "Bulgarisk"
+
+#: ../rules/sun.xml.in.h:30
+msgid "Canadian"
+msgstr "Kanadensisk"
+
+#: ../rules/sun.xml.in.h:31
+msgid "Caps Lock is Compose"
+msgstr "Caps Lock är Compose"
+
+#: ../rules/sun.xml.in.h:32
+msgid "Caps Lock key changes group"
+msgstr "Caps Lock-tangenten byter grupp"
+
+#: ../rules/sun.xml.in.h:34
+msgid "Caps_Lock LED shows alternative group"
+msgstr "CapsLock-lampan visar alternativ grupp"
+
+#: ../rules/sun.xml.in.h:35
+msgid "Control Key Position"
+msgstr "Position för Control-tangent"
+
+#: ../rules/sun.xml.in.h:36
+msgid "Control key at bottom left"
+msgstr "Control-tangenten nere till vänster"
+
+#: ../rules/sun.xml.in.h:37
+msgid "Control key at left of 'A'"
+msgstr "Control-tangenten till vänster om \"A\""
+
+#: ../rules/sun.xml.in.h:38
+msgid "Control+Shift changes group"
+msgstr "Control+Skift byter grupp"
+
+#: ../rules/sun.xml.in.h:40
+msgid "Czech"
+msgstr "Tjeckisk"
+
+#: ../rules/sun.xml.in.h:41
+msgid "Danish"
+msgstr "Dansk"
+
+#: ../rules/sun.xml.in.h:45
+msgid "DeuCH"
+msgstr "DeuCH"
+
+#: ../rules/sun.xml.in.h:47
+msgid "Dvo"
+msgstr "Dvo"
+
+#: ../rules/sun.xml.in.h:52
+msgid "Finnish"
+msgstr "Finsk"
+
+#: ../rules/sun.xml.in.h:54
+msgid "FraCH"
+msgstr "FraCH"
+
+#: ../rules/sun.xml.in.h:57
+msgid "German"
+msgstr "Tysk"
+
+#: ../rules/sun.xml.in.h:58
+msgid "Group Shift/Lock behavior"
+msgstr "Gruppbeteende för Skift/Lock"
+
+#: ../rules/sun.xml.in.h:60
+msgid "Hungarian"
+msgstr "Ungersk"
+
+#: ../rules/sun.xml.in.h:64
+msgid "Italian"
+msgstr "Italiensk"
+
+#: ../rules/sun.xml.in.h:65
+msgid "Japanese"
+msgstr "Japansk"
+
+#: ../rules/sun.xml.in.h:67
+msgid "Left Alt key changes group"
+msgstr "Vänster Alt-tangent byter grupp"
+
+#: ../rules/sun.xml.in.h:68
+msgid "Left Alt key switches group while pressed"
+msgstr "Vänster Alt-tangent byter grupp då den trycks ned"
+
+#: ../rules/sun.xml.in.h:69
+msgid "Left Ctrl key changes group"
+msgstr "Vänster Ctrl-tangent byter grupp"
+
+#: ../rules/sun.xml.in.h:70
+msgid "Left Shift key changes group"
+msgstr "Vänster Skift-tangent byter grupp"
+
+#: ../rules/sun.xml.in.h:71
+msgid "Make CapsLock an additional Control"
+msgstr "Gör CapsLock till ytterligare en Control-tangent"
+
+#: ../rules/sun.xml.in.h:76
+msgid "Norwegian"
+msgstr "Norsk"
+
+#: ../rules/sun.xml.in.h:77
+msgid "Num_Lock LED shows alternative group"
+msgstr "Num_Lock-lampan visar alternativ grupp"
+
+#: ../rules/sun.xml.in.h:80
+msgid "Polish"
+msgstr "Polsk"
+
+#: ../rules/sun.xml.in.h:81
+msgid "Polish with Polish quotes on key \"1/!\""
+msgstr "Polska med polska citattecken på tangenten \"1/!\""
+
+#: ../rules/sun.xml.in.h:82
+msgid "Portuguese"
+msgstr "Portugisisk"
+
+#: ../rules/sun.xml.in.h:83
+msgid "Press Left Alt key to choose 3rd level"
+msgstr "Tryck vänster Alt-tangent för att välja tredjenivå"
+
+#: ../rules/sun.xml.in.h:84
+msgid "Press Right Alt key to choose 3rd level"
+msgstr "Tryck höger Alt-tangent för att välja tredjenivå"
+
+#: ../rules/sun.xml.in.h:85
+msgid "Press Right Alt-key to choose 3rd level, Shift+Right Alt-key is Multi_Key"
+msgstr "Tryck höger Alt-tangent för att välja tredjenivå. Skift+höger Alt-tangent är Multi_Key"
+
+#: ../rules/sun.xml.in.h:86
+msgid "Press Right Control to choose 3rd level"
+msgstr "Tryck höger Control-tangent för att välja tredjenivå"
+
+#: ../rules/sun.xml.in.h:87
+msgid "Press any of Alt keys to choose 3rd level"
+msgstr "Tryck valfri Alt-tangent för att välja tredjenivå"
+
+#: ../rules/sun.xml.in.h:89
+msgid "Right Alt key changes group"
+msgstr "Höger Alt-tangent byter grupp"
+
+#: ../rules/sun.xml.in.h:91
+msgid "Right Alt switches group while pressed"
+msgstr "Höger Alt-tangent byter grupp då den trycks ned"
+
+#: ../rules/sun.xml.in.h:92
+msgid "Right Control key works as Right Alt"
+msgstr "Höger Control-tangent fungerar som höger Alt"
+
+#: ../rules/sun.xml.in.h:93
+msgid "Right Ctrl key changes group"
+msgstr "Höger Ctrl-tangent byter grupp"
+
+#: ../rules/sun.xml.in.h:94
+msgid "Right Shift key changes group"
+msgstr "Höger Skift-tangent byter grupp"
+
+#: ../rules/sun.xml.in.h:97
+msgid "Scroll Lock changes group"
+msgstr "Scroll Lock byter grupp"
+
+#: ../rules/sun.xml.in.h:98
+msgid "Scroll_Lock LED shows alternative group"
+msgstr "Scroll_Lock-lampan visar alternativ grupp"
+
+#: ../rules/sun.xml.in.h:99
+msgid "Shift with numpad keys works as in MS Windows"
+msgstr "Skift med tangenterna på numeriska tangentbordet fungerar som i MS Windows"
+
+#: ../rules/sun.xml.in.h:100
+msgid "Shift+CapsLock changes group"
+msgstr "Skift+CapsLock byter grupp"
+
+#: ../rules/sun.xml.in.h:101
+msgid "Slovak"
+msgstr "Slovakisk"
+
+#: ../rules/sun.xml.in.h:102
+msgid "Spanish"
+msgstr "Spansk"
+
+#: ../rules/sun.xml.in.h:105
+msgid "Sun Type 4"
+msgstr "Sun Type 4"
+
+#: ../rules/sun.xml.in.h:106
+msgid "Sun Type 5"
+msgstr "Sun Type 5"
+
+#: ../rules/sun.xml.in.h:107
+msgid "Sun Type 5 European"
+msgstr "Sun Type 5 europeisk"
+
+#: ../rules/sun.xml.in.h:108
+msgid "Sun Type 5 Unix"
+msgstr "Sun Type 5 Unix"
+
+#: ../rules/sun.xml.in.h:109
+msgid "Sun Type 6"
+msgstr "Sun Type 6"
+
+#: ../rules/sun.xml.in.h:110
+msgid "Sun Type 6 Unix"
+msgstr "Sun Type 6 Unix"
+
+#: ../rules/sun.xml.in.h:111
+msgid "Sun Type 6 with Euro key"
+msgstr "Sun Type 6 med eurotangent"
+
+#: ../rules/sun.xml.in.h:114
+msgid "Swap Control and Caps Lock"
+msgstr "Byt Control och Caps Lock"
+
+#: ../rules/sun.xml.in.h:116
+msgid "Swedish"
+msgstr "Svensk"
+
+#: ../rules/sun.xml.in.h:117
+msgid "Swiss French"
+msgstr "Franskschweizisk"
+
+#: ../rules/sun.xml.in.h:118
+msgid "Swiss German"
+msgstr "Schweizertysk"
+
+#: ../rules/sun.xml.in.h:121
+msgid "Turkish"
+msgstr "Turkisk"
+
+#: ../rules/sun.xml.in.h:122
+msgid "Turkish (F)"
+msgstr "Turkisk (F)"
+
+#: ../rules/sun.xml.in.h:123
+msgid "Turkish Alt-Q Layout"
+msgstr "Turkisk Alt-Q-layout"
+
+#: ../rules/sun.xml.in.h:124
+msgid "U.S. English"
+msgstr "Engelskamerikansk"
+
+#: ../rules/sun.xml.in.h:125
+msgid "U.S. English w/ ISO9995-3"
+msgstr "Engelskamerikansk med ISO9995-3"
+
+#: ../rules/sun.xml.in.h:128
+msgid "Use keyboard LED to show alternative group"
+msgstr "Använd tangentbordslampa för att visa alternativ grupp"
+
+#: ../rules/sun.xml.in.h:129
+msgid "Uses internal capitalization. Shift cancels Caps."
+msgstr "Använder intern skiftlägesstyrning. Skift \"pausar\" CapsLock."
+
+#: ../rules/sun.xml.in.h:130
+msgid "Uses internal capitalization. Shift doesn't cancel Caps."
+msgstr "Använder intern skiftlägesstyrning. Skift påverkar inte CapsLock."
+
+#: ../rules/sun.xml.in.h:131
+msgid "bksl"
+msgstr "bksl"
+
+#: ../rules/sun.xml.in.h:133
+msgid "type4"
+msgstr "type4"
+
+#~ msgid "Kotoistus"
+#~ msgstr "Kotoistus"
+
+#~ msgid "SCG"
+#~ msgstr "SCG"
+
+#~ msgid "Acer TravelMate 800"
+#~ msgstr "Acer TravelMate 800"
+
+#~ msgid "BenQ X-Touch 800"
+#~ msgstr "BenQ X-Touch 800"
+
+#~ msgid "Dell SK-8125 USB Multimedia Keybard"
+#~ msgstr "Dell SK-8125 USB Multimedia-tangentbord"
+
+#~ msgid "Dell SK-8135 USB Multimedia Keybard"
+#~ msgstr "Dell SK-8135 USB Multimedia-tangentbord"
+
+#~ msgid "Force standard legacy keypad"
+#~ msgstr "Tvinga ursprungligt standard numeriskt tangentbord"
+
+#~ msgid "Logitech Cordless Desktop Optical"
+#~ msgstr "Logitech Cordless Desktop Optical"
+
+#~ msgid "Logitech Cordless Desktop iTouch"
+#~ msgstr "Logitech Cordless Desktop iTouch"
+
+#~ msgid "Adding the nobreakspace keysym to space key"
+#~ msgstr "Lägger till den icke-brytande blankstegstangentsymbolen till blankstegstangenten"
+
+#~ msgid "PowerPC PS/2"
+#~ msgstr "PowerPC PS/2"
+
+#~ msgid "\"Standard\""
+#~ msgstr "\"Standard\""
+
+#~ msgid "Dhivehi"
+#~ msgstr "Dhivehi"
+
+#~ msgid "Div"
+#~ msgstr "Div"
+
+#~ msgid "Logitech Deluxe Access Keyboard"
+#~ msgstr "Logitech Deluxe Access-tangentbord"
+
+#~ msgid "Logitech iTouch keyboard Internet Navigator"
+#~ msgstr "Logitech iTouch-tangentbord Internet Navigator"
+
+#~ msgid "Srp"
+#~ msgstr "Srp"
+
+#~ msgid "Tamil INSCRIPT"
+#~ msgstr "Tamil INSCRIPT"
+
+#~ msgid "US keyboard with Maltian letters"
+#~ msgstr "USA-tangentbord med maltesiska bokstäver"
+
+#~ msgid "si1452"
+#~ msgstr "si1452"
+
+#~ msgid "A Tamil typewrite-style keymap; TAB encoding"
+#~ msgstr "En tamilsk tangentbordstabell i skrivmaskinsstil; TAB-kodning"
+
+#~ msgid "A Tamil typewrite-style keymap; TSCII encoding"
+#~ msgstr "En tamilsk tangentbordstabell i skrivmaskinsstil; TSCII-kodning"
+
+#~ msgid "A Tamil typewrite-style keymap; Unicode encoding"
+#~ msgstr "En tamilsk tangentbordstabell i skrivmaskinsstil; Unicode-kodning"
+
+#~ msgid "Arb"
+#~ msgstr "Arb"
+
+#~ msgid "Ben"
+#~ msgstr "Ben"
+
+#~ msgid "Bosnian"
+#~ msgstr "Bosnisk"
+
+#~ msgid "Burmese"
+#~ msgstr "Burmesisk"
+
+#~ msgid "CloGaelach Laptop"
+#~ msgstr "CloGaelach-laptop"
+
+#~ msgid "Czech (qwerty)"
+#~ msgstr "Tjeckisk (qwerty)"
+
+#~ msgid "Dutch"
+#~ msgstr "Nederländsk"
+
+#~ msgid "French Canadian"
+#~ msgstr "Franskkanadensisk"
+
+#~ msgid "Georgian (latin)"
+#~ msgstr "Georgisk (latin)"
+
+#~ msgid "Georgian (russian)"
+#~ msgstr "Georgisk (rysk)"
+
+#~ msgid "Grc"
+#~ msgstr "Grc"
+
+#~ msgid "Hin"
+#~ msgstr "Hin"
+
+#~ msgid "Hindi"
+#~ msgstr "Hindisk"
+
+#~ msgid "Hungarian (qwerty)"
+#~ msgstr "Ungersk (qwerty)"
+
+#~ msgid "INSCRIPT layout"
+#~ msgstr "INSCRIPT-layout"
+
+#~ msgid "IS434 laptop"
+#~ msgstr "IS434-laptop"
+
+#~ msgid "Iku"
+#~ msgstr "Iku"
+
+#~ msgid "Irish"
+#~ msgstr "Irländsk"
+
+#~ msgid "Lithuanian azerty standard"
+#~ msgstr "Litauisk azerty-standard"
+
+#~ msgid "Lithuanian qwerty \"numeric\""
+#~ msgstr "Litauisk qwerty \"numerisk\""
+
+#~ msgid "Northern Saami (Finland)"
+#~ msgstr "Nordsamisk (Finland)"
+
+#~ msgid "Northern Saami (Norway)"
+#~ msgstr "Nordsamisk (Norge)"
+
+#~ msgid "Northern Saami (Sweden)"
+#~ msgstr "Nordsamisk (Sverige)"
+
+#~ msgid "Ogh"
+#~ msgstr "Ogh"
+
+#~ msgid "Ori"
+#~ msgstr "Ori"
+
+#~ msgid "PC104"
+#~ msgstr "PC104"
+
+#~ msgid "Polish (qwertz)"
+#~ msgstr "Polsk (qwertz)"
+
+#~ msgid "Sapmi"
+#~ msgstr "Sapmi"
+
+#~ msgid "Scg"
+#~ msgstr "Scg"
+
+#~ msgid "Slovak (qwerty)"
+#~ msgstr "Slovakisk (qwerty)"
+
+#~ msgid "Sme"
+#~ msgstr "Sme"
+
+#~ msgid "Sv"
+#~ msgstr "Sv"
+
+#~ msgid "Tel"
+#~ msgstr "Tel"
+
+#~ msgid "Thai (Kedmanee)"
+#~ msgstr "Thailändsk (Kedmanee)"
+
+#~ msgid "Tml"
+#~ msgstr "Tml"
+
+#~ msgid "U.S. English w/ dead keys"
+#~ msgstr "Engelskamerikansk med stumma tangenter"
+
+#~ msgid "US"
+#~ msgstr "USA"
+
+#~ msgid "Yug"
+#~ msgstr "Yug"
+
+#~ msgid "Yugoslavian"
+#~ msgstr "Jugoslavisk"
+
+#~ msgid "abnt2"
+#~ msgstr "abnt2"
+
+#~ msgid "sefi"
+#~ msgstr "sefi"
+
+#~ msgid "uni/101/qwerty/comma"
+#~ msgstr "uni/101/qwerty/komma"
+
+#~ msgid "uni/101/qwerty/dot"
+#~ msgstr "uni/101/qwerty/punkt"
+
+#~ msgid "uni/101/qwertz/comma"
+#~ msgstr "uni/101/qwertz/komma"
+
+#~ msgid "uni/101/qwertz/dot"
+#~ msgstr "uni/101/qwertz/punkt"
+
+#~ msgid "uni/102/qwerty/comma"
+#~ msgstr "uni/102/qwerty/komma"
+
+#~ msgid "uni/102/qwerty/dot"
+#~ msgstr "uni/102/qwerty/punkt"
+
+#~ msgid "uni/102/qwertz/comma"
+#~ msgstr "uni/102/qwertz/komma"
+
+#~ msgid "uni/102/qwertz/dot"
+#~ msgstr "uni/102/qwertz/punkt"
+
+#~ msgid "Brazilian (ABNT2)"
+#~ msgstr "Brasiliansk (ABNT2)"
+
+#~ msgid "Caps Lock key behavior"
+#~ msgstr "Beteende för Caps Lock-tangenten"
+
+#~ msgid "Caps Lock LED shows alternative group"
+#~ msgstr "Caps Lock-lampan visar alternativ grupp"
+
+#~ msgid "Logitech"
+#~ msgstr "Logitech"
+
+#~ msgid "Microsoft"
+#~ msgstr "Microsoft"
+
+#~ msgid "Miscellaneous options"
+#~ msgstr "Diverse alternativ"
+
+#~ msgid "Win-keys"
+#~ msgstr "Win-tangenter"
+
+#~ msgid "Utility"
+#~ msgstr "Verktyg"
+
+#~ msgid "_About..."
+#~ msgstr "_Om..."
+
+#~ msgid "_Groups"
+#~ msgstr "_Grupper"
+
+#~ msgid "_Help"
+#~ msgstr "_Hjälp"
+
+#~ msgid "_Plugins..."
+#~ msgstr "_Insticksmoduler..."
+
+#~ msgid "_Properties..."
+#~ msgstr "_Egenskaper..."
+
+#~ msgid "Keyboard switcher (%s)"
+#~ msgstr "Tangentbordsväxlare (%s)"
+
+#~ msgid "translator_credits"
+#~ msgstr ""
+#~ "Christian Rose\n"
+#~ "Skicka synpunkter på översättningen till sv@li.org"
+
+#~ msgid "XKB initialization error"
+#~ msgstr "XKB-initieringsfel"
+
+#~ msgid "Error loading XKB configuration registry"
+#~ msgstr "Fel vid inläsning av XKB-konfigurationsregistret"
+
+#~ msgid ""
+#~ "Make the layout accessible from the applet popup menu ONLY.\n"
+#~ "No way to switch to this layout using the keyboard."
+#~ msgstr ""
+#~ "Gör layouten tillgänglig ENDAST från panelpopupmenyn.\n"
+#~ "Ingen möjlighet att byta denna layout genom användning av tangentbordet."
+
+#~ msgid "Exclude from keyboard switching"
+#~ msgstr "Exkludera från tangentbordsväxling"
+
+#~ msgid "not used"
+#~ msgstr "används inte"
+
+#~ msgid "Activate more plugins"
+#~ msgstr "Aktivera fler insticksmoduler"
+
+#~ msgid "Add plugin"
+#~ msgstr "Lägg till insticksmodul"
+
+#~ msgid "Close the dialog"
+#~ msgstr "Stäng dialogfönstret"
+
+#~ msgid "Configure the selected plugin"
+#~ msgstr "Konfigurera den markerade insticksmodulen"
+
+#~ msgid "Deactivate selected plugin"
+#~ msgstr "Inaktivera den markerade insticksmodulen"
+
+#~ msgid "Decrease the plugin priority"
+#~ msgstr "Minska insticksmodulprioriteten"
+
+#~ msgid "Increase the plugin priority"
+#~ msgstr "Öka insticksmodulprioriteten"
+
+#~ msgid "The list of active plugins"
+#~ msgstr "Listan med aktiva insticksmoduler"
+
+#~ msgid "_Active plugins"
+#~ msgstr "_Aktiva insticksmoduler"
+
+#~ msgid "_Available plugins:"
+#~ msgstr "_Tillgängliga insticksmoduler:"
+
+#~ msgid "Choose the default group (for newly created windows)."
+#~ msgstr "Välj standardgrupp (för nyligen skapade fönster)."
+
+#~ msgid "Keep separate group for each application window."
+#~ msgstr "Behåll separat grupp för varje programfönster."
+
+#~ msgid "Keep the state of indicators separately for each application window."
+#~ msgstr "Behåll tillståndet för indikatorerna separat för varje programfönster."
+
+#~ msgid "Save/restore _indicators with group"
+#~ msgstr "Spara/återställ _indikatorer med grupp"
+
+#~ msgid "Separate _group for each window"
+#~ msgstr "Separat _grupp för varje fönster"
+
+#~ msgid "Show national flags as indicators of corresponding layouts"
+#~ msgstr "Visa nationsflaggor som indikatorer för motsvarande layout"
+
+#~ msgid "Use _flags as indicators"
+#~ msgstr "Använd _flaggor som indikatorer"
+
+#~ msgid "_Default group:"
+#~ msgstr "_Standardgrupp:"
+
+#~ msgid "_Default group"
+#~ msgstr "_Standardgrupp"
+
+#~ msgid "Apply XKB configuration and quit"
+#~ msgstr "Verkställ XKB-konfiguration och avsluta"
+
+#~ msgid "..."
+#~ msgstr "..."
+
+#~ msgid "Postscript preview component is not available"
+#~ msgstr "Postscript-förhandsvisningskomponent är inte tillgänglig"
+
+#~ msgid "Keyboard layout preview"
+#~ msgstr "Förhandsvisning av tangentbordslayout"
+
+#~ msgid "Configure keyboard layouts"
+#~ msgstr "Konfigurera tangentbordslayouter"
+
+#~ msgid "Keyboard layouts"
+#~ msgstr "Tangentbordslayouter"
+
+#~ msgid "Choose the layout."
+#~ msgstr "Välj layout."
+
+#~ msgid "Choose the layout. Note: one layout can provide several groups."
+#~ msgstr "Välj layouten. Observera att en layout kan tillhandahålla flera grupper."
+
+#~ msgid "Choose the model of the keyboard (brand, number of keys, etc.)."
+#~ msgstr "Välj modellen på tangentbordet (märke, antal tangenter, osv.)."
+
+#~ msgid "Clear."
+#~ msgstr "Töm."
+
+#~ msgid "Extra"
+#~ msgstr "Extra"
+
+#~ msgid "Keyboard _model:"
+#~ msgstr "Tangentbords_modell:"
+
+#~ msgid "Keyboard layouts' settings: "
+#~ msgstr "Inställningar för tangentbordslayouter: "
+
+#~ msgid "Options 1"
+#~ msgstr "Alternativ 1"
+
+#~ msgid "Options 2"
+#~ msgstr "Alternativ 2"
+
+#~ msgid "Show _advanced parameters"
+#~ msgstr "Visa _avancerade parametrar"
+
+#~ msgid "Show tabs with advanced keyboard parameters (for power users)."
+#~ msgstr "Visa flikar med avancerade tangentbordsparametrar (för avancerade användare)."
+
+#~ msgid "This version of XFree86 does not support multiple layouts, so only one layout can be choosen."
+#~ msgstr "Denna version av XFree86 stöder inte flera layouter, så endast en layout kan väljas."
+
+#~ msgid "Use custom settings, ignore global configuration set in XF86Config."
+#~ msgstr "Använd anpassade inställningar, ignorera global konfiguration som är angiven i XF86Config."
+
+#~ msgid "Use global configuration set in XF86Config."
+#~ msgstr "Använd global konfiguration som är angiven i XF86Config."
+
+#~ msgid "_Custom"
+#~ msgstr "_Anpassad"
+
+#~ msgid "_Global Preconfigured"
+#~ msgstr "_Global förkonfigurerad"
+
+#~ msgid "_Layouts:"
+#~ msgstr "_Layouter:"
+
+#~ msgid "_Preview"
+#~ msgstr "_Förhandsgranska"
+
+#~ msgid "_Switch shortcut"
+#~ msgstr "_Växlingsgenväg"
+
+#~ msgid "Default XKB setting"
+#~ msgstr "XKB-standardinställning"
+
+#~ msgid "Right Control"
+#~ msgstr "Höger ctrl"
+
+#~ msgid "Left Control"
+#~ msgstr "Vänster ctrl"
+
+#~ msgid "Right Shift"
+#~ msgstr "Höger skift"
+
+#~ msgid "Left Shift"
+#~ msgstr "Vänster skift"
+
+#~ msgid "Grave"
+#~ msgstr "Allvarlig"
+
+#~ msgid "Beep on group switch"
+#~ msgstr "Pip vid gruppbyte"
+
+#~ msgid "Debug level"
+#~ msgstr "Felsökningsnivå"
+
+#~ msgid "Default group, assigned on window creation"
+#~ msgstr "Standardgrupp som tilldelas vid fönsterskapande"
+
+#~ msgid "Keep and manage separate group per window"
+#~ msgstr "Behåll och hantera separata grupper per fönster"
+
+#~ msgid "Save/restore indicators together with layout groups"
+#~ msgstr "Spara/återställ indikatorer tillsammans med layoutgrupper"
+
+#~ msgid "Secondary groups"
+#~ msgstr "Sekundära grupper"
+
+#~ msgid "Show flags in the applet"
+#~ msgstr "Visa flaggor i panelprogrammet"
+
+#~ msgid "Show flags in the applet to indicate the current layout"
+#~ msgstr "Visa flaggor i panelprogrammet för att indikera aktuell layout"
+
+#~ msgid "Show layout names instead of group names"
+#~ msgstr "Visa layoutnamn istället för gruppnamn"
+
+#~ msgid "Show layout names instead of group names (only for versions of XFree supporting multiple layouts)"
+#~ msgstr "Visa layoutnamn istället för gruppnamn (endast för versioner av XFree som stöder flera layouter)"
+
+#~ msgid "The id of active switchcut"
+#~ msgstr "Id för den aktiva genvägen"
+
+#~ msgid "XKB keyboard layout"
+#~ msgstr "XKB-tangentbordslayout"
+
+#~ msgid "XKB keyboard model"
+#~ msgstr "XKB-tangentbordsmodell"
+
+#~ msgid "XKB options"
+#~ msgstr "XKB-alternativ"
+
+#~ msgid "XKB settings should be overridden"
+#~ msgstr "XKB-inställningar ska åsidosättas"
+
+#~ msgid "[us]"
+#~ msgstr "[se]"
+
+#~ msgid "Choose the color"
+#~ msgstr "Välj färg"
+
+#~ msgid "Highlighter"
+#~ msgstr "Färgmarkör"
+
+#~ msgid "    "
+#~ msgstr "    "
+
+#~ msgid "Highlighter plugin properties"
+#~ msgstr "Egenskaper för färgmarkörsinsticksmodul"
+
+#~ msgid "_Background color"
+#~ msgstr "_Bakgrundsfärg"
+
+#~ msgid "_Text color"
+#~ msgstr "_Textfärg"
+
+#~ msgid "Keyboard events"
+#~ msgstr "Tangentbordshändelser"
+
+#~ msgid "Switching to group 2"
+#~ msgstr "Växlar till grupp 2"
+
+#~ msgid "Switching to group 3"
+#~ msgstr "Växlar till grupp 3"
+
+#~ msgid "Switching to group 4"
+#~ msgstr "Växlar till grupp 4"
+
+#~ msgid "Sound plugin"
+#~ msgstr "Ljudinsticksmodul"
+
+#~ msgid "Test plugin"
+#~ msgstr "Testinsticksmodul"
+
+#~ msgid "Choose color"
+#~ msgstr "Välj färg"
+
+#~ msgid "Background color"
+#~ msgstr "Bakgrundsfärg"
+
+#~ msgid "Text color"
+#~ msgstr "Textfärg"
+
+#~ msgid "_Available plugins"
+#~ msgstr "_Tillgängliga insticksmoduler"
+
+#~ msgid "Plugins"
+#~ msgstr "Insticksmoduler"
+
+#~ msgid "Plugin"
+#~ msgstr "Insticksmodul"
+
+#~ msgid "Enable _beep"
+#~ msgstr "Aktivera _pip"
+
+#~ msgid "Use the system beep to indicate the switch."
+#~ msgstr "Använd systempipet för indikation av bytet."
+
+#~ msgid "Secondary"
+#~ msgstr "Sekundär"
+
+#~ msgid "Use _flags"
+#~ msgstr "Använd _flaggor"
+
+#~ msgid "Use flags as indicators"
+#~ msgstr "Använd flaggor som indikatorer"
+
+#~ msgid "Use flags"
+#~ msgstr "Använd flaggor"
+
+#~ msgid "Keyboard switcher"
+#~ msgstr "Tangentbordsväxlare"
+
+#~ msgid "Keyboard Switcher"
+#~ msgstr "Tangentbordsväxlare"
+
+#~ msgid "Configure keyboard layout"
+#~ msgstr "Konfigurera tangentbordslayout"
+
+#~ msgid "Keyboard layout"
+#~ msgstr "Tangentbordslayout"
+
+#~ msgid "Keyboard layout settings: "
+#~ msgstr "Inställningar för tangentbordslayouter: "
+
+#~ msgid "General XKB Properties"
+#~ msgstr "Allmänna XKB-genskaper"
+
+#~ msgid "XKB Properties"
+#~ msgstr "XKB-egenskaper"
+
+#~ msgid "XKB settings: "
+#~ msgstr "XKB-inställningar: "
+
+#~ msgid "Preview"
+#~ msgstr "Förhandsgranska"
+
+#~ msgid "To _default"
+#~ msgstr "Till _standard"
+
+#~ msgid "To _fit"
+#~ msgstr "Så att det _passar"
+
+#~ msgid "Update the preview. Can take some time."
+#~ msgstr "Uppdatera förhandsgranskningen. Kan ta lite tid."
+
+#~ msgid "Zoom"
+#~ msgstr "Zooma"
+
+#~ msgid "Zoom in."
+#~ msgstr "Zooma in."
+
+#~ msgid "Zoom out."
+#~ msgstr "Zooma ut."
+
+#~ msgid "Zoom to default."
+#~ msgstr "Zooma till standard."
+
+#~ msgid "Zoom to fit."
+#~ msgstr "Zooma så att det passar."
+
+#~ msgid "_Out"
+#~ msgstr "_Ut"
+
+#~ msgid "_Update preview"
+#~ msgstr "_Uppdatera förghandsgranskning"
+
+#~ msgid "About..."
+#~ msgstr "Om..."
+
+#~ msgid "Left Control - Right Control"
+#~ msgstr "Vänster ctrl - höger ctrl"
+
+#~ msgid "Left Shift - Right Shift"
+#~ msgstr "Vänster skift - höger skift"
+
+#~ msgid "Alt - Left Control"
+#~ msgstr "Alt - vänster ctrl"
+
+#~ msgid "Alt - Right Control"
+#~ msgstr "Alt - höger ctrl"
+
+#~ msgid "Alt - Left Shift"
+#~ msgstr "Alt - vänster skift"
+
+#~ msgid "Alt - Right Shift"
+#~ msgstr "Alt - höger skift"
+
+#~ msgid "Control - Right Shift"
+#~ msgstr "Ctrl - höger skift"
+
+#~ msgid "None"
+#~ msgstr "Ingen"
+
+#~ msgid "User defined:"
+#~ msgstr "Användardefinierad:"
+
+#~ msgid "_Layouts"
+#~ msgstr "_Layouter"
+
+#~ msgid "DLEVEL"
+#~ msgstr "FNIVÅ"
+
+#~ msgid "H_ome page..."
+#~ msgstr "H_emsida..."
+
+#~ msgid "Clear the setting"
+#~ msgstr "Töm inställningen"
+
+#~ msgid "Use _custom XKB settings"
+#~ msgstr "Använd _anpassade XKB-inställningar"
+
+#~ msgid "Enable Beep"
+#~ msgstr "Aktivera pip"
+
+#~ msgid "Layout:"
+#~ msgstr "Layout:"

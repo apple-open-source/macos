@@ -74,9 +74,33 @@ static tDirStatus DSCheckForLDAPResult( LDAP			*inHost,
 				siResult = eDSNoErr;
 				break;
 			case LDAP_RES_SEARCH_RESULT:
-				// we don't care about the final result, it's just a status block
-				siResult = eDSRecordNotFound;
-				break;
+			{
+				int		ldapErr		= LDAP_SUCCESS;
+				char*	ldapErrMsg	= NULL;
+
+				// check the final result block to see if there are any server errors.
+				rc = ldap_parse_result( inHost, *outResult, &ldapErr, NULL, &ldapErrMsg, NULL, NULL, 0);
+				if ( rc == LDAP_SUCCESS )
+				{
+					if ( ldapErr == LDAP_SUCCESS )
+					{
+						siResult = eDSRecordNotFound;  // normal successful return code
+					}
+					else
+					{
+						siResult = eDSOperationFailed;
+						DbgLog( kLogNotice, "CLDAPv3::DSCheckForLDAPResult - LDAP server search result error %d: %s",
+								ldapErr, (ldapErrMsg == NULL || ldapErrMsg[0] == '\0') ? "Unknown error" : ldapErrMsg );
+					}
+				}
+				else
+				{
+					siResult = eDSOperationFailed;
+					DbgLog( kLogPlugin, "CLDAPv3::DSCheckForLDAPResult - ldap_parse_result() failed, return code = %d", rc );
+				}
+				DSFree( ldapErrMsg );
+ 				break;
+			}
 			case 0:
 				// we timed out during the search we'll assume the server is bad
 			case -1:

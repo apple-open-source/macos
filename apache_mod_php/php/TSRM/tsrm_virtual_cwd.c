@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.74.2.9.2.36 2007/10/23 05:57:35 dmitry Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.74.2.9.2.38 2007/12/31 07:20:02 sebastian Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -712,22 +712,24 @@ no_realpath:
 			}
 			ptr = tsrm_strtok_r(NULL, TOKENIZER_STRING, &tok);
 		}
-#if defined(TSRM_WIN32) || defined(NETWARE)
-		if (path[path_length-1] == '\\' || path[path_length-1] == '/') {
-#else 
-		if (path[path_length-1] == '/') {
-#endif
-			state->cwd = (char*)realloc(state->cwd, state->cwd_length + 2);
-			state->cwd[state->cwd_length++] = DEFAULT_SLASH;
-			state->cwd[state->cwd_length] = 0;
-		}
-
 		free(free_path);
 
-		if ((use_realpath == CWD_REALPATH) && ret) {
-			CWD_STATE_FREE(state);
-			*state = old_state;					
-			return 1;
+		if (use_realpath == CWD_REALPATH) {
+			if (ret) {
+				CWD_STATE_FREE(state);
+				*state = old_state;					
+				return 1;
+			}
+		} else {
+#if defined(TSRM_WIN32) || defined(NETWARE)
+			if (path[path_length-1] == '\\' || path[path_length-1] == '/') {
+#else 
+			if (path[path_length-1] == '/') {
+#endif
+				state->cwd = (char*)realloc(state->cwd, state->cwd_length + 2);
+				state->cwd[state->cwd_length++] = DEFAULT_SLASH;
+				state->cwd[state->cwd_length] = 0;
+			}
 		}
 
 		if (state->cwd_length == COPY_WHEN_ABSOLUTE(state->cwd)) {

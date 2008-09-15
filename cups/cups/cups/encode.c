@@ -1,9 +1,9 @@
 /*
- * "$Id: encode.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: encode.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   Option encoding routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2008 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -586,5 +586,5 @@ compare_ipp_options(_ipp_option_t *a,	/* I - First option */
 
 
 /*
- * End of "$Id: encode.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: encode.c 7721 2008-07-11 22:48:49Z mike $".
  */

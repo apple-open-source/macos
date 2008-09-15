@@ -1,5 +1,5 @@
 /*
- * "$Id: type.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: type.c 7721 2008-07-11 22:48:49Z mike $"
  *
  *   MIME typing routines for the Common UNIX Printing System (CUPS).
  *
@@ -281,8 +281,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
       while (isalnum(*rule & 255) && (ptr - name) < (sizeof(name) - 1))
         *ptr++ = *rule++;
 
-      *ptr       = '\0';
-      num_values = 0;
+      *ptr = '\0';
 
       if (*rule == '(')
       {
@@ -407,7 +406,6 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 
 	snprintf(value[0], sizeof(value[0]), "*.%s", name);
 	length[0]  = strlen(value[0]);
-	num_values = 1;
 	op         = MIME_MAGIC_MATCH;
       }
 
@@ -1152,5 +1150,5 @@ patmatch(const char *s,		/* I - String to match against */
 
 
 /*
- * End of "$Id: type.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: type.c 7721 2008-07-11 22:48:49Z mike $".
  */

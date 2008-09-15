@@ -58,7 +58,7 @@ strip:
 	$(_v) $(LIPO) -remove x86_64 -output $(DSTROOT)/usr/bin/php $(DSTROOT)/usr/bin/php
 	$(_v) $(LIPO) -remove ppc64 -output $(DSTROOT)/usr/bin/php $(DSTROOT)/usr/bin/php
 	$(_v) $(STRIP) -S "$(DSTROOT)`/usr/sbin/apxs -q LIBEXECDIR`/"*.so
-	$(_v) $(STRIP) $(DSTROOT)/usr/bin/php
+	$(_v) $(STRIP) -S $(DSTROOT)/usr/bin/php
 	$(_v) $(RM) $(DSTROOT)/usr/lib/php/.lock
 	$(RMDIR) $(DSTROOT)/private/etc/apache2
 
@@ -91,7 +91,7 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 5.2.5
+AEP_Version    = 5.2.6
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)

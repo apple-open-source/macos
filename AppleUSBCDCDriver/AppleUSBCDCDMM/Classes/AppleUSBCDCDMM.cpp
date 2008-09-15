@@ -1073,7 +1073,8 @@ bool AppleUSBCDCDMM::createSuffix(unsigned char *sufKey)
         {
             if ((strlen((char *)&serBuf) < 9) && (strlen((char *)&serBuf) > 0))
             {
-                strcpy((char *)sufKey, (const char *)&serBuf);
+				strlcpy((char *)sufKey, (const char *)&serBuf, strlen((char *)&serBuf));
+//                strcpy((char *)sufKey, (const char *)&serBuf);
                 sig = strlen((char *)sufKey);
                 keyOK = true;
             }			
@@ -1090,7 +1091,7 @@ bool AppleUSBCDCDMM::createSuffix(unsigned char *sufKey)
         if (location)
         {
             locVal = location->unsigned32BitValue();		
-            snprintf((char *)sufKey, (sizeof(locVal)*2)+1, "%x", locVal);
+            snprintf((char *)sufKey, (sizeof(locVal)*2)+1, "%x", (unsigned int)locVal);
 			sig = strlen((const char *)sufKey)-1;
 			for (i=sig; i>=0; i--)
 			{
@@ -1108,10 +1109,10 @@ bool AppleUSBCDCDMM::createSuffix(unsigned char *sufKey)
     
     if (keyOK)
     {
-        sufKey[sig] = Asciify((UInt8)fPort.InterfaceNumber >> 4);
+        sufKey[sig] = Asciify((UInt8)fInterfaceNumber >> 4);
         if (sufKey[sig] != '0')
             sig++;
-        sufKey[sig++] = Asciify((UInt8)fPort.InterfaceNumber);
+        sufKey[sig++] = Asciify((UInt8)fInterfaceNumber);
         sufKey[sig] = 0x00;
     }
 	

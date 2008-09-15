@@ -694,15 +694,17 @@ BC_reader_thread(void *param0, wait_result_t param1)
 			ce < (BC_cache->c_extents + BC_cache->c_extent_count);
 			ce++) {
 
+			LOCK_EXTENT(ce);
+
 			/* requested shutdown */
 			if (BC_cache->c_flags & BC_FLAG_SHUTDOWN)
 				goto out;
 
 			/* Only read extents marked for this batch. */
-			if ((ce->ce_flags & CE_BATCH_MASK) != batch)
+			if ((ce->ce_flags & CE_BATCH_MASK) != batch) {
+				UNLOCK_EXTENT(ce);
 				continue;
-
-			LOCK_EXTENT(ce);
+			}
 
 			/* Check for early extent termination */
 			if (ce->ce_flags & CE_ABORTED) {
@@ -753,6 +755,11 @@ BC_reader_thread(void *param0, wait_result_t param1)
 	                        kret = vm_map_wire(BC_cache->c_map, (vm_map_offset_t)trunc_page(offset_in_map),
 						  (vm_map_offset_t)round_page(offset_in_map+buf_count(bp)),
 						   VM_PROT_READ | VM_PROT_WRITE, FALSE);
+				if (kret != KERN_SUCCESS) {
+					ce->ce_flags |= CE_ABORTED;
+					BC_cache->c_stats.ss_read_errors++;
+					break;
+				}
 
 				/* give the buf to the underlying strategy routine */
 				KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_DKRW, DKIO_READ) | DBG_FUNC_NONE,
@@ -930,7 +937,7 @@ BC_strategy_bypass(struct buf *bp)
 			 * The hit rate is poor, shut the cache down but leave
 			 * history recording active.
 			 */
-			debug("hit rate below threshold (%d hits on %d lookups)",
+			message("hit rate below threshold (%d hits on %d lookups)",
 			    BC_cache->c_stats.ss_extent_hits,
 			    BC_cache->c_stats.ss_extent_lookups);
 			if (BC_terminate_readahead()) {

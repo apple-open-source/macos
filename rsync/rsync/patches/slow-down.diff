@@ -1,0 +1,62 @@
+This patch adds a --slow-down=USECs option that causes the sender to scan
+the filelist more slowly, and the generator to scan for deletions more
+slowly.  It doesn't do anything to make anyone slow down during the normal
+transfer processing, though.
+
+The idea is to lessen rsync's impact on disk I/O.  Unfortunately, there
+should really be a way to affect more of rsync's processing, perhaps by
+specifying a maximum disk I/O rate (and have that affect a maximum stat()
+rate or something like that).
+
+To use this patch, run these commands for a successful build:
+
+    patch -p1 <patches/slow-down.diff
+    ./configure                           (optional if already run)
+    make
+
+--- old/flist.c
++++ new/flist.c
+@@ -53,6 +53,7 @@ extern int copy_links;
+ extern int copy_unsafe_links;
+ extern int protocol_version;
+ extern int sanitize_paths;
++extern unsigned long sleep_asec;
+ extern struct stats stats;
+ extern struct file_list *the_file_list;
+ 
+@@ -1036,6 +1037,9 @@ static void send_directory(int f, struct
+ 		}
+ 
+ 		send_file_name(f, flist, fbuf, NULL, 0);
++		/* Sleep for a bit, to avoid hammering the disk. */
++		if (sleep_asec)
++			usleep(sleep_asec);
+ 	}
+ 
+ 	fbuf[len] = '\0';
+--- old/options.c
++++ new/options.c
+@@ -102,6 +102,7 @@ int size_only = 0;
+ int daemon_bwlimit = 0;
+ int bwlimit = 0;
+ int fuzzy_basis = 0;
++unsigned long sleep_asec = 0;
+ size_t bwlimit_writemax = 0;
+ int ignore_existing = 0;
+ int ignore_non_existing = 0;
+@@ -377,6 +378,7 @@ void usage(enum logcode F)
+   rprintf(F,"     --password-file=FILE    read password from FILE\n");
+   rprintf(F,"     --list-only             list the files instead of copying them\n");
+   rprintf(F,"     --bwlimit=KBPS          limit I/O bandwidth; KBytes per second\n");
++  rprintf(F,"     --slow-down=USECs       sleep N usec while creating the filelist\n");
+   rprintf(F,"     --write-batch=FILE      write a batched update to FILE\n");
+   rprintf(F,"     --only-write-batch=FILE like --write-batch but w/o updating destination\n");
+   rprintf(F,"     --read-batch=FILE       read a batched update from FILE\n");
+@@ -516,6 +518,7 @@ static struct poptOption long_options[] 
+   {"log-format",       0,  POPT_ARG_STRING, &stdout_format, 0, 0, 0 }, /* DEPRECATED */
+   {"itemize-changes", 'i', POPT_ARG_NONE,   0, 'i', 0, 0 },
+   {"bwlimit",          0,  POPT_ARG_INT,    &bwlimit, 0, 0, 0 },
++  {"slow-down",        0,  POPT_ARG_LONG,   &sleep_asec, 0, 0, 0 },
+   {"backup",          'b', POPT_ARG_NONE,   &make_backups, 0, 0, 0 },
+   {"backup-dir",       0,  POPT_ARG_STRING, &backup_dir, 0, 0, 0 },
+   {"suffix",           0,  POPT_ARG_STRING, &backup_suffix, 0, 0, 0 },

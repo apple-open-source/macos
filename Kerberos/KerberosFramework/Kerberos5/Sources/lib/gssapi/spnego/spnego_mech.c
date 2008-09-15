@@ -151,6 +151,9 @@ static OM_uint32
 get_negTokenResp(OM_uint32 *, unsigned char *, unsigned int,
 		 OM_uint32 *, gss_OID *, gss_buffer_t *, gss_buffer_t *);
 
+static int
+is_kerb_mech(gss_OID oid);
+
 /*
  * The Mech OID for SPNEGO:
  * { iso(1) org(3) dod(6) internet(1) security(5)
@@ -585,7 +588,16 @@ init_ctx_nego(OM_uint32 *minor_status, spnego_gss_ctx_id_t sc,
 		*minor_status = ERR_SPNEGO_NEGOTIATION_FAILED;
 		return GSS_S_DEFECTIVE_TOKEN;
 	}
-	if (!g_OID_equal(supportedMech, sc->internal_mech)) {
+
+	/*
+	 * If the mechanism we sent is not the mechanism returned from the server
+	 * we need to handle the server's counter proposal. There is a bug in SAMBA
+	 * servers that always send the old Kerberos mech OID, even though we 
+	 * sent the new one. So we will treat all the Kerberos mech OIDS as the same.
+         */
+
+	if (!(is_kerb_mech(supportedMech) && is_kerb_mech(sc->internal_mech)) &&
+	    !g_OID_equal(supportedMech, sc->internal_mech)) {
 		ret = init_ctx_reselect(minor_status, sc,
 					acc_negState, supportedMech,
 					responseToken, mechListMIC,
@@ -2304,6 +2316,12 @@ make_spnego_tokenInit_msg(spnego_gss_ctx_id_t spnego_ctx,
 		gssint_der_length_size(spnego_ctx->DER_mechTypes.length) +
 		spnego_ctx->DER_mechTypes.length;
 	dataLen += mechListTokenSize;
+
+/*
+ * Whether the req_flags are set or not we should no longer send them per
+ * RFC 4178. If the old behavior is desired define SEND_REQ_FLAGS.
+ */
+#ifdef SEND_REQ_FLAGS
 	/*
 	 * 4 bytes for ret_flags:
 	 *   ASN.1 token + ASN.1 Length + Padding + Flags
@@ -2311,7 +2329,7 @@ make_spnego_tokenInit_msg(spnego_gss_ctx_id_t spnego_ctx,
 	 */
 	if (req_flags != 0)
 		dataLen += 6;
-
+#endif
 	/*
 	 * If a token from gss_init_sec_context exists,
 	 * add the length of the token + the ASN.1 overhead
@@ -2399,12 +2417,13 @@ make_spnego_tokenInit_msg(spnego_gss_ctx_id_t spnego_ctx,
 
 	ptr += spnego_ctx->DER_mechTypes.length;
 
+#ifdef SEND_REQ_FLAGS
 	if (req_flags != 0) {
 		if ((ret = put_req_flags(&ptr, req_flags,
 					 tlen - (int)(ptr-t))))
 			goto errout;
 	}
-
+#endif
 	if (data != NULL) {
 		*ptr++ = CONTEXT | 0x02;
 		if ((ret = gssint_put_der_length(rspTokenSize,
@@ -2850,4 +2869,27 @@ g_verify_token_header(gss_OID_const mech,
 	}
 
 	return (ret);
+}
+
+/*
+ * Return non-zero if the oid is one of the kerberos mech oids,
+ * otherwise return zero.
+ *
+ * N.B. There are 3 oids that represent the kerberos mech:
+ * RFC-specified GSS_MECH_KRB5_OID,
+ * Old pre-RFC   GSS_MECH_KRB5_OLD_OID,
+ * Incorrect MS  GSS_MECH_KRB5_WRONG_OID
+ */
+
+static int
+is_kerb_mech(gss_OID oid)
+{
+	int answer = 0;
+	OM_uint32 minor;
+	extern const gss_OID_set_desc * const gss_mech_set_krb5_both;
+	
+	(void) gss_test_oid_set_member(&minor,
+		oid, (gss_OID_set)gss_mech_set_krb5_both, &answer);
+	
+	return (answer);
 }

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2007 The PHP Group                                |
+   | Copyright (c) 1997-2008 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Edin Kadribasic <edink@php.net>                              |
    +----------------------------------------------------------------------+
 */
-/* $Id: php_embed.h,v 1.6.2.2.2.1 2007/01/01 09:36:12 sebastian Exp $ */
+/* $Id: php_embed.h,v 1.6.2.2.2.2 2007/12/31 07:20:16 sebastian Exp $ */
 
 #ifndef _PHP_EMBED_H_
 #define _PHP_EMBED_H_

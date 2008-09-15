@@ -134,6 +134,10 @@ tDirStatus opendirectory_authenticate_node(
 				struct opendirectory_session *session,
 				tDirNodeReference nodeRef);
 
+tDirStatus opendirectory_authenticate_node_r(
+				struct opendirectory_session *session,
+				tDirNodeReference nodeRef);
+
 tDirStatus opendirectory_user_auth_and_session_key(
 				struct opendirectory_session *session,
 				tDirNodeReference inUserNodeRef,
