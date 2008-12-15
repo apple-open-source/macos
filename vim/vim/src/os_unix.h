@@ -432,7 +432,13 @@ typedef struct dsc$descriptor   DESC;
  * Unix has plenty of memory, use large buffers
  */
 #define CMDBUFFSIZE 1024	/* size of the command processing buffer */
-#define MAXPATHL    1024	/* Unix has long paths and plenty of memory */
+
+/* Use the system path length if it makes sense. */
+#if defined(PATH_MAX) && (PATH_MAX > 1000)
+# define MAXPATHL	PATH_MAX
+#else
+# define MAXPATHL	1024
+#endif
 
 #define CHECK_INODE		/* used when checking if a swap file already
 				    exists for a file */
@@ -483,7 +489,7 @@ int mch_rename __ARGS((const char *src, const char *dest));
 # endif
 # ifndef VMS
 #  ifdef __MVS__
-  /* on OS390 Unix getenv() doesn't return a pointer to persistant
+  /* on OS390 Unix getenv() doesn't return a pointer to persistent
    * storage -> use __getenv() */
 #   define mch_getenv(x) (char_u *)__getenv((char *)(x))
 #  else
@@ -507,6 +513,9 @@ int mch_rename __ARGS((const char *src, const char *dest));
 #endif
 #if !defined(S_ISFIFO) && defined(S_IFIFO)
 # define	S_ISFIFO(m) (((m) & S_IFMT) == S_IFIFO)
+#endif
+#if !defined(S_ISCHR) && defined(S_IFCHR)
+# define	S_ISCHR(m) (((m) & S_IFMT) == S_IFCHR)
 #endif
 
 /* Note: Some systems need both string.h and strings.h (Savage).  However,

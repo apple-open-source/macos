@@ -41,6 +41,10 @@
 #include <zlib.h>
 #include <CoreFoundation/CFString.h>
 
+#include <algorithm> /* min */
+
+#include "TLV.h"
+
 using CssmClient::AclFactory;
 
 /*
@@ -98,7 +102,6 @@ static const unsigned char oidX509CertificateCardAuthentication[] = { PIV_OBJECT
 #pragma mark ---------- NO/MINOR MODIFICATION NEEDED ----------
 
 PIVToken::PIVToken() :
-	mReturnedData(NULL), mUncompressedData(NULL), mCardCapabilitiesContainer(NULL),
 	mCurrentApplet(NULL), mPinStatus(0)
 {
 	mTokenContext = this;
@@ -108,9 +111,6 @@ PIVToken::PIVToken() :
 PIVToken::~PIVToken()
 {
 	delete mSchema;
-	delete mUncompressedData;
-	delete mReturnedData;
-	delete mCardCapabilitiesContainer;
 }
 
 
@@ -145,7 +145,11 @@ void PIVToken::establish(const CSSM_GUID *guid, uint32 subserviceId,
 	std::string commonName = authCertCommonName();
 	::snprintf(printName, 40, "PIV-%s", commonName.c_str());
 #else
-	::snprintf(printName, 40, "PIV-%s", mCardCapabilitiesContainer->hexidentifier().c_str());
+	byte_string cccOid((const unsigned char *)oidCardCapabilityContainer, oidCardCapabilityContainer + sizeof(oidCardCapabilityContainer));
+	byte_string cccdata;
+	getDataCore(cccOid, "CCC", false, true, cccdata);
+	PIVCCC ccc(cccdata);
+	::snprintf(printName, 40, "PIV-%s", ccc.hexidentifier().c_str());
 #endif	/* _USECERTIFICATECOMMONNAME */
 	Tokend::ISO7816Token::name(printName);
 	secdebug("pivtoken", "name: %s", printName);
@@ -153,6 +157,8 @@ void PIVToken::establish(const CSSM_GUID *guid, uint32 subserviceId,
 	Tokend::ISO7816Token::establish(guid, subserviceId, flags,
 		cacheDirectory, workDirectory, mdsDirectory, printName);
 
+	if(mSchema)
+		delete mSchema;
 	mSchema = new PIVSchema();
 	mSchema->create();
 
@@ -245,14 +251,12 @@ uint32 PIVToken::probe(SecTokendProbeFlags flags, char tokenUid[TOKEND_MAX_UID])
 			doDisconnect = true;
 		else
 		{	
-			if (!mCardCapabilitiesContainer)
-				mCardCapabilitiesContainer = new PIVCCC();
 #ifndef _USEFALLBACKTOKENUID
-			CssmData cccdata;
-			getDataCore(oidCardCapabilityContainer, sizeof(oidCardCapabilityContainer),
-				"CCC", false, true, cccdata);
-			mCardCapabilitiesContainer->set(cccdata);
-			snprintf(tokenUid, TOKEND_MAX_UID, "PIV-%s", mCardCapabilitiesContainer->hexidentifier().c_str());
+			byte_string cccOid((const unsigned char *)oidCardCapabilityContainer, oidCardCapabilityContainer + sizeof(oidCardCapabilityContainer));
+			byte_string cccdata;
+			getDataCore(cccOid, "CCC", false, true, cccdata);
+			PIVCCC ccc(cccdata);
+			snprintf(tokenUid, TOKEND_MAX_UID, "PIV-%s", ccc.hexidentifier().c_str());
 
 #else
 			// You should put something to uniquely identify the token into
@@ -360,12 +364,20 @@ void PIVToken::populate()
 		"Card Authentication Private Key"
 	};
 	
-	for (unsigned int ix=0;ix<sizeof(certids);++ix)
+	const unsigned char keyRefs[] =
+	{
+		PIV_KEYREF_PIV_AUTHENTICATION,
+		PIV_KEYREF_PIV_DIGITAL_SIGNATURE,
+		PIV_KEYREF_PIV_KEY_MANAGEMENT,
+		PIV_KEYREF_PIV_CARD_AUTHENTICATION
+	};
+	
+	for (unsigned int ix=0;ix<sizeof(certids)/sizeof(certids[0]);++ix)
 	{
 		RefPointer<Tokend::Record> cert(new PIVCertificateRecord(certids[ix], sz, certNames[ix]));
 		certRelation.insertRecord(cert);
 
-		RefPointer<Tokend::Record> key(new PIVKeyRecord(certids[ix], sz, keyNames[ix], privateKeyRelation.metaRecord(), true));
+		RefPointer<Tokend::Record> key(new PIVKeyRecord(certids[ix], sz, keyNames[ix], privateKeyRelation.metaRecord(), keyRefs[ix]));
 		privateKeyRelation.insertRecord(key);
 
 		// The Adornment class links a particular PIVCertificateRecord 
@@ -384,8 +396,7 @@ bool PIVToken::identify()
 
 	try
 	{
-//		PCSC::Transaction _(*this);
-		select(kSelectPIVApplet, sizeof(kSelectPIVApplet));
+		selectDefault();
 		return true;
 	}
 	catch (const PCSC::Error &error)
@@ -413,22 +424,23 @@ void PIVToken::changePIN(int pinNum,
 
 	PCSC::Transaction _(*this);
 	// Change pin requires that we select the default applet first
-	select(kSelectPIVApplet, sizeof(kSelectPIVApplet));
+	selectDefault();
 
 	const unsigned char dataFieldLen = 0x10;	// doc says must be 16 (= 2x8)
-	unsigned char apdu[] = { PIV_CHANGE_REFERENCE_DATA_APDU_TEMPLATE };
+	const unsigned char APDU_TEMPLATE[] = { PIV_CHANGE_REFERENCE_DATA_APDU_TEMPLATE };
+	byte_string apdu(APDU_TEMPLATE, APDU_TEMPLATE + sizeof(APDU_TEMPLATE));
 
 	apdu[PIV_VERIFY_APDU_INDEX_KEY] = static_cast<unsigned char>(pinNum & 0xFF);
 	apdu[PIV_VERIFY_APDU_INDEX_LEN] = dataFieldLen;
 
-	memcpy(apdu + PIV_VERIFY_APDU_INDEX_DATA, oldPin, oldPinLength);
-	memcpy(apdu + PIV_CHANGE_REFERENCE_DATA_APDU_INDEX_DATA2, newPin, newPinLength);
+	copy(oldPin, oldPin + oldPinLength, apdu.begin() + PIV_VERIFY_APDU_INDEX_DATA);
+	copy(newPin, newPin + newPinLength, apdu.begin() + PIV_CHANGE_REFERENCE_DATA_APDU_INDEX_DATA2);
 
-	unsigned char result[2];
-	size_t resultLength = sizeof(result);
+	byte_string result;
 
-	mPinStatus = exchangeAPDU(apdu, sizeof(apdu), result, resultLength);
-	memset(apdu + PIV_VERIFY_APDU_INDEX_DATA, 0, dataFieldLen);
+	mPinStatus = exchangeAPDU(apdu, result);
+	/* Clear out pin by forcing zeroes in */
+	secure_zero(apdu);
 	PIVError::check(mPinStatus);
 }
 
@@ -455,16 +467,16 @@ uint32_t PIVToken::pinStatus(int pinNum)
 
 	PCSC::Transaction _(*this);
 	// Verify pin requires that we select the default applet first
-	if (mCurrentApplet != kSelectPIVApplet)
-		select(kSelectPIVApplet, sizeof(kSelectPIVApplet));
+	selectDefault();
 
-	unsigned char apdu[] = { PIV_VERIFY_APDU_STATUS };
+	const unsigned char APDU_TEMPLATE[] = { PIV_VERIFY_APDU_STATUS };
+	byte_string apdu(APDU_TEMPLATE, APDU_TEMPLATE + sizeof(APDU_TEMPLATE));
+
 	apdu[PIV_VERIFY_APDU_INDEX_KEY] = 0x80;//static_cast<unsigned char>(pinNum & 0xFF);
 
-	unsigned char result[2];
-	size_t resultLength = sizeof(result);
+	byte_string result;
 
-	mPinStatus = exchangeAPDU(apdu, sizeof(apdu), result, resultLength);
+	mPinStatus = exchangeAPDU(apdu, result);
 	if (((mPinStatus & 0xFF00) != SCARD_AUTHENTICATION_FAILED) &&
 		(mPinStatus != SCARD_AUTHENTICATION_BLOCKED))
 		PIVError::check(mPinStatus);
@@ -495,23 +507,23 @@ void PIVToken::verifyPIN(int pinNum,
 
 	PCSC::Transaction _(*this);
 	// Verify pin requires that we select the default applet first
-	if (mCurrentApplet != kSelectPIVApplet)
-		select(kSelectPIVApplet, sizeof(kSelectPIVApplet));
+	selectDefault();
 
 	const unsigned char dataFieldLen = 8;	// doc says must be 8
 	
-	unsigned char apdu[] = { PIV_VERIFY_APDU_TEMPLATE };
+	const unsigned char APDU_TEMPLATE[] = { PIV_VERIFY_APDU_TEMPLATE };
+	byte_string apdu(APDU_TEMPLATE, APDU_TEMPLATE + sizeof(APDU_TEMPLATE));
 
 	apdu[PIV_VERIFY_APDU_INDEX_KEY] = 0x80;//static_cast<unsigned char>(pinNum & 0xFF);
 	apdu[PIV_VERIFY_APDU_INDEX_LEN] = dataFieldLen;
 
-	memcpy(apdu + PIV_VERIFY_APDU_INDEX_DATA, pin, pinLength);
+	copy(pin, pin + pinLength, apdu.begin() + PIV_VERIFY_APDU_INDEX_DATA);
 
-	unsigned char result[2];
-	size_t resultLength = sizeof(result);
+	byte_string result;
 
-	mPinStatus = exchangeAPDU(apdu, sizeof(apdu), result, resultLength);
-	memset(apdu + PIV_VERIFY_APDU_INDEX_DATA, 0, dataFieldLen);
+	mPinStatus = exchangeAPDU(apdu, result);
+	/* Clear out pin */
+	secure_zero(apdu);
 	PIVError::check(mPinStatus);
 	// Start a new transaction which we never get rid of until someone calls
 	// unverifyPIN()
@@ -559,16 +571,14 @@ void PIVToken::select(const unsigned char *applet, size_t appletLength)
 	if (isInTransaction() && mCurrentApplet == applet)
 		return;
 
-//	unsigned char result[2];
-	// Result must be large enough for whole response
-	unsigned char result[1024];
-	size_t resultLength = sizeof(result);
+	byte_string apdu(applet, applet + appletLength);
+	byte_string result;
 	bool failed = false;
 
+	uint16_t rx;
 	try
 	{
-//		transmit(applet, appletLength, result, resultLength);
-		exchangeAPDU(applet, appletLength, result, resultLength);
+		rx = exchangeAPDU(apdu, result);
 	}
 	catch (const PCSC::Error &error)
 	{
@@ -584,12 +594,11 @@ void PIVToken::select(const unsigned char *applet, size_t appletLength)
 	}
 	//PCSC::Error Transaction failed. (-2146435050) osStatus -2147416063
 	// We could return a more specific error based on the codes above
-	uint16_t rx = (result[resultLength - 2] << 8) | result[resultLength - 1];
 
 	if (failed || (rx != SCARD_SUCCESS))
 	{
 		secdebug("pivtoken", "select END [FAILURE %02X %02X]", 
-			result[resultLength - 2], result[resultLength - 1]);
+			result[result.size() - 2], result[result.size() - 1]);
 		PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
 	}
 
@@ -601,83 +610,84 @@ void PIVToken::select(const unsigned char *applet, size_t appletLength)
 
 void PIVToken::selectDefault()
 {
-//	PCSC::Transaction _(*this);
 	select(kSelectPIVApplet, sizeof(kSelectPIVApplet));
 }
 
-uint32_t PIVToken::exchangeAPDU(const unsigned char *apdu, size_t apduLength,
-	unsigned char *result, size_t &resultLength)
+uint32_t PIVToken::exchangeAPDU(const byte_string &apdu, byte_string &result)
 {
-	size_t savedLength = resultLength;
+	static const uint8_t GET_RESULT_TEMPLATE [] = { 0x00, 0xC0, 0x00, 0x00, 0xFF };
+	byte_string getResult(GET_RESULT_TEMPLATE, GET_RESULT_TEMPLATE + sizeof(GET_RESULT_TEMPLATE));
+	const int SIZE_INDEX = 4;
 
-	transmit(apdu, apduLength, result, resultLength);
-	if (resultLength == 2 && result[0] == PIV_RESULT_CONTINUATION_SW1)
+	transmit(apdu, result);
+	/* Keep pulling more data */
+	while (result.size() >= 2 && result[result.size() - 2] == PIV_RESULT_CONTINUATION_SW1)
 	{
-		resultLength = savedLength;
-		uint8 expectedLength = result[1];
-		unsigned char getResult[] = { 0x00, 0xC0, 0x00, 0x00, expectedLength, };
-		transmit(getResult, sizeof(getResult), result, resultLength);
-		if (resultLength - 2 != expectedLength)
+		size_t expectedLength = result[result.size() - 1];
+		if(expectedLength == 0) /* 256-byte case .. */
+			expectedLength = 256;
+		getResult[SIZE_INDEX] = expectedLength;
+		// Trim off status bytes
+		result.resize(result.size() - 2);
+		size_t appended = transmit(getResult, result);
+		if (appended != (expectedLength + 2))
         {
-            if (resultLength < 2)
+            if (appended < 2)
                 PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
             else
-                PIVError::throwMe((result[resultLength - 2] << 8)
-					+ result[resultLength - 1]);
+                PIVError::throwMe((result[result.size() - 2] << 8)
+					+ result[result.size() - 1]);
         }
 	}
 
-	if (resultLength < 2)
+	if (result.size() < 2)
 		PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
-
-    return (result[resultLength - 2] << 8) + result[resultLength - 1];
+	uint16_t ret = (result[result.size() - 2] << 8) + result[result.size() - 1];
+	// Trim off status bytes
+	result.resize(result.size() - 2);
+    return ret;
 }
 
-/*
-	BER-TLV
-	Reference: http://www.cardwerk.com/smartcards/smartcard_standard_ISO7816-4_annex-d.aspx
-	
-	In short form, the length field consists of a single byte where the bit B8 shall be set to 0 and
-	the bits B7-B1 shall encode an integer equal to the number of bytes in the value field. Any length
-	from 0-127 can thus be encoded by 1 byte.
-
-	In long form, the length field consists of a leading byte where the bit B8 shall be set to 1 and
-	the B7-B1 shall not be all equal, thus encoding a positive integer equal to the number of subsequent
-	bytes in the length field. Those subsequent bytes shall encode an integer equal to the number of bytes
-	in the value field. Any length within the APDU limit (up to 65535) can thus be encoded by 3 bytes.
-
-	NOTE - ISO/IEC 7816 does not use the indefinite lengths specified by the basic encoding rules of
-	ASN.1 (see ISO/IEC 8825).
-	
-	Sample data (from a certficate GET DATA):
-	
-	00000000  53 82 04 84 70 82 04 78  78 da 33 68 62 db 61 d0 
-	00000010  c4 ba 60 01 33 13 23 13  13 97 e2 dc 88 f7 0c 40
-	00000020  20 da 63 c0 cb c6 a9 d5  e6 d1 f6 9d 97 91 91 95 
-	....
-	00000460  1f 22 27 83 ef fe ed 5e  7a f3 e8 b6 dc 6b 3f dc
-	00000470  4c be bc f5 bf f2 70 7e  6b d0 4c 00 80 0d 3f 1f 
-	00000480  71 01 80 72 03 49 44 41
-	
-*/
-
-uint32_t PIVToken::parseBERLength(const unsigned char *&pber, uint32_t &lenlen)
+uint32_t PIVToken::exchangeChainedAPDU(unsigned char cla, unsigned char ins,
+	unsigned char p1, unsigned char p2,
+	const byte_string &data,
+	byte_string &result)
 {
-	// Parse a BER length field. Return the value of the length and update
-	// the pointer to the byte after the length field. "lenlen" is the length
-	// in bytes of the length field just parsed.
-	uint8_t ch = *pber++;
-	if (!(ch & 0x80))	// single byte
-	{
-		lenlen = 1;
-		return static_cast<uint32_t>(ch);
+	byte_string apdu;
+	apdu.reserve(5 + data.size());
+	apdu.resize(5);
+	apdu[0] = cla;
+	apdu[1] = ins;
+	apdu[2] = p1;
+	apdu[3] = p2;
+
+	apdu[0] |= 0x10;
+	apdu += data;
+	const size_t BASE_CHUNK_LENGTH = 256;
+	size_t chunkLength;
+	byte_string::const_iterator iter;
+	/* Chain data and skip last chunk since its in the receiving end */
+	for(iter = data.begin(); (iter + BASE_CHUNK_LENGTH) < data.end(); iter += BASE_CHUNK_LENGTH) {
+		chunkLength = std::min(BASE_CHUNK_LENGTH, (size_t)(data.end() - iter));
+		apdu[5] = chunkLength & 0xFF;
+		/* Don't send Le */
+		transmit(apdu.begin(), apdu.begin() + 5 + chunkLength, result);
+		/* No real data should come back until chaining is complete */
+		if(result.size() != 2)
+			PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
+		else
+			PIVError::check(result[result.size() - 2] << 8 | result[result.size() - 1]);
+		/* Trim off result SW */
+		result.resize(result.size() - 2);
+		// Trim off old data
+		apdu.erase(apdu.begin() + 5, apdu.begin() + 5 + chunkLength);
 	}
-	uint32_t result = 0;
-	lenlen = ch & 0x7F;
-	for (uint32_t ix=0;ix<lenlen;++ix,pber++)
-		result = (result << 8 ) | static_cast<uint32_t>(*pber);
-	return result;
+	apdu[0] &= ~0x10;
+	apdu[4] = (apdu.size() - 5) & 0xFF;
+	/* LE BYTE? */
+	return exchangeAPDU(apdu, result);
 }
+
 
 /*
 	This is where the actual data for a certificate or other data is retrieved from the token.
@@ -698,49 +708,44 @@ uint32_t PIVToken::parseBERLength(const unsigned char *&pber, uint32_t &lenlen)
 */
 
 
-void PIVToken::getDataCore(const unsigned char *oid, size_t oidlen, const char *description, bool isCertificate,
-	bool allowCaching, CssmData &data)
+void PIVToken::getDataCore(const byte_string &oid, const char *description, bool isCertificate,
+	bool allowCaching, byte_string &data)
 {
-	unsigned char result[MAX_BUFFER_SIZE];
-	size_t resultLength = sizeof(result);
-	size_t returnedDataLength = 0;
+	/* First check the cache */
+	CssmData cssmData;
+	if(allowCaching && cachedObject(0, description, cssmData)) {
+		data.assign(cssmData.Data, cssmData.Data + cssmData.Length);
+		free(cssmData.Data);
+		return;
+	}
 
 	// The APDU only has space for a 3 byte OID
-	if (oidlen != 3)
+	if (oid.size() != 3)
 		PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
 	
-	if (!mReturnedData)
-	{
-		mReturnedData = new unsigned char[PIV_MAX_DATA_SIZE];
-		if (!mReturnedData)
-			CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR);
-	}
-	
 	const unsigned char dataFieldLen = 0x05;	// doc says must be 16, but in pratice it is 5
-	unsigned char initialapdu[] = { PIV_GETDATA_APDU_TEMPLATE };
+	static const unsigned char INITIAL_APDU_TEMPLATE[] = { PIV_GETDATA_APDU_TEMPLATE };
+	/* TODO: Build from ground-up */
+	byte_string initialApdu(INITIAL_APDU_TEMPLATE, INITIAL_APDU_TEMPLATE + sizeof(INITIAL_APDU_TEMPLATE));
 
-	initialapdu[PIV_GETDATA_APDU_INDEX_LEN] = dataFieldLen;
-	initialapdu[PIV_GETDATA_APDU_INDEX_OIDLEN] = oidlen;
-	memcpy(initialapdu + PIV_GETDATA_APDU_INDEX_OID, oid, oidlen);
+	initialApdu[PIV_GETDATA_APDU_INDEX_LEN] = dataFieldLen;
+	initialApdu[PIV_GETDATA_APDU_INDEX_OIDLEN] = oid.size();
+	copy(oid.begin(), oid.end(), initialApdu.begin() + PIV_GETDATA_APDU_INDEX_OID);
+	initialApdu.resize(PIV_GETDATA_APDU_INDEX_OID + oid.size());
 
-	unsigned char continuationapdu[] = { PIV_GETDATA_CONT_APDU_TEMPLATE };
+	static const unsigned char CONTINUATION_APDU_TEMPLATE[] = { PIV_GETDATA_CONT_APDU_TEMPLATE };
+	byte_string continuationApdu(CONTINUATION_APDU_TEMPLATE, CONTINUATION_APDU_TEMPLATE + sizeof(CONTINUATION_APDU_TEMPLATE));
 	
-	unsigned char *apdu = initialapdu;
-	size_t apduSize = sizeof(initialapdu);
+	byte_string *apdu = &initialApdu;
 
-	selectDefault();
 	// Talk to token here to get data
 	{
 		PCSC::Transaction _(*this);
-
+		selectDefault();
 		uint32_t rx;
 		do
 		{
-			resultLength = sizeof(result);	// must reset each time
-			transmit(apdu, apduSize, result, resultLength);
-			if (resultLength < 2)
-				break;
-			rx = (result[resultLength - 2] << 8) + result[resultLength - 1];
+			rx = exchangeAPDU(*apdu, data);
 			secdebug("pivtokend", "exchangeAPDU result %02X", rx);
 
 			if ((rx & 0xFF00) != SCARD_BYTES_LEFT_IN_SW2 &&
@@ -748,85 +753,73 @@ void PIVToken::getDataCore(const unsigned char *oid, size_t oidlen, const char *
 				PIVError::check(rx);
 
 			// Switch to the continuation APDU after first exchange
-			apdu = continuationapdu;
-			apduSize = sizeof(continuationapdu);
-			
-			memcpy(mReturnedData + returnedDataLength, result, resultLength - 2);
-			returnedDataLength += resultLength - 2;
+			apdu = &continuationApdu;
 			
 			// Number of bytes to fetch next time around is in the last byte returned.
 			// For all except the penultimate read, this is 0, indicating that the
 			// token should read all bytes.
 			
-			*(apdu + PIV_GETDATA_CONT_APDU_INDEX_LEN) = static_cast<unsigned char>(rx & 0xFF);
-			
+			apdu->at(PIV_GETDATA_CONT_APDU_INDEX_LEN) = static_cast<unsigned char>(rx & 0xFF);
 		} while ((rx & 0xFF00) == SCARD_BYTES_LEFT_IN_SW2);
 	}
+	if(data.size() > PIV_MAX_DATA_SIZE) {
+		PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
+	}
+	dumpDataRecord(data, oid);
 
-	dumpDataRecord(mReturnedData, returnedDataLength, oid);
-	
 	// Start to parse the BER-TLV encoded data. In the end, we only return the
 	// main data part of this but we need to step through the rest first
 	// The certficates are the only types we parse here
 
-	if (returnedDataLength>0)
-	{
-		const unsigned char *pd = &mReturnedData[0];
-		if (*pd != PIV_GETDATA_RESPONSE_TAG)
+	if (data.size()<=0)
+		return;
+	if (data[0] != PIV_GETDATA_RESPONSE_TAG)
 			PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
-		pd++;
 
 		if (isCertificate)
-			processCertificateRecord(pd, returnedDataLength, oid, description, data);
-		else
-		{
-			data.Data = mReturnedData;
-			data.Length = returnedDataLength;
-		}
+		processCertificateRecord(data, oid, description);
 
-		if (allowCaching)
-			cacheObject(0, description, data);
+	if (!allowCaching)
+		return;
+	cssmData.Data = &data[0];
+	cssmData.Length = data.size();
+	cacheObject(0, description, cssmData);
 	}
-	else
-	{
-		data.Data = mReturnedData;
-		data.Length = 0;
-	}
-}
 
-void PIVToken::processCertificateRecord(const unsigned char *&pber, uint32_t berLen, const unsigned char *oid, const char *description, CssmData &data)
+void PIVToken::processCertificateRecord(byte_string &data, const byte_string &oid, const char *description)
 {
-	// Assumes that we are pointing to the byte right after PIV_GETDATA_RESPONSE_TAG (0x53)
-	// We only use "berLen" for consistency checking
-	
-	const unsigned char *pCertificateData = NULL;
-	uint32_t certificateDataLength = 0;
-	uint32_t lenlen = 0;
+	bool hasCertificateData = false;
 	bool isCompressed = false;
 	
 	// 00000000  53 82 04 84 70 82 04 78  78 da 33 68 62 db 61 d0 
-	uint32_t overallLength = PIVToken::parseBERLength(pber, lenlen);
-	if (overallLength > berLen)
+	TLV_ref tlv;
+	TLVList list;
+	try {
+		tlv = TLV::parse(data);
+		list = tlv->getInnerValues();
+	} catch(...) {
 		PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
+	}
 
-	for (int remaining=overallLength-1;remaining>0;)
-	{
-		uint32_t datalen = 0;
-		uint8_t tag = *pber++;
-		remaining--;
+	for(TLVList::const_iterator iter = list.begin(); iter != list.end(); ++iter) {
+		const byte_string &tagString = (*iter)->getTag();
+		const byte_string &value = (*iter)->getValue();
+		if(tagString.size() != 1)
+			PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
+		uint8_t tag = tagString[0];
 		switch (tag)
 		{
 		case PIV_GETDATA_TAG_CERTIFICATE:			// 0x70
-			datalen = certificateDataLength = PIVToken::parseBERLength(pber, lenlen);
-			pCertificateData = pber;
+			data = value;
+			hasCertificateData = true;
 			break;
 		case PIV_GETDATA_TAG_CERTINFO:				// 0x71
-			datalen = PIVToken::parseBERLength(pber, lenlen);	// should be 1
-			secdebug("pivtokend", "CertInfo byte: %02X", *pber);
-			isCompressed = *pber & PIV_GETDATA_COMPRESSION_MASK;
+			if(value.size() != 1)
+				PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
+			secdebug("pivtokend", "CertInfo byte: %02X", value[0]);
+			isCompressed = value[0] & PIV_GETDATA_COMPRESSION_MASK;
 			break;
-		case PIV_GETDATA_TAG_MSCUID:				// 0x72
-			datalen = PIVToken::parseBERLength(pber, lenlen);	// should be 3
+		case PIV_GETDATA_TAG_MSCUID:				// 0x72 -- should be of length 3...
 			break;
 		case PIV_GETDATA_TAG_ERRORDETECTION:
 			break;
@@ -837,79 +830,67 @@ void PIVToken::processCertificateRecord(const unsigned char *&pber, uint32_t ber
 			PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
 			break;
 		}
-		remaining -= (datalen + lenlen);
-		pber += datalen;
 	}
 
+	/* No cert data ? */
+	if(!hasCertificateData)
+		PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
 	if (isCompressed)
 	{
 		/* The certificate is compressed */
 		secdebug("pivtokend", "uncompressing compressed %s", description);
-		dumpDataRecord(pCertificateData, certificateDataLength, oid, "-compressedcert");
-		if (!mUncompressedData)
-		{
-			mUncompressedData = new unsigned char[PIV_MAX_DATA_SIZE];
-			if (!mUncompressedData)
-				CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR);
-		}
-		size_t uncompressedLength = PIV_MAX_DATA_SIZE;
+		dumpDataRecord(data, oid, "-compressedcert");
+
+		byte_string uncompressedData;
+		uncompressedData.resize(PIV_MAX_DATA_SIZE);
 		int rv = Z_ERRNO;
-		int compTyp = compressionType(pCertificateData, certificateDataLength);
-		switch (compTyp)
-		{
-		case kCompressionNone:
-		case kCompressionUnknown:
-			CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
-			break;
-		case kCompressionZlib:
-			rv = uncompress(mUncompressedData, &uncompressedLength, pCertificateData,
-				certificateDataLength);
-			break;
-		case kCompressionGzip:
-			rv = PIVToken::uncompressGzip(mUncompressedData, &uncompressedLength,
-				const_cast<unsigned char *>(pCertificateData), certificateDataLength);
-			break;
-		}
+		int compTyp = compressionType(data);
+		rv = PIVToken::uncompressData(uncompressedData, data, compTyp);
 		if (rv != Z_OK)
 		{
 			secdebug("zlib", "uncompressing %s failed: %d [type=%d]", description, rv, compTyp);
 			CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
 		}
-
-		data.Data = mUncompressedData;
-		data.Length = uncompressedLength;
+		data = uncompressedData;
 	}
 	else
 	{
-		data.Data = const_cast<uint8 *>(pCertificateData);
-		data.Length = certificateDataLength;
 	}
-	dumpDataRecord(data.Data, data.Length, oid, "-rawcert");
+	dumpDataRecord(data, oid, "-rawcert");
 }
 
-int PIVToken::compressionType(const unsigned char *pdata, size_t len)
+int PIVToken::compressionType(const byte_string &data)
 {
 	// Some ad-hoc stuff to guess at compression type
-	if (len > 2 && pdata[0] == 0x1F && pdata[1] == 0x8B)
+	if (data.size() > 2 && data[0] == 0x1F && data[1] == 0x8B)
 		return kCompressionGzip;
-	if (len > 1 /*&& (in[0] & 0x10) == Z_DEFLATED*/)
+	if (data.size() > 1 /*&& (data[0] & 0x10) == Z_DEFLATED*/)
 		return kCompressionZlib;
 	else
 		return kCompressionUnknown;
 }
 
-int PIVToken::uncompressGzip(unsigned char *uncompressedData, size_t* uncompressedDataLength,
-	unsigned char *compressedData, size_t compressedDataLength)
+int PIVToken::uncompressData(byte_string &uncompressedData, const byte_string &compressedData, int compressionType)
 {
     z_stream dstream;					// decompression stream
-	int windowSize = 15 + 0x20;
+	int windowSize = 15;
+	switch(compressionType) {
+	case kCompressionGzip:
+		windowSize += 0x20;
+		break;
+	case kCompressionZlib:
+		break;
+	default:
+		CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+	}
     dstream.zalloc = (alloc_func)0;
     dstream.zfree = (free_func)0;
     dstream.opaque = (voidpf)0;
-    dstream.next_in  = compressedData;
-    dstream.avail_in = compressedDataLength;
-	dstream.next_out = uncompressedData;
-	dstream.avail_out = *uncompressedDataLength;
+	/* Input not altered , so de-const-casting ok*/
+    dstream.next_in  = (Bytef*)&compressedData[0];
+    dstream.avail_in = compressedData.size();
+	dstream.next_out = &uncompressedData[0];
+	dstream.avail_out = uncompressedData.size();
     int err = inflateInit2(&dstream, windowSize);
     if (err)
 		return err;
@@ -920,13 +901,12 @@ int PIVToken::uncompressGzip(unsigned char *uncompressedData, size_t* uncompress
 		inflateEnd(&dstream);
 		return err;
 	}
-	*uncompressedDataLength = dstream.total_out;
+	uncompressedData.resize(dstream.total_out);
 	err = inflateEnd(&dstream);
 	return err;
 }
 
-void PIVToken::dumpDataRecord(const unsigned char *pReturnedData, size_t returnedDataLength,
-	const unsigned char *oid, const char *extraSuffix)
+void PIVToken::dumpDataRecord(const byte_string &data, const byte_string &oid, const char *extraSuffix)
 {
 #if !defined(NDEBUG)
 	FILE *fp;
@@ -934,15 +914,15 @@ void PIVToken::dumpDataRecord(const unsigned char *pReturnedData, size_t returne
 	const char *kNamePrefix = "/tmp/pivobj-";
 	char suffix[32]={0,};
 	memcpy(fileName, kNamePrefix, strlen(kNamePrefix));
-	sprintf(suffix,"%02X%02X%02X", *oid, *(oid+1), *(oid+2));
+	sprintf(suffix,"%02X%02X%02X", oid[0], oid[1], oid[2]);
 	strncat(fileName, suffix, 3);
 	if (extraSuffix)
 		strcat(fileName, extraSuffix);
 	if ((fp = fopen(fileName, "wb")) != NULL)
 	{
-		fwrite(pReturnedData, 1, returnedDataLength, fp);
+		fwrite(&data[0], 1, data.size(), fp);
 		fclose(fp);
-		secdebug("pivtokend", "wrote data of length %ld to %s", returnedDataLength, fileName);
+		secdebug("pivtokend", "wrote data of length %ld to %s", data.size(), fileName);
 	}
 #endif
 }	
@@ -955,11 +935,11 @@ std::string PIVToken::authCertCommonName()
 	const char *cn = NULL;
 	SecCertificateRef certificateRef = NULL;
 	CFStringRef commonName = NULL;
-	CssmData certData;
 	
-	getDataCore(oidX509CertificatePIVAuthentication, sizeof(oidX509CertificatePIVAuthentication),
-				"AUTHCERT", true, true, certData);
-
+	byte_string data;
+	byte_string oidAuthCert(oidX509CertificatePIVAuthentication, oidX509CertificatePIVAuthentication + sizeof(oidX509CertificatePIVAuthentication));
+	getDataCore(oidAuthCert, "AUTHCERT", true, true, data);
+	CssmData certData(&data[0], data.size());
 	OSStatus status = SecCertificateCreateFromData(&certData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER, &certificateRef);
 	if (!status)
 	{
@@ -977,4 +957,15 @@ std::string PIVToken::authCertCommonName()
 	return std::string(cn?cn:"--unknown--");
 }
 
+size_t PIVToken::transmit(const byte_string::const_iterator &apduBegin, const byte_string::const_iterator &apduEnd, byte_string &result) {
+	const size_t BUFFER_SIZE = 1024;
+	size_t resultLength = BUFFER_SIZE;
+	size_t index = result.size();
+	/* To prevent data leaking, secure byte_string resize takes place */
+	secure_resize(result, result.size() + BUFFER_SIZE);
+	ISO7816Token::transmit(&(*apduBegin), (size_t)(apduEnd - apduBegin), &result[0]+ index, resultLength);
+	/* Trims the data, no expansion occurs */
+	result.resize(index + resultLength);
+	return resultLength;
+}
 

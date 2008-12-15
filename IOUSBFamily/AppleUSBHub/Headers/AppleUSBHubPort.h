@@ -72,6 +72,14 @@ typedef enum
 	usbHPPMS_active
 } USBHubPortPMState;
 
+struct CaptiveErrataListEntryStruct
+{
+    UInt16 				vendorID;
+    UInt16 				productIDLo;
+    UInt16 				productIDHi;
+};
+
+typedef struct CaptiveErrataListEntryStruct  CaptiveErrataListEntry, *CaptiveErrataListEntryPtr;
 
 
 class AppleUSBHubPort : public OSObject
@@ -101,7 +109,7 @@ protected:
     UInt32							_attachRetry;
 	bool							_attachMessageDisplayed;
 	bool							_overCurrentNoticeDisplayed;
-	UInt32							_extraPowerUsed;
+	AbsoluteTime					_overCurrentNoticeTimeStamp;
 	UInt32							_portResumeRecoveryTime;									// # of ms that we have to allow after a RESUME before we can talk to a device.  Generally it's 10ms, but some devices need more
     
     portStatusChangeVector			_changeHandler[kNumChangeHandlers];
@@ -121,10 +129,13 @@ private:
     bool							_extraResetDelay;
 	bool							_resumePending;
 	bool							_lowerPowerStateOnResume;
+	bool							_usingExtraPortPower;
+	bool							_ignoreDisconnectOnWakeup;
+	
     
     static void						PortInitEntry(OSObject *target);					// this will run on its own thread
     static void						PortStatusChangedHandlerEntry(OSObject *target);	// this will run on its own thread
- 
+
     IOReturn						DetachDevice();
     IOReturn						GetDevZeroDescriptorWithRetries();
     bool							AcquireDeviceZero();
@@ -164,6 +175,8 @@ protected:
     IOReturn						ReleaseDevZeroLock( void);
     IOReturn						SuspendPort(bool suspend, bool fromDevice);
     IOReturn						ReEnumeratePort(UInt32 options);
+	bool							IsCaptiveOverride(UInt16 vendorID, UInt16 prodID);
+	bool							ShouldApplyDisconnectWorkaround();
 	
     void							DisplayOverCurrentNotice(bool individual);
 

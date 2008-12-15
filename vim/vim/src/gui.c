@@ -187,9 +187,10 @@ gui_start()
 #endif
 
 #ifdef FEAT_AUTOCMD
-    /* If the GUI started successfully, trigger the GUIEnter event */
-    if (gui.in_use)
-	apply_autocmds(EVENT_GUIENTER, NULL, NULL, FALSE, curbuf);
+    /* If the GUI started successfully, trigger the GUIEnter event, otherwise
+     * the GUIFailed event. */
+    apply_autocmds(gui.in_use ? EVENT_GUIENTER : EVENT_GUIFAILED,
+						   NULL, NULL, FALSE, curbuf);
 #endif
 
     --recursive;
@@ -636,6 +637,7 @@ gui_exit(rc)
 
 #if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_X11) || defined(FEAT_GUI_MSWIN) \
 	|| defined(FEAT_GUI_PHOTON) || defined(FEAT_GUI_MAC) || defined(PROTO)
+# define NEED_GUI_UPDATE_SCREEN 1
 /*
  * Called when the GUI shell is closed by the user.  If there are no changed
  * files Vim exits, otherwise there will be a dialog to ask the user what to
@@ -664,8 +666,7 @@ gui_shell_closed()
 
     exiting = FALSE;
     cmdmod = save_cmdmod;
-    setcursor();		/* position cursor */
-    out_flush();
+    gui_update_screen();	/* redraw, window may show changed buffer */
 }
 #endif
 
@@ -900,9 +901,10 @@ gui_update_cursor(force, clear_selection)
     int		attr;
     attrentry_T *aep = NULL;
 
-    /* Don't update the cursor when halfway busy scrolling.
-     * ScreenLines[] isn't valid then. */
-    if (!can_update_cursor)
+    /* Don't update the cursor when halfway busy scrolling or the screen size
+     * doesn't match 'columns' and 'lines.  ScreenLines[] isn't valid then. */
+    if (!can_update_cursor || screen_Columns != gui.num_cols
+					       || screen_Rows != gui.num_rows)
 	return;
 
     gui_check_pos();
@@ -957,7 +959,13 @@ gui_update_cursor(force, clear_selection)
 		static int iid;
 		guicolor_T fg, bg;
 
-		if (im_get_status())
+		if (
+# ifdef HAVE_GTK2
+			preedit_get_status()
+# else
+			im_get_status()
+# endif
+			)
 		{
 		    iid = syn_name2id((char_u *)"CursorIM");
 		    if (iid > 0)
@@ -1079,7 +1087,8 @@ gui_update_cursor(force, clear_selection)
 		cur_width = gui.char_width;
 	    }
 #ifdef FEAT_MBYTE
-	    if (has_mbyte && (*mb_off2cells)(LineOffset[gui.row] + gui.col) > 1)
+	    if (has_mbyte && (*mb_off2cells)(LineOffset[gui.row] + gui.col,
+				    LineOffset[gui.row] + screen_Columns) > 1)
 	    {
 		/* Double wide character. */
 		if (shape_table[idx].shape != SHAPE_VER)
@@ -1158,7 +1167,7 @@ gui_position_components(total_width)
 #endif
 
 # if defined(FEAT_GUI_TABLINE) && (defined(FEAT_GUI_MSWIN) \
-	|| defined(FEAT_GUI_MOTIF))
+	|| defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_MAC))
     if (gui_has_tabline())
 	text_area_y += gui.tabline_height;
 #endif
@@ -1292,11 +1301,7 @@ again:
     out_flush();
 
     gui.num_cols = (pixel_width - gui_get_base_width()) / gui.char_width;
-    gui.num_rows = (pixel_height - gui_get_base_height()
-#if !defined(FEAT_GUI_PHOTON) && !defined(FEAT_GUI_MSWIN)
-				    + (gui.char_height / 2)
-#endif
-					) / gui.char_height;
+    gui.num_rows = (pixel_height - gui_get_base_height()) / gui.char_height;
 
     gui_position_components(pixel_width);
 
@@ -1968,7 +1973,7 @@ gui_screenstr(off, len, flags, fg, bg, back)
  * "flags":
  * GUI_MON_IS_CURSOR should only be used when this function is being called to
  * actually draw (an inverted) cursor.
- * GUI_MON_TRS_CURSOR is used to draw the cursor text with a transparant
+ * GUI_MON_TRS_CURSOR is used to draw the cursor text with a transparent
  * background.
  * GUI_MON_NOCLEAR is used to avoid clearing the selection when drawing over
  * it.
@@ -2178,7 +2183,7 @@ gui_outstr_nowrap(s, len, flags, fg, bg, back)
     if (hl_mask_todo & HL_UNDERCURL)
 	draw_flags |= DRAW_UNDERC;
 
-    /* Do we draw transparantly? */
+    /* Do we draw transparently? */
     if (flags & GUI_MON_TRS_CURSOR)
 	draw_flags |= DRAW_TRANSP;
 
@@ -2674,7 +2679,7 @@ gui_wait_for_chars(wtime)
     }
 
     /*
-     * While we are waiting indefenitely for a character, blink the cursor.
+     * While we are waiting indefinitely for a character, blink the cursor.
      */
     gui_mch_start_blink();
 
@@ -2713,7 +2718,7 @@ gui_wait_for_chars(wtime)
 }
 
 /*
- * Fill buffer with mouse coordinates encoded for check_termcode().
+ * Fill p[4] with mouse coordinates encoded for check_termcode().
  */
     static void
 fill_mouse_coord(p, col, row)
@@ -2872,6 +2877,9 @@ button_set:
      */
     if ((State == NORMAL || State == NORMAL_BUSY || (State & INSERT))
 	    && Y_2_ROW(y) >= topframe->fr_height
+# ifdef FEAT_WINDOWS
+						+ firstwin->w_winrow
+# endif
 	    && button != MOUSE_DRAG
 # ifdef FEAT_MOUSESHAPE
 	    && !drag_status_line
@@ -3496,7 +3504,7 @@ get_tabline_label(tp, tooltip)
 	    if (modified)
 		STRCAT(buf, "+");
 	    STRCAT(buf, " ");
-	    mch_memmove(NameBuff + STRLEN(buf), NameBuff, STRLEN(NameBuff) + 1);
+	    STRMOVE(NameBuff + STRLEN(buf), NameBuff);
 	    mch_memmove(NameBuff, buf, STRLEN(buf));
 	}
     }
@@ -3729,8 +3737,16 @@ gui_drag_scrollbar(sb, value, still_dragging)
     sb->value = value;
 
 #ifdef USE_ON_FLY_SCROLL
-    /* When not allowed to do the scrolling right now, return. */
-    if (dont_scroll || input_available())
+    /* When not allowed to do the scrolling right now, return.
+     * This also checked input_available(), but that causes the first click in
+     * a scrollbar to be ignored when Vim doesn't have focus. */
+    if (dont_scroll)
+	return;
+#endif
+#ifdef FEAT_INS_EXPAND
+    /* Disallow scrolling the current window when the completion popup menu is
+     * visible. */
+    if ((sb->wp == NULL || sb->wp == curwin) && pum_visible())
 	return;
 #endif
 
@@ -4203,9 +4219,27 @@ gui_do_scroll()
 #endif
 	    )
     {
-	redraw_win_later(wp, VALID);
+	int type = VALID;
+
+#ifdef FEAT_INS_EXPAND
+	if (pum_visible())
+	{
+	    type = NOT_VALID;
+	    wp->w_lines_valid = 0;
+	}
+#endif
+	/* Don't set must_redraw here, it may cause the popup menu to
+	 * disappear when losing focus after a scrollbar drag. */
+	if (wp->w_redr_type < type)
+	    wp->w_redr_type = type;
 	updateWindow(wp);   /* update window, status line, and cmdline */
     }
+
+#ifdef FEAT_INS_EXPAND
+    /* May need to redraw the popup menu. */
+    if (pum_visible())
+	pum_redraw();
+#endif
 
     return (wp == curwin && !equalpos(curwin->w_cursor, old_cursor));
 }
@@ -4502,7 +4536,18 @@ gui_focus_change(in_focus)
     xim_set_focus(in_focus);
 # endif
 
-    ui_focus_change(in_focus);
+    /* Put events in the input queue only when allowed.
+     * ui_focus_change() isn't called directly, because it invokes
+     * autocommands and that must not happen asynchronously. */
+    if (!hold_gui_events)
+    {
+	char_u  bytes[3];
+
+	bytes[0] = CSI;
+	bytes[1] = KS_EXTRA;
+	bytes[2] = in_focus ? (int)KE_FOCUSGAINED : (int)KE_FOCUSLOST;
+	add_to_input_buf(bytes, 3);
+    }
 #endif
 }
 
@@ -4515,7 +4560,7 @@ gui_mouse_moved(x, y)
     int		y;
 {
     win_T	*wp;
-    char_u	st[6];
+    char_u	st[8];
 
     /* Ignore this while still starting up. */
     if (!gui.in_use || gui.starting)
@@ -4603,11 +4648,11 @@ gui_mouse_correct()
     /* Don't move the mouse when it's left or right of the Vim window */
     if (x < 0 || x > Columns * gui.char_width)
 	return;
+    if (y >= 0
 # ifdef FEAT_WINDOWS
-    if (Y_2_ROW(y) >= tabline_height())
-# else
-    if (y >= 0)
+	    && Y_2_ROW(y) >= tabline_height()
 # endif
+       )
 	wp = xy2win(x, y);
     if (wp != curwin && wp != NULL)	/* If in other than current window */
     {
@@ -4807,6 +4852,7 @@ no_console_input()
 #endif
 
 #if defined(FIND_REPLACE_DIALOG) || defined(FEAT_SUN_WORKSHOP) \
+	|| defined(NEED_GUI_UPDATE_SCREEN) \
 	|| defined(PROTO)
 /*
  * Update the current window and the screen.
@@ -4816,6 +4862,15 @@ gui_update_screen()
 {
     update_topline();
     validate_cursor();
+#ifdef FEAT_AUTOCMD
+    /* Trigger CursorMoved if the cursor moved. */
+    if (!finish_op && has_cursormoved()
+	    && !equalpos(last_cursormoved, curwin->w_cursor))
+    {
+	apply_autocmds(EVENT_CURSORMOVED, NULL, NULL, FALSE, curbuf);
+	last_cursormoved = curwin->w_cursor;
+    }
+#endif
     update_screen(0);	/* may need to update the screen */
     setcursor();
     out_flush();		/* make sure output has been written */
@@ -5009,7 +5064,7 @@ gui_do_findrepl(flags, find_text, repl_text, down)
 	/* Search for the next match. */
 	i = msg_scroll;
 	do_search(NULL, down ? '/' : '?', ga.ga_data, 1L,
-						    SEARCH_MSG + SEARCH_MARK);
+					      SEARCH_MSG + SEARCH_MARK, NULL);
 	msg_scroll = i;	    /* don't let an error message set msg_scroll */
     }
 
@@ -5076,6 +5131,16 @@ gui_handle_drop(x, y, modifiers, fnames, count)
 {
     int		i;
     char_u	*p;
+    static int	entered = FALSE;
+
+    /*
+     * This function is called by event handlers.  Just in case we get a
+     * second event before the first one is handled, ignore the second one.
+     * Not sure if this can ever happen, just in case.
+     */
+    if (entered)
+	return;
+    entered = TRUE;
 
     /*
      * When the cursor is at the command line, add the file names to the
@@ -5100,7 +5165,7 @@ gui_handle_drop(x, y, modifiers, fnames, count)
 		p = vim_strsave_escaped(fnames[i], (char_u *)"\\ \t\"|");
 # endif
 		if (p != NULL)
-		    add_to_input_buf(p, (int)STRLEN(p));
+		    add_to_input_buf_csi(p, (int)STRLEN(p));
 		vim_free(p);
 		vim_free(fnames[i]);
 	    }
@@ -5159,5 +5224,7 @@ gui_handle_drop(x, y, modifiers, fnames, count)
 	gui_update_cursor(FALSE, FALSE);
 	gui_mch_flush();
     }
+
+    entered = FALSE;
 }
 #endif

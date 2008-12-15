@@ -79,7 +79,7 @@ protected:
 #endif
     
     static void remakeConnections(void *arg);
-    virtual IOReturn IOFireWireAVCUserClient::updateP2PCount(UInt32 addr, SInt32 inc, bool failOnBusReset, UInt32 chan, IOFWSpeed speed);
+    virtual IOReturn updateP2PCount(UInt32 addr, SInt32 inc, bool failOnBusReset, UInt32 chan, IOFWSpeed speed);
     virtual IOReturn makeConnection(UInt32 addr, UInt32 chan, IOFWSpeed speed);
     virtual void breakConnection(UInt32 addr);
 	virtual IOFireWireAVCUserClientAsyncCommand *FindUCAsyncCommandWithHandle(UInt32 commandHandle);

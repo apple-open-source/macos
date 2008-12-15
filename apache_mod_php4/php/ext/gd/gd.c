@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: gd.c,v 1.221.2.56.2.6 2007/12/31 07:22:47 sebastian Exp $ */
+/* $Id: gd.c,v 1.221.2.56.2.7 2008/07/17 18:08:04 pajoye Exp $ */
 
 /* gd 1.2 is copyright 1994, 1995, Quest Protein Database Center, 
    Cold Spring Harbor Labs. */
@@ -667,6 +667,19 @@ PHP_FUNCTION(imageloadfont)
 		font->h = FLIPWORD(font->h);
 		font->nchars = FLIPWORD(font->nchars);
 		body_size = font->w * font->h * font->nchars;
+	}
+
+	if (overflow2(font->nchars, font->h)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Error reading font, invalid font header");
+		efree(font);
+		php_stream_close(stream);
+		RETURN_FALSE;
+	}
+	if (overflow2(font->nchars * font->h, font->w )) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Error reading font, invalid font header");
+		efree(font);
+		php_stream_close(stream);
+		RETURN_FALSE;
 	}
 
 	if (body_size != body_size_check) {

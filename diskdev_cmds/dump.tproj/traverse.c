@@ -523,14 +523,14 @@ void
 writeheader(ino)
 	ino_t ino;
 {
-	register long sum, cnt, *lp;
+	register int32_t sum, cnt, *lp;
 
-	spcl.c_inumber = ino;
+	spcl.c_inumber = (u_int32_t)ino;
 	spcl.c_magic = NFS_MAGIC;
 	spcl.c_checksum = 0;
-	lp = (long *)&spcl;
+	lp = (int32_t *)&spcl;
 	sum = 0;
-	cnt = sizeof(union u_spcl) / (4 * sizeof(long));
+	cnt = sizeof(union u_spcl) / (4 * sizeof(int32_t));
 	while (--cnt >= 0) {
 		sum += *lp++;
 		sum += *lp++;

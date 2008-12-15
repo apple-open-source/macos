@@ -177,11 +177,7 @@ IOReturn IOPCIDevice::setPowerState( unsigned long powerState,
     
     if (kIOPCIDeviceDozeState == powerState)
     {
-#if VERSION_MAJOR >= 9
 	if (kIOPCIDeviceOffState == getPowerState())
-#else
-	if (kIOPCIDeviceOffState == pm_vars->myCurrentState)
-#endif
 	    powerState = kIOPCIDeviceOnState;
 	else
 	    powerState = kIOPCIDeviceOffState;
@@ -190,11 +186,7 @@ IOReturn IOPCIDevice::setPowerState( unsigned long powerState,
     switch (powerState)
     {
 	case kIOPCIDeviceOffState:
-#if VERSION_MAJOR >= 9
 	    if (getPowerState() > kIOPCIDeviceDozeState)
-#else
-	    if (pm_vars->myCurrentState > kIOPCIDeviceDozeState)
-#endif
 		parent->setDevicePowerState( this, 0 );
 
 	    if (pmSleepEnabled && pmControlStatus && sleepControlBits)
@@ -490,8 +482,7 @@ OSMetaClassDefineReservedUsed(IOPCIDevice,  0);
 bool IOPCIDevice::hasPCIPowerManagement(IOOptionBits state)
 {
     UInt8	pciPMCapOffset;
-    UInt16	pciPMCapReg;
-    OSObject	*anObject;
+    UInt16	pciPMCapReg, checkMask;
     OSData	*aString;
 
     sleepControlBits = 0;		// on a new query, we reset the proper sleep control bits
@@ -503,55 +494,59 @@ bool IOPCIDevice::hasPCIPowerManagement(IOOptionBits state)
 	{
 	    LOG("%s[%p]::hasPCIPwrMgmt found pciPMCapOffset %d\n", 
 		getName(), this, pciPMCapOffset);
-	    pciPMCapReg = configRead16(pciPMCapOffset+2);
-	    LOG("%s[%p]::hasPCIPwrMgmt found pciPMCapReg %x\n", 
-		getName(), this, pciPMCapReg);
-	    pmControlStatus = pciPMCapOffset+4;
+	    pmControlStatus = pciPMCapOffset + 4;
 	}
     }
-    if (pmControlStatus)
+    if (!pmControlStatus) return (false);
+
+    pciPMCapReg = configRead16(pmControlStatus - sizeof(uint16_t));
+    LOG("%s[%p]::hasPCIPwrMgmt found pciPMCapReg %x\n", 
+	getName(), this, pciPMCapReg);
+
+    if (state)
     {
-	if (state)
+	checkMask = state;
+	switch (state)
 	{
-	    switch (state) {
-		case kPCIPMCPMESupportFromD3Cold:
-		case kPCIPMCPMESupportFromD3Hot:
-		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
-		    break;
-		case kPCIPMCPMESupportFromD2:
-		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD2);
-		    break;
-		case kPCIPMCPMESupportFromD1:
-		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD1);
-		    break;
-		case kPCIPMCD3Support:
-			sleepControlBits = kPCIPMCSPowerStateD3;
-			break;
-		default:
-		    break;
-	    }
+	    case kPCIPMCPMESupportFromD3Cold:
+	    case kPCIPMCPMESupportFromD3Hot:
+		sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
+		break;
+	    case kPCIPMCPMESupportFromD2:
+		sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD2);
+		break;
+	    case kPCIPMCPMESupportFromD1:
+		sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD1);
+		break;
+	    case kPCIPMCD2Support:
+		sleepControlBits = kPCIPMCSPowerStateD2;
+		break;
+	    case kPCIPMCD1Support:
+		sleepControlBits = kPCIPMCSPowerStateD1;
+		break;
+	    case kPCIPMCD3Support:
+		sleepControlBits = kPCIPMCSPowerStateD3;
+		checkMask = 0;
+		break;
+	    default:
+		break;
 	}
-	else
-	{
-	    anObject = getProperty("sleep-power-state");
-	    aString = OSDynamicCast(OSData, anObject);
-	    if (aString)
-	    {
-		LOG("%s[%p]::hasPCIPwrMgmt found sleep-power-state string %p\n", getName(), this, aString);
-    
-		if (aString->isEqualTo("D3cold", 6))
-		{
-		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
-		}
-		else if (aString->isEqualTo("D3Hot", 5))
-		{
-		    sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
-		}
-	    }
-	}
-	
+	if (checkMask && !(checkMask & pciPMCapReg))
+	    sleepControlBits = 0;
     }
-    return sleepControlBits ? true : false;
+    else
+    {
+	if ((aString = OSDynamicCast(OSData, getProperty("sleep-power-state"))))
+	{
+	    LOG("%s[%p]::hasPCIPwrMgmt found sleep-power-state string %p\n", getName(), this, aString);
+	    if (aString->isEqualTo("D3cold", strlen("D3cold")))
+		sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
+	    else if (aString->isEqualTo("D3Hot", strlen("D3Hot")))
+		sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
+	}
+    }
+
+    return (sleepControlBits ? true : false);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -597,6 +592,39 @@ IOReturn IOPCIDevice::enablePCIPowerManagement(IOOptionBits state)
 	}
     }
     return ret;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOReturn 
+IOPCIDevice::callPlatformFunction(const OSSymbol * functionName,
+					  bool waitForFunction,
+					  void * p1, void * p2,
+					  void * p3, void * p4)
+{
+    IOReturn result;
+
+    result = super::callPlatformFunction(functionName, waitForFunction,
+					 p1, p2, p3, p4);
+
+    if ((kIOReturnUnsupported == result) 
+     && (gIOPlatformDeviceASPMEnableKey == functionName)
+     && getProperty(kIOPCIDeviceASPMSupportedKey))
+    {
+	result = parent->setDeviceASPMState(this, (IOService *) p1, (IOOptionBits)(uintptr_t) p2);
+    }
+
+    return (result);
+}
+
+IOReturn 
+IOPCIDevice::callPlatformFunction(const char * functionName,
+					  bool waitForFunction,
+					  void * p1, void * p2,
+					  void * p3, void * p4)
+{
+    return (super::callPlatformFunction(functionName, waitForFunction,
+					 p1, p2, p3, p4));
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

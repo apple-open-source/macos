@@ -115,7 +115,6 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 		virtual IOReturn				powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice);
 		virtual void					powerChangeDone ( unsigned long fromState);
 		virtual void					systemWillShutdown( IOOptionBits specifier );
-		virtual void					PM_idle_timer_expiration ( void );
 		virtual void					free(void);
 	
 		// IOUSBController methods

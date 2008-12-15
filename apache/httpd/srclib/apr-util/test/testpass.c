@@ -21,7 +21,7 @@
 #include "apr_errno.h"
 #include "apr_strings.h"
 #include "apr_file_io.h"
-#include "apr_thread_proc.h"
+#include "apr_thread_pool.h"
 #include "apr_md5.h"
 #include "apr_sha1.h"
 
@@ -83,23 +83,24 @@ static void * APR_THREAD_FUNC testing_thread(apr_thread_t *thd,
     return APR_SUCCESS;
 }
 
+#define NUM_THR 20
+
 /* test for threadsafe crypt() */
 static void test_threadsafe(abts_case *tc, void *data)
 {
-#define NUM_THR 20
-    apr_thread_t *my_threads[NUM_THR];
     int i;
     apr_status_t rv;
-    
-    for (i = 0; i < NUM_THR; i++) {
-        apr_assert_success(tc, "create test thread",
-                           apr_thread_create(&my_threads[i], NULL, 
-                                             testing_thread, tc, p));
-    }
+    apr_thread_pool_t *thrp;
+
+    rv = apr_thread_pool_create(&thrp, NUM_THR/2, NUM_THR, p);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     for (i = 0; i < NUM_THR; i++) {
-        apr_thread_join(&rv, my_threads[i]);
+        rv = apr_thread_pool_push(thrp, testing_thread, tc, 0, NULL);
+        ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     }
+
+    apr_thread_pool_destroy(thrp);
 }
 #endif
 
@@ -108,7 +109,7 @@ static void test_shapass(abts_case *tc, void *data)
     const char *pass = "hellojed";
     char hash[100];
 
-    apr_sha1_base64(pass, (int)strlen(pass), hash);
+    apr_sha1_base64(pass, strlen(pass), hash);
 
     apr_assert_success(tc, "SHA1 password validated",
                        apr_password_validate(pass, hash));

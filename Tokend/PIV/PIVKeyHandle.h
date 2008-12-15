@@ -31,6 +31,10 @@
 
 #include "KeyHandle.h"
 
+#include <deque>
+#include "byte_string.h"
+#include "SecureBufferAllocator.h"
+
 class PIVToken;
 class PIVKeyRecord;
 
@@ -51,7 +55,7 @@ public:
     virtual void generateSignature(const Context &context,
 		CSSM_ALGORITHMS signOnly, const CssmData &input, CssmData &signature);
     virtual void verifySignature(const Context &context,
-		CSSM_ALGORITHMS signOnly, const CssmData &input,
+		CSSM_ALGORITHMS alg, const CssmData &input,
 			const CssmData &signature);
     virtual void generateMac(const Context &context, const CssmData &input,
 		CssmData &output);
@@ -59,6 +63,8 @@ public:
 		const CssmData &compare);
     virtual void encrypt(const Context &context, const CssmData &clear,
 		CssmData &cipher);
+	/* Implemented such that the decrypted data has limited external exposure
+	 * Value is, however, cached until destroyed */
     virtual void decrypt(const Context &context, const CssmData &cipher,
 		CssmData &clear);
 
@@ -67,6 +73,14 @@ public:
 private:
 	PIVToken &mToken;
 	PIVKeyRecord &mKey;
+	/* Fixed queue of crypto data to keep the CssmData values used
+	 * so that when the Key Handle keys away, the CssmData references go away.
+	 * Fixed queue to prevent unbounded growth.
+	 * TODO: Need spec on how to do this 'right' -- preferred setup would be for
+	 * the data buffer be provided
+	 */
+	static const unsigned MAX_BUFFERS = 2;
+	SecureBufferAllocator<MAX_BUFFERS> bufferAllocator;
 };
 
 

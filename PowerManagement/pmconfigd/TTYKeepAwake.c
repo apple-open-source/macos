@@ -36,6 +36,8 @@
 #include "TTYKeepAwake.h"
 #include "PMSettings.h"
 
+#if !TARGET_OS_EMBEDDED
+
 
 #ifndef DEVMAXPATHSIZE
 #define DEVMAXPATHSIZE 	128
@@ -351,3 +353,4 @@ static void cleanup_tty_tracking()
     freettys();        // no-op on empty list; clears list
 }
 
+#endif /* !TARGET_OS_EMBEDDED */

@@ -42,6 +42,10 @@ enum {
     kUSBDeviceUserClientGetMicroFrameNumber,
     kUSBDeviceUserClientGetFrameNumberWithTime,
     kUSBDeviceUserClientSetAsyncPort,
+	kUSBDeviceUserClientGetDeviceInformation,
+	kUSBDeviceUserClientRequestExtraPower,
+	kUSBDeviceUserClientReturnExtraPower,
+	kUSBDeviceUserClientGetExtraPowerAllocated,
     kIOUSBLibDeviceUserClientNumCommands
     };
 

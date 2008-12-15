@@ -1,65 +1,80 @@
                                                      -*- coding: utf-8 -*-
+Changes with APR-util 1.3.0
 
-Changes with APR-util 1.2.12
+  *) apr_reslist: destroy all resources in apr_cleanup (don't give up on error).
+     PR 45086 [Nick Kew]
 
-  *) Wakeup threads waiting for a reslist resource after a resource was
-     invalidated. [Ruediger Pluem]
+  *) Add apr_brigade_split_ex for reusing existing brigades in situation where
+     brigades need to be split often during the lifetime of a pool.
+     [Ruediger Pluem]
 
-  *) Fix GMT offset for several date formats and add a new format.
-     [Maxime Petazzoni <maxime.petazzoni bulix.org>]
+  *) Amend apr_reslist to expire resources whose idle time exceeds ttl.
+     PR 42841 [Tom Donovan, Nick Kew, Ruediger Pluem]
 
-  *) Numerous fixes to the test/ framework, including better handling of
-     long size_t comparisons and more consistent Makefile.(in|win) setup
-     for authoring new tests.  [William Rowe]
+  *) Modularize ldap's stub with the dbd dso modular structure, and teach
+     the apu dso's to respect the system specific shared lib path var.
+     To link to an application without ldap libs, query 
+     `apu-1-config --avoid-ldap --libs` (in addition to the usual linker
+     queries for compiling and linking).  [William Rowe]
 
-  *) Win32 build fixes including a Makefile.win scheme, fixes for 64P
-     model x86_64 compiles and VC8 builds.  [William Rowe]
+  *) Support building DBD drivers as DSOs by default; use --disable-util-dso
+     flag to configure to use static link.  [Joe Orton, Bojan Smojver]
 
-  *) Type mismatch between apr_datum_t and GDBM's datum type could
-     yield a corrupt apr_datum_t when reading from a GDBM database.
-     PR 43025.  [Björn Wiberg <Bjorn.Wiberg its.uu.se>, Davi Arnaut]
+  *) All DBD drivers now count rows from 1, which affects PostgreSQL and MySQL
+     drivers in particular. Using row number zero is an error.
+     [Bojan Smojver]
 
-  *) Add the #define APR_LDAP_SIZELIMIT that is set appropriately
-     for the LDAP SDK that is being used. Also include ZOS as an
-     LDAP Platform.
-     PR 37814.  [David Jones <oscaremma gmail com>, Davi Arnaut]
+  *) Add support for OpenLDAP's ability to support a directory of
+     certificate authorities. [Eric Covener]
 
-  *) Fix exported LDFLAGS with new expat detection.  PR 43337.
-     [Justin Erenkrantz]
+  *) Better error detection for bucket allocation failures.
+     [Jim Jagielski]
 
-  *) Add MySQL DBD driver [Nick Kew, Bojan Smojver]
+  *) Ensure that the LDAP code can compile cleanly on platforms that do
+     not define the LDAP_OPT_REFHOPLIMIT symbol, most specifically Windows.
+     [Victor <victorjss@gmail.com>, Graham Leggett]
 
-Changes with APR-util 1.2.10
+  *) Fix the setting of LDAP_OPT_SSL on Win2k, which expects a pointer to
+     the value LDAP_OPT_ON, and not the value itself. XP works with both.
+     [Victor <victorjss@gmail.com>]
+
+  *) Fix a regression in apr_brigade_partition that causes integer overflows
+     on systems where apr_off_t > apr_size_t.  [Ruediger Pluem]
+
+  *) Ensure that apr_uri_unparse does not add scheme to URI if
+     APR_URI_UNP_OMITSITEPART flag is set. PR 44044
+     [Michael Clark <michael metaparadigm.com>]
+
+  *) Add an LDAP rebind implementation so that authentication can be
+     carried through referrals. [Paul J. Reder]
+
+  *) Fix the make test target in the spec file. [Graham Leggett]
+
+  *) Introduce apr_dbd_open_ex() [Bojan Smojver]
+
+  *) Make md5 hash files portable between EBCDIC and ASCII platforms  
+     [David Jones]
+
+  *) Add limited apr_dbd_freetds driver (MSSQL and Sybase) [Nick Kew]
+
+  *) Commit relicensed apr_dbd_mysql driver to /trunk/  [Nick Kew]
 
   *) Support BerkeleyDB 4.6.  [Arfrever Frehtes Taifersar Arahesis]
 
-  *) Test improvements to validate testmd4 and testdbm, unattended.
-     [Bojan Smojver]
-
-Changes with APR-util 1.2.9
-
-  *) Ensure that an apr_reslist shrinks back to SMAX via the TTL by
-     reorganising the resource list from a queue to a stack.
-     PR 40348.  [Christian BOITEL <christian_boitel yahoo.fr>]
-
-  *) Fix Solaris 2.8+ fdatasync() detection. The fdatasync() function
-     is marked as part of the Realtime library functions.
-     PR 37343.  [Davi Arnaut]
-
-  *) Change configure's expat detection to use standard linker-based
-     tests, fixing build on e.g. biarch Linux systems.  PR 28205.
-     [Joe Orton, Ruediger Pluem]     
+  *) Support Tivoli ITDS LDAP client library.  [Paul Reder]
 
   *) Portably implement testdate's long-time constants to solve
      compilation faults where #LL isn't valid.  [Curt Arnold]
 
-  *) APR_FIND_APU macro no longer checks /usr/local/apache2/.
-     PR 42089.  [Colm MacCárthaigh]
+  *) Use buffered I/O with SDBM.  [Joe Schaefer]
 
-  *) Fix handling of attribute namespaces in apr_xml_to_text() when
-     a namespace map is provided.  PR 41908.  [Joe Orton]
+  *) Unify parsing of prepared statements and add binary argument functions
+     to DBD [Bojan Smojver with help from many on the APR list]
 
-Changes with APR-util 1.2.8
+  *) Rewrite detection of expat in configure to fix build on e.g. biarch
+     Linux platforms.  PR 28205.  [Joe Orton]
+
+  *) Add apr_thread_pool implementation.  [Henry Jen <henryjen ztune.net>]
 
   *) Add support for Berkeley DB 4.5 to the configure scripts.
      [Garrett Rooney]
@@ -67,18 +82,52 @@ Changes with APR-util 1.2.8
   *) Allow apr_queue.h to be included before other APR headers.
      PR 40891 [Henry Jen <henryjen ztune.net>]
 
+  *) Fix precedence problem in error checking for sdbm dbm back end.
+     PR 40659 [Larry Cipriani <lvc lucent.com>]
+
+  *) Add an apr_reslist_acquired_count, for determining how many outstanding
+     resources there are in a reslist.  [Ryan Phillips <ryan trolocsis.com>]
+
   *) Provide folding in autogenerated .manifest files for Win32 builders
      using VisualStudio 2005  [William Rowe]
+
+  *) Implement DBD transaction modes
+     [Bojan Smojver with help from many on the APR list]
 
   *) Implement prepared statement support in SQLite3 DBD driver
      [Bojan Smojver]
 
-  *) Fix to ensure that "deprecated" LDAP interfaces are still 
-     exposed if using OpenLDAP 2.3.  [Joe Orton]
+  *) Add get (column) name to apr_dbd API
+     [Bojan Smojver <bojan rexursive.com>] and
+     [Chris Darroch <chrisd pearsoncmg com>]
 
-  *) Fix incorrect byte order and incorrect timestamp type
-     in the fallback UUID generator used when no external UUID
-     generator is detected by APR.  PR 37342.  [Max Bowsher]
+  *) Make the DBD autoconf-glue use LDFLAGS instead of LIBS in several
+     places, fixing some configure issues on Solaris.
+     [Henry Jen <henryjen ztune.net>]
+
+  *) Make apr_dbd.h work as a stand alone header, without needing other
+     files to be included before it. [Henry Jen <henryjen ztune.net>]
+
+  *) On platforms that use autoconf stop automatically linking against
+     apr-iconv when an apr-iconv source dir is found in ../apr-iconv.
+     Instead, add a --with-apr-iconv option to configure that lets you
+     specify the relative path to your apr-iconv source directory.
+     [Garrett Rooney]
+
+  *) APR_FIND_APU macro now supports customisable detailed checks on
+     each installed apr-util. [Justin Erenkrantz, Colm MacCárthaigh]
+
+  *) APR_FIND_APU macro no longer checks /usr/local/apache2/
+     [Colm MacCárthaigh]
+
+  *) Add apr_dbd_oracle driver [Nick Kew and Chris Darroch]
+
+Changes with APR-util 1.2.8
+
+  *) Fix incorrect byte order (PR 37342) and incorrect timestamp type
+     in the fallback UUID generator used when no external UUID generator
+     is detected by APR.
+     [Max Bowsher]
 
 Changes with APR-util 1.2.7
 

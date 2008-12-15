@@ -27,6 +27,7 @@
 #include <IOKit/pci/IOPCIBridge.h>   // IOPCIAddressSpace
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include <string.h>
+#include <libkern/version.h>
 #include "AppleSMBIOS.h"
 
 #if     DEBUG
@@ -46,7 +47,7 @@ protected:
 
 public:
     SMBPackedStrings( const SMBStructHeader * header, const void * limit );
-	SMBPackedStrings( const SMBStructHeader * header );
+    SMBPackedStrings( const SMBStructHeader * header );
 
     const char * stringAtIndex( UInt8 index, UInt8 * length = 0 ) const;
 
@@ -194,7 +195,7 @@ bool AppleSMBIOS::start( IOService * provider )
     setProperty("SMBIOS", serializer);
 
     fVerbose = 0;
-    PE_parse_boot_arg("smbios", &fVerbose);
+    PE_parse_boot_argn("smbios", &fVerbose, sizeof(fVerbose));
 
     memInfoSource = kNoMemoryInfo;
     memSlotsData  = OSData::withCapacity(kMemDataSize);
@@ -355,16 +356,23 @@ bool AppleSMBIOS::findSMBIOSTableEFI( void )
 		{
 			bcopy(tableData->getBytesNoCopy(), &tableAddr, tableData->getLength());
 
-			epsMemory = IOMemoryDescriptor::withAddress(
+			// For SnowLeopard and beyond include the kIOMemoryMapperNone option.
+#if VERSION_MAJOR >= 10
+			IOOptionBits options = kIODirectionOutIn | kIOMemoryMapperNone;
+#else
+			IOOptionBits options = kIODirectionOutIn;
+#endif
+			epsMemory = IOMemoryDescriptor::withAddressRange(
 						(mach_vm_address_t) tableAddr,
 						(mach_vm_size_t) sizeof(eps),
-						kIODirectionOutIn,
+						options,
 						NULL );
 
 			if (epsMemory)
 			{
 				bzero(&eps, sizeof(eps));
 				epsMemory->readBytes(0, &eps, sizeof(eps));
+				setProperty("SMBIOS-EPS", (void *) &eps, sizeof(eps));
 
 				if (memcmp(eps.anchor, "_SM_", 4) == 0)
 				{
@@ -743,9 +751,9 @@ processSMBIOSStructure( const SMBProcessorInformation * cpu,
         IOLog("processorFamily   = 0x%x\n", cpu->processorFamily);
         IOLog("manufacturer      = %s\n", 
               strings->stringAtIndex(cpu->manufacturer));
-        IOLog("processorID       = 0x%lx%08lx\n",
-              (UInt32)(cpu->processorID >> 32),
-              (UInt32)cpu->processorID);
+        IOLog("processorID       = 0x%x%08x\n",
+              (uint32_t)(cpu->processorID >> 32),
+              (uint32_t)cpu->processorID);
         IOLog("processorVersion  = %s\n",
               strings->stringAtIndex(cpu->processorVersion));
         IOLog("voltage           = 0x%x\n", cpu->voltage);
@@ -761,16 +769,10 @@ processSMBIOSStructure( const SMBProcessorInformation * cpu,
 
     if (busClockRateMHz > 0) {
 
-        i386_cpu_info_t * cpuinfo = cpuid_info();
         IOService *       platform = getPlatform();
 
-        if (!strncmp(cpuinfo->cpuid_vendor, CPUID_VID_INTEL, 
-            sizeof(CPUID_VID_INTEL)) &&
-            (cpuinfo->cpuid_features & CPUID_FEATURE_SSE2))
-        {
-            // convert from FSB to quad-pumped bus speed
-            busClockRateMHz *= 4;
-        }
+		// convert from FSB to quad-pumped bus speed
+		busClockRateMHz *= 4;
 
         platform->callPlatformFunction(
 								"SetBusClockRateMHz",     /* function */
@@ -1147,7 +1149,7 @@ void AppleSMBIOS::updateDeviceTree( void )
     {
         UInt32 bootMaxMem = 0;
         
-        if (PE_parse_boot_arg("maxmem", &bootMaxMem) && bootMaxMem)
+        if (PE_parse_boot_argn("maxmem", &bootMaxMem, sizeof(bootMaxMem)) && bootMaxMem)
         {
             UInt64 limit = ((UInt64) bootMaxMem) * 1024ULL * 1024ULL;
 

@@ -40,8 +40,14 @@
 
 #include <bootfiles.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <TargetConditionals.h>
+#if TARGET_OS_EMBEDDED
+#define kDAReturnBusy 2
+#define err_local_diskarbitration err_sub( 0x368 )
+#else
 #include <DiskArbitration/DiskArbitration.h>
 #include <DiskArbitration/DiskArbitrationPrivate.h>
+#endif
 
 #include "bootcaches.h"
 #include "logging.h"
@@ -209,12 +215,18 @@ int updateBoots(char *volRoot, int filec, const char *files[],
     Boolean doAny;
 
     errmsg = "error getting description from Disk Arbitration";
+#if TARGET_OS_EMBEDDED
+    goto finish;
+#else
     up.dasession = DASessionCreate(nil);
     if (!up.dasession)	    goto finish;
+#endif
     volURL = CFURLCreateFromFileSystemRepresentation(nil, (UInt8*)volRoot,
 		strlen(volRoot) + 1, true /*isDir*/);
     if (!volURL)    	    goto finish;
+#if !TARGET_OS_EMBEDDED
     dadisk = DADiskCreateFromVolumePath(nil, up.dasession, volURL);
+#endif
     if (!dadisk)    	    goto finish;
 
     // first check for usable bootcaches.plist, else politely bail
@@ -288,9 +300,11 @@ int updateBoots(char *volRoot, int filec, const char *files[],
     // Begin work on actual update	    [updateBoots vs. checkUpdateBoots?]
     errmsg = "trouble updating one or more helper partitions";
 
+#if !TARGET_OS_EMBEDDED
     // mountBoot and unmountBoot will spin the runloop for this DA session
     DASessionScheduleWithRunLoop(up.dasession, CFRunLoopGetCurrent(),
 	    kCFRunLoopDefaultMode);
+#endif
     bootcount = CFArrayGetCount(up.boots);
     for (up.bootIdx = 0; up.bootIdx < bootcount; up.bootIdx++) {
         up.changestate = nothingSerious;		// init state
@@ -359,8 +373,10 @@ finish:
     if (up.boots)	    CFRelease(up.boots);
     if (up.curbootfd != -1) close(up.curbootfd);
     if (up.dasession) {
+#if !TARGET_OS_EMBEDDED
         DASessionUnscheduleFromRunLoop(up.dasession, CFRunLoopGetCurrent(),
 		kCFRunLoopDefaultMode);
+#endif
         CFRelease(up.dasession);
     }
     if (up.caches)	    destroyCaches(up.caches);
@@ -437,6 +453,7 @@ finish:
 static int mountBoot(struct updatingVol *up)
 {
     int rval = ELAST + 1;
+#if !TARGET_OS_EMBEDDED
     CFStringRef mountargs[] = { CFSTR("perm"), CFSTR("nobrowse"), NULL };
     CFStringRef str;
     DADissenterRef dis = (void*)kCFNull;
@@ -515,6 +532,7 @@ finish:
 	    kextd_error_log("couldn't mount helper partition");
     }
 
+#endif
     return rval;
 }
 
@@ -525,6 +543,7 @@ finish:
 static int unmountBoot(struct updatingVol *up)
 {
     int rval = 0;
+#if !TARGET_OS_EMBEDDED
     DADissenterRef dis = (void*)kCFNull;
     
     if (g_verbose_level > 2) kextd_log("Unmounting helper partition %s", up->bsdname);
@@ -563,6 +582,7 @@ finish:
     if (dis && dis != (void*)kCFNull)
 	CFRelease(dis);
 
+#endif
     return rval;
 }
 

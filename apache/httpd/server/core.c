@@ -1356,8 +1356,8 @@ static const char *set_override(cmd_parms *cmd, void *d_, const char *l)
     /* Throw a warning if we're in <Location> or <Files> */
     if (ap_check_cmd_context(cmd, NOT_IN_LOCATION | NOT_IN_FILES)) {
         ap_log_error(APLOG_MARK, APLOG_WARNING, 0, cmd->server,
-                     "Useless use of AllowOverride in line %d.",
-                     cmd->directive->line_num);
+                     "Useless use of AllowOverride in line %d of %s.",
+                     cmd->directive->line_num, cmd->directive->filename);
     }
 
     d->override = OR_NONE;
@@ -1458,7 +1458,7 @@ static const char *set_options(cmd_parms *cmd, void *d_, const char *l)
             return apr_pstrcat(cmd->pool, "Illegal option ", w, NULL);
         }
 
-        if (!(cmd->override_opts & opt) && opt != OPT_NONE) {
+        if ( (cmd->override_opts & opt) != opt ) {
             return apr_pstrcat(cmd->pool, "Option ", w, " not allowed here", NULL);
         }
         else if (action == '-') {

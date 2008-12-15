@@ -47,24 +47,27 @@
 
 - (void)copy:(id)sender {
     NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
-    NSEnumerator *enumerator;
-    NSNumber *index;
     NSMutableString *pasteboardString = [[NSMutableString alloc] init];
+	NSIndexSet	*indexSet;
     id  anItem;
     
+	indexSet = [self selectedRowIndexes];
+	NSUInteger current = [indexSet firstIndex];
+	
     [pasteboard declareTypes: [NSArray arrayWithObject: NSStringPboardType] owner: NULL];
-    enumerator = [self selectedRowEnumerator];
-    while ( (index = [enumerator nextObject]) ) {
-        int i;
-        int levelForRow = [self levelForRow:[index intValue]];
+	while (current != NSNotFound) {
+		int i;
+        int levelForRow = [self levelForRow:current];
         for (i=0;i<levelForRow;i++)
             [pasteboardString appendString:@"    "];
         
-        anItem = [self itemAtRow:[index intValue]];
+        anItem = [self itemAtRow:current];
         if ([anItem class] == [BusProbeDevice class]) {
             anItem = [anItem rootNode];
         }
         [pasteboardString appendString:[NSString stringWithFormat:@"%@   %@\n",[anItem name],[anItem value]]];
+
+         current = [indexSet indexGreaterThanIndex: current];
     }
     
     [pasteboard declareTypes:[NSArray arrayWithObject:NSStringPboardType] owner:self];

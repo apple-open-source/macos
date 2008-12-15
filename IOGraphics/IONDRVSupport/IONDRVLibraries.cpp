@@ -89,7 +89,7 @@ OSErr EXP(ExpMgrConfigReadLong)( RegEntryID * entryID, LogicalAddress offset, UI
     if (!ioDevice)
 	return (nrNotSlotDeviceErr);
 
-    adj = ioDevice->configRead32( (UInt32) offset );
+    adj = ioDevice->configRead32( (uintptr_t) offset );
 #if 0
     IOMemoryMap *	map = 0;
     if ((offset >= kIOPCIConfigBaseAddress2)
@@ -111,7 +111,7 @@ OSErr EXP(ExpMgrConfigWriteLong)( RegEntryID * entryID, LogicalAddress offset, U
 {
     REG_ENTRY_TO_SERVICE( entryID, IOPCIDevice, ioDevice)
 
-    ioDevice->configWrite32( (UInt32) offset, value);
+    ioDevice->configWrite32( (uintptr_t) offset, value);
 
     return (noErr);
 }
@@ -130,7 +130,7 @@ OSErr EXP(ExpMgrConfigReadWord)( RegEntryID * entryID, LogicalAddress offset, UI
     if (!ioDevice)
 	return (nrNotSlotDeviceErr);
 
-    *value = ioDevice->configRead16( (UInt32) offset );
+    *value = ioDevice->configRead16( (uintptr_t) offset );
 
     return (noErr);
 }
@@ -139,7 +139,7 @@ OSErr EXP(ExpMgrConfigWriteWord)( RegEntryID * entryID, LogicalAddress offset, U
 {
     REG_ENTRY_TO_SERVICE( entryID, IOPCIDevice, ioDevice)
 
-    ioDevice->configWrite16( (UInt32) offset, value);
+    ioDevice->configWrite16( (uintptr_t) offset, value);
 
     return (noErr);
 }
@@ -157,7 +157,7 @@ OSErr EXP(ExpMgrConfigReadByte)( RegEntryID * entryID, LogicalAddress offset, UI
     if (!ioDevice)
 	return (nrNotSlotDeviceErr);
 
-    *value = ioDevice->configRead8( (UInt32) offset );
+    *value = ioDevice->configRead8( (uintptr_t) offset );
 
     return (noErr);
 }
@@ -166,7 +166,7 @@ OSErr EXP(ExpMgrConfigWriteByte)( RegEntryID * entryID, LogicalAddress offset, U
 {
     REG_ENTRY_TO_SERVICE( entryID, IOPCIDevice, ioDevice)
 
-    ioDevice->configWrite8( (UInt32) offset, value);
+    ioDevice->configWrite8( (uintptr_t) offset, value);
 
     return (noErr);
 }
@@ -175,7 +175,7 @@ OSErr EXP(ExpMgrIOReadLong)( RegEntryID * entryID, LogicalAddress offset, UInt32
 {
     REG_ENTRY_TO_SERVICE( entryID, IOPCIDevice, ioDevice)
 
-    *value = ioDevice->ioRead32( (UInt32) offset );
+    *value = ioDevice->ioRead32( (uintptr_t) offset );
 
     return (noErr);
 }
@@ -184,7 +184,7 @@ OSErr EXP(ExpMgrIOWriteLong)( RegEntryID * entryID, LogicalAddress offset, UInt3
 {
     REG_ENTRY_TO_SERVICE( entryID, IOPCIDevice, ioDevice)
 
-    ioDevice->ioWrite32( (UInt32) offset, value );
+    ioDevice->ioWrite32( (uintptr_t) offset, value );
 
     return (noErr);
 }
@@ -193,7 +193,7 @@ OSErr EXP(ExpMgrIOReadWord)( RegEntryID * entryID, LogicalAddress offset, UInt16
 {
     REG_ENTRY_TO_SERVICE( entryID, IOPCIDevice, ioDevice)
 
-    *value = ioDevice->ioRead16( (UInt32) offset );
+    *value = ioDevice->ioRead16( (uintptr_t) offset );
 
     return (noErr);
 }
@@ -202,7 +202,7 @@ OSErr EXP(ExpMgrIOWriteWord)( RegEntryID * entryID, LogicalAddress offset, UInt1
 {
     REG_ENTRY_TO_SERVICE( entryID, IOPCIDevice, ioDevice)
 
-    ioDevice->ioWrite16( (UInt32) offset, value );
+    ioDevice->ioWrite16( (uintptr_t) offset, value );
 
     return (noErr);
 }
@@ -211,7 +211,7 @@ OSErr EXP(ExpMgrIOReadByte)( RegEntryID * entryID, LogicalAddress offset, UInt8 
 {
     REG_ENTRY_TO_SERVICE( entryID, IOPCIDevice, ioDevice)
 
-    *value = ioDevice->ioRead8( (UInt32) offset );
+    *value = ioDevice->ioRead8( (uintptr_t) offset );
 
     return (noErr);
 }
@@ -220,7 +220,7 @@ OSErr EXP(ExpMgrIOWriteByte)( RegEntryID * entryID, LogicalAddress offset, UInt8
 {
     REG_ENTRY_TO_SERVICE( entryID, IOPCIDevice, ioDevice)
 
-    ioDevice->ioWrite8( (UInt32) offset, value );
+    ioDevice->ioWrite8( (uintptr_t) offset, value );
 
     return (noErr);
 }
@@ -1050,7 +1050,7 @@ UnsignedWide EXP(UpTime)( void )
 {
     AbsoluteTime    result;
 
-    clock_get_uptime( &result);
+    AbsoluteTime_to_scalar(&result) = mach_absolute_time();
 
     return (AbsoluteTimeToUnsignedWide(&result));
 }
@@ -1274,7 +1274,7 @@ void EXP(SysDebugStr)( const char * from )
     {
 	int	debugFlags;
 
-	kprt = PE_parse_boot_arg("debug", &debugFlags) && (DB_KPRT & debugFlags);
+	kprt = PE_parse_boot_argn("debug", &debugFlags, sizeof(debugFlags)) && (DB_KPRT & debugFlags);
 	parsed = TRUE;
     }
 

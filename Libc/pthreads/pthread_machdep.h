@@ -135,6 +135,9 @@ _pthread_getspecific_direct(unsigned long slot)
 #elif defined(__ppc64__)
 	register void **__pthread_tsd asm ("r13");
 	ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
+#elif defined(__arm__)
+	register void **__pthread_tsd asm ("r9");
+	ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
 #else
 #error no pthread_getspecific_direct implementation for this arch
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,8 +39,6 @@
 #define MY_ID "klog_in"
 #define MAXLINE 4096
 
-int kfd = -1;
-
 static int kx = 0;
 static char kline[MAXLINE + 1];
 
@@ -71,24 +69,24 @@ int
 klog_in_init(void)
 {
 	asldebug("%s: init\n", MY_ID);
-	if (kfd >= 0) return kfd;
+	if (global.kfd >= 0) return global.kfd;
 
-	kfd = open(_PATH_KLOG, O_RDONLY, 0);
-	if (kfd < 0)
+	global.kfd = open(_PATH_KLOG, O_RDONLY, 0);
+	if (global.kfd < 0)
 	{
 		asldebug("%s: couldn't open %s: %s\n", MY_ID, _PATH_KLOG, strerror(errno));
 		return -1;
 	}
 
-	if (fcntl(kfd, F_SETFL, O_NONBLOCK) < 0)
+	if (fcntl(global.kfd, F_SETFL, O_NONBLOCK) < 0)
 	{
-		close(kfd);
-		kfd = -1;
-		asldebug("%s: couldn't set O_NONBLOCK for fd %d (%s): %s\n", MY_ID, kfd, _PATH_KLOG, strerror(errno));
+		close(global.kfd);
+		global.kfd = -1;
+		asldebug("%s: couldn't set O_NONBLOCK for fd %d (%s): %s\n", MY_ID, global.kfd, _PATH_KLOG, strerror(errno));
 		return -1;
 	}
 
-	return aslevent_addfd(kfd, ADDFD_FLAGS_LOCAL, klog_in_acceptmsg, NULL, NULL);
+	return aslevent_addfd(global.kfd, ADDFD_FLAGS_LOCAL, klog_in_acceptmsg, NULL, NULL);
 }
 
 int
@@ -100,10 +98,10 @@ klog_in_reset(void)
 int
 klog_in_close(void)
 {
-	if (kfd < 0) return 1;
+	if (global.kfd < 0) return 1;
 
-	close(kfd);
-	kfd = -1;
+	close(global.kfd);
+	global.kfd = -1;
 
 	return 0;
 }

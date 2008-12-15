@@ -315,7 +315,8 @@ static void test_insertfile(abts_case *tc, void *ctx)
 
     ABTS_ASSERT(tc, "open test file",
                 apr_file_open(&f, TIF_FNAME,
-                              APR_WRITE|APR_TRUNCATE|APR_CREATE,
+                              APR_FOPEN_WRITE | APR_FOPEN_TRUNCATE
+                            | APR_FOPEN_CREATE | APR_FOPEN_SPARSE,
                               APR_OS_DEFAULT, p) == APR_SUCCESS);
 
     if (apr_file_trunc(f, bignum)) {

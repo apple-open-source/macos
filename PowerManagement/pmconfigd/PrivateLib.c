@@ -32,6 +32,7 @@
 #include <grp.h>
 #include <pwd.h>
 #include <syslog.h>
+#include <unistd.h>
 #include "PrivateLib.h"
 
 enum
@@ -97,21 +98,38 @@ static IOPMBattery **batteries = NULL;
             CFSTR("Please connect your computer to AC power. If you do not, your computer will go to sleep in a few minutes to preserve the contents of memory."), \
             NULL);
 
+__private_extern__ SCDynamicStoreRef _getSharedPMDynamicStore(void)
+{
+    static SCDynamicStoreRef    shared = NULL;
+
+    if (!shared) {
+        shared = SCDynamicStoreCreate(
+                            kCFAllocatorDefault, 
+                            CFSTR("PM configd plugin"), 
+                            NULL, 
+                            NULL);    
+    }
+    
+    return shared;
+}
+
 
 __private_extern__ IOReturn 
 _setRootDomainProperty(
     CFStringRef                 key, 
     CFTypeRef                   val) 
 {
-    io_registry_entry_t         root_domain;
+	static io_registry_entry_t  root_domain;
     IOReturn                    ret;
 
-    root_domain = IORegistryEntryFromPath( kIOMasterPortDefault, 
+	if (!root_domain)
+	{
+		root_domain = IORegistryEntryFromPath( kIOMasterPortDefault, 
                         kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+	}
  
     ret = IORegistryEntrySetCFProperty(root_domain, key, val);
 
-    IOObjectRelease(root_domain);
     return ret;
 }
 
@@ -131,7 +149,12 @@ static void sendNotification(int command)
     CFDictionarySetValue(dict, CFSTR(kPowerManagerActionKey), commandValue);
     CFDictionarySetValue(dict, CFSTR(kPowerManagerValueKey), secondsValue);
 
-    CFNotificationCenterPostNotificationWithOptions ( CFNotificationCenterGetDistributedCenter(),
+    CFNotificationCenterPostNotificationWithOptions ( 
+#if TARGET_OS_EMBEDDED
+					    CFNotificationCenterGetDarwinNotifyCenter(),
+#else
+					    CFNotificationCenterGetDistributedCenter(),
+#endif
                                             CFSTR(kPowerManagerActionNotificationName), 
                                             NULL, dict, 
                                             (kCFNotificationPostToAllSessions | kCFNotificationDeliverImmediately));
@@ -248,6 +271,12 @@ static void _unpackBatteryState(IOPMBattery *b, CFDictionaryRef prop)
         CFNumberGetValue(n, kCFNumberIntType, &b->invalidWakeSecs);
     } else {
         b->invalidWakeSecs = kInvalidWakeSecsDefault;
+    }
+    n = CFDictionaryGetValue(prop, CFSTR("PermanentFailureStatus"));
+    if (n) {
+        CFNumberGetValue(n, kCFNumberIntType, &b->pfStatus);
+    } else {
+        b->pfStatus = 0;
     }
 
     return;
@@ -443,9 +472,12 @@ static void handleMachCalendarMessage(CFMachPortRef port, void *msg,
 {
 	kern_return_t  result;
     mach_port_t    mport = CFMachPortGetPort(port); 
+	mach_port_t	   host_port;
 	
 	// Re-register for notification
-	result = host_request_notification(mach_host_self(), HOST_NOTIFY_CALENDAR_CHANGE, mport);
+	host_port = mach_host_self();
+	result = host_request_notification(host_port, HOST_NOTIFY_CALENDAR_CHANGE, mport);
+    if (host_port) mach_port_deallocate(mach_task_self(), host_port);
 	if (result != KERN_SUCCESS) {
         // Pretty fatal error. Oh well.
         return;
@@ -458,6 +490,7 @@ static void handleMachCalendarMessage(CFMachPortRef port, void *msg,
 static void registerForCalendarChangedNotification(void)
 {
 	mach_port_t tport;
+	mach_port_t host_port;
 	kern_return_t result;
 	CFRunLoopSourceRef rls;
 
@@ -482,7 +515,9 @@ static void registerForCalendarChangedNotification(void)
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 
 	// register for notification
-	result = host_request_notification(mach_host_self(),HOST_NOTIFY_CALENDAR_CHANGE, tport);
+	host_port = mach_host_self();
+	result = host_request_notification(host_port,HOST_NOTIFY_CALENDAR_CHANGE, tport);
+    if (host_port) mach_port_deallocate(mach_task_self(), host_port);
 }
 
 
@@ -531,6 +566,9 @@ callerIsConsole(
     int uid,
     int gid)
 {
+#if TARGET_OS_EMBEDDED
+	return false;
+#else
     CFStringRef                 user_name = NULL;
     uid_t                       console_uid;
     gid_t                       console_gid;
@@ -545,13 +583,15 @@ callerIsConsole(
         // no data returned re: console user's uid or gid; return "false"
         return false;
     }
-    
+#endif /* !TARGET_OS_EMBEDDED */
 }
 
 
 void _oneOffHacksSetup(void) 
 {
+#if !TARGET_OS_EMBEDDED
     registerForCalendarChangedNotification();
+#endif
 }
 
 

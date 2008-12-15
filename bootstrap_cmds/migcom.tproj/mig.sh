@@ -1,6 +1,6 @@
 #!/bin/sh
 # 
-# Copyright (c) 1999-2007 Apple Inc. All rights reserved.
+# Copyright (c) 1999-2008 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -52,6 +52,9 @@
 # of helper tools can be found relative to location of script.
 # (Thanks to rgm for the scripting help.)
 
+# 03/20/08 - gab: <rdar://problem/5774620>
+# added logic to pass an '-isysroot' command line option on to the preprocessor
+
 realpath()
 {
 	local FILE="$1"
@@ -72,6 +75,7 @@ scriptPath=$(realpath "$0")
 scriptRoot=$(dirname "$scriptPath")
 ccPath=$(realpath "${scriptRoot}/cc")
 migcomPath=$(realpath "${scriptRoot}/../libexec/migcom")
+sdkRoot="${SDKROOT}"
 
 C=${MIGCC-${ccPath}}
 M=${MIGCOM-${NEXT_ROOT}${migcomPath}}
@@ -112,6 +116,7 @@ do
 	-cpp) shift; shift;;
 	-cc) C="$2"; shift; shift;;
 	-migcom) M="$2"; shift; shift;;
+	-isysroot) sdkRoot=$(realpath "$2"); shift; shift;;
 	-* ) cppflags="$cppflags $1"; shift;;
 	* ) break;;
     esac
@@ -136,15 +141,20 @@ do
 	-cpp) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
 	-cc) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
 	-migcom) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-isysroot) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
 	-* ) echo "warning: option \"$1\" after filename(s) ignored"; shift; continue;;
         * ) file="$1"; shift;;
     esac
     base="$(basename "${file}" .defs)"
     temp="${WORKTMP}/${base}.$$"
     sourcedir="$(dirname "${file}")"
+    if [ -n "${sdkRoot}" ]
+    then
+      iSysRootParm=( "-isysroot" "${sdkRoot}" )
+    fi
     rm -f "${temp}.c" "${temp}.d"
     (echo '#line 1 '\"${file}\" ; cat "${file}" ) > "${temp}.c"
-    "$C" -E -arch ${arch} ${cppflags} -I "${sourcedir}" "${temp}.c" | "$M" "${migflags[@]}" || rm -df "${temp}.c" "${temp}.d" "${WORKTMP}" | exit
+    "$C" -E -arch ${arch} ${cppflags} -I "${sourcedir}" "${iSysRootParm[@]}" "${temp}.c" | "$M" "${migflags[@]}" || rm -df "${temp}.c" "${temp}.d" "${WORKTMP}" | exit
 
     if [ "${sawMD}" -a -f "${temp}.d" ]
     then

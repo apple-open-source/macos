@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -127,6 +127,7 @@ char exportsfilepath[MAXPATHLEN];
 volatile int gothup, gotterm;
 int checkexports = 0, log_to_stderr = 0;
 int mountudpport = 0, mounttcpport = 0;
+time_t recheckexports = 0;
 
 DNSServiceRef nfs_dns_service;
 
@@ -609,6 +610,7 @@ config_loop(void)
 	struct kevent ke;
 	struct nfs_conf_server newconf;
 	struct stat st, stnew;
+	struct timespec ts = { 10, 0 };
 
 	/* set up mount/unmount kqueue */
 	if ((kq = kqueue()) < 0) {
@@ -628,10 +630,15 @@ config_loop(void)
 	while (!gotterm) {
 
 		DEBUG(1, "config_loop: waiting...");
-		rv = kevent(kq, NULL, 0, &ke, 1, NULL);
+		rv = kevent(kq, NULL, 0, &ke, 1, ((recheckexports > 0) ? &ts : NULL));
 		if ((rv > 0) && !(ke.flags & EV_ERROR) && (ke.fflags & (VQ_MOUNT|VQ_UNMOUNT))) {
 			log(LOG_INFO, "mount list changed: 0x%x", ke.fflags);
 			gotmount = check_for_mount_changes();
+		}
+		if (recheckexports > 0)  {	/* make sure we check the exports again */
+			if (!gotmount)
+				log(LOG_INFO, "rechecking exports");
+			gotmount = 1;
 		}
 
 		while (!gotterm && (gothup || gotmount)) {

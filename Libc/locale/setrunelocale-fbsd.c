@@ -65,9 +65,11 @@ extern struct __xlocale_st_runelocale	*_Read_RuneMagi(FILE *);
 extern void spin_lock(int *);
 extern void spin_unlock(int *);
 
+#ifdef LEGACY_RUNE_APIS
 /* depreciated interfaces */
 rune_t	sgetrune(const char *, size_t, char const **);
 int	sputrune(rune_t, char *, size_t, char **);
+#endif /* LEGACY_RUNE_APIS */
 
 __private_extern__ int
 __setrunelocale(const char *encoding, locale_t loc)
@@ -141,9 +143,14 @@ __setrunelocale(const char *encoding, locale_t loc)
 
 	rl = &xrl->_CurrentRuneLocale;
 
+#ifdef LEGACY_RUNE_APIS
 	/* provide backwards compatibility (depreciated interface) */
 	rl->__sputrune = sputrune;
 	rl->__sgetrune = sgetrune;
+#else /* LEGACY_RUNE_APIS */
+	rl->__sputrune = NULL;
+	rl->__sgetrune = NULL;
+#endif /* LEGACY_RUNE_APIS */
 
 	if (strcmp(rl->__encoding, "NONE") == 0)
 		ret = _none_init(xrl);
@@ -184,11 +191,13 @@ __setrunelocale(const char *encoding, locale_t loc)
 	return (ret);
 }
 
+#ifdef LEGACY_RUNE_APIS
 int
 setrunelocale(const char *encoding)
 {
 	return __setrunelocale(encoding, &__global_locale);
 }
+#endif /* LEGACY_RUNE_APIS */
 
 __private_extern__ int
 __wrap_setrunelocale(const char *locale, locale_t loc)

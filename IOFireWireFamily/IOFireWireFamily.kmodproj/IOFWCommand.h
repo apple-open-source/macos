@@ -488,6 +488,16 @@ class IOFWReadQuadCommand : public IOFWAsyncCommand
 protected:
 
     UInt32 *	fQuads;
+
+	typedef struct 
+	{ 
+		bool	fPingTime;
+	}
+	MemberVariables;
+	
+	bool createMemberVariables( void );
+	void destroyMemberVariables( void );
+	virtual void free( void );
 	
     virtual void 	gotPacket(int rcode, const void* data, int size);
 
@@ -510,7 +520,9 @@ public:
     virtual IOReturn	reinit(UInt32 generation, FWAddress devAddress, UInt32 *quads, int numQuads,
                                 FWDeviceCallback completion=NULL, void *refcon=NULL);
 
-    
+	void setPingTime( bool state ) 
+		{ ((MemberVariables*)fMembers->fSubclassMembers)->fPingTime = state; };    
+
 private:
     OSMetaClassDeclareReservedUnused(IOFWReadQuadCommand, 0);
     OSMetaClassDeclareReservedUnused(IOFWReadQuadCommand, 1);

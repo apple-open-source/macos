@@ -41,6 +41,12 @@
 #define IEEE_8087
 #define Arith_Kind_ASL 1
 #define Long int
+#elif defined(__arm__)
+#if __VFP_FP__
+#define IEEE_8087
+#else
+#define IEEE_MC68k
+#endif
 #else
 #error Unsupported architecture
 #endif

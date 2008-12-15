@@ -135,14 +135,6 @@ typedef apr_uint32_t              apr_dev_t;
 typedef dev_t                     apr_dev_t;
 #endif
 
-/* See apr.h.in (.hw or .hnw) for the declaration of apr_ino_t,
- * but as we don't want to break users who author for 1.2.x, we
- * can't present this type until they have included apr_file_info.h
- * where it was originally declared in release 1.2.0.
- * Unmask it for use here.
- */
-#undef apr_ino_t
-
 /**
  * @defgroup apr_file_stat Stat Functions
  * @{
@@ -286,7 +278,11 @@ APR_DECLARE(apr_status_t) apr_dir_rewind(apr_dir_t *thedir);
  * @{
  */
 
-/** Cause apr_filepath_merge to fail if addpath is above rootpath */
+/** Cause apr_filepath_merge to fail if addpath is above rootpath 
+ * @bug in APR 0.9 and 1.x, this flag's behavior is undefined
+ * if the rootpath is NULL or empty.  In APR 2.0 this should be
+ * changed to imply NOTABSOLUTE if the rootpath is NULL or empty.
+ */
 #define APR_FILEPATH_NOTABOVEROOT   0x01
 
 /** internal: Only meaningful with APR_FILEPATH_NOTABOVEROOT */

@@ -53,7 +53,6 @@
  * SUCH DAMAGE.
  */
 
-#ifdef __APPLE_PR_3333969_HACK__
 /*
  * 3333969: SPSS links directly to __lconv, which is gone in Panther.
  * So we resurrect the __lconv symbol, which points to data that never
@@ -97,5 +96,3 @@ static struct lconv C_lconv = {
  * Current locale conversion.
  */
 struct lconv *__lconv = &C_lconv;
-
-#endif //  __APPLE_PR_3333969_HACK__

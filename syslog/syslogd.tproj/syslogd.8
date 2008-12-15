@@ -1,30 +1,23 @@
-.\" Copyright (c) 2004 Apple Computer
-.\" All rights reserved.
+.\"Copyright (c) 2004-2008 Apple Inc. All rights reserved.
 .\"
-.\" Redistribution and use in source and binary forms, with or without
-.\" modification, are permitted provided that the following conditions
-.\" are met:
-.\" 1. Redistributions of source code must retain the above copyright
-.\"    notice, this list of conditions and the following disclaimer.
-.\" 2. Redistributions in binary form must reproduce the above copyright
-.\"    notice, this list of conditions and the following disclaimer in the
-.\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of Apple Computer nor the names of its contributors
-.\"    may be used to endorse or promote products derived from this software
-.\"    without specific prior written permission.
+.\"@APPLE_LICENSE_HEADER_START@
 .\"
-.\" THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER AND CONTRIBUTORS ``AS IS'' AND
-.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-.\" SUCH DAMAGE.
+.\"This file contains Original Code and/or Modifications of Original Code
+.\"as defined in and that are subject to the Apple Public Source License
+.\"Version 2.0 (the 'License'). You may not use this file except in
+.\"compliance with the License. Please obtain a copy of the License at
+.\"http://www.opensource.apple.com/apsl/ and read it before using this
+.\"file.
 .\"
+.\"The Original Code and all software distributed under the License are
+.\"distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\"EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\"INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\"FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+.\"Please see the License for the specific language governing rights and
+.\"limitations under the License.
+.\"
+.\"@APPLE_LICENSE_HEADER_END@
 .\"
 .Dd October 18, 2004
 .Dt SYSLOGD 8
@@ -39,9 +32,6 @@
 .Op Fl m Ar mark_interval
 .Op Fl c Ar log_cutoff
 .Op Fl l Ar lib_path
-.Op Fl a
-.Op Fl ttl Ar time
-.Op Fl sweep Ar time
 .Op Fl db_max Ar size
 .Op Fl utmp_ttl Ar time
 .Op Fl fs_ttl Ar time
@@ -62,15 +52,16 @@ The Apple System Log facility comprises the
 .Xr asl 3
 API, a new 
 .Nm
-server, and the
+server, the
 .Xr syslog 1
-command-line utility.
+command-line utility, and a data store file manager,
+.Xr aslmanager 8 .
 The system supports structured and extensible messages, 
 permitting advanced message browsing and management through search APIs and
 other components of the Apple system log facility.
 .Pp
 Log messages are retained in a data store,
-subject to pruning, automatic archival, and input filtering as described below,
+subject to automatic archival, and input filtering as described below,
 to simplify the task of locating log messages and to facilitate browsing and searching.
 The data store is intended to become a replacement for the numerous log files that are currently
 found in various locations on the system.
@@ -97,7 +88,10 @@ this is not normally required.
 Set the number of minutes between
 .Dq mark
 messages.
-The default is 20 minutes.
+Mark messages are normally disabled.
+If
+.Fl m
+is specified with no arguments, mark messages will be written every 20 minutes.
 The 
 .Dq mark
 facility is disabled if the setting is zero minutes.
@@ -134,30 +128,12 @@ Specifies an alternate path for loading plug-in modules.
 By default,
 .Nm
 checks for plug-in modules in the directory /usr/lib/asl.
-.It Fl a
-Enables message archival.
-Messages older than 24 hours (or as otherwise set using
-.Fl ttl )
-will be copied to an archive database when they expire from the active database.
-Archive databases are named /var/log/asl.yyyy.mm.dd.archive, and may be read or
-searched using the
-.Xr syslog 1
-command.
-.It Fl ttl
-Sets the time-to-live in seconds for messages in the active database.
-Expired messages are removed or copied to an archive database if archival is enabled.
-.It Fl sweep
-Sets the interval (in seconds) for a periodic database operation that removes and 
-(optionally) archives expired messages.
 .It Fl db_max
-Sets a size limit in bytes for the active database.
-The size of the database is reduced by deleting oldest messages.
-Deleted messages will be archived if archival is enabled.
-When the database reaches its size limit, it is reduced to approximately 90% of the allowed maximum size.
-This allows the database to grow for some time before the next size-reduction.
+Sets the size limit in bytes for files in the data store.
 The default value for
 .Fl db_max
 is 25600000 bytes.
+Files are closed upon reaching the maximum size, and a new file is opened for subsequent messages.
 .It Fl utmp_ttl
 Sets the time-to-live in seconds for messages used by the
 .Xr utmp ,
@@ -166,19 +142,17 @@ and
 .Xr lastlog
 subsystems.
 The default is 31622400 seconds (approximately 1 year).
-Note that if archival is enabled, these messages will be copied to an archive file
-after the regular time-to-live interval (24 hours, or as set using 
-.Fl ttl )
-but will persist in the active database until their own expiry time.
+Note that if archival is enabled (see the
+.Xr aslmanager 8
+manual), these messages will be copied to an archive
+after the regular time-to-live interval, but will persist in the data store until their own expiry time.
 .It Fl fs_ttl
 Sets the time-to-live in seconds for filesystem error messages generated by the kernel.
 The default is 31622400 seconds (approximately 1 year).
 As in the case of
-.Fl utmp_tt ,
-if archival is enabled, these messages will be copied to an archive file
-after the regular time-to-live interval (24 hours, or as set using 
-.Fl ttl )
-but will persist in the active database until their own expiry time.
+.Fl utmp_ttl ,
+if archival is enabled, these messages will be copied to an archive after the regular time-to-live
+interval but will persist in the data store until their own expiry time.
 .It Fl dup_delay
 Sets the time to delay for coalescing duplicate message in log files.
 If a process logs multiple messages with the same text,
@@ -280,58 +254,30 @@ option.
 .El
 .Pp
 .Nm
-initializes its built-in modules and loads plug-ins during its start-up.
-The data store is pruned approximately 5 minutes after startup.
-.Pp
-.Nm
 reinitializes in response to a HUP signal.
 .Sh MESSAGE EXPIRY AND ARCHIVAL
 .Nm
-periodically removes messages from the active database, optionally copying them to an archival database.
-Archival is enabled if the
-.Fl a
-flag is supplied.
-By default, messages are removed or archived after they are 24 hours old.
-The maximum age of messages in the active database may be set as the value for the
-.Fl ttl
-flag.
-The message expiry operation runs once an hour by default, but the interval may be changed as the value for the
-.Fl sweep
-flag.
-.Pp
-After the database sweep operation, 
+periodically invokes the
+.Nm aslmanager
+utility, which manages files in the ASL data store.
+Files are removed or optionally copied to an archival directory after a (default) 2 day time-to-live.
+See the
+.Xr aslmanager 8
+manual for details.
 .Nm
-optionally can check the size of the database, and may be configured to remove additional messages
-to limit the size of the database.
-The maximum size of the database (in bytes) may be specified using the
+invokes
+.Nm aslmanager
+shortly after it starts up, at midnight local time if it is running,
+and any time that a data store file reaches the
 .Fl db_max
-option.
-If messages must be removed to limit the database size, oldest messages are removed first.
-By default there is no database size limit.
-.Pp
-Log messages from the
-.Xr utmp ,
-.Xr wtmp ,
-and
-.Xr lastlog
-subsystems record login, logout, shutdowns, and reboots.
-These log messages are given a longer time-to-live in the active database.
-The default time-to-live for these messages is 31622400 seconds (approximately one year).
-This value may be changed using the
-.Fl utmp_ttl
-flag.
-If archival is enabled, a copy of these messages will be archived at the end of the
-regular time-to-live interval (24 hours, or as specified using
-.Fl ttl ).
-The messages will persist in the active database until their own time-to-live has expired.
-.Sh DATABASE SECURITY
-The data store file /var/log/asl.db is only readable by processes with UID 0.
-Messages in the data store may have a read UID and GID,
-so that only processes with the specified UID or GID can fetch those messages when using
-.Nm asl_search .
+size limit.
+.Sh DATA STORE SECURITY
+Messages saved in the ASL message store are written to files in /var/log/asl.
+The message files are given read access controls corresponding to the read UID and GID specified in the messages themselves.
 Read access UID and GID settings may be attached to messages using the
 .Xr asl 3
 library by setting a value for the "ReadUID" and/or "ReadGID" message keys.
+The file permissions prevent access-controlled messages from being read by unauthorized users.
 .Pp
 Although clients are generally free to use any value for the "Facility" message key,
 only processes running with UID 0 may log messages with a facility value of "com.apple.system",
@@ -339,7 +285,7 @@ or with a value that has "com.apple.system" as a prefix.
 Messages logged by non UID 0 processes that use "com.apple.system" as a facility value or prefix
 will be saved with the facility value "user".
 .Sh FILES
-.Bl -tag -width /var/run/syslog.pid -compact
+.Bl -tag -width /var/log/asl.archive -compact
 .It Pa /etc/syslog.conf
 bsd_out module configuration file
 .It Pa /etc/asl.conf
@@ -352,6 +298,10 @@ name of the
 domain datagram log socket
 .It Pa /dev/klog
 kernel log device
+.It Pa /var/log/asl
+data store directory
+.It Pa /var/log/asl.archive
+default archive directory
 .El
 .Sh SEE ALSO
 .Xr syslog 1 ,

@@ -50,6 +50,7 @@ typedef struct {
     /** pointer to the data stored/retrieved */
     char *dptr;
     /** size of data */
+    /* apr_ssize_t for release 2.0??? */
     int dsize;
 } apr_sdbm_datum_t;
 

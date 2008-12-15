@@ -372,6 +372,20 @@ IOReturn IOPartitionScheme::synchronizeCache(IOService * client)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+IOReturn IOPartitionScheme::discard(IOService * client,
+                                    UInt64      byteStart,
+                                    UInt64      byteCount)
+{
+    //
+    // Delete unused data from the storage object at the specified byte offset,
+    // synchronously.
+    //
+
+    return getProvider( )->discard( this, byteStart, byteCount );
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 bool IOPartitionScheme::attachMediaObjectToDeviceTree(IOMedia *    media,
                                                       IOOptionBits options)
 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,7 +64,7 @@
 #include <stdio.h>
 #include <pwd.h>
 #include <termios.h>
-#include <available.h>
+#include <Availability.h>
 
 #define	PIDLOCK_NONBLOCK	1
 #define PIDLOCK_USEHOSTNAME	2
@@ -85,11 +85,15 @@
 #define OPENDEV_BLCK	0x04		/* Open block, not character device. */
 
 __BEGIN_DECLS
+#ifdef UNIFDEF_LEGACY_UTMP_APIS
 struct utmp; /* forward reference to /usr/include/utmp.h */
-void	login(struct utmp *)		__DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+void	login(struct utmp *)		__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#endif /* UNIFDEF_LEGACY_UTMP_APIS */
 int	login_tty(int);
-int	logout(const char *)		__DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
-void	logwtmp(const char *, const char *, const char *) __DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+#ifdef UNIFDEF_LEGACY_UTMP_APIS
+int	logout(const char *)		__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
+#endif /* UNIFDEF_LEGACY_UTMP_APIS */
+void	logwtmp(const char *, const char *, const char *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_5,__IPHONE_2_0,__IPHONE_2_0);
 int	opendev(char *, int, int, char **);
 int	openpty(int *, int *, char *, struct termios *,
 		     struct winsize *);
@@ -102,8 +106,10 @@ int	ttyaction(char *tty, char *act, char *user);
 struct iovec;
 char   *ttymsg(struct iovec *, int, const char *, int);
 __END_DECLS
+#ifdef UNIFDEF_LEGACY_UTMP_APIS
 
 /* Include utmp.h last to avoid deprecation warning above */
 #include <utmp.h>
+#endif /* UNIFDEF_LEGACY_UTMP_APIS */
 
 #endif /* !_UTIL_H_ */

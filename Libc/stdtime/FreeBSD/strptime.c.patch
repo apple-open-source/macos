@@ -1,6 +1,6 @@
---- strptime.c.orig	2007-04-03 12:19:24.000000000 -0700
-+++ strptime.c	2007-04-03 12:39:20.000000000 -0700
-@@ -61,10 +61,13 @@
+--- strptime.c.orig	2008-04-24 01:10:36.000000000 -0700
++++ strptime.c	2008-04-24 02:01:31.000000000 -0700
+@@ -61,10 +61,13 @@ static char sccsid[] __unused = "@(#)str
  #endif /* not lint */
  __FBSDID("$FreeBSD: src/lib/libc/stdtime/strptime.c,v 1.35 2003/11/17 04:19:15 nectar Exp $");
  
@@ -14,7 +14,7 @@
  #include <stdlib.h>
  #include <string.h>
  #include <pthread.h>
-@@ -72,30 +75,41 @@
+@@ -72,30 +75,41 @@ __FBSDID("$FreeBSD: src/lib/libc/stdtime
  #include "libc_private.h"
  #include "timelocal.h"
  
@@ -63,7 +63,7 @@
  					buf++;
  			else if (c != *buf++)
  				return 0;
-@@ -114,18 +128,18 @@
+@@ -114,18 +128,18 @@ label:
  			break;
  
  		case '+':
@@ -85,7 +85,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -133,17 +147,21 @@
+@@ -133,17 +147,21 @@ label:
  			if (i < 19)
  				return 0;
  
@@ -109,7 +109,7 @@
  			if (buf == 0)
  				return 0;
  			break;
-@@ -161,47 +179,55 @@
+@@ -161,47 +179,55 @@ label:
  			goto label;
  
  		case 'F':
@@ -173,7 +173,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -209,19 +235,19 @@
+@@ -209,19 +235,19 @@ label:
  			if (i < 1 || i > 366)
  				return 0;
  
@@ -197,7 +197,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -237,8 +263,8 @@
+@@ -237,8 +263,8 @@ label:
  				tm->tm_sec = i;
  			}
  
@@ -208,7 +208,7 @@
  					ptr++;
  			break;
  
-@@ -254,11 +280,11 @@
+@@ -254,11 +280,11 @@ label:
  			 * XXX The %l specifier may gobble one too many
  			 * digits if used incorrectly.
  			 */
@@ -222,7 +222,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -271,8 +297,8 @@
+@@ -271,8 +297,8 @@ label:
  
  			tm->tm_hour = i;
  
@@ -233,7 +233,7 @@
  					ptr++;
  			break;
  
-@@ -282,7 +308,7 @@
+@@ -282,7 +308,7 @@ label:
  			 * specifiers.
  			 */
  			len = strlen(tptr->am);
@@ -242,7 +242,7 @@
  				if (tm->tm_hour > 12)
  					return 0;
  				if (tm->tm_hour == 12)
-@@ -292,7 +318,7 @@
+@@ -292,7 +318,7 @@ label:
  			}
  
  			len = strlen(tptr->pm);
@@ -251,7 +251,7 @@
  				if (tm->tm_hour > 12)
  					return 0;
  				if (tm->tm_hour != 12)
-@@ -307,34 +333,28 @@
+@@ -307,34 +333,28 @@ label:
  		case 'a':
  			for (i = 0; i < asizeof(tptr->weekday); i++) {
  				len = strlen(tptr->weekday[i]);
@@ -295,7 +295,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -342,23 +362,46 @@
+@@ -342,23 +362,46 @@ label:
  			if (i > 53)
  				return 0;
  
@@ -352,7 +352,7 @@
  					ptr++;
  			break;
  
-@@ -372,11 +415,18 @@
+@@ -372,11 +415,18 @@ label:
  			 * XXX The %e specifier may gobble one too many
  			 * digits if used incorrectly.
  			 */
@@ -374,7 +374,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -386,8 +436,8 @@
+@@ -386,8 +436,8 @@ label:
  
  			tm->tm_mday = i;
  
@@ -385,7 +385,7 @@
  					ptr++;
  			break;
  
-@@ -398,19 +448,19 @@
+@@ -398,19 +448,19 @@ label:
  				if (Oalternative) {
  					if (c == 'B') {
  						len = strlen(tptr->alt_month[i]);
@@ -411,7 +411,7 @@
  						break;
  				}
  			}
-@@ -422,11 +472,11 @@
+@@ -422,11 +472,11 @@ label:
  			break;
  
  		case 'm':
@@ -425,7 +425,7 @@
  				i *= 10;
  				i += *buf - '0';
  				len--;
-@@ -436,8 +486,8 @@
+@@ -436,8 +486,8 @@ label:
  
  			tm->tm_mon = i - 1;
  
@@ -436,7 +436,7 @@
  					ptr++;
  			break;
  
-@@ -450,7 +500,7 @@
+@@ -450,7 +500,7 @@ label:
  
  			sverrno = errno;
  			errno = 0;
@@ -445,7 +445,7 @@
  			if (errno == ERANGE || (long)(t = n) != n) {
  				errno = sverrno;
  				return 0;
-@@ -458,24 +508,37 @@
+@@ -458,24 +508,37 @@ label:
  			errno = sverrno;
  			buf = cp;
  			gmtime_r(&t, tm);
@@ -487,7 +487,7 @@
  			if (c == 'Y')
  				i -= 1900;
  			if (c == 'y' && i < 69)
-@@ -483,10 +546,10 @@
+@@ -483,35 +546,58 @@ label:
  			if (i < 0)
  				return 0;
  
@@ -501,19 +501,49 @@
  					ptr++;
  			break;
  
-@@ -502,7 +565,7 @@
- 				zonestr[cp - buf] = '\0';
- 				tzset();
- 				if (0 == strcmp(zonestr, "GMT")) {
+ 		case 'Z':
+ 			{
+ 			const char *cp;
+-			char *zonestr;
++			size_t tzlen, len;
+ 
+ 			for (cp = buf; *cp && isupper((unsigned char)*cp); ++cp) {/*empty*/}
+-			if (cp - buf) {
+-				zonestr = alloca(cp - buf + 1);
+-				strncpy(zonestr, buf, cp - buf);
+-				zonestr[cp - buf] = '\0';
+-				tzset();
+-				if (0 == strcmp(zonestr, "GMT")) {
 -				    *GMTp = 1;
-+				    *convp = CONVERT_GMT;
- 				} else if (0 == strcmp(zonestr, tzname[0])) {
- 				    tm->tm_isdst = 0;
- 				} else if (0 == strcmp(zonestr, tzname[1])) {
-@@ -514,6 +577,26 @@
+-				} else if (0 == strcmp(zonestr, tzname[0])) {
+-				    tm->tm_isdst = 0;
+-				} else if (0 == strcmp(zonestr, tzname[1])) {
+-				    tm->tm_isdst = 1;
+-				} else {
+-				    return 0;
+-				}
+-				buf += cp - buf;
++			len = cp - buf;
++			if (len == 3 && strncmp(buf, "GMT", 3) == 0) {
++				*convp = CONVERT_GMT;
++				buf += len;
++				break;
  			}
- 			}
- 			break;
++			tzset();
++			tzlen = strlen(tzname[0]);
++			if (len == tzlen && strncmp(buf, tzname[0], tzlen) == 0) {
++				tm->tm_isdst = 0;
++				buf += len;
++				break;
++			}
++			tzlen = strlen(tzname[1]);
++			if (len == tzlen && strncmp(buf, tzname[1], tzlen) == 0) {
++				tm->tm_isdst = 1;
++				buf += len;
++				break;
++			}
++			return 0;
++			}
 +
 +		case 'z':
 +			{
@@ -532,12 +562,10 @@
 +			if (sign == '-')
 +			    tm->tm_gmtoff = -tm->tm_gmtoff;
 +			buf += 5;
-+			}
-+			break;
+ 			}
+ 			break;
  		}
- 	}
- 	return (char *)buf;
-@@ -524,14 +607,39 @@
+@@ -524,14 +610,39 @@ char *
  strptime(const char * __restrict buf, const char * __restrict fmt,
      struct tm * __restrict tm)
  {

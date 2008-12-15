@@ -1,20 +1,35 @@
-" Vim indent file
-" Language:	Ada
-" Maintainer:	Neil Bird <neil@fnxweb.com>
-" Last Change:	2006 Apr 30
-" Version:	$Id: ada.vim,v 1.3 2006/04/30 18:31:36 vimboss Exp $
-" Look for the latest version at http://vim.sourceforge.net/
-"
+"------------------------------------------------------------------------------
+"  Description: Vim Ada indent file
+"     Language: Ada (2005)
+"	   $Id: ada.vim 887 2008-07-08 14:29:01Z krischik $
+"    Copyright: Copyright (C) 2006 Martin Krischik
+"   Maintainer: Martin Krischik <krischik@users.sourceforge.net>
+"		Neil Bird <neil@fnxweb.com>
+"		Ned Okie <nokie@radford.edu>
+"      $Author: krischik $
+"	 $Date: 2008-07-08 16:29:01 +0200 (Di, 08 Jul 2008) $
+"      Version: 4.6
+"    $Revision: 887 $
+"     $HeadURL: https://gnuada.svn.sourceforge.net/svnroot/gnuada/trunk/tools/vim/indent/ada.vim $
+"      History: 24.05.2006 MK Unified Headers
+"		16.07.2006 MK Ada-Mode as vim-ball
+"		15.10.2006 MK Bram's suggestion for runtime integration
+"		05.11.2006 MK Bram suggested to save on spaces
+"		19.09.2007 NO g: missing before ada#Comment
+"    Help Page: ft-vim-indent
+"------------------------------------------------------------------------------
 " ToDo:
 "  Verify handling of multi-line exprs. and recovery upon the final ';'.
 "  Correctly find comments given '"' and "" ==> " syntax.
 "  Combine the two large block-indent functions into one?
+"------------------------------------------------------------------------------
 
 " Only load this indent file when no other was loaded.
-if exists("b:did_indent")
+if exists("b:did_indent") || version < 700
    finish
 endif
-let b:did_indent = 1
+
+let b:did_indent = 45
 
 setlocal indentexpr=GetAdaIndent()
 setlocal indentkeys-=0{,0}
@@ -25,10 +40,14 @@ if exists("*GetAdaIndent")
    finish
 endif
 
-let s:AdaBlockStart = '^\s*\(if\>\|while\>\|else\>\|elsif\>\|loop\>\|for\>.*\<\(loop\|use\)\>\|declare\>\|begin\>\|type\>.*\<is\>[^;]*$\|\(type\>.*\)\=\<record\>\|procedure\>\|function\>\|accept\>\|do\>\|task\>\|package\>\|then\>\|when\>\|is\>\)'
-let s:AdaComment = "\\v^(\"[^\"]*\"|'.'|[^\"']){-}\\zs\\s*--.*"
+if exists("g:ada_with_gnat_project_files")
+   let s:AdaBlockStart = '^\s*\(if\>\|while\>\|else\>\|elsif\>\|loop\>\|for\>.*\<\(loop\|use\)\>\|declare\>\|begin\>\|type\>.*\<is\>[^;]*$\|\(type\>.*\)\=\<record\>\|procedure\>\|function\>\|accept\>\|do\>\|task\>\|package\>\|project\>\|then\>\|when\>\|is\>\)'
+else
+   let s:AdaBlockStart = '^\s*\(if\>\|while\>\|else\>\|elsif\>\|loop\>\|for\>.*\<\(loop\|use\)\>\|declare\>\|begin\>\|type\>.*\<is\>[^;]*$\|\(type\>.*\)\=\<record\>\|procedure\>\|function\>\|accept\>\|do\>\|task\>\|package\>\|then\>\|when\>\|is\>\)'
+endif
 
-
+" Section: s:MainBlockIndent {{{1
+"
 " Try to find indent of the block we're in
 " prev_indent = the previous line's indent
 " prev_lnum   = previous line (to start looking on)
@@ -39,9 +58,9 @@ let s:AdaComment = "\\v^(\"[^\"]*\"|'.'|[^\"']){-}\\zs\\s*--.*"
 " This shouldn't work as well as it appears to with lines that are currently
 " nowhere near the correct indent (e.g., start of line)!
 " Seems to work OK as it 'starts' with the indent of the /previous/ line.
-function s:MainBlockIndent( prev_indent, prev_lnum, blockstart, stop_at )
+function s:MainBlockIndent (prev_indent, prev_lnum, blockstart, stop_at)
    let lnum = a:prev_lnum
-   let line = substitute( getline(lnum), s:AdaComment, '', '' )
+   let line = substitute( getline(lnum), g:ada#Comment, '', '' )
    while lnum > 1
       if a:stop_at != ''  &&  line =~ '^\s*' . a:stop_at  &&  indent(lnum) < a:prev_indent
 	 return a:prev_indent
@@ -55,7 +74,7 @@ function s:MainBlockIndent( prev_indent, prev_lnum, blockstart, stop_at )
       let lnum = prevnonblank(lnum - 1)
       " Get previous non-blank/non-comment-only line
       while 1
-	 let line = substitute( getline(lnum), s:AdaComment, '', '' )
+	 let line = substitute( getline(lnum), g:ada#Comment, '', '' )
 	 if line !~ '^\s*$' && line !~ '^\s*#'
 	    break
 	 endif
@@ -67,8 +86,10 @@ function s:MainBlockIndent( prev_indent, prev_lnum, blockstart, stop_at )
    endwhile
    " Fallback - just move back one
    return a:prev_indent - &sw
-endfunction
+endfunction MainBlockIndent
 
+" Section: s:EndBlockIndent {{{1
+"
 " Try to find indent of the block we're in (and about to complete),
 " including handling of nested blocks. Works on the 'end' of a block.
 " prev_indent = the previous line's indent
@@ -97,7 +118,7 @@ function s:EndBlockIndent( prev_indent, prev_lnum, blockstart, blockend )
       " Get previous non-blank/non-comment-only line
       while 1
 	 let line = getline(lnum)
-	 let line = substitute( line, s:AdaComment, '', '' )
+	 let line = substitute( line, g:ada#Comment, '', '' )
 	 if line !~ '^\s*$'
 	    break
 	 endif
@@ -109,8 +130,10 @@ function s:EndBlockIndent( prev_indent, prev_lnum, blockstart, blockend )
    endwhile
    " Fallback - just move back one
    return a:prev_indent - &sw
-endfunction
+endfunction EndBlockIndent
 
+" Section: s:StatementIndent {{{1
+"
 " Return indent of previous statement-start
 " (after we've indented due to multi-line statements).
 " This time, we start searching on the line *before* the one given (which is
@@ -122,7 +145,8 @@ function s:StatementIndent( current_indent, prev_lnum )
       let lnum = prevnonblank(lnum - 1)
       " Get previous non-blank/non-comment-only line
       while 1
-	 let line = substitute( getline(lnum), s:AdaComment, '', '' )
+	 let line = substitute( getline(lnum), g:ada#Comment, '', '' )
+	 
 	 if line !~ '^\s*$' && line !~ '^\s*#'
 	    break
 	 endif
@@ -145,10 +169,13 @@ function s:StatementIndent( current_indent, prev_lnum )
    endwhile
    " Fallback - just use current one
    return a:current_indent
-endfunction
+endfunction StatementIndent
 
 
+" Section: GetAdaIndent {{{1
+"
 " Find correct indent of a new line based upon what went before
+"
 function GetAdaIndent()
    " Find a non-blank line above the current line.
    let lnum = prevnonblank(v:lnum - 1)
@@ -157,7 +184,7 @@ function GetAdaIndent()
 
    " Get previous non-blank/non-comment-only/non-cpp line
    while 1
-      let line = substitute( getline(lnum), s:AdaComment, '', '' )
+      let line = substitute( getline(lnum), g:ada#Comment, '', '' )
       if line !~ '^\s*$' && line !~ '^\s*#'
 	 break
       endif
@@ -198,7 +225,7 @@ function GetAdaIndent()
       exe lnum
       exe 'normal! $F)%'
       if getline('.') =~ '^\s*('
-	 " Dire layout - use previous indent (could check for AdaComment here)
+	 " Dire layout - use previous indent (could check for g:ada#Comment here)
 	 let ind = indent( prevnonblank( line('.')-1 ) )
       else
 	 let ind = indent('.')
@@ -263,6 +290,14 @@ function GetAdaIndent()
    endif
 
    return ind
-endfunction
+endfunction GetAdaIndent
 
-" vim: set sw=3 sts=3 :
+finish " 1}}}
+
+"------------------------------------------------------------------------------
+"   Copyright (C) 2006	Martin Krischik
+"
+"   Vim is Charityware - see ":help license" or uganda.txt for licence details.
+"------------------------------------------------------------------------------
+" vim: textwidth=78 wrap tabstop=8 shiftwidth=3 softtabstop=3 noexpandtab
+" vim: foldmethod=marker

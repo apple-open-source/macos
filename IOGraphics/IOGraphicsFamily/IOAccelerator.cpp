@@ -62,7 +62,7 @@ private:
     task_t		fTask;
     queue_head_t	fTaskList;
 
-    static void IOAccelerationUserClient::initialize();
+    static void initialize();
 
 public:
     /* IOService overrides */
@@ -226,7 +226,7 @@ IOReturn _CreateID(queue_head_t * taskList, IOOptionBits options,
 	}
 	else
 	{
-    	    record->id = ((IOAccelID) record) ^ (kTweakBits & gTweak++);
+    	    record->id = ((IOAccelID) (intptr_t) record) ^ (kTweakBits & gTweak++);
 	}
 
 	if (taskList)

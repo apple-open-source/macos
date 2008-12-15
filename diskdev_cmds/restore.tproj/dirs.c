@@ -91,7 +91,7 @@ struct context curfile;
 #define INOHASH(val) (val % HASHSIZE)
 struct inotab {
 	struct	inotab *t_next;
-	ino_t	t_ino;
+	u_int32_t	t_ino;
 	long	t_seekpt;
 	long	t_size;
 };
@@ -101,7 +101,7 @@ static struct inotab *inotab[HASHSIZE];
  * Information retained about directories.
  */
 struct modeinfo {
-	ino_t ino;
+	u_int32_t ino;
 	struct timeval timep[2];
 	mode_t mode;
 	uid_t uid;
@@ -140,16 +140,16 @@ struct odirect {
 	char	d_name[ODIRSIZ];
 };
 
-static struct inotab	*allocinotab __P((ino_t, struct dinode *, long));
+static struct inotab	*allocinotab __P((u_int32_t, struct dinode *, long));
 static void		 dcvt __P((struct odirect *, struct direct *));
 static void		 flushent __P((void));
-static struct inotab	*inotablookup __P((ino_t));
+static struct inotab	*inotablookup __P((u_int32_t));
 static RST_DIR		*opendirfile __P((const char *));
 static void		 putdir __P((char *, long));
 static void		 putent __P((struct direct *));
 static void		 rst_seekdir __P((RST_DIR *, long, long));
 static long		 rst_telldir __P((RST_DIR *));
-static struct direct	*searchdir __P((ino_t, char *));
+static struct direct	*searchdir __P((u_int32_t, char *));
 
 /*
  *	Extract directory contents, building up a directory structure
@@ -235,8 +235,8 @@ skipdirs()
 void
 treescan(pname, ino, todo)
 	char *pname;
-	ino_t ino;
-	long (*todo) __P((char *, ino_t, int));
+	u_int32_t ino;
+	long (*todo) __P((char *, u_int32_t, int));
 {
 	register struct inotab *itp;
 	register struct direct *dp;
@@ -302,7 +302,7 @@ struct direct *
 pathsearch(pathname)
 	const char *pathname;
 {
-	ino_t ino;
+	u_int32_t ino;
 	struct direct *dp;
 	char *path, *name, buffer[MAXPATHLEN];
 
@@ -326,7 +326,7 @@ pathsearch(pathname)
  */
 static struct direct *
 searchdir(inum, name)
-	ino_t	inum;
+	u_int32_t	inum;
 	char	*name;
 {
 	register struct direct *dp;
@@ -532,7 +532,7 @@ rst_opendir(name)
 {
 	struct inotab *itp;
 	RST_DIR *dirp;
-	ino_t ino;
+	u_int32_t ino;
 
 	if ((ino = dirlookup(name)) > 0 &&
 	    (itp = inotablookup(ino)) != NULL) {
@@ -648,7 +648,7 @@ setdirmodes(flags)
 int
 genliteraldir(name, ino)
 	char *name;
-	ino_t ino;
+	u_int32_t ino;
 {
 	register struct inotab *itp;
 	int ofile, dp, i, size;
@@ -692,7 +692,7 @@ genliteraldir(name, ino)
  */
 int
 inodetype(ino)
-	ino_t ino;
+	u_int32_t ino;
 {
 	struct inotab *itp;
 
@@ -708,7 +708,7 @@ inodetype(ino)
  */
 static struct inotab *
 allocinotab(ino, dip, seekpt)
-	ino_t ino;
+	u_int32_t ino;
 	struct dinode *dip;
 	long seekpt;
 {
@@ -742,7 +742,7 @@ allocinotab(ino, dip, seekpt)
  */
 static struct inotab *
 inotablookup(ino)
-	ino_t	ino;
+	u_int32_t	ino;
 {
 	register struct inotab *itp;
 

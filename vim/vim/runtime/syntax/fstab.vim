@@ -1,14 +1,19 @@
 " Vim syntax file
 " Language: fstab file
-" Maintainer: David Ne\v{c}as (Yeti) <yeti@physics.muni.cz>
-" Original Maintainer: Radu Dineiu <littledragon@altern.org>
-" License: This file can be redistribued and/or modified under the same terms
-"   as Vim itself.
-" URL: http://trific.ath.cx/Ftp/vim/syntax/fstab.vim
-" Last Change: 2006-04-16
-
-" Options: let fstab_unknown_fs_errors = 1 to highlight unknown filesystems
-"          as errors
+" Maintaner: Radu Dineiu <radu.dineiu@gmail.com>
+" URL: http://ld.yi.org/vim/fstab.vim
+" Last Change: 2008 Jan 16
+" Version: 0.92
+"
+" Credits:
+"   David Necas (Yeti) <yeti@physics.muni.cz>
+"   Stefano Zacchiroli <zack@debian.org>
+"   Georgi Georgiev <chutz@gg3.net>
+"   James Vega <jamessan@debian.org>
+"
+" Options:
+"   let fstab_unknown_fs_errors = 1
+"     highlight unknown filesystems as errors
 
 if version < 600
 	syntax clear
@@ -19,24 +24,29 @@ endif
 " General
 syn cluster fsGeneralCluster contains=fsComment
 syn match fsComment /\s*#.*/
-syn match fsOperator /[,=]/
+syn match fsOperator /[,=:#]/
 
 " Device
 syn cluster fsDeviceCluster contains=fsOperator,fsDeviceKeyword,fsDeviceError
-syn match fsDeviceError /\%([^a-zA-Z0-9_\/#@:]\|^\w\{-}\ze\W\)/ contained
+syn match fsDeviceError /\%([^a-zA-Z0-9_\/#@:\.-]\|^\w\{-}\ze\W\)/ contained
 syn keyword fsDeviceKeyword contained none proc linproc tmpfs devpts sysfs usbfs
 syn keyword fsDeviceKeyword contained LABEL nextgroup=fsDeviceLabel
+syn keyword fsDeviceKeyword contained UUID nextgroup=fsDeviceUUID
+syn keyword fsDeviceKeyword contained sshfs nextgroup=fsDeviceSshfs
+syn match fsDeviceKeyword contained /^[a-zA-Z0-9.\-]\+\ze:/
 syn match fsDeviceLabel contained /=[^ \t]\+/hs=s+1 contains=fsOperator
+syn match fsDeviceUUID contained /=[^ \t]\+/hs=s+1 contains=fsOperator
+syn match fsDeviceSshfs contained /#[_=[:alnum:]\.\/+-]\+@[a-z0-9._-]\+\a\{2}:[^ \t]\+/hs=s+1 contains=fsOperator
 
 " Mount Point
 syn cluster fsMountPointCluster contains=fsMountPointKeyword,fsMountPointError
-syn match fsMountPointError /\%([^ \ta-zA-Z0-9_\/#@]\|\s\+\zs\w\{-}\ze\s\)/ contained
+syn match fsMountPointError /\%([^ \ta-zA-Z0-9_\/#@\.-]\|\s\+\zs\w\{-}\ze\s\)/ contained
 syn keyword fsMountPointKeyword contained none swap
 
 " Type
 syn cluster fsTypeCluster contains=fsTypeKeyword,fsTypeUnknown
 syn match fsTypeUnknown /\s\+\zs\w\+/ contained
-syn keyword fsTypeKeyword contained adfs affs atfs audiofs auto autofs befs bfs cd9660 cfs cifs coda cramfs devfs devpts e2compr efs ext2 ext3 fdesc hfs hpfs iso9660 jffs jffs2 jfs kernfs linprocfs mfs minix msdos ncpfs nfs none none ntfs null nwfs ovlfs portal proc procfs qnx4 reiserfs romfs shm smbfs std subfs swap sysfs sysv tcfs tmpfs udf ufs umap umsdos union usbfs userfs vfat vs3fs vxfs wrapfs wvfs xfs zisofs
+syn keyword fsTypeKeyword contained adfs ados affs atfs audiofs auto autofs befs bfs cd9660 cfs cifs coda cramfs devfs devpts e2compr efs ext2 ext2fs ext3 fdesc ffs filecore fuse hfs hpfs iso9660 jffs jffs2 jfs kernfs lfs linprocfs mfs minix msdos ncpfs nfs none ntfs null nwfs overlay ovlfs portal proc procfs ptyfs qnx4 reiserfs romfs shm smbfs sshfs std subfs swap sysfs sysv tcfs tmpfs udf ufs umap umsdos union usbfs userfs vfat vs3fs vxfs wrapfs wvfs xfs zisofs
 
 " Options
 " -------
@@ -48,7 +58,7 @@ syn match fsOptionsString /[a-zA-Z0-9_-]\+/
 syn keyword fsOptionsYesNo yes no
 syn cluster fsOptionsCheckCluster contains=fsOptionsExt2Check,fsOptionsFatCheck
 syn keyword fsOptionsSize 512 1024 2048
-syn keyword fsOptionsGeneral async atime auto bind current defaults dev devgid devmode devuid dirsync exec force fstab kudzu loop mand move noatime noauto noclusterr noclusterw nodev nodiratime noexec nomand nosuid nosymfollow nouser owner rbind rdonly remount ro rq rw suid suiddir supermount sw sync union update user[s] xx
+syn keyword fsOptionsGeneral async atime auto bind current defaults dev devgid devmode devmtime devuid dirsync exec force fstab kudzu loop mand move noatime noauto noclusterr noclusterw nodev nodevmtime nodiratime noexec nomand nosuid nosymfollow nouser owner rbind rdonly remount ro rq rw suid suiddir supermount sw sync union update user users xx
 syn match fsOptionsGeneral /_netdev/
 
 " Options: adfs
@@ -101,6 +111,9 @@ syn match fsOptionsKeywords contained /\<\%(creator|type\)=/ nextgroup=fsOptions
 syn match fsOptionsKeywords contained /\<\%(dir\|file\|\)_umask=/ nextgroup=fsOptionsNumberOctal
 syn match fsOptionsKeywords contained /\<\%(session\|part\)=/ nextgroup=fsOptionsNumber
 
+" Options: ffs
+syn keyword fsOptionsKeyWords contained softdep
+
 " Options: hpfs
 syn match fsOptionsKeywords contained /\<case=/ nextgroup=fsOptionsHpfsCase
 syn keyword fsOptionsHpfsCase contained lower asis
@@ -132,6 +145,14 @@ syn match fsOptionsKeywords contained /\<hash=/ nextgroup=fsOptionsReiserHash
 syn match fsOptionsKeywords contained /\<resize=/ nextgroup=fsOptionsNumber
 syn keyword fsOptionsReiserHash contained rupasov tea r5 detect
 syn keyword fsOptionsKeywords contained hashed_relocation noborder nolog notail no_unhashed_relocation replayonly
+
+" Options: sshfs
+syn match fsOptionsKeywords contained /\<\%(BatchMode\|ChallengeResponseAuthentication\|CheckHostIP\|ClearAllForwardings\|Compression\|EnableSSHKeysign\|ForwardAgent\|ForwardX11\|ForwardX11Trusted\|GatewayPorts\|GSSAPIAuthentication\|GSSAPIDelegateCredentials\|HashKnownHosts\|HostbasedAuthentication\|IdentitiesOnly\|NoHostAuthenticationForLocalhost\|PasswordAuthentication\|PubkeyAuthentication\|RhostsRSAAuthentication\|RSAAuthentication\|TCPKeepAlive\|UsePrivilegedPort\|cache\)=/ nextgroup=fsOptionsYesNo
+syn match fsOptionsKeywords contained /\<\%(ControlMaster\|StrictHostKeyChecking\|VerifyHostKeyDNS\)=/ nextgroup=fsOptionsSshYesNoAsk
+syn match fsOptionsKeywords contained /\<\%(AddressFamily\|BindAddress\|Cipher\|Ciphers\|ControlPath\|DynamicForward\|EscapeChar\|GlobalKnownHostsFile\|HostKeyAlgorithms\|HostKeyAlias\|HostName\|IdentityFile\|KbdInteractiveDevices\|LocalForward\|LogLevel\|MACs\|PreferredAuthentications\|Protocol\|ProxyCommand\|RemoteForward\|RhostsAuthentication\|SendEnv\|SmartcardDevice\|User\|UserKnownHostsFile\|XAuthLocation\|comment\|workaround\|idmap\|ssh_command\|sftp_server\|fsname\)=/ nextgroup=fsOptionsString
+syn match fsOptionsKeywords contained /\<\%(CompressionLevel\|ConnectionAttempts\|ConnectTimeout\|NumberOfPasswordPrompts\|Port\|ServerAliveCountMax\|ServerAliveInterval\|cache_timeout\|cache_X_timeout\|ssh_protocol\|directport\|max_read\|umask\|uid\|gid\|entry_timeout\|negative_timeout\|attr_timeout\)=/ nextgroup=fsOptionsNumber
+syn keyword fsOptionsKeywords contained reconnect sshfs_sync no_readahead sshfs_debug transform_symlinks allow_other allow_root nonempty default_permissions large_read hard_remove use_ino readdir_ino direct_io kernel_cache
+syn keyword fsOptionsSshYesNoAsk contained yes no ask
 
 " Options: subfs
 syn match fsOptionsKeywords contained /\<fs=/ nextgroup=fsOptionsString
@@ -197,11 +218,14 @@ if version >= 508 || !exists("did_config_syntax_inits")
 	HiLink fsTypeKeyword Type
 	HiLink fsDeviceKeyword Identifier
 	HiLink fsDeviceLabel String
+	HiLink fsDeviceUUID String
+	HiLink fsDeviceSshfs String
 	HiLink fsFreqPassNumber Number
 
-	if exists('fstab_unknown_fs_errors')
+	if exists('fstab_unknown_fs_errors') && fstab_unknown_fs_errors == 1
 		HiLink fsTypeUnknown Error
 	endif
+
 	HiLink fsDeviceError Error
 	HiLink fsMountPointError Error
 	HiLink fsMountPointKeyword Keyword
@@ -224,6 +248,7 @@ if version >= 508 || !exists("did_config_syntax_inits")
 	HiLink fsOptionsHpfsCase String
 	HiLink fsOptionsIsoMap String
 	HiLink fsOptionsReiserHash String
+	HiLink fsOptionsSshYesNoAsk String
 	HiLink fsOptionsUfsType String
 	HiLink fsOptionsUfsError String
 

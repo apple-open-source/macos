@@ -1,15 +1,12 @@
 #	from @(#)Makefile.inc	8.2 (Berkeley) 9/5/93
 # $FreeBSD: src/lib/libc/net/Makefile.inc,v 1.43 2001/10/23 06:22:14 imp Exp $
 
-.ifnmake autopatch
 # machine-dependent net sources
-.if exists(${.CURDIR}/${MACHINE_ARCH}/net/Makefile.inc)
-.include "${.CURDIR}/${MACHINE_ARCH}/net/Makefile.inc"
-.endif
-.endif # !autopatch
+.sinclude "${.CURDIR}/${MACHINE_ARCH}/net/Makefile.inc"
 
 # machine-independent net sources
 .PATH: ${.CURDIR}/${MACHINE_ARCH}/net ${.CURDIR}/net
+CWD := ${.CURDIR}/net
 
 .include "Makefile.fbsd_begin"
 FBSDMISRCS= addr2ascii.c ascii2addr.c inet_addr.c inet_lnaof.c \

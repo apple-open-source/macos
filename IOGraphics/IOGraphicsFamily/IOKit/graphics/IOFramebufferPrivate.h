@@ -22,6 +22,7 @@
     void setupCursor( IOPixelInformation * info );
     void stopCursor( void );
     IOReturn doSetup( bool full );
+    void findConsole(void);
     IOReturn createSharedCursor( int shmemVersion,
 					int maxWidth, int maxHeight );
     IOReturn setBoundingRect( IOGBounds * bounds );
@@ -134,7 +135,14 @@
 					      IOInterruptEventSource * evtSrc, int intCount );
     void checkDeferredCLUTSet( void );
     void updateCursorForCLUTSet( void );
+    IOReturn updateGammaTable(	UInt32 channelCount, UInt32 dataCount,
+				UInt32 dataWidth, void * data );
 
+    static void dpInterruptProc(OSObject * target, void * ref);
+    static void dpInterrupt(OSObject * owner, IOTimerEventSource * sender);
+    void dpProcessInterrupt(void);
+    void dpUpdateConnect(void);
+	
     static void handleVBL(IOFramebuffer * inst, void * ref);
     static void writePrefs( OSObject * owner, IOTimerEventSource * sender );
     static void connectChangeInterrupt( IOFramebuffer * inst, void * ref );
@@ -227,9 +235,9 @@
     IOReturn extSetProperties( OSDictionary * dict );
 
 public:
+
     static void clamshellEnable( SInt32 delta );
     static IOOptionBits clamshellState( void );
-    IOWorkLoop * getWorkLoop() const;
     static IOReturn setPreferences( IOService * props, OSDictionary * prefs );
     static OSObject * copyPreferences( void );
     OSObject * copyPreference( class IODisplay * display, const OSSymbol * key );
@@ -237,6 +245,8 @@ public:
     bool setPreference( class IODisplay * display, const OSSymbol * key, OSObject * value );
     bool setIntegerPreference( IODisplay * display, const OSSymbol * key, UInt32 value );
     void getTransformPrefs( IODisplay * display );
+    IOReturn flushParameters(void);
+
 protected:
 
     IOReturn stopDDC1SendCommand(IOIndex bus, IOI2CBusTiming * timing);

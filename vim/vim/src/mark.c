@@ -79,6 +79,12 @@ setmark_pos(c, pos, fnum)
 	return OK;
     }
 
+    if (c == '"')
+    {
+	curbuf->b_last_cursor = *pos;
+	return OK;
+    }
+
     /* Allow setting '[ and '] for an autocommand that simulates reading a
      * file. */
     if (c == '[')
@@ -215,7 +221,7 @@ movemark(count)
 
 	/*
 	 * if first CTRL-O or CTRL-I command after a jump, add cursor position
-	 * to list.  Careful: If there are duplicates (CTRL-O immidiately after
+	 * to list.  Careful: If there are duplicates (CTRL-O immediately after
 	 * starting Vim on a file), another entry may have been removed.
 	 */
 	if (curwin->w_jumplistidx == curwin->w_jumplistlen)
@@ -505,9 +511,24 @@ fname2fnum(fm)
     {
 	/*
 	 * First expand "~/" in the file name to the home directory.
-	 * Try to shorten the file name.
+	 * Don't expand the whole name, it may contain other '~' chars.
 	 */
-	expand_env(fm->fname, NameBuff, MAXPATHL);
+	if (fm->fname[0] == '~' && (fm->fname[1] == '/'
+#ifdef BACKSLASH_IN_FILENAME
+		    || fm->fname[1] == '\\'
+#endif
+		    ))
+	{
+	    int len;
+
+	    expand_env((char_u *)"~/", NameBuff, MAXPATHL);
+	    len = (int)STRLEN(NameBuff);
+	    vim_strncpy(NameBuff + len, fm->fname + 2, MAXPATHL - len - 1);
+	}
+	else
+	    vim_strncpy(NameBuff, fm->fname, MAXPATHL - 1);
+
+	/* Try to shorten the file name. */
 	mch_dirname(IObuff, IOSIZE);
 	p = shorten_fname(NameBuff, IObuff);
 
@@ -886,7 +907,10 @@ ex_jumps(eap)
 
 	    msg_putchar('\n');
 	    if (got_int)
+	    {
+		vim_free(name);
 		break;
+	    }
 	    sprintf((char *)IObuff, "%c %2d %5ld %4d ",
 		i == curwin->w_jumplistidx ? '>' : ' ',
 		i > curwin->w_jumplistidx ? i - curwin->w_jumplistidx

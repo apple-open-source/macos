@@ -2,6 +2,7 @@
 # $FreeBSD: src/lib/libc/nls/Makefile.inc,v 1.5.2.2 2001/04/25 10:04:07 ru Exp $
 
 .PATH: ${.CURDIR}/nls
+CWD := ${.CURDIR}/nls
 
 .include "Makefile.fbsd_begin"
 FBSDMISRCS= msgcat.c

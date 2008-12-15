@@ -1,5 +1,0 @@
-vpath crc.c ../cksum
-
-CFILES += crc.c
-
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Preamble.Common

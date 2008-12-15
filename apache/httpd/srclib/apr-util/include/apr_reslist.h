@@ -125,6 +125,12 @@ APU_DECLARE(void) apr_reslist_timeout_set(apr_reslist_t *reslist,
                                           apr_interval_time_t timeout);
 
 /**
+ * Return the number of outstanding resources.
+ * @param reslist The resource list.
+ */
+APU_DECLARE(apr_uint32_t) apr_reslist_acquired_count(apr_reslist_t *reslist);
+
+/**
  * Invalidate a resource in the pool - e.g. a database connection
  * that returns a "lost connection" error and can't be restored.
  * Use this instead of apr_reslist_release if the resource is bad.

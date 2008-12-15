@@ -70,6 +70,18 @@
 #define kIOStorageFeaturesKey "IOStorageFeatures"
 
 /*!
+ * @defined kIOStorageFeatureDiscard
+ * @abstract
+ * Describes the presence of the Discard feature.
+ * @discussion
+ * This property describes the ability of the storage stack to delete unused
+ * data from the media.  It is one of the feature entries listed under the top-
+ * level kIOStorageFeaturesKey property table.  It has an OSBoolean value.
+ */
+
+#define kIOStorageFeatureDiscard "Discard"
+
+/*!
  * @defined kIOStorageFeatureForceUnitAccess
  * @abstract
  * Describes the presence of the Force Unit Access feature.
@@ -459,7 +471,27 @@ public:
 
     OSMetaClassDeclareReservedUsed(IOStorage, 1); /* 10.5.0 */
 
-    OSMetaClassDeclareReservedUnused(IOStorage,  2);
+    /*!
+     * @function discard
+     * @discussion
+     * Delete unused data from the storage object at the specified byte offset,
+     * synchronously.
+     * @param client
+     * Client requesting the operation.
+     * @param byteStart
+     * Starting byte offset for the operation.
+     * @param byteCount
+     * Size of the operation.
+     * @result
+     * Returns the status of the operation.
+     */
+
+    virtual IOReturn discard(IOService * client,
+                             UInt64      byteStart,
+                             UInt64      byteCount);
+
+    OSMetaClassDeclareReservedUsed(IOStorage, 2); /* 10.6.0 */
+
     OSMetaClassDeclareReservedUnused(IOStorage,  3);
     OSMetaClassDeclareReservedUnused(IOStorage,  4);
     OSMetaClassDeclareReservedUnused(IOStorage,  5);

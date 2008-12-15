@@ -42,18 +42,18 @@ static void test_rmm(abts_case *tc, void *data)
     void *entity;
 
     rv = apr_pool_create(&pool, p);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     /* We're going to want 10 blocks of data from our target rmm. */
     size = SHARED_SIZE + apr_rmm_overhead_get(FRAG_COUNT + 1);
     rv = apr_shm_create(&shm, size, NULL, pool);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     if (rv != APR_SUCCESS)
         return;
 
     rv = apr_rmm_init(&rmm, NULL, apr_shm_baseaddr_get(shm), size, pool);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     if (rv != APR_SUCCESS)
         return;
@@ -93,14 +93,14 @@ static void test_rmm(abts_case *tc, void *data)
         char **c = apr_rmm_addr_get(rmm, off[i]);
         for (j = 0; j < FRAG_SIZE; j++, c++) {
             char *d = apr_itoa(pool, i + j);
-            ABTS_STR_EQUAL(tc, *c, d);
+            ABTS_STR_EQUAL(tc, d, *c);
         }
     }
 
     /* Freeing each fragment */
     for (i = 0; i < FRAG_COUNT; i++) {
         rv = apr_rmm_free(rmm, off[i]);
-        ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+        ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     }
 
     /* Creating one large segment */
@@ -114,7 +114,7 @@ static void test_rmm(abts_case *tc, void *data)
 
     /* Freeing large segment */
     rv = apr_rmm_free(rmm, off[0]);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     /* Creating each fragment of size fragsize */
     for (i = 0; i < FRAG_COUNT; i++) {
@@ -124,7 +124,7 @@ static void test_rmm(abts_case *tc, void *data)
     /* Freeing each fragment backwards */
     for (i = FRAG_COUNT - 1; i >= 0; i--) {
         rv = apr_rmm_free(rmm, off[i]);
-        ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+        ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     }
 
     /* Creating one large segment (again) */
@@ -132,7 +132,7 @@ static void test_rmm(abts_case *tc, void *data)
 
     /* Freeing large segment */
     rv = apr_rmm_free(rmm, off[0]);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     /* Checking realloc */
     off[0] = apr_rmm_calloc(rmm, SHARED_SIZE - 100);
@@ -142,7 +142,7 @@ static void test_rmm(abts_case *tc, void *data)
 
     entity = apr_rmm_addr_get(rmm, off[1]);
     rv = apr_rmm_free(rmm, off[0]);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     {
         unsigned char *c = entity;
@@ -169,10 +169,10 @@ static void test_rmm(abts_case *tc, void *data)
     }
 
     rv = apr_rmm_destroy(rmm);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     rv = apr_shm_destroy(shm);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     apr_pool_destroy(pool);
 }

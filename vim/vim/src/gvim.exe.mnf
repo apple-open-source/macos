@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity
-    processorArchitecture="X86"
-    version="6.2.0.0"
+    processorArchitecture="*"
+    version="7.2.0.0"
     type="win32"
     name="Vim"
   />
@@ -15,8 +15,18 @@
         version="6.0.0.0"
         publicKeyToken="6595b64144ccf1df"
         language="*"
-        processorArchitecture="X86"
+        processorArchitecture="*"
       />
     </dependentAssembly>
   </dependency>
+  <!-- Vista security requirements -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel
+          level="asInvoker"
+          uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
 </assembly>

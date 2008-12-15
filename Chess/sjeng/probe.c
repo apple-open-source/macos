@@ -79,7 +79,7 @@ extern PfnCalcIndex PfnIndCalcFun (int, color);
 extern int TB_FASTCALL L_TbtProbeTable (int, color, INDEX);
 
 extern int IInitializeTb (char*);
-extern int FTbSetCacheSize(void *pv, unsigned long cbSize);
+extern int FTbSetCacheSize(void *pv, uint32_t cbSize);
 
 #define PfnIndCalc PfnIndCalcFun
 #define FRegistered FRegisteredFun

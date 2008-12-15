@@ -1,71 +1,15 @@
-{\rtf1\mac\ansicpg10000\cocoartf102
-{\fonttbl\f0\fnil\fcharset77 ComicSansMS;\f1\fmodern\fcharset77 Courier;}
+{\rtf1\ansi\ansicpg1252\cocoartf965
+{\fonttbl\f0\fnil\fcharset0 ComicSansMS;}
 {\colortbl;\red255\green255\blue255;}
-\margl1440\margr1440\vieww11800\viewh10680\viewkind0
+\margl1440\margr1440\vieww21980\viewh18540\viewkind0
 \pard\tx1440\tx2880\tx4320\tx5760\tx7200\qc
 
 \f0\fs36 \cf0 Readme for IOUSBFamily module\
 \pard\tx1440\tx2880\tx4320\tx5760\tx7200\qc
 
-\fs24 \cf0 Last updated: March 16, 2003\
+\fs24 \cf0 \
 OUT OF DATE\
 \pard\tx1440\tx2880\tx4320\tx5760\tx7200\ql\qnatural
 \cf0 \
-This file includes information specific to the IOUSBFamily module in the Darwin Repository.  It will be updated periodically.\
 \
-The IOUSBFamily module contains the USB stack used on Mac OS X.  It also contains several class drivers provided by Apple and the IOUSBLib bundle for user clients.  This repository is "live", so it immediately reflects any changes that the USB team makes.  \
-\
-Changes are always checked in on a branch.  After we have gone through testing, we merge the branches into the main version.  However, because this is live, the main version (or top of trunk -- TOT) might not be buildable outside of Apple because (1) we might be using headers that have not yet been released, or (2) we might be using a new version of the development tools.  For this reason, we recommend that you only attempt to build and use released builds.\
-\
-How to determine what a released build is?  We have started to make cvs tags corresponding to the build version of the Mac OS X release.  For example, one of the 10.1.4 updates had build version 5Q125.  The IOUSBFamily module has a tag called IOUSBFamily-5Q125 that corresponds to the version of the IOUSBFamily that shipped in MacOS 10.1.4 build 5Q25.  The command "cvs log" will list all the tags associated with a file.\
-\
-Note that building and installing a new IOUSBFamily might render your system USB-less.  Please do not do it if you are not prepared to deal with this fact.   While we encouraged you to look at our source and borrow from it, we do not encourage you to build and use your own version.\
-\
-If you are going to install a new version of the family, we recommend that you do it on a separate partition so that you can recover from it if it doesn't work.   We also recommend installing on PowerBooks as USB is not needed for the keyboard and trackpad to work.  Another tip is that you should enable remote login and/or AppleShare so that you could log in to your machine and fix things up.  Finally, you should keep a copy of the  original IOUSBFamily.kext in a known location so that you can always go back to it.\
-\
-If you are building a version of the IOUSBFamily on the same released version of Mac OS X (e.g. building tag IOUSBFamily-5Q125 on top of Mac OS X 10.1.4 build 5Q125), you will not need to install new USB headers.  However, if you need to install new headers, you can use the following build commands:\
-\
-
-\f1 % cd <directory containing the IOUSBFamily sources>\
-% subo pbxbuild installhdrs\
-% pushd /tmp/IOUSBFamily.dst\
-% ditto . /\
-% popd\
-
-\f0 \
-That will replace all the USB headers in the IOKit and Kernel frameworks with the new ones.\
-\
-In order to build and install the family, you can use the following build commands: \
-\
-
-\f1 % cd <directory containing the IOUSBFamily sources>\
-% sudo pbxbuild install\
-% pushd /tmp/IOUSBFamily.dst\
-% mv /System/Library/Extensions/IOUSBFamily.kext /\
-% ditto . /\
-% touch /System/Library/Extensions\
-
-\f0 \
-and reboot.\
-\
-If you only want to build the IOUSBFamily, you can do it within the IDE by hitting the build button.\
-\
-If you need to build an unstripped version of the IOUSBFamily, you need to use the following command line arguments:\
-\
-If you are using the December 2001 Developer Tools:\
-\
-
-\f1 % sudo pbxbuild install COPY_PHASE_STRIP=NO STRIP_INSTALLED_PRODUCT=NO\
-
-\f0 \
-If you are using the April 2002 Developer Tools or Jaguar Tools:\
-\
-
-\f1 % sudo pbxbuild install COPY_PHASE_STRIP=NO STRIP_INSTALLED_PRODUCT=NO INSTALLED_PRODUCT_ASIDES=YES STRIP=/usr/bin/true\
-
-\f0 \
-Note that you use those same commands if you want to build an unstripped binary of your driver.  Unstripped binaries contain symbols so they are useful when using gdb to debug.\
-\
-\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
-
-\f1 \cf0 --------}
+This needs to be updated}

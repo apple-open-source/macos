@@ -122,7 +122,7 @@ static int select_sequential(apr_pool_t* pool, apr_dbd_t* handle,
     for (rv = apr_dbd_get_row(driver, pool, res, &row, -1);
          rv == 0;
          rv = apr_dbd_get_row(driver, pool, res, &row, -1)) {
-        printf("ROW %d:	", i++) ;
+        printf("ROW %d:	", ++i) ;
         for (n = 0; n < apr_dbd_num_cols(driver, res); ++n) {
             entry = apr_dbd_get_entry(driver, row, n);
             if (entry == NULL) {
@@ -295,7 +295,7 @@ static int test_pselect(apr_pool_t* pool, apr_dbd_t* handle,
     for (rv = apr_dbd_get_row(driver, pool, res, &row, -1);
          rv == 0;
          rv = apr_dbd_get_row(driver, pool, res, &row, -1)) {
-        printf("ROW %d:	", i++) ;
+        printf("ROW %d:	", ++i) ;
         for (n = 0; n < apr_dbd_num_cols(driver, res); ++n) {
             entry = apr_dbd_get_entry(driver, row, n);
             if (entry == NULL) {

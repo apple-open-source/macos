@@ -64,9 +64,9 @@ my $SyscallBase = 'libc.syscall';
 # list.
 ##########################################################################
 sub processLibc {
-    my($arch, $dir) = @_;
+    my($arch, $dir, $sufname) = @_;
     local $_;
-    my $file = File::Spec->join($dir, 'libc-partial.a');
+    my $file = File::Spec->join($dir, "libc-partial$sufname.a");
     my $f = IO::File->new("nm -g -arch $arch $file |");
     die "$MyName: nm -g -arch $arch $file: $!\n" unless defined($f);
     while(<$f>) {
@@ -85,7 +85,12 @@ sub readLibcSyscalls {
     local $_;
     my @files = (File::Spec->join($dir, $SyscallBase));
     my $archfile = File::Spec->join($dir, "$SyscallBase.$arch");
-    push(@files, $archfile) if -r $archfile;
+    if(-r $archfile) {
+	push(@files, $archfile);
+    } elsif($arch =~ s/^armv.*/arm/) {
+	$archfile = File::Spec->join($dir, "$SyscallBase.$arch");
+	push(@files, $archfile) if -r $archfile;
+    }
     foreach my $file (@files) {
 	my $f = IO::File->new($file, 'r');
 	die "$MyName: $file: $!\n" unless defined($f);
@@ -142,7 +147,7 @@ die "$MyName: $form: Unknown form\n" unless defined($suf);
 my($suffix, $sufname) = @$suf;
 readStub($usr_local_lib_system);
 readLibcSyscalls($arch, $usr_local_lib_system);
-processLibc($arch, $usr_local_lib_system);
+processLibc($arch, $usr_local_lib_system, $sufname);
 
 ##########################################################################
 # Invert the Stub hash, so the key will correspond to the file to process.

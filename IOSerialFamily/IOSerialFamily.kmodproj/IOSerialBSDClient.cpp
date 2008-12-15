@@ -460,7 +460,7 @@ getUniqueTTYSuffix(const OSSymbol *inName, const OSSymbol *suffix, dev_t dev)
         // I'm going to use the unit as an unique index for this run
         // of the OS.
         char ind[8]; // 23 bits, 7 decimal digits + '\0'
-        sprintf(ind, "%d", TTY_UNIT(dev));
+        snprintf(ind, sizeof (ind), "%d", TTY_UNIT(dev));
 
         suffix = OSSymbol::withCString(ind);
         if (!suffix)
@@ -1610,6 +1610,12 @@ checkAndWaitForIdle:
      */
     if ( !ISSET(tp->t_state, TS_ISOPEN) ) {
         initSession(sp);
+        // racey, racey - and initSession doesn't return/set anything useful
+        if (!fActiveSession || isInactive()) {
+            SAFE_PORTRELEASE(fProvider);
+            error = ENXIO;
+            goto exitOpen;
+        }
 
         // Initialise the line state
         iossparam(tp, &tp->t_termios);
@@ -1814,7 +1820,12 @@ initSession(Session *sp)
     // Cycle the PD_RS232_S_DTR line if necessary 
     if ( !ISSET(fProvider->getState(), PD_RS232_S_DTR) ) {
         (void) waitOutDelay(0, &fDTRDownTime, &kDTRDownDelay);
-        (void) mctl(RS232_S_ON, DMSET);
+        // racey, racey 
+        if(sp->fErrno || !fActiveSession || isInactive()) {
+            rtn = kIOReturnOffline;
+            return;
+        } else 
+            (void) mctl(RS232_S_ON, DMSET);
     }
 
     // Disable all flow control  & data movement initially
@@ -2229,9 +2240,10 @@ rxFunc()
     int event;
     u_long wakeup_with;	// states
     IOReturn rtn;
+    boolean_t funneled;
 
     // Mark this thread as part of the BSD infrastructure.
-    thread_funnel_set(kernel_flock, TRUE);
+    funneled = thread_funnel_set(kernel_flock, TRUE);
 
     sp = fActiveSession;
 
@@ -2267,6 +2279,7 @@ rxFunc()
 	super::didTerminate(fProvider, 0, &defer);
     }
 
+    thread_funnel_set(kernel_flock, funneled);
     IOExitThread();
 }
 
@@ -2340,9 +2353,10 @@ txFunc()
     u_long waitfor, waitfor_mask, wakeup_with;	// states
     u_long interesting_bits;
     IOReturn rtn;
+    boolean_t funneled;
 
     // Mark this thread as part of the BSD infrastructure.
-    thread_funnel_set(kernel_flock, TRUE);
+    funneled = thread_funnel_set(kernel_flock, TRUE);
 
     sp = fActiveSession;
     tp = &sp->ftty;
@@ -2454,6 +2468,7 @@ txFunc()
 	super::didTerminate(fProvider, 0, &defer);
     }
 
+    thread_funnel_set(kernel_flock, funneled);
     IOExitThread();
 }
 

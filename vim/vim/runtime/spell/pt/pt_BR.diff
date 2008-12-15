@@ -1,46 +1,34 @@
-*** pt_BR.orig.aff	Wed Aug 31 20:05:18 2005
---- pt_BR.aff	Wed Aug 31 20:05:18 2005
+*** pt_BR.orig.aff	2008-02-21 19:41:04.000000000 -0300
+--- pt_BR.aff	2008-02-24 11:08:15.000000000 -0300
 ***************
-*** 3,4 ****
---- 3,22 ----
+*** 1,3 ****
+  SET ISO8859-1
+! TRY áàãâéêíóõôúüçesianrtolcdugmphbyfvkwjqxz
   
+--- 1,3 ----
+  SET ISO8859-1
+! 
+  
+***************
+*** 13,14 ****
+--- 13,32 ----
+  
++ NAME    Brazilian Portuguese
++ VERSION 2008-07-07V
++ HOME	http://www.broffice.org/verortografico
++ AUTHOR  Raimundo Santos Moura
++ EMAIL   raimundomoura AT openoffice DOT org
++ AUTHOR  Leonardo Ferreira Fontenelle
++ EMAIL   leo DOT fontenelle AT gmail DOT org
++ COPYRIGHT   LGPL
++ 
++ 
 + FOL  ßàáâãäåæçèéêëìíîïğñòóôõöøùúûüışÿ
 + LOW  ßàáâãäåæçèéêëìíîïğñòóôõöøùúûüışÿ
 + UPP  ßÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖØÙÚÛÜİŞÿ
 + 
-+ SOFOFROM abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZàáâãäåæçèéêëìíîïğñòóôõöøùúûüışßÿÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏĞÑÒÓÔÕÖØÙÚÛÜİŞ¿
-+ SOFOTO   ebctefghejklnnepkrstevvkesebctefghejklnnepkrstevvkeseeeeeeeceeeeeeeedneeeeeeeeeeepseeeeeeeeceeeeeeeedneeeeeeeeeeep?
 + 
-+ MAP 9
-+ MAP aàáâãäå
-+ MAP eèéêë
-+ MAP iìíîï
-+ MAP oòóôõö
-+ MAP uùúûü
-+ MAP nñ
-+ MAP cç
-+ MAP yÿı
-+ MAP sß
++ MIDWORD	'-.
 + 
-  # Plural apenas
-***************
-*** 526,534 ****
-  SFX I   ar      ês       dar
-! SFX I   iar     eia       [^]iar
-! SFX I   iar     eiam       [^]iar
-! SFX I   iar     eias       [^]iar
-! SFX I   iar     eie       [^]iar
-! SFX I   iar     eiem       [^]iar
-! SFX I   iar     eies       [^]iar
-! SFX I   iar     eio       [^]iar
-  SFX I   oiar    óia       oiar
---- 544,552 ----
-  SFX I   ar      ês       dar
-! SFX I   iar     eia       [^o]iar
-! SFX I   iar     eiam       [^o]iar
-! SFX I   iar     eias       [^o]iar
-! SFX I   iar     eie       [^o]iar
-! SFX I   iar     eiem       [^o]iar
-! SFX I   iar     eies       [^o]iar
-! SFX I   iar     eio       [^o]iar
-  SFX I   oiar    óia       oiar
++ 
+  MAP 6

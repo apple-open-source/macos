@@ -36,14 +36,9 @@
 
 #include "PIVAttributeCoder.h"
 
-#include "Adornment.h"
 #include "MetaAttribute.h"
 #include "MetaRecord.h"
 #include "PIVRecord.h"
-#include "PIVToken.h"
-
-#include <Security/SecKeychainItem.h>
-#include <security_cdsa_utilities/cssmkey.h>
 
 using namespace Tokend;
 

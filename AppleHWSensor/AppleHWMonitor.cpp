@@ -24,6 +24,12 @@
  *
  */
 //		$Log: AppleHWMonitor.cpp,v $
+//		Revision 1.10  2008/11/19 02:13:34  raddog
+//		<rdar://problem/6349927> 10.5.6 Regression: Display never sleeps
+//		
+//		Revision 1.9  2008/04/18 23:25:31  raddog
+//		<rdar://problem/5828356> AppleHWSensor - control code needs to deal with endian issues
+//		
 //		Revision 1.8  2007/05/07 18:29:38  pmr
 //		change acknowledgePowerChange to acknowledgeSetPowerState
 //		
@@ -74,6 +80,11 @@ static const IOPMPowerState ourPowerStates[kIOHWMonitorNumPowerStates] =
 };
 
 #ifdef APPLEHWMONITOR_DEBUG
+/*
+ * This code doesn't work right - I think it's looking in the wrong place for the "reg" property and
+ * "reg" can now be OSData or OSNumber with possibly ensuing endian issues.  But it's for debug and 
+ * isn't really very useful so I'm ignoring it for now.
+ */ 
 void IOHWMonitor::initDebugID( IOService *provider )
 {
 	IOService *provider2, *provider3;
@@ -119,6 +130,9 @@ bool IOHWMonitor::start(IOService *provider)
 	OSObject *obj;
 	OSNumber *num;
 	OSData *data;
+	OSString *typeStr;
+	IOService *pDev;
+    UInt32 version;
 	char *ptr, type[32];
  
 	// IOHWSensor/IOHWControl property: "version"
@@ -128,15 +142,28 @@ bool IOHWMonitor::start(IOService *provider)
     // Required: Yes
     data = OSDynamicCast(OSData, provider->getProperty("version"));
     if (!data)
+#if defined( __ppc__ )
     {
         IOLog("IOHWMonitor - no Params Version !!\n");
         return false;
     }
-
-    UInt32 version;
-	
 	// Changed this to OSReadBigInt32 from *(UInt32 *) to take care of endian problems
    version = OSReadBigInt32(data->getBytesNoCopy(),0);
+#else
+	// if (!data)
+	{
+		if (num = OSDynamicCast (OSNumber, provider->getProperty("version")))
+			version = num->unsigned32BitValue();
+		else {
+			IOLog("IOHWMonitor - no Params Version !!\n");
+			return false;
+		}
+	} else {
+		version = OSReadBigInt32(data->getBytesNoCopy(), 0);
+	}
+#endif
+
+	
     num = OSNumber::withNumber(version, 32);
     if (!num)
     {
@@ -223,10 +250,14 @@ bool IOHWMonitor::start(IOService *provider)
 		}
 
 		setProperty("type", type);
-
+		
+		typeStr = OSString::withCString (type);
 	}
-	else
+	else {
 		setProperty("type", obj);
+		typeStr = OSDynamicCast (OSString, obj);
+		typeStr->retain();
+	}
 
 	DLOG("IOHWMonitor::start(%s) - waiting for pmon\n", fDebugID);
 
@@ -256,20 +287,103 @@ bool IOHWMonitor::start(IOService *provider)
 		IOLog("%s: Failed to registerPowerDriver.\n", getName());
 	}
 
-	// Join the Power Management tree from IOService.h
-	provider->joinPMtree( this);
+	pDev = NULL;
+#if !defined( __ppc__ )
+	if (typeStr && !strncmp (typeStr->getCStringNoCopy(), "gpu", strlen ("gpu"))) {
+		pDev = OSDynamicCast (IOService, getParentEntry(gIOServicePlane));
+		while (pDev) {
+			/*
+			 * Just use metaCast to determine if this is an IOFrameBuffer/Accelerator object
+			 * Avoids having to be linked to the class
+			 */
+			if (pDev->metaCast ("IOFramebuffer")) {
+				if (pDev->inPlane (gIOPowerPlane)) {
+					break;
+				}
+			}
+			
+			if (pDev->metaCast ("IOAccelerator")) {
+				IOService *parentPDev;
+				
+				// Need parent in this case
+				parentPDev = OSDynamicCast (IOService, pDev->getParentEntry (gIOServicePlane));
+				if (parentPDev) {
+					if  (parentPDev->inPlane (gIOPowerPlane)) {
+						pDev = parentPDev;	// This is the one we need
+						break;
+					}
+				}
+			}
+			
+			pDev = OSDynamicCast (IOService, pDev->getParentEntry (gIOServicePlane));
+		}
+		
+		if (pDev) {
+			DLOG("%s: registering with FrameBuffer/Accelerator %s\n", getName(), pDev->getName());
+			pDev->registerInterestedDriver (this);
+		}
+	}
+#endif // !defined( __ppc__ )
+	if (!pDev)	{
+		// Join the Power Management tree from IOService.h
+		provider->joinPMtree( this);
+	}
 
     // Install power change handler (for restart notification)
-    DLOG("IOHWMonitor::start register insterest in power changes\n");
+    DLOG("IOHWMonitor::start register interest in power changes\n");
     registerPrioritySleepWakeInterest(&sysPowerDownHandler, this, 0);
+	
+	if (typeStr) typeStr->release();
     
 	DLOG("IOHWMonitor::start(%s) - done\n", fDebugID);
     return true;
 }
 
+#if !defined( __ppc__ )
+IOReturn IOHWMonitor::powerStateWillChangeTo (IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice)
+{
+	DLOG ("IOHWMonitor::powerStateWillChangeTo - state %ld\n", stateNumber);
+	
+	if (stateNumber == 0)	// Going to sleep (before parent driver sleeps)
+		return changePowerState (kIOHWMonitorOffState, whatDevice);
+	else
+		return IOPMAckImplied;
+}
+
+IOReturn IOHWMonitor::powerStateDidChangeTo (IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice)
+{
+	DLOG ("IOHWMonitor::powerStateDidChangeTo - state %ld\n", stateNumber);
+	
+	if (stateNumber != 0)	// Waking from sleep (after parent driver is awake)
+		return changePowerState (kIOHWMonitorOnState, whatDevice);
+	else
+		return IOPMAckImplied;
+}
+
+IOReturn IOHWMonitor::changePowerState(unsigned long whatState, IOService *powerChanger)
+{
+	powerPolicyChanger = powerChanger;			// Remember who called us
+	powerPolicyMaker = NULL;
+	
+	sleeping = (whatState == kIOHWMonitorOffState);
+	
+	DLOG ("IOHWMonitor::changePowerState - state %ld, sleeping %s, busy %s\n", whatState, sleeping ? "true" : "false", busy ? "true" : "false");
+	
+	if ( sleeping )
+		// If we're busy, promise to ack within kHWSensorPowerAckLimit microseconds, otherwise we're cool.
+		return busy ? kHWMonitorPowerAckLimit : IOPMAckImplied;
+	else
+		// If we're waking we don't care, so just ack.
+		return IOPMAckImplied;
+}
+#endif
+
 IOReturn IOHWMonitor::setPowerState(unsigned long whatState, IOService *policyMaker)
 {
 	powerPolicyMaker = policyMaker;			// Remember who called us
+	powerPolicyChanger = NULL;
+	
+	DLOG ("IOHWMonitor::setPowerState - state %ld\n", whatState);
 	
 	sleeping = (whatState == kIOHWMonitorOffState);
 	
@@ -327,8 +441,14 @@ IOReturn IOHWMonitor::updateValue(const OSSymbol *func, const OSSymbol *key)
 	 * If PM called us while we were reading the sensor, then sleeping may now be true
 	 * in which case we have to ack the PM so it knows we can sleep.
 	 */
-	if (sleeping && powerPolicyMaker)
-		powerPolicyMaker->acknowledgeSetPowerState ();
+	if (sleeping) {
+		if (powerPolicyMaker) {
+			powerPolicyMaker->acknowledgeSetPowerState ();
+		}
+		if (powerPolicyChanger) {
+			powerPolicyChanger->acknowledgePowerChange (this);
+		}
+	}
 		
     if(ret != kIOReturnSuccess)
         return ret;

@@ -290,7 +290,7 @@ copy(char *argv[], enum op type, int fts_options)
 	mask = ~umask(0777);
 	umask(~mask);
 
-	if ((ftsp = fts_open(argv, fts_options, mastercmp)) == NULL)
+	if ((ftsp = fts_open(argv, fts_options, NULL)) == NULL)
 		err(1, "fts_open");
 	for (badcp = rval = 0; (curr = fts_read(ftsp)) != NULL; badcp = 0) {
 		switch (curr->fts_info) {

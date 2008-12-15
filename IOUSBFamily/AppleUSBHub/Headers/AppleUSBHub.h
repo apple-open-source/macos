@@ -54,7 +54,7 @@ __attribute__((format(printf, 1, 2)));
 enum
 {
       kErrataCaptiveOKBit = 1,
-      kStartupDelayBit = 2,
+      kStartupDelayBit = 2
 };
 
 
@@ -102,6 +102,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     
 	bool								_needInterruptRead;						// T if we need a new interrupt read on either a power change or on the last I/O
 	bool								_needToCallResetDevice;
+	bool								_interruptReadPending;					// T if there is ab outstanding read on the interrupt pipe
     
     UInt32								_powerForCaptive;
     thread_call_t						_workThread;
@@ -135,6 +136,8 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     // Errata stuff
     UInt32								_errataBits;
     UInt32								_startupDelay;
+	AbsoluteTime						_wakeupTime;
+	bool								_ignoreDisconnectOnWakeup;
     
     static void 	InterruptReadHandlerEntry(OSObject *target, void *param, IOReturn status, UInt32 bufferSizeRemaining);
     void			InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining);
@@ -206,6 +209,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     IOUSBHubDescriptor 	GetCachedHubDescriptor() { return _hubDescriptor; }
 	bool				HubAreAllPortsDisconnectedOrSuspended();
     bool				IsPortInitThreadActiveForAnyPort();
+    bool				IsStatusChangedThreadActiveForAnyPort();
 	
     // test mode functions, called by the AppleUSBHSHubUserClient
     IOReturn			EnterTestMode();
@@ -246,6 +250,10 @@ public:
 	virtual bool			ConfigureHubDriver(void);
 	virtual IOReturn		HubPowerChange(unsigned long powerStateOrdinal);
 	virtual IOReturn		EnsureUsability(void);
+	virtual	IOReturn		GetPortInformation(UInt32 portNum, UInt32 *info);
+	virtual	IOReturn		ResetPort(UInt32 portNum);
+	virtual	IOReturn		SuspendPort(UInt32 portNum, bool suspend);
+	virtual	IOReturn		ReEnumeratePort(UInt32 portNum, UInt32 options);
 	
 	// static entry for EnsureUsability to make sure we are outside of the gate when we do it
     static void				EnsureUsabilityEntry(OSObject *target);

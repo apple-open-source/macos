@@ -1079,51 +1079,53 @@ IOEthernetInterface::controllerWillChangePowerState(
                                IOService *           policyMaker )
 {
 	if ( ( (flags & IOPMDeviceUsable ) == 0) && 
-         ( _controllerLostPower == false )   &&
-         _ctrEnabled )
+         ( _controllerLostPower == false ) )
     {
-        UInt32 filters;
-
         _controllerLostPower = true;
 
-        // Get the "aggressiveness" factor from the policy maker.
+		if (_ctrEnabled)
+		{
+            UInt32 filters;
 
-        ctr->getAggressiveness( kPMEthernetWakeOnLANSettings, &filters );
+            // Get the "aggressiveness" factor from the policy maker.
 
-        filters &= GET_SUPPORTED_FILTERS( gIOEthernetWakeOnLANFilterGroup );
+            ctr->getAggressiveness( kPMEthernetWakeOnLANSettings, &filters );
 
-        // Is the link up? If it is, leave the WOL filters intact,
-        // otherwise mask out the WOL filters that would not function
-        // without a proper link. This will reduce power consumption
-        // for cases when a machine is put to sleep and there is no
-        // network connection.
+            filters &= GET_SUPPORTED_FILTERS( gIOEthernetWakeOnLANFilterGroup );
 
-        OSNumber * linkStatusNumber = (OSNumber *) 
-                                      ctr->getProperty( kIOLinkStatus );
+            // Is the link up? If it is, leave the WOL filters intact,
+            // otherwise mask out the WOL filters that would not function
+            // without a proper link. This will reduce power consumption
+            // for cases when a machine is put to sleep and there is no
+            // network connection.
 
-        if ( ( linkStatusNumber == 0 ) ||
-             ( ( linkStatusNumber->unsigned32BitValue() &
-                 (kIONetworkLinkValid | kIONetworkLinkActive) ) ==
-                  kIONetworkLinkValid ) )
-        {
-            filters &= ~( kIOEthernetWakeOnMagicPacket |
-                          kIOEthernetWakeOnPacketAddressMatch );
-        }
+            OSNumber * linkStatusNumber = (OSNumber *) 
+                                          ctr->getProperty( kIOLinkStatus );
 
-        // Before controller is disabled, program its wake up filters.
-        // The WOL setting is formed by a bitwise OR between the WOL filter
-        // settings, and the aggresiveness factor from the policy maker.
+            if ( ( linkStatusNumber == 0 ) ||
+                 ( ( linkStatusNumber->unsigned32BitValue() &
+                     (kIONetworkLinkValid | kIONetworkLinkActive) ) ==
+                      kIONetworkLinkValid ) )
+            {
+                filters &= ~( kIOEthernetWakeOnMagicPacket |
+                              kIOEthernetWakeOnPacketAddressMatch );
+            }
 
-        enableFilter( ctr,
-                      gIOEthernetWakeOnLANFilterGroup,
-                      filters,
-                      kFilterOptionNoStateChange |
-                      kFilterOptionSyncPendingIO );
+            // Before controller is disabled, program its wake up filters.
+            // The WOL setting is formed by a bitwise OR between the WOL filter
+            // settings, and the aggresiveness factor from the policy maker.
 
-        // Call SIOCSIFFLAGS handler to disable the controller,
-        // and mark the interface as Not Running.
+            enableFilter( ctr,
+                          gIOEthernetWakeOnLANFilterGroup,
+                          filters,
+                          kFilterOptionNoStateChange |
+                          kFilterOptionSyncPendingIO );
 
-        syncSIOCSIFFLAGS(ctr);
+            // Call SIOCSIFFLAGS handler to disable the controller,
+            // and mark the interface as Not Running.
+
+            syncSIOCSIFFLAGS(ctr);
+		}
     }
     
     return super::controllerWillChangePowerState( ctr, flags,

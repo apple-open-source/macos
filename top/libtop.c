@@ -1866,7 +1866,7 @@ libtop_p_proc_command(libtop_pinfo_t *a_pinfo, struct kinfo_proc *a_kinfo)
 		 * \---------------/ 0xffffffff
 		 */
 		mib[0] = CTL_KERN;
-		mib[1] = KERN_PROCARGS;
+		mib[1] = KERN_PROCARGS2;
 		mib[2] = a_pinfo->psamp.pid;
 
 		procargssize = libtop_argmax;

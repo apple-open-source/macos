@@ -22,7 +22,8 @@
 <a href="./en/configuring.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./fr/configuring.html" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="./ja/configuring.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
-<a href="./ko/configuring.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
+<a href="./ko/configuring.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
+<a href="./tr/configuring.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 
 <p>Ce document décrit les fichiers utilisés pour configurer
@@ -125,7 +126,7 @@ le Serveur HTTP Apache.</p>
     une configuration très fine.</p>
 
     <p>Apache peut servir simultanément de nombreux sites web au travers des
-    <a href="vhosts/">HÃ´tes Virtuels</a>. La portée des directives peut ainsi
+    <a href="vhosts/">Hôtes Virtuels</a>. La portée des directives peut ainsi
     être limitée en les plaçant dans des sections
     <code class="directive"><a href="./mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code>,
     afin qu'elles ne s'appliquent qu'aux requêtes
@@ -134,7 +135,7 @@ le Serveur HTTP Apache.</p>
     <p>Bien que la plupart des directives puissent être placées dans
     chacune de ces sections, certaines d'entre elles n'ont aucun sens
     dans certains contextes.
-    Par exemple, les directives qui contrÃ´lent la création des processus
+    Par exemple, les directives qui contrôlent la création des processus
     n'ont de sens que dans le contexte du serveur principal. Pour déterminer
     quelles directives peuvent être placées dans quelles sections, consultez
     le <a href="mod/directive-dict.html#Context">Contexte</a> de la
@@ -164,7 +165,7 @@ le Serveur HTTP Apache.</p>
     <p>Pour déterminer quelles directives peuvent être placées
     dans les fichiers <code>.htaccess</code>, consultez le
     <a href="mod/directive-dict.html#Context">Contexte</a> de la
-    directive. L'administrateur du serveur peut contrÃ´ler quelles
+    directive. L'administrateur du serveur peut contrôler quelles
     directives peuvent être placées dans les fichiers
     <code>.htaccess</code> en définissant la directive
     <code class="directive"><a href="./mod/core.html#allowoverride">AllowOverride</a></code>
@@ -178,8 +179,9 @@ le Serveur HTTP Apache.</p>
 <a href="./en/configuring.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./fr/configuring.html" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="./ja/configuring.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
-<a href="./ko/configuring.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
+<a href="./ko/configuring.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
+<a href="./tr/configuring.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Authorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Authorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="./faq/">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div>
 </body></html>

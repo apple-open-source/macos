@@ -51,6 +51,7 @@
 - (void)refreshData:(BOOL)shouldForce;
 
 - (void)processDevice:(IOUSBDeviceRef)deviceIntf deviceNumber:(int)deviceNumber usbName:(NSString*)usbName;
+- (void)PrintPortInfo: (uint32_t)portInfo forDevice:(BusProbeDevice *)thisDevice;
 
 @end
 

@@ -37,7 +37,7 @@ int drop_piece;
 int white_hand_eval;
 int black_hand_eval;
 
-unsigned long hold_hash;
+uint32_t hold_hash;
 
 #define HHash(x,y)  (hold_hash ^= zobrist[(x)][(y)])
 

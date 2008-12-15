@@ -5852,10 +5852,10 @@ CPSPlugIn::UnpackUsernameAndPassword(
 				siResult = Get2StringsFromAuthBuffer( inAuthBuf, outUserName, (char **)&challenge );
 				if ( siResult == eDSNoErr )
 					siResult = GetDataFromAuthBuffer( inAuthBuf, 3, &digest, &len );
-				if ( siResult == eDSNoErr )
-					siResult = GetStringFromAuthBuffer( inAuthBuf, 4, &method );
-				if ( siResult == eDSNoErr && digest != NULL && method != NULL )
+				if ( siResult == eDSNoErr && digest != NULL)
 				{
+					GetStringFromAuthBuffer( inAuthBuf, 4, &method );
+					
 					*outPassword = (char *) malloc( len + 1 );
 					Throw_NULL( (*outPassword), eMemoryAllocError );
 					
@@ -5865,11 +5865,17 @@ CPSPlugIn::UnpackUsernameAndPassword(
 					memcpy( (*outPassword) + 1, digest, len );
 					*outPasswordLen = len + 1;
 					
-					*outChallenge = (char *) malloc( strlen((char *)challenge) + sizeof(kPWSPlugInDigestMethodStr) + strlen(method) + 1 );
-					strcpy( *outChallenge, (char *)challenge );
-					strcat( *outChallenge, kPWSPlugInDigestMethodStr );
-					strcat( *outChallenge, method );
-					strcat( *outChallenge, "\"" );
+					if( method != NULL ) {
+						*outChallenge = (char *) malloc( strlen((char *)challenge) + sizeof(kPWSPlugInDigestMethodStr) + strlen(method) + 1 );
+						strcpy( *outChallenge, (char *)challenge );
+						strcat( *outChallenge, kPWSPlugInDigestMethodStr );
+						strcat( *outChallenge, method );
+						strcat( *outChallenge, "\"" );
+					}
+					else
+					{
+						*outChallenge = strdup( (char *)challenge );
+					}
 				}
                 break;
 			

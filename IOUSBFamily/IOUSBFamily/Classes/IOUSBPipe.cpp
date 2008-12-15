@@ -581,16 +581,16 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
 {
     IOReturn	err = kIOReturnSuccess;
 
-    USBLog(7, "IOUSBPipe[%p]::Read #3 (addr %d:%d type %d) - reqCount = %ld", this, _address, _endpoint.number , _endpoint.transferType, reqCount);
+    USBLog(7, "IOUSBPipe[%p]::Read #3 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
-        USBLog(5, "IOUSBPipe[%p]::Read - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %ld || completionTimeout: %ld)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
+        USBLog(5, "IOUSBPipe[%p]::Read - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, (uint32_t)noDataTimeout, (uint32_t)completionTimeout);
 		return kIOReturnBadArgument;
     }
 
     if (!buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %ld < reqCount %ld)", this, buffer, buffer->getLength(), reqCount);
+        USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %qd < reqCount %qd)", this, buffer, buffer ? (uint64_t)buffer->getLength() : 0, (uint64_t)reqCount);
         return kIOReturnBadArgument;
     }
 
@@ -653,16 +653,16 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
 {
     IOReturn	err = kIOReturnSuccess;
 
-    USBLog(7, "IOUSBPipe[%p]::Write #3 (addr %d:%d type %d) - reqCount = %ld", this, _address, _endpoint.number , _endpoint.transferType, reqCount);
+    USBLog(7, "IOUSBPipe[%p]::Write #3 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
-        USBLog(5, "IOUSBPipe[%p]::Write - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %ld || completionTimeout: %ld)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
+        USBLog(5, "IOUSBPipe[%p]::Write - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, (uint32_t)noDataTimeout, (uint32_t)completionTimeout);
 		return kIOReturnBadArgument;
     }
 
     if (!buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %ld < reqCount %ld)", this, buffer, buffer->getLength(), reqCount);
+        USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %qd < reqCount %qd)", this, buffer, buffer ? (uint64_t)buffer->getLength() : 0, (uint64_t)reqCount);
 		return kIOReturnBadArgument;
     }
 
@@ -800,7 +800,7 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 			}
 			params.options = deviceAddress + (endpointNum <<8) + (endpointType << 16) + (in << 24);
 			
-			USBLog(5, "[%p] ClearPipeStall, calling device messageClients (kIOUSBMessageHubPortClearTT) with options: 0x%lx", this, params.options);
+			USBLog(6, "IOUSBPipe[%p]::ClearPipeStall  calling device messageClients (kIOUSBMessageHubPortClearTT) with options: 0x%x", this, (uint32_t)params.options);
 			_device->_expansionData->_usbPlaneParent->retain();
 			(void) _device->_expansionData->_usbPlaneParent->messageClients(kIOUSBMessageHubPortClearTT, &params, sizeof(params));
 			_device->_expansionData->_usbPlaneParent->release();
@@ -906,7 +906,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *	buffer,
 {
     IOReturn	err = kIOReturnSuccess;
 
-    USBLog(7, "IOUSBPipe[%p]::Read (Low Latency Isoc) buffer: %p, completion: %p, numFrames: %ld, update: %ld", this, buffer, completion, numFrames, updateFrequency);
+    USBLog(7, "IOUSBPipe[%p]::Read (Low Latency Isoc) buffer: %p, completion: %p, numFrames: %d, update: %d", this, buffer, completion, (uint32_t)numFrames, (uint32_t)updateFrequency);
     if (_correctStatus == kIOUSBPipeStalled)
     {
         USBLog(2, "IOUSBPipe[%p]::Read (Low Latency Isoc) - invalid read on a stalled low latency isoch pipe", this);
@@ -959,7 +959,7 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
 {
     IOReturn	err = kIOReturnSuccess;
 
-    USBLog(7, "IOUSBPipe[%p]::Write (Low Latency Isoc) buffer: %p, completion: %p, numFrames: %ld, update: %ld", this, buffer, completion, numFrames, updateFrequency);
+    USBLog(7, "IOUSBPipe[%p]::Write (Low Latency Isoc) buffer: %p, completion: %p, numFrames: %d, update: %d", this, buffer, completion, (uint32_t)numFrames, (uint32_t)updateFrequency);
     if (_correctStatus == kIOUSBPipeStalled)
     {
         USBLog(2, "IOUSBPipe[%p]::Write (Low Latency Isoc) - invalid write on a stalled isoch pipe", this);
@@ -1021,16 +1021,16 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
         return kIOReturnUnsupported;
     }
     
-    USBLog(7, "IOUSBPipe[%p]::Read #4 (addr %d:%d type %d) - reqCount = %ld", this, _address, _endpoint.number , _endpoint.transferType, reqCount);
+    USBLog(7, "IOUSBPipe[%p]::Read #4 (addr %d:%d type %d) - reqCount = %qd", this, _address, _endpoint.number , _endpoint.transferType, (uint64_t)reqCount);
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
-        USBLog(5, "IOUSBPipe[%p]::Read #4 - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %ld || completionTimeout: %ld)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
+        USBLog(5, "IOUSBPipe[%p]::Read #4 - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, (uint32_t)noDataTimeout, (uint32_t)completionTimeout);
         return kIOReturnBadArgument;
     }
     
     if (!buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(5, "IOUSBPipe[%p]::Read #4- bad buffer: (buffer %p) || ( length %ld < reqCount %ld)", this, buffer, buffer->getLength(), reqCount);
+        USBLog(5, "IOUSBPipe[%p]::Read #4- bad buffer: (buffer %p) || ( length %qd < reqCount %qd)", this, buffer, buffer ? (uint64_t)buffer->getLength() : 0, (uint64_t)reqCount);
         return kIOReturnBadArgument;
     }
 

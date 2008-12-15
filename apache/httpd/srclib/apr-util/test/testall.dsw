@@ -30,6 +30,24 @@ Package=<4>
 
 ###############################################################################
 
+Project: "apr_ldap"="..\ldap\apr_ldap.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libapr
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libaprutil
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "apriconv"="..\..\apr-iconv\apriconv.dsp" - Package Owner=<4>
 
 Package=<5>
@@ -212,6 +230,9 @@ Package=<5>
 
 Package=<4>
 {{{
+    Begin Project Dependency
+    Project_Dep_Name apr_ldap
+    End Project Dependency
     Begin Project Dependency
     Project_Dep_Name libapr
     End Project Dependency

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -82,15 +82,23 @@ typedef struct __aslresponse *aslresponse;
  * Additional attributes may be added as desired, and are
  * appended in the order that they are defined.
  */
-#define ASL_KEY_TIME      "Time"     /* Timestamp (see ctime(3)).  Set automatically */
-#define ASL_KEY_HOST      "Host"     /* Sender's address (set by the server) */
-#define ASL_KEY_SENDER    "Sender"   /* Sender's identification string.  Default is process name */
-#define ASL_KEY_FACILITY  "Facility" /* Sender's facility.  Default is "user". */
-#define ASL_KEY_PID       "PID"      /* Sending process ID encoded as a string.  Set automatically */
-#define ASL_KEY_UID       "UID"      /* UID that sent the log message (set by the server) */
-#define ASL_KEY_GID       "GID"      /* GID that sent the log message (set by the server) */
-#define ASL_KEY_LEVEL     "Level"    /* Log level number encoded as a string.  See levels above */
-#define ASL_KEY_MSG       "Message"  /* Actual message that will be logged */
+#define ASL_KEY_TIME        "Time"          /* Timestamp.  Set automatically */
+#define ASL_KEY_TIME_NSEC   "TimeNanoSec"   /* Nanosecond time. */
+#define ASL_KEY_HOST        "Host"          /* Sender's address (set by the server). */
+#define ASL_KEY_SENDER      "Sender"        /* Sender's identification string.  Default is process name. */
+#define ASL_KEY_FACILITY    "Facility"      /* Sender's facility.  Default is "user". */
+#define ASL_KEY_PID         "PID"           /* Sending process ID encoded as a string.  Set automatically. */
+#define ASL_KEY_UID         "UID"           /* UID that sent the log message (set by the server). */
+#define ASL_KEY_GID         "GID"           /* GID that sent the log message (set by the server). */
+#define ASL_KEY_LEVEL       "Level"         /* Log level number encoded as a string.  See levels above. */
+#define ASL_KEY_MSG         "Message"       /* Message text. */
+#define ASL_KEY_READ_UID    "ReadUID"       /* User read access (-1 is any group). */
+#define ASL_KEY_READ_GID    "ReadGID"       /* Group read access (-1 is any group). */
+#define ASL_KEY_EXPIRE_TIME "ASLExpireTime" /* Expiration time for messages with long TTL. */
+#define ASL_KEY_MSG_ID      "ASLMessageID"  /* 64-bit message ID number (set by the server). */
+#define ASL_KEY_SESSION     "Session"       /* Session (set by the launchd). */
+#define ASL_KEY_REF_PID     "RefPID"        /* Reference PID for messages proxied by launchd */
+#define ASL_KEY_REF_PROC    "RefProc"       /* Reference process for messages proxied by launchd */
 
 /* 
  * Message Types
@@ -267,7 +275,7 @@ int asl_set_query(aslmsg msg, const char *key, const char *value, uint32_t op);
 /*
  * asl_search: Search for messages matching the criteria described
  * by the aslmsg .  The caller should set the attributes to match using
- * asl_set_query() or asl_set().  The operatoin ASL_QUERY_OP_EQUAL is
+ * asl_set_query() or asl_set().  The operation ASL_QUERY_OP_EQUAL is
  * used for attributes set with asl_set().
  * a:  an aslmsg
  * returns: a set of messages that can be iterated over using aslresp_next(),
@@ -277,16 +285,16 @@ aslresponse asl_search(aslclient asl, aslmsg msg);
 
 /*
  * aslresponse_next: Iterate over responses returned from asl_search()
- * a: a response returned from asl_search();
+ * r: a response returned from asl_search();
  * returns: The next log message (an aslmsg) or NULL on failure
  */
 aslmsg aslresponse_next(aslresponse r);
 
 /*
  * aslresponse_free: Free a response returned from asl_search() 
- * a: a response returned from asl_search()
+ * r: a response returned from asl_search()
  */
-void aslresponse_free(aslresponse a);
+void aslresponse_free(aslresponse r);
 
 __END_DECLS
 

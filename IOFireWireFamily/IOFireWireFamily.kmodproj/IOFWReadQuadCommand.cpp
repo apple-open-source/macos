@@ -93,12 +93,22 @@ bool IOFWReadQuadCommand::initAll(IOFireWireNub *device, FWAddress devAddress,
 	UInt32 *quads, int numQuads, FWDeviceCallback completion,
 	void *refcon, bool failOnReset)
 {
-    if(!IOFWAsyncCommand::initAll(device, devAddress,
-	NULL, completion, refcon, failOnReset))
-	return false;
-    fSize = 4*numQuads;
-    fQuads = quads;
-    return true;
+	bool success = true;
+	
+    success = IOFWAsyncCommand::initAll(device, devAddress,
+										NULL, completion, refcon, failOnReset);
+	
+	// create member variables
+	
+	if( success )
+	{
+		fSize = 4*numQuads;
+		fQuads = quads;
+		
+		success = createMemberVariables();
+	}
+	
+	return success;
 }
 
 // initAll
@@ -109,13 +119,88 @@ bool IOFWReadQuadCommand::initAll(IOFireWireController *control,
                                   UInt32 generation, FWAddress devAddress,
         UInt32 *quads, int numQuads, FWDeviceCallback completion,
         void *refcon)
+{	bool success = true;
+	
+    success = IOFWAsyncCommand::initAll(control, generation, devAddress,
+										NULL, completion, refcon);
+	
+	// create member variables
+	
+	if( success )
+	{
+		fSize = 4*numQuads;
+		fQuads = quads;
+		
+		success = createMemberVariables();
+	}
+	
+	return success;
+}
+
+// createMemberVariables
+//
+//
+
+bool IOFWReadQuadCommand::createMemberVariables( void )
 {
-    if(!IOFWAsyncCommand::initAll(control, generation, devAddress,
-        NULL, completion, refcon))
-        return false;
-    fSize = 4*numQuads;
-    fQuads = quads;
-    return true;
+	bool success = true;
+	
+	if( fMembers == NULL )
+	{
+		success = IOFWAsyncCommand::createMemberVariables();
+	}
+	
+	if( fMembers )
+	{
+		if( success )
+		{
+			fMembers->fSubclassMembers = IOMalloc( sizeof(MemberVariables) );
+			if( fMembers->fSubclassMembers == NULL )
+				success = false;
+		}
+		
+		// zero member variables
+		
+		if( success )
+		{
+			bzero( fMembers->fSubclassMembers, sizeof(MemberVariables) );
+		}
+		
+		// clean up on failure
+		
+		if( !success )
+		{
+			destroyMemberVariables();
+		}
+	}
+	
+	return success;
+}
+
+// destroyMemberVariables
+//
+//
+
+void IOFWReadQuadCommand::destroyMemberVariables( void )
+{
+	if( fMembers->fSubclassMembers != NULL )
+	{		
+		// free member variables
+		
+		IOFree( fMembers->fSubclassMembers, sizeof(MemberVariables) );
+		fMembers->fSubclassMembers = NULL;
+	}
+}
+
+// free
+//
+//
+
+void IOFWReadQuadCommand::free()
+{	
+	destroyMemberVariables();
+	
+	IOFWAsyncCommand::free();
 }
 
 // reinit
@@ -194,7 +279,12 @@ IOReturn IOFWReadQuadCommand::execute()
 	{
 		if( ((IOFWAsyncCommand::MemberVariables*)fMembers)->fForceBlockRequests )
 		{
-			flags |= kIOFWWriteBlockRequest;
+			flags |= kIOFWReadBlockRequest;
+		}
+		
+		if( ((MemberVariables*)fMembers->fSubclassMembers)->fPingTime )
+		{
+			flags |= kIOFWReadPingTime;
 		}
 	}
 	

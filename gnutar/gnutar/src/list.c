@@ -227,6 +227,9 @@ read_and (void (*do_something) (void))
 	    } else
 	      unlink(cle->tmp);
 
+	  /* 5781559: Make sure EAs don't destroy overriding quarantine information. */
+	  apply_qtn_to_path(cle->dst);
+
 	  free(cle->tmp);
 	  free(cle->dst);
 	  free(cle->src);

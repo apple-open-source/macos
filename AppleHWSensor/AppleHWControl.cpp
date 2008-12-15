@@ -24,6 +24,9 @@
  *
  */
 //		$Log: AppleHWControl.cpp,v $
+//		Revision 1.7  2008/04/18 23:25:31  raddog
+//		<rdar://problem/5828356> AppleHWSensor - control code needs to deal with endian issues
+//		
 //		Revision 1.6  2007/05/07 18:29:38  pmr
 //		change acknowledgePowerChange to acknowledgeSetPowerState
 //		
@@ -115,13 +118,27 @@ bool IOHWControl::start(IOService *provider)
 		// Control id - required
 		data = OSDynamicCast(OSData, provider->getProperty(sControlID));
 		if (!data)
+#if defined( __ppc__ )
 		{
 			IOLog("IOHWControl - no Control ID !!\n");
 			break;
 		}
 
         fID = *(UInt32 *)data->getBytesNoCopy();
-        num = OSNumber::withNumber(fID, 32);
+#else
+		// if (!data)
+		{
+			if (num = OSDynamicCast (OSNumber, provider->getProperty(sControlID)))
+				fID = num->unsigned32BitValue();
+			else {
+				IOLog("IOHWControl - no Control ID !!\n");
+				break;
+			}
+		} else {
+			fID = OSReadBigInt32(data->getBytesNoCopy(), 0);
+		}
+#endif
+       num = OSNumber::withNumber(fID, 32);
 		if (!num)
 		{
 			IOLog("IOHWControl - can't set Control ID !!\n");
@@ -144,6 +161,22 @@ bool IOHWControl::start(IOService *provider)
 			setProperty( sMinValue, num );
 			num->release();
 			}
+#if !defined( __ppc__ )
+			else	// !data
+			{
+			if ( ( num = OSDynamicCast(OSNumber, provider->getProperty( sMinValue ) ) ) != NULL )
+				{
+				UInt32					minValue;
+
+				minValue = num->unsigned32BitValue();
+				if ( ( num = OSNumber::withNumber( minValue, 32 ) ) == NULL )
+					break;
+
+				setProperty( sMinValue, num );
+				num->release();
+				}
+			}
+#endif
 
 		if ( ( data = OSDynamicCast(OSData, provider->getProperty( sMaxValue ) ) ) != NULL )
 			{
@@ -156,6 +189,22 @@ bool IOHWControl::start(IOService *provider)
 			setProperty( sMaxValue, num );
 			num->release();
 			}
+#if !defined( __ppc__ )
+			else 
+			{
+			if ( ( num = OSDynamicCast(OSNumber, provider->getProperty( sMaxValue ) ) ) != NULL )
+				{
+				UInt32					maxValue;
+
+				maxValue = num->unsigned32BitValue();
+				if ( ( num = OSNumber::withNumber( maxValue, 32 ) ) == NULL )
+					break;
+
+				setProperty( sMaxValue, num );
+				num->release();
+				}
+			}
+#endif
 
 		if ( ( data = OSDynamicCast(OSData, provider->getProperty( sSafeValue ) ) ) != NULL )
 			{
@@ -168,6 +217,22 @@ bool IOHWControl::start(IOService *provider)
 			setProperty( sSafeValue, num );
 			num->release();
 			}
+#if !defined( __ppc__ )
+			else 
+			{
+			if ( ( num = OSDynamicCast(OSNumber, provider->getProperty( sSafeValue ) ) ) != NULL )
+				{
+				UInt32					safeValue;
+
+				safeValue = num->unsigned32BitValue();
+				if ( ( num = OSNumber::withNumber( safeValue, 32 ) ) == NULL )
+					break;
+
+				setProperty( sSafeValue, num );
+				num->release();
+				}
+			}
+#endif
 
 		// set the channel id
 		// If we've got version 1 encoding, channel id is sensor id
@@ -180,13 +245,31 @@ bool IOHWControl::start(IOService *provider)
 		else if (num->unsigned32BitValue() == 2)
 		{
 			data = OSDynamicCast(OSData, provider->getProperty("reg"));
-			if (!data) break;
+			if (!data) 
+#if defined( __ppc__ )
+			{
+				IOLog("IOHWControl - version 2 but no reg property !!\n");
+				break;
+			}
 
 			fChannel = *(UInt32 *)data->getBytesNoCopy();
+#else
+			// if (!data)
+			{
+				if (num = OSDynamicCast (OSNumber, provider->getProperty("reg")))
+					fChannel = num->unsigned32BitValue();
+				else {
+					IOLog("IOHWControl - version 2 but no reg property !!\n");
+					break;
+				}
+			} else {
+				fChannel = OSReadBigInt32(data->getBytesNoCopy(), 0);
+			}
+#endif
 		}
-		else
+		else	// version != 2
 		{
-			IOLog("IOHWControl - version 2 but no reg property !!\n");
+			IOLog("IOHWControl - unrecognized version %d !!\n", num->unsigned32BitValue());
 			break;
 		}
 
@@ -207,14 +290,14 @@ bool IOHWControl::start(IOService *provider)
 
     if(ret != kIOReturnSuccess)
 	{
-		IOLog("AppleHWControl::start failed to read initial current value: 0x%x!\n", ret);
+		IOLog("IOHWControl::start failed to read initial current value: 0x%x!\n", ret);
 
 		return(false);
 	}
     ret = updateTargetValue();
     if(ret != kIOReturnSuccess)
 	{
-		IOLog("AppleHWControl::start failed to read initial target value!\n");
+		IOLog("IOHWControl::start failed to read initial target value!\n");
 
 		return(false);
 	}
@@ -272,7 +355,12 @@ IOReturn IOHWControl::setTargetValue(OSNumber *val)
 	 * If the system is going to sleep or waking from sleep, do nothing - leave the value unchanged
 	 *
 	 * This prevents untimely I/O during sleep/wake
+	 *
+	 * NOTE for Intel Systems - we capture the values even during sleep so we can restore them on wake
 	 */
+#if !defined( __ppc__ )
+	lastValue = val->unsigned32BitValue();
+#endif	
          
 	if (sleeping || systemIsRestarting)
         return kIOReturnOffline;
@@ -295,3 +383,27 @@ IOReturn IOHWControl::setTargetValue(OSNumber *val)
     return ret;
 }
 
+#if !defined( __ppc__ )
+IOReturn IOHWControl::setPowerState(unsigned long whatState, IOService *policyMaker)
+{
+	IOReturn ret;
+	bool goingToSleep;
+	
+	ret = IOHWMonitor::setPowerState (whatState, policyMaker);
+	
+	goingToSleep = (whatState == kIOHWMonitorOffState);
+	
+	if ((ret == IOPMAckImplied) && !goingToSleep) {
+		// On wake re-send most recent target value;
+		OSNumber *lastNum;
+		
+		lastNum = OSNumber::withNumber (lastValue, 32);
+		if (lastNum) {
+			DLOG ("IOHWControl::setPowerState - resending target value 0x%x on wake\n", lastNum->unsigned32BitValue());
+			setTargetValue (lastNum);
+		}
+	}
+	
+	return ret;
+}
+#endif

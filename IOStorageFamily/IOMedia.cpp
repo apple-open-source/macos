@@ -863,6 +863,53 @@ IOReturn IOMedia::synchronizeCache(IOService * client)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+IOReturn IOMedia::discard(IOService * client,
+                          UInt64      byteStart,
+                          UInt64      byteCount)
+{
+    //
+    // Delete unused data from the storage object at the specified byte offset,
+    // synchronously.
+    //
+
+    if (isInactive())
+    {
+        return kIOReturnNoMedia;
+    }
+
+    if (_openLevel == kIOStorageAccessNone)    // (instantaneous value, no lock)
+    {
+        return kIOReturnNotOpen;
+    }
+
+    if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
+    {
+///m:2425148:workaround:commented:start
+//        return kIOReturnNotPrivileged;
+///m:2425148:workaround:commented:stop
+    }
+
+    if (_isWritable == 0)
+    {
+        return kIOReturnLockedWrite;
+    }
+
+    if (_mediaSize == 0 || _preferredBlockSize == 0)
+    {
+        return kIOReturnUnformattedMedia;
+    }
+
+    if (_mediaSize < byteStart + byteCount)
+    {
+        return kIOReturnBadArgument;
+    }
+
+    byteStart += _mediaBase;
+    return getProvider()->discard(this, byteStart, byteCount);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 UInt64 IOMedia::getPreferredBlockSize() const
 {
     //

@@ -389,7 +389,8 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         
         // Do not use standardized errata bits yet
         _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
-        
+  		setProperty("Errata", _errataBits, 32);
+      
 		USBLog(7, "AppleUSBUHCI[%p]::UIMInitialize - there are %d interrupt sources", this, _numInterruptSources);
         
         //_interruptSource = IOInterruptEventSource::interruptEventSource(this, &InterruptHandler, _device);
@@ -811,51 +812,8 @@ AppleUSBUHCI::ioRead32(UInt16 offset) {
     return value;
 }
 
-#elif defined(__i386__)
-extern __inline__ unsigned long inl(
-                                    UInt16 port)
-{
-    UInt32 value;
-    __asm__ volatile("inl %1, %0" : "=a" (value) : "d" (port));
-    return (value);
-}
-
-extern __inline__ unsigned short inw(
-                                     UInt16 port)
-{
-    UInt16 value;
-    __asm__ volatile(".byte 0x66; inl %1, %0" : "=a" (value) : "d" (port));
-    return (value);
-}
-
-extern __inline__ unsigned char inb(
-                                    UInt16 port)
-{
-    UInt8 value;
-    __asm__ volatile("inb %1, %0" : "=a" (value) : "d" (port));
-    return (value);
-}
-
-extern __inline__ void outl(
-                            UInt16 port,
-                            UInt32 value)
-{
-    __asm__ volatile("outl %0, %1" : : "a" (value), "d" (port));
-}
-
-extern __inline__ void outw(
-                            UInt16 port,
-                            UInt16 value)
-{
-    __asm__ volatile(".byte 0x66; outl %0, %1" : : "a" (value), "d" (port));
-}
-
-extern __inline__ void outb(
-                            UInt16 port,
-                            UInt8 value)
-{
-    __asm__ volatile("outb %0, %1" : : "a" (value), "d" (port));
-}
+#elif defined(__i386__) || defined(__x86_64__)
+#include <architecture/i386/pio.h>
 
 void 
 AppleUSBUHCI::ioWrite8(UInt16 offset, UInt8 value) {
@@ -1069,7 +1027,7 @@ AppleUSBUHCI::scavengeIsochTransactions(void)
 		// update the consumer count
 		_consumerCount = cachedConsumer;
 		
-		USBLog(7, "AppleUSBUHCI[%p]::scavengeIsocTransactions - after reversal, cachedConsumer[0x%lx]", this, cachedConsumer);
+		USBLog(7, "AppleUSBUHCI[%p]::scavengeIsocTransactions - after reversal, cachedConsumer[0x%x]", this, (uint32_t)cachedConsumer);
 		// now cachedDoneQueueHead points to the head of the done queue in the right order
 		while (pDoneEl)
 		{
@@ -1090,7 +1048,7 @@ AppleUSBUHCI::scavengeIsochTransactions(void)
     {
 		if (pEP->onReversedList)
 		{
-			USBLog(1, "AppleUSBUHCI[%p]::scavengeIsocTransactions - EP (%p) still had %ld TDs on the reversed list!!", this, pEP, pEP->onReversedList);
+			USBLog(1, "AppleUSBUHCI[%p]::scavengeIsocTransactions - EP (%p) still had %d TDs on the reversed list!!", this, pEP, (uint32_t)pEP->onReversedList);
 		}
 		ReturnIsochDoneQueue(pEP);
 		AddIsochFramesToSchedule(pEP);
@@ -1214,14 +1172,14 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 					{	// Command is still alive, go to next queue
 						if (foundInactive)
 						{
-							USBLog(7, "scavengeQueueHeads - found still active TD %p at the end", qTD);
+							USBLog(7, "AppleUSBUHCI[%p]::scavengeQueueHeads  scavengeQueueHeads - found still active TD %p at the end", this, qTD);
 							qTD->print(7);
 						}
 						break;
 					}
 					if (!foundInactive)
 					{
-						USBLog(7, "scavengeQueueHeads - found non-active TD %p in QH %p", qTD, pQH);
+						USBLog(7, "AppleUSBUHCI[%p]::scavengeQueueHeads  scavengeQueueHeads - found non-active TD %p in QH %p", this, qTD, pQH);
 						pQH->print(7);
 						qTD->print(7);
 						foundInactive = true;
@@ -1235,14 +1193,14 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 						// since the harwdare skipped them
 						if ((ctrlStatus & kUHCI_TD_SPD) && (actLength < UHCI_TD_GET_MAXLEN(USBToHostLong(qTD->GetSharedLogical()->token))))
 						{
-							USBLog(6, "scavengeQueueHeads - found short TD %p is short", qTD);
+							USBLog(7, "AppleUSBUHCI[%p]::scavengeQueueHeads  scavengeQueueHeads - found short TD %p is short", this, qTD);
 							shortTransfer = true;
 							lastToggle = USBToHostLong(qTD->GetSharedLogical()->token) & kUHCI_TD_D;			// will be used later
 						}
 					}
 					else
 					{
-						USBLog(6, "scavengeQueueHeads - found stalled TD %p", qTD);
+						USBLog(6, "AppleUSBUHCI[%p]::scavengeQueueHeads  scavengeQueueHeads - found stalled TD %p", this,	qTD);
 						pQH->stalled = true;
 					}
 				}
@@ -1280,7 +1238,7 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 						}
 					}
 				}
-				if (qTD->lastTDofTransaction)
+				if (qTD->callbackOnTD)
 				{
 					// We have the complete command
 					USBLog(7, "AppleUSBUHCI[%p]::scavengeQueueHeads - TD (%p) is last of transaction", this, qTD);
@@ -1433,7 +1391,7 @@ AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing(AppleUHCITransferDescriptor *pHCDoneT
 		
 		bufferSizeRemaining += (UHCI_TD_GET_MAXLEN(token) - UHCI_TD_GET_ACTLEN(ctrlStatus));
 		
-		if (pHCDoneTD->lastTDofTransaction)
+		if (pHCDoneTD->callbackOnTD)
 		{
 			if ( pHCDoneTD->command == NULL )
 			{
@@ -1446,7 +1404,7 @@ AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing(AppleUHCITransferDescriptor *pHCDoneT
 				if(completion.action)
 				{
 					// remove flag before completing
-					pHCDoneTD->lastTDofTransaction = false;
+					pHCDoneTD->callbackOnTD = false;
 					if (errStatus)
 					{
 						USBLog(3, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing - calling completion routine (%p) - err[%p] remain[%p]", this, completion.action, (void*)errStatus, (void*)bufferSizeRemaining);
@@ -1864,7 +1822,7 @@ AppleUSBUHCI::InitializeBufferMemory()
 			break;
 		}
 		
-		_frameList = (UInt32 *)_frameListBuffer->getBytesNoCopy();
+		_frameList = (USBPhysicalAddress32 *)_frameListBuffer->getBytesNoCopy();
 		pPhysical = segments.fIOVMAddr;
 		
 		USBLog(7, "AppleUSBUHCI[%p]::InitializeBufferMemory - frame list pPhysical[%p] frames[%p]", this, (void*)pPhysical, _frameList);
@@ -2111,7 +2069,7 @@ AppleUSBUHCI::GetIsochAlignmentBuffer()
 	{
 		_uhciAlignmentHighWaterMark++;
 		setProperty("AlignmentBuffersHighWaterMark", _uhciAlignmentHighWaterMark, 32);
-		USBLog(5, "AppleUSBUHCI[%p]::GetIsochAlignmentBuffer - New isoch alignment high water mark: %ld", this, _uhciAlignmentHighWaterMark);
+		USBLog(5, "AppleUSBUHCI[%p]::GetIsochAlignmentBuffer - New isoch alignment high water mark: %d", this, (uint32_t)_uhciAlignmentHighWaterMark);
 	}
 	
 	return ap;

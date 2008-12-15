@@ -69,14 +69,14 @@ getGvimName(char *name, int runtime)
 
     // Registry didn't work, use the search path.
     if (name[0] == 0)
-	strcpy(name, searchpath("gvim.exe"));
+	strcpy(name, searchpath((char *)"gvim.exe"));
 
     if (!runtime)
     {
 	// Only when looking for the executable, not the runtime dir, we can
 	// search for the batch file or a name without a path.
 	if (name[0] == 0)
-	    strcpy(name, searchpath("gvim.bat"));
+	    strcpy(name, searchpath((char *)"gvim.bat"));
 	if (name[0] == 0)
 	    strcpy(name, "gvim");	// finds gvim.bat or gvim.exe
 
@@ -152,9 +152,9 @@ dyn_libintl_init(char *dir)
 	FARPROC	    *ptr;
     } libintl_entry[] =
     {
-	{"gettext",		(FARPROC*)&dyn_libintl_gettext},
-	{"textdomain",		(FARPROC*)&dyn_libintl_textdomain},
-	{"bindtextdomain",	(FARPROC*)&dyn_libintl_bindtextdomain},
+	{(char *)"gettext",		(FARPROC*)&dyn_libintl_gettext},
+	{(char *)"textdomain",		(FARPROC*)&dyn_libintl_textdomain},
+	{(char *)"bindtextdomain",	(FARPROC*)&dyn_libintl_bindtextdomain},
 	{NULL, NULL}
     };
 
@@ -205,13 +205,13 @@ null_libintl_gettext(const char *msgid)
 }
 
     static char *
-null_libintl_bindtextdomain(const char *domainname, const char *dirname)
+null_libintl_bindtextdomain(const char * /* domainname */, const char * /* dirname */)
 {
     return NULL;
 }
 
     static char *
-null_libintl_textdomain(const char* domainname)
+null_libintl_textdomain(const char*  /* domainname */)
 {
     return NULL;
 }
@@ -308,7 +308,7 @@ HINSTANCE g_hmodThisDll = NULL;	// Handle to this DLL itself.
 // DllMain
 //---------------------------------------------------------------------------
 extern "C" int APIENTRY
-DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved)
+DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID  /* lpReserved */)
 {
     switch (dwReason)
     {
@@ -438,7 +438,7 @@ STDMETHODIMP CShellExtClassFactory::CreateInstance(LPUNKNOWN pUnkOuter,
 }
 
 
-STDMETHODIMP CShellExtClassFactory::LockServer(BOOL fLock)
+STDMETHODIMP CShellExtClassFactory::LockServer(BOOL  /* fLock */)
 {
     return NOERROR;
 }
@@ -520,9 +520,9 @@ STDMETHODIMP_(ULONG) CShellExt::Release()
 //		It could be a context menu or a property sheet.
 //
 
-STDMETHODIMP CShellExt::Initialize(LPCITEMIDLIST pIDFolder,
+STDMETHODIMP CShellExt::Initialize(LPCITEMIDLIST  /* pIDFolder */,
 				   LPDATAOBJECT pDataObj,
-				   HKEY hRegKey)
+				   HKEY  /* hRegKey */)
 {
     // Initialize can be called more than once
     if (m_pDataObj)
@@ -562,8 +562,8 @@ STDMETHODIMP CShellExt::Initialize(LPCITEMIDLIST pIDFolder,
 STDMETHODIMP CShellExt::QueryContextMenu(HMENU hMenu,
 					 UINT indexMenu,
 					 UINT idCmdFirst,
-					 UINT idCmdLast,
-					 UINT uFlags)
+					 UINT  /* idCmdLast */,
+					 UINT  /* uFlags */)
 {
     UINT idCmd = idCmdFirst;
 
@@ -575,7 +575,7 @@ STDMETHODIMP CShellExt::QueryContextMenu(HMENU hMenu,
 
     // Initialize m_cntOfHWnd to 0
     m_cntOfHWnd = 0;
-    // Retieve all the vim instances
+    // Retrieve all the vim instances
     EnumWindows(EnumWindowsProc, (LPARAM)this);
 
     if (cbFiles > 1)
@@ -718,11 +718,11 @@ STDMETHODIMP CShellExt::InvokeCommand(LPCMINVOKECOMMANDINFO lpcmi)
     return hr;
 }
 
-STDMETHODIMP CShellExt::PushToWindow(HWND hParent,
-				   LPCSTR pszWorkingDir,
-				   LPCSTR pszCmd,
-				   LPCSTR pszParam,
-				   int iShowCmd,
+STDMETHODIMP CShellExt::PushToWindow(HWND  /* hParent */,
+				   LPCSTR  /* pszWorkingDir */,
+				   LPCSTR  /* pszCmd */,
+				   LPCSTR  /* pszParam */,
+				   int  /* iShowCmd */,
 				   int idHWnd)
 {
     HWND hWnd = m_hWnd[idHWnd];
@@ -740,9 +740,9 @@ STDMETHODIMP CShellExt::PushToWindow(HWND hParent,
     return NOERROR;
 }
 
-STDMETHODIMP CShellExt::GetCommandString(UINT_PTR idCmd,
+STDMETHODIMP CShellExt::GetCommandString(UINT_PTR  /* idCmd */,
 					 UINT uFlags,
-					 UINT FAR *reserved,
+					 UINT FAR * /* reserved */,
 					 LPSTR pszName,
 					 UINT cchMax)
 {
@@ -835,16 +835,16 @@ searchpath(char *name)
 		    (LPTSTR)location) > (HINSTANCE)32)
 	    return location;
     }
-    return "";
+    return (char *)"";
 }
 # endif
 #endif
 
 STDMETHODIMP CShellExt::InvokeGvim(HWND hParent,
-				   LPCSTR pszWorkingDir,
-				   LPCSTR pszCmd,
-				   LPCSTR pszParam,
-				   int iShowCmd)
+				   LPCSTR  /* pszWorkingDir */,
+				   LPCSTR  /* pszCmd */,
+				   LPCSTR  /* pszParam */,
+				   int  /* iShowCmd */)
 {
     char m_szFileUserClickedOn[BUFSIZE];
     char cmdStr[BUFSIZE];
@@ -911,10 +911,10 @@ STDMETHODIMP CShellExt::InvokeGvim(HWND hParent,
 
 
 STDMETHODIMP CShellExt::InvokeSingleGvim(HWND hParent,
-				   LPCSTR pszWorkingDir,
-				   LPCSTR pszCmd,
-				   LPCSTR pszParam,
-				   int iShowCmd,
+				   LPCSTR  /* pszWorkingDir */,
+				   LPCSTR  /* pszCmd */,
+				   LPCSTR  /* pszParam */,
+				   int  /* iShowCmd */,
 				   int useDiff)
 {
     char	m_szFileUserClickedOn[BUFSIZE];

@@ -26,6 +26,10 @@
 #include <IOKit/IOInterrupts.h>
 #include <IOKit/IOInterruptController.h>
 
+#if OSTYPES_K64_REV < 1
+typedef long IOInterruptVectorNumber;
+#endif
+
 /* APIC direct register offsets */
 
 enum {
@@ -145,19 +149,19 @@ protected:
     // The base global system interrupt number. This should be
     // zero for the first or only IO APIC in the system.
 
-    long                  _vectorBase;
+    IOInterruptVectorNumber _vectorBase;
 
     // A cache of entries in the vector table. Makes restoring
     // hardware context following system sleep easier, and also
     // avoids a register read on vector updates.
 
-    VectorEntry *         _vectorTable;
-    long                  _vectorCount;
+    VectorEntry *           _vectorTable;
+    IOInterruptVectorNumber _vectorCount;
 
     // The APIC ID of the CPU that will handle the interrupt.
     // in physical mode.
 
-    long                  _destinationAddress;
+    IOInterruptVectorNumber _destinationAddress;
 
     // ID register at register index 0, saved across sleep/wake.
 
@@ -181,7 +185,7 @@ protected:
     // Enable or disable (mask) a vector entry. Protected with
     // a spinlock with interrupt disabled.
 
-    inline void      enableVectorEntry( long vectorNumber )
+    inline void      enableVectorEntry( IOInterruptVectorNumber vectorNumber )
     {
         IOInterruptState state;
         state = IOSimpleLockLockDisableInterrupt( _apicLock );
@@ -191,7 +195,7 @@ protected:
         IOSimpleLockUnlockEnableInterrupt( _apicLock, state );
     }
 
-    inline void      disableVectorEntry( long vectorNumber )
+    inline void      disableVectorEntry( IOInterruptVectorNumber vectorNumber )
     {
         IOInterruptState state;
         state = IOSimpleLockLockDisableInterrupt( _apicLock );
@@ -203,9 +207,9 @@ protected:
 
     void             resetVectorTable( void );
 
-    void             writeVectorEntry( long vectorNumber );
+    void             writeVectorEntry( IOInterruptVectorNumber vectorNumber );
 
-    void             writeVectorEntry( long vectorNumber,
+    void             writeVectorEntry( IOInterruptVectorNumber vectorNumber,
                                        VectorEntry entry );
 
     void             dumpRegisters( void );
@@ -232,16 +236,16 @@ public:
                                         IOInterruptHandler handler,
                                         void *             refCon );
 
-    virtual void     initVector( long vectorNumber,
+    virtual void     initVector( IOInterruptVectorNumber vectorNumber,
                                  IOInterruptVector * vector );
 
-    virtual bool     vectorCanBeShared( long vectorNumber,
+    virtual bool     vectorCanBeShared( IOInterruptVectorNumber vectorNumber,
                                         IOInterruptVector * vector );
 
-    virtual void     enableVector( long vectorNumber,
+    virtual void     enableVector( IOInterruptVectorNumber vectorNumber,
                                    IOInterruptVector * vector );
 
-    virtual void     disableVectorHard( long vectorNumber,
+    virtual void     disableVectorHard( IOInterruptVectorNumber vectorNumber,
                                         IOInterruptVector * vector );
 
     virtual IOReturn handleInterrupt( void * savedState,

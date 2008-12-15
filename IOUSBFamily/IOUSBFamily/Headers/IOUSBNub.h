@@ -40,12 +40,13 @@ class IOUSBNub : public IOService
 public:
 	
 	// IOKit method
-	virtual void	joinPMtree ( IOService * driver );
+	virtual void					joinPMtree ( IOService * driver );
+	virtual const char *			stringFromReturn( IOReturn rtn );
 
-    virtual bool    USBCompareProperty(OSDictionary   * matching, const char     * key );
+    virtual bool					USBCompareProperty(OSDictionary   * matching, const char     * key );
     
-    bool        IsWildCardMatch( OSDictionary   * matching, const char     * key );
-    bool	    USBComparePropertyWithMask( OSDictionary *matching, const char *key, const char * maskKey );
+    bool							IsWildCardMatch( OSDictionary   * matching, const char     * key );
+    bool							USBComparePropertyWithMask( OSDictionary *matching, const char *key, const char * maskKey );
 };
 
 #ifdef __cplusplus

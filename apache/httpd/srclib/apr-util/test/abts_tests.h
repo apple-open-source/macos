@@ -33,6 +33,7 @@ const struct testlist {
     {testldap},
     {testdbd},
     {testdate},
+    {testmemcache},
     {testxml},
     {testxlate},
     {testrmm},

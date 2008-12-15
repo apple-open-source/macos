@@ -67,13 +67,13 @@ static void test_dbm_store(abts_case *tc, apr_dbm_t *db, dbm_table_t *table)
 
     for (; i >= NUM_TABLE_ROWS/2; i--) {
         rv = apr_dbm_store(db, table[i].key, table[i].val);
-        ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+        ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
         table[i].deleted = FALSE;
     }
 
     for (i = 0; i < NUM_TABLE_ROWS/2; i++) {
         rv = apr_dbm_store(db, table[i].key, table[i].val);
-        ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+        ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
         table[i].deleted = FALSE;
     }
 }
@@ -88,12 +88,12 @@ static void test_dbm_fetch(abts_case *tc, apr_dbm_t *db, dbm_table_t *table)
         memset(&val, 0, sizeof(val));
         rv = apr_dbm_fetch(db, table[i].key, &val);
         if (!table[i].deleted) {
-            ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
-            ABTS_INT_EQUAL(tc, (int)table[i].val.dsize, (int)val.dsize);
+            ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
+            ABTS_INT_EQUAL(tc, table[i].val.dsize, val.dsize);
             ABTS_INT_EQUAL(tc, 0, memcmp(table[i].val.dptr, val.dptr, val.dsize));
             apr_dbm_freedatum(db, val);
         } else {
-            ABTS_INT_EQUAL(tc, 0, (int)val.dsize);
+            ABTS_INT_EQUAL(tc, 0, val.dsize);
         }
     }
 }
@@ -108,7 +108,7 @@ static void test_dbm_delete(abts_case *tc, apr_dbm_t *db, dbm_table_t *table)
         if (i & 1)
             continue;
         rv = apr_dbm_delete(db, table[i].key);
-        ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+        ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
         table[i].deleted = TRUE;
     }
 }
@@ -135,7 +135,7 @@ static void test_dbm_traversal(abts_case *tc, apr_dbm_t *db, dbm_table_t *table)
     apr_datum_t key;
 
     rv = apr_dbm_firstkey(db, &key);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     do {
         if (key.dptr == NULL || key.dsize == 0)
@@ -146,19 +146,19 @@ static void test_dbm_traversal(abts_case *tc, apr_dbm_t *db, dbm_table_t *table)
                 continue;
             if (memcmp(table[i].key.dptr, key.dptr, key.dsize))
                 continue;
-            ABTS_INT_EQUAL(tc, table[i].deleted, 0);
-            ABTS_INT_EQUAL(tc, table[i].visited, 0);
+            ABTS_INT_EQUAL(tc, 0, table[i].deleted);
+            ABTS_INT_EQUAL(tc, 0, table[i].visited);
             table[i].visited++;
         }
 
         rv = apr_dbm_nextkey(db, &key);
-        ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+        ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
     } while (1);
 
     for (i = 0; i < NUM_TABLE_ROWS; i++) {
         if (table[i].deleted)
             continue;
-        ABTS_INT_EQUAL(tc, table[i].visited, 1);
+        ABTS_INT_EQUAL(tc, 1, table[i].visited);
         table[i].visited = 0;
     }
 }
@@ -172,7 +172,7 @@ static void test_dbm(abts_case *tc, void *data)
     const char *file = apr_pstrcat(p, "data/test-", type, NULL);
 
     rv = apr_dbm_open_ex(&db, type, file, APR_DBM_RWCREATE, APR_OS_DEFAULT, p);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     if (rv != APR_SUCCESS)
         return;
@@ -188,7 +188,7 @@ static void test_dbm(abts_case *tc, void *data)
     apr_dbm_close(db);
 
     rv = apr_dbm_open_ex(&db, type, file, APR_DBM_READONLY, APR_OS_DEFAULT, p);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     if (rv != APR_SUCCESS)
         return;

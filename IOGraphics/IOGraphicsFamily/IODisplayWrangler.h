@@ -46,24 +46,24 @@ private:
     // ignore activity until time
     AbsoluteTime fIdleUntil;
 
-    typedef struct
+    struct annoyance_event_t
     {
             UInt64 dim_time_secs;
             UInt64 wake_time_secs;
             UInt32 penalty;
-    } annoyance_event_t;
+    };
     
-    typedef struct
+    struct annoyance_cap_t
     {
             UInt32 cutoff_time_secs;
             int cutoff_points;
-    } annoyance_cap_t;
+    };
     
-    typedef struct
+    struct annoyance_penalty_t
     {
             UInt32 time_secs;
             int penalty_points;
-    } annoyance_penalty_t;
+    };
     
     UInt64                fLastWakeTime_secs;
     UInt64                fLastDimTime_secs;    
@@ -132,11 +132,8 @@ public:
         AbsoluteTime lastActivity, unsigned int powerState);
 
 private:
-    void IODisplayWrangler::enqueueAnnoyance( UInt64 dim_time_secs, UInt64 wake_time_secs, UInt32 penalty );
-    annoyance_event_t * IODisplayWrangler::getNthAnnoyance( int i );
-    void IODisplayWrangler::log_annoyance_penalties_array();
-    void IODisplayWrangler::log_annoyance_caps_array();
-    void IODisplayWrangler::log_annoyance_event_array();
+    void enqueueAnnoyance( UInt64 dim_time_secs, UInt64 wake_time_secs, UInt32 penalty );
+    annoyance_event_t * getNthAnnoyance( int i );
     static UInt32 staticAnnoyanceEventArrayLength;
     static annoyance_event_t staticAnnoyanceEventArray[];
     static UInt32 staticAnnoyanceCapsArrayLength;

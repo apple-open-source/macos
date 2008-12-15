@@ -207,7 +207,10 @@ buf_init_chartab(buf, global)
 	    }
 	    while (c <= c2)
 	    {
-		if (!do_isalpha || isalpha(c)
+		/* Use the MB_ functions here, because isalpha() doesn't
+		 * work properly when 'encoding' is "latin1" and the locale is
+		 * "C".  */
+		if (!do_isalpha || MB_ISLOWER(c) || MB_ISUPPER(c)
 #ifdef FEAT_FKMAP
 			|| (p_altkeymap && (F_isalpha(c) || F_isdigit(c)))
 #endif
@@ -317,7 +320,8 @@ trans_characters(buf, bufsize)
     }
 }
 
-#if defined(FEAT_EVAL) || defined(FEAT_TITLE) || defined(PROTO)
+#if defined(FEAT_EVAL) || defined(FEAT_TITLE) || defined(FEAT_INS_EXPAND) \
+	|| defined(PROTO)
 /*
  * Translate a string into allocated memory, replacing special chars with
  * printable chars.  Returns NULL when out of memory.
@@ -445,13 +449,15 @@ str_foldcase(str, orglen, buf, buflen)
 	{
 	    if (enc_utf8)
 	    {
-		int	c, lc;
+		int	c = utf_ptr2char(STR_PTR(i));
+		int	ol = utf_ptr2len(STR_PTR(i));
+		int	lc = utf_tolower(c);
 
-		c = utf_ptr2char(STR_PTR(i));
-		lc = utf_tolower(c);
-		if (c != lc)
+		/* Only replace the character when it is not an invalid
+		 * sequence (ASCII character or more than one byte) and
+		 * utf_tolower() doesn't return the original character. */
+		if ((c < 0x80 || ol > 1) && c != lc)
 		{
-		    int	    ol = utf_char2len(c);
 		    int	    nl = utf_char2len(lc);
 
 		    /* If the byte length changes need to shift the following
@@ -472,14 +478,12 @@ str_foldcase(str, orglen, buf, buflen)
 			{
 			    if (buf == NULL)
 			    {
-				mch_memmove(GA_PTR(i) + nl, GA_PTR(i) + ol,
-						  STRLEN(GA_PTR(i) + ol) + 1);
+				STRMOVE(GA_PTR(i) + nl, GA_PTR(i) + ol);
 				ga.ga_len += nl - ol;
 			    }
 			    else
 			    {
-				mch_memmove(buf + i + nl, buf + i + ol,
-						    STRLEN(buf + i + ol) + 1);
+				STRMOVE(buf + i + nl, buf + i + ol);
 				len += nl - ol;
 			    }
 			}
@@ -928,6 +932,23 @@ vim_isfilec(c)
 }
 
 /*
+ * return TRUE if 'c' is a valid file-name character or a wildcard character
+ * Assume characters above 0x100 are valid (multi-byte).
+ * Explicitly interpret ']' as a wildcard character as mch_has_wildcard("]")
+ * returns false.
+ */
+    int
+vim_isfilec_or_wc(c)
+    int c;
+{
+    char_u buf[2];
+
+    buf[0] = (char_u)c;
+    buf[1] = NUL;
+    return vim_isfilec(c) || c == ']' || mch_has_wildcard(buf);
+}
+
+/*
  * return TRUE if 'c' is a printable character
  * Assume characters above 0x100 are printable (multi-byte), except for
  * Unicode.
@@ -1269,7 +1290,8 @@ getvcol(wp, pos, start, cursor, end)
 		    /* If a double-cell char doesn't fit at the end of a line
 		     * it wraps to the next line, it's like this char is three
 		     * cells wide. */
-		    if (incr == 2 && wp->w_p_wrap && in_win_border(wp, vcol))
+		    if (incr == 2 && wp->w_p_wrap && MB_BYTE2LEN(*ptr) > 1
+			    && in_win_border(wp, vcol))
 		    {
 			++incr;
 			head = 1;
@@ -1444,9 +1466,11 @@ getvcols(wp, pos1, pos2, left, right)
  * skipwhite: skip over ' ' and '\t'.
  */
     char_u *
-skipwhite(p)
-    char_u	*p;
+skipwhite(q)
+    char_u	*q;
 {
+    char_u	*p = q;
+
     while (vim_iswhite(*p)) /* skip to next non-white */
 	++p;
     return p;
@@ -1456,9 +1480,11 @@ skipwhite(p)
  * skip over digits
  */
     char_u *
-skipdigits(p)
-    char_u	*p;
+skipdigits(q)
+    char_u	*q;
 {
+    char_u	*p = q;
+
     while (VIM_ISDIGIT(*p))	/* skip to next non-digit */
 	++p;
     return p;
@@ -1469,9 +1495,11 @@ skipdigits(p)
  * skip over digits and hex characters
  */
     char_u *
-skiphex(p)
-    char_u	*p;
+skiphex(q)
+    char_u	*q;
 {
+    char_u	*p = q;
+
     while (vim_isxdigit(*p))	/* skip to next non-digit */
 	++p;
     return p;
@@ -1483,9 +1511,11 @@ skiphex(p)
  * skip to digit (or NUL after the string)
  */
     char_u *
-skiptodigit(p)
-    char_u	*p;
+skiptodigit(q)
+    char_u	*q;
 {
+    char_u	*p = q;
+
     while (*p != NUL && !VIM_ISDIGIT(*p))	/* skip to next digit */
 	++p;
     return p;
@@ -1495,9 +1525,11 @@ skiptodigit(p)
  * skip to hex character (or NUL after the string)
  */
     char_u *
-skiptohex(p)
-    char_u	*p;
+skiptohex(q)
+    char_u	*q;
 {
+    char_u	*p = q;
+
     while (*p != NUL && !vim_isxdigit(*p))	/* skip to next digit */
 	++p;
     return p;
@@ -1722,7 +1754,6 @@ vim_isblankline(lbuf)
  * If "len" is not NULL, the length of the number in characters is returned.
  * If "nptr" is not NULL, the signed result is returned in it.
  * If "unptr" is not NULL, the unsigned result is returned in it.
- * If "unptr" is not NULL, the unsigned result is returned in it.
  * If "dooct" is non-zero recognize octal numbers, when > 1 always assume
  * octal number.
  * If "dohex" is non-zero recognize hex numbers, when > 1 always assume
@@ -1897,7 +1928,7 @@ backslash_halve(p)
 {
     for ( ; *p; ++p)
 	if (rem_backslash(p))
-	    STRCPY(p, p + 1);
+	    STRMOVE(p, p + 1);
 }
 
 /*

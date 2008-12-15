@@ -336,9 +336,9 @@
 		4D2B253204CBD0C100E10E69 /* IOFWDCLPool.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFWDCLPool.h; path = IOFireWireFamily.kmodproj/IOFWDCLPool.h; sourceTree = SOURCE_ROOT; };
 		4D3DE40104CD4B4D00D50D34 /* IOFWUserObjectExporter.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWUserObjectExporter.cpp; path = IOFireWireFamily.kmodproj/IOFWUserObjectExporter.cpp; sourceTree = "<group>"; };
 		4D3DE40304CD4B6300D50D34 /* IOFWUserObjectExporter.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFWUserObjectExporter.h; path = IOFireWireFamily.kmodproj/IOFWUserObjectExporter.h; sourceTree = "<group>"; };
-		4D4C313805F6702000D8DB71 /* Info-IOFireWireFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-IOFireWireFamily.plist"; sourceTree = "<group>"; };
+		4D4C313805F6702000D8DB71 /* Info-IOFireWireFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireFamily.plist"; sourceTree = "<group>"; };
 		4D4C313905F6702100D8DB71 /* IOFireWireFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		4D4C316805F6702100D8DB71 /* Info-IOFireWireLib.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-IOFireWireLib.plist"; sourceTree = "<group>"; };
+		4D4C316805F6702100D8DB71 /* Info-IOFireWireLib.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireLib.plist"; sourceTree = "<group>"; };
 		4D4C316905F6702100D8DB71 /* IOFireWireLib.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireLib.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DF89E75033ABAB200CE20D6 /* IOFWUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFWUtils.h; path = IOFireWireFamily.kmodproj/IOFWUtils.h; sourceTree = "<group>"; };
 		8C30A5B50111F11D04CE206D /* IOConfigDirectory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOConfigDirectory.h; path = IOFireWireFamily.kmodproj/IOConfigDirectory.h; sourceTree = "<group>"; };
@@ -1113,7 +1113,6 @@
 				GCC_USE_GCC3_PFE_SUPPORT = YES;
 				INFOPLIST_FILE = "Info-IOFireWireLib.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireFamily.kext/Contents/PlugIns";
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1203,12 +1202,12 @@
 				);
 				BUILD_SETTING = "";
 				FIRELOG = 1;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREFIX_HEADER = IOFireWireLib.CFPlugInProj/prefix.h;
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
 				GCC_USE_GCC3_PFE_SUPPORT = YES;
 				INFOPLIST_FILE = "Info-IOFireWireLib.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireFamily.kext/Contents/PlugIns";
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1304,8 +1303,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 3.4.4;
-				OPTIMIZATION_CFLAGS = "-O0";
+				MODULE_VERSION = 3.4.6;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1357,7 +1355,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 3.4.4;
+				MODULE_VERSION = 3.4.6;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=0",
 					"-DIOFIREWIREUSERCLIENTDEBUG=0",
@@ -1397,6 +1395,7 @@
 				FIRELOG = 1;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREFIX_HEADER = IOFireWireFamily.kmodproj/prefix.h;
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
 				GCC_USE_GCC3_PFE_SUPPORT = YES;
@@ -1409,8 +1408,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 3.4.4;
-				OPTIMIZATION_CFLAGS = "-O0";
+				MODULE_VERSION = 3.4.6;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1460,7 +1458,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 3.4.4;
+				MODULE_VERSION = 3.4.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1489,7 +1487,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1540,7 +1537,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				FIRELOG = 1;
-				OPTIMIZATION_CFLAGS = "-O0";
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1581,24 +1578,28 @@
 		4D39F6E60992E12B006C2040 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Development;
 		};
 		4D39F6E70992E12B006C2040 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Deployment;
 		};
 		4D39F6E80992E12B006C2040 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = FireLog;
 		};
 		4D39F6E90992E12B006C2040 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Default;
 		};

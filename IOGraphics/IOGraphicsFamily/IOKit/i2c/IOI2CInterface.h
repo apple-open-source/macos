@@ -35,7 +35,8 @@ enum {
     kIOI2CNoTransactionType         = 0,
     kIOI2CSimpleTransactionType     = 1,
     kIOI2CDDCciReplyTransactionType = 2,
-    kIOI2CCombinedTransactionType   = 3
+    kIOI2CCombinedTransactionType   = 3,
+    kIOI2CDisplayPortNativeTransactionType = 4
 };
 
 // IOI2CRequest.commFlags
@@ -75,27 +76,52 @@ enum {
  * @field __reservedD Set to zero.
  */
 
+#pragma pack(push, 4)
 struct IOI2CRequest
 {
-    UInt64			__reservedA;
-    IOReturn			result;
-    IOI2CRequestCompletion	completion;
-    IOOptionBits		commFlags;
-    uint64_t			minReplyDelay;
-    UInt8			sendAddress;
-    UInt8			sendSubAddress;
-    UInt8			__reservedB[2];
     IOOptionBits		sendTransactionType;
-    vm_address_t		sendBuffer;
-    IOByteCount         	sendBytes;
-    UInt8			replyAddress;
-    UInt8			replySubAddress;
-    UInt8			__reservedC[2];
     IOOptionBits		replyTransactionType;
+    uint32_t			sendAddress;
+    uint32_t			replyAddress;
+    uint8_t			sendSubAddress;
+    uint8_t			replySubAddress;
+    uint8_t			__reservedA[2];
+
+#ifdef __ppc__
+    uint32_t			__reservedD;
+#endif
+    uint64_t			minReplyDelay;
+
+    IOReturn			result;
+    IOOptionBits		commFlags;
+
+#if defined(__LP64__)
+    uint32_t			__padA;
+#else
+    vm_address_t		sendBuffer;
+#endif
+    uint32_t			sendBytes;
+
+    uint32_t			__reservedB[2];
+
+#if defined(__LP64__)
+    uint32_t			__padB;
+#else
     vm_address_t		replyBuffer;
-    IOByteCount			replyBytes;
-    UInt32			__reservedD[16];
+#endif
+    uint32_t			replyBytes;
+
+    IOI2CRequestCompletion	completion;
+#if !defined(__LP64__)
+    uint32_t			__padC[5];
+#else
+    vm_address_t		sendBuffer;
+    vm_address_t		replyBuffer;
+#endif
+
+    uint32_t			__reservedC[10];
 };
+#pragma pack(pop)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -111,7 +137,8 @@ struct IOI2CRequest
 
 // kIOI2CBusTypeKey values
 enum {
-    kIOI2CBusTypeI2C		= 1
+    kIOI2CBusTypeI2C		= 1,
+    kIOI2CBusTypeDisplayPort	= 2
 };
 
 /*!

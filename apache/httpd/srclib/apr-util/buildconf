@@ -79,7 +79,7 @@ else
 fi
 
 #
-# Generate build-outputs.mk for the build systme
+# Generate build-outputs.mk for the build system
 #
 echo "Generating 'make' outputs ..."
 $apr_src_dir/build/gen-build.py make

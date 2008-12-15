@@ -65,7 +65,6 @@ AppleUSBEHCI::UIMCreateControlEndpoint(UInt8 functionAddress, UInt8 endpointNumb
 									   USBDeviceAddress highSpeedHub, int highSpeedPort)
 {
     AppleEHCIQueueHead	*pEHCIEndpointDescriptor;
-    AppleEHCIQueueHead	*pED;
 	
     USBLog(3, "AppleUSBEHCI[%p]::UIMCreateControlEndpoint(%d, %d, %d, %d @(%d, %d))\n", this,
 		   functionAddress, endpointNumber, maxPacketSize, speed, highSpeedHub, highSpeedPort);
@@ -85,23 +84,18 @@ AppleUSBEHCI::UIMCreateControlEndpoint(UInt8 functionAddress, UInt8 endpointNumb
 		USBLog(3, "AppleUSBEHCI[%p]::UIMCreateControlEndpoint - changing low speed max packet from %d to 8 for dev 0", this, maxPacketSize);
 		maxPacketSize = 8;
     }
-	
-    pED = _AsyncHead;
-	
-    pEHCIEndpointDescriptor = AddEmptyCBEndPoint(functionAddress, endpointNumber, maxPacketSize, speed, highSpeedHub, highSpeedPort, kEHCIEDDirectionTD, pED);
+
+    pEHCIEndpointDescriptor = AddEmptyCBEndPoint(functionAddress, endpointNumber, maxPacketSize, speed, highSpeedHub, highSpeedPort, kEHCIEDDirectionTD);
 	if (!pEHCIEndpointDescriptor)
 	{
 		USBError(1, "AppleUSBEHCI[%p]::UIMCreateControlEndpoint - could not add empty endpoint", this);
 		return kIOReturnNoResources;
 	}
-
+	
+	// note that by the time the _queueType is updated, the endpoint is already active on the QH list. However, because we are inside of the 
+	// workloop gate, and this field is not used by either the HC hardware or by the FilterInterrupt routine, this is OK.
 	pEHCIEndpointDescriptor->_queueType = kEHCITypeControl;
-    if(pED == NULL)
-    {
-		_AsyncHead = pEHCIEndpointDescriptor;
-		_pEHCIRegisters->AsyncListAddr = HostToUSBLong( pEHCIEndpointDescriptor->_sharedPhysical );
-    }
-	printAsyncQueue(7, "UIMCreateControlEndpoint");
+ 	printAsyncQueue(7, "UIMCreateControlEndpoint");
     return kIOReturnSuccess;
 }
 
@@ -170,21 +164,21 @@ AppleUSBEHCI::MakeEmptyEndPoint(
 		mySpeed = 2  << kEHCIEDFlags_SPhase;
 	}
     
-    USBLog(7, "AppleUSBEHCI[%p]::MakeEmptyEndPoint - mySpeed %ld", this, mySpeed);
+    USBLog(7, "AppleUSBEHCI[%p]::MakeEmptyEndPoint - mySpeed %d", this, (uint32_t)mySpeed);
 	
     myMaxPacketSize = ((UInt32) maxPacketSize) << kEHCIEDFlags_MPSPhase;
 	
     pED->_direction = direction;
 	pED->_functionNumber = functionAddress;
 	
-    USBLog(7, "AppleUSBEHCI[%p]::MakeEmptyEndPoint - MPS = %d, setting flags to 0x%lx", this, maxPacketSize, myFunctionAddress | myEndPointNumber | myMaxPacketSize | mySpeed);
+    USBLog(7, "AppleUSBEHCI[%p]::MakeEmptyEndPoint - MPS = %d, setting flags to 0x%x", this, maxPacketSize, (uint32_t)(myFunctionAddress | myEndPointNumber | myMaxPacketSize | mySpeed));
     
     pED->GetSharedLogical()->flags = HostToUSBLong(myFunctionAddress | myEndPointNumber | myMaxPacketSize | mySpeed);
 	
 	
     pED->GetSharedLogical()->splitFlags = HostToUSBLong( (1<< kEHCIEDSplitFlags_MultPhase)	// 1 transaction per traversal
-														 | (highSpeedHub << kEHCIEDSplitFlags_HubAddrPhase)
-														 | (highSpeedPort <<  kEHCIEDSplitFlags_PortPhase) );
+														| (highSpeedHub << kEHCIEDSplitFlags_HubAddrPhase)
+														| (highSpeedPort <<  kEHCIEDSplitFlags_PortPhase) );
 	
     pED->GetSharedLogical()->CurrqTDPtr = 0;
     pED->GetSharedLogical()->AltqTDPtr = HostToUSBLong(kEHCITermFlag);	// Invalid address	
@@ -211,7 +205,7 @@ AppleUSBEHCI::MakeEmptyEndPoint(
     pTD->pShared->altTD = HostToUSBLong(kEHCITermFlag);
     pTD->command = NULL;
     
-    USBLog(7, "AppleUSBEHCI[%p]::MakeEmptyEndPoint - pointing NextqTDPtr to %lx", this, pTD->pPhysical);
+    USBLog(7, "AppleUSBEHCI[%p]::MakeEmptyEndPoint - pointing NextqTDPtr to %x", this, (uint32_t)pTD->pPhysical);
     pED->GetSharedLogical()->NextqTDPtr = HostToUSBLong( (UInt32)pTD->pPhysical & ~0x1F);
 	
     pED->_qTD = pTD;
@@ -249,14 +243,10 @@ AppleUSBEHCI::MakeEmptyIntEndPoint(UInt8 			functionAddress,
 
 
 void 
-AppleUSBEHCI::linkAsyncEndpoint(AppleEHCIQueueHead *CBED, AppleEHCIQueueHead *pEDHead)
+AppleUSBEHCI::linkAsyncEndpoint(AppleEHCIQueueHead *CBED)
 {
     IOPhysicalAddress			newHorizPtr;
-	
-    if(pEDHead == NULL)	// No previous EDs, make this head of queue.
-    {
-		CBED->GetSharedLogical()->flags |= HostToUSBLong(kEHCIEDFlags_H);
-    }
+	AppleEHCIQueueHead			*pEDHead = _AsyncHead;
 	
     // Point first endpoint to itself
     newHorizPtr = CBED->GetPhysicalAddrWithType();		// Its a queue head
@@ -265,8 +255,11 @@ AppleUSBEHCI::linkAsyncEndpoint(AppleEHCIQueueHead *CBED, AppleEHCIQueueHead *pE
 	
     if(pEDHead == NULL)
     {
+		CBED->GetSharedLogical()->flags |= HostToUSBLong(kEHCIEDFlags_H);
 		CBED->SetPhysicalLink(newHorizPtr);
 		CBED->_logicalNext = NULL;
+		_AsyncHead = CBED;
+		_pEHCIRegisters->AsyncListAddr = HostToUSBLong(CBED->_sharedPhysical);
     }
     else
     {
@@ -291,8 +284,7 @@ AppleUSBEHCI::AddEmptyCBEndPoint(UInt8					functionAddress,
 								 UInt8					speed,
 								 USBDeviceAddress       highSpeedHub,
 								 int                  	highSpeedPort,
-								 UInt8					direction,
-								 AppleEHCIQueueHead *	pED)
+								 UInt8					direction)
 {
     AppleEHCIQueueHead *	CBED;
     UInt32					cFlag;
@@ -322,7 +314,7 @@ AppleUSBEHCI::AddEmptyCBEndPoint(UInt8					functionAddress,
     CBED->GetSharedLogical()->flags |= HostToUSBLong(myDataToggleCntrl | cFlag);
 	
 	// note that it is possible for pED to be NULL here, which means it won't really be linked in until later
-	linkAsyncEndpoint(CBED, pED);
+	linkAsyncEndpoint(CBED);
     
     return CBED;
 }
@@ -330,12 +322,11 @@ AppleUSBEHCI::AddEmptyCBEndPoint(UInt8					functionAddress,
 
 
 IOReturn 
-AppleUSBEHCI::UIMCreateControlTransfer(
-									   short				functionAddress,
+AppleUSBEHCI::UIMCreateControlTransfer(short				functionAddress,
 									   short				endpointNumber,
-									   IOUSBCompletion			completion,
+									   IOUSBCompletion		completion,
 									   void*				CBP,
-									   bool				bufferRounding,
+									   bool					bufferRounding,
 									   UInt32				bufferSize,
 									   short				direction)
 {
@@ -385,10 +376,12 @@ AppleUSBEHCI::printTD(EHCIGeneralTransferDescriptorPtr pTD, int level)
 	USBLog(level, "AppleUSBEHCI[%p]::printTD: shared.BuffPtr0: 0x%x", this, USBToHostLong(pTD->pShared->BuffPtr[0]));
 	USBLog(level, "AppleUSBEHCI[%p]::printTD: pEndpt:  %p",  this, (pTD->pQH));
 	//	USBLog(level, "AppleUSBEHCI[%p]::printED: bufSiz:  %p", this, (UInt32)(pTD->bufferSize));
-	USBLog(level, "AppleUSBEHCI[%p]::printTD: pPhysical:   0x%lx", this, (pTD->pPhysical));
+	USBLog(level, "AppleUSBEHCI[%p]::printTD: pPhysical:   0x%x", this, (uint32_t)(pTD->pPhysical));
 	USBLog(level, "AppleUSBEHCI[%p]::printTD: pLogicalNext: %p", this, (pTD->pLogicalNext));
 	USBLog(level, "AppleUSBEHCI[%p]::printTD: logicalBuffer:   %p", this, (pTD->logicalBuffer));	
-	USBLog(level, "AppleUSBEHCI[%p]::printTD: lastTDofTransaction: %s", this, pTD->lastTDofTransaction ? "TRUE" : "FALSE");	
+	USBLog(level, "AppleUSBEHCI[%p]::printTD: callbackOnTD: %s", this, pTD->callbackOnTD ? "TRUE" : "FALSE");	
+	USBLog(level, "AppleUSBEHCI[%p]::printTD: multiXferTransaction: %s", this, pTD->multiXferTransaction ? "TRUE" : "FALSE");	
+	USBLog(level, "AppleUSBEHCI[%p]::printTD: finalXferInTransaction: %s", this, pTD->finalXferInTransaction ? "TRUE" : "FALSE");	
 }
 
 
@@ -407,8 +400,8 @@ AppleUSBEHCI::UIMCreateControlTransfer(short					functionAddress,
     IOReturn					status;
     IOUSBCompletion				completion = command->GetUSLCompletion();
 	
-    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateControlTransfer adr=%d:%d cbp=%lx:%lx br=%s cback=[%p:%p] dir=%d)",
-		   this, functionAddress, endpointNumber, (UInt32)CBP, bufferSize,
+    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateControlTransfer adr=%d:%d cbp=%p:%x br=%s cback=[%p:%p] dir=%d)",
+		   this, functionAddress, endpointNumber, CBP, (uint32_t)bufferSize,
 		   bufferRounding ? "YES":"NO", completion.target, completion.parameter, direction);
     
     // search for endpoint descriptor
@@ -420,7 +413,7 @@ AppleUSBEHCI::UIMCreateControlTransfer(short					functionAddress,
         USBLog(3, "AppleUSBEHCI[%p]::UIMCreateControlTransfer- Could not find endpoint!", this);
         return kIOUSBEndpointNotFound;
     }
-
+	
     status = allocateTDs(pEDQueue, command, CBP, bufferSize, direction, true);
 	
     if(status == kIOReturnSuccess)
@@ -506,7 +499,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 	UInt64								offset;
 	IODMACommand::Segment64				segments;
 	UInt32								numSegments;
-				
+	
 	/* *********** Note: Always put the flags in the TD last. ************** */
 	/* *********** This is what kicks off the transaction if  ************** */
 	/* *********** the next and alt pointers are not set up   ************** */
@@ -537,7 +530,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 		USBLog(3, "AppleUSBEHCI[%p]::allocateTDs - queue for endpoint (%d) halted - returning kIOUSBPipeStalled", this, endpoint); 
         return kIOUSBPipeStalled;
 	}
-
+	
     // Slight change of plan.
     // I was filling in the tail, then pointing that to a new TD which then
     // became the tail. Repeat until entire buffer is covered.
@@ -607,7 +600,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 				totalPhysLength = segments.fLength;
 			}			
 			
-			USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - gen64IOVMSegments returned length of %ld (out of %ld) and start of %p:%p", this, totalPhysLength, bufferSize, (void*)dmaAddrHighBits, (void*)dmaStartAddr);
+			USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - gen64IOVMSegments returned length of %d (out of %d) and start of %p:%p", this, (uint32_t)totalPhysLength, (uint32_t)bufferSize, (void*)dmaAddrHighBits, (void*)dmaStartAddr);
 			dmaStartOffset = (dmaStartAddr & (kEHCIPageSize-1));			
 			bytesToSchedule = 0;
 			
@@ -634,7 +627,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 					else
 					{
 						// truncate this TD to however many pages are left, which will always be a multiple of MPS
-						USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - segment is larger than 1 TD - using %ld pages for this TD", this, kEHCIPagesPerTD - curTDsegment);
+						USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - segment is larger than 1 TD - using %d pages for this TD", this, (uint32_t)(kEHCIPagesPerTD - curTDsegment));
 						bytesToSchedule = (kEHCIPagesPerTD - curTDsegment) * kEHCIPageSize;
 					}
 				}
@@ -648,7 +641,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
                 //
                 if ( (transferOffset < bufferSize) && ((dmaStartOffset+bytesToSchedule) & kEHCIPageOffsetMask) )
                 {
-                    USBLog(6, "AppleUSBEHCI[%p]::allocateTDs - non-last transfer didn't end at end of page (%ld, %ld)", this, dmaStartOffset, bytesToSchedule);
+                    USBLog(6, "AppleUSBEHCI[%p]::allocateTDs - non-last transfer didn't end at end of page (%d, %d)", this, (uint32_t)dmaStartOffset, (uint32_t)bytesToSchedule);
                     needNewTD = true;
                 }
 				
@@ -669,17 +662,17 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 				
                 if ( ((curTDsegment < kEHCIPagesPerTD) && (transferOffset < bufferSize)) && !needNewTD )
 				{
-					USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - didn't fill up this TD (segment %ld) - going back for more", this, curTDsegment);
+					USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - didn't fill up this TD (segment %d) - going back for more", this, (uint32_t)curTDsegment);
 					continue;
 				}
 			}
 			
             flags = kEHCITDioc;				// Want to interrupt on completion
 			
-			USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - i have %ld bytes in %ld segments", this, bytesThisTD, curTDsegment);
+			USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - i have %d bytes in %d segments", this, (uint32_t)bytesThisTD, (uint32_t)curTDsegment);
 			for (segment = 0; segment < curTDsegment; segment++)
 			{
-				USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - addr[%ld]:0x%x", this, segment, USBToHostLong(pTD->pShared->BuffPtr[segment]));
+				USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - addr[%d]:0x%x", this, (uint32_t)segment, (uint32_t)USBToHostLong(pTD->pShared->BuffPtr[segment]));
 			}
 			
             flags |= (bytesThisTD << kEHCITDFlags_BytesPhase);
@@ -694,7 +687,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 			
             // only supply a callback when the entire buffer has been
             // transfered.
-	
+			
             // USBLog(5, "AppleUSBEHCI[%p]:new control path for data toggle");
 			// adjust data toggle for multi-TD control transfers
 			// this will adjust toggle on the next TD since the flags are already set above.
@@ -718,16 +711,18 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
             if (transferOffset >= bufferSize)
             {
 				//myToggle = 0;							// Only set toggle on first TD				
-				pTD->lastTDofTransaction = true;
+				pTD->callbackOnTD = true;
 				pTD->logicalBuffer = CBP;
 				pTD->pShared->flags = HostToUSBLong(flags);
+				pTD->multiXferTransaction = command->GetMultiTransferTransaction();
+				pTD->finalXferInTransaction = command->GetFinalTransferInTransaction();
 				if ((pEDQueue->_queueType == kEHCITypeControl) || (pEDQueue->_queueType == kEHCITypeBulk))
 					_controlBulkTransactionsOut++;
 				//if(trace)printTD(pTD);
             }
 			else
             {
-				pTD->lastTDofTransaction = false;
+				pTD->callbackOnTD = false;
 				//myToggle = 0;	// Only set toggle on first TD
 				pTDnew = AllocateTD();
 				if (pTDnew == NULL)
@@ -740,11 +735,11 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 					pTD->pShared->nextTD = HostToUSBLong(pTDnew->pPhysical);
 					pTD->pLogicalNext = pTDnew;
 					pTD->pShared->flags = HostToUSBLong(flags);		// Doesn't matter about flags, not linked in yet
-																	// if(trace)printTD(pTD);
+					// if(trace)printTD(pTD);
 					pTD = pTDnew;
 					curTDsegment = 0;
 					bytesThisTD = 0;
-					USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - got another TD - going to fill it up too (%ld, %ld)", this, transferOffset, bufferSize);
+					USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - got another TD - going to fill it up too (%d, %d)", this, (uint32_t)transferOffset, (uint32_t)bufferSize);
 				}
             }
         }
@@ -755,7 +750,9 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 		pTD->pShared->altTD = HostToUSBLong(pTD1->pPhysical);	// point alt to first TD, will be fixed up later
 		USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - (no buffer)- putting command into TD (%p) on ED (%p)", this, pTD, pEDQueue);
 		pTD->command = command;
-		pTD->lastTDofTransaction = true;
+		pTD->callbackOnTD = true;
+		pTD->multiXferTransaction = command->GetMultiTransferTransaction();
+		pTD->finalXferInTransaction = command->GetFinalTransferInTransaction();
 		if ((pEDQueue->_queueType == kEHCITypeControl) || (pEDQueue->_queueType == kEHCITypeBulk))
 			_controlBulkTransactionsOut++;
 		pTD->logicalBuffer = CBP;
@@ -798,7 +795,9 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
     pTDLast->pQH = pTD1->pQH;
     USBLog(7, "AppleUSBEHCI[%p]::allocateTDs - transfering command from TD (%p) to TD (%p)", this, pTD1, pTDLast);
     pTDLast->command = pTD1->command;
-    pTDLast->lastTDofTransaction = pTD1->lastTDofTransaction;
+    pTDLast->callbackOnTD = pTD1->callbackOnTD;
+    pTDLast->multiXferTransaction = pTD1->multiXferTransaction;
+    pTDLast->finalXferInTransaction = pTD1->finalXferInTransaction;
     //pTDLast->bufferSize = pTD1->bufferSize;
     pTDLast->traceFlag = pTD1->traceFlag;
     pTDLast->pLogicalNext = pTD1->pLogicalNext;
@@ -822,7 +821,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
     // Point end of new TDs to first TD, now new tail
     pTD->pShared->nextTD = HostToUSBLong(pTD1->pPhysical);
     pTD->pLogicalNext = pTD1;
-
+	
     // This is (of course) copied from the 9 UIM. It has this cryptic note.
     // **** THIS NEEDS TO BE CHANGED, SEE NOTE
     // we have good status, so let's kick off the machine
@@ -849,46 +848,46 @@ mungeECHIStatus(UInt32 flags, EHCIGeneralTransferDescriptorPtr pHCDoneTD)
 	/* Mail from John Howard */
 	
 	Active CErr Halted XactErr Bytes2Xfer     
-		-- These will be no error, halted not set
+	-- These will be no error, halted not set
+	
+	0     >0    0      0        0      normal (nc)
+	0     >0    0      0        >0     short packet (sp)
+	0     >0    0      1        >=0    (nc or sp) with 
+	one or more retries for
+		XactErrors detected
 		
-		0     >0    0      0        0      normal (nc)
-		0     >0    0      0        >0     short packet (sp)
-		0     >0    0      1        >=0    (nc or sp) with 
-		one or more retries for
-			XactErrors detected
+		-- These will be stalled, CErr still has some left
+		
+		0     >0    1      0        >0     assuming no other status bits
+		are set, this was a STALL
+		response. Bytes2Xfer is a 
+		don''t care.
+		0     >0    1      1        >0     STALL response (same assumption)
+		during some bus transaction
+		during the buffer a timeout,
+		etc. was encountered
+		
+		-- Finally we have misc transaction error.
+		
+		0     0     1      1        >=0    three consecutive bus transaction
+		errors (any of bad pid, timeout, 
+				data crc, etc.)
+		
+		Also:
+		If a transaction transaltor gets an error on an Int or Isoc
+		it returns an Err handshake. Then you find:
+		
+		Ping State/Err == 1
+		
+		
+		If a TT gets 3 errors on a control or bulk transaction you get
+		a STALL from the TT. Ugh! how do you cope with that.
 			
-			-- These will be stalled, CErr still has some left
 			
-			0     >0    1      0        >0     assuming no other status bits
-			are set, this was a STALL
-			response. Bytes2Xfer is a 
-			don''t care.
-				0     >0    1      1        >0     STALL response (same assumption)
-				during some bus transaction
-				during the buffer a timeout,
-				etc. was encountered
-				
-				-- Finally we have misc transaction error.
-				
-				0     0     1      1        >=0    three consecutive bus transaction
-				errors (any of bad pid, timeout, 
-						data crc, etc.)
-				
-Also:
-				If a transaction transaltor gets an error on an Int or Isoc
-				it returns an Err handshake. Then you find:
-				
-				Ping State/Err == 1
-				
-				
-				If a TT gets 3 errors on a control or bulk transaction you get
-				a STALL from the TT. Ugh! how do you cope with that.
-					
-					
 #endif
-					
-					
-					pEndpoint = pHCDoneTD->pQH;
+			
+			
+			pEndpoint = pHCDoneTD->pQH;
 	
     if((flags & kEHCITDStatus_Halted) == 0)
     {
@@ -969,7 +968,7 @@ Also:
 		return kOHCIITDConditionDeviceNotResponding;
     }	
 	
-    USBLog(1, "mungeECHIStatus condition we're not expecting 0x%lx", flags);
+    USBLog(1, "mungeECHIStatus condition we're not expecting 0x%x", (uint32_t)flags);
     
     return kOHCIITDConditionCRC;
 }
@@ -1022,7 +1021,7 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
     OSStatus							accumErr = kIOReturnSuccess;
 	UInt32								currentQueue;
 	Boolean								doOnce, doLoop;
-					 
+	
 	_doneQueueParams[_nextDoneQueue].pHCDoneTD = pHCDoneTD;
 	_doneQueueParams[_nextDoneQueue].forceErr = forceErr;
 	_doneQueueParams[_nextDoneQueue].safeAction = safeAction;
@@ -1035,7 +1034,7 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
 	{
 		if (_nextDoneQueue < 19)
 		{
-			USBLog(_nextDoneQueue > 0 ? 3 : 7, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing queued level %ld", this, _nextDoneQueue);
+			USBLog(_nextDoneQueue > 0 ? 3 : 7, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing queued level %d", this, (uint32_t)_nextDoneQueue);
 			_nextDoneQueue++;
 			return kIOReturnSuccess;
 		} else 
@@ -1052,19 +1051,19 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
     while (doOnce || (doLoop && (currentQueue < _nextDoneQueue)))
 	{
 		doOnce = FALSE;
-	
-		USBLog(7, "+AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing (now at level %ld)", this, currentQueue);
-
+		
+		USBLog(7, "+AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing (now at level %d)", this, (uint32_t)currentQueue);
+		
 		pHCDoneTD = _doneQueueParams[currentQueue].pHCDoneTD;
 		forceErr = _doneQueueParams[currentQueue].forceErr;
 		safeAction = _doneQueueParams[currentQueue].safeAction;
 		stopAt = _doneQueueParams[currentQueue].stopAt;
 		currentQueue++;
-
+		
 		bufferSizeRemaining = 0;	// So next queue starts afresh.
 		accumErr = kIOReturnSuccess;
-
-
+		
+		
 		while (pHCDoneTD != NULL)
 		{
 			IOReturn	errStatus;
@@ -1090,20 +1089,20 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
 				transferStatus = mungeECHIStatus(flags, pHCDoneTD);
 				if (transferStatus)
 				{
-					USBLog(4, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - TD (%p) - got transferStatus 0x%lx with flags (0x%lx)", this, pHCDoneTD, transferStatus, flags);
+					USBLog(4, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - TD (%p) - got transferStatus 0x%x with flags (0x%x)", this, pHCDoneTD, (uint32_t)transferStatus, (uint32_t)flags);
 				}
 				errStatus = TranslateStatusToUSBError(transferStatus);
 				accumErr = errStatus;
 				if (errStatus)
 				{
 					UInt32	myFlags = USBToHostLong(pHCDoneTD->pQH->GetSharedLogical()->flags);
-					USBLog(4, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - got error %s (0x%x), for bus: 0x%lx, addr:  %ld, ep: %ld", this, USBErrorToString(errStatus), errStatus, _busNumber, ((myFlags & kEHCIEDFlags_FA) >> kEHCIEDFlags_FAPhase), ((myFlags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase));
+					USBLog(4, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - got error 0x%x (%s), for bus: 0x%x, addr:  %d, ep: %d", this, errStatus, USBStringFromReturn(errStatus), (uint32_t)_busNumber, (uint32_t)((myFlags & kEHCIEDFlags_FA) >> kEHCIEDFlags_FAPhase), (uint32_t)((myFlags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase));
 				}
 			}
 			
 			bufferSizeRemaining += (flags & kEHCITDFlags_Bytes) >> kEHCITDFlags_BytesPhase;
 			
-			if (pHCDoneTD->lastTDofTransaction)
+			if (pHCDoneTD->callbackOnTD)
 			{
 				if ( pHCDoneTD->command == NULL )
 				{
@@ -1115,7 +1114,7 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
 					if(!safeAction || (safeAction == completion.action))
 					{
 						// remove flag before completing
-						pHCDoneTD->lastTDofTransaction = 0;
+						pHCDoneTD->callbackOnTD = false;
 						
 						Complete(completion, errStatus, bufferSizeRemaining);
 						if ((pHCDoneTD->pQH->_queueType == kEHCITypeControl) || (pHCDoneTD->pQH->_queueType == kEHCITypeBulk))
@@ -1149,7 +1148,7 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
 			DeallocateTD(pHCDoneTD);
 			pHCDoneTD = nextTD;	// New qHead
 		}
-	
+		
 		USBLog(7, "-AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing", this);
 	}
 	if (doLoop)
@@ -1186,7 +1185,7 @@ AppleUSBEHCI::scavengeIsocTransactions(IOUSBCompletionAction safeAction, bool re
     {
 		// there is real work to do - first reverse the list
 		prevEl = NULL;
-		USBLog(7, "AppleUSBEHCI[%p]::scavengeIsocTransactions - before reversal, cachedConsumer = 0x%lx", this, cachedConsumer);
+		USBLog(7, "AppleUSBEHCI[%p]::scavengeIsocTransactions - before reversal, cachedConsumer = 0x%x", this, (uint32_t)cachedConsumer);
 		while (true)
 		{
 			pDoneEl->_logicalNext = prevEl;
@@ -1206,7 +1205,7 @@ AppleUSBEHCI::scavengeIsocTransactions(IOUSBCompletionAction safeAction, bool re
 		// update the consumer count
 		_consumerCount = cachedConsumer;
 		
-		USBLog(7, "AppleUSBEHCI[%p]::scavengeIsocTransactions - after reversal, cachedConsumer[0x%lx]", this, cachedConsumer);
+		USBLog(7, "AppleUSBEHCI[%p]::scavengeIsocTransactions - after reversal, cachedConsumer[0x%x]", this, (uint32_t)cachedConsumer);
 		// now cachedDoneQueueHead points to the head of the done queue in the right order
 		while (pDoneEl)
 		{
@@ -1231,7 +1230,7 @@ AppleUSBEHCI::scavengeIsocTransactions(IOUSBCompletionAction safeAction, bool re
         {
             if (pEP->onReversedList)
 			{
-                USBLog(1, "AppleUSBEHCI[%p]::scavengeIsocTransactions - EP (%p) still had %ld TDs on the reversed list!!", this, pEP, pEP->onReversedList);
+                USBLog(1, "AppleUSBEHCI[%p]::scavengeIsocTransactions - EP (%p) still had %d TDs on the reversed list!!", this, pEP, (uint32_t)pEP->onReversedList);
 			}
             ReturnIsochDoneQueue(pEP);
             AddIsocFramesToSchedule(pEP);
@@ -1264,7 +1263,7 @@ AppleUSBEHCI::scavengeAnIsocTD(IOUSBControllerIsochListElement *pTD, IOUSBComple
 			ret = pTD->UpdateFrameList(timeStamp);		// TODO - accumulate the return values
 		PutTDonDoneQueue(pEP, pTD, true);
     }
-
+	
 #if 0
     if(pTD->_completion.action != NULL)
     {
@@ -1294,7 +1293,7 @@ AppleUSBEHCI::scavengeAnEndpointQueue(IOUSBControllerListElement *pListElem, IOU
 			qEnd = pQH->_TailTD;
 			if (((qTD == NULL) || (qEnd == NULL)) && (qTD != qEnd))
 			{
-				USBError(1, "The EHCI driver found a device queue with invalid head (%p) or tail (%p) - flags 0x%lx", qTD, qEnd, pQH->GetSharedLogical()->flags);
+				USBError(1, "The EHCI driver found a device queue with invalid head (%p) or tail (%p) - flags 0x%x", qTD, qEnd, (uint32_t) pQH->GetSharedLogical()->flags);
 			}
 			TDisHalted = false;
 			shortTransfer = false;
@@ -1328,7 +1327,7 @@ AppleUSBEHCI::scavengeAnEndpointQueue(IOUSBControllerListElement *pListElem, IOU
 				{
 					foundAltTD = true;
 				}
-				if(qTD->lastTDofTransaction)
+				if(qTD->callbackOnTD)
 				{
 					// We have the complete command
 					
@@ -1348,7 +1347,7 @@ AppleUSBEHCI::scavengeAnEndpointQueue(IOUSBControllerListElement *pListElem, IOU
 					pQH->_qTD = qTD;
 					if (qTD == NULL)
 					{
-						USBError(1, "The EHCI driver found a NULL Transfer Descriptor - Queue flags 0x%lx", pQH->GetSharedLogical()->flags);
+						USBError(1, "The EHCI driver found a NULL Transfer Descriptor - Queue flags 0x%x", (uint32_t) pQH->GetSharedLogical()->flags);
 						break;
 					}
 					flags = USBToHostLong(pQH->GetSharedLogical()->qTDFlags);
@@ -1388,7 +1387,7 @@ AppleUSBEHCI::scavengeAnEndpointQueue(IOUSBControllerListElement *pListElem, IOU
 					qTD = qTD->pLogicalNext;
 					if (qTD == NULL)
 					{
-						USBError(1, "The EHCI driver found a NULL Transfer Descriptor - Queue flags 0x%lx", pQH->GetSharedLogical()->flags);
+						USBError(1, "The EHCI driver found a NULL Transfer Descriptor - Queue flags 0x%x", (uint32_t) pQH->GetSharedLogical()->flags);
 						break;
 					}
 				}
@@ -1402,7 +1401,7 @@ AppleUSBEHCI::scavengeAnEndpointQueue(IOUSBControllerListElement *pListElem, IOU
     }
     if(count > 1000)
     {
-		USBLog(1, "AppleUSBEHCI[%p]::scavengeAnEndpointQueue looks like bad ed queue %lx", this, count);
+		USBLog(1, "AppleUSBEHCI[%p]::scavengeAnEndpointQueue looks like bad ed queue %x", this, (uint32_t)count);
     }
     
     return kIOReturnSuccess;
@@ -1504,7 +1503,6 @@ AppleUSBEHCI::UIMCreateBulkEndpoint(UInt8				functionAddress,
 									int                 highSpeedPort)
 {
     AppleEHCIQueueHead 		*pEHCIEndpointDescriptor;
-    AppleEHCIQueueHead		*pED;
     
     USBLog(7, "AppleUSBEHCI[%p]::UIMCreateBulkEndpoint(adr=%d:%d, max=%d, dir=%d)", this, functionAddress, endpointNumber, maxPacketSize, direction);
 	
@@ -1519,8 +1517,6 @@ AppleUSBEHCI::UIMCreateBulkEndpoint(UInt8				functionAddress,
     else
 		speed = kUSBDeviceSpeedFull;
 	
-    pED = _AsyncHead;
-	
     if ((speed == kUSBDeviceSpeedHigh) && (maxPacketSize != 512))
     {	
 		// This shouldn't happen any more, this has been fixed.
@@ -1528,17 +1524,13 @@ AppleUSBEHCI::UIMCreateBulkEndpoint(UInt8				functionAddress,
         maxPacketSize = 512;
     }
 	
-    pEHCIEndpointDescriptor = AddEmptyCBEndPoint(functionAddress, endpointNumber, maxPacketSize, speed, highSpeedHub, highSpeedPort, direction, pED);
+    pEHCIEndpointDescriptor = AddEmptyCBEndPoint(functionAddress, endpointNumber, maxPacketSize, speed, highSpeedHub, highSpeedPort, direction);
     if (pEHCIEndpointDescriptor == NULL)
 	    return kIOReturnNoResources;
 	
+	// note that by the time the _queueType is updated, the endpoint is already active on the QH list. However, because we are inside of the 
+	// workloop gate, and this field is not used by either the HC hardware or by the FilterInterrupt routine, this is OK.
 	pEHCIEndpointDescriptor->_queueType = kEHCITypeBulk;
-
-    if(pED == NULL)
-    {
-		_AsyncHead = pEHCIEndpointDescriptor;
-		_pEHCIRegisters->AsyncListAddr = HostToUSBLong(pEHCIEndpointDescriptor->_sharedPhysical);
-    }
 	
 	printAsyncQueue(7, "UIMCreateBulkEndpoint");
     return kIOReturnSuccess;
@@ -1556,9 +1548,9 @@ AppleUSBEHCI::UIMCreateBulkTransfer(IOUSBCommand* command)
     IOMemoryDescriptor*			buffer = command->GetBuffer();
     short						direction = command->GetDirection();
 	
-    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateBulkTransfer - adr=%d:%d(%s) cbp=%lx:%x cback=[%lx:%lx:%lx])", this,
-		   command->GetAddress(), command->GetEndpoint(), direction == kUSBIn ? "in" : "out",(UInt32)buffer, (int)command->GetReqCount(), 
-		   (UInt32)command->GetUSLCompletion().action, (UInt32)command->GetUSLCompletion().target, (UInt32)command->GetUSLCompletion().parameter);
+    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateBulkTransfer - adr=%d:%d(%s) cbp=%p:%x cback=[%p:%p:%p])", this,
+		   command->GetAddress(), command->GetEndpoint(), direction == kUSBIn ? "in" : "out",buffer, (int)command->GetReqCount(), 
+		   command->GetUSLCompletion().action, command->GetUSLCompletion().target, command->GetUSLCompletion().parameter);
     
     pEDQueue = FindControlBulkEndpoint(command->GetAddress(), command->GetEndpoint(), &pEDDummy, direction);
     
@@ -1694,12 +1686,12 @@ AppleUSBEHCI::validatePollingRate(short rawPollingRate,  short speed, int *offse
     *bytesAvailable = 0;
     
     for (i=0; i < pollingRate; i++)
-	if (availableBandwidth[i] > *bytesAvailable)
-	{
-		*offset = i;
-		*bytesAvailable = availableBandwidth[i];
-	}
-		
+		if (availableBandwidth[i] > *bytesAvailable)
+		{
+			*offset = i;
+			*bytesAvailable = availableBandwidth[i];
+		}
+	
 	return pollingRate;
 }
 
@@ -1908,7 +1900,7 @@ AppleUSBEHCI::UIMCreateInterruptEndpoint(short					functionAddress,
 		
 		if (maxPacketSize > hiPtr->AvailableInterruptBandwidth())
 		{
-			USBLog (1, "AppleUSBEHCI[%p]::UIMCreateInterruptEndpoint - split transaction - no bandwidth on hub or port (MPS %d, bw %ld)", this, maxPacketSize, hiPtr->AvailableInterruptBandwidth());
+			USBLog (1, "AppleUSBEHCI[%p]::UIMCreateInterruptEndpoint - split transaction - no bandwidth on hub or port (MPS %d, bw %d)", this, maxPacketSize, (uint32_t)hiPtr->AvailableInterruptBandwidth());
 			return kIOReturnNoBandwidth;
 		}
     }
@@ -2025,8 +2017,8 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
     // and high speed (iTD). This method will allocate an internal data structure which will be used
     // to track bandwidth, etc.
 	
-    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint(%d, %d, %ld, %d, %d, %d)", this, functionAddress, endpointNumber, maxPacketSize, direction, highSpeedHub, highSpeedPort);
-    	
+    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint(%d, %d, %d, %d, %d, %d)", this, functionAddress, endpointNumber, (uint32_t)maxPacketSize, direction, highSpeedHub, highSpeedPort);
+	
     if (highSpeedHub == 0)
     {
         // Use a UInt16 to keep track of isoc bandwidth, then you can use
@@ -2057,7 +2049,7 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
     {
         // this is the case where we have already created this endpoint, and now we are adjusting the maxPacketSize
         //
-        USBLog(6,"AppleUSBEHCI[%p]::UIMCreateIsochEndpoint endpoint already exists, attempting to change maxPacketSize to %ld", this, maxPacketSize);
+        USBLog(6,"AppleUSBEHCI[%p]::UIMCreateIsochEndpoint endpoint already exists, attempting to change maxPacketSize to %d", this, (uint32_t)maxPacketSize);
 		
 		// if this is a Split transaction device, then let the hubInfo code handle the reallocation
 		if (hiPtr)
@@ -2071,14 +2063,14 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
 			{
 				// Give back the current bandwidth only
 				_isochBandwidthAvail += currentMaxPacketSize;
-				USBLog(4, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint returned bandwidth %ld, new available: %ld", this, currentMaxPacketSize, _isochBandwidthAvail);	
+				USBLog(4, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint returned bandwidth %d, new available: %d", this, (uint32_t)currentMaxPacketSize, (uint32_t)_isochBandwidthAvail);	
 				
 			}
 			else
 			{
 				// Give back the current bandwidth and take back the reallocated one
 				_isochBandwidthAvail = _isochBandwidthAvail + currentMaxPacketSize - maxPacketSize;
-				USBLog(4, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint returned bandwidth %ld, claiming %ld, new available: %ld", this, currentMaxPacketSize, maxPacketSize, _isochBandwidthAvail);	
+				USBLog(4, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint returned bandwidth %d, claiming %d, new available: %d", this, (uint32_t)currentMaxPacketSize, (uint32_t)maxPacketSize, (uint32_t)_isochBandwidthAvail);	
 			}
 			
 			return res;
@@ -2088,7 +2080,7 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
         curMaxPacketSize = pEP->maxPacketSize;
         if (maxPacketSize == curMaxPacketSize) 
 		{
-            USBLog(4, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint maxPacketSize (%ld) the same, no change", this, maxPacketSize);
+            USBLog(4, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint maxPacketSize (%d) the same, no change", this, (uint32_t)maxPacketSize);
             return kIOReturnSuccess;
         }
         if (maxPacketSize > curMaxPacketSize) 
@@ -2097,17 +2089,17 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
             xtraRequest = maxPacketSize - curMaxPacketSize;
 			if (xtraRequest > _isochBandwidthAvail)
 			{
-				USBLog(1,"AppleUSBEHCI[%p]::UIMCreateIsochEndpoint out of bandwidth, request (extra) = %ld, available: %ld", this, xtraRequest, _isochBandwidthAvail);
+				USBLog(1,"AppleUSBEHCI[%p]::UIMCreateIsochEndpoint out of bandwidth, request (extra) = %d, available: %d", this, (uint32_t)xtraRequest, (uint32_t)_isochBandwidthAvail);
 				return kIOReturnNoBandwidth;
 			}
 			_isochBandwidthAvail -= xtraRequest;
-			USBLog(5, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint grabbing additional bandwidth: %ld, new available: %ld", this, xtraRequest, _isochBandwidthAvail);
+			USBLog(5, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint grabbing additional bandwidth: %d, new available: %d", this, (uint32_t)xtraRequest, (uint32_t)_isochBandwidthAvail);
         } else 
 		{
             // client is trying to return some bandwidth
             xtraRequest = curMaxPacketSize - maxPacketSize;
             _isochBandwidthAvail += xtraRequest;
-            USBLog(5, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint returning some bandwidth: %ld, new available: %ld", this, xtraRequest, _isochBandwidthAvail);
+            USBLog(5, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint returning some bandwidth: %d, new available: %d", this, (uint32_t)xtraRequest, (uint32_t)_isochBandwidthAvail);
         }
         pEP->maxPacketSize = maxPacketSize;
 		if(maxPacketSize >1024)
@@ -2120,7 +2112,7 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
 			pEP->mult = 1;
 			pEP->oneMPS = maxPacketSize;
 		}
-		USBLog(5,"AppleUSBEHCI[%p]::UIMCreateIsochEndpoint high speed size %ld, mult %d: %d", this, maxPacketSize, pEP->mult, pEP->oneMPS);
+		USBLog(5,"AppleUSBEHCI[%p]::UIMCreateIsochEndpoint high speed size %d, mult %d: %d", this, (uint32_t)maxPacketSize, pEP->mult, pEP->oneMPS);
         
         return kIOReturnSuccess;
     }
@@ -2128,7 +2120,7 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
     // we neeed to create a new EP structure
 	if (maxPacketSize > (hiPtr ? hiPtr->AvailableIsochBandwidth(direction) : _isochBandwidthAvail)) 
 	{
-		USBLog(1,"AppleUSBEHCI[%p]::UIMCreateIsochEndpoint out of bandwidth, request (extra) = %ld, available: %ld", this, maxPacketSize, (hiPtr ? hiPtr->AvailableIsochBandwidth(direction) : _isochBandwidthAvail));
+		USBLog(1,"AppleUSBEHCI[%p]::UIMCreateIsochEndpoint out of bandwidth, request (extra) = %d, available: %d", this,(uint32_t) maxPacketSize, (uint32_t)(hiPtr ? hiPtr->AvailableIsochBandwidth(direction) : _isochBandwidthAvail));
 		return kIOReturnNoBandwidth;
 	}
 	
@@ -2160,7 +2152,7 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
 			pEP->oneMPS = maxPacketSize;
 		}
 		pEP->maxPacketSize = maxPacketSize;
-		USBLog(5,"AppleUSBEHCI[%p]::UIMCreateIsochEndpoint high speed 2 size %ld, mult %d: %d", this, maxPacketSize, pEP->mult, pEP->oneMPS);
+		USBLog(5,"AppleUSBEHCI[%p]::UIMCreateIsochEndpoint high speed 2 size %d, mult %d: %d", this, (uint32_t)maxPacketSize, pEP->mult, pEP->oneMPS);
 	}
     pEP->inSlot = kEHCIPeriodicListEntries+1;
 	pEP->interval = decodedInterval;
@@ -2168,7 +2160,7 @@ AppleUSBEHCI::UIMCreateIsochEndpoint(short					functionAddress,
 	
 	
     _isochBandwidthAvail -= maxPacketSize;
-    USBLog(4, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint success. bandwidth used = %ld, new available: %ld", this, maxPacketSize, _isochBandwidthAvail);	
+    USBLog(4, "AppleUSBEHCI[%p]::UIMCreateIsochEndpoint success. bandwidth used = %d, new available: %d", this, (uint32_t)maxPacketSize, (uint32_t)_isochBandwidthAvail);	
     return kIOReturnSuccess;
 }
 
@@ -2184,7 +2176,7 @@ AppleUSBEHCI::AbortIsochEP(AppleEHCIIsochEndpoint* pEP)
     
 	if (pEP->deferredQueue || pEP->toDoList || pEP->doneQueue || pEP->activeTDs || pEP->onToDoList || pEP->scheduledTDs || pEP->deferredTDs || pEP->onReversedList || pEP->onDoneQueue)
 	{
-		USBLog(6, "+AppleUSBEHCI[%p]::AbortIsochEP[%p] - start - _outSlot (0x%x) pEP->inSlot (0x%x) activeTDs (%ld) onToDoList (%ld) todo (%p) deferredTDs (%ld) deferred(%p) scheduledTDs (%ld) onProducerQ (%ld) consumer (%ld) producer (%ld) onReversedList (%ld) onDoneQueue (%ld)  doneQueue (%p)", this, pEP,  _outSlot, pEP->inSlot, pEP->activeTDs, pEP->onToDoList, pEP->toDoList, pEP->deferredTDs, pEP->deferredQueue, pEP->scheduledTDs, pEP->onProducerQ, _consumerCount, _producerCount, pEP->onReversedList, pEP->onDoneQueue, pEP->doneQueue);
+		USBLog(6, "+AppleUSBEHCI[%p]::AbortIsochEP[%p] - start - _outSlot (0x%x) pEP->inSlot (0x%x) activeTDs (%d) onToDoList (%d) todo (%p) deferredTDs (%d) deferred(%p) scheduledTDs (%d) onProducerQ (%d) consumer (%d) producer (%d) onReversedList (%d) onDoneQueue (%d)  doneQueue (%p)", this, pEP,  _outSlot, (uint32_t)pEP->inSlot, (uint32_t)pEP->activeTDs, (uint32_t)pEP->onToDoList, pEP->toDoList, (uint32_t)pEP->deferredTDs, pEP->deferredQueue, (uint32_t)pEP->scheduledTDs, (uint32_t)pEP->onProducerQ, (uint32_t)_consumerCount, (uint32_t)_producerCount, (uint32_t)pEP->onReversedList, (uint32_t)pEP->onDoneQueue, pEP->doneQueue);
 	}
 	
     USBLog(7, "AppleUSBEHCI[%p]::AbortIsochEP (%p)", this, pEP);
@@ -2210,7 +2202,7 @@ AppleUSBEHCI::AbortIsochEP(AppleEHCIIsochEndpoint* pEP)
     
 	if (pEP->deferredQueue || pEP->toDoList || pEP->doneQueue || pEP->activeTDs || pEP->onToDoList || pEP->scheduledTDs || pEP->deferredTDs || pEP->onReversedList || pEP->onDoneQueue)
 	{
-		USBLog(6, "+AppleUSBEHCI[%p]::AbortIsochEP[%p] - after scavenge - _outSlot (0x%x) pEP->inSlot (0x%x) activeTDs (%ld) onToDoList (%ld) todo (%p) deferredTDs (%ld) deferred(%p) scheduledTDs (%ld) onProducerQ (%ld) consumer (%ld) producer (%ld) onReversedList (%ld) onDoneQueue (%ld)  doneQueue (%p)", this, pEP,  _outSlot, pEP->inSlot, pEP->activeTDs, pEP->onToDoList, pEP->toDoList, pEP->deferredTDs, pEP->deferredQueue, pEP->scheduledTDs, pEP->onProducerQ, _consumerCount, _producerCount, pEP->onReversedList, pEP->onDoneQueue, pEP->doneQueue);
+		USBLog(6, "+AppleUSBEHCI[%p]::AbortIsochEP[%p] - after scavenge - _outSlot (0x%x) pEP->inSlot (0x%x) activeTDs (%d) onToDoList (%d) todo (%p) deferredTDs (%d) deferred(%p) scheduledTDs (%d) onProducerQ (%d) consumer (%d) producer (%d) onReversedList (%d) onDoneQueue (%d)  doneQueue (%p)", this, pEP,  _outSlot, (uint32_t)pEP->inSlot, (uint32_t)pEP->activeTDs, (uint32_t)pEP->onToDoList, pEP->toDoList, (uint32_t)pEP->deferredTDs, pEP->deferredQueue,(uint32_t) pEP->scheduledTDs, (uint32_t)pEP->onProducerQ, (uint32_t)_consumerCount, (uint32_t)_producerCount, (uint32_t)pEP->onReversedList, (uint32_t)pEP->onDoneQueue, pEP->doneQueue);
 	}
 	
     if ((_outSlot < kEHCIPeriodicListEntries) && (pEP->inSlot < kEHCIPeriodicListEntries))
@@ -2257,12 +2249,12 @@ AppleUSBEHCI::AbortIsochEP(AppleEHCIIsochEndpoint* pEP)
 							{
 								if (!stopAdvancing)
 								{
-									USBLog(7, "AppleUSBEHCI[%p]::AbortIsochEP(%p) - advancing _outslot from 0x%x to 0x%lx", this, pEP, _outSlot, nextSlot);
+									USBLog(7, "AppleUSBEHCI[%p]::AbortIsochEP(%p) - advancing _outslot from 0x%x to 0x%x", this, pEP, _outSlot, (uint32_t)nextSlot);
 									_outSlot = nextSlot;
 								}
 								else
 								{
-									USBLog(6, "AppleUSBEHCI[%p]::AbortIsochEP(%p) - would have advanced _outslot from 0x%x to 0x%lx", this, pEP, _outSlot, nextSlot);
+									USBLog(6, "AppleUSBEHCI[%p]::AbortIsochEP(%p) - would have advanced _outslot from 0x%x to 0x%x", this, pEP, _outSlot, (uint32_t)nextSlot);
 								}
 							}
                         }
@@ -2274,7 +2266,7 @@ AppleUSBEHCI::AbortIsochEP(AppleEHCIIsochEndpoint* pEP)
 						OSDecrementAtomic( &(pEP->scheduledTDs));
 						if ( pEP->scheduledTDs < 0 )
 						{
-							USBLog(1, "AppleUSBEHCI[%p]::AbortIsochEP (%p) - scheduleTDs is negative! (%ld)", this, pEP, pEP->scheduledTDs);
+							USBLog(1, "AppleUSBEHCI[%p]::AbortIsochEP (%p) - scheduleTDs is negative! (%d)", this, pEP, (uint32_t)pEP->scheduledTDs);
 						}
                         PutTDonDoneQueue(pEP, pTD, true	);
                     }
@@ -2308,14 +2300,14 @@ AppleUSBEHCI::AbortIsochEP(AppleEHCIIsochEndpoint* pEP)
 		PutTDonDoneQueue(pEP, pTD, true);
 		pTD = GetTDfromToDoList(pEP);
     }
-
+	
 	if (pEP->scheduledTDs == 0)
 	{
 		// since we have no Isoch xactions on the endpoint, we can reset the counter
 		pEP->firstAvailableFrame = 0;
 		pEP->inSlot = kEHCIPeriodicListEntries + 1;    
 	}
-
+	
     // we can go back to processing now
 	_inAbortIsochEP = false;
     
@@ -2329,7 +2321,7 @@ AppleUSBEHCI::AbortIsochEP(AppleEHCIIsochEndpoint* pEP)
     pEP->accumulatedStatus = kIOReturnSuccess;
 	if (pEP->deferredQueue || pEP->toDoList || pEP->doneQueue || pEP->activeTDs || pEP->onToDoList || pEP->scheduledTDs || pEP->deferredTDs || pEP->onReversedList || pEP->onDoneQueue)
 	{
-		USBLog(1, "+AppleUSBEHCI[%p]::AbortIsochEP[%p] - done - _outSlot (0x%x) pEP->inSlot (0x%x) activeTDs (%ld) onToDoList (%ld) todo (%p) deferredTDs (%ld) deferred(%p) scheduledTDs (%ld) onProducerQ (%ld) consumer (%ld) producer (%ld) onReversedList (%ld) onDoneQueue (%ld)  doneQueue (%p)", this, pEP,  _outSlot, pEP->inSlot, pEP->activeTDs, pEP->onToDoList, pEP->toDoList, pEP->deferredTDs, pEP->deferredQueue, pEP->scheduledTDs, pEP->onProducerQ, _consumerCount, _producerCount, pEP->onReversedList, pEP->onDoneQueue, pEP->doneQueue);
+		USBLog(1, "+AppleUSBEHCI[%p]::AbortIsochEP[%p] - done - _outSlot (0x%x) pEP->inSlot (0x%x) activeTDs (%d) onToDoList (%d) todo (%p) deferredTDs (%d) deferred(%p) scheduledTDs (%d) onProducerQ (%d) consumer (%d) producer (%d) onReversedList (%d) onDoneQueue (%d)  doneQueue (%p)", this, pEP,  _outSlot, (uint32_t)pEP->inSlot, (uint32_t)pEP->activeTDs, (uint32_t)pEP->onToDoList, pEP->toDoList, (uint32_t)pEP->deferredTDs, pEP->deferredQueue, (uint32_t)pEP->scheduledTDs, (uint32_t)pEP->onProducerQ, (uint32_t)_consumerCount, (uint32_t)_producerCount, (uint32_t)pEP->onReversedList, (uint32_t)pEP->onDoneQueue, pEP->doneQueue);
 	}
 	else
 	{
@@ -2347,7 +2339,7 @@ void
 AppleUSBEHCI::returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDescriptor *untilThisOne, IOReturn error, bool clearToggle)
 {
     EHCIGeneralTransferDescriptorPtr	doneQueue = NULL, doneTail= NULL;
-    bool				removedSome = false;
+    bool								removedSome = false;
 	
     USBLog(5, "AppleUSBEHCI[%p]::returnTransactions, pED(%p) until (%p), clearToggle: %d", this, pED, untilThisOne, clearToggle);
     pED->print(7);
@@ -2386,14 +2378,14 @@ AppleUSBEHCI::returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDes
 	
     // Kill the overlay transaction and leave the EP enabled (NOT halted)
     
-    USBLog(5, "AppleUSBEHCI[%p]::returnTransactions, pED->qTD (L:%p P:0x%lx) pED->TailTD (L:%p P:0x%lx)", this, pED->_qTD, pED->_qTD->pPhysical, pED->_TailTD, pED->_TailTD->pPhysical);
+    USBLog(5, "AppleUSBEHCI[%p]::returnTransactions, pED->qTD (L:%p P:0x%x) pED->TailTD (L:%p P:0x%x)", this, pED->_qTD, (uint32_t)pED->_qTD->pPhysical, pED->_TailTD, (uint32_t)pED->_TailTD->pPhysical);
     USBLog(5, "AppleUSBEHCI[%p]::returnTransactions: clearing ED bit, qTDFlags = %x", this, USBToHostLong(pED->GetSharedLogical()->qTDFlags));
-
+	
     if (clearToggle)
 		pED->GetSharedLogical()->qTDFlags = 0;					// Ensure that next TD is fetched (not the ALT) and reset the data toggle
     else
 		pED->GetSharedLogical()->qTDFlags &= HostToUSBLong(kEHCITDFlags_DT);	// Ensure that next TD is fetched (not the ALT) but keep the data toggle
-   
+	
 	if (doneQueue)
     {
 		USBLog(5, "AppleUSBEHCI[%p]::returnTransactions: calling back the done queue (after ED is made active)", this);    
@@ -2420,23 +2412,12 @@ AppleUSBEHCI::HaltAsyncEndpoint(AppleEHCIQueueHead *pED, AppleEHCIQueueHead *pED
 		pED->GetSharedLogical()->qTDFlags |= HostToUSBLong(kEHCITDStatus_Halted);
 		pED->GetSharedLogical()->qTDFlags &= ~(HostToUSBLong(kEHCITDStatus_Active));
 		
-		// 3-4-08 rdar://5779996
-		// it is possible that the unlink above has zerod out _AsyncHead, and the link code won't automatically set it back
-		// so do that the same way we always do, at least until we solve rdar://5779967
-		// this code is copied from a different place
-		if (_AsyncHead)
-		{
-			linkAsyncEndpoint(pED, _AsyncHead);
-		}
-		else
-		{
-			linkAsyncEndpoint(pED, NULL);
-			_AsyncHead = pED;
-			_pEHCIRegisters->AsyncListAddr = HostToUSBLong( pED->_sharedPhysical );
-			EnableAsyncSchedule(false);
-		}
+		linkAsyncEndpoint(pED);
+		if (_myBusState == kUSBBusStateRunning)
+			EnableAsyncSchedule(false);				// only do this is we are running and we just linked something back in
     }
 }
+
 
 
 void
@@ -2457,6 +2438,7 @@ AppleUSBEHCI::HaltInterruptEndpoint(AppleEHCIQueueHead *pED)
 		linkInterruptEndpoint(pED);
     }
 }
+
 
 
 IOReturn 
@@ -2530,12 +2512,12 @@ AppleUSBEHCI::HandleEndpointAbort(short			functionAddress,
 	
 	if (clearToggle)
 		pED->GetSharedLogical()->qTDFlags &= HostToUSBLong(~((UInt32)kEHCITDFlags_DT));	// clear the data toggle
-
+	
 	if(USBToHostLong(pED->GetSharedLogical()->qTDFlags) & kEHCITDStatus_Halted)
 	{
 		USBLog(1, "AppleUSBEHCI::HandleEndpointAbort, QH still halted following returnTransactions!!");
 	}
-
+	
 	reentrantFlag = FALSE;	
     return kIOReturnSuccess;
 	
@@ -2549,6 +2531,7 @@ AppleUSBEHCI::UIMAbortEndpoint(short functionAddress, short endpointNumber, shor
     // this is probably not correct, but still waiting clarification on the EHCI spec section 4.8.2
     return HandleEndpointAbort(functionAddress, endpointNumber, direction, false);
 }
+
 
 
 IOReturn 
@@ -2606,12 +2589,12 @@ AppleUSBEHCI::UIMCreateInterruptTransfer(IOUSBCommand* command)
     IOMemoryDescriptor*			buffer = command->GetBuffer();
     short						direction = command->GetDirection(); // our local copy may change
 	
-    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateInterruptTransfer - adr=%d:%d cbp=%p:%lx br=%s cback=[%lx:%lx:%lx])", this,  
+    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateInterruptTransfer - adr=%d:%d cbp=%p:%qx br=%s cback=[%p:%p:%p])", this,  
 		   command->GetAddress(), command->GetEndpoint(), command->GetBuffer(), 
-		   command->GetBuffer()->getLength(), command->GetBufferRounding()?"YES":"NO", 
-		   (UInt32)completion.action, (UInt32)completion.target, 
-		   (UInt32)completion.parameter);
-
+		   (uint64_t)command->GetBuffer()->getLength(), command->GetBufferRounding()?"YES":"NO", 
+		   completion.action, completion.target, 
+		   completion.parameter);
+	
     if (_rootHubFuncAddress == command->GetAddress())
     {
 		IODMACommand			*dmaCommand = command->GetDMACommand();
@@ -2743,7 +2726,7 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
 		printAsyncQueue(7, "unlinkAsyncEndpoint");
 		pED->GetSharedLogical()->flags &= ~HostToUSBLong(kEHCIEDFlags_H);
 		_AsyncHead = NULL;
-		_pEHCIRegisters->AsyncListAddr = 0;
+		_pEHCIRegisters->AsyncListAddr = NULL;
     }
     else
     {
@@ -2786,7 +2769,7 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
 		
 		STS = USBToHostLong(_pEHCIRegisters->USBSTS);
 		CMD = USBToHostLong(_pEHCIRegisters->USBCMD);
-
+		
 		// 5664375 - only need to do the following if the Async list is enabled in the CMD register
 		if (CMD & kEHCICMDAsyncEnable) 
 		{
@@ -2832,7 +2815,7 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
 					}
 				};
 				
-				USBLog(2, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint: delayed for %d ms after rining the doorbell", this, (int)count);
+				USBLog(2, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint: delayed for %d ms after ringing the doorbell", this, (int)count);
 				
 				// Clear request
 				_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIAAEIntBit);
@@ -2872,11 +2855,11 @@ AppleUSBEHCI::DeleteIsochEP(AppleEHCIIsochEndpoint *pEP)
     USBLog(7, "AppleUSBEHCI[%p]::DeleteIsochEP (%p)", this, pEP);
     if (pEP->activeTDs)
     {
-		USBLog(6, "AppleUSBEHCI[%p]::DeleteIsochEP- there are still %ld active TDs - aborting", this, pEP->activeTDs);
+		USBLog(6, "AppleUSBEHCI[%p]::DeleteIsochEP- there are still %d active TDs - aborting", this, (uint32_t)pEP->activeTDs);
 		AbortIsochEP(pEP);
 		if (pEP->activeTDs)
 		{
-			USBError(1, "AppleUSBEHCI[%p]::DeleteIsochEP- after abort there are STILL %ld active TDs", this, pEP->activeTDs);
+			USBError(1, "AppleUSBEHCI[%p]::DeleteIsochEP- after abort there are STILL %d active TDs", this, (uint32_t) pEP->activeTDs);
 		}
     }
     prevEP = NULL;
@@ -2911,7 +2894,7 @@ AppleUSBEHCI::DeleteIsochEP(AppleEHCIIsochEndpoint *pEP)
 	
     // need to return the bandwidth used
 	_isochBandwidthAvail += currentMaxPacketSize;
-	USBLog(4, "AppleUSBEHCI[%p]::DeleteIsochEP returned bandwidth %ld, new available: %ld", this, currentMaxPacketSize, _isochBandwidthAvail);	
+	USBLog(4, "AppleUSBEHCI[%p]::DeleteIsochEP returned bandwidth %d, new available: %d", this, (uint32_t)currentMaxPacketSize, (uint32_t)_isochBandwidthAvail);	
 	
 	DeallocateIsochEP(pEP);
 	
@@ -2964,7 +2947,7 @@ AppleUSBEHCI::UIMDeleteEndpoint(short functionAddress, short endpointNumber, sho
 		}
 		USBLog(5, "AppleUSBEHCI[%p]::UIMDeleteEndpoint: deleting Int endpoint", this);
 		unlinkIntEndpoint(pED);
-
+		
 		splitFlags = USBToHostLong(pED->GetSharedLogical()->splitFlags);
 		highSpeedHub = (splitFlags & kEHCIEDSplitFlags_HubAddr) >> kEHCIEDSplitFlags_HubAddrPhase;
 		highSpeedPort = (splitFlags & kEHCIEDSplitFlags_Port) >> kEHCIEDSplitFlags_PortPhase;
@@ -3044,7 +3027,8 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
     IOByteCount							transferOffset;
     UInt32								buffPtrSlot, transfer, frameNumberIncrease;
     unsigned							i,j;
-    UInt32								*buffP, *transactionPtr = 0, *buffHighP;
+    USBPhysicalAddress32							*buffP, *buffHighP;
+    UInt32								*transactionPtr = 0;
     UInt32								pageOffset=0;
     UInt32								page;
     UInt32								frames;
@@ -3073,7 +3057,7 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
     // Each frame in the frameList (either "pFrames" or "pLLFrames",
 	// depending on whether you're dealing with low-latency), corresponds
 	// to a TRANSFER OPPORTUNITY. This is what this outer loop counts through.
-
+	
 	// Our job here is to convert this list of TRANSFERS into a list
 	// of TDs. Depending on the value of pEP->interval, there could be
 	// anywhere from 1 transfer per TD (in the case of pEP->interval
@@ -3084,7 +3068,7 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 	// Each transfer will happen on a particular microframe. The TD has entries
 	// for 8 transactions (transfers), so Transaction0 will go out in microframe 0, 
 	// Transaction7 will go out in microframe 7.
-
+	
 	// So we need a variable to express the ratio of transfers per TD
 	// for this request: "transfersPerTD". Note how, once you've
 	// got an pEP->interval > 8, it doesn't matter if the interval is 16,
@@ -3092,11 +3076,11 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 	// whatever USB frame that transfer happens to "land on".  In that case, we need to 
 	// just update the USB Frame # of the TD (the frameNumberStart) as well as the endpoints
 	// frameNumberStart to advance by bInterval / 8 frames.  We also need to then set the epInterval to 8.
-
+	
 	transfersPerTD = (epInterval >= 8 ? 1 : (8/epInterval));
 	frameNumberIncrease = (epInterval <= 8 ? 1 : epInterval/8);
 	
-	USBLog(7,"AppleUSBEHCI[%p]::CreateHSIsochTransfer  transfersPerTD will be %ld, frameNumberIncrease = %ld", this, transfersPerTD, frameNumberIncrease);
+	USBLog(7,"AppleUSBEHCI[%p]::CreateHSIsochTransfer  transfersPerTD will be %d, frameNumberIncrease = %d", this, (uint32_t)transfersPerTD, (uint32_t)frameNumberIncrease);
 	
 	if ( frameNumberIncrease > 1 )
 	{
@@ -3122,21 +3106,21 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 	// It's the cases of pEP->interval equal to 1, 2, or 4 we need to worry about; if "transferCount"
 	// is not a multiple of 8, 4, or 2, respectively, the "last" TD won't have its full complement of
 	// active transfers.
-
+	
 	if (transferCount % transfersPerTD != 0)
 	{
-	  USBLog(3,"AppleUSBEHCI[%p]::CreateHSIsochTransfer Isoch -- incomplete final TD in transfer, command->GetNumFrames() is %d, pEP->Interval is %d and so transfersPerTD is %d", 
-			 this, (int ) command->GetNumFrames(), (int ) epInterval, (int ) transfersPerTD);
-	  return kIOReturnBadArgument;
+		USBLog(3,"AppleUSBEHCI[%p]::CreateHSIsochTransfer Isoch -- incomplete final TD in transfer, command->GetNumFrames() is %d, pEP->Interval is %d and so transfersPerTD is %d", 
+			   this, (int ) command->GetNumFrames(), (int ) epInterval, (int ) transfersPerTD);
+		return kIOReturnBadArgument;
 	}
-
+	
   	// We iterate over the framelist not "transfer by transfer", but
 	// rather "TD by TD". At any given point in this process, the variable
 	// "baseTransferIndex" contains the index into the framelist of the first
 	// transfer that'll go into the TD we're currently working on. Each
 	// time through the loop, we increment this base index by the number
 	// of active transfers in each TD ("transfersPerTD").
-
+	
     for (baseTransferIndex = 0;  baseTransferIndex < transferCount; baseTransferIndex += transfersPerTD)
     {
         //  Get the size of buffer for this TD
@@ -3144,24 +3128,24 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 	    bufferSize = 0;
 		for (transfer = 0; transfer < transfersPerTD; transfer++)
 		{
-		  UInt32 microFramePayload = (lowLatency ? pLLFrames[baseTransferIndex + transfer].frReqCount : pFrames[baseTransferIndex + transfer].frReqCount);
-
-		  if (microFramePayload > kUSBMaxHSIsocFrameReqCount)
-		  {
-			USBLog(3,"AppleUSBEHCI[%p]::CreateHSIsochTransfer Isoch frame too big %d", this, (int )microFramePayload);
-			return kIOReturnBadArgument;
-		  }
-				
-		  bufferSize += microFramePayload;
-
-		  if(lowLatency)
-		  {
-			// Make sure our frStatus field has a known value.  This is used by the client to know whether the transfer has been completed or not
-			//
-			pLLFrames[baseTransferIndex + transfer].frStatus = command->GetIsRosettaClient() ? (IOReturn) OSSwapInt32(kUSBLowLatencyIsochTransferKey) : (IOReturn) kUSBLowLatencyIsochTransferKey;
-		  }
+			UInt32 microFramePayload = (lowLatency ? pLLFrames[baseTransferIndex + transfer].frReqCount : pFrames[baseTransferIndex + transfer].frReqCount);
+			
+			if (microFramePayload > kUSBMaxHSIsocFrameReqCount)
+			{
+				USBLog(3,"AppleUSBEHCI[%p]::CreateHSIsochTransfer Isoch frame too big %d", this, (int )microFramePayload);
+				return kIOReturnBadArgument;
+			}
+			
+			bufferSize += microFramePayload;
+			
+			if(lowLatency)
+			{
+				// Make sure our frStatus field has a known value.  This is used by the client to know whether the transfer has been completed or not
+				//
+				pLLFrames[baseTransferIndex + transfer].frStatus = command->GetIsRosettaClient() ? (IOReturn) OSSwapInt32(kUSBLowLatencyIsochTransferKey) : (IOReturn) kUSBLowLatencyIsochTransferKey;
+			}
 		}
-
+		
         // go ahead and make sure we can grab at least ONE TD, before we lock the buffer	
         //
         pNewITD = AllocateITD();
@@ -3186,15 +3170,15 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
         //
 		buffP = &pNewITD->GetSharedLogical()->bufferPage0;
 		buffHighP = &pNewITD->GetSharedLogical()->extBufferPage0;
-
+		
 		for (buffPtrSlot=0; ((buffPtrSlot <= 6) && (bufferSize != 0)); buffPtrSlot++)
 		{
 			GET_NEXT_BUFFPTR();		// get next values of "segLen" and "dmaStartAddr"
-
-			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - Addr (0x%lx) Length (%ld) BufferSize (%ld)", this, dmaStartAddr, segLen, bufferSize);
+			
+			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - Addr (0x%x) Length (%d) BufferSize (%d)", this, (uint32_t)dmaStartAddr, (uint32_t)segLen, (uint32_t)bufferSize);
 			*(buffP++) = HostToUSBLong( dmaStartAddr & kEHCIPageMask);
 			*(buffHighP++) = HostToUSBLong( dmaAddrHighBits );
-
+			
 			if (buffPtrSlot == 0)
 			{ 
 				// Only need to take the pageOffset into account for the 1st buffer pointer
@@ -3205,14 +3189,14 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 			{
 				ADJUST_SEGMENT_LENGTH(0); 
 			}
-
-			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIochTransfer - getPhysicalSegment returned start of 0x%lx; length:%ld ; Buff Ptr0:%lx", this, dmaStartAddr, segLen, *(buffP-1));
-
+			
+			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIochTransfer - getPhysicalSegment returned start of 0x%x; length:%d ; Buff Ptr0:%x", this, (uint32_t)dmaStartAddr, (uint32_t)segLen, *(buffP-1));
+			
 			transferOffset += segLen;
 			bufferSize -= segLen;
-
+			
 		}
-
+		
         // set up all the 'Transaction' section of the TD
         //
         page = 0;
@@ -3225,11 +3209,11 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 			
 			trLen = (lowLatency ? pLLFrames[baseTransferIndex + transfer].frReqCount : pFrames[baseTransferIndex + transfer].frReqCount);
 			
-			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - baseTransferIndex: %ld, microFrame: %d, frameIndex: %ld, interval %ld", this, baseTransferIndex, (int ) transfer, baseTransferIndex + transfer, epInterval);
-			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - forming transaction length (%ld), pageOffset (0x%lx), page (%ld)", this, trLen, pageOffset, page);
+			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - baseTransferIndex: %d, microFrame: %d, frameIndex: %d, interval %d", this, (uint32_t)baseTransferIndex, (uint32_t) transfer, (uint32_t)(baseTransferIndex + transfer), (uint32_t)epInterval);
+			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - forming transaction length (%d), pageOffset (0x%x), page (%d)", this, (uint32_t)trLen, (uint32_t)pageOffset, (uint32_t)page);
 			
 			*transactionPtr = HostToUSBLong(kEHCI_ITDStatus_Active |  (trLen<< kEHCI_ITDTr_LenPhase) | 
-										  (pageOffset << kEHCI_ITDTr_OffsetPhase) | (page << kEHCI_ITDTr_PagePhase) );
+											(pageOffset << kEHCI_ITDTr_OffsetPhase) | (page << kEHCI_ITDTr_PagePhase) );
 			
 			// Advance to the next transacton element, which depends on the interval
 			//
@@ -3237,18 +3221,18 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 			
 			// Adjust the page and pageOffset for the next transaction
 			pageOffset += trLen;
-			if (pageOffset > kEHCIPageSize)
+			if (pageOffset >= kEHCIPageSize)
 			{
 				pageOffset -= kEHCIPageSize;
 				page++;
 			}
 		}
-
+		
 		// Now, set the IOC bit for the last transaction in this TD. Note that we index by minus epInterval
 		// to reach the transaction that had a TD
 		//
 		transactionPtr[-epInterval] |= HostToUSBLong(kEHCI_ITDTr_IOC);
-
+		
 		// Finish updating the other fields in the TD
 		//
 		pNewITD->_pFrames = pFrames;											// Points to the start of the frameList for this request (Used in the callback)
@@ -3278,12 +3262,12 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 	//
 	USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - in TD (%p) setting _completion action (%p)", this, pNewITD, pNewITD->_completion.action);
 	pNewITD->_completion = command->GetUSLCompletion();
-
+	
 	// Add the request to the schedule
 	//
 	AddIsocFramesToSchedule(pEP);
 	EnablePeriodicSchedule(false);
-
+	
 	return kIOReturnSuccess;
 }
 
@@ -3327,7 +3311,7 @@ AppleUSBEHCI::CreateSplitIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocCo
         {
             if (pFrames[i].frReqCount > pEP->maxPacketSize)
             {
-                USBLog(1,"AppleUSBEHCI[%p]::CreateSplitIsochTransfer - Isoch frame (%ld) too big (%d) MPS (%ld)", this, i + 1, pFrames[i].frReqCount, pEP->maxPacketSize);
+                USBLog(1,"AppleUSBEHCI[%p]::CreateSplitIsochTransfer - Isoch frame (%d) too big (%d) MPS (%d)", this, (uint32_t)(i + 1), pFrames[i].frReqCount, (uint32_t)pEP->maxPacketSize);
                 return kIOReturnBadArgument;
             }
             bufferSize += pFrames[i].frReqCount;
@@ -3335,7 +3319,7 @@ AppleUSBEHCI::CreateSplitIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocCo
         {
             if (pLLFrames[i].frReqCount > kUSBMaxFSIsocEndpointReqCount)
             {
-                USBLog(1,"AppleUSBEHCI[%p]::CreateSplitIsochTransfer(LL) - Isoch frame (%ld) too big (%d) MPS (%ld)", this, i + 1, pLLFrames[i].frReqCount, pEP->maxPacketSize);
+                USBLog(1,"AppleUSBEHCI[%p]::CreateSplitIsochTransfer(LL) - Isoch frame (%d) too big (%d) MPS (%d)", this, (uint32_t)(i + 1), pLLFrames[i].frReqCount, (uint32_t)pEP->maxPacketSize);
                 return kIOReturnBadArgument;
             }
             bufferSize += pLLFrames[i].frReqCount;
@@ -3400,7 +3384,7 @@ AppleUSBEHCI::CreateSplitIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocCo
 		}
 		pNewSITD->GetSharedLogical()->buffPtr0 = HostToUSBLong(dmaStartAddr);
 		pNewSITD->GetSharedLogical()->extBuffPtr0 = HostToUSBLong(dmaAddrHighBits);
-		USBLog(7, "AppleUSBEHCI[%p]::CreateSplitIocTransfer - gen64IOVMSegments returned start of %p:%p; length %ld", this, (void*)dmaAddrHighBits, (void*)dmaStartAddr, segLen);
+		USBLog(7, "AppleUSBEHCI[%p]::CreateSplitIocTransfer - gen64IOVMSegments returned start of %p:%p; length %d", this, (void*)dmaAddrHighBits, (void*)dmaStartAddr, (uint32_t)segLen);
 		
 		transferOffset += segLen;
 		bufferSize -= segLen;
@@ -3440,7 +3424,7 @@ AppleUSBEHCI::CreateSplitIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocCo
 			{
 				segLen = kEHCIPageSize;
 			}
-			USBLog(7, "AppleUSBEHCI[%p]::CreateSplitIocTransfer - gen64IOVMSegments returned start of %p:%p; length %ld", this, (void*)dmaAddrHighBits, (void*)dmaStartAddr, segLen);
+			USBLog(7, "AppleUSBEHCI[%p]::CreateSplitIocTransfer - gen64IOVMSegments returned start of %p:%p; length %d", this, (void*)dmaAddrHighBits, (void*)dmaStartAddr, (uint32_t)segLen);
 			transferOffset += segLen;
 			bufferSize -= segLen;
 		}
@@ -3480,7 +3464,7 @@ AppleUSBEHCI::CreateSplitIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocCo
 		if (i == (frameCount-1))
 		{
 			ioc = 1;													// always ioc on the last TD and the dummy TD rdar://4300892
-
+			
 			// only put the completion in the last frame if we are not using the backPtr
 			if (!pEP->useBackPtr)
 				pNewSITD->_completion = command->GetUSLCompletion();
@@ -3510,7 +3494,8 @@ AppleUSBEHCI::CreateSplitIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocCo
 		myStatFlags = (ioc << kEHCIsiTDStatIOCPhase) | (reqCount << kEHCIsiTDStatLengthPhase) |	kEHCIsiTDStatStatusActive;
 		if ((i > 0) && pEP->useBackPtr)
 		{
-			myStatFlags |= kEHCUsiTDStatStatusSplitXState;			// every TD after the first starts in DoCompleteSplit state
+			if (!(_errataBits & kErrataMCP79SplitIsoch))				// MCP79 does NOT want to do this
+				myStatFlags |= kEHCUsiTDStatStatusSplitXState;			// every TD after the first starts in DoCompleteSplit state
 			pNewSITD->GetSharedLogical()->backPtr = HostToUSBLong(prevPhysLink);
 		}
 		else
@@ -3527,18 +3512,23 @@ AppleUSBEHCI::CreateSplitIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocCo
 		
 		pNewSITD->_pEndpoint = pEP;
 		pNewSITD->_requestFromRosettaClient = command->GetIsRosettaClient();
-
+		
 		PutTDonToDoList(pEP, pNewSITD);
     }
 	// if we are wrapping around, we need to add one more link to wrap things up
 	if (pEP->useBackPtr)
-	{
+	{		
         pDummySITD = AllocateSITD();
 		// most of the fields get copied from the last SITD
         pDummySITD->GetSharedLogical()->nextSITD = HostToUSBLong(kEHCITermFlag);
 		pDummySITD->GetSharedLogical()->routeFlags = pNewSITD->GetSharedLogical()->routeFlags;
 		pDummySITD->GetSharedLogical()->timeFlags = HostToUSBLong((completeSplitFlags & 0x03) << kEHCIsiTDTimeCMaskPhase);		// no SS on the dummy TD and CS only on microframes 0 and 1
-		pDummySITD->GetSharedLogical()->statFlags = HostToUSBLong(kEHCIsiTDStatIOC | kEHCIsiTDStatStatusActive | kEHCUsiTDStatStatusSplitXState);
+		myStatFlags = kEHCIsiTDStatIOC | kEHCIsiTDStatStatusActive;
+
+		if (!(_errataBits & kErrataMCP79SplitIsoch))										// MCP79 does NOT want to do this
+			myStatFlags |= kEHCUsiTDStatStatusSplitXState;
+		
+		pDummySITD->GetSharedLogical()->statFlags = HostToUSBLong(myStatFlags);
 		pDummySITD->GetSharedLogical()->buffPtr0 = pNewSITD->GetSharedLogical()->buffPtr0;
 		pDummySITD->GetSharedLogical()->buffPtr1 = pNewSITD->GetSharedLogical()->buffPtr1;
 		pDummySITD->GetSharedLogical()->extBuffPtr0 = pNewSITD->GetSharedLogical()->extBuffPtr0;
@@ -3553,7 +3543,7 @@ AppleUSBEHCI::CreateSplitIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocCo
 	}
 	AddIsocFramesToSchedule(pEP);
 	EnablePeriodicSchedule(false);
-
+	
 	return kIOReturnSuccess;
 }
 
@@ -3573,46 +3563,46 @@ AppleUSBEHCI::UIMCreateIsochTransfer(	short				functionAddress,
 	return kIOReturnIPCError;
 	
 	/*****
-		AppleEHCIIsochEndpoint *			pEP;
-	bool								requestFromRosettaClient = false;
-	
-	USBLog(5, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - adr=%d:%d cbp=%p:%lx (cback=[%lx:%lx:%lx]), frameStart: %qd, count: %ld, pFrames: %p", this,  
-		   functionAddress, endpointNumber, pBuffer, 
-		   pBuffer->getLength(), 
-		   (UInt32)completion.action, (UInt32)completion.target, 
-		   (UInt32)completion.parameter, frameStart, frameCount, pFrames);
-
-    if ( (frameCount == 0) || (frameCount > 1000) )
-    {
-        USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer bad frameCount: %ld", this, frameCount);
-        return kIOReturnBadArgument;
-    }
-	
-	// Determine if our request came from a rosetta client
-	if ( direction & 0x80 )
-	{
-		requestFromRosettaClient = true;
-		direction &= ~0x80;
-	}
-	
-    pEP = OSDynamicCast(AppleEHCIIsochEndpoint, FindIsochronousEndpoint(functionAddress, endpointNumber, direction, NULL));
-    if(pEP == NULL)
-    {
-        USBLog(1, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - Endpoint not found", this);
-        return kIOUSBEndpointNotFound;        
-    }
-    
-    if ( pEP->aborting )
-    {
-        USBLog(3, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - sent request while aborting endpoint. Returning kIOReturnNotPermitted", this);
-        return kIOReturnNotPermitted;        
-    }
-    
-    if (pEP->highSpeedHub)
-		return CreateSplitIsochTransfer(pEP, completion, frameStart, pBuffer, frameCount, pFrames, 0, false, requestFromRosettaClient);
-    else
-		return CreateHSIsochTransfer(pEP, completion, frameStart, pBuffer, frameCount, (IOUSBLowLatencyIsocFrame*)pFrames, 0, false, requestFromRosettaClient);
-	*****/
+	 AppleEHCIIsochEndpoint *			pEP;
+	 bool								requestFromRosettaClient = false;
+	 
+	 USBLog(5, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - adr=%d:%d cbp=%p:%lx (cback=[%lx:%lx:%lx]), frameStart: %qd, count: %ld, pFrames: %p", this,  
+	 functionAddress, endpointNumber, pBuffer, 
+	 pBuffer->getLength(), 
+	 (UInt32)completion.action, (UInt32)completion.target, 
+	 (UInt32)completion.parameter, frameStart, frameCount, pFrames);
+	 
+	 if ( (frameCount == 0) || (frameCount > 1000) )
+	 {
+	 USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer bad frameCount: %ld", this, frameCount);
+	 return kIOReturnBadArgument;
+	 }
+	 
+	 // Determine if our request came from a rosetta client
+	 if ( direction & 0x80 )
+	 {
+	 requestFromRosettaClient = true;
+	 direction &= ~0x80;
+	 }
+	 
+	 pEP = OSDynamicCast(AppleEHCIIsochEndpoint, FindIsochronousEndpoint(functionAddress, endpointNumber, direction, NULL));
+	 if(pEP == NULL)
+	 {
+	 USBLog(1, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - Endpoint not found", this);
+	 return kIOUSBEndpointNotFound;        
+	 }
+	 
+	 if ( pEP->aborting )
+	 {
+	 USBLog(3, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - sent request while aborting endpoint. Returning kIOReturnNotPermitted", this);
+	 return kIOReturnNotPermitted;        
+	 }
+	 
+	 if (pEP->highSpeedHub)
+	 return CreateSplitIsochTransfer(pEP, completion, frameStart, pBuffer, frameCount, pFrames, 0, false, requestFromRosettaClient);
+	 else
+	 return CreateHSIsochTransfer(pEP, completion, frameStart, pBuffer, frameCount, (IOUSBLowLatencyIsocFrame*)pFrames, 0, false, requestFromRosettaClient);
+	 *****/
 }
 
 
@@ -3633,42 +3623,42 @@ AppleUSBEHCI::UIMCreateIsochTransfer(	short						functionAddress,
 	return kIOReturnIPCError;
 	
 	/*****
-    AppleEHCIIsochEndpoint  *			pEP;
-	bool								requestFromRosettaClient = false;
-	
-    USBLog(7, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - adr=%d:%d cbp=%p:%lx (cback=[%lx:%lx:%lx])", this, functionAddress, endpointNumber, pBuffer, pBuffer->getLength(), (UInt32)completion.action, (UInt32)completion.target, (UInt32)completion.parameter);
-    if ( (frameCount == 0) || (frameCount > 1000) )
-    {
-        USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer bad frameCount: %ld", this, frameCount);
-        return kIOReturnBadArgument;
-    }
-
-	// Determine if our request came from a rosetta client
-	if ( direction & 0x80 )
-	{
-		requestFromRosettaClient = true;
-		direction &= ~0x80;
-	}
-	
-    pEP = OSDynamicCast(AppleEHCIIsochEndpoint, FindIsochronousEndpoint(functionAddress, endpointNumber, direction, NULL));
-	
-    if(pEP == NULL)
-    {
-        USBLog(1, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - Endpoint not found", this);
-        return kIOUSBEndpointNotFound;        
-    }
-    
-    if ( pEP->aborting )
-    {
-        USBLog(3, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - sent request while aborting endpoint. Returning kIOReturnNotPermitted", this);
-        return kIOReturnNotPermitted;        
-    }
-    
-    if (pEP->highSpeedHub)
-		return CreateSplitIsochTransfer(pEP, completion, frameNumberStart, pBuffer, frameCount, (IOUSBIsocFrame*)pFrames, updateFrequency, true, requestFromRosettaClient);
-    else
-		return CreateHSIsochTransfer(pEP, completion, frameNumberStart, pBuffer, frameCount, pFrames, updateFrequency, true, requestFromRosettaClient);
-	*****/
+	 AppleEHCIIsochEndpoint  *			pEP;
+	 bool								requestFromRosettaClient = false;
+	 
+	 USBLog(7, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - adr=%d:%d cbp=%p:%lx (cback=[%lx:%lx:%lx])", this, functionAddress, endpointNumber, pBuffer, pBuffer->getLength(), (UInt32)completion.action, (UInt32)completion.target, (UInt32)completion.parameter);
+	 if ( (frameCount == 0) || (frameCount > 1000) )
+	 {
+	 USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer bad frameCount: %ld", this, frameCount);
+	 return kIOReturnBadArgument;
+	 }
+	 
+	 // Determine if our request came from a rosetta client
+	 if ( direction & 0x80 )
+	 {
+	 requestFromRosettaClient = true;
+	 direction &= ~0x80;
+	 }
+	 
+	 pEP = OSDynamicCast(AppleEHCIIsochEndpoint, FindIsochronousEndpoint(functionAddress, endpointNumber, direction, NULL));
+	 
+	 if(pEP == NULL)
+	 {
+	 USBLog(1, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - Endpoint not found", this);
+	 return kIOUSBEndpointNotFound;        
+	 }
+	 
+	 if ( pEP->aborting )
+	 {
+	 USBLog(3, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - sent request while aborting endpoint. Returning kIOReturnNotPermitted", this);
+	 return kIOReturnNotPermitted;        
+	 }
+	 
+	 if (pEP->highSpeedHub)
+	 return CreateSplitIsochTransfer(pEP, completion, frameNumberStart, pBuffer, frameCount, (IOUSBIsocFrame*)pFrames, updateFrequency, true, requestFromRosettaClient);
+	 else
+	 return CreateHSIsochTransfer(pEP, completion, frameNumberStart, pBuffer, frameCount, pFrames, updateFrequency, true, requestFromRosettaClient);
+	 *****/
 }
 
 
@@ -3681,15 +3671,15 @@ AppleUSBEHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
     UInt64									curFrameNumber = GetFrameNumber();
     UInt64									frameDiff;
     UInt32									diff32;
-
-	USBLog(7, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - adr=%d:%d IOMD=%p, frameStart: %qd, count: %ld, pFrames: %p", this,  
+	
+	USBLog(7, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - adr=%d:%d IOMD=%p, frameStart: %qd, count: %d, pFrames: %p", this,  
 		   command->GetAddress(), command->GetEndpoint(), 
 		   command->GetBuffer(), 
-		   command->GetStartFrame(), command->GetNumFrames(), command->GetFrameList());
+		   command->GetStartFrame(), (uint32_t)command->GetNumFrames(), command->GetFrameList());
 	
     if ( (command->GetNumFrames() == 0) || (command->GetNumFrames() > 1000) )
     {
-        USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer bad frameCount: %ld", this, command->GetNumFrames());
+        USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer bad frameCount: %d", this, (uint32_t)command->GetNumFrames());
         return kIOReturnBadArgument;
     }
 	
@@ -3706,13 +3696,13 @@ AppleUSBEHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
         USBLog(3, "AppleUSBEHCI[%p]::UIMCreateIsochTransfer - sent request while aborting endpoint. Returning kIOReturnNotPermitted", this);
         return kIOReturnNotPermitted;        
     }
-
+	
     if (command->GetStartFrame() < pEP->firstAvailableFrame)
     {
 		USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer: no overlapping frames -   EP (%p) frameNumberStart: %Ld, pEP->firstAvailableFrame: %Ld.  Returning 0x%x", this, pEP, command->GetStartFrame(), pEP->firstAvailableFrame, kIOReturnIsoTooOld);
 		return kIOReturnIsoTooOld;
     }
-
+	
     maxOffset = _frameListSize;
     pEP->firstAvailableFrame = command->GetStartFrame();
 	
@@ -3720,23 +3710,23 @@ AppleUSBEHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
     {
         if (command->GetStartFrame() < (curFrameNumber - maxOffset))
         {
-            USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer request frame WAY too old.  frameNumberStart: %ld, curFrameNumber: %ld.  Returning 0x%x", this, (UInt32)command->GetStartFrame(), (UInt32) curFrameNumber, kIOReturnIsoTooOld);
+            USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer request frame WAY too old.  frameNumberStart: %d, curFrameNumber: %d.  Returning 0x%x", this, (uint32_t)command->GetStartFrame(), (uint32_t) curFrameNumber, kIOReturnIsoTooOld);
             return kIOReturnIsoTooOld;
         }
-        USBLog(5,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer WARNING! curframe later than requested, expect some notSent errors!  frameNumberStart: %ld, curFrameNumber: %ld.  USBIsocFrame Ptr: %p, First ITD: %p", this, (UInt32)command->GetStartFrame(), (UInt32)curFrameNumber, command->GetFrameList(), pEP->toDoEnd);
+        USBLog(5,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer WARNING! curframe later than requested, expect some notSent errors!  frameNumberStart: %d, curFrameNumber: %d.  USBIsocFrame Ptr: %p, First ITD: %p", this, (uint32_t)command->GetStartFrame(), (uint32_t)curFrameNumber, command->GetFrameList(), pEP->toDoEnd);
     } 
 	else 
     {					// frameNumberStart > curFrameNumber
         if (command->GetStartFrame() > (curFrameNumber + maxOffset))
         {
-            USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer request frame too far ahead!  frameNumberStart: %ld, curFrameNumber: %ld", this, (UInt32)command->GetStartFrame(), (UInt32) curFrameNumber);
+            USBLog(3,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer request frame too far ahead!  frameNumberStart: %d, curFrameNumber: %d", this, (uint32_t)command->GetStartFrame(), (uint32_t) curFrameNumber);
             return kIOReturnIsoTooNew;
         }
         frameDiff = command->GetStartFrame() - curFrameNumber;
         diff32 = (UInt32)frameDiff;
         if (diff32 < _istKeepAwayFrames)
         {
-            USBLog(5,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer WARNING! - frameNumberStart less than 2 ms (is %ld)!  frameNumberStart: %ld, curFrameNumber: %ld", this, (UInt32) diff32, (UInt32)command->GetStartFrame(), (UInt32) curFrameNumber);
+            USBLog(5,"AppleUSBEHCI[%p]::UIMCreateIsochTransfer WARNING! - frameNumberStart less than 2 ms (is %d)!  frameNumberStart: %d, curFrameNumber: %d", this, (uint32_t) diff32, (uint32_t)command->GetStartFrame(), (uint32_t) curFrameNumber);
         }
     }
 	
@@ -3775,9 +3765,9 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 		USBLog(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - EP (%p) is aborting - not adding", this, pEP);
 		return;
     }
-
-	USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - scheduledTDs = %ld, deferredTDs = %ld", this, pEP->scheduledTDs, pEP->deferredTDs);
-
+	
+	USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - scheduledTDs = %d, deferredTDs = %d", this, (uint32_t)pEP->scheduledTDs, (uint32_t)pEP->deferredTDs);
+	
 	// 4211382 - This routine is already non-reentrant, since it runs on the WL.
 	// However, we also need to disable preemption while we are in here, since we have to get everything
 	// done within a couple of milliseconds, and if we are preempted, we may come back long after that
@@ -3828,7 +3818,7 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 			// ReturnIsocDoneQueue(pEP);
 			IOSimpleLockUnlock(_isochScheduleLock);
 			// OK to call USBLog, now that preemption is reenabled
-			USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - calling thread_call_enter1(_returnIsochDoneQueueThread) scheduledTDs = %ld, deferredTDs = %ld", this, pEP->scheduledTDs, pEP->deferredTDs);
+			USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - calling thread_call_enter1(_returnIsochDoneQueueThread) scheduledTDs = %d, deferredTDs = %d", this, (uint32_t)pEP->scheduledTDs, (uint32_t)pEP->deferredTDs);
 			bool alreadyQueued = thread_call_enter1(_returnIsochDoneQueueThread, (thread_call_param_t) pEP);
 			if ( alreadyQueued )
 			{
@@ -3847,10 +3837,10 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 	firstOutSlot = currFrame & (kEHCIPeriodicListEntries-1);									// this will be used if the _outSlot is not yet initialized
 	
     currFrame = pEP->toDoList->_frameNumber;													// start looking at the first available number
-
+	
     // This needs to be fixed up when we have variable length lists.
     pEP->inSlot = currFrame & (kEHCIPeriodicListEntries-1);
-
+	
     do
     {		
 		nextSlot = (pEP->inSlot + 1) & (kEHCIPeriodicListEntries-1);
@@ -3894,21 +3884,31 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 				{
 					if (pEP->direction == kUSBIn)
 					{
+						AppleEHCIIsochEndpoint	*pPrevEP = OSDynamicCast(AppleEHCIIsochEndpoint, prevSITD->_pEndpoint);
 						
-						// IN SITDs have to be linked AFTER
-						//	a) any DUMMY SITDs on the same TT
-						//	b) any OUT SITDs on the same TT
-						if (((AppleEHCIIsochEndpoint*)(prevSITD->_pEndpoint))->hiPtr == pEP->hiPtr)
+						if (pPrevEP)
 						{
-							if (prevSITD->_isDummySITD)
+							// IN SITDs have to be linked AFTER the following TDs, but only on the same TT
+							//	a) any OUT SITDs
+							//  b) any SITD which has a lower IsochINSSFrame
+							//	c) any DUMMY SITDs on the SAME IsochINSSFrame
+							if (pPrevEP->hiPtr == pEP->hiPtr)
 							{
-								//USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - found previous DUMMY SITD (%p) on same TT - linking after", this, prevSITD);
-								linkAfter = prevSITD;
-							}
-							else if (prevSITD->_pEndpoint->direction == kUSBOut)
-							{
-								//USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - found previous OUT SITD (%p) on same TT - linking after", this, prevSITD);
-								linkAfter = prevSITD;
+								if (pPrevEP->direction == kUSBOut)
+								{
+									//USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - found previous OUT SITD (%p) on same TT - linking after", this, prevSITD);
+									linkAfter = prevSITD;
+								}
+								else if (pPrevEP->isochINSSFrame < pEP->isochINSSFrame)
+								{
+									//USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - found previous SITD (%p) with earlier SS Frame on same TT - linking after", this, prevSITD);
+									linkAfter = prevSITD;
+								}
+								else if ((pPrevEP->isochINSSFrame == pEP->isochINSSFrame) && (prevSITD->_isDummySITD))
+								{
+									//USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - found previous DUMMY SITD (%p) on same TT - linking after", this, prevSITD);
+									linkAfter = prevSITD;
+								}
 							}
 						}
 					}
@@ -3964,14 +3964,14 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 			pEP->inSlot = nextSlot;
 		}
 		//USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - pEP->inSlot is now 0x%x", this, pEP->inSlot);	
-    } while(pEP->toDoList != NULL);
+	} while(pEP->toDoList != NULL);
 	
 	finFrame = GetFrameNumber();
 	// Unlock, reenable preemption, so we can log
 	IOSimpleLockUnlock(_isochScheduleLock);
 	if ((finFrame - startFrame) > 1)
 		USBError(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - end -  startFrame(0x%Lx) finFrame(0x%Lx)", this, startFrame, finFrame);
-    USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - finished,  currFrame: %Lx", this, GetFrameNumber() );
+	USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - finished,  currFrame: %Lx", this, GetFrameNumber() );
 }
 
 
@@ -3984,7 +3984,7 @@ AppleUSBEHCI::UIMHubMaintenance(USBDeviceAddress highSpeedHub, UInt32 highSpeedP
     switch (command)
     {
 		case kUSBHSHubCommandAddHub:
-			USBLog(7, "AppleUSBEHCI[%p]::UIMHubMaintenance - adding hub %d with flags 0x%lx", this, highSpeedHub, flags);
+			USBLog(7, "AppleUSBEHCI[%p]::UIMHubMaintenance - adding hub %d with flags 0x%x", this, highSpeedHub, (uint32_t)flags);
 			hiPtr = AppleUSBEHCIHubInfo::GetHubInfo(&_hsHubs, highSpeedHub, 0);
 			if (hiPtr)
 			{
@@ -4010,11 +4010,10 @@ AppleUSBEHCI::UIMHubMaintenance(USBDeviceAddress highSpeedHub, UInt32 highSpeedP
 #define	kEHCIUIMScratchFirstActiveFrame	0
 
 void 
-AppleUSBEHCI::ReturnOneTransaction(
-								   EHCIGeneralTransferDescriptor 	*transaction,
-								   AppleEHCIQueueHead   		*pED,
-								   AppleEHCIQueueHead   		*pEDBack,
-								   IOReturn				err)
+AppleUSBEHCI::ReturnOneTransaction(EHCIGeneralTransferDescriptor 	*transaction,
+								   AppleEHCIQueueHead				*pED,
+								   AppleEHCIQueueHead				*pEDBack,
+								   IOReturn							err)
 {
     // make sure it is halted, since we should leave it linked
     HaltAsyncEndpoint(pED, pEDBack);
@@ -4023,10 +4022,26 @@ AppleUSBEHCI::ReturnOneTransaction(
 	
     while(transaction!= NULL)
     {
-		if(transaction->lastTDofTransaction)
+		if(transaction->callbackOnTD)
 		{
-			transaction = transaction->pLogicalNext;
-			break;
+			if (!transaction->multiXferTransaction)
+			{
+				USBLog(2, "AppleUSBEHCI[%p]::ReturnOneTransaction - found the end of a non-multi transaction(%p)!", this, transaction);
+				transaction = transaction->pLogicalNext;
+				break;
+			}
+			// this is a multi-TD transaction (control) - check to see if we are at the end of it
+			else if (transaction->finalXferInTransaction)
+			{
+				USBLog(2, "AppleUSBEHCI[%p]::ReturnOneTransaction - found the end of a MULTI transaction(%p)!", this, transaction);
+				transaction = transaction->pLogicalNext;
+				break;
+			}
+			else
+			{
+				USBLog(2, "AppleUSBEHCI[%p]::ReturnOneTransaction - returning the non-end of a MULTI transaction(%p)!", this, transaction);
+				// keep going around the loop - this is a multiXfer transaction and we haven't found the end yet
+			}
 		}
 		transaction = transaction->pLogicalNext;
 		// USBLog(7, "ReturnOneTransaction next transaction %p",transaction);
@@ -4038,14 +4053,13 @@ AppleUSBEHCI::ReturnOneTransaction(
 		// But there will be no callback
 		USBLog(1, "AppleUSBEHCI[%p]::ReturnOneTransaction - returning all TDs on the queue", this);
     }
-    else
-    {
-		
-    }
     returnTransactions(pED, transaction, err, true);
 }
 
-UInt32 AppleUSBEHCI::findBufferRemaining(AppleEHCIQueueHead *pED)
+
+
+UInt32 
+AppleUSBEHCI::findBufferRemaining(AppleEHCIQueueHead *pED)
 {
 	UInt32 flags, bufferSizeRemaining;
 	
@@ -4131,10 +4145,10 @@ AppleUSBEHCI::CheckEDListForTimeouts(AppleEHCIQueueHead *head)
 			}
 			if ((curFrame - firstActiveFrame) >= completionTimeout)
 			{
-				UInt32	myFlags = USBToHostLong(pED->GetSharedLogical()->flags);
-
-				USBLog(2, "AppleUSBEHCI[%p]::CheckEDListForTimeout - Found a TD [%p] on QH [%p] past the completion deadline, timing out! (0x%lx - 0x%lx)", this, pTD, pED, curFrame, firstActiveFrame);
-				USBError(1, "AppleUSBEHCI[%p]::Found a transaction past the completion deadline on bus 0x%lx, timing out! (Addr: %ld, EP: %ld)", this, _busNumber, ((myFlags & kEHCIEDFlags_FA) >> kEHCIEDFlags_FAPhase), ((myFlags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase) );
+				uint32_t	myFlags = USBToHostLong(pED->GetSharedLogical()->flags);
+				
+				USBLog(2, "AppleUSBEHCI[%p]::CheckEDListForTimeout - Found a TD [%p] on QH [%p] past the completion deadline, timing out! (0x%x - 0x%x)", this, pTD, pED, (uint32_t)curFrame, (uint32_t)firstActiveFrame);
+				USBError(1, "AppleUSBEHCI[%p]::Found a transaction past the completion deadline on bus 0x%x, timing out! (Addr: %d, EP: %d)", this, (uint32_t) _busNumber, ((myFlags & kEHCIEDFlags_FA) >> kEHCIEDFlags_FAPhase), ((myFlags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase) );
 				pED->print(2);
 				ReturnOneTransaction(pTD, pED, pEDBack, kIOUSBTransactionTimeout);
 				continue;
@@ -4161,10 +4175,10 @@ AppleUSBEHCI::CheckEDListForTimeouts(AppleEHCIQueueHead *head)
 		}
 		if ((curFrame - pTD->lastFrame) >= noDataTimeout)
 		{
-			UInt32	myFlags = USBToHostLong(pED->GetSharedLogical()->flags);
+			uint32_t	myFlags = USBToHostLong(pED->GetSharedLogical()->flags);
 			
-			USBLog(2, "AppleUSBEHCI[%p]CheckEDListForTimeout:  Found a transaction (%p) which hasn't moved in 5 seconds, timing out! (0x%lx - 0x%lx)", this, pTD, curFrame, pTD->lastFrame);
-			USBError(1, "AppleUSBEHCI[%p]::Found a transaction which hasn't moved in 5 seconds on bus 0x%lx, timing out! (Addr: %ld, EP: %ld)", this, _busNumber, ((myFlags & kEHCIEDFlags_FA) >> kEHCIEDFlags_FAPhase), ((myFlags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase) );
+			USBLog(2, "AppleUSBEHCI[%p]CheckEDListForTimeout:  Found a transaction (%p) which hasn't moved in 5 seconds, timing out! (0x%x - 0x%x)", this, pTD, (uint32_t)curFrame, (uint32_t)pTD->lastFrame);
+			USBError(1, "AppleUSBEHCI[%p]::Found a transaction which hasn't moved in 5 seconds on bus 0x%x, timing out! (Addr: %d, EP: %d)", this, (uint32_t) _busNumber, ((myFlags & kEHCIEDFlags_FA) >> kEHCIEDFlags_FAPhase), ((myFlags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase) );
 			//printED(pED);
 			//printTD(pTD);
 			//printAsyncQueue();
@@ -4202,9 +4216,13 @@ AppleUSBEHCI::UIMCheckForTimeouts(void)
     //
     if ( isInactive() || (_onCardBus && _pcCardEjected) || !_controllerAvailable || (_myBusState != kUSBBusStateRunning) || _wakingFromHibernation)
 	{
+		if (_controlBulkTransactionsOut)
+		{
+			USBLog(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - aborting check with outstanding transactions! _myBusState(%d) _wakingFromHibernation(%s)", this, (int)_myBusState, _wakingFromHibernation ? "TRUE" : "FALSE");
+		}
         return;
 	}
-
+	
 	usbcmd = USBToHostLong(_pEHCIRegisters->USBCMD);
 	usbsts = USBToHostLong(_pEHCIRegisters->USBSTS);
 	
@@ -4323,7 +4341,7 @@ AppleUSBEHCI::GetFrameNumberWithTime(UInt64* frameNumber, AbsoluteTime *theTime)
 {
 	if (!_commandGate)
 		return kIOReturnUnsupported;
-		
+	
 	return _commandGate->runAction(GatedGetFrameNumberWithTime, frameNumber, theTime);
 }
 
@@ -4386,16 +4404,7 @@ AppleUSBEHCI::UIMEnableAddressEndpoints(USBDeviceAddress address, bool enable)
 				{
 					case kEHCITypeControl:
 					case kEHCITypeBulk:
-						if (_AsyncHead)
-						{
-							linkAsyncEndpoint(pQH, _AsyncHead);
-						}
-						else
-						{
-							linkAsyncEndpoint(pQH, NULL);
-							_AsyncHead = pQH;
-							_pEHCIRegisters->AsyncListAddr = HostToUSBLong( pQH->_sharedPhysical );
-						}
+						linkAsyncEndpoint(pQH);
 						break;
 						
 					case kEHCITypeInterrupt:
@@ -4424,7 +4433,7 @@ AppleUSBEHCI::UIMEnableAddressEndpoints(USBDeviceAddress address, bool enable)
 	{
 		// the disable case
 		USBLog(5, "AppleUSBEHCI[%p]::UIMEnableAddressEndpoints- looking for endpoints for device address(%d) to disable", this, address);
-
+		
 		// look throught the Control/Bulk list
 		pQH = _AsyncHead;
 		while (pQH)
@@ -4516,16 +4525,7 @@ AppleUSBEHCI::UIMEnableAllEndpoints(bool enable)
 			{
 				case kEHCITypeControl:
 				case kEHCITypeBulk:
-					if (_AsyncHead)
-					{
-						linkAsyncEndpoint(pQH, _AsyncHead);
-					}
-					else
-					{
-						linkAsyncEndpoint(pQH, NULL);
-						_AsyncHead = pQH;
-						_pEHCIRegisters->AsyncListAddr = HostToUSBLong( pQH->_sharedPhysical );
-					}
+					linkAsyncEndpoint(pQH);
 					break;
 					
 				case kEHCITypeInterrupt:
@@ -4544,7 +4544,7 @@ AppleUSBEHCI::UIMEnableAllEndpoints(bool enable)
 	{
 		// the disable case
 		USBLog(5, "AppleUSBEHCI[%p]::UIMEnableAllEndpoints- disabling endpoints", this);
-
+		
 		// look throught the Control/Bulk list
 		pQH = _AsyncHead;
 		while (pQH)
@@ -4590,7 +4590,7 @@ AppleUSBEHCI::UIMEnableAllEndpoints(bool enable)
 			pQH = OSDynamicCast(AppleEHCIQueueHead, pQH->_logicalNext);
 		}
 	}
-
+	
 	showRegisters(7, "-UIMEnableAllEndpoints");
 	printAsyncQueue(7, "-UIMEnableAllEndpoints");
 	return kIOReturnSuccess;

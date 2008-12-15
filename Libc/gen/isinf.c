@@ -28,5 +28,5 @@
 int
 isinf(double d)
 {
-    return __isinfd(d);
+    return __inline_isinfd(d);
 }

@@ -40,8 +40,6 @@
 #include "AttributeCoder.h"
 #include <string>
 
-#include <PCSC/musclecard.h>
-
 //
 // A coder that reads the data of an object
 //

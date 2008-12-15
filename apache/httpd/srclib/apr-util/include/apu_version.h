@@ -53,13 +53,13 @@
  * Minor API changes that do not cause binary compatibility problems.
  * Reset to 0 when upgrading APU_MAJOR_VERSION
  */
-#define APU_MINOR_VERSION       2
+#define APU_MINOR_VERSION       3
 
 /** patch level 
  * The Patch Level never includes API changes, simply bug fixes.
  * Reset to 0 when upgrading APR_MINOR_VERSION
  */
-#define APU_PATCH_VERSION      12
+#define APU_PATCH_VERSION       0
 
 /** 
  * The symbol APU_IS_DEV_VERSION is only defined for internal,

@@ -51,11 +51,16 @@ enum
     kNumUSBControllerMethods
 };
 
+struct klog64_timeval{
+	uint64_t	tv_sec;
+	uint64_t	tv_usec;
+};
+
 // KLog Message defines
 //
-#define _T_STAMP 	sizeof(struct timeval)
-#define _LEVEL 		sizeof(UInt32)
-#define _TAG		sizeof(UInt32)
+#define _T_STAMP 	sizeof(struct klog64_timeval)
+#define _LEVEL 		sizeof(uint32_t)
+#define _TAG		sizeof(uint32_t)
 #define _OFFSET 	(_T_STAMP + _LEVEL + _TAG)
 #define _MSG		BUFSIZE - (_T_STAMP + _LEVEL + _TAG)
 

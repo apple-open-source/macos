@@ -21,12 +21,13 @@
 #include "sdbm_private.h"
 #include "sdbm_tune.h"
 
-/* NOTE: this function blocks until it acquires the lock */
+/* NOTE: this function may block until it acquires the lock */
 APU_DECLARE(apr_status_t) apr_sdbm_lock(apr_sdbm_t *db, int type)
 {
     apr_status_t status;
+    int lock_type = type & APR_FLOCK_TYPEMASK;
 
-    if (!(type == APR_FLOCK_SHARED || type == APR_FLOCK_EXCLUSIVE))
+    if (!(lock_type == APR_FLOCK_SHARED || lock_type == APR_FLOCK_EXCLUSIVE))
         return APR_EINVAL;
 
     if (db->flags & SDBM_EXCLUSIVE_LOCK) {

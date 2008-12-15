@@ -26,15 +26,57 @@
 
 
 #include <sys/cdefs.h>
+#include <notify.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include "IOSystemConfiguration.h"
 #include "IOPSKeys.h"
 #include "IOPowerSources.h"
+#include <notify.h>
 
 #ifndef kIOPSDynamicStorePathKey
 #define kIOPSDynamicStorePathKey kIOPSDynamicStorePath
 #endif
+
+#ifndef kIOPSDynamicStoreLowBattPathKey
+#define kIOPSDynamicStoreLowBattPathKey "/IOKit/LowBatteryWarning"
+#endif
+
+IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void)
+{
+    SCDynamicStoreRef   store = NULL;
+    CFStringRef         key = NULL;
+    CFNumberRef         scWarnValue = NULL;
+    int                 return_level = kIOPSLowBatteryWarningNone;
+
+    store = SCDynamicStoreCreate(kCFAllocatorDefault, 
+                            CFSTR("IOKit Power Source Copy"), NULL, NULL);
+    if (!store) 
+        goto SAD_EXIT;
+
+    key = SCDynamicStoreKeyCreate(
+                            kCFAllocatorDefault, 
+                            CFSTR("%@%@"),
+                            kSCDynamicStoreDomainState, 
+                            CFSTR(kIOPSDynamicStoreLowBattPathKey));
+    if (!key)
+        goto SAD_EXIT;
+        
+    scWarnValue = isA_CFNumber(
+                    SCDynamicStoreCopyValue(store, key));
+    if (scWarnValue) {
+
+        CFNumberGetValue(scWarnValue, kCFNumberIntType, &return_level);    
+    
+        CFRelease(scWarnValue);
+        scWarnValue = NULL;
+    }
+
+SAD_EXIT:
+    if (store) CFRelease(store);
+    if (key) CFRelease(key);
+    return return_level;
+}
 
 /***
  Returns a blob of Power Source information in an opaque CFTypeRef. Clients should

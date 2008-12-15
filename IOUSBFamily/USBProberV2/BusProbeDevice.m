@@ -39,6 +39,7 @@
         _deviceClassInfo = [[BusProbeClass alloc] init];
         _lastInterfaceClassInfo = [[BusProbeClass alloc] init];
         _currentInterfaceNumber = -1;
+		_portInfo = -1;
     }
     return self;
 }
@@ -137,6 +138,14 @@
     _address = address;
 }
 
+- (uint32_t)portInfo {
+    return _portInfo;
+}
+
+- (void)setPortInfo:(uint32_t)portInfo {
+    _portInfo = portInfo;
+}
+
 - (UInt32)locationID {
     return _locationID;
 }
@@ -197,6 +206,10 @@
 
 - (NSString *)description {
     return [NSString stringWithFormat:@"%@   %@\n%@",[self deviceName],[self deviceDescription],[[self rootNode] stringRepresentation:0]];
+}
+
+- (NSString *)descriptionForName:(NSString*)name {
+    return [NSString stringWithFormat:@"%@\n",[[self rootNode] stringRepresentation:name:0]];
 }
 
 @end

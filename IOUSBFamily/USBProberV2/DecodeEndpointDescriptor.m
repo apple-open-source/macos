@@ -142,7 +142,7 @@
             if ( ( (endpointDescriptor.wMaxPacketSize & 0xe000) != 0) || ( transPerMicroFrame == 3) )
                 sprintf(temporaryString, "0x%x: Illegal value for wMaxPacketSize for a hi-speed Interrupt endpoint", endpointDescriptor.bInterval);
             else
-                sprintf(temporaryString, "%d  (%d x %ld  transactions opportunities per microframe)", endpointDescriptor.wMaxPacketSize, endpointDescriptor.wMaxPacketSize & 0x07ff,  transPerMicroFrame + 1);
+                sprintf(temporaryString, "%d  (%d x %d  transactions opportunities per microframe)", endpointDescriptor.wMaxPacketSize, endpointDescriptor.wMaxPacketSize & 0x07ff,  (uint32_t)transPerMicroFrame + 1);
         }
     }
 	

@@ -56,7 +56,7 @@ static int sknight[144] = {
 0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0};
 
-static long int swhite_pawn[144] = {
+static int32_t swhite_pawn[144] = {
 0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,
@@ -166,13 +166,13 @@ static int bishop_mobility(int square)
   return m;
 }
 
-long int end_eval (void) {
+int32_t end_eval (void) {
 
   /* return a score for the current endgame position: */
 
   int i, a, pawn_file, pawns[2][11], white_back_pawn[11], black_back_pawn[11],
     srank, j;
-  long int score = 0;
+  int32_t score = 0;
   bool isolated, backwards;
   int in_cache;
   int wp = 0, bp = 0, wn = 0, bn = 0, wb = 0, bb = 0,
@@ -790,7 +790,7 @@ void check_phase(void)
   
 }
 
-long int std_eval (void) {
+int32_t std_eval (void) {
 
   /* select the appropriate eval() routine: */
 
@@ -807,13 +807,13 @@ long int std_eval (void) {
 }
 
 
-long int mid_eval (void) {
+int32_t mid_eval (void) {
 
   /* return a score for the current middlegame position: */
 
   int i,a, pawn_file, pawns[2][11], white_back_pawn[11], black_back_pawn[11],
     srank, wking_pawn_file, bking_pawn_file, j;
-  long int score = 0;
+  int32_t score = 0;
   bool isolated, backwards;
   int in_cache;
   int wp = 0, bp = 0, wn = 0, bn = 0, wb = 0, bb = 0,
@@ -1375,13 +1375,13 @@ long int mid_eval (void) {
 
 }
 
-long int opn_eval (void) {
+int32_t opn_eval (void) {
 
   /* return a score for the current opening position: */
 
   int i,a, pawn_file, pawns[2][11], white_back_pawn[11], black_back_pawn[11],
     srank, wking_pawn_file, bking_pawn_file, j;
-  long int score = 0;
+  int32_t score = 0;
   bool isolated, backwards;
   int in_cache;
   int fwrook = 0, fbrook = 0;

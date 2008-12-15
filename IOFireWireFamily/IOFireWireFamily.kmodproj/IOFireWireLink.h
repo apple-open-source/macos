@@ -213,8 +213,6 @@ class IOFireWireLink : public IOService
 		virtual void disablePHYPortOnSleep( UInt32 mask );
 		
 		virtual	UInt32 *					getPingTimes ();
-		virtual	bool						getPingTransmits ();
-		virtual	void						setPingTransmits ( bool ping );
 		
 		virtual IOReturn					handleAsyncCompletion( IOFWCommand *cmd, IOReturn status );
 
@@ -236,6 +234,10 @@ class IOFireWireLink : public IOService
 		
 		void requestBusReset()
 			{ fControl->resetBus(); };
+		
+		virtual void enableAllInterrupts( void ) = 0;
+		
+		virtual IOPMPowerState * getPowerStateTable( unsigned long * numberOfStates ) = 0;
 		
 	private:
 	

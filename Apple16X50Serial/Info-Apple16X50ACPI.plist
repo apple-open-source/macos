@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>Apple16X50ACPI</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.Apple16X50ACPI</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Apple16X50ACPI</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.9</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.9</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>ACPI 16X50 Serial Port</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.Apple16X50ACPI</string>
+			<key>IOClass</key>
+			<string>com_apple_driver_16X50ACPI</string>
+			<key>IOKitDebug</key>
+			<integer>0</integer>
+			<key>IONameMatch</key>
+			<string>PNP0501</string>
+			<key>IOProbeScore</key>
+			<string>1000</string>
+			<key>IOProviderClass</key>
+			<string>IOACPIPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.Apple16X50Serial</key>
+		<string>1.9</string>
+		<key>com.apple.iokit.IOACPIFamily</key>
+		<string>1.0.0d1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>

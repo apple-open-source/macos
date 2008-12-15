@@ -50,7 +50,7 @@
 
 #include <stdio.h>
 #include <unistd.h>	/* for unlink */
-#include "y.tab.h"
+#include "parser.h"
 #include "config.h"
 
 /*

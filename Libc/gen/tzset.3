@@ -70,7 +70,11 @@ does not appear in the environment, the best available approximation to
 local wall clock time, as specified by the
 .Xr tzfile 5 Ns -format
 file
+#ifdef UNIFDEF_MOVE_LOCALTIME
+.Pa /var/db/timezone/localtime ,
+#else /* !UNIFDEF_MOVE_LOCALTIME */
 .Pa /etc/localtime ,
+#endif /* UNIFDEF_MOVE_LOCALTIME */
 is used.
 .Pp
 If

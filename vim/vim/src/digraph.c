@@ -1978,6 +1978,61 @@ static digr_T digraphdefault[] =
 	{'f', 't', 0xfb05},
 	{'s', 't', 0xfb06},
 #      endif /* FEAT_MBYTE */
+
+	/* Vim 5.x compatible digraphs that don't conflict with the above */
+	{'~', '!', 161},	/* ¡ */
+	{'c', '|', 162},	/* ¢ */
+	{'$', '$', 163},	/* £ */
+	{'o', 'x', 164},	/* ¤ - currency symbol in ISO 8859-1 */
+	{'Y', '-', 165},	/* ¥ */
+	{'|', '|', 166},	/* ¦ */
+	{'c', 'O', 169},	/* © */
+	{'-', ',', 172},	/* ¬ */
+	{'-', '=', 175},	/* ¯ */
+	{'~', 'o', 176},	/* ° */
+	{'2', '2', 178},	/* ² */
+	{'3', '3', 179},	/* ³ */
+	{'p', 'p', 182},	/* ¶ */
+	{'~', '.', 183},	/* · */
+	{'1', '1', 185},	/* ¹ */
+	{'~', '?', 191},	/* ¿ */
+	{'A', '`', 192},	/* À */
+	{'A', '^', 194},	/* Â */
+	{'A', '~', 195},	/* Ã */
+	{'A', '"', 196},	/* Ä */
+	{'A', '@', 197},	/* Å */
+	{'E', '`', 200},	/* È */
+	{'E', '^', 202},	/* Ê */
+	{'E', '"', 203},	/* Ë */
+	{'I', '`', 204},	/* Ì */
+	{'I', '^', 206},	/* Î */
+	{'I', '"', 207},	/* Ï */
+	{'N', '~', 209},	/* Ñ */
+	{'O', '`', 210},	/* Ò */
+	{'O', '^', 212},	/* Ô */
+	{'O', '~', 213},	/* Õ */
+	{'/', '\\', 215},	/* × - multiplication symbol in ISO 8859-1 */
+	{'U', '`', 217},	/* Ù */
+	{'U', '^', 219},	/* Û */
+	{'I', 'p', 222},	/* Þ */
+	{'a', '`', 224},	/* à */
+	{'a', '^', 226},	/* â */
+	{'a', '~', 227},	/* ã */
+	{'a', '"', 228},	/* ä */
+	{'a', '@', 229},	/* å */
+	{'e', '`', 232},	/* è */
+	{'e', '^', 234},	/* ê */
+	{'e', '"', 235},	/* ë */
+	{'i', '`', 236},	/* ì */
+	{'i', '^', 238},	/* î */
+	{'n', '~', 241},	/* ñ */
+	{'o', '`', 242},	/* ò */
+	{'o', '^', 244},	/* ô */
+	{'o', '~', 245},	/* õ */
+	{'u', '`', 249},	/* ù */
+	{'u', '^', 251},	/* û */
+	{'y', '"', 255},	/* x XX */
+
 	{NUL, NUL, NUL}
        };
 
@@ -2028,7 +2083,7 @@ get_digraph(cmdline)
 
     ++no_mapping;
     ++allow_keys;
-    c = safe_vgetc();
+    c = plain_vgetc();
     --no_mapping;
     --allow_keys;
     if (c != ESC)		/* ESC cancels CTRL-K */
@@ -2050,7 +2105,7 @@ get_digraph(cmdline)
 #endif
 	++no_mapping;
 	++allow_keys;
-	cc = safe_vgetc();
+	cc = plain_vgetc();
 	--no_mapping;
 	--allow_keys;
 	if (cc != ESC)	    /* ESC cancels CTRL-K */
@@ -2349,8 +2404,10 @@ keymap_init()
 
     if (*curbuf->b_p_keymap == NUL)
     {
-	/* Stop any active keymap and clear the table. */
+	/* Stop any active keymap and clear the table.  Also remove
+	 * b:keymap_name, as no keymap is active now. */
 	keymap_unload();
+	do_cmdline_cmd((char_u *)"unlet! b:keymap_name");
     }
     else
     {
@@ -2481,6 +2538,7 @@ keymap_unload()
     char_u	buf[KMAP_MAXLEN + 10];
     int		i;
     char_u	*save_cpo = p_cpo;
+    kmap_T	*kp;
 
     if (!(curbuf->b_kmap_state & KEYMAP_LOADED))
 	return;
@@ -2489,18 +2547,19 @@ keymap_unload()
     p_cpo = (char_u *)"C";
 
     /* clear the ":lmap"s */
+    kp = (kmap_T *)curbuf->b_kmap_ga.ga_data;
     for (i = 0; i < curbuf->b_kmap_ga.ga_len; ++i)
     {
-	vim_snprintf((char *)buf, sizeof(buf), "<buffer> %s",
-			       ((kmap_T *)curbuf->b_kmap_ga.ga_data)[i].from);
+	vim_snprintf((char *)buf, sizeof(buf), "<buffer> %s", kp[i].from);
 	(void)do_map(1, buf, LANGMAP, FALSE);
+	vim_free(kp[i].from);
+	vim_free(kp[i].to);
     }
 
     p_cpo = save_cpo;
 
     ga_clear(&curbuf->b_kmap_ga);
     curbuf->b_kmap_state &= ~KEYMAP_LOADED;
-    do_cmdline_cmd((char_u *)"unlet! b:keymap_name");
 #ifdef FEAT_WINDOWS
     status_redraw_curbuf();
 #endif

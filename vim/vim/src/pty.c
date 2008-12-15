@@ -41,17 +41,13 @@
 
 #include "vim.h"
 
-#ifdef HAVE_FCNTL_H
-# include <fcntl.h>
-#endif
-
 #include <signal.h>
 
 #ifdef __CYGWIN32__
 # include <sys/termios.h>
 #endif
 
-#if HAVE_SYS_IOCTL_H
+#ifdef HAVE_SYS_IOCTL_H
 # include <sys/ioctl.h>
 #endif
 
@@ -69,14 +65,14 @@
 # endif
 #endif
 
-#if HAVE_UNISTD_H
+#ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
 
 #if HAVE_TERMIO_H
 # include <termio.h>
 #else
-# if HAVE_TERMIOS_H
+# ifdef HAVE_TERMIOS_H
 #  include <termios.h>
 # endif
 #endif
@@ -274,9 +270,10 @@ OpenPTY(ttyn)
 }
 #endif
 
-#if defined(HAVE_SVR4_PTYS) && !defined(PTY_DONE) && !defined(hpux)
+#if defined(HAVE_SVR4_PTYS) && !defined(PTY_DONE) && !defined(hpux) && !defined(MACOS_X)
 
-/* NOTE: Even though HPUX can have /dev/ptmx, the code below doesn't work! */
+/* NOTE: Even though HPUX can have /dev/ptmx, the code below doesn't work!
+ * Same for Mac OS X Leopard. */
 #define PTY_DONE
     int
 OpenPTY(ttyn)
@@ -330,7 +327,7 @@ OpenPTY(ttyn)
     if ((f = open("/dev/ptc", O_RDWR | O_NOCTTY | O_EXTRA)) < 0)
 	return -1;
     strncpy(TtyName, ttyname(f), sizeof(TtyName));
-    if (geteuid() && mch_access(TtyName, R_OK | W_OK))
+    if (geteuid() != ROOT_UID && mch_access(TtyName, R_OK | W_OK))
     {
 	close(f);
 	return -1;
@@ -394,7 +391,7 @@ OpenPTY(ttyn)
 	    q[0] = *l;
 	    q[1] = *d;
 #ifndef MACOS
-	    if (geteuid() && mch_access(TtyName, R_OK | W_OK))
+	    if (geteuid() != ROOT_UID && mch_access(TtyName, R_OK | W_OK))
 	    {
 		close(f);
 		continue;

@@ -1,4 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
-
-INSTALL_AS_USER     = root
-INSTALL_PERMISSIONS = 4511

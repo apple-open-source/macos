@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,13 +19,13 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 /*!
  @header ATATimerEventSource.h
  @class ATATimerEventSource
  @abstract Extend the timer event source to allow checking for timer expiration 
  from behind the workloop.
  */
- 
 
 
 #ifndef _ATATIMEREVENTSOURCE_H
@@ -90,7 +90,6 @@ protected:
 	UInt32 hasExpired;
 
 
-
 	/*!@function myTimeout
 	@abstract my timeout function which sets the timedOut flag atomically.
 	*/
@@ -121,9 +120,6 @@ private:
     OSMetaClassDeclareReservedUnused(ATATimerEventSource, 7);
 	
 };
-
-
-
 
 
 #endif /*_ATATIMEREVENTSOURCE_H*/

@@ -139,14 +139,14 @@ void AppleUSBEHCI::showRegisters(UInt32 level, const char *s)
     USBLog(level,"AppleUSBEHCI[%p]::showRegisters - called from %s - version: 0x%x", this, s, USBToHostWord(_pEHCICapRegisters->HCIVersion));
 #define SHOW_PCI_REGS
 #ifdef SHOW_PCI_REGS
-    USBLog(level,"PCI: kIOPCIConfigVendorID=%lx", _device->configRead32(kIOPCIConfigVendorID));
-    USBLog(level,"     kIOPCIConfigRevisionID=%lx", _device->configRead32(kIOPCIConfigRevisionID));
-    USBLog(level,"     kIOPCIConfigCacheLineSize=%lx", _device->configRead32(kIOPCIConfigCacheLineSize));
-    USBLog(level,"     kIOPCIConfigBaseAddress0=%lx", _device->configRead32(kIOPCIConfigBaseAddress0));
-    USBLog(level,"     kIOPCIConfigBaseAddress1=%lx", _device->configRead32(kIOPCIConfigBaseAddress1));
-    USBLog(level,"     kIOPCIConfigExpansionROMBase=%lx", _device->configRead32(kIOPCIConfigExpansionROMBase));
-    USBLog(level,"     kIOPCIConfigInterruptLine=%lx", _device->configRead32(kIOPCIConfigInterruptLine));
-    USBLog(level,"     kIOPCIConfigInterruptLine+4=%lx", _device->configRead32(kIOPCIConfigInterruptLine+4));
+    USBLog(level,"PCI: kIOPCIConfigVendorID=0x%x", (uint32_t)_device->configRead32(kIOPCIConfigVendorID));
+    USBLog(level,"     kIOPCIConfigRevisionID=0x%x", (uint32_t)_device->configRead32(kIOPCIConfigRevisionID));
+    USBLog(level,"     kIOPCIConfigCacheLineSize=0x%x", (uint32_t)_device->configRead32(kIOPCIConfigCacheLineSize));
+    USBLog(level,"     kIOPCIConfigBaseAddress0=0x%x", (uint32_t)_device->configRead32(kIOPCIConfigBaseAddress0));
+    USBLog(level,"     kIOPCIConfigBaseAddress1=0x%x", (uint32_t)_device->configRead32(kIOPCIConfigBaseAddress1));
+    USBLog(level,"     kIOPCIConfigExpansionROMBase=0x%x", (uint32_t)_device->configRead32(kIOPCIConfigExpansionROMBase));
+    USBLog(level,"     kIOPCIConfigInterruptLine=0x%x", (uint32_t)_device->configRead32(kIOPCIConfigInterruptLine));
+    USBLog(level,"     kIOPCIConfigInterruptLine+4=0x%x", (uint32_t)_device->configRead32(kIOPCIConfigInterruptLine+4));
     USBLog(level,"     kIOPCIConfigCommand=%p", (void*)_device->configRead16(kIOPCIConfigCommand));
     USBLog(level,"     kIOPCIConfigStatus=%p", (void*)_device->configRead16(kIOPCIConfigStatus));
 #endif
@@ -166,7 +166,7 @@ void AppleUSBEHCI::showRegisters(UInt32 level, const char *s)
         x = USBToHostLong(_pEHCIRegisters->PortSC[i]);
         if(x != 0x1000)
 		{
-            USBLog(level,"    PortSC[%d]: 0x%lx", i+1, x);
+            USBLog(level,"    PortSC[%d]: 0x%x", i+1, (uint32_t)x);
 		}
     }
 }
@@ -212,9 +212,9 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
             break;
         }
 		
-        USBLog(3, "AppleUSBEHCI[%p]::UIMInitialize config @ %lx (%lx)\n", this,
-			   (long)_deviceBase->getVirtualAddress(),
-			   _deviceBase->getPhysicalAddress());
+        USBLog(3, "AppleUSBEHCI[%p]::UIMInitialize config @ %x (%x)\n", this,
+			   (uint32_t)_deviceBase->getVirtualAddress(),
+			   (uint32_t)_deviceBase->getPhysicalAddress());
 		
         SetVendorInfo();
 		
@@ -245,7 +245,8 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
          * Initialize my data and the hardware
          */
         _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
-        
+		setProperty("Errata", _errataBits, 32);
+    
         USBLog(7, "AppleUSBEHCI[%p]::UIMInitialize - errata bits=%p",  this,  (void*)_errataBits);
 		
         _pEHCICapRegisters = (EHCICapRegistersPtr) _deviceBase->getVirtualAddress();
@@ -262,7 +263,7 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 		
 		// determine whether this is a 32 bit or 64 bit machine
 		hccparams = USBToHostLong(_pEHCICapRegisters->HCCParams);
-		if (hccparams & kEHCI64Bit)
+		if (!(_errataBits & kErrataUse32bitEHCI) && (hccparams & kEHCI64Bit))
 			_is64bit = true;
 		else
 			_is64bit = false;
@@ -277,36 +278,8 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 			_istKeepAwayFrames = 2;
 
 	   	CapLength  = _pEHCICapRegisters->CapLength;
-		_pEHCIRegisters = (EHCIRegistersPtr) ( ((UInt32)_pEHCICapRegisters) + CapLength);
-		
-		// check for extra power
-		if (_extraPower.version == kAppleEHCIExtraPowerVersion)
-		{
-			USBLog(2, "AppleEHCI[%p]::UIMInitilaize - already have extra power structure initialized - aggregate(%d) perPort(%d) inSleep(%d)", this, (int)_extraPower.aggregate, (int)_extraPower.perPort, (int)_extraPower.inSleep);
-		}
-		else
-		{
-			OSNumber		*prop;
-			
-			prop = (OSNumber *)provider->getProperty(kAppleExtraPowerAggregate);
-			if (prop)
-			{
-				_extraPower.version = kAppleEHCIExtraPowerVersion;
-				_extraPower.aggregate = prop->unsigned32BitValue();
-				prop = (OSNumber *)provider->getProperty(kAppleExtraPowerPerPort);
-				if (prop)
-					_extraPower.perPort = prop->unsigned32BitValue();
-				prop = (OSNumber *)provider->getProperty(kAppleExtraPowerInSleep);
-				if (prop)
-					_extraPower.inSleep = prop->unsigned32BitValue();
-				USBLog(2, "AppleEHCI[%p]::UIMInitilaize - extra power structure initialized - aggregate(%d) perPort(%d) inSleep(%d)", this, (int)_extraPower.aggregate, (int)_extraPower.perPort, (int)_extraPower.inSleep);
-			}
-			else
-			{
-				USBLog(7, "AppleEHCI[%p]::UIMInitilaize - no ExtraPower property found!", this);
-			}
-		}
-		
+		_pEHCIRegisters = (EHCIRegistersPtr) ( ((uintptr_t)_pEHCICapRegisters) + CapLength);
+				
 		// Enable the interrupt delivery.
 		_workLoop->enableAllInterrupts();
 		
@@ -504,7 +477,7 @@ AppleUSBEHCI::InterruptInitialize (void)
         return status;
 	}
 
-	_periodicList = (UInt32 *)_periodicListBuffer->getBytesNoCopy();
+	_periodicList = (USBPhysicalAddress32 *)_periodicListBuffer->getBytesNoCopy();
 	
 	// Use IODMACommand to get the physical address
 	dmaCommand = IODMACommand::withSpecification(kIODMACommandOutputHost32, 32, PAGE_SIZE, (IODMACommand::MappingOptions)(IODMACommand::kMapped | IODMACommand::kIterateOnly));
@@ -550,7 +523,7 @@ AppleUSBEHCI::InterruptInitialize (void)
 	dmaCommand->clearMemoryDescriptor();
 	dmaCommand->release();
 	
-    _logicalPeriodicList = (IOUSBControllerListElement **)IOMalloc(kEHCIPeriodicFrameListsize);
+    _logicalPeriodicList = IONew(IOUSBControllerListElement *, kEHCIPeriodicListEntries);
     if(_logicalPeriodicList == NULL)
     {
 		_periodicListBuffer->complete();
@@ -585,7 +558,7 @@ AppleUSBEHCI::UIMFinalize(void)
 	
     if ( _deviceBase )
 	{
-        USBLog (3, "AppleUSBEHCI[%p]: @ %lx (%lx)(shutting down HW)", this, (long)_deviceBase->getVirtualAddress(), _deviceBase->getPhysicalAddress());
+        USBLog (3, "AppleUSBEHCI[%p]: @ %x (%x)(shutting down HW)", this, (uint32_t)_deviceBase->getVirtualAddress(), (uint32_t)_deviceBase->getPhysicalAddress());
 	}
     
 #if 0
@@ -684,7 +657,7 @@ AppleUSBEHCI::UIMFinalize(void)
 	
     if ( _logicalPeriodicList )
 	{
-        IOFree( _logicalPeriodicList, kEHCIPeriodicFrameListsize );
+        IODelete( _logicalPeriodicList, IOUSBControllerListElement *, kEHCIPeriodicListEntries );
 		_logicalPeriodicList = NULL;
 	}
 	
@@ -987,6 +960,9 @@ AppleUSBEHCI::AllocateTD(void)
 		freeTD->lastFrame = 0;
 		freeTD->lastRemaining = 0;
 		freeTD->command = NULL;
+		freeTD->callbackOnTD = false;
+		freeTD->multiXferTransaction = false;
+		freeTD->finalXferInTransaction = false;
     }
     return freeTD;
 }
@@ -1044,7 +1020,7 @@ AppleUSBEHCI::AllocateITD(void)
 	
 	// initialize the page pointers to zero length
 	//
-    bzero(&freeITD->GetSharedLogical()->Transaction0, sizeof(EHCIIsochTransferDescriptorShared)-sizeof(IOPhysicalAddress) );
+    bzero(&freeITD->GetSharedLogical()->Transaction0, sizeof(EHCIIsochTransferDescriptorShared)-sizeof(USBPhysicalAddress32) );
 
     USBLog(7, "AppleUSBEHCI[%p]::AllocateITD - returning %p",  this, freeITD);
     return freeITD;
@@ -1412,7 +1388,7 @@ AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 #if !TARGET_OS_EMBEDDED
 		case kIOPCCardCSEventMessage:
 			cs_event_t	pccardevent;
-			pccardevent = (UInt32) argument;
+			pccardevent = (uintptr_t) argument;
 			
 			if ( pccardevent == CS_EVENT_CARD_REMOVAL )
 			{

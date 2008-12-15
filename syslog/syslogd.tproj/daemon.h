@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,12 +30,16 @@
 #include <time.h>
 #include <asl.h>
 #include <asl_private.h>
+#include <asl_store.h>
+#include <asl_memory.h>
+#include <asl_mini_memory.h>
 #include <notify.h>
 #include <launch.h>
 
 #define ADDFD_FLAGS_LOCAL 0x00000001
 
 #define ASL_DB_NOTIFICATION "com.apple.system.logger.message"
+#define SELF_DB_NOTIFICATION "self.logger.message"
 
 #define ASL_KEY_READ_UID "ReadUID"
 #define ASL_KEY_READ_GID "ReadGID"
@@ -48,16 +52,45 @@
 
 #define _PATH_PIDFILE		"/var/run/syslog.pid"
 #define _PATH_ASL_IN		"/var/run/asl_input"
-#define _PATH_ASL_DIR		"/var/log"
-#define _PATH_ASL_DB		"/var/log/asl.db"
 #define _PATH_SYSLOG_CONF   "/etc/syslog.conf"
 #define _PATH_SYSLOG_IN		"/var/run/syslog"
 #define _PATH_KLOG			"/dev/klog"
 #define _PATH_MODULE_LIB	"/usr/lib/asl"
 
+#define DB_TYPE_FILE	0x00000001
+#define DB_TYPE_MEMORY	0x00000002
+#define DB_TYPE_MINI	0x00000004
+
 #define KERN_DISASTER_LEVEL 3
 
-extern launch_data_t launch_dict;
+struct global_s
+{
+	int asl_log_filter;
+	int restart;
+	int debug;
+	int disaster_occurred;
+	mach_port_t server_port;
+	launch_data_t launch_dict;
+	const char *debug_file;
+	int dbtype;
+	int did_store_sweep;
+	time_t start_time;
+	uint32_t db_file_max;
+	uint32_t db_memory_max;
+	uint32_t db_mini_max;
+	int kfd;
+	uint64_t bsd_flush_time;
+	uint64_t asl_store_ping_time;
+	uint64_t bsd_max_dup_time;
+	time_t utmp_ttl;
+	time_t fs_ttl;
+	asl_store_t *file_db;
+	asl_memory_t *memory_db;
+	asl_mini_memory_t *mini_db;
+	asl_mini_memory_t *disaster_db;
+};
+
+extern struct global_s global;
 
 struct module_list
 {
@@ -100,9 +133,7 @@ int asl_syslog_faciliy_name_to_num(const char *fac);
 const char *asl_syslog_faciliy_num_to_name(int num);
 asl_msg_t *asl_input_parse(const char *in, int len, char *rhost, int flag);
 
-uint32_t db_prune(aslresponse query);
-uint32_t db_archive(time_t cut, uint64_t max);
-uint32_t db_compact(void);
+void db_ping_store(time_t now);
 
 /* message refcount utilities */
 uint32_t asl_msg_type(asl_msg_t *m);

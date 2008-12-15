@@ -52,17 +52,17 @@ struct timeval timeout = { 0, 0 };
 #define loBits(u)      ((u) & 0x7FFFFFFFU)   
 #define mixBits(u, v)  (hiBit(u)|loBits(v))  
 
-static unsigned long   state[N+1];     
-static unsigned long   *next;          
+static uint32_t   state[N+1];     
+static uint32_t   *next;          
 int                    left = -1;      
 
-long int allocate_time (void) {
+int32_t allocate_time (void) {
 
   /* calculate the ammount of time the program can use in its search, measured
      in centi-seconds (calculate everything in float for more accuracy as
-     we go, and return the result as a long int) */
+     we go, and return the result as a int32_t) */
 
-  float allocated_time = 0.0, move_speed = 20.0;
+  float allocated_time = 0.0f, move_speed = 20.0f;
 
   /* sudden death time allocation: */
   if (!moves_to_tc) {
@@ -78,11 +78,11 @@ long int allocate_time (void) {
 	|| time_left < (((min_per_game*6000) + (sec_per_game*100))*4.0/5.0)) 
     {
       if ((opp_time-time_left) > (opp_time/5.0) && xb_mode)
-	move_speed = 40.0;
+	move_speed = 40.0f;
       else if ((opp_time-time_left) > (opp_time/10.0) && xb_mode)
-	move_speed = 30.0;
+	move_speed = 30.0f;
       else if ((opp_time-time_left) > (opp_time/20.0) && xb_mode)
-	move_speed = 25.0;
+	move_speed = 25.0f;
     }
    
     if ((Variant != Suicide) && (Variant != Losers))
@@ -110,35 +110,35 @@ long int allocate_time (void) {
         allocated_time += inc;
       }
       else if (time_left-allocated_time-(inc*2.0/3.0) > 100) {
-        allocated_time += inc*2.0/3.0;
+        allocated_time += inc*2.0f/3.0f;
        }
      }
   }
   
   /* conventional clock time allocation: */
   else {
-    allocated_time = (((float)min_per_game * 6000. 
-	    + (float)sec_per_game * 100.)/(float)moves_to_tc) - 100.;
+    allocated_time = (((float)min_per_game * 6000.0f
+	    + (float)sec_per_game * 100.0f)/(float)moves_to_tc) - 100.0f;
     
     /* if we've got extra time, use some of it: */
     if (time_cushion) {
-      allocated_time += time_cushion*2.1/3.0;
-      time_cushion -= time_cushion*2.1/3.0;
+      allocated_time += time_cushion*2.1f/3.0f;
+      time_cushion -= time_cushion*2.1f/3.0f;
     }
   }
 
   if (Variant == Bughouse)
   {
-	allocated_time *= 1./4.;
+	allocated_time *= 1.0f/4.0f;
 
 	if ((opp_time > time_left) || (opp_time < 1500))
 	{
 	  /* behind on time or blitzing out */
-	  allocated_time *= 1./2.;
+	  allocated_time *= 1.0f/2.0f;
 	}
   }
  
-  return ((long int) allocated_time);
+  return ((int32_t) allocated_time);
 
 }
 
@@ -495,7 +495,7 @@ void perft_debug (void) {
     /* print out the number of raw nodes for this depth: */
     raw_nodes = 0;
     perft (depth);
-    printf ("\n\nRaw nodes for depth %d: %ld\n\n", depth, raw_nodes);
+    printf ("\n\nRaw nodes for depth %d: %d\n\n", depth, raw_nodes);
 
     /* print out the board: */
     display_board (stdout, 1);
@@ -583,7 +583,7 @@ void stringize_pv (char str[])
 
 }
 
-void post_thinking (long int score) {
+void post_thinking (int32_t score) {
 
   /* post our thinking output: */
   char output[STR_BUFF];
@@ -598,7 +598,7 @@ void post_thinking (long int score) {
   }
 }
 
-void post_fail_thinking(long int score, move_s *failmove)
+void post_fail_thinking(int32_t score, move_s *failmove)
 {
   /* post our thinking output: */
 
@@ -610,7 +610,7 @@ void post_fail_thinking(long int score, move_s *failmove)
   printf ("ponder %s\n", output);
 }
 
-void post_fh_thinking(long int score, move_s *failmove)
+void post_fh_thinking(int32_t score, move_s *failmove)
 {
   /* post our thinking output: */
 
@@ -622,7 +622,7 @@ void post_fh_thinking(long int score, move_s *failmove)
   printf ("ponder %s\n", output);
 }
 
-void post_fl_thinking(long int score, move_s *failmove)
+void post_fl_thinking(int32_t score, move_s *failmove)
 {
 }
 
@@ -630,17 +630,17 @@ void post_stat_thinking(void)
 {
   /* post our thinking output: */
 
-  long int elapsed;
+  int32_t elapsed;
 
   elapsed = rdifftime (rtime (), start_time);
 
   if (xb_mode == 1)
   {
-    printf ("stat01: %ld %ld %d %d %d\n", elapsed, nodes, i_depth, moveleft, movetotal);
+    printf ("stat01: %d %d %d %d %d\n", elapsed, nodes, i_depth, moveleft, movetotal);
   }
   else if (xb_mode == 2)
   {
-    printf ("stat01: %ld %ld %d %d %d %s\n", elapsed, nodes, i_depth, moveleft, movetotal, searching_move);
+    printf ("stat01: %d %d %d %d %d %s\n", elapsed, nodes, i_depth, moveleft, movetotal, searching_move);
   }
 }
 
@@ -663,7 +663,7 @@ void rdelay (int time_in_s) {
   /* My delay function to cause a delay of time_in_s seconds */
 
   rtime_t time1, time2;
-  long int timer = 0;
+  int32_t timer = 0;
 
   time1 = rtime ();
   while (timer/100 < time_in_s) {
@@ -674,20 +674,20 @@ void rdelay (int time_in_s) {
 }
 
 
-long int rdifftime (rtime_t end, rtime_t start) {
+int32_t rdifftime (rtime_t end, rtime_t start) {
 
   /* determine the time taken between start and the current time in
      centi-seconds */
 
   /* using ftime(): */
 #if defined(HAVE_SYS_TIMEB_H) && (defined(HAVE_FTIME) || defined(HAVE_GETTIMEOFDAY))
-  return ((end.time-start.time)*100 + (end.millitm-start.millitm)/10);
+	return (int32_t)((end.time-start.time)*100 + (end.millitm-start.millitm)/10);
 
   /* -------------------------------------------------- */
 
   /* using time(): */
 #else
-  return (100*(long int) difftime (end, start));
+  return (100*(int32_t) difftime (end, start));
 #endif
 
 }
@@ -901,7 +901,7 @@ void tree_debug (void) {
   /* print out the number of raw nodes for this depth: */
   raw_nodes = 0;
   perft (depth);
-  printf ("\n\n%s\nRaw nodes for depth %d: %ld\n%s\n\n", divider,
+  printf ("\n\n%s\nRaw nodes for depth %d: %d\n%s\n\n", divider,
 	  depth, raw_nodes, divider);
 
 }
@@ -1233,7 +1233,7 @@ void speed_test(void)
     }
   
   cpu_end = clock ();
-  et = (cpu_end-cpu_start)/(double) CLOCKS_PER_SEC;
+  et = (cpu_end-cpu_start)/(float) CLOCKS_PER_SEC;
   
   printf("Movegen speed: %d/s\n", (int)(5000000.0/et));
   j = 0;
@@ -1250,7 +1250,7 @@ void speed_test(void)
     }
   
   cpu_end = clock ();
-  et = (cpu_end-cpu_start)/(double) CLOCKS_PER_SEC;
+  et = (cpu_end-cpu_start)/(float) CLOCKS_PER_SEC;
   
   printf("Make+unmake speed: %d/s\n", (int)(50000000.0/et));
   
@@ -1273,7 +1273,7 @@ void speed_test(void)
     }
   
   cpu_end = clock ();
-  et = (cpu_end-cpu_start)/(double) CLOCKS_PER_SEC;
+  et = (cpu_end-cpu_start)/(float) CLOCKS_PER_SEC;
   
   printf("Movecycle speed: %d/s\n", (int)(50000000.0/et));
   
@@ -1285,11 +1285,11 @@ void speed_test(void)
     {
       eval();
       /* invalidate the ecache */
-      hash = (++hash) % ULONG_MAX; 
+      hash = (++hash) % UINT_MAX; 
     }
   
   cpu_end = clock ();
-  et = (cpu_end-cpu_start)/(double) CLOCKS_PER_SEC;
+  et = (cpu_end-cpu_start)/(float) CLOCKS_PER_SEC;
   
   printf("Eval speed: %d/s\n", (int)(10000000.0/et));
   
@@ -1300,18 +1300,18 @@ void speed_test(void)
 
 /* Mersenne Twister */
 
-void seedMT(unsigned long seed)
+void seedMT(uint32_t seed)
 {
-  register unsigned long x = (seed | 1U) & 0xFFFFFFFFU, *s = state;
+  register uint32_t x = (seed | 1U) & 0xFFFFFFFFU, *s = state;
   register int    j;
 
   for(left=0, *s++=x, j=N; --j;
       *s++ = (x*=69069U) & 0xFFFFFFFFU);
 }
 
-unsigned long reloadMT(void)
+uint32_t reloadMT(void)
 {
-  register unsigned long *p0=state, *p2=state+2, *pM=state+M, s0, s1;
+  register uint32_t *p0=state, *p2=state+2, *pM=state+M, s0, s1;
   register int    j;
 
   if(left < -1)
@@ -1332,9 +1332,9 @@ unsigned long reloadMT(void)
   return(s1 ^ (s1 >> 18));
 }
 
-unsigned long randomMT(void)
+uint32_t randomMT(void)
 {
-  unsigned long y;
+  uint32_t y;
 
   if(--left < 0)
     return(reloadMT());

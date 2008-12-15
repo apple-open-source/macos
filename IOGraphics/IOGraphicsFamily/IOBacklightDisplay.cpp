@@ -72,7 +72,7 @@ IOService * IOBacklightDisplay::probe( IOService * provider, SInt32 * score )
     IOFramebuffer *	framebuffer;
     IOService *		ret = 0;
     UInt32		displayType;
-    UInt32		connectFlags;
+    uintptr_t		connectFlags;
     bool		haveBacklight = false;
 
     do
@@ -271,6 +271,9 @@ IOReturn IOBacklightDisplay::setPowerState( unsigned long powerState, IOService 
     IOReturn	ret = IOPMAckImplied;
     SInt32	value;
 
+    if (isInactive())
+        return (IOPMAckImplied);
+
     if (powerState >= kIODisplayNumPowerStates)
         return (IOPMAckImplied);
 
@@ -429,6 +432,7 @@ class AppleBacklightDisplay : public IOBacklightDisplay
 
 protected:
     IOInterruptEventSource * fDeferredEvents;
+    uint8_t                  fClamshellSlept;
 
 public:
     virtual bool start( IOService * provider );
@@ -523,12 +527,21 @@ IOReturn AppleBacklightDisplay::framebufferEvent( IOFramebuffer * framebuffer,
     }
     else if (kIOFBNotifyClamshellChange == event)
     {
-	if ((kOSBooleanTrue == info) && (kIOPMEnableClamshell & IOFramebuffer::clamshellState()))
+	if (kIOPMEnableClamshell & IOFramebuffer::clamshellState())
 	{
+	    if (kOSBooleanTrue == info)
+	    {
 #if LCM_HWSLEEP
-	    fConnection->getFramebuffer()->changePowerStateTo(0);
+		fConnection->getFramebuffer()->changePowerStateTo(0);
 #endif
-	    changePowerStateToPriv( 0 );
+		changePowerStateToPriv( 0 );
+		fClamshellSlept = true;
+	    }
+	    else if (fClamshellSlept)
+	    {
+		fClamshellSlept = false;
+		makeDisplayUsable();
+	    }
 	}
 
 	// may be in the right power state already, but wrong brightness because

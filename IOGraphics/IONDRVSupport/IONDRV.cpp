@@ -104,7 +104,7 @@ IOPEFNDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
 		int	debugFlags;
 	
 		IOLog("ROM ndrv for %s is too old (0x%08lx)\n", regEntry->getName(), createDate);
-		if (!PE_parse_boot_arg("romndrv", &debugFlags) || !debugFlags)
+		if (!PE_parse_boot_argn("romndrv", &debugFlags, sizeof(debugFlags)) || !debugFlags)
 		{
 		    err = kIOReturnIsoTooOld;
 		    continue;

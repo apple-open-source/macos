@@ -513,7 +513,7 @@ freeblk(blkno, frags)
 void
 getpathname(namebuf, curdir, ino)
 	char *namebuf;
-	ino_t curdir, ino;
+	u_int32_t curdir, ino;
 {
 	int len;
 	register char *cp;

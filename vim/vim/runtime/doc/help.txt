@@ -1,4 +1,4 @@
-*help.txt*	For Vim version 7.0.  Last change: 2006 May 07
+*help.txt*	For Vim version 7.2.  Last change: 2008 Jul 21
 
 			VIM - main help file
 									 k
@@ -126,7 +126,7 @@ Advanced editing ~
 |tabpage.txt|	commands for using multiple tab pages
 |syntax.txt|	syntax highlighting
 |spell.txt|	spell checking
-|diff.txt|	working with two or three versions of the same file
+|diff.txt|	working with two to four versions of the same file
 |autocmd.txt|	automatically executing commands on an event
 |filetype.txt|	settings done specifically for a type of file
 |eval.txt|	expression evaluation, conditional commands
@@ -143,6 +143,7 @@ Special issues ~
 |farsi.txt|	Farsi (Persian) editing
 |hebrew.txt|	Hebrew language support and editing
 |russian.txt|	Russian language support and editing
+|ft_ada.txt|	Ada (the programming language) support
 |hangulin.txt|	Hangul (Korean) input mode
 |rileft.txt|	right-to-left editing mode
 
@@ -189,11 +190,13 @@ Remarks about specific systems ~
 |os_win32.txt|	MS-Windows 95/98/NT
 						*standard-plugin-list*
 Standard plugins ~
-|pi_gzip.txt|	Reading and writing compressed files
-|pi_netrw.txt|	Reading and writing files over a network
-|pi_paren.txt|	Highlight matching parens
-|pi_tar.txt|	Tar file explorer
-|pi_zip.txt|	Zip archive explorer
+|pi_getscript.txt| Downloading latest version of Vim scripts
+|pi_gzip.txt|	   Reading and writing compressed files
+|pi_netrw.txt|	   Reading and writing files over a network
+|pi_paren.txt|	   Highlight matching parens
+|pi_tar.txt|	   Tar file explorer
+|pi_vimball.txt|   Create a self-installing Vim script
+|pi_zip.txt|	   Zip archive explorer
 
 LOCAL ADDITIONS:				*local-additions*
 

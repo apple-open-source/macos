@@ -122,7 +122,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 }
 
 - (void)refreshData:(BOOL)shouldForce {
-    if (!shouldForce && [[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeDontAutoRefresh"] == YES) {
+    if (!shouldForce && [[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeAutoRefresh"] == NO) {
         return;
     }
     
@@ -207,11 +207,12 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 - (void)processDevice:(IOUSBDeviceRef)deviceIntf deviceNumber:(int)deviceNumber usbName:(NSString *)usbName {
     BusProbeDevice *        thisDevice;
     UInt32                  locationID = 0;
+    uint32_t                  portInfo = 0;
     UInt8                   speed = 0;
     USBDeviceAddress        address = 0;
     IOUSBDeviceDescriptor   dev;
     int                     len;
-    IOReturn                error;
+    IOReturn                error = kIOReturnSuccess;
 	BOOL					needToSuspend = FALSE;
 
     thisDevice = [[BusProbeDevice alloc] init];
@@ -240,19 +241,33 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
             address, 
             locationID]];    
 
-    error = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev));
-    if (error != kIOReturnSuccess ) 
+	// Get the Port Information
+	if ( GetPortInformation(deviceIntf, &portInfo) == 0) {
+		[thisDevice setPortInfo:portInfo];
+
+		[self PrintPortInfo:portInfo forDevice:thisDevice];
+	}
+	else
+        NSLog(@"USB Prober: GetUSBDeviceInformation() for device @%8x failed", [thisDevice locationID]);
+	
+	// If the device is suspended, then unsuspend it first
+	if ( portInfo & (1<<kUSBInformationDeviceIsSuspendedBit) )
 	{
-		// The device did not respond to a request for its device descriptor, probably because it was suspended.  Attempt to resume it and 
-		// later on suspend it again.
-		needToSuspend = TRUE;
-		
-		error = SuspendDevice(deviceIntf,false);
-		if ( error == kIOReturnSuccess )
+		if ([[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeSuspended"] == YES)
 		{
-			error = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev));
+			needToSuspend = TRUE;
+
+			error = SuspendDevice(deviceIntf,false);
 		}
-	} 
+		
+		else
+		{
+			error = kIOReturnNotResponding;
+		}
+	}
+	
+	if (error == kIOReturnSuccess)
+		error = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev));
 	
 	if ( error == kIOReturnSuccess )
 	{
@@ -293,8 +308,15 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     }
 	else 
 	{
-		// This description will be shown in the UI, to the right of the device's name
-		[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ (did not respond to inquiry - 0x%x, might be Suspended)", usbName, error]];
+		if ( portInfo & (1<<kUSBInformationDeviceIsSuspendedBit) )
+		{
+			[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ (Device is suspended)", usbName]];
+	}
+		else
+		{
+			// This description will be shown in the UI, to the right of the device's name
+			[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ (did not respond to inquiry - %s (0x%x))", usbName, USBErrorToString(error), error]];
+		}
 	}
 	
 	
@@ -363,6 +385,60 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 		error = SuspendDevice(deviceIntf,true);
 	
     [thisDevice release];
+}
+
+- (void)PrintPortInfo: (uint32_t)portInfo forDevice:(BusProbeDevice *)thisDevice {
+    char					buf[256];
+
+	sprintf((char *)buf, "0x%04x", portInfo );
+	[thisDevice addProperty:"Port Information:" withValue:buf atDepth:ROOT_LEVEL];
+
+	if (portInfo & (1<<kUSBInformationRootHubisBuiltIn))
+		sprintf((char *)buf, "%s", "Built-in " );
+	else
+		sprintf((char *)buf, "%s", "Expansion slot " );
+
+	if (portInfo & (1<<kUSBInformationDeviceIsRootHub))
+	{
+		strcat(buf,"Root Hub"); 
+		[thisDevice addProperty:"" withValue:buf atDepth:ROOT_LEVEL+1];
+	}
+	
+	if (portInfo & (1<<kUSBInformationDeviceIsCaptiveBit))
+		[thisDevice addProperty:"" withValue:"Captive" atDepth:ROOT_LEVEL+1];
+	else
+		[thisDevice addProperty:"" withValue:"Not Captive" atDepth:ROOT_LEVEL+1];
+	
+	if (portInfo & (1<<kUSBInformationDeviceIsAttachedToRootHubBit))
+		[thisDevice addProperty:"" withValue:"Attached to Root Hub" atDepth:ROOT_LEVEL+1];
+	
+	if (portInfo & (1<<kUSBInformationDeviceIsInternalBit))
+		[thisDevice addProperty:"" withValue:"Internal Device" atDepth:ROOT_LEVEL+1];
+	else
+		[thisDevice addProperty:"" withValue:"External Device" atDepth:ROOT_LEVEL+1];
+	
+	if (portInfo & (1<<kUSBInformationDeviceIsConnectedBit))
+		[thisDevice addProperty:"" withValue:"Connected" atDepth:ROOT_LEVEL+1];
+	else
+		[thisDevice addProperty:"" withValue:"Unplugged" atDepth:ROOT_LEVEL+1];
+	
+	if (portInfo & (1<<kUSBInformationDeviceIsEnabledBit))
+		[thisDevice addProperty:"" withValue:"Enabled" atDepth:ROOT_LEVEL+1];
+	else
+		[thisDevice addProperty:"" withValue:"Disabled" atDepth:ROOT_LEVEL+1];
+	
+	if (portInfo & (1<<kUSBInformationDeviceIsSuspendedBit))
+		[thisDevice addProperty:"" withValue:"Suspended" atDepth:ROOT_LEVEL+1];
+	
+	if (portInfo & (1<<kUSBInformationDeviceIsInResetBit))
+		[thisDevice addProperty:"" withValue:"Reset" atDepth:ROOT_LEVEL+1];
+	
+	if (portInfo & (1<<kUSBInformationDeviceOvercurrentBit))
+		[thisDevice addProperty:"" withValue:"Overcurrent" atDepth:ROOT_LEVEL+1];
+	
+	if (portInfo & (1<<kUSBInformationDevicePortIsInTestModeBit))
+		[thisDevice addProperty:"" withValue:"Test Mode" atDepth:ROOT_LEVEL+1];
+	
 }
 
 @end

@@ -76,13 +76,14 @@ EHCIGeneralTransferDescriptor,
 // this is the extra state needed to manage TDs
 struct EHCIGeneralTransferDescriptor
 {
-    EHCIGeneralTransferDescriptorSharedPtr	pShared;
+    EHCIGeneralTransferDescriptorSharedPtr	pShared;				// points to the shared memory area that the HC sees
     IOUSBCommand							*command;				// only used if last TD, other wise its  nil
-    UInt32									unused;
     AppleEHCIQueueHead						*pQH;					// pointer to TD's Queue Head
-    UInt8									traceFlag;
-	UInt8									lastTDofTransaction;
-    IOPhysicalAddress						pPhysical;
+    bool									traceFlag;
+	bool									callbackOnTD;			// this TD kicks off a completion callback
+	bool									multiXferTransaction;	// this is a multi transfer (i.e. control) Xaction
+	bool									finalXferInTransaction;	// this is the final transfer (i.e. the status phase) Xaction
+    USBPhysicalAddress32					pPhysical;
     EHCIGeneralTransferDescriptorPtr		pLogicalNext;
     void*									logicalBuffer;			// used for UnlockMemory
 	UInt32									lastFrame;				// the lower 32 bits the last time we checked this TD
@@ -139,9 +140,6 @@ enum {
 	kAppleEHCIExtraPowerVersion = 0x100
 };
 
-#define kAppleExtraPowerAggregate		"AAPL,current-available"				// this one also has another name on legacy systems
-#define kAppleExtraPowerPerPort			"AAPL,current-extra"
-
 class AppleUSBEHCI : public IOUSBControllerV3
 {
     OSDeclareDefaultStructors(AppleUSBEHCI)
@@ -180,7 +178,7 @@ protected:
     AppleEHCISplitIsochTransferDescriptor	*_pLastFreeSITD;					// last of availabble Trasfer Descriptors
     AppleEHCIQueueHead						*_pLastFreeQH;						// last of available Endpoint Descriptors
 	IOBufferMemoryDescriptor				*_periodicListBuffer;				// IOBMD for the periodic list
-    IOPhysicalAddress						*_periodicList;						// Physical interrrupt heads
+    USBPhysicalAddress32						*_periodicList;						// Physical interrrupt heads
     IOUSBControllerListElement				**_logicalPeriodicList;				// logical interrupt heads
     UInt16									_periodicBandwidth[kEHCIMaxPoll];	// bandwidth remaining per frame
     AppleUSBEHCIHubInfo						*_hsHubs;							// high speed hubs
@@ -284,18 +282,16 @@ protected:
 											 UInt8					direction);
 	
 	void linkInterruptEndpoint(AppleEHCIQueueHead *pEHCIEndpointDescriptor);
-	void linkAsyncEndpoint(AppleEHCIQueueHead *CBED, AppleEHCIQueueHead *pEDHead);
+	void linkAsyncEndpoint(AppleEHCIQueueHead *CBED);
 	void returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDescriptor *untilThisOne, IOReturn error, bool clearToggle);
 	
-    AppleEHCIQueueHead *AddEmptyCBEndPoint(
-										   UInt8 					functionAddress,
+    AppleEHCIQueueHead *AddEmptyCBEndPoint(UInt8 					functionAddress,
 										   UInt8					endpointNumber,
 										   UInt16					maxPacketSize,
 										   UInt8					speed,
-										   USBDeviceAddress				highSpeedHub,
+										   USBDeviceAddress			highSpeedHub,
 										   int						highSpeedPort,
-										   UInt8					direction,
-										   AppleEHCIQueueHead				*pED);
+										   UInt8					direction);
 	
     AppleEHCIQueueHead *FindInterruptEndpoint(short							functionNumber,
 											  short					endpointNumber,

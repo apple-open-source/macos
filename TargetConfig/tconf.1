@@ -1,0 +1,122 @@
+.\"
+.\" Copyright (c) 2008 Apple Inc. All rights reserved.
+.\"
+.\" @APPLE_LICENSE_HEADER_START@
+.\" 
+.\" This file contains Original Code and/or Modifications of Original Code
+.\" as defined in and that are subject to the Apple Public Source License
+.\" Version 2.0 (the 'License'). You may not use this file except in
+.\" compliance with the License. Please obtain a copy of the License at
+.\" http://www.opensource.apple.com/apsl/ and read it before using this
+.\" file.
+.\" 
+.\" The Original Code and all software distributed under the License are
+.\" distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+.\" Please see the License for the specific language governing rights and
+.\" limitations under the License.
+.\" 
+.\" @APPLE_LICENSE_HEADER_END@
+.\"
+.Dd January 7, 2006
+.Dt tconf 1
+.Os "Mac OS X"
+.Sh NAME
+.Nm tconf
+.Nd TargetConfig command line tool
+.Sh SYNOPSIS
+.Nm tconf
+.Fl -product
+.Nm tconf
+.Fl -archs
+.Nm tconf
+.Op Fl q
+.Fl -test
+.Ar variable
+.Nm tconf
+.Fl -cflags
+.Nm tconf
+.Fl -cxxflags
+.Nm tconf
+.Fl -ldflags
+.Nm tconf
+.Fl -cc
+.Nm tconf
+.Fl -cpp
+.Nm tconf
+.Fl -cxx
+.Nm tconf
+.Fl -ld
+.Sh DESCRIPTION
+The
+.Nm tconf
+utility allows Makefiles to obtain static configuration information about the
+target build platform.  This is useful for specifying compile-time settings
+when cross-building (where runtime tests are not possible).
+.Pp
+The
+.Nm tconf
+obtains its configuration information from a property list contained in the SDK
+specified by the
+.Ar SDKROOT
+environment variable.  If
+.Ar SDKROOT
+is not set, then
+.Nm tconf
+will attempt to read a property list on the build host as specified by the
+.Ar RC_TARGET_CONFIG
+environment variable in the directory
+.Pa /usr/local/share/TargetConfigs .
+If the
+.Ar RC_TARGET_CONFIG
+environment variable is not set, the value "Default" is used.
+.Pp
+The
+.Fl -product
+flag prints the target product name (i.e. "MacOSX") to standard output.
+.Pp
+The
+.Fl -archs
+flag prints the target architectures to standard output.  When the
+.Ar RC_ARCHS
+environment variable is set, its value is used.  Otherwise, the set of architectures defined in the TargetConfig property list is printed.
+.Pp
+The
+.Fl -test
+flag prints the value of the specified configuration
+.Ar variable .
+If the value is defined to true in the property list, "YES" is printed to
+standard output, otherwise "NO" is printed.  Variables defined in the
+"TargetConditionals" section of the property list are used unconditionally.
+Variables defined in the "TargetArchitectures" section of the property list are
+used only when the
+.Ar RC_ARCHS
+environment variable includes that architecture.
+Because multiple architectures may be specified at build time, and may have
+conflicting configuration options, these values are considered true if
+.Em any
+of the architectures defines the value to true.
+.Pp
+The TargetConditionals section may contain:
+.Bl -tag -width "" -compact
+.It TARGET_OS_MAC
+.It TARGET_OS_WIN32
+.It TARGET_OS_UNIX
+.It TARGET_OS_EMBEDDED
+.It TARGET_RT_MAC_CFM
+.It TARGET_RT_MAC_MACHO
+.El
+.Pp
+.Sh EXAMPLE USAGE IN MAKEFILES
+    Embedded = $(shell tconf --test TARGET_OS_EMBEDDED)
+    CFILES = main.c
+    ifeq ($(Embedded),YES)
+    CFILES += embedded.c
+    endif
+.Sh FILES
+.Bl -tag -width "/usr/local/share/TargetConfigs/Default.plist" -compact
+.It Pa /usr/local/share/TargetConfigs/Default.plist
+.It Pa /usr/local/include/TargetConfig.h
+.El

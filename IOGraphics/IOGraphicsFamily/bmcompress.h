@@ -68,13 +68,13 @@ static void FillVRAM8by1(int w, int h, uint32_t k0,uint32_t k1, uint8_t *dst, in
         c0  = k0;
         c1  = k1;
 
-        if((uint32_t)d & 0x0001)
+        if((uintptr_t)d & 0x0001)
 	    WRITEBYTE(c0, c1, d, n);
 
-        if(((uint32_t)d & 0x0002) && n>=2)
+        if(((uintptr_t)d & 0x0002) && n>=2)
 	    WRITESHORT(c0, c1, d, n);
 
-        if(((uint32_t)d & 0x0004) && n>=4)
+        if(((uintptr_t)d & 0x0004) && n>=4)
 	    WRITEWORD(c0, c1, d, n);
 
         if(n >= 16)

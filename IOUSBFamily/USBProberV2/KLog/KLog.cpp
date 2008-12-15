@@ -45,9 +45,9 @@ extern "C" {
 // Define my superclass
 #define super IOService
 
-#define TIMESTAMPSIZE 	sizeof(struct timeval)
-#define LEVELSIZE 		sizeof(UInt32)
-#define TAGSIZE			sizeof(UInt32)
+#define TIMESTAMPSIZE 	sizeof(struct klog64_timeval)
+#define LEVELSIZE 		sizeof(uint32_t)
+#define TAGSIZE			sizeof(uint32_t)
 #define DATAOFFSET 		(TIMESTAMPSIZE + LEVELSIZE + TAGSIZE)
 #define MSGSIZE			BUFSIZE - (TIMESTAMPSIZE + LEVELSIZE + TAGSIZE)
 
@@ -82,7 +82,7 @@ bool	com_apple_iokit_KLog::init(OSDictionary *dict)
         
     mErrFlag = false;
 
-    mTimeVal = new timeval;
+    mTimeVal = new klog64_timeval;
     
     mLogLock = IOLockAlloc();
     
@@ -281,7 +281,7 @@ SInt8	com_apple_iokit_KLog::vLog( KLogLevel level, KLogTag tag, const char *form
 {
 	UInt8		i;
 	UInt32		returnValue = 0;
-
+	struct timeval 			timeVal;
     if(!format)
     {
         return 0;
@@ -298,7 +298,10 @@ SInt8	com_apple_iokit_KLog::vLog( KLogLevel level, KLogTag tag, const char *form
 	}
 	
 	//Get time and pack into buffer
-	microtime(mTimeVal);
+	microtime(&timeVal);
+	mTimeVal->tv_sec = timeVal.tv_sec;
+	mTimeVal->tv_usec = timeVal.tv_usec;
+	
 	memcpy(mMsgBuffer, mTimeVal, TIMESTAMPSIZE);
 	memcpy((mMsgBuffer + TIMESTAMPSIZE), &tag, TAGSIZE);
 	memcpy((mMsgBuffer + TIMESTAMPSIZE + TAGSIZE), &level, LEVELSIZE);

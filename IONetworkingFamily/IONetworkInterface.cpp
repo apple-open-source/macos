@@ -52,6 +52,8 @@ extern "C" {
 #include "IONetworkUserClient.h"
 #include "IONetworkStack.h"
 
+#include <TargetConditionals.h>
+
 //---------------------------------------------------------------------------
 
 #define super IOService
@@ -220,6 +222,11 @@ bool IONetworkInterface::init(IONetworkController * controller)
     // BSD name for the interface.
 
     setProperty( kIOInterfaceNamePrefix, getNamePrefix() );
+#if TARGET_OS_EMBEDDED
+	OSString *networkType = OSDynamicCast(OSString, controller->getProperty( "IONetworkRootType" ));
+	if(networkType)
+		setProperty( "IONetworkRootType", networkType );
+#endif /* TARGET_OS_EMBEDDED */
 
     if (IOService *provider = controller->getProvider())
 	{

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,11 +57,6 @@
 extern void disaster_message(asl_msg_t *m);
 
 static char myname[MAXHOSTNAMELEN + 1] = {0};
-extern const char *debug_file;
-extern int debug;
-extern time_t utmp_ttl;
-extern time_t fs_ttl;
-extern int kfd;
 
 static pthread_mutex_t event_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -332,7 +327,7 @@ aslmsg_verify(struct aslevent *e, asl_msg_t *msg, int32_t *kern_post_level)
 	*kern_post_level = -1;
 
 	kern = 0;
-	if ((e != NULL) && (e->fd == kfd)) kern = 1;
+	if ((e != NULL) && (e->fd == global.kfd)) kern = 1;
 
 	/* Time */
 	now = time(NULL);
@@ -463,14 +458,14 @@ aslmsg_verify(struct aslevent *e, asl_msg_t *msg, int32_t *kern_post_level)
 	/* Set DB Expire Time for com.apple.system.utmpx and lastlog */
 	if ((!strcmp(fac, "com.apple.system.utmpx")) || (!strcmp(fac, "com.apple.system.lastlog")))
 	{
-		snprintf(buf, sizeof(buf), "%lu", tick + utmp_ttl);
+		snprintf(buf, sizeof(buf), "%lu", tick + global.utmp_ttl);
 		asl_set(msg, ASL_KEY_EXPIRE_TIME, buf);
 	}
 
 	/* Set DB Expire Time for Filestsrem errors */
 	if (!strcmp(fac, FSLOG_VAL_FACILITY))
 	{
-		snprintf(buf, sizeof(buf), "%lu", tick + fs_ttl);
+		snprintf(buf, sizeof(buf), "%lu", tick + global.fs_ttl);
 		asl_set(msg, ASL_KEY_EXPIRE_TIME, buf);
 	}
 
@@ -670,17 +665,17 @@ asldebug(const char *str, ...)
 	int status;
 	FILE *dfp;
 
-	if (debug == 0) return 0;
+	if (global.debug == 0) return 0;
 
 	dfp = stderr;
-	if (debug_file != NULL) dfp = fopen(debug_file, "a");
+	if (global.debug_file != NULL) dfp = fopen(global.debug_file, "a");
 	if (dfp == NULL) return 0;
 
 	va_start(v, str);
 	status = vfprintf(dfp, str, v);
 	va_end(v);
 
-	if (debug_file != NULL) fclose(dfp);
+	if (global.debug_file != NULL) fclose(dfp);
 	return status;
 }
 
@@ -1018,6 +1013,7 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 	if (priority < ASL_LEVEL_EMERG) priority = ASL_LEVEL_EMERG;
 	if (priority > ASL_LEVEL_DEBUG) priority = ASL_LEVEL_DEBUG;
 	snprintf(str, sizeof(str), "%d", priority);
+
 	asl_set(m, ASL_KEY_LEVEL, str);
 
 	/* Time */
@@ -1057,7 +1053,10 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 	}
 
 	/* Sender */
-	if (from_name != NULL) asl_set(m, ASL_KEY_SENDER, from_name);
+	if (from_name != NULL)
+	{
+		asl_set(m, ASL_KEY_SENDER, from_name);
+	}
 
 	/* ReadUID */
 	if (sender_uid != 0)
@@ -1069,14 +1068,23 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 	/* Reference Process */
 	if (about_name != NULL)
 	{
-		if ((from_name != NULL) && (strcmp(from_name, about_name) != 0)) asl_set(m, ASL_KEY_REF_PROC, about_name);
+		if ((from_name != NULL) && (strcmp(from_name, about_name) != 0))
+		{
+			asl_set(m, ASL_KEY_REF_PROC, about_name);
+		}
 	}
 
 	/* Session */
-	if (session_name != NULL) asl_set(m, ASL_KEY_SESSION, session_name);
+	if (session_name != NULL)
+	{
+		asl_set(m, ASL_KEY_SESSION, session_name);
+	}
 
 	/* Message */
-	if (msg != NULL) asl_set(m, ASL_KEY_MSG, msg);
+	if (msg != NULL)
+	{
+		asl_set(m, ASL_KEY_MSG, msg);
+	}
 
 	/* set retain count */
 	m->type |= 0x10;

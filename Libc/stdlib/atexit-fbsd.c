@@ -46,7 +46,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/atexit.c,v 1.7 2003/12/19 17:11:20 kan E
 #include <unistd.h>
 #include <pthread.h>
 #if defined(__DYNAMIC__)
-#include <mach-o/dyld.h>
+#include <dlfcn.h>
 #endif /* defined(__DYNAMIC__) */
 #include "atexit.h"
 #include "un-namespace.h"
@@ -125,13 +125,17 @@ int
 atexit(void (*func)(void))
 {
 	struct atexit_fn fn;
+	struct dl_info info;
 	int error;
 
 	fn.fn_type = ATEXIT_FN_STD;
 	fn.fn_ptr.std_func = func;;
 	fn.fn_arg = NULL;
 #if defined(__DYNAMIC__)
-	fn.fn_dso = (void *)_dyld_get_image_header_containing_address((unsigned long) func);
+	if ( dladdr(func, &info) )
+		fn.fn_dso = info.dli_fbase;
+	else 
+		fn.fn_dso = NULL;
 #else /* ! defined(__DYNAMIC__) */
 	fn.fn_dso = NULL;
 #endif /* defined(__DYNAMIC__) */

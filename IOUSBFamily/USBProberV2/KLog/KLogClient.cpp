@@ -197,12 +197,12 @@ void *	com_apple_iokit_KLogClient::QueueMSG(	void * inPtr,
 
     result = ( void * ) kIOReturnUnsupported;
 
-    if((int)inPtr == Q_ON)
+    if((uintptr_t)inPtr == Q_ON)
     {
 		ActiveFlag = true;
 		result = kIOReturnSuccess;
     }
-    else if((int)inPtr == Q_OFF)
+    else if((uintptr_t)inPtr == Q_OFF)
     {
 		ActiveFlag = false;
 		result = kIOReturnSuccess;

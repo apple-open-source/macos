@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23646 $";
+static const char *const __rcs_file_version__ = "$Revision: 23714 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -6668,12 +6668,30 @@ job_mig_set_service_policy(job_t j, pid_t target_pid, uint64_t flags, name_t tar
 	runtime_get_caller_creds(&ldc);
 
 #if TARGET_OS_EMBEDDED
-	if (ldc.euid) {
-#else
-	if (ldc.euid && (ldc.euid != getuid())) {
-#endif
+	if( ldc.euid ) {
 		return BOOTSTRAP_NOT_PRIVILEGED;
 	}
+#else
+	if( ldc.euid && (ldc.euid != getuid()) ) {
+		int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, target_pid };
+		struct kinfo_proc kp;
+		size_t len = sizeof(kp);
+
+		job_assumes(j, sysctl(mib, 4, &kp, &len, NULL, 0) != -1);
+		job_assumes(j, len == sizeof(kp));
+
+		uid_t kp_euid = kp.kp_eproc.e_ucred.cr_uid;
+		uid_t kp_uid = kp.kp_eproc.e_pcred.p_ruid;
+
+		if( ldc.euid == kp_euid ) {
+			job_log(j, LOG_DEBUG, "Working around rdar://problem/5982485 and allowing job to set policy for PID %u.", target_pid);
+		} else {
+			job_log(j, LOG_ERR, "Denied Mach service policy update requested by UID/EUID %u/%u against PID %u with UID/EUID %u/%u due to mismatched credentials.", ldc.uid, ldc.euid, target_pid, kp_uid, kp_euid);
+
+			return BOOTSTRAP_NOT_PRIVILEGED;
+		}
+	}
+#endif
 
 	if (!job_assumes(j, (target_j = jobmgr_find_by_pid(j->mgr, target_pid, true)) != NULL)) {
 		return BOOTSTRAP_NO_MEMORY;

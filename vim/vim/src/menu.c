@@ -152,7 +152,7 @@ ex_menu(eap)
 	while (*arg != NUL && *arg != ' ')
 	{
 	    if (*arg == '\\')
-		mch_memmove(arg, arg + 1, STRLEN(arg));
+		STRMOVE(arg, arg + 1);
 	    mb_ptr_adv(arg);
 	}
 	if (*arg != NUL)
@@ -300,7 +300,7 @@ ex_menu(eap)
 	else if (STRNICMP(arg, "<TAB>", 5) == 0)
 	{
 	    *arg = TAB;
-	    mch_memmove(arg + 1, arg + 5, STRLEN(arg + 4));
+	    STRMOVE(arg + 1, arg + 5);
 	}
 	arg++;
     }
@@ -511,6 +511,14 @@ add_menu_path(menu_path, menuarg, pri_tab, call_data
 	 * name (without mnemonic and accelerator text). */
 	next_name = menu_name_skip(name);
 	dname = menu_text(name, NULL, NULL);
+	if (dname == NULL)
+	    goto erret;
+	if (*dname == NUL)
+	{
+	    /* Only a mnemonic or accelerator is not valid. */
+	    EMSG(_("E792: Empty menu name"));
+	    goto erret;
+	}
 
 	/* See if it's already there */
 	lower_pri = menup;
@@ -704,6 +712,7 @@ add_menu_path(menu_path, menuarg, pri_tab, call_data
 	parent = menu;
 	name = next_name;
 	vim_free(dname);
+	dname = NULL;
 	if (pri_tab[pri_idx + 1] != -1)
 	    ++pri_idx;
     }
@@ -793,6 +802,22 @@ add_menu_path(menu_path, menuarg, pri_tab, call_data
 erret:
     vim_free(path_name);
     vim_free(dname);
+
+    /* Delete any empty submenu we added before discovering the error.  Repeat
+     * for higher levels. */
+    while (parent != NULL && parent->children == NULL)
+    {
+	if (parent->parent == NULL)
+	    menup = &root_menu;
+	else
+	    menup = &parent->parent->children;
+	for ( ; *menup != NULL && *menup != parent; menup = &((*menup)->next))
+	    ;
+	if (*menup == NULL) /* safety check */
+	    break;
+	parent = parent->parent;
+	free_menu(menup);
+    }
     return FAIL;
 }
 
@@ -1095,6 +1120,7 @@ show_menus(path_name, modes)
 	parent = menu;
 	menu = menu->children;
     }
+    vim_free(path_name);
 
     /* Now we have found the matching menu, and we list the mappings */
 						    /* Highlight title */
@@ -1417,7 +1443,7 @@ menu_name_skip(name)
     {
 	if (*p == '\\' || *p == Ctrl_V)
 	{
-	    mch_memmove(p, p + 1, STRLEN(p));
+	    STRMOVE(p, p + 1);
 	    if (*p == NUL)
 		break;
 	}
@@ -1634,7 +1660,7 @@ menu_text(str, mnemonic, actext)
 		*mnemonic = c;
 	    }
 #endif
-	    mch_memmove(p, p + 1, STRLEN(p));
+	    STRMOVE(p, p + 1);
 	    p = p + 1;
 	}
     }
@@ -1750,6 +1776,27 @@ get_menu_mode()
     if (State & LANGMAP)	/* must be a "r" command, like Insert mode */
 	return MENU_INDEX_INSERT;
     return MENU_INDEX_INVALID;
+}
+
+/*
+ * Check that a pointer appears in the menu tree.  Used to protect from using
+ * a menu that was deleted after it was selected but before the event was
+ * handled.
+ * Return OK or FAIL.  Used recursively.
+ */
+    int
+check_menu_pointer(root, menu_to_check)
+    vimmenu_T *root;
+    vimmenu_T *menu_to_check;
+{
+    vimmenu_T	*p;
+
+    for (p = root; p != NULL; p = p->next)
+	if (p == menu_to_check
+		|| (p->children != NULL
+		    && check_menu_pointer(p->children, menu_to_check) == OK))
+	    return OK;
+    return FAIL;
 }
 
 /*
@@ -2200,7 +2247,7 @@ ex_emenu(eap)
     {
 	/* When executing a script or function execute the commands right now.
 	 * Otherwise put them in the typeahead buffer. */
-#ifdef FEAT_En
+#ifdef FEAT_EVAL
 	if (current_SID != 0)
 	    exec_normal_cmd(menu->strings[idx], menu->noremap[idx],
 							   menu->silent[idx]);

@@ -1,4 +1,4 @@
-*quickfix.txt*  For Vim version 7.0.  Last change: 2006 Apr 30
+*quickfix.txt*  For Vim version 7.2.  Last change: 2008 Mar 14
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -141,8 +141,11 @@ command with 'l'.
 			current window is used instead of the quickfix list.
 
 							*:cq* *:cquit*
-:cq[uit]		Quit Vim with an error code, so that the compiler
+:cq[uit][!]		Quit Vim with an error code, so that the compiler
 			will not compile the same file again.
+			WARNING: All changes in files are lost!  Also when the
+			[!] is not used.  It works like ":qall!" |:qall|,
+			except that Vim returns a non-zero exit code.
 
 							*:cf* *:cfile*
 :cf[ile][!] [errorfile]	Read the error file and jump to the first error.
@@ -159,12 +162,12 @@ command with 'l'.
 			the location list.
 
 
-:cg[etfile][!] [errorfile]				*:cg* *:cgetfile*
+:cg[etfile] [errorfile]					*:cg* *:cgetfile*
 			Read the error file.  Just like ":cfile" but don't
 			jump to the first error.
 
 
-:lg[etfile][!] [errorfile]				*:lg* *:lgetfile*
+:lg[etfile] [errorfile]					*:lg* *:lgetfile*
 			Same as ":cgetfile", except the location list for the
 			current window is used instead of the quickfix list.
 
@@ -178,15 +181,16 @@ command with 'l'.
 			current window is used instead of the quickfix list.
 
 						*:cb* *:cbuffer* *E681*
-:cb[uffer] [bufnr]	Read the error list from the current buffer.
+:cb[uffer][!] [bufnr]	Read the error list from the current buffer.
 			When [bufnr] is given it must be the number of a
 			loaded buffer.  That buffer will then be used instead
 			of the current buffer.
 			A range can be specified for the lines to be used.
 			Otherwise all lines in the buffer are used.
+			See |:cc| for [!].
 
 						*:lb* *:lbuffer*
-:lb[uffer] [bufnr]	Same as ":cbuffer", except the location list for the
+:lb[uffer][!] [bufnr]	Same as ":cbuffer", except the location list for the
 			current window is used instead of the quickfix list.
 
 						*:cgetb* *:cgetbuffer*
@@ -228,15 +232,15 @@ command with 'l'.
 			current window is used instead of the quickfix list.
 
 							*:cgete* *:cgetexpr*
-:cgete[xpr][!] {expr}	Create a quickfix list using the result of {expr}.
+:cgete[xpr] {expr}	Create a quickfix list using the result of {expr}.
 			Just like ":cexpr", but don't jump to the first error.
 
 							*:lgete* *:lgetexpr*
-:lgete[xpr][!] {expr}	Same as ":cgetexpr", except the location list for the
+:lgete[xpr] {expr}	Same as ":cgetexpr", except the location list for the
 			current window is used instead of the quickfix list.
 
 							*:cad* *:caddexpr*
-:cad[dexpr][!] {expr}	Evaluate {expr} and add the resulting lines to the
+:cad[dexpr] {expr}	Evaluate {expr} and add the resulting lines to the
 			current quickfix list. If a quickfix list is not
 			present, then a new list is created. The current
 			cursor position will not be changed. See |:cexpr| for
@@ -245,7 +249,7 @@ command with 'l'.
     :g/mypattern/caddexpr expand("%") . ":" . line(".") .  ":" . getline(".")
 <
 							*:lad* *:laddexpr*
-:lad[dexpr][!] {expr}	Same as ":caddexpr", except the location list for the
+:lad[dexpr] {expr}	Same as ":caddexpr", except the location list for the
 			current window is used instead of the quickfix list.
 
 							*:cl* *:clist*
@@ -278,6 +282,21 @@ marks are lost and the error locations may not be correct anymore.
 If vim is built with |+autocmd| support, two autocommands are available for
 running commands before and after a quickfix command (':make', ':grep' and so
 on) is executed. See |QuickFixCmdPre| and |QuickFixCmdPost| for details.
+
+						*QuickFixCmdPost-example*
+When 'encoding' differs from the locale, the error messages may have a
+different encoding from what Vim is using.  To convert the messages you can
+use this code: >
+	function QfMakeConv()
+	   let qflist = getqflist()
+	   for i in qflist
+	      let i.text = iconv(i.text, "cp936", "utf-8")
+	   endfor
+	   call setqflist(qflist)
+	endfunction
+
+	au QuickfixCmdPost make call QfMakeConv()
+
 
 =============================================================================
 2. The error window					*quickfix-window*
@@ -431,10 +450,11 @@ lists, use ":cnewer 99" first.
 			   errorfile (for Unix it is also echoed on the
 			   screen).
 			5. The errorfile is read using 'errorformat'.
-			6. If [!] is not given the first error is jumped to.
-			7. The errorfile is deleted.
-			8. If vim was built with |+autocmd|, all relevant
+			6. If vim was built with |+autocmd|, all relevant
 			   |QuickFixCmdPost| autocommands are executed.
+			   See example below.
+			7. If [!] is not given the first error is jumped to.
+			8. The errorfile is deleted.
 			9. You can now move through the errors with commands
 			   like |:cnext| and |:cprevious|, see above.
 			This command does not accept a comment, any "
@@ -479,6 +499,25 @@ the screen and saved in a file the same time.  Depending on the shell used
 
 If 'shellpipe' is empty, the {errorfile} part will be omitted.  This is useful
 for compilers that write to an errorfile themselves (e.g., Manx's Amiga C).
+
+
+Using QuickFixCmdPost to fix the encoding ~
+
+It may be that 'encoding' is set to an encoding that differs from the messages
+your build program produces.  This example shows how to fix this after Vim has
+read the error messages: >
+
+	function QfMakeConv()
+	   let qflist = getqflist()
+	   for i in qflist
+	      let i.text = iconv(i.text, "cp936", "utf-8")
+	   endfor
+	   call setqflist(qflist)
+	endfunction
+
+	au QuickfixCmdPost make call QfMakeConv()
+
+(Example by Faque Cheng)
 
 ==============================================================================
 5. Using :vimgrep and :grep				*grep* *lid*
@@ -714,6 +753,17 @@ not "b:current_compiler".  What the command actually does is the following:
 For writing a compiler plugin, see |write-compiler-plugin|.
 
 
+GCC					*quickfix-gcc*	*compiler-gcc*
+
+There's one variable you can set for the GCC compiler:
+
+g:compiler_gcc_ignore_unmatched_lines
+				Ignore lines that don't match any patterns
+				defined for GCC.  Useful if output from
+				commands run from make are generating false
+				positives.
+
+
 MANX AZTEC C				*quickfix-manx* *compiler-manx*
 
 To use Vim with Manx's Aztec C compiler on the Amiga you should do the
@@ -737,6 +787,18 @@ up to 25 remaining errors will be found.
 If Vim was started from the compiler, the :sh and some :!  commands will not
 work, because Vim is then running in the same process as the compiler and
 stdin (standard input) will not be interactive.
+
+
+PERL					*quickfix-perl* *compiler-perl*
+
+The Perl compiler plugin doesn't actually compile, but invokes Perl's internal
+syntax checking feature and parses the output for possible errors so you can
+correct them in quick-fix mode.
+
+Warnings are forced regardless of "no warnings" or "$^W = 0" within the file
+being checked.  To disable this set g:perl_compiler_force_warnings to a zero
+value.  For example: >
+	let g:perl_compiler_force_warnings = 0
 
 
 PYUNIT COMPILER						*compiler-pyunit*
@@ -1233,15 +1295,32 @@ additionally to the default. >
 Jikes(TM) produces a single-line error message when invoked with the option
 "+E", and can be matched with the following: >
 
-  :set efm=%f:%l:%v:%*\\d:%*\\d:%*\\s%m
+  :setl efm=%f:%l:%v:%*\\d:%*\\d:%*\\s%m
 <
 						*errorformat-javac*
 This 'errorformat' has been reported to work well for javac, which outputs a
 line with "^" to indicate the column of the error: >
-  :set efm=%A%f:%l:\ %m,%-Z%p^,%-C%.%#
+  :setl efm=%A%f:%l:\ %m,%-Z%p^,%-C%.%#
 or: >
-  :set efm=%A%f:%l:\ %m,%+Z%p^,%+C%.%#,%-G%.%#
+  :setl efm=%A%f:%l:\ %m,%+Z%p^,%+C%.%#,%-G%.%#
 <
+Here is an alternative from Michael F. Lamb for Unix that filters the errors
+first: >
+  :setl errorformat=%Z%f:%l:\ %m,%A%p^,%-G%*[^sl]%.%#
+  :setl makeprg=javac\ %\ 2>&1\ \\\|\ vim-javac-filter
+
+You need to put the following in "vim-javac-filter" somewhere in your path
+(e.g., in ~/bin) and make it executable: >
+   #!/bin/sed -f
+   /\^$/s/\t/\ /g;/:[0-9]\+:/{h;d};/^[ \t]*\^/G;
+
+In English, that sed script:
+- Changes single tabs to single spaces and
+- Moves the line with the filename, line number, error message to just after
+  the pointer line. That way, the unused error text between doesn't break
+  vim's notion of a "multi-line message" and also doesn't force us to include
+  it as a "continuation of a multi-line message."
+
 						*errorformat-ant*
 For ant (http://jakarta.apache.org/) the above errorformat has to be modified
 to honour the leading [javac] in front of each javac output line: >
@@ -1350,7 +1429,8 @@ by Vim.
 						*errorformat-Perl*
 In $VIMRUNTIME/tools you can find the efm_perl.pl script, which filters Perl
 error messages into a format that quickfix mode will understand.  See the
-start of the file about how to use it.
+start of the file about how to use it.  (This script is deprecated, see
+|compiler-perl|.)
 
 
 

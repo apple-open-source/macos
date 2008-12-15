@@ -69,7 +69,7 @@ lstatx_np(const char *path, struct stat *sb, filesec_t fsec)
 }
 
 
-#if __DARWIN_64_BIT_INO_T
+#if __DARWIN_64_BIT_INO_T && !__DARWIN_ONLY_64_BIT_INO_T
 int
 statx64_np(const char *path, struct stat64 *sb, filesec_t fsec)
 {
@@ -87,7 +87,7 @@ lstatx64_np(const char *path, struct stat64 *sb, filesec_t fsec)
 {
 	return(lstatx_np(path, (struct stat *)sb, fsec));
 }
-#endif /* __DARWIN_64_BIT_INO_T */
+#endif /* __DARWIN_64_BIT_INO_T && !__DARWIN_ONLY_64_BIT_INO_T */
 
 /*
  * Stat syscalls

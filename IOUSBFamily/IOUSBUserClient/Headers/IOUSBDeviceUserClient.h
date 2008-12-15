@@ -66,6 +66,8 @@ class IOUSBDeviceUserClientV2 : public IOUserClient
     
     struct IOUSBDeviceUserClientExpansionData 
     {
+		UInt32						fSleepPowerAllocated;
+		UInt32						fWakePowerAllocated;
     };
    
     IOUSBDeviceUserClientExpansionData * fIOUSBDeviceUserClientExpansionData;
@@ -152,6 +154,18 @@ public:
    	static	IOReturn					_GetFrameNumberWithTime(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
 	virtual IOReturn                    GetFrameNumberWithTime(IOUSBGetFrameStruct *data, UInt32 *size);
 
+	static	IOReturn					_GetDeviceInformation(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+    virtual IOReturn					GetDeviceInformation(uint64_t *configIndex);
+	
+	static	IOReturn					_RequestExtraPower(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+    virtual IOReturn					RequestExtraPower(UInt32 type, UInt32 requestedPower, uint64_t *powerAvailable);
+	
+	static	IOReturn					_ReturnExtraPower(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+    virtual IOReturn					ReturnExtraPower(UInt32 type, UInt32 powerReturned);
+	
+	static	IOReturn					_GetExtraPowerAllocated(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+    virtual IOReturn					GetExtraPowerAllocated(UInt32 type, uint64_t *powerAllocated);
+	
     // bookkeeping methods
     virtual void                        DecrementOutstandingIO(void);
     virtual void                        IncrementOutstandingIO(void);

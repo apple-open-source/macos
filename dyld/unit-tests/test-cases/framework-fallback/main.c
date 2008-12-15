@@ -39,12 +39,12 @@ main(int argc, const char* argv[])
 {
 	const struct mach_header *image;
 
-	image = NSAddImage("AppKit.framework/AppKit",
+	image = NSAddImage("Carbon.framework/Carbon",
 			NSADDIMAGE_OPTION_RETURN_ON_ERROR | NSADDIMAGE_OPTION_WITH_SEARCHING);
 	if ( image != NULL )
-		PASS("AppKit loaded");
+		PASS("Carbon loaded");
 	else
-		FAIL("Could not load AppKit");
+		FAIL("Could not load Carbon");
 
 	return 0;
 }

@@ -82,7 +82,7 @@ long	volno = 0;
 long	ntrec;
 char	*dumpmap;
 char	*usedinomap;
-ino_t	maxino;
+u_int32_t	maxino;
 time_t	dumptime;
 time_t	dumpdate;
 FILE 	*terminal;
@@ -96,7 +96,7 @@ main(argc, argv)
 	char *argv[];
 {
 	int ch;
-	ino_t ino;
+	u_int32_t ino;
 	char *inputdev = _PATH_DEFTAPE;
 	char *symtbl = "./restoresymtable";
 	char *p, name[MAXPATHLEN];

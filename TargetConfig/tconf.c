@@ -31,7 +31,7 @@
 #include "utils.h"
 
 #define TARGET_CONFIG_DIR_PATH "/usr/local/share/TargetConfigs"
-#define TARGET_CONFIG_DEFAULT "MacOSX"
+#define TARGET_CONFIG_DEFAULT "Default"
 #define TARGET_CONFIG_PLIST_VERSION 0
 
 void
@@ -53,54 +53,32 @@ usage() {
 char*
 find_config() {
 	char* result;
-	const char* path = getenv("RC_TARGET_CONFIG");
-	const char* next_root = getenv("NEXT_ROOT");
+	const char* target = getenv("RC_TARGET_CONFIG");
+	const char* sdkroot = getenv("SDKROOT");
 
-	// search path is as follows:
-	// 1) $(NEXT_ROOT)/$(RC_TARGET_CONFIG)
-	// 2) $(NEXT_ROOT)/usr/local/share/TargetConfigs/$(RC_TARGET_CONFIG).plist
-	// 3) $(RC_TARGET_CONFIG)
-	// 4) /usr/local/share/TargetConfigs/$(RC_TARGET_CONFIG).plist
-	// 5) $(NEXT_ROOT)/usr/local/share/TargetConfigs/$(DEFAULT).plist
-	// 6) /usr/local/share/TargetConfigs/$(DEFAULT).plist
+	// plist location is dependent on SDKROOT and RC_TARGET_CONFIG settings.
 
-	if (path && next_root) {
-		// 1)
-		asprintf(&result, "%s/%s", next_root, path);
-		if (is_file(result)) return result;
-		free(result);
-
-		// 2)
-		asprintf(&result, "%s/%s/%s.plist", next_root,
-			TARGET_CONFIG_DIR_PATH, path);
-		if (is_file(result)) return result;
-		free(result);
-	}
-	if (path) {
-		// 3)
-		if (is_file(path)) return strdup(path);
-		
-		// 4)
-		asprintf(&result, "%s/%s.plist",
-			TARGET_CONFIG_DIR_PATH, path);
-		if (is_file(result)) return result;
-		free(result);
-	}
-	if (!path && next_root) {
-		// 5)
-		asprintf(&result, "%s/%s/%s.plist", next_root,
+	// $(SDKROOT)/usr/local/share/TargetConfigs/Default.plist
+	if (sdkroot) {
+		asprintf(&result, "%s/%s/%s.plist", sdkroot,
 			TARGET_CONFIG_DIR_PATH, TARGET_CONFIG_DEFAULT);
 		if (is_file(result)) return result;
 		free(result);
 	}
-	if (!path) {
-		// 6)
+	
+	// /usr/local/share/TargetConfigs/$(RC_TARGET_CONFIG).plist
+	if (target) {
 		asprintf(&result, "%s/%s.plist",
-			TARGET_CONFIG_DIR_PATH, TARGET_CONFIG_DEFAULT);
+			TARGET_CONFIG_DIR_PATH, target);
 		if (is_file(result)) return result;
 		free(result);
 	}
-
+	
+	// /usr/local/share/TargetConfigs/Default.plist
+	asprintf(&result, "%s/%s.plist",
+		TARGET_CONFIG_DIR_PATH, TARGET_CONFIG_DEFAULT);
+	if (is_file(result)) return result;
+	free(result);
 	return NULL;
 }
 

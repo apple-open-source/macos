@@ -6,14 +6,11 @@
 # MDASM names override the default syscall names in MIASM.
 # NOASM will prevent the default syscall code from being generated.
 #
-.ifnmake autopatch
-.if exists(${.CURDIR}/${MACHINE_ARCH}/sys/Makefile.inc)
-.include "${.CURDIR}/${MACHINE_ARCH}/sys/Makefile.inc"
-.endif
-.endif # !autopatch
+.sinclude "${.CURDIR}/${MACHINE_ARCH}/sys/Makefile.inc"
 
 # sys sources
 .PATH: ${.CURDIR}/sys
+CWD := ${.CURDIR}/sys
 
 # Include the generated makefile containing the *complete* list
 # of syscall names in MIASM.
@@ -21,9 +18,8 @@
 
 # Sources common to both syscall interfaces:
 
-# 3375657: patches for sem_open() sem_unlink() shm_open() shm_unlink()
-MISRCS+= chmod.c chmodx_np.c crt_externs.c \
-	errno.c fchmod.c fix-3375657.c \
+MISRCS += chmod.c chmodx_np.c crt_externs.c \
+	errno.c fchmod.c \
 	getiopolicy_np.c getrlimit.c gettimeofday.c \
 	kill.c __libc_init.c \
 	mmap.c \
@@ -35,31 +31,33 @@ MISRCS+= chmod.c chmodx_np.c crt_externs.c \
 	sigtramp.c statx_np.c \
 	umaskx_np.c
 
+.ifdef FEATURE_MEM_THERM_NOTIFICATION_APIS
+MISRCS += OSMemoryNotification.c OSThermalNotification.c
+.endif
+
 .if (${MACHINE_ARCH} != ppc)
 .if (${MACHINE_ARCH} != i386)
 MISRCS+= context-stubs.c
 .endif
 .endif
 
-.ifdef LP64
-MISRCS+= fcntl.c ioctl.c
-PRE1050SRCS+= select.c
-.endif
-
 .include "Makefile.obsd_begin"
 OBSDMISRCS= stack_protector.c
 .include "Makefile.obsd_end"
 
-.for _src in sem_open.c sem_unlink.c shm_open.c shm_unlink.c fix-3375657.c
-CFLAGS-${_src} += -D__APPLE_PR3375657_HACK__
-.endfor
+.ifdef FEATURE_PATCH_3375657
+# patches for sem_open() sem_unlink() shm_open() shm_unlink()
+MISRCS+= fix-3375657.c
+.endif # FEATURE_PATCH_3375657
 
 INODE32SRCS += statx_np.c
 
 CANCELABLESRCS += select.c sigsuspend.c
 
-.ifdef LP64
+.if defined(LP64) || (${MACHINE_ARCH} == arm)
 CANCELABLESRCS+= fcntl.c
+MISRCS+= fcntl.c ioctl.c
+PRE1050SRCS+= select.c
 .endif
 
 LEGACYSRCS += accept.c bind.c connect.c \
@@ -72,7 +70,7 @@ LEGACYSRCS += accept.c bind.c connect.c \
 	shmctl.c sigsuspend.c socketpair.c
 
 # we need to create open.h, which just contains a definition for O_NOCTTY
-open.do open.o open.po open.So: open.h
+open.${OBJSUFFIX}: open.h
 open.h :
 	${CC} -E -dD ${CFLAGS} -include fcntl.h -x c /dev/null | grep O_NOCTTY > ${.TARGET}
 
@@ -102,6 +100,7 @@ CFLAGS-getrlimit.c += -DLIBC_ALIAS_GETRLIMIT
 CFLAGS-getsockname.c += -DLIBC_ALIAS_GETSOCKNAME
 CFLAGS-kill.c += -DLIBC_ALIAS_KILL
 CFLAGS-lchmod.c += -DLIBC_ALIAS_LCHMOD
+CFLAGS-lchown.c += -DLIBC_ALIAS_LCHOWN
 CFLAGS-listen.c += -DLIBC_ALIAS_LISTEN
 CFLAGS-mmap.c += -DLIBC_ALIAS_MMAP
 CFLAGS-mprotect.c += -DLIBC_ALIAS_MPROTECT

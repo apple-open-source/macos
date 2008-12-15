@@ -121,7 +121,7 @@ EAPOLClientAttach(const char * interface_name,
 
     client = malloc(sizeof(*client));
     bzero(client, sizeof(*client));
-    strcpy(client->if_name, interface_name);
+    strlcpy(client->if_name, interface_name, sizeof(client->if_name));
     context.info = client;
     client->notify_cfport 
 	= CFMachPortCreate(NULL, EAPOLClientHandleMessage, &context, NULL);

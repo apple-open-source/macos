@@ -77,7 +77,7 @@ extern void delwhiteout(struct entry *ep);
 long
 listfile(name, ino, type)
 	char *name;
-	ino_t ino;
+	u_int32_t ino;
 	int type;
 {
 	long descend = hflag ? GOOD : FAIL;
@@ -96,7 +96,7 @@ listfile(name, ino, type)
 long
 addfile(name, ino, type)
 	char *name;
-	ino_t ino;
+	u_int32_t ino;
 	int type;
 {
 	register struct entry *ep;
@@ -140,7 +140,7 @@ addfile(name, ino, type)
 long
 deletefile(name, ino, type)
 	char *name;
-	ino_t ino;
+	u_int32_t ino;
 	int type;
 {
 	long descend = hflag ? GOOD : FAIL;
@@ -182,7 +182,7 @@ void
 removeoldleaves()
 {
 	register struct entry *ep, *nextep;
-	register ino_t i, mydirino;
+	register u_int32_t i, mydirino;
 
 	vprintf(stdout, "Mark entries to be removed.\n");
 	if ((ep = lookupino(WINO))) {
@@ -234,7 +234,7 @@ removeoldleaves()
 long
 nodeupdates(name, ino, type)
 	char *name;
-	ino_t ino;
+	u_int32_t ino;
 	int type;
 {
 	register struct entry *ep, *np, *ip;
@@ -543,7 +543,7 @@ void
 findunreflinks()
 {
 	register struct entry *ep, *np;
-	register ino_t i;
+	register u_int32_t i;
 
 	vprintf(stdout, "Find unreferenced names.\n");
 	for (i = ROOTINO; i < maxino; i++) {
@@ -621,7 +621,7 @@ createleaves(symtabfile)
 	char *symtabfile;
 {
 	register struct entry *ep;
-	ino_t first;
+	u_int32_t first;
 	long curvol;
 
 	if (command == 'R') {
@@ -699,7 +699,7 @@ createleaves(symtabfile)
 void
 createfiles()
 {
-	register ino_t first, next, last;
+	register u_int32_t first, next, last;
 	register struct entry *ep;
 	long curvol;
 
@@ -788,7 +788,7 @@ void
 createlinks()
 {
 	register struct entry *np, *ep;
-	register ino_t i;
+	register u_int32_t i;
 	char name[BUFSIZ];
 
 	if ((ep = lookupino(WINO))) {
@@ -828,7 +828,7 @@ void
 checkrestore()
 {
 	register struct entry *ep;
-	register ino_t i;
+	register u_int32_t i;
 
 	vprintf(stdout, "Check the symbol table.\n");
 	for (i = WINO; i < maxino; i++) {
@@ -849,7 +849,7 @@ checkrestore()
 long
 verifyfile(name, ino, type)
 	char *name;
-	ino_t ino;
+	u_int32_t ino;
 	int type;
 {
 	struct entry *np, *ep;

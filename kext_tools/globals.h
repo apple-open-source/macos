@@ -27,6 +27,7 @@
 // currently not suitable for sharing with other tools
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFUserNotification.h>
 #include <IOKit/IOKitLib.h>
 #include <libc.h>
 

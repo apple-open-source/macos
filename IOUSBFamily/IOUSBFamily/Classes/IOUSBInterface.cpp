@@ -211,7 +211,7 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
 	
     if (options & kIOUSBInterfaceOpenAlt)
     {
-        altInterface = (UInt16)(UInt32)arg;
+        altInterface = (UInt16)(uintptr_t)arg;
         
         // Note that SetAlternateInterface will actually create the pipes
         //
@@ -425,11 +425,11 @@ IOUSBInterface::finalize(IOOptionBits options)
 {
     bool ret;
 	
-    USBLog(5, "+%s[%p]::finalize (options = 0x%lx)", getName(), this, (UInt32) options);
+    USBLog(5, "+%s[%p]::finalize (options = 0x%qx)", getName(), this, (uint64_t) options);
 	
     ret = super::finalize(options);
 	
-    USBLog(5, "-%s[%p]::finalize (options = 0x%lx)", getName(), this, (UInt32) options);
+    USBLog(5, "-%s[%p]::finalize (options = 0x%qx)", getName(), this, (uint64_t) options);
 	
     return ret;
 }
@@ -503,7 +503,7 @@ IOUSBInterface::CallSuperOpen(OSObject *target, void *param1, void *param2, void
     bool		result;
     IOReturn		ret = kIOReturnSuccess;
     IOService *		forClient = (IOService *) param1;
-    IOOptionBits 	options = (IOOptionBits ) param2;
+    IOOptionBits 	options = (uintptr_t) param2;
     void *		arg = param3;
 	
     if (!me)
@@ -528,7 +528,7 @@ IOUSBInterface::CallSuperClose(OSObject *target, void *param1, void *param2, voi
     bool		result;
     IOReturn		ret = kIOReturnSuccess;
     IOService *		forClient = (IOService *) param1;
-    IOOptionBits 	options = (IOOptionBits ) param2;
+    IOOptionBits 	options = (uintptr_t) param2;
     
     if (!me)
     {
@@ -630,11 +630,17 @@ IOUSBInterface::SetProperties(void)
     if(_iInterface) 
     {
         IOReturn err;
-        char name[128];
+        char name[256];
         
         err = _device->GetStringDescriptor(_iInterface, name, sizeof(name));
         if(err == kIOReturnSuccess)
-            setName(name);
+        {
+            if ( name[0] != 0 )
+			{
+                setName(name);
+				setProperty("USB Interface Name", name);
+			}
+        }
     }
     
 	
@@ -666,13 +672,13 @@ IOUSBInterface::SetProperties(void)
 					//
 					if ( (serial[j] < 0x30) || (serial[j] > 0x46) )
 					{
-						USBLog(4, "%s[%p]::SetProperties  Serial #%s character %ld (0x%x) out of range #1", getName(), this, serial, j, serial[j]);
+						USBLog(6, "%s[%p]::SetProperties  Serial #%s character %d (0x%x) out of range #1", getName(), this, serial, (uint32_t)j, (uint32_t)serial[j]);
 						valid = false;
 						break;
 					}
 					if ( (serial[j] > 0x39) && (serial[j] < 0x41) )
 					{
-						USBLog(4, "%s[%p]::SetProperties  Serial #%s character %ld (0x%x) out of range #2", getName(), this, serial, j, serial[j]);
+						USBLog(6, "%s[%p]::SetProperties  Serial #%s character %d (0x%x) out of range #2", getName(), this, serial, (uint32_t)j, (uint32_t)serial[j]);
 						valid = false;
 						break;
 					}
@@ -699,7 +705,7 @@ IOUSBInterface::SetProperties(void)
 			}
 			else
 			{
-				USBLog(4, "%s[%p]::SetProperties  Mass Storage device but serial # is only %ld characters", getName(), this, length);
+				USBLog(4, "%s[%p]::SetProperties  Mass Storage device but serial # is only %d characters", getName(), this, (uint32_t)length);
 			}
 		}
 		if (propertyObj)
@@ -1261,11 +1267,11 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
 		
 		if (identifier)
 		{
-			USBLog(5,"Finding driver for interface #%d of %s, matching personality using %s, score: %ld, wildCard = %ld", _bInterfaceNumber, _device->getName(), identifier->getCStringNoCopy(), *score, wildCardMatches);
+			USBLog(5,"Finding driver for interface #%d of %s, matching personality using %s, score: %d, wildCard = %d", _bInterfaceNumber, _device->getName(), identifier->getCStringNoCopy(), (uint32_t)*score, (uint32_t)wildCardMatches);
 		}
 		else
 		{
-			USBLog(6,"Finding driver for interface #%d of %s, matching user client dictionary, score: %ld", _bInterfaceNumber, _device->getName(), *score);
+			USBLog(6,"Finding driver for interface #%d of %s, matching user client dictionary, score: %d", _bInterfaceNumber, _device->getName(), (uint32_t)*score);
 		}
 		
 		if ( vendor && product && release && configuration && interfaceNumber && interfaceClass && interfaceSubClass && protocol )

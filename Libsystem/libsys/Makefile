@@ -1,36 +1,18 @@
-.ifndef DSTROOT
-DSTROOT != x=`pwd`/DSTROOT && mkdir -p $$x && echo $$x
-.endif
-.ifndef OBJROOT
-OBJROOT != x=`pwd`/OBJROOT && mkdir -p $$x && echo $$x
-.endif
-.ifndef SRCROOT
-SRCROOT != dirname `pwd`
-.endif
-.ifndef SYMROOT
-SYMROOT != x=`pwd`/SYMROOT && mkdir -p $$x && echo $$x
-.endif
-ARCH != arch
-.ifndef RC_ARCHS
-RC_ARCHS = $(ARCH)
-RC_$(RC_ARCHS) = 1
-.endif
+NAME = libc
+
 NARCHS != echo $(RC_ARCHS) | wc -w
 .ifdef ALTUSRLOCALLIBSYSTEM
 LIBSYS = $(ALTUSRLOCALLIBSYSTEM)
 .else
-LIBSYS = $(NEXT_ROOT)/usr/local/lib/system
+LIBSYS = $(SDKROOT)/usr/local/lib/system
 .endif
 NJOBS != perl -e '$$n = `/usr/sbin/sysctl -n hw.ncpu`; printf "%d\n", $$n < 2 ? 2 : ($$n * 1.5)'
 BSDMAKE = bsdmake -f Makefile
 BSDMAKEJ = $(BSDMAKE) -j $(NJOBS)
 
-# This variables are to guarantee that the left-hand side of an expression is
+# These variables are to guarantee that the left-hand side of an expression is
 # always a variable
 dynamic = dynamic
-
-# Remove the arch stuff, since we know better here.
-LOCAL_CFLAGS != echo $(RC_CFLAGS) | sed 's/ *-arch [^ ][^ ]*//g'
 
 FORMS := debug dynamic profile
 
@@ -55,27 +37,37 @@ SUFFIX$(F) =
 .else
 SUFFIX$(F) = _$(F)
 .endif
-LIPOARGS$(F) != perl -e 'printf "%s\n", join(" ", map(qq(-arch $$_ \"$(OBJROOT)/$$_/$(F)/libc$(SUFFIX$(F)).a\"), qw($(RC_ARCHS))))'
+LIPOARGS$(F) != perl -e 'printf "%s\n", join(" ", map(qq(-arch $$_ \"$(OBJROOT)/$$_/$(F)/$(NAME)$(SUFFIX$(F)).a\"), qw($(RC_ARCHS))))'
 
 .for A in $(RC_ARCHS)
 build-$(F): build-$(A)-$(F)
 .endfor # RC_ARCHS
 build-$(F):
 .if $(NARCHS) == 1
-	cp -p "$(OBJROOT)/$(RC_ARCHS)/$(F)/libc$(SUFFIX$(F)).a" "$(SYMROOT)"
+	cp -p "$(OBJROOT)/$(RC_ARCHS)/$(F)/$(NAME)$(SUFFIX$(F)).a" "$(SYMROOT)"
 .else
-	lipo -create $(LIPOARGS$(F)) -output "$(SYMROOT)/libc$(SUFFIX$(F)).a"
+	lipo -create $(LIPOARGS$(F)) -output "$(SYMROOT)/$(NAME)$(SUFFIX$(F)).a"
 .endif
-	ranlib "$(SYMROOT)/libc$(SUFFIX$(F)).a"
+	ranlib "$(SYMROOT)/$(NAME)$(SUFFIX$(F)).a"
 
 .for A in $(RC_ARCHS)
 build-$(A)-$(F): $(OBJROOT)/$(A)/libsystem.o
 	mkdir -p '$(OBJROOT)/$(A)/$(F)'
 	@set -x && \
 	    cd '$(OBJROOT)/$(A)/$(F)' && \
-	    ditto -arch $(A) '$(LIBSYS)/libc-partial$(SUFFIX$(F)).a' . && \
-	    ar x 'libc-partial$(SUFFIX$(F)).a' && \
-	    ditto -arch $(A) '$(LIBSYS)/libsyscall$(SUFFIX$(F)).a' . && \
+	    if lipo -info '$(LIBSYS)/$(NAME)-partial$(SUFFIX$(F)).a' | grep -q '^Non-'; then \
+		cp -p '$(LIBSYS)/$(NAME)-partial$(SUFFIX$(F)).a' .; \
+	    else \
+		arch=`lipo -detailed_info '$(LIBSYS)/$(NAME)-partial$(SUFFIX$(F)).a' | sed -E -n 's/.*architecture:? //p' | sort | grep '^$(A)' | head -n 1` && \
+		lipo -thin $$arch '$(LIBSYS)/$(NAME)-partial$(SUFFIX$(F)).a' -output '$(NAME)-partial$(SUFFIX$(F)).a'; \
+	    fi && \
+	    ar x '$(NAME)-partial$(SUFFIX$(F)).a' && \
+	    if lipo -info '$(LIBSYS)/libsyscall$(SUFFIX$(F)).a' | grep -q '^Non-'; then \
+		cp -p '$(LIBSYS)/libsyscall$(SUFFIX$(F)).a' .; \
+	    else \
+		arch=`lipo -detailed_info '$(LIBSYS)/libsyscall$(SUFFIX$(F)).a' | sed -E -n 's/.*architecture:? //p' | sort | grep '^$(A)' | head -n 1` && \
+		lipo -thin $$arch '$(LIBSYS)/libsyscall$(SUFFIX$(F)).a' -output 'libsyscall$(SUFFIX$(F)).a'; \
+	    fi && \
 	    ar x 'libsyscall$(SUFFIX$(F)).a' && \
 	    '$(SRCROOT)/libsys/build-libc.pl' '$(LIBSYS)' '$(OBJROOT)/$(A)/$(F)' && \
 	    ln -s ../libsystem.o && \
@@ -90,17 +82,17 @@ $(OBJROOT)/$(A)/libsystem.o: $(OBJROOT)/libsystem.c
 .endfor # RC_ARCHS
 
 $(OBJROOT)/libsystem.c:
-	/Developer/Makefiles/bin/version.pl Libsystem > $(.TARGET)
+	$(SDKROOT)/Developer/Makefiles/bin/version.pl Libsystem > $(.TARGET)
 
 installhdrs:
 
 .for F in $(FORMS)
 BI-install-$(F): build-$(F)
 	mkdir -p "$(DSTROOT)/usr/local/lib/system"
-	@echo "Installing libc$(SUFFIX$(F)).a"
-	install "$(SYMROOT)/libc$(SUFFIX$(F)).a" "$(DSTROOT)/usr/local/lib/system"
-	ranlib "$(DSTROOT)/usr/local/lib/system/libc$(SUFFIX$(F)).a"
-	chmod 0444 "$(DSTROOT)/usr/local/lib/system/libc$(SUFFIX$(F)).a"
+	@echo "===== Installing $(NAME)$(SUFFIX$(F)).a ====="
+	install "$(SYMROOT)/$(NAME)$(SUFFIX$(F)).a" "$(DSTROOT)/usr/local/lib/system"
+	ranlib "$(DSTROOT)/usr/local/lib/system/$(NAME)$(SUFFIX$(F)).a"
+	chmod 0444 "$(DSTROOT)/usr/local/lib/system/$(NAME)$(SUFFIX$(F)).a"
 .endfor # FORMS
 
 install-all: build

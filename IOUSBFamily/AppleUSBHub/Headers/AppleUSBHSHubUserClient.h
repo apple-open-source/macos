@@ -74,13 +74,11 @@ private:
     virtual IOReturn  			open(bool seize);
     virtual IOReturn  			close(void);
     virtual bool				start( IOService * provider );
-    virtual void				stop( IOService * provider );
 
     //	IOUserClient overrides
     //
     virtual bool				initWithTask( task_t owningTask, void * securityID, UInt32 type,  OSDictionary * properties );
     virtual IOExternalMethod *	getTargetAndMethodForIndex(IOService **target, UInt32 index);
-    virtual IOReturn 			clientClose( void );
 
 
     // Hub specific methods

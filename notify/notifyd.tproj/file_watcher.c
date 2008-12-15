@@ -546,6 +546,7 @@ file_watcher_update_link(file_watcher_t *f, w_event_t **delta)
 			/* Link changed */
 			watcher_release_deferred(f->linktarget);
 			f->linktarget = file_watcher_new(lpath);
+			free(f->targetsb);
 			f->targetsb = malloc(sizeof(struct stat));
 			memcpy(f->targetsb, ((file_watcher_t *)(f->linktarget->sub))->sb, sizeof(struct stat));
 			watcher_add_forward(f->linktarget, f->w->wid);
@@ -612,6 +613,7 @@ file_watcher_update_link(file_watcher_t *f, w_event_t **delta)
 		else asprintf(&p, "%s", lpath);
 	
 		f->linktarget = file_watcher_new(p);
+		free(f->targetsb);
 		f->targetsb = malloc(sizeof(struct stat));
 		memcpy(f->targetsb, ((file_watcher_t *)(f->linktarget->sub))->sb, sizeof(struct stat));
 		if (p != NULL) free(p);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,21 +19,22 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 /*
  *
  *	IOATABusCommand.h
  *
  */
  
-
-
 #ifndef _IOATABUSCOMMAND_H
 #define _IOATABUSCOMMAND_H
 
 #include <IOKit/IOTypes.h>
 #include "IOATATypes.h"
 #include "IOATACommand.h"
-#include <IOKit/IOSyncer.h>
+
+
+class IOSyncer;
 
 
 /*!

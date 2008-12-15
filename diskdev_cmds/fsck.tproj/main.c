@@ -109,13 +109,13 @@ int	fswritefd;		/* file descriptor for writing file system */
 
 ufs_daddr_t maxfsblock;		/* number of blocks in the file system */
 char	*blockmap;		/* ptr to primary blk allocation map */
-ino_t	maxino;			/* number of inodes in file system */
-ino_t	lastino;		/* last inode in use */
+u_int32_t	maxino;			/* number of inodes in file system */
+u_int32_t	lastino;		/* last inode in use */
 char	*statemap;		/* ptr to inode state table */
 u_char	*typemap;		/* ptr to inode type table */
 short	*lncntp;		/* ptr to link count table */
 
-ino_t	lfdir;			/* lost & found directory inode number */
+u_int32_t	lfdir;			/* lost & found directory inode number */
 
 ufs_daddr_t n_blks;		/* number of blocks in use */
 ufs_daddr_t n_files;		/* number of files in use */

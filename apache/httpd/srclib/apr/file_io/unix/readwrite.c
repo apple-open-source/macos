@@ -52,7 +52,8 @@ static apr_status_t file_read_buffered(apr_file_t *thefile, void *buf,
     }
     while (rv == 0 && size > 0) {
         if (thefile->bufpos >= thefile->dataRead) {
-            int bytesread = read(thefile->filedes, thefile->buffer, APR_FILE_BUFSIZE);
+            int bytesread = read(thefile->filedes, thefile->buffer, 
+                                 thefile->bufsize);
             if (bytesread == 0) {
                 thefile->eof_hit = TRUE;
                 rv = APR_EOF;
@@ -95,7 +96,6 @@ APR_DECLARE(apr_status_t) apr_file_read(apr_file_t *thefile, void *buf, apr_size
         file_lock(thefile);
         rv = file_read_buffered(thefile, buf, nbytes);
         file_unlock(thefile);
-
         return rv;
     }
     else {
@@ -168,11 +168,11 @@ APR_DECLARE(apr_status_t) apr_file_write(apr_file_t *thefile, const void *buf, a
 
         rv = 0;
         while (rv == 0 && size > 0) {
-            if (thefile->bufpos == APR_FILE_BUFSIZE)   /* write buffer is full*/
+            if (thefile->bufpos == thefile->bufsize)   /* write buffer is full*/
                 rv = apr_file_flush_locked(thefile);
 
-            blocksize = size > APR_FILE_BUFSIZE - thefile->bufpos ? 
-                        APR_FILE_BUFSIZE - thefile->bufpos : size;
+            blocksize = size > thefile->bufsize - thefile->bufpos ? 
+                        thefile->bufsize - thefile->bufpos : size;
             memcpy(thefile->buffer + thefile->bufpos, pos, blocksize);                      
             thefile->bufpos += blocksize;
             pos += blocksize;
@@ -228,7 +228,7 @@ APR_DECLARE(apr_status_t) apr_file_writev(apr_file_t *thefile, const struct iove
 {
 #ifdef HAVE_WRITEV
     apr_status_t rv;
-    int bytes;
+    apr_ssize_t bytes;
 
     if (thefile->buffered) {
         file_lock(thefile);
@@ -264,8 +264,8 @@ APR_DECLARE(apr_status_t) apr_file_writev(apr_file_t *thefile, const struct iove
 #else
     /**
      * The problem with trying to output the entire iovec is that we cannot
-     * maintain the behavoir that a real writev would have.  If we iterate
-     * over the iovec one at a time, we loose the atomic properties of 
+     * maintain the behaviour that a real writev would have.  If we iterate
+     * over the iovec one at a time, we lose the atomic properties of 
      * writev().  The other option is to combine the entire iovec into one
      * buffer that we could then send in one call to write().  This is not 
      * reasonable since we do not know how much data an iovec could contain.
@@ -339,7 +339,7 @@ APR_DECLARE(apr_status_t) apr_file_flush(apr_file_t *thefile)
     /* There isn't anything to do if we aren't buffering the output
      * so just return success.
      */
-    return rv; 
+    return rv;
 }
 
 APR_DECLARE(apr_status_t) apr_file_gets(char *str, int len, apr_file_t *thefile)
@@ -359,7 +359,6 @@ APR_DECLARE(apr_status_t) apr_file_gets(char *str, int len, apr_file_t *thefile)
      * and skip over the apr_file_read calls.
      */
     if (thefile->buffered) {
-
         file_lock(thefile);
 
         if (thefile->direction == 1) {
@@ -393,7 +392,6 @@ APR_DECLARE(apr_status_t) apr_file_gets(char *str, int len, apr_file_t *thefile)
             }
             ++str;
         }
-
         file_unlock(thefile);
     }
     else {

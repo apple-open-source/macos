@@ -200,6 +200,7 @@ enum {
 
 typedef UInt16 USBDeviceAddress;
 
+typedef uint32_t USBPhysicalAddress32;
 
 /*!
     @typedef IOUSBIsocFrame
@@ -412,6 +413,8 @@ Completion Code         Error Returned              Description
 #define kIOUSBMessageExpressCardCantWake			iokit_usb_msg(0x10)		// 0xe00004010  Message from a driver to a bus that an express card will disconnect on sleep and thus shouldn't wake
 #define kIOUSBMessageCompositeDriverReconfigured    iokit_usb_msg(0x11)		// 0xe00004011  Message from the composite driver indicating that it has finished re-configuring the device after a reset
 #define kIOUSBMessageHubSetPortRecoveryTime			iokit_usb_msg(0x12)		// 0xe00004012  Message sent to a hub to set the # of ms required when resuming a particular port
+#define kIOUSBMessageOvercurrentCondition			iokit_usb_msg(0x13)     // 0xe00004013  Message sent to the clients of the device's hub parent, when a device causes an overcurrent condition.  The message argument contains the locationID of the device
+#define kIOUSBMessageNotEnoughPower					iokit_usb_msg(0x14)     // 0xe00004014  Message sent to the clients of the device's hub parent, when a device causes an low power notice to be displayed.  The message argument contains the locationID of the device
 
 // Obsolete
 //
@@ -992,6 +995,7 @@ enum {
 #define kUSBControllerNeedsContiguousMemoryForIsoch	"Need contiguous memory for isoch"
 #define kUSBHubDontAllowLowPower				"kUSBHubDontAllowLowPower"
 #define kUSBDeviceResumeRecoveryTime			"kUSBDeviceResumeRecoveryTime"
+
 /*!
 @enum USBReEnumerateOptions
  @discussion Options used when calling ReEnumerateDevice. 
@@ -1002,6 +1006,55 @@ typedef enum {
     kUSBAddExtraResetTimeMask		= ( 1 << kUSBAddExtraResetTimeBit)
 } USBReEnumerateOptions;
 
+/*!
+ @enum USBDeviceInformationBits
+ @discussion 	GetUSBDeviceInformation will return a unit32_t value with bits set indicating that a particular state is present in the USB device.  These bits are described here 
+ 
+ @constant	kUSBInformationDeviceIsCaptiveBit			The USB device is directly attached to its hub and cannot be removed.
+ @constant	kUSBInformationDeviceIsAttachedToRootHubBit	The USB device is directly attached to the root hub
+ @constant	kUSBInformationDeviceIsInternalBit			The USB device is internal to the computer (all the hubs it attaches to are captive)
+ @constant	kUSBInformationDeviceIsConnectedBit			The USB device is connected to its hub
+ @constant	kUSBInformationDeviceIsEnabledBit			The hub port to which the USB device is attached is enabled
+ @constant	kUSBInformationDeviceIsSuspendedBit			The hub port to which the USB device is attached is suspended
+ @constant	kUSBInformationDeviceIsInResetBit			The hub port to which the USB device is attached is being reset
+ @constant	kUSBInformationDeviceOvercurrentBit			The USB device generated an overcurrent
+ @constant	kUSBInformationDevicePortIsInTestModeBit	The hub port to which the USB device is attached is in test mode
+ @constant  kUSBInformationDeviceIsRootHub				The device is actually the root hub simulation
+ @constant  kUSBInformationRootHubisBuiltIn				If this is a root hub simulation and it's built into the machine, this bit is set.  If it's on an expansion card, it will be cleared
+ 
+ */
+	typedef enum {
+		kUSBInformationDeviceIsCaptiveBit				= 0,
+		kUSBInformationDeviceIsAttachedToRootHubBit		= 1,
+		kUSBInformationDeviceIsInternalBit				= 2,
+		kUSBInformationDeviceIsConnectedBit				= 3,
+		kUSBInformationDeviceIsEnabledBit				= 4,
+		kUSBInformationDeviceIsSuspendedBit				= 5,
+		kUSBInformationDeviceIsInResetBit				= 6,
+		kUSBInformationDeviceOvercurrentBit				= 7,
+		kUSBInformationDevicePortIsInTestModeBit		= 8,
+		kUSBInformationDeviceIsRootHub					= 9,
+		kUSBInformationRootHubisBuiltIn					= 10
+	} USBDeviceInformationBits;
+	
+	/*!
+	 @enum USBPowerRequestTypes
+	 @discussion Used to specify what kind of power will be reserved using the IOUSBDevice RequestExtraPower and ReturnExtraPower APIs. 
+	 @constant	kUSBPowerDuringSleep	The power is to be used during sleep.
+	 @constant	kUSBPowerDuringWake		The power is to be used while the system is awake (i.e not sleeping)
+	 */
+	typedef enum {
+		kUSBPowerDuringSleep 		= 0,
+		kUSBPowerDuringWake			= 1
+	} USBPowerRequestTypes;
+	
+	// Apple specific properties
+#define kAppleCurrentAvailable		"AAPL,current-available"
+#define kAppleCurrentInSleep		"AAPL,current-in-sleep"
+#define kAppleCurrentExtra			"AAPL,current-extra"
+#define kAppleInternalUSBDevice		"AAPL,device-internal"
+#define kUSBBusID					"AAPL,bus-id"
+	
 
 #ifdef __cplusplus
 }       

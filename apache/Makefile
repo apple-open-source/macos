@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.2.8
+Version    = 2.2.9
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = patch-config.layout \

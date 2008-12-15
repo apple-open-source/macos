@@ -22,7 +22,7 @@
 #include "abts.h"
 #include "testutil.h"
 
-#ifdef APR_HAS_XLATE
+#if APR_HAS_XLATE
 
 static const char test_utf8[] = "Edelwei\xc3\x9f";
 static const char test_utf7[] = "Edelwei+AN8-";
@@ -38,18 +38,18 @@ static void test_conversion(abts_case *tc, apr_xlate_t *convset,
     apr_status_t rv;
 
     rv = apr_xlate_conv_buffer(convset, inbuf, &inbytes_left, buf, &outbytes_left);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     if (rv != APR_SUCCESS)
         return;
 
     rv = apr_xlate_conv_buffer(convset, NULL, NULL, buf + sizeof(buf) -
                                outbytes_left - 1, &outbytes_left);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     buf[sizeof(buf) - outbytes_left - 1] = '\0';
 
-    ABTS_STR_EQUAL(tc, buf, expected);
+    ABTS_STR_EQUAL(tc, expected, buf);
 }
 
 static void one_test(abts_case *tc, const char *cs1, const char *cs2,
@@ -60,7 +60,7 @@ static void one_test(abts_case *tc, const char *cs1, const char *cs2,
     apr_xlate_t *convset;
 
     rv = apr_xlate_open(&convset, cs2, cs1, pool);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 
     if (rv != APR_SUCCESS)
         return;
@@ -68,7 +68,7 @@ static void one_test(abts_case *tc, const char *cs1, const char *cs2,
     test_conversion(tc, convset, str1, str2);
 
     rv = apr_xlate_close(convset);
-    ABTS_INT_EQUAL(tc, rv, APR_SUCCESS);
+    ABTS_INT_EQUAL(tc, APR_SUCCESS, rv);
 }
 
 static void test_transformation(abts_case *tc, void *data)
@@ -95,7 +95,7 @@ abts_suite *testxlate(abts_suite *suite)
 {
     suite = ADD_SUITE(suite);
 
-#ifdef APR_HAS_XLATE
+#if APR_HAS_XLATE
     abts_run_test(suite, test_transformation, NULL);
 #endif
 

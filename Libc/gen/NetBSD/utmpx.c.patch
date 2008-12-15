@@ -1,6 +1,6 @@
---- utmpx.c.orig	2006-02-06 00:43:57.000000000 -0800
-+++ utmpx.c	2006-02-06 00:51:52.000000000 -0800
-@@ -49,34 +49,27 @@
+--- utmpx.c.orig	2008-07-17 11:34:16.000000000 -0700
++++ utmpx.c	2008-07-17 12:05:58.000000000 -0700
+@@ -49,34 +49,29 @@ __RCSID("$NetBSD: utmpx.c,v 1.21 2003/09
  #include <sys/time.h>
  #include <sys/wait.h>
  
@@ -12,9 +12,11 @@
  #include <stdlib.h>
  #include <string.h>
  #include <unistd.h>
++#ifdef LEGACY_UTMP_APIS
  #include <utmp.h>
 -/* don't define earlier, has side effects in fcntl.h */
 -#define __LIBC12_SOURCE__
++#endif /* LEGACY_UTMP_APIS */
  #include <utmpx.h>
 +#include <utmpx-darwin.h>
 +#include <errno.h>
@@ -41,7 +43,7 @@
  
  void
  setutxent()
-@@ -85,7 +78,11 @@
+@@ -85,7 +80,11 @@ setutxent()
  	(void)memset(&ut, 0, sizeof(ut));
  	if (fp == NULL)
  		return;
@@ -53,7 +55,7 @@
  }
  
  
-@@ -105,6 +102,9 @@
+@@ -105,6 +104,9 @@ endutxent()
  struct utmpx *
  getutxent()
  {
@@ -63,7 +65,7 @@
  
  	if (fp == NULL) {
  		struct stat st;
-@@ -124,42 +124,80 @@
+@@ -124,42 +126,80 @@ getutxent()
  
  		if (st.st_size == 0) {
  			/* new file, add signature record */
@@ -147,7 +149,7 @@
  	do {
  		if (ut.ut_type == EMPTY)
  			continue;
-@@ -225,30 +263,68 @@
+@@ -225,30 +265,68 @@ getutxline(const struct utmpx *utx)
  struct utmpx *
  pututxline(const struct utmpx *utx)
  {
@@ -226,7 +228,7 @@
  			if (lockf(fileno(fp), F_LOCK, (off_t)0) == -1)
  				return NULL;
  			gotlock++;
-@@ -258,99 +334,66 @@
+@@ -258,99 +336,66 @@ pututxline(const struct utmpx *utx)
  	}
  
  	if (!gotlock) {
@@ -359,7 +361,7 @@
  
  	len = strlen(fname);
  
-@@ -363,6 +406,7 @@
+@@ -363,18 +408,17 @@ utmpxname(const char *fname)
  
  	(void)strlcpy(utfile, fname, sizeof(utfile));
  	endutxent();
@@ -367,7 +369,9 @@
  	return 1;
  }
  
-@@ -371,10 +415,8 @@
+-
++#ifdef LEGACY_UTMP_APIS
+ void
  getutmp(const struct utmpx *ux, struct utmp *u)
  {
  
@@ -380,7 +384,7 @@
  	(void)memcpy(u->ut_line, ux->ut_line, sizeof(u->ut_line));
  	(void)memcpy(u->ut_host, ux->ut_host, sizeof(u->ut_host));
  	u->ut_time = ux->ut_tv.tv_sec;
-@@ -384,109 +426,15 @@
+@@ -384,109 +428,16 @@ void
  getutmpx(const struct utmp *u, struct utmpx *ux)
  {
  
@@ -496,3 +500,4 @@
 -	(db->close)(db);
 -	return error;
  }
++#endif /* LEGACY_UTMP_APIS */

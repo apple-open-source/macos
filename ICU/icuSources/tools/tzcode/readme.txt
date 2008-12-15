@@ -1,5 +1,5 @@
 **********************************************************************
-* Copyright (c) 2003-2006, International Business Machines
+* Copyright (c) 2003-2007, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -23,7 +23,7 @@ behavior, as well as the full set of Olson compatibility IDs.
 
 References:
 
-ICU4C:  http://icu.sourceforge.net/
+ICU4C:  http://www.icu-project.org/
 Olson:  ftp://elsie.nci.nih.gov/pub/
 
 ----------------------------------------------------------------------
@@ -70,19 +70,32 @@ HOWTO
 
 0. Note, these instructions will only work on POSIX type systems.
 
-1. Obtain the current versions of tzdataYYYYV.tar.gz (aka `tzdata') from the FTP site given
-   above.  Either manually download or use wget:
+1. Obtain the current versions of tzdataYYYYV.tar.gz (aka `tzdata') from
+   the FTP site given above.  Either manually download or use wget:
 
    $ cd {path_to}/icu/source/tools/tzcode
    $ wget "ftp://elsie.nci.nih.gov/pub/tzdata*.tar.gz"
 
-2. copy only one tzdata*.tar.gz file into the icu/source/data/in/ directory (you may have to create this directory)
+2. Copy only one tzdata*.tar.gz file into the icu/source/tools/tzcode/
+   directory (this directory).
 
    *** Make sure you only have ONE FILE named tzdata*.tar.gz in the
        directory.
 
 3. Build ICU normally. You will see a notice "updating zoneinfo.txt..."
 
-4. For ICU maintainers, don't forget to check in the new
-    zoneinfo.txt (from its location at
-   {path_to}/icu/source/data/misc/zoneinfo.txt) into CVS.
+### Following instructions for ICU maintainers only ###
+
+4. Obtain the current version of tzcodeYYYY.tar.gz from the FTP site to
+   this directory.
+
+5. Run make target "check-dump".  This target extract makes the original
+   tzcode and compile the original tzdata with icu supplemental data
+   (icuzones).  Then it makes zdump / icuzdump and dump all time
+   transitions for all ICU timezone to files under zdumpout / icuzdumpout
+   directory.  When they produce different results, the target returns
+   the error.
+
+6. Don't forget to check in the new zoneinfo.txt (from its location at
+   {path_to}/icu/source/data/misc/zoneinfo.txt) into SVN.
+

@@ -50,14 +50,10 @@ static apr_status_t makroom(apr_sdbm_t *, long, int);
 #define bad(x)		((x).dptr == NULL || (x).dsize <= 0)
 #define exhash(item)	sdbm_hash((item).dptr, (item).dsize)
 
-/* ### Does anything need these externally? */
-#define sdbm_dirfno(db)	((db)->dirf)
-#define sdbm_pagfno(db)	((db)->pagf)
-
 #define OFF_PAG(off)	(apr_off_t) (off) * PBLKSIZ
 #define OFF_DIR(off)	(apr_off_t) (off) * DBLKSIZ
 
-static long masks[] = {
+static const long masks[] = {
         000000000000, 000000000001, 000000000003, 000000000007,
         000000000017, 000000000037, 000000000077, 000000000177,
         000000000377, 000000000777, 000000001777, 000000003777,
@@ -560,8 +556,8 @@ static apr_status_t getnext(apr_sdbm_datum_t *key, apr_sdbm_t *db)
         db->keyptr = 0;
         if (db->pagbno != db->blkptr++) {
             apr_off_t off = OFF_PAG(db->blkptr);
-            if ((status = apr_file_seek(db->pagf, APR_SET, &off) 
-                        != APR_SUCCESS))
+            if ((status = apr_file_seek(db->pagf, APR_SET, &off))
+                        != APR_SUCCESS)
                 return status;
         }
 

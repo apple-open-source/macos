@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,10 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if defined( __i386__ )
+#if defined( __i386__ ) || defined( __x86_64__ )
 
 #include <IOKit/IOTypes.h>
-//#include <pexpert/i386/protos.h>  // x86 IN/OUT inline asm (obsolete file)
 #include <architecture/i386/pio.h>  // x86 IN/OUT inline asm
 #include "IOATARegI386.h"
 
@@ -74,4 +73,4 @@ ImplementIOATAIOReg( 8,  b )
 ImplementIOATAIOReg( 16, w )
 ImplementIOATAIOReg( 32, l )
 
-#endif /* __i386__ */
+#endif /* __i386__ || __x86_64__ */

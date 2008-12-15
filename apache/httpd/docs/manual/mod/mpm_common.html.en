@@ -23,7 +23,8 @@
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../de/mod/mpm_common.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="../en/mod/mpm_common.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../ja/mod/mpm_common.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
+<a href="../ja/mod/mpm_common.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
+<a href="../tr/mod/mpm_common.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>A collection of directives that are implemented by
 more than one multi-processing module (MPM)</td></tr>
@@ -457,15 +458,8 @@ will handle during its life</td></tr>
     </div>
 
     <p>Setting <code class="directive">MaxRequestsPerChild</code> to a
-    non-zero limit has two beneficial effects:</p>
-
-    <ul>
-      <li>it limits the amount of memory that process can consume
-      by (accidental) memory leakage;</li>
-
-      <li>by giving processes a finite lifetime, it helps reduce
-      the number of processes when the server load reduces.</li>
-    </ul>
+    non-zero value limits the amount of memory that process can consume
+    by (accidental) memory leakage.</p>
 
     <div class="note"><h3>Note</h3>
       <p>For <code class="directive"><a href="../mod/core.html#keepalive">KeepAlive</a></code> requests, only
@@ -934,8 +928,9 @@ requests</td></tr>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../de/mod/mpm_common.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="../en/mod/mpm_common.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../ja/mod/mpm_common.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
+<a href="../ja/mod/mpm_common.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
+<a href="../tr/mod/mpm_common.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

@@ -1,9 +1,9 @@
 " netrwPlugin.vim: Handles file transfer and remote directory listing across a network
-"            PLUGIN PORTION
-" Date:		Oct 27, 2005
-" Maintainer:	Charles E Campbell, Jr <drchipNOSPAM at campbellfamily dot biz>
+"            PLUGIN SECTION
+" Date:		Aug 01, 2008
+" Maintainer:	Charles E Campbell, Jr <NdrOchip@ScampbellPfamily.AbizM-NOSPAM>
 " GetLatestVimScripts: 1075 1 :AutoInstall: netrw.vim
-" Copyright:    Copyright (C) 1999-2005 Charles E. Campbell, Jr. {{{1
+" Copyright:    Copyright (C) 1999-2008 Charles E. Campbell, Jr. {{{1
 "               Permission is hereby granted to use and distribute this code,
 "               with or without modifications, provided that this copyright
 "               notice is copied with it. Like anything else that's free,
@@ -19,9 +19,11 @@
 
 " ---------------------------------------------------------------------
 " Load Once: {{{1
-if exists("g:loaded_netrw")
+if &cp || exists("g:loaded_netrwPlugin")
  finish
 endif
+let g:loaded_netrwPlugin = "v132"
+let s:keepcpo            = &cpo
 if v:version < 700
  echohl WarningMsg | echo "***netrw*** you need vim version 7.0 for this version of netrw" | echohl None
  finish
@@ -36,45 +38,57 @@ set cpo&vim
 augroup FileExplorer
  au!
  au BufEnter * silent! call s:LocalBrowse(expand("<amatch>"))
+ if has("win32") || has("win95") || has("win64") || has("win16")
+  au BufEnter .* silent! call s:LocalBrowse(expand("<amatch>"))
+ endif
 augroup END
 
 " Network Browsing Reading Writing: {{{2
 augroup Network
  au!
  if has("win32") || has("win95") || has("win64") || has("win16")
-  au BufReadCmd  file://*		exe "silent doau BufReadPre ".netrw#RFC2396(expand("<amatch>"))|exe 'e '.substitute(netrw#RFC2396(expand("<amatch>")),'file://\(.*\)','\1',"")|exe "silent doau BufReadPost ".netrw#RFC2396(expand("<amatch>"))
+  au BufReadCmd  file://*		exe "silent doau BufReadPre ".fnameescape(netrw#RFC2396(expand("<amatch>")))|exe 'e '.fnameescape(substitute(netrw#RFC2396(expand("<amatch>")),'file://\(.*\)','\1',""))|exe "bwipe ".fnameescape(expand("<amatch>"))|exe "silent doau BufReadPost ".fnameescape(netrw#RFC2396(expand("<amatch>")))
  else
-  au BufReadCmd  file://*		exe "silent doau BufReadPre ".netrw#RFC2396(expand("<amatch>"))|exe 'e '.substitute(netrw#RFC2396(expand("<amatch>")),'file://\(.*\)','\1',"")|exe "silent doau BufReadPost ".netrw#RFC2396(expand("<amatch>"))
-  au BufReadCmd  file://localhost/*	exe "silent doau BufReadPre ".netrw#RFC2396(expand("<amatch>"))|exe 'e '.substitute(netrw#RFC2396(expand("<amatch>")),'file://localhost/\(.*\)','\1',"")|exe "silent doau BufReadPost ".netrw#RFC2396(expand("<amatch>"))
+  au BufReadCmd  file://*		exe "silent doau BufReadPre ".fnameescape(netrw#RFC2396(expand("<amatch>")))|exe 'e '.fnameescape(substitute(netrw#RFC2396(expand("<amatch>")),'file://\(.*\)','\1',""))|exe "bwipe ".fnameescape(expand("<amatch>"))|exe "silent doau BufReadPost ".fnameescape(netrw#RFC2396(expand("<amatch>")))
+  au BufReadCmd  file://localhost/*	exe "silent doau BufReadPre ".fnameescape(netrw#RFC2396(expand("<amatch>")))|exe 'e '.fnameescape(substitute(netrw#RFC2396(expand("<amatch>")),'file://localhost/\(.*\)','\1',""))|exe "bwipe ".fnameescape(substitute(expand("<amatch>"),'file://\(\k\+@\)\=','',''))|exe "silent doau BufReadPost ".fnameescape(netrw#RFC2396(expand("<amatch>")))
  endif
- au BufReadCmd   ftp://*,rcp://*,scp://*,http://*,dav://*,rsync://*,sftp://*	exe "silent doau BufReadPre ".expand("<amatch>")|exe '2Nread "'.expand("<amatch>").'"'|exe "silent doau BufReadPost ".expand("<amatch>")
- au FileReadCmd  ftp://*,rcp://*,scp://*,http://*,dav://*,rsync://*,sftp://*	exe "silent doau FileReadPre ".expand("<amatch>")|exe 'Nread "'   .expand("<amatch>").'"'|exe "silent doau FileReadPost ".expand("<amatch>")
- au BufWriteCmd  ftp://*,rcp://*,scp://*,dav://*,rsync://*,sftp://*		exe "silent doau BufWritePre ".expand("<amatch>")|exe 'Nwrite "' .expand("<amatch>").'"'|exe "silent doau BufWritePost ".expand("<amatch>")
- au FileWriteCmd ftp://*,rcp://*,scp://*,dav://*,rsync://*,sftp://*		exe "silent doau FileWritePre ".expand("<amatch>")|exe "'[,']".'Nwrite "' .expand("<amatch>").'"'|exe "silent doau FileWritePost ".expand("<amatch>")
+ au BufReadCmd   ftp://*,rcp://*,scp://*,http://*,dav://*,davs://*,rsync://*,sftp://*	exe "silent doau BufReadPre ".fnameescape(expand("<amatch>"))|exe '2Nread '.fnameescape(expand("<amatch>"))|exe "silent doau BufReadPost ".fnameescape(expand("<amatch>"))
+ au FileReadCmd  ftp://*,rcp://*,scp://*,http://*,dav://*,davs://*,rsync://*,sftp://*	exe "silent doau FileReadPre ".fnameescape(expand("<amatch>"))|exe 'Nread '.fnameescape(expand("<amatch>"))|exe "silent doau FileReadPost ".fnameescape(expand("<amatch>"))
+ au BufWriteCmd  ftp://*,rcp://*,scp://*,dav://*,davs://*,rsync://*,sftp://*		exe "silent doau BufWritePre ".fnameescape(expand("<amatch>"))|exe 'Nwrite '.fnameescape(expand("<amatch>"))|exe "silent doau BufWritePost ".fnameescape(expand("<amatch>"))
+ au FileWriteCmd ftp://*,rcp://*,scp://*,dav://*,davs://*,rsync://*,sftp://*		exe "silent doau FileWritePre ".fnameescape(expand("<amatch>"))|exe "'[,']".'Nwrite '.fnameescape(expand("<amatch>"))|exe "silent doau FileWritePost ".fnameescape(expand("<amatch>"))
+ try
+  au SourceCmd   ftp://*,rcp://*,scp://*,http://*,dav://*,davs://*,rsync://*,sftp://*	exe 'Nsource '.fnameescape(expand("<amatch>"))
+ catch /^Vim\%((\a\+)\)\=:E216/
+  au SourcePre   ftp://*,rcp://*,scp://*,http://*,dav://*,davs://*,rsync://*,sftp://*	exe 'Nsource '.fnameescape(expand("<amatch>"))
+ endtry
 augroup END
 
 " Commands: :Nread, :Nwrite, :NetUserPass {{{2
-com! -count=1 -nargs=*	Nread		call netrw#NetSavePosn()<bar>call netrw#NetRead(<count>,<f-args>)<bar>call netrw#NetRestorePosn()
-com! -range=% -nargs=*	Nwrite		call netrw#NetSavePosn()<bar><line1>,<line2>call netrw#NetWrite(<f-args>)<bar>call netrw#NetRestorePosn()
+com! -count=1 -nargs=*	Nread		call netrw#NetrwSavePosn()<bar>call netrw#NetRead(<count>,<f-args>)<bar>call netrw#NetrwRestorePosn()
+com! -range=% -nargs=*	Nwrite		call netrw#NetrwSavePosn()<bar><line1>,<line2>call netrw#NetWrite(<f-args>)<bar>call netrw#NetrwRestorePosn()
 com! -nargs=*		NetUserPass	call NetUserPass(<f-args>)
-com! -nargs=+           Ncopy           call netrw#NetObtain(<f-args>)
+com! -nargs=*	        Nsource		call netrw#NetrwSavePosn()<bar>call netrw#NetSource(<f-args>)<bar>call netrw#NetrwRestorePosn()
 
 " Commands: :Explore, :Sexplore, Hexplore, Vexplore {{{2
-com! -nargs=? -bar -bang -count=0	Explore		call netrw#Explore(<count>,0,0+<bang>0,<q-args>)
-com! -nargs=? -bar -bang -count=0	Sexplore	call netrw#Explore(<count>,1,0+<bang>0,<q-args>)
-com! -nargs=? -bar -bang -count=0	Hexplore	call netrw#Explore(<count>,1,2+<bang>0,<q-args>)
-com! -nargs=? -bar -bang -count=0	Vexplore	call netrw#Explore(<count>,1,4+<bang>0,<q-args>)
-com! -nargs=? -bar -bang		Nexplore	call netrw#Explore(-1,0,0,<q-args>)
-com! -nargs=? -bar -bang		Pexplore	call netrw#Explore(-2,0,0,<q-args>)
+com! -nargs=* -bar -bang -count=0 -complete=dir	Explore		call netrw#Explore(<count>,0,0+<bang>0,<q-args>)
+com! -nargs=* -bar -bang -count=0 -complete=dir	Sexplore	call netrw#Explore(<count>,1,0+<bang>0,<q-args>)
+com! -nargs=* -bar -bang -count=0 -complete=dir	Hexplore	call netrw#Explore(<count>,1,2+<bang>0,<q-args>)
+com! -nargs=* -bar -bang -count=0 -complete=dir	Vexplore	call netrw#Explore(<count>,1,4+<bang>0,<q-args>)
+com! -nargs=* -bar       -count=0 -complete=dir	Texplore	call netrw#Explore(<count>,0,6        ,<q-args>)
+com! -nargs=* -bar -bang			Nexplore	call netrw#Explore(-1,0,0,<q-args>)
+com! -nargs=* -bar -bang			Pexplore	call netrw#Explore(-2,0,0,<q-args>)
 
 " Commands: NetrwSettings {{{2
-com! -nargs=0 NetrwSettings :call netrwSettings#NetrwSettings()
+com! -nargs=0	NetrwSettings	call netrwSettings#NetrwSettings()
+com! -bang	NetrwClean	call netrw#NetrwClean(<bang>0)
 
 " Maps:
-if !hasmapto('<Plug>NetrwBrowseX')
- nmap <unique> gx <Plug>NetrwBrowseX
+if !exists("g:netrw_nogx") && maparg('g','n') == ""
+ if !hasmapto('<Plug>NetrwBrowseX')
+  nmap <unique> gx <Plug>NetrwBrowseX
+ endif
+ nno <silent> <Plug>NetrwBrowseX :call netrw#NetrwBrowseX(expand("<cWORD>"),0)<cr>
 endif
-nno <silent> <Plug>NetrwBrowseX :call netrw#NetBrowseX(expand("<cWORD>"),0)<cr>
 
 " ---------------------------------------------------------------------
 " LocalBrowse: {{{2
@@ -82,8 +96,17 @@ fun! s:LocalBrowse(dirname)
   " unfortunate interaction -- debugging calls can't be used here;
   " the BufEnter event causes triggering when attempts to write to
   " the DBG buffer are made.
-  if isdirectory(a:dirname)
-   silent! call netrw#DirBrowse(a:dirname)
+"  echomsg "dirname<".a:dirname.">"
+  if has("amiga")
+   " The check against '' is made for the Amiga, where the empty
+   " string is the current directory and not checking would break
+   " things such as the help command.
+   if a:dirname != '' && isdirectory(a:dirname)
+    silent! call netrw#LocalBrowseCheck(a:dirname)
+   endif
+  elseif isdirectory(a:dirname)
+"   echomsg "dirname<".dirname."> isdir"
+   silent! call netrw#LocalBrowseCheck(a:dirname)
   endif
   " not a directory, ignore it
 endfun

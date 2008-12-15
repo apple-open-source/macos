@@ -1,6 +1,6 @@
 " Vim autoload file for editing compressed files.
 " Maintainer: Bram Moolenaar <Bram@vim.org>
-" Last Change: 2006 Mar 31
+" Last Change: 2008 Jul 04
 
 " These functions are used by the gzip plugin.
 
@@ -63,57 +63,83 @@ fun gzip#read(cmd)
   " set 'modifiable'
   let ma_save = &ma
   setlocal ma
+  " Reset 'foldenable', otherwise line numbers get adjusted.
+  if has("folding")
+    let fen_save = &fen
+    setlocal nofen
+  endif
+
   " when filtering the whole buffer, it will become empty
   let empty = line("'[") == 1 && line("']") == line("$")
   let tmp = tempname()
   let tmpe = tmp . "." . expand("<afile>:e")
+  if exists('*fnameescape')
+    let tmp_esc = fnameescape(tmp)
+    let tmpe_esc = fnameescape(tmpe)
+  else
+    let tmp_esc = escape(tmp, ' ')
+    let tmpe_esc = escape(tmpe, ' ')
+  endif
   " write the just read lines to a temp file "'[,']w tmp.gz"
-  execute "silent '[,']w " . tmpe
+  execute "silent '[,']w " . tmpe_esc
   " uncompress the temp file: call system("gzip -dn tmp.gz")
-  call system(a:cmd . " " . tmpe)
+  call system(a:cmd . " " . s:escape(tmpe))
   if !filereadable(tmp)
     " uncompress didn't work!  Keep the compressed file then.
     echoerr "Error: Could not read uncompressed file"
-    return
-  endif
-  " delete the compressed lines; remember the line number
-  let l = line("'[") - 1
-  if exists(":lockmarks")
-    lockmarks '[,']d _
+    let ok = 0
   else
-    '[,']d _
-  endif
-  " read in the uncompressed lines "'[-1r tmp"
-  " Use ++edit if the buffer was empty, keep the 'ff' and 'fenc' options.
-  setlocal nobin
-  if exists(":lockmarks")
-    if empty
-      execute "silent lockmarks " . l . "r ++edit " . tmp
+    let ok = 1
+    " delete the compressed lines; remember the line number
+    let l = line("'[") - 1
+    if exists(":lockmarks")
+      lockmarks '[,']d _
     else
-      execute "silent lockmarks " . l . "r " . tmp
+      '[,']d _
     endif
-  else
-    execute "silent " . l . "r " . tmp
+    " read in the uncompressed lines "'[-1r tmp"
+    " Use ++edit if the buffer was empty, keep the 'ff' and 'fenc' options.
+    setlocal nobin
+    if exists(":lockmarks")
+      if empty
+	execute "silent lockmarks " . l . "r ++edit " . tmp_esc
+      else
+	execute "silent lockmarks " . l . "r " . tmp_esc
+      endif
+    else
+      execute "silent " . l . "r " . tmp_esc
+    endif
+
+    " if buffer became empty, delete trailing blank line
+    if empty
+      silent $delete _
+      1
+    endif
+    " delete the temp file and the used buffers
+    call delete(tmp)
+    silent! exe "bwipe " . tmp_esc
+    silent! exe "bwipe " . tmpe_esc
   endif
 
-  " if buffer became empty, delete trailing blank line
-  if empty
-    silent $delete _
-    1
-  endif
-  " delete the temp file and the used buffers
-  call delete(tmp)
-  silent! exe "bwipe " . tmp
-  silent! exe "bwipe " . tmpe
+  " Restore saved option values.
   let &pm = pm_save
   let &cpo = cpo_save
   let &l:ma = ma_save
+  if has("folding")
+    let &l:fen = fen_save
+  endif
+
   " When uncompressed the whole buffer, do autocommands
-  if empty
-    if &verbose >= 8
-      execute "doau BufReadPost " . expand("%:r")
+  if ok && empty
+    if exists('*fnameescape')
+      let fname = fnameescape(expand("%:r"))
     else
-      execute "silent! doau BufReadPost " . expand("%:r")
+      let fname = escape(expand("%:r"), " \t\n*?[{`$\\%#'\"|!<")
+    endif
+    if &verbose >= 8
+      execute "doau BufReadPost " . fname
+    else
+      execute "silent! doau BufReadPost " . fname
     endif
   endif
 endfun
@@ -127,9 +153,9 @@ fun gzip#write(cmd)
     let nmt = s:tempname(nm)
     if rename(nm, nmt) == 0
       if exists("b:gzip_comp_arg")
-	call system(a:cmd . " " . b:gzip_comp_arg . " " . nmt)
+	call system(a:cmd . " " . b:gzip_comp_arg . " -- " . s:escape(nmt))
       else
-	call system(a:cmd . " " . nmt)
+	call system(a:cmd . " -- " . s:escape(nmt))
       endif
       call rename(nmt . "." . expand("<afile>:e"), nm)
     endif
@@ -154,10 +180,10 @@ fun gzip#appre(cmd)
     if rename(nm, nmte) == 0
       if &patchmode != "" && getfsize(nm . &patchmode) == -1
 	" Create patchmode file by creating the decompressed file new
-	call system(a:cmd . " -c " . nmte . " > " . nmt)
+	call system(a:cmd . " -c -- " . s:escape(nmte) . " > " . s:escape(nmt))
 	call rename(nmte, nm . &patchmode)
       else
-	call system(a:cmd . " " . nmte)
+	call system(a:cmd . " -- " . s:escape(nmte))
       endif
       call rename(nmt, nm)
     endif
@@ -173,6 +199,14 @@ fun s:tempname(name)
     return fn
   endif
   return fnamemodify(a:name, ":p:h") . "/X~=@l9q5"
+endfun
+
+fun s:escape(name)
+  " shellescape() was added by patch 7.0.111
+  if exists("*shellescape")
+    return shellescape(a:name)
+  endif
+  return "'" . a:name . "'"
 endfun
 
 " vim: set sw=2 :

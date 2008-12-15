@@ -507,6 +507,9 @@ TimeZoneTest::TestGetAvailableIDs913()
  * definition. This test has been updated to reflect this.
  * 12/3/99 aliu
  *
+ * Added tests for additional zones and aliases from the icuzones file.
+ * Markus Scherer 2006-nov-06
+ *
  * [srl - from java - 7/5/1998]
  * @bug 4130885
  * Certain short zone IDs, used since 1.1.x, are incorrect.
@@ -585,7 +588,7 @@ void TimeZoneTest::TestShortZoneIDs()
         {"EST", -300, FALSE}, // updated Aug 2003 aliu
         {"PRT", -240, FALSE},
         {"CNT", -210, TRUE},
-        {"AGT", -180, FALSE}, // updated 26 Sep 2000 aliu
+        {"AGT", -180, TRUE}, // updated by tzdata2007k
         {"BET", -180, TRUE},
         // "CAT", -60, FALSE, // Wrong:
         // As of bug 4130885, fix CAT (Central Africa)
@@ -598,7 +601,7 @@ void TimeZoneTest::TestShortZoneIDs()
         {"EAT", 180, FALSE},
         {"MET", 60, TRUE}, // updated 12/3/99 aliu
         {"NET", 240, TRUE}, // updated 12/3/99 aliu
-        {"PLT", 300, FALSE}, // updated Aug 2003 aliu
+        {"PLT", 300, TRUE}, // updated by 2008c
         {"IST", 330, FALSE},
         {"BST", 360, FALSE},
         {"VST", 420, FALSE},
@@ -656,14 +659,14 @@ void TimeZoneTest::TestShortZoneIDs()
 
     const char* compatibilityMap[] = {
         // This list is copied from tz.alias.  If tz.alias
-        // changes, this list must be updated.  Current as of Aug 2003
+        // changes, this list must be updated.  Current as of Mar 2007
         "ACT", "Australia/Darwin",
         "AET", "Australia/Sydney",
         "AGT", "America/Buenos_Aires",
         "ART", "Africa/Cairo",
         "AST", "America/Anchorage",
         "BET", "America/Sao_Paulo",
-        "BST", "Asia/Dhaka", // Spelling changed in 2000h
+        "BST", "Asia/Dhaka", // # spelling changed in 2000h; was Asia/Dacca
         "CAT", "Africa/Harare",
         "CNT", "America/St_Johns",
         "CST", "America/Chicago",
@@ -671,14 +674,14 @@ void TimeZoneTest::TestShortZoneIDs()
         "EAT", "Africa/Addis_Ababa",
         "ECT", "Europe/Paris",
         // EET Europe/Istanbul # EET is a standard UNIX zone
-        // "EST", "America/New_York", # EST is an Olson alias now (2003)
-        "HST", "Pacific/Honolulu",
+        // "EST", "America/New_York", # Defined as -05:00
+        // "HST", "Pacific/Honolulu", # Defined as -10:00
         "IET", "America/Indianapolis",
         "IST", "Asia/Calcutta",
         "JST", "Asia/Tokyo",
         // MET Asia/Tehran # MET is a standard UNIX zone
         "MIT", "Pacific/Apia",
-        // "MST", "America/Denver", # MST is an Olson alias now (2003)
+        // "MST", "America/Denver", # Defined as -07:00
         "NET", "Asia/Yerevan",
         "NST", "Pacific/Auckland",
         "PLT", "Asia/Karachi",

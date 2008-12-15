@@ -20,7 +20,7 @@ AUTOPATCHHDRS=
 AUTOPATCHMAN=
 AUTOPATCHSRCS=
 
-# Auto-patch into OBJROOT
+# Auto-patch (or symlink)
 _AUTOPATCH: .USE
 	@if [ -f ${.ALLSRC}.patch ]; then \
 	    echo cp ${.ALLSRC} ${.TARGET}; \
@@ -28,16 +28,9 @@ _AUTOPATCH: .USE
 	    echo patch ${.TARGET} ${.ALLSRC}.patch; \
 	    patch ${.TARGET} ${.ALLSRC}.patch; \
 	else \
-	    echo ln -s ${.ALLSRC} ${.TARGET}; \
-	    ln -s ${.ALLSRC} ${.TARGET}; \
-	fi
-# Auto-patch into current directory
-_AUTOPATCHCUR: .USE
-	@echo cp ${.ALLSRC} ${.TARGET}; \
-	cp ${.ALLSRC} ${.TARGET}; \
-	if [ -f ${.ALLSRC}.patch ]; then \
-	    echo patch ${.TARGET} ${.ALLSRC}.patch; \
-	    patch ${.TARGET} ${.ALLSRC}.patch; \
+	    t=`basename ${.ALLSRC}` && x=`dirname ${.ALLSRC}` && d=`basename $$x`; \
+	    echo ln -fs $$d/$$t ${.TARGET}; \
+	    ln -fs $$d/$$t ${.TARGET}; \
 	fi
 # Standard compilation for the various forms
 _STANDARD_STATIC: .USE
@@ -65,27 +58,10 @@ _STANDARD_DEBUG: .USE
 	    ${VARIANTCFLAGS} ${LIBCFLAGS} \
 	    -c ${.IMPSRC} -o ${.TARGET}
 
-# set object file suffix
-.if make(lib${LIB}_static.a)
-OBJSUFFIX = o
-.endif
-.if make(lib${LIB}_profile.a)
-OBJSUFFIX = po
-.endif
-.if make(lib${LIB}_debug.a)
-OBJSUFFIX = do
-.endif
-.if make(lib${LIB}.a)
-OBJSUFFIX = So
-.endif
-
-.ifnmake autopatch
 #
 # If there is a machine dependent makefile, use it:
 #
-.if exists(${.CURDIR}/${MACHINE_ARCH}/Makefile.inc)
-.include "${.CURDIR}/${MACHINE_ARCH}/Makefile.inc"
-.endif
+.sinclude "${.CURDIR}/${MACHINE_ARCH}/Makefile.inc"
 
 .include "${.CURDIR}/darwin/Makefile.inc"
 .include "${.CURDIR}/db/Makefile.inc"
@@ -95,7 +71,9 @@ OBJSUFFIX = So
 .include "${.CURDIR}/gen/Makefile.inc"
 .include "${.CURDIR}/gmon/Makefile.inc"
 .include "${.CURDIR}/include/Makefile.inc"
+.ifdef FEATURE_LEGACY_NX_INTERNAT_APIS
 .include "${.CURDIR}/internat/Makefile.inc"
+.endif
 .include "${.CURDIR}/locale/Makefile.inc"
 .include "${.CURDIR}/man/Makefile.inc"
 .include "${.CURDIR}/net/Makefile.inc"
@@ -128,4 +106,3 @@ SRCS+=	${_src}
 .endif
 .endfor
 .endif
-.endif # !autopatch

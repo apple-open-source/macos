@@ -1,10 +1,6 @@
 .PATH: ${.CURDIR}/darwin
 
-.ifnmake autopatch
-.if exists(${.CURDIR}/${MACHINE_ARCH}/darwin/Makefile.inc)
-.include "${.CURDIR}/${MACHINE_ARCH}/darwin/Makefile.inc"
-.endif
-.endif # !autopatch
+.sinclude "${.CURDIR}/${MACHINE_ARCH}/darwin/Makefile.inc"
 
 DARWINMIGDEFS += dirhelper.defs
 DARWINMIGHDRS += ${DARWINMIGDEFS:.defs=.h}
@@ -22,7 +18,6 @@ MISRCS += kvm.c MKGetTimeBaseInfo.c
 .endif
 
 # force building of the mig stuff before _dirhelper.c
-_dirhelper.So _dirhelper.po _dirhelper.do _dirhelper.o: dirhelperUser.c
+_dirhelper.${OBJSUFFIX}: dirhelperUser.c
 
-CFLAGS-_dirhelper.c += -I${OBJROOT}
 CFLAGS-proc_listpidspath.c += -I${.CURDIR}/darwin

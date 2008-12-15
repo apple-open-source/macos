@@ -320,7 +320,6 @@ bool IOAudioDevice::initHardware(IOService *provider)
 
 bool IOAudioDevice::start(IOService *provider)
 {
-	bool	result = false;
     static IOPMPowerState powerStates[2] = {
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
         {1, IOPMDeviceUsable, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0}

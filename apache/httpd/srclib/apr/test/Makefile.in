@@ -20,18 +20,20 @@ STDTEST_PORTABLE = \
 	testmutexscope@EXEEXT@ \
 	testall@EXEEXT@
 
-TESTS = testtime.lo teststr.lo testvsn.lo testipsub.lo \
+TESTS = testtime.lo teststr.lo testvsn.lo testipsub.lo testshm.lo \
 	testmmap.lo testud.lo testtable.lo testsleep.lo testpools.lo \
 	testfmt.lo testfile.lo testdir.lo testfileinfo.lo testrand.lo \
 	testdso.lo testoc.lo testdup.lo testsockets.lo testproc.lo \
 	testpoll.lo testlock.lo testsockopt.lo testpipe.lo testthread.lo \
 	testhash.lo testargs.lo testnames.lo testuser.lo testpath.lo \
-	testenv.lo testprocmutex.lo testrand2.lo testfnmatch.lo \
-	testatomic.lo testflock.lo testshm.lo testsock.lo testglobalmutex.lo \
-	teststrnatcmp.lo testfilecopy.lo testtemp.lo testlfs.lo
+	testenv.lo testprocmutex.lo testfnmatch.lo testatomic.lo testflock.lo \
+	testsock.lo testglobalmutex.lo teststrnatcmp.lo testfilecopy.lo \
+	testtemp.lo testlfs.lo testcond.lo
 
 OTHER_PROGRAMS = \
-	sendfile@EXEEXT@
+	sendfile@EXEEXT@ \
+	echod@EXEEXT@ \
+	sockperf@EXEEXT@
 
 TESTALL_COMPONENTS = \
 	globalmutexchild@EXEEXT@ \
@@ -55,8 +57,8 @@ TARGETS = $(PROGRAMS)
 
 LOCAL_LIBS=../lib@APR_LIBNAME@.la
 
-CLEAN_TARGETS = testfile.tmp lfstests/large.bin \
-	data/test*.txt data/test*.dat
+CLEAN_TARGETS = testfile.tmp lfstests/*.bin \
+	data/test*.txt data/test*.dat data/apr.testshm.shm
 
 CLEAN_SUBDIRS = internal
 
@@ -93,9 +95,17 @@ testmutexscope@EXEEXT@: $(OBJECTS_testmutexscope)
 
 # OTHER_PROGRAMS;
 
+OBJECTS_echod = echod.lo $(LOCAL_LIBS)
+echod@EXEEXT@: $(OBJECTS_echod)
+	$(LINK_PROG) $(OBJECTS_echod) $(ALL_LIBS)
+
 OBJECTS_sendfile = sendfile.lo $(LOCAL_LIBS)
 sendfile@EXEEXT@: $(OBJECTS_sendfile)
 	$(LINK_PROG) $(OBJECTS_sendfile) $(ALL_LIBS)
+
+OBJECTS_sockperf = sockperf.lo $(LOCAL_LIBS)
+sockperf@EXEEXT@: $(OBJECTS_sockperf)
+	$(LINK_PROG) $(OBJECTS_sockperf) $(ALL_LIBS)
 
 # TESTALL_COMPONENTS;
 
@@ -103,7 +113,7 @@ OBJECTS_globalmutexchild = globalmutexchild.lo $(LOCAL_LIBS)
 globalmutexchild@EXEEXT@: $(OBJECTS_globalmutexchild)
 	$(LINK_PROG) $(OBJECTS_globalmutexchild) $(ALL_LIBS)
 
-# Note: -prefer-pic is only supported with libtool-1.4+
+# Note -prefer-pic is only supported with libtool-1.4+
 mod_test.lo: $(srcdir)/mod_test.c
 	$(LIBTOOL) $(LTFLAGS) --mode=compile $(COMPILE) -prefer-pic -o $@ \
 	  -c $(srcdir)/mod_test.c
@@ -149,12 +159,19 @@ tryread@EXEEXT@: $(OBJECTS_tryread)
 	$(LINK_PROG) $(OBJECTS_tryread) $(ALL_LIBS)
 
 check: $(TESTALL_COMPONENTS) $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE)
+	teststatus=0; \
+	progfailed=""; \
 	for prog in $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE); do \
 		./$$prog; \
-		if test $$? = 255; then \
-			echo "$$prog failed"; \
-			break; \
+		status=$$?; \
+		if test $$status != 0; then \
+			teststatus=$$status; \
+			progfailed="$$progfailed $$prog"; \
 		fi; \
-	done
+	done; \
+	if test $$teststatus != 0; then \
+		echo "Programs failed:$$progfailed"; \
+	fi; \
+	exit $$teststatus
 
 # DO NOT REMOVE

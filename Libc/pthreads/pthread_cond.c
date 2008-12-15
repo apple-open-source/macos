@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,8 +52,12 @@
 #include <sys/time.h>              /* For struct timespec and getclock(). */
 #include <stdio.h>
 
+#ifdef PLOCKSTAT
 #include "plockstat.h"
-        
+#else /* !PLOCKSTAT */
+#define PLOCKSTAT_MUTEX_RELEASE(x, y)
+#endif /* PLOCKSTAT */
+
 extern void _pthread_mutex_remove(pthread_mutex_t *, pthread_t);
 extern int __unix_conforming;
 

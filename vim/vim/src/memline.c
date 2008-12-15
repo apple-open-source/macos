@@ -42,21 +42,22 @@
  *  mf_get().
  */
 
-#if defined(MSDOS) || defined(WIN32) || defined(_WIN64)
-# include "vimio.h"
+#if defined(MSDOS) || defined(WIN16) || defined(WIN32) || defined(_WIN64)
+# include "vimio.h"	/* for mch_open(), must be before vim.h */
 #endif
 
 #include "vim.h"
 
-#ifdef HAVE_FCNTL_H
-# include <fcntl.h>
-#endif
 #ifndef UNIX		/* it's in os_unix.h for Unix */
 # include <time.h>
 #endif
 
-#ifdef SASC
+#if defined(SASC) || defined(__amigaos4__)
 # include <proto/dos.h>	    /* for Open() and Close() */
+#endif
+
+#ifdef HAVE_ERRNO_H
+# include <errno.h>
 #endif
 
 typedef struct block0		ZERO_BL;    /* contents of the first block */
@@ -148,7 +149,7 @@ struct data_block
  *
  * If size of block0 changes anyway, adjust MIN_SWAP_PAGE_SIZE in vim.h!!
  *
- * This block is built up of single bytes, to make it portable accros
+ * This block is built up of single bytes, to make it portable across
  * different machines. b0_magic_* is used to check the byte order and size of
  * variables, because the rest of the swap file is not portable.
  */
@@ -215,7 +216,7 @@ static linenr_T	lowest_marked = 0;
 #define ML_FLUSH	0x02	    /* flush locked block */
 #define ML_SIMPLE(x)	(x & 0x10)  /* DEL, INS or FIND */
 
-static void ml_upd_block0 __ARGS((buf_T *buf, int setfname));
+static void ml_upd_block0 __ARGS((buf_T *buf, int set_fname));
 static void set_b0_fname __ARGS((ZERO_BL *, buf_T *buf));
 static void set_b0_dir_flag __ARGS((ZERO_BL *b0p, buf_T *buf));
 #ifdef FEAT_MBYTE
@@ -679,9 +680,9 @@ ml_timestamp(buf)
  * Update the timestamp or the B0_SAME_DIR flag of the .swp file.
  */
     static void
-ml_upd_block0(buf, setfname)
+ml_upd_block0(buf, set_fname)
     buf_T	*buf;
-    int		setfname;
+    int		set_fname;
 {
     memfile_T	*mfp;
     bhdr_T	*hp;
@@ -695,7 +696,7 @@ ml_upd_block0(buf, setfname)
 	EMSG(_("E304: ml_upd_block0(): Didn't get block 0??"));
     else
     {
-	if (setfname)
+	if (set_fname)
 	    set_b0_fname(b0p, buf);
 	else
 	    set_b0_dir_flag(b0p, buf);
@@ -1011,18 +1012,39 @@ ml_recover()
 	msg_end();
 	goto theend;
     }
+
     /*
      * If we guessed the wrong page size, we have to recalculate the
      * highest block number in the file.
      */
     if (mfp->mf_page_size != (unsigned)char_to_long(b0p->b0_page_size))
     {
+	unsigned previous_page_size = mfp->mf_page_size;
+
 	mf_new_page_size(mfp, (unsigned)char_to_long(b0p->b0_page_size));
+	if (mfp->mf_page_size < previous_page_size)
+	{
+	    msg_start();
+	    msg_outtrans_attr(mfp->mf_fname, attr | MSG_HIST);
+	    MSG_PUTS_ATTR(_(" has been damaged (page size is smaller than minimum value).\n"),
+			attr | MSG_HIST);
+	    msg_end();
+	    goto theend;
+	}
 	if ((size = lseek(mfp->mf_fd, (off_t)0L, SEEK_END)) <= 0)
 	    mfp->mf_blocknr_max = 0;	    /* no file or empty file */
 	else
 	    mfp->mf_blocknr_max = (blocknr_T)(size / mfp->mf_page_size);
 	mfp->mf_infile_count = mfp->mf_blocknr_max;
+
+	/* need to reallocate the memory used to store the data */
+	p = alloc(mfp->mf_page_size);
+	if (p == NULL)
+	    goto theend;
+	mch_memmove(p, hp->bh_data, previous_page_size);
+	vim_free(hp->bh_data);
+	hp->bh_data = p;
+	b0p = (ZERO_BL *)(hp->bh_data);
     }
 
 /*
@@ -1327,7 +1349,11 @@ theend:
 	/* PR-3936063: In POSIX preserve mode, delete the file after recovery */
 	mf_close(mfp, (vim_strchr(p_cpo, CPO_PRESERVE) != NULL));    /* will also vim_free(mfp->mf_fname) */
     }
-    vim_free(buf);
+    if (buf != NULL)
+    {
+	vim_free(buf->b_ml.ml_stack);
+	vim_free(buf);
+    }
     if (serious_error && called_from_main)
 	ml_close(curbuf, TRUE);
 #ifdef FEAT_AUTOCMD
@@ -1402,8 +1428,9 @@ recover_names(fname, list, nr)
 		names[0] = vim_strsave((char_u *)"*.sw?");
 # endif
 #endif
-#ifdef UNIX
-		/* for Unix names starting with a dot are special */
+#if defined(UNIX) || defined(WIN3264)
+		/* For Unix names starting with a dot are special.  MS-Windows
+		 * supports this too, on some file systems. */
 		names[1] = vim_strsave((char_u *)".*.sw?");
 		names[2] = vim_strsave((char_u *)".sw?");
 		num_names = 3;
@@ -1432,8 +1459,9 @@ recover_names(fname, list, nr)
 		names[0] = concat_fnames(dir_name, (char_u *)"*.sw?", TRUE);
 # endif
 #endif
-#ifdef UNIX
-		/* for Unix names starting with a dot are special */
+#if defined(UNIX) || defined(WIN3264)
+		/* For Unix names starting with a dot are special.  MS-Windows
+		 * supports this too, on some file systems. */
 		names[1] = concat_fnames(dir_name, (char_u *)".*.sw?", TRUE);
 		names[2] = concat_fnames(dir_name, (char_u *)".sw?", TRUE);
 		num_names = 3;
@@ -1635,6 +1663,7 @@ swapfile_info(fname)
     int		    fd;
     struct block0   b0;
     time_t	    x = (time_t)0;
+    char	    *p;
 #ifdef UNIX
     char_u	    uname[B0_UNAME_SIZE];
 #endif
@@ -1654,8 +1683,11 @@ swapfile_info(fname)
 #endif
 	    MSG_PUTS(_("             dated: "));
 	x = st.st_mtime;		    /* Manx C can't do &st.st_mtime */
-	MSG_PUTS(ctime(&x));		    /* includes '\n' */
-
+	p = ctime(&x);			    /* includes '\n' */
+	if (p == NULL)
+	    MSG_PUTS("(invalid)\n");
+	else
+	    MSG_PUTS(p);
     }
 
     /*
@@ -2042,13 +2074,21 @@ ml_get_buf(buf, lnum, will_change)
     linenr_T	lnum;
     int		will_change;		/* line will be changed */
 {
-    bhdr_T    *hp;
-    DATA_BL *dp;
-    char_u  *ptr;
+    bhdr_T	*hp;
+    DATA_BL	*dp;
+    char_u	*ptr;
+    static int	recursive = 0;
 
     if (lnum > buf->b_ml.ml_line_count)	/* invalid line number */
     {
-	EMSGN(_("E315: ml_get: invalid lnum: %ld"), lnum);
+	if (recursive == 0)
+	{
+	    /* Avoid giving this message for a recursive call, may happen when
+	     * the GUI redraws part of the text. */
+	    ++recursive;
+	    EMSGN(_("E315: ml_get: invalid lnum: %ld"), lnum);
+	    --recursive;
+	}
 errorret:
 	STRCPY(IObuff, "???");
 	return IObuff;
@@ -2062,8 +2102,10 @@ errorret:
 /*
  * See if it is the same line as requested last time.
  * Otherwise may need to flush last used line.
+ * Don't use the last used line when 'swapfile' is reset, need to load all
+ * blocks.
  */
-    if (buf->b_ml.ml_line_lnum != lnum)
+    if (buf->b_ml.ml_line_lnum != lnum || mf_dont_release)
     {
 	ml_flush_line(buf);
 
@@ -2074,7 +2116,14 @@ errorret:
 	 */
 	if ((hp = ml_find_line(buf, lnum, ML_FIND)) == NULL)
 	{
-	    EMSGN(_("E316: ml_get: cannot find line %ld"), lnum);
+	    if (recursive == 0)
+	    {
+		/* Avoid giving this message for a recursive call, may happen
+		 * when the GUI redraws part of the text. */
+		++recursive;
+		EMSGN(_("E316: ml_get: cannot find line %ld"), lnum);
+		--recursive;
+	    }
 	    goto errorret;
 	}
 
@@ -2520,7 +2569,7 @@ ml_append_int(buf, lnum, line, len, newfile, mark)
 		if (lineadd)
 		{
 		    --(buf->b_ml.ml_stack_top);
-			/* fix line count for rest of blocks in the stack */
+		    /* fix line count for rest of blocks in the stack */
 		    ml_lineadd(buf, lineadd);
 							/* fix stack itself */
 		    buf->b_ml.ml_stack[buf->b_ml.ml_stack_top].ip_high +=
@@ -2823,12 +2872,12 @@ ml_delete_int(buf, lnum, message)
 		mf_put(mfp, hp, TRUE, FALSE);
 
 		buf->b_ml.ml_stack_top = stack_idx;	/* truncate stack */
-		    /* fix line count for rest of blocks in the stack */
-		if (buf->b_ml.ml_locked_lineadd)
+		/* fix line count for rest of blocks in the stack */
+		if (buf->b_ml.ml_locked_lineadd != 0)
 		{
 		    ml_lineadd(buf, buf->b_ml.ml_locked_lineadd);
 		    buf->b_ml.ml_stack[buf->b_ml.ml_stack_top].ip_high +=
-						buf->b_ml.ml_locked_lineadd;
+						  buf->b_ml.ml_locked_lineadd;
 		}
 		++(buf->b_ml.ml_stack_top);
 
@@ -3158,7 +3207,7 @@ ml_new_ptr(mfp)
  * The stack is updated to lead to the locked block. The ip_high field in
  * the stack is updated to reflect the last line in the block AFTER the
  * insert or delete, also if the pointer block has not been updated yet. But
- * if if ml_locked != NULL ml_locked_lineadd must be added to ip_high.
+ * if ml_locked != NULL ml_locked_lineadd must be added to ip_high.
  *
  * return: NULL for failure, pointer to block header otherwise
  */
@@ -3188,13 +3237,16 @@ ml_find_line(buf, lnum, action)
      * If not, flush and release the locked block.
      * Don't do this for ML_INSERT_SAME, because the stack need to be updated.
      * Don't do this for ML_FLUSH, because we want to flush the locked block.
+     * Don't do this when 'swapfile' is reset, we want to load all the blocks.
      */
     if (buf->b_ml.ml_locked)
     {
-	if (ML_SIMPLE(action) && buf->b_ml.ml_locked_low <= lnum
-					  && buf->b_ml.ml_locked_high >= lnum)
+	if (ML_SIMPLE(action)
+		&& buf->b_ml.ml_locked_low <= lnum
+		&& buf->b_ml.ml_locked_high >= lnum
+		&& !mf_dont_release)
 	{
-		/* remember to update pointer blocks and stack later */
+	    /* remember to update pointer blocks and stack later */
 	    if (action == ML_INSERT)
 	    {
 		++(buf->b_ml.ml_locked_lineadd);
@@ -3212,11 +3264,11 @@ ml_find_line(buf, lnum, action)
 					    buf->b_ml.ml_flags & ML_LOCKED_POS);
 	buf->b_ml.ml_locked = NULL;
 
-	    /*
-	     * if lines have been added or deleted in the locked block, need to
-	     * update the line count in pointer blocks
-	     */
-	if (buf->b_ml.ml_locked_lineadd)
+	/*
+	 * If lines have been added or deleted in the locked block, need to
+	 * update the line count in pointer blocks.
+	 */
+	if (buf->b_ml.ml_locked_lineadd != 0)
 	    ml_lineadd(buf, buf->b_ml.ml_locked_lineadd);
     }
 
@@ -3382,7 +3434,8 @@ ml_add_stack(buf)
 					(buf->b_ml.ml_stack_size + STACK_INCR));
 	if (newstack == NULL)
 	    return -1;
-	mch_memmove(newstack, buf->b_ml.ml_stack, (size_t)top * sizeof(infoptr_T));
+	mch_memmove(newstack, buf->b_ml.ml_stack,
+					     (size_t)top * sizeof(infoptr_T));
 	vim_free(buf->b_ml.ml_stack);
 	buf->b_ml.ml_stack = newstack;
 	buf->b_ml.ml_stack_size += STACK_INCR;
@@ -3654,6 +3707,7 @@ attention_message(buf, fname)
 {
     struct stat st;
     time_t	x, sx;
+    char	*p;
 
     ++no_wait_return;
     (void)EMSG(_("E325: ATTENTION"));
@@ -3668,7 +3722,11 @@ attention_message(buf, fname)
     {
 	MSG_PUTS(_("             dated: "));
 	x = st.st_mtime;    /* Manx C can't do &st.st_mtime */
-	MSG_PUTS(ctime(&x));
+	p = ctime(&x);			    /* includes '\n' */
+	if (p == NULL)
+	    MSG_PUTS("(invalid)\n");
+	else
+	    MSG_PUTS(p);
 	if (sx != 0 && x > sx)
 	    MSG_PUTS(_("      NEWER than swap file!\n"));
     }
@@ -4472,7 +4530,7 @@ ml_updatechunk(buf, line, len, updtype)
     curchnk = buf->b_ml.ml_chunksize + curix;
 
     if (updtype == ML_CHNK_DELLINE)
-	len *= -1;
+	len = -len;
     curchnk->mlcs_totalsize += len;
     if (updtype == ML_CHNK_ADDLINE)
     {

@@ -911,7 +911,7 @@ bool IOFireWireAVCUnit::start(IOService *provider)
 				}
 				else
 				{
-					FIRELOG_MSG("Unknown Panasonic series\n");
+					FIRELOG_MSG(( "Unknown Panasonic series\n" ));
 				}
 			}
 		}
@@ -972,6 +972,12 @@ void IOFireWireAVCUnit::free(void)
 	// Release the async AVC command array
 	if (fIOFireWireAVCUnitExpansion->fAVCAsyncCommands)
 		fIOFireWireAVCUnitExpansion->fAVCAsyncCommands->release();
+	
+    if (cmdLock)
+	{
+        IOLockFree(cmdLock);
+		cmdLock = NULL;
+    }
 	
 	// Release our provider, the IOFireWireUnit object
 	fDevice->release();
@@ -1044,8 +1050,12 @@ IOReturn IOFireWireAVCUnit::AVCCommand(const UInt8 * in, UInt32 len, UInt8 * out
     if(!cmd)
 		return kIOReturnNoMemory;
 
+	// Retain the AVCUnit object while processing the command
+	this->retain();
+
     // lock avc space
     IOTakeLock(avcLock);
+
     fCommand = cmd;
     
     res = fCommand->submit();
@@ -1058,6 +1068,9 @@ IOReturn IOFireWireAVCUnit::AVCCommand(const UInt8 * in, UInt32 len, UInt8 * out
     IOUnlock(cmdLock);
     cmd->release();
     IOUnlock(avcLock);
+
+	// Remove the extra retain we made above.
+	this->release();
 
     return res;
 }

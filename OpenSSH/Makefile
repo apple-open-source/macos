@@ -56,7 +56,7 @@ AEP_Version    = 5.1p1
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = pam.patch sacl.patch DVG-4122722+5277818_new_EA.patch DVG-3977221_manpage_tweaks.patch DVG-4212542_auth_error_logging_fix.patch DVG-4157448+4920695_corrected_UsePAM_comment.patch lastlog.patch openssh-5.0p1-gsskex-20080404.patch DVG-4853931_enable_GSSAPI.patch DVG-4648874_preserve_EA_mtime.patch DVG-4748610+4897588_ssh-agent_via_launchd.patch DVG-4694589_16_group_limit_fix.patch DVG-5142987_launchd_DISPLAY_for_X11.patch DVG-5258734_pty_permission_fix.patch AJ-5491854-fix_unsafe_usage_of_getpwuid.patch DVG-4135812_add_SACLSupport_to_sshd_conf_manpage.patch PR-6146452_do_not_use_pipes.patch
+AEP_Patches    = pam.patch sacl.patch DVG-4122722+5277818_new_EA.patch DVG-3977221_manpage_tweaks.patch DVG-4212542_auth_error_logging_fix.patch DVG-4157448+4920695_corrected_UsePAM_comment.patch lastlog.patch openssh-5.0p1-gsskex-20080404.patch DVG-4853931_enable_GSSAPI.patch DVG-4648874_preserve_EA_mtime.patch DVG-4748610+4897588_ssh-agent_via_launchd.patch DVG-4694589_16_group_limit_fix.patch DVG-5142987_launchd_DISPLAY_for_X11.patch DVG-5258734_pty_permission_fix.patch AJ-5491854-fix_unsafe_usage_of_getpwuid.patch DVG-4135812_add_SACLSupport_to_sshd_conf_manpage.patch PR-6146452_do_not_use_pipes.patch DVG-6264809_empty_banner.patch
 ifeq  (, $(findstring $(MACOSX_DEPLOYMENT_TARGET), 10.4 10.3))
 	AEP_Patches   += AJ-5229538+5383306+5446006+5567447_keychain.patch
 endif

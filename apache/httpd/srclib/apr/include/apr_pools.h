@@ -189,6 +189,17 @@ APR_DECLARE(apr_status_t) apr_pool_create_ex(apr_pool_t **newpool,
                                              apr_allocator_t *allocator);
 
 /**
+ * Create a new pool.
+ * @param newpool The pool we have just created.
+ * @param abort_fn A function to use if the pool cannot allocate more memory.
+ * @param allocator The allocator to use with the new pool.  If NULL the
+ *        new allocator will be crated with newpool as owner.
+ */
+APR_DECLARE(apr_status_t) apr_pool_create_core_ex(apr_pool_t **newpool,
+                                                  apr_abortfunc_t abort_fn,
+                                                  apr_allocator_t *allocator);
+
+/**
  * Debug version of apr_pool_create_ex.
  * @param newpool @see apr_pool_create.
  * @param parent @see apr_pool_create.
@@ -217,6 +228,32 @@ APR_DECLARE(apr_status_t) apr_pool_create_ex_debug(apr_pool_t **newpool,
 #endif
 
 /**
+ * Debug version of apr_pool_create_core_ex.
+ * @param newpool @see apr_pool_create.
+ * @param abort_fn @see apr_pool_create.
+ * @param allocator @see apr_pool_create.
+ * @param file_line Where the function is called from.
+ *        This is usually APR_POOL__FILE_LINE__.
+ * @remark Only available when APR_POOL_DEBUG is defined.
+ *         Call this directly if you have you apr_pool_create_core_ex
+ *         calls in a wrapper function and wish to override
+ *         the file_line argument to reflect the caller of
+ *         your wrapper function.  If you do not have
+ *         apr_pool_create_core_ex in a wrapper, trust the macro
+ *         and don't call apr_pool_create_core_ex_debug directly.
+ */
+APR_DECLARE(apr_status_t) apr_pool_create_core_ex_debug(apr_pool_t **newpool,
+                                                   apr_abortfunc_t abort_fn,
+                                                   apr_allocator_t *allocator,
+                                                   const char *file_line);
+
+#if APR_POOL_DEBUG
+#define apr_pool_create_core_ex(newpool, abort_fn, allocator)  \
+    apr_pool_create_core_ex_debug(newpool, abort_fn, allocator, \
+                                  APR_POOL__FILE_LINE__)
+#endif
+
+/**
  * Create a new pool.
  * @param newpool The pool we have just created.
  * @param parent The parent pool.  If this is NULL, the new pool is a root
@@ -235,6 +272,23 @@ APR_DECLARE(apr_status_t) apr_pool_create(apr_pool_t **newpool,
 #else
 #define apr_pool_create(newpool, parent) \
     apr_pool_create_ex(newpool, parent, NULL, NULL)
+#endif
+#endif
+
+/**
+ * Create a new pool.
+ * @param newpool The pool we have just created.
+ */
+#if defined(DOXYGEN)
+APR_DECLARE(apr_status_t) apr_pool_create_core(apr_pool_t **newpool);
+#else
+#if APR_POOL_DEBUG
+#define apr_pool_create_core(newpool) \
+    apr_pool_create_core_ex_debug(newpool, NULL, NULL, \
+                                  APR_POOL__FILE_LINE__)
+#else
+#define apr_pool_create_core(newpool) \
+    apr_pool_create_core_ex(newpool, NULL, NULL)
 #endif
 #endif
 
@@ -504,6 +558,23 @@ APR_DECLARE(void) apr_pool_cleanup_register(
     const void *data,
     apr_status_t (*plain_cleanup)(void *),
     apr_status_t (*child_cleanup)(void *));
+
+/**
+ * Register a function to be called when a pool is cleared or destroyed.
+ *
+ * Unlike apr_pool_cleanup_register which register a cleanup
+ * that is called AFTER all subpools are destroyed this function register
+ * a function that will be called before any of the subpool is destoryed.
+ *
+ * @param p The pool register the cleanup with
+ * @param data The data to pass to the cleanup function.
+ * @param plain_cleanup The function to call when the pool is cleared
+ *                      or destroyed
+ */
+APR_DECLARE(void) apr_pool_pre_cleanup_register(
+    apr_pool_t *p,
+    const void *data,
+    apr_status_t (*plain_cleanup)(void *));
 
 /**
  * Remove a previously registered cleanup function.

@@ -25,9 +25,6 @@
 #include "vim.h"
 
 #include <conio.h>
-#ifdef HAVE_FCNTL_H
-# include <fcntl.h>
-#endif
 
 /*
  * MS-DOS only code, not used for Win16.
@@ -65,8 +62,8 @@ static int mouse_active;		/* mouse enabled */
 static int mouse_hidden;		/* mouse not shown */
 static int mouse_click = -1;		/* mouse status */
 static int mouse_last_click = -1;	/* previous status at click */
-static int mouse_x = -1;		/* mouse x coodinate */
-static int mouse_y = -1;		/* mouse y coodinate */
+static int mouse_x = -1;		/* mouse x coordinate */
+static int mouse_y = -1;		/* mouse y coordinate */
 static long mouse_click_time = 0;	/* biostime() of last click */
 static int mouse_click_count = 0;	/* count for multi-clicks */
 static int mouse_click_x = 0;		/* x of previous mouse click */
@@ -469,7 +466,7 @@ translate_altkeys(int rawkey)
 }
 
 /*
- * Set normal fg/bg color, based on T_ME.  Called whem t_me has been set.
+ * Set normal fg/bg color, based on T_ME.  Called when t_me has been set.
  */
     void
 mch_set_normal_colors()
@@ -1629,8 +1626,7 @@ mch_FullName(
 		    {
 			added -= (tail - head);
 			if (added != 0)
-			    mch_memmove(tail + 1 + added, tail + 1,
-							STRLEN(tail + 1) + 1);
+			    STRMOVE(tail + 1 + added, tail + 1);
 			STRCPY(head, fb.ff_name);
 			tail += added;
 		    }
@@ -2399,7 +2395,7 @@ clip_mch_set_selection( VimClipboard *cbd )
 		/* one or both of Win16SetClipboardData() failed. */
 		/* Technically we don't know why Win16SetClipboardData()
 		 * failed, but almost always it will be because there wasn't
-		 * enough DOS memory to bufer the data, so report that as the
+		 * enough DOS memory to buffer the data, so report that as the
 		 * problem.
 		 *
 		 * We report the error here (instead of in

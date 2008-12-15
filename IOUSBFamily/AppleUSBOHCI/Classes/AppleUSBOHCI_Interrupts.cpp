@@ -71,7 +71,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
         //setPowerState(1, self);
         _remote_wakeup_occurred = true; //needed by ::callPlatformFunction()
 		
-        USBLog(3,"AppleUSBOHCI[%p]::PollInterrupts -  ResumeDetected Interrupt on bus %ld - ensuring usability", this, _busNumber );
+        USBLog(3,"AppleUSBOHCI[%p]::PollInterrupts -  ResumeDetected Interrupt on bus %d - ensuring usability", this, (uint32_t)_busNumber );
 		EnsureUsability();
     }
 	
@@ -79,7 +79,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     //
     if (_unrecoverableErrorInterrupt & kOHCIHcInterrupt_UE)
     {
-        USBError(1,"USB Controller on bus %ld received an unrecoverable error interrupt.  Attempting to fix (%d,%d,%d)", _busNumber, _onCardBus, _pcCardEjected, isInactive() );
+        USBError(1,"USB Controller on bus %d received an unrecoverable error interrupt.  Attempting to fix (%d,%d,%d)", (uint32_t) _busNumber, _onCardBus, _pcCardEjected, isInactive() );
         _unrecoverableErrorInterrupt = 0;
 		
         _errors.unrecoverableError++;
@@ -95,7 +95,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 				// Let's do a SW reset to recover from this condition.
 				// We could make sure all OCHI registers and in-memory
 				// data structures are valid, too.
-				USBLog(2,"AppleUSBOHCI[%p]::PollInterrupts -  setting kOHCIHcCommandStatus_HCR to reset controller on bus %ld", this, _busNumber );
+				USBLog(2,"AppleUSBOHCI[%p]::PollInterrupts -  setting kOHCIHcCommandStatus_HCR to reset controller on bus %d", this, (uint32_t)_busNumber );
 				_pOHCIRegisters->hcCommandStatus = HostToUSBLong(kOHCIHcCommandStatus_HCR);
 				IODelay(10);				// 10 microsecond delay
 				_pOHCIRegisters->hcControl = HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase) | kOHCIHcControl_PLE);
@@ -104,7 +104,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 			{
 				// For NEC controllers, we unload all drivers
 				//
-				USBLog(2,"AppleUSBOHCI[%p]::PollInterrupts -  ignoring unrecoverable error on bus %ld", this, _busNumber );
+				USBLog(2,"AppleUSBOHCI[%p]::PollInterrupts -  ignoring unrecoverable error on bus %d", this, (uint32_t)_busNumber );
 #if 0
 				// this needs to be done using the power manager
 				if ( _rootHubDevice )
@@ -490,7 +490,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 				{
 					if (!IsValidPhysicalAddress( physicalAddress & kOHCIPageMask) )
 					{
-						USBLog(1, "Bad phys addr #1 0x%lx", physicalAddress);
+						USBLog(1, "Bad phys addr #1 0x%x", (uint32_t)physicalAddress);
 						pHCDoneTD = NULL;
 					}
 					else

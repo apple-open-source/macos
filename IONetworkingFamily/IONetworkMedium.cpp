@@ -181,7 +181,7 @@ const OSSymbol * IONetworkMedium::nameForType(IOMediumType type)
 {
     char  buffer[10];
 
-    sprintf(buffer, "%08lx", type);
+    snprintf(buffer, sizeof(buffer), "%08lx", type);
 
     // Caller must remember to free the OSSymbol!
     //

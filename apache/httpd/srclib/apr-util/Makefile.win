@@ -18,8 +18,8 @@
 #
 #     ARCH="Win32 Release"
 #     ARCH="Win32 Debug"
-#     ARCH="Win32 ReleaseNT"
-#     ARCH="Win32 DebugNT"
+#     ARCH="Win32 Release9x"
+#     ARCH="Win32 Debug9x"
 #     ARCH="x64 Release"
 #     ARCH="x64 Debug"
 #
@@ -28,9 +28,15 @@
 # is only expected to work if the defaults (../apr, ../apr-iconv 
 # and ../apr-util) are used, or if they are built with USEMAK=1.
 #
-#     APR_PATH=..\apr-1.2.12
-#     API_PATH=..\apr-iconv-1.2.1
-#     APU_PATH=..\apr-util-1.2.12
+#     APR_PATH=..\apr-1.3.0
+#     API_PATH=..\apr-iconv-1.3.0
+#     APU_PATH=..\apr-util-1.3.0
+#
+# Provide a DBD_LIST argument after configuring LIB and INCLUDE with
+# the SDK paths of the corresponding client support libraries.
+# Note that at this time, none of these are supported on win32, per say.
+#
+#     DBD_LIST="sqlite3 pgsql oracle mysql freetds"
 #
 # For example;
 #
@@ -54,7 +60,8 @@ USEDSW=1
 
 PREFIX=..\apr-dist
 
-!IF [$(COMSPEC) /c cl /nologo /? | find "x64" >NUL ] == 0
+!IF [$(COMSPEC) /c cl /nologo /? \
+	| $(SystemRoot)\System32\find.exe "x64" >NUL ] == 0
 ARCH=x64 Release
 !ELSE
 ARCH=Win32 Release
@@ -69,7 +76,7 @@ APU_PATH=..\apr-util
 !MESSAGE API_PATH    = $(API_PATH)  (apr-iconv)
 !MESSAGE APU_PATH    = $(APU_PATH)  (apr-util)
 !MESSAGE PREFIX      = $(PREFIX)  (install path)
-
+!MESSAGE DBD_LIST    = $(DBD_LIST)
 
 # Utility and Translation things, nothing here for the user
 #
@@ -85,18 +92,18 @@ ARCHPATH=Debug
 LIBSPATH=LibD
 ARCHOSPATH=Debug
 LIBSOSPATH=LibD
-!ELSEIF "$(ARCH)" == "Win32 ReleaseNT"
-SLNARCH=ReleaseNT|Win32
+!ELSEIF "$(ARCH)" == "Win32 Release9x"
+SLNARCH=Release9x|Win32
 ARCHPATH=Release
 LIBSPATH=LibR
-ARCHOSPATH=NT\Release
-LIBSOSPATH=NT\LibR
-!ELSEIF "$(ARCH)" == "Win32 DebugNT"
-SLNARCH=DebugNT|Win32
+ARCHOSPATH=9x\Release
+LIBSOSPATH=9x\LibR
+!ELSEIF "$(ARCH)" == "Win32 Debug9x"
+SLNARCH=Debug9x|Win32
 ARCHPATH=Debug
 LIBSPATH=LibD
-ARCHOSPATH=NT\Debug
-LIBSOSPATH=NT\LibD
+ARCHOSPATH=9x\Debug
+LIBSOSPATH=9x\LibD
 !ELSEIF "$(ARCH)" == "x64 Release"
 SLNARCH=Release|x64
 ARCHPATH=x64\Release
@@ -157,8 +164,8 @@ buildall:
 	 $(MAKE) $(MAKEOPT) -f apr.mak         CFG="apr - $(ARCH)" RECURSE=0 $(CTARGET)
 	 $(MAKE) $(MAKEOPT) -f libapr.mak      CFG="libapr - $(ARCH)" RECURSE=0 $(CTARGET)
 	 cd build
-	  $(MAKE) $(MAKEOPT) -f apr_app.mak     CFG="apr_app - $(ARCH)" RECURSE=0 $(CTARGET)
-	  $(MAKE) $(MAKEOPT) -f libapr_app.mak  CFG="libapr_app - $(ARCH)" RECURSE=0 $(CTARGET)
+	  $(MAKE) $(MAKEOPT) -f apr_app.mak    CFG="apr_app - $(ARCH)" RECURSE=0 $(CTARGET)
+	  $(MAKE) $(MAKEOPT) -f libapr_app.mak CFG="libapr_app - $(ARCH)" RECURSE=0 $(CTARGET)
 	 cd ..
 	cd $(API_PATH)
 	 $(MAKE) $(MAKEOPT) -f apriconv.mak    CFG="apriconv - $(ARCH)" RECURSE=0 $(CTARGET)
@@ -180,43 +187,70 @@ buildall:
 	cd ..\..\..
 	 $(MAKE) $(MAKEOPT) -f aprutil.mak     CFG="aprutil - $(ARCH)" RECURSE=0 $(CTARGET)
 	 $(MAKE) $(MAKEOPT) -f libaprutil.mak  CFG="libaprutil - $(ARCH)" RECURSE=0 $(CTARGET)
+        cd ldap
+	 $(MAKE) $(MAKEOPT) -f apr_ldap.mak    CFG="apr_ldap - $(ARCH)" RECURSE=0 $(CTARGET)
+        cd ..
+        cd dbd
+	  for %d in ($(DBD_LIST)) do \
+	    $(MAKE) $(MAKEOPT) -f apr_dbd_%d.mak CFG="apr_dbd_%d - $(ARCH)" RECURSE=0 $(CTARGET)
+        cd ..
 
 !ELSEIF $(USESLN) == 1
 
 clean:
+	-for %d in ($(DBD_LIST)) do \
+	  devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_dbd_%d
+	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_ldap
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libaprutil
-	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libapr_app
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project aprutil
-	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_app
 	cd $(API_PATH)
-	 $(MAKE) $(MAKEOPT) -f build\modules.mk.win clean \
+	  -$(MAKE) $(MAKEOPT) -f build\modules.mk.win clean \
 		BUILD_MODE="$(ARCH)" BIND_MODE=shared API_SOURCE=.
 	cd $(APU_PATH)
+	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libapriconv
+	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apriconv
+	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libapr_app
+	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_app
+	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libapr
+	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr
 
 buildall:
 	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_app
-	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project aprutil
 	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project libapr_app
+	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project aprutil
 	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project libaprutil
+	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_ldap
+	for %d in ($(DBD_LIST)) do \
+	  devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_dbd_%d
 
 !ELSE
 #	$(USEDSP) == 1
 
 clean:
+	-for %d in ($(DBD_LIST)) do \
+	  msdev aprutil.dsw /USEENV /MAKE "apr_dbd_%d - $(ARCH)" /CLEAN
+	-msdev aprutil.dsw /USEENV /MAKE "apr_ldap - $(ARCH)" /CLEAN
 	-msdev aprutil.dsw /USEENV /MAKE "libaprutil - $(ARCH)" /CLEAN
-	-msdev aprutil.dsw /USEENV /MAKE "libapr_app - $(ARCH)" /CLEAN
 	-msdev aprutil.dsw /USEENV /MAKE "aprutil - $(ARCH)" /CLEAN
-	-msdev aprutil.dsw /USEENV /MAKE "apr_app - $(ARCH)" /CLEAN
 	cd $(API_PATH)
 	 $(MAKE) $(MAKEOPT) -f build\modules.mk.win clean \
 		BUILD_MODE="$(ARCH)" BIND_MODE=shared API_SOURCE=.
 	cd $(APU_PATH)
+	-msdev aprutil.dsw /USEENV /MAKE "libapriconv - $(ARCH)" /CLEAN
+	-msdev aprutil.dsw /USEENV /MAKE "apriconv - $(ARCH)" /CLEAN
+	-msdev aprutil.dsw /USEENV /MAKE "libapr_app - $(ARCH)" /CLEAN
+	-msdev aprutil.dsw /USEENV /MAKE "apr_app - $(ARCH)" /CLEAN
+	-msdev aprutil.dsw /USEENV /MAKE "libapr - $(ARCH)" /CLEAN
+	-msdev aprutil.dsw /USEENV /MAKE "apr - $(ARCH)" /CLEAN
 
 buildall:
 	@msdev aprutil.dsw /USEENV /MAKE "apr_app - $(ARCH)"
 	@msdev aprutil.dsw /USEENV /MAKE "aprutil - $(ARCH)"
 	@msdev aprutil.dsw /USEENV /MAKE "libapr_app - $(ARCH)"
 	@msdev aprutil.dsw /USEENV /MAKE "libaprutil - $(ARCH)"
+	@msdev aprutil.dsw /USEENV /MAKE "apr_ldap - $(ARCH)"
+	@for %d in ($(DBD_LIST)) do \
+	  msdev aprutil.dsw /USEENV /MAKE "apr_dbd_%d - $(ARCH)"
 
 !ENDIF
 
@@ -271,6 +305,12 @@ install:
 	copy $(API_PATH)\$(ARCHPATH)\libapriconv-1.pdb	"$(PREFIX)\bin\" <.y
 	copy $(APU_PATH)\$(ARCHPATH)\libaprutil-1.dll	"$(PREFIX)\bin\" <.y
 	copy $(APU_PATH)\$(ARCHPATH)\libaprutil-1.pdb	"$(PREFIX)\bin\" <.y
+	copy $(APU_PATH)\ldap\$(ARCHPATH)\apr_ldap-1.dll "$(PREFIX)\bin\" <.y
+	copy $(APU_PATH)\ldap\$(ARCHPATH)\apr_ldap-1.pdb "$(PREFIX)\bin\" <.y
+	for %d in ($(DBD_LIST)) do ( \
+	  copy $(APU_PATH)\dbd\$(ARCHPATH)\apr_dbd_%d-1.dll "$(PREFIX)\bin\" <.y && \
+	  copy $(APU_PATH)\dbd\$(ARCHPATH)\apr_dbd_%d-1.pdb "$(PREFIX)\bin\" <.y \
+	)
 	xcopy $(API_PATH)\$(ARCHPATH)\iconv\*.so  "$(PREFIX)\bin\iconv\" /d < .a
 	xcopy $(API_PATH)\$(ARCHPATH)\iconv\*.pdb "$(PREFIX)\bin\iconv\" /d < .a
 	del .y

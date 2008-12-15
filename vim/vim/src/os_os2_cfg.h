@@ -90,7 +90,7 @@
 /* Define as the command at the end of signal handlers ("" or "return 0;").  */
 #define SIGRETURN
 
-/* Define if touuper/tolower only work on lower/upercase characters */
+/* Define if toupper/tolower only work on lower/uppercase characters */
 #undef BROKEN_TOUPPER
 
 /* Define if tgetstr() has a second argument that is (char *) */
@@ -182,6 +182,9 @@
 /* This is currently unused in vim: */
 /* Define if you have the ANSI C header files. */
 /* #undef STDC_HEADERS */
+
+/* added by David Sanders */
+#define HAVE_STDARG_H 1
 
 /* instead, we check a few STDC things ourselves */
 #define HAVE_STDLIB_H	1

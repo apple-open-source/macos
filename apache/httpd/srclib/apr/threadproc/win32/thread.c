@@ -15,7 +15,7 @@
  */
 
 #include "apr_private.h"
-#include "win32/apr_arch_threadproc.h"
+#include "apr_arch_threadproc.h"
 #include "apr_thread_proc.h"
 #include "apr_general.h"
 #include "apr_lib.h"
@@ -94,7 +94,6 @@ APR_DECLARE(apr_status_t) apr_thread_create(apr_thread_t **new,
         return APR_ENOMEM;
     }
 
-    (*new)->pool = pool;
     (*new)->data = data;
     (*new)->func = func;
     (*new)->td   = NULL;

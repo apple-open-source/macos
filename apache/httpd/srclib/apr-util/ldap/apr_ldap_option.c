@@ -23,6 +23,12 @@
 
 #include "apr.h"
 #include "apu.h"
+#include "apu_config.h"
+
+#if APU_DSO_BUILD
+#define APU_DSO_LDAP_BUILD
+#endif
+
 #include "apr_ldap.h"
 #include "apr_errno.h"
 #include "apr_pools.h"
@@ -42,11 +48,11 @@ static void option_set_tls(apr_pool_t *pool, LDAP *ldap, const void *invalue,
  * This function gets option values from a given LDAP session if
  * one was specified.
  */
-APU_DECLARE(int) apr_ldap_get_option(apr_pool_t *pool,
-                                     LDAP *ldap,
-                                     int option,
-                                     void *outvalue,
-                                     apr_ldap_err_t **result_err)
+APU_DECLARE_LDAP(int) apr_ldap_get_option(apr_pool_t *pool,
+                                          LDAP *ldap,
+                                          int option,
+                                          void *outvalue,
+                                          apr_ldap_err_t **result_err)
 {
     apr_ldap_err_t *result;
 
@@ -80,11 +86,11 @@ APU_DECLARE(int) apr_ldap_get_option(apr_pool_t *pool,
  * will try and apply legacy functions to achieve the same effect,
  * depending on the platform.
  */
-APU_DECLARE(int) apr_ldap_set_option(apr_pool_t *pool,
-                                     LDAP *ldap,
-                                     int option,
-                                     const void *invalue,
-                                     apr_ldap_err_t **result_err)
+APU_DECLARE_LDAP(int) apr_ldap_set_option(apr_pool_t *pool,
+                                          LDAP *ldap,
+                                          int option,
+                                          const void *invalue,
+                                          apr_ldap_err_t **result_err)
 {
     apr_ldap_err_t *result;
 
@@ -144,6 +150,44 @@ APU_DECLARE(int) apr_ldap_set_option(apr_pool_t *pool,
             result->reason = "LDAP: Could not set verify mode";
         }
         break;
+
+    case APR_LDAP_OPT_REFERRALS:
+        /* Setting this option is supported on at least TIVOLI_SDK and OpenLDAP. Folks
+         * who know the NOVELL, NETSCAPE, MOZILLA, and SOLARIS SDKs should note here if
+         * the SDK at least tolerates this option being set, or add an elif to handle
+         * special cases (i.e. different LDAP_OPT_X value).
+         */
+        result->rc = ldap_set_option(ldap, LDAP_OPT_REFERRALS, (void *)invalue);
+
+        if (result->rc != LDAP_SUCCESS) {
+            result->reason = "Unable to set LDAP_OPT_REFERRALS.";
+          return(result->rc);
+        }
+        break;
+
+    case APR_LDAP_OPT_REFHOPLIMIT:
+#if !defined(LDAP_OPT_REFHOPLIMIT) || APR_HAS_NOVELL_LDAPSDK
+        /* If the LDAP_OPT_REFHOPLIMIT symbol is missing, assume that the
+         * particular LDAP library has a reasonable default. So far certain
+         * versions of the OpenLDAP SDK miss this symbol (but default to 5),
+         * and the Microsoft SDK misses the symbol (the default is not known).
+         */
+        result->rc = LDAP_SUCCESS;
+#else
+        /* Setting this option is supported on at least TIVOLI_SDK. Folks who know
+         * the NOVELL, NETSCAPE, MOZILLA, and SOLARIS SDKs should note here if
+         * the SDK at least tolerates this option being set, or add an elif to handle
+         * special cases so an error isn't returned if there is a perfectly good
+         * default value that just can't be changed (like openLDAP).
+         */
+        result->rc = ldap_set_option(ldap, LDAP_OPT_REFHOPLIMIT, (void *)invalue);
+#endif
+
+        if (result->rc != LDAP_SUCCESS) {
+            result->reason = "Unable to set LDAP_OPT_REFHOPLIMIT.";
+          return(result->rc);
+        }
+        break;
         
     default:
         /* set the option specified using the native LDAP function */
@@ -179,9 +223,9 @@ APU_DECLARE(int) apr_ldap_set_option(apr_pool_t *pool,
 static void option_set_tls(apr_pool_t *pool, LDAP *ldap, const void *invalue,
                           apr_ldap_err_t *result)
 {
-    int tls = * (const int *)invalue;
-
 #if APR_HAS_LDAP_SSL /* compiled with ssl support */
+
+    int tls = * (const int *)invalue;
 
     /* Netscape/Mozilla/Solaris SDK */
 #if APR_HAS_NETSCAPE_LDAPSDK || APR_HAS_SOLARIS_LDAPSDK || APR_HAS_MOZILLA_LDAPSK
@@ -289,7 +333,8 @@ static void option_set_tls(apr_pool_t *pool, LDAP *ldap, const void *invalue,
     /* Microsoft SDK */
 #if APR_HAS_MICROSOFT_LDAPSDK
     if (tls == APR_LDAP_NONE) {
-        result->rc = ldap_set_option(ldap, LDAP_OPT_SSL, LDAP_OPT_OFF);
+        ULONG ul = (ULONG) LDAP_OPT_OFF;
+        result->rc = ldap_set_option(ldap, LDAP_OPT_SSL, &ul);
         if (result->rc != LDAP_SUCCESS) {
             result->reason = "LDAP: an attempt to set LDAP_OPT_SSL off "
                              "failed.";
@@ -297,7 +342,8 @@ static void option_set_tls(apr_pool_t *pool, LDAP *ldap, const void *invalue,
         }
     }
     else if (tls == APR_LDAP_SSL) {
-        result->rc = ldap_set_option(ldap, LDAP_OPT_SSL, LDAP_OPT_ON);
+        ULONG ul = (ULONG) LDAP_OPT_ON;
+        result->rc = ldap_set_option(ldap, LDAP_OPT_SSL, &ul);
         if (result->rc != LDAP_SUCCESS) {
             result->reason = "LDAP: an attempt to set LDAP_OPT_SSL on "
                              "failed.";
@@ -350,11 +396,10 @@ static void option_set_tls(apr_pool_t *pool, LDAP *ldap, const void *invalue,
 static void option_set_cert(apr_pool_t *pool, LDAP *ldap,
                            const void *invalue, apr_ldap_err_t *result)
 {
+#if APR_HAS_LDAP_SSL
     apr_array_header_t *certs = (apr_array_header_t *)invalue;
     struct apr_ldap_opt_tls_cert_t *ents = (struct apr_ldap_opt_tls_cert_t *)certs->elts;
     int i = 0;
-
-#if APR_HAS_LDAP_SSL
 
     /* Netscape/Mozilla/Solaris SDK */
 #if APR_HAS_NETSCAPE_LDAPSDK || APR_HAS_SOLARIS_LDAPSDK || APR_HAS_MOZILLA_LDAPSDK
@@ -551,6 +596,13 @@ static void option_set_cert(apr_pool_t *pool, LDAP *ldap,
                                          (void *)ents[i].path);
             result->msg = ldap_err2string(result->rc);
             break;
+#ifdef LDAP_OPT_X_TLS_CACERTDIR
+        case APR_LDAP_CA_TYPE_CACERTDIR_BASE64:
+            result->rc = ldap_set_option(ldap, LDAP_OPT_X_TLS_CACERTDIR,
+                                         (void *)ents[i].path);
+            result->msg = ldap_err2string(result->rc);
+            break;
+#endif
         default:
             result->rc = -1;
             result->reason = "LDAP: The OpenLDAP SDK only understands the "

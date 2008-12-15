@@ -160,6 +160,7 @@ public:
 	UInt8								startSplitFlags;
 	UInt8								completeSplitFlags;
 	bool								useBackPtr;
+	UInt8								isochINSSFrame;				// this is an Isoch IN transaction, which uFrame was the SS on?
 };
 
 #endif

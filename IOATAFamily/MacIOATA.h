@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,7 +26,6 @@
 
 #include <libkern/c++/OSObject.h>
 #include <IOKit/IOTypes.h>
-//#include <IOKit/ata/IOATAController.h>
 #include "IOATAController.h"
 #include <IOKit/ppc/IODBDMA.h>
 #include <IOKit/IOMemoryCursor.h>

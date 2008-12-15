@@ -75,6 +75,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#proxymatch">&lt;ProxyMatch&gt;</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#proxymaxforwards">ProxyMaxForwards</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#proxypass">ProxyPass</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#proxypassinterpolateenv">ProxyPassInterpolateEnv</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#proxypassmatch">ProxyPassMatch</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#proxypassreverse">ProxyPassReverse</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#proxypassreversecookiedomain">ProxyPassReverseCookieDomain</a></li>
@@ -91,7 +92,8 @@
 </ul>
 <h3>Topics</h3>
 <ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#forwardreverse">Forward and Reverse Proxies</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#forwardreverse">Forward Proxies and Reverse 
+       Proxies/Gateways</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#examples">Basic Examples</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#access">Controlling access to your proxy</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#startup">Slow Startup</a></li>
@@ -110,9 +112,10 @@
 </ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="forwardreverse" id="forwardreverse">Forward and Reverse Proxies</a></h2>
+<h2><a name="forwardreverse" id="forwardreverse">Forward Proxies and Reverse 
+       Proxies/Gateways</a></h2>
       <p>Apache can be configured in both a <dfn>forward</dfn> and
-      <dfn>reverse</dfn> proxy mode.</p>
+      <dfn>reverse</dfn> proxy (also known as <dfn>gateway</dfn>) mode.</p>
 
       <p>An ordinary <dfn>forward proxy</dfn> is an intermediate
       server that sits between the client and the <em>origin
@@ -135,13 +138,13 @@
       authorized clients can access the proxy before activating a
       forward proxy.</p>
 
-      <p>A <dfn>reverse proxy</dfn>, by contrast, appears to the
-      client just like an ordinary web server.  No special
-      configuration on the client is necessary.  The client makes
-      ordinary requests for content in the name-space of the reverse
-      proxy.  The reverse proxy then decides where to send those
-      requests, and returns the content as if it was itself the
-      origin.</p>
+      <p>A <dfn>reverse proxy</dfn> (or <dfn>gateway</dfn>), by
+      contrast, appears to the client just like an ordinary web
+      server.  No special configuration on the client is necessary.
+      The client makes ordinary requests for content in the name-space
+      of the reverse proxy.  The reverse proxy then decides where to
+      send those requests, and returns the content as if it was itself
+      the origin.</p>
 
       <p>A typical usage of a reverse proxy is to provide Internet
       users access to a server that is behind a firewall.  Reverse
@@ -381,8 +384,8 @@ directly</td></tr>
     <code class="directive"><a href="#proxyremote">ProxyRemote</a></code> proxy server(s).</p>
 
     <div class="example"><h3>Example</h3><p><code>
-      ProxyRemote  *  http://firewall.mycompany.com:81<br />
-      NoProxy         .mycompany.com 192.168.112.0/21
+      ProxyRemote  *  http://firewall.example.com:81<br />
+      NoProxy         .example.com 192.168.112.0/21
     </code></p></div>
 
     <p>The <var>host</var> arguments to the <code class="directive">NoProxy</code>
@@ -408,8 +411,8 @@ directly</td></tr>
     <div class="note"><h3>Note</h3>
       <p>Domain name comparisons are done without regard to the case, and
       <var>Domain</var>s are always assumed to be anchored in the root of the
-      DNS tree, therefore two domains <code>.MyDomain.com</code> and
-      <code>.mydomain.com.</code> (note the trailing period) are considered
+      DNS tree, therefore two domains <code>.ExAmple.com</code> and
+      <code>.example.com.</code> (note the trailing period) are considered
       equal. Since a domain comparison does not involve a DNS lookup, it is much
       more efficient than subnet comparison.</p>
     </div></dd>
@@ -466,7 +469,7 @@ directly</td></tr>
     of hosts with different <var><a href="#ipaddr">IPAddr</a></var>s).</p>
 
     <div class="example"><h3>Examples</h3><p><code>
-      prep.ai.mit.edu<br />
+      prep.ai.example.com<br />
       www.apache.org
     </code></p></div>
 
@@ -477,8 +480,8 @@ directly</td></tr>
       link.</p>
       <p><var>Hostname</var> comparisons are done without regard to the case,
       and <var>Hostname</var>s are always assumed to be anchored in the root
-      of the DNS tree, therefore two hosts <code>WWW.MyDomain.com</code>
-      and <code>www.mydomain.com.</code> (note the trailing period) are
+      of the DNS tree, therefore two hosts <code>WWW.ExAmple.com</code>
+      and <code>www.example.com.</code> (note the trailing period) are
       considered equal.</p>
      </div></dd>
     </dl>
@@ -616,9 +619,9 @@ proxied</td></tr>
     will be generated.</p>
 
     <div class="example"><h3>Example</h3><p><code>
-      ProxyRemote  *  http://firewall.mycompany.com:81<br />
-      NoProxy         .mycompany.com 192.168.112.0/21<br />
-      ProxyDomain     .mycompany.com
+      ProxyRemote  *  http://firewall.example.com:81<br />
+      NoProxy         .example.com 192.168.112.0/21<br />
+      ProxyDomain     .example.com
     </code></p></div>
 
 </div>
@@ -728,17 +731,19 @@ through</td></tr>
 <div class="directive-section"><h2><a name="ProxyPass" id="ProxyPass">ProxyPass</a> <a name="proxypass" id="proxypass">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Maps remote servers into the local server URL-space</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>ProxyPass [<var>path</var>] !|<var>url</var> [<var>key=value</var> <var>key=value</var> ...]] [nocanon]</code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>ProxyPass [<var>path</var>] !|<var>url</var> [<var>key=value</var>
+<var>key=value</var> ...]] [nocanon] [interpolate]</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
 </table>
-    <p>This directive allows remote servers to be mapped into the space of
-    the local server; the local server does not act as a proxy in the
-    conventional sense, but appears to be a mirror of the remote
-    server. <var>path</var> is the name of a local virtual path; <var>url</var>
-    is a partial URL for the remote server and cannot include a query
-    string.</p>
+    <p>This directive allows remote servers to be mapped into the
+    space of the local server; the local server does not act as a
+    proxy in the conventional sense, but appears to be a mirror of the
+    remote server. The local server is often called a <dfn>reverse
+    proxy</dfn> or <dfn>gateway</dfn>. The <var>path</var> is the name of
+    a local virtual path; <var>url</var> is a partial URL for the
+    remote server and cannot include a query string.</p>
 
     <div class="warning">The <code class="directive"><a href="#proxyrequests">ProxyRequests</a></code> directive should
     usually be set <strong>off</strong> when using
@@ -754,6 +759,14 @@ through</td></tr>
     <p>will cause a local request for
     <code>http://example.com/mirror/foo/bar</code> to be internally converted
     into a proxy request to <code>http://backend.example.com/bar</code>.</p>
+
+    <div class="warning">
+    <p>If the first argument ends with a trailing <strong>/</strong>, the second
+       argument should also end with a trailing <strong>/</strong> and vice
+       versa. Otherwise the resulting requests to the backend may miss some
+       needed slashes and do not deliver the expected results.
+    </p>
+    </div>
 
     <p>The <code>!</code> directive is useful in situations where you don't want
     to reverse-proxy a subdirectory, <em>e.g.</em></p>
@@ -797,7 +810,7 @@ through</td></tr>
         <th>Description</th></tr>
     <tr><td>min</td>
         <td>0</td>
-        <td>Minumum number of connections that will always
+        <td>Minimum number of connections that will always
             be open to the backend server.</td></tr>
     <tr><td>max</td>
         <td>1...n</td>
@@ -817,9 +830,20 @@ through</td></tr>
     <tr><td>acquire</td>
         <td>-</td>
         <td>If set this will be the maximum time to wait for a free
-    connection in the connection pool. If there are no free connections
-    in the pool the Apache will return <code>SERVER_BUSY</code> status to
-    the client.
+    connection in the connection pool, in milliseconds. If there are no free
+    connections in the pool the Apache will return <code>SERVER_BUSY</code>
+    status to the client.
+    </td></tr>
+    <tr><td>disablereuse</td>
+        <td>Off</td>
+        <td>This parameter should be used when you want to force mod_proxy
+    to immediately close a connection to the backend after being used, and
+    thus, disable its persistent connection and pool for that backend.
+    This helps in various situations where a firewall between Apache and
+    the backend server (regardless of protocol) tends to silently
+    drop connections or when backends themselves may be under round-
+    robin DNS. To disable connection pooling reuse,
+    set this property value to <code>On</code>. 
     </td></tr>
     <tr><td>flushpackets</td>
         <td>off</td>
@@ -966,7 +990,7 @@ through</td></tr>
     <p>A sample balancer setup</p>
     <div class="example"><p><code>
       ProxyPass /special-area http://special.example.com/ smax=5 max=10<br />
-      ProxyPass / balancer://mycluster stickysession=JSESSIONID|jsessionid nofailover=On<br />
+      ProxyPass / balancer://mycluster/ stickysession=JSESSIONID|jsessionid nofailover=On<br />
       &lt;Proxy balancer://mycluster&gt;<br />
       <span class="indent">
         BalancerMember http://1.2.3.4:8009<br />
@@ -1000,12 +1024,49 @@ through</td></tr>
     removes the normal limited protection against URL-based attacks
     provided by the proxy.</p>
 
+    <p>The optional <var>interpolate</var> keyword (available in
+    httpd 2.2.9 and later), in combination with
+    <code class="directive">ProxyPassInterpolateEnv</code> causes the ProxyPass
+    to interpolate environment variables, using the syntax
+    <var>${VARNAME}</var>.  Note that many of the standard CGI-derived
+    environment variables will not exist when this interpolation happens,
+    so you may still have to resort to <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>
+    for complex rules.</p>
+
     <p>When used inside a <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code> section, the first argument is omitted and the local
     directory is obtained from the <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>.</p>
 
     <p>If you require a more flexible reverse-proxy configuration, see the
     <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> directive with the
     <code>[P]</code> flag.</p>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="ProxyPassInterpolateEnv" id="ProxyPassInterpolateEnv">ProxyPassInterpolateEnv</a> <a name="proxypassinterpolateenv" id="proxypassinterpolateenv">Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Enable Environment Variable interpolation in Reverse Proxy configurations</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>ProxyPassInterpolateEnv On|Off</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>ProxyPassInterpolateEnv Off</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in httpd 2.2.9 and later</td></tr>
+</table>
+    <p>This directive, together with the <var>interpolate</var> argument to
+    <code class="directive">ProxyPass</code>, <code class="directive">ProxyPassReverse</code>,
+    <code class="directive">ProxyPassReverseCookieDomain</code> and
+    <code class="directive">ProxyPassReverseCookiePath</code>
+    enables reverse proxies to be dynamically
+    configured using environment variables, which may be set by
+    another module such as <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>.
+    It affects the <code class="directive">ProxyPass</code>,
+    <code class="directive">ProxyPassReverse</code>,
+    <code class="directive">ProxyPassReverseCookieDomain</code>, and
+    <code class="directive">ProxyPassReverseCookiePath</code> directives,
+    and causes them to substitute the value of an environment
+    variable <code>varname</code> for the string <code>${varname}</code>
+    in configuration directives.</p>
+    <p>Keep this turned off (for server performance) unless you need it!</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1045,16 +1106,18 @@ through</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Adjusts the URL in HTTP response headers sent from a reverse
 proxied server</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>ProxyPassReverse [<var>path</var>] <var>url</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>ProxyPassReverse [<var>path</var>] <var>url</var>
+[<var>interpolate</var>]</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
 </table>
     <p>This directive lets Apache adjust the URL in the <code>Location</code>,
-    <code>Content-Location</code> and <code>URI</code> headers on HTTP redirect
-    responses. This is essential when Apache is used as a reverse proxy to avoid
-    by-passing the reverse proxy because of HTTP redirects on the backend
-    servers which stay behind the reverse proxy.</p>
+    <code>Content-Location</code> and <code>URI</code> headers on HTTP
+    redirect responses. This is essential when Apache is used as a
+    reverse proxy (or gateway) to avoid by-passing the reverse proxy
+    because of HTTP redirects on the backend servers which stay behind
+    the reverse proxy.</p>
 
     <p>Only the HTTP response headers specifically mentioned above
     will be rewritten.  Apache will not rewrite other response
@@ -1094,6 +1157,12 @@ proxied server</td></tr>
     (<code>RewriteRule ...  [P]</code>) from <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>
     because it doesn't depend on a corresponding <code class="directive"><a href="#proxypass">ProxyPass</a></code> directive.</p>
 
+    <p>The optional <var>interpolate</var> keyword (available in
+    httpd 2.2.9 and later), used together with
+    <code class="directive">ProxyPassInterpolateEnv</code>, enables interpolation
+    of environment variables specified using the format <var>${VARNAME}</var>.
+    </p>
+
     <p>When used inside a <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code> section, the first argument is omitted and the local
     directory is obtained from the <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code>.</p>
 
@@ -1103,7 +1172,8 @@ proxied server</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Adjusts the Domain string in Set-Cookie headers from a reverse-
 proxied server</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>ProxyPassReverseCookieDomain <var>internal-domain</var> <var>public-domain</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>ProxyPassReverseCookieDomain <var>internal-domain</var>
+<var>public-domain</var> [<var>interpolate</var>]</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
@@ -1119,7 +1189,8 @@ string in <code>Set-Cookie</code> headers.</p>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Adjusts the Path string in Set-Cookie headers from a reverse-
 proxied server</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>ProxyPassReverseCookiePath <var>internal-path</var> <var>public-path</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>ProxyPassReverseCookiePath <var>internal-path</var>
+<var>public-path</var> [<var>interpolate</var>]</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_proxy</td></tr>
@@ -1199,9 +1270,9 @@ connections</td></tr>
     this module.</p>
 
     <div class="example"><h3>Example</h3><p><code>
-      ProxyRemote http://goodguys.com/ http://mirrorguys.com:8000<br />
-      ProxyRemote * http://cleversite.com<br />
-      ProxyRemote ftp http://ftpproxy.mydomain.com:8080
+      ProxyRemote http://goodguys.example.com/ http://mirrorguys.example.com:8000<br />
+      ProxyRemote * http://cleverproxy.localdomain<br />
+      ProxyRemote ftp http://ftpproxy.mydomain:8080
     </code></p></div>
 
     <p>In the last example, the proxy will forward FTP requests, encapsulated
@@ -1243,7 +1314,8 @@ expressions</td></tr>
     server. (Setting ProxyRequests to <code>Off</code> does not disable use of
     the <code class="directive"><a href="#proxypass">ProxyPass</a></code> directive.)</p>
 
-    <p>In a typical reverse proxy configuration, this option should be set to
+    <p>In a typical reverse proxy or gateway configuration, this
+    option should be set to
     <code>Off</code>.</p>
 
     <p>In order to get the functionality of proxying HTTP or FTP sites, you
@@ -1255,6 +1327,10 @@ expressions</td></tr>
       both to your network and to the Internet at large.</p>
     </div>
 
+<h3>See also</h3>
+<ul>
+<li><a href="#forwardreverse">Forward and Reverse Proxies/Gateways</a></li>
+</ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="ProxySet" id="ProxySet">ProxySet</a> <a name="proxyset" id="proxyset">Directive</a></h2>
@@ -1387,6 +1463,6 @@ header for proxied requests</td></tr>
 <p><span>Available Languages: </span><a href="../en/mod/mod_proxy.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../ja/mod/mod_proxy.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

@@ -377,6 +377,7 @@ repair_delayed_set_stat (char const *dir,
 	  quotearg_colon (dir)));
 }
 
+#if HAVE_QUARANTINE
 void
 apply_qtn(int fd)
 {
@@ -416,6 +417,10 @@ apply_qtn_to_path(char *path)
 		}
 	}
 }
+#else
+void apply_qtn(int fd) {}
+void apply_qtn_to_path(char *path) {}
+#endif
 
 /* After a file/link/symlink/directory creation has failed, see if
    it's because some required directory was not present, and if so,

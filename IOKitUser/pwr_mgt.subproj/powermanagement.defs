@@ -44,23 +44,21 @@ routine io_pm_set_active_profile(
 routine io_pm_assertion_create(
             server      : mach_port_t;
         in task_t       : mach_port_t;
+        in  name        : string_t;
         in  profile     : string_t;
         in  level       : int;
         out assertion_id: int;
         out return_code : int);
         
+routine io_pm_assertion_settimeout(
+            server      : mach_port_t;
+        in  task_t      : mach_port_t;
+        in  assertion_id: int;
+        in  interval    : int;
+        out return_code : int);
+
 routine io_pm_assertion_release(
             server      : mach_port_t;
         in  task_t      : mach_port_t;
         in  assertion_id: int;
         out return_code : int);
-
-routine io_pm_copy_active_assertions(
-            server      : mach_port_t;
-        out profiles    : pointer_t, dealloc);
-
-routine io_pm_copy_assertions_status(
-            server      : mach_port_t;
-        out profiles    : pointer_t, dealloc);
-
-/* vim: set ft=c: */

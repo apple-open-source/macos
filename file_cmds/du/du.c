@@ -138,7 +138,7 @@ main(int argc, char *argv[])
 	depth = INT_MAX;
 	SLIST_INIT(&ignores);
 
-	while ((ch = getopt(argc, argv, "HI:LPasd:chkmrx")) != -1)
+	while ((ch = getopt(argc, argv, "HI:LPasd:cghkmrx")) != -1)
 		switch (ch) {
 			case 'H':
 				Lflag = Pflag = 0;
@@ -185,6 +185,10 @@ main(int argc, char *argv[])
 			case 'm':
 				hflag = 0;
 				putenv("BLOCKSIZE=1048576");
+				break;
+			case 'g':
+				hflag = 0;
+				putenv("BLOCKSIZE=1g");
 				break;
 			case 'r':		 /* Compatibility. */
 				break;
@@ -537,7 +541,7 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr,
-		"usage: du [-H | -L | -P] [-a | -s | -d depth] [-c] [-h | -k | -m] [-x] [-I mask] [file ...]\n");
+		"usage: du [-H | -L | -P] [-a | -s | -d depth] [-c] [-h | -k | -m | -g] [-x] [-I mask] [file ...]\n");
 	exit(EX_USAGE);
 }
 

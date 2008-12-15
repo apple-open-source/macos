@@ -31,20 +31,18 @@
 #define _PMSetActive_h_
  
 __private_extern__ void PMAssertions_prime(void);
+__private_extern__ void cleanupAssertions(mach_port_t dead_port);
 
-/*! @function _IOPMSetActivePowerProfilesRequiresRoot
-    @abstract Do not use. Internal power management helper only.
-*/
-__private_extern__ IOReturn 
-_IOPMSetActivePowerProfilesRequiresRoot(CFDictionaryRef which_profile, int uid, int gid);
-
-
-/*! @function _IOPMAssertionCreateRequiresRoot
-    @abstract Do not use. Internal power management helper only.
-*/
-__private_extern__ IOReturn 
-_IOPMAssertionCreateRequiresRoot(
-            mach_port_t task, CFStringRef assertionString,
-            int level, int *assertion_id);
+__private_extern__ IOReturn _IOPMSetActivePowerProfilesRequiresRoot(
+                                CFDictionaryRef which_profile, 
+                                int uid, 
+                                int gid);
+                        
+__private_extern__ IOReturn _IOPMAssertionCreateRequiresRoot(
+                                mach_port_t task, 
+                                char *nameCStr,
+                                char *assertionCStr,
+                                int level, 
+                                int *assertion_id);
 
 #endif _PSLowPower_h_

@@ -13,6 +13,8 @@
 # OUTDIR
 #   the library path of the libraries, and also the path within test/
 #   where all of the tests for that library will be built
+# APROUTDIR
+#   The library path of apr (if different from OUTDIR)
 # APR_PATH
 #   relative or absolute path to locate apr libs and includes
 # API_PATH
@@ -22,8 +24,6 @@
 MODEL=dynamic
 !ENDIF
 
-APROUTDIR=OUTDIR
-
 !IFNDEF OUTDIR
 !IF "$(MODEL)" == "static"
 OUTDIR=LibR
@@ -31,7 +31,8 @@ OUTDIR=LibR
 OUTDIR=Release
 !ENDIF
 
-!IF [$(COMSPEC) /c cl /nologo /? | find "x64" >NUL ] == 0
+!IF [$(COMSPEC) /c cl /nologo /? \
+	| $(SystemRoot)\System32\find.exe "x64" >NUL ] == 0
 OUTDIR=x64\$(OUTDIR)
 !ENDIF
 !ENDIF
@@ -57,18 +58,20 @@ ALL_TESTS = $(INTDIR)\teststrmatch.obj $(INTDIR)\testuri.obj \
 	$(INTDIR)\testbuckets.obj $(INTDIR)\testpass.obj \
 	$(INTDIR)\testmd4.obj $(INTDIR)\testmd5.obj \
 	$(INTDIR)\testldap.obj $(INTDIR)\testdbd.obj \
-	$(OUTDIR)\testdbm.obj $(OUTDIR)\testreslist.obj \
-	$(OUTDIR)\testxml.obj $(OUTDIR)\testqueue.obj \
-	$(OUTDIR)\testrmm.obj $(OUTDIR)\testxlate.obj \
-	$(OUTDIR)\testdate.obj
+	$(INTDIR)\testdbm.obj $(INTDIR)\testreslist.obj \
+	$(INTDIR)\testxml.obj $(INTDIR)\testqueue.obj \
+	$(INTDIR)\testrmm.obj $(INTDIR)\testxlate.obj \
+	$(INTDIR)\testdate.obj $(INTDIR)\testmemcache.obj
 
 CLEAN_DATA = manyfile.bin testfile.txt data\sqlite*.db
 
 CLEAN_BUILDDIRS = Debug Release LibD LibR 9x x64
 
-PROGRAMS = $(OUTDIR)\testall.exe
+PROGRAMS = \
+	$(OUTDIR)\testall.exe
 
-OTHER_PROGRAMS = $(OUTDIR)\dbd.exe
+OTHER_PROGRAMS = \
+	$(OUTDIR)\dbd.exe
 
 # bring in rules.mk for standard functionality
 ALL: $(PROGRAMS) $(OTHER_PROGRAMS)
@@ -84,13 +87,11 @@ APROUTDIR=$(OUTDIR)
 !IF "$(MODEL)" == "static"
 PROGRAM_DEPENDENCIES = \
 	$(APR_PATH)\$(APROUTDIR)\apr-1.lib \
-	$(API_PATH)\$(OUTDIR)\apriconv-1.lib \
 	..\$(OUTDIR)\aprutil-1.lib 
 STATIC_CFLAGS = /D APR_DECLARE_STATIC /D APU_DECLARE_STATIC
 !ELSE
 PROGRAM_DEPENDENCIES = \
 	$(APR_PATH)\$(APROUTDIR)\libapr-1.lib \
-	$(API_PATH)\$(OUTDIR)\libapriconv-1.lib \
 	..\$(OUTDIR)\libaprutil-1.lib 
 STATIC_CFLAGS = 
 !ENDIF
@@ -147,7 +148,9 @@ cleanall:
 	    @if EXIST %d\. rmdir /s /q %d
 
 
-PATH=$(OUTDIR);..\$(OUTDIR);$(API_PATH)\$(OUTDIR);$(APR_PATH)\$(APROUTDIR);$(PATH)
+!IF "$(MODEL)" != "static"
+PATH=$(OUTDIR);..\$(OUTDIR);..\ldap\$(OUTDIR);..\dbd\$(OUTDIR);$(API_PATH)\$(OUTDIR);$(APR_PATH)\$(APROUTDIR);$(PATH)
+!ENDIF
 APR_ICONV1_PATH=$(API_PATH)\$(OUTDIR)\iconv
 
 check: $(PROGRAMS) $(OTHER_PROGRAMS)
@@ -156,7 +159,7 @@ check: $(PROGRAMS) $(OTHER_PROGRAMS)
 	)
 	echo Testing dbd sqlite2 && $(OUTDIR)\dbd.exe sqlite2 || echo Failed
 	echo Testing dbd sqlite3 && $(OUTDIR)\dbd.exe sqlite3 || echo Failed
-	
+
 checkall: check
 
 # DO NOT REMOVE

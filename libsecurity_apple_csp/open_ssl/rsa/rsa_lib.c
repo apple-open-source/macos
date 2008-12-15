@@ -80,6 +80,7 @@
 #include <openssl/lhash.h>
 #include <openssl/bn.h>
 #include <openssl/rsa.h>
+#include <pthread.h>
 
 const char *RSA_version="RSA" OPENSSL_VERSION_PTEXT;
 
@@ -159,7 +160,12 @@ RSA *RSA_new_method(const RSA_METHOD *meth)
 	ret->_method_mod_n=NULL;
 	ret->_method_mod_p=NULL;
 	ret->_method_mod_q=NULL;
-	ret->blinding=NULL;
+	
+	// make blinding per thread
+	ret->num_blinding_threads = 0;
+	pthread_mutex_init(&ret->blinding_mutex, NULL);
+	ret->blinding_array = NULL;
+	
 	ret->bignum_data=NULL;
 	ret->flags=ret->meth->flags;
 	if ((ret->meth->init != NULL) && !ret->meth->init(ret))
@@ -204,7 +210,7 @@ void RSA_free(RSA *r)
 	if (r->dmp1 != NULL) BN_clear_free(r->dmp1);
 	if (r->dmq1 != NULL) BN_clear_free(r->dmq1);
 	if (r->iqmp != NULL) BN_clear_free(r->iqmp);
-	if (r->blinding != NULL) BN_BLINDING_free(r->blinding);
+	RSA_free_thread_blinding_ptr(r);
 	if (r->bignum_data != NULL) Free_locked(r->bignum_data);
 	Free(r);
 	}
@@ -263,11 +269,7 @@ int RSA_flags(RSA *r)
 
 void RSA_blinding_off(RSA *rsa)
 	{
-	if (rsa->blinding != NULL)
-		{
-		BN_BLINDING_free(rsa->blinding);
-		rsa->blinding=NULL;
-		}
+	RSA_free_thread_blinding_ptr(rsa);
 	rsa->flags&= ~RSA_FLAG_BLINDING;
 	}
 
@@ -284,8 +286,7 @@ int RSA_blinding_on(RSA *rsa, BN_CTX *p_ctx)
 	else
 		ctx=p_ctx;
 
-	if (rsa->blinding != NULL)
-		BN_BLINDING_free(rsa->blinding);
+	RSA_free_thread_blinding_ptr(rsa);
 
 	BN_CTX_start(ctx);
 	A = BN_CTX_get(ctx);
@@ -294,7 +295,7 @@ int RSA_blinding_on(RSA *rsa, BN_CTX *p_ctx)
 
 	if (!rsa->meth->bn_mod_exp(A,A,rsa->e,rsa->n,ctx,rsa->_method_mod_n))
 	    goto err;
-	rsa->blinding=BN_BLINDING_new(A,Ai,rsa->n);
+	RSA_set_thread_blinding_ptr(rsa, BN_BLINDING_new(A,Ai,rsa->n));
 	rsa->flags|=RSA_FLAG_BLINDING;
 	BN_free(Ai);
 	ret=1;
@@ -349,3 +350,104 @@ int RSA_memory_lock(RSA *r)
 	return(1);
 	}
 
+struct BN_BLINDING_STRUCT
+{
+	pthread_t thread_ID;
+	BN_BLINDING* blinding;
+};
+
+
+
+static struct BN_BLINDING_STRUCT* RSA_get_blinding_struct(RSA *r)
+{
+	// look for storage for the current thread
+	pthread_t current = pthread_self();
+	
+	int i;
+	for (i = 0; i < r->num_blinding_threads; ++i)
+	{
+		if (pthread_equal(current, r->blinding_array[i].thread_ID)) // do we have storage for this thread?
+		{
+			return &(r->blinding_array[i]);
+			break;
+		}
+	}
+	
+	return NULL;
+}
+
+typedef struct BN_BLINDING_STRUCT BN_BLINDING_STRUCT;
+
+
+BN_BLINDING* RSA_get_thread_blinding_ptr(RSA *r)
+{
+	// lock down the structure
+	pthread_mutex_lock(&r->blinding_mutex);
+	
+	BN_BLINDING* result = NULL;
+	BN_BLINDING_STRUCT *st = RSA_get_blinding_struct(r);
+	if (st != NULL)
+	{
+		result = st->blinding;
+	}
+	
+	pthread_mutex_unlock(&r->blinding_mutex);
+	
+	return result;
+}
+
+
+
+void RSA_set_thread_blinding_ptr(RSA *r, BN_BLINDING* bnb)
+{
+	// lock down the structure
+	pthread_mutex_lock(&r->blinding_mutex);
+	
+	// see if there is an existing record for this thread
+	BN_BLINDING_STRUCT *st = RSA_get_blinding_struct(r);
+	if (st == NULL)
+	{
+		// add a new blinding struct
+		int last_member = r->num_blinding_threads;
+		r->num_blinding_threads += 1;
+		r->blinding_array = (BN_BLINDING_STRUCT*) realloc(r->blinding_array, sizeof(BN_BLINDING_STRUCT) * r->num_blinding_threads);
+		st = &r->blinding_array[last_member];
+	}
+	
+	st->thread_ID = pthread_self();
+	st->blinding = bnb;
+	
+	pthread_mutex_unlock(&r->blinding_mutex);
+}
+
+
+
+void RSA_free_thread_blinding_ptr(RSA *r)
+{
+	// look for storage for the current thread
+	pthread_t current = pthread_self();
+	
+	int i;
+	for (i = 0; i < r->num_blinding_threads; ++i)
+	{
+		if (pthread_equal(current, r->blinding_array[i].thread_ID)) // do we have storage for this thread?
+		{
+			BN_BLINDING_free(r->blinding_array[i].blinding);
+			
+			int new_count = r->num_blinding_threads - 1;
+			if (new_count == 0)
+			{
+				// no more thread storage, just blow our array away
+				free(r->blinding_array);
+				r->blinding_array = NULL;
+				r->num_blinding_threads = 0;
+			}
+			else
+			{
+				r->blinding_array[i] = r->blinding_array[new_count];
+				r->num_blinding_threads = new_count;
+			}
+			break;
+		}
+	}
+}

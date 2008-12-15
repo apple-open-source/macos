@@ -182,7 +182,7 @@ move_s choose_book_move (void) {
    char force_move = FALSE;
    int ic;
 
-   srand(time(0));
+   srand((unsigned)time(0));
 
    if (!book_ply)
      last_book_move = 0;

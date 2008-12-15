@@ -166,7 +166,7 @@ update_topline()
 
 #ifdef FEAT_MOUSE
     /* When dragging with the mouse, don't scroll that quickly */
-    if (mouse_dragging)
+    if (mouse_dragging > 0)
 	p_so = mouse_dragging - 1;
 #endif
 
@@ -876,7 +876,7 @@ validate_cheight()
 }
 
 /*
- * validate w_wcol and w_virtcol only.	Only correct when 'wrap' on!
+ * Validate w_wcol and w_virtcol only.
  */
     void
 validate_cursor_col()
@@ -892,13 +892,19 @@ validate_cursor_col()
 	col += off;
 
 	/* long line wrapping, adjust curwin->w_wrow */
-	if (curwin->w_p_wrap && col >= (colnr_T)W_WIDTH(curwin)
+	if (curwin->w_p_wrap
+		&& col >= (colnr_T)W_WIDTH(curwin)
 		&& W_WIDTH(curwin) - off + curwin_col_off2() > 0)
 	{
 	    col -= W_WIDTH(curwin);
 	    col = col % (W_WIDTH(curwin) - off + curwin_col_off2());
 	}
+	if (col > (int)curwin->w_leftcol)
+	    col -= curwin->w_leftcol;
+	else
+	    col = 0;
 	curwin->w_wcol = col;
+
 	curwin->w_valid |= VALID_WCOL;
     }
 }
@@ -1995,7 +2001,7 @@ scroll_cursor_bot(min_scroll, set_topbot)
 	if ((((scrolled <= 0 || scrolled >= min_scroll)
 			&& extra >= (
 #ifdef FEAT_MOUSE
-			    mouse_dragging ? mouse_dragging - 1 :
+			    mouse_dragging > 0 ? mouse_dragging - 1 :
 #endif
 			    p_so))
 		    || boff.lnum + 1 > curbuf->b_ml.ml_line_count)
@@ -2209,7 +2215,7 @@ cursor_correct()
     above_wanted = p_so;
     below_wanted = p_so;
 #ifdef FEAT_MOUSE
-    if (mouse_dragging)
+    if (mouse_dragging > 0)
     {
 	above_wanted = mouse_dragging - 1;
 	below_wanted = mouse_dragging - 1;
@@ -2225,7 +2231,7 @@ cursor_correct()
     validate_botline();
     if (curwin->w_botline == curbuf->b_ml.ml_line_count + 1
 #ifdef FEAT_MOUSE
-	    && !mouse_dragging
+	    && mouse_dragging == 0
 #endif
 	    )
     {

@@ -15,6 +15,10 @@
 
 #include "vim.h"
 
+#if defined(FEAT_FLOAT) && defined(HAVE_MATH_H)
+# include <math.h>
+#endif
+
 static int other_sourcing_name __ARGS((void));
 static char_u *get_emsg_source __ARGS((void));
 static char_u *get_emsg_lnum __ARGS((void));
@@ -53,7 +57,6 @@ struct msg_hist
 static struct msg_hist *first_msg_hist = NULL;
 static struct msg_hist *last_msg_hist = NULL;
 static int msg_hist_len = 0;
-static int msg_hist_off = FALSE;	/* don't add messages to history */
 
 /*
  * When writing messages to the screen, there are many different situations.
@@ -315,7 +318,7 @@ trunc_string(s, buf, room)
 
     /* Set the middle and copy the last part. */
     mch_memmove(buf + e, "...", (size_t)3);
-    mch_memmove(buf + e + 3, s + i, STRLEN(s + i) + 1);
+    STRMOVE(buf + e + 3, s + i);
 }
 
 /*
@@ -604,7 +607,7 @@ emsg(s)
 #endif
 
 	/*
-	 * When using ":silent! cmd" ignore error messsages.
+	 * When using ":silent! cmd" ignore error messages.
 	 * But do write it to the redirection file.
 	 */
 	if (emsg_silent != 0)
@@ -804,6 +807,8 @@ delete_first_msg()
 	return FAIL;
     p = first_msg_hist;
     first_msg_hist = p->next;
+    if (first_msg_hist == NULL)
+        last_msg_hist = NULL;  /* history is empty */
     vim_free(p->msg);
     vim_free(p);
     --msg_hist_len;
@@ -829,7 +834,7 @@ ex_messages(eap)
 		_("Messages maintainer: Bram Moolenaar <Bram@vim.org>"),
 		hl_attr(HLF_T));
 
-    for (p = first_msg_hist; p != NULL; p = p->next)
+    for (p = first_msg_hist; p != NULL && !got_int; p = p->next)
 	if (p->msg != NULL)
 	    msg_attr(p->msg, p->attr);
 
@@ -945,6 +950,7 @@ wait_return(redraw)
 		c = K_IGNORE;
 	    }
 #endif
+
 	    /*
 	     * Allow scrolling back in the messages.
 	     * Also accept scroll-down commands when messages fill the screen,
@@ -1131,6 +1137,17 @@ msg_start()
 
     vim_free(keep_msg);
     keep_msg = NULL;			/* don't display old message now */
+
+#ifdef FEAT_EVAL
+    if (need_clr_eos)
+    {
+	/* Halfway an ":echo" command and getting an (error) message: clear
+	 * any text from the command. */
+	need_clr_eos = FALSE;
+	msg_clr_eos();
+    }
+#endif
+
     if (!msg_scroll && full_screen)	/* overwrite last message */
     {
 	msg_row = cmdline_row;
@@ -1373,8 +1390,10 @@ msg_outtrans_len_attr(msgstr, len, attr)
 									attr);
 		plain_start = str + 1;
 		msg_puts_attr(s, attr == 0 ? hl_attr(HLF_8) : attr);
+		retval += (int)STRLEN(s);
 	    }
-	    retval += ptr2cells(str);
+	    else
+		++retval;
 	    ++str;
 	}
     }
@@ -1557,7 +1576,7 @@ msg_prt_line(s, list)
     int		c_extra = 0;
     char_u	*p_extra = NULL;	    /* init to make SASC shut up */
     int		n;
-    int		attr= 0;
+    int		attr = 0;
     char_u	*trail = NULL;
 #ifdef FEAT_MBYTE
     int		l;
@@ -1582,7 +1601,7 @@ msg_prt_line(s, list)
 
     while (!got_int)
     {
-	if (n_extra)
+	if (n_extra > 0)
 	{
 	    --n_extra;
 	    if (c_extra)
@@ -1596,7 +1615,7 @@ msg_prt_line(s, list)
 	    col += (*mb_ptr2cells)(s);
 	    mch_memmove(buf, s, (size_t)l);
 	    buf[l] = NUL;
-	    msg_puts_attr(buf, attr);
+	    msg_puts(buf);
 	    s += l;
 	    continue;
 	}
@@ -1636,6 +1655,9 @@ msg_prt_line(s, list)
 		p_extra = transchar_byte(c);
 		c_extra = NUL;
 		c = *p_extra++;
+		/* Use special coloring to be able to distinguish <hex> from
+		 * the same in plain text. */
+		attr = hl_attr(HLF_8);
 	    }
 	    else if (c == ' ' && trail != NULL && s > trail)
 	    {
@@ -1838,9 +1860,10 @@ msg_puts_display(str, maxlen, attr, recurse)
     char_u	*sb_str = str;
     int		sb_col = msg_col;
     int		wrap;
+    int		did_last_char;
 
     did_wait_return = FALSE;
-    while (*s != NUL && (maxlen < 0 || (int)(s - str) < maxlen))
+    while ((maxlen < 0 || (int)(s - str) < maxlen) && *s != NUL)
     {
 	/*
 	 * We are at the end of the screen line when:
@@ -1876,7 +1899,7 @@ msg_puts_display(str, maxlen, attr, recurse)
 		/* output postponed text */
 		t_puts(&t_col, t_s, s, attr);
 
-	    /* When no more prompt an no more room, truncate here */
+	    /* When no more prompt and no more room, truncate here */
 	    if (msg_no_more && lines_left == 0)
 		break;
 
@@ -1907,7 +1930,10 @@ msg_puts_display(str, maxlen, attr, recurse)
 		else
 #endif
 		    msg_screen_putchar(*s++, attr);
+		did_last_char = TRUE;
 	    }
+	    else
+		did_last_char = FALSE;
 
 	    if (p_more)
 		/* store text for scrolling back */
@@ -1925,7 +1951,9 @@ msg_puts_display(str, maxlen, attr, recurse)
 	     * If screen is completely filled and 'more' is set then wait
 	     * for a character.
 	     */
-	    if (p_more && --lines_left == 0 && State != HITRETURN
+	    if (lines_left > 0)
+		--lines_left;
+	    if (p_more && lines_left == 0 && State != HITRETURN
 					    && !msg_no_more && !exmode_active)
 	    {
 #ifdef FEAT_CON_DIALOG
@@ -1940,11 +1968,7 @@ msg_puts_display(str, maxlen, attr, recurse)
 
 	    /* When we displayed a char in last column need to check if there
 	     * is still more. */
-	    if (*s >= ' '
-#ifdef FEAT_RIGHTLEFT
-		    && !cmdmsg_rl
-#endif
-	       )
+	    if (did_last_char)
 		continue;
 	}
 
@@ -2231,7 +2255,7 @@ show_sb_text()
 {
     msgchunk_T	*mp;
 
-    /* Only show somethign if there is more than one line, otherwise it looks
+    /* Only show something if there is more than one line, otherwise it looks
      * weird, typing a command without output results in one line. */
     mp = msg_sb_start(last_msgchunk);
     if (mp == NULL || mp->sb_prev == NULL)
@@ -2619,7 +2643,7 @@ do_more_prompt(typed_char)
 		}
 	    }
 
-	    if (scroll < 0 || (scroll == 0 && mp_last != NULL))
+	    if (scroll <= 0)
 	    {
 		/* displayed the requested text, more prompt again */
 		screen_fill((int)Rows - 1, (int)Rows, 0,
@@ -2845,6 +2869,15 @@ repeat_message()
     }
     else if (State == HITRETURN || State == SETWSIZE)
     {
+	if (msg_row == Rows - 1)
+	{
+	    /* Avoid drawing the "hit-enter" prompt below the previous one,
+	     * overwrite it.  Esp. useful when regaining focus and a
+	     * FocusGained autocmd exists but didn't draw anything. */
+	    msg_didout = FALSE;
+	    msg_col = 0;
+	    msg_clr_eos();
+	}
 	hit_return_msg();
 	msg_row = Rows - 1;
     }
@@ -3039,7 +3072,7 @@ redir_write(str, maxlen)
 }
 
 /*
- * Before giving verbose messsage.
+ * Before giving verbose message.
  * Must always be called paired with verbose_leave()!
  */
     void
@@ -3453,11 +3486,11 @@ msg_show_console_dialog(message, buttons, dfltbutton)
 		    /* advance to next hotkey and set default hotkey */
 #ifdef FEAT_MBYTE
 		    if (has_mbyte)
-			hotkp += (*mb_ptr2len)(hotkp);
+			hotkp += STRLEN(hotkp);
 		    else
 #endif
 			++hotkp;
-		    (void)copy_char(r + 1, hotkp, TRUE);
+		    hotkp[copy_char(r + 1, hotkp, TRUE)] = NUL;
 		    if (dfltbutton)
 			--dfltbutton;
 
@@ -3490,7 +3523,7 @@ msg_show_console_dialog(message, buttons, dfltbutton)
 			*msgp++ = (dfltbutton == 1) ? ']' : ')';
 
 			/* redefine hotkey */
-			(void)copy_char(r, hotkp, TRUE);
+			hotkp[copy_char(r, hotkp, TRUE)] = NUL;
 		    }
 		}
 		else
@@ -3516,8 +3549,6 @@ msg_show_console_dialog(message, buttons, dfltbutton)
 	    *msgp++ = ':';
 	    *msgp++ = ' ';
 	    *msgp = NUL;
-	    mb_ptr_adv(hotkp);
-	    *hotkp = NUL;
 	}
 	else
 	{
@@ -3552,8 +3583,9 @@ msg_show_console_dialog(message, buttons, dfltbutton)
 	    msgp = confirm_msg + 1 + STRLEN(message);
 	    hotkp = hotk;
 
-	    /* define first default hotkey */
-	    (void)copy_char(buttons, hotkp, TRUE);
+	    /* Define first default hotkey.  Keep the hotkey string NUL
+	     * terminated to avoid reading past the end. */
+	    hotkp[copy_char(buttons, hotkp, TRUE)] = NUL;
 
 	    /* Remember where the choices start, displaying starts here when
 	     * "hotkp" typed at the more prompt. */
@@ -3806,6 +3838,9 @@ static char *e_printf = N_("E766: Insufficient arguments for printf()");
 
 static long tv_nr __ARGS((typval_T *tvs, int *idxp));
 static char *tv_str __ARGS((typval_T *tvs, int *idxp));
+# ifdef FEAT_FLOAT
+static double tv_float __ARGS((typval_T *tvs, int *idxp));
+# endif
 
 /*
  * Get number argument from "idxp" entry in "tvs".  First entry is 1.
@@ -3852,6 +3887,34 @@ tv_str(tvs, idxp)
     }
     return s;
 }
+
+# ifdef FEAT_FLOAT
+/*
+ * Get float argument from "idxp" entry in "tvs".  First entry is 1.
+ */
+    static double
+tv_float(tvs, idxp)
+    typval_T	*tvs;
+    int		*idxp;
+{
+    int		idx = *idxp - 1;
+    double	f = 0;
+
+    if (tvs[idx].v_type == VAR_UNKNOWN)
+	EMSG(_(e_printf));
+    else
+    {
+	++*idxp;
+	if (tvs[idx].v_type == VAR_FLOAT)
+	    f = tvs[idx].vval.v_float;
+	else if (tvs[idx].v_type == VAR_NUMBER)
+	    f = tvs[idx].vval.v_number;
+	else
+	    EMSG(_("E807: Expected Float argument for printf()"));
+    }
+    return f;
+}
+# endif
 #endif
 
 /*
@@ -3861,7 +3924,7 @@ tv_str(tvs, idxp)
  *
  * This code is based on snprintf.c - a portable implementation of snprintf
  * by Mark Martinec <mark.martinec@ijs.si>, Version 2.2, 2000-10-06.
- * Included with permission.  It was heavely modified to fit in Vim.
+ * Included with permission.  It was heavily modified to fit in Vim.
  * The original code, including useful comments, can be found here:
  *	http://www.ijs.si/software/snprintf/
  *
@@ -3869,6 +3932,8 @@ tv_str(tvs, idxp)
  * s, c, d, u, o, x, X, p  (and synonyms: i, D, U, O - see below)
  * with flags: '-', '+', ' ', '0' and '#'.
  * An asterisk is supported for field width as well as precision.
+ *
+ * Limited support for floating point was added: 'f', 'e', 'E', 'g', 'G'.
  *
  * Length modifiers 'h' (short int) and 'l' (long int) are supported.
  * 'll' (long long int) is not supported.
@@ -3970,7 +4035,14 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 	    char    length_modifier = '\0';
 
 	    /* temporary buffer for simple numeric->string conversion */
-	    char    tmp[32];
+#ifdef FEAT_FLOAT
+# define TMP_LEN 350	/* On my system 1e308 is the biggest number possible.
+			 * That sounds reasonable to use as the maximum
+			 * printable. */
+#else
+# define TMP_LEN 32
+#endif
+	    char    tmp[TMP_LEN];
 
 	    /* string address in case of string argument */
 	    char    *str_arg;
@@ -4111,6 +4183,7 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 		case 'D': fmt_spec = 'd'; length_modifier = 'l'; break;
 		case 'U': fmt_spec = 'u'; length_modifier = 'l'; break;
 		case 'O': fmt_spec = 'o'; length_modifier = 'l'; break;
+		case 'F': fmt_spec = 'f'; break;
 		default: break;
 	    }
 
@@ -4123,8 +4196,6 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 	    case 'c':
 	    case 's':
 		length_modifier = '\0';
-		zero_padding = 0;    /* turn zero padding off for string
-					conversions */
 		str_arg_l = 1;
 		switch (fmt_spec)
 		{
@@ -4175,15 +4246,16 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 			str_arg_l = 0;
 		    else
 		    {
+			/* Don't put the #if inside memchr(), it can be a
+			 * macro. */
+#if SIZEOF_INT <= 2
+			char *q = memchr(str_arg, '\0', precision);
+#else
 			/* memchr on HP does not like n > 2^31  !!! */
 			char *q = memchr(str_arg, '\0',
-#if SIZEOF_INT <= 2
-				precision
-#else
-				precision <= (size_t)0x7fffffffL ? precision
-						       : (size_t)0x7fffffffL
+				  precision <= (size_t)0x7fffffffL ? precision
+						       : (size_t)0x7fffffffL);
 #endif
-						       );
 			str_arg_l = (q == NULL) ? precision : q - str_arg;
 		    }
 		    break;
@@ -4447,11 +4519,141 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 		    break;
 		}
 
+#ifdef FEAT_FLOAT
+	    case 'f':
+	    case 'e':
+	    case 'E':
+	    case 'g':
+	    case 'G':
+		{
+		    /* Floating point. */
+		    double	f;
+		    double	abs_f;
+		    char	format[40];
+		    int		l;
+		    int		remove_trailing_zeroes = FALSE;
+
+		    f =
+# ifndef HAVE_STDARG_H
+			get_a_arg(arg_idx);
+# else
+#  if defined(FEAT_EVAL)
+			tvs != NULL ? tv_float(tvs, &arg_idx) :
+#  endif
+			    va_arg(ap, double);
+# endif
+		    abs_f = f < 0 ? -f : f;
+
+		    if (fmt_spec == 'g' || fmt_spec == 'G')
+		    {
+			/* Would be nice to use %g directly, but it prints
+			 * "1.0" as "1", we don't want that. */
+			if ((abs_f >= 0.001 && abs_f < 10000000.0)
+							      || abs_f == 0.0)
+			    fmt_spec = 'f';
+			else
+			    fmt_spec = fmt_spec == 'g' ? 'e' : 'E';
+			remove_trailing_zeroes = TRUE;
+		    }
+
+		    if (fmt_spec == 'f' && abs_f > 1.0e307)
+		    {
+			/* Avoid a buffer overflow */
+			strcpy(tmp, "inf");
+			str_arg_l = 3;
+		    }
+		    else
+		    {
+			format[0] = '%';
+			l = 1;
+			if (precision_specified)
+			{
+			    size_t max_prec = TMP_LEN - 10;
+
+			    /* Make sure we don't get more digits than we
+			     * have room for. */
+			    if (fmt_spec == 'f' && abs_f > 1.0)
+				max_prec -= (size_t)log10(abs_f);
+			    if (precision > max_prec)
+				precision = max_prec;
+			    l += sprintf(format + 1, ".%d", (int)precision);
+			}
+			format[l] = fmt_spec;
+			format[l + 1] = NUL;
+			str_arg_l = sprintf(tmp, format, f);
+
+			if (remove_trailing_zeroes)
+			{
+			    int i;
+			    char *p;
+
+			    /* Using %g or %G: remove superfluous zeroes. */
+			    if (fmt_spec == 'f')
+				p = tmp + str_arg_l - 1;
+			    else
+			    {
+				p = (char *)vim_strchr((char_u *)tmp,
+						 fmt_spec == 'e' ? 'e' : 'E');
+				if (p != NULL)
+				{
+				    /* Remove superfluous '+' and leading
+				     * zeroes from the exponent. */
+				    if (p[1] == '+')
+				    {
+					/* Change "1.0e+07" to "1.0e07" */
+					STRMOVE(p + 1, p + 2);
+					--str_arg_l;
+				    }
+				    i = (p[1] == '-') ? 2 : 1;
+				    while (p[i] == '0')
+				    {
+					/* Change "1.0e07" to "1.0e7" */
+					STRMOVE(p + i, p + i + 1);
+					--str_arg_l;
+				    }
+				    --p;
+				}
+			    }
+
+			    if (p != NULL && !precision_specified)
+				/* Remove trailing zeroes, but keep the one
+				 * just after a dot. */
+				while (p > tmp + 2 && *p == '0' && p[-1] != '.')
+				{
+				    STRMOVE(p, p + 1);
+				    --p;
+				    --str_arg_l;
+				}
+			}
+			else
+			{
+			    char *p;
+
+			    /* Be consistent: some printf("%e") use 1.0e+12
+			     * and some 1.0e+012.  Remove one zero in the last
+			     * case. */
+			    p = (char *)vim_strchr((char_u *)tmp,
+						 fmt_spec == 'e' ? 'e' : 'E');
+			    if (p != NULL && (p[1] == '+' || p[1] == '-')
+					  && p[2] == '0'
+					  && vim_isdigit(p[3])
+					  && vim_isdigit(p[4]))
+			    {
+				STRMOVE(p + 2, p + 3);
+				--str_arg_l;
+			    }
+			}
+		    }
+		    str_arg = tmp;
+		    break;
+		}
+#endif
+
 	    default:
 		/* unrecognized conversion specifier, keep format string
 		 * as-is */
 		zero_padding = 0;  /* turn zero padding off for non-numeric
-				      convers. */
+				      conversion */
 		justify_left = 1;
 		min_field_width = 0;		    /* reset flags */
 
@@ -4554,7 +4756,8 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 	    if (justify_left)
 	    {
 		/* right blank padding to the field width */
-		int pn = (int)(min_field_width - (str_arg_l + number_of_zeros_to_pad));
+		int pn = (int)(min_field_width
+				      - (str_arg_l + number_of_zeros_to_pad));
 
 		if (pn > 0)
 		{

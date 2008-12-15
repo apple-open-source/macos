@@ -14,9 +14,9 @@
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p>
 <p class="apache">Apache HTTP Server Version 2.2</p>
 <img alt="" src="../images/feather.gif" /></div>
-<div class="up"><a href="./index.html"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
+<div class="up"><a href="./"><img title="&lt;-" alt="&lt;-" src="../images/left.gif" /></a></div>
 <div id="path">
-<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a></div><div id="page-content"><div id="preamble"><h1>URL Rewriting Guide</h1>
+<a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a> &gt; <a href="./">Rewrite</a></div><div id="page-content"><div id="preamble"><h1>URL Rewriting Guide</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/rewrite/rewrite_guide.html" title="English">&nbsp;en&nbsp;</a></p>
 </div>
@@ -26,7 +26,7 @@
     <a href="../mod/mod_rewrite.html">reference documentation</a>.
     It describes how one can use Apache's <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>
     to solve typical URL-based problems with which webmasters are
-    commonony confronted. We give detailed descriptions on how to
+    commonly confronted. We give detailed descriptions on how to
     solve each problem by configuring URL rewriting rulesets.</p>
 
     <div class="warning">ATTENTION: Depending on your server configuration
@@ -50,15 +50,19 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#uservhosts">Virtual User Hosts</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#redirecthome">Redirect Homedirs For Foreigners</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#redirectanchors">Redirecting Anchors</a></li>
-<li><img alt="" src="../images/down.gif" /> Time-Dependent Rewriting</li>
-<li><img alt="" src="../images/down.gif" /> Backward Compatibility for YYYY to XXXX migration</li>
-<li><img alt="" src="../images/down.gif" /> <a href="#content">Content Handling</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#access">Access Restriction</a></li>
-<li><img alt="" src="../images/down.gif" /> <a href="#other">Other</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#time-dependent">Time-Dependent Rewriting</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#backward-compatibility">Backward Compatibility for YYYY to XXXX migration</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#old-to-new">From Old to New (intern)</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#old-to-new-extern">From Old to New (extern)</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#static-to-dynamic">From Static to Dynamic</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#blocking-of-robots">Blocking of Robots</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#blocked-inline-images">Blocked Inline-Images</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#proxy-deny">Proxy Deny</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#external-rewriting">External Rewriting Engine</a></li>
 </ul><h3>See also</h3><ul class="seealso"><li><a href="../mod/mod_rewrite.html">Module
 documentation</a></li><li><a href="rewrite_intro.html">mod_rewrite
-introduction</a></li><li><a href="rewrite_guide_advanced.html">Practical solutions to
-advanced problems</a></li><li><a href="rewrite_tech.html">Technical details</a></li></ul></div>
+introduction</a></li><li><a href="rewrite_guide_advanced.html">Advanced Rewrite Guide - advanced 
+useful examples</a></li><li><a href="rewrite_tech.html">Technical details</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
 <h2><a name="canonicalurl" id="canonicalurl">Canonical URLs</a></h2>
@@ -276,12 +280,12 @@ RewriteRule   ^/~(.+)  http://<strong>newserver</strong>/~$1  [R,L]
 <div class="example"><pre>
 RewriteEngine on
 
-#   first try to find it in custom/...
+#   first try to find it in dir1/...
 #   ...and if found stop and be happy:
 RewriteCond         /your/docroot/<strong>dir1</strong>/%{REQUEST_FILENAME}  -f
 RewriteRule  ^(.+)  /your/docroot/<strong>dir1</strong>/$1  [L]
 
-#   second try to find it in pub/...
+#   second try to find it in dir2/...
 #   ...and if found stop and be happy:
 RewriteCond         /your/docroot/<strong>dir2</strong>/%{REQUEST_FILENAME}  -f
 RewriteRule  ^(.+)  /your/docroot/<strong>dir2</strong>/$1  [L]
@@ -418,7 +422,7 @@ RewriteRule   ^(/~.+)         http://www.somewhere.com/$1 [R,L]
 
     </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
-<h2>Time-Dependent Rewriting</h2>
+<h2><a name="time-dependent" id="time-dependent">Time-Dependent Rewriting</a></h2>
 
       
 
@@ -459,7 +463,7 @@ RewriteRule   ^foo\.html$             foo.night.html
 
     </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
-<h2>Backward Compatibility for YYYY to XXXX migration</h2>
+<h2><a name="backward-compatibility" id="backward-compatibility">Backward Compatibility for YYYY to XXXX migration</a></h2>
 
       
 
@@ -502,11 +506,7 @@ RewriteRule   ^(.*)$ $1.html
 
     </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="content" id="content">Content Handling</a></h2>
-
-    
-
-    <h3>From Old to New (intern)</h3>
+<h2><a name="old-to-new" id="old-to-new">From Old to New (intern)</a></h2>
 
       
 
@@ -535,9 +535,9 @@ RewriteRule    ^<strong>foo</strong>\.html$  <strong>bar</strong>.html
         </dd>
       </dl>
 
-    
-
-    <h3>From Old to New (extern)</h3>
+    </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="section">
+<h2><a name="old-to-new-extern" id="old-to-new-extern">From Old to New (extern)</a></h2>
 
       
 
@@ -567,9 +567,9 @@ RewriteRule    ^<strong>foo</strong>\.html$  <strong>bar</strong>.html  [<strong
         </dd>
       </dl>
 
-    
-
-    <h3>From Static to Dynamic</h3>
+    </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="section">
+<h2><a name="static-to-dynamic" id="static-to-dynamic">From Static to Dynamic</a></h2>
 
       
 
@@ -587,7 +587,8 @@ RewriteRule    ^<strong>foo</strong>\.html$  <strong>bar</strong>.html  [<strong
 
         <dd>
           <p>We just rewrite the URL to the CGI-script and force the
-          correct MIME-type so it gets really run as a CGI-script.
+          handler to be <strong>cgi-script</strong> so that it is
+          executed as a CGI program.
           This way a request to <code>/~quux/foo.html</code>
           internally leads to the invocation of
           <code>/~quux/foo.cgi</code>.</p>
@@ -595,19 +596,14 @@ RewriteRule    ^<strong>foo</strong>\.html$  <strong>bar</strong>.html  [<strong
 <div class="example"><pre>
 RewriteEngine  on
 RewriteBase    /~quux/
-RewriteRule    ^foo\.<strong>html</strong>$  foo.<strong>cgi</strong>  [T=<strong>application/x-httpd-cgi</strong>]
+RewriteRule    ^foo\.<strong>html</strong>$  foo.<strong>cgi</strong>  [H=<strong>cgi-script</strong>]
 </pre></div>
         </dd>
       </dl>
 
-    
-</div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+    </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="access" id="access">Access Restriction</a></h2>
-
-    
-
-    <h3>Blocking of Robots</h3>
+<h2><a name="blocking-of-robots" id="blocking-of-robots">Blocking of Robots</a></h2>
 
       
 
@@ -643,9 +639,9 @@ RewriteRule ^<strong>/~quux/foo/arc/</strong>.+   -   [<strong>F</strong>]
         </dd>
       </dl>
 
-    
-
-    <h3>Blocked Inline-Images</h3>
+    </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="section">
+<h2><a name="blocked-inline-images" id="blocked-inline-images">Blocked Inline-Images</a></h2>
 
       
 
@@ -681,9 +677,9 @@ RewriteRule <strong>^inlined-in-foo\.gif$</strong>   -                        [F
         </dd>
       </dl>
 
-    
-
-    <h3>Proxy Deny</h3>
+    </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="section">
+<h2><a name="proxy-deny" id="proxy-deny">Proxy Deny</a></h2>
 
       
 
@@ -718,15 +714,9 @@ RewriteRule !^http://[^/.]\.mydomain.com.*  - [F]
         </dd>
       </dl>
 
-    
-
-  </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+    </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="other" id="other">Other</a></h2>
-
-    
-
-    <h3>External Rewriting Engine</h3>
+<h2><a name="external-rewriting" id="external-rewriting">External Rewriting Engine</a></h2>
 
       
 
@@ -778,12 +768,10 @@ while (&lt;&gt;) {
         </dd>
       </dl>
 
-    
-
-  </div></div>
+    </div></div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/rewrite/rewrite_guide.html" title="English">&nbsp;en&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

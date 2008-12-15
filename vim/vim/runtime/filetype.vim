@@ -1,7 +1,7 @@
 " Vim support file to detect file types
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2006 May 02
+" Last Change:	2008 Aug 03
 
 " Listen very carefully, I will say this only once
 if exists("did_load_filetypes")
@@ -16,20 +16,23 @@ set cpo&vim
 augroup filetypedetect
 
 " Ignored extensions
-au BufNewFile,BufRead ?\+.orig,?\+.bak,?\+.old,?\+.new,?\+.rpmsave,?\+.rpmnew
-	\ exe "doau filetypedetect BufRead " . expand("<afile>:r")
+if exists("*fnameescape")
+au BufNewFile,BufRead ?\+.orig,?\+.bak,?\+.old,?\+.new,?\+.dpkg-dist,?\+.dpkg-old,?\+.rpmsave,?\+.rpmnew
+	\ exe "doau filetypedetect BufRead " . fnameescape(expand("<afile>:r"))
 au BufNewFile,BufRead *~
 	\ let s:name = expand("<afile>") |
 	\ let s:short = substitute(s:name, '\~$', '', '') |
 	\ if s:name != s:short && s:short != "" |
-	\   exe "doau filetypedetect BufRead " . s:short |
+	\   exe "doau filetypedetect BufRead " . fnameescape(s:short) |
 	\ endif |
-	\ unlet s:name |
-	\ unlet s:short
+	\ unlet! s:name s:short
 au BufNewFile,BufRead ?\+.in
 	\ if expand("<afile>:t") != "configure.in" |
-	\   exe "doau filetypedetect BufRead " . expand("<afile>:r") |
+	\   exe "doau filetypedetect BufRead " . fnameescape(expand("<afile>:r")) |
 	\ endif
+elseif &verbose > 0
+  echomsg "Warning: some filetypes will not be recognized because this version of Vim does not have fnameescape()"
+endif
 
 " Pattern used to match file names which should not be inspected.
 " Currently finds compressed files.
@@ -39,16 +42,16 @@ endif
 
 " Function used for patterns that end in a star: don't set the filetype if the
 " file name matches ft_ignore_pat.
-fun! s:StarSetf(ft)
+func! s:StarSetf(ft)
   if expand("<amatch>") !~ g:ft_ignore_pat
     exe 'setf ' . a:ft
   endif
-endfun
+endfunc
 
 " Abaqus or Trasys
 au BufNewFile,BufRead *.inp			call s:Check_inp()
 
-fun! s:Check_inp()
+func! s:Check_inp()
   if getline(1) =~ '^\*'
     setf abaqus
   else
@@ -66,7 +69,7 @@ fun! s:Check_inp()
       let n = n + 1
     endwhile
   endif
-endfun
+endfunc
 
 " A-A-P recipe
 au BufNewFile,BufRead *.aap			setf aap
@@ -88,6 +91,11 @@ au BufNewFile,BufRead *.wrm			setf acedb
 
 " Ada (83, 9X, 95)
 au BufNewFile,BufRead *.adb,*.ads,*.ada		setf ada
+if has("vms")
+  au BufNewFile,BufRead *.gpr,*.ada_m,*.adc	setf ada
+else
+  au BufNewFile,BufRead *.gpr			setf ada
+endif
 
 " AHDL
 au BufNewFile,BufRead *.tdf			setf ahdl
@@ -154,7 +162,7 @@ au BufNewFile,BufRead *.asm,*.[sS],*.[aA],*.mac,*.lst	call s:FTasm()
 
 " This function checks for the kind of assembly that is wanted by the user, or
 " can be detected from the first five lines of the file.
-fun! s:FTasm()
+func! s:FTasm()
   " make sure b:asmsyntax exists
   if !exists("b:asmsyntax")
     let b:asmsyntax = ""
@@ -173,26 +181,33 @@ fun! s:FTasm()
     endif
   endif
 
-  exe "setf " . b:asmsyntax
-endfun
+  exe "setf " . fnameescape(b:asmsyntax)
+endfunc
 
-fun! s:FTasmsyntax()
+func! s:FTasmsyntax()
   " see if file contains any asmsyntax=foo overrides. If so, change
   " b:asmsyntax appropriately
   let head = " ".getline(1)." ".getline(2)." ".getline(3)." ".getline(4).
 	\" ".getline(5)." "
-  if head =~ '\sasmsyntax=\S\+\s'
-    let b:asmsyntax = substitute(head, '.*\sasmsyntax=\(\S\+\)\s.*','\1', "")
+  let match = matchstr(head, '\sasmsyntax=\zs[a-zA-Z0-9]\+\ze\s')
+  if match != ''
+    let b:asmsyntax = match
   elseif ((head =~? '\.title') || (head =~? '\.ident') || (head =~? '\.macro') || (head =~? '\.subtitle') || (head =~? '\.library'))
     let b:asmsyntax = "vmasm"
   endif
-endfun
+endfunc
 
 " Macro (VAX)
 au BufNewFile,BufRead *.mar			setf vmasm
 
 " Atlas
 au BufNewFile,BufRead *.atl,*.as		setf atlas
+
+" Autoit v3
+au BufNewFile,BufRead *.au3			setf autoit
+
+" Autohotkey
+au BufNewFile,BufRead *.ahk			setf autohotkey
 
 " Automake
 au BufNewFile,BufRead [mM]akefile.am,GNUmakefile.am	setf automake
@@ -214,16 +229,22 @@ au BufNewFile,BufRead *.bas			call s:FTVB("basic")
 
 " Check if one of the first five lines contains "VB_Name".  In that case it is
 " probably a Visual Basic file.  Otherwise it's assumed to be "alt" filetype.
-fun! s:FTVB(alt)
+func! s:FTVB(alt)
   if getline(1).getline(2).getline(3).getline(4).getline(5) =~? 'VB_Name\|Begin VB\.\(Form\|MDIForm\|UserControl\)'
     setf vb
   else
     exe "setf " . a:alt
   endif
-endfun
+endfunc
 
 " Visual Basic Script (close to Visual Basic)
 au BufNewFile,BufRead *.vbs,*.dsm,*.ctl		setf vb
+
+" IBasic file (similar to QBasic)
+au BufNewFile,BufRead *.iba,*.ibi		setf ibasic
+
+" FreeBasic file (similar to QBasic)
+au BufNewFile,BufRead *.fb,*.bi			setf freebasic
 
 " Batch file for MSDOS.
 au BufNewFile,BufRead *.bat,*.sys		setf dosbatch
@@ -233,13 +254,13 @@ au BufNewFile,BufRead *.cmd
 
 " Batch file for 4DOS
 au BufNewFile,BufRead *.btm			call s:FTbtm()
-fun! s:FTbtm()
+func! s:FTbtm()
   if exists("g:dosbatch_syntax_for_btm") && g:dosbatch_syntax_for_btm
     setf dosbatch
   else
     setf btm
   endif
-endfun
+endfunc
 
 " BC calculator
 au BufNewFile,BufRead *.bc			setf bc
@@ -271,10 +292,13 @@ endfunc
 " Blank
 au BufNewFile,BufRead *.bl			setf blank
 
+" Blkid cache file
+au BufNewFile,BufRead /etc/blkid.tab,/etc/blkid.tab.old   setf xml
+
 " C or lpc
 au BufNewFile,BufRead *.c			call s:FTlpc()
 
-fun! s:FTlpc()
+func! s:FTlpc()
   if exists("g:lpc_syntax_for_c")
     let lnum = 1
     while lnum <= 12
@@ -286,7 +310,7 @@ fun! s:FTlpc()
     endwhile
   endif
   setf c
-endfun
+endfunc
 
 " Calendar
 au BufNewFile,BufRead calendar			setf calendar
@@ -297,11 +321,20 @@ au BufNewFile,BufRead */.calendar/*,
 " C#
 au BufNewFile,BufRead *.cs			setf cs
 
+" Cdrdao TOC
+au BufNewFile,BufRead *.toc			setf cdrtoc
+
+" Cdrdao config
+au BufNewFile,BufRead etc/cdrdao.conf,etc/defaults/cdrdao,etc/default/cdrdao,~/.cdrdao						setf cdrdaoconf
+
 " Cfengine
 au BufNewFile,BufRead cfengine.conf		setf cfengine
 
 " Comshare Dimension Definition Language
 au BufNewFile,BufRead *.cdl			setf cdl
+
+" Conary Recipe
+au BufNewFile,BufRead *.recipe			setf conaryrecipe
 
 " Controllable Regex Mutilator
 au BufNewFile,BufRead *.crm			setf crm
@@ -323,12 +356,22 @@ else
   au BufNewFile,BufRead *.cxx,*.c++,*.hh,*.hxx,*.hpp,*.moc,*.tcc,*.inl setf cpp
 endif
 
-" .h files can be C, Ch or C++, set c_syntax_for_h if you want C,
-" ch_syntax_for_h if you want Ch.
-au BufNewFile,BufRead *.h
-	\ if exists("c_syntax_for_h") | setf c |
-	\ elseif exists("ch_syntax_for_h") | setf ch |
-	\ else | setf cpp | endif
+" .h files can be C, Ch C++, ObjC or ObjC++.
+" Set c_syntax_for_h if you want C, ch_syntax_for_h if you want Ch. ObjC is
+" detected automatically.
+au BufNewFile,BufRead *.h			call s:FTheader()
+
+func! s:FTheader()
+  if match(getline(1, min([line("$"), 200])), '^@\(interface\|end\|class\)') > -1
+    setf objc
+  elseif exists("c_syntax_for_h")
+    setf c
+  elseif exists("ch_syntax_for_h")
+    setf ch
+  else
+    setf cpp
+  endif
+endfunc
 
 " Ch (CHscript)
 au BufNewFile,BufRead *.chf			setf ch
@@ -369,7 +412,7 @@ au BufNewFile,BufRead *.ch			call s:FTchange()
 " If the first line starts with # or ! it's probably a ch file.
 " If a line has "main", "include", "//" ir "/*" it's probably ch.
 " Otherwise CHILL is assumed.
-fun! s:FTchange()
+func! s:FTchange()
   let lnum = 1
   while lnum <= 10
     if getline(lnum)[0] == '@'
@@ -391,7 +434,7 @@ fun! s:FTchange()
     let lnum = lnum + 1
   endwhile
   setf chill
-endfun
+endfunc
 
 " ChordPro
 au BufNewFile,BufRead *.chopro,*.crd,*.cho,*.crdpro,*.chordpro	setf chordpro
@@ -405,7 +448,7 @@ au BufNewFile,BufRead *.eni			setf cl
 " Clever or dtd
 au BufNewFile,BufRead *.ent			call s:FTent()
 
-fun! s:FTent()
+func! s:FTent()
   " This function checks for valid cl syntax in the first five lines.
   " Look for either an opening comment, '#', or a block start, '{".
   " If not found, assume SGML.
@@ -423,7 +466,7 @@ fun! s:FTent()
     let lnum = lnum + 1
   endw
   setf dtd
-endfun
+endfunc
 
 " Clipper (or FoxPro; could also be eviews)
 au BufNewFile,BufRead *.prg
@@ -436,6 +479,10 @@ au BufNewFile,BufRead *.prg
 " Cmake
 au BufNewFile,BufRead CMakeLists.txt,*.cmake,*.cmake.in		setf cmake
 
+" Cmusrc
+au BufNewFile,BufRead ~/.cmus/{autosave,rc,command-history,*.theme} setf cmusrc
+au BufNewFile,BufRead */cmus/{rc,*.theme}			setf cmusrc
+
 " Cobol
 au BufNewFile,BufRead *.cbl,*.cob,*.lib	setf cobol
 "   cobol or zope form controller python script? (heuristic)
@@ -446,11 +493,17 @@ au BufNewFile,BufRead *.cpy
 	\   setf cobol |
 	\ endif
 
+" Coco/R
+au BufNewFile,BufRead *.atg			setf coco
+
 " Cold Fusion
 au BufNewFile,BufRead *.cfm,*.cfi,*.cfc		setf cf
 
 " Configure scripts
 au BufNewFile,BufRead configure.in,configure.ac setf config
+
+" CUDA  Cumpute Unified Device Architecture
+au BufNewFile,BufRead *.cu			setf cuda
 
 " WildPackets EtherPeek Decoder
 au BufNewFile,BufRead *.dcd			setf dcd
@@ -483,15 +536,31 @@ au BufNewFile,BufRead *.si			setf cuplsim
 
 " Debian Control
 au BufNewFile,BufRead */debian/control		setf debcontrol
+au BufNewFile,BufRead control
+	\  if getline(1) =~ '^Source:'
+	\|   setf debcontrol
+	\| endif
 
 " Debian Sources.list
 au BufNewFile,BufRead /etc/apt/sources.list	setf debsources
 
+" Deny hosts
+au BufNewFile,BufRead denyhosts.conf		setf denyhosts
+
 " ROCKLinux package description
 au BufNewFile,BufRead *.desc			setf desc
 
-" the D language
-au BufNewFile,BufRead *.d			setf d
+" the D language or dtrace
+au BufNewFile,BufRead *.d			call s:DtraceCheck()
+
+func! s:DtraceCheck()
+  let lines = getline(1, min([line("$"), 100]))
+  if match(lines, '^#!\S\+dtrace\|#pragma\s\+D\s\+option\|:\S\{-}:\S\{-}:') > -1
+    setf dtrace
+  else
+    setf d
+  endif
+endfunc
 
 " Desktop files
 au BufNewFile,BufRead *.desktop,.directory	setf desktop
@@ -555,7 +624,7 @@ au BufNewFile,BufRead *.e,*.E			call s:FTe()
 " Elinks configuration
 au BufNewFile,BufRead */etc/elinks.conf,*/.elinks/elinks.conf	setf elinks
 
-fun! s:FTe()
+func! s:FTe()
   let n = 1
   while n < 100 && n < line("$")
     if getline(n) =~ "^\\s*\\(<'\\|'>\\)\\s*$"
@@ -565,10 +634,10 @@ fun! s:FTe()
     let n = n + 1
   endwhile
   setf eiffel
-endfun
+endfunc
 
-" ERicsson LANGuage
-au BufNewFile,BufRead *.erl			setf erlang
+" ERicsson LANGuage; Yaws is erlang too
+au BufNewFile,BufRead *.erl,*.hrl,*.yaws	setf erlang
 
 " Elm Filter Rules file
 au BufNewFile,BufRead filter-rules		setf elmfilt
@@ -613,8 +682,17 @@ au BufNewFile,BufRead *.mas,*.master		setf master
 " Forth
 au BufNewFile,BufRead *.fs,*.ft			setf forth
 
+" Reva Forth
+au BufNewFile,BufRead *.frt			setf reva
+
 " Fortran
-au BufNewFile,BufRead *.f,*.F,*.for,*.fpp,*.FPP,*.ftn,*.f77,*.F77,*.f90,*.F90,*.f95,*.F95	setf fortran
+if has("fname_case")
+  au BufNewFile,BufRead *.F,*.FOR,*.FPP,*.FTN,*.F77,*.F90,*.F95	 setf fortran
+endif
+au BufNewFile,BufRead   *.f,*.for,*.fortran,*.fpp,*.ftn,*.f77,*.f90,*.f95  setf fortran
+
+" Framescript
+au BufNewFile,BufRead *.fsl			setf framescript
 
 " FStab
 au BufNewFile,BufRead fstab,mtab		setf fstab
@@ -627,6 +705,19 @@ au BufNewFile,BufRead *.mo,*.gdmo		setf gdmo
 
 " Gedcom
 au BufNewFile,BufRead *.ged			setf gedcom
+
+" Git
+autocmd BufNewFile,BufRead *.git/COMMIT_EDITMSG    setf gitcommit
+autocmd BufNewFile,BufRead *.git/config,.gitconfig setf gitconfig
+autocmd BufNewFile,BufRead git-rebase-todo         setf gitrebase
+autocmd BufNewFile,BufRead .msg.[0-9]*
+      \ if getline(1) =~ '^From.*# This line is ignored.$' |
+      \   setf gitsendemail |
+      \ endif
+autocmd BufNewFile,BufRead *.git/**
+      \ if getline(1) =~ '^\x\{40\}\>\|^ref: ' |
+      \   setf git |
+      \ endif
 
 " Gkrellmrc
 au BufNewFile,BufRead gkrellmrc,gkrellmrc_?	setf gkrellmrc
@@ -655,15 +746,25 @@ au BufNewFile,BufRead *.groovy			setf groovy
 au BufNewFile,BufRead *.gsp			setf gsp
 
 " Group file
-au BufNewFile,BufRead /etc/group		setf group
+au BufNewFile,BufRead /etc/group,/etc/group-,/etc/group.edit,/etc/gshadow,/etc/gshadow-,/etc/gshadow.edit,/var/backups/group.bak,/var/backups/gshadow.bak  setf group
 
 " GTK RC
 au BufNewFile,BufRead .gtkrc,gtkrc		setf gtkrc
+
+" Haml
+au BufNewFile,BufRead *.haml			setf haml
+
+" Hamster Classic | Playground files
+au BufNewFile,BufRead *.hsc,*.hsm		setf hamster
 
 " Haskell
 au BufNewFile,BufRead *.hs			setf haskell
 au BufNewFile,BufRead *.lhs			setf lhaskell
 au BufNewFile,BufRead *.chs			setf chaskell
+
+" Haste
+au BufNewFile,BufRead *.ht			setf haste
+au BufNewFile,BufRead *.htpp			setf hastepreproc
 
 " Hercules
 au BufNewFile,BufRead *.vc,*.ev,*.rs,*.sum,*.errsum	setf hercules
@@ -678,7 +779,7 @@ au BufNewFile,BufRead *.t.html			setf tilde
 au BufNewFile,BufRead *.html,*.htm,*.shtml,*.stm  call s:FThtml()
 
 " Distinguish between HTML, XHTML and Django
-fun! s:FThtml()
+func! s:FThtml()
   let n = 1
   while n < 10 && n < line("$")
     if getline(n) =~ '\<DTD\s\+XHTML\s'
@@ -692,16 +793,22 @@ fun! s:FThtml()
     let n = n + 1
   endwhile
   setf html
-endfun
+endfunc
 
 " HTML with Ruby - eRuby
-au BufNewFile,BufRead *.rhtml			setf eruby
+au BufNewFile,BufRead *.erb,*.rhtml		setf eruby
 
 " HTML with M4
 au BufNewFile,BufRead *.html.m4			setf htmlm4
 
 " HTML Cheetah template
 au BufNewFile,BufRead *.tmpl			setf htmlcheetah
+
+" Host config
+au BufNewFile,BufRead /etc/host.conf		setf hostconf
+
+" Hosts access
+au BufNewFile,BufRead /etc/hosts.allow,/etc/hosts.deny  setf hostsaccess
 
 " Hyper Builder
 au BufNewFile,BufRead *.hb			setf hb
@@ -713,7 +820,7 @@ au BufNewFile,BufRead *.icn			setf icon
 au BufNewFile,BufRead *.idl			call s:FTidl()
 
 " Distinguish between standard IDL and MS-IDL
-fun! s:FTidl()
+func! s:FTidl()
   let n = 1
   while n < 50 && n < line("$")
     if getline(n) =~ '^\s*import\s\+"\(unknwn\|objidl\)\.idl"'
@@ -723,7 +830,7 @@ fun! s:FTidl()
     let n = n + 1
   endwhile
   setf idl
-endfun
+endfunc
 
 " Microsoft IDL (Interface Description Language)  Also *.idl
 " MOF = WMI (Windows Management Instrumentation) Managed Object Format
@@ -732,20 +839,37 @@ au BufNewFile,BufRead *.odl,*.mof		setf msidl
 " Icewm menu
 au BufNewFile,BufRead */.icewm/menu		setf icemenu
 
+" Indent profile (must come before IDL *.pro!)
+au BufNewFile,BufRead .indent.pro		setf indent
+au BufNewFile,BufRead indent.pro		call s:ProtoCheck('indent')
+
 " IDL (Interactive Data Language)
-au BufNewFile,BufRead *.pro			setf idlang
+au BufNewFile,BufRead *.pro			call s:ProtoCheck('idlang')
+
+" Distinguish between "default" and Cproto prototype file. */
+func! s:ProtoCheck(default)
+  " Cproto files have a comment in the first line and a function prototype in
+  " the second line, it always ends in ";".  Indent files may also have
+  " comments, thus we can't match comments to see the difference.
+  if getline(2) =~ ';$'
+    setf cpp
+  else
+    exe 'setf ' . a:default
+  endif
+endfunc
+
 
 " Indent RC
-au BufNewFile,BufRead indentrc			setf indentrc
-
-" Inform
-au BufNewFile,BufRead .indent.pro		setf indent
+au BufNewFile,BufRead indentrc			setf indent
 
 " Inform
 au BufNewFile,BufRead *.inf,*.INF		setf inform
 
+" Initng
+au BufNewFile,BufRead /etc/initng/**/*.i,*.ii	setf initng
+
 " Ipfilter
-au BufNewFile,BufRead ipf.conf,ipf.rules	setf ipfilter
+au BufNewFile,BufRead ipf.conf,ipf6.conf,ipf.rules	setf ipfilter
 
 " Informix 4GL (source - canonical, include file, I4GL+M4 preproc.)
 au BufNewFile,BufRead *.4gl,*.4gh,*.m4gl	setf fgl
@@ -771,8 +895,8 @@ au BufNewFile,BufRead *.java,*.jav		setf java
 " JavaCC
 au BufNewFile,BufRead *.jj,*.jjt		setf javacc
 
-" JavaScript
-au BufNewFile,BufRead *.js,*.javascript		setf javascript
+" JavaScript, ECMAScript
+au BufNewFile,BufRead *.js,*.javascript,*.es	setf javascript
 
 " Java Server Pages
 au BufNewFile,BufRead *.jsp			setf jsp
@@ -848,6 +972,9 @@ au BufNewFile,BufRead sbclrc,.sbclrc		setf lisp
 " Lite
 au BufNewFile,BufRead *.lite,*.lt		setf lite
 
+" LiteStep RC files
+au BufNewFile,BufRead */LiteStep/*/*.rc		setf litestep
+
 " Login access
 au BufNewFile,BufRead /etc/login.access		setf loginaccess
 
@@ -866,6 +993,9 @@ au BufNewFile,BufRead *.lou,*.lout		setf lout
 " Lua
 au BufNewFile,BufRead *.lua			setf lua
 
+" Linden Scripting Language (Second Life)
+au BufNewFile,BufRead *.lsl			setf lsl
+
 " Lynx style file (or LotusScript!)
 au BufNewFile,BufRead *.lss			setf lss
 
@@ -876,8 +1006,8 @@ au BufNewFile,BufRead *.m4
 " MaGic Point
 au BufNewFile,BufRead *.mgp			setf mgp
 
-" Mail (for Elm, trn, mutt, rn, slrn)
-au BufNewFile,BufRead snd.\d\+,.letter,.letter.\d\+,.followup,.article,.article.\d\+,pico.\d\+,mutt{ng,}-*-\w\+,mutt\w\{6\},ae\d\+.txt,/tmp/SLRN[0-9A-Z.]\+,*.eml setf mail
+" Mail (for Elm, trn, mutt, muttng, rn, slrn)
+au BufNewFile,BufRead snd.\d\+,.letter,.letter.\d\+,.followup,.article,.article.\d\+,pico.\d\+,mutt{ng,}-*-\w\+,mutt[[:alnum:]_-]\{6\},ae\d\+.txt,/tmp/SLRN[0-9A-Z.]\+,*.eml setf mail
 
 " Mail aliases
 au BufNewFile,BufRead /etc/mail/aliases,/etc/aliases	setf mailaliases
@@ -900,13 +1030,16 @@ au BufNewFile,BufRead /etc/man.conf,man.config	setf manconf
 " Maple V
 au BufNewFile,BufRead *.mv,*.mpl,*.mws		setf maple
 
+" Map (UMN mapserver config file)
+au BufNewFile,BufRead *.map			setf map
+
 " Mason
 au BufNewFile,BufRead *.mason,*.mhtml		setf mason
 
 " Matlab or Objective C
 au BufNewFile,BufRead *.m			call s:FTm()
 
-fun! s:FTm()
+func! s:FTm()
   let n = 1
   while n < 10
     let line = getline(n)
@@ -929,10 +1062,16 @@ fun! s:FTm()
   else
     setf matlab
   endif
-endfun
+endfunc
+
+" Mathematica notebook
+au BufNewFile,BufRead *.nb			setf mma
 
 " Maya Extension Language
 au BufNewFile,BufRead *.mel			setf mel
+
+" Messages
+au BufNewFile,BufRead /var/log/messages,/var/log/messages.*[0-9]  setf messages
 
 " Metafont
 au BufNewFile,BufRead *.mf			setf mf
@@ -946,7 +1085,10 @@ au BufNewFile,BufRead *.mgl			setf mgl
 " MMIX or VMS makefile
 au BufNewFile,BufRead *.mms			call s:FTmms()
 
-fun! s:FTmms()
+" Symbian meta-makefile definition (MMP)
+au BufNewFile,BufRead *.mmp			setf mmp
+
+func! s:FTmms()
   let n = 1
   while n < 10
     let line = getline(n)
@@ -961,7 +1103,7 @@ fun! s:FTmms()
     let n = n + 1
   endwhile
   setf mmix
-endfun
+endfunc
 
 
 " Modsim III (or LambdaProlog)
@@ -1015,9 +1157,8 @@ au BufRead,BufNewFile *.mu			setf mupad
 " Mush
 au BufNewFile,BufRead *.mush			setf mush
 
-" Mutt setup file
-au BufNewFile,BufRead Mutt{ng,}rc			setf muttrc
-au BufNewFile,BufRead .mutt{ng,}rc*,*/.mutt{ng,}/mutt{ng,}rc*	call s:StarSetf('muttrc')
+" Mutt setup file (also for Muttng)
+au BufNewFile,BufRead Mutt{ng,}rc		setf muttrc
 
 " Nano
 au BufNewFile,BufRead /etc/nanorc,.nanorc	setf nanorc
@@ -1044,18 +1185,18 @@ au BufNewFile,BufRead *.[1-9]			call s:FTnroff()
 
 " This function checks if one of the first five lines start with a dot.  In
 " that case it is probably an nroff file: 'filetype' is set and 1 is returned.
-fun! s:FTnroff()
+func! s:FTnroff()
   if getline(1)[0] . getline(2)[0] . getline(3)[0] . getline(4)[0] . getline(5)[0] =~ '\.'
     setf nroff
     return 1
   endif
   return 0
-endfun
+endfunc
 
 " Nroff or Objective C++
 au BufNewFile,BufRead *.mm			call s:FTmm()
 
-fun! s:FTmm()
+func! s:FTmm()
   let n = 1
   while n < 10
     let line = getline(n)
@@ -1066,7 +1207,7 @@ fun! s:FTmm()
     let n = n + 1
   endwhile
   setf nroff
-endfun
+endfunc
 
 " Not Quite C
 au BufNewFile,BufRead *.nqc			setf nqc
@@ -1102,13 +1243,16 @@ au BufNewFile,BufRead /etc/pam.conf		setf pamconf
 au BufNewFile,BufRead *.papp,*.pxml,*.pxsl	setf papp
 
 " Password file
-au BufNewFile,BufRead /etc/passwd,/etc/shadow,/etc/shadow- setf passwd
+au BufNewFile,BufRead /etc/passwd,/etc/passwd-,/etc/passwd.edit,/etc/shadow,/etc/shadow-,/var/backups/passwd.bak,/var/backups/shadow.bak setf passwd
 
 " Pascal (also *.p)
 au BufNewFile,BufRead *.pas			setf pascal
 
 " Delphi project file
 au BufNewFile,BufRead *.dpr			setf pascal
+
+" PDF
+au BufNewFile,BufRead *.pdf			setf pdf
 
 " Perl
 if has("fname_case")
@@ -1118,7 +1262,7 @@ else
 endif
 au BufNewFile,BufRead *.plx			setf perl
 
-fun! s:FTpl()
+func! s:FTpl()
   if exists("g:filetype_pl")
     exe "setf " . g:filetype_pl
   else
@@ -1131,7 +1275,7 @@ fun! s:FTpl()
       setf perl
     endif
   endif
-endfun
+endfunc
 
 " Perl, XPM or XPM2
 au BufNewFile,BufRead *.pm
@@ -1147,10 +1291,9 @@ au BufNewFile,BufRead *.pm
 au BufNewFile,BufRead *.pod			setf pod
 
 " Php, php3, php4, etc.
-au BufNewFile,BufRead *.php,*.php\d		setf php
-
-" Phtml
-au BufNewFile,BufRead *.phtml			setf phtml
+" Also Phtml (was used for PHP 2 in the past)
+" Also .ctp for Cake template file
+au BufNewFile,BufRead *.php,*.php\d,*.phtml,*.ctp	setf php
 
 " Pike
 au BufNewFile,BufRead *.pike,*.lpc,*.ulpc,*.pmod setf pike
@@ -1194,7 +1337,7 @@ au BufNewFile,BufRead .povrayrc			setf povini
 " Povray, PHP or assembly
 au BufNewFile,BufRead *.inc			call s:FTinc()
 
-fun! s:FTinc()
+func! s:FTinc()
   if exists("g:filetype_inc")
     exe "setf " . g:filetype_inc
   else
@@ -1208,13 +1351,13 @@ fun! s:FTinc()
     else
       call s:FTasmsyntax()
       if exists("b:asmsyntax")
-	exe "setf " . b:asmsyntax
+	exe "setf " . fnameescape(b:asmsyntax)
       else
 	setf pov
       endif
     endif
   endif
-endfun
+endfunc
 
 " Printcap and Termcap
 au BufNewFile,BufRead *printcap
@@ -1230,7 +1373,10 @@ au BufNewFile,BufRead *.g			setf pccts
 au BufNewFile,BufRead *.it,*.ih			setf ppwiz
 
 " Oracle Pro*C/C++
-au BufNewFile,BufRead .pc			setf proc
+au BufNewFile,BufRead *.pc			setf proc
+
+" Privoxy actions file
+au BufNewFile,BufRead *.action			setf privoxy
 
 " Procmail
 au BufNewFile,BufRead .procmail,.procmailrc	setf procmail
@@ -1238,7 +1384,7 @@ au BufNewFile,BufRead .procmail,.procmailrc	setf procmail
 " Progress or CWEB
 au BufNewFile,BufRead *.w			call s:FTprogress_cweb()
 
-function! s:FTprogress_cweb()
+func! s:FTprogress_cweb()
   if exists("g:filetype_w")
     exe "setf " . g:filetype_w
     return
@@ -1248,12 +1394,12 @@ function! s:FTprogress_cweb()
   else
     setf cweb
   endif
-endfun
+endfunc
 
 " Progress or assembly
 au BufNewFile,BufRead *.i			call s:FTprogress_asm()
 
-function! s:FTprogress_asm()
+func! s:FTprogress_asm()
   if exists("g:filetype_i")
     exe "setf " . g:filetype_i
     return
@@ -1274,12 +1420,12 @@ function! s:FTprogress_asm()
     let lnum = lnum + 1
   endw
   setf progress
-endfun
+endfunc
 
 " Progress or Pascal
 au BufNewFile,BufRead *.p			call s:FTprogress_pascal()
 
-function! s:FTprogress_pascal()
+func! s:FTprogress_pascal()
   if exists("g:filetype_p")
     exe "setf " . g:filetype_p
     return
@@ -1302,7 +1448,7 @@ function! s:FTprogress_pascal()
     let lnum = lnum + 1
   endw
   setf progress
-endfun
+endfunc
 
 
 " Software Distributor Product Specification File (POSIX 1387.2-1995)
@@ -1315,6 +1461,9 @@ au BufNewFile,BufRead INDEX,INFO
 " Prolog
 au BufNewFile,BufRead *.pdb			setf prolog
 
+" Promela
+au BufNewFile,BufRead *.pml			setf promela
+
 " Protocols
 au BufNewFile,BufRead /etc/protocols		setf protocols
 
@@ -1323,6 +1472,9 @@ au BufNewFile,BufRead *.pyx,*.pxd		setf pyrex
 
 " Python
 au BufNewFile,BufRead *.py,*.pyw		setf python
+
+" Quixote (Python-based web framework)
+au BufNewFile,BufRead *.ptl			setf python
 
 " Radiance
 au BufNewFile,BufRead *.rad,*.mat		setf radiance
@@ -1344,7 +1496,7 @@ au BufNewFile,BufRead *.reg
 au BufNewFile,BufRead *.rib			setf rib
 
 " Rexx
-au BufNewFile,BufRead *.rexx,*.rex		setf rexx
+au BufNewFile,BufRead *.rexx,*.rex,*.jrexx,*.rxj,*.orx	setf rexx
 
 " R (Splus)
 if has("fname_case")
@@ -1370,33 +1522,33 @@ endif
 " Rexx, Rebol or R
 au BufNewFile,BufRead *.r,*.R			call s:FTr()
 
-fun! s:FTr()
-  if getline(1) =~ '^REBOL'
-    setf rebol
-  else
-    let n = 1
-    let max = line("$")
-    if max > 50
-      let max = 50
+func! s:FTr()
+  let max = line("$") > 50 ? 50 : line("$")
+
+  for n in range(1, max)
+    " Rebol is easy to recognize, check for that first
+    if getline(n) =~? '\<REBOL\>'
+      setf rebol
+      return
     endif
-    while n < max
-      " R has # comments
-      if getline(n) =~ '^\s*#'
-	setf r
-	break
-      endif
-      " Rexx has /* comments */
-      if getline(n) =~ '^\s*/\*'
-	setf rexx
-	break
-      endif
-      let n = n + 1
-    endwhile
-    if n >= max
+  endfor
+
+  for n in range(1, max)
+    " R has # comments
+    if getline(n) =~ '^\s*#'
+      setf r
+      return
+    endif
+    " Rexx has /* comments */
+    if getline(n) =~ '^\s*/\*'
       setf rexx
+      return
     endif
-  endif
-endfun
+  endfor
+
+  " Nothing recognized, assume Rexx
+  setf rexx
+endfunc
 
 " Remind
 au BufNewFile,BufRead .reminders*		call s:StarSetf('remind')
@@ -1422,11 +1574,17 @@ au BufNewFile,BufRead *.rst			setf rst
 " RTF
 au BufNewFile,BufRead *.rtf			setf rtf
 
+" Interactive Ruby shell
+au BufNewFile,BufRead .irbrc,irbrc		setf ruby
+
 " Ruby
 au BufNewFile,BufRead *.rb,*.rbw,*.gem,*.gemspec	setf ruby
 
-" Rantfile is like Ruby
-au BufNewFile,BufRead [rR]antfile,*.rant	setf ruby
+" Ruby on Rails
+au BufNewFile,BufRead *.builder,*.rxml,*.rjs	setf ruby
+
+" Rantfile and Rakefile is like Ruby
+au BufNewFile,BufRead [rR]antfile,*.rant,[rR]akefile,*.rake	setf ruby
 
 " S-lang (or shader language!)
 au BufNewFile,BufRead *.sl			setf slang
@@ -1437,11 +1595,17 @@ au BufNewFile,BufRead smb.conf			setf samba
 " SAS script
 au BufNewFile,BufRead *.sas			setf sas
 
+" Sass
+au BufNewFile,BufRead *.sass			setf sass
+
 " Sather
 au BufNewFile,BufRead *.sa			setf sather
 
 " Scilab
 au BufNewFile,BufRead *.sci,*.sce		setf scilab
+
+" SD: Streaming Descriptors
+au BufNewFile,BufRead *.sd			setf sd
 
 " SDL
 au BufNewFile,BufRead *.sdl,*.pr		setf sdl
@@ -1455,8 +1619,24 @@ au BufNewFile,BufRead *.siv			setf sieve
 " Sendmail
 au BufNewFile,BufRead sendmail.cf		setf sm
 
-" Sendmail .mc files are actually m4
-au BufNewFile,BufRead *.mc			setf m4
+" Sendmail .mc files are actually m4.  Could also be MS Message text file.
+au BufNewFile,BufRead *.mc			call s:McSetf()
+
+func! s:McSetf()
+  " Rely on the file to start with a comment.
+  " MS message text files use ';', Sendmail files use '#' or 'dnl'
+  for lnum in range(1, min([line("$"), 20]))
+    let line = getline(lnum)
+    if line =~ '^\s*\(#\|dnl\)'
+      setf m4  " Sendmail .mc file
+      return
+    elseif line =~ '^\s*;'
+      setf msmessages  " MS Message text file
+      return
+    endif
+  endfor
+  setf m4  " Default: Sendmail .mc file
+endfunc
 
 " Services
 au BufNewFile,BufRead /etc/services		setf services
@@ -1501,7 +1681,7 @@ au BufNewFile,BufRead .kshrc*,*.ksh call SetFileTypeSH("ksh")
 au BufNewFile,BufRead /etc/profile,.profile*,*.sh,*.env call SetFileTypeSH(getline(1))
 
 " Also called from scripts.vim.
-fun! SetFileTypeSH(name)
+func! SetFileTypeSH(name)
   if expand("<amatch>") =~ g:ft_ignore_pat
     return
   endif
@@ -1531,12 +1711,12 @@ fun! SetFileTypeSH(name)
     endif
   endif
   call SetFileTypeShell("sh")
-endfun
+endfunc
 
 " For shell-like file types, check for an "exec" command hidden in a comment,
 " as used for Tcl.
 " Also called from scripts.vim, thus can't be local to this script.
-fun! SetFileTypeShell(name)
+func! SetFileTypeShell(name)
   if expand("<amatch>") =~ g:ft_ignore_pat
     return
   endif
@@ -1554,7 +1734,7 @@ fun! SetFileTypeShell(name)
     endif
   endif
   exe "setf " . a:name
-endfun
+endfunc
 
 " tcsh scripts
 au BufNewFile,BufRead .tcshrc*,*.tcsh,tcsh.tcshrc,tcsh.login	call SetFileTypeShell("tcsh")
@@ -1562,7 +1742,7 @@ au BufNewFile,BufRead .tcshrc*,*.tcsh,tcsh.tcshrc,tcsh.login	call SetFileTypeShe
 " csh scripts, but might also be tcsh scripts (on some systems csh is tcsh)
 au BufNewFile,BufRead .login*,.cshrc*,csh.cshrc,csh.login,csh.logout,*.csh,.alias  call s:CSH()
 
-fun! s:CSH()
+func! s:CSH()
   if exists("g:filetype_csh")
     call SetFileTypeShell(g:filetype_csh)
   elseif &shell =~ "tcsh"
@@ -1570,11 +1750,12 @@ fun! s:CSH()
   else
     call SetFileTypeShell("csh")
   endif
-endfun
+endfunc
 
 " Z-Shell script
 au BufNewFile,BufRead .zprofile,/etc/zprofile,.zfbfmarks  setf zsh
 au BufNewFile,BufRead .zsh*,.zlog*,.zcompdump*  call s:StarSetf('zsh')
+au BufNewFile,BufRead *.zsh 			setf zsh
 
 " Scheme
 au BufNewFile,BufRead *.scm,*.ss		setf scheme
@@ -1637,7 +1818,34 @@ au BufNewFile,BufRead *.sno,*.spt		setf snobol4
 au BufNewFile,BufRead *.mib,*.my		setf mib
 
 " Snort Configuration
-au BufNewFile,BufRead *.hog,snort.conf,vision.conf,*.rules	setf hog
+au BufNewFile,BufRead *.hog,snort.conf,vision.conf	setf hog
+au BufNewFile,BufRead *.rules			call s:FTRules()
+
+let s:ft_rules_udev_rules_pattern = '^\s*\cudev_rules\s*=\s*"\([^"]\{-1,}\)/*".*'
+func! s:FTRules()
+  if expand('<amatch>:p') =~ '^/etc/udev/\%(rules\.d/\)\=.*\.rules$'
+    setf udevrules
+    return
+  endif
+  try
+    let config_lines = readfile('/etc/udev/udev.conf')
+  catch /^Vim\%((\a\+)\)\=:E484/
+    setf hog
+    return
+  endtry
+  let dir = expand('<amatch>:p:h')
+  for line in config_lines
+    if line =~ s:ft_rules_udev_rules_pattern
+      let udev_rules = substitute(line, s:ft_rules_udev_rules_pattern, '\1', "")
+      if dir == udev_rules
+        setf udevrules
+      endif
+      break
+    endif
+  endfor
+  setf hog
+endfunc
+
 
 " Spec (Linux RPM)
 au BufNewFile,BufRead *.spec			setf spec
@@ -1663,13 +1871,13 @@ au BufNewFile,BufRead *.tyb,*.typ,*.tyc,*.pkb,*.pks	setf sql
 " SQL
 au BufNewFile,BufRead *.sql			call s:SQL()
 
-fun! s:SQL()
+func! s:SQL()
   if exists("g:filetype_sql")
     exe "setf " . g:filetype_sql
   else
     setf sql
   endif
-endfun
+endfunc
 
 " SQLJ
 au BufNewFile,BufRead *.sqlj			setf sqlj
@@ -1695,6 +1903,9 @@ au BufNewFile,BufRead *.stp			setf stp
 " Standard ML
 au BufNewFile,BufRead *.sml			setf sml
 
+" Sratus VOS command macro
+au BufNewFile,BufRead *.cm			setf voscm
+
 " Sysctl
 au BufNewFile,BufRead /etc/sysctl.conf		setf sysctl
 
@@ -1707,7 +1918,7 @@ au BufNewFile,BufRead /etc/sudoers,sudoers.tmp	setf sudoers
 " file.
 " (Slow test) If a file contains a 'use' statement then it is almost certainly
 " a Perl file.
-fun! s:FTperl()
+func! s:FTperl()
   if expand("%:e") == 't' && expand("%:p:h:t") == 't'
     setf perl
     return 1
@@ -1721,7 +1932,7 @@ fun! s:FTperl()
     return 1
   endif
   return 0
-endfun
+endfunc
 
 " Tads (or Nroff or Perl test file)
 au BufNewFile,BufRead *.t
@@ -1753,7 +1964,7 @@ au BufNewFile,BufRead *.tex			call s:FTtex()
 " 1. Check the first line of the file for "%&<format>".
 " 2. Check the first 1000 non-comment lines for LaTeX or ConTeXt keywords.
 " 3. Default to "latex" or to g:tex_flavor, can be set in user's vimrc.
-fun! s:FTtex()
+func! s:FTtex()
   let firstline = getline(1)
   if firstline =~ '^%&\s*\a\+'
     let format = tolower(matchstr(firstline, '\a\+'))
@@ -1799,10 +2010,10 @@ fun! s:FTtex()
     setf tex
   endif
   return
-endfun
+endfunc
 
-" Context
-au BufNewFile,BufRead tex/context/*/*.tex	setf context
+" ConTeXt
+au BufNewFile,BufRead tex/context/*/*.tex,*.mkii,*.mkiv   setf context
 
 " Texinfo
 au BufNewFile,BufRead *.texinfo,*.texi,*.txi	setf texinfo
@@ -1836,9 +2047,6 @@ au BufNewFile,BufRead *.uit,*.uil		setf uil
 
 " Udev conf
 au BufNewFile,BufRead /etc/udev/udev.conf	setf udevconf
-
-" Udev rules
-au BufNewFile,BufRead /etc/udev/rules.d/*.rules setf udevrules
 
 " Udev permissions
 au BufNewFile,BufRead /etc/udev/permissions.d/*.permissions setf udevperm
@@ -1922,6 +2130,9 @@ au BufNewFile,BufRead *.web
 " Windows Scripting Host and Windows Script Component
 au BufNewFile,BufRead *.ws[fc]			setf wsh
 
+" XHTML
+au BufNewFile,BufRead *.xhtml,*.xht		setf xhtml
+
 " X Pixmap (dynamically sets colors, use BufEnter to make it work better)
 au BufEnter *.xpm
 	\ if getline(1) =~ "XPM2" |
@@ -1955,14 +2166,26 @@ au BufNewFile,BufRead *.msc,*.msf		setf xmath
 au BufNewFile,BufRead *.ms
 	\ if !s:FTnroff() | setf xmath | endif
 
-" XML
-au BufNewFile,BufRead *.xml
-	\ if getline(1) . getline(2) . getline(3) =~ '<!DOCTYPE.*DocBook' |
-	\   let b:docbk_type="xml" |
-	\   setf docbk |
-	\ else |
-	\   setf xml |
-	\ endif
+" XML  specific variants: docbk and xbl
+au BufNewFile,BufRead *.xml			call s:FTxml()
+
+func! s:FTxml()
+  let n = 1
+  while n < 100 && n < line("$")
+    let line = getline(n)
+    if line =~ '<!DOCTYPE.*DocBook'
+      let b:docbk_type = "xml"
+      setf docbk
+      return
+    endif
+    if line =~ 'xmlns:xbl="http://www.mozilla.org/xbl"'
+      setf xbl
+      return
+    endif
+    let n += 1
+  endwhile
+  setf xml
+endfunc
 
 " XMI (holding UML models) is also XML
 au BufNewFile,BufRead *.xmi			setf xml
@@ -1973,8 +2196,21 @@ au BufNewFile,BufRead *.csproj,*.csproj.user	setf xml
 " Qt Linguist translation source and Qt User Interface Files are XML
 au BufNewFile,BufRead *.ts,*.ui			setf xml
 
+" TPM's are RDF-based descriptions of TeX packages (Nikolai Weibull)
+au BufNewFile,BufRead *.tpm			setf xml
+
 " Xdg menus
 au BufNewFile,BufRead /etc/xdg/menus/*.menu	setf xml
+
+" ATI graphics driver configuration
+au BufNewFile,BufRead fglrxrc			setf xml
+
+" XLIFF (XML Localisation Interchange File Format) is also XML
+au BufNewFile,BufRead *.xlf			setf xml
+au BufNewFile,BufRead *.xliff			setf xml
+
+" X11 xmodmap (also see below)
+au BufNewFile,BufRead *Xmodmap			setf xmodmap
 
 " Xquery
 au BufNewFile,BufRead *.xq,*.xql,*.xqm,*.xquery,*.xqy	setf xquery
@@ -1991,7 +2227,7 @@ au BufNewFile,BufRead *.yy			setf yacc
 " Yacc or racc
 au BufNewFile,BufRead *.y			call s:FTy()
 
-fun! s:FTy()
+func! s:FTy()
   let n = 1
   while n < 100 && n < line("$")
     let line = getline(n)
@@ -2006,7 +2242,7 @@ fun! s:FTy()
     let n = n + 1
   endwhile
   setf yacc
-endfun
+endfunc
 
 
 " Yaml
@@ -2048,9 +2284,15 @@ au StdinReadPost * if !did_filetype() | runtime! scripts.vim | endif
 " Most of these should call s:StarSetf() to avoid names ending in .gz and the
 " like are used.
 
+" More Apache files.
+au BufNewFile,BufRead /etc/apache2/conf.*/*,/etc/apache2/sites-*/*,/etc/apache2/mods-*/*		call s:StarSetf('apache')
+
 " Asterisk config file
 au BufNewFile,BufRead *asterisk/*.conf*		call s:StarSetf('asterisk')
 au BufNewFile,BufRead *asterisk*/*voicemail.conf* call s:StarSetf('asteriskvm')
+
+" Bazaar version control
+au BufNewFile,BufRead bzr_log.*			setf bzr
 
 " BIND zone
 au BufNewFile,BufRead */named/db.*,*/bind/db.*	call s:StarSetf('bindzone')
@@ -2064,7 +2306,7 @@ au BufNewFile,BufRead [cC]hange[lL]og*
 	\|endif
 
 " Crontab
-au BufNewFile,BufRead crontab,crontab.*		call s:StarSetf('crontab')
+au BufNewFile,BufRead crontab,crontab.*,/etc/cron.d/*		call s:StarSetf('crontab')
 
 " Debian Sources.list
 au BufNewFile,BufRead /etc/apt/sources.list.d/*	call s:StarSetf('debsources')
@@ -2073,6 +2315,7 @@ au BufNewFile,BufRead /etc/apt/sources.list.d/*	call s:StarSetf('debsources')
 au BufNewFile,BufRead drac.*			call s:StarSetf('dracula')
 
 " Fvwm
+au BufNewFile,BufRead */.fvwm/*			call s:StarSetf('fvwm')
 au BufNewFile,BufRead *fvwmrc*,*fvwm95*.hook
 	\ let b:fvwm_version = 1 | call s:StarSetf('fvwm')
 au BufNewFile,BufRead *fvwm2rc*
@@ -2100,13 +2343,17 @@ au BufNewFile,BufRead Kconfig.*			call s:StarSetf('kconfig')
 " Makefile
 au BufNewFile,BufRead [mM]akefile*		call s:StarSetf('make')
 
-" Modconf
-au BufNewFile,BufRead /etc/modprobe.*		call s:StarSetf('modconf')
-
 " Ruby Makefile
 au BufNewFile,BufRead [rR]akefile*		call s:StarSetf('ruby')
 
+" Mail (also matches muttrc.vim, so this is below the other checks)
+au BufNewFile,BufRead mutt[[:alnum:]._-]\{6\}	setf mail
+
+" Modconf
+au BufNewFile,BufRead /etc/modprobe.*		call s:StarSetf('modconf')
+
 " Mutt setup file
+au BufNewFile,BufRead .mutt{ng,}rc*,*/.mutt{ng,}/mutt{ng,}rc*	call s:StarSetf('muttrc')
 au BufNewFile,BufRead mutt{ng,}rc*,Mutt{ng,}rc*		call s:StarSetf('muttrc')
 
 " Nroff macros
@@ -2174,6 +2421,21 @@ if has("menu") && has("gui_running")
       \ && !exists("did_install_syntax_menu") && &guioptions !~# "M"
   source <sfile>:p:h/menu.vim
 endif
+
+" Function called for testing all functions defined here.  These are
+" script-local, thus need to be executed here.
+" Returns a string with error messages (hopefully empty).
+func! TestFiletypeFuncs(testlist)
+  let output = ''
+  for f in a:testlist
+    try
+      exe f
+    catch
+      let output = output . "\n" . f . ": " . v:exception
+    endtry
+  endfor
+  return output
+endfunc
 
 " Restore 'cpoptions'
 let &cpo = s:cpo_save

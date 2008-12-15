@@ -227,12 +227,12 @@ lnk_creat(ARCHD *arcn)
 
 	if (S_ISLNK(sb.st_mode)) {
 		int res;
-		char buff[NAME_MAX+1];
+		char buff[PATH_MAX+1];
 		/* 
 		 * Conformance: cannot make hard link to symlink - just make a 
 		 * symlink to the target of the symlink
 		 */
-		if ((res = readlink(arcn->ln_name, buff, sizeof(buff))) < 0) {
+		if ((res = readlink(arcn->ln_name, buff, sizeof(buff)-1)) < 0) {
 			syswarn(1,errno,"Unable to symlink to %s from %s", arcn->ln_name,
 				    arcn->name);
 			return(-1);

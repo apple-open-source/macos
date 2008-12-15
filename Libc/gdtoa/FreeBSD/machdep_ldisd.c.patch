@@ -1,0 +1,14 @@
+--- machdep_ldisd.c.orig	2005-07-06 16:00:22.000000000 -0700
++++ machdep_ldisd.c	2005-07-06 16:02:24.000000000 -0700
+@@ -41,3 +41,11 @@
+ 
+ 	return strtod(s, sp);
+ }
++
++long double
++strtold_l(const char * __restrict s, char ** __restrict sp, locale_t loc)
++{
++
++	return strtod_l(s, sp, loc);
++}
++

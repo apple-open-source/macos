@@ -1,5 +1,6 @@
 # uuid sources
 .PATH: ${.CURDIR}/uuid
+CWD := ${.CURDIR}/uuid
 
 # uuid/uuid.h is now installed by xnu
 
@@ -13,10 +14,13 @@ UUIDMAN3 = uuid_clear.3.in uuid_compare.3.in uuid_copy.3.in \
            uuid_unparse.3.in
 PRIVUUID_INSTHDRS += ${.CURDIR}/uuid/namespace.h
 
+# This .for statement forces evaluation of ${CWD}
+.for _cwd in ${CWD}
+
 .for _src in ${UUIDSRCS}
 .ifmake autopatch
-${_src:R}-uuid.${_src:E}: uuidsrc/${_src} _AUTOPATCHCUR
-AUTOPATCHSRCS+= ${_src:R}-uuid.${_src:E}
+${_cwd}/${_src:R}-uuid.${_src:E}: ${_cwd}/uuidsrc/${_src} _AUTOPATCH
+AUTOPATCHSRCS+= ${_cwd}/${_src:R}-uuid.${_src:E}
 .else # !autopatch
 MISRCS+= ${_src}
 .endif # autopatch
@@ -24,15 +28,15 @@ MISRCS+= ${_src}
 
 .ifmake autopatch
 .for _src in ${UUIDHDRS}
-${_src}: uuidsrc/${_src} _AUTOPATCHCUR
-AUTOPATCHHDRS+= ${_src}
+${_cwd}/${_src}: ${_cwd}/uuidsrc/${_src} _AUTOPATCH
+AUTOPATCHHDRS+= ${_cwd}/${_src}
 .endfor
 .endif # autopatch
 
 .for _src in ${UUIDMAN3}
 .ifmake autopatch
-${_src:R}-uuid.${_src:E}: uuidsrc/${_src} _AUTOPATCH
-AUTOPATCHMAN+= ${_src:R}
+${_cwd}/${_src:R}-uuid.${_src:E}: ${_cwd}/uuidsrc/${_src} _AUTOPATCH
+AUTOPATCHMAN+= ${_cwd}/${_src:R}
 .else # !autopatch
 MAN3+= ${_src:R}
 .endif # autopatch
@@ -45,8 +49,10 @@ MLINKS+= uuid_unparse.3 uuid_unparse_lower.3		\
          uuid_unparse.3 uuid_unparse_upper.3
 
 .ifmake autopatch
-${UUIDTOMAN:R}-uuid.${UUIDTOMAN:E}: uuidsrc/${UUIDFROMMAN} _AUTOPATCH
-AUTOPATCHMAN+= ${UUIDTOMAN:R}
+${_cwd}/${UUIDTOMAN:R}-uuid.${UUIDTOMAN:E}: ${_cwd}/uuidsrc/${UUIDFROMMAN} _AUTOPATCH
+AUTOPATCHMAN+= ${_cwd}/${UUIDTOMAN:R}
 .else # !autopatch
 MAN3+= ${UUIDTOMAN:R}
 .endif # autopatch
+
+.endfor # _cwd

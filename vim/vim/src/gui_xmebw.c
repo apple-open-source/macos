@@ -47,13 +47,13 @@
 #include "gui_xmebwp.h"
 
 /* Provide some missing wrappers, which are missed from the LessTif
- * implementation.
+ * implementation.  Also missing in Motif 1.2 and earlier.
  *
  * We neither use XmeGetPixmapData or _XmGetPixmapData, since with LessTif the
- * pixmap will not appear in it's caches properly. We cache the interresting
+ * pixmap will not appear in it's caches properly. We cache the interesting
  * values in XmEnhancedButtonPart instead ourself.
  */
-#ifdef LESSTIF_VERSION
+#if defined(LESSTIF_VERSION) || (XmVersion <= 1002)
 # ifndef Lab_IsMenupane
 #  define Lab_IsMenupane(w) (Lab_MenuType(w) == (int)XmMENU_POPUP || \
 		    Lab_MenuType(w) == (int)XmMENU_PULLDOWN)
@@ -138,6 +138,19 @@ static XtResource resources[] =
     }
 };
 
+/* This is needed to work around a bug in Lesstif 2, leaving the extension
+ * NULL somehow results in getting it set to an invalid pointer. */
+XmPrimitiveClassExtRec xmEnhancedButtonPrimClassExtRec =
+{
+    /* next_extension      */ NULL,
+    /* record_type         */ NULLQUARK,
+    /* version             */ XmPrimitiveClassExtVersion,
+    /* record_size         */ sizeof(XmPrimitiveClassExtRec),
+    /* widget_baseline     */ XmInheritBaselineProc,
+    /* widget_display_rect */ XmInheritDisplayRectProc,
+    /* widget_margins      */ NULL
+};
+
 XmEnhancedButtonClassRec xmEnhancedButtonClassRec =
 {
     {
@@ -184,7 +197,7 @@ XmEnhancedButtonClassRec xmEnhancedButtonClassRec =
 	/* arm and activate	 */ XmInheritArmAndActivate,
 	/* synthetic resources	 */ NULL,
 	/* number of syn res	 */ 0,
-	/* extension		 */ NULL,
+	/* extension		 */ (XtPointer)&xmEnhancedButtonPrimClassExtRec,
     },
 
     /* label_class fields */
@@ -382,11 +395,15 @@ set_pixmap(XmEnhancedButtonWidget eb)
 
     /* Create the "highlight" pixmap. */
     color[4].pixel = eb->primitive.bottom_shadow_color;
+#ifdef XpmAllocColor /* SGI doesn't have it */
     attr.valuemask = XpmColorSymbols | XpmCloseness | XpmAllocColor;
+    attr.alloc_color = alloc_color;
+#else
+    attr.valuemask = XpmColorSymbols | XpmCloseness;
+#endif
     attr.closeness = 65535;	/* accuracy isn't crucial */
     attr.colorsymbols = color;
     attr.numsymbols = XtNumber(color);
-    attr.alloc_color = alloc_color;
 
     status = XpmCreatePixmapFromData(dpy, root, data, &pix, NULL, &attr);
     XpmFreeAttributes(&attr);
@@ -480,7 +497,7 @@ draw_shadows(XmEnhancedButtonWidget eb)
 	    || (eb->core.height <= 2 * eb->primitive.highlight_thickness))
 	return;
 
-#ifndef LESSTIF_VERSION
+#if !defined(LESSTIF_VERSION) && (XmVersion > 1002)
     {
 	XmDisplay	dpy;
 
@@ -641,7 +658,7 @@ draw_label(XmEnhancedButtonWidget eb, XEvent *event, Region region)
     GC		tmp_gc = NULL;
     Boolean	replaceGC = False;
     Boolean	deadjusted = False;
-#ifndef LESSTIF_VERSION
+#if !defined(LESSTIF_VERSION) && (XmVersion > 1002)
     XmDisplay	dpy = (XmDisplay)XmGetXmDisplay(XtDisplay(eb));
     Boolean	etched_in = dpy->display.enable_etched_in_menu;
 #else
@@ -726,7 +743,7 @@ Enter(Widget wid, XEvent *event, String *params, Cardinal *num_params)
 	if ((((ShellWidget) XtParent(XtParent(eb)))->shell.popped_up)
 		&& _XmGetInDragMode((Widget) eb))
 	{
-#ifndef LESSTIF_VERSION
+#if !defined(LESSTIF_VERSION) && (XmVersion > 1002)
 	    XmDisplay dpy = (XmDisplay) XmGetXmDisplay(XtDisplay(wid));
 	    Boolean etched_in = dpy->display.enable_etched_in_menu;
 #else
@@ -810,7 +827,7 @@ Leave(Widget wid, XEvent *event, String *params, Cardinal *num_params)
 
     if (Lab_IsMenupane(eb))
     {
-#ifndef LESSTIF_VERSION
+#if !defined(LESSTIF_VERSION) && (XmVersion > 1002)
 	XmDisplay dpy = (XmDisplay) XmGetXmDisplay(XtDisplay(wid));
 	Boolean etched_in = dpy->display.enable_etched_in_menu;
 #else
@@ -1078,7 +1095,7 @@ SetValues(Widget current, Widget request, Widget new, ArgList args, Cardinal *n)
 	    unsigned int    mask;
 
 	    /*
-	     * Aritificially let the highlight appear if the mouse is over us.
+	     * Artificially let the highlight appear if the mouse is over us.
 	     */
 	    /* Best way to get the root window of object: */
 	    XGetGeometry(dpy, XtWindow(cur), &root, &r_x, &r_y, &r_width,
@@ -1150,7 +1167,7 @@ SetValues(Widget current, Widget request, Widget new, ArgList args, Cardinal *n)
 Redisplay(Widget w, XEvent *event, Region region)
 {
     XmEnhancedButtonWidget  eb = (XmEnhancedButtonWidget) w;
-#ifndef LESSTIF_VERSION
+#if !defined(LESSTIF_VERSION) && (XmVersion > 1002)
     XmDisplay		    dpy;
     XtEnum		    default_button_emphasis;
 #endif
@@ -1162,7 +1179,7 @@ Redisplay(Widget w, XEvent *event, Region region)
     if (!XtIsRealized((Widget)eb))
 	return;
 
-#ifndef LESSTIF_VERSION
+#if !defined(LESSTIF_VERSION) && (XmVersion > 1002)
     dpy = (XmDisplay)XmGetXmDisplay(XtDisplay(eb));
     default_button_emphasis = dpy->display.default_button_emphasis;
 #endif
@@ -1241,7 +1258,7 @@ Redisplay(Widget w, XEvent *event, Region region)
     {
 	int adjust = 0;
 
-#ifndef LESSTIF_VERSION
+#if !defined(LESSTIF_VERSION) && (XmVersion > 1002)
 	/*
 	 *  NOTE: PushButton has two types of shadows: primitive-shadow and
 	 *  default-button-shadow.  If pushbutton is in a menu only primitive
@@ -1289,7 +1306,7 @@ Redisplay(Widget w, XEvent *event, Region region)
 			  adjust, adjust, rectwidth, rectheight, borderwidth);
 	    }
 
-#ifndef LESSTIF_VERSION
+#if !defined(LESSTIF_VERSION) && (XmVersion > 1002)
 	    switch (default_button_emphasis)
 	    {
 		case XmINTERNAL_HIGHLIGHT:
@@ -1365,7 +1382,7 @@ Redisplay(Widget w, XEvent *event, Region region)
 		    default_button_shadow_thickness =
 			       eb->pushbutton.default_button_shadow_thickness;
 
-#ifndef LESSTIF_VERSION
+#if !defined(LESSTIF_VERSION) && (XmVersion > 1002)
 		/*
 		 * Compute location of bounding box to contain the
 		 * defaultButtonShadow.

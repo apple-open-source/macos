@@ -929,37 +929,21 @@ LONG SCardStatus(SCARDHANDLE hCard, LPSTR mszReaderNames,
 	if (rv != SCARD_S_SUCCESS)
 		return rv;
 
-	if (mszReaderNames)
-	{  /* want reader name */
-		if (pcchReaderLen)
-		{ /* & present reader name length */
-			if (*pcchReaderLen >= strlen(rContext->lpcReader))
-			{ /* & enough room */
-				*pcchReaderLen = strlen(rContext->lpcReader);
-				strncpy(mszReaderNames, rContext->lpcReader, MAX_READERNAME);
-			}
-			else
-			{        /* may report only reader name len */
-				*pcchReaderLen = strlen(rContext->lpcReader);
-				rv = SCARD_E_INSUFFICIENT_BUFFER;
-			}
-		}
-		else
-		{            /* present buf & no buflen */
-			return SCARD_E_INVALID_PARAMETER;
-		}
-	}
-	else
+	if (mszReaderNames)			/* want reader name */
 	{
-		if (pcchReaderLen)
-		{ /* want reader len only */
-			*pcchReaderLen = strlen(rContext->lpcReader);
-		}
-		else
-		{
-		/* nothing todo */
-		}
+		int cchReaderLen;
+		if (!pcchReaderLen)		/* present buf & no buflen */
+			return SCARD_E_INVALID_PARAMETER;
+
+		cchReaderLen = strlen(rContext->lpcReader);
+		if(*pcchReaderLen < cchReaderLen)
+			rv = SCARD_E_INSUFFICIENT_BUFFER;
+		else   /* There's enough room in the buffer */
+			strncpy(mszReaderNames, rContext->lpcReader, cchReaderLen);
+		*pcchReaderLen = cchReaderLen;
 	}
+	else if (pcchReaderLen) /* want the reader length but not the name */
+		*pcchReaderLen = strlen(rContext->lpcReader);
 
 	if (pdwState)
 		*pdwState = SharedReaderState_State(rContext->readerState);
@@ -967,38 +951,23 @@ LONG SCardStatus(SCARDHANDLE hCard, LPSTR mszReaderNames,
 	if (pdwProtocol)
 		*pdwProtocol = SharedReaderState_Protocol(rContext->readerState);
 
-	if (pbAtr)
-	{  /* want ATR */
-		if (pcbAtrLen)
-		{ /* & present ATR length */
-			if (*pcbAtrLen >= SharedReaderState_CardAtrLength(rContext->readerState))
-			{ /* & enough room */
-				*pcbAtrLen = SharedReaderState_CardAtrLength(rContext->readerState);
-				memcpy(pbAtr, SharedReaderState_CardAtr(rContext->readerState),
-					SharedReaderState_CardAtrLength(rContext->readerState));
-			}
-			else
-			{ /* may report only ATR len */
-				*pcbAtrLen = SharedReaderState_CardAtrLength(rContext->readerState);
-				rv = SCARD_E_INSUFFICIENT_BUFFER;
-			}
-		}
-		else
-		{ /* present buf & no buflen */
-			return SCARD_E_INVALID_PARAMETER;
-		}
-	}
-	else
+	if (pbAtr)     /* want ATR */
 	{
-		if (pcbAtrLen)
-		{ /* want ATR len only */
-			*pcbAtrLen = SharedReaderState_CardAtrLength(rContext->readerState);
-		}
+		int cbAtrLen;
+		if (!pcbAtrLen)
+			return SCARD_E_INVALID_PARAMETER;
+		cbAtrLen = SharedReaderState_CardAtrLength(rContext->readerState);
+
+		if(cbAtrLen >= *pcbAtrLen)
+			rv = SCARD_E_INSUFFICIENT_BUFFER;
 		else
 		{
-			/* nothing todo */
+			*pcbAtrLen = cbAtrLen;
+			memcpy(pbAtr, SharedReaderState_CardAtr(rContext->readerState), cbAtrLen);
 		}
 	}
+	else if (pcbAtrLen)
+		*pcbAtrLen = SharedReaderState_CardAtrLength(rContext->readerState);
 
 	return rv;
 }

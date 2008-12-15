@@ -127,11 +127,11 @@ static NSComparisonResult sortKextArray(NSDictionary * dict1, NSDictionary * dic
     }
 }
 
-- (int)numberOfRowsInTableView:(NSTableView *)aTableView {
+- (NSInteger)numberOfRowsInTableView:(NSTableView *)aTableView {
     return [_loadedExtensions count];
 }
 
-- (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(int)rowIndex {
+- (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex {
     return [[_loadedExtensions objectAtIndex:rowIndex] objectForKey:[aTableColumn identifier]];
 }
 

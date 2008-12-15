@@ -605,7 +605,7 @@ do_rlogin(dest)
 		       lusername);
 		return (-1);
 	}
-	return (iruserok(dest->sin_addr.s_addr, 0, rusername, lusername));
+	return (iruserok(dest->sin_addr.s_addr, pwd->pw_uid == 0, rusername, lusername));
 }
 
 void

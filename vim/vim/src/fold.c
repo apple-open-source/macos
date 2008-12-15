@@ -858,7 +858,14 @@ foldUpdate(wp, top, bot)
 	    || foldmethodIsDiff(wp)
 #endif
 	    || foldmethodIsSyntax(wp))
+    {
+	int save_got_int = got_int;
+
+	/* reset got_int here, otherwise it won't work */
+	got_int = FALSE;
 	foldUpdateIEMS(wp, top, bot);
+	got_int |= save_got_int;
+    }
 }
 
 /* foldUpdateAll() {{{2 */
@@ -2069,7 +2076,7 @@ foldtext_cleanup(str)
 	{
 	    while (vim_iswhite(s[len]))
 		++len;
-	    mch_memmove(s, s + len, STRLEN(s + len) + 1);
+	    STRMOVE(s, s + len);
 	}
 	else
 	{
@@ -2300,7 +2307,7 @@ foldUpdateIEMS(wp, top, bot)
 
     /* If some fold changed, need to redraw and position cursor. */
     if (fold_changed && wp->w_p_fen)
-	changed_window_setting();
+	changed_window_setting_win(wp);
 
     /* If we updated folds past "bot", need to redraw more lines.  Don't do
      * this in other situations, the changed lines will be redrawn anyway and
@@ -2334,7 +2341,7 @@ foldUpdateIEMS(wp, top, bot)
  * "flp->off" is the offset to the real line number in the buffer.
  *
  * All this would be a lot simpler if all folds in the range would be deleted
- * and then created again.  But we would loose all information about the
+ * and then created again.  But we would lose all information about the
  * folds, even when making changes that don't affect the folding (e.g. "vj~").
  *
  * Returns bot, which may have been increased for lines that also need to be
@@ -2669,6 +2676,7 @@ foldUpdateIEMSRecurse(gap, level, startlnum, flp, getlevel, bot, topflags)
     if (fp->fd_len < flp->lnum - fp->fd_top)
     {
 	fp->fd_len = flp->lnum - fp->fd_top;
+	fp->fd_small = MAYBE;
 	fold_changed = TRUE;
     }
 
@@ -2684,7 +2692,7 @@ foldUpdateIEMSRecurse(gap, level, startlnum, flp, getlevel, bot, topflags)
 	{
 	    if (fp->fd_top + fp->fd_len > bot + 1)
 	    {
-		/* fold coninued below bot */
+		/* fold continued below bot */
 		if (getlevel == foldlevelMarker
 			|| getlevel == foldlevelExpr
 			|| getlevel == foldlevelSyntax)
@@ -2834,7 +2842,7 @@ foldSplit(gap, i, top, bot)
  *	      3     5  6
  *
  * 1: not changed
- * 2: trunate to stop above "top"
+ * 2: truncate to stop above "top"
  * 3: split in two parts, one stops above "top", other starts below "bot".
  * 4: deleted
  * 5: made to start below "bot".
@@ -2900,8 +2908,8 @@ foldRemove(gap, top, bot)
 
 /* foldMerge() {{{2 */
 /*
- * Merge two adjecent folds (and the nested ones in them).
- * This only works correctly when the folds are really adjecent!  Thus "fp1"
+ * Merge two adjacent folds (and the nested ones in them).
+ * This only works correctly when the folds are really adjacent!  Thus "fp1"
  * must end just above "fp2".
  * The resulting fold is "fp1", nested folds are moved from "fp2" to "fp1".
  * Fold entry "fp2" in "gap" is deleted.
@@ -2971,7 +2979,11 @@ foldlevelIndent(flp)
     else
 	flp->lvl = get_indent_buf(buf, lnum) / buf->b_p_sw;
     if (flp->lvl > flp->wp->w_p_fdn)
+    {
 	flp->lvl = flp->wp->w_p_fdn;
+	if (flp->lvl < 0)
+	    flp->lvl = 0;
+    }
 }
 
 /* foldlevelDiff() {{{2 */

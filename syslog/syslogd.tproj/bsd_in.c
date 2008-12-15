@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,13 +68,13 @@ bsd_in_init(void)
 	asldebug("%s: init\n", MY_ID);
 	if (sock >= 0) return sock;
 
-	if (launch_dict == NULL)
+	if (global.launch_dict == NULL)
 	{
 		asldebug("%s: laucnchd dict is NULL\n", MY_ID);
 		return -1;
 	}
 
-	sockets_dict = launch_data_dict_lookup(launch_dict, LAUNCH_JOBKEY_SOCKETS);
+	sockets_dict = launch_data_dict_lookup(global.launch_dict, LAUNCH_JOBKEY_SOCKETS);
 	if (sockets_dict == NULL)
 	{
 		asldebug("%s: laucnchd lookup of LAUNCH_JOBKEY_SOCKETS failed\n", MY_ID);

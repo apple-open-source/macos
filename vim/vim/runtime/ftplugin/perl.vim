@@ -1,7 +1,7 @@
 " Vim filetype plugin file
 " Language:	Perl
 " Maintainer:	Dan Sharp <dwsharp at hotmail dot com>
-" Last Change:  2005 Dec 16
+" Last Change:  17 Jul 2008
 " URL:		http://mywebpage.netscape.com/sharppeople/vim/ftplugin
 
 if exists("b:did_ftplugin") | finish | endif
@@ -13,6 +13,7 @@ let s:save_cpo = &cpo
 set cpo-=C
 
 setlocal formatoptions+=crq
+setlocal keywordprg=perldoc\ -f
 
 setlocal comments=:#
 setlocal commentstring=#%s
@@ -42,12 +43,16 @@ set isfname+=:
 " Set this once, globally.
 if !exists("perlpath")
     if executable("perl")
+      try
 	if &shellxquote != '"'
 	    let perlpath = system('perl -e "print join(q/,/,@INC)"')
 	else
 	    let perlpath = system("perl -e 'print join(q/,/,@INC)'")
 	endif
 	let perlpath = substitute(perlpath,',.$',',,','')
+      catch /E145:/
+	let perlpath = ".,,"
+      endtry
     else
 	" If we can't call perl to get its path, just default to using the
 	" current directory and the directory of the current file.
@@ -59,7 +64,7 @@ let &l:path=perlpath
 "---------------------------------------------
 
 " Undo the stuff we changed.
-let b:undo_ftplugin = "setlocal fo< com< cms< inc< inex< def< isf<" .
+let b:undo_ftplugin = "setlocal fo< com< cms< inc< inex< def< isf< kp<" .
 	    \	      " | unlet! b:browsefilter"
 
 " Restore the saved compatibility options.

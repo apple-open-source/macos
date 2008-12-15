@@ -86,7 +86,7 @@ static char *nextarg = NULL;
  * Structure and routines associated with listing directories.
  */
 struct afile {
-	ino_t	fnum;		/* inode number of file */
+	u_int32_t	fnum;		/* inode number of file */
 	char	*fname;		/* file name */
 	short	len;		/* name length */
 	char	prefix;		/* prefix character */
@@ -115,7 +115,7 @@ void
 runcmdshell()
 {
 	register struct entry *np;
-	ino_t ino;
+	u_int32_t ino;
 	struct arglist arglist;
 	char curdir[MAXPATHLEN];
 	char name[MAXPATHLEN];

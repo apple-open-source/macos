@@ -70,7 +70,7 @@ endif
 ##
 # Find Garbage
 ##
-Cruft      = CVS RCS SCCS *~ .*~ .nfs\* .*.wmd
+Cruft      = CVS RCS SCCS *~ .*~ .nfs\* .*.wmd .svn .DS_Store
 Find_Cruft = '(' $(Cruft:%=-name '%' -or) -name '' ')' -print
 
 ##

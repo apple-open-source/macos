@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: curl.c,v 1.124.2.30.2.20 2007/12/31 07:22:45 sebastian Exp $ */
+/* $Id: curl.c,v 1.124.2.30.2.21 2008/06/04 14:06:19 stas Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -169,8 +169,9 @@ static void _php_curl_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 			RETURN_FALSE; 																		\
 		} 																						\
 															\
-		if (php_memnstr(str, tmp_url->path, strlen(tmp_url->path), str + len)) {				\
+		if (tmp_url->host || !php_memnstr(str, tmp_url->path, strlen(tmp_url->path), str + len)) {				\
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Url '%s' contains unencoded control characters.", str);	\
+			php_url_free(tmp_url); 																\
 			RETURN_FALSE;											\
 		}													\
 																								\

@@ -176,6 +176,9 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
           APR_SETIFNULL(ac_cv_func_kqueue, no)
         fi
 	;;
+    *-k*bsd*-gnu)
+        APR_ADDTO(CPPFLAGS, [-D_REENTRANT -D_GNU_SOURCE])
+        ;;
     *-next-nextstep*)
 	APR_SETIFNULL(CFLAGS, [-O])
 	APR_ADDTO(CPPFLAGS, [-DNEXT])
@@ -188,14 +191,18 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
 	APR_ADDTO(CPPFLAGS, [-DRHAPSODY])
 	;;
     *-apple-darwin*)
-	APR_ADDTO(CPPFLAGS, [-DDARWIN -DSIGPROCMASK_SETS_THREAD_MASK -no-cpp-precomp])
-	APR_SETIFNULL(apr_posixsem_is_global, [yes])
-        APR_SETIFNULL(ac_cv_func_poll, [no]) # See issue 34332
-
-        # kqueue is broken on OS X, the poll tests work, but the socket tests
-        # hang when it's turned on.  if you decide to reenable this please be
-        # sure to test that ALL the tests continue to work with it turned on.
-        APR_SETIFNULL(ac_cv_func_kqueue, [no]) 
+        APR_ADDTO(CPPFLAGS, [-DDARWIN -DSIGPROCMASK_SETS_THREAD_MASK -no-cpp-precomp])
+        APR_SETIFNULL(apr_posixsem_is_global, [yes])
+        # kqueue works in 10.5/Darwin 9.x. Disable on all older versions.
+        case $host in
+            *-apple-darwin[[0-8]].*)
+            # kqueue is broken on OS X, the poll tests work, but the socket tests
+            # hang when it's turned on.  if you decide to reenable this please be
+            # sure to test that ALL the tests continue to work with it turned on.
+            APR_SETIFNULL(ac_cv_func_kqueue, [no]) 
+            APR_SETIFNULL(ac_cv_func_poll, [no]) # See issue 34332
+            ;;
+        esac
 	;;
     *-dec-osf*)
 	APR_ADDTO(CPPFLAGS, [-DOSF1])
@@ -236,6 +243,9 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
     	PLATOSVERS=`echo $host | sed 's/^.*solaris2.//'`
 	APR_ADDTO(CPPFLAGS, [-DSOLARIS2=$PLATOSVERS -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT])
         APR_SETIFNULL(apr_lock_method, [USE_FCNTL_SERIALIZE])
+        # readdir64_r error handling seems broken on Solaris (at least
+        # up till 2.8) -- it will return -1 at end-of-directory.
+        APR_SETIFNULL(ac_cv_func_readdir64_r, [no])
 	;;
     *-sunos4*)
 	APR_ADDTO(CPPFLAGS, [-DSUNOS4])
@@ -405,21 +415,40 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
 	APR_ADDTO(CPPFLAGS, [-D_TANDEM_SOURCE -D_XOPEN_SOURCE_EXTENDED=1])
 	;;
     *-ibm-os390)
-       APR_SETIFNULL(apr_lock_method, [USE_SYSVSEM_SERIALIZE])
-       APR_SETIFNULL(apr_sysvsem_is_global, [yes])
-       APR_SETIFNULL(apr_gethostbyname_is_thread_safe, [yes])
-       APR_SETIFNULL(apr_gethostbyaddr_is_thread_safe, [yes])
-       APR_ADDTO(CPPFLAGS, [-U_NO_PROTO -DPTHREAD_ATTR_SETDETACHSTATE_ARG2_ADDR -DPTHREAD_SETS_ERRNO -DPTHREAD_DETACH_ARG1_ADDR -DSIGPROCMASK_SETS_THREAD_MASK -DTCP_NODELAY=1])
-       ;;
+        APR_SETIFNULL(apr_lock_method, [USE_SYSVSEM_SERIALIZE])
+        APR_SETIFNULL(apr_sysvsem_is_global, [yes])
+        APR_SETIFNULL(apr_gethostbyname_is_thread_safe, [yes])
+        APR_SETIFNULL(apr_gethostbyaddr_is_thread_safe, [yes])
+        AC_DEFINE(HAVE_ZOS_PTHREADS, 1, [Define for z/OS pthread API nuances])
+        APR_ADDTO(CPPFLAGS, [-U_NO_PROTO -DSIGPROCMASK_SETS_THREAD_MASK -DTCP_NODELAY=1])
+        ;;
     *-ibm-as400)
-       APR_SETIFNULL(apr_lock_method, [USE_SYSVSEM_SERIALIZE])
-       APR_SETIFNULL(apr_process_lock_is_global, [yes])
-       APR_SETIFNULL(apr_gethostbyname_is_thread_safe, [yes])
-       APR_SETIFNULL(apr_gethostbyaddr_is_thread_safe, [yes])
-       ;;
+        APR_SETIFNULL(apr_lock_method, [USE_SYSVSEM_SERIALIZE])
+        APR_SETIFNULL(apr_process_lock_is_global, [yes])
+        APR_SETIFNULL(apr_gethostbyname_is_thread_safe, [yes])
+        APR_SETIFNULL(apr_gethostbyaddr_is_thread_safe, [yes])
+        ;;
     *cygwin*)
 	APR_ADDTO(CPPFLAGS, [-DCYGWIN])
-	APR_ADDTO(LIBS, [-lcrypt])
+	;;
+    *mingw*)
+	dnl gcc (3.4.2 at least) seems to mis-optimize at levels greater than
+	dnl -O0 producing link-time errors.  The user can override by
+	dnl explicitly passing a CFLAGS value to configure.
+	dnl 
+	dnl Example error messages:
+	dnl undefined reference to 'libmsvcrt_a_iname'
+	dnl undefined reference to '_nm___pctype'
+	if test "$ac_test_CFLAGS" != set; then
+		APR_REMOVEFROM(CFLAGS,-O2)
+		APR_ADDTO(CFLAGS,-O0)
+	fi
+	APR_ADDTO(LDFLAGS, [-Wl,--enable-auto-import,--subsystem,console])
+	APR_SETIFNULL(apr_lock_method, [win32])
+	APR_SETIFNULL(apr_process_lock_is_global, [yes])
+	APR_SETIFNULL(have_unicode_fs, [1])
+	APR_SETIFNULL(have_proc_invoked, [1])
+	APR_SETIFNULL(apr_cv_use_lfs64, [yes])
 	;;
   esac
 

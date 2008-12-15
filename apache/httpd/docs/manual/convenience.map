@@ -259,10 +259,12 @@ proxybadheader	mod/mod_proxy.html#proxybadheader
 proxyblock	mod/mod_proxy.html#proxyblock
 proxydomain	mod/mod_proxy.html#proxydomain
 proxyerroroverride	mod/mod_proxy.html#proxyerroroverride
+proxyftpdircharset	mod/mod_proxy.html#proxyftpdircharset
 proxyiobuffersize	mod/mod_proxy.html#proxyiobuffersize
 proxymatch	mod/mod_proxy.html#proxymatch
 proxymaxforwards	mod/mod_proxy.html#proxymaxforwards
 proxypass	mod/mod_proxy.html#proxypass
+proxypassinterpolateenv	mod/mod_proxy.html#proxypassinterpolateenv
 proxypassmatch	mod/mod_proxy.html#proxypassmatch
 proxypassreverse	mod/mod_proxy.html#proxypassreverse
 proxypassreversecookiedomain	mod/mod_proxy.html#proxypassreversecookiedomain

@@ -291,9 +291,9 @@ delwhiteout(ep)
 /*
  * find lowest number file (above "start") that needs to be extracted
  */
-ino_t
+u_int32_t
 lowerbnd(start)
-	ino_t start;
+	u_int32_t start;
 {
 	register struct entry *ep;
 
@@ -310,9 +310,9 @@ lowerbnd(start)
 /*
  * find highest number file (below "start") that needs to be extracted
  */
-ino_t
+u_int32_t
 upperbnd(start)
-	ino_t start;
+	u_int32_t start;
 {
 	register struct entry *ep;
 
@@ -382,12 +382,12 @@ flagvalues(ep)
 /*
  * Check to see if a name is on a dump tape.
  */
-ino_t
+u_int32_t
 dirlookup(name)
 	const char *name;
 {
 	struct direct *dp;
-	ino_t ino;
+	u_int32_t ino;
  
 	ino = ((dp = pathsearch(name)) == NULL) ? 0 : dp->d_ino;
 

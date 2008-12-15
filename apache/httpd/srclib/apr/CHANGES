@@ -1,39 +1,77 @@
                                                      -*- coding: utf-8 -*-
-Changes for APR 1.2.12
+Changes for APR 1.3.0
 
-  *) Numerous fixes to the test/ framework, including better handling of
-     long size_t comparisons and more consistent Makefile.(in|win) setup
-     for authoring new tests.  [William Rowe]
+  *) Fix Solaris poll failure.  PR 43000
+     [Henry Jen <henryjen ztune.net>]
 
-  *) Win32 build fixes including a Makefile.win scheme, fixes for 64P
-     model x86_64 compiles and VC8 builds.  [William Rowe]
+  *) apr_getservbyname(): Use proper method for converting port
+     to host byte order.  PR 44903.
+     [Chris Taylor <ctaylor wadeford.plus.com>]
 
-  *) Fix --disable-ipv6 build on platforms with getifaddrs().
-     PR 39199.  [Joe Orton]
+  *) Use /dev/urandom in preference to /dev/random as entropy source
+     for apr_generate_random_bytes.  PR 44881.  [Bojan Smojver]
+
+  *) Implement apr_proc_wait_all_procs for windows.
+     The implementation uses tool help library present
+     on Windows 2000 and later. APR_ENOTIMPL is returned
+     on platforms missing tool help from kernel32.dll.
+     [Mladen Turk]
+
+  *) Introduce apr_pool_pre_cleanup_register() for registering
+     a cleanup that is called before any subpool is destroyed
+     within apr_pool_clear or apr_pool_destroy.
+     This allows to register a cleanup that will notify subpools
+     about its inevitable destruction.
+     [Mladen Turk]
+
+  *) Introduce apr_pool_create_core_ex() for creation of standalone
+     pools without parent. This function should be used for short
+     living pools, usually ones that are created and destroyed
+     either in a loop or inside function call. Since the pools
+     created with this function doesn't have a parent they must
+     be explicitly destroyed when done.
+     [Mladen Turk]
+
+  *) Fix return value when apr_pollset_poll interrupted.
+     PR 42580 [Basant Kumar Kukreja <basant.kukreja sun.com>]
+
+  *) Add missing semi-colon in Win9x code path of apr_file_open that breaks
+     Win9X Debug builds. PR 44329. [Curt Arnold]
+
+  *) z/OS: return standard apr_status_t codes from apr_dso_load()
+     and apr_dso_sym().  [David Jones <oscaremma gmail.com>]
+
+  *) Fix the make test target in the spec file. [Graham Leggett]
 
   *) Fix DSO-related crash on z/OS caused by incorrect memory
      allocation.  [David Jones <oscaremma gmail.com>]
 
-  *) Define apr_ino_t in such a way that it doesn't change definition
-     based on the library consumer's -D'efines to the filesystem.
-     [Lucian Adrian Grijincu <lucian.grijincu gmail.com>]
+  *) Implement Darwin-semantic (9.0.0 and later) sendfile support.
+     Use writev in lieu of hdtr vecs since how Darwin counts the
+     data is undocumented. [Geoff Greer <angryparsley mipsisrisc.com>,
+     William Rowe, Jim Jagielski]
 
-  *) Implement apr_atomic_casptr() for z/OS.
+  *) Implemented the APR_FOPEN_SPARSE flag, permits win32 to create
+     sparse data files.  Also bestow apr_fileinfo_t csize field for
+     Windows versions 2000 and later, which helps in the detection
+     that a sparse file is truly in use (see test/testlfs.c for an
+     example, because different filesystems can vary in behavior
+     even on an OS supporting sparse files).  [William Rowe]
+
+  *) Corrected for Darwin and others to toggle APR_HAS_LARGE_FILES
+     where large off_t's are enabled without any extra defines, hints
+     or additional functions.  This is binary compatible, but apps
+     may need to be recompiled to take full advantage depending on how
+     they detect this feature.  [William Rowe]
+
+  *) Implement apr_atomic_casptr() and apr_atomic_xchgptr() for z/OS.
      [David Jones <oscaremma gmail.com>]
 
-  *) Fill in apr_fileinfo_t member st_csize on Netware and Unix (PR 41678),
-     and refine the file times down to apr_time_t resolution if supported
-     by a st_atimensec or st_atim.tv_nsec value by the OS.  Additional
-     msec implementations are possible if exposed through autoconf.
-     [William Rowe, Nicklas Edmundsson <nikke acc.umu.se>]
-
-  *) Fix apr_socket_recvfrom() to ensure the peer's port and address
-     is returned through the "from" parameter on Unix and Win32.  
-     [Joe Orton, William Rowe]
-
-  *) The WIN32 cleanup routine for shared memory segments could wrongly
-     return unknown errors and leak a open handle.
-     [Joe Mudd <Joe.Mudd sas.com>]
+  *) Introduce apr_file_pipe_create_ex() to portably permit one pipe
+     end or another to be entirely blocking for non-APR applications
+     (e.g. stdio streams) and the other (or both ends) non blocking,
+     with a timeout of 0 by default.
+     [William Rowe]
 
   *) apr_procattr_io_set() on Windows: Set non-blocking pipe handles
      to a default timeout of 0, following the Unix default.  No effect
@@ -41,34 +79,14 @@ Changes for APR 1.2.12
      [Eric Covener <covener gmail.com>]
 
   *) apr_file_write() on Windows: Fix return code when writing to a non-
-     blocking pipe would have blocked.  PR 43563.
+     blocking pipe would have blocked.  PR 43563. 
      [Eric Covener <covener gmail.com>]
 
-  *) Cause apr_file_dup2() on Win32 to update the MSVCRT psuedo-stdio
-     handles for fd-based and FILE * based I/O.  [William Rowe]
-
-  *) Revert Win32 to the 1.2.8 behavior of apr_proc_create() for any 
-     of the three stdio streams which are not initialized, through either
-     apr_procattr_io_set() or apr_procattr_child_XXX_set(), when given a
-     procattr_t with one or two streams which were initialized through
-     apr_procattr_child_XXX_set().  Once again, these do not inherit the 
-     parent process stdio stream to WIN32 child processes (passing 
-     INVALID_HANDLE_VALUE instead) as on Unix.  Note APR 1.3.0 adopts 
-     the Unix behavior of inheriting any uninitialized streams as the 
-     parent's corresponding stdio stream, in such cases.  [William Rowe]
-
-Changes for APR 1.2.11
-
-  *) Fix handling of EINTR from read() in apr_generate_random_bytes()
-     on platforms with /dev/random.  PR 39790.  [Joe Orton]
-
-  *) Win32 apr_file_read: Correctly handle completion-based read-to-EOF.
-     [Steven Naim <steven.naim googlemail.com>]
-
-  *) Fixed Win32 regression of stdout inheritance in apr_proc_create.
+  *) Introduce APR_NO_FILE as an option to apr_procattr_io_set() for any 
+     of the three stdio streams to cause the corresponding streams to be 
+     closed to the child process.  This becomes effective in 1.3.0 across
+     platforms (equivilant to APR_NO_PIPE in 1.2.x except on Win32.)
      [William Rowe]
-
-Changes for APR 1.2.10
 
   *) Solve WinNT inherited pipe leaks by mutexing apr_proc_create calls,
      on WinNT (not WinCE, nor 9x) so that we toggle the inherited state 
@@ -77,26 +95,18 @@ Changes for APR 1.2.10
      or while they are used by apr_proc_create.  [William Rowe]
 
   *) Define the Mac OS/X filesystem_encoding as utf-8 (in previous
-     releases the interpretation would vary).  [Erik Huelsmann
-     <ehuels gmail.com>]
+     releases the interpretation would vary).  [Branko Čibej]
 
-  *) Fix day of year (tm_day) calculation for July. The bug only affects
-     Windows builds.  PR 42953.  [Davi Arnaut]
+  *) Add table cloning (deep copy) convenience function.
+     [Davi Arnaut]
 
-  *) Fix LFS detection when building over NFS. The mode must be
-     specified when O_CREAT is in the flags to open().
-     PR 42821.  [Rainer Jung <rainer.jung kippdata.de>]
-
-  *) Avoid overwriting the hash_mutex table for applications that
-     incorrectly calls apr_atomic_init().  PR 42760.  [Davi Arnaut]
-
-  *) Allow IPv6 connectivity test to fail, avoiding a potentially fatal
-     error.  [Davi Arnaut]
-
-  *) The MinGW Windows headers effectively redefines WINADVAPI from
-     __stdcall to empty which results in a link failure when wincrypt.h
-     is placed after an include to apr_private.h.
-     PR 42293.  [Curt Arnold]
+  *) Rework the WIN32 CV code to signal the condition only if one or
+     more threads are blocked on the condition variable. If no threads
+     are waiting on the condition variable, nothing happens. The change
+     also eliminates the thundering-herd problem of the manual-reset
+     event, which (theoretically) wakes up all threads waiting on. Now
+     the behavior of the CV's should be the same on Unix and win32
+     platforms. PR 42305.  [Davi Arnaut]
 
   *) Define SEM_FAILED if it isn't already defined, as the proc mutex
      code already does it. Also search for the sem_open function in
@@ -104,10 +114,8 @@ Changes for APR 1.2.10
      [Davi Arnaut]
 
   *) Define the _HPUX_SOURCE feature test macro to obtain maximum
-     functionality. Fixes broken sendfile with LFS support on HP-UX.
+     functionality.
      PR 42261.  [Davi Arnaut]
-
-Changes for APR 1.2.9
 
   *) Stop invoking the testshm* helpers upon 'make test' invocation.
      [Kurt Miller <kurt intricatesoftware.com>]
@@ -117,63 +125,131 @@ Changes for APR 1.2.9
 
   *) Numerous build fixes for non-GCC builds and GCC builds on Win32,
      as well as WinCE builds.  [Davi Arnaut <davi haxent.com.br>,
-     Curt Arnold <carnold apache.org>, John Mark Vandenberg, 
+     Curt Arnold <carnold apache.org>, John Mark Vandenberg,
      Kouhei Sutou <kou cozmixng.org>, William Rowe]
 
   *) Discard file buffers when running cleanups for exec.
      PR 41119.  [Davi Arnaut <davi haxent.com.br>, Bojan Smojver]
 
-  *) If apr_proc_create() fails to exec in the fork()ed child, call
-     _exit() not exit() to avoid running atexit()-registered functions
-     in the child.  PR 30913.  [Joe Orton]
-
   *) Improve thread safety of assorted file_io functions.
      PR 42400.  [Davi Arnaut <davi haxent.com.br>]
 
-  *) Fix file pointer position calculation in apr_file_writev() on
-     buffered file.  PR 40963.  [Davi Arnaut <davi haxent.com.br>]
+  *) Add the apr_pollcb API as an alternative more efficient method
+     of polling sockets, compared to apr_pollset. [Paul Querna]
 
-  *) Fix formatting of unsigned integers larger than 2^63 in the
-     vformatter/apr_*printf.  PR 42250.  
-     [Wynn Wilkes <wynn bungeelabs.com>]
+  *) Fix possible crash in apr_pool_initialize() when built with 
+     verbose pool debugging.  PR 41063.  
+     [Peter Steiner <peter.steiner+apache hugwi.ch>]
 
-  *) Fix possible EFAULT failures in apr_socket_sendfile() on 32-bit
-     Solaris with LFS enabled.  PR 39463.  [Joe Orton, Joseph Tam
-     <tam math.ubc.ca>]
-
-  *) Fix deadlock in apr_file_gets() for a file opened with both the
-     APR_BUFFERED and APR_XTHREAD flags.  [Bojan Smojver, Joe Orton]
-
-Changes for APR 1.2.8
+  *) Fix --disable-ipv6 build on platforms with getifaddrs().
+     PR 39199.  [Joe Orton]
 
   *) Correctly retrieve 'empty' environment values with apr_env_get
      on Win32 (e.g. "VAR="), and added validation to testall suite.  
      PR 40764.  [Issac Goldstand <margol beamartyr.net>]
 
-  *) APR_FIND_APR macro no longer checks /usr/local/apache2/.
-     PR 40842.  [Colm MacCárthaigh]
-
   *) Portably check for EEXIST in mktemp code.  PR 40818
      [Kenneth Golomb <KGolomb TradeCard.com>]
 
-  *) Fix apr_snprintf/apr_vsnprintf return value to not count the
-     NUL terminator in the overflow case.  PR 39996.
-     [Michal Luczaj <regenrecht o2.pl>]
+  *) Fix apr_socket_recvfrom() to ensure the peer's address is returned
+     through the "from" parameter.  [Joe Orton]
+
+  *) Fix error checking in kqueue, epoll and event port versions of
+     apr_pollset_create.  PR 40660, 40661, 40662
+     [Larry Cipriani <lvc lucent.com>]
+
+  *) Add some documentation on the format matched by apr_fnmatch.
+     [David Glasser <glasser mit.edu>]
+
+  *) Add apr_hash_clear.  [Daniel L. Rall <dlr apache.org>]
+
+  *) Don't try to build apr_app.c on MinGW.
+     [Matthias Miller <Blog outofhanwell.com>]
+
+  *) Fix the timeout converstion in apr_pollset with the KQueue
+     backend. [Marco Molteni <mmolteni cisco.com>]
+
+  *) Support MinGW.  [John Vandenberg, Justin Erenkrantz]
+
+  *) Implement apr_thread_yield on Unix in terms of pthread_yield or
+     sched_yield. [Keisuke Nishida <keisuke.nishida gmail.com>]
 
   *) Provide folding in autogenerated .manifest files for Win32 builders
      using VisualStudio 2005  [William Rowe]
 
-  *) Fix detection of pthread cross-process robust mutexes.
-     PR 39833.  [Tsuyoshi SASAMOTO <nazonazo miobox.jp>]
+  *) Utilise Solaris' native atomic_* functions for apr_atomics
+     where appropriate. [Colm MacCárthaigh]
+
+  *) Make apr_socket_recvfrom initialize the port field in the from
+     sockaddr.  PR 39325 [Anthony Minessale <anthmct yahoo.com>]
 
   *) NetBSD: Avoid leaving zombie process when using apr_signal() 
      to ignore SIGCHLD.  PR 36750.  [Todd Vierling <tv pobox.com>]
 
-  *) Fix apr_socket_sendv() for platforms without writev.
-     PR 38822.  [Joe Orton]
+  *) Implement support for apr_proc_mutex_trylock() on Unix platforms.
+     PR 38785.  [Chris Darroch <chrisd pearsoncmg.com>]
 
-  *) Avoid issues using >2Gb of data per call with sendfile() on
-     64-bit Linux platforms.  [Joe Orton]
+  *) APR_FIND_APR macro now supports customisable detailed checks on
+     each installed apr. [Justin Erenkrantz, Colm MacCárthaigh]
+
+  *) APR_FIND_APR macro no longer checks /usr/local/apache2/
+     [Colm MacCárthaigh]
+
+  *) Add APR_POLLSET_NOCOPY option to apr_pollset API to eliminate
+     O(n)-time lookup in apr_pollset_remove() (currently implemented
+     only for epoll).  [Brian Pane]
+
+  *) Add apr_file_buffer_set() and apr_file_buffer_size_get() functions
+     to support variable buffer sizes with APR file handles.
+     [Colm MacCárthaigh]
+
+  *) Add apr_file_open_flags_std[err|out|in]() functions.
+     [Colm MacCárthaigh]
+
+  *) stdio: apr_file_open_std[err|out|in]() functions now set the APR_WRITE
+     or APR_READ flag as appropriate. [Colm MacCárthaigh]
+
+  *) multicast: apr_mcast_*() no longer return APR_ENOTIMPL when invoked
+     for non-UDP/RAW sockets. The caller is expected to ensure that the
+     socket-type is suitable for multicast. [Colm MacCárthaigh]
+
+  *) Add apr_sockaddr_ip_getbuf() function.  [Joe Orton]
+
+  *) Fix handling of %pI in apr_psprintf.  [Joe Orton]
+
+  *) Provide APR_VERSION_AT_LEAST() macro for applications which 
+     want to enable features based on a required level of APR.
+     [Jeff Trawick]
+
+  *) jlibtool: Teach to use static libraries with -static.
+     [Justin Erenkrantz]
+
+  *) Fix checks for alloca() support in configure.  PR 13037.
+     [Noah Misch <noah cs.caltech.edu>]
+
+  *) Add %pm support to apr_snprintf() for printing the error string
+     corresponding to an apr_status_t value.  [Joe Orton]
+
+  *) Add APR_ARRAY_IDX() and APR_ARRAY_PUSH() convenience macros to
+     apr_tables.h.  [Garrett Rooney]
+
+Changes for APR 1.2.12
+
+  *) Define apr_ino_t in such a way that it doesn't change definition
+     based on the library consumer's -D'efines to the filesystem.
+     [Lucian Adrian Grijincu <lucian.grijincu gmail.com>]
+
+  *) Fill in apr_fileinfo_t member st_csize on Netware and Unix (PR 41678),
+     and refine the file times down to apr_time_t resolution if supported
+     by a st_atimensec or st_atim.tv_nsec value by the OS.  Additional
+     msec implementations are possible if exposed through autoconf.
+     [William Rowe, Nicklas Edmundsson <nikke acc.umu.se>]
+
+  *) Fix apr_socket_recvfrom() to ensure the peer's address is returned
+     through the "from" parameter on Win32.  [William Rowe]
+
+  *) Cause apr_file_dup2() on Win32 to update the MSVCRT psuedo-stdio
+     handles for fd-based and FILE * based I/O.  [William Rowe]
 
 Changes for APR 1.2.7
 

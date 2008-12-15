@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -170,17 +170,9 @@ bool
 IOATADevice::matchPropertyTable(OSDictionary * table)
 {
 
-	bool            result  = false;
-	OSString *      string  = OSString::withCStringNoCopy ( "IOUnit" );
+	bool	result;
 	
-	if ( string != NULL )
-	{
-	
-		result = compareProperty ( table, string );
-		string->release ( );
-		string = NULL;
-		
-	}
+	result = compareProperty ( table, "IOUnit" );
     
     return result;
     
@@ -190,14 +182,16 @@ bool
 IOATADevice::matchPropertyTable(OSDictionary * table, SInt32 * score )
 {
 	
-	if ( !compareProperty ( table, ( OSString * ) getProperty ( kATADevPropertyKey ) ) )
+	bool	result;
+	
+	result = compareProperty ( table, kATADevPropertyKey );
+	
+	if ( result == false )
 	{
 		*score = 0;
-		return false;
 	}
 	
-	else
-		return true;
+    return result;
 	
 }
 

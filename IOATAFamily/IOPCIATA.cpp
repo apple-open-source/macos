@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -470,7 +470,7 @@ IOPCIATA::setPRD(UInt8 *bffr, UInt16 count, PRD *tableElement, UInt16 end)
 {
 	DLOG("IOPCIATA set PRD ptr = %lx count = %x flags = %x\n", (long) bffr, count, end);
 
-	tableElement->bufferPtr = (UInt8 *)OSSwapHostToLittleInt32((UInt32)bffr);
+	tableElement->bufferPtr = OSSwapHostToLittleInt32((UInt32)(uintptr_t)bffr);
 	tableElement->byteCount = OSSwapHostToLittleInt16(count);
 	tableElement->flags = OSSwapHostToLittleInt16(end);
 }
@@ -529,7 +529,7 @@ IOPCIATA::createChannelCommands(void)
 			xfrPosition += xferCount;
 			
 			// now we have to examine the segment to see whether it crosses (a) 64k boundary(s)
-			starting64KBlock = (UInt8*) ( (UInt32) xferDataPtr & 0xffff0000);
+			starting64KBlock = (UInt8*) ( (uintptr_t) xferDataPtr & 0xffff0000);
 			ptr2EndData = xferDataPtr + xferCount;
 			next64KBlock  = (starting64KBlock + 0x10000);
 

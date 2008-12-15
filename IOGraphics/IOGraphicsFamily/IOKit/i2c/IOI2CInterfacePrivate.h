@@ -45,6 +45,39 @@ struct IOI2CBuffer
 
 #ifdef KERNEL
 
+#ifndef __ppc__
+#pragma pack(push, 4)
+#endif
+
+struct IOI2CRequest_10_5_0
+{
+    UInt64		__reservedA;
+    IOReturn		result;
+    uint32_t		completion;
+    IOOptionBits	commFlags;
+#ifdef __ppc__
+    uint32_t		__reservedE;
+#endif
+    uint64_t		minReplyDelay;
+    uint8_t		sendAddress;
+    uint8_t		sendSubAddress;
+    uint8_t		__reservedB[2];
+    IOOptionBits	sendTransactionType;
+    uint32_t		sendBuffer;
+    uint32_t         	sendBytes;
+    uint8_t		replyAddress;
+    uint8_t		replySubAddress;
+    uint8_t		__reservedC[2];
+    IOOptionBits	replyTransactionType;
+    uint32_t		replyBuffer;
+    uint32_t		replyBytes;
+    uint32_t		__reservedD[16];
+};
+
+#ifndef __ppc__
+#pragma pack(pop)
+#endif
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 class IOI2CInterfaceUserClient : public IOUserClient

@@ -51,8 +51,6 @@ enum {
 
 #include "AppleUSBOHCI.h"
 
-#define kAppleCurrentAvailable	"AAPL,current-available"
-
 // this section needs to get moved to the IOPCIFamily
 #define DEBUG_PCI_PWR_MGMT 1
 #define _controllerCanSleep				_expansionData->_controllerCanSleep
@@ -62,6 +60,7 @@ AppleUSBOHCI::CheckSleepCapability(void)
 {
 	// assume that sleep is OK
 	_controllerCanSleep = true;
+	_hasPCIPwrMgmt = false;
 	
     //   We need to determine which OHCI controllers don't survive sleep.  These fall into 2 categories:
     //
@@ -86,14 +85,28 @@ AppleUSBOHCI::CheckSleepCapability(void)
     //
     if ( !_device->getProperty("AAPL,clock-id") && !_onCardBus && !((getPlatform()->getChipSetType() == kChipSetTypeGossamer) && getPlatform()->getMachineType() == kGossamerTypeYosemite) )
     {
-		if (_device->hasPCIPowerManagement() && (_device->enablePCIPowerManagement() == kIOReturnSuccess))
+		if (_device->getProperty("built-in"))
 		{
-			_hasPCIPwrMgmt = true;
-            setProperty("Card Type","Built-in");
+			// rdar://5769508 - if we are on a built in PCI device, then assume the system supports D3cold
+			if (_device->hasPCIPowerManagement(kPCIPMCPMESupportFromD3Cold) && (_device->enablePCIPowerManagement(kPCIPMCSPowerStateD3) == kIOReturnSuccess))
+			{
+				_hasPCIPwrMgmt = true;
+				setProperty("Card Type","Built-in");
+			}
 		}
-        else
+		else
+		{
+			// rdar://5856545 - on older machines without the built-in property, we need to use the "default" case in the IOPCIDevice code
+			if (_device->hasPCIPowerManagement() && (_device->enablePCIPowerManagement() == kIOReturnSuccess))
+			{
+				_hasPCIPwrMgmt = true;
+				setProperty("Card Type","Built-in");
+			}
+		}
+		
+        if (!_hasPCIPwrMgmt)
         {
-            USBError(1, "AppleUSBOHCI[%p]::CheckSleepCapability - OHCI controller will be unloaded across sleep",this);
+            USBError(1, "AppleUSBOHCI[%p]::CheckSleepCapability - controller will be unloaded across sleep",this);
             _controllerCanSleep = false;
             setProperty("Card Type","PCI");
         }
@@ -142,7 +155,7 @@ AppleUSBOHCI::callPlatformFunction(const OSSymbol *functionName,
 
 
 void
-AppleUSBOHCI::SuspendUSBBus()
+AppleUSBOHCI::SuspendUSBBus(bool goingToSleep)
 {
     UInt32			something;
     UInt32			hcControl;
@@ -167,7 +180,21 @@ AppleUSBOHCI::SuspendUSBBus()
     }
     
     // now tell the controller to put the bus into suspend mode
-    hcControl = kOHCIFunctionalState_Suspend << kOHCIHcControl_HCFSPhase;
+	if (goingToSleep && (_errataBits & kErrataOHCINoGlobalSuspendOnSleep))
+	{
+		UInt32			port;
+		hcControl = kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase;
+		for (port=0; port < _rootHubNumPorts; port++)
+		{
+			_savedHcRhPortStatus[port] = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+			USBLog(5, "AppleUSBOHCI[%p]::SuspendUSBBus - port %d _savedHcRhPortStatus(%p)", this, (int)port+1, (void*)_savedHcRhPortStatus[port]);
+		}
+	}
+	else
+	{
+		hcControl = kOHCIFunctionalState_Suspend << kOHCIHcControl_HCFSPhase;
+	}
+		
     if (_hasPCIPwrMgmt)
 		hcControl |= kOHCIHcControl_RWC | kOHCIHcControl_RWE;
 		
@@ -196,13 +223,56 @@ AppleUSBOHCI::SuspendUSBBus()
 }
 
 void
-AppleUSBOHCI::ResumeUSBBus()
+AppleUSBOHCI::ResumeUSBBus(bool wakingFromSleep)
 {
+	UInt32		newValue;
+	
+	// move this to here because on some OHCI controllers we don't put the controller into suspend mode on sleep
+	if (wakingFromSleep)
+	{
+		UInt32		port, portSC;
+		
+		IOSleep(1);
+		for (port=0; port < _rootHubNumPorts; port++)
+		{
+			UInt32	portSC = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+			if (portSC & kOHCIHcRhPortStatus_CSC)
+			{
+				if (portSC & kOHCIHcRhPortStatus_PES)
+				{
+					USBError(1, "USB (OHCI):Port %d on bus 0x%x has connect status change but is still enabled. setting clear port enable. hcRhPortStatus(%p)", (int)port+1, (uint32_t)_busNumber, (void*)portSC);
+					_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(kOHCIHcRhPortStatus_CCS);				// CCS when writing is CPE
+					IOSleep(1);
+					portSC = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+				}
+				else
+				{
+					IOLog("USB (OHCI):Port %d on bus 0x%x connected or disconnected. portSC(%p)\n", (int)port+1, (uint32_t)_busNumber, (void*)portSC);
+				}
+			}
+			else if (portSC & kOHCIHcRhPortStatus_PSSC)
+			{
+				IOLog("USB (OHCI):Port %d on bus 0x%x has remote wakeup from some device\n", (int)port+1, (uint32_t)_busNumber);
+			}
+			else if ((_errataBits & kErrataOHCINoGlobalSuspendOnSleep)					// if we are on these controllers
+					 && (portSC & kOHCIHcRhPortStatus_CCS)								// and we are currently connected
+					 && !(portSC & kOHCIHcRhPortStatus_PES)								// and we are not currently enabled
+					 &&  (_savedHcRhPortStatus[port] & kOHCIHcRhPortStatus_PES))		// and we were enabled before we went to sleep
+			{
+				USBError(1, "USB (OHCI):Port %d on bus 0x%x is connected but not enabled. trying to set port enable. hcRhPortStatus(%p) _savedHcRhPortStatus(%p)", (int)port+1, (uint32_t)_busNumber, (void*)portSC, (void*)_savedHcRhPortStatus[port]);
+				_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(kOHCIHcRhPortStatus_PES);				// CCS when writing is CPE
+				IOSleep(1);
+				portSC = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
+				USBLog(2, "AppleUSBOHCI[%p}::ResumeUSBBus - new hcRhPortStatus(%p)", this, (void*)portSC);
+			}
+			_savedHcRhPortStatus[port] = 0;												// clear this out to be safe once we have no more need for it
+		}
+	}
     switch ((USBToHostLong(_pOHCIRegisters->hcControl) & kOHCIHcControl_HCFS) >> kOHCIHcControl_HCFSPhase )
     {
         case kOHCIFunctionalState_Suspend:
 			// Place the USB bus into the resume State
-			USBLog(2, "AppleUSBOHCI[%p]:: Resuming bus from Suspend state", this);
+			USBLog(2, "AppleUSBOHCI[%p]::ResumeUSBBus - Resuming bus from Suspend state", this);
 			_pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Resume << kOHCIHcControl_HCFSPhase);
 			// intentional fall through
         case kOHCIFunctionalState_Resume:
@@ -213,26 +283,55 @@ AppleUSBOHCI::ResumeUSBBus()
                 // By using 35 instead of 20, we overflow an internal 5 bit counter by exactly 3ms, which 
                 // stops an errant 3ms suspend from appearing on the bus
 			{
-				USBLog(2, "AppleUSBOHCI[%p]:: Delaying 35 milliseconds in resume state", this);
+				USBLog(2, "AppleUSBOHCI[%p]::ResumeUSBBus- Delaying 35 milliseconds in resume state", this);
 				IOSleep(35);
 			}
 			else
 			{
-				USBLog(2, "AppleUSBOHCI[%p]:: Delaying 20 milliseconds in resume state", this);
+				USBLog(2, "AppleUSBOHCI[%p]::ResumeUSBBus - Delaying 20 milliseconds in resume state", this);
 				IOSleep(20);
 			}
 			// intentional fall through
         case kOHCIFunctionalState_Reset:
 			// Place the USB bus into the operational State
-			USBLog(2, "AppleUSBOHCI[%p]: Changing bus to operational", this);
+			USBLog(2, "AppleUSBOHCI[%p]::ResumeUSBBus - Changing bus to operational", this);
 			_pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase);
+			IOSync();
 			IOSleep(3);			// wait the required 3 ms before turning on the lists
+			
+			// <rdar://problem/5981624> We need to make sure that the DRWE bit is properly set any time we go to the operational state
+			newValue = USBToHostLong(_pOHCIRegisters->hcRhStatus);
+			if (!(newValue & kOHCIHcRhStatus_DRWE))
+			{
+				_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC | kOHCIHcRhStatus_DRWE);
+				IOSync();
+				
+				if (_errataBits & kErrataNECIncompleteWrite)
+				{
+					UInt32		count = 0;
+					newValue = USBToHostLong(_pOHCIRegisters->hcRhStatus);			// this bit SHOULD now be set
+					while ((count++ < 10) && !(newValue & kOHCIHcRhStatus_DRWE))
+					{
+						USBError(1, "OHCI driver::ResumeUSBBus - DRWE bit not sticking. Retrying.");
+						_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC | kOHCIHcRhStatus_DRWE);
+						IOSync();
+						newValue = USBToHostLong(_pOHCIRegisters->hcRhStatus);
+					}
+				}
+			}
 			_pOHCIRegisters->hcControl =  HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase)
 														| kOHCIHcControl_CLE | (_OptiOn ? kOHCIHcControl_Zero : kOHCIHcControl_BLE) 
 														| kOHCIHcControl_PLE | kOHCIHcControl_IE);
+			IOSync();
 			break;
+			
         default:
-            USBLog(2, "AppleUSBOHCI[%p]: Bus already operational", this);
+            USBLog(2, "AppleUSBOHCI[%p]: Bus already operational - turning on the lists", this);
+			_pOHCIRegisters->hcControl =  HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase)
+														| kOHCIHcControl_CLE | (_OptiOn ? kOHCIHcControl_Zero : kOHCIHcControl_BLE) 
+														| kOHCIHcControl_PLE | kOHCIHcControl_IE);
+			IOSync();
+			
             break;
     }
 }
@@ -263,11 +362,11 @@ AppleUSBOHCI::AllocatePowerStateArray(void)
 IOReturn				
 AppleUSBOHCI::SaveControllerStateForSleep(void)
 {	
-	USBLog(2, "AppleUSBOHCI[%p]::setPowerState - suspending the bus", this);
+	USBLog(2, "AppleUSBOHCI[%p]::SaveControllerStateForSleep - suspending the bus", this);
 	_remote_wakeup_occurred = false;
 	
-	SuspendUSBBus();
-	USBLog(2, "AppleUSBOHCI[%p]::setPowerState - The bus is now suspended", this);
+	SuspendUSBBus(true);
+	USBLog(2, "AppleUSBOHCI[%p]::SaveControllerStateForSleep - The bus is now suspended", this);
 	_myBusState = kUSBBusStateSuspended;
 	
 	// on PCI PM machines, arm the PME and go to state D3
@@ -286,16 +385,24 @@ AppleUSBOHCI::RestoreControllerStateFromSleep(void)
 {
 	USBLog(2, "AppleUSBOHCI[%p]::RestoreControllerStateFromSleep - powering on USB", this);
 	
-	// at this point, interrupts are disabled, and we are waking up. If the Port Change interrupt is active
-	// then it is likely that we are responsible for the system issuing the wakeup
-	if (USBToHostLong(_pOHCIRegisters->hcInterruptStatus) & kOHCIHcInterrupt_RD)
-	{
-		IOLog("USB caused wake event (OHCI)\n");
-	}
-	
 	_remote_wakeup_occurred = true;	//doesn't matter how we woke up
 	
-	ResumeUSBBus();
+	// before resuming, make sure the op regs are inited
+	InitializeOperationalRegisters(false);
+
+	// at this point, interrupts are disabled, and we are waking up. If the Port Change interrupt is active
+	// then it is likely that we are responsible for the system issuing the wakeup
+	// 5922768 - we used to use the interrupt status register here, but some OHCI controllers don't have that bit set when waking from
+	// a remote wakeup. However, it appears that all controllers we know of will be in the Resume state by this time if we are waking because
+	// of a remote wakeup - after review, remove this completely and let the per port code handle it
+	//if (((USBToHostLong(_pOHCIRegisters->hcControl) & kOHCIHcControl_HCFS) >> kOHCIHcControl_HCFSPhase ) == kOHCIFunctionalState_Resume)
+	//{
+	//	UInt32			port;
+	//
+	//	IOLog("USB caused wake event (OHCI @ 0x%x)\n", (uint32_t)_busNumber);
+	//}
+	
+	ResumeUSBBus(true);
 	_myBusState = kUSBBusStateRunning;
 	
 
@@ -318,8 +425,8 @@ AppleUSBOHCI::ResetControllerState(void)
     _pOHCIRegisters->hcControl = HostToUSBLong((kOHCIFunctionalState_Reset << kOHCIHcControl_HCFSPhase));
     IOSync();
 	
-    //  need to wait at least 1ms here
-    IOSleep(2);
+	// always make sure we stay in reset for at least 50 ms
+    IOSleep(50);
 	
     // Clear all Processing Registers
     _pOHCIRegisters->hcHCCA = 0;
@@ -345,100 +452,42 @@ AppleUSBOHCI::ResetControllerState(void)
 IOReturn
 AppleUSBOHCI::RestartControllerFromReset(void)
 {
-	UInt32		hcDoneHead;
+	UInt32		newValue;
 	
 	USBLog(3, "AppleUSBOHCI[%p]::RestartControllerFromReset - Re-loading UIM if necessary (%d)", this, _uimInitialized );
 	
-    // Check to see if the hcDoneHead is not NULL.  If so, then we need to reset the controller
-    //
-    hcDoneHead = USBToHostLong(_pOHCIRegisters->hcDoneHead);
-    if ( hcDoneHead != NULL )
-    {
-        USBError(1,"AppleUSBOHCI[%p]::RestartControllerFromReset Non-NULL hcDoneHead: 0x%lx", this, hcDoneHead );
-		
-        // Reset it now
-        //
-        _pOHCIRegisters->hcCommandStatus = USBToHostLong(kOHCIHcCommandStatus_HCR);  // Reset OHCI
-        IOSleep(3);
-    }
-    
-    // Restore the Control and Bulk head pointers
-    //
-    _pOHCIRegisters->hcControlCurrentED = 0;
-    _pOHCIRegisters->hcControlHeadED = HostToUSBLong ((UInt32) _pControlHead->pPhysical);
-    _pOHCIRegisters->hcBulkHeadED = HostToUSBLong ((UInt32) _pBulkHead->pPhysical);
-    IOSync();
-	
-    // Write the HCCA
-    //
-    OSWriteLittleInt32(&_pOHCIRegisters->hcHCCA, 0, _hccaPhysAddr);
-    IOSync();
-	
-    // Set the HC to write the donehead to the HCCA, and enable interrupts
-    _pOHCIRegisters->hcInterruptStatus = USBToHostLong(kOHCIHcInterrupt_WDH);
-    IOSync();
-	
-    // Set up hcFmInterval.
-    UInt32	hcFSMPS;				// in register hcFmInterval
-    UInt32	hcFI;					// in register hcFmInterval
-    UInt32	hcPS;					// in register hcPeriodicStart
-	
-    hcFI = USBToHostLong(_pOHCIRegisters->hcFmInterval) & kOHCIHcFmInterval_FI;
-    // this formula is from the OHCI spec, section 5.4
-    hcFSMPS = ((((hcFI-kOHCIMax_OverHead) * 6)/7) << kOHCIHcFmInterval_FSMPSPhase);
-    hcPS = (hcFI * 9) / 10;			// per spec- 90%
-    _pOHCIRegisters->hcFmInterval = HostToUSBLong(hcFI | hcFSMPS);
-    _pOHCIRegisters->hcPeriodicStart = HostToUSBLong(hcPS);
-    IOSync();
-	
-	if (_errataBits & kErrataNECIncompleteWrite)
-	{
-		UInt32		newValue = 0, count = 0;
-		// check hcFmInterval
-		newValue = USBToHostLong(_pOHCIRegisters->hcFmInterval);
-		while ((count++ < 10) && (newValue != (hcFI | hcFSMPS)))
-		{
-			USBError(1, "OHCI driver: RestartControllerFromReset - hcFmInterval not sticking. Retrying.");
-			_pOHCIRegisters->hcFmInterval = HostToUSBLong(hcFI | hcFSMPS);
-			IOSync();
-			newValue = USBToHostLong(_pOHCIRegisters->hcFmInterval);
-		}
-		count = 0;						// reset
-										// check hcPeriodicStart
-		newValue = USBToHostLong(_pOHCIRegisters->hcPeriodicStart);
-		while ((count++ < 10) && (newValue != hcPS))
-		{
-			USBError(1, "OHCI driver: RestartControllerFromReset - hcPeriodicStart not sticking. Retrying.");
-			_pOHCIRegisters->hcPeriodicStart = HostToUSBLong(hcPS);
-			IOSync();
-			newValue = USBToHostLong(_pOHCIRegisters->hcPeriodicStart);
-		}
-		
-	}
-	
-    // Initialize the Root Hub registers
-    if (_errataBits & kErrataDisableOvercurrent)
-        _pOHCIRegisters->hcRhDescriptorA |= HostToUSBLong(kOHCIHcRhDescriptorA_NOCP);
-	
-    _pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC | kOHCIHcRhStatus_DRWE); // should be SRWE which should be identical to DRWE
-    
-	if (_errataBits & kErrataNECIncompleteWrite)
-	{
-		UInt32		newValue = 0, count = 0;
-		newValue = USBToHostLong(_pOHCIRegisters->hcRhStatus);			// this bit SHOULD now be set
-		while ((count++ < 10) && !(newValue & kOHCIHcRhStatus_DRWE))
-		{
-			USBError(1, "OHCI driver: RestartControllerFromReset - DRWE bit not sticking. Retrying.");
-			_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC | kOHCIHcRhStatus_DRWE);
-			IOSync();
-			newValue = USBToHostLong(_pOHCIRegisters->hcRhStatus);
-		}
-	}
+	// first, reinit the op regs
+	InitializeOperationalRegisters(true);
 	
     // Set OHCI to operational state and enable processing of control list.
-    _pOHCIRegisters->hcControl = HostToUSBLong ((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase)
-                                                | kOHCIHcControl_CLE | kOHCIHcControl_BLE
-                                                | kOHCIHcControl_PLE | kOHCIHcControl_IE);
+	_pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase);
+	IOSync();
+	IOSleep(3);			// wait the required 3 ms before turning on the lists
+	
+	// <rdar://problem/5981624> We need to make sure that the DRWE bit is properly set any time we go to the operational state
+	newValue = USBToHostLong(_pOHCIRegisters->hcRhStatus);
+	if (!(newValue & kOHCIHcRhStatus_DRWE))
+	{
+		_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC | kOHCIHcRhStatus_DRWE);
+		IOSync();
+		
+		if (_errataBits & kErrataNECIncompleteWrite)
+		{
+			UInt32		count = 0;
+			newValue = USBToHostLong(_pOHCIRegisters->hcRhStatus);			// this bit SHOULD now be set
+			while ((count++ < 10) && !(newValue & kOHCIHcRhStatus_DRWE))
+			{
+				USBError(1, "OHCI driver::RestartControllerFromReset - DRWE bit not sticking. Retrying.");
+				_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC | kOHCIHcRhStatus_DRWE);
+				IOSync();
+				newValue = USBToHostLong(_pOHCIRegisters->hcRhStatus);
+			}
+		}
+	}
+	
+	_pOHCIRegisters->hcControl =  HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase)
+												| kOHCIHcControl_CLE | (_OptiOn ? kOHCIHcControl_Zero : kOHCIHcControl_BLE) 
+												| kOHCIHcControl_PLE | kOHCIHcControl_IE);
     IOSync();
 	
     OHCIRootHubPower(1 /* kOn */);
@@ -474,7 +523,7 @@ IOReturn
 AppleUSBOHCI::DozeController(void)
 {
 		
-	SuspendUSBBus();
+	SuspendUSBBus(false);
 	
 	return kIOReturnSuccess;
 }
@@ -484,7 +533,7 @@ AppleUSBOHCI::DozeController(void)
 IOReturn				
 AppleUSBOHCI::WakeControllerFromDoze(void)
 {
-	ResumeUSBBus();
+	ResumeUSBBus(false);
 	_myBusState = kUSBBusStateRunning;
 
 	return kIOReturnSuccess;

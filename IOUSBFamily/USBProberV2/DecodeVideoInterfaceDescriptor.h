@@ -224,14 +224,14 @@ enum UncompressedFormatGUID
 #pragma pack(1)
 struct IOUSBVCInterfaceDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt16	bcdVDC;
-    UInt16	wTotalLength;
-    UInt32	dwClockFrequency;
-    UInt8	bInCollection;		// Number of Video Streaming Interfaces in the collection
-    UInt8	baInterfaceNr[1];
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint16_t	bcdVDC;
+    uint16_t	wTotalLength;
+    uint32_t	dwClockFrequency;
+    uint8_t		bInCollection;		// Number of Video Streaming Interfaces in the collection
+    uint8_t		baInterfaceNr[1];
 };
 typedef struct IOUSBVCInterfaceDescriptor IOUSBVCInterfaceDescriptor;
 #pragma options align=reset
@@ -241,13 +241,13 @@ typedef struct IOUSBVCInterfaceDescriptor IOUSBVCInterfaceDescriptor;
 #pragma pack(1)
 struct IOUSBVCInputTerminalDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bTerminalID;
-    UInt16	wTerminalType;
-    UInt8	bAssocTerminal;
-    UInt8	iTerminal;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bTerminalID;
+    uint16_t	wTerminalType;
+    uint8_t		bAssocTerminal;
+    uint8_t		iTerminal;
 };
 typedef struct IOUSBVCInputTerminalDescriptor IOUSBVCInputTerminalDescriptor;
 #pragma options align=reset
@@ -257,14 +257,14 @@ typedef struct IOUSBVCInputTerminalDescriptor IOUSBVCInputTerminalDescriptor;
 #pragma pack(1)
 struct IOUSBVCOutputTerminalDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bTerminalID;
-    UInt16	wTerminalType;
-    UInt8	bAssocTerminal;
-    UInt8	bSourceID;
-    UInt8	iTerminal;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bTerminalID;
+    uint16_t	wTerminalType;
+    uint8_t		bAssocTerminal;
+    uint8_t		bSourceID;
+    uint8_t		iTerminal;
 };
 typedef struct IOUSBVCOutputTerminalDescriptor IOUSBVCOutputTerminalDescriptor;
 #pragma options align=reset
@@ -274,18 +274,18 @@ typedef struct IOUSBVCOutputTerminalDescriptor IOUSBVCOutputTerminalDescriptor;
 #pragma pack(1)
 struct IOUSBVCCameraTerminalDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bTerminalID;
-    UInt16	wTerminalType;
-    UInt8	bAssocTerminal;
-    UInt8	iTerminal;
-    UInt16	wObjectiveFocalLengthMin;
-    UInt16	wObjectiveFocalLengthMax;
-    UInt16	wOcularFocalLength;
-    UInt8	bControlSize;			// Size of the bmControls field
-    UInt8	bmControls[1];
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bTerminalID;
+    uint16_t	wTerminalType;
+    uint8_t		bAssocTerminal;
+    uint8_t		iTerminal;
+    uint16_t	wObjectiveFocalLengthMin;
+    uint16_t	wObjectiveFocalLengthMax;
+    uint16_t	wOcularFocalLength;
+    uint8_t		bControlSize;			// Size of the bmControls field
+    uint8_t		bmControls[1];
 };
 typedef struct IOUSBVCCameraTerminalDescriptor IOUSBVCCameraTerminalDescriptor;
 #pragma options align=reset
@@ -295,12 +295,12 @@ typedef struct IOUSBVCCameraTerminalDescriptor IOUSBVCCameraTerminalDescriptor;
 #pragma pack(1)
 struct IOUSBVCSelectorUnitDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bUnitID;
-    UInt8	bNrInPins;
-    UInt8	baSourceID[1];
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bUnitID;
+    uint8_t		bNrInPins;
+    uint8_t		baSourceID[1];
 };
 typedef struct IOUSBVCSelectorUnitDescriptor IOUSBVCSelectorUnitDescriptor;
 #pragma options align=reset
@@ -308,7 +308,7 @@ typedef struct IOUSBVCSelectorUnitDescriptor IOUSBVCSelectorUnitDescriptor;
 #pragma pack(1)
 struct IOUSBVCSelectorUnit2Descriptor
 {
-    UInt8	iSelector;
+    uint8_t	iSelector;
 };
 typedef struct IOUSBVCSelectorUnit2Descriptor IOUSBVCSelectorUnit2Descriptor;
 #pragma options align=reset
@@ -316,14 +316,14 @@ typedef struct IOUSBVCSelectorUnit2Descriptor IOUSBVCSelectorUnit2Descriptor;
 #pragma pack(1)
 struct IOUSBVCProcessingUnitDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bUnitID;
-    UInt8	bSourceID;
-    UInt16	wMaxMultiplier;
-    UInt8	bControlSize;
-    UInt8	bmControls[1];
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bUnitID;
+    uint8_t		bSourceID;
+    uint16_t	wMaxMultiplier;
+    uint8_t		bControlSize;
+    uint8_t		bmControls[1];
 };
 typedef struct IOUSBVCProcessingUnitDescriptor IOUSBVCProcessingUnitDescriptor;
 #pragma options align=reset
@@ -331,7 +331,7 @@ typedef struct IOUSBVCProcessingUnitDescriptor IOUSBVCProcessingUnitDescriptor;
 #pragma pack(1)
 struct IOUSBVCProcessingUnit2Descriptor
 {
-    UInt8	iProcessing;
+    uint8_t		iProcessing;
 };
 typedef struct IOUSBVCProcessingUnit2Descriptor IOUSBVCProcessingUnit2Descriptor;
 #pragma options align=reset
@@ -339,14 +339,14 @@ typedef struct IOUSBVCProcessingUnit2Descriptor IOUSBVCProcessingUnit2Descriptor
 #pragma pack(1)
 struct IOUSBVCExtensionUnitDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bUnitID;
-	UInt8	guidFormat[16];
-    UInt8	bNumControls;
-    UInt8	bNrInPins;
-    UInt8	baSourceID[1];
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bUnitID;
+	uint8_t		guidFormat[16];
+    uint8_t		bNumControls;
+    uint8_t		bNrInPins;
+    uint8_t		baSourceID[1];
 };
 typedef struct IOUSBVCExtensionUnitDescriptor IOUSBVCExtensionUnitDescriptor;
 #pragma options align=reset
@@ -354,8 +354,8 @@ typedef struct IOUSBVCExtensionUnitDescriptor IOUSBVCExtensionUnitDescriptor;
 #pragma pack(1)
 struct IOUSBVCExtensionUnit2Descriptor
 {
-    UInt8	bControlSize;
-    UInt8	bmControls[1];
+    uint8_t		bControlSize;
+    uint8_t		bmControls[1];
 };
 typedef struct IOUSBVCExtensionUnit2Descriptor IOUSBVCExtensionUnit2Descriptor;
 #pragma options align=reset
@@ -363,7 +363,7 @@ typedef struct IOUSBVCExtensionUnit2Descriptor IOUSBVCExtensionUnit2Descriptor;
 #pragma pack(1)
 struct IOUSBVCExtensionUnit3Descriptor
 {
-    UInt8	iExtension;
+    uint8_t		iExtension;
 };
 typedef struct IOUSBVCExtensionUnit3Descriptor IOUSBVCExtensionUnit3Descriptor;
 #pragma options align=reset
@@ -371,10 +371,10 @@ typedef struct IOUSBVCExtensionUnit3Descriptor IOUSBVCExtensionUnit3Descriptor;
 #pragma pack(1)
 struct IOUSBVCInterruptEndpointDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt16	wMaxTransferSize;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint16_t	wMaxTransferSize;
 };
 typedef struct IOUSBVCInterruptEndpointDescriptor IOUSBVCInterruptEndpointDescriptor;
 #pragma options align=reset
@@ -382,19 +382,19 @@ typedef struct IOUSBVCInterruptEndpointDescriptor IOUSBVCInterruptEndpointDescri
 #pragma pack(1)
 struct IOUSBVSInputHeaderDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bNumFormats;
-    UInt16	wTotalLength;
-    UInt8	bEndpointAddress;
-    UInt8	bmInfo;
-    UInt8	bTerminalLink;
-    UInt8	bStillCaptureMethod;
-    UInt8	bTriggerSupport;
-    UInt8	bTriggerUsage;
-    UInt8	bControlSize;
-    UInt8	bmControls[1];
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bNumFormats;
+    uint16_t	wTotalLength;
+    uint8_t		bEndpointAddress;
+    uint8_t		bmInfo;
+    uint8_t		bTerminalLink;
+    uint8_t		bStillCaptureMethod;
+    uint8_t		bTriggerSupport;
+    uint8_t		bTriggerUsage;
+    uint8_t		bControlSize;
+    uint8_t		bmControls[1];
 };
 typedef struct IOUSBVSInputHeaderDescriptor IOUSBVSInputHeaderDescriptor;
 #pragma options align=reset
@@ -402,13 +402,13 @@ typedef struct IOUSBVSInputHeaderDescriptor IOUSBVSInputHeaderDescriptor;
 #pragma pack(1)
 struct IOUSBVSOutputHeaderDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bNumFormats;
-    UInt16	wTotalLength;
-    UInt8	bEndpointAddress;
-    UInt8	bTerminalLink;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bNumFormats;
+    uint16_t	wTotalLength;
+    uint8_t		bEndpointAddress;
+    uint8_t		bTerminalLink;
 };
 typedef struct IOUSBVSOutputHeaderDescriptor IOUSBVSOutputHeaderDescriptor;
 #pragma options align=reset
@@ -416,43 +416,43 @@ typedef struct IOUSBVSOutputHeaderDescriptor IOUSBVSOutputHeaderDescriptor;
 #pragma pack(1)
 struct IOUSBVDC_MJPEGFormatDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFormatIndex;
-    UInt8	bNumFrameDescriptors;
-    UInt8	bmFlags;
-    UInt8	bDefaultFrameIndex;
-    UInt8	bAspectRatioX;
-    UInt8	bAspectRatioY;
-    UInt8	bmInterlaceFlags;
-    UInt8	bCopyProtect;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFormatIndex;
+    uint8_t		bNumFrameDescriptors;
+    uint8_t		bmFlags;
+    uint8_t		bDefaultFrameIndex;
+    uint8_t		bAspectRatioX;
+    uint8_t		bAspectRatioY;
+    uint8_t		bmInterlaceFlags;
+    uint8_t		bCopyProtect;
 };
 typedef struct IOUSBVDC_MJPEGFormatDescriptor IOUSBVDC_MJPEGFormatDescriptor;
 #pragma options align=reset
 
 struct IOSUBVDC_StillImageSize
 {
-	UInt16	wWidth;
-	UInt16	wHeight;
+	uint16_t	wWidth;
+	uint16_t	wHeight;
 };
 typedef struct IOSUBVDC_StillImageSize IOSUBVDC_StillImageSize;
 
 struct IOSUBVDC_StillImageCompressionPattern
 {
-	UInt8	bNumCompressionPattern;
-	UInt8	bCompression[1];
+	uint8_t		bNumCompressionPattern;
+	uint8_t		bCompression[1];
 };
 typedef struct IOSUBVDC_StillImageCompressionPattern IOSUBVDC_StillImageCompressionPattern;
 
 #pragma pack(1)
 struct IOUSBVDC_StillImageFrameDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bEndpointAddress;
-    UInt8	bNumImageSizePatterns;
+    uint8_t					bLength;
+    uint8_t					bDescriptorType;
+    uint8_t					bDescriptorSubType;
+    uint8_t					bEndpointAddress;
+    uint8_t					bNumImageSizePatterns;
 	IOSUBVDC_StillImageSize	dwSize[1];
 };
 typedef struct IOUSBVDC_StillImageFrameDescriptor IOUSBVDC_StillImageFrameDescriptor;
@@ -461,21 +461,21 @@ typedef struct IOUSBVDC_StillImageFrameDescriptor IOUSBVDC_StillImageFrameDescri
 #pragma pack(1)
 struct IOUSBVDC_MJPEGFrameDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFrameIndex;
-    UInt8	bmCapabilities;
-    UInt16	wWidth;
-    UInt16	wHeight;
-    UInt32	dwMinBitRate;
-    UInt32	dwMaxBitRate;
-    UInt32	dwMaxVideoFrameBufferSize;
-    UInt32	dwDefaultFrameInterval;
-    UInt8	bFrameIntervalType;
-    UInt32	dwMinFrameInterval;
-    UInt32	dwMaxFrameInterval;
-    UInt32	dwFrameIntervalStep;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFrameIndex;
+    uint8_t		bmCapabilities;
+    uint16_t	wWidth;
+    uint16_t	wHeight;
+    uint32_t	dwMinBitRate;
+    uint32_t	dwMaxBitRate;
+    uint32_t	dwMaxVideoFrameBufferSize;
+    uint32_t	dwDefaultFrameInterval;
+    uint8_t		bFrameIntervalType;
+    uint32_t	dwMinFrameInterval;
+    uint32_t	dwMaxFrameInterval;
+    uint32_t	dwFrameIntervalStep;
 };
 typedef struct IOUSBVDC_MJPEGFrameDescriptor IOUSBVDC_MJPEGFrameDescriptor;
 #pragma options align=reset
@@ -483,19 +483,19 @@ typedef struct IOUSBVDC_MJPEGFrameDescriptor IOUSBVDC_MJPEGFrameDescriptor;
 #pragma pack(1)
 struct IOUSBVDC_MJPEGDiscreteFrameDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFrameIndex;
-    UInt8	bmCapabilities;
-    UInt16	wWidth;
-    UInt16	wHeight;
-    UInt32	dwMinBitRate;
-    UInt32	dwMaxBitRate;
-    UInt32	dwMaxVideoFrameBufferSize;
-    UInt32	dwDefaultFrameInterval;
-    UInt8	bFrameIntervalType;
-    UInt32	dwFrameInterval[1];
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFrameIndex;
+    uint8_t		bmCapabilities;
+    uint16_t	wWidth;
+    uint16_t	wHeight;
+    uint32_t	dwMinBitRate;
+    uint32_t	dwMaxBitRate;
+    uint32_t	dwMaxVideoFrameBufferSize;
+    uint32_t	dwDefaultFrameInterval;
+    uint8_t		bFrameIntervalType;
+    uint32_t	dwFrameInterval[1];
 };
 typedef struct IOUSBVDC_MJPEGDiscreteFrameDescriptor IOUSBVDC_MJPEGDiscreteFrameDescriptor;
 #pragma options align=reset
@@ -503,18 +503,18 @@ typedef struct IOUSBVDC_MJPEGDiscreteFrameDescriptor IOUSBVDC_MJPEGDiscreteFrame
 #pragma pack(1)
 struct IOUSBVDC_UncompressedFormatDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFormatIndex;
-    UInt8	bNumFrameDescriptors;
-    UInt8	guidFormat[16];
-    UInt8	bBitsPerPixel;
-    UInt8	bDefaultFrameIndex;
-    UInt8	bAspectRatioX;
-    UInt8	bAspectRatioY;
-    UInt8	bmInterlaceFlags;
-    UInt8	bCopyProtect;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFormatIndex;
+    uint8_t		bNumFrameDescriptors;
+    uint8_t		guidFormat[16];
+    uint8_t		bBitsPerPixel;
+    uint8_t		bDefaultFrameIndex;
+    uint8_t		bAspectRatioX;
+    uint8_t		bAspectRatioY;
+    uint8_t		bmInterlaceFlags;
+    uint8_t		bCopyProtect;
 };
 typedef struct IOUSBVDC_UncompressedFormatDescriptor IOUSBVDC_UncompressedFormatDescriptor;
 #pragma options align=reset
@@ -522,21 +522,21 @@ typedef struct IOUSBVDC_UncompressedFormatDescriptor IOUSBVDC_UncompressedFormat
 #pragma pack(1)
 struct IOUSBVDC_UncompressedFrameDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFrameIndex;
-    UInt8	bmCapabilities;
-    UInt16	wWidth;
-    UInt16	wHeight;
-    UInt32	dwMinBitRate;
-    UInt32	dwMaxBitRate;
-    UInt32	dwMaxVideoFrameBufferSize;
-    UInt32	dwDefaultFrameInterval;
-    UInt8	bFrameIntervalType;
-    UInt32	dwMinFrameInterval;
-    UInt32	dwMaxFrameInterval;
-    UInt32	dwFrameIntervalStep;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFrameIndex;
+    uint8_t		bmCapabilities;
+    uint16_t	wWidth;
+    uint16_t	wHeight;
+    uint32_t	dwMinBitRate;
+    uint32_t	dwMaxBitRate;
+    uint32_t	dwMaxVideoFrameBufferSize;
+    uint32_t	dwDefaultFrameInterval;
+    uint8_t		bFrameIntervalType;
+    uint32_t	dwMinFrameInterval;
+    uint32_t	dwMaxFrameInterval;
+    uint32_t	dwFrameIntervalStep;
 };
 typedef struct IOUSBVDC_UncompressedFrameDescriptor IOUSBVDC_UncompressedFrameDescriptor;
 #pragma options align=reset
@@ -544,19 +544,19 @@ typedef struct IOUSBVDC_UncompressedFrameDescriptor IOUSBVDC_UncompressedFrameDe
 #pragma pack(1)
 struct IOUSBVDC_UncompressedDiscreteFrameDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFrameIndex;
-    UInt8	bmCapabilities;
-    UInt16	wWidth;
-    UInt16	wHeight;
-    UInt32	dwMinBitRate;
-    UInt32	dwMaxBitRate;
-    UInt32	dwMaxVideoFrameBufferSize;
-    UInt32	dwDefaultFrameInterval;
-    UInt8	bFrameIntervalType;
-    UInt32	dwFrameInterval[1];
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFrameIndex;
+    uint8_t		bmCapabilities;
+    uint16_t	wWidth;
+    uint16_t	wHeight;
+    uint32_t	dwMinBitRate;
+    uint32_t	dwMaxBitRate;
+    uint32_t	dwMaxVideoFrameBufferSize;
+    uint32_t	dwDefaultFrameInterval;
+    uint8_t		bFrameIntervalType;
+    uint32_t	dwFrameInterval[1];
 };
 typedef struct IOUSBVDC_UncompressedDiscreteFrameDescriptor IOUSBVDC_UncompressedDiscreteFrameDescriptor;
 #pragma options align=reset
@@ -564,17 +564,17 @@ typedef struct IOUSBVDC_UncompressedDiscreteFrameDescriptor IOUSBVDC_Uncompresse
 #pragma pack(1)
 struct IOUSBVDC_VendorFormatDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFormatIndex;
-    UInt8	bNumFrameDescriptors;
-    UInt8	guidMajorFormat[16];
-    UInt8	guidSubFormat[16];
-    UInt8	guidSpecifierFormat[16];
-    UInt8	bPayloadClass;
-    UInt8	bDefaultFrameIndex;
-    UInt8	bCopyProtect;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFormatIndex;
+    uint8_t		bNumFrameDescriptors;
+    uint8_t		guidMajorFormat[16];
+    uint8_t		guidSubFormat[16];
+    uint8_t		guidSpecifierFormat[16];
+    uint8_t		bPayloadClass;
+    uint8_t		bDefaultFrameIndex;
+    uint8_t		bCopyProtect;
 };
 typedef struct IOUSBVDC_VendorFormatDescriptor IOUSBVDC_VendorFormatDescriptor;
 #pragma options align=reset
@@ -582,21 +582,21 @@ typedef struct IOUSBVDC_VendorFormatDescriptor IOUSBVDC_VendorFormatDescriptor;
 #pragma pack(1)
 struct IOUSBVDC_VendorFrameDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFrameIndex;
-    UInt8	bmCapabilities;
-    UInt16	wWidth;
-    UInt16	wHeight;
-    UInt32	dwMinBitRate;
-    UInt32	dwMaxBitRate;
-    UInt32	dwMaxVideoFrameBufferSize;
-    UInt32	dwDefaultFrameInterval;
-    UInt8	bFrameIntervalType;
-    UInt32	dwMinFrameInterval;
-    UInt32	dwMaxFrameInterval;
-    UInt32	dwFrameIntervalStep;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFrameIndex;
+    uint8_t		bmCapabilities;
+    uint16_t	wWidth;
+    uint16_t	wHeight;
+    uint32_t	dwMinBitRate;
+    uint32_t	dwMaxBitRate;
+    uint32_t	dwMaxVideoFrameBufferSize;
+    uint32_t	dwDefaultFrameInterval;
+    uint8_t		bFrameIntervalType;
+    uint32_t	dwMinFrameInterval;
+    uint32_t	dwMaxFrameInterval;
+    uint32_t	dwFrameIntervalStep;
 };
 typedef struct IOUSBVDC_VendorFrameDescriptor IOUSBVDC_VendorFrameDescriptor;
 #pragma options align=reset
@@ -604,19 +604,19 @@ typedef struct IOUSBVDC_VendorFrameDescriptor IOUSBVDC_VendorFrameDescriptor;
 #pragma pack(1)
 struct IOUSBVDC_VendorDiscreteFrameDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFrameIndex;
-    UInt8	bmCapabilities;
-    UInt16	wWidth;
-    UInt16	wHeight;
-    UInt32	dwMinBitRate;
-    UInt32	dwMaxBitRate;
-    UInt32	dwMaxVideoFrameBufferSize;
-    UInt32	dwDefaultFrameInterval;
-    UInt8	bFrameIntervalType;
-    UInt32	dwFrameInterval[1];
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFrameIndex;
+    uint8_t		bmCapabilities;
+    uint16_t	wWidth;
+    uint16_t	wHeight;
+    uint32_t	dwMinBitRate;
+    uint32_t	dwMaxBitRate;
+    uint32_t	dwMaxVideoFrameBufferSize;
+    uint32_t	dwDefaultFrameInterval;
+    uint8_t		bFrameIntervalType;
+    uint32_t	dwFrameInterval[1];
 };
 typedef struct IOUSBVDC_VendorDiscreteFrameDescriptor IOUSBVDC_VendorDiscreteFrameDescriptor;
 #pragma options align=reset
@@ -624,12 +624,12 @@ typedef struct IOUSBVDC_VendorDiscreteFrameDescriptor IOUSBVDC_VendorDiscreteFra
 #pragma pack(1)
 struct IOUSBVDC_DVFormatDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFormatIndex;
-    UInt32      dwMaxVideoFrameBufferSize;
-    UInt8	bFormatType;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFormatIndex;
+    uint32_t	dwMaxVideoFrameBufferSize;
+    uint8_t		bFormatType;
 };
 typedef struct IOUSBVDC_DVFormatDescriptor IOUSBVDC_DVFormatDescriptor;
 #pragma options align=reset
@@ -637,13 +637,13 @@ typedef struct IOUSBVDC_DVFormatDescriptor IOUSBVDC_DVFormatDescriptor;
 #pragma pack(1)
 struct IOUSBVDC_MPEG1SSFormatDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFormatIndex;
-    UInt16      wPacketLength;
-    UInt16      wPackLength;
-    UInt8	bPackDataType;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFormatIndex;
+    uint16_t	wPacketLength;
+    uint16_t	wPackLength;
+    uint8_t		bPackDataType;
 };
 typedef struct IOUSBVDC_MPEG1SSFormatDescriptor IOUSBVDC_MPEG1SSFormatDescriptor;
 #pragma options align=reset
@@ -651,13 +651,13 @@ typedef struct IOUSBVDC_MPEG1SSFormatDescriptor IOUSBVDC_MPEG1SSFormatDescriptor
 #pragma pack(1)
 struct IOUSBVDC_MPEG2PSFormatDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFormatIndex;
-    UInt16      wPacketLength;
-    UInt16      wPackLength;
-    UInt8	bPackDataType;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFormatIndex;
+    uint16_t	wPacketLength;
+    uint16_t	wPackLength;
+    uint8_t		bPackDataType;
 };
 typedef struct IOUSBVDC_MPEG2PSFormatDescriptor IOUSBVDC_MPEG2PSFormatDescriptor;
 #pragma options align=reset
@@ -665,13 +665,13 @@ typedef struct IOUSBVDC_MPEG2PSFormatDescriptor IOUSBVDC_MPEG2PSFormatDescriptor
 #pragma pack(1)
 struct IOUSBVDC_MPEG2PTSFormatDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bFormatIndex;
-    UInt8       bDataOffset;
-    UInt8	bPacketLength;
-    UInt8	bStrideLength;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bFormatIndex;
+    uint8_t		bDataOffset;
+    uint8_t		bPacketLength;
+    uint8_t		bStrideLength;
 };
 typedef struct IOUSBVDC_MPEG2PTSFormatDescriptor IOUSBVDC_MPEG2PTSFormatDescriptor;
 #pragma options align=reset
@@ -679,12 +679,12 @@ typedef struct IOUSBVDC_MPEG2PTSFormatDescriptor IOUSBVDC_MPEG2PTSFormatDescript
 #pragma pack(1)
 struct IOUSBVDC_ColorFormatDescriptor
 {
-    UInt8	bLength;
-    UInt8	bDescriptorType;
-    UInt8	bDescriptorSubType;
-    UInt8	bColorPrimaries;
-    UInt8       bTransferCharacteristics;
-    UInt8	bMatrixCoefficients;
+    uint8_t		bLength;
+    uint8_t		bDescriptorType;
+    uint8_t		bDescriptorSubType;
+    uint8_t		bColorPrimaries;
+    uint8_t       bTransferCharacteristics;
+    uint8_t		bMatrixCoefficients;
 };
 typedef struct IOUSBVDC_ColorFormatDescriptor IOUSBVDC_ColorFormatDescriptor;
 #pragma options align=reset
@@ -694,7 +694,7 @@ typedef struct IOUSBVDC_ColorFormatDescriptor IOUSBVDC_ColorFormatDescriptor;
 
 }
 
-+(void)decodeBytes:(UInt8 *)descriptor forDevice:(BusProbeDevice *)thisDevice  withDeviceInterface:(IOUSBDeviceRef)deviceIntf;
++(void)decodeBytes:(uint8_t *)descriptor forDevice:(BusProbeDevice *)thisDevice  withDeviceInterface:(IOUSBDeviceRef)deviceIntf;
     char MapNumberToVersion( int i );
 
 @end

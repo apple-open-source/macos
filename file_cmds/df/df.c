@@ -562,7 +562,7 @@ usage(void)
 
 	char *t_flag = COMPAT_MODE("bin/df", "unix2003") ? "[-t]" : "[-t type]";
 	(void)fprintf(stderr,
-	    "usage: df [-b | -H | -h | -k | -m | -P] [-ailn] [-T type] %s [filesystem ...]\n", t_flag);
+	    "usage: df [-b | -H | -h | -k | -m | -g | -P] [-ailn] [-T type] %s [filesystem ...]\n", t_flag);
 	exit(EX_USAGE);
 }
 

@@ -206,6 +206,21 @@ IOReturn BatteryFakerObject::setBatteryProperties(OSDictionary *d)
         return 0;
     }
     
+#if 0
+    OSIterator  *iter = OSCollectionIterator::withCollection(d);
+    OSSymbol    *key = NULL;
+    IOLog("BatteryFakerObject::setBatteryProperties - Dictionary count = %d\n",
+            d->getCount());
+    while (key = OSDynamicCast(OSSymbol, iter->getNextObject())) 
+    {
+        OSNumber *num = OSDynamicCast(OSNumber, d->getObject(key));
+        IOLog("BatteryFakerObject::setBatteryProperties @\"%s\" = %d\n",
+                    key->getCStringNoCopy(),
+                    num ? num->unsigned32BitValue() : 0);
+    }
+    
+#endif
+    
     setProperty("PropertiesDict", d);
 
     d = OSDictionary::withDictionary(d);

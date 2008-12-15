@@ -10,8 +10,9 @@ SRCROOT ?= .
 OBJROOT ?= .
 SYMROOT ?= .
 DSTROOT ?= .
+SDKROOT ?= /
 
-Extra_CC_Flags = -Wall
+Extra_CC_Flags = -Wall -isysroot $(SDKROOT)
 Extra_LD_Flags = -framework CoreFoundation -dead_strip
 
 DST_DIR = $(DSTROOT)/usr/bin

@@ -35,8 +35,8 @@
 do { 					\
     AbsoluteTime    now;		\
     UInt64	    nano;		\
-    clock_get_uptime( &now);		\
-    absolutetime_to_nanoseconds( now, &nano );				\
+    AbsoluteTime_to_scalar(&now) = mach_absolute_time();		\
+    absolutetime_to_nanoseconds(now, &nano);				\
     kprintf("%08ld [%d]::", (UInt32) (nano / 1000000ULL), idx);		\
     kprintf(__FUNCTION__);		\
     kprintf(fmt, ## args);		\
@@ -49,8 +49,8 @@ do { 					\
 do { 					\
     AbsoluteTime    now;		\
     UInt64	    nano;		\
-    clock_get_uptime( &now);		\
-    absolutetime_to_nanoseconds( now, &nano );			\
+    AbsoluteTime_to_scalar(&now) = mach_absolute_time();		\
+    absolutetime_to_nanoseconds( now, &nano );				\
     IOLog("%08ld [%d]::", (UInt32) (nano / 1000000ULL), idx);		\
     IOLog(__FUNCTION__);		\
     IOLog(fmt, ## args);		\
@@ -65,10 +65,14 @@ do { 					\
 	_ptr_ = (typeof(_ptr_)) (((char *) (_ptr_)) + sizeof(_type_));	\
     }
 
-
-#define kIOFBBootGrayValue		0x00648cc3
 // blue actual:0x00426bad gamma:0x00648cc3 bootx:0x00bfbfbf
+#if defined(OSTYPES_K64_REV)
+#define kIOFBBootGrayValue		0x00bfbfbf
+#define kIOFBGrayValue			0x00bfbfbf
+#else
+#define kIOFBBootGrayValue		0x00648cc3
 #define kIOFBGrayValue			0x00648cc3
+#endif
 
 #ifndef kAppleAudioVideoJackStateKey
 #define kAppleAudioVideoJackStateKey	"AppleAudioVideoJackState"
@@ -99,9 +103,11 @@ extern "C" vm_map_t IOPageableMapForAddress( vm_address_t address );
 
 extern "C" IOReturn IOGetHardwareClamshellState( IOOptionBits * result );
 
-extern bool gIOGraphicsSystemPower;
-extern IOOptionBits gIOFBLastClamshellState;
-extern bool	    gIOFBSystemPower;
+extern bool		      gIOGraphicsSystemPower;
+extern "C" IOOptionBits       gIOFBLastClamshellState;
+extern bool		      gIOFBSystemPower;
+extern const class OSSymbol * gIOFramebufferKey;
+extern class OSData *	      gIOFBZero32Data;
 
 #if __ppc__
 extern "C" void bcopy_nc( void * from, void * to, UInt32 l );

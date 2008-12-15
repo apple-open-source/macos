@@ -18,31 +18,6 @@
 		2D5B7F8708F71AF70031C32D /* IOSerialStreamSync.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 021C9E35000BD0CF11CA285C /* IOSerialStreamSync.cpp */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildStyle section */
-		0C1118D40014E0F911CA285C /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		0C1118D50014E0F911CA285C /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXCopyFilesBuildPhase section */
 		2D5B7F6F08F71A730031C32D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -125,47 +100,11 @@
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				INFOPLIST_FILE = "IOSerialFamily-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.yourcompany.driver.IOSerialFamily;
-				MODULE_VERSION = 1.0.0d1;
-				PREBINDING = NO;
-				PRODUCT_NAME = IOSerialFamily;
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = IOSerialFamily;
 			productName = IOSerialFamily;
 			productReference = 2D5B7F6908F71A610031C32D /* IOSerialFamily.kext */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>IOSerialFamily</string>
-	<key>CFBundleIdentifier</key>
-	<string>com.yourcompany.driver.IOSerialFamily</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.0</string>
-	<key>IOKitPersonalities</key>
-	<dict/>
-	<key>OSBundleLibraries</key>
-	<dict/>
-</dict>
-</plist>
-";
 			productType = "com.apple.product-type.kernel-extension.iokit";
 		};
 /* End PBXNativeTarget section */
@@ -174,16 +113,12 @@
 		021C9E2B000BD0CF11CA285C /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 2D5B7F6108F71A3A0031C32D /* Build configuration list for PBXProject "IOSerialFamily" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				0C1118D40014E0F911CA285C /* Development */,
-				0C1118D50014E0F911CA285C /* Deployment */,
-			);
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 0;
 			mainGroup = 021C9E2C000BD0CF11CA285C /* IOSerialFamily */;
 			productRefGroup = 021C9E44000BD0CF11CA285C /* Products */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				2D5B7F6808F71A610031C32D /* IOSerialFamily */,
 			);
@@ -206,13 +141,20 @@
 		2D5B7F6208F71A3A0031C32D /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
 				COPY_PHASE_STRIP = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
+				PER_ARCH_CFLAGS_arm = "-mlong-calls";
 				PREBINDING = NO;
+				SDKROOT_arm = /Developer/SDKs/Purple;
+				SDKROOT_armv6 = /Developer/SDKs/Purple;
 				UNSTRIPPED_PRODUCT = YES;
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -224,11 +166,18 @@
 		2D5B7F6308F71A3A0031C32D /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
 				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
+				PER_ARCH_CFLAGS_arm = "-mlong-calls";
 				PREBINDING = NO;
+				SDKROOT_arm = /Developer/SDKs/Purple;
+				SDKROOT_armv6 = /Developer/SDKs/Purple;
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-W",

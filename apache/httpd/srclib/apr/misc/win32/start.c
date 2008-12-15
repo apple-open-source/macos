@@ -24,7 +24,6 @@
 #include "wchar.h"
 #include "apr_arch_file_io.h"    /* bring in unicode-ness */
 #include "apr_arch_threadproc.h" /* bring in apr_threadproc_init */
-#include "crtdbg.h"
 #include "assert.h"
 
 /* This symbol is _private_, although it must be exported.
@@ -56,8 +55,8 @@ static int warrsztoastr(const char * const * *retarr,
     }
     wsize = 1 + wch - arrsz;
 
-    newarr = _malloc_dbg((args + 1) * sizeof(char *),
-                         _CRT_BLOCK, __FILE__, __LINE__);
+    newarr = apr_malloc_dbg((args + 1) * sizeof(char *),
+                            __FILE__, __LINE__);
 
     /* This is a safe max allocation, we will realloc after
      * processing and return the excess to the free store.
@@ -65,8 +64,8 @@ static int warrsztoastr(const char * const * *retarr,
      * 4 ucs bytes will hold a wchar_t pair value (20 bits)
      */
     newlen = totlen = wsize * 3 + 1;
-    newarr[0] = _malloc_dbg(newlen * sizeof(char),
-                            _CRT_BLOCK, __FILE__, __LINE__);
+    newarr[0] = apr_malloc_dbg(newlen * sizeof(char),
+                               __FILE__, __LINE__);
 
     (void)apr_conv_ucs2_to_utf8(arrsz, &wsize,
                                 newarr[0], &newlen);
@@ -74,8 +73,8 @@ static int warrsztoastr(const char * const * *retarr,
     assert(newlen && !wsize);
     /* Return to the free store if the heap realloc is the least bit optimized
      */
-    newarr[0] = _realloc_dbg(newarr[0], totlen - newlen,
-                             _CRT_BLOCK, __FILE__, __LINE__);
+    newarr[0] = apr_realloc_dbg(newarr[0], totlen - newlen,
+                                __FILE__, __LINE__);
 
     for (arg = 1; arg < args; ++arg) {
         newarr[arg] = newarr[arg - 1] + 2;
@@ -133,8 +132,8 @@ APR_DECLARE(apr_status_t) apr_app_initialize(int *argc,
         dupenv = warrsztoastr(&_environ, sysstr, -1);
 
         if (env) {
-            *env = _malloc_dbg((dupenv + 1) * sizeof (char *),
-                               _CRT_BLOCK, __FILE__, __LINE__ );
+            *env = apr_malloc_dbg((dupenv + 1) * sizeof (char *),
+                                  __FILE__, __LINE__ );
             memcpy((void*)*env, _environ, (dupenv + 1) * sizeof (char *));
         }
         else {

@@ -210,6 +210,7 @@ __hdtoa(double d, const char *xdigs, int ndigits, int *decpt, int *sign,
 	return (s0);
 }
 
+#ifndef LDBL_COMPAT
 #if (LDBL_MANT_DIG > DBL_MANT_DIG)
 
 /*
@@ -340,3 +341,4 @@ __hldtoa(long double e, const char *xdigs, int ndigits, int *decpt, int *sign,
 }
 
 #endif	/* (LDBL_MANT_DIG == DBL_MANT_DIG) */
+#endif  /* !LDBL_COMPAT */

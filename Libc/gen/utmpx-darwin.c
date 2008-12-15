@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,11 +34,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef UTMP_COMPAT
 #include <utmp.h>
+#endif /* UTMP_COMPAT */
 #include <utmpx.h>
 #include <utmpx-darwin.h>
 #include <asl.h>
 #include <asl_private.h>
+#include <asl_store.h>
 #include <pwd.h>
 #include <stddef.h>
 
@@ -62,15 +65,13 @@ static void msg2lastlogx(const aslmsg, struct lastlogx *);
 static void msg2utmpx(const aslmsg, struct utmpx *);
 static void utmpx2msg(const struct utmpx *, aslmsg);
 
-static mach_port_t asl_server_port = MACH_PORT_NULL;
 static int pw_size = 0;
 
-#define ASL_SERVICE_NAME	"com.apple.system.logger"
 #define FACILITY		"Facility"
 #define WTMP_COUNT		32
 
-/* ASL timeout in milliseconds */
-#define ASL_QUERY_TIMEOUT 4000
+/* ASL timeout in microseconds */
+#define ASL_QUERY_TIMEOUT 4000000
 
 /* indirection causes argument to be substituted before stringification */
 #define STR(x)		__STRING(x)
@@ -137,81 +138,67 @@ getlastlogx(uid_t uid, struct lastlogx *lx)
 struct lastlogx *
 getlastlogxbyname(const char *user, struct lastlogx *lx)
 {
-	aslmsg q;
-	asl_msg_t *m[1];
-	asl_search_result_t s, *l;
-	char *qstr, *res;
-	uint32_t len, reslen, status;
+	aslmsg m;
+	asl_msg_t *qm[1];
+	asl_search_result_t query, *res;
+	uint32_t status;
 	uint64_t cmax;
-	security_token_t sec;
-	caddr_t vmstr;
 	struct lastlogx *result = NULL;
-	mach_port_t port;
+	asl_store_t *store;
 
-	if (!user || !*user)
-		return NULL;
+	if (!user || !*user) return NULL;
 
-	if (bootstrap_look_up(bootstrap_port, ASL_SERVICE_NAME, &port) != KERN_SUCCESS)
-		return NULL;
+	store = NULL;
+	status = asl_store_open_read(NULL, &store);
+	if (status != 0) return NULL;
+	if (store == NULL) return NULL;
 
 	/*
 	 * We search for the last LASTLOG_FACILITY entry that has the
 	 * ut_user entry matching the user's name.
 	 */
-	if ((q = asl_new(ASL_TYPE_QUERY)) == NULL)
-		goto out;
-	asl_set_query(q, FACILITY, LASTLOG_FACILITY, ASL_QUERY_OP_EQUAL);
-	asl_set_query(q, "ut_user", user, ASL_QUERY_OP_EQUAL);
-	m[0] = q;
-	s.count = 1;
-	s.msg = m;
-
-	len = 0;
-	qstr = asl_list_to_string(&s, &len);
-	asl_free(q);
-
-	if (qstr == NULL)
-		goto out;
-
-	/* the server frees this memory */
-	if (vm_allocate(mach_task_self(), (vm_address_t *)&vmstr, len, TRUE) != KERN_SUCCESS) {
-		free(qstr);
-		goto out;
+	if ((m = asl_new(ASL_TYPE_QUERY)) == NULL)
+	{
+		asl_store_close(store);
+		return NULL;
 	}
 
-	strcpy(vmstr, qstr);
-	free(qstr);
+	asl_set_query(m, FACILITY, LASTLOG_FACILITY, ASL_QUERY_OP_EQUAL);
+	asl_set_query(m, "ut_user", user, ASL_QUERY_OP_EQUAL);
+	qm[0] = m;
+	query.count = 1;
+	query.msg = qm;
 
 	res = NULL;
-	reslen = 0;
 	cmax = 0;
-	sec.val[0] = -1;
-	sec.val[1] = -1;
-	status = 0;
 
-	_asl_server_query_timeout(port, vmstr, len, -1, 1, 1, ASL_QUERY_TIMEOUT, (caddr_t *)&res, &reslen, &cmax, (int *)&status, &sec);
+	asl_store_match_timeout(store, &query, &res, &cmax, -1, 1, -1, ASL_QUERY_TIMEOUT);
+	asl_store_close(store);
+	asl_free(m);
 
-	if (res == NULL)
-		goto out;
-	l = asl_list_from_string(res);
-	vm_deallocate(mach_task_self(), (vm_address_t)res, reslen);
-	q = aslresponse_next(l);
-	if (q == NULL) {
-		aslresponse_free(l);
-		goto out;
+	if (status != 0) return NULL;
+	if (res == NULL) return NULL;
+
+	m = aslresponse_next(res);
+	if (m == NULL)
+	{
+		aslresponse_free(res);
+		return NULL;
 	}
 
-	if (lx == NULL) {
-		if ((lx = (struct lastlogx *)malloc(sizeof(*lx))) == NULL) {
-			aslresponse_free(l);
-			goto out;
+	if (lx == NULL)
+	{
+		if ((lx = (struct lastlogx *)malloc(sizeof(*lx))) == NULL)
+		{
+			aslresponse_free(res);
+			return NULL;
 		}
 	}
-	msg2lastlogx(q, lx);
-	aslresponse_free(l);
+
+	msg2lastlogx(m, lx);
+	aslresponse_free(res);
 	result = lx;
-out:
-	mach_port_deallocate(mach_task_self(), port);
+
 	return result;
 }
 
@@ -578,16 +565,14 @@ wtmpxname(const char *fname)
 static void
 end_asl(void)
 {
-	if (wtmp_asl.res) {
+	if (wtmp_asl.res != NULL)
+	{
 		aslresponse_free(wtmp_asl.res);
 		wtmp_asl.res = NULL;
 	}
+
 	wtmp_asl.inited = 0;
 	wtmp_asl.done = 0;
-	if (asl_server_port != MACH_PORT_NULL) {
-		mach_port_deallocate(mach_task_self(), asl_server_port);
-		asl_server_port = MACH_PORT_NULL;
-	}
 }
 
 static void
@@ -606,61 +591,25 @@ end_file(void)
 static struct utmpx *
 get_asl(void)
 {
-	aslmsg q;
-	char *res;
-	uint32_t reslen, status;
-	security_token_t sec;
-	caddr_t vmstr;
+	aslmsg m;
 	static struct utmpx utx;
 
-get_asl_repeat:
-	if (wtmp_asl.res) {
-		if ((q = aslresponse_next(wtmp_asl.res)) != NULL) {
-			msg2utmpx(q, &utx);
-			return &utx;
-		}
+	if (wtmp_asl.inited == 0) set_asl(-1);
+	if (wtmp_asl.done != 0) return NULL;
+
+	m = aslresponse_next(wtmp_asl.res);
+	if (m == NULL)
+	{
 		aslresponse_free(wtmp_asl.res);
 		wtmp_asl.res = NULL;
-	} else if (!wtmp_asl.inited) {
-		set_asl(-1);
-		if (!wtmp_asl.inited)
-			return NULL;
-	}
-
-	if (wtmp_asl.done)
+		wtmp_asl.done = 1;
 		return NULL;
-
-	if (asl_server_port == MACH_PORT_NULL) {
-		if (bootstrap_look_up(bootstrap_port, ASL_SERVICE_NAME, &asl_server_port) != KERN_SUCCESS) {
-get_asl_done:
-		    wtmp_asl.done = 1;
-		    return NULL;
-		}
 	}
 
-	/* the server frees this memory */
-	if (vm_allocate(mach_task_self(), (vm_address_t *)&vmstr, wtmp_asl.len, TRUE) != KERN_SUCCESS)
-		goto get_asl_done;
-
-	/* the search string is defined in set_asl */
-	strcpy(vmstr, wtmp_asl.str);
-
-	res = NULL;
-	reslen = 0;
-	sec.val[0] = -1;
-	sec.val[1] = -1;
-	status = 0;
-
-	_asl_server_query_timeout(asl_server_port, vmstr, wtmp_asl.len, wtmp_asl.start, WTMP_COUNT, wtmp_asl.dir, ASL_QUERY_TIMEOUT, (caddr_t *)&res, &reslen, &wtmp_asl.start, (int *)&status, &sec);
-
-	if (res == NULL)
-		goto get_asl_done;
-	wtmp_asl.res = asl_list_from_string(res);
-	vm_deallocate(mach_task_self(), (vm_address_t)res, reslen);
-	if(!wtmp_asl.res)
-		goto get_asl_done;
-	goto get_asl_repeat;
+	msg2utmpx(m, &utx);
+	return &utx;
 }
+	
 
 static struct utmpx *
 get_file(void)
@@ -735,57 +684,83 @@ get_file_done:
 static void
 _set_dir(int forward)
 {
-	if (forward < 0)
-		return;
-	if (forward) {
-		wtmp_asl.dir = 0;
-		wtmp_asl.start = 0;
-		wtmp_file.dir = 1;
-	} else {
-		wtmp_asl.dir = 1;
+	if (forward < 0) return;
+
+	if (forward == 0)
+	{
+		/* go backward */
+		wtmp_asl.dir = -1;
 		wtmp_asl.start = -1;
 		wtmp_file.dir = -1;
+	}
+	else
+	{
+		/* go forward */
+		wtmp_asl.dir = 1;
+		wtmp_asl.start = 0;
+		wtmp_file.dir = 1;
 	}
 }
 
 static void
 set_asl(int forward)
 {
+	aslmsg q0, q1;
+	asl_msg_t *m[2];
+	asl_search_result_t query;
+	uint64_t cmax;
+	asl_store_t *store;
+	uint32_t status;
+
 	_set_dir(forward);
-	if (!wtmp_asl.str) {
-		aslmsg q0, q1;
-		asl_msg_t *m[2];
-		asl_search_result_t s;
 
-		/*
-		 * Create a search string that matches either UTMPX_FACILITY
-		 * or LASTLOG_FACILITY.
-		 */
-		if ((q0 = asl_new(ASL_TYPE_QUERY)) == NULL)
-			return;
-		if ((q1 = asl_new(ASL_TYPE_QUERY)) == NULL) {
-			asl_free(q0);
-			return;
-		}
-		asl_set_query(q0, FACILITY, UTMPX_FACILITY, ASL_QUERY_OP_EQUAL);
-		asl_set_query(q1, FACILITY, LASTLOG_FACILITY, ASL_QUERY_OP_EQUAL);
+	wtmp_asl.inited = 0;
+	wtmp_asl.done = 0;
 
-		m[0] = q0;
-		m[1] = q1;
-		s.count = 2;
-		s.msg = m;
-
-		wtmp_asl.len = 0;
-		wtmp_asl.str = asl_list_to_string(&s, &wtmp_asl.len);
-		asl_free(q1);
-		asl_free(q0);
-		if(!wtmp_asl.str)
-			return;
-	}
-	if (wtmp_asl.res) {
+	if (wtmp_asl.res != NULL)
+	{
 		aslresponse_free(wtmp_asl.res);
 		wtmp_asl.res = NULL;
 	}
+
+	store = NULL;
+	status = asl_store_open_read(NULL, &store);
+	if (status != 0) return;
+	if (store == NULL) return;
+
+	/*
+	 * Create a search query that matches either UTMPX_FACILITY
+	 * or LASTLOG_FACILITY.
+	 */
+	q0 = asl_new(ASL_TYPE_QUERY);
+	q1 = asl_new(ASL_TYPE_QUERY);
+
+	if ((q0 == NULL) || (q1 == NULL))
+	{
+		asl_store_close(store);
+		if (q0 != NULL) free(q0);
+		if (q1 != NULL) free(q1);
+		return;
+	}
+
+	asl_set_query(q0, FACILITY, UTMPX_FACILITY, ASL_QUERY_OP_EQUAL);
+	asl_set_query(q1, FACILITY, LASTLOG_FACILITY, ASL_QUERY_OP_EQUAL);
+
+	m[0] = q0;
+	m[1] = q1;
+	query.count = 2;
+	query.msg = m;
+
+	cmax = 0;
+
+	asl_store_match_timeout(store, &query, &(wtmp_asl.res), &cmax, wtmp_asl.start, 0, wtmp_asl.dir, ASL_QUERY_TIMEOUT);
+	asl_store_close(store);
+
+	asl_free(q1);
+	asl_free(q0);
+
+	if (wtmp_asl.res == NULL) return;
+
 	wtmp_asl.inited = 1;
 	wtmp_asl.done = 0;
 }

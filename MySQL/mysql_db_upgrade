@@ -1,0 +1,103 @@
+#!/bin/sh
+#
+# Upgrade mysql databases
+#
+# Usage: mysql_db_upgrade [ --backup [ --force ] | --restore ]
+#
+# Options:
+#   --backup  directs the tool to perform a backup of all existing
+#             databases in the /var/mysql directory.  This option 
+#             is used prior to upgrading the Mac OS X Server.
+#   --backup  directs the tool to perform a restore of the database
+#             backup into the /var/mysql directory.  This option
+#             is used after the Mac OS X Server 10.5 upgrade has
+#             been installed.
+#   --force   (for --backup only) when executed from the command 
+#             line, causes the tool to ignore the automatic database 
+#             backup size limit and perform the backup on larger
+#             databases.
+# 
+# Description:
+#
+# This tool imports the existing mysql-4.x database into mysql-5.0. The 
+# tool runs automatically after upgrade installations of Mac OS X 
+# Server 10.5.  The automatic upgrade will only execute for small 
+# databases (50 MBytes or less).  Upgrades of larger databases may 
+# be enabled by executing the tool with the --force option.
+#
+# NOTE: Currently, this tool is not installed with any version of 10.5 
+#       server.  Inclusion of this tool in the build has been withheld 
+#       pending testing and verification of it's functionality.  
+#
+#       In the interim, upgrade instructions for 4.0/4.1 to 5.0 MySQL
+#       versions can be found at:
+#       <http://docs.info.apple.com/article.html?artnum=306725
+#
+#
+
+	DB_PATH=/var/mysql
+	DB_UPGRADE_PATH=/var/mysql.4.1
+	DB_TMP_PATH=${DB_PATH}/tmp
+	MYSQLDUMP=/usr/bin/mysqldump
+	AUTO_UPGRADE_MIN_DB_SIZE=50
+
+	# Is it possible to perform in-place migrations?
+	# The docs seem to imply this.  See:
+	# mysql_fix_privilege_tables 
+	# mysqlcheck --check-upgrade --all-databases --auto-repair
+
+	doUpgrade=0
+	while ( test "x-${1}" != "x-" ); do
+		case ${1} in
+			--force)
+				doUpgrade=1
+				;;
+			*)
+				echo "????: unknown option \"${1}\""
+				;;
+		esac
+		shift
+	done
+
+	logger "Upgrading mysql databases"
+
+	# We will only do database conversion for sizes less than n MB
+	#	- where 'n' is TBD based upon performance
+	#	- for now the defalut is 50MB
+
+	if [ ! -d ${DB_PATH} ] ; then
+		 logger "No mysql database found, skipping automatic conversion."
+		 exit 0
+	fi
+
+	DB_SIZE=`du -m -d 0 ${DB_PATH} | sed -n -e "s/[^0-9]*\([0-9]*\).*/\1/p"`
+	if [ $DB_SIZE -lt $AUTO_UPGRADE_MIN_DB_SIZE ] ; then
+		doUpgrade=1
+	fi
+	
+	if [ ${doUpgrade} -eq 1 ]; then
+		 if [ ! -d "${DB_TMP_PATH}" ] ; then
+			mkdir -p "${DB_TMP_PATH}"
+		 fi
+		 chown _mysql:staff "${DB_TMP_PATH}"
+		 ${MYSQLDUMP} --all-databases --tab="${DB_TMP_PATH}"
+
+		 # Now move old db files out of the way and init new
+		 mv ${DB_PATH} ${DB_UPGRADE_PATH}
+		 mkdir -p ${DB_PATH}
+		 chown _mysql:staff ${DB_PATH}
+
+		 # TBD: Need to do mysql initialization and create default files
+
+		 # create database
+		 mysqladmin create mysql
+		 # create tables in database
+		 cat ${DB_UPGRADE_PATH}/tmp/*.sql | mysql mysql
+		 # load data into tables
+		 mysqlimport mysql ${DB_UPGRADE_PATH}/tmp/*.txt
+	else
+		 # db too big move it out of the way for now
+		 logger "MySQL database too large for automatic migration"
+		 logger "Moving to ${DB_UPGRADE_PATH}"
+		 mv ${DB_PATH} ${DB_UPGRADE_PATH}
+	fi

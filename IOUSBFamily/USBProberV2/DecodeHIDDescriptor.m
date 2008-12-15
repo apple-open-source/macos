@@ -73,7 +73,7 @@
         
         for(descriptorIncrement=1; descriptorIncrement <= hidDescriptor.hidNumDescriptors; descriptorIncrement++)
         {
-            char tempCString[20], descriptorHeading[20];
+            char tempCString[40], descriptorHeading[40];
             char *cStrPtr;
             NSString *tempString;
             
@@ -322,7 +322,7 @@
                             case kUsage_PowerClassReserved2: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
                             case 0xff: sprintf((char *)tempbufvalue, "Vendor Defined"); break;
 
-                            default: sprintf((char *)tempbufvalue, "%ld", usagePage); break;
+                            default: sprintf((char *)tempbufvalue, "%d", (uint32_t)usagePage); break;
                         }
 
                             //strcat((char *)buf, (char *)tempbuf);
@@ -602,11 +602,11 @@
             {
                 if (usagesigned)
                 {
-                    sprintf((char *)tempbufvalue, "%ld", (SInt32)svalue);
+                    sprintf((char *)tempbufvalue, "%d", (int32_t)svalue);
                 }
                 else
                 {
-                    sprintf((char *)tempbufvalue, "%lu", (UInt32)value);
+                    sprintf((char *)tempbufvalue, "%u", (uint32_t)value);
                 }
                 strcat((char *)bufvalue, (char *)tempbufvalue);
             }

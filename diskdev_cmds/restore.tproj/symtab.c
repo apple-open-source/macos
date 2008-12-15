@@ -90,7 +90,7 @@
 static struct entry **entry;
 static size_t entrytblsize;
 
-static void		 addino __P((ino_t, struct entry *));
+static void		 addino __P((u_int32_t, struct entry *));
 static struct entry	*lookupparent __P((char *));
 static void		 removeentry __P((struct entry *));
 
@@ -99,7 +99,7 @@ static void		 removeentry __P((struct entry *));
  */
 struct entry *
 lookupino(inum)
-	ino_t inum;
+	u_int32_t inum;
 {
 	register struct entry *ep;
 
@@ -116,7 +116,7 @@ lookupino(inum)
  */
 static void
 addino(inum, np)
-	ino_t inum;
+	u_int32_t inum;
 	struct entry *np;
 {
 	struct entry **epp;
@@ -138,7 +138,7 @@ addino(inum, np)
  */
 void
 deleteino(inum)
-	ino_t inum;
+	u_int32_t inum;
 {
 	register struct entry *next;
 	struct entry **prev;
@@ -241,7 +241,7 @@ static struct entry *freelist = NULL;
 struct entry *
 addentry(name, inum, type)
 	char *name;
-	ino_t inum;
+	u_int32_t inum;
 	int type;
 {
 	register struct entry *np, *ep;
@@ -294,7 +294,7 @@ freeentry(ep)
 	register struct entry *ep;
 {
 	register struct entry *np;
-	ino_t inum;
+	u_int32_t inum;
 
 	if (ep->e_flags != REMOVED)
 		badentry(ep, "not marked REMOVED");
@@ -458,7 +458,7 @@ struct symtableheader {
 	long	entrytblsize;
 	time_t	dumptime;
 	time_t	dumpdate;
-	ino_t	maxino;
+	u_int32_t	maxino;
 	long	ntrec;
 };
 
@@ -471,7 +471,7 @@ dumpsymtable(filename, checkpt)
 	long checkpt;
 {
 	register struct entry *ep, *tep;
-	register ino_t i;
+	register u_int32_t i;
 	struct entry temp, *tentry;
 	long mynum = 1, stroff = 0;
 	FILE *fd;

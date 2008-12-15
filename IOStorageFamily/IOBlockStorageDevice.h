@@ -447,7 +447,23 @@ public:
     OSMetaClassDeclareReservedUsed(IOBlockStorageDevice, 3); /* 10.5.0 */
 
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  4);
-    OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  5);
+
+public:
+
+    /*!
+     * @function doDiscard
+     * @abstract
+     * Delete unused data blocks from the media.
+     * @param block
+     * The starting block number of the operation.
+     * @param nblks
+     * The integral number of blocks to be deleted.
+     */
+
+    virtual IOReturn doDiscard(UInt64 block, UInt64 nblks);
+
+    OSMetaClassDeclareReservedUsed(IOBlockStorageDevice, 5); /* 10.6.0 */
+
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  6);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  7);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDevice,  8);

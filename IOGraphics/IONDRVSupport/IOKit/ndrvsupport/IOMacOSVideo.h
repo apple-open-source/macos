@@ -35,38 +35,16 @@
 #ifndef __IOMACOSVIDEO__
 #define __IOMACOSVIDEO__
 
-#ifdef IOKIT
-
 #define PRAGMA_STRUCT_ALIGN 1
 #define FOUR_CHAR_CODE(x)           (x)
 #include <IOKit/ndrvsupport/IOMacOSTypes.h>
-
-#else /* IOKIT */
-
-#ifndef __QUICKDRAW__
-#include <Quickdraw.h>
-#endif
-
-#endif /* IOKIT */
-
-#if PRAGMA_ONCE
-#pragma once
-#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#if PRAGMA_IMPORT
-#pragma import on
-#endif
-
-#if PRAGMA_STRUCT_ALIGN
-    #pragma options align=mac68k
-#elif PRAGMA_STRUCT_PACKPUSH
-    #pragma pack(push, 2)
-#elif PRAGMA_STRUCT_PACK
-    #pragma pack(2)
+#ifndef __LP64__
+#pragma options align=mac68k
 #endif
 
 enum {
@@ -742,18 +720,18 @@ typedef UInt32                          GammaTableID;
 /* Constants for the cscGetNextResolution call */
 enum {
     kDisplayModeIDCurrent       = 0x00,                         /* Reference the Current DisplayModeID */
-    kDisplayModeIDInvalid       = (long)0xFFFFFFFF,             /* A bogus DisplayModeID in all cases */
-    kDisplayModeIDFindFirstResolution = (long)0xFFFFFFFE,       /* Used in cscGetNextResolution to reset iterator */
-    kDisplayModeIDNoMoreResolutions = (long)0xFFFFFFFD,         /* Used in cscGetNextResolution to indicate End Of List */
-    kDisplayModeIDFindFirstProgrammable = (long)0xFFFFFFFC,     /* Used in cscGetNextResolution to find unused programmable timing */
-    kDisplayModeIDBootProgrammable = (long)0xFFFFFFFB,          /* This is the ID given at boot time by the OF driver to a programmable timing */
-    kDisplayModeIDReservedBase  = (long)0x80000000              /* Lowest (unsigned) DisplayModeID reserved by Apple */
+    kDisplayModeIDInvalid       = (IODisplayModeID)0xFFFFFFFF,             /* A bogus DisplayModeID in all cases */
+    kDisplayModeIDFindFirstResolution = (IODisplayModeID)0xFFFFFFFE,       /* Used in cscGetNextResolution to reset iterator */
+    kDisplayModeIDNoMoreResolutions = (IODisplayModeID)0xFFFFFFFD,         /* Used in cscGetNextResolution to indicate End Of List */
+    kDisplayModeIDFindFirstProgrammable = (IODisplayModeID)0xFFFFFFFC,     /* Used in cscGetNextResolution to find unused programmable timing */
+    kDisplayModeIDBootProgrammable = (IODisplayModeID)0xFFFFFFFB,          /* This is the ID given at boot time by the OF driver to a programmable timing */
+    kDisplayModeIDReservedBase  = (IODisplayModeID)0x80000000              /* Lowest (unsigned) DisplayModeID reserved by Apple */
 };
 
 /* Constants for the GetGammaInfoList call */
 enum {
-    kGammaTableIDFindFirst      = (long)0xFFFFFFFE,             /* Get the first gamma table ID */
-    kGammaTableIDNoMoreTables   = (long)0xFFFFFFFD,             /* Used to indicate end of list */
+    kGammaTableIDFindFirst      = (GammaTableID)0xFFFFFFFE,             /* Get the first gamma table ID */
+    kGammaTableIDNoMoreTables   = (GammaTableID)0xFFFFFFFD,             /* Used to indicate end of list */
     kGammaTableIDSpecific       = 0x00                          /* Return the info for the given table id */
 };
 
@@ -773,7 +751,8 @@ enum {
 /* VDCommunicationInfoRec.csBusType values*/
 enum {
     kVideoBusTypeInvalid        = 0,
-    kVideoBusTypeI2C            = 1
+    kVideoBusTypeI2C            = 1,
+    kVideoBusTypeDisplayPort    = 2
 };
 
 
@@ -786,7 +765,9 @@ enum {
     kVideoDDCciReplyType        = 2,	/* DDC/ci message (with imbedded length)*/
     kVideoDDCciReplyTypeMask    = (1 << kVideoDDCciReplyType),
     kVideoCombinedI2CType       = 3,    /* Combined format I2C R/~W transaction*/
-    kVideoCombinedI2CTypeMask   = (1 << kVideoCombinedI2CType)
+    kVideoCombinedI2CTypeMask   = (1 << kVideoCombinedI2CType),
+    kVideoDisplayPortNativeType       = 4,    /* DisplayPort Native */
+    kVideoDisplayPortNativeTypeMask   = (1 << kVideoDisplayPortNativeType)
 };
 
 // VDCommunicationRec.csCommFlags and VDCommunicationInfoRec.csSupportedCommFlags
@@ -1372,25 +1353,15 @@ typedef VDMirrorRec * VDMirrorPtr;
 struct VDConfigurationRec {
     UInt32              csConfigFeature;        /* input what feature to config - always input*/
     UInt32              csConfigSupport;        /* output support value - always output*/
-    UInt32              csConfigValue;          /* input/output feature value - input on Control(), output on Status()*/
-    UInt32              csReserved1;
-    UInt32              csReserved2;
+    uintptr_t           csConfigValue;          /* input/output feature value - input on Control(), output on Status()*/
+    uintptr_t           csReserved1;
+    uintptr_t           csReserved2;
 };
 typedef struct VDConfigurationRec       VDConfigurationRec;
 typedef VDConfigurationRec *            VDConfigurationPtr;
 
-#if PRAGMA_STRUCT_ALIGN
-    #pragma options align=reset
-#elif PRAGMA_STRUCT_PACKPUSH
-    #pragma pack(pop)
-#elif PRAGMA_STRUCT_PACK
-    #pragma pack()
-#endif
-
-#ifdef PRAGMA_IMPORT_OFF
-#pragma import off
-#elif PRAGMA_IMPORT
-#pragma import reset
+#ifndef __LP64__
+#pragma options align=reset
 #endif
 
 #ifdef __cplusplus

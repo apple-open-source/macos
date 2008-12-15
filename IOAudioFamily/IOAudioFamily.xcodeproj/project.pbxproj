@@ -31,8 +31,6 @@
 		D63C4CE00B20BFAE0047FE0F /* IOAudioStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E15FFE702AD11CA29EB /* IOAudioStream.cpp */; settings = {ATTRIBUTES = (); }; };
 		D63C4CE10B20BFAE0047FE0F /* IOAudioSelectorControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1B71235B00570F9911CA29EB /* IOAudioSelectorControl.cpp */; };
 		D63C4CE20B20BFAE0047FE0F /* IOAudioToggleControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1B71235C00570F9911CA29EB /* IOAudioToggleControl.cpp */; };
-		D63C4CE80B20BFAE0047FE0F /* Contents.rtf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 401DA4E50119EA6A05CA29EB /* Contents.rtf */; };
-		D63C4CEA0B20BFAE0047FE0F /* Templates in CopyFiles */ = {isa = PBXBuildFile; fileRef = 401DA4E20119EA2005CA29EB /* Templates */; };
 		D63C4CF40B20BFAE0047FE0F /* IOAudioEngineMixer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E0EFFE702AD11CA29EB /* IOAudioEngineMixer.cpp */; settings = {ATTRIBUTES = (); }; };
 		D63C4CFF0B20BFAE0047FE0F /* IOAudioControl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E17FFE702AD11CA29EB /* IOAudioControl.h */; };
 		D63C4D000B20BFAE0047FE0F /* IOAudioControlUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E18FFE702AD11CA29EB /* IOAudioControlUserClient.h */; };
@@ -70,17 +68,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		D63C4CE70B20BFAE0047FE0F /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_DEVELOPER_DIR)/Examples/Kernel/IOKit/Audio";
-			dstSubfolderSpec = 0;
-			files = (
-				D63C4CE80B20BFAE0047FE0F /* Contents.rtf in CopyFiles */,
-				D63C4CEA0B20BFAE0047FE0F /* Templates in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		D63C4CFE0B20BFAE0047FE0F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -311,7 +298,6 @@
 				D63C4CE30B20BFAE0047FE0F /* Frameworks */,
 				D63C4CE50B20BFAE0047FE0F /* Rez */,
 				D63C4CE60B20BFAE0047FE0F /* ShellScript */,
-				D63C4CE70B20BFAE0047FE0F /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -546,7 +532,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.6.4b7;
+				MODULE_VERSION = 1.6.5fc3;
 				OTHER_CFLAGS = "$(DEBUG_CFLAGS)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -586,7 +572,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Default\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.6.4b7;
+				MODULE_VERSION = 1.6.5fc3;
 				OTHER_CFLAGS = "$(DEBUG_CFLAGS)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -622,7 +608,7 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.6.4b7;
+				MODULE_VERSION = 1.6.5fc3;
 				OTHER_CFLAGS = "$(DEBUG_CFLAGS)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

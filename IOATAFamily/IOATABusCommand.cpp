@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,13 +25,12 @@
  *	IOATABusCommand.cpp
  *
  */
- 
-
 
  
-#include<IOKit/IOTypes.h>
-#include"IOATATypes.h"
-#include"IOATABusCommand.h"
+#include <IOKit/IOTypes.h>
+#include <IOKit/IOSyncer.h>
+#include "IOATATypes.h"
+#include "IOATABusCommand.h"
 
 
 #ifdef DLOG
@@ -134,7 +133,7 @@ IOATABusCommand::zeroCommand(void)
  *
  *
  *-----------------------------------------------------------------------------*/
-  	// return the command opcode
+ // return the command opcode
 ataOpcode 
 IOATABusCommand::getOpcode( void )
 {

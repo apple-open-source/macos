@@ -3,9 +3,16 @@
 
 # locale sources
 .PATH: ${.CURDIR}/${MACHINE_ARCH}/locale ${.CURDIR}/locale
+CWD := ${.CURDIR}/locale
 
+.ifdef FEATURE_LEGACY_RUNE_APIS
 # depreciated interfaces
 MISRCS += frune.c mbrune.c runedepreciated.c setinvalidrune.c
+
+.for _src in frune.c mbrune.c setinvalidrune.c
+CFLAGS-${_src} += -D__FBSDID=__RCSID
+.endfor
+.endif
 
 # extended locale
 MISRCS += isctype.c iswctype.c xlocale.c
@@ -27,12 +34,17 @@ FBSDHDRS= collate.h ldpart.h lmessages.h lmonetary.h lnumeric.h \
 	mblocal.h setlocale.h
 .include "Makefile.fbsd_end"
 
-# special case: utf2-fbsd.c is derived from utf8.c with utf2.c.patch
 .ifmake autopatch
-AUTOPATCHSRCS+= utf2-fbsd.c
-utf2-fbsd.c: FreeBSD/utf8.c
+# special case: utf2-fbsd.c is derived from utf8.c with utf2.c.patch
+
+# This .for statement forces evaluation of ${CWD}
+.for _cwd in ${CWD}
+AUTOPATCHSRCS+= ${_cwd}/utf2-fbsd.c
+${_cwd}/utf2-fbsd.c: ${_cwd}/FreeBSD/utf8.c
 	cp ${.ALLSRC} ${.TARGET}
-	patch ${.TARGET} ${.ALLSRC:S/utf8/utf2/}.patch;
+	patch ${.TARGET} ${.ALLSRC:S/utf8/utf2/}.patch
+.endfor # _cwd
+
 .else # !autopatch
 MISRCS+= utf2.c
 .endif # autopatch
@@ -40,12 +52,9 @@ MISRCS+= utf2.c
 # also build a 64-bit long double version (ppc only)
 LDBLSRCS += wcstold.c
 
-# Begin hack for 3333969
-
+.ifdef FEATURE_PATCH_3333969
 MISRCS += lconv.c
-CFLAGS-lconv.c += -D__APPLE_PR_3333969_HACK__
-
-# End hack for 3333969
+.endif # FEATURE_PATCH_3333969
 
 LEGACYSRCS += wcsftime.c
 
@@ -53,28 +62,35 @@ LEGACYSRCS += wcsftime.c
 # of other macro settings
 CFLAGS-wcsftime-fbsd.c += -DLIBC_ALIAS_WCSFTIME -DLIBC_ALIAS_WCSFTIME_L
 
+.ifmake autopatch
 # for LP64, we need to create rune32.h
 # the following is good enough for ppc, ppc64, i386 and x86_64
-.ifmake autopatch
+
+# This .for statement forces evaluation of ${CWD}
+.for _cwd in ${CWD}
 _ARCH != arch
 .if $(_ARCH) == x86_64
 ARCH32 = i386
 .else
 ARCH32 = $(_ARCH:C/64$//)
 .endif
-rune32.h: rune-fbsd.c
-	${CC} -arch ${ARCH32} -I${.CURDIR}/include -DRUNEOFF32 -o ${SRCROOT}/rune32 ${.ALLSRC}
-	${SRCROOT}/rune32 > ${.TARGET}
-	rm -f ${SRCROOT}/rune32
-AUTOPATCHHDRS+= rune32.h
+${_cwd}/rune32.h: ${_cwd}/rune-fbsd.c
+	${CC} -arch ${ARCH32} -D_LIBC_NO_FEATURE_VERIFICATION -I${.CURDIR}/include -DRUNEOFF32 -o ${_cwd}/rune32 ${.ALLSRC}
+	${_cwd}/rune32 > ${.TARGET}
+	rm -f ${_cwd}/rune32
+AUTOPATCHHDRS+= ${_cwd}/rune32.h
+.endfor # _cwd
+
 .endif # autopatch
 
 .if ${LIB} == "c"
 MAN3+=	ctype_l.3 isalnum_l.3 iswalnum_l.3 wcstod_l.3 wcstol_l.3
 MAN3+=	duplocale.3 freelocale.3 newlocale.3 \
 	querylocale.3 uselocale.3 xlocale.3
+.ifdef FEATURE_LEGACY_RUNE_APIS
 # depreciated man pages
 MAN3+= mbrune.3 rune.3
+.endif
 MAN5+= utf2.5
 
 .include "Makefile.fbsd_begin"
@@ -167,8 +183,10 @@ MLINKS+= mbrlen.3 mbrlen_l.3
 
 MLINKS+= mbrtowc.3 mbrtowc_l.3
 
+.ifdef FEATURE_LEGACY_RUNE_APIS
 MLINKS+= mbrune.3 mbmb.3		\
          mbrune.3 mbrrune.3
+.endif
 
 MLINKS+= mbsinit.3 mbsinit_l.3
 
@@ -185,6 +203,7 @@ MLINKS+= nextwctype.3 nextwctype_l.3
 
 MLINKS+= nl_langinfo.3 nl_langinfo_l.3
 
+.ifdef FEATURE_LEGACY_RUNE_APIS
 MLINKS+= rune.3 fgetrune.3		\
          rune.3 fputrune.3		\
          rune.3 fungetrune.3		\
@@ -192,6 +211,7 @@ MLINKS+= rune.3 fgetrune.3		\
          rune.3 setrunelocale.3		\
          rune.3 sgetrune.3		\
          rune.3 sputrune.3
+.endif
 
 MLINKS+= tolower.3 tolower_l.3
 

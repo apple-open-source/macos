@@ -21,17 +21,19 @@
 
 */
 
+#include <stdint.h>
+
 extern char divider[50];
 
 extern int board[144], moved[144], ep_square, white_to_move, wking_loc,
   bking_loc, white_castled, black_castled, result, ply, pv_length[PV_BUFF],
   squares[144], num_pieces, i_depth, comp_color, fifty, piece_count;
 
-extern long int nodes, raw_nodes, qnodes, killer_scores[PV_BUFF],
+extern int32_t nodes, raw_nodes, qnodes, killer_scores[PV_BUFF],
   killer_scores2[PV_BUFF], killer_scores3[PV_BUFF], moves_to_tc, min_per_game,
   sec_per_game, inc, time_left, opp_time, time_cushion, time_for_move, cur_score;
 
-extern unsigned long history_h[144][144];
+extern uint32_t history_h[144][144];
 
 extern bool captures, searching_pv, post, time_exit, time_failure;
 extern int xb_mode, maxdepth;
@@ -63,24 +65,24 @@ extern int num_piecedowns;
 extern int max_moves;
 
 /* piece types range form 0..16 */
-extern unsigned long zobrist[17][144];
-extern unsigned long hash;
+extern uint32_t zobrist[17][144];
+extern uint32_t hash;
 
-extern unsigned long ECacheProbes;
-extern unsigned long ECacheHits;
+extern uint32_t ECacheProbes;
+extern uint32_t ECacheHits;
 
-extern unsigned long TTProbes;
-extern unsigned long TTHits;
-extern unsigned long TTStores;
+extern uint32_t TTProbes;
+extern uint32_t TTHits;
+extern uint32_t TTStores;
 
-extern unsigned long hold_hash;
+extern uint32_t hold_hash;
 
 extern char book[4000][161];
 extern int num_book_lines;
 extern int book_ply;
 extern int use_book;
 extern char opening_history[STR_BUFF];
-extern unsigned long bookpos[400], booktomove[400], bookidx;
+extern uint32_t bookpos[400], booktomove[400], bookidx;
 
 extern int Material;
 extern int material[17];
@@ -95,12 +97,12 @@ extern char ponder_input[STR_BUFF];
 
 extern bool is_pondering;
 
-extern unsigned long FH, FHF, PVS, FULL, PVSF;
-extern unsigned long ext_check, ext_recap, ext_onerep;
-extern unsigned long razor_drop, razor_material;
+extern uint32_t FH, FHF, PVS, FULL, PVSF;
+extern uint32_t ext_check, ext_recap, ext_onerep;
+extern uint32_t razor_drop, razor_material;
 
-extern unsigned long total_moves;
-extern unsigned long total_movegens;
+extern uint32_t total_moves;
+extern uint32_t total_movegens;
 
 extern const int rank[144], file[144], diagl[144], diagr[144], sqcolor[144];
 
@@ -121,7 +123,7 @@ extern int tradefreely;
 
 extern char true_i_depth;
 
-extern long fixed_time;
+extern int32_t fixed_time;
 
 extern int hand_value[];
 
@@ -171,7 +173,7 @@ extern int userealholdings;
 extern char realholdings[255];
 
 extern int move_number;
-extern unsigned long hash_history[600];
+extern uint32_t hash_history[600];
 
 extern int moveleft;
 extern int movetotal;

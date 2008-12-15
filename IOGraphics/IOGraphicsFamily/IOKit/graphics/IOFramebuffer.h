@@ -65,6 +65,8 @@ enum {
  * @field cursorWidth The actual size of the cursor is returned.
  * @field colorMap Pointer to array of IOColorEntry structures, with the number of elements set by the numColors field of the IOHardwareCursorDescriptor. Zero should be passed for direct pixel formats.
  * @field hardwareCursorData Buffer to receive the converted cursor data.
+ * @field cursorHotSpotX Cursor's hotspot.
+ * @field cursorHotSpotY Cursor's hotspot.
  * @field reserved Reserved, set to zero.
  */
 
@@ -76,7 +78,9 @@ struct IOHardwareCursorInfo {
    // nil or big enough for hardware's max colors
    IOColorEntry *	colorMap;
    UInt8 *		hardwareCursorData;
-   UInt32		reserved[6];
+   UInt16		cursorHotSpotX;
+   UInt16		cursorHotSpotY;
+   UInt32		reserved[5];
 };
 typedef struct IOHardwareCursorInfo IOHardwareCursorInfo;
 
@@ -328,10 +332,11 @@ public:
     static void initialize();
 
     virtual bool requestTerminate( IOService * provider, IOOptionBits options );
-    virtual IOService * IOFramebuffer::probe( IOService * provider, SInt32 * score );
+    virtual IOService * probe( IOService * provider, SInt32 * score );
     virtual bool start( IOService * provider );
     virtual void stop( IOService * provider );
     virtual void free();
+    virtual IOWorkLoop * getWorkLoop() const;
     virtual IOReturn requestProbe( IOOptionBits options );
 
     virtual IOReturn powerStateWillChangeTo ( IOPMPowerFlags, unsigned long, IOService* );
@@ -577,7 +582,7 @@ public:
     @result an IOReturn code.
 */
 
-    virtual IOReturn setAttribute( IOSelect attribute, UInt32 value );
+    virtual IOReturn setAttribute( IOSelect attribute, uintptr_t value );
 
 /*! @function getAttribute
     @abstract Generic method to retrieve some attribute of the framebuffer device.
@@ -588,7 +593,7 @@ public:
     @result an IOReturn code.
 */
 
-    virtual IOReturn getAttribute( IOSelect attribute, UInt32 * value );
+    virtual IOReturn getAttribute( IOSelect attribute, uintptr_t * value );
 
 /*! @function getTimingInfoForDisplayMode
     @abstract Returns a timing description for a display mode.
@@ -643,7 +648,7 @@ public:
 */
 
     virtual IOReturn setAttributeForConnection( IOIndex connectIndex,
-                    IOSelect attribute, UInt32 value );
+                    IOSelect attribute, uintptr_t value );
 
 /*! @function getAttributeForConnection
     @abstract Generic method to retrieve some attribute of the framebuffer device, specific to one display connection.
@@ -656,7 +661,7 @@ public:
 */
 
     virtual IOReturn getAttributeForConnection( IOIndex connectIndex,
-                    IOSelect attribute, UInt32 * value );
+                    IOSelect attribute, uintptr_t * value );
 
 /*! @function convertCursorImage
     @abstract Utility method of IOFramebuffer to convert cursor image to a hardware cursor format.

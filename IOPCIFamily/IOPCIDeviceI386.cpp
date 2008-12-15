@@ -26,7 +26,7 @@
  * 23 Nov 98 sdouglas created from objc version.
  */
 
-#ifdef __i386__
+#if defined(__i386__) || defined(__x86_64__)
 
 #include <IOKit/system.h>
 

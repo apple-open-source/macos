@@ -31,6 +31,7 @@
 #include <SystemConfiguration/SCDPlugin.h>
 
 #include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/pwr_mgt/IOPMPrivate.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <IOKit/IOKitKeysPrivate.h>
@@ -57,6 +58,7 @@
 #include "SetActive.h"
 #include "PrivateLib.h"
 #include "TTYKeepAwake.h"
+#include "PMSystemEvents.h"
 
 #define kIOPMAppName        "Power Management configd plugin"
 #define kIOPMPrefsPath        "com.apple.PowerManagement.xml"
@@ -104,13 +106,11 @@ static int                      gLWRestartNotificationToken         = 0;
 static int                      gLWLogoutCancelNotificationToken    = 0;
 static int                      gLWLogoutPointOfNoReturnNotificationToken = 0;
 
-CFMachPortRef                   serverMachPort              = NULL;
+__private_extern__ CFMachPortRef  pmServerMachPort                  = NULL;
 
 // defined by MiG
 extern boolean_t powermanagement_server(mach_msg_header_t *, mach_msg_header_t *);
 
-// external
-__private_extern__ void cleanupAssertions(mach_port_t dead_port);
 
 // foward declarations
 static void initializeESPrefsDynamicStore(void);
@@ -182,13 +182,18 @@ void prime()
 {    
     // Initialize everything.
     
+    // prime the SCDynamicStore pump
+    _getSharedPMDynamicStore();
+    
     BatteryTimeRemaining_prime();
     PMSettings_prime();
     PSLowPower_prime();
     AutoWake_prime();
     RepeatingAutoWake_prime();
     PMAssertions_prime();
+#if !TARGET_OS_EMBEDDED
     TTYKeepAwake_prime();
+#endif
     PMSystemEvents_prime();
     
     return;
@@ -338,8 +343,10 @@ SleepWakeCallback(void * port,io_service_t y,natural_t messageType,void * messag
     AutoWakeSleepWakeNotification(messageType);
     RepeatingAutoWakeSleepWakeNotification(messageType);
 
+#if !TARGET_OS_EMBEDDED
     // Notify & potentially cancel sleep by open ssh connections
     cancel_sleep = TTYKeepAwakeSleepWakeNotification(messageType);
+#endif
 
     switch ( messageType ) {
     case kIOMessageSystemWillSleep:
@@ -380,7 +387,9 @@ ESPrefsHaveChanged(
         // Tell ES Prefs listeners that the prefs have changed
         PMSettingsPrefsHaveChanged();
         PSLowPowerPrefsHaveChanged();
+#if !TARGET_OS_EMBEDDED
         TTYKeepAwakePrefsHaveChanged();
+#endif
     }
 
     if (gAutoWakePreferences == prefs)
@@ -543,22 +552,31 @@ static void lwShutdownCallback(
     void *info)
 {
     mach_msg_header_t   *header = (mach_msg_header_t *)msg;
+    CFNumberRef n = NULL;
     static bool amidst_shutdown = false;
+    static int consoleShutdownState = kIOPMStateConsoleShutdownNone;
+    static int lastConsoleShutdownState = 0;
 
     if (header->msgh_id == gLWShutdownNotificationToken) 
     {
         // Loginwindow put a shutdown confirm panel up on screen
         // The user has not necessarily even clicked on it yet
-        amidst_shutdown = true;
+        amidst_shutdown = true;        
+        consoleShutdownState = kIOPMStateConsoleShutdownPossible;
+
     } else if (header->msgh_id == gLWRestartNotificationToken) 
     {
         // Loginwindow put a restart confirm panel up on screen
         // The user has not necessarily even clicked on it yet
         amidst_shutdown = true;
+        consoleShutdownState = kIOPMStateConsoleShutdownPossible;
+
     } else if (header->msgh_id == gLWLogoutCancelNotificationToken) 
     {
         // Whatever shutdown, restart, or logout that was in progress has been cancelled.
         amidst_shutdown = false;
+        consoleShutdownState = kIOPMStateConsoleShutdownNone;
+
     } else if (amidst_shutdown 
             && (header->msgh_id == gLWLogoutPointOfNoReturnNotificationToken))
     {
@@ -568,7 +586,20 @@ static void lwShutdownCallback(
         // this machine.
 
         _setRootDomainProperty(CFSTR("System Shutdown"), kCFBooleanTrue);
+        consoleShutdownState = kIOPMStateConsoleShutdownCertain;
     }
+    
+    // Tell interested kernel drivers where we are in the GUI shutdown.
+    if (lastConsoleShutdownState != consoleShutdownState) {
+        n = CFNumberCreate(0, kCFNumberIntType, &consoleShutdownState);
+        if (n) {
+            _setRootDomainProperty( CFSTR(kIOPMStateConsoleShutdown), n) ;
+            CFRelease(n);
+        }
+        lastConsoleShutdownState = consoleShutdownState;
+    }
+    
+    
     return;
 }
 
@@ -887,6 +918,8 @@ kern_return_t _io_pm_assertion_create
 (
     mach_port_t         server,
     mach_port_t         task,
+    string_t            name,
+    mach_msg_type_number_t  nameCnt,
     string_t            profile,
     mach_msg_type_number_t   profileCnt,
     int                 level,
@@ -894,10 +927,9 @@ kern_return_t _io_pm_assertion_create
     int                 *result
 )
 {
-    CFStringRef     profileString = NULL;
-
-    profileString = CFStringCreateWithCString(0, profile, 
-                            kCFStringEncodingMacRoman);
+    CFStringRef profileString = NULL;
+    profileString = CFStringCreateWithCString(0, profile,
+                        kCFStringEncodingMacRoman);
 
     // Kick them out if this assertion requires root priviliges to run
     if( _assertionRequiresRoot(profileString) )
@@ -908,19 +940,15 @@ kern_return_t _io_pm_assertion_create
             || (-1 == gClientUID) || (-1 == gClientGID) )
         {
             *result = kIOReturnNotPrivileged;
-            goto exit;    
+            goto exit;
         }
     }
 
-    if(!profileString) goto exit;
-
-    *result = _IOPMAssertionCreateRequiresRoot(task, profileString, 
+    *result = _IOPMAssertionCreateRequiresRoot(task, name, profile, 
                                                 level, assertion_id);
 
-    CFRelease(profileString); profileString = NULL;
-
 exit:
-    if(profileString) CFRelease(profileString);
+    if (profileString) CFRelease(profileString);
     return KERN_SUCCESS;
 }
 
@@ -936,7 +964,7 @@ initializeMIGServer(void)
     kern_return_t           kern_result = 0;
     CFMachPortRef           cf_mach_port = 0;
     CFRunLoopSourceRef      cfmp_rls = 0;
-    mach_port_t             our_port;
+    mach_port_t             our_port = MACH_PORT_NULL;
 
     CFMachPortContext       context  = { 0, (void *)1, NULL, NULL, serverMPCopyDescription };
 
@@ -955,19 +983,13 @@ initializeMIGServer(void)
                         bootstrap_port, 
                         kIOPMServerBootstrapName, 
                         our_port);
-
-    switch (kern_result) {
-      case BOOTSTRAP_SUCCESS:
-        break;
-      case BOOTSTRAP_NOT_PRIVILEGED:
-        break;
-      case BOOTSTRAP_SERVICE_ACTIVE:
-        break;
-      default:
-        break;
+    if (BOOTSTRAP_SUCCESS != kern_result)
+    {
+        syslog(LOG_ERR, "PM configd: bootstrap_register \"%s\" error = %d\n",
+                                kIOPMServerBootstrapName, kern_result);
     }
-
-    serverMachPort = cf_mach_port;
+    
+    pmServerMachPort = cf_mach_port;
 
 bail:
     if(cfmp_rls) CFRelease(cfmp_rls);
@@ -982,11 +1004,9 @@ static void
 initializeInterestNotifications()
 {
     IONotificationPortRef       notify_port = 0;
-    io_object_t                 notification_ref = 0;
     io_service_t                pmu_service_ref = 0;
     io_iterator_t               battery_iter = 0;
     CFRunLoopSourceRef          rlser = 0;
-    IOReturn                    ret;
     
     CFMutableDictionaryRef      matchingDict = 0;
     CFMutableDictionaryRef      propertyDict = 0;
@@ -999,17 +1019,16 @@ initializeInterestNotifications()
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rlser, kCFRunLoopDefaultMode);
 
 #if __ppc__
+    io_object_t                 notification_ref;
+
     /* PMU */
     pmu_service_ref = IOServiceGetMatchingService(0, IOServiceNameMatching("ApplePMU"));
-    if(!pmu_service_ref) goto battery;
-
-    ret = IOServiceAddInterestNotification(notify_port, pmu_service_ref, 
+    if (MACH_PORT_NULL != pmu_service_ref) {
+        IOServiceAddInterestNotification(notify_port, pmu_service_ref, 
                                 kIOGeneralInterest, PMUInterest,
                                 0, &notification_ref);
-    if(kIOReturnSuccess != ret) goto battery;
+    }
 #endif /* __ppc__ */
-
-battery:
 
     // Get match notification on IOPMPowerSource
     kr = IOServiceAddMatchingNotification(
@@ -1077,7 +1096,11 @@ initializeTimezoneChangeNotifications(void)
                         "NSSystemTimeZoneDidChangeDistributedNotification",
                         kCFStringEncodingMacRoman);
 
+#if TARGET_OS_EMBEDDED                                      
+    distNoteCenter = CFNotificationCenterGetDarwinNotifyCenter();
+#else
     distNoteCenter = CFNotificationCenterGetDistributedCenter();
+#endif
     if(distNoteCenter)
     {
         CFNotificationCenterAddObserver(

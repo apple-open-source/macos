@@ -1429,7 +1429,7 @@ bool IONetworkController::attachDebuggerClient(IOKernelDebugger ** debugger)
 	UInt32 debugArg=0;
 
 	// don't attach any debugger if kernel debugging isn't even enabled.
-	PE_parse_boot_arg( "debug", &debugArg );
+	PE_parse_boot_argn( "debug", &debugArg, sizeof (debugArg) );
 	if(debugArg == 0)
 	{
 		*debugger = 0;

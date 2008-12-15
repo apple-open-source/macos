@@ -43,7 +43,11 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
-#include <Security/SecPassword.h>
+
+/* Our Security/SecPassword.h is not yet API, so I will define the constants that I am using here. */
+kSecPasswordGet     = 1<<0;  // Get password from keychain or user
+kSecPasswordSet     = 1<<1;  // Set password (passed in if kSecPasswordGet not set, otherwise from user)
+kSecPasswordFail    = 1<<2;  // Wrong password (ignore item in keychain and flag error)
 
 #endif
 

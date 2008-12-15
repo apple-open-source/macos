@@ -258,8 +258,23 @@ AppleUSBUHCI::SaveControllerStateForSleep(void)
 IOReturn				
 AppleUSBUHCI::RestoreControllerStateFromSleep(void)
 {
+	int		i;
+	UInt16	value;
+	bool	wakeMsg = false;
 
 	USBLog(5, "AppleUSBUHCI[%p]::RestoreControllerStateFromSleep RUN - resuming controller", this);
+	for (i=0; i< 2; i++)
+	{
+		value = ReadPortStatus(i);
+		if (value & kUHCI_PORTSC_CSC)
+		{
+			IOLog("USB (UHCI):Port %d on bus 0x%x connected or disconnected\n", (int)i+1, (uint32_t)_busNumber);
+		}
+		else if (value & kUHCI_PORTSC_RD)
+		{
+			IOLog("USB (UHCI):Port %d on bus 0x%x has remote wakeup from some device\n", (int)i+1, (uint32_t)_busNumber);
+		}
+	}		
 	ResumeController();
 
 	return kIOReturnSuccess;

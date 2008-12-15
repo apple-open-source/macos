@@ -334,19 +334,19 @@ IOUSBControllerUserClient::ReadRegister(UInt32 offset, UInt32 size, void *value)
         case 8:
             bVal = *((UInt8 *)fMemMap->getVirtualAddress() + offset);
             *(UInt8*)value = bVal;
-            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got byte value 0x%x", bVal);
+            USBLog(4, "IOUSBControllerUserClient::ReadRegister - got byte value 0x%x", bVal);
             break;
 
         case 16:
             wVal = OSReadLittleInt16((void*)(fMemMap->getVirtualAddress()), offset);
             *(UInt16*)value = wVal;
-            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got word value 0x%x", wVal);
+            USBLog(4, "IOUSBControllerUserClient::ReadRegister - got word value 0x%x", wVal);
             break;
 
         case 32:
             lVal = OSReadLittleInt32((void*)(fMemMap->getVirtualAddress()), offset);
             *(UInt32*)value = lVal;
-            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got long value 0x%lx", lVal);
+            USBLog(4, "IOUSBControllerUserClient::ReadRegister - got (uint32_t) value 0x%x", (uint32_t)lVal);
             break;
 
         default:

@@ -50,10 +50,10 @@ typedef struct
   int32_t result; /* 0: 1-0  1:1/2  2:0-1  3:? */
 } pgn_header_t;
 
-unsigned long kksize;
+uint32_t kksize;
 unsigned char *keycache;
 
-unsigned long bookpos[400], booktomove[400], bookidx;
+uint32_t bookpos[400], booktomove[400], bookidx;
 
 int gamenum;
 
@@ -398,7 +398,7 @@ void build_book (void)
   printf("\nSize of KeyCache (bytes): ");
   rinput(kks, STR_BUFF, stdin);
   
-  kksize = atol(kks);
+  kksize = atoi(kks);
  
   printf("Freeing hash and eval cache\n");
   free_hash();
@@ -451,9 +451,9 @@ move_s choose_binary_book_move (void)
   int raw;
   int num_moves, i;
   char output[6];
-  signed long scores[MOVE_BUFF], best_score = 0;
+  int32_t scores[MOVE_BUFF], best_score = 0;
   
-  srand(time(0));
+  srand((unsigned)time(0));
   
   if (Variant == Normal)
     binbook = dbm_open("nbook", O_RDONLY, 0);
@@ -514,8 +514,8 @@ move_s choose_binary_book_move (void)
 			
 	      comp_to_coord(moves[i], output);
 	      
-	      printf("Move %s: %lu times played, %d learned\n", output,
-		     (unsigned long)ntohl(ps->played), (int)ntohl(ps->score));
+	      printf("Move %s: %u times played, %d learned\n", output,
+		     (uint32_t)ntohl(ps->played), (int)ntohl(ps->score));
 	      
 	      if ((ntohl(ps->played) + ntohl(ps->score)) >=  PLAYTHRESHOLD)
 		{
@@ -590,7 +590,7 @@ void book_learning(int result)
   float factor;
   int pi;
   int iters;
-  static const float factortable[] = {1.0, 0.5, 0.25, 0.12, 0.08, 0.05, 0.03};
+  static const float factortable[] = {1.0f, 0.5f, 0.25f, 0.12f, 0.08f, 0.05f, 0.03f};
 
   if (bookidx == 0) return;
   
@@ -634,28 +634,28 @@ void book_learning(int result)
         if (result == WIN)
 	  {
 	    if (my_rating <= opp_rating)
-	      playinc = 0.5 * factor;
+	      playinc = 0.5f * factor;
 	    else
-	      playinc = 0.25 * factor;
+	      playinc = 0.25f * factor;
 	  }
         else if (result == LOSS)
 	  {
 	    if (my_rating >= opp_rating)
-	      playinc = -0.5 * factor;
+	      playinc = -0.5f * factor;
 	    else
-	      playinc = -0.25 * factor;
+	      playinc = -0.25f * factor;
 	  }
         else
 	  {
 	    if (my_rating >= opp_rating)
-	      playinc = -0.3 * factor;
+	      playinc = -0.3f * factor;
 	    else
-	      playinc = 0.3 * factor;
+	      playinc = 0.3f * factor;
 	  }
       
         if (fabs((double)((ntohl(ps->played) + ntohl(ps->score))) * playinc) < 1.0)
 	  {
-	    pi = (int)(playinc * 10.0);
+	    pi = (int)(playinc * 10.0f);
 	  }
         else
 	  {
@@ -666,10 +666,10 @@ void book_learning(int result)
 		if (abs((ps->score)+pi) < (ntohl(ps->played)*5))
 	  {
       
-        printf("Learning opening %lu, played %lu, old score %ld, new score %ld\n", 
-	       (unsigned long)bookpos[bookidx-iters], 
-	       (unsigned long)ntohl(ps->played), 
-	       (long)ntohl(ps->score), (long)ntohl(ps->score)+pi);
+        printf("Learning opening %u, played %u, old score %d, new score %d\n", 
+	       (uint32_t)bookpos[bookidx-iters], 
+	       (uint32_t)ntohl(ps->played), 
+	       (int32_t)ntohl(ps->score), (int32_t)ntohl(ps->score)+pi);
       
         ps->score = htonl(ntohl(ps->score)+pi);
       

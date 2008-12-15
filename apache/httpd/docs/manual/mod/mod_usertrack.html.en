@@ -130,7 +130,7 @@ time late in the year "37".
 
     <p>The domain string <strong>must</strong> begin with a dot, and
     <strong>must</strong> include at least one embedded dot. That is,
-    <code>.foo.com</code> is legal, but <code>foo.bar.com</code> and
+    <code>.example.com</code> is legal, but <code>foo.example.com</code> and 
     <code>.com</code> are not.</p>
 
     <div class="note">Most browsers in use today will not allow cookies to be set
@@ -247,6 +247,6 @@ time late in the year "37".
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_usertrack.html" title="English">&nbsp;en&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

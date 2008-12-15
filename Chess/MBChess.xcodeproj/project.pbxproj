@@ -262,16 +262,16 @@
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		950B5942049D8C73000001C9 /* MBCMoveGenerator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCMoveGenerator.h; path = Sources/MBCMoveGenerator.h; sourceTree = "<group>"; };
 		950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMoveGenerator.mm; path = Sources/MBCMoveGenerator.mm; sourceTree = "<group>"; };
-		950BD16F0A1E582B00395116 /* Info-MBChess.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "Info-MBChess.plist"; path = "Resources/Info-MBChess.plist"; sourceTree = "<group>"; };
+		950BD16F0A1E582B00395116 /* Info-MBChess.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-MBChess.plist"; path = "Resources/Info-MBChess.plist"; sourceTree = "<group>"; };
 		950BD1700A1E582B00395116 /* Chess.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chess.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		950EE08807769701004ED524 /* Chess.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = Chess.plist; path = Resources/Chess.plist; sourceTree = "<group>"; };
+		950EE08807769701004ED524 /* Chess.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Chess.plist; path = Resources/Chess.plist; sourceTree = "<group>"; };
 		950EE08907769701004ED524 /* Chess.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Chess.txt; path = Resources/Chess.txt; sourceTree = "<group>"; };
 		9534EBC3046627320000E7BB /* MBCBoardAnimation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardAnimation.h; path = Sources/MBCBoardAnimation.h; sourceTree = "<group>"; };
 		9534EBC4046627320000E7BB /* MBCBoardAnimation.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardAnimation.mm; path = Sources/MBCBoardAnimation.mm; sourceTree = "<group>"; };
 		953ABB1B043AC51100C64F18 /* MBCDocument.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCDocument.h; path = Sources/MBCDocument.h; sourceTree = "<group>"; };
 		953ABB1C043AC51100C64F18 /* MBCDocument.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCDocument.mm; path = Sources/MBCDocument.mm; sourceTree = "<group>"; };
 		95844C900A670C1E0068CA82 /* sjeng.ChessEngine */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sjeng.ChessEngine; sourceTree = BUILT_PRODUCTS_DIR; };
-		95844CF10A670C280068CA82 /* Info-ChessTuner_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-ChessTuner_.plist"; sourceTree = "<group>"; };
+		95844CF10A670C280068CA82 /* Info-ChessTuner_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Info-ChessTuner_.plist"; sourceTree = "<group>"; };
 		95844CF20A670C280068CA82 /* Chess Tuner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Chess Tuner.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9586675C048AF5A5007B50FB /* handCursor.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; name = handCursor.tiff; path = Resources/handCursor.tiff; sourceTree = "<group>"; };
 		9594A40504C76CA4005DC0DD /* SpeechHelp.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = SpeechHelp.xml; path = Resources/SpeechHelp.xml; sourceTree = "<group>"; };
@@ -340,7 +340,7 @@
 		F5775A1E02F917A901D8996C /* nbook.db */ = {isa = PBXFileReference; lastKnownFileType = file; name = nbook.db; path = sjeng/books/nbook.db; sourceTree = "<group>"; };
 		F5775A1F02F917A901D8996C /* suicide.opn */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = suicide.opn; path = sjeng/books/suicide.opn; sourceTree = "<group>"; };
 		F5775A2002F917A901D8996C /* zbook.db */ = {isa = PBXFileReference; lastKnownFileType = file; name = zbook.db; path = sjeng/books/zbook.db; sourceTree = "<group>"; };
-		F598AC41035A958501000102 /* Defaults.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = Defaults.plist; path = Resources/Defaults.plist; sourceTree = "<group>"; };
+		F598AC41035A958501000102 /* Defaults.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Defaults.plist; path = Resources/Defaults.plist; sourceTree = "<group>"; };
 		F5A165400310660F01D39A8B /* MBCBoardViewMouse.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewMouse.h; path = Sources/MBCBoardViewMouse.h; sourceTree = "<group>"; };
 		F5A165410310661001D39A8B /* MBCBoardViewMouse.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewMouse.mm; path = Sources/MBCBoardViewMouse.mm; sourceTree = "<group>"; };
 		F5A165420310661001D39A8B /* MBCInteractivePlayer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCInteractivePlayer.h; path = Sources/MBCInteractivePlayer.h; sourceTree = "<group>"; };
@@ -1131,7 +1131,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1280,7 +1279,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
+				INFOPLIST_FILE = "Resources/Info-ChessTunes.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";
@@ -1307,7 +1306,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
+				INFOPLIST_FILE = "Resources/Info-ChessTunes.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";
@@ -1332,7 +1331,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
+				INFOPLIST_FILE = "Resources/Info-ChessTunes.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";

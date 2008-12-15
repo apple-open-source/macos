@@ -33,7 +33,10 @@
 #define __BOOTCACHES_H__
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <TargetConditionals.h>
+#if !TARGET_OS_EMBEDDED
 #include <DiskArbitration/DiskArbitration.h>
+#endif
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <IOKit/kext/kextmanager_types.h>   // uuid_string_t
@@ -101,6 +104,17 @@ struct bootCaches {
 // inspectors
 Boolean hasBoots(char *bsdname, CFArrayRef *auxPartsCopy, Boolean *isGPT);
 Boolean bootedFromDifferentMkext(void);
+
+#if TARGET_OS_EMBEDDED
+typedef void * DADiskRef;
+typedef void * DASessionRef;
+typedef void * DADissenterRef;
+typedef void * DAApprovalSessionRef;
+#define kDADiskDescriptionVolumeUUIDKey ""
+#define kDADiskDescriptionVolumeNameKey ""
+#define kDADiskDescriptionMediaBSDNameKey ""
+#define kDADiskDescriptionVolumePathKey ""
+#endif
 
 // ctors / dtors
 struct bootCaches* readCaches(DADiskRef dadisk);

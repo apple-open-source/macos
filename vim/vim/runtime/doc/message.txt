@@ -1,4 +1,4 @@
-*message.txt*   For Vim version 7.0.  Last change: 2006 Apr 30
+*message.txt*   For Vim version 7.2.  Last change: 2007 Aug 19
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -25,7 +25,8 @@ for other versions.
 								*g<*
 The "g<" command can be used to see the last page of previous command output.
 This is especially useful if you accidentally typed <Space> at the hit-enter
-prompt.
+prompt.  You are then back at the hit-enter prompt and can then scroll further
+back.
 Note: when you stopped the output with "q" at the more prompt only up to that
 point will be displayed.
 The previous command output is cleared when another command produces output.
@@ -52,7 +53,7 @@ If you are lazy, it also works without the shift key: >
 	:help e72
 
 ==============================================================================
-2. Error messages					*error-messages*
+2. Error messages				*error-messages* *errors*
 
 When an error message is displayed, but it is removed before you could read
 it, you can see it again with: >

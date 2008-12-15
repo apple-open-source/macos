@@ -48,6 +48,12 @@
 #include <strings.h>
 #endif
 
+/* Disable getpass() support when PASS_MAX is defined and is "small",
+ * for an arbitrary definition of "small". */
+#if defined(HAVE_GETPASS) && defined(PASS_MAX) && PASS_MAX < 32
+#undef HAVE_GETPASS
+#endif
+
 #if defined(HAVE_TERMIOS_H) && !defined(HAVE_GETPASS)
 #include <termios.h>
 #endif
@@ -74,7 +80,7 @@
  * issue the prompt and read the results with echo.  (Ugh).
  */
 
-static char *getpass(const char *prompt)
+static char *get_password(const char *prompt)
 {
     static char password[MAX_STRING_LEN];
 
@@ -87,7 +93,7 @@ static char *getpass(const char *prompt)
 #elif defined (HAVE_TERMIOS_H)
 #include <stdio.h>
 
-static char *getpass(const char *prompt)
+static char *get_password(const char *prompt)
 {
     struct termios attr;
     static char password[MAX_STRING_LEN];
@@ -129,7 +135,7 @@ static char *getpass(const char *prompt)
  * Windows lacks getpass().  So we'll re-implement it here.
  */
 
-static char *getpass(const char *prompt)
+static char *get_password(const char *prompt)
 {
 /* WCE lacks console. So the getpass is unsuported
  * The only way is to use the GUI so the getpass should be implemented
@@ -215,10 +221,12 @@ static char *getpass(const char *prompt)
 
 APR_DECLARE(apr_status_t) apr_password_get(const char *prompt, char *pwbuf, apr_size_t *bufsiz)
 {
-#ifdef HAVE_GETPASSPHRASE
+#if defined(HAVE_GETPASSPHRASE)
     char *pw_got = getpassphrase(prompt);
-#else
+#elif defined(HAVE_GETPASS)
     char *pw_got = getpass(prompt);
+#else /* use the replacement implementation above */
+    char *pw_got = get_password(prompt);
 #endif
     apr_status_t rv = APR_SUCCESS;
 

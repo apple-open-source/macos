@@ -22,7 +22,8 @@
 <a href="./en/bind.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./fr/bind.html" hreflang="fr" rel="alternate" title="Fran&#231;ais">&nbsp;fr&nbsp;</a> |
 <a href="./ja/bind.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
-<a href="./ko/bind.html" title="Korean">&nbsp;ko&nbsp;</a></p>
+<a href="./ko/bind.html" title="Korean">&nbsp;ko&nbsp;</a> |
+<a href="./tr/bind.html" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a></p>
 </div>
 <div class="outofdate">이 문서는 최신판 번역이 아닙니다.
             최근에 변경된 내용은 영어 문서를 참고하세요.</div>
@@ -68,8 +69,8 @@
     하려면,</p>
 
     <div class="example"><p><code>
-      Listen 192.170.2.1:80<br />
-      Listen 192.170.2.5:8000
+      Listen 192.0.2.1:80<br />
+      Listen 192.0.2.5:8000
     </code></p></div>
 
     <p>IPv6 주소는 다음과 같이 대괄호로 묶어야 한다:</p>
@@ -111,7 +112,7 @@
 
     <div class="example"><p><code>
       Listen 0.0.0.0:80<br />
-      Listen 192.170.2.1:80
+      Listen 192.0.2.1:80
     </code></p></div>
 
     <p>플래폼에서 지원하며 아파치가 서로 다른 소켓으로 IPv4
@@ -144,8 +145,9 @@
 <a href="./en/bind.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="./fr/bind.html" hreflang="fr" rel="alternate" title="Fran&#231;ais">&nbsp;fr&nbsp;</a> |
 <a href="./ja/bind.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
-<a href="./ko/bind.html" title="Korean">&nbsp;ko&nbsp;</a></p>
+<a href="./ko/bind.html" title="Korean">&nbsp;ko&nbsp;</a> |
+<a href="./tr/bind.html" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">모듈</a> | <a href="./mod/directives.html">지시어들</a> | <a href="./faq/">FAQ</a> | <a href="./glossary.html">용어</a> | <a href="./sitemap.html">사이트맵</a></p></div>
 </body></html>

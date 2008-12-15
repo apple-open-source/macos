@@ -74,21 +74,23 @@ for my $dir (@ARGV) {
     while(($count = scalar(@compress)) > 0) {
 	$_ = $count > $N ? $N : $count;
 	my @args = splice(@compress, 0, $_);
-	print "gzip -f @args\n";
-	system('gzip', '-f', @args) == 0 or die "gzip failed\n";;
+	print "gzip -f -n @args\n";
+	system('gzip', '-f', '-n', @args) == 0 or die "gzip failed\n";;
     }
     foreach my $list (@links) {
 	my $main = shift(@$list);
 	for(@$list) {
-	    printf "rm $_; ln $main.gz $_.gz\n";
+	    printf "rm $_; ln -f $main.gz $_.gz\n";
 	    unlink $_ or die "Can't unlink: $!\n";
+	    unlink "$_.gz";
 	    link("$main.gz", "$_.gz") or die "Can't link: $!\n";;
 	}
     }
     for(@symlinks) {
 	my $link = readlink($_);
-	printf "rm $_; ln -s $link.gz $_.gz\n";
+	printf "rm $_; ln -fs $link.gz $_.gz\n";
 	unlink $_ or die "Can't unlink: $!\n";
+	unlink "$_.gz";
 	symlink("$link.gz", "$_.gz") or die "Can't symlink: $!\n";
     }
 }

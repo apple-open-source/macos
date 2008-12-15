@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleIntel8255x</string>
+	<key>CFBundleGetInfoString</key>
+	<string>1.4, Copyright Apple Computer, Inc. 2001-2004</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleIntel8255x</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Intel 8255x Ethernet Driver</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>8255x</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleIntel8255x</string>
+			<key>Flow Control</key>
+			<false/>
+			<key>IOClass</key>
+			<string>Intel82557</string>
+			<key>IODefaultMedium</key>
+			<string>00000020</string>
+			<key>IOPCIClassMatch</key>
+			<string>0x02000000&amp;0xffff0000</string>
+			<key>IOPCIMatch</key>
+			<string>0x10518086 0x10508086 0x10298086 0x10308086&amp;0xfff0ffff 0x12098086 0x12278086 0x12288086 0x12298086 0x24498086 0x24598086 0x245d8086 0x10918086 0x10608086&amp;0xfff0ffff</string>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+			<key>Transmit Threshold</key>
+			<integer>512</integer>
+			<key>Verbose</key>
+			<false/>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IONetworkingFamily</key>
+		<string>1.4</string>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.6</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b2</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Network-Root</string>
+</dict>
+</plist>

@@ -1,6 +1,6 @@
 " Script to define the syntax menu in synmenu.vim
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2006 Apr 27
+" Last Change:	2008 Jul 13
 
 " This is used by "make menu" in the src directory.
 edit <sfile>:p:h/synmenu.vim
@@ -87,6 +87,8 @@ SynMenu AB.ASN\.1:asn
 SynMenu AB.Asterisk\ config:asterisk
 SynMenu AB.Asterisk\ voicemail\ config:asteriskvm
 SynMenu AB.Atlas:atlas
+SynMenu AB.AutoHotKey:autohotkey
+SynMenu AB.AutoIt:autoit
 SynMenu AB.Automake:automake
 SynMenu AB.Avenue:ave
 SynMenu AB.Awk:awk
@@ -94,7 +96,11 @@ SynMenu AB.AYacc:ayacc
 
 SynMenu AB.B:b
 SynMenu AB.Baan:baan
-SynMenu AB.BASIC:basic
+SynMenu AB.Basic.FreeBasic:freebasic
+SynMenu AB.Basic.IBasic:ibasic
+SynMenu AB.Basic.QBasic:basic
+SynMenu AB.Basic.Visual\ Basic:vb
+SynMenu AB.Bazaar\ commit\ file:bzr
 SynMenu AB.BC\ calculator:bc
 SynMenu AB.BDF\ font:bdf
 SynMenu AB.BibTeX.Bibliography\ database:bib
@@ -107,11 +113,10 @@ SynMenu C.C:c
 SynMenu C.C++:cpp
 SynMenu C.C#:cs
 SynMenu C.Calendar:calendar
-SynMenu C.CDL:cdl
-SynMenu C.Crontab:crontab
-SynMenu C.Cyn++:cynpp
-SynMenu C.Cynlib:cynlib
 SynMenu C.Cascading\ Style\ Sheets:css
+SynMenu C.CDL:cdl
+SynMenu C.Cdrdao\ TOC:cdrtoc
+SynMenu C.Cdrdao\ config:cdrdaoconf
 SynMenu C.Century\ Term:cterm
 SynMenu C.CH\ script:ch
 SynMenu C.ChangeLog:changelog
@@ -122,24 +127,31 @@ SynMenu C.Clean:clean
 SynMenu C.Clever:cl
 SynMenu C.Clipper:clipper
 SynMenu C.Cmake:cmake
-SynMenu C.Cold\ Fusion:cf
-SynMenu C.Config.Cfg\ Config\ file:cfg
-SynMenu C.Config.Generic\ Config\ file:conf
-SynMenu C.Config.Configure\.in:config
-SynMenu C.ConTeXt:context
-SynMenu C.CRM114:crm
-SynMenu C.Ctrl-H:ctrlh
+SynMenu C.Cmusrc:cmusrc
 SynMenu C.Cobol:cobol
+SynMenu C.Coco/R:coco
+SynMenu C.Cold\ Fusion:cf
+SynMenu C.Conary\ Recipe:conaryrecipe
+SynMenu C.Config.Cfg\ Config\ file:cfg
+SynMenu C.Config.Configure\.in:config
+SynMenu C.Config.Generic\ Config\ file:conf
+SynMenu C.CRM114:crm
+SynMenu C.Crontab:crontab
 SynMenu C.CSP:csp
+SynMenu C.Ctrl-H:ctrlh
+SynMenu C.CUDA:cuda
 SynMenu C.CUPL.CUPL:cupl
 SynMenu C.CUPL.Simulation:cuplsim
 SynMenu C.CVS.commit\ file:cvs
 SynMenu C.CVS.cvsrc:cvsrc
+SynMenu C.Cyn++:cynpp
+SynMenu C.Cynlib:cynlib
 
 SynMenu DE.D:d
 SynMenu DE.Debian.Debian\ ChangeLog:debchangelog
 SynMenu DE.Debian.Debian\ Control:debcontrol
 SynMenu DE.Debian.Debian\ Sources\.list:debsources
+SynMenu DE.Denyhosts:denyhosts
 SynMenu DE.Desktop:desktop
 SynMenu DE.Dict\ config:dictconf
 SynMenu DE.Dictd\ config:dictdconf
@@ -160,6 +172,7 @@ SynMenu DE.Dracula:dracula
 SynMenu DE.DSSSL:dsl
 SynMenu DE.DTD:dtd
 SynMenu DE.DTML\ (Zope):dtml
+SynMenu DE.DTrace:dtrace
 SynMenu DE.Dylan.Dylan:dylan
 SynMenu DE.Dylan.Dylan\ interface:dylanintr
 SynMenu DE.Dylan.Dylan\ lid:dylanlid
@@ -188,6 +201,7 @@ SynMenu FG.FORM:form
 SynMenu FG.Forth:forth
 SynMenu FG.Fortran:fortran
 SynMenu FG.FoxPro:foxpro
+SynMenu FG.FrameScript:framescript
 SynMenu FG.Fstab:fstab
 SynMenu FG.Fvwm.Fvwm\ configuration:fvwm1
 SynMenu FG.Fvwm.Fvwm2\ configuration:fvwm2
@@ -196,6 +210,11 @@ SynMenu FG.Fvwm.Fvwm2\ configuration\ with\ M4:fvwm2m4
 SynMenu FG.GDB\ command\ file:gdb
 SynMenu FG.GDMO:gdmo
 SynMenu FG.Gedcom:gedcom
+SynMenu FG.Git.Output:git
+SynMenu FG.Git.Commit:gitcommit
+SynMenu FG.Git.Config:gitconfig
+SynMenu FG.Git.Rebase:gitrebase
+SynMenu FG.Git.Send\ Email:gitsendemail
 SynMenu FG.Gkrellmrc:gkrellmrc
 SynMenu FG.GP:gp
 SynMenu FG.GPG:gpg
@@ -209,9 +228,13 @@ SynMenu FG.Groff:groff
 SynMenu FG.Groovy:groovy
 SynMenu FG.GTKrc:gtkrc
 
+SynMenu HIJK.Haml:haml
+SynMenu HIJK.Hamster:hamster
 SynMenu HIJK.Haskell.Haskell:haskell
 SynMenu HIJK.Haskell.Haskell-c2hs:chaskell
 SynMenu HIJK.Haskell.Haskell-literate:lhaskell
+SynMenu HIJK.HASTE:haste
+SynMenu HIJK.HASTE\ preproc:hastepreproc
 SynMenu HIJK.Hercules:hercules
 SynMenu HIJK.Hex\ dump.XXD:xxd
 SynMenu HIJK.Hex\ dump.Intel\ MCS51:hex
@@ -222,6 +245,7 @@ SynMenu HIJK.HTML.Cheetah\ HTML\ template:htmlcheetah
 SynMenu HIJK.HTML.Django\ HTML\ template:htmldjango
 SynMenu HIJK.HTML.HTML/OS:htmlos
 SynMenu HIJK.HTML.XHTML:xhtml
+SynMenu HIJK.Host\.conf:hostconf
 SynMenu HIJK.Hyper\ Builder:hb
 SynMenu HIJK.Icewm\ menu:icemenu
 SynMenu HIJK.Icon:icon
@@ -230,6 +254,7 @@ SynMenu HIJK.IDL\Microsoft\ IDL:msidl
 SynMenu HIJK.Indent\ profile:indent
 SynMenu HIJK.Inform:inform
 SynMenu HIJK.Informix\ 4GL:fgl
+SynMenu HIJK.Initng:initng
 SynMenu HIJK.Inittab:inittab
 SynMenu HIJK.Inno\ setup:iss
 SynMenu HIJK.InstallShield\ script:ishd
@@ -254,15 +279,18 @@ SynMenu L-Ma.Lace:lace
 SynMenu L-Ma.LamdaProlog:lprolog
 SynMenu L-Ma.Latte:latte
 SynMenu L-Ma.Ld\ script:ld
-SynMenu L-Ma.LDAP\ LDIF:ldif
+SynMenu L-Ma.LDAP.LDIF:ldif
+SynMenu L-Ma.LDAP.Configuration:ldapconf
 SynMenu L-Ma.Lex:lex
 SynMenu L-Ma.LFTP\ config:lftp
 SynMenu L-Ma.Libao:libao
 SynMenu L-Ma.LifeLines\ script:lifelines
 SynMenu L-Ma.Lilo:lilo
 SynMenu L-Ma.Limits\ config:limits
+SynMenu L-Ma.Linden\ scripting:lsl
 SynMenu L-Ma.Lisp:lisp
 SynMenu L-Ma.Lite:lite
+SynMenu L-Ma.LiteStep\ RC:litestep
 SynMenu L-Ma.Locale\ Input:fdcc
 SynMenu L-Ma.Login\.access:loginaccess
 SynMenu L-Ma.Login\.defs:logindefs
@@ -290,6 +318,7 @@ SynMenu L-Ma.Matlab:matlab
 SynMenu L-Ma.Maxima:maxima
 
 SynMenu Me-NO.MEL\ (for\ Maya):mel
+SynMenu Me-NO.Messages\ (/var/log):messages
 SynMenu Me-NO.Metafont:mf
 SynMenu Me-NO.MetaPost:mp
 SynMenu Me-NO.MGL:mgl
@@ -306,6 +335,7 @@ SynMenu Me-NO.Mrxvtrc:mrxvtrc
 SynMenu Me-NO.MS-DOS/Windows.4DOS\ \.bat\ file:btm
 SynMenu Me-NO.MS-DOS/Windows.\.bat\/\.cmd\ file:dosbatch
 SynMenu Me-NO.MS-DOS/Windows.\.ini\ file:dosini
+SynMenu Me-NO.MS-DOS/Windows.Message\ text:msmessages
 SynMenu Me-NO.MS-DOS/Windows.Module\ Definition:def
 SynMenu Me-NO.MS-DOS/Windows.Registry:registry
 SynMenu Me-NO.MS-DOS/Windows.Resource\ file:rc
@@ -337,7 +367,7 @@ SynMenu PQ.PApp:papp
 SynMenu PQ.Pascal:pascal
 SynMenu PQ.Password\ file:passwd
 SynMenu PQ.PCCTS:pccts
-SynMenu PQ.PPWizard:ppwiz
+SynMenu PQ.PDF:pdf
 SynMenu PQ.Perl.Perl:perl
 SynMenu PQ.Perl.Perl\ POD:pod
 SynMenu PQ.Perl.Perl\ XS:xs
@@ -355,12 +385,15 @@ SynMenu PQ.PostScript.PostScript:postscr
 SynMenu PQ.PostScript.PostScript\ Printer\ Description:ppd
 SynMenu PQ.Povray.Povray\ scene\ descr:pov
 SynMenu PQ.Povray.Povray\ configuration:povini
+SynMenu PQ.PPWizard:ppwiz
 SynMenu PQ.Prescribe\ (Kyocera):prescribe
 SynMenu PQ.Printcap:pcap
+SynMenu PQ.Privoxy:privoxy
 SynMenu PQ.Procmail:procmail
 SynMenu PQ.Product\ Spec\ File:psf
 SynMenu PQ.Progress:progress
 SynMenu PQ.Prolog:prolog
+SynMenu PQ.ProMeLa:promela
 SynMenu PQ.Protocols:protocols
 SynMenu PQ.Purify\ log:purifylog
 SynMenu PQ.Pyrex:pyrex
@@ -383,6 +416,7 @@ SynMenu R-Sg.Relax\ NG\ compact:rnc
 SynMenu R-Sg.Renderman.Renderman\ Shader\ Lang:sl
 SynMenu R-Sg.Renderman.Renderman\ Interface\ Bytestream:rib
 SynMenu R-Sg.Resolv\.conf:resolv
+SynMenu R-Sg.Reva\ Forth:reva
 SynMenu R-Sg.Rexx:rexx
 SynMenu R-Sg.Robots\.txt:robots
 SynMenu R-Sg.RockLinux\ package\ desc\.:desc
@@ -394,6 +428,7 @@ SynMenu R-Sg.Ruby:ruby
 SynMenu R-Sg.S-Lang:slang
 SynMenu R-Sg.Samba\ config:samba
 SynMenu R-Sg.SAS:sas
+SynMenu R-Sg.Sass:sass
 SynMenu R-Sg.Sather:sather
 SynMenu R-Sg.Scheme:scheme
 SynMenu R-Sg.Scilab:scilab
@@ -463,8 +498,10 @@ SynMenu Sh-S.Stata.SMCL:smcl
 SynMenu Sh-S.Stata.Stata:stata
 SynMenu Sh-S.Stored\ Procedures:stp
 SynMenu Sh-S.Strace:strace
+SynMenu Sh-S.Streaming\ descriptor\ file:sd
 SynMenu Sh-S.Subversion\ commit:svn
 SynMenu Sh-S.Sudoers:sudoers
+SynMenu Sh-S.Symbian\ meta-makefile:mmp
 SynMenu Sh-S.Sysctl\.conf:sysctl
 
 SynMenu TUV.TADS:tads
@@ -477,7 +514,9 @@ SynMenu TUV.TealInfo:tli
 SynMenu TUV.Telix\ Salt:tsalt
 SynMenu TUV.Termcap/Printcap:ptcap
 SynMenu TUV.Terminfo:terminfo
-SynMenu TUV.TeX.TeX:tex
+SynMenu TUV.TeX.TeX/LaTeX:tex
+SynMenu TUV.TeX.plain\ TeX:plaintex
+SynMenu TUV.TeX.ConTeXt:context
 SynMenu TUV.TeX.TeX\ configuration:texmf
 SynMenu TUV.TeX.Texinfo:texinfo
 SynMenu TUV.TF\ mud\ client:tf
@@ -506,6 +545,7 @@ SynMenu TUV.Vim.Vim\ script:vim
 SynMenu TUV.Vim.Viminfo\ file:viminfo
 SynMenu TUV.Virata\ config:virata
 SynMenu TUV.Visual\ Basic:vb
+SynMenu TUV.VOS\ CM\ macro:voscm
 SynMenu TUV.VRML:vrml
 SynMenu TUV.VSE\ JCL:vsejcl
 
@@ -526,6 +566,7 @@ SynMenu WXYZ.X\ Keyboard\ Extension:xkb
 SynMenu WXYZ.X\ Pixmap:xpm
 SynMenu WXYZ.X\ Pixmap\ (2):xpm2
 SynMenu WXYZ.X\ resources:xdefaults
+SynMenu WXYZ.XBL:xbl
 SynMenu WXYZ.Xinetd\.conf:xinetd
 SynMenu WXYZ.Xmodmap:xmodmap
 SynMenu WXYZ.Xmath:xmath

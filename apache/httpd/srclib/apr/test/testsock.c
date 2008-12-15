@@ -207,12 +207,44 @@ static void test_timeout(abts_case *tc, void *data)
     APR_ASSERT_SUCCESS(tc, "Problem closing socket", rv);
 }
 
+static void test_print_addr(abts_case *tc, void *data)
+{
+    apr_sockaddr_t *sa;
+    apr_status_t rv;
+    char *s;
+
+    rv = apr_sockaddr_info_get(&sa, "0.0.0.0", APR_INET, 80, 0, p);
+    APR_ASSERT_SUCCESS(tc, "Problem generating sockaddr", rv);
+
+    s = apr_psprintf(p, "foo %pI bar", sa);
+
+    ABTS_STR_EQUAL(tc, "foo 0.0.0.0:80 bar", s);
+
+#if APR_HAVE_IPV6
+    rv = apr_sockaddr_info_get(&sa, "::ffff:0.0.0.0", APR_INET6, 80, 0, p);
+    APR_ASSERT_SUCCESS(tc, "Problem generating sockaddr", rv);
+    if (rv == APR_SUCCESS)
+        ABTS_TRUE(tc, sa != NULL);
+    if (rv == APR_SUCCESS && sa) {
+        /* sa should now be a v4-mapped IPv6 address. */
+        char buf[128];
+
+        memset(buf, 'z', sizeof buf);
+        
+        APR_ASSERT_SUCCESS(tc, "could not get IP address",
+                           apr_sockaddr_ip_getbuf(buf, 22, sa));
+        
+        ABTS_STR_EQUAL(tc, "0.0.0.0", buf);
+    }
+#endif
+}
+
 static void test_get_addr(abts_case *tc, void *data)
 {
     apr_status_t rv;
     apr_socket_t *ld, *sd, *cd;
     apr_sockaddr_t *sa, *ca;
-    char a[128], b[128];
+    char *a, *b;
 
     ld = setup_socket(tc);
 
@@ -271,8 +303,8 @@ static void test_get_addr(abts_case *tc, void *data)
     APR_ASSERT_SUCCESS(tc, "get remote address of client socket",
                        apr_socket_addr_get(&ca, APR_REMOTE, cd));
     
-    apr_snprintf(a, sizeof(a), "%pI", sa);
-    apr_snprintf(b, sizeof(b), "%pI", ca);
+    a = apr_psprintf(p, "%pI", sa);
+    b = apr_psprintf(p, "%pI", ca);
 
     ABTS_STR_EQUAL(tc, a, b);
                        
@@ -290,6 +322,7 @@ abts_suite *testsock(abts_suite *suite)
     abts_run_test(suite, test_send, NULL);
     abts_run_test(suite, test_recv, NULL);
     abts_run_test(suite, test_timeout, NULL);
+    abts_run_test(suite, test_print_addr, NULL);
     abts_run_test(suite, test_get_addr, NULL);
 
     return suite;

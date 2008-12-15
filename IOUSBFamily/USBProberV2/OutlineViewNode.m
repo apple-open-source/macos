@@ -118,6 +118,28 @@
     [walker addChild:aNode];
 }
 
+- (NSString*)stringRepresentation:(NSString*)name:(int)startingLevel
+{
+    int i;
+    NSMutableString *finalText = [[NSMutableString alloc] init];
+    OutlineViewNode * childNode;
+    int childrenCount = [self childrenCount];
+    
+    for (i=0; i < childrenCount; i++) {
+        childNode = [self childAtIndex:i];
+		
+		if ( [[childNode name] caseInsensitiveCompare:name] == NSOrderedSame )
+		{
+			[finalText appendFormat:@"%@   %@",[childNode name],[childNode value]];
+		}
+        
+        if ([childNode isExpandable]) {
+            [finalText appendString:[childNode stringRepresentation:name:startingLevel+1]];
+        }
+    }
+    return [finalText autorelease];
+}
+
 - (void)addNodeWithName:(char *)name value:(char *)value atDepth:(int)depth {
     OutlineViewNode *aNode;
     

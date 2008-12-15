@@ -27,18 +27,18 @@
 
 typedef struct  
 {
-unsigned long stored_hash;
-unsigned long hold_hash;
-unsigned int score;
+uint32_t stored_hash;
+uint32_t hold_hash;
+int32_t score;
 } ECacheType;
 
 /*ECacheType ECache[ECACHESIZE];*/
 ECacheType *ECache;
 
-unsigned long ECacheProbes;
-unsigned long ECacheHits;
+uint32_t ECacheProbes;
+uint32_t ECacheHits;
 
-void storeECache(long int score)
+void storeECache(int32_t score)
 {
   int index;
 
@@ -49,7 +49,7 @@ void storeECache(long int score)
   ECache[index].score = score;
 }
 
-void checkECache(long int *score, int *in_cache)
+void checkECache(int32_t *score, int *in_cache)
 {
   int index;
 
@@ -84,8 +84,8 @@ void alloc_ecache(void)
     exit(EXIT_FAILURE);
   }
   
-  printf("Allocated %lu eval cache entries, totalling %lu bytes.\n",
-	 (unsigned long)ECacheSize, sizeof(ECacheType)*ECacheSize);
+  printf("Allocated %u eval cache entries, totalling %u bytes.\n",
+		 (uint32_t)ECacheSize, (uint32_t)(sizeof(ECacheType)*ECacheSize));
   return;
 }
 

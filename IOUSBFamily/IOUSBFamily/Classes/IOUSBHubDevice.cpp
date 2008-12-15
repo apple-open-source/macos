@@ -23,6 +23,7 @@
  */
 
 #include <libkern/OSByteOrder.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "IOUSBHubDevice.h"
@@ -37,12 +38,26 @@
 #undef USBError
 void kprintf(const char *format, ...)
 __attribute__((format(printf, 1, 2)));
-#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 5) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= IOUSBHUBDEVICE_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
 #define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
 #define super	IOUSBDevice
-#define self	this
+
+#define _MAXPORTCURRENT				_expansionData->_maxPortCurrent
+#define _TOTALEXTRACURRENT			_expansionData->_totalExtraCurrent
+#define	_TOTALSLEEPCURRENT			_expansionData->_totalSleepCurrent
+#define	_CANREQUESTEXTRAPOWER		_expansionData->_canRequestExtraPower
+#define	_EXTRAPOWERFORPORTS			_expansionData->_extraPowerForPorts
+#define	_EXTRAPOWERALLOCATED		_expansionData->_extraPowerAllocated
+#define _USBPLANE_PARENT			super::_expansionData->_usbPlaneParent
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -75,6 +90,15 @@ IOUSBHubDevice::init()
     if (!super::init())
         return false;
 
+    // allocate our expansion data
+    if (!_expansionData)
+    {
+		_expansionData = (ExpansionData *)IOMalloc(sizeof(ExpansionData));
+		if (!_expansionData)
+			return false;
+		bzero(_expansionData, sizeof(ExpansionData));
+    }
+
     return true;
 }
 
@@ -83,12 +107,14 @@ IOUSBHubDevice::init()
 bool
 IOUSBHubDevice::start(IOService *provider)
 {
+	USBLog(6, "IOUSBHubDevice[%p]::start", this );
+	
 	if (!super::start(provider))
 		return false;
 		
 	if (!InitializeCharacteristics())
 		return false;
-	
+			
 	return true;
 }
 
@@ -117,10 +143,9 @@ IOUSBHubDevice::stop( IOService *provider )
 void
 IOUSBHubDevice::free()
 {
-	USBLog(1, "%s[%p]::free", getName(), this);
 	if (_expansionData)
     {
-        IOFree(_expansionData, sizeof(ExpansionData));
+		IOFree(_expansionData, sizeof(ExpansionData));
         _expansionData = NULL;
     }
     super::free();
@@ -147,7 +172,7 @@ IOUSBHubDevice::GetHubCharacteristics()
 UInt32			
 IOUSBHubDevice::GetMaxProvidedPower()
 {
-	return 500;
+	return _MAXPORTCURRENT;
 }
 
 
@@ -155,6 +180,8 @@ IOUSBHubDevice::GetMaxProvidedPower()
 UInt32
 IOUSBHubDevice::RequestProvidedPower(UInt32 requestedPower)
 {
+	// what if this is a bus powered hub?   Then we should be returning 100 mA?
+	
 	if (requestedPower <= 500)
 		return requestedPower;
 	else
@@ -166,6 +193,7 @@ IOUSBHubDevice::RequestProvidedPower(UInt32 requestedPower)
 void
 IOUSBHubDevice::SetPolicyMaker(IOUSBHubPolicyMaker *policyMaker)
 {
+    USBLog(6, "IOUSBHubDevice[%p]::SetPolicyMaker  set to %p", this, policyMaker );
 	_myPolicyMaker = policyMaker;
 }
 
@@ -182,10 +210,61 @@ IOUSBHubDevice::GetPolicyMaker(void)
 UInt32
 IOUSBHubDevice::RequestExtraPower(UInt32 requestedPower)
 {
-	// currently this feature is only available on root hub devices, so this method will
-	// be overriden by the IOUSBRootHubDevice class to implement this
-	USBLog(2, "IOUSBHubDevice[%p]::RequestExtraPower - not a root hub - no extra power", this);
-	return 0;
+	UInt32	extraAllocated = 0;
+	
+	USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requestedPower = %d, available: %d", this, (uint32_t)requestedPower, (uint32_t) _TOTALEXTRACURRENT);
+	
+	if (requestedPower == 0)
+		return 0;
+	
+	// The power requested is a delta above the USB Spec for the port.  That's why we need to subtract the 500mA from the maxPowerPerPort value
+	// Note:  should we see if this is a high power port or not?  It assumes it is
+	if (requestedPower > (_MAXPORTCURRENT-500))		// limit requests to the maximum the HW can support
+	{
+		USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requestedPower of %d, was greater than the maximum power per port - 500mA %d.  Using that value instead", this, (uint32_t)requestedPower, (uint32_t) (_MAXPORTCURRENT-500));
+		requestedPower = _MAXPORTCURRENT-500;
+	}
+	
+	if (requestedPower <= _TOTALEXTRACURRENT)
+	{		
+		// honor the request if possible
+		extraAllocated = requestedPower;
+		_TOTALEXTRACURRENT -= extraAllocated;
+	}
+	
+	// if we don't have any power to allocated, let's see if we have "ExtraPower" that can be requested from our parent (and we haven't already done so).
+	if ( (_CANREQUESTEXTRAPOWER != 0) and not _EXTRAPOWERALLOCATED)
+	{
+		if ( requestedPower > _EXTRAPOWERFORPORTS )
+		{
+			USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - we can request extra power from our parent but only %d and we want %d ", this, (uint32_t) _EXTRAPOWERFORPORTS, (uint32_t)requestedPower);
+			extraAllocated = 0;
+		}
+		else
+		{
+			// Even tho' we only want "requestedPower", we have to ask for _CANREQUESTEXTRAPOWER
+			UInt32	parentPowerRequest = super::RequestExtraPower(kUSBPowerDuringWake, _CANREQUESTEXTRAPOWER);
+			
+			USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requested %d from our parent and got %d ", this, (uint32_t) _CANREQUESTEXTRAPOWER, (uint32_t)parentPowerRequest);
+			
+			if ( parentPowerRequest == _CANREQUESTEXTRAPOWER )
+			{
+				// We only can return _EXTRAPOWERFORPORTS, not less
+				extraAllocated = _EXTRAPOWERFORPORTS;
+				_EXTRAPOWERALLOCATED = true;
+			}
+			else
+			{
+				USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - returning power %d because we didnt get enough", this, (uint32_t)parentPowerRequest);
+				super::ReturnExtraPower(kUSBPowerDuringWake, parentPowerRequest);	
+			}
+		}
+	}
+	
+	// this method may be overriden by the IOUSBRootHubDevice class to implement this
+	USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - extraAllocated = %d", this, (uint32_t)extraAllocated);
+	
+	return extraAllocated;
 }
 
 
@@ -193,18 +272,124 @@ IOUSBHubDevice::RequestExtraPower(UInt32 requestedPower)
 void
 IOUSBHubDevice::ReturnExtraPower(UInt32 returnedPower)
 {
-	// currently this feature is only available on root hub devices, so this method will
-	// be overriden by the IOUSBRootHubDevice class to implement this
+	USBLog(5, "IOUSBHubDevice[%p]::ReturnExtraPower - returning = %d", this, (uint32_t)returnedPower);
 	
-	return;
+	if ( returnedPower == 0 )
+		return;
+	
+	// Check to see if we had the extraPower allocated
+	if ( _EXTRAPOWERALLOCATED )
+	{
+		USBLog(5, "IOUSBHubDevice[%p]::ReturnExtraPower - we had _EXTRAPOWERALLOCATED calling our parent to return %d", this, (uint32_t)_CANREQUESTEXTRAPOWER);
+		
+		// We allocated power from our parent, so return it now
+		super::ReturnExtraPower(kUSBPowerDuringWake, _CANREQUESTEXTRAPOWER);	
+		_EXTRAPOWERALLOCATED = false;
+	}
+	else
+	{
+		if (returnedPower > 0)
+			_TOTALEXTRACURRENT += returnedPower;
+	}
+}
+
+void
+IOUSBHubDevice::SetTotalSleepCurrent(UInt32 sleepCurrent)
+{
+	SetSleepCurrent(sleepCurrent);
+}
+
+UInt32
+IOUSBHubDevice::GetTotalSleepCurrent()
+{
+	return GetSleepCurrent();
 }
 
 
-OSMetaClassDefineReservedUnused(IOUSBHubDevice,  0);
-OSMetaClassDefineReservedUnused(IOUSBHubDevice,  1);
-OSMetaClassDefineReservedUnused(IOUSBHubDevice,  2);
-OSMetaClassDefineReservedUnused(IOUSBHubDevice,  3);
-OSMetaClassDefineReservedUnused(IOUSBHubDevice,  4);
+void
+IOUSBHubDevice::SetSleepCurrent(UInt32 sleepCurrent)
+{
+	USBLog(5, "IOUSBHubDevice[%p]::SetSleepCurrent -  %d", this, (uint32_t)sleepCurrent);
+	_TOTALSLEEPCURRENT = sleepCurrent;
+}
+
+UInt32
+IOUSBHubDevice::GetSleepCurrent()
+{
+	return _TOTALSLEEPCURRENT;
+}
+
+
+
+void			
+IOUSBHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCurrent)
+{
+	OSNumber *		extraPowerProp = NULL;
+	OSObject *		propertyObject = NULL;
+	
+	USBLog(5, "IOUSBHubDevice[%p]::InitializeExtraPower - maxPortCurrent = %d, totalExtraCurrent: %d", this, (uint32_t)maxPortCurrent, (uint32_t) totalExtraCurrent);
+
+	_MAXPORTCURRENT = maxPortCurrent;
+	_TOTALEXTRACURRENT = totalExtraCurrent;
+	
+	propertyObject = copyProperty("ExtraPowerRequest");
+	extraPowerProp = OSDynamicCast(OSNumber, propertyObject);
+    if ( extraPowerProp )
+	{
+        _CANREQUESTEXTRAPOWER = extraPowerProp->unsigned32BitValue();
+		USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  got ExtraPowerRequest of %d", this, (uint32_t) _CANREQUESTEXTRAPOWER );
+	}
+	if ( propertyObject)
+		propertyObject->release();
+	
+	propertyObject = copyProperty("ExtraPowerForPorts");
+	extraPowerProp = OSDynamicCast(OSNumber, propertyObject);
+    if ( extraPowerProp )
+	{
+        _EXTRAPOWERFORPORTS = extraPowerProp->unsigned32BitValue();
+		USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  got ExtraPowerForPorts of %d", this, (uint32_t) _EXTRAPOWERFORPORTS );
+	}
+	if ( propertyObject)
+		propertyObject->release();
+	
+	USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  USB Plane Parent is %p (%s)", this, _USBPLANE_PARENT, _USBPLANE_PARENT == NULL ? "" : _USBPLANE_PARENT->getName());
+
+}
+
+UInt32
+IOUSBHubDevice::RequestSleepPower(UInt32 requestedPower)
+{
+	UInt32	extraAllocated = 0;
+	
+	USBLog(5, "IOUSBHubDevice[%p]::RequestSleepPower - requestedPower = %d, available: %d", this, (uint32_t)requestedPower, (uint32_t) _TOTALSLEEPCURRENT);
+	
+	if (requestedPower <= _TOTALSLEEPCURRENT)
+	{		
+		// honor the request if possible
+		extraAllocated = requestedPower;
+		_TOTALSLEEPCURRENT -= extraAllocated;
+	}
+	
+	USBLog(5, "IOUSBHubDevice[%p]::RequestSleepPower - extraAllocated = %d", this, (uint32_t)extraAllocated);
+	
+	return extraAllocated;
+}
+
+void
+IOUSBHubDevice::ReturnSleepPower(UInt32 returnedPower)
+{
+	USBLog(5, "IOUSBHubDevice[%p]::ReturnSleepPower - returning = %d", this, (uint32_t)returnedPower);
+	if (returnedPower > 0)
+		_TOTALSLEEPCURRENT += returnedPower;
+}
+
+
+OSMetaClassDefineReservedUsed(IOUSBHubDevice,  0);
+OSMetaClassDefineReservedUsed(IOUSBHubDevice,  1);
+OSMetaClassDefineReservedUsed(IOUSBHubDevice,  2);
+OSMetaClassDefineReservedUsed(IOUSBHubDevice,  3);
+OSMetaClassDefineReservedUsed(IOUSBHubDevice,  4);
+
 OSMetaClassDefineReservedUnused(IOUSBHubDevice,  5);
 OSMetaClassDefineReservedUnused(IOUSBHubDevice,  6);
 OSMetaClassDefineReservedUnused(IOUSBHubDevice,  7);

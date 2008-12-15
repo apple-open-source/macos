@@ -117,13 +117,13 @@ static int l_king_mobility(int square)
 }
 
 
-long int losers_eval (void) {
+int32_t losers_eval (void) {
 
   /* return a score for the current middlegame position: */
   int srank, pawn_file, pawns[2][11], white_back_pawn[11], black_back_pawn[11];
   int isolated, backwards;
   int i, a, j;
-  long int score = 0;
+  int32_t score = 0;
   int in_cache;
   int wp = 0, bp = 0;
   int wks, bks;

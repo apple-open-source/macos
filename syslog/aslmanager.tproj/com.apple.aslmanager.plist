@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.apple.aslmanager</string>
+    <key>ProgramArguments</key>
+    <array>
+	<string>/usr/sbin/aslmanager</string>
+	<string>-size</string>
+	<string>65536000</string>
+    </array>
+    <key>WatchPaths</key>
+    <array>
+	<string>/var/log/asl/SweepStore</string>
+    </array>
+</dict>
+</plist>

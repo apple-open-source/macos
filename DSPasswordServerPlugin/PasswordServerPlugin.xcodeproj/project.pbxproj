@@ -729,7 +729,6 @@
 				INFOPLIST_FILE = "Info-PasswordServerPlugin.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
 				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-gfull";
 				OTHER_LDFLAGS = (
 					"-bundle",
@@ -856,7 +855,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -934,7 +932,6 @@
 				INFOPLIST_FILE = "Info-PasswordServerFramework.plist";
 				INSTALL_PATH = /System/Library/PrivateFrameworks;
 				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = (
 					"-gfull",
 					"-falign-loops=16",

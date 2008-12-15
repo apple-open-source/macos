@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2006-2008 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,7 +31,9 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <errno.h>
+#include <unistd.h>
 
 #define _PATH_ASL_IN "/var/run/asl_input"
 

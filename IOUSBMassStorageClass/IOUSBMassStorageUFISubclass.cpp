@@ -479,7 +479,7 @@ IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics( void )
     UInt8							inquiryBufferCount = sizeof( SCSICmd_INQUIRY_StandardData );
 	bool							succeeded = false;
 	int								loopCount;
-	char							tempString[kINQUIRY_VENDOR_IDENTIFICATION_Length + 1]; // Maximum + 1 for null char
+	char							tempString[kINQUIRY_PRODUCT_IDENTIFICATION_Length + 1]; // Maximum + 1 for null char
 	OSString *						string;
 
 	STATUS_LOG(( 6,  "%s[%p]::DetermineDeviceCharacteristics called", getName(), this ));

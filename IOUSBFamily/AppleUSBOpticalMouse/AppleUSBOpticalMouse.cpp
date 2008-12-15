@@ -168,12 +168,12 @@ AppleUSBOpticalMouse::StartFinalProcessing()
         if (curResPtr)
         {
             curResInt = curResPtr->unsigned32BitValue();
-            USBLog(3, "AppleUSBOpticalMouse[%p]::StartFinalProcessing - found current resolution property - value 0x%lx", this, curResInt);
+            USBLog(3, "AppleUSBOpticalMouse[%p]::StartFinalProcessing - found current resolution property - value 0x%x", this, (uint32_t)curResInt);
         }
         else
         {
             curResInt = kDefaultFixedResolution;
-            USBLog(3, "AppleUSBOpticalMouse[%p]::StartFinalProcessing - no current property found - using default 0x%lx", this, curResInt);
+            USBLog(3, "AppleUSBOpticalMouse[%p]::StartFinalProcessing - no current property found - using default 0x%x", this, (uint32_t)curResInt);
         }
 		if (propertyObj)
 			propertyObj->release();
@@ -185,7 +185,7 @@ AppleUSBOpticalMouse::StartFinalProcessing()
         else
         {
             resPrefInt = kDefaultFixedResolution * 2;
-            USBLog(3, "AppleUSBOpticalMouse[%p]::StartFinalProcessing - no preference property found - using default 0x%lx", this, resPrefInt);
+            USBLog(3, "AppleUSBOpticalMouse[%p]::StartFinalProcessing - no preference property found - using default 0x%x", this, (uint32_t)resPrefInt);
         }
 		if (propertyObj)
 			propertyObj->release();

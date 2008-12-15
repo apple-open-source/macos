@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,16 +19,12 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*!
- * Copyright (c) 1999-2001 Apple Computer, Inc.  All rights reserved. 
- *
- @header ATADeviceNub.h
 
+/*!
+ @header ATADeviceNub.h
  @abstract A concrete implementation of IOATADevice.
  */
  
-
-
 #ifndef _ATADEVICENUB_H
 #define _ATADEVICENUB_H
 
@@ -38,8 +34,6 @@
 #include "IOATAController.h"
 
 #include "IOATABusCommand.h"
-
-
 
 
 /*!
@@ -158,5 +152,3 @@ private:
 };
 
 #endif /* !_IOATABUSNUB_H */
-
-

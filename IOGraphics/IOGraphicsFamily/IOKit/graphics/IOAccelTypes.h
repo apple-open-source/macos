@@ -26,7 +26,11 @@
 #include <IOKit/IOTypes.h>
 #include <IOKit/IOKitKeys.h>
 
-#define IOACCEL_TYPES_REV	11
+#define IOACCEL_TYPES_REV	12
+
+#if !defined(OSTYPES_K64_REV) && !defined(MAC_OS_X_VERSION_10_6)
+#define IOACCELTYPES_10_5	1
+#endif
 
 /* Integer rectangle in device coordinates */
 typedef struct
@@ -52,11 +56,11 @@ enum {
 
 typedef struct
 {
-#ifndef kIODescriptionKey
+#if IOACCELTYPES_10_5
     vm_address_t	address[4];
 #else
     mach_vm_address_t	address[4];
-#endif /* !kIODescriptionKey */
+#endif /* IOACCELTYPES_10_5 */
     UInt32		rowBytes;
     UInt32		width;
     UInt32		height;
@@ -68,15 +72,15 @@ typedef struct
 
 typedef struct
 {
-#ifndef kIODescriptionKey
+#if IOACCELTYPES_10_5
 	long x, y, w, h;
 	void *client_addr;
 	unsigned long client_row_bytes;
 #else
-	SInt32		  x, y, w, h;
+	SInt32			  x, y, w, h;
 	mach_vm_address_t client_addr;
 	UInt32            client_row_bytes;
-#endif /* !kIODescriptionKey */
+#endif /* IOACCELTYPES_10_5 */
 } IOAccelSurfaceReadData;
 
 typedef struct {

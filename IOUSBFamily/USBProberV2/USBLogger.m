@@ -180,26 +180,30 @@
 
 -(void)DumpUSBLog
 {
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    io_iterator_t	iter;
-    io_service_t	service;
-    kern_return_t 	kr;
-    kern_return_t 	res;
-    vm_size_t 		bufSize;
-    UInt32 		memSize;
-    unsigned char 	QBuffer[BUFSIZE];
-    char 		msgBuffer[BUFSIZE];
-    struct timeval 	msgTime;
-    static struct timeval 	initialTime;
-    struct timezone 	tz;
-    int 		level, tag;
-    char *className = "com_apple_iokit_KLog";
-    static bool calledOnce = false;
+    NSAutoreleasePool *		pool = [[NSAutoreleasePool alloc] init];
+    io_iterator_t			iter;
+    io_service_t			service;
+    kern_return_t			kr;
+    kern_return_t			res;
+    vm_size_t				bufSize;
+    UInt32					memSize;
+    unsigned char			QBuffer[BUFSIZE];
+    char					msgBuffer[BUFSIZE];
+    struct timeval			initialTime;
+	struct klog64_timeval	msgTime64;
+    static struct klog64_timeval 	initialTime64;
+	
+    struct timezone			tz;
+    int						level, tag;
+    char *					className = "com_apple_iokit_KLog";
+    static bool				calledOnce = false;
     
     if (calledOnce == false) {
         [_listener usbLoggerTextAvailable:@"Timestamp Lvl  \tMessage\n" forLevel:0];
         [_listener usbLoggerTextAvailable:@"--------- ---\t--------------------------------------\n" forLevel:0];
         gettimeofday(&initialTime, &tz);
+		initialTime64.tv_sec = initialTime.tv_sec;
+		initialTime64.tv_usec = initialTime.tv_usec;
         calledOnce = true;
     }
     
@@ -241,11 +245,11 @@
     }
     //map memory
 #if !__LP64__
-kr = IOConnectMapMemory(_gKLogUserClientPort, 0, mach_task_self(), (vm_address_t *)&_gMyQueue, &bufSize, kIOMapAnywhere);
+	kr = IOConnectMapMemory(_gKLogUserClientPort, 0, mach_task_self(), (vm_address_t *)&_gMyQueue, &bufSize, kIOMapAnywhere);
 #else
 	kr = IOConnectMapMemory(_gKLogUserClientPort, 0, mach_task_self(), (mach_vm_address_t *)&_gMyQueue, (mach_vm_size_t *)&bufSize, kIOMapAnywhere);
 #endif
-							
+	
     if(kr != KERN_SUCCESS)
     {
         [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"LogUser: [ERR] Could not connect memory map\n"] forLevel:0];
@@ -283,12 +287,12 @@ kr = IOConnectMapMemory(_gKLogUserClientPort, 0, mach_task_self(), (vm_address_t
             continue;
         }
         //pull in the timestamp stuff and set a null for %s access
-        memcpy(&msgTime, QBuffer, _T_STAMP);
+        memcpy(&msgTime64, QBuffer, _T_STAMP);
         memcpy(&tag, QBuffer+_T_STAMP, _TAG);
         memcpy(&level, QBuffer+_T_STAMP+_TAG, _LEVEL);
         QBuffer[memSize+1] = 0;
         
-        logString = [[NSString alloc] initWithFormat:@"%5d.%3.3d [%d]\t%.*s\n",(msgTime.tv_sec-initialTime.tv_sec),(msgTime.tv_usec/1000), level, (int)(memSize-_OFFSET), QBuffer+_OFFSET];
+        logString = [[NSString alloc] initWithFormat:@"%5d.%3.3d [%d]\t%.*s\n",(uint32_t)(msgTime64.tv_sec-initialTime64.tv_sec),(uint32_t)(msgTime64.tv_usec/1000), level, (int)(memSize-_OFFSET), QBuffer+_OFFSET];
         if (_isLogging)
             [_listener usbLoggerTextAvailable:logString forLevel:level];
         [logString release];
@@ -296,7 +300,7 @@ kr = IOConnectMapMemory(_gKLogUserClientPort, 0, mach_task_self(), (vm_address_t
     }
     
     [pool release];
-    return;
+    return; 
 }
 
 - (kern_return_t)callUSBControllerUserClient:(io_connect_t)port methodIndex:(UInt32)methodIndex inParam:(UInt32)inParam

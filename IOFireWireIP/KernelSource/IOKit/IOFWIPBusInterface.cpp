@@ -136,24 +136,30 @@ bool IOFWIPBusInterface::finalize(IOOptionBits options)
 
 		IOFWIPAsyncWriteCommand *cmd1 = NULL;
 		OSCollectionIterator * iterator = OSCollectionIterator::withCollection( fAsyncTransitSet );
-		while( NULL != (cmd1 = OSDynamicCast(IOFWIPAsyncWriteCommand, iterator->getNextObject())) )
+		if( iterator )
 		{
-			if(cmd1->Busy())
-				cmd1->wait();
+			while( NULL != (cmd1 = OSDynamicCast(IOFWIPAsyncWriteCommand, iterator->getNextObject())) )
+			{
+				if(cmd1->Busy())
+					cmd1->wait();
+			}
+			iterator->release();
 		}
-		iterator->release();
 		fAsyncTransitSet->flushCollection();
 		fAsyncTransitSet->free();
 		fAsyncTransitSet = NULL;
 		
 		IOFWIPAsyncStreamTxCommand *cmd2 = NULL;
 		iterator = OSCollectionIterator::withCollection( fAsyncStreamTransitSet );
-		while( NULL != (cmd2 = OSDynamicCast(IOFWIPAsyncStreamTxCommand, iterator->getNextObject())) )
-		{	
-			if(cmd2->Busy())
-				cmd2->wait();
+		if( iterator )
+		{
+			while( NULL != (cmd2 = OSDynamicCast(IOFWIPAsyncStreamTxCommand, iterator->getNextObject())) )
+			{	
+				if(cmd2->Busy())
+					cmd2->wait();
+			}
+			iterator->release();
 		}
-		iterator->release();
 		fAsyncStreamTransitSet->flushCollection();
 		fAsyncStreamTransitSet->free();
 		fAsyncStreamTransitSet = NULL;
@@ -348,6 +354,12 @@ bool IOFWIPBusInterface::attachIOFireWireIP(IOFireWireIP *provider)
 	fIPLocalNode->registerFWIPPrivateHandlers(&privateHandlers);
 
 	fBroadcastReceiveClient->TurnOnNotification();
+
+	OSObject * prop = fIPLocalNode->getProperty(gFireWire_GUID);
+	if( prop )
+	{
+		setProperty( gFireWire_GUID, prop );
+	}
 	
 	return  attach(fIPLocalNode);
 }
@@ -391,14 +403,16 @@ void IOFWIPBusInterface::detachIOFireWireIP()
 		{
 			ARB *arb = 0;
 			OSCollectionIterator * iterator = OSCollectionIterator::withCollection( unicastArb );
-
-			while( NULL != (arb = OSDynamicCast(ARB, iterator->getNextObject())) )
+			if( iterator )
 			{
-				unicastArb->removeObject(arb);
-				arb->release();
+				while( NULL != (arb = OSDynamicCast(ARB, iterator->getNextObject())) )
+				{
+					unicastArb->removeObject(arb);
+					arb->release();
+				}
+				
+				iterator->release();
 			}
-			
-			iterator->release();
 		}
 		unicastArb->flushCollection();
 		unicastArb->free();
@@ -410,14 +424,17 @@ void IOFWIPBusInterface::detachIOFireWireIP()
 		{
 			MARB *marb = 0;
 			OSCollectionIterator * iterator = OSCollectionIterator::withCollection( multicastArb );
-
-			while( NULL != (marb = OSDynamicCast(MARB, iterator->getNextObject())) )
-			{
-				multicastArb->removeObject(marb);
-				marb->release();
-			}
 			
-			iterator->release();
+			if( iterator )
+			{
+				while( NULL != (marb = OSDynamicCast(MARB, iterator->getNextObject())) )
+				{
+					multicastArb->removeObject(marb);
+					marb->release();
+				}
+				
+				iterator->release();
+			}
 		}
 
 		multicastArb->flushCollection();
@@ -431,13 +448,16 @@ void IOFWIPBusInterface::detachIOFireWireIP()
 			DRB *drb = 0;
 			OSCollectionIterator * iterator = OSCollectionIterator::withCollection( activeDrb );
 
-			while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
+			if( iterator )
 			{
-				activeDrb->removeObject(drb);
-				drb->release();
+				while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
+				{
+					activeDrb->removeObject(drb);
+					drb->release();
+				}
+				
+				iterator->release();
 			}
-			
-			iterator->release();
 		}
 	
 		activeDrb->flushCollection();
@@ -451,13 +471,16 @@ void IOFWIPBusInterface::detachIOFireWireIP()
 			RCB *rcb = 0;
 			OSCollectionIterator * iterator = OSCollectionIterator::withCollection( activeRcb );
 
-			while( NULL != (rcb = OSDynamicCast(RCB, iterator->getNextObject())) )
+			if( iterator )
 			{
-				activeRcb->removeObject(rcb);
-				rcb->release();
+				while( NULL != (rcb = OSDynamicCast(RCB, iterator->getNextObject())) )
+				{
+					activeRcb->removeObject(rcb);
+					rcb->release();
+				}
+				
+				iterator->release();
 			}
-			
-			iterator->release();
 		}
 	
 		activeRcb->flushCollection();
@@ -557,15 +580,18 @@ void IOFWIPBusInterface::updateBroadcastValues(bool reset)
 		// Display the active DRB
 		DRB *drb = NULL;
 		OSCollectionIterator * iterator = OSCollectionIterator::withCollection( activeDrb );
-		while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
-		{ 
-			if(fLcb->maxBroadcastSpeed > drb->maxSpeed)
-				fLcb->maxBroadcastSpeed = drb->maxSpeed;
-			
-			if(fLcb->maxBroadcastPayload > drb->maxPayload)
-				fLcb->maxBroadcastPayload = drb->maxPayload;
+		if( iterator )
+		{
+			while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
+			{ 
+				if(fLcb->maxBroadcastSpeed > drb->maxSpeed)
+					fLcb->maxBroadcastSpeed = drb->maxSpeed;
+				
+				if(fLcb->maxBroadcastPayload > drb->maxPayload)
+					fLcb->maxBroadcastPayload = drb->maxPayload;
+			}
+			iterator->release();
 		}
-		iterator->release();
 	}
 	
 	updateLinkStatus();
@@ -1137,7 +1163,7 @@ SInt32 IOFWIPBusInterface::txARP(mbuf_t m, UInt16 nodeID, UInt32 busGeneration, 
 	// Modify the buffer pointer
 	buf += (sizeof(GASP_HDR) + sizeof(IP1394_UNFRAG_HDR));
 	// Copy the arp packet into the buffer
-	mbufTobuffer(n, &offset, buf, dstBufLen, cmdLen);
+	mbufTobuffer(n, &offset, (vm_address_t*)buf, dstBufLen, cmdLen);
 	// Update the length to have the GASP and IP1394 Header
 	cmdLen += (sizeof(GASP_HDR) + sizeof(IP1394_UNFRAG_HDR));
 	
@@ -1232,7 +1258,7 @@ SInt32	IOFWIPBusInterface::txBroadcastIP(const mbuf_t m, UInt16 nodeID, UInt32 b
 	// Increment the buffer pointer for the unfrag or frag header
 	buf += headerSize;
 	
-	mbufTobuffer(m, &offset, buf, dstBufLen, cmdLen);
+	mbufTobuffer(m, &offset, (vm_address_t*)buf, dstBufLen, cmdLen);
 
 	cmdLen += headerSize;
 
@@ -1527,24 +1553,27 @@ void IOFWIPBusInterface::txMCAP(MCB *mcb, UInt32 groupAddress)
 		IORecursiveLockLock(fIPLock);
 
 		OSCollectionIterator * iterator = OSCollectionIterator::withCollection( multicastArb );
-		while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
+		if( iterator )
 		{
-			if (arb->handle.multicast.channel == mcb->channel) 
+			while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
 			{
-				memset(groupDescriptor, 0, sizeof(MCAST_DESCR));
-				groupDescriptor->length			= sizeof(MCAST_DESCR);
-				groupDescriptor->type			= MCAST_TYPE;
-				groupDescriptor->expiration		= mcb->expiration;
-				groupDescriptor->channel		= mcb->channel;
-				groupDescriptor->speed			= arb->handle.multicast.spd;
-				groupDescriptor->groupAddress	= arb->handle.multicast.groupAddress;
-				
-				groupDescriptor					= (MCAST_DESCR*)((UInt32) groupDescriptor + sizeof(MCAST_DESCR));
-				packet->mcap.length				+= sizeof(MCAST_DESCR);
+				if (arb->handle.multicast.channel == mcb->channel) 
+				{
+					memset(groupDescriptor, 0, sizeof(MCAST_DESCR));
+					groupDescriptor->length			= sizeof(MCAST_DESCR);
+					groupDescriptor->type			= MCAST_TYPE;
+					groupDescriptor->expiration		= mcb->expiration;
+					groupDescriptor->channel		= mcb->channel;
+					groupDescriptor->speed			= arb->handle.multicast.spd;
+					groupDescriptor->groupAddress	= arb->handle.multicast.groupAddress;
+					
+					groupDescriptor					= (MCAST_DESCR*)((UInt64)groupDescriptor + sizeof(MCAST_DESCR));
+					packet->mcap.length				+= sizeof(MCAST_DESCR);
+				}
 			}
+			iterator->release();
 		}
-		iterator->release();
-	
+		
 	    IORecursiveLockUnlock(fIPLock);
 	}
 	else 
@@ -1745,7 +1774,7 @@ IOReturn IOFWIPBusInterface::rxFragmentedUnicast(UInt16 nodeID, IP1394_FRAG_HDR 
 		}
 		else
 		{
-			bufferToMbuf(rcb->mBuf, sizeof(struct firewire_header)+fragmentOffset, (UInt8*)fragment, amountToCopy);
+			bufferToMbuf(rcb->mBuf, sizeof(struct firewire_header)+fragmentOffset, (vm_address_t*)fragment, amountToCopy);
 			
 			rcb->residual -= MIN(fragmentSize, rcb->residual); 
 
@@ -2018,11 +2047,9 @@ IOReturn IOFWIPBusInterface::rxIP(void *pkt, UInt32 len, UInt32 flags, UInt16 ty
 
     IORecursiveLockLock(fIPLock);
     
-	if ((rxMBuf = (mbuf_t)allocateMbuf(len)) != NULL) 
+	if ((rxMBuf = (mbuf_t)allocateMbuf(len  + sizeof(firewire_header))) != NULL) 
 	{
-        bufferToMbuf(rxMBuf, 0, (UInt8*)pkt, len); 			
-
-		mbuf_prepend(&rxMBuf, sizeof(struct firewire_header), M_DONTWAIT);
+        bufferToMbuf(rxMBuf, sizeof(struct firewire_header), (vm_address_t*)pkt, len); 			
 
         if (rxMBuf != NULL)
         {
@@ -2037,8 +2064,13 @@ IOReturn IOFWIPBusInterface::rxIP(void *pkt, UInt32 len, UInt32 flags, UInt16 ty
 			else
 				bcopy(fwbroadcastaddr, fwh->fw_dhost, kIOFWAddressSize);
 
-            if(FWTYPE_IPV6 == type)
-                updateNDPCache(rxMBuf);
+			if(FWTYPE_IPV6 == type)
+			{
+				if( updateNDPCache(rxMBuf) == true ) 
+				{
+					mbuf_prepend(&rxMBuf, sizeof(struct firewire_header), M_DONTWAIT);
+				}
+			}
         }
         else
 		{
@@ -2267,11 +2299,15 @@ bool IOFWIPBusInterface::addNDPOptions(mbuf_t m)
 	return ret;
 }
 
-void IOFWIPBusInterface::updateNDPCache(mbuf_t m)
+bool IOFWIPBusInterface::updateNDPCache(mbuf_t m)
 {
-	if(not (mbuf_flags(m) & M_PKTHDR))
-		return ;
+	bool result = false;
 
+	if(not (mbuf_flags(m) & M_PKTHDR))
+	{
+		return result;
+	}
+	
 	mbuf_t ipv6Mbuf = m;
 	int fwhdrlen	= sizeof(firewire_header);
     int pkthdrlen	= 0;
@@ -2281,7 +2317,9 @@ void IOFWIPBusInterface::updateNDPCache(mbuf_t m)
 	{
 		ipv6Mbuf = mbuf_next(m);
 		if(ipv6Mbuf == NULL)
-			return;
+		{
+			return result ;
+		}
 
 		fwhdrlen = 0;
         pkthdrlen	= mbuf_pkthdr_len(ipv6Mbuf);
@@ -2289,14 +2327,20 @@ void IOFWIPBusInterface::updateNDPCache(mbuf_t m)
 
 	vm_address_t src = (vm_offset_t)mbuf_data(ipv6Mbuf);
 	if(src == 0)
-		return;
+	{
+		return result;
+	}
 
 	if(mbuf_len(ipv6Mbuf) < (sizeof(struct ip6_hdr) + fwhdrlen))
-		return;
+	{
+		return result;
+	}
 
 	// no space in mbuf
 	if(mbuf_trailingspace(ipv6Mbuf) < (int)sizeof(IP1394_NDP))
-		return;
+	{
+		return result;
+	}
 
 	// show type of ICMPV6 packets being sent
 	struct ip6_hdr		*ip6		= (struct ip6_hdr*)((UInt8*)src + fwhdrlen);
@@ -2304,7 +2348,7 @@ void IOFWIPBusInterface::updateNDPCache(mbuf_t m)
 	struct nd_neighbor_advert	*nd_na	= (struct nd_neighbor_advert*)icp;
 	struct nd_neighbor_solicit	*nd_ns	= (struct nd_neighbor_solicit*)icp;
 
-	int		offset	= sizeof(*ip6) + fwhdrlen;
+	int		offset	= sizeof(*ip6);
 
 	IP1394_NDP	*fwndp	= NULL;
 	bool		modify  = false;
@@ -2358,7 +2402,10 @@ void IOFWIPBusInterface::updateNDPCache(mbuf_t m)
 			fwndp->sspd = 0;
 			fwndp->senderUnicastFifoHi = 0;
 			fwndp->senderUnicastFifoLo = 0;
-            
+            			
+			// Adjust header, so the checksum becomes right.
+			mbuf_adj(ipv6Mbuf, fwhdrlen);
+			
             // current mbuf length IPv6+ICMP6
 			mbuf_setlen(ipv6Mbuf, mbuf_len(ipv6Mbuf)-8);
 			
@@ -2376,8 +2423,11 @@ void IOFWIPBusInterface::updateNDPCache(mbuf_t m)
             
             *icmp6_cksum = 0xFFFF;
             mbuf_inet6_cksum(ipv6Mbuf, IPPROTO_ICMPV6, offset, icmp6len, icmp6_cksum);
+			result = true;							
 		}
 	}
+	
+	return result;
 }
 
 void IOFWIPBusInterface::updateNDPCache(void *buf, UInt16	*len)
@@ -2501,60 +2551,68 @@ bool IOFWIPBusInterface::updateMulticastCache(IOFWAddress *addrs, UInt32 count)
 	OSCollectionIterator * iterator = OSCollectionIterator::withCollection( multicastArb );
 	bool found = false;
 
-	while(tempCount)
+	if ( iterator ) 
 	{
-		found = false;
-		
-		while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
+		while(tempCount)
 		{
-			UInt32 newGroupAddress = 0;
+			found = false;
 			
-			memcpy(&newGroupAddress, &tempAddresses->bytes[4], sizeof(newGroupAddress));
-			
-			found = ( arb->handle.multicast.groupAddress == newGroupAddress )  ? true : false;
-			
-			if(found) break;
-		}
-
-		iterator->reset();
-
-		 // if not found, its a new address and not a well known multicast group address
-		if( (not found) and  (not wellKnownMulticastAddress(tempAddresses)) )
-		{
-			MARB *tempArb = new MARB;
-			
-			if(tempArb)
+			while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
 			{
-				tempArb->handle.multicast.deviceID		= 0;								// Always zero
-				tempArb->handle.multicast.maxRec		= fLcb->ownHardwareAddress.maxRec;	// Maximum asynchronous payload
-				tempArb->handle.multicast.spd			= fLcb->ownHardwareAddress.spd;		// Maximum speed
-				tempArb->handle.multicast.reserved		= 0;
-				tempArb->handle.multicast.channel		= DEFAULT_BROADCAST_CHANNEL;		// Channel number for GASP transmit / receive
-				memcpy(&tempArb->handle.multicast.groupAddress, &tempAddresses->bytes[4], 
-							sizeof(tempArb->handle.multicast.groupAddress));
+				UInt32 newGroupAddress = 0;
 				
-				newMulticastAddresses->setObject(tempArb);  
+				memcpy(&newGroupAddress, &tempAddresses->bytes[4], sizeof(newGroupAddress));
+				
+				found = ( arb->handle.multicast.groupAddress == newGroupAddress )  ? true : false;
+				
+				if(found) break;
 			}
+
+			iterator->reset();
+
+			 // if not found, its a new address and not a well known multicast group address
+			if( (not found) and  (not wellKnownMulticastAddress(tempAddresses)) )
+			{
+				MARB *tempArb = new MARB;
+				
+				if(tempArb)
+				{
+					tempArb->handle.multicast.deviceID		= 0;								// Always zero
+					tempArb->handle.multicast.maxRec		= fLcb->ownHardwareAddress.maxRec;	// Maximum asynchronous payload
+					tempArb->handle.multicast.spd			= fLcb->ownHardwareAddress.spd;		// Maximum speed
+					tempArb->handle.multicast.reserved		= 0;
+					tempArb->handle.multicast.channel		= DEFAULT_BROADCAST_CHANNEL;		// Channel number for GASP transmit / receive
+					memcpy(&tempArb->handle.multicast.groupAddress, &tempAddresses->bytes[4], 
+								sizeof(tempArb->handle.multicast.groupAddress));
+					
+					newMulticastAddresses->setObject(tempArb);  
+				}
+			}
+			
+			tempAddresses++;
+			tempCount--;
 		}
 		
-		tempAddresses++;
-		tempCount--;
+		iterator->release();
 	}
-
-	iterator->release();
+	
 
 	// Add from newMulticastAddresses to original cache
 	iterator = OSCollectionIterator::withCollection( newMulticastAddresses );
-	while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
+	
+	if ( iterator )
 	{
-		newMulticastAddresses->removeObject(arb);
-		multicastArb->setObject(arb);
-		
-		// If its a new multicast address, then send a solicitation request.
-		txMCAP(0, arb->handle.multicast.groupAddress);
+		while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
+		{
+			newMulticastAddresses->removeObject(arb);
+			multicastArb->setObject(arb);
+			
+			// If its a new multicast address, then send a solicitation request.
+			txMCAP(0, arb->handle.multicast.groupAddress);
+		}
+		iterator->release();
 	}
-	iterator->release();
-
+	
 	newMulticastAddresses->flushCollection();
 	newMulticastAddresses->free();
 	
@@ -2637,14 +2695,17 @@ void IOFWIPBusInterface::cleanRCBCache()
 
 	RCB *rcb = 0;
 	OSCollectionIterator * iterator = OSCollectionIterator::withCollection( activeRcb );
-	while( NULL != (rcb = OSDynamicCast(RCB, iterator->getNextObject())) )
+	if( iterator )
 	{
-		if(rcb->timer > 1)
-			rcb->timer--; // still reassembling packets
-		else if (rcb->timer == 1) 
-			releaseRCB(rcb);
-    }
-	iterator->release();
+		while( NULL != (rcb = OSDynamicCast(RCB, iterator->getNextObject())) )
+		{
+			if(rcb->timer > 1)
+				rcb->timer--; // still reassembling packets
+			else if (rcb->timer == 1) 
+				releaseRCB(rcb);
+		}
+		iterator->release();
+	}
 	
     IORecursiveLockUnlock(fIPLock);
 }
@@ -2683,16 +2744,19 @@ void IOFWIPBusInterface::releaseDRB(UInt8 *fwaddr)
 
 	DRB *drb = NULL;
 	OSCollectionIterator * iterator = OSCollectionIterator::withCollection( activeDrb );
-	while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
+	if( iterator )
 	{
-		if (bcmp(fwaddr, drb->fwaddr, kIOFWAddressSize) == 0)
+		while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
 		{
-			drb->deviceID = NULL;  // Don't notify in future
-            activeDrb->removeObject(drb);			// time to clean up
-			drb->release();
+			if (bcmp(fwaddr, drb->fwaddr, kIOFWAddressSize) == 0)
+			{
+				drb->deviceID = NULL;  // Don't notify in future
+				activeDrb->removeObject(drb);			// time to clean up
+				drb->release();
+			}
 		}
+		iterator->release();
 	}
-	iterator->release();
 	
     IORecursiveLockUnlock(fIPLock);
 }
@@ -2704,17 +2768,20 @@ void IOFWIPBusInterface::releaseARB(UInt8 *fwaddr)
 	ARB *arb = NULL;
 	OSCollectionIterator * iterator = OSCollectionIterator::withCollection( unicastArb );
 
-	while( NULL != (arb = OSDynamicCast(ARB, iterator->getNextObject())) )
+	if( iterator )
 	{
-		if (bcmp(fwaddr, arb->fwaddr, kIOFWAddressSize) == 0)
+		while( NULL != (arb = OSDynamicCast(ARB, iterator->getNextObject())) )
 		{
-			arb->handle.unicast.deviceID = NULL;
-			unicastArb->removeObject(arb);
-			arb->release();
+			if (bcmp(fwaddr, arb->fwaddr, kIOFWAddressSize) == 0)
+			{
+				arb->handle.unicast.deviceID = NULL;
+				unicastArb->removeObject(arb);
+				arb->release();
+			}
 		}
+						
+		iterator->release();
 	}
-					
-	iterator->release();
 	
     IORecursiveLockUnlock(fIPLock);
 }
@@ -2740,59 +2807,63 @@ void IOFWIPBusInterface::updateMcapState()
 
 	MCB	*mcb = NULL;
 	OSCollectionIterator	*iterator = OSCollectionIterator::withCollection( mcapState );
-	while( NULL != (mcb = OSDynamicCast(MCB, iterator->getNextObject())) )
+	
+	if( iterator )
 	{
-		// for all mcb's check and relinquich resources
-		if (mcb->expiration > 1)		// Life in this channel allocation yet?
-			mcb->expiration--;			// Yes, but the clock is ticking...
-		else if (mcb->expiration == 1)	// Dead in the water?
-		{ 
-			mcb->expiration = 0;        // Yes, mark it expired
-			if (mcb->groupCount > 0)
-				mcb->groupCount--;
-				
-			IOFWAsyncStreamListener *asyncStreamRxClient = OSDynamicCast(IOFWAsyncStreamListener, mcb->asyncStreamID);
-			if(asyncStreamRxClient != NULL)
-			{
-				fControl->removeAsyncStreamListener( asyncStreamRxClient );
-				asyncStreamRxClient->release();
-			}
+		while( NULL != (mcb = OSDynamicCast(MCB, iterator->getNextObject())) )
+		{
+			// for all mcb's check and relinquich resources
+			if (mcb->expiration > 1)		// Life in this channel allocation yet?
+				mcb->expiration--;			// Yes, but the clock is ticking...
+			else if (mcb->expiration == 1)	// Dead in the water?
+			{ 
+				mcb->expiration = 0;        // Yes, mark it expired
+				if (mcb->groupCount > 0)
+					mcb->groupCount--;
+					
+				IOFWAsyncStreamListener *asyncStreamRxClient = OSDynamicCast(IOFWAsyncStreamListener, mcb->asyncStreamID);
+				if(asyncStreamRxClient != NULL)
+				{
+					fControl->removeAsyncStreamListener( asyncStreamRxClient );
+					asyncStreamRxClient->release();
+				}
 
-			mcb->asyncStreamID = NULL;
-			releaseMulticastARB(mcb);
-			
-			if (mcb->ownerNodeID == fLcb->ownNodeID) // We own the channel?
-			{  
-				mcb->finalWarning = 4;  // Yes, four final advertisements
-				mcb->nextTransmit = 1;  // Starting right now... 
-			}
-		}
-		
-		// If we own this channel, then proceed below
-		if (mcb->ownerNodeID != fLcb->ownNodeID)
-			continue;                     // Cycle to next array entry 
-		else if (mcb->nextTransmit > 1)  // Time left before next transmit? 
-			mcb->nextTransmit--;                         // Keep on ticking... 
-		else if (mcb->nextTransmit == 1) 
-		{              // Due to expire now? 
-			if (mcb->groupCount > 0)      // Still in use at this machine? 
-				mcb->expiration = 60;      // Renew this channel's lease
-				
-			txMCAP(mcb, 0);          // Broadcast the MCAP advertisement
-			
-			if (mcb->expiration > 0)
-				mcb->nextTransmit = 10;    // Send MCAP again in ten seconds 
-			else if (--mcb->finalWarning > 0)
-				mcb->nextTransmit = 10;    // Channel deallocation warning 
-			else 
-			{
-				mcb->ownerNodeID = MCAP_UNOWNED; // Reliquish our ownership 
-				mcb->nextTransmit = 0;           // We're really, really done! 
+				mcb->asyncStreamID = NULL;
 				releaseMulticastARB(mcb);
+				
+				if (mcb->ownerNodeID == fLcb->ownNodeID) // We own the channel?
+				{  
+					mcb->finalWarning = 4;  // Yes, four final advertisements
+					mcb->nextTransmit = 1;  // Starting right now... 
+				}
+			}
+			
+			// If we own this channel, then proceed below
+			if (mcb->ownerNodeID != fLcb->ownNodeID)
+				continue;                     // Cycle to next array entry 
+			else if (mcb->nextTransmit > 1)  // Time left before next transmit? 
+				mcb->nextTransmit--;                         // Keep on ticking... 
+			else if (mcb->nextTransmit == 1) 
+			{              // Due to expire now? 
+				if (mcb->groupCount > 0)      // Still in use at this machine? 
+					mcb->expiration = 60;      // Renew this channel's lease
+					
+				txMCAP(mcb, 0);          // Broadcast the MCAP advertisement
+				
+				if (mcb->expiration > 0)
+					mcb->nextTransmit = 10;    // Send MCAP again in ten seconds 
+				else if (--mcb->finalWarning > 0)
+					mcb->nextTransmit = 10;    // Channel deallocation warning 
+				else 
+				{
+					mcb->ownerNodeID = MCAP_UNOWNED; // Reliquish our ownership 
+					mcb->nextTransmit = 0;           // We're really, really done! 
+					releaseMulticastARB(mcb);
+				}
 			}
 		}
+		iterator->release();
 	}
-	iterator->release();
 	
     IORecursiveLockUnlock(fIPLock);
 }
@@ -2803,16 +2874,20 @@ void IOFWIPBusInterface::releaseMulticastARB(MCB *mcb)
 	
 	MARB *arb = NULL;
 	OSCollectionIterator * iterator = OSCollectionIterator::withCollection( multicastArb );
-	while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
+
+	if( iterator )
 	{
-		if (arb->handle.multicast.channel == mcb->channel)
+		while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
 		{
-			multicastArb->removeObject(arb); 
-			arb->release();
-			continue;
+			if (arb->handle.multicast.channel == mcb->channel)
+			{
+				multicastArb->removeObject(arb); 
+				arb->release();
+				continue;
+			}
 		}
+		iterator->release();
 	}
-	iterator->release();
 	
     IORecursiveLockUnlock(fIPLock);
 }
@@ -2823,11 +2898,15 @@ void IOFWIPBusInterface::resetRCBCache()
 
 	RCB	*rcb = NULL;
 	OSCollectionIterator * iterator = OSCollectionIterator::withCollection( activeRcb );
-	while( NULL != (rcb = OSDynamicCast(RCB, iterator->getNextObject())) )
-		releaseRCB(rcb);
+	
+	if( iterator )
+	{
+		while( NULL != (rcb = OSDynamicCast(RCB, iterator->getNextObject())) )
+			releaseRCB(rcb);
 
-	iterator->release();
-
+		iterator->release();
+	}
+	
 	IORecursiveLockUnlock(fIPLock);
 }
 
@@ -2837,11 +2916,14 @@ void IOFWIPBusInterface::resetMARBCache()
 	
 	MARB *arb = NULL;
 	OSCollectionIterator * iterator = OSCollectionIterator::withCollection( multicastArb );
-	while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
+	if( iterator )
 	{
-		arb->handle.multicast.channel = DEFAULT_BROADCAST_CHANNEL;
+		while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
+		{
+			arb->handle.multicast.channel = DEFAULT_BROADCAST_CHANNEL;
+		}
+		iterator->release();
 	}
-	iterator->release();
 	
     IORecursiveLockUnlock(fIPLock);
 }
@@ -2853,27 +2935,30 @@ void IOFWIPBusInterface::resetMcapState()
 	MCB	*mcb = NULL;
 	OSCollectionIterator * iterator = OSCollectionIterator::withCollection( mcapState );
 
-	while( NULL != (mcb = OSDynamicCast(MCB, iterator->getNextObject())) )
+	if( iterator )
 	{
-		// Since Mac just does MCAP receive switch to channel 31
-	   if( mcb->ownerNodeID != fLcb->ownNodeID ) // we don't own the channel
-	   {
-			// leave channel & groupcount untouched.
-			IOFWAsyncStreamListener *asyncStreamRxClient = OSDynamicCast(IOFWAsyncStreamListener, mcb->asyncStreamID);
-			if(asyncStreamRxClient != NULL)
-			{
-				fControl->removeAsyncStreamListener( asyncStreamRxClient );
-				asyncStreamRxClient->release();
+		while( NULL != (mcb = OSDynamicCast(MCB, iterator->getNextObject())) )
+		{
+			// Since Mac just does MCAP receive switch to channel 31
+		   if( mcb->ownerNodeID != fLcb->ownNodeID ) // we don't own the channel
+		   {
+				// leave channel & groupcount untouched.
+				IOFWAsyncStreamListener *asyncStreamRxClient = OSDynamicCast(IOFWAsyncStreamListener, mcb->asyncStreamID);
+				if(asyncStreamRxClient != NULL)
+				{
+					fControl->removeAsyncStreamListener( asyncStreamRxClient );
+					asyncStreamRxClient->release();
+				}
+				
+				mcb->asyncStreamID	=	NULL;
+				mcb->expiration		=	0;
+				mcb->nextTransmit	=	0;
+				mcb->finalWarning	=	0;
 			}
-			
-			mcb->asyncStreamID	=	NULL;
-			mcb->expiration		=	0;
-			mcb->nextTransmit	=	0;
-			mcb->finalWarning	=	0;
-		}
-	}	
-	iterator->release();
-
+		}	
+		iterator->release();
+	}
+	
 	IORecursiveLockUnlock(fIPLock);
 }
 
@@ -2891,21 +2976,29 @@ ARB *IOFWIPBusInterface::getARBFromEui64(UWIDE eui64)
 	ARB *arb = 0;
 	OSCollectionIterator *iterator = OSCollectionIterator::withCollection( unicastArb );
    
-   	while( NULL != (arb = OSDynamicCast(ARB, iterator->getNextObject())) )
-        if (arb->eui64.hi == eui64.hi && arb->eui64.lo == eui64.lo)
-            break;
-   
-	iterator->release();
-	
-	if(arb == NULL)
+	if( iterator )
 	{
-		// Create a new entry if it does not exist
-		if((arb = new ARB) == NULL)
-			return arb;
-
-		unicastArb->setObject(arb);  
+		while( NULL != (arb = OSDynamicCast(ARB, iterator->getNextObject())) )
+		{
+			if (arb->eui64.hi == eui64.hi && arb->eui64.lo == eui64.lo)
+				break;
+	    }
+	   
+		iterator->release();
+		
+		if(arb == NULL)
+		{
+			// Create a new entry if it does not exist
+			if((arb = new ARB) == NULL)
+			{
+				IORecursiveLockUnlock(fIPLock);
+				return arb;
+			}
+			
+			unicastArb->setObject(arb);  
+		}
 	}
-   
+	
     IORecursiveLockUnlock(fIPLock);
 	
     return(arb);
@@ -2925,11 +3018,14 @@ ARB *IOFWIPBusInterface::getArbFromFwAddr(UInt8 *fwaddr)
 	ARB *arb = 0;
 	OSCollectionIterator * iterator = OSCollectionIterator::withCollection( unicastArb );
 
-	while( NULL != (arb = OSDynamicCast(ARB, iterator->getNextObject())) )
-		if (bcmp(fwaddr, arb->fwaddr, kIOFWAddressSize) == 0)
-					break;
-					
-	iterator->release();
+	if( iterator )
+	{
+		while( NULL != (arb = OSDynamicCast(ARB, iterator->getNextObject())) )
+			if (bcmp(fwaddr, arb->fwaddr, kIOFWAddressSize) == 0)
+						break;
+						
+		iterator->release();
+	}
 	
 	IORecursiveLockUnlock(fIPLock);
 	
@@ -2950,11 +3046,14 @@ DRB *IOFWIPBusInterface::getDrbFromEui64(UWIDE eui64)
 	DRB *drb = 0;
 	OSCollectionIterator * iterator = OSCollectionIterator::withCollection( activeDrb );
 
-	while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
-        if (drb->eui64.hi == eui64.hi && drb->eui64.lo == eui64.lo)
-            break;
-   
-	iterator->release();
+	if( iterator )
+	{
+		while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
+			if (drb->eui64.hi == eui64.hi && drb->eui64.lo == eui64.lo)
+				break;
+	   
+		iterator->release();
+	}
 	
     IORecursiveLockUnlock(fIPLock);
    
@@ -2975,11 +3074,14 @@ DRB *IOFWIPBusInterface::getDrbFromFwAddr(UInt8 *fwaddr)
 	DRB *drb = 0;
 	OSCollectionIterator *iterator = OSCollectionIterator::withCollection( activeDrb );
    
-   	while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
-        if (bcmp(fwaddr, drb->fwaddr, kIOFWAddressSize) == 0)
-            break;
+	if( iterator )
+	{
+		while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
+			if (bcmp(fwaddr, drb->fwaddr, kIOFWAddressSize) == 0)
+				break;
 
-	iterator->release();
+		iterator->release();
+	}
 	
     IORecursiveLockUnlock(fIPLock);
    
@@ -3001,11 +3103,14 @@ DRB *IOFWIPBusInterface::getDrbFromDeviceID(void *deviceID)
 	DRB *drb = 0;
 	OSCollectionIterator *iterator = OSCollectionIterator::withCollection( activeDrb );
 	
-   	while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
-        if (drb->deviceID == (UInt32)deviceID)
-            break;
-			
-	iterator->release();
+	if( iterator )
+	{
+		while( NULL != (drb = OSDynamicCast(DRB, iterator->getNextObject())) )
+			if (drb->deviceID == (UInt32)deviceID)
+				break;
+				
+		iterator->release();
+	}
 	
     IORecursiveLockUnlock(fIPLock);
    
@@ -3026,11 +3131,14 @@ MARB *IOFWIPBusInterface::getMulticastArb(UInt32 groupAddress)
 	MARB *arb = 0;
 	OSCollectionIterator *iterator = OSCollectionIterator::withCollection( multicastArb );
 	
-   	while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
-        if (arb->handle.multicast.groupAddress == groupAddress)
-            break;
+	if( iterator )
+	{
+		while( NULL != (arb = OSDynamicCast(MARB, iterator->getNextObject())) )
+			if (arb->handle.multicast.groupAddress == groupAddress)
+				break;
 
-	iterator->release();
+		iterator->release();
+	}
 	
     IORecursiveLockUnlock(fIPLock);
          
@@ -3051,12 +3159,15 @@ RCB *IOFWIPBusInterface::getRcb(UInt16 sourceID, UInt16 dgl)
 
 	RCB *rcb = 0;
 	OSCollectionIterator *iterator = OSCollectionIterator::withCollection( activeRcb );
-	
-   	while( NULL != (rcb = OSDynamicCast(RCB, iterator->getNextObject())) )
-        if (rcb->sourceID == sourceID && rcb->dgl == dgl)
-            break;
 
-	iterator->release();
+	if( iterator )
+	{
+		while( NULL != (rcb = OSDynamicCast(RCB, iterator->getNextObject())) )
+			if (rcb->sourceID == sourceID && rcb->dgl == dgl)
+				break;
+
+		iterator->release();
+	}
 	
     IORecursiveLockUnlock(fIPLock);
 
@@ -3264,7 +3375,7 @@ void IOFWIPBusInterface::moveMbufWithOffset(SInt32 tempOffset, mbuf_t *srcm, vm_
 */
 bool IOFWIPBusInterface::bufferToMbuf(mbuf_t m, 
 								UInt32 offset, 
-								UInt8  *srcbuf, 
+								vm_address_t  *srcbuf, 
 								UInt32 srcbufLen)
 {
     IORecursiveLockLock(fIPLock);
@@ -3299,15 +3410,29 @@ bool IOFWIPBusInterface::bufferToMbuf(mbuf_t m,
 			
 			if(copylen == 0){
 				// set the new mbuf to point to the new chain
-				temp = mbuf_next(srcm); 
-				srcm = temp;
+				if ( srcm )
+				{
+					temp = mbuf_next(srcm); 
+					srcm = temp;
+				}
 				break;
 			}
-            // Move on to the next source mbuf.
-            temp = mbuf_next(srcm); assert(temp);
-            srcm = temp;
-            srcLen = mbuf_len(srcm);
-            src = (vm_offset_t)mbuf_data(srcm);
+			
+			if (srcm)
+			{
+				// Move on to the next source mbuf.
+				temp = mbuf_next(srcm); 
+				srcm = temp;
+			}
+
+			if (srcm)
+			{
+				srcLen = mbuf_len(srcm);
+				src = (vm_offset_t)mbuf_data(srcm);
+			}
+			
+			if(srcLen == 0)
+				break;
         }
         else if (srcLen > dstLen) {
 			//
@@ -3328,20 +3453,32 @@ bool IOFWIPBusInterface::bufferToMbuf(mbuf_t m,
 			copylen -= srcLen;
 			
 			if(copylen == 0){
-				// set the new mbuf to point to the new chain
-				temp = mbuf_next(srcm); 
-				srcm = temp;
+				if ( srcm )
+				{
+					// set the new mbuf to point to the new chain
+					temp = mbuf_next(srcm); 
+					srcm = temp;
+				}
 				break;
 			}
             // Free current mbuf and move the current onto the next
-            srcm = mbuf_next(srcm);
+            if ( srcm )
+			{
+				srcm = mbuf_next(srcm);
+			}
 
             // Do we have any data left to copy?
             if (dstLen == 0)
 				break;
 
-            srcLen = mbuf_len(srcm);
-            src = (vm_offset_t)mbuf_data(srcm);
+			if (srcm)
+			{
+				srcLen = mbuf_len(srcm);
+				src = (vm_offset_t)mbuf_data(srcm);
+			}
+			
+			if(srcLen == 0)
+				break;
         }
     }
     IORecursiveLockUnlock(fIPLock);
@@ -3362,7 +3499,7 @@ bool IOFWIPBusInterface::bufferToMbuf(mbuf_t m,
 */
 mbuf_t IOFWIPBusInterface::mbufTobuffer(const mbuf_t m, 
 								UInt32 *offset, 
-								UInt8  *dstbuf, 
+								vm_address_t  *dstbuf, 
 								UInt32 dstbufLen, 
 								UInt32 length)
 {
@@ -3397,15 +3534,28 @@ mbuf_t IOFWIPBusInterface::mbufTobuffer(const mbuf_t m,
 			
 			if(copylen == 0){
 				// set the new mbuf to point to the new chain
-				temp = mbuf_next(srcm); 
-				srcm = temp;
+				if ( srcm )
+				{
+					temp = mbuf_next(srcm); 
+					srcm = temp;
+				}
 				break;
 			}
             // Move on to the next source mbuf.
-            temp = mbuf_next(srcm); assert(temp);
-            srcm = temp;
-            srcLen = mbuf_len(srcm);
-            src = (vm_offset_t)mbuf_data(srcm);
+			if ( srcm )
+			{
+				temp = mbuf_next(srcm); 
+				srcm = temp;
+			}
+			
+			if ( srcm )
+			{
+				srcLen = mbuf_len(srcm);
+				src = (vm_offset_t)mbuf_data(srcm);
+			}
+			
+			if(srcLen == 0)
+				break;
         }
         else if (srcLen > dstLen) {
             // Copy some of src mbuf to remaining space in dst mbuf.
@@ -3429,19 +3579,31 @@ mbuf_t IOFWIPBusInterface::mbufTobuffer(const mbuf_t m,
 				// set the offset
 				*offset = 0; 
 				// set the new mbuf to point to the new chain
-				temp = mbuf_next(srcm); 
-				srcm = temp;
+				if ( srcm )
+				{
+					temp = mbuf_next(srcm); 
+					srcm = temp;
+				}
 				break;
 			}
             // Free current mbuf and move the current onto the next
-            srcm = mbuf_next(srcm);
+			if ( srcm )
+			{
+				srcm = mbuf_next(srcm);
+			}
 
             // Do we have any data left to copy?
             if (dstLen == 0)
 				break;
-
-            srcLen = mbuf_len(srcm);
-            src = (vm_offset_t)mbuf_data(srcm);
+			
+			if ( srcm )
+			{
+				srcLen = mbuf_len(srcm);
+				src = (vm_offset_t)mbuf_data(srcm);
+			}
+			
+			if(srcLen == 0)
+				break;
         }
     }
 

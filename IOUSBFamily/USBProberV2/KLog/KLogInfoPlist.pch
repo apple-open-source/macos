@@ -1,0 +1,3 @@
+#define KLOG_VERSION						3.6.0
+
+#define KLOG_SHORTVERSION					3.6.0

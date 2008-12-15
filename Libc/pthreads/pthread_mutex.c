@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,17 @@
 
 #include "pthread_internals.h"
 
+#ifdef PLOCKSTAT
 #include "plockstat.h"
+#else /* !PLOCKSTAT */
+#define	PLOCKSTAT_MUTEX_SPIN(x)
+#define	PLOCKSTAT_MUTEX_SPUN(x, y, z)
+#define	PLOCKSTAT_MUTEX_ERROR(x, y)
+#define	PLOCKSTAT_MUTEX_BLOCK(x)
+#define	PLOCKSTAT_MUTEX_BLOCKED(x, y)
+#define	PLOCKSTAT_MUTEX_ACQUIRE(x, y, z)
+#define	PLOCKSTAT_MUTEX_RELEASE(x, y)
+#endif /* PLOCKSTAT */
 
 extern int __unix_conforming;
 

@@ -33,6 +33,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include "KerberosServiceSetup.h"
 #include "FTPAccessFile.h"
+#import "PSUtilitiesDefs.h"
 #include <smb_server_prefs.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -52,6 +53,9 @@
 #define	kIMAPPrincipalKey	"imap_principal"
 #define	kPOPConfigKey		"cyrus"
 #define	kPOPPrincipalKey	"pop_principal"
+
+#define	kPcastConfigPath	"/var/pcast/server/kerberos_principals.plist"
+#define	kPcastPrincipalKey	"PodcastProducerServicePrincipals"
 
 #define kSMBConfigTool		"/usr/share/servermgrd/cgi-bin/servermgr_smb"
 
@@ -554,6 +558,101 @@ CFErrorRef SetJABBERPrincipal(CFStringRef inPrincipal)
 }
 
 CFErrorRef SetVNCPrincipal(CFStringRef inPrincipal)
+{
+    return NULL;
+}
+
+CFErrorRef SetPCastPrincipal(CFStringRef inPrincipal)
+{
+	CFErrorRef				theError = NULL;
+    CFMutableDictionaryRef	theConfig = NULL;
+    CFURLRef				thePathURL = NULL;
+    CFDataRef				theData = NULL;
+	CFStringRef				logString = NULL;
+    const void				*keys[1];
+    const void				*values[1];
+    CFIndex					dataLength;
+    int						fd;
+    pid_t					serverPid = 0;
+    size_t					len;
+    UInt8					theBuffer[16];
+    mode_t					mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH; // 644 -rw-r--r--
+    
+    thePathURL = CFURLCreateFromFileSystemRepresentation(NULL, (UInt8 *)kPcastConfigPath, strlen(kPcastConfigPath), false);
+    if ( thePathURL != NULL )
+	{
+		// if the config file exists open it & parse it
+		theConfig = (CFMutableDictionaryRef) CreateMyPropertyListFromFile(thePathURL, true);
+		CFRelease( thePathURL );
+		thePathURL = NULL;
+	}
+	
+    if (theConfig != NULL)
+    {
+        // and add the principal name or overwrite
+        CFDictionaryAddValue(theConfig, CFSTR(kPcastPrincipalKey), inPrincipal);
+	}
+	else
+	{
+        // else create minimal config dictionary
+        keys[0] = CFSTR(kPcastPrincipalKey);
+        values[0] = inPrincipal;
+        theConfig = (CFMutableDictionaryRef)CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    }
+	
+    theData = CFPropertyListCreateXMLData(NULL, theConfig);
+    if (theData != NULL)
+    {
+		dataLength = CFDataGetLength(theData);
+        // open - truncate 
+		int err = 0;
+		struct stat sb;
+   
+		if ( lstat("/var/pcast/server", &sb) != 0 )
+			err = pwsf_mkdir_p( "/var/pcast/server", 0700 );
+		if(err == 0) 
+		{
+			if ((fd = open(kPcastConfigPath, O_RDWR | O_CREAT | O_TRUNC, mode)) == -1) 
+			{
+				logString = CFStringCreateWithFormat(NULL, NULL, CFSTR("Error opening Pcast config file at %s error = %d\n"),
+													 kPcastConfigPath, errno);
+				
+				theError = MyCFErrorCreate(kCFErrorDomainPOSIX, (CFIndex)errno, logString);
+				
+				if ( logString != NULL )
+					CFRelease( logString );
+			}
+			else
+			{
+				len = write(fd, CFDataGetBytePtr(theData), dataLength);
+				if(len != dataLength) {
+					logString = CFStringCreateWithFormat(NULL, NULL, CFSTR("Error writing Pcast config file at %s error = %d\n"),
+														 kPcastConfigPath, errno);
+					theError = MyCFErrorCreate(kCFErrorDomainPOSIX, (CFIndex)errno, logString);
+					
+					if ( logString != NULL )
+						CFRelease( logString );
+				}
+					
+				close(fd);
+			}
+		}
+		else {
+			logString = CFStringCreateWithFormat(NULL, NULL, CFSTR("Error creating Pcast config directory at /var/pcast/server error = %d\n")
+												 ,errno);
+			theError = MyCFErrorCreate(kCFErrorDomainPOSIX, (CFIndex)errno, logString);
+			
+			if ( logString != NULL )
+				CFRelease( logString );
+		}
+		CFRelease(theData);
+    }
+    CFRelease(theConfig);
+        
+    return theError;
+}
+
+CFErrorRef SetFCSvrPrincipal(CFStringRef inPrincipal)
 {
     return NULL;
 }

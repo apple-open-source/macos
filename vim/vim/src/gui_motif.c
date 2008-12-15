@@ -686,8 +686,8 @@ manage_centered(dialog_child)
 
     /* Temporarily set value of XmNmappedWhenManaged
        to stop the dialog from popping up right away */
-    XtVaGetValues(shell, XmNmappedWhenManaged, &mappedWhenManaged, 0);
-    XtVaSetValues(shell, XmNmappedWhenManaged, False, 0);
+    XtVaGetValues(shell, XmNmappedWhenManaged, &mappedWhenManaged, NULL);
+    XtVaSetValues(shell, XmNmappedWhenManaged, False, NULL);
 
     XtManageChild(dialog_child);
 
@@ -723,7 +723,7 @@ manage_centered(dialog_child)
     XtMapWidget(shell);
 
     /* Restore the value of XmNmappedWhenManaged */
-    XtVaSetValues(shell, XmNmappedWhenManaged, mappedWhenManaged, 0);
+    XtVaSetValues(shell, XmNmappedWhenManaged, mappedWhenManaged, NULL);
 }
 
 #if defined(FEAT_MENU) || defined(FEAT_SUN_WORKSHOP) \
@@ -1043,7 +1043,7 @@ gui_motif_add_actext(menu)
 {
     XmString	label;
 
-    /* Add accelrator text, if there is one */
+    /* Add accelerator text, if there is one */
     if (menu->actext != NULL && menu->id != (Widget)0)
     {
 	label = XmStringCreate((char *)menu->actext, STRING_TAG);
@@ -1993,7 +1993,7 @@ do_mnemonic(Widget w, unsigned int keycode)
     {
 	if (XtClass(w) == xmRowColumnWidgetClass)
 	{
-	    XtVaGetValues(w, XmNrowColumnType, &rowColType, 0);
+	    XtVaGetValues(w, XmNrowColumnType, &rowColType, NULL);
 	    isMenu = (rowColType != (unsigned char)XmWORK_AREA);
 	}
 	else
@@ -2001,14 +2001,14 @@ do_mnemonic(Widget w, unsigned int keycode)
 	if (!isMenu)
 	{
 	    XtVaGetValues(w, XmNchildren, &children, XmNnumChildren,
-			  &numChildren, 0);
+			  &numChildren, NULL);
 	    for (i = 0; i < numChildren; i++)
 		do_mnemonic(children[i], keycode);
 	}
     }
     else
     {
-	XtVaGetValues(w, XmNmnemonic, &mnemonic, 0);
+	XtVaGetValues(w, XmNmnemonic, &mnemonic, NULL);
 	if (mnemonic != '\0')
 	{
 	    mneString[0] = mnemonic;
@@ -2019,7 +2019,7 @@ do_mnemonic(Widget w, unsigned int keycode)
 		if (XtClass(w) == xmLabelWidgetClass
 			|| XtClass(w) == xmLabelGadgetClass)
 		{
-		    XtVaGetValues(w, XmNuserData, &userData, 0);
+		    XtVaGetValues(w, XmNuserData, &userData, NULL);
 		    if (userData != NULL && XtIsWidget(userData))
 			XmProcessTraversal(userData, XmTRAVERSE_CURRENT);
 		}
@@ -2073,7 +2073,7 @@ add_mnemonic_grabs(Widget dialog, Widget w)
     {
 	if (XtClass(w) == xmRowColumnWidgetClass)
 	{
-	    XtVaGetValues(w, XmNrowColumnType, &rowColType, 0);
+	    XtVaGetValues(w, XmNrowColumnType, &rowColType, NULL);
 	    isMenu = (rowColType != (unsigned char)XmWORK_AREA);
 	}
 	else
@@ -2081,14 +2081,14 @@ add_mnemonic_grabs(Widget dialog, Widget w)
 	if (!isMenu)
 	{
 	    XtVaGetValues(w, XmNchildren, &children, XmNnumChildren,
-							     &numChildren, 0);
+							  &numChildren, NULL);
 	    for (i = 0; i < numChildren; i++)
 		add_mnemonic_grabs(dialog, children[i]);
 	}
     }
     else
     {
-	XtVaGetValues(w, XmNmnemonic, &mnemonic, 0);
+	XtVaGetValues(w, XmNmnemonic, &mnemonic, NULL);
 	if (mnemonic != '\0')
 	{
 	    mneString[0] = mnemonic;
@@ -2531,7 +2531,7 @@ create_pixmap_label(parent, name, data, args, arg)
     label = XmCreateLabelGadget(parent, name, args, arg);
 
     /*
-     * We need to be carefull here, since in case of gadgets, there is
+     * We need to be careful here, since in case of gadgets, there is
      * no way to get the background color directly from the widget itself.
      * In such cases we get it from The Core part of his parent instead.
      */
@@ -3813,7 +3813,7 @@ find_replace_dialog_create(arg, do_replace)
 
     XtAddCallback(frdp->find, XmNactivateCallback,
 	    find_replace_callback,
-	    (XtPointer) (do_replace ? FRD_R_FINDNEXT : FRD_FINDNEXT));
+	    (do_replace ? (XtPointer)FRD_R_FINDNEXT : (XtPointer)FRD_FINDNEXT));
 
     if (do_replace)
     {

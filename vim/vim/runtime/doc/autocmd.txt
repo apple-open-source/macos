@@ -1,4 +1,4 @@
-*autocmd.txt*   For Vim version 7.0.  Last change: 2006 May 06
+*autocmd.txt*   For Vim version 7.2.  Last change: 2008 Jun 27
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -104,7 +104,7 @@ local to the script and use mappings local to the script.  When the event is
 triggered and the command executed, it will run in the context of the script
 it was defined in.  This matters if |<SID>| is used in a command.
 
-When executing the commands, the messages from one command overwrites a
+When executing the commands, the message from one command overwrites a
 previous message.  This is different from when executing the commands
 manually.  Mostly the screen will not scroll up, thus there is no hit-enter
 prompt.  When one command outputs two messages this can happen anyway.
@@ -263,7 +263,7 @@ Name			triggered by ~
 	Startup and exit
 |VimEnter|		after doing all the startup stuff
 |GUIEnter|		after starting the GUI successfully
-|TermResponse|		after the termainal response to |t_RV| is received
+|TermResponse|		after the terminal response to |t_RV| is received
 
 |VimLeavePre|		before exiting Vim, before writing the viminfo file
 |VimLeave|		before exiting Vim, after writing the viminfo file
@@ -279,6 +279,7 @@ Name			triggered by ~
 |FuncUndefined|		a user function is used but it isn't defined
 |SpellFileMissing|	a spell file is used but it can't be found
 |SourcePre|		before sourcing a Vim script
+|SourceCmd|		before sourcing a Vim script |Cmd-event|
 
 |VimResized|		after the Vim window size changed
 |FocusGained|		Vim got input focus
@@ -333,7 +334,7 @@ BufDelete			Before deleting a buffer from the buffer list.
 				list is renamed.
 				NOTE: When this autocommand is executed, the
 				current buffer "%" may be different from the
-				buffer being deleted "<afile>".
+				buffer being deleted "<afile>" and "<abuf>".
 							*BufEnter*
 BufEnter			After entering a buffer.  Useful for setting
 				options for a file type.  Also executed when
@@ -399,10 +400,16 @@ BufUnload			Before unloading a buffer.  This is when the
 							*BufWinEnter*
 BufWinEnter			After a buffer is displayed in a window.  This
 				can be when the buffer is loaded (after
-				processing the modelines), when a hidden
+				processing the modelines) or when a hidden
 				buffer is displayed in a window (and is no
-				longer hidden) or a buffer already visible in
-				a window is also displayed in another window.
+				longer hidden).
+				Does not happen for |:split| without
+				arguments, since you keep editing the same
+				buffer, or ":split" with a file that's already
+				open in a window, because it re-uses an
+				existing buffer.  But it does happen for a
+				":split" with the name of the current buffer,
+				since it reloads that buffer.
 							*BufWinLeave*
 BufWinLeave			Before a buffer is removed from a window.
 				Not when it's still visible in another window.
@@ -460,6 +467,9 @@ CursorHold			When the user doesn't press a key for the time
 				make some coffee. :)  See |CursorHold-example|
 				for previewing tags.
 				This event is only triggered in Normal mode.
+				It is not triggered when waiting for a command
+				argument to be typed, or a movement after an
+				operator.
 				While recording the CursorHold event is not
 				triggered. |q|
 				Note: Interactive commands cannot be used for
@@ -527,8 +537,6 @@ FileChangedShell		When Vim notices that the modification time of
 				and the buffer was not changed.  If a
 				FileChangedShell autocommand is present the
 				warning message and prompt is not given.
-				This is useful for reloading related buffers
-				which are affected by a single command.
 				The |v:fcs_reason| variable is set to indicate
 				what happened and |v:fcs_choice| can be used
 				to tell Vim what to do next.
@@ -560,7 +568,8 @@ FileReadPost			After reading a file with a ":read" command.
 							*FileReadPre*
 FileReadPre			Before reading a file with a ":read" command.
 							*FileType*
-FileType			When the 'filetype' option has been set.
+FileType			When the 'filetype' option has been set.  The
+				pattern is matched against the filetype.
 				<afile> can be used for the name of the file
 				where this option was set, and <amatch> for
 				the new value of 'filetype'.
@@ -616,8 +625,9 @@ FocusLost			When Vim lost input focus.  Only for the GUI
 							*FuncUndefined*
 FuncUndefined			When a user function is used but it isn't
 				defined.  Useful for defining a function only
-				when it's used.  Both <amatch> and <afile> are
-				set to the name of the function.
+				when it's used.  The pattern is matched
+				against the function name.  Both <amatch> and
+				<afile> are set to the name of the function.
 				See |autoload-functions|.
 							*GUIEnter*
 GUIEnter			After starting the GUI successfully, and after
@@ -625,6 +635,12 @@ GUIEnter			After starting the GUI successfully, and after
 				VimEnter when using gvim.  Can be used to
 				position the window from a .gvimrc file: >
 	:autocmd GUIEnter * winpos 100 50
+<							*GUIFailed*
+GUIFailed			After starting the GUI failed.  Vim may
+				continue to run in the terminal, if possible
+				(only on Unix and alikes, when connecting the
+				X server fails).  You may want to quit Vim: >
+	:autocmd GUIFailed * qall
 <							*InsertChange*
 InsertChange			When typing <Insert> while in Insert or
 				Replace mode.  The |v:insertmode| variable
@@ -632,8 +648,8 @@ InsertChange			When typing <Insert> while in Insert or
 				Be careful not to move the cursor or do
 				anything else that the user does not expect.
 							*InsertEnter*
-InsertEnter			When starting Insert mode.  Also for Replace
-				mode and Virtual Replace mode.  The
+InsertEnter			Just before starting Insert mode.  Also for
+				Replace mode and Virtual Replace mode.  The
 				|v:insertmode| variable indicates the mode.
 				Be careful not to move the cursor or do
 				anything else that the user does not expect.
@@ -656,7 +672,7 @@ MenuPopup			Just before showing the popup menu (under the
 QuickFixCmdPre			Before a quickfix command is run (|:make|,
 				|:lmake|, |:grep|, |:lgrep|, |:grepadd|,
 				|:lgrepadd|, |:vimgrep|, |:lvimgrep|,
-				|:vimgrepadd|, |:vimgrepadd|). The pattern is
+				|:vimgrepadd|, |:lvimgrepadd|). The pattern is
 				matched against the command being run.  When
 				|:grep| is used but 'grepprg' is set to
 				"internal" it still matches "grep".
@@ -667,10 +683,11 @@ QuickFixCmdPre			Before a quickfix command is run (|:make|,
 							*QuickFixCmdPost*
 QuickFixCmdPost			Like QuickFixCmdPre, but after a quickfix
 				command is run, before jumping to the first
-				location.
+				location.  See |QuickFixCmdPost-example|.
 							*RemoteReply*
 RemoteReply			When a reply from a Vim that functions as
-				server was received |server2client()|.
+				server was received |server2client()|.  The
+				pattern is matched against the {serverid}.
 				<amatch> is equal to the {serverid} from which
 				the reply was sent, and <afile> is the actual
 				reply string.
@@ -690,10 +707,17 @@ ShellFilterPost			After executing a shell command with
 				Can be used to check for any changed files.
 							*SourcePre*
 SourcePre			Before sourcing a Vim script. |:source|
+				<afile> is the name of the file being sourced.
+							*SourceCmd*
+SourceCmd			When sourcing a Vim script. |:source|
+				<afile> is the name of the file being sourced.
+				The autocommand must source this file.
+				|Cmd-event|
 							*SpellFileMissing*
 SpellFileMissing		When trying to load a spell checking file and
-				it can't be found.  <amatch> is the language,
-				'encoding' also matters.  See
+				it can't be found.  The pattern is matched
+				against the language.  <amatch> is the
+				language, 'encoding' also matters.  See
 				|spell-SpellFileMissing|.
 							*StdinReadPost*
 StdinReadPost			After reading from the stdin into the buffer,
@@ -727,7 +751,8 @@ SwapExists			Detected an existing swap file when starting
 				Note: Do not try to change the buffer, the
 				results are unpredictable.
 							*Syntax*
-Syntax				When the 'syntax' option has been set.
+Syntax				When the 'syntax' option has been set.  The
+				pattern is matched against the syntax name.
 				<afile> can be used for the name of the file
 				where this option was set, and <amatch> for
 				the new value of 'syntax'.
@@ -829,7 +854,7 @@ This autocommand will for example be executed for "/tmp/doc/xx.txt" and
 
 
 The file name that the pattern is matched against is after expanding
-wildcards.  Thus is you issue this command: >
+wildcards.  Thus if you issue this command: >
 	:e $ROOTDIR/main.$EXT
 The argument is first expanded to: >
 	/usr/root/main.py
@@ -908,7 +933,7 @@ simply use the special string instead of the pattern.  Examples: >
 				     " current buffer
     :au! * <buffer=33>		     " remove buffer-local autocommands for
 				     " buffer #33
-    :dobuf :au! CursorHold <buffer>  " remove autocmd for given event for all
+    :bufdo :au! CursorHold <buffer>  " remove autocmd for given event for all
 				     " buffers
     :au * <buffer>		     " list buffer-local autocommands for
 				     " current buffer
@@ -1012,8 +1037,9 @@ option will not cause any commands to be executed.
 			undefined group name, Vim gives you an error message.
 
 			After applying the autocommands the modelines are
-			processed, so that their overrule the settings from
-			autocommands, like what happens when editing a file.
+			processed, so that their settings overrule the
+			settings from autocommands, like what happens when
+			editing a file.
 
 						*:doautoa* *:doautoall*
 :doautoa[ll] [group] {event} [fname]
@@ -1219,8 +1245,8 @@ highlighting when starting Vim.
 
 							*Cmd-event*
 When using one of the "*Cmd" events, the matching autocommands are expected to
-do the file reading or writing.  This can be used when working with a special
-kind of file, for example on a remote system.
+do the file reading, writing or sourcing.  This can be used when working with
+a special kind of file, for example on a remote system.
 CAREFUL: If you use these events in a wrong way, it may have the effect of
 making it impossible to read or write the matching files!  Make sure you test
 your autocommands properly.  Best is to use a pattern that will never match a
@@ -1233,9 +1259,10 @@ possible with a BufReadCmd, use the |:preserve| command to make sure the
 original file isn't needed for recovery.  You might want to do this only when
 you expect the file to be modified.
 
-The |v:cmdarg| variable holds the "++enc=" and "++ff=" argument that are
-effective.  These should be used for the command that reads/writes the file.
-The |v:cmdbang| variable is one when "!" was used, zero otherwise.
+For file read and write commands the |v:cmdarg| variable holds the "++enc="
+and "++ff=" argument that are effective.  These should be used for the command
+that reads/writes the file.  The |v:cmdbang| variable is one when "!" was
+used, zero otherwise.
 
 See the $VIMRUNTIME/plugin/netrw.vim for examples.
 

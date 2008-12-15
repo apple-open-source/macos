@@ -48,7 +48,9 @@
 #	- Uncomment the line with --disable-acl to disable ACL support even
 #	  though your system supports it.
 #	- Uncomment the line with --disable-gpm to disable gpm support
-#	  even though you have gpm libraries and includes
+#	  even though you have gpm libraries and includes.
+#	- Uncomment the line with --disable-sysmouse to disable sysmouse
+#	  support even though you have /dev/sysmouse and includes.
 #	- Uncomment one of the lines with CFLAGS and/or CC if you have
 #	  something very special or want to tune the optimizer.
 #	- Search for the name of your system to see if it needs anything
@@ -201,6 +203,7 @@
 #SunOS 4.1.x			     +X11 -GUI		5.1b (J) Bram Moolenaar
 #SunOS 4.1.3_U1 (sun4c) gcc	     +X11 +GUI Athena	5.0w (J) Darren Hiebert
 #SUPER-UX 6.2 (NEC SX-4) cc	     +X11R6 Motif,Athena4.6b (P) Lennart Schultz
+#Tandem/NSK                                                  (c) Matthew Woehlke
 #Unisys 6035	      cc	     +X11 Motif		5.3  (8) Glauber Ribeiro
 #ESIX V4.2	      cc	     +X11		6.0  (a) Reinhard Wobst
 #Mac OS X 10.[23]     gcc	     Carbon		6.2  (x) Bram Moolenaar
@@ -251,6 +254,7 @@
 # (a)  See line with EXTRA_LIBS below.
 # (b)  When using gcc with the Solaris linker, make sure you don't use GNU
 #      strip, otherwise the binary may not run: "Cannot find ELF".
+# (c)  Add -lfloss to EXTRA_LIBS, see below.
 # (x)  When you get warnings for precompiled header files, run
 #      "sudo fixPrecomps".  Also see CONF_OPT_DARWIN below.
 # }}}
@@ -306,6 +310,8 @@ CClink = $(CC)
 #CONF_ARGS = --exec-prefix=/usr
 #CONF_ARGS = --with-vim-name=vim7 --with-ex-name=ex7 --with-view-name=view7
 #CONF_ARGS = --with-global-runtime=/etc/vim
+#CONF_ARGS = --with-local-dir=/usr/share
+#CONF_ARGS = --without-local-dir
 
 # Use this one if you distribute a modified version of Vim.
 #CONF_ARGS = --with-modified-by="John Doe"
@@ -317,7 +323,7 @@ CClink = $(CC)
 #CONF_OPT_GUI = --disable-gui
 
 # Uncomment one of these lines if you have that GUI but don't want to use it.
-# The automatic check will use another one that can be found
+# The automatic check will use another one that can be found.
 # Gnome is disabled by default, it may cause trouble.
 #CONF_OPT_GUI = --disable-gtk-check
 #CONF_OPT_GUI = --disable-gtk2-check
@@ -334,9 +340,10 @@ CClink = $(CC)
 # GTK versions that are known not to work 100% are rejected.
 # Use "--disable-gtktest" to accept them anyway.
 #
-# GNOME means GTK with Gnome support.  If using GTK, then GNOME will
-# automatically be used if it is found.  If you have GNOME, but do not want to
-# use it (e.g., want a GTK-only version), then use --enable-gui=gtk.
+# GNOME means GTK with Gnome support.  If using GTK and --enable-gnome-check
+# is used then GNOME will automatically be used if it is found.  If you have
+# GNOME, but do not want to use it (e.g., want a GTK-only version), then use
+# --enable-gui=gtk or leave out --enable-gnome-check.
 #
 # If the selected GUI isn't found, the GUI is disabled automatically
 #CONF_OPT_GUI = --enable-gui=gtk
@@ -444,8 +451,13 @@ CClink = $(CC)
 
 # gpm - For mouse support on Linux console via gpm
 # Uncomment this when you do not want to include gpm support, even
-# though you have gpm libraries and includes
+# though you have gpm libraries and includes.
 #CONF_OPT_GPM = --disable-gpm
+
+# sysmouse - For mouse support on FreeBSD and DragonFly console via sysmouse
+# Uncomment this when you do not want do include sysmouse support, even
+# though you have /dev/sysmouse and includes.
+#CONF_OPT_SYSMOUSE = --disable-sysmouse
 
 # FEATURES - For creating Vim with more or less features
 # Uncomment one of these lines when you want to include few to many features.
@@ -532,6 +544,10 @@ CClink = $(CC)
 
 # PURIFY - remove the # to use the "purify" program (hoi Nia++!)
 #PURIFY = purify
+
+# NBDEBUG - debugging the netbeans interface.
+#EXTRA_DEFS = -DNBDEBUG
+
 # }}}
 
 # LINT - for running lint
@@ -542,7 +558,7 @@ LINT_OPTIONS = -beprxzF
 # For unknown reasons adding "-lc" fixes a linking problem with GCC.  That's
 # probably a bug in the "-pg" implementation.
 # Need to recompile everything after changing this: "make clean" "make".
-#PROFILE_CFLAGS = -pg -g
+#PROFILE_CFLAGS = -pg -g -DWE_ARE_PROFILING
 #PROFILE_LIBS = -pg
 #PROFILE_LIBS = -pg -lc
 
@@ -777,6 +793,8 @@ LINT_OPTIONS = -beprxzF
 # 1) make config
 # 2) edit auto/config.mk, add -n32 to LDFLAGS
 # 3) make
+#
+#Alternatively: use -o32 instead of -n32.
 ###
 
 ### (C)  On SCO Unix v3.2.5 (and probably other versions) the termcap library,
@@ -793,6 +811,9 @@ LINT_OPTIONS = -beprxzF
 
 ### (a)  ESIX V4.2 (Reinhard Wobst)
 #EXTRA_LIBS = -lnsl -lsocket -lgen -lXIM -lXmu -lXext
+
+### (c)  Tandem/NSK (Matthew Woehlke)
+#EXTRA_LIBS = -lfloss
 
 ### If you want to use ncurses library instead of the automatically found one
 ### after changing this, you need to do "make reconfig".
@@ -880,7 +901,7 @@ MAN1DIR = /man1
 
 ### Vim version (adjusted by a script)
 VIMMAJOR = 7
-VIMMINOR = 0
+VIMMINOR = 2
 
 ### Location of Vim files (should not need to be changed, and  {{{1
 ### some things might not work when they are changed!)
@@ -1068,7 +1089,7 @@ PRINTSOURCE = ../runtime/print
 # default vi editor, it will create a link from vi to Vim when doing
 # "make install".  An existing file will be overwritten!
 # When not using it, some make programs can't handle an undefined $(LINKIT).
-#LINKIT = -ln -f -s $(BINDIR)/$(VIMTARGET) /usr/bin/vi
+#LINKIT = ln -f -s $(DEST_BIN)/$(VIMTARGET) $(DESTDIR)/usr/bin/vi
 LINKIT = @echo >/dev/null
 
 ###
@@ -1105,7 +1126,7 @@ GTK_IPATH	= $(GUI_INC_LOC)
 GTK_LIBS_DIR	= $(GUI_LIB_LOC)
 GTK_LIBS1	=
 GTK_LIBS2	= $(GTK_LIBNAME)
-GTK_INSTALL     = install_normal
+GTK_INSTALL     = install_normal install_gui_extra
 GTK_TARGETS	= installglinks
 GTK_MAN_TARGETS = yes
 GTK_TESTTARGET  = gui
@@ -1122,7 +1143,7 @@ MOTIF_IPATH	= $(GUI_INC_LOC)
 MOTIF_LIBS_DIR	= $(GUI_LIB_LOC)
 MOTIF_LIBS1	=
 MOTIF_LIBS2	= $(MOTIF_LIBNAME) -lXt
-MOTIF_INSTALL   = install_normal
+MOTIF_INSTALL   = install_normal install_gui_extra
 MOTIF_TARGETS	= installglinks
 MOTIF_MAN_TARGETS = yes
 MOTIF_TESTTARGET = gui
@@ -1152,7 +1173,7 @@ ATHENA_IPATH	= $(GUI_INC_LOC)
 ATHENA_LIBS_DIR = $(GUI_LIB_LOC)
 ATHENA_LIBS1	= $(XAW_LIB)
 ATHENA_LIBS2	= -lXt
-ATHENA_INSTALL  = install_normal
+ATHENA_INSTALL  = install_normal install_gui_extra
 ATHENA_TARGETS	= installglinks
 ATHENA_MAN_TARGETS = yes
 ATHENA_TESTTARGET = gui
@@ -1170,7 +1191,7 @@ NEXTAW_IPATH	= $(GUI_INC_LOC)
 NEXTAW_LIBS_DIR = $(GUI_LIB_LOC)
 NEXTAW_LIBS1	= $(NEXTAW_LIB)
 NEXTAW_LIBS2	= -lXt
-NEXTAW_INSTALL  =  install_normal
+NEXTAW_INSTALL  =  install_normal install_gui_extra
 NEXTAW_TARGETS	=  installglinks
 NEXTAW_MAN_TARGETS = yes
 NEXTAW_TESTTARGET = gui
@@ -1195,7 +1216,7 @@ PHOTONGUI_IPATH	=
 PHOTONGUI_LIBS_DIR =
 PHOTONGUI_LIBS1	= -lph -lphexlib
 PHOTONGUI_LIBS2	=
-PHOTONGUI_INSTALL = install_normal
+PHOTONGUI_INSTALL = install_normal install_gui_extra
 PHOTONGUI_TARGETS = installglinks
 PHOTONGUI_MAN_TARGETS = yes
 PHOTONGUI_TESTTARGET = gui
@@ -1269,7 +1290,7 @@ SHELL = /bin/sh
 .SUFFIXES:
 .SUFFIXES: .c .o .pro
 
-PRE_DEFS = -Iproto $(DEFS) $(GUI_DEFS) $(GUI_IPATH) $(CPPFLAGS) $(EXTRA_IPATHS)
+PRE_DEFS = -D_FORTIFY_SOURCE=0 -Iproto $(DEFS) $(GUI_DEFS) $(GUI_IPATH) $(CPPFLAGS) $(EXTRA_IPATHS)
 POST_DEFS = $(X_CFLAGS) $(MZSCHEME_CFLAGS) $(PERL_CFLAGS) $(PYTHON_CFLAGS) $(TCL_CFLAGS) $(RUBY_CFLAGS) $(EXTRA_DEFS)
 
 ALL_CFLAGS = $(PRE_DEFS) $(CFLAGS) $(PROFILE_CFLAGS) $(POST_DEFS)
@@ -1284,6 +1305,9 @@ LINT_EXTRA = -DUSE_SNIFF -DHANGUL_INPUT -D"__attribute__(x)="
 
 DEPEND_CFLAGS = -DPROTO -DDEPEND -DFEAT_GUI $(LINT_CFLAGS)
 
+# If you have problems with flags that cproto doesn't support, and you are
+# using GNU make, you can try using the other line to filter out arguments.
+#PFLAGS = $(PROTO_FLAGS) -DPROTO $(filter -D% -I%, $(LINT_CFLAGS))
 PFLAGS = $(PROTO_FLAGS) -DPROTO $(LINT_CFLAGS)
 
 ALL_LIB_DIRS = $(GUI_LIBS_DIR) $(X_LIBS_DIR)
@@ -1555,7 +1579,8 @@ config auto/config.mk: auto/configure config.mk.in config.h.in
 		$(CONF_OPT_OUTPUT) $(CONF_OPT_GPM) $(CONF_OPT_WORKSHOP) \
 		$(CONF_OPT_SNIFF) $(CONF_OPT_FEAT) $(CONF_TERM_LIB) \
 		$(CONF_OPT_COMPBY) $(CONF_OPT_ACL)  $(CONF_OPT_NETBEANS) \
-		$(CONF_ARGS) $(CONF_OPT_MZSCHEME) $(CONF_OPT_PLTHOME)
+		$(CONF_ARGS) $(CONF_OPT_MZSCHEME) $(CONF_OPT_PLTHOME) \
+		$(CONF_OPT_SYSMOUSE)
 
 # Use "make reconfig" to rerun configure without cached values.
 # When config.h changes, most things will be recompiled automatically.
@@ -1712,14 +1737,14 @@ types.vim: $(TAGS_SRC) $(TAGS_INCL)
 # messages.  Don't worry about that.
 # If there is a real error, there will be a difference between "test.out" and
 # a "test99.ok" file.
-# If everything is allright, the final message will be "ALL DONE".
+# If everything is alright, the final message will be "ALL DONE".
 #
 test check:
 	$(MAKE) -f Makefile $(VIMTARGET)
 	-if test -n "$(MAKEMO)" -a -f $(PODIR)/Makefile; then \
 		cd $(PODIR); $(MAKE) -f Makefile check VIM=../$(VIMTARGET); \
 	fi
-	-if test $(VIMTARGET) != vim -a ! -e vim; then \
+	-if test $(VIMTARGET) != vim -a ! -r vim; then \
 		ln -s $(VIMTARGET) vim; \
 	fi
 	cd testdir; $(MAKE) -f Makefile $(GUI_TESTTARGET) VIMPROG=../$(VIMTARGET) $(GUI_TESTARG)
@@ -1730,6 +1755,15 @@ testclean:
 		cd $(PODIR); $(MAKE) checkclean; \
 	fi
 
+install: $(GUI_INSTALL)
+
+install_normal: installvim installtools $(INSTALL_LANGS) install-icons
+
+install_gui_extra: installgtutorbin
+
+installvim: installvimbin installtutorbin \
+		installruntime installlinks installmanlinks
+
 #
 # Avoid overwriting an existing executable, somebody might be running it and
 # overwriting it could cause it to crash.  Deleting it is OK, it won't be
@@ -1739,13 +1773,6 @@ testclean:
 # If you want to keep an older version, rename it before running "make
 # install".
 #
-install: $(GUI_INSTALL)
-
-install_normal: installvim installtools $(INSTALL_LANGS) install-icons
-
-installvim: installvimbin installtutorbin \
-		installruntime installlinks installmanlinks
-
 installvimbin: $(VIMTARGET) $(DESTDIR)$(exec_prefix) $(DEST_BIN)
 	-if test -f $(DEST_BIN)/$(VIMTARGET); then \
 	  mv -f $(DEST_BIN)/$(VIMTARGET) $(DEST_BIN)/$(VIMNAME).rm; \
@@ -1861,6 +1888,10 @@ installmacros: $(DEST_VIM) $(DEST_RT) $(DEST_MACRO)
 installtutorbin: $(DEST_VIM)
 	$(INSTALL_DATA) vimtutor $(DEST_BIN)/$(VIMNAME)tutor
 	chmod $(SCRIPTMOD) $(DEST_BIN)/$(VIMNAME)tutor
+
+installgtutorbin: $(DEST_VIM)
+	$(INSTALL_DATA) gvimtutor $(DEST_BIN)/$(GVIMNAME)tutor
+	chmod $(SCRIPTMOD) $(DEST_BIN)/$(GVIMNAME)tutor
 
 installtutor: $(DEST_RT) $(DEST_TUTOR)
 	-$(INSTALL_DATA) $(TUTORSOURCE)/README* $(TUTORSOURCE)/tutor* $(DEST_TUTOR)
@@ -2069,6 +2100,7 @@ installmanlinks:
 uninstall: uninstall_runtime
 	-rm -f $(DEST_BIN)/$(VIMTARGET)
 	-rm -f $(DEST_BIN)/vimtutor
+	-rm -f $(DEST_BIN)/gvimtutor
 	-rm -f $(DEST_BIN)/$(EXTARGET) $(DEST_BIN)/$(VIEWTARGET)
 	-rm -f $(DEST_BIN)/$(GVIMTARGET) $(DEST_BIN)/$(GVIEWTARGET)
 	-rm -f $(DEST_BIN)/$(RVIMTARGET) $(DEST_BIN)/$(RVIEWTARGET)
@@ -2165,7 +2197,7 @@ SHADOWDIR = shadow
 
 shadow:	runtime pixmaps
 	mkdir $(SHADOWDIR)
-	cd $(SHADOWDIR); ln -s ../*.[ch] ../*.in ../*.sh ../*.xs ../*.xbm ../toolcheck ../proto ../vimtutor ../mkinstalldirs .
+	cd $(SHADOWDIR); ln -s ../*.[ch] ../*.in ../*.sh ../*.xs ../*.xbm ../toolcheck ../proto ../po ../vimtutor ../gvimtutor ../mkinstalldirs .
 	mkdir $(SHADOWDIR)/auto
 	cd $(SHADOWDIR)/auto; ln -s ../../auto/configure .
 	cd $(SHADOWDIR); rm -f auto/link.sed
@@ -2177,13 +2209,14 @@ shadow:	runtime pixmaps
 	cd $(SHADOWDIR)/xxd; ln -s ../../xxd/*.[ch] ../../xxd/Make* .
 	if test -d $(RSRC_DIR); then \
 		cd $(SHADOWDIR); \
+		ln -s ../infplist.xml .; \
 		ln -s ../$(RSRC_DIR) ../os_mac.rsr.hqx ../dehqx.py .; \
 	fi
 	mkdir $(SHADOWDIR)/testdir
 	cd $(SHADOWDIR)/testdir; ln -s ../../testdir/Makefile \
 				 ../../testdir/vimrc.unix \
 				 ../../testdir/*.in \
-				 ../../testdir/unix.vim \
+				 ../../testdir/*.vim \
 				 ../../testdir/*.ok .
 
 # Link needed for doing "make install" in a shadow directory.
@@ -2260,7 +2293,7 @@ auto/if_perl.c: if_perl.xs
 auto/osdef.h: auto/config.h osdef.sh osdef1.h.in osdef2.h.in
 	CC="$(CC) $(OSDEF_CFLAGS)" srcdir=$(srcdir) sh $(srcdir)/osdef.sh
 
-QUOTESED = sed -e 's/"/\\"/g' -e 's/\\"/"/' -e 's/\\";$$/";/'
+QUOTESED = sed -e 's/[\\"]/\\&/g' -e 's/\\"/"/' -e 's/\\";$$/";/'
 auto/pathdef.c: Makefile auto/config.mk
 	-@echo creating $@
 	-@echo '/* pathdef.c */' > $@
@@ -2552,11 +2585,16 @@ install_macosx: gui_bundle
 #	-mkdir $(DESTDIR)$(prefix)/$(APPDIR)/bin
 	srcdir=`pwd`; $(MAKE) -f Makefile installruntime \
 		VIMEXE=$$srcdir/$(VIMTARGET) \
-		prefix=$(DESTDIR)$(prefix)/$(RESDIR)/vim \
-		VIMRTLOC=$(DESTDIR)$(prefix)/$(RESDIR)/vim/runtime
+		prefix=$(DESTDIR)$(prefix)/$(RESDIR)$(VIMDIR) \
+		exec_prefix=$(DESTDIR)$(prefix)/$(APPDIR)/Contents \
+		BINDIR=$(DESTDIR)$(prefix)/$(APPDIR)/Contents/MacOS \
+		VIMLOC=$(DESTDIR)$(prefix)/$(RESDIR)$(VIMDIR) \
+		VIMRTLOC=$(DESTDIR)$(prefix)/$(RESDIR)$(VIMDIR)/runtime
 # Put the link back.
 	ln -s `pwd`/../runtime $(RESDIR)/vim
-# TODO: Create the vimtutor application.
+# Copy rgb.txt, Mac doesn't always have X11
+	$(INSTALL_DATA) $(SCRIPTSOURCE)/rgb.txt $(DESTDIR)$(prefix)/$(RESDIR)/vim/runtime
+# TODO: Create the vimtutor and/or gvimtutor application.
 
 gui_bundle: $(RESDIR) bundle-dir bundle-executable bundle-info bundle-resource \
 	bundle-language

@@ -149,9 +149,11 @@ struct lastlogx *
 	getlastlogx(uid_t, struct lastlogx *);
 struct lastlogx *
 	getlastlogxbyname(const char*, struct lastlogx *);
+#ifdef UNIFDEF_LEGACY_UTMP_APIS
 struct utmp;	/* forward reference */
 void	getutmp(const struct utmpx *, struct utmp *);
 void	getutmpx(const struct utmp *, struct utmpx *);
+#endif /* UNIFDEF_LEGACY_UTMP_APIS */
 #endif /* !_POSIX_C_SOURCE || _DARWIN_C_SOURCE */
 
 struct utmpx *

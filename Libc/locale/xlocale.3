@@ -54,6 +54,7 @@ so using it when a per-thread locale is in effect
 will not change locale behavior for that thread.
 However, it will change behavior for threads
 with no per-thread locale in effect.
+#ifdef UNIFDEF_LEGACY_RUNE_APIS
 .Pp
 The routines defined in
 .Aq rune.h
@@ -67,6 +68,7 @@ and sub-structures may be shared by multiple locales,
 .Fn setinvalidrune
 has been modified to make a copy of the sub-structure.
 This prevents it from affecting other locales.
+#endif /* UNIFDEF_LEGACY_RUNE_APIS */
 .Sh SEE ALSO
 .Xr duplocale 3 ,
 .Xr freelocale 3 ,

@@ -46,7 +46,9 @@
 #define MILLISECOND		(1000)
 
 /* Convert USBLog to use kprintf debugging */
-#define OHCI_USE_KPRINTF 0
+#ifndef OHCI_USE_KPRINTF
+	#define OHCI_USE_KPRINTF 0
+#endif
 
 #if OHCI_USE_KPRINTF
 #undef USBLog
@@ -136,8 +138,8 @@ class AppleUSBOHCI : public IOUSBControllerV3
     OSDeclareDefaultStructors(AppleUSBOHCI)
 
 private:
-    void						ResumeUSBBus();
-    void						SuspendUSBBus();
+    void						ResumeUSBBus(bool wakingFromSleep);
+    void						SuspendUSBBus(bool goingToSleep);
     void						print_td(AppleOHCIGeneralTransferDescriptorPtr x);
     void						print_itd(AppleOHCIIsochTransferDescriptorPtr x);
     void						print_ed(AppleOHCIEndpointDescriptorPtr x);
@@ -220,6 +222,9 @@ protected:
 	AbsoluteTime				_anchorTime;
 	UInt64						_tempAnchorFrame;
 	UInt64						_anchorFrame;
+	
+	// saved root hub port registers
+	UInt32						_savedHcRhPortStatus[15];
 
     static void 				InterruptHandler(OSObject *owner,  IOInterruptEventSource * source, int count);
     static bool 				PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
@@ -231,6 +236,7 @@ protected:
     IOReturn 					BulkInitialize (void);
     IOReturn 					IsochronousInitialize(void);
     IOReturn 					InterruptInitialize (void);
+	IOReturn					InitializeOperationalRegisters(bool fromReset);
 
     // callPlatformFunction symbols
     //
@@ -330,7 +336,6 @@ public:
 	// IOKit methods
     virtual bool		init(OSDictionary * propTable);
     virtual bool		start( IOService * provider );
-    virtual void		stop( IOService * provider );
     virtual bool		finalize(IOOptionBits options);
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
     virtual void		free();

@@ -1,6 +1,7 @@
---- /SourceCache/vim/vim-32/vim/src/normal.c	2006-08-09 20:39:25.000000000 -0700
-+++ src/normal.c	2007-01-05 15:52:32.000000000 -0800
-@@ -6731,7 +6731,8 @@ nv_replace(cap)
+diff -r -u -N --exclude='*.orig' vim72.orig/src/normal.c vim72/src/normal.c
+--- vim72.orig/src/normal.c	2008-07-31 13:03:08.000000000 -0700
++++ vim72/src/normal.c	2008-08-19 01:04:14.000000000 -0700
+@@ -6798,7 +6798,8 @@
  #endif
  	stuffcharReadbuff('\r');
  	stuffcharReadbuff(ESC);

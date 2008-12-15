@@ -1152,7 +1152,7 @@ static void
 accthdr(header)
 	struct s_spcl *header;
 {
-	static ino_t previno = 0x7fffffff;
+	static u_int32_t previno = 0x7fffffff;
 	static int prevtype;
 	static long predict;
 	long blks, i;

@@ -185,13 +185,37 @@ IOReturn IOI2CInterfaceUserClient::extIO(
 {
     IOReturn		err = kIOReturnNotReady;
     IOI2CInterface *	provider;
-    IOI2CRequest *	request;
     IOI2CBuffer *	buffer;
 
-    if (inSize < sizeof(IOI2CRequest))
+    IOI2CRequest *		  request;
+    IOI2CRequest_10_5_0 * requestV1 = NULL;
+    IOI2CRequest          requestV2;
+
+    if (inSize < sizeof(IOI2CBuffer))
         return (kIOReturnNoSpace);
     if (*outSize < inSize)
         return (kIOReturnNoSpace);
+
+	buffer = (IOI2CBuffer *) inStruct;
+	request = &buffer->request;
+
+	if (!request->sendTransactionType && !request->replyTransactionType)
+	{
+		requestV1 = (typeof (requestV1)) &buffer->request;
+		bzero(&requestV2, sizeof(requestV2));
+		request = &requestV2;
+
+		request->sendTransactionType  = requestV1->sendTransactionType;
+		request->replyTransactionType = requestV1->replyTransactionType;
+		request->sendAddress          = requestV1->sendAddress;
+		request->replyAddress         = requestV1->replyAddress;
+		request->sendBytes            = requestV1->sendBytes;
+		request->replyBytes           = requestV1->replyBytes;
+		request->sendSubAddress       = requestV1->sendSubAddress;
+		request->replySubAddress      = requestV1->replySubAddress;
+		request->commFlags            = requestV1->commFlags;
+		request->minReplyDelay        = requestV1->minReplyDelay;
+	}
 
     if ((provider = (IOI2CInterface *) copyParentEntry(gIOServicePlane)))
         do
@@ -201,9 +225,6 @@ IOReturn IOI2CInterfaceUserClient::extIO(
                 err = kIOReturnNotOpen;
                 continue;
             }
-
-            buffer = (IOI2CBuffer *) inStruct;
-            request = &buffer->request;
 
             if (request->sendBytes)
             {
@@ -226,7 +247,10 @@ IOReturn IOI2CInterfaceUserClient::extIO(
                 }
             }
 
-            err = provider->startIO( &buffer->request );
+            err = provider->startIO( request );
+
+			if (requestV1)
+				requestV1->result = request->result;
         }
         while (false);
 

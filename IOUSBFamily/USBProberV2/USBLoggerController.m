@@ -121,6 +121,7 @@ static int remainingFreshEntries = 0;
     }
     
     _klogKextisPresent = [self isKlogKextPresent];
+    _klogKextIsCorrectRevision = [self isKlogCorrectRevision];
     
     _refreshTimer = [[NSTimer scheduledTimerWithTimeInterval: (NSTimeInterval) LOGGER_REFRESH_INTERVAL
                                                       target:                         self
@@ -222,12 +223,33 @@ static int remainingFreshEntries = 0;
             if ([self installKLogKext] != YES) {
                 // error occured while installing, so return
                 return;
-            } else _klogKextisPresent = YES;
+            } else {
+				_klogKextisPresent = YES;
+				_klogKextIsCorrectRevision = YES;
+			}
         } else {
             // user does not want to install KLog.kext, so return
             return;
         }
-    }
+    } else if ( !_klogKextIsCorrectRevision )
+	{
+        int result = NSRunAlertPanel (@"Wrong revision for Kernel Extension", @"The required kernel extension \"KLog.kext\" is not the right revision. Would you like to upgrade it now?", @"Upgrade", @"Cancel", nil);
+        if (result == NSAlertDefaultReturn) {
+            //try to install
+            if ([self removeAndinstallKLogKext] != YES) {
+                // error occured while installing, so return
+                return;
+            } else 
+			{
+				result = NSRunAlertPanel (@"Need to Restart", @"The required kernel extension \"KLog.kext\" was installed.  Please quit and restart.", @"OK", nil, nil);
+				_klogKextIsCorrectRevision = NO;
+				return;
+			}
+        } else {
+            // user does not want to install KLog.kext, so return
+            return;
+		}
+	}
     
     if ([DumpCheckBox state] == NSOnState) {
         NSSavePanel *sp;
@@ -328,68 +350,148 @@ static int remainingFreshEntries = 0;
     [finalOutput release];
 }
 
-- (BOOL)isKlogKextPresent {
-    return [[NSFileManager defaultManager] fileExistsAtPath:@"/System/Library/Extensions/KLog.kext"];
-}
-
-- (BOOL)installKLogKext {
-    NSString *              sourcePath = [[NSBundle mainBundle] pathForResource:@"KLog" ofType:@"kext"];
-    NSString *              destPath = [NSString pathWithComponents:[NSArray arrayWithObjects:@"/",@"System",@"Library",@"Extensions",@"KLog.kext",nil]];
-    NSString *              permRepairPath = [[NSBundle mainBundle] pathForResource:@"SetKLogPermissions" ofType:@"sh"];
-    
-    AuthorizationRights     myRights;
-    AuthorizationItem       myItems[1];
-    AuthorizationRef        authorizationRef;
-    OSStatus                err;
-    
-    if ([[NSFileManager defaultManager] fileExistsAtPath:sourcePath] == NO) {
-        NSRunAlertPanel (@"Missing Source File", @"\"KLog.kext\" could not be installed because it is missing from the application bundle.", @"Okay", nil, nil);
-        return NO;
-    }
-    
-    myItems[0].name = kAuthorizationRightExecute;
-    myItems[0].valueLength = 0;
-    myItems[0].value = NULL;
-    myItems[0].flags = 0;
-    
-    myRights.count = sizeof(myItems) / sizeof(myItems[0]);
-    myRights.items = myItems;
-    
-    err = AuthorizationCreate (&myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights, &authorizationRef);
-    
-    if (err == errAuthorizationSuccess) {
-        char *  cpArgs[4];
-        char *  shArgs[2];
-        char *  kextloadArgs[2];
-        int     status;
-        
-        cpArgs[0] = "-r";
-        cpArgs[1] = (char *)[sourcePath cStringUsingEncoding:NSUTF8StringEncoding];
-        cpArgs[2] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
-        cpArgs[3] = NULL;
-        
-        err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/cp", 0, cpArgs, NULL);
-        
-        shArgs[0] = (char *)[permRepairPath cStringUsingEncoding:NSUTF8StringEncoding];
-        shArgs[1] = NULL;
-        
-        err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/sh", 0, shArgs, NULL);
-        
-        kextloadArgs[0] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
-        kextloadArgs[1] = NULL;
-        
-        err = AuthorizationExecuteWithPrivileges(authorizationRef, "/sbin/kextload", 0, kextloadArgs, NULL);
-        
-        while (wait(&status) != -1) {
-            // wait for forked process to terminate
-        }
-        
-        AuthorizationFree(authorizationRef, kAuthorizationFlagDestroyRights);
-        return YES;
-    } else {
-        return NO;
-    }
-}
+	- (BOOL)isKlogKextPresent {
+		return [[NSFileManager defaultManager] fileExistsAtPath:@"/System/Library/Extensions/KLog.kext"];
+	}
+	
+	- (BOOL)isKlogCorrectRevision {
+		NSBundle	* klogBundle = [NSBundle bundleWithPath:@"/System/Library/Extensions/KLog.kext"];
+		
+		if ( klogBundle == nil)
+			return NO;
+		
+		NSDictionary *plist = [klogBundle infoDictionary];
+		uint32_t version = [[plist valueForKey:@"CFBundleNumericVersion"] intValue];
+		if ( version < 0x03600000)
+			return NO;
+		else
+			return YES;
+		}
+	
+	- (BOOL)installKLogKext {
+		NSString *              sourcePath = [[NSBundle mainBundle] pathForResource:@"KLog" ofType:@"kext"];
+		NSString *              destPath = [NSString pathWithComponents:[NSArray arrayWithObjects:@"/",@"System",@"Library",@"Extensions",@"KLog.kext",nil]];
+		NSString *              permRepairPath = [[NSBundle mainBundle] pathForResource:@"SetKLogPermissions" ofType:@"sh"];
+		
+		AuthorizationRights     myRights;
+		AuthorizationItem       myItems[1];
+		AuthorizationRef        authorizationRef;
+		OSStatus                err;
+		
+		if ([[NSFileManager defaultManager] fileExistsAtPath:sourcePath] == NO) {
+			NSRunAlertPanel (@"Missing Source File", @"\"KLog.kext\" could not be installed because it is missing from the application bundle.", @"Okay", nil, nil);
+			return NO;
+		}
+		
+		myItems[0].name = kAuthorizationRightExecute;
+		myItems[0].valueLength = 0;
+		myItems[0].value = NULL;
+		myItems[0].flags = 0;
+		
+		myRights.count = sizeof(myItems) / sizeof(myItems[0]);
+		myRights.items = myItems;
+		
+		err = AuthorizationCreate (&myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights, &authorizationRef);
+		
+		if (err == errAuthorizationSuccess) {
+			char *  cpArgs[4];
+			char *  shArgs[2];
+			char *  kextloadArgs[2];
+			int     status;
+			
+			cpArgs[0] = "-r";
+			cpArgs[1] = (char *)[sourcePath cStringUsingEncoding:NSUTF8StringEncoding];
+			cpArgs[2] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
+			cpArgs[3] = NULL;
+			
+			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/cp", 0, cpArgs, NULL);
+			
+			shArgs[0] = (char *)[permRepairPath cStringUsingEncoding:NSUTF8StringEncoding];
+			shArgs[1] = NULL;
+			
+			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/sh", 0, shArgs, NULL);
+			
+			kextloadArgs[0] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
+			kextloadArgs[1] = NULL;
+			
+			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/sbin/kextload", 0, kextloadArgs, NULL);
+			
+			while (wait(&status) != -1) {
+				// wait for forked process to terminate
+			}
+			
+			AuthorizationFree(authorizationRef, kAuthorizationFlagDestroyRights);
+			return YES;
+		} else {
+			return NO;
+		}
+	}
+	
+	- (BOOL)removeAndinstallKLogKext {
+		NSString *              sourcePath = [[NSBundle mainBundle] pathForResource:@"KLog" ofType:@"kext"];
+		NSString *              destPath = [NSString pathWithComponents:[NSArray arrayWithObjects:@"/",@"System",@"Library",@"Extensions",@"KLog.kext",nil]];
+		NSString *              permRepairPath = [[NSBundle mainBundle] pathForResource:@"SetKLogPermissions" ofType:@"sh"];
+		
+		AuthorizationRights     myRights;
+		AuthorizationItem       myItems[1];
+		AuthorizationRef        authorizationRef;
+		OSStatus                err;
+		
+		if ([[NSFileManager defaultManager] fileExistsAtPath:sourcePath] == NO) {
+			NSRunAlertPanel (@"Missing Source File", @"\"KLog.kext\" could not be installed because it is missing from the application bundle.", @"Okay", nil, nil);
+			return NO;
+		}
+		
+		myItems[0].name = kAuthorizationRightExecute;
+		myItems[0].valueLength = 0;
+		myItems[0].value = NULL;
+		myItems[0].flags = 0;
+		
+		myRights.count = sizeof(myItems) / sizeof(myItems[0]);
+		myRights.items = myItems;
+		
+		err = AuthorizationCreate (&myRights, kAuthorizationEmptyEnvironment, kAuthorizationFlagInteractionAllowed | kAuthorizationFlagExtendRights, &authorizationRef);
+		
+		if (err == errAuthorizationSuccess) {
+			char *  cpArgs[4];
+			char *  shArgs[2];
+			char *  kextloadArgs[2];
+			int     status;
+			
+			// Remove it
+			cpArgs[0] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
+			cpArgs[1] = "/private/tmp";
+			cpArgs[2] = NULL;
+			cpArgs[3] = NULL;
+			
+			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/mv", 0, cpArgs, NULL);
+			
+			// Copy it
+			cpArgs[0] = "-r";
+			cpArgs[1] = (char *)[sourcePath cStringUsingEncoding:NSUTF8StringEncoding];
+			cpArgs[2] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
+			cpArgs[3] = NULL;
+			
+			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/cp", 0, cpArgs, NULL);
+			
+			shArgs[0] = (char *)[permRepairPath cStringUsingEncoding:NSUTF8StringEncoding];
+			shArgs[1] = NULL;
+			
+			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/sh", 0, shArgs, NULL);
+			
+			kextloadArgs[0] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
+			kextloadArgs[1] = NULL;
+			
+			while (wait(&status) != -1) {
+				// wait for forked process to terminate
+			}
+			
+			AuthorizationFree(authorizationRef, kAuthorizationFlagDestroyRights);
+			return YES;
+		} else {
+			return NO;
+		}
+	}
 
 - (NSArray *)logEntries {
     return _outputLines;

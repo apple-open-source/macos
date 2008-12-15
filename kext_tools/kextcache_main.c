@@ -46,7 +46,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <TargetConditionals.h>
+#if !TARGET_OS_EMBEDDED
 #include <DiskArbitration/DiskArbitrationPrivate.h>
+#endif
 #include <IOKit/IOTypes.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitServer.h>
@@ -1316,6 +1319,9 @@ static int getVolumeUUID(const char *volPath, uuid_t vol_uuid)
     int rval = ELAST + 1;
     DADiskRef dadisk = NULL;
     CFDictionaryRef dadesc = NULL;
+#if TARGET_OS_EMBEDDED
+    goto finish;
+#else
     CFUUIDRef volUUID;      // just a reference into the dict
     CFUUIDBytes uuidBytes;
 COMPILE_TIME_ASSERT(sizeof(CFUUIDBytes) == sizeof(uuid_t));
@@ -1330,7 +1336,7 @@ COMPILE_TIME_ASSERT(sizeof(CFUUIDBytes) == sizeof(uuid_t));
     memcpy(vol_uuid, &uuidBytes.byte0, sizeof(uuid_t));   // sizeof(vol_uuid)?
 
     rval = 0;
-
+#endif
 finish:
     if (dadesc)     CFRelease(dadesc);
     if (dadisk)     CFRelease(dadisk);

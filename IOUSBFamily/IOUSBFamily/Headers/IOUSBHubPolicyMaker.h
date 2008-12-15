@@ -69,32 +69,44 @@ protected:
 
 public:
 	// IOService methods
-    virtual bool			start(IOService * provider);
-	virtual IOReturn		powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice);
-	virtual unsigned long	powerStateForDomainState ( IOPMPowerFlags domainState );
-	virtual IOReturn		setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice );
-	virtual IOReturn		powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice);
-	virtual unsigned long	maxCapabilityForDomainState ( IOPMPowerFlags domainState );
-	virtual void			powerChangeDone ( unsigned long fromState );
+    virtual bool						start(IOService * provider);
+	virtual IOReturn					powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice);
+	virtual unsigned long				powerStateForDomainState ( IOPMPowerFlags domainState );
+	virtual IOReturn					setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice );
+	virtual IOReturn					powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice);
+	virtual unsigned long				maxCapabilityForDomainState ( IOPMPowerFlags domainState );
+	virtual void						powerChangeDone ( unsigned long fromState );
 
 	// public methods which MAY be implemented in subclass
-	virtual IOReturn				EnsureUsability(void);
-
-	// new power stuff
-	void				AllocateExtraPower();
-	IOReturn			GetExtraPortPower(UInt32 portNum, UInt32 *extraPower);
-	IOReturn			ReturnExtraPortPower(UInt32 portNum, UInt32 extraPower);
+	virtual IOReturn					EnsureUsability(void);
+		
+	// Extra Port Power calls
+	void								AllocateExtraPower();
+	IOReturn							GetExtraPortPower(UInt32 portNum, UInt32 *extraPower);
+	IOReturn							ReturnExtraPortPower(UInt32 portNum, UInt32 extraPower);
     
 	// virtual methods to be implemented in the controlling driver subclass
-	virtual bool			ConfigureHubDriver(void) = 0;
-	virtual IOReturn		HubPowerChange(unsigned long powerStateOrdinal) = 0;
+	virtual bool						ConfigureHubDriver(void) = 0;
+	virtual IOReturn					HubPowerChange(unsigned long powerStateOrdinal) = 0;
 
-    OSMetaClassDeclareReservedUnused(IOUSBHubPolicyMaker,  0);
-    OSMetaClassDeclareReservedUnused(IOUSBHubPolicyMaker,  1);
-    OSMetaClassDeclareReservedUnused(IOUSBHubPolicyMaker,  2);
-    OSMetaClassDeclareReservedUnused(IOUSBHubPolicyMaker,  3);
-    OSMetaClassDeclareReservedUnused(IOUSBHubPolicyMaker,  4);
-    OSMetaClassDeclareReservedUnused(IOUSBHubPolicyMaker,  5);
+    OSMetaClassDeclareReservedUsed(IOUSBHubPolicyMaker,  0);
+	virtual	IOReturn					GetPortInformation(UInt32 portNum, UInt32 *info);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBHubPolicyMaker,  1);
+	virtual	IOReturn					ResetPort(UInt32 portNum);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBHubPolicyMaker,  2);
+	virtual	IOReturn					SuspendPort(UInt32 portNum, bool suspend);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBHubPolicyMaker,  3);
+	virtual	IOReturn					ReEnumeratePort(UInt32 portNum, UInt32 options);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBHubPolicyMaker,  4);
+	virtual UInt32						RequestExtraPower(UInt32 portNum, UInt32 type, UInt32 requestedPower);
+
+    OSMetaClassDeclareReservedUsed(IOUSBHubPolicyMaker,  5);
+	virtual IOReturn					ReturnExtraPower(UInt32 portNum, UInt32 type, UInt32 returnedPower);
+
     OSMetaClassDeclareReservedUnused(IOUSBHubPolicyMaker,  6);
     OSMetaClassDeclareReservedUnused(IOUSBHubPolicyMaker,  7);
     OSMetaClassDeclareReservedUnused(IOUSBHubPolicyMaker,  8);

@@ -22,6 +22,7 @@
  */
 
 #include "vim.h"
+
 #include "if_mzsch.h"
 
 /* Only do the following when the feature is enabled.  Needed for "make
@@ -100,7 +101,7 @@ typedef struct
 #ifdef HAVE_SANDBOX
 static Scheme_Object *sandbox_file_guard(int, Scheme_Object **);
 static Scheme_Object *sandbox_network_guard(int, Scheme_Object **);
-static void sandbox_check();
+static void sandbox_check(void);
 #endif
 /*  Buffer-related commands */
 static Scheme_Object *buffer_new(buf_T *buf);
@@ -219,7 +220,11 @@ static Scheme_Object *(*dll_scheme_byte_string_to_char_string)(Scheme_Object *s)
 # endif
 static void (*dll_scheme_close_input_port)(Scheme_Object *port);
 static void (*dll_scheme_count_lines)(Scheme_Object *port);
+#if MZSCHEME_VERSION_MAJOR < 360
 static Scheme_Object *(*dll_scheme_current_continuation_marks)(void);
+#else
+static Scheme_Object *(*dll_scheme_current_continuation_marks)(Scheme_Object *prompt_tag);
+#endif
 static void (*dll_scheme_display)(Scheme_Object *obj, Scheme_Object *port);
 static char *(*dll_scheme_display_to_string)(Scheme_Object *obj, long *len);
 static int (*dll_scheme_eq)(Scheme_Object *obj1, Scheme_Object *obj2);
@@ -302,6 +307,8 @@ static void (*dll_scheme_set_param)(Scheme_Config *c, int pos,
 	Scheme_Object *o);
 static Scheme_Config *(*dll_scheme_current_config)(void);
 static Scheme_Object *(*dll_scheme_char_string_to_byte_string)
+    (Scheme_Object *s);
+static Scheme_Object *(*dll_scheme_char_string_to_path)
     (Scheme_Object *s);
 # endif
 
@@ -393,6 +400,8 @@ static Scheme_Object *(*dll_scheme_char_string_to_byte_string)
 #  define scheme_current_config dll_scheme_current_config
 #  define scheme_char_string_to_byte_string \
     dll_scheme_char_string_to_byte_string
+#  define scheme_char_string_to_path \
+    dll_scheme_char_string_to_path
 # endif
 
 typedef struct
@@ -493,6 +502,8 @@ static Thunk_Info mzsch_imports[] = {
     {"scheme_current_config", (void **)&dll_scheme_current_config},
     {"scheme_char_string_to_byte_string",
 	(void **)&dll_scheme_char_string_to_byte_string},
+    {"scheme_char_string_to_path",
+	(void **)&dll_scheme_char_string_to_path},
 # endif
     {NULL, NULL}};
 
@@ -768,7 +779,14 @@ startup_mzscheme(void)
 #ifdef MZSCHEME_COLLECTS
     /* setup 'current-library-collection-paths' parameter */
     scheme_set_param(scheme_config, MZCONFIG_COLLECTION_PATHS,
-	    scheme_make_pair(scheme_make_string(MZSCHEME_COLLECTS),
+	    scheme_make_pair(
+# if MZSCHEME_VERSION_MAJOR >= 299
+		scheme_char_string_to_path(
+		    scheme_byte_string_to_char_string(
+			scheme_make_byte_string(MZSCHEME_COLLECTS))),
+# else
+		scheme_make_string(MZSCHEME_COLLECTS),
+# endif
 		scheme_null));
 #endif
 #ifdef HAVE_SANDBOX
@@ -2027,7 +2045,7 @@ set_buffer_line_list(void *data, int argc, Scheme_Object **argv)
     extra = 0;
 
     check_line_range(lo, buf->buf);	    /* inclusive */
-    check_line_range(hi - 1, buf->buf);  /* exclisive */
+    check_line_range(hi - 1, buf->buf);	    /* exclusive */
 
     if (SCHEME_FALSEP(line_list) || SCHEME_NULLP(line_list))
     {
@@ -2441,7 +2459,11 @@ raise_vim_exn(const char *add_info)
     else
 	argv[0] = scheme_make_string(_("Vim error"));
 
+#if MZSCHEME_VERSION_MAJOR < 360
     argv[1] = scheme_current_continuation_marks();
+#else
+    argv[1] = scheme_current_continuation_marks(NULL);
+#endif
 
     scheme_raise(scheme_make_struct_instance(vim_exn, 2, argv));
 }
@@ -2659,7 +2681,7 @@ static Scheme_Object *M_execute = NULL;
 static Scheme_Object *M_delete = NULL;
 
     static void
-sandbox_check()
+sandbox_check(void)
 {
     if (sandbox)
 	raise_vim_exn(_("not allowed in the Vim sandbox"));

@@ -95,6 +95,30 @@ struct aup_test aup_tests[] =
         "//www.apache.org/",
         0, NULL, "www.apache.org", NULL, NULL, "www.apache.org", NULL, "/", NULL, NULL, 0
     },
+    {
+        "file:image.jpg",
+        0, "file", NULL, NULL, NULL, NULL, NULL, "image.jpg", NULL, NULL, 0
+    },
+    {
+        "file:/image.jpg",
+        0, "file", NULL, NULL, NULL, NULL, NULL, "/image.jpg", NULL, NULL, 0
+    },
+    {
+        "file:///image.jpg",
+        0, "file", "", NULL, NULL, "", NULL, "/image.jpg", NULL, NULL, 0
+    },
+    {
+        "file:///tmp/photos/image.jpg",
+        0, "file", "", NULL, NULL, "", NULL, "/tmp/photos/image.jpg", NULL, NULL, 0
+    },
+    {
+        "file:./image.jpg",
+        0, "file", NULL, NULL, NULL, NULL, NULL, "./image.jpg", NULL, NULL, 0
+    },
+    {
+        "file:../photos/image.jpg",
+        0, "file", NULL, NULL, NULL, NULL, NULL, "../photos/image.jpg", NULL, NULL, 0
+    },
 };
 
 struct uph_test {
@@ -181,19 +205,32 @@ static void test_aup(abts_case *tc, void *data)
                      rv, t->rv);
         ABTS_ASSERT(tc, msg, rv == t->rv);
         if (t->rv == APR_SUCCESS) {
-            ABTS_STR_EQUAL(tc, info.scheme, t->scheme);
-            ABTS_STR_EQUAL(tc, info.hostinfo, t->hostinfo);
-            ABTS_STR_EQUAL(tc, info.user, t->user);
-            ABTS_STR_EQUAL(tc, info.password, t->password);
-            ABTS_STR_EQUAL(tc, info.hostname, t->hostname);
-            ABTS_STR_EQUAL(tc, info.port_str, t->port_str);
-            ABTS_STR_EQUAL(tc, info.path, t->path);
-            ABTS_STR_EQUAL(tc, info.query, t->query);
-            ABTS_STR_EQUAL(tc, info.user, t->user);
-            ABTS_INT_EQUAL(tc, info.port, t->port);
+            ABTS_STR_EQUAL(tc, t->scheme, info.scheme);
+            ABTS_STR_EQUAL(tc, t->hostinfo, info.hostinfo);
+            ABTS_STR_EQUAL(tc, t->user, info.user);
+            ABTS_STR_EQUAL(tc, t->password, info.password);
+            ABTS_STR_EQUAL(tc, t->hostname, info.hostname);
+            ABTS_STR_EQUAL(tc, t->port_str, info.port_str);
+            ABTS_STR_EQUAL(tc, t->path, info.path);
+            ABTS_STR_EQUAL(tc, t->query, info.query);
+            ABTS_STR_EQUAL(tc, t->user, info.user);
+            ABTS_INT_EQUAL(tc, t->port, info.port);
 
             s = apr_uri_unparse(p, &info, APR_URI_UNP_REVEALPASSWORD);
-            ABTS_STR_EQUAL(tc, s, t->uri);
+            ABTS_STR_EQUAL(tc, t->uri, s);
+
+            s = apr_uri_unparse(p, &info, APR_URI_UNP_OMITSITEPART);
+            rv = apr_uri_parse(p, s, &info);
+            ABTS_STR_EQUAL(tc, info.scheme, NULL);
+            ABTS_STR_EQUAL(tc, info.hostinfo, NULL);
+            ABTS_STR_EQUAL(tc, info.user, NULL);
+            ABTS_STR_EQUAL(tc, info.password, NULL);
+            ABTS_STR_EQUAL(tc, info.hostname, NULL);
+            ABTS_STR_EQUAL(tc, info.port_str, NULL);
+            ABTS_STR_EQUAL(tc, info.path, t->path);
+            ABTS_STR_EQUAL(tc, info.query, t->query);
+            ABTS_STR_EQUAL(tc, info.user, NULL);
+            ABTS_INT_EQUAL(tc, info.port, 0);
         }
     }
 }
@@ -209,11 +246,11 @@ static void test_uph(abts_case *tc, void *data)
         memset(&info, 0, sizeof(info));
         t = &uph_tests[i];
         rv = apr_uri_parse_hostinfo(p, t->hostinfo, &info);
-        ABTS_INT_EQUAL(tc, rv, t->rv);
+        ABTS_INT_EQUAL(tc, t->rv, rv);
         if (t->rv == APR_SUCCESS) {
-            ABTS_STR_EQUAL(tc, info.hostname, t->hostname);
-            ABTS_STR_EQUAL(tc, info.port_str, t->port_str);
-            ABTS_INT_EQUAL(tc, info.port, t->port);
+            ABTS_STR_EQUAL(tc, t->hostname, info.hostname);
+            ABTS_STR_EQUAL(tc, t->port_str, info.port_str);
+            ABTS_INT_EQUAL(tc, t->port, info.port);
         }
     }
 }

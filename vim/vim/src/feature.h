@@ -35,7 +35,7 @@
  * +small		few features enabled, as basic as possible
  * +normal		A default selection of features enabled
  * +big			many features enabled, as rich as possible.
- * +huge		all possible featues enabled.
+ * +huge		all possible features enabled.
  *
  * When +small is used, +tiny is also included.  +normal implies +small, etc.
  */
@@ -376,9 +376,13 @@
 /*
  * +eval		Built-in script language and expression evaluation,
  *			":let", ":if", etc.
+ * +float		Floating point variables.
  */
 #ifdef FEAT_NORMAL
 # define FEAT_EVAL
+# if defined(HAVE_FLOAT_FUNCS) || defined(WIN3264) || defined(MACOS)
+#  define FEAT_FLOAT
+# endif
 #endif
 
 /*
@@ -673,7 +677,7 @@
 # define ESC_CHG_TO_ENG_MODE		/* if defined, when ESC pressed,
 					 * turn to english mode
 					 */
-# if !defined(FEAT_XFONTSET) && defined(HAVE_X11)
+# if !defined(FEAT_XFONTSET) && defined(HAVE_X11) && !defined(HAVE_GTK2)
 #  define FEAT_XFONTSET			/* Hangul input requires xfontset */
 # endif
 # if defined(FEAT_XIM) && !defined(LINT)
@@ -756,6 +760,7 @@
 #if defined(FEAT_WINDOWS) && defined(FEAT_NORMAL) \
     && (defined(FEAT_GUI_GTK) \
 	|| (defined(FEAT_GUI_MOTIF) && defined(HAVE_XM_NOTEBOOK_H)) \
+	|| defined(FEAT_GUI_MAC) \
 	|| (defined(FEAT_GUI_MSWIN) && (!defined(_MSC_VER) || _MSC_VER > 1020)))
 # define FEAT_GUI_TABLINE
 #endif
@@ -811,7 +816,7 @@
  * +writebackup		'writebackup' is default on:
  *			Use a backup file while overwriting a file.  But it's
  *			deleted again when 'backup' is not set.  Changing this
- *			is strongly discouraged: You can loose all your
+ *			is strongly discouraged: You can lose all your
  *			changes when the computer crashes while writing the
  *			file.
  *			VMS note: It does work on VMS as well, but because of
@@ -1009,6 +1014,8 @@
  * +mouse_gpm		Unix only: Include code for Linux console mouse
  *			handling.
  * +mouse_pterm		PTerm mouse support for QNX
+ * +mouse_sysmouse	Unix only: Include code for FreeBSD and DragonFly
+ *			console mouse handling.
  * +mouse		Any mouse support (any of the above enabled).
  */
 /* OS/2 and Amiga console have no mouse support */
@@ -1033,11 +1040,17 @@
 #if defined(FEAT_NORMAL) && defined(HAVE_GPM)
 # define FEAT_MOUSE_GPM
 #endif
+
+#if defined(FEAT_NORMAL) && defined(HAVE_SYSMOUSE)
+# define FEAT_SYSMOUSE
+#endif
 /* Define FEAT_MOUSE when any of the above is defined or FEAT_GUI. */
-#if !defined(FEAT_MOUSE_TTY) && (defined(FEAT_MOUSE_XTERM) \
-	|| defined(FEAT_MOUSE_NET) || defined(FEAT_MOUSE_DEC) \
-	|| defined(DOS_MOUSE) || defined(FEAT_MOUSE_GPM) \
-	|| defined(FEAT_MOUSE_JSB) || defined(FEAT_MOUSE_PTERM))
+#if !defined(FEAT_MOUSE_TTY) \
+	&& (defined(FEAT_MOUSE_XTERM) \
+	    || defined(FEAT_MOUSE_NET) || defined(FEAT_MOUSE_DEC) \
+	    || defined(DOS_MOUSE) || defined(FEAT_MOUSE_GPM) \
+	    || defined(FEAT_MOUSE_JSB) || defined(FEAT_MOUSE_PTERM) \
+	    || defined(FEAT_SYSMOUSE))
 # define FEAT_MOUSE_TTY		/* include non-GUI mouse support */
 #endif
 #if !defined(FEAT_MOUSE) && (defined(FEAT_MOUSE_TTY) || defined(FEAT_GUI))
@@ -1095,7 +1108,7 @@
 /*
  * +termresponse	send t_RV to obtain terminal response.  Used for xterm
  *			to check if mouse dragging can be used and if term
- *			codes can be obtaind.
+ *			codes can be obtained.
  */
 #if (defined(FEAT_NORMAL) || defined(FEAT_MOUSE)) && defined(HAVE_TGETENT)
 # define FEAT_TERMRESPONSE
@@ -1133,7 +1146,7 @@
 /*
  * +ARP			Amiga only. Use arp.library, DOS 2.0 is not required.
  */
-#ifndef NO_ARP
+#if !defined(NO_ARP) && !defined(__amigaos4__)
 # define FEAT_ARP
 #endif
 
@@ -1154,7 +1167,7 @@
  * +python		Python interface: "--enable-pythoninterp"
  * +tcl			TCL interface: "--enable-tclinterp"
  * +sniff		Sniff interface: "--enable-sniff"
- * +sun_workshop	Sun Workshop integegration
+ * +sun_workshop	Sun Workshop integration
  * +netbeans_intg	Netbeans integration
  */
 
@@ -1256,4 +1269,3 @@
 	    || defined(FEAT_BIG)
 # define FEAT_AUTOCHDIR
 #endif
-

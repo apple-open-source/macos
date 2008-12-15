@@ -30,6 +30,52 @@
 #include <sys/cdefs.h>
 __BEGIN_DECLS
 
+/*!
+    @functiongroup Low Power Warnings
+*/
+
+/*! @constant kIOPSNotifyLowBattery
+    @abstract Notify(3) key. The system delivers notifications on this key when the 
+    battery time remaining drops into a warnable level.
+ */
+#define kIOPSNotifyLowBattery   "com.apple.system.powersources.lowbattery"
+
+typedef enum {
+/*! @constant kIOPSLowBatteryWarningNone
+    @abstract The system is not in a low battery situation, or is on drawing from an external power source.
+    @discussion The system displays no low power warnings; neither should application clients of this
+    API.
+ */
+    kIOPSLowBatteryWarningNone  = 1,
+
+/*! @constant kIOPSLowBatteryWarningEarly
+    @abstract The system is in an early low battery situation.
+    @discussion Per Apple's definition, the battery has dropped below 22% remaining power.
+    OS X alerts the user by changing the color of BatteryMonitor to red. Warning the user is optional
+    for full screen apps.
+ */
+    kIOPSLowBatteryWarningEarly = 2,
+
+/*! @constant kIOPSLowBatteryWarningFinal
+    @abstract The battery can provide no more than 10 minutes of runtime.
+    @discussion OS X makes no guarantees that the system shall remain in Final Warning for 10 minutes.
+    Batteries are frequently calibrated differently and may provide runtime for more or less than
+    the estimated 10 minutes.
+ */
+    kIOPSLowBatteryWarningFinal = 3
+} IOPSLowBatteryWarningLevel;
+
+/*! @function IOPSGetBatteryWarningLevel
+    @abstract Indicates whether the system is at a low battery warning level.
+    @discussion If your app runs in full screen mode and occludes OS X's battery monitor's low
+    battery warnings, you should alert the user at least when the system is in kIOPSLowBatteryWarnFinal.
+ */
+IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void);
+
+/*! 
+    @functiongroup Power Source Descriptions
+*/
+
 /*! 
     @header IOPowerSources.h
     IOPowerSources provides uniform access to the state of power sources attached to the system.

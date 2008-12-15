@@ -32,6 +32,7 @@
 #ifndef _BatteryTimeRemaining_h_
 #define _BatteryTimeRemaining_h_
 
+
 __private_extern__ void BatteryTimeRemaining_prime(void);
 
 __private_extern__ void BatteryTimeRemainingSleepWakeNotification(natural_t messageType);

@@ -142,6 +142,8 @@ public:
 	
 	bool			fReady;
 	UInt8			fResetState;
+	
+	bool			fDeferredClear;
     
     IONetworkStats		*fpNetStats;
     IOEthernetStats		*fpEtherStats;

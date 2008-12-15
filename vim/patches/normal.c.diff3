@@ -1,6 +1,7 @@
---- /SourceCache/vim/vim-32/vim/src/normal.c	2006-08-09 20:39:25.000000000 -0700
-+++ src/normal.c	2007-01-06 12:30:28.000000000 -0800
-@@ -7156,6 +7156,8 @@ nv_optrans(cap)
+diff -r -u -N --exclude='*.orig' vim72.orig/src/normal.c vim72/src/normal.c
+--- vim72.orig/src/normal.c	2008-07-31 13:03:08.000000000 -0700
++++ vim72/src/normal.c	2008-08-19 01:04:19.000000000 -0700
+@@ -7226,6 +7226,8 @@
  	}
  	else
  	{
@@ -9,7 +10,7 @@
  	    if (cap->count0)
  		stuffnumReadbuff(cap->count0);
  	    stuffReadbuff(ar[(int)(vim_strchr(str, cap->cmdchar) - str)]);
-@@ -8063,6 +8065,8 @@ n_opencmd(cap)
+@@ -8133,6 +8135,8 @@
  {
      if (!checkclearopq(cap->oap))
      {
@@ -18,7 +19,7 @@
  #ifdef FEAT_FOLDING
  	if (cap->cmdchar == 'O')
  	    /* Open above the first line of a folded sequence of lines */
-@@ -8073,11 +8077,21 @@ n_opencmd(cap)
+@@ -8143,11 +8147,21 @@
  	    (void)hasFolding(curwin->w_cursor.lnum,
  						NULL, &curwin->w_cursor.lnum);
  #endif

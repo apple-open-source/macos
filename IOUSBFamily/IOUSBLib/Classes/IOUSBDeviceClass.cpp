@@ -124,7 +124,7 @@ IOUSBDeviceClass::IOUSBDeviceClass()
 #endif
 	
 	DEBUGPRINT("IOUSBDeviceClass[%p]::IOUSBDeviceClass\n", this);
-    fUSBDevice.pseudoVTable = (IUnknownVTbl *)  &sUSBDeviceInterfaceV300;
+    fUSBDevice.pseudoVTable = (IUnknownVTbl *)  &sUSBDeviceInterfaceV320;
     fUSBDevice.obj = this;
 }
 
@@ -181,7 +181,8 @@ IOUSBDeviceClass::queryInterface(REFIID iid, void **ppv)
              CFEqual(uuid, kIOUSBDeviceInterfaceID187) || 
 			 CFEqual(uuid, kIOUSBDeviceInterfaceID197) ||
 			 CFEqual(uuid, kIOUSBDeviceInterfaceID245) ||
-			 CFEqual(uuid, kIOUSBDeviceInterfaceID300) ) 
+			 CFEqual(uuid, kIOUSBDeviceInterfaceID300) ||
+			 CFEqual(uuid, kIOUSBDeviceInterfaceID320) ) 
     {
         *ppv = &fUSBDevice;
         addRef();
@@ -615,7 +616,7 @@ IOUSBDeviceClass::USBDeviceGetSerialNumberStringIndex(UInt8 *snsi)
     ATTACHEDCHECK();
     *snsi = fSerialNumberStringIndex;
 	DEBUGPRINT("IOUSBDeviceClass::USBDeviceGetSerialNumberStringIndex = %d\n", *snsi);
-   return kIOReturnSuccess;
+	return kIOReturnSuccess;
 }
 
 #pragma mark -
@@ -997,6 +998,140 @@ IOUSBDeviceClass::USBDeviceAbortPipeZero(void)
     return ret;
 }
 
+#pragma mark -
+IOReturn
+IOUSBDeviceClass::GetUSBDeviceInformation(UInt32 *info)
+{
+    uint64_t			output[1];
+    uint32_t			len = 1;
+    IOReturn			kr = kIOReturnSuccess;
+	
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::GetUSBDeviceInformation\n", this);
+    ATTACHEDCHECK();
+	
+	output[0] = 0;
+	kr = IOConnectCallScalarMethod(fConnection, kUSBDeviceUserClientGetDeviceInformation, 0, 0, output, &len);
+	
+	DEBUGPRINT("IOUSBDeviceClass::GetUSBDeviceInformation  ret: 0x%x, info = 0x%qx\n", kr, output[0]);
+	if (kr == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fDeviceIsAttached = false;
+		kr = kIOReturnNoDevice;
+    }
+    if (kr == kIOReturnSuccess)
+	{
+		*info = (UInt32) output[0];
+	}
+	
+	if ( kr != kIOReturnSuccess )
+	{
+		DEBUGPRINT("IOUSBDeviceClass::GetUSBDeviceInformation returning 0x%x\n", kr);
+	}
+	
+    return kr;
+}
+
+
+IOReturn
+IOUSBDeviceClass::RequestExtraPower(UInt32 type, UInt32 requestedPower, UInt32 *powerAvailable)
+{
+    uint64_t			input[2];
+    uint64_t			output[1];
+    uint32_t			len = 1;
+    IOReturn			kr = kIOReturnSuccess;
+	
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::RequestExtraPower type: %d, requested: %d\n", this, (uint32_t) type, (uint32_t) requestedPower);
+    ATTACHEDCHECK();
+	
+	input[0] = (uint64_t) type;
+	input[1] = (uint64_t) requestedPower;
+	output[0] = 0;
+	kr = IOConnectCallScalarMethod(fConnection, kUSBDeviceUserClientRequestExtraPower, input, 2, output, &len);
+	
+	DEBUGPRINT("IOUSBDeviceClass::RequestExtraPower ret: 0x%x, powerAvailable = %qd\n", kr, output[0]);
+	if (kr == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fDeviceIsAttached = false;
+		kr = kIOReturnNoDevice;
+    }
+    if (kr == kIOReturnSuccess)
+	{
+		*powerAvailable = (UInt32) output[0];
+	}
+	
+	if ( kr != kIOReturnSuccess )
+	{
+		DEBUGPRINT("IOUSBDeviceClass::RequestExtraPower returning 0x%x\n", kr);
+	}
+	
+    return kr;
+}
+
+
+IOReturn
+IOUSBDeviceClass::ReturnExtraPower(UInt32 type, UInt32 powerReturned)
+{
+    uint64_t			input[2];
+    IOReturn			kr = kIOReturnSuccess;
+	
+    DEBUGPRINT("IOUSBDeviceClass::ReturnExtraPower type: %d, amount %d\n", (uint32_t)type, (uint32_t)powerReturned);
+    ATTACHEDCHECK();
+	
+	input[0] = (uint64_t) type;
+	input[1] = (uint64_t) powerReturned;
+	
+    kr = IOConnectCallScalarMethod(fConnection, kUSBDeviceUserClientReturnExtraPower, input, 2, NULL, NULL); 
+	if (kr == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fDeviceIsAttached = false;
+		kr = kIOReturnNoDevice;
+    }
+	if ( kr != kIOReturnSuccess )
+	{
+		DEBUGPRINT("IOUSBDeviceClass::ReturnExtraPower returning 0x%x\n", kr);
+	}
+	
+    return kr;
+}
+
+
+IOReturn
+IOUSBDeviceClass::GetExtraPowerAllocated(UInt32 type, UInt32 *powerAllocated)
+{
+    uint64_t			input[1];
+    uint64_t			output[1];
+    uint32_t			len = 1;
+    IOReturn			kr = kIOReturnSuccess;
+	
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::GetExtraPowerAllocated type: %d\n", this, (uint32_t) type);
+    ATTACHEDCHECK();
+	
+	input[0] = (uint64_t) type;
+	output[0] = 0;
+	kr = IOConnectCallScalarMethod(fConnection, kUSBDeviceUserClientGetExtraPowerAllocated, input, 1, output, &len);
+	
+	DEBUGPRINT("IOUSBDeviceClass::GetExtraPowerAllocated ret: 0x%x, powerAllocated = %qd\n", kr, output[0]);
+	if (kr == MACH_SEND_INVALID_DEST)
+    {
+		fIsOpen = false;
+		fDeviceIsAttached = false;
+		kr = kIOReturnNoDevice;
+    }
+    if (kr == kIOReturnSuccess)
+	{
+		*powerAllocated = (UInt32) output[0];
+	}
+	
+	if ( kr != kIOReturnSuccess )
+	{
+		DEBUGPRINT("IOUSBDeviceClass::GetExtraPowerAllocated returning 0x%x\n", kr);
+	}
+	
+    return kr;
+}
 
 
 #pragma mark -
@@ -1361,8 +1496,8 @@ IOUSBDeviceClass::sIOCFPlugInInterfaceV1 = {
 };
 
 
-IOUSBDeviceStruct300 
-IOUSBDeviceClass::sUSBDeviceInterfaceV300 = {
+IOUSBDeviceStruct320 
+IOUSBDeviceClass::sUSBDeviceInterfaceV320 = {
     0,
     &IOUSBIUnknown::genericQueryInterface,
     &IOUSBIUnknown::genericAddRef,
@@ -1407,7 +1542,12 @@ IOUSBDeviceClass::sUSBDeviceInterfaceV300 = {
     &IOUSBDeviceClass::deviceGetBusMicroFrameNumber,
     &IOUSBDeviceClass::deviceGetIOUSBLibVersion,
     // ----------new with 3.0.0
-    &IOUSBDeviceClass::deviceGetBusFrameNumberWithTime
+    &IOUSBDeviceClass::deviceGetBusFrameNumberWithTime,
+    // ----------new with 3.2.0
+    &IOUSBDeviceClass::deviceGetUSBDeviceInformation,
+    &IOUSBDeviceClass::deviceRequestExtraPower,
+    &IOUSBDeviceClass::deviceReturnExtraPower,
+    &IOUSBDeviceClass::deviceGetExtraPowerAllocated
 };
 
 #pragma mark Routing interfaces
@@ -1608,5 +1748,21 @@ IOUSBDeviceClass::deviceGetIOUSBLibVersion( void *self, NumVersion *ioUSBLibVers
 
 IOReturn 
 IOUSBDeviceClass::deviceGetBusFrameNumberWithTime(void *self, UInt64 *frame, AbsoluteTime *atTime)
-    { return getThis(self)->GetBusFrameNumberWithTime(frame, atTime); }
+{ return getThis(self)->GetBusFrameNumberWithTime(frame, atTime); }
+
+IOReturn 
+IOUSBDeviceClass::deviceGetUSBDeviceInformation(void *self, UInt32	*info)
+{ return getThis(self)->GetUSBDeviceInformation(info); }
+
+IOReturn 
+IOUSBDeviceClass::deviceRequestExtraPower(void *self, UInt32 type, UInt32 requestedPower, UInt32 *powerAvailable)
+{ return getThis(self)->RequestExtraPower(type, requestedPower, powerAvailable); }
+
+IOReturn 
+IOUSBDeviceClass::deviceReturnExtraPower(void *self, UInt32 type, UInt32 powerReturned)
+{ return getThis(self)->ReturnExtraPower(type, powerReturned); }
+
+IOReturn 
+IOUSBDeviceClass::deviceGetExtraPowerAllocated(void *self, UInt32 type, UInt32 *powerAllocated)
+{ return getThis(self)->GetExtraPowerAllocated(type, powerAllocated); }
 

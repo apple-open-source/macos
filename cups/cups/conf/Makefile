@@ -49,7 +49,6 @@ depend:
 #
 
 install:	all
-	$(INSTALL_DIR) -m 755 $(SERVERROOT)
 	for file in $(KEEP); do \
 		if test -r $(SERVERROOT)/$$file ; then \
 			$(INSTALL_CONFIG) $$file $(SERVERROOT)/$$file.N ; \

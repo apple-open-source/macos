@@ -137,5 +137,63 @@ enum {
 #define kIODisplayDimAggressiveness	iokit_family_err(sub_iokit_graphics, 3)
 #endif
 
+#define kIODisplaySupportsUnderscanKey	"IODisplaySupportsUnderscan"
+#define kIODisplaySupportsBasicAudioKey	"IODisplaySupportsBasicAudio"
+#define kIODisplaySupportsYCbCr444Key	"IODisplaySupportsYCbCr444"
+#define kIODisplaySupportsYCbCr422Key	"IODisplaySupportsYCbCr422"
+
+enum
+{ 
+    kIODisplayColorModeReserved = 0x00000000,
+    kIODisplayColorModeRGB      = 0x00000001,
+    kIODisplayColorModeYCbCr422 = 0x00000010,
+    kIODisplayColorModeYCbCr444 = 0x00000100,
+    kIODisplayColorModeAuto     = 0x10000000
+};
+
+enum
+{
+    kUpstreamProtocolMsgWrite   = '\0auw',
+    kUpstreamProtocolMsgRead    = '\0aur',
+    kUpstreamProtocolConfig     = 'aupc',
+    kUpstreamProtocolHDCPStatus = 'auph',
+    kUpstreamProtocolHDCPConfigStatus = 'aupp',
+    kUpstreamProtocolMsgStatus  = 'aums',
+    kColorSpaceSelection	= 'cyuv'
+};
+
+enum
+{
+    // AppleUpstream status change (HDCP downstream status has changed)
+    kIOFBAUSInterruptType          = 'aus ',
+    // AppleUpstream Data ready  (AppleUpstreamUserClient message is ready for read)
+    kIOFBAUDInterruptType          = 'aud '
+};
+
+#define kIOFBDPDeviceIDKey	    "dp-device-id"
+#define kIOFBDPDeviceTypeKey	    "device-type"
+#define kIOFBDPDeviceTypeDongleKey  "branch-device"
+#define kIOFBDPConfigDataKey	    "dpcd-registers"
+
+enum
+{
+    kDPRegisterLinkStatus      = 0x200,
+    kDPRegisterLinkStatusCount = 6,
+    kDPRegisterServiceIRQ      = 0x201,
+};
+
+enum
+{
+    kDPLinkStatusSinkCountMask = 0x3f,
+};
+
+enum
+{
+    kDPIRQRemoteControlCommandPending = 0x01,
+    kDPIRQAutomatedTestRequest        = 0x02,
+    kDPIRQContentProtection           = 0x04,
+    kDPIRQSinkSpecific                = 0x40,
+};
+
 #endif /* ! _IOKIT_IOGRAPHICSTYPESPRIVATE_H */
 

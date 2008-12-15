@@ -38,6 +38,8 @@
 # undef HAVE_STDARG_H	/* Python's config.h defines it as well. */
 #endif
 
+#define PY_SSIZE_T_CLEAN
+
 #include <Python.h>
 #if defined(MACOS) && !defined(MACOS_X_UNIX)
 # include "macglue.h"
@@ -48,11 +50,29 @@
 
 #if !defined(FEAT_PYTHON) && defined(PROTO)
 /* Use this to be able to generate prototypes without python being used. */
-# define PyObject int
-# define PyThreadState int
-# define PyTypeObject int
-struct PyMethodDef { int a; };
-# define PySequenceMethods int
+# define PyObject Py_ssize_t
+# define PyThreadState Py_ssize_t
+# define PyTypeObject Py_ssize_t
+struct PyMethodDef { Py_ssize_t a; };
+# define PySequenceMethods Py_ssize_t
+#endif
+
+#if defined(PY_VERSION_HEX) && PY_VERSION_HEX >= 0x02050000
+# define PyInt Py_ssize_t
+# define PyInquiry lenfunc
+# define PyIntArgFunc ssizeargfunc
+# define PyIntIntArgFunc ssizessizeargfunc
+# define PyIntObjArgProc ssizeobjargproc
+# define PyIntIntObjArgProc ssizessizeobjargproc
+# define Py_ssize_t_fmt "n"
+#else
+# define PyInt int
+# define PyInquiry inquiry
+# define PyIntArgFunc intargfunc
+# define PyIntIntArgFunc intintargfunc
+# define PyIntObjArgProc intobjargproc
+# define PyIntIntObjArgProc intintobjargproc
+# define Py_ssize_t_fmt "i"
 #endif
 
 /* Parser flags */
@@ -67,8 +87,17 @@ struct PyMethodDef { int a; };
 
 #if defined(DYNAMIC_PYTHON) || defined(PROTO)
 # ifndef DYNAMIC_PYTHON
-#  define HINSTANCE int		/* for generating prototypes */
+#  define HINSTANCE long_u		/* for generating prototypes */
 # endif
+
+/* This makes if_python.c compile without warnings against Python 2.5
+ * on Win32 and Win64. */
+#undef PyRun_SimpleString
+#undef PyArg_Parse
+#undef PyArg_ParseTuple
+#undef Py_BuildValue
+#undef Py_InitModule4
+#undef Py_InitModule4_64
 
 /*
  * Wrapper defines
@@ -150,11 +179,11 @@ static void (*dll_PyGILState_Release)(PyGILState_STATE);
 static long(*dll_PyInt_AsLong)(PyObject *);
 static PyObject*(*dll_PyInt_FromLong)(long);
 static PyTypeObject* dll_PyInt_Type;
-static PyObject*(*dll_PyList_GetItem)(PyObject *, int);
+static PyObject*(*dll_PyList_GetItem)(PyObject *, PyInt);
 static PyObject*(*dll_PyList_Append)(PyObject *, PyObject *);
-static PyObject*(*dll_PyList_New)(int size);
-static int(*dll_PyList_SetItem)(PyObject *, int, PyObject *);
-static int(*dll_PyList_Size)(PyObject *);
+static PyObject*(*dll_PyList_New)(PyInt size);
+static int(*dll_PyList_SetItem)(PyObject *, PyInt, PyObject *);
+static PyInt(*dll_PyList_Size)(PyObject *);
 static PyTypeObject* dll_PyList_Type;
 static PyObject*(*dll_PyImport_ImportModule)(const char *);
 static PyObject*(*dll_PyDict_New)(void);
@@ -163,8 +192,8 @@ static PyObject*(*dll_PyModule_GetDict)(PyObject *);
 static int(*dll_PyRun_SimpleString)(char *);
 static char*(*dll_PyString_AsString)(PyObject *);
 static PyObject*(*dll_PyString_FromString)(const char *);
-static PyObject*(*dll_PyString_FromStringAndSize)(const char *, int);
-static int(*dll_PyString_Size)(PyObject *);
+static PyObject*(*dll_PyString_FromStringAndSize)(const char *, PyInt);
+static PyInt(*dll_PyString_Size)(PyObject *);
 static PyTypeObject* dll_PyString_Type;
 static int(*dll_PySys_SetObject)(char *, PyObject *);
 static int(*dll_PySys_SetArgv)(int, char **);
@@ -251,7 +280,11 @@ static struct
     {"PyType_Type", (PYTHON_PROC*)&dll_PyType_Type},
     {"Py_BuildValue", (PYTHON_PROC*)&dll_Py_BuildValue},
     {"Py_FindMethod", (PYTHON_PROC*)&dll_Py_FindMethod},
+# if (PY_VERSION_HEX >= 0x02050000) && SIZEOF_SIZE_T != SIZEOF_INT
+    {"Py_InitModule4_64", (PYTHON_PROC*)&dll_Py_InitModule4},
+# else
     {"Py_InitModule4", (PYTHON_PROC*)&dll_Py_InitModule4},
+# endif
     {"Py_Initialize", (PYTHON_PROC*)&dll_Py_Initialize},
     {"Py_Finalize", (PYTHON_PROC*)&dll_Py_Finalize},
     {"Py_IsInitialized", (PYTHON_PROC*)&dll_Py_IsInitialized},
@@ -321,8 +354,7 @@ python_runtime_link_init(char *libname, int verbose)
  * TRUE, else FALSE.
  */
     int
-python_enabled(verbose)
-    int		verbose;
+python_enabled(int verbose)
 {
     return python_runtime_link_init(DYNAMIC_PYTHON_DLL, verbose) == OK;
 }
@@ -356,8 +388,8 @@ get_exceptions()
  */
 
 static void DoPythonCommand(exarg_T *, const char *);
-static int RangeStart;
-static int RangeEnd;
+static PyInt RangeStart;
+static PyInt RangeEnd;
 
 static void PythonIO_Flush(void);
 static int PythonIO_Init(void);
@@ -366,12 +398,12 @@ static int PythonMod_Init(void);
 /* Utility functions for the vim/python interface
  * ----------------------------------------------
  */
-static PyObject *GetBufferLine(buf_T *, int);
-static PyObject *GetBufferLineList(buf_T *, int, int);
+static PyObject *GetBufferLine(buf_T *, PyInt);
+static PyObject *GetBufferLineList(buf_T *, PyInt, PyInt);
 
-static int SetBufferLine(buf_T *, int, PyObject *, int *);
-static int SetBufferLineList(buf_T *, int, int, PyObject *, int *);
-static int InsertBufferLines(buf_T *, int, PyObject *, int *);
+static int SetBufferLine(buf_T *, PyInt, PyObject *, PyInt *);
+static int SetBufferLineList(buf_T *, PyInt, PyInt, PyObject *, PyInt *);
+static int InsertBufferLines(buf_T *, PyInt, PyObject *, PyInt *);
 
 static PyObject *LineToString(const char *);
 static char *StringToLine(PyObject *);
@@ -672,7 +704,7 @@ static PyObject *OutputWrite(PyObject *, PyObject *);
 static PyObject *OutputWritelines(PyObject *, PyObject *);
 
 typedef void (*writefn)(char_u *);
-static void writer(writefn fn, char_u *str, int n);
+static void writer(writefn fn, char_u *str, PyInt n);
 
 /* Output object definition
  */
@@ -773,8 +805,8 @@ OutputWrite(PyObject *self, PyObject *args)
     static PyObject *
 OutputWritelines(PyObject *self, PyObject *args)
 {
-    int n;
-    int i;
+    PyInt n;
+    PyInt i;
     PyObject *list;
     int error = ((OutputObject *)(self))->error;
 
@@ -794,7 +826,7 @@ OutputWritelines(PyObject *self, PyObject *args)
     {
 	PyObject *line = PyList_GetItem(list, i);
 	char *str;
-	int len;
+	PyInt len;
 
 	if (!PyArg_Parse(line, "s#", &str, &len)) {
 	    PyErr_SetString(PyExc_TypeError, _("writelines() requires list of strings"));
@@ -818,15 +850,15 @@ OutputWritelines(PyObject *self, PyObject *args)
  */
 
 static char_u *buffer = NULL;
-static int buffer_len = 0;
-static int buffer_size = 0;
+static PyInt buffer_len = 0;
+static PyInt buffer_size = 0;
 
 static writefn old_fn = NULL;
 
     static void
-buffer_ensure(int n)
+buffer_ensure(PyInt n)
 {
-    int new_size;
+    PyInt new_size;
     char_u *new_buffer;
 
     if (n < buffer_size)
@@ -866,7 +898,7 @@ PythonIO_Flush(void)
 }
 
     static void
-writer(writefn fn, char_u *str, int n)
+writer(writefn fn, char_u *str, PyInt n)
 {
     char_u *ptr;
 
@@ -877,7 +909,7 @@ writer(writefn fn, char_u *str, int n)
 
     while (n > 0 && (ptr = memchr(str, '\n', n)) != NULL)
     {
-	int len = ptr - str;
+	PyInt len = ptr - str;
 
 	buffer_ensure(buffer_len + len + 1);
 
@@ -986,11 +1018,11 @@ static void BufferDestructor(PyObject *);
 static PyObject *BufferGetattr(PyObject *, char *);
 static PyObject *BufferRepr(PyObject *);
 
-static int BufferLength(PyObject *);
-static PyObject *BufferItem(PyObject *, int);
-static PyObject *BufferSlice(PyObject *, int, int);
-static int BufferAssItem(PyObject *, int, PyObject *);
-static int BufferAssSlice(PyObject *, int, int, PyObject *);
+static PyInt BufferLength(PyObject *);
+static PyObject *BufferItem(PyObject *, PyInt);
+static PyObject *BufferSlice(PyObject *, PyInt, PyInt);
+static PyInt BufferAssItem(PyObject *, PyInt, PyObject *);
+static PyInt BufferAssSlice(PyObject *, PyInt, PyInt, PyObject *);
 
 static PyObject *BufferAppend(PyObject *, PyObject *);
 static PyObject *BufferMark(PyObject *, PyObject *);
@@ -1004,24 +1036,24 @@ typedef struct
 {
     PyObject_HEAD
     BufferObject *buf;
-    int start;
-    int end;
+    PyInt start;
+    PyInt end;
 }
 RangeObject;
 
 #define RangeType_Check(obj) ((obj)->ob_type == &RangeType)
 
-static PyObject *RangeNew(buf_T *, int, int);
+static PyObject *RangeNew(buf_T *, PyInt, PyInt);
 
 static void RangeDestructor(PyObject *);
 static PyObject *RangeGetattr(PyObject *, char *);
 static PyObject *RangeRepr(PyObject *);
 
-static int RangeLength(PyObject *);
-static PyObject *RangeItem(PyObject *, int);
-static PyObject *RangeSlice(PyObject *, int, int);
-static int RangeAssItem(PyObject *, int, PyObject *);
-static int RangeAssSlice(PyObject *, int, int, PyObject *);
+static PyInt RangeLength(PyObject *);
+static PyObject *RangeItem(PyObject *, PyInt);
+static PyObject *RangeSlice(PyObject *, PyInt, PyInt);
+static PyInt RangeAssItem(PyObject *, PyInt, PyObject *);
+static PyInt RangeAssSlice(PyObject *, PyInt, PyInt, PyObject *);
 
 static PyObject *RangeAppend(PyObject *, PyObject *);
 
@@ -1029,15 +1061,15 @@ static PyObject *RangeAppend(PyObject *, PyObject *);
  * -------------------------------------------
  */
 
-static int WinListLength(PyObject *);
-static PyObject *WinListItem(PyObject *, int);
+static PyInt WinListLength(PyObject *);
+static PyObject *WinListItem(PyObject *, PyInt);
 
 /* Buffer list type - Implementation functions
  * -------------------------------------------
  */
 
-static int BufListLength(PyObject *);
-static PyObject *BufListItem(PyObject *, int);
+static PyInt BufListLength(PyObject *);
+static PyObject *BufListItem(PyObject *, PyInt);
 
 /* Current objects type - Implementation functions
  * -----------------------------------------------
@@ -1051,8 +1083,8 @@ static int CurrentSetattr(PyObject *, char *, PyObject *);
 
 static struct PyMethodDef VimMethods[] = {
     /* name,	     function,		calling,    documentation */
-    {"command",	     VimCommand,	1,	    "" },
-    {"eval",	     VimEval,		1,	    "" },
+    {"command",	     VimCommand,	1,	    "Execute a Vim ex-mode command" },
+    {"eval",	     VimEval,		1,	    "Evaluate an expression using Vim evaluator" },
     { NULL,	     NULL,		0,	    NULL }
 };
 
@@ -1088,11 +1120,12 @@ VimCommand(PyObject *self, PyObject *args)
     return result;
 }
 
+#ifdef FEAT_EVAL
 /*
  * Function to translate a typval_T into a PyObject; this will recursively
  * translate lists/dictionaries into their Python equivalents.
  *
- * The depth parameter is too avoid infinite recursion, set it to 1 when
+ * The depth parameter is to avoid infinite recursion, set it to 1 when
  * you call VimToPython.
  */
     static PyObject *
@@ -1112,7 +1145,7 @@ VimToPython(typval_T *our_tv, int depth, PyObject *lookupDict)
 
     /* Check if we run into a recursive loop.  The item must be in lookupDict
      * then and we can use it again. */
-    sprintf(ptrBuf, "%ld", (long)our_tv);
+    sprintf(ptrBuf, PRINTF_DECIMAL_LONG_U, (long_u)our_tv);
     result = PyDict_GetItemString(lookupDict, ptrBuf);
     if (result != NULL)
 	Py_INCREF(result);
@@ -1130,6 +1163,16 @@ VimToPython(typval_T *our_tv, int depth, PyObject *lookupDict)
 	result = Py_BuildValue("s", buf);
 	PyDict_SetItemString(lookupDict, ptrBuf, result);
     }
+# ifdef FEAT_FLOAT
+    else if (our_tv->v_type == VAR_FLOAT)
+    {
+	char buf[NUMBUFLEN];
+
+	sprintf(buf, "%f", our_tv->vval.v_float);
+	result = Py_BuildValue("s", buf);
+	PyDict_SetItemString(lookupDict, ptrBuf, result);
+    }
+# endif
     else if (our_tv->v_type == VAR_LIST)
     {
 	list_T		*list = our_tv->vval.v_list;
@@ -1156,7 +1199,7 @@ VimToPython(typval_T *our_tv, int depth, PyObject *lookupDict)
 	if (our_tv->vval.v_dict != NULL)
 	{
 	    hashtab_T	*ht = &our_tv->vval.v_dict->dv_hashtab;
-	    int		todo = ht->ht_used;
+	    long_u	todo = ht->ht_used;
 	    hashitem_T	*hi;
 	    dictitem_T	*di;
 
@@ -1182,6 +1225,7 @@ VimToPython(typval_T *our_tv, int depth, PyObject *lookupDict)
 
     return result;
 }
+#endif
 
 /*ARGSUSED*/
     static PyObject *
@@ -1245,7 +1289,7 @@ CheckBuffer(BufferObject *this)
 }
 
     static PyObject *
-RBItem(BufferObject *self, int n, int start, int end)
+RBItem(BufferObject *self, PyInt n, PyInt start, PyInt end)
 {
     if (CheckBuffer(self))
 	return NULL;
@@ -1260,9 +1304,9 @@ RBItem(BufferObject *self, int n, int start, int end)
 }
 
     static PyObject *
-RBSlice(BufferObject *self, int lo, int hi, int start, int end)
+RBSlice(BufferObject *self, PyInt lo, PyInt hi, PyInt start, PyInt end)
 {
-    int size;
+    PyInt size;
 
     if (CheckBuffer(self))
 	return NULL;
@@ -1283,10 +1327,10 @@ RBSlice(BufferObject *self, int lo, int hi, int start, int end)
     return GetBufferLineList(self->buf, lo+start, hi+start);
 }
 
-    static int
-RBAssItem(BufferObject *self, int n, PyObject *val, int start, int end, int *new_end)
+    static PyInt
+RBAssItem(BufferObject *self, PyInt n, PyObject *val, PyInt start, PyInt end, PyInt *new_end)
 {
-    int len_change;
+    PyInt len_change;
 
     if (CheckBuffer(self))
 	return -1;
@@ -1306,11 +1350,11 @@ RBAssItem(BufferObject *self, int n, PyObject *val, int start, int end, int *new
     return 0;
 }
 
-    static int
-RBAssSlice(BufferObject *self, int lo, int hi, PyObject *val, int start, int end, int *new_end)
+    static PyInt
+RBAssSlice(BufferObject *self, PyInt lo, PyInt hi, PyObject *val, PyInt start, PyInt end, PyInt *new_end)
 {
-    int size;
-    int len_change;
+    PyInt size;
+    PyInt len_change;
 
     /* Self must be a valid buffer */
     if (CheckBuffer(self))
@@ -1340,19 +1384,19 @@ RBAssSlice(BufferObject *self, int lo, int hi, PyObject *val, int start, int end
 }
 
     static PyObject *
-RBAppend(BufferObject *self, PyObject *args, int start, int end, int *new_end)
+RBAppend(BufferObject *self, PyObject *args, PyInt start, PyInt end, PyInt *new_end)
 {
     PyObject *lines;
-    int len_change;
-    int max;
-    int n;
+    PyInt len_change;
+    PyInt max;
+    PyInt n;
 
     if (CheckBuffer(self))
 	return NULL;
 
     max = n = end - start + 1;
 
-    if (!PyArg_ParseTuple(args, "O|i", &lines, &n))
+    if (!PyArg_ParseTuple(args, "O|" Py_ssize_t_fmt, &lines, &n))
 	return NULL;
 
     if (n < 0 || n > max)
@@ -1377,20 +1421,20 @@ RBAppend(BufferObject *self, PyObject *args, int start, int end, int *new_end)
 
 static struct PyMethodDef BufferMethods[] = {
     /* name,	    function,		calling,    documentation */
-    {"append",	    BufferAppend,	1,	    "" },
-    {"mark",	    BufferMark,		1,	    "" },
-    {"range",	    BufferRange,	1,	    "" },
+    {"append",	    BufferAppend,	1,	    "Append data to Vim buffer" },
+    {"mark",	    BufferMark,		1,	    "Return (row,col) representing position of named mark" },
+    {"range",	    BufferRange,	1,	    "Return a range object which represents the part of the given buffer between line numbers s and e" },
     { NULL,	    NULL,		0,	    NULL }
 };
 
 static PySequenceMethods BufferAsSeq = {
-    (inquiry)		BufferLength,	    /* sq_length,    len(x)   */
+    (PyInquiry)		BufferLength,	    /* sq_length,    len(x)   */
     (binaryfunc)	0, /* BufferConcat, */	     /* sq_concat,    x+y      */
-    (intargfunc)	0, /* BufferRepeat, */	     /* sq_repeat,    x*n      */
-    (intargfunc)	BufferItem,	    /* sq_item,      x[i]     */
-    (intintargfunc)	BufferSlice,	    /* sq_slice,     x[i:j]   */
-    (intobjargproc)	BufferAssItem,	    /* sq_ass_item,  x[i]=v   */
-    (intintobjargproc)	BufferAssSlice,     /* sq_ass_slice, x[i:j]=v */
+    (PyIntArgFunc)	0, /* BufferRepeat, */	     /* sq_repeat,    x*n      */
+    (PyIntArgFunc)	BufferItem,	    /* sq_item,      x[i]     */
+    (PyIntIntArgFunc)	BufferSlice,	    /* sq_slice,     x[i:j]   */
+    (PyIntObjArgProc)	BufferAssItem,	    /* sq_ass_item,  x[i]=v   */
+    (PyIntIntObjArgProc)	BufferAssSlice,     /* sq_ass_slice, x[i:j]=v */
 };
 
 static PyTypeObject BufferType = {
@@ -1463,7 +1507,7 @@ BufferDestructor(PyObject *self)
     if (this->buf && this->buf != INVALID_BUFFER_VALUE)
 	this->buf->b_python_ref = NULL;
 
-    PyMem_DEL(self);
+    Py_DECREF(self);
 }
 
     static PyObject *
@@ -1475,9 +1519,9 @@ BufferGetattr(PyObject *self, char *name)
 	return NULL;
 
     if (strcmp(name, "name") == 0)
-	return Py_BuildValue("s",this->buf->b_ffname);
+	return Py_BuildValue("s", this->buf->b_ffname);
     else if (strcmp(name, "number") == 0)
-	return Py_BuildValue("i",this->buf->b_fnum);
+	return Py_BuildValue(Py_ssize_t_fmt, this->buf->b_fnum);
     else if (strcmp(name,"__members__") == 0)
 	return Py_BuildValue("[ss]", "name", "number");
     else
@@ -1492,14 +1536,13 @@ BufferRepr(PyObject *self)
 
     if (this->buf == INVALID_BUFFER_VALUE)
     {
-	vim_snprintf(repr, 100, _("<buffer object (deleted) at %8lX>"),
-								(long)(self));
+	vim_snprintf(repr, 100, _("<buffer object (deleted) at %p>"), (self));
 	return PyString_FromString(repr);
     }
     else
     {
 	char *name = (char *)this->buf->b_fname;
-	int len;
+	PyInt len;
 
 	if (name == NULL)
 	    name = "";
@@ -1516,7 +1559,7 @@ BufferRepr(PyObject *self)
 
 /******************/
 
-    static int
+    static PyInt
 BufferLength(PyObject *self)
 {
     /* HOW DO WE SIGNAL AN ERROR FROM THIS FUNCTION? */
@@ -1527,32 +1570,32 @@ BufferLength(PyObject *self)
 }
 
     static PyObject *
-BufferItem(PyObject *self, int n)
+BufferItem(PyObject *self, PyInt n)
 {
     return RBItem((BufferObject *)(self), n, 1,
 		  (int)((BufferObject *)(self))->buf->b_ml.ml_line_count);
 }
 
     static PyObject *
-BufferSlice(PyObject *self, int lo, int hi)
+BufferSlice(PyObject *self, PyInt lo, PyInt hi)
 {
     return RBSlice((BufferObject *)(self), lo, hi, 1,
 		   (int)((BufferObject *)(self))->buf->b_ml.ml_line_count);
 }
 
-    static int
-BufferAssItem(PyObject *self, int n, PyObject *val)
+    static PyInt
+BufferAssItem(PyObject *self, PyInt n, PyObject *val)
 {
     return RBAssItem((BufferObject *)(self), n, val, 1,
-		     (int)((BufferObject *)(self))->buf->b_ml.ml_line_count,
+		     (PyInt)((BufferObject *)(self))->buf->b_ml.ml_line_count,
 		     NULL);
 }
 
-    static int
-BufferAssSlice(PyObject *self, int lo, int hi, PyObject *val)
+    static PyInt
+BufferAssSlice(PyObject *self, PyInt lo, PyInt hi, PyObject *val)
 {
     return RBAssSlice((BufferObject *)(self), lo, hi, val, 1,
-		      (int)((BufferObject *)(self))->buf->b_ml.ml_line_count,
+		      (PyInt)((BufferObject *)(self))->buf->b_ml.ml_line_count,
 		      NULL);
 }
 
@@ -1560,7 +1603,7 @@ BufferAssSlice(PyObject *self, int lo, int hi, PyObject *val)
 BufferAppend(PyObject *self, PyObject *args)
 {
     return RBAppend((BufferObject *)(self), args, 1,
-		    (int)((BufferObject *)(self))->buf->b_ml.ml_line_count,
+		    (PyInt)((BufferObject *)(self))->buf->b_ml.ml_line_count,
 		    NULL);
 }
 
@@ -1605,13 +1648,13 @@ BufferMark(PyObject *self, PyObject *args)
     static PyObject *
 BufferRange(PyObject *self, PyObject *args)
 {
-    int start;
-    int end;
+    PyInt start;
+    PyInt end;
 
     if (CheckBuffer((BufferObject *)(self)))
 	return NULL;
 
-    if (!PyArg_ParseTuple(args, "ii", &start, &end))
+    if (!PyArg_ParseTuple(args, Py_ssize_t_fmt Py_ssize_t_fmt, &start, &end))
 	return NULL;
 
     return RangeNew(((BufferObject *)(self))->buf, start, end);
@@ -1622,18 +1665,18 @@ BufferRange(PyObject *self, PyObject *args)
 
 static struct PyMethodDef RangeMethods[] = {
     /* name,	    function,		calling,    documentation */
-    {"append",	    RangeAppend,	1,	    "" },
+    {"append",	    RangeAppend,	1,	    "Append data to the Vim range" },
     { NULL,	    NULL,		0,	    NULL }
 };
 
 static PySequenceMethods RangeAsSeq = {
-    (inquiry)		RangeLength,	    /* sq_length,    len(x)   */
+    (PyInquiry)		RangeLength,	    /* sq_length,    len(x)   */
     (binaryfunc)	0, /* RangeConcat, */	     /* sq_concat,    x+y      */
-    (intargfunc)	0, /* RangeRepeat, */	     /* sq_repeat,    x*n      */
-    (intargfunc)	RangeItem,	    /* sq_item,      x[i]     */
-    (intintargfunc)	RangeSlice,	    /* sq_slice,     x[i:j]   */
-    (intobjargproc)	RangeAssItem,	    /* sq_ass_item,  x[i]=v   */
-    (intintobjargproc)	RangeAssSlice,	    /* sq_ass_slice, x[i:j]=v */
+    (PyIntArgFunc)	0, /* RangeRepeat, */	     /* sq_repeat,    x*n      */
+    (PyIntArgFunc)	RangeItem,	    /* sq_item,      x[i]     */
+    (PyIntIntArgFunc)	RangeSlice,	    /* sq_slice,     x[i:j]   */
+    (PyIntObjArgProc)	RangeAssItem,	    /* sq_ass_item,  x[i]=v   */
+    (PyIntIntObjArgProc)	RangeAssSlice,	    /* sq_ass_slice, x[i:j]=v */
 };
 
 static PyTypeObject RangeType = {
@@ -1663,7 +1706,7 @@ static PyTypeObject RangeType = {
  */
 
     static PyObject *
-RangeNew(buf_T *buf, int start, int end)
+RangeNew(buf_T *buf, PyInt start, PyInt end)
 {
     BufferObject *bufr;
     RangeObject *self;
@@ -1674,7 +1717,7 @@ RangeNew(buf_T *buf, int start, int end)
     bufr = (BufferObject *)BufferNew(buf);
     if (bufr == NULL)
     {
-	PyMem_DEL(self);
+	Py_DECREF(self);
 	return NULL;
     }
     Py_INCREF(bufr);
@@ -1690,16 +1733,16 @@ RangeNew(buf_T *buf, int start, int end)
 RangeDestructor(PyObject *self)
 {
     Py_DECREF(((RangeObject *)(self))->buf);
-    PyMem_DEL(self);
+    Py_DECREF(self);
 }
 
     static PyObject *
 RangeGetattr(PyObject *self, char *name)
 {
     if (strcmp(name, "start") == 0)
-	return Py_BuildValue("i",((RangeObject *)(self))->start - 1);
+	return Py_BuildValue(Py_ssize_t_fmt, ((RangeObject *)(self))->start - 1);
     else if (strcmp(name, "end") == 0)
-	return Py_BuildValue("i",((RangeObject *)(self))->end - 1);
+	return Py_BuildValue(Py_ssize_t_fmt, ((RangeObject *)(self))->end - 1);
     else
 	return Py_FindMethod(RangeMethods, self, name);
 }
@@ -1712,8 +1755,8 @@ RangeRepr(PyObject *self)
 
     if (this->buf->buf == INVALID_BUFFER_VALUE)
     {
-	vim_snprintf(repr, 100, "<range object (for deleted buffer) at %8lX>",
-								(long)(self));
+	vim_snprintf(repr, 100, "<range object (for deleted buffer) at %p>",
+								      (self));
 	return PyString_FromString(repr);
     }
     else
@@ -1723,7 +1766,7 @@ RangeRepr(PyObject *self)
 
 	if (name == NULL)
 	    name = "";
-	len = strlen(name);
+	len = (int)strlen(name);
 
 	if (len > 45)
 	    name = name + (45 - len);
@@ -1738,7 +1781,7 @@ RangeRepr(PyObject *self)
 
 /****************/
 
-    static int
+    static PyInt
 RangeLength(PyObject *self)
 {
     /* HOW DO WE SIGNAL AN ERROR FROM THIS FUNCTION? */
@@ -1749,7 +1792,7 @@ RangeLength(PyObject *self)
 }
 
     static PyObject *
-RangeItem(PyObject *self, int n)
+RangeItem(PyObject *self, PyInt n)
 {
     return RBItem(((RangeObject *)(self))->buf, n,
 		  ((RangeObject *)(self))->start,
@@ -1757,15 +1800,15 @@ RangeItem(PyObject *self, int n)
 }
 
     static PyObject *
-RangeSlice(PyObject *self, int lo, int hi)
+RangeSlice(PyObject *self, PyInt lo, PyInt hi)
 {
     return RBSlice(((RangeObject *)(self))->buf, lo, hi,
 		   ((RangeObject *)(self))->start,
 		   ((RangeObject *)(self))->end);
 }
 
-    static int
-RangeAssItem(PyObject *self, int n, PyObject *val)
+    static PyInt
+RangeAssItem(PyObject *self, PyInt n, PyObject *val)
 {
     return RBAssItem(((RangeObject *)(self))->buf, n, val,
 		     ((RangeObject *)(self))->start,
@@ -1773,8 +1816,8 @@ RangeAssItem(PyObject *self, int n, PyObject *val)
 		     &((RangeObject *)(self))->end);
 }
 
-    static int
-RangeAssSlice(PyObject *self, int lo, int hi, PyObject *val)
+    static PyInt
+RangeAssSlice(PyObject *self, PyInt lo, PyInt hi, PyObject *val)
 {
     return RBAssSlice(((RangeObject *)(self))->buf, lo, hi, val,
 		      ((RangeObject *)(self))->start,
@@ -1801,13 +1844,13 @@ typedef struct
 BufListObject;
 
 static PySequenceMethods BufListAsSeq = {
-    (inquiry)		BufListLength,	    /* sq_length,    len(x)   */
+    (PyInquiry)		BufListLength,	    /* sq_length,    len(x)   */
     (binaryfunc)	0,		    /* sq_concat,    x+y      */
-    (intargfunc)	0,		    /* sq_repeat,    x*n      */
-    (intargfunc)	BufListItem,	    /* sq_item,      x[i]     */
-    (intintargfunc)	0,		    /* sq_slice,     x[i:j]   */
-    (intobjargproc)	0,		    /* sq_ass_item,  x[i]=v   */
-    (intintobjargproc)	0,		    /* sq_ass_slice, x[i:j]=v */
+    (PyIntArgFunc)	0,		    /* sq_repeat,    x*n      */
+    (PyIntArgFunc)	BufListItem,	    /* sq_item,      x[i]     */
+    (PyIntIntArgFunc)	0,		    /* sq_slice,     x[i:j]   */
+    (PyIntObjArgProc)	0,		    /* sq_ass_item,  x[i]=v   */
+    (PyIntIntObjArgProc)	0,		    /* sq_ass_slice, x[i:j]=v */
 };
 
 static PyTypeObject BufListType = {
@@ -1837,11 +1880,11 @@ static PyTypeObject BufListType = {
  */
 
 /*ARGSUSED*/
-    static int
+    static PyInt
 BufListLength(PyObject *self)
 {
     buf_T	*b = firstbuf;
-    int		n = 0;
+    PyInt	n = 0;
 
     while (b)
     {
@@ -1854,7 +1897,7 @@ BufListLength(PyObject *self)
 
 /*ARGSUSED*/
     static PyObject *
-BufListItem(PyObject *self, int n)
+BufListItem(PyObject *self, PyInt n)
 {
     buf_T *b;
 
@@ -1944,7 +1987,7 @@ WindowDestructor(PyObject *self)
     if (this->win && this->win != INVALID_WINDOW_VALUE)
 	this->win->w_python_ref = NULL;
 
-    PyMem_DEL(self);
+    Py_DECREF(self);
 }
 
     static int
@@ -2087,8 +2130,7 @@ WindowRepr(PyObject *self)
 
     if (this->win == INVALID_WINDOW_VALUE)
     {
-	vim_snprintf(repr, 100, _("<window object (deleted) at %.8lX>"),
-								(long)(self));
+	vim_snprintf(repr, 100, _("<window object (deleted) at %p>"), (self));
 	return PyString_FromString(repr);
     }
     else
@@ -2100,8 +2142,8 @@ WindowRepr(PyObject *self)
 	    ++i;
 
 	if (w == NULL)
-	    vim_snprintf(repr, 100, _("<window object (unknown) at %.8lX>"),
-								(long)(self));
+	    vim_snprintf(repr, 100, _("<window object (unknown) at %p>"),
+								      (self));
 	else
 	    vim_snprintf(repr, 100, _("<window %d>"), i);
 
@@ -2119,13 +2161,13 @@ typedef struct
 WinListObject;
 
 static PySequenceMethods WinListAsSeq = {
-    (inquiry)		WinListLength,	    /* sq_length,    len(x)   */
+    (PyInquiry)		WinListLength,	    /* sq_length,    len(x)   */
     (binaryfunc)	0,		    /* sq_concat,    x+y      */
-    (intargfunc)	0,		    /* sq_repeat,    x*n      */
-    (intargfunc)	WinListItem,	    /* sq_item,      x[i]     */
-    (intintargfunc)	0,		    /* sq_slice,     x[i:j]   */
-    (intobjargproc)	0,		    /* sq_ass_item,  x[i]=v   */
-    (intintobjargproc)	0,		    /* sq_ass_slice, x[i:j]=v */
+    (PyIntArgFunc)	0,		    /* sq_repeat,    x*n      */
+    (PyIntArgFunc)	WinListItem,	    /* sq_item,      x[i]     */
+    (PyIntIntArgFunc)	0,		    /* sq_slice,     x[i:j]   */
+    (PyIntObjArgProc)	0,		    /* sq_ass_item,  x[i]=v   */
+    (PyIntIntObjArgProc)	0,		    /* sq_ass_slice, x[i:j]=v */
 };
 
 static PyTypeObject WinListType = {
@@ -2154,11 +2196,11 @@ static PyTypeObject WinListType = {
 /* Window list object - Implementation
  */
 /*ARGSUSED*/
-    static int
+    static PyInt
 WinListLength(PyObject *self)
 {
     win_T	*w = firstwin;
-    int		n = 0;
+    PyInt	n = 0;
 
     while (w != NULL)
     {
@@ -2171,7 +2213,7 @@ WinListLength(PyObject *self)
 
 /*ARGSUSED*/
     static PyObject *
-WinListItem(PyObject *self, int n)
+WinListItem(PyObject *self, PyInt n)
 {
     win_T *w;
 
@@ -2226,7 +2268,7 @@ CurrentGetattr(PyObject *self, char *name)
     else if (strcmp(name, "window") == 0)
 	return (PyObject *)WindowNew(curwin);
     else if (strcmp(name, "line") == 0)
-	return GetBufferLine(curbuf, (int)curwin->w_cursor.lnum);
+	return GetBufferLine(curbuf, (PyInt)curwin->w_cursor.lnum);
     else if (strcmp(name, "range") == 0)
 	return RangeNew(curbuf, RangeStart, RangeEnd);
     else if (strcmp(name,"__members__") == 0)
@@ -2244,7 +2286,7 @@ CurrentSetattr(PyObject *self, char *name, PyObject *value)
 {
     if (strcmp(name, "line") == 0)
     {
-	if (SetBufferLine(curbuf, (int)curwin->w_cursor.lnum, value, NULL) == FAIL)
+	if (SetBufferLine(curbuf, (PyInt)curwin->w_cursor.lnum, value, NULL) == FAIL)
 	    return -1;
 
 	return 0;
@@ -2316,7 +2358,7 @@ PythonMod_Init(void)
     /* Set sys.argv[] to avoid a crash in warn(). */
     PySys_SetArgv(1, argv);
 
-    mod = Py_InitModule("vim", VimMethods);
+    mod = Py_InitModule4("vim", VimMethods, (char *)NULL, (PyObject *)NULL, PYTHON_API_VERSION);
     dict = PyModule_GetDict(mod);
 
     VimError = Py_BuildValue("s", "vim.error");
@@ -2341,7 +2383,7 @@ PythonMod_Init(void)
  * string object.
  */
     static PyObject *
-GetBufferLine(buf_T *buf, int n)
+GetBufferLine(buf_T *buf, PyInt n)
 {
     return LineToString((char *)ml_get_buf(buf, (linenr_T)n, FALSE));
 }
@@ -2351,10 +2393,10 @@ GetBufferLine(buf_T *buf, int n)
  * including, hi. The list is returned as a Python list of string objects.
  */
     static PyObject *
-GetBufferLineList(buf_T *buf, int lo, int hi)
+GetBufferLineList(buf_T *buf, PyInt lo, PyInt hi)
 {
-    int i;
-    int n = hi - lo;
+    PyInt i;
+    PyInt n = hi - lo;
     PyObject *list = PyList_New(n);
 
     if (list == NULL)
@@ -2394,7 +2436,7 @@ GetBufferLineList(buf_T *buf, int lo, int hi)
  * deleted).
  */
     static void
-py_fix_cursor(int lo, int hi, int extra)
+py_fix_cursor(linenr_T lo, linenr_T hi, linenr_T extra)
 {
     if (curwin->w_cursor.lnum >= lo)
     {
@@ -2410,6 +2452,8 @@ py_fix_cursor(int lo, int hi, int extra)
 	    curwin->w_cursor.lnum = lo;
 	    check_cursor();
 	}
+	else
+	    check_cursor_col();
 	changed_cline_bef_curs();
     }
     invalidate_botline();
@@ -2424,7 +2468,7 @@ py_fix_cursor(int lo, int hi, int extra)
  * is set to the change in the buffer length.
  */
     static int
-SetBufferLine(buf_T *buf, int n, PyObject *line, int *len_change)
+SetBufferLine(buf_T *buf, PyInt n, PyObject *line, PyInt *len_change)
 {
     /* First of all, we check the thpe of the supplied Python object.
      * There are three cases:
@@ -2447,7 +2491,7 @@ SetBufferLine(buf_T *buf, int n, PyObject *line, int *len_change)
 	{
 	    deleted_lines_mark((linenr_T)n, 1L);
 	    if (buf == curwin->w_buffer)
-		py_fix_cursor(n, n + 1, -1);
+		py_fix_cursor((linenr_T)n, (linenr_T)n + 1, (linenr_T)-1);
 	}
 
 	curbuf = savebuf;
@@ -2487,6 +2531,10 @@ SetBufferLine(buf_T *buf, int n, PyObject *line, int *len_change)
 
 	curbuf = savebuf;
 
+	/* Check that the cursor is not beyond the end of the line now. */
+	if (buf == curwin->w_buffer)
+	    check_cursor_col();
+
 	if (PyErr_Occurred() || VimErrorCheck())
 	    return FAIL;
 
@@ -2511,7 +2559,7 @@ SetBufferLine(buf_T *buf, int n, PyObject *line, int *len_change)
  * is set to the change in the buffer length.
  */
     static int
-SetBufferLineList(buf_T *buf, int lo, int hi, PyObject *list, int *len_change)
+SetBufferLineList(buf_T *buf, PyInt lo, PyInt hi, PyObject *list, PyInt *len_change)
 {
     /* First of all, we check the thpe of the supplied Python object.
      * There are three cases:
@@ -2521,8 +2569,8 @@ SetBufferLineList(buf_T *buf, int lo, int hi, PyObject *list, int *len_change)
      */
     if (list == Py_None || list == NULL)
     {
-	int	i;
-	int	n = hi - lo;
+	PyInt	i;
+	PyInt	n = (int)(hi - lo);
 	buf_T	*savebuf = curbuf;
 
 	PyErr_Clear();
@@ -2543,7 +2591,7 @@ SetBufferLineList(buf_T *buf, int lo, int hi, PyObject *list, int *len_change)
 	    deleted_lines_mark((linenr_T)lo, (long)i);
 
 	    if (buf == curwin->w_buffer)
-		py_fix_cursor(lo, hi, -n);
+		py_fix_cursor((linenr_T)lo, (linenr_T)hi, (linenr_T)-n);
 	}
 
 	curbuf = savebuf;
@@ -2558,10 +2606,10 @@ SetBufferLineList(buf_T *buf, int lo, int hi, PyObject *list, int *len_change)
     }
     else if (PyList_Check(list))
     {
-	int	i;
-	int	new_len = PyList_Size(list);
-	int	old_len = hi - lo;
-	int	extra = 0;	/* lines added to text, can be negative */
+	PyInt	i;
+	PyInt	new_len = PyList_Size(list);
+	PyInt	old_len = hi - lo;
+	PyInt	extra = 0;	/* lines added to text, can be negative */
 	char	**array;
 	buf_T	*savebuf;
 
@@ -2672,7 +2720,7 @@ SetBufferLineList(buf_T *buf, int lo, int hi, PyObject *list, int *len_change)
 	changed_lines((linenr_T)lo, 0, (linenr_T)hi, (long)extra);
 
 	if (buf == curwin->w_buffer)
-	    py_fix_cursor(lo, hi, extra);
+	    py_fix_cursor((linenr_T)lo, (linenr_T)hi, (linenr_T)extra);
 
 	curbuf = savebuf;
 
@@ -2700,7 +2748,7 @@ SetBufferLineList(buf_T *buf, int lo, int hi, PyObject *list, int *len_change)
  * is set to the change in the buffer length.
  */
     static int
-InsertBufferLines(buf_T *buf, int n, PyObject *lines, int *len_change)
+InsertBufferLines(buf_T *buf, PyInt n, PyObject *lines, PyInt *len_change)
 {
     /* First of all, we check the type of the supplied Python object.
      * It must be a string or a list, or the call is in error.
@@ -2739,8 +2787,8 @@ InsertBufferLines(buf_T *buf, int n, PyObject *lines, int *len_change)
     }
     else if (PyList_Check(lines))
     {
-	int	i;
-	int	size = PyList_Size(lines);
+	PyInt	i;
+	PyInt	size = PyList_Size(lines);
 	char	**array;
 	buf_T	*savebuf;
 
@@ -2825,7 +2873,7 @@ InsertBufferLines(buf_T *buf, int n, PyObject *lines, int *len_change)
 LineToString(const char *str)
 {
     PyObject *result;
-    int len = strlen(str);
+    PyInt len = strlen(str);
     char *p;
 
     /* Allocate an Python string object, with uninitialised contents. We
@@ -2865,8 +2913,8 @@ StringToLine(PyObject *obj)
 {
     const char *str;
     char *save;
-    int len;
-    int i;
+    PyInt len;
+    PyInt i;
     char *p;
 
     if (obj == NULL || !PyString_Check(obj))

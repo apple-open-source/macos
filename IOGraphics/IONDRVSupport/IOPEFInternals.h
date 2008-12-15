@@ -30,7 +30,9 @@ typedef signed int      PEF_SBits32;    // ! Can't use SInt32, it is "signed lon
 typedef unsigned int    PEF_UBits32;    // ! Can't use UInt32, it is "unsigned long".
 
 
+#ifndef __LP64__
 #pragma options align=mac68k
+#endif
 
 /*========== File Header ==========*/
 
@@ -801,7 +803,9 @@ struct CFragInitBlock {
 };
 typedef struct CFragInitBlock CFragInitBlock;
 
+#ifndef __LP64__
 #pragma options align=reset
+#endif
 
 #endif  // __IOPEFINTERNALS__
 

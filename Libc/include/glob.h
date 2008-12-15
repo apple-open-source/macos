@@ -103,9 +103,6 @@ typedef struct {
 #define	GLOB_QUOTE	0x0400	/* Quote special chars with \. */
 #define	GLOB_TILDE	0x0800	/* Expand tilde names from the passwd file. */
 #define	GLOB_LIMIT	0x1000	/* limit number of returned paths */
-//Begin-Libc
-#define GLOB_INODE64	0x80000000
-//End-Libc
 
 /* source compatibility, these are the old names */
 #define GLOB_MAXPATH	GLOB_LIMIT

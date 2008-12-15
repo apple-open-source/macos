@@ -801,7 +801,7 @@ void IONetworkStack::registerBSDInterface( IONetworkInterface * netif )
     // Add a kIOBSDNameKey property to the interface AFTER the interface
     // has registered with DLIL. The order is very important to avoid
     // rooting from an interface which is not yet known by BSD.
-    sprintf(ifname, "%s%d", netif->getNamePrefix(), netif->getUnitNumber());
+    snprintf(ifname, sizeof(ifname), "%s%d", netif->getNamePrefix(), netif->getUnitNumber());
     netif->setProperty(kIOBSDNameKey, ifname);
 
     // Update state bits and detect for untimely interface termination.

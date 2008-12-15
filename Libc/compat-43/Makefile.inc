@@ -3,6 +3,7 @@
 
 # compat-43 sources
 .PATH: ${.CURDIR}/${MACHINE_ARCH}/compat-43 ${.CURDIR}/compat-43
+CWD := ${.CURDIR}/compat-43
 
 MISRCS+= sigaltstk.c sigcompat.c
 .include "Makefile.fbsd_begin"

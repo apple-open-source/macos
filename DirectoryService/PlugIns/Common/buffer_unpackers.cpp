@@ -444,14 +444,21 @@ SInt32 UnpackDigestBuffer( tDataBufferPtr inAuthData, char **outUserName, digest
 
 		// this allocates a copy of the string
 		method = dsDataListGetNodeStringPriv( dataList, 4 );
-		if ( method == nil ) throw( (SInt32)eDSInvalidBuffFormat );
-		if ( strlen(method) < 1 ) throw( (SInt32)eDSInvalidBuffFormat );
+		if ( method != NULL )
+		{
+			if ( strlen(method) < 1 )
+				throw( (SInt32)eDSInvalidBuffFormat );
 
-		challengePlus = (char *) malloc( strlen(challenge) + sizeof(kMethodStr) + strlen(method) + 1 );
-		strcpy( challengePlus, challenge );
-		strcat( challengePlus, kMethodStr );
-		strcat( challengePlus, method );
-		strcat( challengePlus, "\"" );
+			challengePlus = (char *) malloc( strlen(challenge) + sizeof(kMethodStr) + strlen(method) + 1 );
+			strcpy( challengePlus, challenge );
+			strcat( challengePlus, kMethodStr );
+			strcat( challengePlus, method );
+			strcat( challengePlus, "\"" );
+		}
+		else
+		{
+			challengePlus = strdup( challenge );
+		}
 		
 		// these are not copies
 		siResult = dsDataListGetNodePriv( dataList, 3, &pResponseNode );

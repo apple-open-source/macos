@@ -65,6 +65,9 @@ static CFStringRef                      currentPowerSource = NULL;
  */
 static unsigned long                    g_overrides = 0;
 static unsigned long                    gLastOverrideState = 0;
+#if TARGET_OS_EMBEDDED
+static long				gSleepSetting = -1;
+#endif
 
 static io_connect_t                     gPowerManager;
 
@@ -110,6 +113,27 @@ activateSettingOverrides(void)
 
     if (gLastOverrideState != g_overrides)
     {
+#if TARGET_OS_EMBEDDED
+	if ((kPMPreventIdleSleep == (gLastOverrideState ^ g_overrides))
+	 && (-1 != gSleepSetting)) do
+	{
+	    static io_connect_t gIOPMConnection = MACH_PORT_NULL;
+	    IOReturn kr;
+
+	    if (!gIOPMConnection) gIOPMConnection = IOPMFindPowerManagement(0);
+	    if (!gIOPMConnection) break;
+	    kr = IOPMSetAggressiveness(gIOPMConnection, kPMMinutesToSleep, 
+					(kPMPreventIdleSleep & g_overrides) ? 0 : gSleepSetting);
+	    if (kIOReturnSuccess != kr)
+	    {
+		gIOPMConnection = MACH_PORT_NULL;
+		break;
+	    }
+	    gLastOverrideState = g_overrides;
+	    return;
+	}
+	while (false);
+#endif
         gLastOverrideState = g_overrides;
         activate_profiles( energySettings, 
                             currentPowerSource, 
@@ -170,22 +194,6 @@ PMSettings_CopyActivePMSettings(void)
     return return_val;
 }
 
-__private_extern__ void 
-PMSettingsConsoleUserHasChanged(void)
-{
-    static int first_login = 1;
-    
-    if(first_login) {
-        // Broadcast settings to drivers a second time during boot-up, since
-        // some drivers may not have been loaded at the time configd launched,
-        // particularly IOBacklightDisplay (3956697).
-        activate_profiles( energySettings, 
-                            currentPowerSource, 
-                            kIOPMRemoveUnsupportedSettings);
-        first_login = 0;
-    }
-}
-
 /* _copyPMSettings
  * The returned dictionary represents the "currently selected" 
  * per-power source settings.
@@ -219,14 +227,26 @@ activate_profiles(CFDictionaryRef d, CFStringRef s, bool removeUnsupported)
     int                                 one = 1;
     int                                 zero = 0;
     
-    if(NULL == d) return;
+    if(NULL == d) return kIOReturnBadArgument;
     
     if(NULL == s) s = CFSTR(kIOPMACPowerKey);
-    
+
+#if TARGET_OS_EMBEDDED
+    CFNumberRef                         sleepSetting;
+
+    energy_settings = (CFDictionaryRef)isA_CFDictionary(CFDictionaryGetValue(d, s));
+    if(!energy_settings) return kIOReturnError;
+    sleepSetting = (CFNumberRef)isA_CFNumber(CFDictionaryGetValue(energy_settings, CFSTR(kIOPMSystemSleepKey)));
+    if (sleepSetting)
+	CFNumberGetValue(sleepSetting, kCFNumberLongType, &gSleepSetting);
+#endif
+
     if(g_overrides)
     {
+#if !TARGET_OS_EMBEDDED
         energy_settings = (CFDictionaryRef)isA_CFDictionary(CFDictionaryGetValue(d, s));
         if(!energy_settings) return kIOReturnError;
+#endif
 
         profiles_activated = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 
             CFDictionaryGetCount(energy_settings), energy_settings);
@@ -273,7 +293,7 @@ activate_profiles(CFDictionaryRef d, CFStringRef s, bool removeUnsupported)
     } else {
         ret = IOPMActivatePMPreference(d, s, removeUnsupported);
     }
-        
+    
     return ret;
 }
 
@@ -461,7 +481,7 @@ _activateForcedSettings(CFDictionaryRef forceSettings)
 {
     // Calls to "pmset force" end up here
     energySettings = CFDictionaryCreateCopy(0, forceSettings);
-    activate_profiles( energySettings, 
+    return activate_profiles( energySettings, 
                         currentPowerSource,
                         kIOPMRemoveUnsupportedSettings);
 }

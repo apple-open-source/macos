@@ -32,15 +32,11 @@
  * file is opened.
  */
 
-#if defined MSDOS || defined(WIN32) || defined(_WIN64)
+#if defined(MSDOS) || defined(WIN16) || defined(WIN32) || defined(_WIN64)
 # include "vimio.h"	/* for lseek(), must be before vim.h */
 #endif
 
 #include "vim.h"
-
-#ifdef HAVE_FCNTL_H
-# include <fcntl.h>
-#endif
 
 /*
  * Some systems have the page size in statfs.f_bsize, some in stat.st_blksize
@@ -76,7 +72,6 @@ extern int dos2;			/* this is in os_amiga.c */
 #define MEMFILE_PAGE_SIZE 4096		/* default page size */
 
 static long_u	total_mem_used = 0;	/* total memory used for memfiles */
-static int	dont_release = FALSE;	/* don't release blocks */
 
 static void mf_ins_hash __ARGS((memfile_T *, bhdr_T *));
 static void mf_rem_hash __ARGS((memfile_T *, bhdr_T *));
@@ -191,7 +186,25 @@ mf_open(fname, flags)
     mfp->mf_blocknr_min = -1;
     mfp->mf_neg_count = 0;
     mfp->mf_infile_count = mfp->mf_blocknr_max;
-    mfp->mf_used_count_max = p_mm * 1024 / mfp->mf_page_size;
+
+    /*
+     * Compute maximum number of pages ('maxmem' is in Kbyte):
+     *	'mammem' * 1Kbyte / page-size-in-bytes.
+     * Avoid overflow by first reducing page size as much as possible.
+     */
+    {
+	int	    shift = 10;
+	unsigned    page_size = mfp->mf_page_size;
+
+	while (shift > 0 && (page_size & 1) == 0)
+	{
+	    page_size = page_size >> 1;
+	    --shift;
+	}
+	mfp->mf_used_count_max = (p_mm << shift) / page_size;
+	if (mfp->mf_used_count_max < 10)
+	    mfp->mf_used_count_max = 10;
+    }
 
     return mfp;
 }
@@ -279,10 +292,10 @@ mf_close_file(buf, getlines)
     if (getlines)
     {
 	/* get all blocks in memory by accessing all lines (clumsy!) */
-	dont_release = TRUE;
+	mf_dont_release = TRUE;
 	for (lnum = 1; lnum <= buf->b_ml.ml_line_count; ++lnum)
 	    (void)ml_get_buf(buf, lnum, FALSE);
-	dont_release = FALSE;
+	mf_dont_release = FALSE;
 	/* TODO: should check if all blocks are really in core */
     }
 
@@ -326,9 +339,9 @@ mf_new(mfp, negative, page_count)
     int		negative;
     int		page_count;
 {
-    bhdr_T    *hp;	    /* new bhdr_T */
-    bhdr_T    *freep;	    /* first block in free list */
-    char_u  *p;
+    bhdr_T	*hp;	/* new bhdr_T */
+    bhdr_T	*freep;	/* first block in free list */
+    char_u	*p;
 
     /*
      * If we reached the maximum size for the used memory blocks, release one
@@ -349,10 +362,10 @@ mf_new(mfp, negative, page_count)
 	 * If the block in the free list has more pages, take only the number
 	 * of pages needed and allocate a new bhdr_T with data
 	 *
-	 * If the number of pages matches and mf_release did not return a bhdr_T,
-	 * use the bhdr_T from the free list and allocate the data
+	 * If the number of pages matches and mf_release() did not return a
+	 * bhdr_T, use the bhdr_T from the free list and allocate the data
 	 *
-	 * If the number of pages matches and mf_release returned a bhdr_T,
+	 * If the number of pages matches and mf_release() returned a bhdr_T,
 	 * just use the number and free the bhdr_T from the free list
 	 */
 	if (freep->bh_page_count > page_count)
@@ -517,7 +530,7 @@ mf_free(mfp, hp)
 	mf_ins_free(mfp, hp);	/* put *hp in the free list */
 }
 
-#if defined(__MORPHOS__)
+#if defined(__MORPHOS__) && defined(__libnix__)
 /* function is missing in MorphOS libnix version */
 extern unsigned long *__stdfiledes;
 
@@ -655,7 +668,7 @@ mf_sync(mfp, flags)
 # endif
 #endif
 #ifdef AMIGA
-# ifdef __AROS__
+# if defined(__AROS__) || defined(__amigaos4__)
 	if (fsync(mfp->mf_fd) != 0)
 	    status = FAIL;
 # else
@@ -677,15 +690,19 @@ mf_sync(mfp, flags)
 #  else
 #   if defined(_DCC) || defined(__GNUC__) || defined(__MORPHOS__)
 	{
-#    if defined(__GNUC__) && !defined(__MORPHOS__)
+#    if defined(__GNUC__) && !defined(__MORPHOS__) && defined(__libnix__)
 	    /* Have function (in libnix at least),
 	     * but ain't got no prototype anywhere. */
 	    extern unsigned long fdtofh(int filedescriptor);
 #    endif
+#    if !defined(__libnix__)
+	    fflush(NULL);
+#    else
 	    BPTR fh = (BPTR)fdtofh(mfp->mf_fd);
 
 	    if (fh != 0)
 		Flush(fh);
+#    endif
 	}
 #   else /* assume Manx */
 	    Flush(_devtab[mfp->mf_fd].fd);
@@ -826,7 +843,7 @@ mf_release(mfp, page_count)
     buf_T	*buf;
 
     /* don't release while in mf_close_file() */
-    if (dont_release)
+    if (mf_dont_release)
 	return NULL;
 
     /*
@@ -1024,12 +1041,12 @@ mf_read(mfp, hp)
     size = page_size * hp->bh_page_count;
     if (lseek(mfp->mf_fd, offset, SEEK_SET) != offset)
     {
-	EMSG(_("E294: Seek error in swap file read"));
+	PERROR(_("E294: Seek error in swap file read"));
 	return FAIL;
     }
     if ((unsigned)vim_read(mfp->mf_fd, hp->bh_data, size) != size)
     {
-	EMSG(_("E295: Read error in swap file"));
+	PERROR(_("E295: Read error in swap file"));
 	return FAIL;
     }
     return OK;
@@ -1081,7 +1098,7 @@ mf_write(mfp, hp)
 	offset = (off_t)page_size * nr;
 	if (lseek(mfp->mf_fd, offset, SEEK_SET) != offset)
 	{
-	    EMSG(_("E296: Seek error in swap file write"));
+	    PERROR(_("E296: Seek error in swap file write"));
 	    return FAIL;
 	}
 	if (hp2 == NULL)	    /* freed block, fill with dummy data */
@@ -1094,7 +1111,7 @@ mf_write(mfp, hp)
 	{
 	    /*
 	     * Avoid repeating the error message, this mostly happens when the
-	     * disk is full. We give the message again only after a succesful
+	     * disk is full. We give the message again only after a successful
 	     * write or when hitting a key. We keep on trying, in case some
 	     * space becomes available.
 	     */
@@ -1186,7 +1203,7 @@ mf_trans_add(mfp, hp)
 }
 
 /*
- * Lookup a tranlation from the trans lists and delete the entry
+ * Lookup a translation from the trans lists and delete the entry
  *
  * Return the positive new number when found, the old number when not found
  */
@@ -1325,5 +1342,10 @@ mf_do_open(mfp, fname, flags)
 	mfp->mf_ffname = NULL;
     }
     else
+    {
+#ifdef HAVE_SELINUX
+	mch_copy_sec(fname, mfp->mf_fname);
+#endif
 	mch_hide(mfp->mf_fname);    /* try setting the 'hidden' flag */
+    }
 }

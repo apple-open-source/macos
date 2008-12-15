@@ -19,7 +19,7 @@ fi
 # want to ensure is used.
 echo "Copying libtool helper files ..."
 
-# Remove any m4 cache and libtool files so one can switch between
+# Remove any m4 cache and libtool files so one can switch between 
 # autoconf and libtool versions by simply rerunning the buildconf script.
 #
 (cd conftools ; rm -f ltconfig ltmain.sh)

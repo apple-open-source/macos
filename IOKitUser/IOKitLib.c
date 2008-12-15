@@ -28,6 +28,10 @@
 
 #include <stdlib.h>
 #include <stdarg.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFMachPort.h>
@@ -2636,4 +2640,103 @@ kern_return_t io_connect_async_method
 
 
 #endif /* !__LP64__ */
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+__private_extern__ IOReturn
+readFile(const char *path, vm_address_t * objAddr, vm_size_t * objSize)
+{
+    int fd;
+    int err;
+    struct stat stat_buf;
+
+    *objAddr = 0;
+    *objSize = 0;
+
+    if((fd = open(path, O_RDONLY)) == -1)
+	return errno;
+
+    do {
+	if(fstat(fd, &stat_buf) == -1) {
+	    err = errno;
+	    continue;
+	}
+        if (0 == (stat_buf.st_mode & S_IFREG)) 
+        {
+            *objAddr = 0;
+            *objSize = 0;
+            err = kIOReturnNotReadable;
+            continue;
+        }
+	*objSize = stat_buf.st_size;
+
+	*objAddr = (vm_address_t) mmap(NULL, round_page(stat_buf.st_size), PROT_READ, MAP_FILE|MAP_PRIVATE, fd, 0);
+	if(!*objAddr) {
+            *objSize = 0;
+	    err = errno;
+	    continue;
+	}
+
+	err = kIOReturnSuccess;
+
+    } while( false );
+
+    close(fd);
+
+    return( err );
+}
+
+__private_extern__ CFMutableDictionaryRef
+readPlist( const char * path, UInt32 key )
+{
+    IOReturn			err;
+    vm_offset_t 		bytes;
+    vm_size_t			byteLen;
+    CFDataRef			data;
+    CFMutableDictionaryRef	obj = 0;
+
+    err = readFile( path, &bytes, &byteLen );
+
+    if( kIOReturnSuccess != err) 
+	return (0);
+    
+    data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
+				(const UInt8 *) bytes, byteLen, kCFAllocatorNull );
+    if( data) {
+	obj = (CFMutableDictionaryRef) CFPropertyListCreateFromXMLData( kCFAllocatorDefault, data,
+					    kCFPropertyListMutableContainers,
+					    (CFStringRef *) NULL );
+	CFRelease( data );
+    }
+    vm_deallocate( mach_task_self(), bytes, byteLen );
+
+    return (obj);
+}
+
+__private_extern__ Boolean
+writePlist( const char * path, CFMutableDictionaryRef dict, UInt32 key __unused )
+{
+    Boolean   result = false;
+    CFDataRef data;
+    CFIndex   length;
+    int       fd = -1;
+
+    data = CFPropertyListCreateXMLData(kCFAllocatorDefault, dict);
+
+    if (data)
+    {
+	fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, (S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH));
+	result = (fd >= 0);
+	if (result)
+	{
+	    if ((length = CFDataGetLength(data)))
+		result = (length == write(fd, CFDataGetBytePtr(data), length));
+	    close(fd);
+	}
+	CFRelease(data);
+    }
+
+    return (result);
+}
+
 

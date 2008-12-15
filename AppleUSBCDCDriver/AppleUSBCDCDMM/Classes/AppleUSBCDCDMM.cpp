@@ -1073,7 +1073,7 @@ bool AppleUSBCDCDMM::createSuffix(unsigned char *sufKey)
         {
             if ((strlen((char *)&serBuf) < 9) && (strlen((char *)&serBuf) > 0))
             {
-				strlcpy((char *)sufKey, (const char *)&serBuf, strlen((char *)&serBuf));
+				strncpy((char *)sufKey, (const char *)&serBuf, strlen((char *)&serBuf));
 //                strcpy((char *)sufKey, (const char *)&serBuf);
                 sig = strlen((char *)sufKey);
                 keyOK = true;
@@ -3049,12 +3049,14 @@ void AppleUSBCDCDMM::releaseResources()
         fIntPipeMDP->release();	
         fIntPipeMDP = 0; 
     }
-	
+
+#if 0	
 	if (fInBuffer)
 	{
 		IOFree(fInBuffer, fMax_Command);
 		fInBuffer = 0;
 	}
+#endif
 	    
     if (fWorkLoop)
     {

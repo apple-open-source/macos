@@ -216,9 +216,30 @@
 #define kIOPSBatteryHealthKey       "BatteryHealth"
 
 /*!
+    @define kIOPSBatteryHealthConditionKey
+    @abstract kIOPSBatteryHealthConditionKey broadly describes the battery's health,
+    indicating whether it has suffered a failure, or should be checked by a 
+    professional Mac service provider.
+    If BatteryHealthCondition is not defined, the battery has no detectable problems. 
+        <br>Type CFStringRef
+*/
+#define kIOPSBatteryHealthConditionKey       "BatteryHealthCondition"
+
+/*!
+    @define kIOPSBatteryFailureModesKey
+    @abstract Enumerates the specific failure modes of the battery. If detectable, various
+        battery failures will be listed here. A battery may suffer from more than one 
+        type of failure simultaneously, as tracked in this array.
+        If BatteryFailureModesKey is not defined (or is set to an empty dictionary), 
+            then the battery has no detectable failures.
+        <br>Type CFArrayRef
+*/
+#define kIOPSBatteryFailureModesKey          "BatteryFailureModes"
+
+/*!
     @define kIOPSBatteryHealthConfidenceKey
     @abstract CFDictionary key for our confidence in the accuracy of our 
-        power source's "health" estimate
+        power source's "health" estimate. May not be defined.
         <br>Type CFStringRef
 */
 #define kIOPSHealthConfidenceKey    "HealthConfidence"
@@ -231,6 +252,8 @@
         <br>Type CFNumberRef, non-negative integer
 */
 #define kIOPSMaxErrKey              "MaxErr"
+
+
 
 /*
  * Transport types
@@ -256,6 +279,8 @@
 */
 #define kIOPSInternalType              "Internal"
 
+
+
 /*
  * PS state 
  */
@@ -275,6 +300,8 @@
 */
 #define kIOPSBatteryPowerValue         "Battery Power"
 
+
+
 /*
  * Battery Health & Confidence values
  */
@@ -293,5 +320,99 @@
     @abstract Value for key kIOPSBatteryHealthKey & kIOPMPSHealthConfidenceKey.
 */
 #define kIOPSGoodValue                  "Good"
+
+
+
+/*
+ * Battery Health Condition values
+ */
+/*!
+    @define kIOPSCheckBatteryValue
+    @abstract Value for key kIOPSBatteryHealthConditionKey
+*/
+#define kIOPSCheckBatteryValue                      "Check Battery"
+/*!
+    @define kIOPSPermanentFailureValue
+    @abstract Value for key kIOPSBatteryHealthConditionKey
+*/
+#define kIOPSPermanentFailureValue                  "Permanent Battery Failure"
+
+
+/*
+ * Battery Failure Mode values
+ */
+
+
+/*!
+    @define kIOPSFailureExternalInput
+    @abstract Value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureExternalInput                   "Externally Indicated Failure"
+/*!
+    @define kIOPSFailureSafetyOverVoltage
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureSafetyOverVoltage               "Safety Over-Voltage"
+/*!
+    @define kIOPSFailureChargeOverTemp
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureChargeOverTemp                  "Charge Over-Temperature"
+/*!
+    @define kIOPSFailureDischargeOverTemp
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureDischargeOverTemp               "Discharge Over-Temperature"
+/*!
+    @define kIOPSFailureCellImbalance
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureCellImbalance                   "Cell Imbalance"
+/*!
+    @define kIOPSFailureChargeFET
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureChargeFET                       "Charge FET"
+/*!
+    @define kIOPSFailureDischargeFET
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureDischargeFET                    "Discharge FET"
+/*!
+    @define kIOPSFailureDataFlushFault
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureDataFlushFault                  "Data Flush Fault"
+/*!
+    @define kIOPSFailurePermanentAFEComms
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailurePermanentAFEComms               "Permanent AFE Comms"
+/*!
+    @define kIOPSFailurePeriodicAFEComms
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailurePeriodicAFEComms                "Periodic AFE Comms"
+/*!
+    @define kIOPSFailureChargeOverCurrent
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureChargeOverCurrent               "Charge Over-Current"
+/*!
+    @define kIOPSFailureDischargeOverCurrent
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureDischargeOverCurrent            "Discharge Over-Current"
+/*!
+    @define kIOPSFailureOpenThermistor
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureOpenThermistor                  "Open Thermistor"
+/*!
+    @define kIOPSFailureFuseBlown
+    @abstract Potential value for key kIOPSBatteryFailureModesKey
+*/
+#define kIOPSFailureFuseBlown                       "Fuse Blown"
+
 
 #endif

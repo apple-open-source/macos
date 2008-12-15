@@ -189,7 +189,7 @@ AppleUSBHSHubUserClient::getTargetAndMethodForIndex(IOService **target, UInt32 i
 bool
 AppleUSBHSHubUserClient::initWithTask(task_t owningTask, void *security_id, UInt32 type, OSDictionary * properties)
 {
-    USBLog(1, "AppleUSBHSHubUserClient::initWithTask(type %ld)", type);
+    USBLog(1, "AppleUSBHSHubUserClient::initWithTask(type %d)", (uint32_t)type);
 
     if (!owningTask)
         return false;
@@ -274,7 +274,7 @@ AppleUSBHSHubUserClient::GetNumberOfPorts(UInt32 *numPorts)
         return kIOReturnNotAttached;
 	
     *numPorts = fOwner->_hubDescriptor.numPorts;
-    USBLog(1, "%s[%p]::GetNumberOfPorts - returning %ld", getName(), this, *numPorts);
+    USBLog(1, "%s[%p]::GetNumberOfPorts - returning %d", getName(), this, (uint32_t)*numPorts);
     return kIOReturnSuccess;
 }
 
@@ -352,7 +352,7 @@ AppleUSBHSHubUserClient::SupportsIndicators(UInt32 *indicatorSupport)
 		*indicatorSupport = 1;
 	}
 	
-    USBLog(1, "+AppleUSBHSHubUserClient::AppleUSB returning %ld", *indicatorSupport);
+    USBLog(1, "+AppleUSBHSHubUserClient::AppleUSB returning %d", (uint32_t)*indicatorSupport);
 	
 	return kIOReturnSuccess;
 }
@@ -363,7 +363,7 @@ AppleUSBHSHubUserClient::SupportsIndicators(UInt32 *indicatorSupport)
 IOReturn
 AppleUSBHSHubUserClient::SetIndicatorForPort(UInt32 portNumber, UInt32 selector)
 {
-    USBLog(1, "+AppleUSBHSHubUserClient::SetIndicatorForPort (port %ld, %ld)", portNumber, selector);
+    USBLog(1, "+AppleUSBHSHubUserClient::SetIndicatorForPort (port %d, %d)", (uint32_t)portNumber, (uint32_t)selector);
     if (!fOwner)
         return kIOReturnNotAttached;
 	
@@ -395,7 +395,7 @@ AppleUSBHSHubUserClient::GetPortIndicatorControl(UInt32 portNumber, UInt32 *defa
     
 	kr = fOwner->GetPortIndicatorControl(portNumber, defaultColors);
 	
-    USBLog(1, "+AppleUSBHSHubUserClient::GetIndicatorForPort (port %ld, %ld), 0x%x", portNumber, *defaultColors, kr);
+    USBLog(1, "+AppleUSBHSHubUserClient::GetIndicatorForPort (port %d, %d), 0x%x", (uint32_t)portNumber, (uint32_t)*defaultColors, kr);
     return kr;
 }
 
@@ -438,7 +438,7 @@ AppleUSBHSHubUserClient::GetPowerSwitchingMode(UInt32 *mode)
 		*mode = kHubSupportsIndividualPortPower;
 	}
 	
-    USBLog(1, "+AppleUSBHSHubUserClient::GetPowerSwitchingMode returning %ld", *mode);
+    USBLog(1, "+AppleUSBHSHubUserClient::GetPowerSwitchingMode returning %d", (uint32_t)*mode);
 	
 	return kIOReturnSuccess;
 }
@@ -462,7 +462,7 @@ AppleUSBHSHubUserClient::GetPortPower(UInt32 portNumber, UInt32 *on)
     
 	kr = fOwner->GetPortPower(portNumber, on);
 	
-    USBLog(1, "+AppleUSBHSHubUserClient::GetPortPower (port %ld, to %s), 0x%x", portNumber, *on ? "ON" : "OFF", kr);
+    USBLog(1, "+AppleUSBHSHubUserClient::GetPortPower (port %d, to %s), 0x%x", (uint32_t)portNumber, *on ? "ON" : "OFF", kr);
     return kr;
 }
 
@@ -472,7 +472,7 @@ AppleUSBHSHubUserClient::GetPortPower(UInt32 portNumber, UInt32 *on)
 IOReturn
 AppleUSBHSHubUserClient::SetPortPower(UInt32 portNumber, UInt32 on)
 {
-    USBLog(1, "+AppleUSBHSHubUserClient::SetPortPower (port %ld to %s)", portNumber, on ? "ON" : "OFF");
+    USBLog(1, "+AppleUSBHSHubUserClient::SetPortPower (port %d to %s)", (uint32_t)portNumber, on ? "ON" : "OFF");
     if (!fOwner)
         return kIOReturnNotAttached;
 	

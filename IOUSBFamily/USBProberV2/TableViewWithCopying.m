@@ -30,11 +30,13 @@
 
 - (IBAction)copy:(id)sender {
     NSMutableString *pasteboardString = [[NSMutableString alloc] init];
-    NSEnumerator *rowEnumerator = [self selectedRowEnumerator];
-    id row;
+	NSIndexSet	*indexSet;
     BOOL doneOneRow = NO;
     
-    while (row = [rowEnumerator nextObject]) {
+	indexSet = [self selectedRowIndexes];
+	NSUInteger current = [indexSet firstIndex];
+
+	while (current != NSNotFound) {
         NSMutableString *thisRow = [[NSMutableString alloc] init];
         NSEnumerator *columnEnumerator = [[self tableColumns] objectEnumerator];
         id column;
@@ -48,12 +50,14 @@
             if (doneOneCol) {
                 [thisRow appendString:@"      "];
             }
-            [thisRow appendFormat:@"%@",[[self dataSource] tableView:self objectValueForTableColumn:column row:[row intValue]]];
+            [thisRow appendFormat:@"%@",[[self dataSource] tableView:self objectValueForTableColumn:column row:current]];
             doneOneCol= YES;
         }
         
         [pasteboardString appendString:thisRow];
         doneOneRow= YES;
+         
+		 current = [indexSet indexGreaterThanIndex: current];
     }
 
     [[NSPasteboard generalPasteboard] declareTypes:[NSArray arrayWithObject:NSStringPboardType] owner:self];

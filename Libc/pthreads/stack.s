@@ -104,6 +104,25 @@ LEAF(__adjust_sp,0)
 	subq	$0x100,%rax
 	ret
 
+#elif defined(__arm__)
+
+#define	LEAF(name)					\
+	.align 2					@\
+	.globl	name					@\
+name:							@\
+	.set	__framesize,0
+
+LEAF(__sp)
+	mov	r0,sp
+	bx	lr
+
+/*
+ * void *_adjust_sp(void *sp)
+ */
+LEAF(__adjust_sp)
+	sub	r0, r0, #0x100
+	bx	lr
+
 #else
 #error sp functions not defined for this architecture
 #endif

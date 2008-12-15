@@ -11,15 +11,11 @@
  * Code to handle tags and the tag stack
  */
 
-#if defined MSDOS || defined WIN32 || defined(_WIN64)
+#if defined(MSDOS) || defined(WIN16) || defined(WIN32) || defined(_WIN64)
 # include "vimio.h"	/* for lseek(), must be before vim.h */
 #endif
 
 #include "vim.h"
-
-#ifdef HAVE_FCNTL_H
-# include <fcntl.h>	/* for lseek() */
-#endif
 
 /*
  * Structure to hold pointers to various items in a tag line.
@@ -383,7 +379,7 @@ do_tag(tag, type, count, forceit, verbose)
 			/*
 			 * Beyond the last one, just give an error message and
 			 * go to the last one.  Don't store the cursor
-			 * postition.
+			 * position.
 			 */
 			tagstackidx = tagstacklen - 1;
 			EMSG(_(topmsg));
@@ -911,7 +907,7 @@ do_tag(tag, type, count, forceit, verbose)
 
 		set_errorlist(curwin, list, ' ');
 
-		list_free(list);
+		list_free(list, TRUE);
 
 		cur_match = 0;		/* Jump to the first tag */
 	    }
@@ -1330,7 +1326,7 @@ find_tags(pat, num_matches, matchesp, flags, mincount, buf_ffname)
     } incstack[INCSTACK_SIZE];
 
     int		incstack_idx = 0;	/* index in incstack */
-    char_u     *ebuf;			/* aditional buffer for etag fname */
+    char_u     *ebuf;			/* additional buffer for etag fname */
     int		is_etag;		/* current file is emaces style */
 #endif
 
@@ -1625,6 +1621,8 @@ find_tags(pat, num_matches, matchesp, flags, mincount, buf_ffname)
 		eof = tag_fgets(lbuf, LSIZE, fp);
 		if (!eof && search_info.curr_offset != 0)
 		{
+		    /* The explicit cast is to work around a bug in gcc 3.4.2
+		     * (repeated below). */
 		    search_info.curr_offset = ftell(fp);
 		    if (search_info.curr_offset == search_info.high_offset)
 		    {
@@ -2662,13 +2660,13 @@ get_tagfname(tnp, first, buf)
 	    /* move the filename one char forward and truncate the
 	     * filepath with a NUL */
 	    filename = gettail(buf);
-	    mch_memmove(filename + 1, filename, STRLEN(filename) + 1);
+	    STRMOVE(filename + 1, filename);
 	    *filename++ = NUL;
 
 	    tnp->tn_search_ctx = vim_findfile_init(buf, filename,
 		    r_ptr, 100,
-		    FALSE, /* don't free visited list */
-		    FALSE, /* we search for a file */
+		    FALSE,         /* don't free visited list */
+		    FINDFILE_FILE, /* we search for a file */
 		    tnp->tn_search_ctx, TRUE, curbuf->b_ffname);
 	    if (tnp->tn_search_ctx != NULL)
 		tnp->tn_did_filefind_init = TRUE;
@@ -2689,6 +2687,7 @@ tagname_free(tnp)
 {
     vim_free(tnp->tn_tags);
     vim_findfile_cleanup(tnp->tn_search_ctx);
+    tnp->tn_search_ctx = NULL;
     ga_clear_strings(&tag_fnames);
 }
 
@@ -2810,7 +2809,7 @@ parse_tag_line(lbuf,
  *
  * Static tags produced by the older ctags program have the format:
  *	'file:tag  file  /pattern'.
- * This is only recognized when both occurences of 'file' are the same, to
+ * This is only recognized when both occurrence of 'file' are the same, to
  * avoid recognizing "string::string" or ":exit".
  *
  * Static tags produced by the new ctags program have the format:
@@ -3189,7 +3188,8 @@ jumpto_tag(lbuf, forceit, keep_help)
 #endif
 	    save_lnum = curwin->w_cursor.lnum;
 	    curwin->w_cursor.lnum = 0;	/* start search before first line */
-	    if (do_search(NULL, pbuf[0], pbuf + 1, (long)1, search_options))
+	    if (do_search(NULL, pbuf[0], pbuf + 1, (long)1,
+							search_options, NULL))
 		retval = OK;
 	    else
 	    {
@@ -3201,7 +3201,7 @@ jumpto_tag(lbuf, forceit, keep_help)
 		 */
 		p_ic = TRUE;
 		if (!do_search(NULL, pbuf[0], pbuf + 1, (long)1,
-							      search_options))
+							search_options, NULL))
 		{
 		    /*
 		     * Failed to find pattern, take a guess: "^func  ("
@@ -3211,13 +3211,14 @@ jumpto_tag(lbuf, forceit, keep_help)
 		    cc = *tagp.tagname_end;
 		    *tagp.tagname_end = NUL;
 		    sprintf((char *)pbuf, "^%s\\s\\*(", tagp.tagname);
-		    if (!do_search(NULL, '/', pbuf, (long)1, search_options))
+		    if (!do_search(NULL, '/', pbuf, (long)1,
+							search_options, NULL))
 		    {
 			/* Guess again: "^char * \<func  (" */
 			sprintf((char *)pbuf, "^\\[#a-zA-Z_]\\.\\*\\<%s\\s\\*(",
 								tagp.tagname);
 			if (!do_search(NULL, '/', pbuf, (long)1,
-							      search_options))
+							search_options, NULL))
 			    found = 0;
 		    }
 		    *tagp.tagname_end = cc;
@@ -3387,13 +3388,6 @@ expand_tag_fname(fname, tag_fname, expand)
 }
 
 /*
- * Moves the tail part of the path (including the terminating NUL) pointed to
- * by "tail" to the new location pointed to by "here". This should accomodate
- * an overlapping move.
- */
-#define movetail(here, tail)  mch_memmove(here, tail, STRLEN(tail) + (size_t)1)
-
-/*
  * Converts a file name into a canonical form. It simplifies a file name into
  * its simplest form by stripping out unneeded components, if any.  The
  * resulting file name is simplified in place and will either be the same
@@ -3446,7 +3440,7 @@ simplify_filename(filename)
 	else
 #endif
 	  if (vim_ispathsep(*p))
-	    movetail(p, p + 1);		/* remove duplicate "/" */
+	    STRMOVE(p, p + 1);		/* remove duplicate "/" */
 	else if (p[0] == '.' && (vim_ispathsep(p[1]) || p[1] == NUL))
 	{
 	    if (p == start && relative)
@@ -3463,7 +3457,7 @@ simplify_filename(filename)
 			mb_ptr_adv(tail);
 		else if (p > start)
 		    --p;		/* strip preceding path separator */
-		movetail(p, tail);
+		STRMOVE(p, tail);
 	    }
 	}
 	else if (p[0] == '.' && p[1] == '.' &&
@@ -3579,19 +3573,19 @@ simplify_filename(filename)
 		    {
 			if (p > start && tail[-1] == '.')
 			    --p;
-			movetail(p, tail);	/* strip previous component */
+			STRMOVE(p, tail);	/* strip previous component */
 		    }
 
 		    --components;
 		}
 	    }
 	    else if (p == start && !relative)	/* leading "/.." or "/../" */
-		movetail(p, tail);		/* strip ".." or "../" */
+		STRMOVE(p, tail);		/* strip ".." or "../" */
 	    else
 	    {
 		if (p == start + 2 && p[-2] == '.')	/* leading "./../" */
 		{
-		    movetail(p - 2, p);			/* strip leading "./" */
+		    STRMOVE(p - 2, p);			/* strip leading "./" */
 		    tail -= 2;
 		}
 		p = tail;		/* skip to char after ".." or "../" */
@@ -3787,6 +3781,7 @@ get_tags(list, pat)
 {
     int		num_matches, i, ret;
     char_u	**matches, *p;
+    char_u	*full_fname;
     dict_T	*dict;
     tagptrs_T	tp;
     long	is_static;
@@ -3809,15 +3804,18 @@ get_tags(list, pat)
 	    if (list_append_dict(list, dict) == FAIL)
 		ret = FAIL;
 
+	    full_fname = tag_full_fname(&tp);
 	    if (add_tag_field(dict, "name", tp.tagname, tp.tagname_end) == FAIL
-		    || add_tag_field(dict, "filename", tp.fname,
-							 tp.fname_end) == FAIL
+		    || add_tag_field(dict, "filename", full_fname,
+							 NULL) == FAIL
 		    || add_tag_field(dict, "cmd", tp.command,
 						       tp.command_end) == FAIL
 		    || add_tag_field(dict, "kind", tp.tagkind,
 						      tp.tagkind_end) == FAIL
 		    || dict_add_nr_str(dict, "static", is_static, NULL) == FAIL)
 		ret = FAIL;
+
+	    vim_free(full_fname);
 
 	    if (tp.command_end != NULL)
 	    {
@@ -3856,6 +3854,8 @@ get_tags(list, pat)
 			    /* Skip field without colon. */
 			    while (*p != NUL && *p >= ' ')
 				++p;
+			if (*p == NUL)
+			    break;
 		    }
 		}
 	    }

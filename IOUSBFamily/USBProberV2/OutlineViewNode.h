@@ -60,6 +60,7 @@
 
 - (OutlineViewNode *)deepestChild;
 
+- (NSString*)stringRepresentation:(NSString*)name:(int)startingLevel;
 - (NSString *)stringRepresentation:(int)startingLevel;
 - (NSString *)stringRepresentationOfValues:(int)startingLevel;
 

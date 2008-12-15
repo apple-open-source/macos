@@ -26,13 +26,13 @@
 #include "extvars.h"
 #include "limits.h"
 
-unsigned long zobrist[17][144];
+uint32_t zobrist[17][144];
 
-unsigned long hash;
+uint32_t hash;
 
-unsigned long TTProbes;
-unsigned long TTHits;
-unsigned long TTStores;
+uint32_t TTProbes;
+uint32_t TTHits;
+uint32_t TTStores;
 
 typedef struct 
 {
@@ -40,9 +40,9 @@ typedef struct
   /* unsigned char may be a bit small for bughouse/crazyhouse */
   unsigned short Bestmove;
   unsigned OnMove:1, Threat:1, Type:2;
-  unsigned long Hash;
-  unsigned long Hold_hash;
-  signed long Bound;
+  uint32_t Hash;
+  uint32_t Hold_hash;
+  int32_t Bound;
 }
 TType;
 
@@ -50,9 +50,9 @@ typedef struct
 {
   unsigned short Bestmove;
   unsigned OnMove:1, Type:2;
-  unsigned long Hash;
-  unsigned long Hold_hash;
-  signed long Bound;
+  uint32_t Hash;
+  uint32_t Hold_hash;
+  int32_t Bound;
 }
 QTType;
 
@@ -112,7 +112,7 @@ void initialize_hash(void)
 
 void QStoreTT(int score, int alpha, int beta, int best)
 {
-  unsigned long index;
+  uint32_t index;
   
   TTStores++;
 
@@ -136,7 +136,7 @@ void QStoreTT(int score, int alpha, int beta, int best)
 
 void StoreTT(int score, int alpha, int beta, int best, int threat, int depth)
 {
-  unsigned long index;
+  uint32_t index;
   
   TTStores++;
 
@@ -218,7 +218,7 @@ void StoreTT(int score, int alpha, int beta, int best, int threat, int depth)
 
 void LearnStoreTT(int score, unsigned nhash, unsigned hhash, int tomove, int best, int depth)
 {
-  unsigned long index;
+  uint32_t index;
 
   index = nhash % TTSize;
 
@@ -245,7 +245,7 @@ void LearnStoreTT(int score, unsigned nhash, unsigned hhash, int tomove, int bes
 int ProbeTT(int *score, int alpha, int beta, int *best, int *threat, int *donull, int depth)
 {
 
-  unsigned long index;
+  uint32_t index;
 
   *donull = TRUE;
 
@@ -331,7 +331,7 @@ int ProbeTT(int *score, int alpha, int beta, int *best, int *threat, int *donull
 int QProbeTT(int *score, int alpha, int beta, int *best)
 {
 
-  unsigned long index;
+  uint32_t index;
 
   TTProbes++;
 
@@ -367,10 +367,10 @@ void alloc_hash(void)
     exit(EXIT_FAILURE);
   }
   
-  printf("Allocated 2*%d hash entries, totalling %lu bytes.\n",
-          TTSize, (unsigned long)(2*sizeof(TType)*TTSize));
-  printf("Allocated %d quiescenthash entries, totalling %lu bytes.\n",
-          TTSize, (unsigned long)(sizeof(QTType)*TTSize));
+  printf("Allocated 2*%d hash entries, totalling %u bytes.\n",
+          TTSize, (uint32_t)(2*sizeof(TType)*TTSize));
+  printf("Allocated %d quiescenthash entries, totalling %u bytes.\n",
+          TTSize, (uint32_t)(sizeof(QTType)*TTSize));
   return; 
 }
 

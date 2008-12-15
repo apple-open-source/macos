@@ -311,7 +311,11 @@ enc_canon_table[] =
 
 #define IDX_MACROMAN	57
     {"macroman",	ENC_8BIT + ENC_MACROMAN, 0},	/* Mac OS */
-#define IDX_COUNT	58
+#define IDX_DECMCS	58
+    {"dec-mcs",		ENC_8BIT,		0},	/* DEC MCS */
+#define IDX_HPROMAN8	59
+    {"hp-roman8",	ENC_8BIT,		0},	/* HP Roman8 */
+#define IDX_COUNT	60
 };
 
 /*
@@ -356,9 +360,16 @@ enc_alias_table[] =
     {"ucs4be",		IDX_UCS4},
     {"ucs-4be",		IDX_UCS4},
     {"ucs4le",		IDX_UCS4LE},
+    {"utf32",		IDX_UCS4},
+    {"utf-32",		IDX_UCS4},
+    {"utf32be",		IDX_UCS4},
+    {"utf-32be",	IDX_UCS4},
+    {"utf32le",		IDX_UCS4LE},
+    {"utf-32le",	IDX_UCS4LE},
     {"932",		IDX_CP932},
     {"949",		IDX_CP949},
     {"936",		IDX_CP936},
+    {"gbk",		IDX_CP936},
     {"950",		IDX_CP950},
     {"eucjp",		IDX_EUC_JP},
     {"unix-jis",	IDX_EUC_JP},
@@ -386,6 +397,7 @@ enc_alias_table[] =
     {"950",		IDX_BIG5},
 #endif
     {"mac",		IDX_MACROMAN},
+    {"mac-roman",	IDX_MACROMAN},
     {NULL,		0}
 };
 
@@ -660,7 +672,7 @@ codepage_invalid:
 	     * API */
 	    n = IsDBCSLeadByteEx(enc_dbcs, (BYTE)i) ? 2 : 1;
 #else
-# ifdef MACOS
+# if defined(MACOS) || defined(__amigaos4__)
 	    /*
 	     * if mblen() is not available, character which MSB is turned on
 	     * are treated as leading byte character. (note : This assumption
@@ -1304,20 +1316,26 @@ dbcs_char2cells(c)
 /*
  * mb_off2cells() function pointer.
  * Return number of display cells for char at ScreenLines[off].
- * Caller must make sure "off" and "off + 1" are valid!
+ * We make sure that the offset used is less than "max_off".
  */
 /*ARGSUSED*/
     int
-latin_off2cells(off)
+latin_off2cells(off, max_off)
     unsigned	off;
+    unsigned	max_off;
 {
     return 1;
 }
 
     int
-dbcs_off2cells(off)
+dbcs_off2cells(off, max_off)
     unsigned	off;
+    unsigned	max_off;
 {
+    /* never check beyond end of the line */
+    if (off >= max_off)
+	return 1;
+
     /* Number of cells is equal to number of bytes, except for euc-jp when
      * the first byte is 0x8e. */
     if (enc_dbcs == DBCS_JPNU && ScreenLines[off] == 0x8e)
@@ -1326,10 +1344,11 @@ dbcs_off2cells(off)
 }
 
     int
-utf_off2cells(off)
+utf_off2cells(off, max_off)
     unsigned	off;
+    unsigned	max_off;
 {
-    return ScreenLines[off + 1] == 0 ? 2 : 1;
+    return (off + 1 < max_off && ScreenLines[off + 1] == 0) ? 2 : 1;
 }
 
 /*
@@ -1368,7 +1387,7 @@ utf_ptr2char(p)
 	return p[0];
 
     len = utf8len_tab[p[0]];
-    if ((p[1] & 0xc0) == 0x80)
+    if (len > 1 && (p[1] & 0xc0) == 0x80)
     {
 	if (len == 2)
 	    return ((p[0] & 0x1f) << 6) + (p[1] & 0x3f);
@@ -1486,7 +1505,7 @@ utf_composinglike(p1, p2)
 #endif
 
 /*
- * Convert a UTF-8 byte string to a wide chararacter.  Also get up to MAX_MCO
+ * Convert a UTF-8 byte string to a wide character.  Also get up to MAX_MCO
  * composing characters.
  */
     int
@@ -1526,7 +1545,7 @@ utfc_ptr2char(p, pcc)
 }
 
 /*
- * Convert a UTF-8 byte string to a wide chararacter.  Also get up to MAX_MCO
+ * Convert a UTF-8 byte string to a wide character.  Also get up to MAX_MCO
  * composing characters.  Use no more than p[maxlen].
  */
     int
@@ -1629,7 +1648,7 @@ utf_byte2len(b)
  * Get the length of UTF-8 byte sequence "p[size]".  Does not include any
  * following composing characters.
  * Returns 1 for "".
- * Returns 1 for an illegal byte sequence.
+ * Returns 1 for an illegal byte sequence (also in incomplete byte seq.).
  * Returns number > "size" for an incomplete byte sequence.
  */
     int
@@ -1639,13 +1658,14 @@ utf_ptr2len_len(p, size)
 {
     int		len;
     int		i;
+    int		m;
 
     if (*p == NUL)
 	return 1;
-    len = utf8len_tab[*p];
+    m = len = utf8len_tab[*p];
     if (len > size)
-	return len;	/* incomplete byte sequence. */
-    for (i = 1; i < len; ++i)
+	m = size;	/* incomplete byte sequence. */
+    for (i = 1; i < m; ++i)
 	if ((p[i] & 0xc0) != 0x80)
 	    return 1;
     return len;
@@ -1733,14 +1753,27 @@ utfc_ptr2len_len(p, size)
 #endif
     while (len < size)
     {
-	if (p[len] < 0x80 || !UTF_COMPOSINGLIKE(p + prevlen, p + len))
+	int	len_next_char;
+
+	if (p[len] < 0x80)
+	    break;
+
+	/*
+	 * Next character length should not go beyond size to ensure that
+	 * UTF_COMPOSINGLIKE(...) does not read beyond size.
+	 */
+	len_next_char = utf_ptr2len_len(p + len, size - len);
+	if (len_next_char > size - len)
+	    break;
+
+	if (!UTF_COMPOSINGLIKE(p + prevlen, p + len))
 	    break;
 
 	/* Skip over composing char */
 #ifdef FEAT_ARABIC
 	prevlen = len;
 #endif
-	len += utf_ptr2len_len(p + len, size - len);
+	len += len_next_char;
     }
     return len;
 }
@@ -1953,8 +1986,10 @@ utf_class(c)
 	{0x205f, 0x205f, 0},
 	{0x2060, 0x27ff, 1},		/* punctuation and symbols */
 	{0x2070, 0x207f, 0x2070},	/* superscript */
-	{0x2080, 0x208f, 0x2080},	/* subscript */
-	{0x2983, 0x2998, 1},
+	{0x2080, 0x2094, 0x2080},	/* subscript */
+	{0x20a0, 0x27ff, 1},		/* all kinds of symbols */
+	{0x2800, 0x28ff, 0x2800},	/* braille */
+	{0x2900, 0x2998, 1},		/* arrows, brackets, etc. */
 	{0x29d8, 0x29db, 1},
 	{0x29fc, 0x29fd, 1},
 	{0x3000, 0x3000, 0},		/* ideographic space */
@@ -2287,8 +2322,14 @@ mb_strnicmp(s1, s2, nn)
 	    }
 	    /* Check directly first, it's faster. */
 	    for (j = 0; j < l; ++j)
+	    {
 		if (s1[i + j] != s2[i + j])
 		    break;
+		if (s1[i + j] == 0)
+		    /* Both stings have the same bytes but are incomplete or
+		     * have illegal bytes, accept them as equal. */
+		    l = j;
+	    }
 	    if (j < l)
 	    {
 		/* If one of the two characters is incomplete return -1. */
@@ -2308,7 +2349,7 @@ mb_strnicmp(s1, s2, nn)
 		/* Single byte: first check normally, then with ignore case. */
 		if (s1[i] != s2[i])
 		{
-		    cdiff = TOLOWER_LOC(s1[i]) - TOLOWER_LOC(s2[i]);
+		    cdiff = MB_TOLOWER(s1[i]) - MB_TOLOWER(s2[i]);
 		    if (cdiff != 0)
 			return cdiff;
 		}
@@ -2407,8 +2448,6 @@ dbcs_head_off(base, p)
     return (q == p) ? 0 : 1;
 }
 
-#if defined(FEAT_CLIPBOARD) || defined(FEAT_GUI) || defined(FEAT_RIGHTLEFT) \
-	|| defined(PROTO)
 /*
  * Special version of dbcs_head_off() that works for ScreenLines[], where
  * single-width DBCS_JPNU characters are stored separately.
@@ -2443,7 +2482,6 @@ dbcs_screen_head_off(base, p)
     }
     return (q == p) ? 0 : 1;
 }
-#endif
 
     int
 utf_head_off(base, p)
@@ -2502,7 +2540,6 @@ utf_head_off(base, p)
     return (int)(p - q);
 }
 
-#if defined(FEAT_EVAL) || defined(PROTO)
 /*
  * Copy a character from "*fp" to "*tp" and advance the pointers.
  */
@@ -2517,7 +2554,6 @@ mb_copy_char(fp, tp)
     *tp += l;
     *fp += l;
 }
-#endif
 
 /*
  * Return the offset from "p" to the first byte of a character.  When "p" is
@@ -2843,15 +2879,17 @@ mb_unescape(pp)
 	    buf[m++] = K_SPECIAL;
 	    n += 2;
 	}
+	else if ((str[n] == K_SPECIAL
 # ifdef FEAT_GUI
-	else if (str[n] == CSI
+		    || str[n] == CSI
+# endif
+		 )
 		&& str[n + 1] == KS_EXTRA
 		&& str[n + 2] == (int)KE_CSI)
 	{
 	    buf[m++] = CSI;
 	    n += 2;
 	}
-# endif
 	else if (str[n] == K_SPECIAL
 # ifdef FEAT_GUI
 		|| str[n] == CSI
@@ -2887,19 +2925,13 @@ mb_lefthalve(row, col)
     if (composing_hangul)
 	return TRUE;
 #endif
-    if (enc_dbcs != 0)
-	return dbcs_off2cells(LineOffset[row] + col) > 1;
-    if (enc_utf8)
-	return (col + 1 < Columns
-		&& ScreenLines[LineOffset[row] + col + 1] == 0);
-    return FALSE;
+    return (*mb_off2cells)(LineOffset[row] + col,
+					LineOffset[row] + screen_Columns) > 1;
 }
 
-# if defined(FEAT_CLIPBOARD) || defined(FEAT_GUI) || defined(FEAT_RIGHTLEFT) \
-	|| defined(PROTO)
 /*
- * Correct a position on the screen, if it's the right halve of a double-wide
- * char move it to the left halve.  Returns the corrected column.
+ * Correct a position on the screen, if it's the right half of a double-wide
+ * char move it to the left half.  Returns the corrected column.
  */
     int
 mb_fix_col(col, row)
@@ -2914,10 +2946,9 @@ mb_fix_col(col, row)
 		    && dbcs_screen_head_off(ScreenLines + LineOffset[row],
 					 ScreenLines + LineOffset[row] + col))
 		|| (enc_utf8 && ScreenLines[LineOffset[row] + col] == 0)))
-	--col;
+	return col - 1;
     return col;
 }
-# endif
 #endif
 
 #if defined(FEAT_MBYTE) || defined(FEAT_POSTSCRIPT) || defined(PROTO)
@@ -2962,7 +2993,7 @@ enc_canonize(enc)
     }
 # endif
 
-    /* copy "enc" to allocted memory, with room for two '-' */
+    /* copy "enc" to allocated memory, with room for two '-' */
     r = alloc((unsigned)(STRLEN(enc) + 3));
     if (r != NULL)
     {
@@ -2982,31 +3013,31 @@ enc_canonize(enc)
 
 	/* Change "microsoft-cp" to "cp".  Used in some spell files. */
 	if (STRNCMP(p, "microsoft-cp", 12) == 0)
-	    mch_memmove(p, p + 10, STRLEN(p + 10) + 1);
+	    STRMOVE(p, p + 10);
 
 	/* "iso8859" -> "iso-8859" */
 	if (STRNCMP(p, "iso8859", 7) == 0)
 	{
-	    mch_memmove(p + 4, p + 3, STRLEN(p + 2));
+	    STRMOVE(p + 4, p + 3);
 	    p[3] = '-';
 	}
 
 	/* "iso-8859n" -> "iso-8859-n" */
 	if (STRNCMP(p, "iso-8859", 8) == 0 && p[8] != '-')
 	{
-	    mch_memmove(p + 9, p + 8, STRLEN(p + 7));
+	    STRMOVE(p + 9, p + 8);
 	    p[8] = '-';
 	}
 
 	/* "latin-N" -> "latinN" */
 	if (STRNCMP(p, "latin-", 6) == 0)
-	    mch_memmove(p + 5, p + 6, STRLEN(p + 5));
+	    STRMOVE(p + 5, p + 6);
 
 	if (enc_canon_search(p) >= 0)
 	{
 	    /* canonical name can be used unmodified */
 	    if (p != r)
-		mch_memmove(r, p, STRLEN(p) + 1);
+		STRMOVE(r, p);
 	}
 	else if ((i = enc_alias_search(p)) >= 0)
 	{
@@ -3415,6 +3446,7 @@ init_preedit_start_col(void)
 # if defined(HAVE_GTK2) && !defined(PROTO)
 
 static int im_is_active	       = FALSE;	/* IM is enabled for current mode    */
+static int preedit_is_active   = FALSE;
 static int im_preedit_cursor   = 0;	/* cursor offset in characters       */
 static int im_preedit_trailing = 0;	/* number of characters after cursor */
 
@@ -3507,6 +3539,11 @@ im_delete_preedit(void)
 	add_to_input_buf(delkey, (int)sizeof(delkey));
 }
 
+/*
+ * Move the cursor left by "num_move_back" characters.
+ * Note that ins_left() checks im_is_preediting() to avoid breaking undo for
+ * these K_LEFT keys.
+ */
     static void
 im_correct_cursor(int num_move_back)
 {
@@ -3642,7 +3679,9 @@ im_preedit_start_cb(GtkIMContext *context, gpointer data)
 #endif
 
     im_is_active = TRUE;
+    preedit_is_active = TRUE;
     gui_update_cursor(TRUE, FALSE);
+    im_show_info();
 }
 
 /*
@@ -3661,7 +3700,13 @@ im_preedit_end_cb(GtkIMContext *context, gpointer data)
     preedit_start_col = MAXCOL;
     xim_has_preediting = FALSE;
 
+#if 0
+    /* Removal of this line suggested by Takuhiro Nishioka.  Fixes that IM was
+     * switched off unintentionally.  We now use preedit_is_active (added by
+     * SungHyun Nam). */
     im_is_active = FALSE;
+#endif
+    preedit_is_active = FALSE;
     gui_update_cursor(TRUE, FALSE);
     im_show_info();
 }
@@ -3734,8 +3779,7 @@ im_preedit_changed_cb(GtkIMContext *context, gpointer data)
     }
     else if (cursor_index == 0 && preedit_string[0] == '\0')
     {
-	if (preedit_start_col == MAXCOL)
-	    xim_has_preediting = FALSE;
+	xim_has_preediting = FALSE;
 
 	/* If at the start position (after typing backspace)
 	 * preedit_start_col must be reset. */
@@ -3850,13 +3894,13 @@ im_get_feedback_attr(int col)
 
     if (preedit_string != NULL && attr_list != NULL)
     {
-	int index;
+	int idx;
 
 	/* Get the byte index as used by PangoAttrIterator */
-	for (index = 0; col > 0 && preedit_string[index] != '\0'; --col)
-	    index += utfc_ptr2len((char_u *)preedit_string + index);
+	for (idx = 0; col > 0 && preedit_string[idx] != '\0'; --col)
+	    idx += utfc_ptr2len((char_u *)preedit_string + idx);
 
-	if (preedit_string[index] != '\0')
+	if (preedit_string[idx] != '\0')
 	{
 	    PangoAttrIterator	*iter;
 	    int			start, end;
@@ -3869,7 +3913,7 @@ im_get_feedback_attr(int col)
 	    {
 		pango_attr_iterator_range(iter, &start, &end);
 
-		if (index >= start && index < end)
+		if (idx >= start && idx < end)
 		    char_attr |= translate_pango_attributes(iter);
 	    }
 	    while (pango_attr_iterator_next(iter));
@@ -4064,7 +4108,7 @@ xim_reset(void)
 
 	/*
 	 * HACK for Ami: This sequence of function calls makes Ami handle
-	 * the IM reset gratiously, without breaking loads of other stuff.
+	 * the IM reset graciously, without breaking loads of other stuff.
 	 * It seems to force English mode as well, which is exactly what we
 	 * want because it makes the Ami status display work reliably.
 	 */
@@ -4114,6 +4158,7 @@ xim_queue_key_press_event(GdkEventKey *event, int down)
 	 * committed while we're processing one of these keys, we can ignore
 	 * that commit and go ahead & process it ourselves.  That way we can
 	 * still distinguish keypad keys for use in mappings.
+	 * Also add GDK_space to make <S-Space> work.
 	 */
 	switch (event->keyval)
 	{
@@ -4133,6 +4178,7 @@ xim_queue_key_press_event(GdkEventKey *event, int down)
 	    case GDK_KP_7:	  xim_expected_char = '7';  break;
 	    case GDK_KP_8:	  xim_expected_char = '8';  break;
 	    case GDK_KP_9:	  xim_expected_char = '9';  break;
+	    case GDK_space:	  xim_expected_char = ' ';  break;
 	    default:		  xim_expected_char = NUL;
 	}
 	xim_ignored_char = FALSE;
@@ -5490,13 +5536,13 @@ preedit_callback_setup(GdkIC *ic)
     preedit_caret_cb.callback = (XIMProc)preedit_caret_cbproc;
     preedit_done_cb.callback = (XIMProc)preedit_done_cbproc;
     preedit_attr
-	= XVaCreateNestedList (0,
+	 = XVaCreateNestedList(0,
 			       XNPreeditStartCallback, &preedit_start_cb,
 			       XNPreeditDrawCallback, &preedit_draw_cb,
 			       XNPreeditCaretCallback, &preedit_caret_cb,
 			       XNPreeditDoneCallback, &preedit_done_cb,
-			       0);
-    XSetICValues (xxic, XNPreeditAttributes, preedit_attr, 0);
+			       NULL);
+    XSetICValues(xxic, XNPreeditAttributes, preedit_attr, NULL);
     XFree(preedit_attr);
 }
 
@@ -5506,7 +5552,8 @@ reset_state_setup(GdkIC *ic)
 {
 #ifdef USE_X11R6_XIM
     /* don't change the input context when we call reset */
-    XSetICValues(((GdkICPrivate*)ic)->xic, XNResetState, XIMPreserveState, 0);
+    XSetICValues(((GdkICPrivate *)ic)->xic, XNResetState, XIMPreserveState,
+									NULL);
 #endif
 }
 
@@ -5672,6 +5719,14 @@ im_get_status()
 }
 
 # endif /* !HAVE_GTK2 */
+
+# if defined(HAVE_GTK2) || defined(PROTO)
+    int
+preedit_get_status(void)
+{
+    return preedit_is_active;
+}
+# endif
 
 # if defined(FEAT_GUI_GTK) || defined(PROTO)
     int

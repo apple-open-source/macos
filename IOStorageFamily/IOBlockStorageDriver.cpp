@@ -57,10 +57,7 @@ extern "C" void _ZN20IOBlockStorageDriver14prepareRequestEyP18IOMemoryDescriptor
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static bool prepareRequestAttributes( IOBlockStorageDriver * driver )
-{
-    return ( OSMemberFunctionCast( void *, driver, ( void ( IOBlockStorageDriver::* )( UInt64, IOMemoryDescriptor *, IOStorageCompletion ) ) &IOBlockStorageDriver::prepareRequest ) == _ZN20IOBlockStorageDriver14prepareRequestEyP18IOMemoryDescriptor19IOStorageCompletion );
-}
+#define prepareRequestAttributes( driver ) ( OSMemberFunctionCast( void *, driver, ( void ( IOBlockStorageDriver::* )( UInt64, IOMemoryDescriptor *, IOStorageCompletion ) ) &IOBlockStorageDriver::prepareRequest ) == _ZN20IOBlockStorageDriver14prepareRequestEyP18IOMemoryDescriptor19IOStorageCompletion )
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -236,12 +233,7 @@ bool IOBlockStorageDriver::start(IOService * provider)
 
     if (isMediaRemovable() && isMediaPollRequired() && !isMediaPollExpensive())
     {
-        lockForArbitration();        // (disable opens/closes; a recursive lock)
-
-        if (!isOpen() && !isInactive())
             schedulePoller();                           // (schedule the poller)
-
-        unlockForArbitration();       // (enable opens/closes; a recursive lock)
     }
 
     // Register this object so it can be found via notification requests. It is
@@ -806,12 +798,17 @@ void IOBlockStorageDriver::poller(void * target, void *)
 
     IOBlockStorageDriver * driver = (IOBlockStorageDriver *) target;
 
-    driver->pollMedia();
-
     driver->lockForArbitration();    // (disable opens/closes; a recursive lock)
 
-    if (!driver->isOpen() && !driver->isInactive())
+    if (!driver->isInactive())
+    {
+    driver->pollMedia();
+
+        if (!driver->isOpen())
+        {
         driver->schedulePoller();                       // (schedule the poller)
+        }
+    }
 
     driver->unlockForArbitration();   // (enable opens/closes; a recursive lock)
 
@@ -837,10 +834,11 @@ IOReturn IOBlockStorageDriver::message(UInt32      type,
         {
             IOReturn status;
             IOLockLock(_mediaStateLock);
+            lockForArbitration();
+            if (!isInactive()) {
             if (_mediaPresent) {
                 status = recordMediaParameters();
                 if (status == kIOReturnSuccess) {
-                    lockForArbitration();
                     if (_mediaObject) {
                         UInt64 nbytes;
                         IOMedia *m;
@@ -866,11 +864,14 @@ IOReturn IOBlockStorageDriver::message(UInt32      type,
                     } else {
                         status = kIOReturnNoMedia;
                     }
-                    unlockForArbitration();
                 }
             } else {
                 status = kIOReturnNoMedia;
             }
+            } else {
+                status = kIOReturnNoMedia;
+            }
+            unlockForArbitration();
             IOLockUnlock(_mediaStateLock);
             return status;
         }
@@ -878,7 +879,13 @@ IOReturn IOBlockStorageDriver::message(UInt32      type,
         {
             IOReturn status;
             IOLockLock(_mediaStateLock);
-            status = mediaStateHasChanged((IOMediaState) argument);
+            lockForArbitration();
+            if (!isInactive()) {
+                status = mediaStateHasChanged((IOMediaState) argument);
+            } else {
+                status = kIOReturnNoMedia;
+            }
+            unlockForArbitration();
             IOLockUnlock(_mediaStateLock);
             return status;
         }
@@ -1306,6 +1313,7 @@ IOBlockStorageDriver::handlePowerEvent(void *target,void *refCon,
     switch (messageType) {
         case kIOMessageSystemWillPowerOff:
         case kIOMessageSystemWillRestart:
+            driver->lockForArbitration();
             if (!driver->isInactive()) {
                 if (driver->_mediaPresent) {
                     if (driver->_mediaDirtied) {
@@ -1316,6 +1324,7 @@ IOBlockStorageDriver::handlePowerEvent(void *target,void *refCon,
                     }
                 }
             }
+            driver->unlockForArbitration();
             result = kIOReturnSuccess;
             break;
 
@@ -1808,6 +1817,28 @@ IOReturn
 IOBlockStorageDriver::synchronizeCache(IOService *client)
 {
     return(getProvider()->doSynchronizeCache());
+}
+
+IOReturn
+IOBlockStorageDriver::discard(IOService *client,
+                              UInt64 byteStart,UInt64 byteCount)
+{
+    UInt64 block;
+    UInt64 nblks;
+
+    if (byteCount >= _mediaBlockSize) {
+        block = (byteStart + _mediaBlockSize - 1) / _mediaBlockSize;
+        nblks = ((byteStart + byteCount) / _mediaBlockSize) - block;
+    } else {
+        block = 0;
+        nblks = 0;
+    }
+
+    if (nblks) {
+        return(getProvider()->doDiscard(block,nblks));
+    } else {
+        return(kIOReturnSuccess);
+    }
 }
 
 bool

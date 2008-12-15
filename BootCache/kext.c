@@ -161,6 +161,7 @@ extern void Debugger(char *);
 #include <vm/vm_kern.h>
 
 #include <libkern/libkern.h>
+#include <libkern/OSAtomic.h>
 
 #include <mach/mach_types.h>
 #include <kern/assert.h>
@@ -193,6 +194,8 @@ struct BC_cache_extent {
 #define CE_IODONE	(1 << 10)	/* extent has been read */
 	u_int32_t	*ce_blockmap;	/* track valid blocks for this extent */
 };
+
+#define SET_EXTENT_FLAG(ce, flag)	OSBitOrAtomic(flag, &(ce)->ce_flags) 
 
 /*
  * A history list cluster.
@@ -345,6 +348,7 @@ struct BC_cache_control {
 	} while (0);
 
 #define LOCK_EXTENT(e)		lck_mtx_lock(&(e)->ce_lock)
+#define TRY_LOCK_EXTENT(e)	lck_mtx_try_lock(&(e)->ce_lock)
 #define UNLOCK_EXTENT(e)	lck_mtx_unlock(&(e)->ce_lock)
 /*
  * Only one instance of the cache is supported.
@@ -557,6 +561,12 @@ BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length
 #ifdef DEBUG
 	lck_mtx_assert(&ce->ce_lock, LCK_MTX_ASSERT_OWNED);
 #endif
+
+	/*
+	 * Extent has been terminated: blockmap may no longer be valid.
+	 */
+	if (ce->ce_flags & CE_ABORTED)
+		return 0;
 	
 	/*
 	 * Constrain offset and length to fit this extent, return immediately if
@@ -756,7 +766,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 						  (vm_map_offset_t)round_page(offset_in_map+buf_count(bp)),
 						   VM_PROT_READ | VM_PROT_WRITE, FALSE);
 				if (kret != KERN_SUCCESS) {
-					ce->ce_flags |= CE_ABORTED;
+					SET_EXTENT_FLAG(ce, CE_ABORTED);
 					BC_cache->c_stats.ss_read_errors++;
 					break;
 				}
@@ -822,7 +832,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 			 * Wake up anyone wanting this extent, as it is now ready for
 			 * use.
 			 */
-			ce->ce_flags |= CE_IODONE;
+			SET_EXTENT_FLAG(ce, CE_IODONE);
 			UNLOCK_EXTENT(ce);
 			wakeup(ce);
 		}
@@ -853,11 +863,11 @@ out:
 			LOCK_EXTENT(tmp);
 			/* abort any extent in a batch we haven't hit yet */
 			if (batch < (tmp->ce_flags & CE_BATCH_MASK)) {
-				tmp->ce_flags |= CE_ABORTED;
+				SET_EXTENT_FLAG(tmp, CE_ABORTED);
 			}
 			/* abort extents in this batch that we haven't reached */
 			if ((tmp >= ce) && (batch == (tmp->ce_flags & CE_BATCH_MASK))) {
-				tmp->ce_flags |= CE_ABORTED;
+				SET_EXTENT_FLAG(tmp, CE_ABORTED);
 			}
 			/* wake up anyone asleep on this extent */
 			UNLOCK_EXTENT(tmp);
@@ -1187,9 +1197,12 @@ BC_handle_write(struct buf *bp)
 	/*
 	 * Discard blocks in the matched extent.
 	 */
-	LOCK_EXTENT(ce);
-	count = BC_discard_blocks(ce, offset, bcount);
-	UNLOCK_EXTENT(ce);
+	if (TRY_LOCK_EXTENT(ce)) {
+		count = BC_discard_blocks(ce, offset, bcount);
+		UNLOCK_EXTENT(ce);
+	} else {
+		SET_EXTENT_FLAG(ce, CE_ABORTED);
+	}
 	BC_cache->c_stats.ss_write_discards += count;
 	assert(count != 0);
 
@@ -1199,23 +1212,29 @@ BC_handle_write(struct buf *bp)
 	p = ce - 1;
 	while (p >= BC_cache->c_extents && 
 			BC_check_intersection(p, offset, bcount)) {
-		LOCK_EXTENT(p);
-		count = BC_discard_blocks(p, offset, bcount);
-		UNLOCK_EXTENT(p);
-		if (count == 0)
-			break;
-		BC_cache->c_stats.ss_write_discards += count;
+		if (TRY_LOCK_EXTENT(p)) {
+			count = BC_discard_blocks(p, offset, bcount);
+			UNLOCK_EXTENT(p);
+			if (count == 0)
+				break;
+			BC_cache->c_stats.ss_write_discards += count;
+		} else {
+			SET_EXTENT_FLAG(p, CE_ABORTED);
+		}
 		p--;
 	}
 	p = ce + 1;
 	while (p < (BC_cache->c_extents + BC_cache->c_extent_count) && 
 			BC_check_intersection(p, offset, bcount)) {
-		LOCK_EXTENT(p);
-		count = BC_discard_blocks(p, offset, bcount);
-		UNLOCK_EXTENT(p);
-		if (count == 0)
-			break;
-		BC_cache->c_stats.ss_write_discards += count;
+		if (TRY_LOCK_EXTENT(p)) {
+			count = BC_discard_blocks(p, offset, bcount);
+			UNLOCK_EXTENT(p);
+			if (count == 0)
+				break;
+			BC_cache->c_stats.ss_write_discards += count;
+		} else {
+			SET_EXTENT_FLAG(p, CE_ABORTED);
+		}
 		p++;
 	}
 	
@@ -1318,7 +1337,7 @@ BC_terminate_cache(void)
 	for (i = 0; i < BC_cache->c_extent_count; i++) {
 		struct BC_cache_extent *ce = BC_cache->c_extents + i;
 		LOCK_EXTENT(ce);
-		ce->ce_flags |= CE_ABORTED;
+		SET_EXTENT_FLAG(ce, CE_ABORTED);
 		UNLOCK_EXTENT(ce);
 		wakeup(ce);
 
@@ -1447,7 +1466,7 @@ BC_setup_extent(struct BC_cache_extent *ce, struct BC_playlist_entry *pce)
 static void
 BC_teardown_extent(struct BC_cache_extent *ce)
 {
-	ce->ce_flags |= CE_ABORTED;
+	SET_EXTENT_FLAG(ce, CE_ABORTED);
 	_FREE_ZERO(ce->ce_blockmap, M_TEMP);
 }
 
@@ -1473,7 +1492,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 	/* allocate playlist storage */
 	entries = length / sizeof(*pce);
 	BC_cache->c_extents = _MALLOC(entries * sizeof(struct BC_cache_extent),
-	    M_TEMP, M_WAITOK);
+	    M_TEMP, M_WAITOK | M_ZERO);
 	if (BC_cache->c_extents == NULL) {
 		message("can't allocate memory for extents");
 		error = ENOMEM;
@@ -1734,7 +1753,7 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	{
 		int i;
 		for (i = 0; i < BC_cache->c_extent_count; i++)
-			BC_cache->c_extents[i].ce_flags |= CE_IODONE;
+			SET_EXTENT_FLAG(&BC_cache->c_extents[i], CE_IODONE);
 	}
 #else
 	/*
@@ -1836,8 +1855,8 @@ BC_add_history(u_int64_t offset, u_int64_t length, int flags)
 			BC_cache->c_stats.ss_history_clusters--;
 			return;
 		}
-		kret = kmem_alloc(kernel_map, (vm_offset_t *)&hc, BC_HISTORY_ALLOC);
-		if (kret != KERN_SUCCESS) {
+		hc = kalloc(BC_HISTORY_ALLOC);
+		if (hc == NULL) {
 			message("could not allocate %d bytes for history cluster",
 			    BC_HISTORY_ALLOC);
 			BC_cache->c_flags |= BC_FLAG_HTRUNCATED;
@@ -1932,7 +1951,7 @@ BC_discard_history(void)
 	while (BC_cache->c_history != NULL) {
 		hc = BC_cache->c_history;
 		BC_cache->c_history = hc->hc_link;
-		kmem_free(kernel_map, (vm_offset_t)hc, BC_HISTORY_ALLOC);
+		kfree(hc, BC_HISTORY_ALLOC);
 	}
 }
 

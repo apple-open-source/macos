@@ -48,10 +48,12 @@
 #pragma mark ---------- PIV defines ----------
 
 #define PIV_CLA_STANDARD				0x00
+#define PIV_CLA_CHAIN					0x10
 #define PIV_INS_SELECT_FILE				0xA4
 #define PIV_INS_VERIFY_APDU				0x20	// SP800731 Section 2.3.3.2.1
 #define PIV_INS_CHANGE_REFERENCE_DATA	0x24	// [SP800731 7.2.2]
 #define PIV_INS_GET_DATA				0xCB	// [SP800731 7.1.2]
+#define PIV_INS_GENERAL_AUTHENTICATE	0x87    // [SP800731 7.2.4]
 
 // Placeholders for fields in the APDU to be filled in programmatically
 #define TBD_ZERO			0x00
@@ -316,5 +318,87 @@ Status Tuples (STs) 0xFC Fixed 0
 
 // ----------------------------------------------------------------------------
 
+/*
+	Reference: [SP800-78-1]  6. Identifiers for PIV Card Interfaces
+
+	Key References:
+*/
+#define PIV_KEYREF_PIV_AUTHENTICATION      0x9A
+#define PIV_KEYREF_PIV_CARD_MANAGEMENT     0x9B
+#define PIV_KEYREF_PIV_DIGITAL_SIGNATURE   0x9C
+#define PIV_KEYREF_PIV_KEY_MANAGEMENT      0x9D
+#define PIV_KEYREF_PIV_CARD_AUTHENTICATION 0x9E
+
+/*
+	Algorithm Identifiers:
+	(Listing Only RSA)
+*/
+/* NOTE: After 2008/12/31 user keys will no longer be issued as 1024 */
+#define PIV_KEYALG_RSA_1024    0x06
+#define PIV_KEYALG_RSA_2048    0x07
+
+/*
+	Reference: [SP800-73-1]
+
+	7.2.4 General Authenticate Command
+	The GENERAL AUTHENTICATE card command performs a cryptographic operation such as an
+	authentication protocol using the data provided in the data field of the command and returns the result of
+	the cryptographic operation in the response data field.
+	The GENERAL AUTHENTICATE command shall be used to authenticate the card or a card application
+	to the client-application (INTERNAL AUTHENTICATE), to authenticate an entity to the card
+	(EXTERNAL AUTHENTICATE), and to perform a mutual authentication between the card and an entity
+	external to the card (MUTUAL AUTHENTICATE).
+	The GENERAL AUTHENTICATE command shall be used to realize the signing functionality on the
+	PIV client-application programming interface.  Data sent to the card is expected to be hashed off-card.
+	The GENERAL AUTHENTICATE command supports command chaining to permit the uninterrupted
+	transmission of long command data fields to the PIV Card Application.  If a card command other than the
+	GENERAL AUTHENTICATICATE command is received by the PIV Card Application before the
+	termination of a GENERAL AUTHENTICATE chain, the PIV Card Application shall rollback to the
+	state it was in immediately prior to the reception of the first command in the interrupted chain. In other
+	words, an interrupted GENERAL AUTHENTICATE chain has no effect on the PIV Card Application.
+
+	Command Syntax
+	CLA        '00' or '10' indicating command chaining.
+	INS        '87'
+	P1         Algorithm reference
+	P2         Key reference
+	Lc         Length of data field
+	Data Field See Table 17.
+	Le         Absent or length of expected response
+
+	Table 17. Data Objects in the Dynamic Authentication Template (Tag '7C')
+	Name           Tag   M/O Description
+	Witness        '80'  C   Demonstration of knowledge of a fact without revealing
+                             the fact.  An empty witness is a request for a witness.
+	Challenge      '81'  C   One or more random numbers or byte sequences to be
+                             used in the authentication protocol.
+	Response       '82'  C   A sequence of bytes encoding a response step in an
+                             authentication protocol.
+	Committed      '83'  C   Hash-code of a large random number including one or  
+	  challenge              more challenges
+	Authentication '84'  C   Hash-code of one or more data fields and a witness data code object. 
+
+	The data objects that appear in the dynamic authentication template (tag '7C') in the data field of the
+	GENERAL AUTHENTICATE card command depend on the authentication protocol being executed.
+
+	Response Syntax
+	Data Field         Absent or authentication-related data
+	SW1-SW2            Status word
+
+	== How to use for signing/decrypting ==
+	Build output data structure:
+	0x7C BER-LENGTH     // Dynamic Auth Template
+		0x82 0x00       // Request for Response
+		0x81 BER-LENGTH // 'Challenge' the card for crypto
+			data
+	Assuming 256-bytes sendable each time
+	while remaining data left
+		if there will be more after this
+			SEND 0x10 0x87 ALG KEY LEN (data chunk)
+		else
+			SEND 0x00 0x87 ALG KEY LEN (data chunk)
+*/
+
+// ----------------------------------------------------------------------------
 
 #endif /* !_PIVDEFINES_H_ */

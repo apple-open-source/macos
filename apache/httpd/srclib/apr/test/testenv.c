@@ -103,7 +103,7 @@ static void test_emptyenv(abts_case *tc, void *data)
     ABTS_STR_EQUAL(tc, "", value);
 
     if (!have_env_del) {
-        ABTS_NOT_IMPL(tc, "apr_env_del (skip recycle test_emptyenv)");
+        ABTS_NOT_IMPL(tc, "apr_env (skip recycle test_emptyenv)");
         return;
     }
     /** Delete and retest */

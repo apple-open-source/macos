@@ -26,6 +26,7 @@
 #include <IOKit/IOInterrupts.h>
 #include <IOKit/IOInterruptController.h>
 #include <libkern/c++/OSContainers.h>
+#include <architecture/i386/pio.h>
 
 #define kClockIRQ              0
 
@@ -94,21 +95,6 @@
 #define kPIC_OCW3_RR           0x02
 #define kPIC_OCW3_RIS          0x01
 
-static __inline__ UInt8 inb( UInt16 port )
-{
-    UInt8 data;
-    __asm__ volatile ( "inb %1, %0"
-                     : "=a" (data)
-                     : "d" (port));
-    return data;
-}
-
-static __inline__ void outb( UInt16 port, UInt8 data )
-{
-    __asm__ volatile ( "outb %1, %0"
-                     : /* no output */
-                     : "d" (port), "a" (data));
-}
 
 #define Apple8259PIC Apple8259PICInterruptController
 

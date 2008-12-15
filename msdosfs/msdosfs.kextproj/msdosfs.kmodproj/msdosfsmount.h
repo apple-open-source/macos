@@ -95,7 +95,8 @@ struct msdosfsmount {
 	mode_t pm_mask;		/* mask to and with file protection bits */
 	vnode_t pm_devvp;	/* vnode for block device mntd */
 	struct bpb50 pm_bpb;	/* BIOS parameter blk for this fs */
-	u_int32_t pm_BlockSize;	/* device's block size */
+	u_int32_t pm_BlockSize;	/* device's logical block size */
+	u_int32_t pm_PhysBlockSize;	/* device's physical block size */
 	u_long pm_BlocksPerSec;	/* pm_BytesPerSec divided by pm_BlockSize (device blocks per DOS sector) */
 	u_long pm_rootdirblk;	/* block # (cluster # for FAT32) of root directory number */
 	u_long pm_rootdirsize;	/* number of physical (device) blocks in root directory (FAT12 and FAT16 only) */
@@ -108,7 +109,9 @@ struct msdosfsmount {
 	u_long pm_bpcluster;	/* bytes per cluster */
 	u_long pm_fatblocksize;	/* size of fat blocks in bytes */
 	u_long pm_fatmask;	/* mask to use for fat numbers */
-	u_long pm_fsinfo;	/* fsinfo block number */
+	u_long pm_fsinfo_sector;	/* Logical block number to read to get FSInfo */
+	u_long pm_fsinfo_size;	/* Number of bytes to read to get FSInfo */
+	u_long pm_fsinfo_offset;	/* Offset, in bytes, from pm_fsinfo_sector to start of FSInfo */
 	u_long pm_nxtfree;	/* next free cluster in fsinfo block */
 	u_int pm_fatmult;	/* these 2 values are used in fat */
 	u_int pm_fatdiv;	/*	offset computation */
@@ -128,6 +131,8 @@ struct msdosfsmount {
 	int pm_fat_flags;	/* Flags about state of the FAT; see constants below */
 	SInt32		pm_sync_count;	/* Number of msdosfs_meta_sync_callback's waiting to complete. */
 	thread_call_t	pm_sync_timer;
+	
+	u_int32_t	pm_iosize;		/* "optimal" I/O size */
 };
 
 /* Flag bits for pm_fat_flags */

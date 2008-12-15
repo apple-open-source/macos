@@ -27,13 +27,8 @@
 //
 //================================================================================================
 //
-#include <libkern/OSAtomic.h>
-#include <libkern/c++/OSDictionary.h>
-#include <IOKit/IOLib.h>
 
 #include <IOKit/IOService.h>
-#include <IOKit/usb/IOUSBDevice.h>
-#include <IOKit/usb/IOUSBInterface.h>
 #include <IOKit/usb/IOUSBUserClient.h>
 #include <IOKit/usb/IOUSBLog.h>
 
@@ -194,7 +189,7 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
                 // Get the size of our provider's dictionary so that we can check later whether it changed
                 //
                 providerSize = providerDictionary->getCapacity();
-                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  Created a local copy(%p) of dictionary (%p), size %ld", getName(), this, localCopyOfProvidersDictionary, providerDictionary, providerSize);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  Created a local copy(%p) of dictionary (%p), size %d", getName(), this, localCopyOfProvidersDictionary, providerDictionary, (uint32_t)providerSize);
                 
                 USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  need to merge a dictionary (%s)", getName(), this, str);
 
@@ -210,7 +205,7 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
                     providerSizeAfterMerge = providerDictionary->getCapacity();
                     if ( providerSizeAfterMerge != providerSize )
                     {
-                        USBError(1,"%s[%p]::MergeDictionaryIntoProvider  our provider's dictionary size changed (%ld,%ld)",getName(), this, providerSize, providerSizeAfterMerge);
+                        USBError(1,"%s[%p]::MergeDictionaryIntoProvider  our provider's dictionary size changed (%d,%d)",getName(), this, (uint32_t)providerSize, (uint32_t)providerSizeAfterMerge);
                     }
                     
                     USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  setting  property %s from merged dictionary (%p)", getName(), this, str, providerDictionary);

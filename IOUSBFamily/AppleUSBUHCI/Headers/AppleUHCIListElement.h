@@ -75,7 +75,9 @@ public:
 	IOUSBCommand								*command;				// the command of which this TD is part
 	IOMemoryDescriptor							*logicalBuffer;
 	AppleUHCIQueueHead							*pQH;					// the queue head i am on
-	bool										lastTDofTransaction;
+	bool										callbackOnTD;			// this TD kicks off a completion callback
+	bool										multiXferTransaction;	// this is a multi transfer (i.e. control) transaction
+	bool										finalXferInTransaction;	// this is the final part (i.e. status phase) of a control transaction
 	
 	// support for timeouts
 	UInt32										lastFrame;				// the lower 32 bits the last time we checked this TD

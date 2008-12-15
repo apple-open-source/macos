@@ -5,7 +5,7 @@
  *	    -c option, mls
  * 26.04.94 better option parser, -ps, -l, -s added.
  *  1.07.94 -r badly needs - as input file.  Per default autoskip over
- *	       consequtive lines of zeroes, as unix od does.
+ *	       consecutive lines of zeroes, as unix od does.
  *	    -a shows them too.
  *	    -i dump as c-style #include "file.h"
  *  1.11.95 if "xxd -i" knows the filename, an 'unsigned char filename_bits[]'
@@ -48,7 +48,7 @@
  * 27.10.98 Fixed: -g option parser required blank.
  *	    option -b added: 01000101 binary output in normal format.
  * 16.05.00 Added VAXC changes by Stephen P. Wall
- * 16.05.00 Improved MMS file and merege for VMS by Zoltan Arpadffy
+ * 16.05.00 Improved MMS file and merge for VMS by Zoltan Arpadffy
  *
  * (c) 1990-1998 by Juergen Weigert (jnweiger@informatik.uni-erlangen.de)
  *
@@ -212,7 +212,7 @@ static void xxdline __P((FILE *, char *, int));
 
 #define TRY_SEEK	/* attempt to use lseek, or skip forward by reading */
 #define COLS 256	/* change here, if you ever need more columns */
-#define LLEN (9 + (5*COLS-1)/2 + 2 + COLS)
+#define LLEN (11 + (9*COLS-1)/1 + COLS + 2)
 
 char hexxa[] = "0123456789abcdef0123456789ABCDEF", *hexx = hexxa;
 
@@ -502,7 +502,7 @@ char *argv[];
 	}
       else if (!STRNCMP(pp, "-g", 2))
 	{
-	  if (pp[2] && STRNCMP("group", pp + 2, 5))
+	  if (pp[2] && STRNCMP("roupsize", pp + 2, 8))
 	    octspergrp = (int)strtol(pp + 2, NULL, 0);
 	  else
 	    {
@@ -590,7 +590,8 @@ char *argv[];
       default:			octspergrp = 0; break;
       }
 
-  if (cols < 1 || (!hextype && (cols > COLS)))
+  if (cols < 1 || ((hextype == HEX_NORMAL || hextype == HEX_BITS)
+							    && (cols > COLS)))
     {
       fprintf(stderr, "%s: invalid number of columns (max. %d).\n", pname, COLS);
       exit(1);
@@ -750,6 +751,7 @@ char *argv[];
 	}
       if (ebcdic)
 	e = (e < 64) ? '.' : etoa64[e-64];
+      /* When changing this update definition of LLEN above. */
       l[11 + (grplen * cols - 1)/octspergrp + p] =
 #ifdef __MVS__
 	  (e >= 64)
@@ -774,7 +776,7 @@ char *argv[];
       xxdline(fpo, l, 1);
     }
   else if (autoskip)
-    xxdline(fpo, l, -1);	/* last chance to flush out supressed lines */
+    xxdline(fpo, l, -1);	/* last chance to flush out suppressed lines */
 
   fclose(fp);
   fclose(fpo);

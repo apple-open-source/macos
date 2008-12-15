@@ -2,6 +2,7 @@
 # $FreeBSD: src/lib/libc/db/man/Makefile.inc,v 1.11 2002/11/18 09:50:54 ru Exp $
 
 .PATH: ${.CURDIR}/db/man
+CWD := ${.CURDIR}/db/man
 
 .if ${LIB} == "c"
 .include "Makefile.fbsd_begin"

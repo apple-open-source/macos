@@ -120,7 +120,7 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     {
 		UInt32			port, numPorts;
 		_portChangeInterrupt = 0;
-        USBLog(6,"AppleUSBEHCI[%p]::PollInterrupts -  Port Change Interrupt on bus %ld - ensuring usability", this, _busNumber );
+        USBLog(6,"AppleUSBEHCI[%p]::PollInterrupts -  Port Change Interrupt on bus %d - ensuring usability", this, (uint32_t)_busNumber );
 		EnsureUsability();
 		numPorts = USBToHostLong(_pEHCICapRegisters->HCSParams) & kEHCINumPortsMask;
 		for (port = 0; port < numPorts; port++)

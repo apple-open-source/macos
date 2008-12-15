@@ -25,7 +25,9 @@
 
 #include <libkern/OSTypes.h>
 
+#ifndef __LP64__
 #pragma options align=mac68k
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -82,7 +84,9 @@ IONDRVInstallInterruptFunctions(void *	setID,
 typedef const IOTVector * (*IONDRVUndefinedSymbolHandler)( void * self, 
                             const char * libraryName, const char * symbolName );
 
+#ifndef __LP64__
 #pragma options align=reset
+#endif
 
 #ifdef __cplusplus
 }

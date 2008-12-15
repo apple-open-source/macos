@@ -1,15 +1,12 @@
 #	@(#)Makefile.inc	8.6 (Berkeley) 5/4/95
 # $FreeBSD: src/lib/libc/gen/Makefile.inc,v 1.80 2001/08/17 22:09:15 dd Exp $
 
-.ifnmake autopatch
 # machine-dependent gen sources
-.if exists(${.CURDIR}/${MACHINE_ARCH}/gen/Makefile.inc)
-.include "${.CURDIR}/${MACHINE_ARCH}/gen/Makefile.inc"
-.endif
-.endif # !autopatch
+.sinclude "${.CURDIR}/${MACHINE_ARCH}/gen/Makefile.inc"
 
 # machine-independent gen sources
 .PATH: ${.CURDIR}/gen
+CWD := ${.CURDIR}/gen
 
 CFLAGS += -I${.CURDIR}/gen
 
@@ -18,7 +15,7 @@ GENMIGHDRS += ${GENMIGDEFS:.defs=.h}
 GENMIGSRCS += ${GENMIGDEFS:.defs=User.c}
 
 MISRCS += ${GENMIGSRCS} NSSystemDirectories.c OSSystemInfo.c \
-	asl.c asl_util.c \
+	asl.c asl_core.c asl_file.c asl_legacy1.c asl_store.c asl_util.c \
 	backtrace.c \
 	cache.c confstr.c crypt.c devname.c disklabel.c errlst.c \
 	filesec.c fts.c \
@@ -26,16 +23,21 @@ MISRCS += ${GENMIGSRCS} NSSystemDirectories.c OSSystemInfo.c \
 	isinf.c isnan.c \
 	malloc.c nanosleep.c nftw.c nlist.c scalable_malloc.c setlogin.c \
 	sigsetops.c _simple.c stack_logging.c stack_logging_disk.c strtofflags.c syslog.c \
-	thread_stack_pcs.c uname.c utmpx-darwin.c wordexp.c zone.c
+	thread_stack_pcs.c uname.c utmpx-darwin.c wordexp.c
+
+.ifdef FEATURE_LEGACY_NXZONE_APIS
+MISRCS += zone.c
+.endif
 	
 # Force these files to build after the mig stuff
-asl.So asl.po asl.do asl.o: asl_ipcUser.c
-utmpx-darwin.So utmpx-darwin.po utmpx-darwin.do utmpx-darwin.o: asl_ipcUser.c
+asl.${OBJSUFFIX}: asl_ipcUser.c
+utmpx-darwin.${OBJSUFFIX}: asl_ipcUser.c
 
 CLEANFILES += ${GENMIGHDRS} ${GENMIGSRCS} ${GENMIGDEFS:.defs=Server.c}
 
-PRECFLAGS-asl.c = -I${OBJROOT}
-LOCALHDRS += ${.CURDIR}/gen/asl_private.h ${.CURDIR}/gen/_simple.h ${.CURDIR}/gen/stack_logging.h
+LOCALHDRS += ${.CURDIR}/gen/asl_core.h ${.CURDIR}/gen/asl_file.h ${.CURDIR}/gen/asl_legacy1.h \
+	${.CURDIR}/gen/asl_private.h ${.CURDIR}/gen/asl_store.h \
+	${.CURDIR}/gen/_simple.h ${.CURDIR}/gen/stack_logging.h
 
 CFLAGS-confstr.c += -I${.CURDIR}/darwin
 
@@ -44,6 +46,11 @@ CFLAGS-glob-fbsd.c += -UDEBUG
 # 4840357: workaround for compiler failure building libc_debug.a
 .if make(lib${LIB}_debug.a)
 CFLAGS-scalable_malloc.c += -funit-at-a-time
+.endif
+
+# Malloc uses count leading zeroes, not available in thumb
+.if (${MACHINE_ARCH} == arm)
+CFLAGS-scalable_malloc.c += -mno-thumb
 .endif
 
 # also build 64-bit long double versions (ppc only)
@@ -66,23 +73,32 @@ FBSDMISRCS = _rand48.c alarm.c arc4random.c assert.c \
 	ttyname.c ttyslot.c ualarm.c ulimit.c unvis.c usleep.c utime.c vis.c \
 	wait.c wait3.c waitpid.c
 
+.ifdef FEATURE_LEGACY_64_APIS
 # special case: getmntinfo64-fbsd.c is derived from getmntinfo.c with getmntinfo64.c.patch
 .ifmake autopatch
-AUTOPATCHSRCS+= getmntinfo64-fbsd.c
-getmntinfo64-fbsd.c: FreeBSD/getmntinfo.c
+
+# This .for statement forces evaluation of ${CWD}
+.for _cwd in ${CWD}
+AUTOPATCHSRCS+= ${_cwd}/getmntinfo64-fbsd.c
+${_cwd}/getmntinfo64-fbsd.c: ${_cwd}/FreeBSD/getmntinfo.c
 	cp ${.ALLSRC} ${.TARGET}
 	patch ${.TARGET} ${.ALLSRC:S/getmntinfo/getmntinfo64/}.patch
+.endfor # _cwd
+
 .else # !autopatch
 MISRCS+= getmntinfo64.c
 .endif # autopatch
+.endif # FEATURE_LEGACY_64_APIS
 
 PRE1050SRCS+= daemon.c
-.ifdef LP64
+.if defined(LP64)
 PRE1050SRCS+= pselect.c
-.else # !LP64
+.endif
+.ifndef FEATURE_ONLY_UNIX_CONFORMANCE
 # only patch timezone.c; don't build in base variant, but in other variants
 FBSDPATCHSRCS += timezone.c
 .endif
+
 FBSDHDRS = rand48.h telldir.h
 .include "Makefile.fbsd_end"
 
@@ -139,6 +155,7 @@ CFLAGS-nice-fbsd.c += -DLIBC_ALIAS_NICE
 CFLAGS-opendir-fbsd.c += -DLIBC_ALIAS___OPENDIR2 -DLIBC_ALIAS_OPENDIR
 CFLAGS-rewinddir-fbsd.c += -DLIBC_ALIAS_REWINDDIR
 CFLAGS-pause-fbsd.c += -DLIBC_ALIAS_PAUSE
+CFLAGS-pselect-fbsd.c += -DLIBC_ALIAS_PSELECT
 CFLAGS-seekdir-fbsd.c += -DLIBC_ALIAS_SEEKDIR
 CFLAGS-sleep-fbsd.c += -DLIBC_ALIAS_SLEEP
 CFLAGS-telldir-fbsd.c += -DLIBC_ALIAS__SEEKDIR -DLIBC_ALIAS_TELLDIR

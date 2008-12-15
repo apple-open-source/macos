@@ -98,7 +98,7 @@ hexnan( CONST char **sp, FPI *fpi, ULong *x0)
 		x0[2] = (ULong)(u.bits.manh >> 12);
 		x0[1] = ((ULong)u.bits.manh & 0xfff) << 20 | (ULong)(u.bits.manl >> 32);
 		x0[0] = (ULong)u.bits.manl;
-#elif defined(__i386__) || defined(__x86_64__)
+#elif defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 		x0[1] = (ULong)u.bits.manh;
 		x0[0] = (ULong)u.bits.manl;
 #else

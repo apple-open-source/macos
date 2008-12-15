@@ -33,6 +33,7 @@
     IBOutlet id BusProbeOutputOV;
     IBOutlet id RefreshButton;
     IBOutlet id RefreshCheckBox;
+    IBOutlet id SuspendCheckBox;
     
     NSMutableArray *        _devicesArray;
     BusProber *             _busProber;
@@ -41,7 +42,10 @@
 - (IBAction)Refresh:(id)sender;
 - (IBAction)SaveOutput:(id)sender;
 - (IBAction)ToggleAutoRefresh:(id)sender;
+- (IBAction)ToggleProbeSuspended:(id)sender;
 
+- (void)applyFilter:(BusProbeDevice*)filterDevice:(NSMutableString *)finalString;
+- (void)dumpToTerminal:(NSArray*)args:(bool)showHelp;
 - (void)busProberInformationDidChange:(BusProber *)aProber;
 - (void)expandOutlineViewItems;
 

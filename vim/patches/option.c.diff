@@ -1,6 +1,7 @@
---- src/option.c.orig	2005-05-18 18:14:11.000000000 -0700
-+++ src/option.c	2005-05-18 18:14:36.000000000 -0700
-@@ -530,8 +530,8 @@
+diff -r -u -N --exclude='*.orig' vim72.orig/src/option.c vim72/src/option.c
+--- vim72.orig/src/option.c	2008-07-18 06:05:33.000000000 -0700
++++ vim72/src/option.c	2008-08-19 01:06:07.000000000 -0700
+@@ -533,8 +533,8 @@
  			    (char_u *)&p_ai, PV_AI,
  			    {(char_u *)FALSE, (char_u *)0L}},
      {"autoprint",   "ap",   P_BOOL|P_VI_DEF,
@@ -11,7 +12,7 @@
      {"autoread",    "ar",   P_BOOL|P_VI_DEF,
  			    (char_u *)&p_ar, PV_AR,
  			    {(char_u *)FALSE, (char_u *)0L}},
-@@ -599,7 +599,7 @@
+@@ -602,7 +602,7 @@
  # endif
  #endif
      {"beautify",    "bf",   P_BOOL|P_VI_DEF,
@@ -20,7 +21,7 @@
  			    {(char_u *)FALSE, (char_u *)0L}},
      {"binary",	    "bin",  P_BOOL|P_VI_DEF|P_RSTAT,
  			    (char_u *)&p_bin, PV_BIN,
-@@ -1974,7 +1974,7 @@
+@@ -1988,7 +1988,7 @@
  #endif
  			    },
      {"readonly",    "ro",   P_BOOL|P_VI_DEF|P_RSTAT|P_NOGLOB,
@@ -29,7 +30,7 @@
  			    {(char_u *)FALSE, (char_u *)0L}},
      {"redraw",	    NULL,   P_BOOL|P_VI_DEF,
  			    (char_u *)NULL, PV_NONE,
-@@ -2658,7 +2658,7 @@
+@@ -2679,7 +2679,7 @@
  #endif
  			    },
      {"window",	    "wi",   P_NUM|P_VI_DEF,
@@ -38,7 +39,7 @@
  			    {(char_u *)0L, (char_u *)0L}},
      {"winheight",   "wh",   P_NUM|P_VI_DEF,
  #ifdef FEAT_WINDOWS
-@@ -3550,7 +3550,7 @@ set_init_2()
+@@ -3571,7 +3571,7 @@
       */
      if (!option_was_set((char_u *)"window"))
  	p_window = Rows - 1;
@@ -47,4 +48,3 @@
  
      /* For DOS console the default is always black. */
  #if !((defined(MSDOS) || defined(OS2) || defined(WIN3264)) && !defined(FEAT_GUI))
-     {

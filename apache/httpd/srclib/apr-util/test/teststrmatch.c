@@ -54,31 +54,31 @@ static void test_str(abts_case *tc, void *data)
     ABTS_PTR_NOTNULL(tc, pattern_zero);
 
     match = apr_strmatch(pattern, input1, strlen(input1));
-    ABTS_PTR_EQUAL(tc, match, NULL);
+    ABTS_PTR_EQUAL(tc, NULL, match);
 
     match = apr_strmatch(pattern, input2, strlen(input2));
-    ABTS_PTR_EQUAL(tc, match, input2 + 23);
+    ABTS_PTR_EQUAL(tc, input2 + 23, match);
 
     match = apr_strmatch(pattern_onechar, input1, strlen(input1));
-    ABTS_PTR_EQUAL(tc, match, input1 + 5);
+    ABTS_PTR_EQUAL(tc, input1 + 5, match);
 
     match = apr_strmatch(pattern_zero, input1, strlen(input1));
-    ABTS_PTR_EQUAL(tc, match, input1);
+    ABTS_PTR_EQUAL(tc, input1, match);
 
     match = apr_strmatch(pattern_nocase, input1, strlen(input1));
-    ABTS_PTR_EQUAL(tc, match, input1 + 23);
+    ABTS_PTR_EQUAL(tc, input1 + 23, match);
 
     match = apr_strmatch(pattern, input3, strlen(input3));
-    ABTS_PTR_EQUAL(tc, match, input3);
+    ABTS_PTR_EQUAL(tc, input3, match);
 
     match = apr_strmatch(pattern, input4, strlen(input4));
-    ABTS_PTR_EQUAL(tc, match, input4 + 24);
+    ABTS_PTR_EQUAL(tc, input4 + 24, match);
 
     match = apr_strmatch(pattern, input5, strlen(input5));
-    ABTS_PTR_EQUAL(tc, match, NULL);
+    ABTS_PTR_EQUAL(tc, NULL, match);
 
     match = apr_strmatch(pattern, input6, strlen(input6));
-    ABTS_PTR_EQUAL(tc, match, input6 + 35);
+    ABTS_PTR_EQUAL(tc, input6 + 35, match);
 }
 
 abts_suite *teststrmatch(abts_suite *suite)

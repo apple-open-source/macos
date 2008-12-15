@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleGetInfoString</key>
-	<string>USB CDC Drivers 3.0.0GMc2</string>
+	<string>USB CDC Drivers 3.2.12</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.USBCDC</string>
 	<key>CFBundleName</key>
 	<string>USB CDC Drivers</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.2.8b2</string>
+	<string>3.2.12</string>
 	<key>IFMajorVersion</key>
 	<integer>3</integer>
 	<key>IFMinorVersion</key>

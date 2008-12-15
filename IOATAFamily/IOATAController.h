@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -80,10 +80,6 @@ public:
 
 	virtual IOService* probe( IOService* provider,	SInt32*	score );
     virtual bool start( IOService* provider );
-	
-//    virtual IOWorkLoop*	getWorkLoop() const;
-//	virtual IOCommandGate * getCommandGate() const;
-
 
 
 protected:

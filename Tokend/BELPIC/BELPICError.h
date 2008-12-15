@@ -36,6 +36,7 @@ class BELPICError : public Tokend::SCardError
 {
 protected:
     BELPICError(uint16_t sw);
+	virtual ~BELPICError() throw ();
 public:
     virtual const char *what () const throw ();
 

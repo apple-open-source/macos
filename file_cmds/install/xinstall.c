@@ -730,7 +730,7 @@ strip(to_name)
 		errno = serrno;
 		err(EX_TEMPFAIL, "fork");
 	case 0:
-		execlp("strip", "strip", to_name, NULL);
+		execlp("strip", "strip", "-", to_name, NULL);
 		err(EX_OSERR, "exec(strip)");
 	default:
 		if (wait(&status) == -1 || status) {

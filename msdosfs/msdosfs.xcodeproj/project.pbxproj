@@ -162,10 +162,10 @@
 		4D10326E0CD7C42C00952DEB /* msdosfs.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = msdosfs.py; sourceTree = "<group>"; tabWidth = 4; };
 		4D10326F0CD7C42C00952DEB /* test_fsck.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_fsck.py; sourceTree = "<group>"; };
 		4D1032700CD7C42C00952DEB /* HexDump.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = HexDump.py; sourceTree = "<group>"; };
-		4D3DCB4508E084D300C78A0B /* Info-msdosfs_kext.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-msdosfs_kext.plist"; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCB4508E084D300C78A0B /* Info-msdosfs_kext.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-msdosfs_kext.plist"; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCB4608E084D400C78A0B /* msdosfs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = msdosfs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D3DCB5408E084D400C78A0B /* mount_msdos */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_msdos; sourceTree = BUILT_PRODUCTS_DIR; };
-		4D3DCB6508E084D400C78A0B /* Info-msdos_fs.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-msdos_fs.plist"; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCB6508E084D400C78A0B /* Info-msdos_fs.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-msdos_fs.plist"; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCB6608E084D400C78A0B /* msdos.fs */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = msdos.fs; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D3DCB7408E084D400C78A0B /* msdos.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = msdos.util; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D3DCC0908E0B48600C78A0B /* bootsect.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bootsect.h; sourceTree = "<group>"; tabWidth = 4; };
@@ -755,7 +755,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -801,7 +800,7 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = msdosfs_module_stop;
-				MODULE_VERSION = 1.5.2;
+				MODULE_VERSION = 1.5.3;
 				PRODUCT_NAME = msdosfs;
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -837,7 +836,7 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = msdosfs_module_stop;
-				MODULE_VERSION = 1.5.2;
+				MODULE_VERSION = 1.5.3;
 				PRODUCT_NAME = msdosfs;
 				WARNING_CFLAGS = (
 					"-Wall",

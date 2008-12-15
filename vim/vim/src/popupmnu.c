@@ -56,7 +56,7 @@ pum_display(array, size, selected)
     int		i;
     int		top_clear;
     int		row;
-    int		height;
+    int		context_lines;
     int		col;
     int		above_row = cmdline_row;
     int		redo_count = 0;
@@ -73,9 +73,7 @@ redo:
     validate_cursor_col();
     pum_array = NULL;
 
-    row = curwin->w_cline_row + W_WINROW(curwin);
-    height = curwin->w_cline_height;
-    col = curwin->w_wcol + W_WINCOL(curwin) - curwin->w_leftcol;
+    row = curwin->w_wrow + W_WINROW(curwin);
 
     if (firstwin->w_p_pvw)
 	top_clear = firstwin->w_height;
@@ -100,19 +98,26 @@ redo:
 
     /* Put the pum below "row" if possible.  If there are few lines decide on
      * where there is more room. */
-    if (row >= above_row - pum_height
-			      && row > (above_row - top_clear - height) / 2)
+    if (row  + 2 >= above_row - pum_height
+					 && row > (above_row - top_clear) / 2)
     {
 	/* pum above "row" */
-	if (row >= size)
+
+	/* Leave two lines of context if possible */
+	if (curwin->w_wrow - curwin->w_cline_row >= 2)
+	    context_lines = 2;
+	else
+	    context_lines = curwin->w_wrow - curwin->w_cline_row;
+
+	if (row >= size + context_lines)
 	{
-	    pum_row = row - size;
+	    pum_row = row - size - context_lines;
 	    pum_height = size;
 	}
 	else
 	{
 	    pum_row = 0;
-	    pum_height = row;
+	    pum_height = row - context_lines;
 	}
 	if (p_ph > 0 && pum_height > p_ph)
 	{
@@ -123,7 +128,15 @@ redo:
     else
     {
 	/* pum below "row" */
-	pum_row = row + height;
+
+	/* Leave two lines of context if possible */
+	if (curwin->w_cline_row + curwin->w_cline_height - curwin->w_wrow >= 3)
+	    context_lines = 3;
+	else
+	    context_lines = curwin->w_cline_row
+				+ curwin->w_cline_height - curwin->w_wrow;
+
+	pum_row = row + context_lines;
 	if (size > above_row - pum_row)
 	    pum_height = above_row - pum_row;
 	else
@@ -167,6 +180,14 @@ redo:
     pum_base_width = max_width;
     pum_kind_width = kind_width;
 
+    /* Calculate column */
+#ifdef FEAT_RIGHTLEFT
+    if (curwin->w_p_rl)
+	col = W_WINCOL(curwin) + W_WIDTH(curwin) - curwin->w_wcol - 1;
+    else
+#endif
+	col = W_WINCOL(curwin) + curwin->w_wcol;
+
     /* if there are more items than room we need a scrollbar */
     if (pum_height < size)
     {
@@ -179,11 +200,23 @@ redo:
     if (def_width < max_width)
 	def_width = max_width;
 
-    if (col < Columns - PUM_DEF_WIDTH || col < Columns - max_width)
+    if (((col < Columns - PUM_DEF_WIDTH || col < Columns - max_width)
+#ifdef FEAT_RIGHTLEFT
+		&& !curwin->w_p_rl)
+	    || (curwin->w_p_rl && (col > PUM_DEF_WIDTH || col > max_width)
+#endif
+       ))
     {
 	/* align pum column with "col" */
 	pum_col = col;
-	pum_width = Columns - pum_col - pum_scrollbar;
+
+#ifdef FEAT_RIGHTLEFT
+	if (curwin->w_p_rl)
+	    pum_width = pum_col - pum_scrollbar + 1;
+	else
+#endif
+	    pum_width = Columns - pum_col - pum_scrollbar;
+
 	if (pum_width > max_width + kind_width + extra_width + 1
 						 && pum_width > PUM_DEF_WIDTH)
 	{
@@ -195,14 +228,24 @@ redo:
     else if (Columns < def_width)
     {
 	/* not enough room, will use what we have */
-	pum_col = 0;
+#ifdef FEAT_RIGHTLEFT
+	if (curwin->w_p_rl)
+	    pum_col = Columns - 1;
+	else
+#endif
+	    pum_col = 0;
 	pum_width = Columns - 1;
     }
     else
     {
 	if (max_width > PUM_DEF_WIDTH)
 	    max_width = PUM_DEF_WIDTH;	/* truncate */
-	pum_col = Columns - max_width;
+#ifdef FEAT_RIGHTLEFT
+	if (curwin->w_p_rl)
+	    pum_col = max_width - 1;
+	else
+#endif
+	    pum_col = Columns - max_width;
 	pum_width = max_width - pum_scrollbar;
     }
 
@@ -255,8 +298,16 @@ pum_redraw()
 	attr = (idx == pum_selected) ? attr_select : attr_norm;
 
 	/* prepend a space if there is room */
-	if (pum_col > 0)
-	    screen_putchar(' ', row, pum_col - 1, attr);
+#ifdef FEAT_RIGHTLEFT
+	if (curwin->w_p_rl)
+	{
+	    if (pum_col < W_WINCOL(curwin) + W_WIDTH(curwin) - 1)
+		screen_putchar(' ', row, pum_col + 1, attr);
+	}
+	else
+#endif
+	    if (pum_col > 0)
+		screen_putchar(' ', row, pum_col - 1, attr);
 
 	/* Display each entry, use two spaces for a Tab.
 	 * Do this 3 times: For the main text, kind and extra info */
@@ -280,16 +331,69 @@ pum_redraw()
 		    w = ptr2cells(p);
 		    if (*p == NUL || *p == TAB || totwidth + w > pum_width)
 		    {
-			/* Display the text that fits or comes before a Tab. */
-			screen_puts_len(s, (int)(p - s), row, col, attr);
-			col += width;
+			/* Display the text that fits or comes before a Tab.
+			 * First convert it to printable characters. */
+			char_u	*st;
+			int	saved = *p;
+
+			*p = NUL;
+			st = transstr(s);
+			*p = saved;
+#ifdef FEAT_RIGHTLEFT
+			if (curwin->w_p_rl)
+			{
+			    if (st != NULL)
+			    {
+				char_u	*rt = reverse_text(st);
+				char_u	*rt_saved = rt;
+				int	len, j;
+
+				if (rt != NULL)
+				{
+				    len = (int)STRLEN(rt);
+				    if (len > pum_width)
+				    {
+					for (j = pum_width; j < len; ++j)
+					    mb_ptr_adv(rt);
+					len = pum_width;
+				    }
+				    screen_puts_len(rt, len, row,
+							col - len + 1, attr);
+				    vim_free(rt_saved);
+				}
+				vim_free(st);
+			    }
+			    col -= width;
+			}
+			else
+#endif
+			{
+			    if (st != NULL)
+			    {
+				screen_puts_len(st, (int)STRLEN(st), row, col,
+									attr);
+				vim_free(st);
+			    }
+			    col += width;
+			}
 
 			if (*p != TAB)
 			    break;
 
 			/* Display two spaces for a Tab. */
-			screen_puts_len((char_u *)"  ", 2, row, col, attr);
-			col += 2;
+#ifdef FEAT_RIGHTLEFT
+			if (curwin->w_p_rl)
+			{
+			    screen_puts_len((char_u *)"  ", 2, row, col - 1,
+									attr);
+			    col -= 2;
+			}
+			else
+#endif
+			{
+			    screen_puts_len((char_u *)"  ", 2, row, col, attr);
+			    col += 2;
+			}
 			totwidth += 2;
 			s = NULL;	    /* start text at next char */
 			width = 0;
@@ -310,17 +414,44 @@ pum_redraw()
 					  && pum_array[idx].pum_extra == NULL)
 		    || pum_base_width + n >= pum_width)
 		break;
-	    screen_fill(row, row + 1, col, pum_col + pum_base_width + n,
+#ifdef FEAT_RIGHTLEFT
+	    if (curwin->w_p_rl)
+	    {
+		screen_fill(row, row + 1, pum_col - pum_base_width - n + 1,
+						    col + 1, ' ', ' ', attr);
+		col = pum_col - pum_base_width - n + 1;
+	    }
+	    else
+#endif
+	    {
+		screen_fill(row, row + 1, col, pum_col + pum_base_width + n,
 							      ' ', ' ', attr);
-	    col = pum_col + pum_base_width + n;
+		col = pum_col + pum_base_width + n;
+	    }
 	    totwidth = pum_base_width + n;
 	}
 
-	screen_fill(row, row + 1, col, pum_col + pum_width, ' ', ' ', attr);
+#ifdef FEAT_RIGHTLEFT
+	if (curwin->w_p_rl)
+	    screen_fill(row, row + 1, pum_col - pum_width + 1, col + 1, ' ',
+								    ' ', attr);
+	else
+#endif
+	    screen_fill(row, row + 1, col, pum_col + pum_width, ' ', ' ',
+									attr);
 	if (pum_scrollbar > 0)
-	    screen_putchar(' ', row, pum_col + pum_width,
-		    i >= thumb_pos && i < thumb_pos + thumb_heigth
+	{
+#ifdef FEAT_RIGHTLEFT
+	    if (curwin->w_p_rl)
+		screen_putchar(' ', row, pum_col - pum_width,
+			i >= thumb_pos && i < thumb_pos + thumb_heigth
 						  ? attr_thumb : attr_scroll);
+	    else
+#endif
+		screen_putchar(' ', row, pum_col + pum_width,
+			i >= thumb_pos && i < thumb_pos + thumb_heigth
+						  ? attr_thumb : attr_scroll);
+	}
 
 	++row;
     }
@@ -454,7 +585,7 @@ pum_set_selected(n, repeat)
 			set_option_value((char_u *)"bh", 0L,
 						 (char_u *)"wipe", OPT_LOCAL);
 			set_option_value((char_u *)"diff", 0L,
-						     (char_u *)"", OPT_LOCAL);
+							     NULL, OPT_LOCAL);
 		    }
 		}
 		if (res == OK)
@@ -552,6 +683,9 @@ pum_undisplay()
 {
     pum_array = NULL;
     redraw_all_later(SOME_VALID);
+#ifdef FEAT_WINDOWS
+    redraw_tabline = TRUE;
+#endif
     status_redraw_all();
 }
 

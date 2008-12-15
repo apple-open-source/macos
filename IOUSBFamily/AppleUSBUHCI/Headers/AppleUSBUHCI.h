@@ -309,7 +309,7 @@ protected:
     // Frame management
     IOPhysicalAddress				_framesPaddr;							// Physical frames.
     IOUSBControllerListElement		*_logicalFrameList[kUHCI_NVFRAMES];		// Virtual frame list - each of which points to a list element
-	IOPhysicalAddress				*_frameList;							// list of pointers to the shared frame list
+	USBPhysicalAddress32				*_frameList;							// list of pointers to the shared frame list
     
 	//Rollover interrupt QH+TD, this is a static 'dummy' QH that will cause the UHCI 
 	//controller to generate a hardware interrupt.  It is statically inserted at 
@@ -433,7 +433,6 @@ protected:
     IOReturn						HardwareInit(void);
     IOReturn						Run(bool);
 	IOReturn						InitializeAlignmentBuffers(void);
-	IOReturn						CheckForEHCIController(IOService*);
     
     // Memory management
 	AppleUHCITransferDescriptor			*AllocateTD(AppleUHCIQueueHead *);
@@ -493,7 +492,6 @@ protected:
 public:
     virtual bool							init(OSDictionary * propTable);
     virtual bool							start( IOService * provider );
-    virtual void							stop( IOService * provider );
     virtual bool							finalize(IOOptionBits options);
     virtual IOReturn						message( UInt32 type, IOService * provider,  void * argument = 0 );
 	virtual IOReturn						powerStateWillChangeTo ( IOPMPowerFlags, unsigned long, IOService* );

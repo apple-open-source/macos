@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,7 +19,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
 
 
 #ifndef _IOATABUSINFO_H
@@ -214,10 +213,6 @@ private:
     OSMetaClassDeclareReservedUnused(IOATABusInfo, 19);
     OSMetaClassDeclareReservedUnused(IOATABusInfo, 20);
 };
-
-
-
-
 
 
 #endif /* !_IOATABUSINFO_H */

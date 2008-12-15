@@ -24,6 +24,9 @@
  *
  */
 //		$Log: AppleHWMonitor.h,v $
+//		Revision 1.4  2008/11/19 02:13:34  raddog
+//		<rdar://problem/6349927> 10.5.6 Regression: Display never sleeps
+//		
 //		Revision 1.3  2004/02/12 01:17:01  eem
 //		Merge Rohan changes from tag MERGED-FROM-rohan-branch-TO-TOT-1
 //		
@@ -91,6 +94,7 @@ protected:
 	IOService				*fIOPMon;
 	IOPMrootDomain			*pmRootDomain;
 	IOService				*powerPolicyMaker;
+	IOService				*powerPolicyChanger;
 	volatile bool			sleeping;
 	volatile bool			busy;
     // Flag reflecting restart state
@@ -105,6 +109,13 @@ public:
     virtual bool start(IOService *provider);
     
     // get sleep/wake messages
+#if !defined( __ppc__ )
+	virtual IOReturn powerStateWillChangeTo (IOPMPowerFlags capabilities, 
+                    unsigned long stateNumber, IOService* whatDevice);
+	virtual IOReturn powerStateDidChangeTo (IOPMPowerFlags  capabilities, 
+                    unsigned long stateNumber, IOService* whatDevice);
+	virtual IOReturn changePowerState(unsigned long whatState, IOService *powerChanger);
+#endif
 	virtual IOReturn setPowerState(unsigned long, IOService *);
     static IOReturn sysPowerDownHandler(void *, void *, UInt32, IOService *, void *, vm_size_t);
 };

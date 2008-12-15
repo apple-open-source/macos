@@ -25,7 +25,7 @@
 /* Use pthread_setconcurrency where it is available and not a nullop,
  * i.e. platforms using M:N or M:1 thread models: */
 #if APR_HAS_THREADS && \
-   ((defined(SOLARIS2) && SOLARIS2 > 26) || defined(_AIX))
+   ((defined(SOLARIS2) && SOLARIS2 > 6) || defined(_AIX))
 /* also HP-UX, IRIX? ... */
 #define HAVE_PTHREAD_SETCONCURRENCY
 #endif
@@ -79,6 +79,17 @@ static void test_xchg32(abts_case *tc, void *data)
 
     ABTS_INT_EQUAL(tc, 100, oldval);
     ABTS_INT_EQUAL(tc, 50, y32);
+}
+
+static void test_xchgptr(abts_case *tc, void *data)
+{
+    int a;
+    volatile void *target_ptr = NULL;
+    void *old_ptr;
+
+    old_ptr = apr_atomic_xchgptr(&target_ptr, &a);
+    ABTS_PTR_EQUAL(tc, NULL, old_ptr);
+    ABTS_PTR_EQUAL(tc, &a, (void *) target_ptr);
 }
 
 static void test_cas_equal(abts_case *tc, void *data)
@@ -202,7 +213,7 @@ static void test_inc_neg1(abts_case *tc, void *data)
 
     rv = apr_atomic_inc32(&y32);
 
-    ABTS_ASSERT(tc, "apr_atomic_inc32 on zero returned zero.", rv == minus1);
+    ABTS_ASSERT(tc, "apr_atomic_inc32 didn't return the old value.", rv == minus1);
     str = apr_psprintf(p, "zero wrap failed: -1 + 1 = %d", y32);
     ABTS_ASSERT(tc, str, y32 == 0);
 }
@@ -210,51 +221,39 @@ static void test_inc_neg1(abts_case *tc, void *data)
 
 #if APR_HAS_THREADS
 
-void * APR_THREAD_FUNC thread_func_mutex(apr_thread_t *thd, void *data);
-void * APR_THREAD_FUNC thread_func_atomic(apr_thread_t *thd, void *data);
-void * APR_THREAD_FUNC thread_func_none(apr_thread_t *thd, void *data);
+void *APR_THREAD_FUNC thread_func_mutex(apr_thread_t *thd, void *data);
+void *APR_THREAD_FUNC thread_func_atomic(apr_thread_t *thd, void *data);
 
 apr_thread_mutex_t *thread_lock;
-volatile apr_uint32_t x = 0; /* mutex locks */
-volatile apr_uint32_t y = 0; /* atomic operations */
-volatile apr_uint32_t z = 0; /* no locks */
+volatile apr_uint32_t mutex_locks = 0;
+volatile apr_uint32_t atomic_ops = 0;
 apr_status_t exit_ret_val = 123; /* just some made up number to check on later */
 
 #define NUM_THREADS 40
 #define NUM_ITERATIONS 20000
-void * APR_THREAD_FUNC thread_func_mutex(apr_thread_t *thd, void *data)
+
+void *APR_THREAD_FUNC thread_func_mutex(apr_thread_t *thd, void *data)
 {
     int i;
 
     for (i = 0; i < NUM_ITERATIONS; i++) {
         apr_thread_mutex_lock(thread_lock);
-        x++;
+        mutex_locks++;
         apr_thread_mutex_unlock(thread_lock);
-    }
-    apr_thread_exit(thd, exit_ret_val);
-    return NULL;
-} 
-
-void * APR_THREAD_FUNC thread_func_atomic(apr_thread_t *thd, void *data)
-{
-    int i;
-
-    for (i = 0; i < NUM_ITERATIONS ; i++) {
-        apr_atomic_inc32(&y);
-        apr_atomic_add32(&y, 2);
-        apr_atomic_dec32(&y);
-        apr_atomic_dec32(&y);
     }
     apr_thread_exit(thd, exit_ret_val);
     return NULL;
 }
 
-void * APR_THREAD_FUNC thread_func_none(apr_thread_t *thd, void *data)
+void *APR_THREAD_FUNC thread_func_atomic(apr_thread_t *thd, void *data)
 {
     int i;
 
     for (i = 0; i < NUM_ITERATIONS ; i++) {
-        z++;
+        apr_atomic_inc32(&atomic_ops);
+        apr_atomic_add32(&atomic_ops, 2);
+        apr_atomic_dec32(&atomic_ops);
+        apr_atomic_dec32(&atomic_ops);
     }
     apr_thread_exit(thd, exit_ret_val);
     return NULL;
@@ -264,10 +263,6 @@ static void test_atomics_threaded(abts_case *tc, void *data)
 {
     apr_thread_t *t1[NUM_THREADS];
     apr_thread_t *t2[NUM_THREADS];
-    apr_thread_t *t3[NUM_THREADS];
-    apr_status_t s1[NUM_THREADS]; 
-    apr_status_t s2[NUM_THREADS];
-    apr_status_t s3[NUM_THREADS];
     apr_status_t rv;
     int i;
 
@@ -279,34 +274,219 @@ static void test_atomics_threaded(abts_case *tc, void *data)
     APR_ASSERT_SUCCESS(tc, "Could not create lock", rv);
 
     for (i = 0; i < NUM_THREADS; i++) {
-        apr_status_t r1, r2, r3;
+        apr_status_t r1, r2;
         r1 = apr_thread_create(&t1[i], NULL, thread_func_mutex, NULL, p);
         r2 = apr_thread_create(&t2[i], NULL, thread_func_atomic, NULL, p);
-        r3 = apr_thread_create(&t3[i], NULL, thread_func_none, NULL, p);
-        ABTS_ASSERT(tc, "Failed creating threads",
-                 r1 == APR_SUCCESS && r2 == APR_SUCCESS && 
-                 r3 == APR_SUCCESS);
+        ABTS_ASSERT(tc, "Failed creating threads", !r1 && !r2);
     }
 
     for (i = 0; i < NUM_THREADS; i++) {
-        apr_thread_join(&s1[i], t1[i]);
-        apr_thread_join(&s2[i], t2[i]);
-        apr_thread_join(&s3[i], t3[i]);
-                     
+        apr_status_t s1, s2;
+        apr_thread_join(&s1, t1[i]);
+        apr_thread_join(&s2, t2[i]);
+
         ABTS_ASSERT(tc, "Invalid return value from thread_join",
-                 s1[i] == exit_ret_val && s2[i] == exit_ret_val && 
-                 s3[i] == exit_ret_val);
+                    s1 == exit_ret_val && s2 == exit_ret_val);
     }
 
-    ABTS_INT_EQUAL(tc, x, NUM_THREADS * NUM_ITERATIONS);
-    ABTS_INT_EQUAL(tc, apr_atomic_read32(&y), NUM_THREADS * NUM_ITERATIONS);
-    /* Comment out this test, because I have no clue what this test is
-     * actually telling us.  We are checking something that may or may not
-     * be true, and it isn't really testing APR at all.
-    ABTS_ASSERT(tc, "We expect this to fail, because we tried to update "
-                 "an integer in a non-thread-safe manner.",
-             z != NUM_THREADS * NUM_ITERATIONS);
-     */
+    ABTS_INT_EQUAL(tc, NUM_THREADS * NUM_ITERATIONS, mutex_locks);
+    ABTS_INT_EQUAL(tc, NUM_THREADS * NUM_ITERATIONS,
+                   apr_atomic_read32(&atomic_ops));
+
+    rv = apr_thread_mutex_destroy(thread_lock);
+    ABTS_ASSERT(tc, "Failed creating threads", rv == APR_SUCCESS);
+}
+
+#undef NUM_THREADS
+#define NUM_THREADS 7
+
+typedef struct tbox_t tbox_t;
+
+struct tbox_t {
+    abts_case *tc;
+    apr_uint32_t *mem;
+    apr_uint32_t preval;
+    apr_uint32_t postval;
+    apr_uint32_t loop;
+    void (*func)(tbox_t *box);
+};
+
+static APR_INLINE void busyloop_read32(tbox_t *tbox)
+{
+    apr_uint32_t val;
+
+    do {
+        val = apr_atomic_read32(tbox->mem);
+
+        if (val != tbox->preval)
+            apr_thread_yield();
+        else
+            break;
+    } while (1);
+}
+
+static void busyloop_set32(tbox_t *tbox)
+{
+    do {
+        busyloop_read32(tbox);
+        apr_atomic_set32(tbox->mem, tbox->postval);
+    } while (--tbox->loop);
+}
+
+static void busyloop_add32(tbox_t *tbox)
+{
+    apr_uint32_t val;
+
+    do {
+        busyloop_read32(tbox);
+        val = apr_atomic_add32(tbox->mem, tbox->postval);
+        apr_thread_mutex_lock(thread_lock);
+        ABTS_INT_EQUAL(tbox->tc, val, tbox->preval);
+        apr_thread_mutex_unlock(thread_lock);
+    } while (--tbox->loop);
+}
+
+static void busyloop_sub32(tbox_t *tbox)
+{
+    do {
+        busyloop_read32(tbox);
+        apr_atomic_sub32(tbox->mem, tbox->postval);
+    } while (--tbox->loop);
+}
+
+static void busyloop_inc32(tbox_t *tbox)
+{
+    apr_uint32_t val;
+
+    do {
+        busyloop_read32(tbox);
+        val = apr_atomic_inc32(tbox->mem);
+        apr_thread_mutex_lock(thread_lock);
+        ABTS_INT_EQUAL(tbox->tc, val, tbox->preval);
+        apr_thread_mutex_unlock(thread_lock);
+    } while (--tbox->loop);
+}
+
+static void busyloop_dec32(tbox_t *tbox)
+{
+    apr_uint32_t val;
+
+    do {
+        busyloop_read32(tbox);
+        val = apr_atomic_dec32(tbox->mem);
+        apr_thread_mutex_lock(thread_lock);
+        ABTS_INT_NEQUAL(tbox->tc, 0, val);
+        apr_thread_mutex_unlock(thread_lock);
+    } while (--tbox->loop);
+}
+
+static void busyloop_cas32(tbox_t *tbox)
+{
+    apr_uint32_t val;
+
+    do {
+        do {
+            val = apr_atomic_cas32(tbox->mem, tbox->postval, tbox->preval);
+
+            if (val != tbox->preval)
+                apr_thread_yield();
+            else
+                break;
+        } while (1);
+    } while (--tbox->loop);
+}
+
+static void busyloop_xchg32(tbox_t *tbox)
+{
+    apr_uint32_t val;
+
+    do {
+        busyloop_read32(tbox);
+        val = apr_atomic_xchg32(tbox->mem, tbox->postval);
+        apr_thread_mutex_lock(thread_lock);
+        ABTS_INT_EQUAL(tbox->tc, val, tbox->preval);
+        apr_thread_mutex_unlock(thread_lock);
+    } while (--tbox->loop);
+}
+
+static void *APR_THREAD_FUNC thread_func_busyloop(apr_thread_t *thd, void *data)
+{
+    tbox_t *tbox = data;
+
+    tbox->func(tbox);
+
+    apr_thread_exit(thd, 0);
+
+    return NULL;
+}
+
+static void test_atomics_busyloop_threaded(abts_case *tc, void *data)
+{
+    unsigned int i;
+    apr_status_t rv;
+    apr_uint32_t count = 0;
+    tbox_t tbox[NUM_THREADS];
+    apr_thread_t *thread[NUM_THREADS];
+
+    rv = apr_thread_mutex_create(&thread_lock, APR_THREAD_MUTEX_DEFAULT, p);
+    APR_ASSERT_SUCCESS(tc, "Could not create lock", rv);
+
+    /* get ready */
+    for (i = 0; i < NUM_THREADS; i++) {
+        tbox[i].tc = tc;
+        tbox[i].mem = &count;
+        tbox[i].loop = 50;
+    }
+
+    tbox[0].preval = 98;
+    tbox[0].postval = 3891;
+    tbox[0].func = busyloop_add32;
+
+    tbox[1].preval = 3989;
+    tbox[1].postval = 1010;
+    tbox[1].func = busyloop_sub32;
+
+    tbox[2].preval = 2979;
+    tbox[2].postval = 0; /* not used */
+    tbox[2].func = busyloop_inc32;
+
+    tbox[3].preval = 2980;
+    tbox[3].postval = 16384;
+    tbox[3].func = busyloop_set32;
+
+    tbox[4].preval = 16384;
+    tbox[4].postval = 0; /* not used */
+    tbox[4].func = busyloop_dec32;
+
+    tbox[5].preval = 16383;
+    tbox[5].postval = 1048576;
+    tbox[5].func = busyloop_cas32;
+
+    tbox[6].preval = 1048576;
+    tbox[6].postval = 98; /* goto tbox[0] */
+    tbox[6].func = busyloop_xchg32;
+
+    /* get set */
+    for (i = 0; i < NUM_THREADS; i++) {
+        rv = apr_thread_create(&thread[i], NULL, thread_func_busyloop,
+                               &tbox[i], p);
+        ABTS_ASSERT(tc, "Failed creating thread", rv == APR_SUCCESS);
+    }
+
+    /* go! */
+    apr_atomic_set32(tbox->mem, 98);
+
+    for (i = 0; i < NUM_THREADS; i++) {
+        apr_status_t retval;
+        rv = apr_thread_join(&retval, thread[i]);
+        ABTS_ASSERT(tc, "Thread join failed", rv == APR_SUCCESS);
+        ABTS_ASSERT(tc, "Invalid return value from thread_join", retval == 0);
+    }
+
+    ABTS_INT_EQUAL(tbox->tc, 98, count);
+
+    rv = apr_thread_mutex_destroy(thread_lock);
+    ABTS_ASSERT(tc, "Failed creating threads", rv == APR_SUCCESS);
 }
 
 #endif /* !APR_HAS_THREADS */
@@ -320,6 +500,7 @@ abts_suite *testatomic(abts_suite *suite)
     abts_run_test(suite, test_read32, NULL);
     abts_run_test(suite, test_dec32, NULL);
     abts_run_test(suite, test_xchg32, NULL);
+    abts_run_test(suite, test_xchgptr, NULL);
     abts_run_test(suite, test_cas_equal, NULL);
     abts_run_test(suite, test_cas_equal_nonnull, NULL);
     abts_run_test(suite, test_cas_notequal, NULL);
@@ -334,6 +515,7 @@ abts_suite *testatomic(abts_suite *suite)
 
 #if APR_HAS_THREADS
     abts_run_test(suite, test_atomics_threaded, NULL);
+    abts_run_test(suite, test_atomics_busyloop_threaded, NULL);
 #endif
 
     return suite;

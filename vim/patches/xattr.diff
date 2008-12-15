@@ -1,7 +1,28 @@
-diff -u --exclude=CVS -r src/config.h.in src/config.h.in
---- src/config.h.in	2005-01-29 04:37:04.000000000 -0800
-+++ src/config.h.in	2005-04-13 14:22:26.000000000 -0700
-@@ -371,3 +371,9 @@
+diff -r -u -N --exclude='*.orig' vim72.orig/src/auto/configure vim72/src/auto/configure
+--- vim72.orig/src/auto/configure	2008-07-24 05:40:36.000000000 -0700
++++ vim72/src/auto/configure	2008-08-19 01:18:03.000000000 -0700
+@@ -10923,7 +10923,7 @@
+ 	sys/resource.h sys/systeminfo.h locale.h \
+ 	sys/stream.h termios.h libc.h sys/statfs.h \
+ 	poll.h sys/poll.h pwd.h utime.h sys/param.h libintl.h \
+-	libgen.h util/debug.h util/msg18n.h frame.h \
++	libgen.h util/debug.h util/msg18n.h frame.h copyfile.h\
+ 	sys/acl.h sys/access.h sys/sysctl.h sys/sysinfo.h wchar.h wctype.h
+ do
+ as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+@@ -13728,7 +13728,7 @@
+ 	setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+ 	sigvec strcasecmp strerror strftime stricmp strncasecmp \
+ 	strnicmp strpbrk strtol tgetent towlower towupper iswupper \
+-	usleep utime utimes
++	usleep utime utimes copyfile
+ do
+ as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+ { $as_echo "$as_me:$LINENO: checking for $ac_func" >&5
+diff -r -u -N --exclude='*.orig' vim72.orig/src/config.h.in vim72/src/config.h.in
+--- vim72.orig/src/config.h.in	2008-06-21 08:01:41.000000000 -0700
++++ vim72/src/config.h.in	2008-08-19 01:18:03.000000000 -0700
+@@ -378,3 +378,9 @@
  
  /* Define if you want XSMP interaction as well as vanilla swapfile safety */
  #undef USE_XSMP_INTERACT
@@ -11,34 +32,10 @@ diff -u --exclude=CVS -r src/config.h.in src/config.h.in
 +
 +/* Define if there is a copyfile.h */
 +#undef HAVE_COPYFILE_H
---- src/auto/configure	Mon Jul 24 21:45:52 2006
-+++ src/auto/configure	Mon Jul 24 21:45:52 2006
-@@ -10252,10 +10252,10 @@
- for ac_header in stdarg.h stdlib.h string.h sys/select.h sys/utsname.h \
- 	termcap.h fcntl.h sgtty.h sys/ioctl.h sys/time.h termio.h \
- 	iconv.h langinfo.h unistd.h stropts.h errno.h \
--	sys/resource.h sys/systeminfo.h locale.h \
-+	sys/types.h sys/resource.h sys/systeminfo.h locale.h \
- 	sys/stream.h sys/ptem.h termios.h libc.h sys/statfs.h \
- 	poll.h sys/poll.h pwd.h utime.h sys/param.h libintl.h \
--	libgen.h util/debug.h util/msg18n.h frame.h \
-+	libgen.h util/debug.h util/msg18n.h frame.h copyfile.h\
- 	sys/acl.h sys/access.h sys/sysctl.h sys/sysinfo.h wchar.h wctype.h
- do
- as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
-@@ -12643,7 +12643,7 @@
- 	setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
- 	sigvec strcasecmp strerror strftime stricmp strncasecmp \
- 	strnicmp strpbrk strtol tgetent towlower towupper iswupper \
--	usleep utime utimes
-+	usleep utime utimes copyfile
- do
- as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
- echo "$as_me:$LINENO: checking for $ac_func" >&5
-diff -u -r src/fileio.c src/fileio.c
---- src/fileio.c	2005-03-18 08:33:33.000000000 -0800
-+++ src/fileio.c	2006-06-06 14:25:06.000000000 -0700
-@@ -33,6 +33,10 @@
+diff -r -u -N --exclude='*.orig' vim72.orig/src/fileio.c vim72/src/fileio.c
+--- vim72.orig/src/fileio.c	2008-08-06 04:01:03.000000000 -0700
++++ vim72/src/fileio.c	2008-08-19 01:18:03.000000000 -0700
+@@ -29,6 +29,10 @@
  # include <utime.h>		/* for struct utimbuf */
  #endif
  
@@ -49,7 +46,7 @@ diff -u -r src/fileio.c src/fileio.c
  #define BUFSIZE		8192	/* size of normal write buffer */
  #define SMBUFSIZE	256	/* size of emergency write buffer */
  
-@@ -2794,6 +2798,9 @@
+@@ -2922,6 +2926,9 @@
      vim_acl_T	    acl = NULL;		/* ACL copied from original file to
  					   backup or new file */
  #endif
@@ -59,7 +56,7 @@ diff -u -r src/fileio.c src/fileio.c
  
      if (fname == NULL || *fname == NUL)	/* safety check */
  	return FAIL;
-@@ -3230,6 +3237,13 @@
+@@ -3360,6 +3367,13 @@
      if (!newfile)
  	acl = mch_get_acl(fname);
  #endif
@@ -73,7 +70,7 @@ diff -u -r src/fileio.c src/fileio.c
  
      /*
       * If 'backupskip' is not empty, don't make a backup for some files.
-@@ -3589,6 +3603,10 @@
+@@ -3722,6 +3736,10 @@
  #ifdef HAVE_ACL
  			mch_set_acl(backup, acl);
  #endif
@@ -81,10 +78,10 @@ diff -u -r src/fileio.c src/fileio.c
 +			if (copyfile_state)
 +			copyfile(NULL, (char*)backup, copyfile_state, COPYFILE_XATTR);
 +#endif
- 			break;
- 		    }
- 		}
-@@ -4259,6 +4277,10 @@
+ #ifdef HAVE_SELINUX
+ 			mch_copy_sec(fname, backup);
+ #endif
+@@ -4402,6 +4420,10 @@
      if (!backup_copy)
  	mch_set_acl(wfname, acl);
  #endif
@@ -95,7 +92,7 @@ diff -u -r src/fileio.c src/fileio.c
  
  
  #if defined(FEAT_MBYTE) && defined(FEAT_EVAL)
-@@ -4536,6 +4554,10 @@
+@@ -4679,6 +4701,10 @@
  #ifdef HAVE_ACL
      mch_free_acl(acl);
  #endif

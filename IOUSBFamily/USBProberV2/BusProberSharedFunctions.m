@@ -25,8 +25,19 @@
 
 #import "BusProberSharedFunctions.h"
 
+int GetPortInformation( IOUSBDeviceRef deviceIntf, uint32_t * portInfo ) {
+	IOReturn err;
+    
+    err = (*deviceIntf)->GetUSBDeviceInformation(deviceIntf, (UInt32 *)portInfo);
+    if (err) {
+        //NSLog(@"USB Prober: GetUSBDeviceInformation() failed");
+        return -1;
+    }
+    return 0;
+}
+
 int GetDeviceLocationID( IOUSBDeviceRef deviceIntf, UInt32 * locationID ) {
-     IOReturn err;
+	IOReturn err;
     
     err = (*deviceIntf)->GetLocationID(deviceIntf, locationID);
     if (err) {
@@ -570,22 +581,121 @@ UInt16	Swap16(void *p) {
     return * (UInt16 *) p;
 }
 
-UInt32	Swap32(void *p) {
-    * (UInt32 *) p = CFSwapInt32LittleToHost(*(UInt32 *)p);
-    return * (UInt32 *) p;
+uint32_t	Swap32(void *p) {
+    * (uint32_t *) p = CFSwapInt32LittleToHost(*(uint32_t *)p);
+    return * (uint32_t *) p;
 }
 
-UInt64	Swap64(void *p) {
-    * (UInt64 *) p = CFSwapInt64LittleToHost(*(UInt64 *)p);
-    return * (UInt64 *) p;
+uint64_t	Swap64(void *p) {
+    * (uint64_t *) p = CFSwapInt64LittleToHost(*(uint64_t *)p);
+    return * (uint64_t *) p;
     
 }
 
 //  This function will NOT swap the results in memory.  It will
 //  take a pointer to a UInt32 that looks like 0xAABBCCDD and return
-//  a UInt32 that has the first 3 bytes swapped:  0x00CCBBAA
+//  a uint32_t that has the first 3 bytes swapped:  0x00CCBBAA
 //
-UInt32 Swap24(void *p) {
-    UInt32 temp = CFSwapInt32LittleToHost(*(UInt32 *)p);
+uint32_t Swap24(void *p) {
+    uint32_t temp = CFSwapInt32LittleToHost(*(uint32_t *)p);
     return ( temp & 0x00FFFFFF);
 }
+
+const char *
+USBErrorToString(IOReturn status)
+{
+    switch (status) {
+		case kIOReturnSuccess:
+			return "kIOReturnSuccess";
+		case kIOReturnError:
+			return "kIOReturnError";
+		case kIOReturnNotResponding:
+			return "kIOReturnNotResponding";
+		case kIOUSBPipeStalled:
+			return "kIOUSBPipeStalled";
+		case kIOReturnOverrun:
+			return "kIOReturnOverrun";
+		case kIOReturnUnderrun:
+			return "kIOReturnUnderrun";
+		case kIOReturnExclusiveAccess:
+			return "kIOReturnExclusiveAccess";
+		case kIOUSBTransactionReturned:
+			return "kIOUSBTransactionReturned";
+		case kIOReturnAborted:
+			return "kIOReturnAborted";
+		case kIOReturnIsoTooNew:
+			return "kIOReturnIsoTooNew";
+		case kIOReturnIsoTooOld:
+			return "kIOReturnIsoTooOld";
+		case kIOReturnNoDevice:
+			return "kIOReturnNoDevice";
+		case kIOReturnBadArgument:
+			return "kIOReturnBadArgument";
+		case kIOReturnInternalError:
+			return "kIOReturnInternalError";
+		case kIOReturnNoMemory:
+			return "kIOReturnNoMemory";
+		case kIOReturnUnsupported:
+			return "kIOReturnUnsupported";
+		case kIOReturnNoResources:
+			return "kIOReturnNoResources";
+		case kIOReturnNoBandwidth:
+			return "kIOReturnNoBandwidth";
+		case kIOReturnIPCError:
+			return "kIOReturnIPCError";
+		case kIOReturnTimeout:
+			return "kIOReturnTimeout";
+		case kIOReturnBusy:
+			return "kIOReturnBusy";
+		case kIOUSBUnknownPipeErr:
+			return "kIOUSBUnknownPipeErr";
+		case kIOUSBTooManyPipesErr:
+			return "kIOUSBTooManyPipesErr";
+		case kIOUSBNoAsyncPortErr:
+			return "kIOUSBNoAsyncPortErr";
+		case kIOUSBNotEnoughPipesErr:
+			return "kIOUSBNotEnoughPipesErr";
+		case kIOUSBNotEnoughPowerErr:
+			return "kIOUSBNotEnoughPowerErr";
+		case kIOUSBEndpointNotFound:
+			return "kIOUSBEndpointNotFound";
+		case kIOUSBConfigNotFound:
+			return "kIOUSBConfigNotFound";
+		case kIOUSBTransactionTimeout:
+			return "kIOUSBTransactionTimeout";
+		case kIOUSBLowLatencyBufferNotPreviouslyAllocated:
+			return "kIOUSBLowLatencyBufferNotPreviouslyAllocated";
+		case kIOUSBLowLatencyFrameListNotPreviouslyAllocated:
+			return "kIOUSBLowLatencyFrameListNotPreviouslyAllocated";
+		case kIOUSBHighSpeedSplitError:
+			return "kIOUSBHighSpeedSplitError";
+		case kIOUSBSyncRequestOnWLThread:
+			return "kIOUSBSyncRequestOnWLThread";
+		case kIOUSBLinkErr:
+			return "kIOUSBLinkErr";
+		case kIOUSBCRCErr:
+			return "kIOUSBCRCErr";
+		case kIOUSBNotSent1Err:
+			return "kIOUSBNotSent1Err";
+		case kIOUSBNotSent2Err:
+			return "kIOUSBNotSent2Err";
+		case kIOUSBBufferUnderrunErr:
+			return "kIOUSBBufferUnderrunErr";
+		case kIOUSBBufferOverrunErr:
+			return "kIOUSBBufferOverrunErr";
+		case kIOUSBReserved2Err:
+			return "kIOUSBReserved2Err";
+		case kIOUSBReserved1Err:
+			return "kIOUSBReserved1Err";
+		case kIOUSBWrongPIDErr:
+			return "kIOUSBWrongPIDErr";
+		case kIOUSBPIDCheckErr:
+			return "kIOUSBPIDCheckErr";
+		case kIOUSBDataToggleErr:
+			return "kIOUSBDataToggleErr";
+		case kIOUSBBitstufErr:
+			return "kIOUSBBitstufErr";
+    }
+    return "Unknown";
+}
+

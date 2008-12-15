@@ -55,11 +55,22 @@ extern "C"
 #define LOG(fmt, args...)
 #endif
 
+
+#if defined(__i386__) || defined(__x86_64__)
+#define USE_IOPCICONFIGURATOR	1
+#define USE_MSI			1
+#define USE_LEGACYINTS		1
+#endif
+
+#if OSTYPES_K64_REV < 1
+typedef long IOInterruptVectorNumber;
+#endif
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 const IORegistryPlane * gIOPCIACPIPlane;
 
-static IOPCIMessagedInterruptController  * gIOPCIMessagedInterruptController;
+static class IOPCIMessagedInterruptController  * gIOPCIMessagedInterruptController;
 
 enum
 {
@@ -99,23 +110,8 @@ protected:
 
     IORangeAllocator *      _messagedInterruptsAllocator;
 
-    // A cache of entries in the vector table. Makes restoring
-    // hardware context following system sleep easier, and also
-    // avoids a register read on vector updates.
-
-    // The APIC ID of the CPU that will handle the interrupt.
-    // in physical mode.
-
-    long                  _destinationAddress;
-
-    virtual void     free( void );
-
 public:
     bool init( UInt32 numVectors );
-
-    virtual IOReturn getInterruptType( IOService * nub,
-                                       int   source,
-                                       int * interruptType );
 
     virtual IOReturn registerInterrupt( IOService *        nub,
                                         int                source,
@@ -126,25 +122,23 @@ public:
     virtual IOReturn unregisterInterrupt( IOService *	   nub,
 					int                source);
 
-    virtual void     initVector( long vectorNumber,
+    virtual void     initVector( IOInterruptVectorNumber vectorNumber,
                                  IOInterruptVector * vector );
 
-    virtual int      getVectorType(long vectorNumber, IOInterruptVector *vector);
+    virtual int      getVectorType(IOInterruptVectorNumber vectorNumber, IOInterruptVector *vector);
 
-    virtual bool     vectorCanBeShared( long vectorNumber,
+    virtual bool     vectorCanBeShared( IOInterruptVectorNumber vectorNumber,
                                         IOInterruptVector * vector );
 
-    virtual void     enableVector( long vectorNumber,
+    virtual void     enableVector( IOInterruptVectorNumber vectorNumber,
                                    IOInterruptVector * vector );
 
-    virtual void     disableVectorHard( long vectorNumber,
+    virtual void     disableVectorHard( IOInterruptVectorNumber vectorNumber,
                                         IOInterruptVector * vector );
 
     virtual IOReturn handleInterrupt( void * savedState,
                                       IOService * nub,
                                       int source );
-
-    virtual IOInterruptAction getInterruptHandlerAddress( void );
 
 //
     bool addDeviceInterruptProperties(
@@ -509,29 +503,29 @@ IOPCIMessagedInterruptController::handleInterrupt( void *      state,
     return kIOReturnSuccess;
 }
 
-bool IOPCIMessagedInterruptController::vectorCanBeShared(long vectorNumber,
+bool IOPCIMessagedInterruptController::vectorCanBeShared(IOInterruptVectorNumber vectorNumber,
 				       IOInterruptVector * vector)
 {
     return (false);
 }
 
-void IOPCIMessagedInterruptController::initVector(long vectorNumber,
+void IOPCIMessagedInterruptController::initVector(IOInterruptVectorNumber vectorNumber,
 				       IOInterruptVector * vector)
 {
 }
 
-int IOPCIMessagedInterruptController::getVectorType(long vectorNumber,
+int IOPCIMessagedInterruptController::getVectorType(IOInterruptVectorNumber vectorNumber,
 				       IOInterruptVector * vector)
 {
     return (kIOInterruptTypeEdge | kIOInterruptTypePCIMessaged);
 }
 
-void IOPCIMessagedInterruptController::disableVectorHard(long vectorNumber,
+void IOPCIMessagedInterruptController::disableVectorHard(IOInterruptVectorNumber vectorNumber,
 				       IOInterruptVector * vector)
 {
 }
 
-void IOPCIMessagedInterruptController::enableVector(long vectorNumber,
+void IOPCIMessagedInterruptController::enableVector(IOInterruptVectorNumber vectorNumber,
 				       IOInterruptVector * vector)
 {
 }
@@ -545,7 +539,7 @@ OSDefineMetaClassAndAbstractStructorsWithInit( IOPCIBridge, IOService, IOPCIBrid
 
 OSMetaClassDefineReservedUsed(IOPCIBridge, 0);
 OSMetaClassDefineReservedUsed(IOPCIBridge, 1);
-OSMetaClassDefineReservedUnused(IOPCIBridge,  2);
+OSMetaClassDefineReservedUsed(IOPCIBridge, 2);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  3);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  4);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  5);
@@ -581,28 +575,6 @@ OSMetaClassDefineReservedUnused(IOPCIBridge, 31);
 // 1 log, 2 disable DT, 4 bridge numbering 
 int gIOPCIDebug = 0;
 
-#ifdef __i386__
-__BEGIN_DECLS
-#include <i386/cpu_number.h>
-extern void mp_rendezvous_no_intrs(
-               void (*action_func)(void *),
-               void *arg);
-__END_DECLS
-
-#endif
-
-#if 0
-/* Definitions of PCI2PCI Config Registers */
-enum {
-    kPCI2PCIPrimaryBus		= 0x18,		// 8 bit
-    kPCI2PCISecondaryBus	= 0x19,		// 8 bit
-    kPCI2PCISubordinateBus	= 0x1a,		// 8 bit
-    kPCI2PCIIORange		= 0x1c,
-    kPCI2PCIMemoryRange		= 0x20,
-    kPCI2PCIPrefetchMemoryRange	= 0x24,
-    kPCI2PCIUpperIORange	= 0x30
-};
-#endif
 #ifndef kIOPlatformDeviceMessageKey
 #define kIOPlatformDeviceMessageKey     "IOPlatformDeviceMessage"
 #endif
@@ -616,6 +588,7 @@ static queue_head_t	 gIOAllPCIDeviceRestoreQ;
 
 static IOLock *		 gIOPCIMessagedInterruptControllerLock;
 const OSSymbol *	 gIOPlatformDeviceMessageKey;
+const OSSymbol *	 gIOPlatformDeviceASPMEnableKey;
 static IOWorkLoop *	 gCommonWorkLoop;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -648,6 +621,7 @@ void IOPCIBridge::initialize(void)
 	gIOPCIMessagedInterruptControllerLock = IOLockAlloc();
 	queue_init(&gIOAllPCIDeviceRestoreQ);
 	gIOPlatformDeviceMessageKey = OSSymbol::withCStringNoCopy(kIOPlatformDeviceMessageKey);
+	gIOPlatformDeviceASPMEnableKey = OSSymbol::withCStringNoCopy(kIOPlatformDeviceASPMEnableKey);
     }
 }
 
@@ -657,8 +631,8 @@ bool IOPCIBridge::start( IOService * provider )
  	// version,
 	// capabilityFlags, outputPowerCharacter, inputPowerRequirement,
                { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                { 1, 0, IOPMSoftSleep, IOPMSoftSleep, 0, 0, 0, 0, 0, 0, 0, 0 },
-                { 1, IOPMPowerOn, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
+                { 1, 0, kIOPMSoftSleep, kIOPMSoftSleep, 0, 0, 0, 0, 0, 0, 0, 0 },
+                { 1, kIOPMPowerOn, kIOPMPowerOn, kIOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
             };
 
 
@@ -744,6 +718,45 @@ void IOPCIBridge::free( void )
     }
 
     super::free();
+}
+
+IOReturn IOPCIBridge::setDeviceASPMBits(IOPCIDevice * device, IOOptionBits state)
+{
+    UInt16 control;
+
+    if (!device->reserved->expressConfig)
+	return (kIOReturnUnsupported);
+
+    control = device->configRead16(device->reserved->expressConfig + 0x10);
+    control &= ~3;
+    if (state)
+	control |= device->reserved->expressASPMDefault;
+
+    device->configWrite16(device->reserved->expressConfig + 0x10, control);
+
+    return (kIOReturnSuccess);
+}
+
+IOReturn IOPCIBridge::setDeviceASPMState(IOPCIDevice * device,
+					    IOService * client, IOOptionBits state)
+{
+    IOReturn ret;
+
+    ret = setDeviceASPMBits(device, state);
+
+    return (ret);
+}
+
+IOReturn IOPCI2PCIBridge::setDeviceASPMState(IOPCIDevice * device,
+					    IOService * client, IOOptionBits state)
+{
+    IOReturn ret;
+
+    ret = IOPCIBridge::setDeviceASPMState(device, client, state);
+    if (kIOReturnSuccess == ret)
+	setDeviceASPMBits(bridgeDevice, state);
+
+    return (ret);
 }
 
 IOReturn IOPCIBridge::setDevicePowerState( IOPCIDevice * device,
@@ -1410,7 +1423,6 @@ UInt8 IOPCIBridge::lastBusNum( void )
 void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 {
     IORegistryEntry *  found;
-    IOService *	       service;
     OSDictionary *     propTable;
     IOPCIDevice *      nub = 0;
     OSIterator *       kidsIter;
@@ -1425,7 +1437,7 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 	return;
     }
 
-#if __i386__
+#if USE_IOPCICONFIGURATOR
     bool configured;
     configured = (0 != provider->getProperty(kIOPCIConfiguredKey));
     if (!configured)
@@ -1460,7 +1472,7 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 	{
 	    if (!found->getProperty("vendor-id"))
 		continue;
-	    if ((service = OSDynamicCast(IOService, found)) && service->isInactive())
+	    if (found->inPlane(gIOServicePlane))
 		continue;
 
 	    propTable = found->getPropertyTable();
@@ -1478,6 +1490,8 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
 		{
 		    nub->reserved->expressConfig       = capa;
 		    nub->reserved->expressCapabilities = nub->configRead16(capa + 0x02);
+		    nub->reserved->expressASPMDefault  = (3 & (nub->configRead16(capa + 0x10)));
+		    nub->setProperty("IOPCIExpressASPMDefault", nub->reserved->expressASPMDefault, 32);
 		}
 		capa = 0;
 #if 0
@@ -1506,9 +1520,9 @@ void IOPCIBridge::probeBus( IOService * provider, UInt8 busNum )
         publishNub(nub , idx);
 
         if (1 & gIOPCIDebug)
-            IOLog("%08lx = 0:%08lx 4:%08lx  ", nub->space.bits,
-                nub->configRead32(kIOPCIConfigVendorID),
-                nub->configRead32(kIOPCIConfigCommand) );
+            IOLog("%08x = 0:%08x 4:%08x  ", (uint32_t) nub->space.bits,
+                (uint32_t) nub->configRead32(kIOPCIConfigVendorID),
+                (uint32_t) nub->configRead32(kIOPCIConfigCommand) );
     }
 
     nubs->release();
@@ -1530,8 +1544,8 @@ bool IOPCIBridge::addBridgeMemoryRange( IOPhysicalAddress start,
         // out of the platform
         ok = platformRanges->allocateRange( start, length );
         if (!ok)
-            kprintf("%s: didn't get host range (%08lx:%08lx)\n", getName(),
-                    start, length);
+            kprintf("%s: didn't get host range (%08x:%08x)\n", getName(),
+                    (uint32_t) start, (uint32_t) length);
     }
 
     // and into the bridge
@@ -1570,8 +1584,8 @@ bool IOPCIBridge::addBridgePrefetchableMemoryRange( IOPhysicalAddress start,
         // out of the platform
         ok = platformRanges->allocateRange( start, length );
         if (!ok)
-            kprintf("%s: didn't get host range (%08lx:%08lx)\n", getName(),
-                    start, length);
+            kprintf("%s: didn't get host range (%08llx:%08llx)\n", getName(),
+                    (uint64_t) start, (uint64_t) length);
     }
 
     // and into the bridge
@@ -1734,14 +1748,6 @@ static void probeBAR( void * refcon )
     nub->configWrite32( param->regNum, param->save );
 }
 
-#ifdef __i386__
-static void safeProbeBAR( void * refcon )
-{
-    assert(refcon);
-    if (cpu_number() == 0)
-        probeBAR(refcon);
-}
-#else /* !__i386__ */
 static void safeProbeBAR( void * refcon )
 {
     SafeProbeParam *    param = (SafeProbeParam *)refcon;
@@ -1760,7 +1766,6 @@ static void safeProbeBAR( void * refcon )
     nub->setIOEnable( ioEna );
     ml_set_interrupts_enabled( s );
 }
-#endif /* !__i386__ */
 
 IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
 {
@@ -1803,11 +1808,7 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
 	// begin scary
         probeParam.nub = nub;
         probeParam.regNum = regNum;
-#ifdef __i386__
-        mp_rendezvous_no_intrs(&safeProbeBAR, &probeParam);
-#else
         safeProbeBAR(&probeParam);
-#endif
         value = probeParam.value;
         save = probeParam.save;
         // end scary
@@ -1867,7 +1868,7 @@ IOReturn IOPCIBridge::getNubAddressing( IOPCIDevice * nub )
         }
 
         if (1 & gIOPCIDebug)
-            IOLog("Space %08lx : %08lx, %08lx\n", reg.bits, phys, len);
+            IOLog("Space %08x : %08llx, %08llx\n", (uint32_t) reg.bits, (uint64_t) phys, (uint64_t) len);
 
         constructRange( &reg, phys, len, array );
     }
@@ -1897,7 +1898,7 @@ IOReturn IOPCIBridge::getNubResources( IOService * service )
         return (kIOReturnSuccess);
     service->setProperty(kIOPCIResourcedKey, kOSBooleanTrue);
 
-#ifdef __i386__
+#if USE_IOPCICONFIGURATOR
     err = getDTNubAddressing( nub );
 #else
     if (isDTNub(nub))
@@ -2223,6 +2224,30 @@ bool IOPCI2PCIBridge::filterInterrupt( IOFilterInterruptEventSource * source)
     return (0 != (kNeedMask & slotStatus));
 }
 
+void IOPCIBridge::checkTerminateChildren(IOService * bridgeDevice, bool eject)
+{
+    OSIterator * iter;
+    IOService *  child;
+
+    iter = bridgeDevice->getChildIterator(gIODTPlane);
+    if (!iter) return;
+
+    while ((child = (IOService *) iter->getNextObject()))
+    {
+	if (eject)
+	{
+	    if (kOSBooleanFalse != child->getProperty(kIOPCIOnlineKey))
+		continue;
+	    LOG("eject-terminate %p\n", child);    
+	}
+	else
+	    LOG("hotp-terminate %p\n", child);
+	child->terminate();
+	LOG("did terminate %p\n", child);    
+    }
+    iter->release();
+}
+
 void IOPCI2PCIBridge::handleInterrupt( IOInterruptEventSource * source,
 				     int                      count )
 {
@@ -2264,16 +2289,7 @@ void IOPCI2PCIBridge::handleInterrupt( IOInterruptEventSource * source,
 
     if (fPresence == present)
     {
-	if (present)
-	{
-	    IOService * dev = OSDynamicCast(IOService, bridgeDevice->getChildEntry(gIODTPlane));
-	    if (dev && kOSBooleanFalse == dev->getProperty(kIOPCIOnlineKey))
-	    {
-		LOG("eject-terminate %p\n", dev);    
-		dev->terminate();
-		LOG("did terminate %p\n", dev);    
-	    }
-	}
+	if (present) checkTerminateChildren(bridgeDevice, true);
 	return;
     }
 
@@ -2284,13 +2300,7 @@ void IOPCI2PCIBridge::handleInterrupt( IOInterruptEventSource * source,
     {
 	// not present
 	bridgeDevice->removeProperty(kIOPCIOnlineKey);
-	IOService * dev = OSDynamicCast(IOService, bridgeDevice->getChildEntry(gIODTPlane));
-	if (dev)
-	{
-	    LOG("hotp-terminate %p\n", dev);    
-	    dev->terminate();
-	    LOG("did terminate %p\n", dev);    
-	}
+	checkTerminateChildren(bridgeDevice, false);
     }
     else
     {
@@ -2621,7 +2631,7 @@ IOReturn IOPCIBridge::resolveMSIInterrupts( IOService * provider, IOPCIDevice * 
 {
     IOReturn ret = kIOReturnUnsupported;
 
-#ifdef __i386__
+#if USE_MSI
 
     IOByteCount msi = nub->reserved->msiConfig;
 
@@ -2664,17 +2674,17 @@ IOReturn IOPCIBridge::resolveMSIInterrupts( IOService * provider, IOPCIDevice * 
     }
     while (false);
 
-#endif /* __i386__ */
+#endif /* USE_MSI */
 
     return (ret);
 }
 
 IOReturn IOPCIBridge::resolveLegacyInterrupts( IOService * provider, IOPCIDevice * nub )
 {
-#ifdef __i386__
+#if USE_LEGACYINTS
 
-    UInt32 pin;
-    UInt32 irq = 0;
+    uint32_t pin;
+    uint32_t irq = 0;
 
     pin = (UInt8)(nub->configRead32( kIOPCIConfigInterruptLine ) >> 8);
     if ( pin == 0 || pin > 4 )
@@ -2693,7 +2703,7 @@ IOReturn IOPCIBridge::resolveLegacyInterrupts( IOService * provider, IOPCIDevice
                    /* resolved IRQ    */ &irq ))
     {
         if (1 & gIOPCIDebug)
-            IOLog("%s: Resolved interrupt %ld (%d) for %s\n",
+            IOLog("%s: Resolved interrupt %d (%d) for %s\n",
                   provider->getName(),
                   irq, nub->configRead8(kIOPCIConfigInterruptLine),
                   nub->getName());
@@ -2714,7 +2724,7 @@ IOReturn IOPCIBridge::resolveLegacyInterrupts( IOService * provider, IOPCIDevice
               /* vectorCount     */ (void *) 1,
               /* exclusive       */ (void *) false );
 
-#endif /* __i386__ */
+#endif /* USE_LEGACYINTS */
 
     return (kIOReturnSuccess);
 }

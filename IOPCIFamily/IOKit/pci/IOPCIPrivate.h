@@ -34,6 +34,7 @@ struct IOPCIDeviceExpansionData
 
     UInt16  expressConfig;
     UInt16  expressCapabilities;
+    UInt16  expressASPMDefault;
     UInt16  msiConfig;
     UInt8   msiBlockSize;
     UInt8   msiMode;
@@ -102,6 +103,7 @@ enum
 #endif
 
 extern const IORegistryPlane * gIOPCIACPIPlane;
+extern const OSSymbol *	       gIOPlatformDeviceASPMEnableKey;
 
 enum
 {

@@ -22,7 +22,8 @@ AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = PR3885704.diff EA.diff Makefile.in.diff preallocate.diff \
                  tar-1.15.1-heapOverflow.patch tar-1.15.1-mangling.patch \
-                 quarantine.diff fix-tests.diff PR5405409.diff
+                 quarantine.diff fix-tests.diff PR5405409.diff \
+                 PR5605786.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -37,7 +38,7 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+		cd $(SRCROOT)/$(Project) && patch -F0 -p0 < $(SRCROOT)/patches/$$patchfile; \
 	done
 endif
 

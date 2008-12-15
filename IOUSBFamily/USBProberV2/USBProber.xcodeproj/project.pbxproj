@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		306A29B00DCFD37000E410D3 /* clitestscript in Resources */ = {isa = PBXBuildFile; fileRef = 306A29AF0DCFD37000E410D3 /* clitestscript */; };
 		3E0EA856050D1F86009D1D9C /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3E0EA84F050D1F76009D1D9C /* InfoPlist.strings */; };
 		3E0EA857050D1F86009D1D9C /* KLog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3E0EA84A050D1F76009D1D9C /* KLog.cpp */; };
 		3E0EA858050D1F87009D1D9C /* KLog.h in Headers */ = {isa = PBXBuildFile; fileRef = 3E0EA84B050D1F76009D1D9C /* KLog.h */; };
@@ -195,6 +196,7 @@
 		29B97319FDCFA39411CA2CEA /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MainMenu.nib; sourceTree = "<group>"; };
 		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		306A29AF0DCFD37000E410D3 /* clitestscript */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = clitestscript; sourceTree = "<group>"; };
 		3E0711D7050A698000840498 /* KLog.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KLog.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		3E0EA84A050D1F76009D1D9C /* KLog.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = KLog.cpp; path = KLog/KLog.cpp; sourceTree = "<group>"; };
 		3E0EA84B050D1F76009D1D9C /* KLog.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = KLog.h; path = KLog/KLog.h; sourceTree = "<group>"; };
@@ -371,6 +373,7 @@
 		29B97317FDCFA39411CA2CEA /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				306A29AF0DCFD37000E410D3 /* clitestscript */,
 				72DA3D2304C4A5D500DBD7EE /* USBProberIcon.icns */,
 				726236BD04B0E16C0026A607 /* USBVendors.txt */,
 				72DDD15C04A298650067E712 /* detail.tiff */,
@@ -617,6 +620,7 @@
 				7205D05C04C4912C00325756 /* MainMenu-Jaguar.nib in Resources */,
 				72DA3D2404C4A5D500DBD7EE /* USBProberIcon.icns in Resources */,
 				3E7CBCE604F3DBFF008267FD /* USB Prober_Prefix.pch in Resources */,
+				306A29B00DCFD37000E410D3 /* clitestscript in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -763,7 +767,6 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.KLog;
 				MODULE_VERSION = 1.0.5;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -787,6 +790,7 @@
 				DEPLOYMENT_POSTPROCESSING = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_OPTIMIZATION_LEVEL = 2;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_GROUP2 = wheel;
 				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
@@ -796,7 +800,6 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.KLog;
 				MODULE_VERSION = 1.0.5;
-				OPTIMIZATION_CFLAGS = "-O2";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -860,7 +863,6 @@
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "USB Prober";
@@ -885,6 +887,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_ENABLE_TRIGRAPHS = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = 2;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "USB Prober_Prefix.pch";
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
@@ -894,7 +897,6 @@
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "-O2";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = "USB Prober";
@@ -941,6 +943,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
 			};
 			name = Development;
 		};
@@ -948,6 +951,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
 			};
 			name = Deployment;
 		};
@@ -955,6 +959,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
 			};
 			name = Default;
 		};

@@ -8,4 +8,4 @@ MDSRCS+= OSAtomic.s \
 	setjmp.s \
 	_sigtramp.s
 
-MDCOPYFILES+= ${.CURDIR}/i386/sys/libc.syscall.i386
+MDCOPYFILES+= ${.CURDIR}/Platforms/${RC_TARGET_CONFIG}/i386/libc.syscall.i386

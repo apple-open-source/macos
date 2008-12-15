@@ -106,7 +106,6 @@
 			mainGroup = 08FB7794FE84155DC02AAC07 /* USBNotificationExample */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				EE4E2E8E07B2B8670003BA82 /* Ezload */,
 			);
@@ -145,6 +144,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = "$(HOME)/bin";
 				PRODUCT_NAME = Ezload;
+				SDKROOT = "";
 				ZERO_LINK = YES;
 			};
 			name = Debug;
@@ -160,6 +160,7 @@
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = "$(HOME)/bin";
 				PRODUCT_NAME = Ezload;
+				SDKROOT = "";
 			};
 			name = Release;
 		};

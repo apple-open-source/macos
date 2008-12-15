@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -102,33 +102,33 @@ udp_in_init(void)
 
 	asldebug("%s: init\n", MY_ID);
 	if (nsock > 0) return 0;
-	if (launch_dict == NULL)
+	if (global.launch_dict == NULL)
 	{
 		asldebug("%s: laucnchd dict is NULL\n", MY_ID);
 		return -1;
 	}
 
-	sockets_dict = launch_data_dict_lookup(launch_dict, LAUNCH_JOBKEY_SOCKETS);
+	sockets_dict = launch_data_dict_lookup(global.launch_dict, LAUNCH_JOBKEY_SOCKETS);
 	if (sockets_dict == NULL)
 	{
 		asldebug("%s: laucnchd lookup of LAUNCH_JOBKEY_SOCKETS failed\n", MY_ID);
 		return -1;
 	}
-	
+
 	fd_array = launch_data_dict_lookup(sockets_dict, UDP_SOCKET_NAME);
 	if (fd_array == NULL)
 	{
 		asldebug("%s: laucnchd lookup of UDP_SOCKET_NAME failed\n", MY_ID);
 		return -1;
 	}
-	
+
 	nsock = launch_data_array_get_count(fd_array);
 	if (nsock <= 0)
 	{
 		asldebug("%s: laucnchd fd array is empty\n", MY_ID);
 		return -1;
 	}
-	
+
 	for (i = 0; i < nsock; i++)
 	{
 		fd_dict = launch_data_array_get_index(fd_array, i);
@@ -137,7 +137,7 @@ udp_in_init(void)
 			asldebug("%s: laucnchd file discriptor array element 0 is NULL\n", MY_ID);
 			return -1;
 		}
-		
+
 		ufd[i] = launch_data_get_fd(fd_dict);
 
 		rbufsize = 128 * 1024;

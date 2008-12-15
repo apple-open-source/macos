@@ -3,6 +3,12 @@
 /* Define if the system crypt() function is threadsafe */
 #undef APU_CRYPT_THREADSAFE
 
+/* Define if modular components are built as DSOs */
+#undef APU_DSO_BUILD
+
+/* Define to be absolute path to DSO directory */
+#undef APU_DSO_LIBDIR
+
 /* Define if the inbuf parm to iconv() is const char ** */
 #undef APU_ICONV_INBUF_CONST
 
@@ -57,6 +63,9 @@
 /* Define to 1 if you have the `nl_langinfo' function. */
 #undef HAVE_NL_LANGINFO
 
+/* Define to 1 if you have the <oci.h> header file. */
+#undef HAVE_OCI_H
+
 /* Define to 1 if you have the <postgresql/libpq-fe.h> header file. */
 #undef HAVE_POSTGRESQL_LIBPQ_FE_H
 
@@ -77,6 +86,9 @@
 
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
+
+/* Define to 1 if you have the <sybdb.h> header file. */
+#undef HAVE_SYBDB_H
 
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H

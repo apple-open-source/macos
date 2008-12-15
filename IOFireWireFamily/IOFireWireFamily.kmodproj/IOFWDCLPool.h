@@ -6,6 +6,9 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFWDCLPool.h,v $
+ *	Revision 1.13.6.1  2008/03/03 23:15:13  ayanowit
+ *	another fix for gcc-42.
+ *	
  *	Revision 1.13  2007/01/26 20:52:31  ayanowit
  *	changes to user-space isoch stuff to support 64-bit apps.
  *	
@@ -68,6 +71,7 @@ class IOFWSkipCycleDCL ;
 class IOFireWireUserClient ;
 class IOMemoryDescriptor ;
 class IOMemoryMap ;
+class OSSet;
 
 // not to be subclassed!
 

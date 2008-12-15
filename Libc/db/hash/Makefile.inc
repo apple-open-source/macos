@@ -2,6 +2,7 @@
 # $FreeBSD: src/lib/libc/db/hash/Makefile.inc,v 1.5 2002/11/18 09:50:54 ru Exp $
 
 .PATH: ${.CURDIR}/db/hash
+CWD := ${.CURDIR}/db/hash
 
 .include "Makefile.fbsd_begin"
 FBSDMISRCS= hash.c hash_bigkey.c hash_buf.c hash_func.c hash_log2.c \
@@ -17,6 +18,11 @@ FBSDHDRS= hash.h page.h
 
 # need to rename extern.h to make it unique
 .ifmake autopatch
-hash_extern.h: FreeBSD/extern.h _AUTOPATCHCUR
-AUTOPATCHHDRS+= hash_extern.h
+
+# This .for statement forces evaluation of ${CWD}
+.for _cwd in ${CWD}
+${_cwd}/hash_extern.h: ${_cwd}/FreeBSD/extern.h _AUTOPATCH
+AUTOPATCHHDRS+= ${_cwd}/hash_extern.h
+.endfor # _cwd
+
 .endif # autopatch

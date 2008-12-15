@@ -56,9 +56,17 @@
     config {virtual} auto/config.h auto/config.aap :
                          auto/configure.aap configure.aap
                          config.arg config.h.in config.aap.in
+        # Use "uname -a" to detect the architecture of the system.
+        @ok, uname = redir_system('uname -a', 0)
+        @if string.find(uname, "i386") >= 0:
+        @   arch = "i386"
+        @else:
+        @   arch = "ppc"
+        :print Building for $arch system
+        config_args = `file2string("config.arg")`
         :sys CONFIG_STATUS=auto/config.status
-                ./configure.aap `file2string("config.arg")`
-                    --with-mac-arch=ppc
+                ./configure.aap $config_args
+                    --with-mac-arch=$arch
                     --cache-file=auto/config.cache
 
     # Configure arguments: create an empty "config.arg" file when its missing
@@ -259,7 +267,7 @@ distclean: clean
 # messages.  Don't worry about that.
 # If there is a real error, there will be a difference between "test.out" and
 # a "test99.ok" file.
-# If everything is allright, the final message will be "ALL DONE".
+# If everything is alright, the final message will be "ALL DONE".
 #
 test check:
     VimProg = ../$Target
@@ -351,7 +359,7 @@ all: $Target $GUI_BUNDLE
 $Source version.c : auto/osdef.h
 
 # Need to mention that the target also depends on version.c, since it's not
-# inluded in $Source
+# included in $Source
 $Target : version.c
 
 # Some sources are to be found in the "auto" directory.
@@ -433,11 +441,13 @@ auto/pathdef.c: auto/config.aap
         :print >> $target char_u *all_lflags = (char_u *)"$linkcmd";
         @if _no.get("COMPILEDBY"):
             who = $COMPILEDBY
-            where = ''
+            where =
         @else:
             :syseval whoami | :eval re.sub("\n", "", stdin) | :assign who
 
             :syseval hostname | :eval re.sub("\n", "", stdin) | :assign where
+        @who = string.replace(who, '"', '\\"')
+        @where = string.replace(where, '"', '\\"')
         :print >> $target char_u *compiled_user = (char_u *)"$who";
         :print >> $target char_u *compiled_sys = (char_u *)"$where";
 
@@ -1143,23 +1153,15 @@ REZ    = /Developer/Tools/Rez
 RESDIR = $(APPDIR)/Contents/Resources
 @r = re.compile('.*VIM_VERSION_SHORT\\s*"(\\d[^"]*)".*', re.S)
 VERSION = /`r.match(open("version.h").read()).group(1)`
-ICON_APP = gui_mac.icns
 
 ### Common flags
 M4FLAGSX = $?(M4FLAGS) -DAPP_EXE=$(VIMNAME) -DAPP_NAME=$(VIMNAME) \
-		-DAPP_VER=$(VERSION) -DICON_APP=$(ICON_APP)
+		-DAPP_VER=$(VERSION)
 
-### Icons
-ICONS = $(RESDIR)/$(ICON_APP)
+# Resources used for the Mac are in one directory.
+RSRC_DIR = os_mac_rsrc
 
 :attr {directory = $DIRMOD} $RESDIR
-
-# If you uncomment the following lines the *.icns in the src directory will be
-# detected by this Makefile automatically, and used for Vim.
-#ICON_APP = $(shell if [ -e app.icns ] ; then echo app.icns ; else echo gui_mac.icns ; fi)
-#ICON_DOC = $(shell if [ -e doc.icns ] ; then echo doc.icns ; else echo ; fi)
-#ICON_DOCTXT = $(shell if [ -e doc-txt.icns ] ; then echo doc-txt.icns ; else echo ; fi)
-#ICONS = $(addprefix $(RESDIR)/, $(ICON_APP) $(ICON_DOC) $(ICON_DOCTXT))
 
 install_macosx {virtual}: gui_bundle
 # Remove the link to the runtime dir, don't want to copy all of that.
@@ -1194,9 +1196,8 @@ bundle-info {virtual}:  bundle-dir
         :print Creating Info.plist
         :sys m4 $(M4FLAGSX) infplist.xml > $(APPDIR)/Contents/Info.plist
 
-bundle-resource {virtual}: bundle-dir bundle-icons bundle-rsrc
-
-bundle-icons {virtual}: $ICONS
+bundle-resource {virtual}: bundle-dir bundle-rsrc
+        :copy {force} $(RSRC_DIR)/*.icns $(RESDIR)
 
 ### Classic resources
 # Resource fork (in the form of a .rsrc file) for Classic Vim (Mac OS 9)
@@ -1219,9 +1220,6 @@ bundle-language {virtual}: bundle-dir
 $(APPDIR)/Contents:
     :mkdir {r} $(APPDIR)/Contents/MacOS
     :mkdir {r} $(RESDIR)/English.lproj
-
-$ICONS: $ICON_APP
-    :copy $source $target
 
 
 # vim: sts=4 sw=4 :

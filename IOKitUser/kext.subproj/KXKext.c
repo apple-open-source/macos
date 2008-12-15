@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <mach-o/nlist.h>
-#include <mach-o/dyld.h>
+#include <dlfcn.h>
 #include <sys/types.h>   
 #include <sys/mman.h>   
 

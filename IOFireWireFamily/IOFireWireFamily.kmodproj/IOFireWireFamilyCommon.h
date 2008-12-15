@@ -29,6 +29,9 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
+	Revision 1.75.2.2  2008/07/15 01:01:58  collin
+	<rdar://problem/5859733> Customer reported Leopard FireWire Drive failure (works in Tiger)
+	
 	Revision 1.75.2.1  2007/11/30 04:49:17  collin
 	fix context allocation for the M86 workaround
 	
@@ -1133,7 +1136,7 @@ enum IOFWWriteFlags
 	kIOFWWriteFlagsNone				= 0x00000000,
 	kIOFWWriteFlagsDeferredNotify 	= 0x00000001,
 	kIOFWWriteFastRetryOnBusy		= 0x00000002,
-	kIOFWWriteBlockRequest			= 0x00000003,		// force a block request
+	kIOFWWriteBlockRequest			= 0x00000004,		// force a block request
 };
 
 //
@@ -1143,7 +1146,8 @@ enum IOFWWriteFlags
 enum IOFWReadFlags
 {
 	kIOFWReadFlagsNone				= 0x00000000,
-	kIOFWReadBlockRequest			= 0x00000003		// force a block request
+	kIOFWReadBlockRequest			= 0x00000004,		// force a block request
+	kIOFWReadPingTime				= 0x00000008		// ping time
 };
 
 //

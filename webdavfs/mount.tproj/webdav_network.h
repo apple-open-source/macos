@@ -89,10 +89,19 @@ int network_server_ping(u_int32_t delay);
 
 void network_seqwrite_manager(struct stream_put_ctx *ctx);
 
-// Note: ctx->lock must be held before calling this routine
+// Note: ctx->lock must be held before calling queue_writemgr_request_locked()
 enum {WRITE_MGR_NEW_REQUEST_ID = 1};
 #define WRITE_MGR_MSG_PORTSEND_TIMEOUT 10.0
-#define WRITE_MGR_MSG_PORT_NAME "com.apple.webdavfs.msgport"
+#define WRITE_MGR_MSG_PORT_NAME_BASE_STRING "com.apple.webdavfs.msgport"
+#define WRITE_MGR_MSG_PORT_NAME_TEMPLATE  ("%s-0x%016u-%p")
+//
+// WRITE_MGR_MSG_PORT_NAME_BUFSIZE must be large enough
+// to hold strings like this:
+// com.apple.webdavfs.msgport-0x0000000000000594-0x000000064e689a32
+// |<------- 26 bytes------>|<------------ 38 bytes ------------->|
+//
+#define WRITE_MGR_MSG_PORT_NAME_BUFSIZE 128
+
 int queue_writemgr_request_locked(struct stream_put_ctx *ctx, struct seqwrite_mgr_req *req);
 
 void writeseqReadResponseCallback(CFReadStreamRef str, 

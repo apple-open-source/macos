@@ -1,0 +1,164 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXFileReference section */
+		AA8624930E5E5B8C0014D34F /* applemysqlcheckcnf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = applemysqlcheckcnf; sourceTree = SOURCE_ROOT; };
+		AA8624940E5E5B8C0014D34F /* applemysqlcheckcnf.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = applemysqlcheckcnf.8; sourceTree = SOURCE_ROOT; };
+		AA8624950E5E5B8C0014D34F /* config.h.sed */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = config.h.sed; sourceTree = SOURCE_ROOT; };
+		AA8624960E5E5B8D0014D34F /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = SOURCE_ROOT; };
+		AA8624970E5E5B8D0014D34F /* my-huge.cnf.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "my-huge.cnf.patch"; sourceTree = SOURCE_ROOT; };
+		AA8624980E5E5B8D0014D34F /* my-large.cnf.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "my-large.cnf.patch"; sourceTree = SOURCE_ROOT; };
+		AA8624990E5E5B8D0014D34F /* MySQL.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = MySQL.plist; sourceTree = SOURCE_ROOT; };
+		AA86249A0E5E5B8D0014D34F /* mysql-5.0.67.tar.gz */ = {isa = PBXFileReference; lastKnownFileType = archive.gzip; path = "mysql-5.0.67.tar.gz"; sourceTree = SOURCE_ROOT; };
+		AA86249B0E5E5B8D0014D34F /* MySQL.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = MySQL.txt; sourceTree = SOURCE_ROOT; };
+		AA86249C0E5E5B8D0014D34F /* mysql_db_upgrade */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = mysql_db_upgrade; sourceTree = SOURCE_ROOT; };
+		AA86249D0E5E5B8D0014D34F /* mysqld.cc.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mysqld.cc.patch; sourceTree = SOURCE_ROOT; };
+		AA86249E0E5E5B8D0014D34F /* mysqld_safe.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mysqld_safe.patch; sourceTree = SOURCE_ROOT; };
+		AA86249F0E5E5B8D0014D34F /* mysqlman.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = mysqlman.1; sourceTree = SOURCE_ROOT; };
+		AA8624A00E5E5B8D0014D34F /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		AA3F69940E5E5AE3000DE7DD /* /Volumes/haza/peralta/Projects2/Servers/MySQL/MySQL.xcodeproj */ = {
+			isa = PBXGroup;
+			children = (
+				AA8624930E5E5B8C0014D34F /* applemysqlcheckcnf */,
+				AA8624940E5E5B8C0014D34F /* applemysqlcheckcnf.8 */,
+				AA8624950E5E5B8C0014D34F /* config.h.sed */,
+				AA8624960E5E5B8D0014D34F /* Makefile */,
+				AA8624970E5E5B8D0014D34F /* my-huge.cnf.patch */,
+				AA8624980E5E5B8D0014D34F /* my-large.cnf.patch */,
+				AA8624990E5E5B8D0014D34F /* MySQL.plist */,
+				AA86249A0E5E5B8D0014D34F /* mysql-5.0.67.tar.gz */,
+				AA86249B0E5E5B8D0014D34F /* MySQL.txt */,
+				AA86249C0E5E5B8D0014D34F /* mysql_db_upgrade */,
+				AA86249D0E5E5B8D0014D34F /* mysqld.cc.patch */,
+				AA86249E0E5E5B8D0014D34F /* mysqld_safe.patch */,
+				AA86249F0E5E5B8D0014D34F /* mysqlman.1 */,
+				AA8624A00E5E5B8D0014D34F /* README */,
+			);
+			path = /Volumes/haza/peralta/Projects2/Servers/MySQL/MySQL.xcodeproj;
+			sourceTree = "<absolute>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		D28A88AD04BDD90700651E21 /* MySQL */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 5DC3C9FF08EC876D0050DD76 /* Build configuration list for PBXLegacyTarget "MySQL" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = "";
+			dependencies = (
+			);
+			name = MySQL;
+			passBuildSettingsInEnvironment = 1;
+			productName = MySQL;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 5DC3CA0308EC876D0050DD76 /* Build configuration list for PBXProject "MySQL" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = AA3F69940E5E5AE3000DE7DD /* /Volumes/haza/peralta/Projects2/Servers/MySQL/MySQL.xcodeproj */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D28A88AD04BDD90700651E21 /* MySQL */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		5DC3CA0008EC876D0050DD76 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = MySQL;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		5DC3CA0108EC876D0050DD76 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = MySQL;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		5DC3CA0208EC876D0050DD76 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = MySQL;
+			};
+			name = Default;
+		};
+		5DC3CA0408EC876D0050DD76 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		5DC3CA0508EC876D0050DD76 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		5DC3CA0608EC876D0050DD76 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5DC3C9FF08EC876D0050DD76 /* Build configuration list for PBXLegacyTarget "MySQL" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DC3CA0008EC876D0050DD76 /* Debug */,
+				5DC3CA0108EC876D0050DD76 /* Release */,
+				5DC3CA0208EC876D0050DD76 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		5DC3CA0308EC876D0050DD76 /* Build configuration list for PBXProject "MySQL" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DC3CA0408EC876D0050DD76 /* Debug */,
+				5DC3CA0508EC876D0050DD76 /* Release */,
+				5DC3CA0608EC876D0050DD76 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

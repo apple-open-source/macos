@@ -190,6 +190,20 @@ IOReturn IOFilterScheme::synchronizeCache(IOService * client)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+IOReturn IOFilterScheme::discard(IOService * client,
+                                 UInt64      byteStart,
+                                 UInt64      byteCount)
+{
+    //
+    // Delete unused data from the storage object at the specified byte offset,
+    // synchronously.
+    //
+
+    return getProvider( )->discard( this, byteStart, byteCount );
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 OSMetaClassDefineReservedUnused(IOFilterScheme,  0);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

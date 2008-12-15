@@ -1,3 +1,4 @@
+ALLARCHS = arm i386 ppc ppc64 x86_64 # installsrc doesn't set RC_ARCHS
 PWD != pwd
 .ifdef DSTROOT
 DESTDIR = $(DSTROOT)
@@ -23,10 +24,13 @@ ARCH != arch
 RC_ARCHS = $(ARCH)
 RC_$(RC_ARCHS) = 1
 .endif
+.ifndef RC_NONARCH_CFLAGS
+RC_NONARCH_CFLAGS = -pipe
+.endif
 .ifdef ALTUSRLOCALLIBSYSTEM
 LIBSYS = $(ALTUSRLOCALLIBSYSTEM)
 .else
-LIBSYS = $(NEXT_ROOT)/usr/local/lib/system
+LIBSYS = $(SDKROOT)/usr/local/lib/system
 .endif
 NJOBS != perl -e '$$n = `/usr/sbin/sysctl -n hw.ncpu`; printf "%d\n", $$n < 2 ? 2 : ($$n * 1.5)'
 BSDMAKE = bsdmake -f Makefile
@@ -41,10 +45,17 @@ BSDMAKEJ = $(BSDMAKE) -j $(NJOBS)
 dynamic = dynamic
 static = static
 
-# Remove the arch stuff, since we know better here.
-LOCAL_CFLAGS != echo $(RC_CFLAGS) | sed 's/ *-arch [^ ][^ ]*//g'
+# Map RC_ARCHS to MACHINE_ARCH
+.for A in $(RC_ARCHS) $(ARCH) # {
+MACHINE_ARCH-$(A) = $(A:C/^armv.*/arm/)
+.endfor # RC_ARCHS }
 
 FORMS := dynamic debug profile static
+
+OBJSUFFIX-dynamic = So
+OBJSUFFIX-debug = do
+OBJSUFFIX-profile = po
+OBJSUFFIX-static = o
 
 all: build
 
@@ -107,7 +118,7 @@ FRAMEWORKS = $(OBJROOT)/Frameworks
 .ifdef ALTFRAMEWORKSPATH
 FRAMEWORKPATH = ${ALTFRAMEWORKSPATH}
 .else
-FRAMEWORKPATH = ${NEXT_ROOT}/System/Library/Frameworks
+FRAMEWORKPATH = ${SDKROOT}/System/Library/Frameworks
 .endif
 $(FRAMEWORKS):
 	$(SRCROOT)/patchHeaders $(FRAMEWORKPATH)/$(PRIVATEHEADERPATH) $(FRAMEWORKS)/$(PRIVATEHEADERPATH:H)
@@ -128,9 +139,11 @@ PSUFFIX-$(F) = $(PARTIAL)$(SUFFIX-$(F))
 ARCHS-$(F) += $(A)
 build-$(A)-$(F):
 	mkdir -p $(OBJROOT)/obj.$(A) && \
-	MAKEOBJDIR="$(OBJROOT)/obj.$(A)" MACHINE_ARCH="$(A)" \
+	MAKEOBJDIR="$(OBJROOT)/obj.$(A)" MACHINE_ARCH=$(MACHINE_ARCH-$(A)) CCARCH=$(A) \
 	    DSTROOT=$(DSTROOT) OBJROOT=$(OBJROOT) SYMROOT=$(SYMROOT) \
-	    MAKEFLAGS="" CFLAGS="-arch $(A) $(LOCAL_CFLAGS)" $(BSDMAKEJ) libc$(SUFFIX-$(F)).a
+	    RC_NONARCH_CFLAGS="$(RC_NONARCH_CFLAGS)" MAKEFLAGS="" \
+	    OBJSUFFIX="$(OBJSUFFIX-$(F))" \
+	    $(BSDMAKEJ) libc$(SUFFIX-$(F)).a
 .else # } {
 build-$(A)-$(F):
 	@echo Not building libc$(PSUFFIX-$(F)).a for $(A)
@@ -160,12 +173,10 @@ build-$(F):
 # We autopatch the files into the directory containing the Makefile.inc.  This
 # will happen at installsrc.
 $(AUTOPATCHED):
-	@set -x && \
-	for m in `find $(SRCROOT) -name Makefile.inc`; do \
-	    cd `dirname $$m` && \
-	    bsdmake -I $(SRCROOT) -f $(SRCROOT)/Makefile.inc -f Makefile.inc -f $(SRCROOT)/Makefile.autopatch autopatch LIB=c SRCROOT=$(SRCROOT) || \
-	    exit 1; \
-	done
+.for A in $(ALLARCHS) # {
+	MACHINE_ARCH=$(A) SRCROOT="$(SRCROOT)" \
+	    $(BSDMAKE) -C "$(SRCROOT)" autopatch
+.endfor # ALLARCHS # }
 	touch $(AUTOPATCHED)
 
 copysrc:
@@ -179,9 +190,10 @@ installhdrs-real:
 	    $(BSDMAKEJ) installhdrs
 .for A in $(RC_ARCHS) # {
 	mkdir -p "$(OBJROOT)/obj.$(A)" && \
-	MAKEOBJDIR="$(OBJROOT)/obj.$(A)" MACHINE_ARCH="$(A)" \
+	MAKEOBJDIR="$(OBJROOT)/obj.$(A)" MACHINE_ARCH=$(MACHINE_ARCH-$(A)) CCARCH=$(A) \
 	    DSTROOT=$(DSTROOT) OBJROOT=$(OBJROOT) SYMROOT=$(SYMROOT) \
-	    MAKEFLAGS="" $(BSDMAKEJ) installhdrs-md
+	    MAKEFLAGS="" RC_NONARCH_CFLAGS="$(RC_NONARCH_CFLAGS)" \
+	    $(BSDMAKEJ) installhdrs-md
 .endfor # RC_ARCHS # }
 
 .for F in $(FORMS) # {
@@ -195,10 +207,11 @@ BI-install-$(F): build-$(F)
 	fi
 .if $(dynamic) == $(F) # {
 .for A in $(RC_ARCHS) # {
-	MAKEOBJDIR="$(OBJROOT)/obj.$(A)" MACHINE_ARCH="$(A)" \
+	MAKEOBJDIR="$(OBJROOT)/obj.$(A)" MACHINE_ARCH=$(MACHINE_ARCH-$(A)) CCARCH=$(A) \
 	DSTROOT=$(DSTROOT) OBJROOT=$(OBJROOT) SYMROOT=$(SYMROOT) \
 	    DSTROOT=$(DSTROOT) OBJROOT=$(OBJROOT) SYMROOT=$(SYMROOT) \
-	    MAKEFLAGS="" $(BSDMAKE) copyfiles
+	    MAKEFLAGS="" RC_NONARCH_CFLAGS="$(RC_NONARCH_CFLAGS)" \
+	    $(BSDMAKE) copyfiles
 .endfor # RC_ARCHS # }
 .endif # }
 .endfor # FORMS }
@@ -213,8 +226,9 @@ install-man:
 	mkdir -p $(DSTROOT)/usr/share/man/man7
 	MAKEOBJDIR="$(OBJROOT)" DESTDIR="$(DSTROOT)" \
 		DSTROOT='$(DSTROOT)' OBJROOT='$(OBJROOT)' SYMROOT='$(SYMROOT)' \
-		MACHINE_ARCH="$(ARCH)" MAKEFLAGS="" \
-		$(BSDMAKE) autopatchman all-man maninstall $(MANARGS)
+		MACHINE_ARCH="$(MACHINE_ARCH-$(ARCH))" CCARCH=$(ARCH) MAKEFLAGS="" \
+		RC_NONARCH_CFLAGS="$(RC_NONARCH_CFLAGS)" \
+		$(BSDMAKE) all-man maninstall $(MANARGS)
 
 install-all: build install-man
 .for F in $(FORMS) # {

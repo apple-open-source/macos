@@ -33,7 +33,7 @@
 # define HAVE_PATHDEF
 
 /*
- * Check if configure correcly managed to find sizeof(int).  If this failed,
+ * Check if configure correctly managed to find sizeof(int).  If this failed,
  * it becomes zero.  This is likely a problem of not being able to run the
  * test program.  Other items from configure may also be wrong then!
  */
@@ -42,12 +42,21 @@
 # endif
 
 /*
- * Cygwin may have fchdir() in a newer rleease, but in most versions it
+ * Cygwin may have fchdir() in a newer release, but in most versions it
  * doesn't work well and avoiding it keeps the binary backward compatible.
  */
 # if defined(__CYGWIN32__) && defined(HAVE_FCHDIR)
 #  undef HAVE_FCHDIR
 # endif
+#endif
+
+/* user ID of root is usually zero, but not for everybody */
+#ifdef __TANDEM
+# define _TANDEM_SOURCE
+# include <floss.h>
+# define ROOT_UID 65535
+#else
+# define ROOT_UID 0
 #endif
 
 #ifdef __EMX__		/* hand-edited config.h for OS/2 with EMX */
@@ -61,7 +70,7 @@
  * MACOS	 compiling for either one
  */
 #if defined(macintosh) && !defined(MACOS_CLASSIC)
-#  define MACOS_CLASSIC
+# define MACOS_CLASSIC
 #endif
 #if defined(MACOS_X_UNIX)
 # define MACOS_X
@@ -167,6 +176,9 @@
      * Disable all X11 related things to avoid conflicts. */
 # ifdef FEAT_X11
 #  undef FEAT_X11
+# endif
+# ifdef FEAT_GUI_X11
+#  undef FEAT_GUI_X11
 # endif
 # ifdef FEAT_XCLIPBOARD
 #  undef FEAT_XCLIPBOARD
@@ -327,10 +339,10 @@
 # endif
 #endif
 #ifdef BACKSLASH_IN_FILENAME
-# define PATH_ESC_CHARS ((char_u *)" \t*?[{`%#")
+# define PATH_ESC_CHARS ((char_u *)" \t\n*?[{`%#'\"|!<")
 #else
-# define PATH_ESC_CHARS ((char_u *)" \t*?[{`$\\%#'\"|")
-# define SHELL_ESC_CHARS ((char_u *)" \t*?[{`$\\%#'\"|<>();&!")
+# define PATH_ESC_CHARS ((char_u *)" \t\n*?[{`$\\%#'\"|!<")
+# define SHELL_ESC_CHARS ((char_u *)" \t\n*?[{`$\\%#'\"|!<>();&")
 #endif
 
 #define NUMBUFLEN 30	    /* length of a buffer to store a number in ASCII */
@@ -343,19 +355,30 @@ typedef unsigned char	char_u;
 typedef unsigned short	short_u;
 typedef unsigned int	int_u;
 /* Make sure long_u is big enough to hold a pointer.
- * On Win64 longs are 32 bit and pointers 64 bit.
- * For printf() and scanf() we need to take care of long_u specifically. */
+ * On Win64, longs are 32 bits and pointers are 64 bits.
+ * For printf() and scanf(), we need to take care of long_u specifically. */
 #ifdef _WIN64
-typedef unsigned __int64 long_u;
-typedef		 __int64 long_i;
-# define SCANF_HEX_LONG_U  "%Ix"
-# define PRINTF_HEX_LONG_U "0x%Ix"
+typedef unsigned __int64        long_u;
+typedef		 __int64        long_i;
+# define SCANF_HEX_LONG_U       "%Ix"
+# define SCANF_DECIMAL_LONG_U   "%Iu"
+# define PRINTF_HEX_LONG_U      "0x%Ix"
 #else
-typedef unsigned long	long_u;
-typedef		 long	long_i;
-# define SCANF_HEX_LONG_U  "%lx"
-# define PRINTF_HEX_LONG_U "0x%lx"
+  /* Microsoft-specific. The __w64 keyword should be specified on any typedefs
+   * that change size between 32-bit and 64-bit platforms.  For any such type,
+   * __w64 should appear only on the 32-bit definition of the typedef.
+   * Define __w64 as an empty token for everything but MSVC 7.x or later.
+   */
+# if !defined(_MSC_VER)	|| (_MSC_VER < 1300)
+#  define __w64 
+# endif
+typedef unsigned long __w64	long_u;
+typedef		 long __w64     long_i;
+# define SCANF_HEX_LONG_U       "%lx"
+# define SCANF_DECIMAL_LONG_U   "%lu"
+# define PRINTF_HEX_LONG_U      "0x%lx"
 #endif
+#define PRINTF_DECIMAL_LONG_U SCANF_DECIMAL_LONG_U
 
 /*
  * The characters and attributes cached for the screen.
@@ -452,8 +475,9 @@ typedef unsigned long u8char_T;	    /* long should be 32 bits or more */
 /*
  * Check input method control.
  */
-#if defined(FEAT_XIM) || \
-    (defined(FEAT_GUI) && (defined(FEAT_MBYTE_IME) || defined(GLOBAL_IME)))
+#if defined(FEAT_XIM) \
+    || (defined(FEAT_GUI) && (defined(FEAT_MBYTE_IME) || defined(GLOBAL_IME))) \
+    || (defined(FEAT_GUI_MAC) && defined(FEAT_MBYTE))
 # define USE_IM_CONTROL
 #endif
 
@@ -585,7 +609,6 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 #define INSERT		0x10	/* Insert mode */
 #define LANGMAP		0x20	/* Language mapping, can be combined with
 				   INSERT and CMDLINE */
-#define MAP_ALL_MODES	0x3f	/* all mode bits used for mapping */
 
 #define REPLACE_FLAG	0x40	/* Replace mode flag */
 #define REPLACE		(REPLACE_FLAG + INSERT)
@@ -604,6 +627,9 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 #define SHOWMATCH	(0x700 + INSERT) /* show matching paren */
 #define CONFIRM		0x800	/* ":confirm" prompt */
 #define SELECTMODE	0x1000	/* Select mode, only for mappings */
+
+#define MAP_ALL_MODES	(0x3f | SELECTMODE)	/* all mode bits used for
+						 * mapping */
 
 /* directions */
 #define FORWARD			1
@@ -709,6 +735,11 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 #define EW_EXEC		0x40	/* executable files */
 /* Note: mostly EW_NOTFOUND and EW_SILENT are mutually exclusive: EW_NOTFOUND
  * is used when executing commands and EW_SILENT for interactive expanding. */
+
+/* Flags for find_file_*() functions. */
+#define FINDFILE_FILE	0	/* only files */
+#define FINDFILE_DIR	1	/* only directories */
+#define FINDFILE_BOTH	2	/* files and directories */
 
 #ifdef FEAT_VERTSPLIT
 # define W_WINCOL(wp)	(wp->w_wincol)
@@ -932,6 +963,7 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 #define INSCHAR_FORMAT	1	/* force formatting */
 #define INSCHAR_DO_COM	2	/* format comments */
 #define INSCHAR_CTRLV	4	/* char typed just after CTRL-V */
+#define INSCHAR_NO_FEX	8	/* don't use 'formatexpr' */
 
 /* flags for open_line() */
 #define OPENLINE_DELSPACES  1	/* delete spaces after cursor */
@@ -987,7 +1019,7 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 #define TAG_INS_COMP	64	/* Currently doing insert completion */
 #define TAG_KEEP_LANG	128	/* keep current language */
 
-#define TAG_MANY	200	/* When finding many tags (for completion),
+#define TAG_MANY	300	/* When finding many tags (for completion),
 				   find up to this many tags */
 
 /*
@@ -1100,7 +1132,7 @@ enum auto_event
     EVENT_COLORSCHEME,		/* after loading a colorscheme */
     EVENT_FILEAPPENDPOST,	/* after appending to a file */
     EVENT_FILEAPPENDPRE,	/* before appending to a file */
-    EVENT_FILEAPPENDCMD,	/* appende to a file using command */
+    EVENT_FILEAPPENDCMD,	/* append to a file using command */
     EVENT_FILECHANGEDSHELL,	/* after shell command that changed file */
     EVENT_FILECHANGEDSHELLPOST,	/* after (not) reloading changed file */
     EVENT_FILECHANGEDRO,	/* before first change to read-only file */
@@ -1118,6 +1150,7 @@ enum auto_event
     EVENT_FOCUSGAINED,		/* got the focus */
     EVENT_FOCUSLOST,		/* lost the focus to another app */
     EVENT_GUIENTER,		/* after starting the GUI */
+    EVENT_GUIFAILED,		/* after starting the GUI failed */
     EVENT_INSERTCHANGE,		/* when changing Insert/Replace mode */
     EVENT_INSERTENTER,		/* when entering Insert mode */
     EVENT_INSERTLEAVE,		/* when leaving Insert mode */
@@ -1144,6 +1177,7 @@ enum auto_event
     EVENT_REMOTEREPLY,		/* upon string reception from a remote vim */
     EVENT_SWAPEXISTS,		/* found existing swap file */
     EVENT_SOURCEPRE,		/* before sourcing a Vim script */
+    EVENT_SOURCECMD,		/* sourcing a Vim script using command */
     EVENT_SPELLFILEMISSING,	/* spell file missing */
     EVENT_CURSORMOVED,		/* cursor was moved */
     EVENT_CURSORMOVEDI,		/* cursor was moved in Insert mode */
@@ -1306,6 +1340,10 @@ typedef enum
  */
 #define MAXMAPLEN   50
 
+#ifdef HAVE_FCNTL_H
+# include <fcntl.h>
+#endif
+
 #ifdef BINARY_FILE_IO
 # define WRITEBIN   "wb"	/* no CR-LF translation */
 # define READBIN    "rb"
@@ -1356,6 +1394,9 @@ typedef enum
 # endif
 #endif
 
+/* Like strcpy() but allows overlapped source and destination. */
+#define STRMOVE(d, s)	    mch_memmove((d), (s), STRLEN(s) + 1)
+
 #ifdef HAVE_STRNCASECMP
 # define STRNICMP(d, s, n)  strncasecmp((char *)(d), (char *)(s), (size_t)(n))
 #else
@@ -1367,8 +1408,14 @@ typedef enum
 #endif
 
 #ifdef FEAT_MBYTE
-# define MB_STRICMP(d, s)	(has_mbyte ? mb_strnicmp((char_u *)(d), (char_u *)(s), (int)MAXCOL) : STRICMP((d), (s)))
-# define MB_STRNICMP(d, s, n)	(has_mbyte ? mb_strnicmp((char_u *)(d), (char_u *)(s), (int)(n)) : STRNICMP((d), (s), (n)))
+/* We need to call mb_stricmp() even when we aren't dealing with a multi-byte
+ * encoding because mb_stricmp() takes care of all ascii and non-ascii
+ * encodings, including characters with umluats in latin1, etc., while
+ * STRICMP() only handles the system locale version, which often does not
+ * handle non-ascii properly. */
+
+# define MB_STRICMP(d, s)	mb_strnicmp((char_u *)(d), (char_u *)(s), (int)MAXCOL)
+# define MB_STRNICMP(d, s, n)	mb_strnicmp((char_u *)(d), (char_u *)(s), (int)(n))
 #else
 # define MB_STRICMP(d, s)	STRICMP((d), (s))
 # define MB_STRNICMP(d, s, n)	STRNICMP((d), (s), (n))
@@ -1531,6 +1578,16 @@ int vim_memcmp __ARGS((void *, void *, size_t));
 # define MB_MAXBYTES	21
 #endif
 
+#if (defined(FEAT_PROFILE) || defined(FEAT_RELTIME)) && !defined(PROTO)
+# ifdef WIN3264
+typedef LARGE_INTEGER proftime_T;
+# else
+typedef struct timeval proftime_T;
+# endif
+#else
+typedef int proftime_T;	    /* dummy for function prototypes */
+#endif
+
 /* Include option.h before structs.h, because the number of window-local and
  * buffer-local options is used there. */
 #include "option.h"	    /* options and default values */
@@ -1666,7 +1723,12 @@ int vim_memcmp __ARGS((void *, void *, size_t));
 #define VV_SWAPCHOICE	46
 #define VV_SWAPCOMMAND	47
 #define VV_CHAR		48
-#define VV_LEN		49	/* number of v: vars */
+#define VV_MOUSE_WIN	49
+#define VV_MOUSE_LNUM   50
+#define VV_MOUSE_COL	51
+#define VV_OP		52
+#define VV_SEARCHFORWARD 53
+#define VV_LEN		54	/* number of v: vars */
 
 #ifdef FEAT_CLIPBOARD
 
@@ -1737,16 +1799,6 @@ typedef int VimClipboard;	/* This is required for the prototypes. */
 # include <io.h>	    /* for access() */
 
 # define stat(a,b) (access(a,0) ? -1 : stat(a,b))
-#endif
-
-#if (defined(FEAT_PROFILE) || defined(FEAT_RELTIME)) && !defined(PROTO)
-# ifdef WIN3264
-typedef LARGE_INTEGER proftime_T;
-# else
-typedef struct timeval proftime_T;
-# endif
-#else
-typedef int proftime_T;	    /* dummy for function prototypes */
 #endif
 
 #include "ex_cmds.h"	    /* Ex command defines */
@@ -1832,7 +1884,7 @@ typedef int proftime_T;	    /* dummy for function prototypes */
 #endif
 
 /*
- * The following macros stop displat/event loop nesting at the wrong time.
+ * The following macros stop display/event loop nesting at the wrong time.
  */
 #ifdef ALT_X_INPUT
 # define ALT_INPUT_LOCK_OFF	suppress_alternate_input = FALSE
@@ -1965,8 +2017,9 @@ typedef int proftime_T;	    /* dummy for function prototypes */
 # ifdef instr
 #  undef instr
 # endif
-  /* bool causes trouble on MACOS but is required on a few other systems */
-# if defined(bool) && defined(MACOS)
+  /* bool may cause trouble on MACOS but is required on a few other systems
+   * and for Perl */
+# if defined(bool) && defined(MACOS) && !defined(FEAT_PERL)
 #  undef bool
 # endif
 
@@ -1983,7 +2036,7 @@ typedef int proftime_T;	    /* dummy for function prototypes */
 /* values for vim_handle_signal() that are not a signal */
 #define SIGNAL_BLOCK	-1
 #define SIGNAL_UNBLOCK  -2
-#if !defined(UNIX) && !defined(VMS)
+#if !defined(UNIX) && !defined(VMS) && !defined(OS2)
 # define vim_handle_signal(x) 0
 #endif
 

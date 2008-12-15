@@ -92,7 +92,7 @@ IOKDPGlobals::IOKDPGlobals()
 {
     gIOKDPLock = IOLockAlloc();
 
-    PE_parse_boot_arg( "debug", &gDebugBootArg );
+    PE_parse_boot_argn( "debug", &gDebugBootArg, sizeof (gDebugBootArg) );
 }
 
 IOKDPGlobals::~IOKDPGlobals()
@@ -141,7 +141,7 @@ IOService *IOKDP::probe(IOService *provider, SInt32 *score)
 		
 	do
 	{
-		if(PE_parse_boot_arg( kMatchNameArg, textBuffer))
+		if(PE_parse_boot_argn( kMatchNameArg, textBuffer, sizeof(textBuffer)))
 		{
 			if(!interface) //user wants name match but we're not on a controller with an interface
 			{
@@ -162,7 +162,7 @@ IOService *IOKDP::probe(IOService *provider, SInt32 *score)
 			break; 
 		}
 		
-		if(PE_parse_boot_arg( kMatchMacArg, textBuffer))
+		if(PE_parse_boot_argn( kMatchMacArg, textBuffer, sizeof(textBuffer)))
 		{
 			char ctrMac[13];
 			if(!controller) //looking for mac match, but the debugger isn't on a controller (!?)
@@ -183,7 +183,7 @@ IOService *IOKDP::probe(IOService *provider, SInt32 *score)
 
 			// now convert the controller mac property to a string
 			unsigned char *macData = (unsigned char *)macAddr->getBytesNoCopy();
-			sprintf(ctrMac, "%02X%02X%02X%02X%02X%02X", macData[0], macData[1], macData[2], macData[3], macData[4], macData[5]);
+			snprintf(ctrMac, sizeof(ctrMac), "%02X%02X%02X%02X%02X%02X", macData[0], macData[1], macData[2], macData[3], macData[4], macData[5]);
 			
 			//now see if they match...
 			if(strncmp(ctrMac, textBuffer, 12))
@@ -445,7 +445,7 @@ bool IOKernelDebugger::init( IOService *          target,
 	// reregisters the interface service when it gets named, so we can add a notifier
 	// and reregister ourselves at that time in order to try matching IOKDP again.
 	char textBuffer[64];
-	if(PE_parse_boot_arg( kMatchNameArg, textBuffer))
+	if(PE_parse_boot_argn( kMatchNameArg, textBuffer, sizeof(textBuffer)))
 	{
 		
 		_interfaceNotifier = addNotification(

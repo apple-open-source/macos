@@ -54,7 +54,7 @@
 #undef _
 
 /* T_DATA defined both by Ruby and Mac header files, hack around it... */
-#ifdef FEAT_GUI_MAC
+#if defined(MACOS_X_UNIX) || defined(macintosh)
 # define __OPENTRANSPORT__
 # define __OPENTRANSPORTPROTOCOL__
 # define __OPENTRANSPORTPROVIDERS__
@@ -643,11 +643,14 @@ static VALUE buffer_aref(VALUE self, VALUE num)
 
 static VALUE set_buffer_line(buf_T *buf, linenr_T n, VALUE str)
 {
-    buf_T *savebuf = curbuf;
-    char *line = STR2CSTR(str);
+    char	*line = STR2CSTR(str);
+    aco_save_T	aco;
 
-    if (n > 0 && n <= buf->b_ml.ml_line_count && line != NULL) {
-	curbuf = buf;
+    if (n > 0 && n <= buf->b_ml.ml_line_count && line != NULL)
+    {
+	/* set curwin/curbuf for "buf" and save some things */
+	aucmd_prepbuf(&aco, buf);
+
 	if (u_savesub(n) == OK) {
 	    ml_replace(n, (char_u *)line, TRUE);
 	    changed();
@@ -655,10 +658,15 @@ static VALUE set_buffer_line(buf_T *buf, linenr_T n, VALUE str)
 	    syn_changed(n); /* recompute syntax hl. for this line */
 #endif
 	}
-	curbuf = savebuf;
+
+	/* restore curwin/curbuf and a few other things */
+	aucmd_restbuf(&aco);
+	/* Careful: autocommands may have made "buf" invalid! */
+
 	update_curbuf(NOT_VALID);
     }
-    else {
+    else
+    {
 	rb_raise(rb_eIndexError, "index %d out of buffer", n);
 	return Qnil; /* For stop warning */
     }
@@ -676,12 +684,15 @@ static VALUE buffer_aset(VALUE self, VALUE num, VALUE str)
 
 static VALUE buffer_delete(VALUE self, VALUE num)
 {
-    buf_T *buf = get_buf(self);
-    buf_T *savebuf = curbuf;
-    long n = NUM2LONG(num);
+    buf_T	*buf = get_buf(self);
+    long	n = NUM2LONG(num);
+    aco_save_T	aco;
 
-    if (n > 0 && n <= buf->b_ml.ml_line_count) {
-	curbuf = buf;
+    if (n > 0 && n <= buf->b_ml.ml_line_count)
+    {
+	/* set curwin/curbuf for "buf" and save some things */
+	aucmd_prepbuf(&aco, buf);
+
 	if (u_savedel(n, 1) == OK) {
 	    ml_delete(n, 0);
 
@@ -691,10 +702,15 @@ static VALUE buffer_delete(VALUE self, VALUE num)
 
 	    changed();
 	}
-	curbuf = savebuf;
+
+	/* restore curwin/curbuf and a few other things */
+	aucmd_restbuf(&aco);
+	/* Careful: autocommands may have made "buf" invalid! */
+
 	update_curbuf(NOT_VALID);
     }
-    else {
+    else
+    {
 	rb_raise(rb_eIndexError, "index %d out of buffer", n);
     }
     return Qnil;
@@ -702,13 +718,16 @@ static VALUE buffer_delete(VALUE self, VALUE num)
 
 static VALUE buffer_append(VALUE self, VALUE num, VALUE str)
 {
-    buf_T *buf = get_buf(self);
-    buf_T *savebuf = curbuf;
-    char *line = STR2CSTR(str);
-    long n = NUM2LONG(num);
+    buf_T	*buf = get_buf(self);
+    char	*line = STR2CSTR(str);
+    long	n = NUM2LONG(num);
+    aco_save_T	aco;
 
-    if (n >= 0 && n <= buf->b_ml.ml_line_count && line != NULL) {
-	curbuf = buf;
+    if (n >= 0 && n <= buf->b_ml.ml_line_count && line != NULL)
+    {
+	/* set curwin/curbuf for "buf" and save some things */
+	aucmd_prepbuf(&aco, buf);
+
 	if (u_inssub(n + 1) == OK) {
 	    ml_append(n, (char_u *) line, (colnr_T) 0, FALSE);
 
@@ -718,7 +737,11 @@ static VALUE buffer_append(VALUE self, VALUE num, VALUE str)
 
 	    changed();
 	}
-	curbuf = savebuf;
+
+	/* restore curwin/curbuf and a few other things */
+	aucmd_restbuf(&aco);
+	/* Careful: autocommands may have made "buf" invalid! */
+
 	update_curbuf(NOT_VALID);
     }
     else {
@@ -766,7 +789,7 @@ static VALUE line_s_current()
     return get_buffer_line(curbuf, curwin->w_cursor.lnum);
 }
 
-static VALUE set_current_line(VALUE str)
+static VALUE set_current_line(VALUE self, VALUE str)
 {
     return set_buffer_line(curbuf, curwin->w_cursor.lnum, str);
 }
@@ -903,7 +926,10 @@ static void ruby_vim_init(void)
     objtbl = rb_hash_new();
     rb_global_variable(&objtbl);
 
-    mVIM = rb_define_module("VIM");
+    /* The Vim module used to be called "VIM", but "Vim" is better.  Make an
+     * alias "VIM" for backwards compatiblity. */
+    mVIM = rb_define_module("Vim");
+    rb_define_const(rb_cObject, "VIM", mVIM);
     rb_define_const(mVIM, "VERSION_MAJOR", INT2NUM(VIM_VERSION_MAJOR));
     rb_define_const(mVIM, "VERSION_MINOR", INT2NUM(VIM_VERSION_MINOR));
     rb_define_const(mVIM, "VERSION_BUILD", INT2NUM(VIM_VERSION_BUILD));

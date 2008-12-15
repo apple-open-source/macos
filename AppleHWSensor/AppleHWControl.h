@@ -24,6 +24,9 @@
  *
  */
 //		$Log: AppleHWControl.h,v $
+//		Revision 1.2  2008/04/18 23:25:31  raddog
+//		<rdar://problem/5828356> AppleHWSensor - control code needs to deal with endian issues
+//		
 //		Revision 1.1  2003/10/23 20:08:18  wgulland
 //		Adding IOHWControl and a base class for IOHWSensor and IOHWControl
 //		
@@ -49,7 +52,7 @@
 // #define APPLEHWCONTROLLER_DEBUG 1
 
 #ifdef APPLEHWCONTROLLER_DEBUG
-#define DLOG(fmt, args...)  IOLog(fmt, ## args)
+#define DLOG(fmt, args...)  kprintf(fmt, ## args)
 #else
 #define DLOG(fmt, args...)
 #endif
@@ -59,6 +62,9 @@
 class IOHWControl : public IOHWMonitor
 {
     OSDeclareDefaultStructors(IOHWControl)
+
+private:
+	UInt32	lastValue;
 
 protected:
 
@@ -79,7 +85,11 @@ public:
     // Override to allow setting of some properties
     // A dictionary is expected, containing the new properties
     virtual IOReturn setProperties( OSObject * properties );
-	
+
+#if !defined( __ppc__ )
+    // get sleep/wake messages
+	virtual IOReturn setPowerState(unsigned long, IOService *);
+#endif	
 };
 
 #endif	// _APPLEHWCONTROLLER_H

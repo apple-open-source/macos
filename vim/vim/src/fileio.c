@@ -21,10 +21,6 @@
 
 #include "vim.h"
 
-#ifdef HAVE_FCNTL_H
-# include <fcntl.h>
-#endif
-
 #ifdef __TANDEM
 # include <limits.h>		/* for SSIZE_MAX */
 #endif
@@ -48,6 +44,10 @@
 /* Is there any system that doesn't have access()? */
 #define USE_MCH_ACCESS
 
+#if defined(sun) && defined(S_ISCHR)
+# define OPEN_CHR_FILES
+static int is_dev_fd_file(char_u *fname);
+#endif
 #ifdef FEAT_MBYTE
 static char_u *next_fenc __ARGS((char_u **pp));
 # ifdef FEAT_EVAL
@@ -114,7 +114,7 @@ struct bw_info
 {
     int		bw_fd;		/* file descriptor */
     char_u	*bw_buf;	/* buffer with data to be written */
-    int		bw_len;	/* lenght of data */
+    int		bw_len;		/* length of data */
 #ifdef HAS_BW_FLAGS
     int		bw_flags;	/* FIO_ flags */
 #endif
@@ -221,11 +221,12 @@ readfile(fname, sfname, from, lines_to_skip, lines_to_read, eap, flags)
 {
     int		fd = 0;
     int		newfile = (flags & READ_NEW);
-    int		set_options = newfile || (eap != NULL && eap->read_edit);
     int		check_readonly;
     int		filtering = (flags & READ_FILTER);
     int		read_stdin = (flags & READ_STDIN);
     int		read_buffer = (flags & READ_BUFFER);
+    int		set_options = newfile || read_buffer
+					   || (eap != NULL && eap->read_edit);
     linenr_T	read_buf_lnum = 1;	/* next line to read from curbuf */
     colnr_T	read_buf_col = 0;	/* next char to read from this line */
     char_u	c;
@@ -320,6 +321,9 @@ readfile(fname, sfname, from, lines_to_skip, lines_to_read, eap, flags)
      * display the line. */
     ex_no_reprint = TRUE;
 
+    /* don't display the file info for another buffer now */
+    need_fileinfo = FALSE;
+
     /*
      * For Unix: Use the short file name whenever possible.
      * Avoids problems with networks and when directory names are changed.
@@ -407,6 +411,10 @@ readfile(fname, sfname, from, lines_to_skip, lines_to_read, eap, flags)
 # ifdef S_ISSOCK
 		      && !S_ISSOCK(perm)	    /* ... or socket */
 # endif
+# ifdef OPEN_CHR_FILES
+		      && !(S_ISCHR(perm) && is_dev_fd_file(fname))
+			/* ... or a character special file named /dev/fd/<n> */
+# endif
 						)
 	{
 	    if (S_ISDIR(perm))
@@ -417,6 +425,20 @@ readfile(fname, sfname, from, lines_to_skip, lines_to_read, eap, flags)
 	    msg_scroll = msg_save;
 	    return FAIL;
 	}
+
+# if defined(MSDOS) || defined(MSWIN) || defined(OS2)
+	/*
+	 * MS-Windows allows opening a device, but we will probably get stuck
+	 * trying to read it.
+	 */
+	if (!p_odev && mch_nodetype(fname) == NODE_WRITABLE)
+	{
+	    filemess(curbuf, fname, (char_u *)_("is a device (disabled with 'opendevice' option)"), 0);
+	    msg_end();
+	    msg_scroll = msg_save;
+	    return FAIL;
+	}
+# endif
     }
 #endif
 
@@ -629,10 +651,16 @@ readfile(fname, sfname, from, lines_to_skip, lines_to_read, eap, flags)
 
     if (set_options)
     {
-	curbuf->b_p_eol = TRUE;
-	curbuf->b_start_eol = TRUE;
+	/* Don't change 'eol' if reading from buffer as it will already be
+	 * correctly set when reading stdin. */
+	if (!read_buffer)
+	{
+	    curbuf->b_p_eol = TRUE;
+	    curbuf->b_start_eol = TRUE;
+	}
 #ifdef FEAT_MBYTE
 	curbuf->b_p_bomb = FALSE;
+	curbuf->b_start_bomb = FALSE;
 #endif
     }
 
@@ -891,7 +919,10 @@ retry:
 	file_rewind = FALSE;
 #ifdef FEAT_MBYTE
 	if (set_options)
+	{
 	    curbuf->b_p_bomb = FALSE;
+	    curbuf->b_start_bomb = FALSE;
+	}
 	conv_error = 0;
 #endif
     }
@@ -1109,7 +1140,7 @@ retry:
 	    if (!skip_read)
 	    {
 #if SIZEOF_INT > 2
-# ifdef __TANDEM
+# if defined(SSIZE_MAX) && (SSIZE_MAX < 0x10000L)
 		size = SSIZE_MAX;		    /* use max I/O size, 52K */
 # else
 		size = 0x10000L;		    /* use buffer >= 64K */
@@ -1257,12 +1288,49 @@ retry:
 #ifdef FEAT_MBYTE
 		    else if (conv_restlen > 0)
 		    {
-			/* Reached end-of-file but some trailing bytes could
-			 * not be converted.  Trucated file? */
-			if (conv_error == 0)
-			    conv_error = linecnt;
-			if (bad_char_behavior != BAD_DROP)
+			/*
+			 * Reached end-of-file but some trailing bytes could
+			 * not be converted.  Truncated file?
+			 */
+
+			/* When we did a conversion report an error. */
+			if (fio_flags != 0
+# ifdef USE_ICONV
+				|| iconv_fd != (iconv_t)-1
+# endif
+			   )
 			{
+			    if (conv_error == 0)
+				conv_error = curbuf->b_ml.ml_line_count
+								- linecnt + 1;
+			}
+			/* Remember the first linenr with an illegal byte */
+			else if (illegal_byte == 0)
+			    illegal_byte = curbuf->b_ml.ml_line_count
+								- linecnt + 1;
+			if (bad_char_behavior == BAD_DROP)
+			{
+			    *(ptr - conv_restlen) = NUL;
+			    conv_restlen = 0;
+			}
+			else
+			{
+			    /* Replace the trailing bytes with the replacement
+			     * character if we were converting; if we weren't,
+			     * leave the UTF8 checking code to do it, as it
+			     * works slightly differently. */
+			    if (bad_char_behavior != BAD_KEEP && (fio_flags != 0
+# ifdef USE_ICONV
+				    || iconv_fd != (iconv_t)-1
+# endif
+			       ))
+			    {
+				while (conv_restlen > 0)
+				{
+				    *(--ptr) = bad_char_behavior;
+				    --conv_restlen;
+				}
+			    }
 			    fio_flags = 0;	/* don't convert this */
 # ifdef USE_ICONV
 			    if (iconv_fd != (iconv_t)-1)
@@ -1271,20 +1339,6 @@ retry:
 				iconv_fd = (iconv_t)-1;
 			    }
 # endif
-			    if (bad_char_behavior == BAD_KEEP)
-			    {
-				/* Keep the trailing bytes as-is. */
-				size = conv_restlen;
-				ptr -= conv_restlen;
-			    }
-			    else
-			    {
-				/* Replace the trailing bytes with the
-				 * replacement character. */
-				size = 1;
-				*--ptr = bad_char_behavior;
-			    }
-			    conv_restlen = 0;
 			}
 		    }
 #endif
@@ -1340,7 +1394,10 @@ retry:
 		    size -= blen;
 		    mch_memmove(ptr, ptr + blen, (size_t)size);
 		    if (set_options)
+		    {
 			curbuf->b_p_bomb = TRUE;
+			curbuf->b_start_bomb = TRUE;
+		    }
 		}
 
 		if (fio_flags == FIO_UCSBOM)
@@ -1363,6 +1420,11 @@ retry:
 		    goto retry;
 		}
 	    }
+
+	    /* Include not converted bytes. */
+	    ptr -= conv_restlen;
+	    size += conv_restlen;
+	    conv_restlen = 0;
 #endif
 	    /*
 	     * Break here for a read error or end-of-file.
@@ -1371,11 +1433,6 @@ retry:
 		break;
 
 #ifdef FEAT_MBYTE
-
-	    /* Include not converted bytes. */
-	    ptr -= conv_restlen;
-	    size += conv_restlen;
-	    conv_restlen = 0;
 
 # ifdef USE_ICONV
 	    if (iconv_fd != (iconv_t)-1)
@@ -1838,12 +1895,12 @@ retry:
 		size = (long)((ptr + real_size) - dest);
 		ptr = dest;
 	    }
-	    else if (enc_utf8 && conv_error == 0 && !curbuf->b_p_bin)
+	    else if (enc_utf8 && !curbuf->b_p_bin)
 	    {
-		/* Reading UTF-8: Check if the bytes are valid UTF-8.
-		 * Need to start before "ptr" when part of the character was
-		 * read in the previous read() call. */
-		for (p = ptr - utf_head_off(buffer, ptr); ; ++p)
+		int  incomplete_tail = FALSE;
+
+		/* Reading UTF-8: Check if the bytes are valid UTF-8. */
+		for (p = ptr; ; ++p)
 		{
 		    int	 todo = (int)((ptr + size) - p);
 		    int	 l;
@@ -1857,43 +1914,56 @@ retry:
 			 * read() will get the next bytes, we'll check it
 			 * then. */
 			l = utf_ptr2len_len(p, todo);
-			if (l > todo)
+			if (l > todo && !incomplete_tail)
 			{
-			    /* Incomplete byte sequence, the next read()
-			     * should get them and check the bytes. */
-			    p += todo;
-			    break;
+			    /* Avoid retrying with a different encoding when
+			     * a truncated file is more likely, or attempting
+			     * to read the rest of an incomplete sequence when
+			     * we have already done so. */
+			    if (p > ptr || filesize > 0)
+				incomplete_tail = TRUE;
+			    /* Incomplete byte sequence, move it to conv_rest[]
+			     * and try to read the rest of it, unless we've
+			     * already done so. */
+			    if (p > ptr)
+			    {
+				conv_restlen = todo;
+				mch_memmove(conv_rest, p, conv_restlen);
+				size -= conv_restlen;
+				break;
+			    }
 			}
-			if (l == 1)
+			if (l == 1 || l > todo)
 			{
 			    /* Illegal byte.  If we can try another encoding
-			     * do that. */
-			    if (can_retry)
+			     * do that, unless at EOF where a truncated
+			     * file is more likely than a conversion error. */
+			    if (can_retry && !incomplete_tail)
 				break;
-
-			    /* Remember the first linenr with an illegal byte */
-			    if (illegal_byte == 0)
-				illegal_byte = readfile_linenr(linecnt, ptr, p);
 # ifdef USE_ICONV
 			    /* When we did a conversion report an error. */
 			    if (iconv_fd != (iconv_t)-1 && conv_error == 0)
 				conv_error = readfile_linenr(linecnt, ptr, p);
 # endif
+			    /* Remember the first linenr with an illegal byte */
+			    if (conv_error == 0 && illegal_byte == 0)
+				illegal_byte = readfile_linenr(linecnt, ptr, p);
 
 			    /* Drop, keep or replace the bad byte. */
 			    if (bad_char_behavior == BAD_DROP)
 			    {
-				mch_memmove(p, p+1, todo - 1);
+				mch_memmove(p, p + 1, todo - 1);
 				--p;
 				--size;
 			    }
 			    else if (bad_char_behavior != BAD_KEEP)
 				*p = bad_char_behavior;
 			}
-			p += l - 1;
+			else
+			    p += l - 1;
 		    }
 		}
-		if (p < ptr + size)
+		if (p < ptr + size && !incomplete_tail)
 		{
 		    /* Detected a UTF-8 error. */
 rewind_retry:
@@ -2190,16 +2260,22 @@ failed:
 	if (filesize == 0)
 	    linecnt = 0;
 	if (newfile || read_buffer)
+	{
 	    redraw_curbuf_later(NOT_VALID);
+#ifdef FEAT_DIFF
+	    /* After reading the text into the buffer the diff info needs to
+	     * be updated. */
+	    diff_invalidate(curbuf);
+#endif
+#ifdef FEAT_FOLDING
+	    /* All folds in the window are invalid now.  Mark them for update
+	     * before triggering autocommands. */
+	    foldUpdateAll(curwin);
+#endif
+	}
 	else if (linecnt)		/* appended at least one line */
 	    appended_lines_mark(from, linecnt);
 
-#ifdef FEAT_DIFF
-	/* After reading the text into the buffer the diff info needs to be
-	 * updated. */
-	if (newfile || read_buffer)
-	    diff_invalidate(curbuf);
-#endif
 #ifndef ALWAYS_USE_GUI
 	/*
 	 * If we were reading from the same terminal as where messages go,
@@ -2256,6 +2332,13 @@ failed:
 		c = TRUE;
 	    }
 #  endif
+# endif
+# ifdef OPEN_CHR_FILES
+	    if (S_ISCHR(perm))			    /* or character special */
+	    {
+		STRCAT(IObuff, _("[character special]"));
+		c = TRUE;
+	    }
 # endif
 #endif
 	    if (curbuf->b_p_ro)
@@ -2388,7 +2471,7 @@ failed:
 	/*
 	 * Work around a weird problem: When a file has two links (only
 	 * possible on NTFS) and we write through one link, then stat() it
-	 * throught the other link, the timestamp information may be wrong.
+	 * through the other link, the timestamp information may be wrong.
 	 * It's correct again after reading the file, thus reset the timestamp
 	 * here.
 	 */
@@ -2455,6 +2538,25 @@ failed:
 	return FAIL;
     return OK;
 }
+
+#ifdef OPEN_CHR_FILES
+/*
+ * Returns TRUE if the file name argument is of the form "/dev/fd/\d\+",
+ * which is the name of files used for process substitution output by
+ * some shells on some operating systems, e.g., bash on SunOS.
+ * Do not accept "/dev/fd/[012]", opening these may hang Vim.
+ */
+    static int
+is_dev_fd_file(fname)
+    char_u	*fname;
+{
+    return (STRNCMP(fname, "/dev/fd/", 8) == 0
+	    && VIM_ISDIGIT(fname[8])
+	    && *skipdigits(fname + 9) == NUL
+	    && (fname[9] != NUL
+		|| (fname[8] != '0' && fname[8] != '1' && fname[8] != '2')));
+}
+#endif
 
 #ifdef FEAT_MBYTE
 
@@ -2726,13 +2828,39 @@ set_file_time(fname, atime, mtime)
 #endif
 
 /*
+ * Return TRUE if a file appears to be read-only from the file permissions.
+ */
+    int
+check_file_readonly(fname, perm)
+    char_u	*fname;		/* full path to file */
+    int		perm;		/* known permissions on file */
+{
+#ifndef USE_MCH_ACCESS
+    int	    fd = 0;
+#endif
+
+    return (
+#ifdef USE_MCH_ACCESS
+# ifdef UNIX
+	(perm & 0222) == 0 ||
+# endif
+	mch_access((char *)fname, W_OK)
+#else
+	(fd = mch_open((char *)fname, O_RDWR | O_EXTRA, 0)) < 0
+					? TRUE : (close(fd), FALSE)
+#endif
+	);
+}
+
+
+/*
  * buf_write() - write to file "fname" lines "start" through "end"
  *
  * We do our own buffering here because fwrite() is so slow.
  *
  * If "forceit" is true, we don't care for errors when attempting backups.
  * In case of an error everything possible is done to restore the original
- * file.  But when "forceit" is TRUE, we risk loosing it.
+ * file.  But when "forceit" is TRUE, we risk losing it.
  *
  * When "reset_changed" is TRUE and "append" == FALSE and "start" == 1 and
  * "end" == curbuf->b_ml.ml_line_count, reset curbuf->b_changed.
@@ -3093,7 +3221,7 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
 	    else
 	    {
 		errnum = (char_u *)"E656: ";
-		errmsg = (char_u *)_("NetBeans dissallows writes of unmodified buffers");
+		errmsg = (char_u *)_("NetBeans disallows writes of unmodified buffers");
 		buffer = NULL;
 		goto fail;
 	    }
@@ -3137,7 +3265,8 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
      * Get information about original file (if there is one).
      */
 #if defined(UNIX) && !defined(ARCHIE)
-    st_old.st_dev = st_old.st_ino = 0;
+    st_old.st_dev = 0;
+    st_old.st_ino = 0;
     perm = -1;
     if (mch_stat((char *)fname, &st_old) < 0)
 	newfile = TRUE;
@@ -3178,6 +3307,16 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
     }
     if (c == NODE_WRITABLE)
     {
+# if defined(MSDOS) || defined(MSWIN) || defined(OS2)
+	/* MS-Windows allows opening a device, but we will probably get stuck
+	 * trying to write to it.  */
+	if (!p_odev)
+	{
+	    errnum = (char_u *)"E796: ";
+	    errmsg = (char_u *)_("writing to device disabled with 'opendevice' option");
+	    goto fail;
+	}
+# endif
 	device = TRUE;
 	newfile = TRUE;
 	perm = -1;
@@ -3204,17 +3343,8 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
 	 * Check if the file is really writable (when renaming the file to
 	 * make a backup we won't discover it later).
 	 */
-	file_readonly = (
-# ifdef USE_MCH_ACCESS
-#  ifdef UNIX
-		    (perm & 0222) == 0 ||
-#  endif
-		    mch_access((char *)fname, W_OK)
-# else
-		    (fd = mch_open((char *)fname, O_RDWR | O_EXTRA, 0)) < 0
-						   ? TRUE : (close(fd), FALSE)
-# endif
-		    );
+	file_readonly = check_file_readonly(fname, (int)perm);
+
 	if (!forceit && file_readonly)
 	{
 	    if (vim_strchr(p_cpo, CPO_FWRITE) != NULL)
@@ -3578,6 +3708,9 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
 						)
 			    mch_setperm(backup,
 					  (perm & 0707) | ((perm & 07) << 3));
+# ifdef HAVE_SELINUX
+			mch_copy_sec(fname, backup);
+# endif
 #endif
 
 			/*
@@ -3617,6 +3750,9 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
 #ifdef HAVE_COPYFILE
 			if (copyfile_state)
 			copyfile(NULL, (char*)backup, copyfile_state, COPYFILE_XATTR);
+#endif
+#ifdef HAVE_SELINUX
+			mch_copy_sec(fname, backup);
 #endif
 			break;
 		    }
@@ -3799,7 +3935,7 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
 #ifdef VMS
     vms_remove_version(fname); /* remove version */
 #endif
-    /* Default: write the the file directly.  May write to a temp file for
+    /* Default: write the file directly.  May write to a temp file for
      * multi-byte conversion. */
     wfname = fname;
 
@@ -4028,8 +4164,8 @@ restore_backup:
     /* TODO: Is it need for MACOS_X? (Dany) */
     /*
      * On macintosh copy the original files attributes (i.e. the backup)
-     * This is done in order to preserve the ressource fork and the
-     * Finder attribute (label, comments, custom icons, file creatore)
+     * This is done in order to preserve the resource fork and the
+     * Finder attribute (label, comments, custom icons, file creator)
      */
     if (backup != NULL && overwriting && !append)
     {
@@ -4043,7 +4179,7 @@ restore_backup:
     {
 	if (buf->b_ffname != NULL)
 	    (void)mch_copy_file_attribute(buf->b_ffname, wfname);
-	/* Should copy ressource fork */
+	/* Should copy resource fork */
     }
 #endif
 
@@ -4189,7 +4325,8 @@ restore_backup:
 	 * they don't it adds one.
 	 * With other RMS structures it works perfect without this fix.
 	 */
-	if ((buf->b_fab_rat & (FAB$M_FTN | FAB$M_CR)) != 0)
+	if (buf->b_fab_rfm == FAB$C_VFC
+		|| ((buf->b_fab_rat & (FAB$M_FTN | FAB$M_CR)) != 0))
 	{
 	    int b2write;
 
@@ -4237,6 +4374,12 @@ restore_backup:
 	errmsg = (char_u *)_("E667: Fsync failed");
 	end = 0;
     }
+#endif
+
+#ifdef HAVE_SELINUX
+    /* Probably need to set the security context. */
+    if (!backup_copy)
+	mch_copy_sec(backup, wfname);
 #endif
 
 #ifdef UNIX
@@ -4332,7 +4475,7 @@ restore_backup:
 
 	/*
 	 * If we have a backup file, try to put it in place of the new file,
-	 * because the new file is probably corrupt.  This avoids loosing the
+	 * because the new file is probably corrupt.  This avoids losing the
 	 * original file when trying to make a backup when writing the file a
 	 * second time.
 	 * When "backup_copy" is set we need to copy the backup over the new
@@ -4592,7 +4735,7 @@ nofail:
 	 * front of the file name. */
 	if (errnum != NULL)
 	{
-	    mch_memmove(IObuff + numlen, IObuff, STRLEN(IObuff) + 1);
+	    STRMOVE(IObuff + numlen, IObuff);
 	    mch_memmove(IObuff, errnum, (size_t)numlen);
 	}
 	STRCAT(IObuff, errmsg);
@@ -5023,13 +5166,13 @@ buf_write_bytes(ip)
 		 * buffer.  The buffer has been allocated to be big enough. */
 		ip->bw_restlen = 0;
 		needed = MultiByteToWideChar(enc_codepage,
-				  MB_ERR_INVALID_CHARS, (LPCSTR)from, (int)fromlen,
+			     MB_ERR_INVALID_CHARS, (LPCSTR)from, (int)fromlen,
 								     NULL, 0);
 		if (needed == 0)
 		{
 		    /* When conversion fails there may be a trailing byte. */
 		    needed = MultiByteToWideChar(enc_codepage,
-			      MB_ERR_INVALID_CHARS, (LPCSTR)from, (int)fromlen - 1,
+			 MB_ERR_INVALID_CHARS, (LPCSTR)from, (int)fromlen - 1,
 								     NULL, 0);
 		    if (needed == 0)
 		    {
@@ -5042,7 +5185,7 @@ buf_write_bytes(ip)
 		    ip->bw_restlen = 1;
 		}
 		needed = MultiByteToWideChar(enc_codepage, MB_ERR_INVALID_CHARS,
-				       (LPCSTR)from, (int)(fromlen - ip->bw_restlen),
+				(LPCSTR)from, (int)(fromlen - ip->bw_restlen),
 							  (LPWSTR)to, needed);
 		if (needed == 0)
 		{
@@ -5082,7 +5225,8 @@ buf_write_bytes(ip)
 		 * fail. */
 		len = WideCharToMultiByte(FIO_GET_CP(flags), 0,
 			(LPCWSTR)ip->bw_conv_buf, (int)fromlen / sizeof(WCHAR),
-			(LPSTR)to, (int)(ip->bw_conv_buflen - fromlen), 0, &bad);
+			(LPSTR)to, (int)(ip->bw_conv_buflen - fromlen), 0,
+									&bad);
 		if (bad)
 		{
 		    ip->bw_conv_error = TRUE;
@@ -5211,7 +5355,7 @@ buf_write_bytes(ip)
 #endif
 
     /* Repeat the write(), it may be interrupted by a signal. */
-    while (len)
+    while (len > 0)
     {
 	wlen = vim_write(ip->bw_fd, buf, len);
 	if (wlen <= 0)		    /* error! */
@@ -5430,7 +5574,7 @@ check_for_bom(p, size, lenp, flags)
     int		len = 2;
 
     if (p[0] == 0xef && p[1] == 0xbb && size >= 3 && p[2] == 0xbf
-	    && (flags == FIO_ALL || flags == 0))
+	    && (flags == FIO_ALL || flags == FIO_UTF8 || flags == 0))
     {
 	name = "utf-8";		/* EF BB BF */
 	len = 3;
@@ -5451,10 +5595,11 @@ check_for_bom(p, size, lenp, flags)
     else if (p[0] == 0xfe && p[1] == 0xff
 	    && (flags == FIO_ALL || flags == FIO_UCS2 || flags == FIO_UTF16))
     {
-	if (flags == FIO_UTF16)
-	    name = "utf-16";	/* FE FF */
-	else
+	/* Default to utf-16, it works also for ucs-2 text. */
+	if (flags == FIO_UCS2)
 	    name = "ucs-2";	/* FE FF */
+	else
+	    name = "utf-16";	/* FE FF */
     }
     else if (size >= 4 && p[0] == 0 && p[1] == 0 && p[2] == 0xfe
 	    && p[3] == 0xff && (flags == FIO_ALL || flags == FIO_UCS4))
@@ -5495,6 +5640,30 @@ make_bom(buf, name)
     p = buf;
     (void)ucs2bytes(0xfeff, &p, flags);
     return (int)(p - buf);
+}
+#endif
+
+#if defined(FEAT_VIMINFO) || defined(FEAT_BROWSE) || \
+    defined(FEAT_QUICKFIX) || defined(FEAT_AUTOCMD) || defined(PROTO)
+/*
+ * Try to find a shortname by comparing the fullname with the current
+ * directory.
+ * Returns "full_path" or pointer into "full_path" if shortened.
+ */
+    char_u *
+shorten_fname1(full_path)
+    char_u	*full_path;
+{
+    char_u	dirname[MAXPATHL];
+    char_u	*p = full_path;
+
+    if (mch_dirname(dirname, MAXPATHL) == OK)
+    {
+	p = shorten_fname(full_path, dirname);
+	if (p == NULL || *p == NUL)
+	    p = full_path;
+    }
+    return p;
 }
 #endif
 
@@ -5638,7 +5807,7 @@ shorten_filenames(fnames, count)
 #endif
 
 /*
- * add extention to file name - change path/fo.o.h to path/fo.o.h.ext or
+ * add extension to file name - change path/fo.o.h to path/fo.o.h.ext or
  * fo_o_h.ext for MSDOS or when shortname option set.
  *
  * Assumed that fname is a valid name found in the filesystem we assure that
@@ -5804,7 +5973,7 @@ buf_modname(shortname, fname, ext, prepend_dot)
 #endif
 	/*
 	 * If the extension doesn't start with '.', and there already is an
-	 * extension, it may need to be tructated
+	 * extension, it may need to be truncated
 	 */
 	else if ((int)STRLEN(e) + extlen > 4)
 	    s = e + 4 - extlen;
@@ -5820,7 +5989,7 @@ buf_modname(shortname, fname, ext, prepend_dot)
 #endif
 
     /*
-     * Append the extention.
+     * Append the extension.
      * ext can start with '.' and cannot exceed 3 more characters.
      */
     STRCPY(s, ext);
@@ -5840,7 +6009,7 @@ buf_modname(shortname, fname, ext, prepend_dot)
 #endif
 				)
     {
-	mch_memmove(e + 1, e, STRLEN(e) + 1);
+	STRMOVE(e + 1, e);
 #ifdef RISCOS
 	*e = '/';
 #else
@@ -5998,7 +6167,7 @@ vim_rename(from, to)
     /*
      * With MSDOS-compatible filesystems (crossdos, messydos) it is possible
      * that the name of the "to" file is the same as the "from" file, even
-     * though the names are different. To avoid the chance of accidently
+     * though the names are different. To avoid the chance of accidentally
      * deleting the "from" file (horror!) we lock it during the remove.
      *
      * When used for making a backup before writing the file: This should not
@@ -6032,7 +6201,12 @@ vim_rename(from, to)
 #endif
     fd_in = mch_open((char *)from, O_RDONLY|O_EXTRA, 0);
     if (fd_in == -1)
+    {
+#ifdef HAVE_ACL
+	mch_free_acl(acl);
+#endif
 	return -1;
+    }
 
     /* Create the new file with same permissions as the original. */
     fd_out = mch_open((char *)to,
@@ -6040,14 +6214,20 @@ vim_rename(from, to)
     if (fd_out == -1)
     {
 	close(fd_in);
+#ifdef HAVE_ACL
+	mch_free_acl(acl);
+#endif
 	return -1;
     }
 
     buffer = (char *)alloc(BUFSIZE);
     if (buffer == NULL)
     {
-	close(fd_in);
 	close(fd_out);
+	close(fd_in);
+#ifdef HAVE_ACL
+	mch_free_acl(acl);
+#endif
 	return -1;
     }
 
@@ -6067,11 +6247,12 @@ vim_rename(from, to)
 	errmsg = _("E210: Error reading \"%s\"");
 	to = from;
     }
-#ifndef UNIX	    /* for Unix mch_open() already set ther permission */
+#ifndef UNIX	    /* for Unix mch_open() already set the permission */
     mch_setperm(to, perm);
 #endif
 #ifdef HAVE_ACL
     mch_set_acl(to, acl);
+    mch_free_acl(acl);
 #endif
     if (errmsg != NULL)
     {
@@ -6188,8 +6369,8 @@ move_lines(frombuf, tobuf)
     if (retval != FAIL)
     {
 	curbuf = frombuf;
-	while (!bufempty())
-	    if (ml_delete(curbuf->b_ml.ml_line_count, FALSE) == FAIL)
+	for (lnum = curbuf->b_ml.ml_line_count; lnum > 0; --lnum)
+	    if (ml_delete(lnum, FALSE) == FAIL)
 	    {
 		/* Oops!  We could try putting back the saved lines, but that
 		 * might fail again... */
@@ -6457,7 +6638,8 @@ buf_check_timestamp(buf, focus)
 	buf_reload(buf, orig_mode);
 
 #ifdef FEAT_AUTOCMD
-    if (buf_valid(buf))
+    /* Trigger FileChangedShell when the file was changed in any way. */
+    if (buf_valid(buf) && retval != 0)
 	(void)apply_autocmds(EVENT_FILECHANGEDSHELLPOST,
 				      buf->b_fname, buf->b_fname, FALSE, buf);
 #endif
@@ -6487,17 +6669,10 @@ buf_reload(buf, orig_mode)
     int		old_ro = buf->b_p_ro;
     buf_T	*savebuf;
     int		saved = OK;
-#ifdef FEAT_AUTOCMD
     aco_save_T	aco;
 
     /* set curwin/curbuf for "buf" and save some things */
     aucmd_prepbuf(&aco, buf);
-#else
-    buf_T	*save_curbuf = curbuf;
-
-    curbuf = buf;
-    curwin->w_buffer = buf;
-#endif
 
     /* We only want to read the text from the file, not reset the syntax
      * highlighting, clear marks, diff status, etc.  Force the fileformat
@@ -6610,14 +6785,9 @@ buf_reload(buf, orig_mode)
 	    curbuf->b_p_ro |= old_ro;
     }
 
-#ifdef FEAT_AUTOCMD
     /* restore curwin/curbuf and a few other things */
     aucmd_restbuf(&aco);
     /* Careful: autocommands may have made "buf" invalid! */
-#else
-    curwin->w_buffer = save_curbuf;
-    curbuf = save_curbuf;
-#endif
 }
 
 /*ARGSUSED*/
@@ -7029,6 +7199,7 @@ static struct event_name
     {"FocusLost",	EVENT_FOCUSLOST},
     {"FuncUndefined",	EVENT_FUNCUNDEFINED},
     {"GUIEnter",	EVENT_GUIENTER},
+    {"GUIFailed",	EVENT_GUIFAILED},
     {"InsertChange",	EVENT_INSERTCHANGE},
     {"InsertEnter",	EVENT_INSERTENTER},
     {"InsertLeave",	EVENT_INSERTLEAVE},
@@ -7040,6 +7211,7 @@ static struct event_name
     {"ShellCmdPost",	EVENT_SHELLCMDPOST},
     {"ShellFilterPost",	EVENT_SHELLFILTERPOST},
     {"SourcePre",	EVENT_SOURCEPRE},
+    {"SourceCmd",	EVENT_SOURCECMD},
     {"SpellFileMissing",EVENT_SPELLFILEMISSING},
     {"StdinReadPost",	EVENT_STDINREADPOST},
     {"StdinReadPre",	EVENT_STDINREADPRE},
@@ -7120,6 +7292,7 @@ static void auto_next_pat __ARGS((AutoPatCmd *apc, int stop_at_last));
 
 static event_T	last_event;
 static int	last_group;
+static int	autocmd_blocked = 0;	/* block all autocmds */
 
 /*
  * Show the autocommands for one AutoPat.
@@ -8099,14 +8272,17 @@ ex_doautoall(eap)
      */
     for (buf = firstbuf; buf != NULL; buf = buf->b_next)
     {
-	if (curbuf->b_ml.ml_mfp != NULL)
+	if (buf->b_ml.ml_mfp != NULL)
 	{
 	    /* find a window for this buffer and save some values */
 	    aucmd_prepbuf(&aco, buf);
 
 	    /* execute the autocommands for this buffer */
 	    retval = do_doautocmd(eap->arg, FALSE);
-	    do_modelines(0);
+
+	    /* Execute the modeline settings, but don't set window-local
+	     * options if we are using the current window for another buffer. */
+	    do_modelines(aco.save_curwin == NULL ? OPT_NOWIN : 0);
 
 	    /* restore the current window */
 	    aucmd_restbuf(&aco);
@@ -8125,6 +8301,7 @@ ex_doautoall(eap)
  * Search a window for the current buffer.  Save the cursor position and
  * screen offset.
  * Set "curbuf" and "curwin" to match "buf".
+ * When FEAT_AUTOCMD is not defined another version is used, see below.
  */
     void
 aucmd_prepbuf(aco, buf)
@@ -8188,6 +8365,7 @@ aucmd_prepbuf(aco, buf)
 /*
  * Cleanup after executing autocommands for a (hidden) buffer.
  * Restore the window as it was (if possible).
+ * When FEAT_AUTOCMD is not defined another version is used, see below.
  */
     void
 aucmd_restbuf(aco)
@@ -8332,7 +8510,11 @@ trigger_cursorhold()
 {
     int		state;
 
-    if (!did_cursorhold && has_cursorhold() && !Recording)
+    if (!did_cursorhold && has_cursorhold() && !Recording
+#ifdef FEAT_INS_EXPAND
+	    && !ins_compl_active()
+#endif
+	    )
     {
 	state = get_real_state();
 	if (state == NORMAL_BUSY || (state & INSERT) != 0)
@@ -8378,6 +8560,7 @@ apply_autocmds_group(event, fname, fname_io, force, group, buf, eap)
     char_u	*save_sourcing_name;
     linenr_T	save_sourcing_lnum;
     char_u	*save_autocmd_fname;
+    int		save_autocmd_fname_full;
     int		save_autocmd_bufnr;
     char_u	*save_autocmd_match;
     int		save_autocmd_busy;
@@ -8400,7 +8583,7 @@ apply_autocmds_group(event, fname, fname_io, force, group, buf, eap)
      * Quickly return if there are no autocommands for this event or
      * autocommands are blocked.
      */
-    if (first_autopat[(int)event] == NULL || autocmd_block > 0)
+    if (first_autopat[(int)event] == NULL || autocmd_blocked > 0)
 	goto BYPASS_AU;
 
     /*
@@ -8412,7 +8595,7 @@ apply_autocmds_group(event, fname, fname_io, force, group, buf, eap)
 
 #ifdef FEAT_EVAL
     /*
-     * Quickly return when immdediately aborting on error, or when an interrupt
+     * Quickly return when immediately aborting on error, or when an interrupt
      * occurred or an exception was thrown but not caught.
      */
     if (aborting())
@@ -8456,6 +8639,7 @@ apply_autocmds_group(event, fname, fname_io, force, group, buf, eap)
      * Save the autocmd_* variables and info about the current buffer.
      */
     save_autocmd_fname = autocmd_fname;
+    save_autocmd_fname_full = autocmd_fname_full;
     save_autocmd_bufnr = autocmd_bufnr;
     save_autocmd_match = autocmd_match;
     save_autocmd_busy = autocmd_busy;
@@ -8465,18 +8649,23 @@ apply_autocmds_group(event, fname, fname_io, force, group, buf, eap)
 
     /*
      * Set the file name to be used for <afile>.
+     * Make a copy to avoid that changing a buffer name or directory makes it
+     * invalid.
      */
     if (fname_io == NULL)
     {
 	if (fname != NULL && *fname != NUL)
 	    autocmd_fname = fname;
 	else if (buf != NULL)
-	    autocmd_fname = buf->b_fname;
+	    autocmd_fname = buf->b_ffname;
 	else
 	    autocmd_fname = NULL;
     }
     else
 	autocmd_fname = fname_io;
+    if (autocmd_fname != NULL)
+	autocmd_fname = vim_strsave(autocmd_fname);
+    autocmd_fname_full = FALSE; /* call FullName_save() later */
 
     /*
      * Set the buffer number to be used for <abuf>.
@@ -8659,7 +8848,9 @@ apply_autocmds_group(event, fname, fname_io, force, group, buf, eap)
     vim_free(sourcing_name);
     sourcing_name = save_sourcing_name;
     sourcing_lnum = save_sourcing_lnum;
+    vim_free(autocmd_fname);
     autocmd_fname = save_autocmd_fname;
+    autocmd_fname_full = save_autocmd_fname_full;
     autocmd_bufnr = save_autocmd_bufnr;
     autocmd_match = save_autocmd_match;
 #ifdef FEAT_EVAL
@@ -8714,6 +8905,40 @@ BYPASS_AU:
     return retval;
 }
 
+# ifdef FEAT_EVAL
+static char_u	*old_termresponse = NULL;
+# endif
+
+/*
+ * Block triggering autocommands until unblock_autocmd() is called.
+ * Can be used recursively, so long as it's symmetric.
+ */
+    void
+block_autocmds()
+{
+# ifdef FEAT_EVAL
+    /* Remember the value of v:termresponse. */
+    if (autocmd_blocked == 0)
+	old_termresponse = get_vim_var_str(VV_TERMRESPONSE);
+# endif
+    ++autocmd_blocked;
+}
+
+    void
+unblock_autocmds()
+{
+    --autocmd_blocked;
+
+# ifdef FEAT_EVAL
+    /* When v:termresponse was set while autocommands were blocked, trigger
+     * the autocommands now.  Esp. useful when executing a shell command
+     * during startup (vimdiff). */
+    if (autocmd_blocked == 0
+		      && get_vim_var_str(VV_TERMRESPONSE) != old_termresponse)
+	apply_autocmds(EVENT_TERMRESPONSE, NULL, NULL, FALSE, curbuf);
+# endif
+}
+
 /*
  * Find next autocommand pattern that matches.
  */
@@ -8734,7 +8959,7 @@ auto_next_pat(apc, stop_at_last)
     {
 	apc->curpat = NULL;
 
-	/* only use a pattern when it has not been removed, has commands and
+	/* Only use a pattern when it has not been removed, has commands and
 	 * the group matches. For buffer-local autocommands only check the
 	 * buffer number. */
 	if (ap->pat != NULL && ap->cmds != NULL
@@ -9100,7 +9325,37 @@ theend:
     return retval;
 }
 
+#else	/* FEAT_AUTOCMD */
+
+/*
+ * Prepare for executing commands for (hidden) buffer "buf".
+ * This is the non-autocommand version, it simply saves "curbuf" and sets
+ * "curbuf" and "curwin" to match "buf".
+ */
+    void
+aucmd_prepbuf(aco, buf)
+    aco_save_T	*aco;		/* structure to save values in */
+    buf_T	*buf;		/* new curbuf */
+{
+    aco->save_buf = curbuf;
+    curbuf = buf;
+    curwin->w_buffer = buf;
+}
+
+/*
+ * Restore after executing commands for a (hidden) buffer.
+ * This is the non-autocommand version.
+ */
+    void
+aucmd_restbuf(aco)
+    aco_save_T	*aco;		/* structure holding saved values */
+{
+    curbuf = aco->save_buf;
+    curwin->w_buffer = curbuf;
+}
+
 #endif	/* FEAT_AUTOCMD */
+
 
 #if defined(FEAT_AUTOCMD) || defined(FEAT_WILDIGN) || defined(PROTO)
 /*

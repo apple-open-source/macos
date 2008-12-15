@@ -45,14 +45,12 @@ __attribute__((format(printf, 1, 2)));
 #endif
 
 enum {
-	kAppleVendorID				= 0x05AC,	// Assigned by USB-if
 	kPrdRootHubAppleE			= 0x8006,	// Apple ASIC root hub
 	kEHCIRootHubPollingInterval = 32		// Polling interval for Root Hub
 };
 
 
 #define super IOUSBControllerV3
-#define self this
 
 /*
  * Root hub methods
@@ -62,29 +60,35 @@ IOReturn
 AppleUSBEHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
 {
     IOUSBDeviceDescriptor newDesc =
-{
-	sizeof(IOUSBDeviceDescriptor),			// UInt8 length;
-	kUSBDeviceDesc,							// UInt8 descType;
-	HostToUSBWord(kUSBRel20),				// UInt16 usbRel;
-	kUSBHubClass,							// UInt8 class;
-	kUSBHubSubClass,						// UInt8 subClass;
-	1,										// UInt8 protocol;
-	64,										// UInt8 maxPacketSize;
-	HostToUSBWord(kAppleVendorID),			// UInt16 vendor:  Use the Apple Vendor ID from USB-IF
-	HostToUSBWord(kPrdRootHubAppleE),		// UInt16 product:  All our root hubs are the same
-	HostToUSBWord(0x0200),					// UInt16 devRel: Supports USB 2.0
-	2,										// UInt8 manuIdx;
-	1,										// UInt8 prodIdx;
-	0,										// UInt8 serialIdx;
-	1										// UInt8 numConf;
-};
-
-if (!desc)
-return kIOReturnNoMemory;
-
-bcopy(&newDesc, desc, newDesc.bLength);
-
-return kIOReturnSuccess;
+	{
+		sizeof(IOUSBDeviceDescriptor),			// UInt8 length;
+		kUSBDeviceDesc,							// UInt8 descType;
+		HostToUSBWord(kUSBRel20),				// UInt16 usbRel Supports USB 2.0;
+		kUSBHubClass,							// UInt8 class;
+		kUSBHubSubClass,						// UInt8 subClass;
+		1,										// UInt8 protocol;
+		64,										// UInt8 maxPacketSize;
+		HostToUSBWord(kAppleVendorID),			// UInt16 vendor:  Use the Apple Vendor ID from USB-IF
+		HostToUSBWord(kPrdRootHubAppleE),		// UInt16 product:  All our root hubs are the same
+		HostToUSBWord(0x0200),					// UInt16 devRel: 
+		2,										// UInt8 manuIdx;
+		1,										// UInt8 prodIdx;
+		0,										// UInt8 serialIdx;
+		1										// UInt8 numConf;
+	};
+	
+	if (!desc)
+		return kIOReturnNoMemory;
+	
+	// If we have an NVDA errata to ignore disconnects, then set the bcdDevice to 0x0279
+	if (_errataBits & kErrataMCP79IgnoreDisconnect)
+	{
+		newDesc.bcdDevice = HostToUSBWord(0x0279);
+	}
+	
+	bcopy(&newDesc, desc, newDesc.bLength);
+	
+	return kIOReturnSuccess;
 }
 
 
@@ -92,12 +96,13 @@ return kIOReturnSuccess;
 IOReturn 
 AppleUSBEHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
 {
-    IOUSBHubDescriptor hubDesc;
-	UInt32						HCSParams;
-    UInt8 pps;
-    int i, numBytes;
-    UInt8 *dstPtr;
-    
+    IOUSBHubDescriptor	hubDesc;
+	UInt32				HCSParams;
+    UInt8				pps;
+    unsigned int		i, numBytes;
+    UInt8 *				dstPtr;
+    UInt32				appleCaptive = 0;
+	OSNumber *			appleCaptiveProperty = NULL;
 	
     hubDesc.length = sizeof(IOUSBHubDescriptor);
     hubDesc.hubType = kUSBHubDescriptorType;
@@ -128,15 +133,23 @@ AppleUSBEHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
 	
     numBytes = (hubDesc.numPorts + 1) / 8 + 1;
     
-    dstPtr = (UInt8 *)&hubDesc.removablePortFlags[0];
-    // Set removable port flags.
-    // All ports are removable.
-    for (i=0; i<numBytes; i++) {
-        *dstPtr++ = 0;
-    }
+	// Set removable port flags -- we might have an AAPL property that tells us which ports
+	// are captive.  If we don't then we'll assume that all ports are removable
+	appleCaptiveProperty = OSDynamicCast(OSNumber, _device->getProperty(kAppleInternalUSBDevice));
+	if (appleCaptiveProperty)
+		appleCaptive = appleCaptiveProperty->unsigned32BitValue();
+	
+	dstPtr = (UInt8 *)&hubDesc.removablePortFlags[0];
+    for ( i = 0; i < numBytes; i++) 
+	{
+		*dstPtr++ = (UInt8) (appleCaptive & 0xFF);
+        appleCaptive >>= 8;
+   }
+	
     // Set power control flags.
     // All ports set as 1.
-    for (i=0; i<numBytes; i++) {
+    for (i=0; i<numBytes; i++) 
+	{
         *dstPtr++ = 0xFF;
     }
     
@@ -310,10 +323,8 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
     {
 	    statusFlags |= kHubPortEnabled;
     }
-    if(((portSC & kEHCIPortSC_Suspend) != 0) && !_rhPortBeingResumed[port])
+    if(((portSC & kEHCIPortSC_Suspend) != 0))
     {
-		// only show the suspend status if we are not in the process of resuming. In that case, we will
-		// have the status going clear during that 20ms time period, and the change will be set when it is done.
 	    statusFlags |= kHubPortSuspend;
     }
     if( (portSC & kEHCIPortSC_OverCurrent) != 0)
@@ -699,13 +710,15 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		// when next device is connected. That consfuses hub logic which skips the reset
 		// state. So no device is enumerated if that happens.
 		// This is all because EHCI is so miserly, they can't have a proper reset state machine like OHCI.
-		USBLog(1, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Not resetting port, beacuse device is unplugged of powered off (%x).",  this, (unsigned int)value);
+		USBLog(1, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Not resetting port, because device is unplugged or powered off (%x).",  this, (unsigned int)value);
 		return kIOReturnNotResponding;	
     }
 	
     if( ((value & kEHCIPortSC_LineSt) >> kEHCIPortSC_LineStPhase) == kEHCILine_Low)
     {
 		value |= kEHCIPortSC_Owner;
+		value &= ~kEHCIPortSC_WKDSCNNT_E;			// we need to clear this bit for some EHCI controllers
+		
 		USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort: LS device detected (portSC = %p) - writing value (%p) to release the device",  this, (void*)portSC, (void*)value);
 		_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
 		IOSync();
@@ -797,11 +810,11 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
     {
 		// Have been disconnected or powered off, pretend reset never happened.
 		
-		USBLog(1, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Not resetting port 2, beacuse device is unplugged of powered off (%p).",  this, (void*)portSC);
+		USBLog(1, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Not resetting port 2, because device is unplugged or powered off (%p).",  this, (void*)portSC);
 		return kIOReturnNotResponding;	
     }
 	
-    USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Setting port (%d) reset change bit to 0x%lx.",  this, (int)port, value);
+    USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Setting port (%d) reset change bit to 0x%x.",  this, (uint32_t)port, (uint32_t)value);
     _rhChangeBits[port-1] |= kHubPortBeingReset;
 	
     if( (portSC & kEHCIPortSC_Enabled) == 0)
@@ -809,7 +822,9 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		// USBLog(2, "AppleUSBEHCI[%p]::EHCIRootHubResetPort-  full speed device (no enable) releasing device %x",  this, portSC);
 		value = getPortSCForWriting(_pEHCIRegisters, port);
 		value |= kEHCIPortSC_Owner;
-		USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort (port %d): FS device detected (portSC = 0x%lx) - writing value (0x%lx) to release the device",  this, (int)port, portSC, value);
+		value &= ~kEHCIPortSC_WKDSCNNT_E;			// we need to clear this bit for some EHCI controllers
+		
+		USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort (port %d): FS device detected (portSC = 0x%x) - writing value (0x%x) to release the device",  this, (uint32_t)port, (uint32_t)portSC, (uint32_t)value);
 		_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
 		IOSync();
 		IOSleep(1);
@@ -836,8 +851,12 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		portSC = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
 		if( (portSC & kEHCIPortSC_Enabled) == 0)
 		{
-			USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubResetPort *********** Port disabled after 1 frame******* 0x%lx",  this, portSC);
+			USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubResetPort *********** Port disabled after 1 frame******* 0x%x",  this, (uint32_t)portSC);
 		}
+		value = getPortSCForWriting(_pEHCIRegisters, port);
+		value |= kEHCIPortSC_WKDSCNNT_E;			// we need to set this bit in case this port was ever used by a companion controller
+		
+		_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
     }
 	
     USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort done",  this);
@@ -891,6 +910,16 @@ AppleUSBEHCI::EHCIRootHubPortSuspend(UInt16 port, bool suspend)
     
     USBLog(5,"AppleUSBEHCI[%p]::EHCIRootHubPortSuspend port: %d, %s",  this, port, suspend ? "SUSPEND" : "RESUME");
 	
+	if (_rhPortBeingResumed[port])
+	{
+		if (!suspend)
+		{
+			USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubPortSuspend - resume on port (%d) already being resumed - gracefully ignoring", this, (int)port+1);
+			return kIOReturnSuccess;
+		}
+		USBLog(1, "AppleUSBEHCI[%p]::EHCIRootHubPortSuspend - trying to suspend port (%d) which is being resumed - UNEXPECTED", this, (int)port+1);
+	}
+
     value = getPortSCForWriting(_pEHCIRegisters, port);
     
     if (suspend)
@@ -1072,7 +1101,7 @@ AppleUSBEHCI::UIMRootHubStatusChange(void)
 			// The first fix (above) stopped all but connect and enabled status changes getting through
 			if (portStatus.changeFlags & kHubPortStateChangeMask) 
             {
-                USBLog(4,"AppleUSBEHCI[%p]::UIMRootHubStatusChange port %d status(%p) change(%p)",  this, port, (void*)portStatus.statusFlags, (void*)portStatus.changeFlags);
+                USBLog(4,"AppleUSBEHCI[%p]::UIMRootHubStatusChange port %d status(0x%04x) change(0x%04x)",  this, port, portStatus.statusFlags, portStatus.changeFlags);
 				
 				if ( portStatus.changeFlags & kHubPortOverCurrent )
 				{
@@ -1245,7 +1274,7 @@ AppleUSBEHCI::RHResumePortTimerEntry(OSObject *target, thread_call_param_t port)
 	if (!me)
 		return;
 
-	me->RHResumePortTimer((UInt32)port);
+	me->RHResumePortTimer((uintptr_t)port);
 }
 
 
@@ -1271,7 +1300,7 @@ IOReturn
 AppleUSBEHCI::RHResumePortCompletionEntry(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
     AppleUSBEHCI				*me = OSDynamicCast(AppleUSBEHCI, target);
-    UInt32						port = (UInt32)param1;
+    UInt32						port = (uintptr_t)param1;
 	
 	if (!me)
 		return kIOReturnInternalError;

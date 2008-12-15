@@ -1,6 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
-
-after_install::
-	$(LINKPRODUCT) $(DSTROOT)$(INSTALLDIR)/readlink
-	mkdir -p "$(DSTROOT)/usr/share/man/man1"
-	ln -f "$(DSTROOT)/usr/share/man/man1/stat.1" "$(DSTROOT)/usr/share/man/man1/readlink.1"

@@ -107,6 +107,7 @@ static tDirStatus DSCheckForLDAPResult( LDAP			*inHost,
 				siResult = eDSCannotAccessSession;
 				break;
 			default:
+				DbgLog( kLogPlugin, "CLDAPv3::DSCheckForLDAPResult - unexpected result from LDAP (result=%d).", rc );
 				siResult = eUndefinedError;
 				break;
 		}

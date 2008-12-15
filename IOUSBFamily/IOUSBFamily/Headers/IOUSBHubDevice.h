@@ -37,8 +37,6 @@ enum {
 	kIOUSBHubDeviceCanSleep				=	0x0004
 };
 
-#define kAppleExtraPowerInSleep			"AAPL,current-in-sleep"
-
 /*!
     @class IOUSBHubDevice
     @abstract New in MAC OS X 10.5. The IOKit object representing a hub device on the USB bus. It is a subclass of IOUSBDevice.
@@ -62,6 +60,12 @@ private:
 
     struct ExpansionData 
 	{ 
+		UInt32					_maxPortCurrent;				// maximum current in milliamps per downstream port
+		UInt32					_totalExtraCurrent;				// total amount of current above the spec'ed current per port available (during normal operation)
+		UInt32					_totalSleepCurrent;				// total amount of current that can be drawn during sleep
+		UInt32					_canRequestExtraPower;			// If 0, this hub does not support requesting extra power from its parent, non-zero:  how much power we need to request in order to give out _extraPowerForPorts
+		UInt32					_extraPowerForPorts;			// Of the power requested from our parent, how much can we parcel out -- the rest is consumed by voltage drop thru the cable
+		UInt32					_extraPowerAllocated;			// Amount of power that we actually got from our parent
 	};
     ExpansionData			*_expansionData;
 	
@@ -70,19 +74,22 @@ protected:
 	virtual	void			SetPolicyMaker(IOUSBHubPolicyMaker *policyMaker);
 	virtual void			SetHubCharacteristics(UInt32);
 	virtual bool			InitializeCharacteristics(void);					// used at start
-
+	
 public:
 	// static constructor
     static IOUSBHubDevice	*NewHubDevice(void);
 
 	// IOKit methods
-    virtual bool 	init();
-	virtual bool 	start( IOService * provider );
-    virtual void 	stop( IOService *provider );
-    virtual void	free();
+    virtual bool			init();
+	virtual bool			start( IOService * provider );
+    virtual void			stop( IOService *provider );
+    virtual void			free();
 	
 	// public IOUSBHubDevice methods
 
+	void					SetTotalSleepCurrent(UInt32 sleepCurrent);
+	UInt32					GetTotalSleepCurrent();
+	
     /*!
 	 @function GetPolicyMaker
 	 returns a pointer to the policy maker for the hub, which can be used as the power plane parent.
@@ -116,13 +123,25 @@ public:
 	virtual UInt32			RequestProvidedPower(UInt32 requestedPower);
 
 	virtual UInt32			RequestExtraPower(UInt32 requestedPower);
+
 	virtual void			ReturnExtraPower(UInt32 returnedPower);
 	
-    OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  0);
-    OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  1);
-    OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  2);
-    OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  3);
-    OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  4);
+    OSMetaClassDeclareReservedUsed(IOUSBHubDevice,  0);
+	
+	virtual void			InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCurrent);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBHubDevice,  1);
+	virtual UInt32			RequestSleepPower(UInt32 requestedPower);
+
+    OSMetaClassDeclareReservedUsed(IOUSBHubDevice,  2);
+	virtual void			ReturnSleepPower(UInt32 returnedPower);
+
+    OSMetaClassDeclareReservedUsed(IOUSBHubDevice,  3);
+	virtual void			SetSleepCurrent(UInt32 sleepCurrent);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBHubDevice,  4);
+	virtual	UInt32			GetSleepCurrent();
+	
     OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  5);
     OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  6);
     OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  7);

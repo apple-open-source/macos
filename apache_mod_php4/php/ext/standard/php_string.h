@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_string.h,v 1.65.2.5.2.3 2007/12/31 07:22:52 sebastian Exp $ */
+/* $Id: php_string.h,v 1.65.2.5.2.4 2008/08/06 08:09:07 derick Exp $ */
 
 /* Synced with php 3.0 revision 1.43 1999-06-16 [ssb] */
 
@@ -137,6 +137,10 @@ php_memnstr(char *haystack, char *needle, int needle_len, char *end)
 	char *p = haystack;
 	char ne = needle[needle_len-1];
 
+
+	if (needle_len > end - haystack) {
+		return NULL;
+	}
 	end -= needle_len;
 
 	while (p <= end) {

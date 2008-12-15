@@ -77,7 +77,11 @@ bool IOFireWireIPUnit::start(IOService *provider)
 
 	fDrb->retain();
 
-	fFWBusInterface->updateARBwithDevice(fDevice, eui64);
+	if ( fFWBusInterface->updateARBwithDevice(fDevice, eui64) == NULL )
+	{
+		IOLog("IOFireWireIPUnit - updateARBwithDevice failed \n");
+        return (false);
+	}
 	
 	fFWBusInterface->fwIPUnitAttach();
 
@@ -211,7 +215,22 @@ bool IOFireWireIPUnit::configureFWBusInterface(IOFireWireController *controller)
 	if( fIPLocalNode )
 	{
 		fIPLocalNode->retain();
-		fIPLocalNode->closeIPoFWGate();
+		
+		if ( fIPLocalNode->clientStarting() == true )
+		{
+			OSDictionary *matchingTable;
+			
+			matchingTable = serviceMatching("IOFWIPBusInterface");
+			
+			if ( matchingTable )
+			{	
+				OSObject *prop = fIPLocalNode->getProperty(gFireWire_GUID);
+				if( prop )
+					matchingTable->setObject(gFireWire_GUID, prop);
+			}
+
+			waitForService( matchingTable );
+		}
 
 		fFWBusInterface = getIPTransmitInterface(fIPLocalNode) ;
 
@@ -230,7 +249,6 @@ bool IOFireWireIPUnit::configureFWBusInterface(IOFireWireController *controller)
 			fFWBusInterface = 0;
 		}
 
-		fIPLocalNode->openIPoFWGate();
 		fIPLocalNode->release();
 	}
 

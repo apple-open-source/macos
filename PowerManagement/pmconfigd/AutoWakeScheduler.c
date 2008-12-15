@@ -738,7 +738,7 @@ static kern_return_t openHIDService(io_connect_t *connection)
     service = IOServiceGetMatchingService(MACH_PORT_NULL, 
                                 IOServiceMatching(kIOHIDSystemClass));
     if (MACH_PORT_NULL == service) {
-        return kr;
+        return kIOReturnNotFound;
     }
 
     kr = IOServiceOpen( service, mach_task_self(), 

@@ -217,6 +217,7 @@ void _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), voi
 #define PTHREAD_START_POLICY_MASK 0xff
 #define PTHREAD_START_IMPORTANCE_MASK 0xffff
 
+static int pthread_setschedparam_internal(pthread_t, mach_port_t, int, const struct sched_param *);
 extern pthread_t __bsdthread_create(void (*func)(void *), void * func_arg, void * stack, pthread_t  thread, unsigned int flags);
 extern int __bsdthread_terminate(void * freeaddr, size_t freesize, mach_port_t kport, mach_port_t joinsem);
 
@@ -224,6 +225,8 @@ extern int __bsdthread_terminate(void * freeaddr, size_t freesize, mach_port_t k
 static const vm_address_t PTHREAD_STACK_HINT = 0xF0000000;
 #elif defined(__i386__) || defined(__x86_64__)
 static const vm_address_t PTHREAD_STACK_HINT = 0xB0000000;
+#elif defined(__arm__)
+static const vm_address_t PTHREAD_STACK_HINT = 0x30000000;
 #else
 #error Need to define a stack address hint for this architecture
 #endif
@@ -890,7 +893,7 @@ _pthread_create(pthread_t t,
 		t->death = SEMAPHORE_NULL;
 
 		if (kernel_thread != MACH_PORT_NULL)
-			pthread_setschedparam(t, t->policy, &t->param);
+			(void)pthread_setschedparam_internal(t, kernel_thread, t->policy, &t->param);
 	} while (0);
 	return (res);
 }
@@ -1650,8 +1653,9 @@ pthread_getschedparam(pthread_t thread,
 /*
  * Set the scheduling policy and scheduling paramters for a thread.
  */
-int       
-pthread_setschedparam(pthread_t thread, 
+static int       
+pthread_setschedparam_internal(pthread_t thread, 
+		      mach_port_t  kport,
 		      int policy,
 		      const struct sched_param *param)
 {
@@ -1682,12 +1686,46 @@ pthread_setschedparam(pthread_t thread,
 		default:
 			return (EINVAL);
 	}
-	ret = thread_policy(pthread_mach_thread_np(thread), policy, base, count, TRUE);
+	ret = thread_policy(kport, policy, base, count, TRUE);
 	if (ret != KERN_SUCCESS)
 			return (EINVAL);
-	thread->policy = policy;
-	thread->param = *param;
 	return (0);
+}
+
+int       
+pthread_setschedparam(pthread_t t, 
+		      int policy,
+		      const struct sched_param *param)
+{
+	mach_port_t kport = MACH_PORT_NULL;
+	int error;
+	int bypass = 1;
+
+	if (t != pthread_self() && t != &_thread ) { //since the main thread will not get de-allocated from underneath us
+		bypass = 0;
+		if (_pthread_lookup_thread(t, &kport, 0) != 0)
+			return(ESRCH);
+	} else
+		kport = t->kernel_thread;
+
+	error = pthread_setschedparam_internal(t, kport, policy, param);
+	if (error == 0) {
+		if (bypass == 0) {
+			/* ensure the thread is still valid */
+			LOCK(_pthread_list_lock);
+			if ((error = _pthread_find_thread(t)) != 0) {
+				UNLOCK(_pthread_list_lock);
+				return(error);
+			}
+			t->policy = policy;
+			t->param = *param;
+			UNLOCK(_pthread_list_lock);
+		}  else {
+			t->policy = policy;
+			t->param = *param;
+		}
+	}
+	return(error);
 }
 
 /*

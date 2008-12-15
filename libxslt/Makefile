@@ -21,7 +21,7 @@ AEP_Version    = 1.1.12
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = configure.diff ltmain.sh.diff Makefile.in.diff
+AEP_Patches    = configure.diff ltmain.sh.diff Makefile.in.diff rdar-5865376.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

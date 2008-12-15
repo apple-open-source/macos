@@ -1,4 +1,0 @@
-#just install a script
-SHELLTOOL = fuser.pl
-
-include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

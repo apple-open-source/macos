@@ -26,8 +26,8 @@
 #include "protos.h"
 #include "limits.h"
 
-unsigned long FH, FHF;
-unsigned long razor_drop, razor_material, drop_cuts, ext_recap, ext_onerep;
+uint32_t FH, FHF;
+uint32_t razor_drop, razor_material, drop_cuts, ext_recap, ext_onerep;
 
 char true_i_depth;
 
@@ -50,7 +50,7 @@ int tradefreely;
 
 int s_threat;
 
-unsigned long rootnodecount[MOVE_BUFF];
+uint32_t rootnodecount[MOVE_BUFF];
 
 bool checks[PV_BUFF];
 
@@ -59,7 +59,7 @@ bool checks[PV_BUFF];
 #define SINGLE  1
 
 
-void order_moves (move_s moves[], long int move_ordering[], long int see_values[], int num_moves, int best) {
+void order_moves (move_s moves[], int32_t move_ordering[], int32_t see_values[], int num_moves, int best) {
 
   int promoted, captured;
   int i, from, target, seev;
@@ -263,14 +263,14 @@ void perft (int depth) {
 
 }
 
-long int qsearch (int alpha, int beta, int depth) {
+int32_t qsearch (int alpha, int beta, int depth) {
 
   /* perform a quiscense search on the current node using alpha-beta with
      negamax search */
 
   move_s moves[MOVE_BUFF];
   int num_moves, i, j;
-  long int score = -INF, standpat, 
+  int32_t score = -INF, standpat, 
     move_ordering[MOVE_BUFF],
     see_values[MOVE_BUFF];
   bool legal_move, no_moves = TRUE;
@@ -445,7 +445,7 @@ long int qsearch (int alpha, int beta, int depth) {
     }  
 }
 
-bool remove_one (int *marker, long int move_ordering[], int num_moves) {
+bool remove_one (int *marker, int32_t move_ordering[], int num_moves) {
 
   /* a function to give pick the top move order, one at a time on each call.
      Will return TRUE while there are still moves left, FALSE after all moves
@@ -472,13 +472,13 @@ bool remove_one (int *marker, long int move_ordering[], int num_moves) {
 
 }
 
-long int search (int alpha, int beta, int depth, int is_null) {
+int32_t search (int alpha, int beta, int depth, int is_null) {
 
   /* search the current node using alpha-beta with negamax search */
 
   move_s moves[MOVE_BUFF];
   int num_moves, i, j;
-  long int score = -INF, move_ordering[MOVE_BUFF], see_values[MOVE_BUFF];
+  int32_t score = -INF, move_ordering[MOVE_BUFF], see_values[MOVE_BUFF];
   bool no_moves, legal_move;
   int bound, threat, donull, best, sbest, best_score, old_ep;
   bool incheck, first;
@@ -1071,7 +1071,7 @@ move_s search_root (int originalalpha, int originalbeta, int depth) {
 
   move_s moves[MOVE_BUFF], best_move = dummy;
   int num_moves, i, j;
-  long int root_score = -INF, move_ordering[MOVE_BUFF], see_values[MOVE_BUFF];
+  int32_t root_score = -INF, move_ordering[MOVE_BUFF], see_values[MOVE_BUFF];
   bool no_moves, legal_move, first;
   int alpha, beta;
   move_s kswap;
@@ -1446,7 +1446,7 @@ move_s think (void) {
   
   move_s comp_move, temp_move, old_move;
   int i, j, k;
-  long int elapsed, temp_score, true_score;
+  int32_t elapsed, temp_score, true_score;
   char postmove[STR_BUFF];
   clock_t cpu_start, cpu_end; 
   float et = 0;
@@ -1630,7 +1630,7 @@ restart:
        time_for_move = fixed_time ? fixed_time : 999999;
      };
 
-   if (pn_restart) time_for_move = (float)time_for_move * (float)2/((float)pn_restart+1.0);
+   if (pn_restart) time_for_move = (float)time_for_move * (float)2/((float)pn_restart+1.0f);
    
    printf("Time for move : %d\n", (int)time_for_move);
    
@@ -1836,7 +1836,7 @@ restart:
   {
     cpu_end = clock();
 
-    et = (cpu_end-cpu_start)/(double) CLOCKS_PER_SEC;
+    et = (cpu_end-cpu_start)/(float) CLOCKS_PER_SEC;
 
     old_move = comp_move;
     
@@ -1937,7 +1937,7 @@ restart:
 
       if ((et > 0) && (Variant != Bughouse))
 	{
-	  printf("tellics whisper d%d %+.2f %sn: %ld qp: %.0f%% fh: %.0f%% c-x: %d r-x: %d 1-x: %d egtb: %d time: %.2f nps: %ld\n",
+	  printf("tellics whisper d%d %+.2f %sn: %d qp: %.0f%% fh: %.0f%% c-x: %d r-x: %d 1-x: %d egtb: %d time: %.2f nps: %d\n",
 		 true_i_depth, (float)temp_score/100.0, postpv, nodes, 
 		 (((float)qnodes*100)/((float)nodes+1)),
 		 ((float)FHF*100)/((float)(FH+1)),
@@ -1945,7 +1945,7 @@ restart:
 //		 ((float)PVSF*100)/((float)PVS+1),
 		 (int)ext_check, (int)ext_recap, (int)ext_onerep, EGTBHits,
 		 ((float)elapsed/100.), 
-		 (long)((float) nodes/(float) (et)));
+		 (int32_t)((float) nodes/(float) (et)));
 	}
     }
 

@@ -51,8 +51,6 @@ __private_extern__ void PMSettingsBatteriesHaveChanged(CFArrayRef);
 
 __private_extern__ void PMSettingsPSChange(CFTypeRef);
 
-__private_extern__ void PMSettingsConsoleUserHasChanged(void);
-
 // For UPS shutdown/restart code in PSLowPower.c
 __private_extern__ CFDictionaryRef  PMSettings_CopyActivePMSettings(void);
 

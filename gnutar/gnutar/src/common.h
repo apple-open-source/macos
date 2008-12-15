@@ -20,7 +20,12 @@
 /* Declare the GNU tar archive format.  */
 #include "tar.h"
 
+#include <TargetConditionals.h>
+#define HAVE_QUARANTINE (!TARGET_OS_EMBEDDED)
+
+#if HAVE_QUARANTINE
 #include <quarantine.h>
+#endif
 
 /* The checksum field is filled with this while the checksum is computed.  */
 #define CHKBLANKS	"        "	/* 8 blanks, no null */
@@ -288,7 +293,9 @@ GLOBAL const char *volume_label_option;
 
 /* File descriptor for archive file.  */
 GLOBAL int archive;
+#if HAVE_QUARANTINE
 GLOBAL qtn_file_t archive_qtn_file;
+#endif
 
 /* Nonzero when outputting to /dev/null.  */
 GLOBAL bool dev_null_output;

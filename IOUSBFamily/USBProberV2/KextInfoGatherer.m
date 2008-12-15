@@ -137,6 +137,7 @@ finish:
                 [returnArray removeObject:thisKext];
             }
         }
+		[arrayCopy release];
     }
      
         

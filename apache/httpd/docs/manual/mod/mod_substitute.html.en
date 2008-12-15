@@ -26,7 +26,8 @@
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Perform search and replace operations on response bodies</td></tr>
 <tr><th><a href="module-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="module-dict.html#ModuleIdentifier">Module Identifier:</a></th><td>substitute_module</td></tr>
-<tr><th><a href="module-dict.html#SourceFile">Source File:</a></th><td>mod_substitute.c</td></tr></table>
+<tr><th><a href="module-dict.html#SourceFile">Source File:</a></th><td>mod_substitute.c</td></tr>
+<tr><th><a href="module-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache 2.2.7 and later</td></tr></table>
 <h3>Summary</h3>
 
     <p><code class="module"><a href="../mod/mod_substitute.html">mod_substitute</a></code> provides a mechanism to perform
@@ -43,7 +44,7 @@
 <div class="directive-section"><h2><a name="Substitute" id="Substitute">Substitute</a> <a name="substitute" id="substitute">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Pattern to filter the response content</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>Substitute <var>s/pattern/substitution/[inf]</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>Substitute <var>s/pattern/substitution/[infq]</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
@@ -65,7 +66,14 @@
         <dt><code>f</code></dt>
         <dd>The <code>f</code> flag causes mod_substitute to flatten the
         result of a substitution allowing for later substitutions to
-        take place on the boundary of this one.</dd>
+        take place on the boundary of this one. This is the default.</dd>
+        <dt><code>q</code></dt>
+        <dd>The <code>q</code> flag causes mod_substitute to not
+        flatten the buckets after each substitution. This can
+        result in much faster response and a decrease in memory
+        utilization, but should only be used if there is no possibility
+        that the result of one substitution will ever match a pattern
+        or regex of a subsequent one.</dd>
     </dl>
     
     <div class="example"><h3>Example</h3><p><code>
@@ -94,6 +102,6 @@
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_substitute.html" title="English">&nbsp;en&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

@@ -30,7 +30,7 @@
 #import <IOKit/IOCFPlugIn.h>
 #import "BusProbeClass.h"
 
-typedef struct 	IOUSBDeviceStruct197**	 			IOUSBDeviceRef ;
+typedef struct 	IOUSBDeviceStruct320**	 			IOUSBDeviceRef ;
 typedef struct 	IOUSBInterfaceStruct220**	 		IOUSBInterfaceRef ;
 
 #define ROOT_LEVEL                              0
@@ -48,6 +48,7 @@ enum {
     kHexOutputStyle = 1
 };
 
+int GetPortInformation( IOUSBDeviceRef deviceIntf, uint32_t * portInfo );
 int GetDeviceLocationID( IOUSBDeviceRef deviceIntf, UInt32 * locationID );
 int GetDeviceSpeed( IOUSBDeviceRef deviceIntf, UInt8 * speed );
 int GetDeviceAddress( IOUSBDeviceRef deviceIntf, USBDeviceAddress * address );
@@ -65,6 +66,7 @@ NSString * VendorNameFromVendorID(NSString * intValueAsString);
 NSString * GetUSBProductNameFromRegistry(io_registry_entry_t entry);
 void FreeString(char * cstr);
 UInt16 Swap16(void *p);
-UInt32	Swap32(void *p);
-UInt64	Swap64(void *p);
-UInt32 Swap24(void *p);
+uint32_t	Swap32(void *p);
+uint64_t	Swap64(void *p);
+uint32_t	Swap24(void *p);
+const char *	USBErrorToString(IOReturn status);

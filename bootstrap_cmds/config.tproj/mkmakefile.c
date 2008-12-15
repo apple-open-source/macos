@@ -61,7 +61,7 @@ static char sccsid[] = "@(#)mkmakefile.c	5.21 (Berkeley) 6/18/88";
 #include <stdio.h>
 #include <unistd.h>	/* for unlink */
 #include <ctype.h>
-#include "y.tab.h"
+#include "parser.h"
 #include "config.h"
 
 void	read_files(void);

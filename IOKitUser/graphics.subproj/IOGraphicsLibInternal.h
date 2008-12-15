@@ -20,18 +20,24 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 #if 0
+
+#include <mach/mach_time.h>
 #warning **LOGS**
 #define RLOG 1
 #define DEBG(cref, fmt, args...)  			\
 if (cref->logfile) { 					\
-    fprintf(cref->logfile, "%s: ", __FUNCTION__);	\
+    uint64_t time = mach_absolute_time();	\
+    fprintf(cref->logfile, "%10lld %s: ", ((time - cref->time0) / 1000), __FUNCTION__);	\
     fprintf(cref->logfile, fmt, ## args);		\
     fflush(cref->logfile);				\
 }
 
 #else
+
 #define DEBG(cref, fmt, args...)  {}
+
 #endif
 
 
@@ -299,8 +305,10 @@ struct IOFBConnect
     CFMutableDictionaryRef	iographicsProperties;
 #if RLOG
     FILE *			logfile;
+    uint64_t			time0;
 #else
     void *			__pad;
+    uint64_t			__pad2;
 #endif
     CFMutableDictionaryRef	kernelInfo;
     CFMutableDictionaryRef	modes;

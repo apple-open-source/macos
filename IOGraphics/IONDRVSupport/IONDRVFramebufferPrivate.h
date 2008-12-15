@@ -20,7 +20,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef __LP64__
 #pragma options align=mac68k
+#endif
 
 struct VDConfigurationFeatureListRec
 {
@@ -67,5 +69,7 @@ struct VDSleepWakeInfo
 typedef struct VDSleepWakeInfo VDSleepWakeInfo;
 
 
+#ifndef __LP64__
 #pragma options align=reset
+#endif
 

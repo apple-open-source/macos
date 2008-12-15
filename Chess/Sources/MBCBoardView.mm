@@ -15,6 +15,12 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardView.mm,v $
+		Revision 1.32.2.1  2008/09/30 21:55:33  neerache
+		Incorporate a FoxHound fix into SULeoHera
+		
+		Revision 1.33  2008/06/03 17:29:49  neerache
+		<rdar://problem/5793568> - Chess needs to add NSOpenGLPFAAllowOfflineDisplays pixel format attribute to OpenGL contexts
+		
 		Revision 1.32  2007/03/02 23:06:00  neerache
 		<rdar://problem/4038207> Allow the user to type in a move in Chess
 		
@@ -154,6 +160,7 @@ void MBCColor::SetColor(NSColor * newColor)
 	//
     NSOpenGLPixelFormatAttribute fsaa_attr[] = 
     {
+		NSOpenGLPFAAllowOfflineRenderers,
         NSOpenGLPFADoubleBuffer,
 		NSOpenGLPFANoRecovery,
 		NSOpenGLPFAAccelerated,
@@ -168,6 +175,7 @@ void MBCColor::SetColor(NSColor * newColor)
 	};
     NSOpenGLPixelFormatAttribute jaggy_attr[] = 
     {
+		NSOpenGLPFAAllowOfflineRenderers,
 		NSOpenGLPFADoubleBuffer,
 		NSOpenGLPFANoRecovery,
 		NSOpenGLPFAAccelerated,

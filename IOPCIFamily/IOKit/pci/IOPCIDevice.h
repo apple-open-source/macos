@@ -102,7 +102,8 @@ enum {
     kIOPCICommandParityError		= 0x0040,
     kIOPCICommandAddressStepping	= 0x0080,
     kIOPCICommandSERR			= 0x0100,
-    kIOPCICommandFastBack2Back		= 0x0200
+    kIOPCICommandFastBack2Back		= 0x0200,
+    kIOPCICommandInterruptDisable	= 0x0400
 };
 
 /* Status register definitions */
@@ -217,6 +218,14 @@ struct IOPCIPhysicalAddress {
 // pci express link capabilities
 #define kIOPCIExpressLinkCapabilitiesKey "IOPCIExpressLinkCapabilities"
 
+#ifndef kIOPlatformDeviceASPMEnableKey
+#define kIOPlatformDeviceASPMEnableKey	"IOPlatformDeviceASPMEnable"
+#endif
+
+#ifndef kIOPCIDeviceASPMSupportedKey
+#define kIOPCIDeviceASPMSupportedKey	"pci-aspm-supported"
+#endif
+
 enum {
     kIOPCIDevicePowerStateCount = 3,
     kIOPCIDeviceOffState	= 0,
@@ -229,6 +238,10 @@ enum
     // bits getInterruptType result
     kIOInterruptTypePCIMessaged = 0x00010000
 };
+
+class IOPCIBridge;
+class IOPCI2PCIBridge;
+class IOPCIMessagedInterruptController;
 
 /*! @class IOPCIDevice : public IOService
     @abstract An IOService class representing a PCI device.
@@ -292,10 +305,6 @@ Matches a device whose class code is 0x0200zz, an ethernet device.
 
 */
 
-class IOPCIBridge;
-class IOPCI2PCIBridge;
-class IOPCIMessagedInterruptController;
-
 class IOPCIDevice : public IOService
 {
     OSDeclareDefaultStructors(IOPCIDevice)
@@ -334,6 +343,14 @@ public:
     virtual IOService * matchLocation( IOService * client );
     virtual IOReturn getResources( void );
     virtual IOReturn setProperties(OSObject * properties);
+    virtual IOReturn callPlatformFunction(const OSSymbol * functionName,
+					  bool waitForFunction,
+					  void * p1, void * p2,
+					  void * p3, void * p4);
+    virtual IOReturn callPlatformFunction(const char * functionName,
+					  bool waitForFunction,
+					  void * p1, void * p2,
+					  void * p3, void * p4);
 
     /* Config space accessors */
 

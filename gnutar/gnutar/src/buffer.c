@@ -368,6 +368,7 @@ check_label_pattern (union block *label)
   return result;
 }
 
+#if HAVE_QUARANTINE
 void
 init_qtn(const char *file_name)
 {
@@ -397,6 +398,10 @@ finish_qtn(void)
 		archive_qtn_file = NULL;
 	}
 }
+#else
+void init_qtn(const char *file_name) {}
+void finish_qtn(void) {}
+#endif
 
 /* Open an archive file.  The argument specifies whether we are
    reading or writing, or both.  */

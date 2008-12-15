@@ -22,7 +22,8 @@ dnl library. It provides a standardized mechanism for using APU. It supports
 dnl embedding APU into the application source, or locating an installed
 dnl copy of APU.
 dnl
-dnl APR_FIND_APU(srcdir, builddir, implicit-install-check, acceptable-majors)
+dnl APR_FIND_APU(srcdir, builddir, implicit-install-check, acceptable-majors,
+dnl              detailed-check)
 dnl
 dnl   where srcdir is the location of the bundled APU source directory, or
 dnl   empty if source is not bundled.
@@ -38,6 +39,14 @@ dnl   version numbers. Often only a single major version will be acceptable.
 dnl   If multiple versions are specified, and --with-apr-util=PREFIX or the
 dnl   implicit installed search are used, then the first (leftmost) version
 dnl   in the list that is found will be used.  Currently defaults to [0 1].
+dnl
+dnl   where detailed-check is an M4 macro which sets the apu_acceptable to
+dnl   either "yes" or "no". The macro will be invoked for each installed
+dnl   copy of APU found, with the apu_config variable set appropriately.
+dnl   Only installed copies of APU which are considered acceptable by
+dnl   this macro will be considered found. If no installed copies are
+dnl   considered acceptable by this macro, apu_found will be set to either
+dnl   either "no" or "reconfig".
 dnl
 dnl Sets the following variables on exit:
 dnl
@@ -99,8 +108,8 @@ AC_DEFUN([APR_FIND_APU], [
 
   AC_MSG_CHECKING(for APR-util)
   AC_ARG_WITH(apr-util,
-  [  --with-apr-util=PATH    prefix for installed APU, path to APU build tree,
-                          or the full path to apu-config],
+  [  --with-apr-util=PATH    prefix for installed APU or the full path to 
+                             apu-config],
   [
     if test "$withval" = "no" || test "$withval" = "yes"; then
       AC_MSG_ERROR([--with-apr-util requires a directory or file to be provided])
@@ -111,16 +120,28 @@ AC_DEFUN([APR_FIND_APU], [
       for lookdir in "$withval/bin" "$withval"
       do
         if $TEST_X "$lookdir/$apu_temp_apu_config_file"; then
-          apu_found="yes"
           apu_config="$lookdir/$apu_temp_apu_config_file"
+          ifelse([$5], [], [], [
+          apu_acceptable="yes"
+          $5
+          if test "$apu_acceptable" != "yes"; then
+            AC_MSG_WARN([Found APU in $apu_config, but it is considered unacceptable])
+            continue
+          fi])
+          apu_found="yes"
           break 2
         fi
       done
     done
 
     if test "$apu_found" != "yes" && $TEST_X "$withval" && $withval --help > /dev/null 2>&1 ; then
-      apu_found="yes"
       apu_config="$withval"
+      ifelse([$5], [], [apu_found="yes"], [
+          apu_acceptable="yes"
+          $5
+          if test "$apu_acceptable" = "yes"; then
+                apu_found="yes"
+          fi])
     fi
 
     dnl if --with-apr-util is used, it is a fatal error for its argument
@@ -133,15 +154,29 @@ AC_DEFUN([APR_FIND_APU], [
       for apu_temp_apu_config_file in $apu_temp_acceptable_apu_config
       do
         if $apu_temp_apu_config_file --help > /dev/null 2>&1 ; then
+          apu_config="$apu_temp_apu_config_file" 
+          ifelse([$5], [], [], [
+          apu_acceptable="yes"
+          $5
+          if test "$apu_acceptable" != "yes"; then
+            AC_MSG_WARN([skipped APR-util at $apu_config, version not acceptable])
+            continue
+          fi])
           apu_found="yes"
-          apu_config="$apu_temp_apu_config_file"
           break
         else
           dnl look in some standard places (apparently not in builtin/default)
           for lookdir in /usr /usr/local /usr/local/apr /opt/apr; do
             if $TEST_X "$lookdir/bin/$apu_temp_apu_config_file"; then
-              apu_found="yes"
               apu_config="$lookdir/bin/$apu_temp_apu_config_file"
+              ifelse([$5], [], [], [
+              apu_acceptable="yes"
+              $5
+              if test "$apu_acceptable" != "yes"; then
+                AC_MSG_WARN([skipped APR-util at $apu_config, version not acceptable])
+                continue
+              fi])
+              apu_found="yes"
               break 2
             fi
           done

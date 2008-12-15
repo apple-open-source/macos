@@ -243,7 +243,8 @@
 /* WV_ and BV_ values get typecasted to this for the "indir" field */
 typedef enum
 {
-    PV_NONE = 0
+    PV_NONE = 0,
+    PV_MAXVAL = 0xffff    /* to avoid warnings for value out of range */
 } idopt_T;
 
 /*
@@ -427,6 +428,8 @@ struct vimoption
 #define P_NOGLOB       0x100000L/* do not use local value for global vimrc */
 #define P_NFNAME       0x200000L/* only normal file name chars allowed */
 #define P_INSECURE     0x400000L/* option was set from a modeline */
+#define P_PRI_MKRC     0x800000L/* priority for :mkvimrc (setting option has
+				   side effects) */
 
 #define ISK_LATIN1  (char_u *)"@,48-57,_,192-255"
 
@@ -773,6 +776,8 @@ static struct vimoption
 			    {(char_u *)0L, (char_u *)0L}
 #endif
 			    },
+			    /* P_PRI_MKRC isn't needed here, optval_default()
+			     * always returns TRUE for 'compatible' */
     {"compatible",  "cp",   P_BOOL|P_RALL,
 			    (char_u *)&p_cp, PV_NONE,
 			    {(char_u *)TRUE, (char_u *)FALSE}},
@@ -1515,7 +1520,7 @@ static struct vimoption
 			    {(char_u *)0L, (char_u *)0L}
 #endif
 			    },
-    {"keymap",	    "kmp",  P_STRING|P_ALLOCED|P_VI_DEF|P_RBUF|P_RSTAT|P_NFNAME,
+    {"keymap",	    "kmp",  P_STRING|P_ALLOCED|P_VI_DEF|P_RBUF|P_RSTAT|P_NFNAME|P_PRI_MKRC,
 #ifdef FEAT_KEYMAP
 			    (char_u *)&p_keymap, PV_KMAP,
 			    {(char_u *)"", (char_u *)0L}
@@ -1810,6 +1815,14 @@ static struct vimoption
     {"open",	    NULL,   P_BOOL|P_VI_DEF,
 			    (char_u *)NULL, PV_NONE,
 			    {(char_u *)FALSE, (char_u *)0L}},
+    {"opendevice",  "odev", P_BOOL|P_VI_DEF,
+#if defined(MSDOS) || defined(MSWIN) || defined(OS2)
+			    (char_u *)&p_odev, PV_NONE,
+#else
+			    (char_u *)NULL, PV_NONE,
+#endif
+			    {(char_u *)FALSE, (char_u *)FALSE}
+			    },
     {"operatorfunc", "opfunc", P_STRING|P_VI_DEF|P_SECURE,
 			    (char_u *)&p_opfunc, PV_NONE,
 			    {(char_u *)"", (char_u *)0L} },
@@ -1827,8 +1840,9 @@ static struct vimoption
 			    },
     {"paragraphs",  "para", P_STRING|P_VI_DEF,
 			    (char_u *)&p_para, PV_NONE,
-			    {(char_u *)"IPLPPPQPP LIpplpipbp", (char_u *)0L}},
-    {"paste",	    NULL,   P_BOOL|P_VI_DEF,
+			    {(char_u *)"IPLPPPQPP TPHPLIPpLpItpplpipbp",
+				(char_u *)0L}},
+    {"paste",	    NULL,   P_BOOL|P_VI_DEF|P_PRI_MKRC,
 			    (char_u *)&p_paste, PV_NONE,
 			    {(char_u *)FALSE, (char_u *)0L}},
     {"pastetoggle", "pt",   P_STRING|P_VI_DEF,
@@ -1979,6 +1993,13 @@ static struct vimoption
     {"redraw",	    NULL,   P_BOOL|P_VI_DEF,
 			    (char_u *)NULL, PV_NONE,
 			    {(char_u *)FALSE, (char_u *)0L}},
+    {"redrawtime",  "rdt",  P_NUM|P_VI_DEF,
+#ifdef FEAT_RELTIME
+			    (char_u *)&p_rdt, PV_NONE,
+#else
+			    (char_u *)NULL, PV_NONE,
+#endif
+			    {(char_u *)2000L, (char_u *)0L}},
     {"remap",	    NULL,   P_BOOL|P_VI_DEF,
 			    (char_u *)&p_remap, PV_NONE,
 			    {(char_u *)TRUE, (char_u *)0L}},
@@ -2294,7 +2315,7 @@ static struct vimoption
 			    {(char_u *)0L, (char_u *)0L}
 #endif
 			    },
-    {"spellsuggest", "sps", P_STRING|P_VI_DEF|P_EXPAND|P_SECURE,
+    {"spellsuggest", "sps", P_STRING|P_VI_DEF|P_EXPAND|P_SECURE|P_COMMA,
 #ifdef FEAT_SPELL
 			    (char_u *)&p_sps, PV_NONE,
 			    {(char_u *)"best", (char_u *)0L}
@@ -2825,7 +2846,6 @@ static char *(p_bsdir_values[]) = {"current", "last", "buffer", NULL};
 #ifdef FEAT_SCROLLBIND
 static char *(p_scbopt_values[]) = {"ver", "hor", "jump", NULL};
 #endif
-static char *(p_swb_values[]) = {"useopen", "usetab", "split", NULL};
 static char *(p_debug_values[]) = {"msg", "throw", "beep", NULL};
 #ifdef FEAT_VERTSPLIT
 static char *(p_ead_values[]) = {"both", "ver", "hor", NULL};
@@ -3022,7 +3042,7 @@ set_init_1()
 #else
 # ifdef HAVE_TOTAL_MEM
 	    /* Use amount of memory available to Vim. */
-	    n = (mch_total_mem(FALSE) >> 11);
+	    n = (mch_total_mem(FALSE) >> 1);
 # else
 	    n = (0x7fffffff >> 11);
 # endif
@@ -3255,20 +3275,8 @@ set_init_1()
     }
 # else
 #  ifdef MACOS_CONVERT
-    if (mch_getenv((char_u *)"LANG") == NULL)
-    {
-	char	buf[20];
-	if (LocaleRefGetPartString(NULL,
-		    kLocaleLanguageMask | kLocaleLanguageVariantMask |
-		    kLocaleRegionMask | kLocaleRegionVariantMask,
-		    sizeof buf, buf) == noErr && *buf)
-	{
-	    vim_setenv((char_u *)"LANG", (char_u *)buf);
-#   ifdef HAVE_LOCALE_H
-	    setlocale(LC_ALL, "");
-#   endif
-	}
-    }
+    /* Moved to os_mac_conv.c to avoid dependency problems. */
+    mac_lang_init();
 #  endif
 # endif
 
@@ -3282,6 +3290,14 @@ set_init_1()
 	 * If not, go back to the default "latin1". */
 	save_enc = p_enc;
 	p_enc = p;
+	if (STRCMP(p_enc, "gb18030") == 0)
+	{
+	    /* We don't support "gb18030", but "cp936" is a good substitute
+	     * for practical purposes, thus use that.  It's not an alias to
+	     * still support conversion between gb18030 and utf-8. */
+	    p_enc = vim_strsave((char_u *)"cp936");
+	    vim_free(p);
+	}
 	if (mb_init() == NULL)
 	{
 	    opt_idx = findoption((char_u *)"encoding");
@@ -3397,7 +3413,7 @@ set_option_default(opt_idx, opt_flags, compatible)
 	}
 	else if (flags & P_NUM)
 	{
-	    if (varp == (char_u *)PV_SCROLL)
+	    if (options[opt_idx].indir == PV_SCROLL)
 		win_comp_scroll(curwin);
 	    else
 	    {
@@ -3413,6 +3429,11 @@ set_option_default(opt_idx, opt_flags, compatible)
 	    /* the cast to long is required for Manx C, long_i is needed for
 	     * MSVC */
 	    *(int *)varp = (int)(long)(long_i)options[opt_idx].def_val[dvi];
+#ifdef UNIX
+	    /* 'modeline' defaults to off for root */
+	    if (options[opt_idx].indir == PV_ML && getuid() == ROOT_UID)
+		*(int *)varp = FALSE;
+#endif
 	    /* May also set global value for local option. */
 	    if (both)
 		*(int *)get_varp_scope(&(options[opt_idx]), OPT_GLOBAL) =
@@ -4565,8 +4586,7 @@ do_set(arg, opt_flags)
 				else
 				{
 				    i = (int)STRLEN(newval);
-				    mch_memmove(newval + i + comma, origval,
-							  STRLEN(origval) + 1);
+				    STRMOVE(newval + i + comma, origval);
 				}
 				if (comma)
 				    newval[i] = ',';
@@ -4595,8 +4615,7 @@ do_set(arg, opt_flags)
 					    ++i;
 					}
 				    }
-				    mch_memmove(newval + (s - origval), s + i,
-							   STRLEN(s + i) + 1);
+				    STRMOVE(newval + (s - origval), s + i);
 				}
 			    }
 
@@ -4607,7 +4626,7 @@ do_set(arg, opt_flags)
 				    if ((!(flags & P_COMMA) || *s != ',')
 					    && vim_strchr(s + 1, *s) != NULL)
 				    {
-					STRCPY(s, s + 1);
+					STRMOVE(s, s + 1);
 					--s;
 				    }
 			    }
@@ -4971,7 +4990,7 @@ option_expand(opt_idx, val)
      * For 'spellsuggest' expand after "file:".
      */
     expand_env_esc(val, NameBuff, MAXPATHL,
-	    (char_u **)options[opt_idx].var == &p_tags,
+	    (char_u **)options[opt_idx].var == &p_tags, FALSE,
 #ifdef FEAT_SPELL
 	    (char_u **)options[opt_idx].var == &p_sps ? (char_u *)"file:" :
 #endif
@@ -5227,13 +5246,13 @@ insecure_flag(opt_idx, opt_flags)
 	    case PV_STL:	return &curwin->w_p_stl_flags;
 #endif
 #ifdef FEAT_EVAL
+# ifdef FEAT_FOLDING
 	    case PV_FDE:	return &curwin->w_p_fde_flags;
 	    case PV_FDT:	return &curwin->w_p_fdt_flags;
+# endif
 # ifdef FEAT_BEVAL
 	    case PV_BEXPR:	return &curbuf->b_p_bexpr_flags;
 # endif
-#endif
-#if defined(FEAT_EVAL)
 # if defined(FEAT_CINDENT)
 	    case PV_INDE:	return &curbuf->b_p_inde_flags;
 # endif
@@ -5254,7 +5273,7 @@ insecure_flag(opt_idx, opt_flags)
  * The string is copied into allocated memory.
  * if ("opt_idx" == -1) "name" is used, otherwise "opt_idx" is used.
  * When "set_sid" is zero set the scriptID to current_SID.  When "set_sid" is
- * SID_NONE don't set the scriptID.  Otherwose set the scriptID to "set_sid".
+ * SID_NONE don't set the scriptID.  Otherwise set the scriptID to "set_sid".
  */
 /*ARGSUSED*/
     void
@@ -5268,45 +5287,46 @@ set_string_option_direct(name, opt_idx, val, opt_flags, set_sid)
     char_u	*s;
     char_u	**varp;
     int		both = (opt_flags & (OPT_LOCAL | OPT_GLOBAL)) == 0;
+    int		idx = opt_idx;
 
-    if (opt_idx == -1)		/* use name */
+    if (idx == -1)		/* use name */
     {
-	opt_idx = findoption(name);
-	if (opt_idx < 0)	/* not found (should not happen) */
+	idx = findoption(name);
+	if (idx < 0)	/* not found (should not happen) */
 	{
 	    EMSG2(_(e_intern2), "set_string_option_direct()");
 	    return;
 	}
     }
 
-    if (options[opt_idx].var == NULL)	/* can't set hidden option */
+    if (options[idx].var == NULL)	/* can't set hidden option */
 	return;
 
     s = vim_strsave(val);
     if (s != NULL)
     {
-	varp = (char_u **)get_varp_scope(&(options[opt_idx]),
+	varp = (char_u **)get_varp_scope(&(options[idx]),
 					       both ? OPT_LOCAL : opt_flags);
-	if ((opt_flags & OPT_FREE) && (options[opt_idx].flags & P_ALLOCED))
+	if ((opt_flags & OPT_FREE) && (options[idx].flags & P_ALLOCED))
 	    free_string_option(*varp);
 	*varp = s;
 
 	/* For buffer/window local option may also set the global value. */
 	if (both)
-	    set_string_option_global(opt_idx, varp);
+	    set_string_option_global(idx, varp);
 
-	options[opt_idx].flags |= P_ALLOCED;
+	options[idx].flags |= P_ALLOCED;
 
 	/* When setting both values of a global option with a local value,
 	 * make the local value empty, so that the global value is used. */
-	if (((int)options[opt_idx].indir & PV_BOTH) && both)
+	if (((int)options[idx].indir & PV_BOTH) && both)
 	{
 	    free_string_option(*varp);
 	    *varp = empty_option;
 	}
 # ifdef FEAT_EVAL
 	if (set_sid != SID_NONE)
-	    set_option_scriptID_idx(opt_idx, opt_flags,
+	    set_option_scriptID_idx(idx, opt_flags,
 					set_sid == 0 ? current_SID : set_sid);
 # endif
     }
@@ -5638,7 +5658,7 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
     {
 	if (gvarp == &p_fenc)
 	{
-	    if (!curbuf->b_p_ma)
+	    if (!curbuf->b_p_ma && opt_flags != OPT_GLOBAL)
 		errmsg = e_modifiable;
 	    else if (vim_strchr(*varp, ',') != NULL)
 		/* No comma allowed in 'fileencoding'; catches confusing it
@@ -6195,7 +6215,7 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
     /* 'switchbuf' */
     else if (varp == &p_swb)
     {
-	if (check_opt_strings(p_swb, p_swb_values, TRUE) != OK)
+	if (opt_strings_flags(p_swb, p_swb_values, &swb_flags, TRUE) != OK)
 	    errmsg = e_invarg;
     }
 
@@ -6325,7 +6345,8 @@ did_set_string_option(opt_idx, varp, new_value_alloced, oldval, errbuf,
 	    else
 		errmsg = check_stl_option(p_ruf);
 	}
-	else
+	/* check 'statusline' only if it doesn't start with "%!" */
+	else if (varp == &p_ruf || s[0] != '%' || s[1] != '!')
 	    errmsg = check_stl_option(s);
 	if (varp == &p_ruf && errmsg == NULL)
 	    comp_col();
@@ -7095,6 +7116,11 @@ set_bool_option(opt_idx, varp, value, opt_flags)
     /* when 'endofline' is changed, redraw the window title */
     else if ((int *)varp == &curbuf->b_p_eol)
 	need_maketitle = TRUE;
+#ifdef FEAT_MBYTE
+    /* when 'bomb' is changed, redraw the window title */
+    else if ((int *)varp == &curbuf->b_p_bomb)
+	need_maketitle = TRUE;
+#endif
 #endif
 
     /* when 'bin' is set also set some other options */
@@ -7121,6 +7147,8 @@ set_bool_option(opt_idx, varp, value, opt_flags)
 	if (curbuf->b_p_swf && p_uc)
 	    ml_open_file(curbuf);		/* create the swap file */
 	else
+	    /* no need to reset curbuf->b_may_swap, ml_open_file() will check
+	     * buf->b_p_swf */
 	    mf_close_file(curbuf, TRUE);	/* remove the swap file */
     }
 
@@ -7140,7 +7168,7 @@ set_bool_option(opt_idx, varp, value, opt_flags)
 	}
 	/* remove 's' from p_shm */
 	else if (!p_terse && p != NULL)
-	    mch_memmove(p, p + 1, STRLEN(p));
+	    STRMOVE(p, p + 1);
     }
 
     /* when 'paste' is set or reset also change other options */
@@ -7324,9 +7352,8 @@ set_bool_option(opt_idx, varp, value, opt_flags)
 #ifdef FEAT_AUTOCHDIR
     else if ((int *)varp == &p_acd)
     {
-	if (p_acd && curbuf->b_ffname != NULL
-				     && vim_chdirfile(curbuf->b_ffname) == OK)
-	    shorten_fnames(TRUE);
+	/* Change directories when the 'acd' option is set now. */
+	DO_AUTOCHDIR
     }
 #endif
 
@@ -7791,6 +7818,8 @@ set_num_option(opt_idx, varp, value, errbuf, errbuflen, opt_flags)
 	    errmsg = e_positive;
 	    p_ch = 1;
 	}
+	if (p_ch > Rows - min_rows() + 1)
+	    p_ch = Rows - min_rows() + 1;
 
 	/* Only compute the new window layout when startup has been
 	 * completed. Otherwise the frame sizes may be wrong. */
@@ -8133,7 +8162,8 @@ get_option_value(name, numval, stringval, opt_flags)
 	{
 #ifdef FEAT_CRYPT
 	    /* never return the value of the crypt key */
-	    if ((char_u **)varp == &curbuf->b_p_key)
+	    if ((char_u **)varp == &curbuf->b_p_key
+						&& **(char_u **)(varp) != NUL)
 		*stringval = vim_strsave((char_u *)"*****");
 	    else
 #endif
@@ -8192,9 +8222,28 @@ set_option_value(name, number, string, opt_flags)
 	    set_string_option(opt_idx, string, opt_flags);
 	else
 	{
-	    varp = get_varp(&options[opt_idx]);
+	    varp = get_varp_scope(&(options[opt_idx]), opt_flags);
 	    if (varp != NULL)	/* hidden option is not changed */
 	    {
+		if (number == 0 && string != NULL)
+		{
+		    int index;
+
+		    /* Either we are given a string or we are setting option
+		     * to zero. */
+		    for (index = 0; string[index] == '0'; ++index)
+			;
+		    if (string[index] != NUL || index == 0)
+		    {
+			/* There's another character after zeros or the string
+			 * is empty.  In both cases, we are trying to set a
+			 * num option using a string. */
+			EMSG3(_("E521: Number required: &%s = '%s'"),
+								name, string);
+			return;     /* do nothing as we hit an error */
+
+		    }
+		}
 		if (flags & P_NUM)
 		    (void)set_num_option(opt_idx, varp, number,
 							  NULL, 0, opt_flags);
@@ -8487,13 +8536,20 @@ makeset(fd, opt_flags, local_only)
     char_u		*varp_local = NULL;	/* fresh value */
     char		*cmd;
     int			round;
+    int			pri;
 
     /*
      * The options that don't have a default (terminal name, columns, lines)
      * are never written.  Terminal options are also not written.
+     * Do the loop over "options[]" twice: once for options with the
+     * P_PRI_MKRC flag and once without.
      */
-    for (p = &options[0]; !istermoption(p); p++)
-	if (!(p->flags & P_NO_MKRC) && !istermoption(p))
+    for (pri = 1; pri >= 0; --pri)
+    {
+      for (p = &options[0]; !istermoption(p); p++)
+	if (!(p->flags & P_NO_MKRC)
+		&& !istermoption(p)
+		&& ((pri == 1) == ((p->flags & P_PRI_MKRC) != 0)))
 	{
 	    /* skip global option when only doing locals */
 	    if (p->indir == PV_NONE && !(opt_flags & OPT_GLOBAL))
@@ -8566,8 +8622,9 @@ makeset(fd, opt_flags, local_only)
 #  endif
 # endif
 # if defined(FEAT_AUTOCMD)
-			    p->indir == PV_FT)
+			    p->indir == PV_FT
 # endif
+			    )
 		    {
 			if (fprintf(fd, "if &%s != '%s'", p->fullname,
 						       *(char_u **)(varp)) < 0
@@ -8589,6 +8646,7 @@ makeset(fd, opt_flags, local_only)
 		}
 	    }
 	}
+    }
     return OK;
 }
 
@@ -8643,7 +8701,7 @@ put_setstring(fd, cmd, name, valuep, expand)
 	{
 	    s = *valuep;
 	    while (*s != NUL)
-		if (fputs((char *)str2special(&s, FALSE), fd) < 0)
+		if (put_escstr(fd, str2special(&s, FALSE), 2) == FAIL)
 		    return FAIL;
 	}
 	else if (expand)
@@ -8691,6 +8749,8 @@ put_setbool(fd, cmd, name, value)
     char	*name;
     int		value;
 {
+    if (value < 0)	/* global/local option using global value */
+	return OK;
     if (fprintf(fd, "%s %s%s", cmd, value ? "" : "no", name) < 0
 	    || put_eol(fd) < 0)
 	return FAIL;
@@ -9959,7 +10019,7 @@ ExpandOldSetting(num_file, file)
 		&& (options[expand_option_idx].flags & P_EXPAND)
 		&& vim_isfilec(var[2])
 		&& (var[2] != '\\' || (var == buf && var[4] != '\\')))
-	    mch_memmove(var, var + 1, STRLEN(var));
+	    STRMOVE(var, var + 1);
 #endif
 
     *file[0] = buf;
@@ -10561,6 +10621,8 @@ save_file_ff(buf)
     buf->b_start_ffc = *buf->b_p_ff;
     buf->b_start_eol = buf->b_p_eol;
 #ifdef FEAT_MBYTE
+    buf->b_start_bomb = buf->b_p_bomb;
+
     /* Only use free/alloc when necessary, they take time. */
     if (buf->b_start_fenc == NULL
 			     || STRCMP(buf->b_start_fenc, buf->b_p_fenc) != 0)
@@ -10574,13 +10636,17 @@ save_file_ff(buf)
 /*
  * Return TRUE if 'fileformat' and/or 'fileencoding' has a different value
  * from when editing started (save_file_ff() called).
- * Also when 'endofline' was changed and 'binary' is set.
+ * Also when 'endofline' was changed and 'binary' is set, or when 'bomb' was
+ * changed and 'binary' is not set.
  * Don't consider a new, empty buffer to be changed.
  */
     int
 file_ff_differs(buf)
     buf_T	*buf;
 {
+    /* In a buffer that was never loaded the options are not valid. */
+    if (buf->b_flags & BF_NEVERLOADED)
+	return FALSE;
     if ((buf->b_flags & BF_NEW)
 	    && buf->b_ml.ml_line_count == 1
 	    && *ml_get_buf(buf, (linenr_T)1, FALSE) == NUL)
@@ -10590,6 +10656,8 @@ file_ff_differs(buf)
     if (buf->b_p_bin && buf->b_start_eol != buf->b_p_eol)
 	return TRUE;
 #ifdef FEAT_MBYTE
+    if (!buf->b_p_bin && buf->b_start_bomb != buf->b_p_bomb)
+	return TRUE;
     if (buf->b_start_fenc == NULL)
 	return (*buf->b_p_fenc != NUL);
     return (STRCMP(buf->b_start_fenc, buf->b_p_fenc) != 0);

@@ -28,5 +28,5 @@
 int
 isnan(double d)
 {
-    return __isnand(d);
+    return __inline_isnand(d);
 }

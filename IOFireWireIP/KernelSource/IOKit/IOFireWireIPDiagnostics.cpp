@@ -58,11 +58,14 @@ bool IOFireWireIPDiagnostics::serialize( OSSerialize * s ) const
 	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fRxFragmentPkts, "RxF");
 	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fTxFragmentPkts, "TxF");
 
-    updateNumberEntry( dictionary, fIPObj->transmitQueue->getState(), "tqState");
-    updateNumberEntry( dictionary, fIPObj->transmitQueue->getStallCount(), "tqStall");
-    updateNumberEntry( dictionary, fIPObj->transmitQueue->getRetryCount(), "tqRetries");
-    updateNumberEntry( dictionary, fIPObj->transmitQueue->getSize(), "tqSize");
-
+	if( fIPObj->transmitQueue )
+	{
+		updateNumberEntry( dictionary, fIPObj->transmitQueue->getState(), "tqState");
+		updateNumberEntry( dictionary, fIPObj->transmitQueue->getStallCount(), "tqStall");
+		updateNumberEntry( dictionary, fIPObj->transmitQueue->getRetryCount(), "tqRetries");
+		updateNumberEntry( dictionary, fIPObj->transmitQueue->getSize(), "tqSize");
+	}
+	
 	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fActiveBcastCmds, "fwActiveBCastCmds" );
 	updateNumberEntry( dictionary, fIPObj->fIPoFWDiagnostics.fInActiveBcastCmds, "fwInActiveBCastCmds" );
 

@@ -21,6 +21,7 @@
 #include "apr_strings.h"
 #include "apr_network_io.h"
 #include "apr_portable.h"
+#include "apr_errno.h"
 #include <math.h>
 #if APR_HAVE_CTYPE_H
 #include <ctype.h>
@@ -51,21 +52,10 @@ typedef enum {
 #ifndef TRUE
 #define TRUE 1
 #endif
-
-/* For APR 1.2.x only (solved globally in 1.3.0) to be portable
- * to non-2's compliment architectures, fall through to the 64
- * bit code path for the signed or unsigned value 0x...80000000
- */
-#ifndef INT32_MIN
-#define INT32_MIN -(0x7fffffff)
-#endif
-#ifndef INT32_MAX 
-#define INT32_MAX 0x7fffffff
-#endif
-
 #define NUL '\0'
 
-#define S_NULL "(null)"
+static const char null_string[] = "(null)";
+#define S_NULL ((char *)null_string)
 #define S_NULL_LEN 6
 
 #define FLOAT_DIGITS 6
@@ -79,8 +69,8 @@ typedef enum {
 #define NUM_BUF_SIZE 512
 
 /*
- * cvt.c - IEEE floating point formatting routines for FreeBSD
- * from GNU libc-4.6.27.  Modified to be thread safe.
+ * cvt - IEEE floating point formatting routines.
+ *       Derived from UNIX V7, Copyright(C) Caldera International Inc.
  */
 
 /*
@@ -393,7 +383,7 @@ static char *conv_10_quad(apr_int64_t num, register int is_unsigned,
      * punt to the quicker version.
      */
     if ((magnitude <= APR_UINT32_MAX && is_unsigned)
-        || (num <= INT32_MAX && num >= INT32_MIN && !is_unsigned))
+        || (num <= APR_INT32_MAX && num >= APR_INT32_MIN && !is_unsigned))
             return(conv_10((apr_int32_t)num, is_unsigned, is_negative, buf_end, len));
 
     if (is_unsigned) {
@@ -463,7 +453,14 @@ static char *conv_apr_sockaddr(apr_sockaddr_t *sa, char *buf_end, apr_size_t *le
 
     p = conv_10(sa->port, TRUE, &is_negative, p, &sub_len);
     *--p = ':';
-    apr_sockaddr_ip_get(&ipaddr_str, sa);
+    ipaddr_str = buf_end - NUM_BUF_SIZE;
+    if (apr_sockaddr_ip_getbuf(ipaddr_str, sa->addr_str_len, sa)) {
+        /* Should only fail if the buffer is too small, which it
+         * should not be; but fail safe anyway: */
+        *--p = '?';
+        *len = buf_end - p;
+        return p;
+    }
     sub_len = strlen(ipaddr_str);
 #if APR_HAVE_IPV6
     if (sa->family == APR_INET6 &&
@@ -693,7 +690,7 @@ APR_DECLARE(int) apr_vformatter(int (*flush_func)(apr_vformatter_buff_t *),
 
     register char *s = NULL;
     char *q;
-    apr_size_t s_len;
+    apr_size_t s_len = 0;
 
     register apr_size_t min_width = 0;
     apr_size_t precision = 0;
@@ -1160,6 +1157,24 @@ APR_DECLARE(int) apr_vformatter(int (*flush_func)(apr_vformatter_buff_t *),
                 }
                 break;
 
+                /* print the error for an apr_status_t */
+                case 'm':
+                {
+                    apr_status_t *mrv;
+
+                    mrv = va_arg(ap, apr_status_t *);
+                    if (mrv != NULL) {
+                        s = apr_strerror(*mrv, num_buf, NUM_BUF_SIZE-1);
+                        s_len = strlen(s);
+                    }
+                    else {
+                        s = S_NULL;
+                        s_len = S_NULL_LEN;
+                    }
+                    pad_char = ' ';
+                }
+                break;
+
                 case 'T':
 #if APR_HAS_THREADS
                 {
@@ -1209,6 +1224,32 @@ APR_DECLARE(int) apr_vformatter(int (*flush_func)(apr_vformatter_buff_t *),
                     pad_char = ' ';
 #endif
                     break;
+
+                case 'B':
+                case 'F':
+                case 'S':
+                {
+                    char buf[5];
+                    apr_off_t size = 0;
+
+                    if (*fmt == 'B') {
+                        apr_uint32_t *arg = va_arg(ap, apr_uint32_t *);
+                        size = (arg) ? *arg : 0;
+                    }
+                    else if (*fmt == 'F') {
+                        apr_off_t *arg = va_arg(ap, apr_off_t *);
+                        size = (arg) ? *arg : 0;
+                    }
+                    else {
+                        apr_size_t *arg = va_arg(ap, apr_size_t *);
+                        size = (arg) ? *arg : 0;
+                    }
+
+                    s = apr_strfsize(size, buf);
+                    s_len = strlen(s);
+                    pad_char = ' ';
+                }
+                break;
 
                 case NUL:
                     /* if %p ends the string, oh well ignore it */

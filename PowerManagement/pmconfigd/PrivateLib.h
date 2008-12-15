@@ -36,6 +36,27 @@
     #define kIOPMPSBatteryChargeStatusKey               "ChargeStatus"
 #endif
 
+// Definitions of PFStatus keys for AppleSmartBattery failures
+enum {
+    kSmartBattPFExternalInput =             (1<<0),
+    kSmartBattPFSafetyOverVoltage =         (1<<1),
+    kSmartBattPFChargeSafeOverTemp =        (1<<2),
+    kSmartBattPFDischargeSafeOverTemp =     (1<<3),
+    kSmartBattPFCellImbalance =             (1<<4),
+    kSmartBattPFChargeFETFailure =          (1<<5),
+    kSmartBattPFDischargeFETFailure =       (1<<6),
+    kSmartBattPFDataFlushFault =            (1<<7),
+    kSmartBattPFPermanentAFECommFailure =   (1<<8),
+    kSmartBattPFPeriodicAFECommFailure =    (1<<9),
+    kSmartBattPFChargeSafetyOverCurrent =   (1<<10),
+    kSmartBattPFDischargeSafetyOverCurrent = (1<<11),
+    kSmartBattPFOpenThermistor =            (1<<12),
+    // reserved 1<<13,
+    // reserved 1<<14,
+    kSmartBattPFFuseBlown =                 (1<<15)
+};
+
+
 struct IOPMBattery {
     io_registry_entry_t     me;
     io_object_t             msg_port;
@@ -45,6 +66,7 @@ struct IOPMBattery {
     bool                    isCharging:1;
     bool                    isPresent:1;
     bool                    markedNeedsReplacement:1;
+    uint32_t                pfStatus;
     int                     currentCap;
     int                     maxCap;
     int                     designCap;
@@ -77,6 +99,7 @@ __private_extern__ void  _removeBattery(io_registry_entry_t);
 __private_extern__ CFArrayRef _copyLegacyBatteryInfo(void);
 
 __private_extern__ void _askNicelyThenShutdownSystem(void);
+__private_extern__ void _askNicelyThenRestartSystem(void);
 __private_extern__ void _askNicelyThenSleepSystem(void);
 
 // getSystemManagementKeyInt32 - only valid for i386 platforms
@@ -85,6 +108,8 @@ __private_extern__ IOReturn getSystemManagementKeyInt32(uint32_t key, uint32_t *
 #if !TARGET_OS_EMBEDDED
 __private_extern__ CFUserNotificationRef _showUPSWarning(void);
 #endif
+
+__private_extern__ SCDynamicStoreRef _getSharedPMDynamicStore(void);
 
 __private_extern__ IOReturn _setRootDomainProperty(
                                     CFStringRef     key,

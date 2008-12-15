@@ -164,11 +164,12 @@ struct in_addr {
 /** @} */
 
 /**
- * Enum to tell us if we're interested in remote or local socket
+ * Enum used to denote either the local and remote endpoint of a
+ * connection.
  */
 typedef enum {
-    APR_LOCAL,
-    APR_REMOTE
+    APR_LOCAL,   /**< Socket information for local end of connection */
+    APR_REMOTE   /**< Socket information for remote end of connection */
 } apr_interface_e;
 
 /**
@@ -276,7 +277,7 @@ struct apr_hdtr_t {
  * @param family The address family of the socket (e.g., APR_INET).
  * @param type The type of the socket (e.g., SOCK_STREAM).
  * @param protocol The protocol of the socket (e.g., APR_PROTO_TCP).
- * @param cont The pool to use
+ * @param cont The pool for the apr_socket_t and associated storage.
  */
 APR_DECLARE(apr_status_t) apr_socket_create(apr_socket_t **new_sock, 
                                             int family, int type,
@@ -653,9 +654,11 @@ APR_DECLARE(apr_status_t) apr_socket_atmark(apr_socket_t *sock,
                                             int *atmark);
 
 /**
- * Return an apr_sockaddr_t from an apr_socket_t
+ * Return an address associated with a socket; either the address to
+ * which the socket is bound locally or the the address of the peer
+ * to which the socket is connected.
  * @param sa The returned apr_sockaddr_t.
- * @param which Which interface do we want the apr_sockaddr_t for?
+ * @param which Whether to retrieve the local or remote address
  * @param sock The socket to use
  */
 APR_DECLARE(apr_status_t) apr_socket_addr_get(apr_sockaddr_t **sa,
@@ -671,6 +674,14 @@ APR_DECLARE(apr_status_t) apr_socket_addr_get(apr_sockaddr_t **sa,
  */
 APR_DECLARE(apr_status_t) apr_sockaddr_ip_get(char **addr, 
                                               apr_sockaddr_t *sockaddr);
+
+/**
+ * Write the IP address (in numeric address string format) of the APR
+ * socket address @a sockaddr into the buffer @a buf (of size @a buflen).
+ * @param sockaddr The socket address to reference.
+ */
+APR_DECLARE(apr_status_t) apr_sockaddr_ip_getbuf(char *buf, apr_size_t buflen,
+                                                 apr_sockaddr_t *sockaddr);
 
 /**
  * See if the IP addresses in two APR socket addresses are

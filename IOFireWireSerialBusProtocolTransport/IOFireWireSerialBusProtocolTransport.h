@@ -417,8 +417,7 @@ protected:
 	virtual void loginResumed ( void );
 	OSMetaClassDeclareReservedUsed ( IOFireWireSerialBusProtocolTransport, 5 );
 
-	static IOReturn 
-		IOFireWireSerialBusProtocolTransport::CriticalOrbSubmissionStatic (
+	static IOReturn CriticalOrbSubmissionStatic ( 
 			OSObject * refCon, 
 			void * val1,
 			void * val2,

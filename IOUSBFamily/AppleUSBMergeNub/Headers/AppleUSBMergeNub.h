@@ -25,12 +25,7 @@
 #ifndef _IOKIT_APPLEUSBMERGENUB_H
 #define _IOKIT_APPLEUSBMERGENUB_H
 
-#include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
-
-#include <IOKit/usb/IOUSBBus.h>
-#include <IOKit/usb/IOUSBDevice.h>
-#include <IOKit/usb/USB.h>
 
 class AppleUSBMergeNub : public IOService
 {

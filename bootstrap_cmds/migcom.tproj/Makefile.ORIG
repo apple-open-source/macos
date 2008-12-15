@@ -1,0 +1,61 @@
+SETUP_PROGRAMS		= migcom migcom1
+
+PROGRAMS		= migcom migcom1
+
+ILIST			= migcom
+IDIR			= ${MACH3_LIBRARY_IDIR}
+
+VPATH			= ${MACHINE}
+
+.ifdef	LINUX
+NO_STARTFILES		=
+NO_STRICT_ANSI		=
+.undef	FLEXSKEL
+.endif
+
+USE_STATIC_LIBRARIES    =
+DEPENDENCIES		=
+CFLAGS			= -D_ANSI_C_SOURCE  
+INCFLAGS		= -I${MACHINE}
+.if ${TARGET_MACHINE} == "ALPHA"
+LDFLAGS			= -non_shared
+.endif
+error.o_CFLAGS		= ${CFLAGS} ${NO_VFPRINTF:D-DNO_VFPRINTF}
+COMMON_OFILES		= parser.o lexxer.o mig.o \
+			  error.o string.o type.o routine.o \
+			  statement.o global.o \
+			  header.o user.o server.o utils.o
+migcom1_OFILES		= ${COMMON_OFILES} ident1.o
+migcom_OFILES		= ${COMMON_OFILES} ident.o
+.ifdef	LINUX
+LIBS			= -lfl
+.else
+LIBS			= -ll
+.endif
+GARBAGE			= parser.c parser.h ident.c
+
+.if exists(${TARGET_MACHINE}/machdep.mk)
+.include "${TARGET_MACHINE}/machdep.mk"
+.endif
+.include <${RULES_MK}>
+
+lexxer.o routine.o type.o server.o user.o:	mig_machine.h
+
+ident.c:
+	echo "char *MigGenerationDate = \""`date`"\";" >${.TARGET}
+	echo "char *MigMoreData = \""`whoami`"@"`hostname`"\";" >>${.TARGET}
+
+ident1.c: migcom
+	echo "char *MigGenerationDate = \""`date`"\";" >${.TARGET}
+	echo "char *MigMoreData = \""`whoami`"@"`hostname`"\";" >>${.TARGET}
+
+# force generation of intermediate .c files
+lexxer.o: lexxer.c parser.h
+parser.o: parser.c
+
+# cause the 2 yacc passes to be serialized.
+.ORDER: parser.c parser.h
+
+.if exists(depend.mk)
+.include "depend.mk"
+.endif

@@ -78,14 +78,14 @@ IOIndex IODisplayConnect::getConnection( void )
     return (connection);
 }
 
-IOReturn  IODisplayConnect::getAttributeForConnection( IOSelect selector, UInt32 * value )
+IOReturn  IODisplayConnect::getAttributeForConnection( IOSelect selector, uintptr_t * value )
 {
     if (!getProvider())
         return (kIOReturnNotReady);
     return ((IOFramebuffer *) getProvider())->getAttributeForConnection(connection, selector, value);
 }
 
-IOReturn  IODisplayConnect::setAttributeForConnection( IOSelect selector, UInt32 value )
+IOReturn  IODisplayConnect::setAttributeForConnection( IOSelect selector, uintptr_t value )
 {
     if (!getProvider())
         return (kIOReturnNotReady);
@@ -139,53 +139,6 @@ enum { kStaticAnnoyanceEventArrayLength = 4 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-void IODisplayWrangler::log_annoyance_penalties_array(  )
-{
-    if ( gDEBUG) IOLog( "IODW: fAnnoyancePenaltiesArrayLength = %d\n", 
-                        (int)fAnnoyancePenaltiesArrayLength );
-    for (int i = 0; i < fAnnoyancePenaltiesArrayLength; i++)
-    {
-        annoyance_penalty_t * p = & fAnnoyancePenaltiesArray[ i ];
-        if ( gDEBUG) IOLog( "IODW: %2d = { %3lu secs, %2d pts }\n", i, 
-                        p->time_secs, p->penalty_points );
-    }
-}
-
-void IODisplayWrangler::log_annoyance_caps_array(  )
-{
-    if ( gDEBUG) IOLog( "IODW: fAnnoyanceCapsArrayLength = %d\n", 
-                        (int)fAnnoyanceCapsArrayLength );
-    for (int i = 0; i < fAnnoyanceCapsArrayLength; i++)
-    {
-        annoyance_cap_t * p = & fAnnoyanceCapsArray[ i ];
-        if ( gDEBUG) IOLog( "IODW: %2d = { %4lu secs, %2d pts }\n", i,
-                        p->cutoff_time_secs, p->cutoff_points );
-    }
-}
-
-void IODisplayWrangler::log_annoyance_event_array(  )
-{
-    if ( gDEBUG) IOLog( "IODW: fAnnoyanceEventArrayLength = %d\n", 
-                        (int)fAnnoyanceEventArrayLength );
-    if ( gDEBUG) IOLog( "IODW: fAnnoyanceEventArrayQHead = %d\n", 
-                        (int)fAnnoyanceEventArrayQHead );
-    if ( gDEBUG) IOLog( "IODW: Raw:\n");
-    for (int i = 0; i < fAnnoyanceEventArrayLength; i++)
-    {
-        annoyance_event_t * p = & fAnnoyanceEventArray[ i ];
-        if ( gDEBUG) IOLog( "IODW: %2d = { %8llu secs, %8llu secs, %2d pts }\n", 
-                i, p->dim_time_secs, p->wake_time_secs, (int)p->penalty );
-    }
-    if ( gDEBUG) IOLog( "IODW: Cooked:\n");
-    for (int i = 0; i < fAnnoyanceEventArrayLength; i++)
-    {
-        annoyance_event_t * p = getNthAnnoyance( i );
-        if ( gDEBUG) IOLog( "IODW: #%2d = { %8llu secs, %8llu secs, penalty = %2d pts }\n", i, p->dim_time_secs, p->wake_time_secs, (int)p->penalty );
-    }
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 // Invariant 1: fAnnoyanceEventArrayQHead points to the first free element in the array.
 // Invariant 2: adding an element to the queue increments fAnnoyanceEventArrayQHead
 // Invariant 3: 0 <= fAnnoyanceEventArrayQHead < fAnnoyanceEventArrayLength
@@ -222,10 +175,14 @@ bool IODisplayWrangler::serverStart(void)
 {
     mach_timespec_t timeout = { 120, 0 };
 
-    if (gIODisplayWrangler)
-	return (true);
+    if (!gIODisplayWrangler)
+	waitForService(serviceMatching("IODisplayWrangler"), &timeout);
 
-    waitForService(serviceMatching("IODisplayWrangler"), &timeout);
+    if (gIODisplayWrangler)
+    {
+	gIODisplayWrangler->fOpen = true;
+	gIODisplayWrangler->activityTickle(0, 0);
+    }
 
     return (gIODisplayWrangler != 0);
 }
@@ -247,7 +204,7 @@ bool IODisplayWrangler::start( IOService * provider )
     fFramebuffers = OSSet::withCapacity( 1 );
     fDisplays = OSSet::withCapacity( 1 );
 
-    clock_get_uptime(&current_time);    
+	AbsoluteTime_to_scalar(&current_time) = mach_absolute_time();
     absolutetime_to_nanoseconds(current_time, &current_time_ns);
     fLastWakeTime_secs = current_time_ns / NSEC_PER_SEC;
     fLastDimTime_secs = 0;
@@ -264,10 +221,6 @@ bool IODisplayWrangler::start( IOService * provider )
 
 	fIdleTimeoutMin = 30; // 30 seconds
 	fIdleTimeoutMax = 600; // 10 minutes
-
-    log_annoyance_penalties_array();
-    log_annoyance_caps_array();
-    log_annoyance_event_array();
 
     assert( fMatchingLock && fFramebuffers && fDisplays );
 
@@ -692,7 +645,7 @@ void IODisplayWrangler::idleDisplays ( void )
     {
         // Log time of initial dimming
         AbsoluteTime current_time_absolute;
-        clock_get_uptime(&current_time_absolute);
+		AbsoluteTime_to_scalar(&current_time_absolute) = mach_absolute_time();
         absolutetime_to_nanoseconds(current_time_absolute, &current_time_ns);
         current_time_secs = current_time_ns / NSEC_PER_SEC;
         fLastDimTime_secs = current_time_secs;
@@ -742,6 +695,12 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
 
     absolutetime_to_nanoseconds(lastActivity, &lastActivity_ns);
     lastActivity_secs = lastActivity_ns / NSEC_PER_SEC;
+
+    if (!lastActivity_secs)
+    {
+	enum { kWindowServerStartTime = 10 * 60 };
+	return (kWindowServerStartTime);
+    }
 
     switch( getPowerState() ) {
         case 4:
@@ -866,7 +825,10 @@ bool IODisplayWrangler::activityTickle( unsigned long x, unsigned long y )
 {
     AbsoluteTime current_time_absolute;
 
-    clock_get_uptime(&current_time_absolute);
+    if (!fOpen)
+	return (true);
+
+	AbsoluteTime_to_scalar(&current_time_absolute) = mach_absolute_time();
     if (AbsoluteTime_to_scalar(&fIdleUntil))
     {
 	if (CMP_ABSOLUTETIME(&current_time_absolute, &fIdleUntil) < 0)
@@ -1165,7 +1127,6 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
         
         this->setProperty( kIODisplayWrangler_AnnoyancePenalties, penaltiesArray );
         
-        log_annoyance_penalties_array();
     } // PENALTIES
     
     value = dict->getObject( kIODisplayWrangler_AnnoyanceCaps );
@@ -1232,11 +1193,9 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
             fAnnoyanceCapsArray[ i ].cutoff_points = cutoff_points;
             
         }
-        
-        
+
         this->setProperty( kIODisplayWrangler_AnnoyanceCaps, capsArray );
         
-        log_annoyance_caps_array();
     } // CAPS
 
     value = dict->getObject( kIODisplayWrangler_IdleTimeoutMin );

@@ -11,8 +11,9 @@ OBJROOT ?= .
 SYMROOT ?= .
 DSTROOT ?= .
 LOCKDROOT = $(SRCROOT)/../rpc.lockd
+SDKROOT ?= /
 
-Extra_CC_Flags = -Wall -I $(SRCROOT) -I $(LOCKDROOT) -I $(OBJROOT)
+Extra_CC_Flags = -Wall -I $(SRCROOT) -I $(LOCKDROOT) -I $(OBJROOT) -isysroot $(SDKROOT)
 Extra_LD_Flags = -lutil -framework DiskArbitration -framework CoreFoundation
 
 DST_DIR = $(DSTROOT)/sbin

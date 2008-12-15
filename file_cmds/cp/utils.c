@@ -79,6 +79,8 @@ copy_file(const FTSENT *entp, int dne)
 #ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
 	char *p;
 #endif
+	mode_t mode = 0;
+	struct stat to_stat;
 
 	if ((from_fd = open(entp->fts_path, O_RDONLY, 0)) == -1) {
 		warn("%s", entp->fts_path);
@@ -171,6 +173,16 @@ copy_file(const FTSENT *entp, int dne)
        }
 #endif /* __APPLE__ */
 
+       if (fstat(to_fd, &to_stat) != -1) {
+	       mode = to_stat.st_mode;
+	       if ((mode & (S_IRWXG|S_IRWXO))
+		   && fchmod(to_fd, mode & ~(S_IRWXG|S_IRWXO))) {
+		       warn("%s: fchmod failed", to.p_path);
+		       mode = 0;
+	       }
+       } else {
+	       warn("%s", to.p_path);
+       }
 	/*
 	 * Mmap and write if less than 8M (the limit is so we don't totally
 	 * trash memory on big files.  This is really a minor hack, but it
@@ -248,7 +260,9 @@ copy_file(const FTSENT *entp, int dne)
 	 * or its contents might be irreplaceable.  It would only be safe
 	 * to remove it if we created it and its length is 0.
 	 */
-
+	if (mode != 0)
+		if (fchmod(to_fd, mode))
+			warn("%s: fchmod failed", to.p_path);
 #ifdef __APPLE__
 	/* do these before setfile in case copyfile changes mtime */
 	if (!Xflag && S_ISREG(fs->st_mode)) { /* skip devices, etc */

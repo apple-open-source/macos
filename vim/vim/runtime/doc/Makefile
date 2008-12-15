@@ -18,8 +18,8 @@ DOCS = \
 	autocmd.txt \
 	change.txt \
 	cmdline.txt \
-	debugger.txt \
 	debug.txt \
+	debugger.txt \
 	develop.txt \
 	diff.txt \
 	digraph.txt \
@@ -28,7 +28,8 @@ DOCS = \
 	farsi.txt \
 	filetype.txt \
 	fold.txt \
-	getscript.txt \
+	ft_ada.txt \
+	ft_sql.txt \
 	gui.txt \
 	gui_w16.txt \
 	gui_w32.txt \
@@ -50,10 +51,10 @@ DOCS = \
 	insert.txt \
 	intro.txt \
 	map.txt \
-	message.txt \
-	motion.txt \
 	mbyte.txt \
+	message.txt \
 	mlang.txt \
+	motion.txt \
 	netbeans.txt \
 	options.txt \
 	os_390.txt \
@@ -70,6 +71,7 @@ DOCS = \
 	os_vms.txt \
 	os_win32.txt \
 	pattern.txt \
+	pi_getscript.txt \
 	pi_gzip.txt \
 	pi_netrw.txt \
 	pi_paren.txt \
@@ -88,10 +90,9 @@ DOCS = \
 	russian.txt \
 	scroll.txt \
 	sign.txt \
+	spell.txt \
 	sponsor.txt \
 	starting.txt \
-	spell.txt \
-	sql.txt \
 	syntax.txt \
 	tabpage.txt \
 	tagsrch.txt \
@@ -158,7 +159,8 @@ HTMLS = \
 	farsi.html \
 	filetype.html \
 	fold.html \
-	getscript.html \
+	ft_ada.html \
+	ft_sql.html \
 	gui.html \
 	gui_w16.html \
 	gui_w32.html \
@@ -176,14 +178,13 @@ HTMLS = \
 	if_tcl.html \
 	indent.html \
 	index.html \
-	vimindex.html \
 	insert.html \
 	intro.html \
 	map.html \
-	message.html \
-	motion.html \
 	mbyte.html \
+	message.html \
 	mlang.html \
+	motion.html \
 	netbeans.html \
 	options.html \
 	os_390.html \
@@ -200,6 +201,7 @@ HTMLS = \
 	os_vms.html \
 	os_win32.html \
 	pattern.html \
+	pi_getscript.html \
 	pi_gzip.html \
 	pi_netrw.html \
 	pi_paren.html \
@@ -218,14 +220,13 @@ HTMLS = \
 	russian.html \
 	scroll.html \
 	sign.html \
+	spell.html \
 	sponsor.html \
 	starting.html \
-	spell.html \
-	sql.html \
 	syntax.html \
 	tabpage.html \
-	tagsrch.html \
 	tags.html \
+	tagsrch.html \
 	term.html \
 	tips.html \
 	todo.html \
@@ -270,6 +271,7 @@ HTMLS = \
 	version6.html \
 	version7.html \
 	vi_diff.html \
+	vimindex.html \
 	visual.html \
 	windows.html \
 	workshop.html
@@ -285,21 +287,26 @@ CONVERTED = \
 	vimdiff-it.UTF-8.1 \
 	vimtutor-it.UTF-8.1 \
 	xxd-it.UTF-8.1 \
+	vim-pl.UTF-8.1 \
+	evim-pl.UTF-8.1 \
+	vimdiff-pl.UTF-8.1 \
+	vimtutor-pl.UTF-8.1 \
+	xxd-pl.UTF-8.1 \
 	vim-ru.UTF-8.1 \
 	evim-ru.UTF-8.1 \
 	vimdiff-ru.UTF-8.1 \
 	vimtutor-ru.UTF-8.1 \
-	xxd-ru.UTF-8.1 \
+	xxd-ru.UTF-8.1
 
 .SUFFIXES:
 .SUFFIXES: .c .o .txt .html
 
-all: tags vim.man vimdiff.man vimtutor.man xxd.man $(CONVERTED)
+all: tags vim.man evim.man vimdiff.man vimtutor.man xxd.man $(CONVERTED)
 
 # Use Vim to generate the tags file.  Can only be used when Vim has been
 # compiled and installed.  Supports multiple languages.
 vimtags: $(DOCS)
-	$(VIMEXE) -u NONE -esX -c "helptags ." -c quit
+	$(VIMEXE) -u NONE -esX -c "helptags ++t ." -c quit
 
 # Use "doctags" to generate the tags file.  Only works for English!
 tags: doctags $(DOCS)
@@ -311,6 +318,9 @@ doctags: doctags.c
 
 vim.man: vim.1
 	nroff -man vim.1 | sed -e s/.//g > vim.man
+
+evim.man: evim.1
+	nroff -man evim.1 | sed -e s/.//g > evim.man
 
 vimdiff.man: vimdiff.1
 	nroff -man vimdiff.1 | sed -e s/.//g > vimdiff.man
@@ -442,6 +452,21 @@ vimtutor-it.UTF-8.1: vimtutor-it.1
 
 xxd-it.UTF-8.1: xxd-it.1
 	iconv -f latin1 -t utf-8 $< >$@
+
+vim-pl.UTF-8.1: vim-pl.1
+	iconv -f latin2 -t utf-8 $< >$@
+
+evim-pl.UTF-8.1: evim-pl.1
+	iconv -f latin2 -t utf-8 $< >$@
+
+vimdiff-pl.UTF-8.1: vimdiff-pl.1
+	iconv -f latin2 -t utf-8 $< >$@
+
+vimtutor-pl.UTF-8.1: vimtutor-pl.1
+	iconv -f latin2 -t utf-8 $< >$@
+
+xxd-pl.UTF-8.1: xxd-pl.1
+	iconv -f latin2 -t utf-8 $< >$@
 
 vim-ru.UTF-8.1: vim-ru.1
 	iconv -f KOI8-R -t utf-8 $< >$@

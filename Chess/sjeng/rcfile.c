@@ -63,7 +63,7 @@ void read_rcfile (void)
       strcpy(EGTBDir, "TB");
       
       cfg_devscale = 1;
-      cfg_scalefac = 1.0;
+      cfg_scalefac = 1.0f;
       cfg_razordrop = 1;
       cfg_cutdrop = 0;
       cfg_futprune = 1;

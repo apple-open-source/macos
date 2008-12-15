@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language:         GNU Arch inventory file
 " Maintainer:       Nikolai Weibull <now@bitwi.se>
-" Latest Revision:  2006-04-19
+" Latest Revision:  2007-06-17
 
 if exists("b:current_syntax")
   finish
@@ -10,14 +10,14 @@ endif
 let s:cpo_save = &cpo
 set cpo&vim
 
-setlocal iskeyword=@,48-57,_,-
+setlocal iskeyword+=-
 
 syn keyword archTodo    TODO FIXME XXX NOTE
 
 syn region  archComment display start='^\%(#\|\s\)' end='$'
                         \ contains=archTodo,@Spell
 
-syn match   argBegin    display '^' nextgroup=archKeyword,archComment
+syn match   archBegin   display '^' nextgroup=archKeyword,archComment
 
 syn keyword archKeyword contained implicit tagline explicit names
 syn keyword archKeyword contained untagged-source

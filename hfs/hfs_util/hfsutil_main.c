@@ -184,7 +184,7 @@ int CloseVolumeStatusDB(VolumeStatusDBHandle DBHandle);
 /* ************************************ P R O T O T Y P E S *************************************** */
 static void	DoDisplayUsage( const char * argv[] );
 static int	DoMount( char * theDeviceNamePtr, const char * theMountPointPtr, boolean_t isLocked, boolean_t isSetuid, boolean_t isDev );
-static int 	DoProbe( char * theDeviceNamePtr );
+static int 	DoProbe( char * rawDeviceNamePtr, char * blockDeviceNamePtr );
 static int 	DoUnmount( const char * theMountPointPtr );
 static int	DoGetUUIDKey( const char * theDeviceNamePtr );
 static int	DoChangeUUIDKey( const char * theDeviceNamePtr );
@@ -414,7 +414,7 @@ int main (int argc, const char *argv[])
 
     switch( * actionPtr ) {
         case FSUC_PROBE:
-            result = DoProbe(rawDeviceName);
+            result = DoProbe(rawDeviceName, blockDeviceName);
             break;
 
         case FSUC_MOUNT:
@@ -653,17 +653,64 @@ DoUnmount(const char * theMountPointPtr)
 } /* DoUnmount */
 
 
+/*
+	PrintVolumeNameAttr
+	
+	Get the volume name of the volume mounted at "path".  Print that volume
+	name to standard out.
+
+	Returns: FSUR_RECOGNIZED, FSUR_IO_FAIL
+*/
+struct VolumeNameBuf {
+	u_int32_t	info_length;
+	attrreference_t	name_ref;
+	char		buffer[1024];
+};
+
+static int
+PrintVolumeNameAttr(const char *path)
+{
+	struct attrlist alist;
+	struct VolumeNameBuf volNameInfo;
+	int result;
+
+	/* Set up the attrlist structure to get the volume's Finder Info */
+	alist.bitmapcount = 5;
+	alist.reserved = 0;
+	alist.commonattr = 0;
+	alist.volattr = ATTR_VOL_INFO | ATTR_VOL_NAME;
+	alist.dirattr = 0;
+	alist.fileattr = 0;
+	alist.forkattr = 0;
+
+	/* Get the Finder Info */
+	result = getattrlist(path, &alist, &volNameInfo, sizeof(volNameInfo), 0);
+	if (result) {
+		result = FSUR_IO_FAIL;
+		goto Err_Exit;
+	}
+
+	/* Print the name to standard out */
+	printf("%.*s", (int) volNameInfo.name_ref.attr_length, ((char *) &volNameInfo.name_ref) + volNameInfo.name_ref.attr_dataoffset);
+	result = FSUR_RECOGNIZED;
+
+Err_Exit:
+	return result;
+}
+
+
 /* ******************************************* DoProbe **********************************************
 Purpose -
-    This routine will open the given raw device and check to make sure there is media that looks
-    like an HFS.
+    This routine will open the given device and check to make sure there is media that looks
+    like an HFS.  If it is HFS, then print the volume name to standard output.
 Input -
-    theDeviceNamePtr - pointer to the device name (full path, like /dev/disk0s2).
+    rawDeviceNamePtr - pointer to the full path of the raw device (like /dev/rdisk0s2).
+    blockDeviceNamePtr - pointer to the full path of the non-raw device (like /dev/disk0s2).
 Output -
     returns FSUR_RECOGNIZED if we can handle the media else one of the FSUR_xyz error codes.
 *************************************************************************************************** */
 static int
-DoProbe(char *deviceNamePtr)
+DoProbe(char *rawDeviceNamePtr, char *blockDeviceNamePtr)
 {
 	int result = FSUR_UNRECOGNIZED;
 	int fd = 0;
@@ -672,6 +719,29 @@ DoProbe(char *deviceNamePtr)
 	HFSPlusVolumeHeader * volHdrPtr;
 	u_char volnameUTF8[NAME_MAX+1];
 
+	/*
+	 * Determine if there is a volume already mounted from this device.  If
+	 * there is, and it is HFS, then we need to get the volume name via
+	 * getattrlist.
+	 *
+	 * NOTE: We're using bufPtr to hold a pointer to a path.
+	 */
+	bufPtr = NULL;
+	result = GetHFSMountPoint(blockDeviceNamePtr, &bufPtr);
+	if (result != FSUR_IO_SUCCESS) {
+		goto Err_Exit;
+	}
+	if (bufPtr != NULL) {
+		/* There is an HFS volume mounted from the device. */
+		result = PrintVolumeNameAttr(bufPtr);
+		goto Err_Exit;
+	}
+	
+	/*
+	 * If we get here, there is no volume mounted from this device, so
+	 * go probe the raw device directly.
+	 */
+	
 	bufPtr = (char *)malloc(HFS_BLOCK_SIZE);
 	if ( ! bufPtr ) {
 		result = FSUR_UNRECOGNIZED;
@@ -681,7 +751,7 @@ DoProbe(char *deviceNamePtr)
 	mdbPtr = (HFSMasterDirectoryBlock *) bufPtr;
 	volHdrPtr = (HFSPlusVolumeHeader *) bufPtr;
 
-	fd = open( deviceNamePtr, O_RDONLY, 0 );
+	fd = open( rawDeviceNamePtr, O_RDONLY, 0 );
 	if( fd <= 0 ) {
 		result = FSUR_IO_FAIL;
 		goto Return;
@@ -784,7 +854,7 @@ Return:
 
 	if (fd > 0)
 		close(fd);
-
+Err_Exit:
 	return result;
 
 } /* DoProbe */

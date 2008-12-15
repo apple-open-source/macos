@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/*	$Id: zend_multibyte.c,v 1.4.2.1.8.2 2006/01/01 13:46:49 sniper Exp $ */
+/*	$Id: zend_multibyte.c,v 1.4.2.1.8.3 2008/08/06 08:09:07 derick Exp $ */
 
 #include "zend.h"
 #include "zend_compile.h"
@@ -654,6 +654,9 @@ static inline char* zend_memnstr(char *haystack, char *needle, int needle_len,
 	char first = *needle;
 
 	/* let end point to the last character where needle may start */
+	if (needle_len > end - haystack) {
+		return NULL;
+	}
 	end -= needle_len;
 	
 	while (p <= end) {

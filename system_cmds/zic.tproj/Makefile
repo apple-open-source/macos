@@ -28,7 +28,7 @@ ZONEINFO = $(DSTROOT)/usr/share/zoneinfo
 # the tzdata*.tar.gz file is automatically unpacked and a version file created
 # /usr/local/share/tz/tzdata*.tar.gz is installed by the TimeZoneData project
 DATFILES = $(OBJROOT)/datfiles
-TARBALL = $(shell echo /usr/local/share/tz/tzdata*)
+TARBALL = $(shell ls $(SDKROOT)/usr/local/share/tz/tzdata* | sort | tail -n 1)
 DATVERS = $(shell basename $(TARBALL) | sed -e 's,\..*,,' -e 's/^tzdata//')
 VERSIONFILE = $(ZONEINFO)/+VERSION
 

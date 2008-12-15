@@ -1,18 +1,19 @@
 diff -uNr ../openssh-5.1p1.orig/auth.c ./auth.c
 --- ../openssh-5.1p1.orig/auth.c	2008-07-09 03:54:51.000000000 -0700
 +++ ./auth.c	2008-08-04 10:55:43.000000000 -0700
-@@ -46,6 +46,11 @@
- #ifdef HAVE_LIBGEN_H
- #include <libgen.h>
+@@ -71,6 +72,12 @@
  #endif
-+
+ #include "monitor_wrap.h"
+ 
 +#ifdef __APPLE_SACL__
-+#include <membershipPriv.h>
++/* Our membershipPriv.h is not yet API, so I will define the prototypes that I need here. */
++int mbr_user_name_to_uuid(const char *name, uuid_t uu);
++int mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember);
 +#endif
 +
- #include <stdarg.h>
- #include <stdio.h>
- #include <string.h>
+ /* import */
+ extern ServerOptions options;
+ extern int use_privsep;
 @@ -234,6 +239,46 @@
  			}
  		ga_free();

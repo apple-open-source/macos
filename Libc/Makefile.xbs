@@ -24,9 +24,9 @@ BSDMAKE = bsdmake -f Makefile
 .PATH: .
 .MAIN: all
 all: libc.a libc_static.a libc_debug.a libc_profile.a
-install: installhdrs install_libc.a install_libc_static.a \
+install: ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h installhdrs install_libc.a \
 	 install_libc_profile.a install_libc_debug.a \
-	 autopatchman maninstall
+	 maninstall
 
 .SUFFIXES:
 .SUFFIXES: .o .po .So .do
@@ -35,6 +35,7 @@ install: installhdrs install_libc.a install_libc_static.a \
 .SUFFIXES: .f .y .l .defs .h
 .SUFFIXES: User.c User.o User.po User.So User.do
 .SUFFIXES: Server.c Server.o Server.po Server.So Server.do
+.SUFFIXES: .3-uuid.in .3
 
 OBJS+=  ${SRCS:N*.h:R:S/$/.o/g}
 DOBJS+= ${OBJS:.o=.do}
@@ -57,15 +58,21 @@ SOBJS+= ${OBJS:.o=.So}
 # specify sources that will build with both the CFLAGS_XXX and CFLAGS_YYY
 # flags set.  The variants are always in alphabetic order.
 #
-VARIANTS= DARWINEXTSN INODE32 CANCELABLE PRE1050
+VARIANTS = DARWINEXTSN CANCELABLE
+
+.ifndef FEATURE_ONLY_64_BIT_INO_T
+VARIANTS += INODE32
+.endif
+.ifndef FEATURE_ONLY_1050_VARIANTS
+VARIANTS += PRE1050
+.endif
+.ifndef FEATURE_ONLY_UNIX_CONFORMANCE
+VARIANTS+= LEGACY
+.endif
 # Append the 64-bit long double sources (ppc only)
 .if (${MACHINE_ARCH} == ppc)
-VARIANTS+= LDBL
+VARIANTS += LDBL
 MDSRCS += ldbl64.s
-.endif
-# build LEGACY variant except on LP64
-.ifndef LP64
-VARIANTS+= LEGACY
 .endif
 
 CFLAGS_LEGACY= -U__DARWIN_UNIX03 -D__DARWIN_UNIX03=0 -U__DARWIN_64_BIT_INO_T -D__DARWIN_64_BIT_INO_T=0 -DVARIANT_LEGACY
@@ -155,7 +162,7 @@ FBSDFLAGS= -include _fbsd_compat_.h
 	    ${VARIANTCFLAGS} ${FBSDFLAGS} ${LIBCFLAGS} \
 	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 -fbsd.c.do:
-	${CC} -g -DDEBUG \
+	${CC} -DDEBUG \
 	    ${PREFBSDFLAGS} ${PRECFLAGS} ${PRECFLAGS-${.IMPSRC:T}} \
 	    ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
 	    ${VARIANTCFLAGS} ${FBSDFLAGS} ${LIBCFLAGS} \
@@ -184,7 +191,7 @@ NBSDFLAGS= -include _nbsd_compat_.h
 	    ${VARIANTCFLAGS} ${NBSDFLAGS} ${LIBCFLAGS} \
 	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 -nbsd.c.do:
-	${CC} -g -DDEBUG \
+	${CC} -DDEBUG \
 	    ${PRENBSDFLAGS} ${PRECFLAGS} ${PRECFLAGS-${.IMPSRC:T}} \
 	    ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
 	    ${VARIANTCFLAGS} ${NBSDFLAGS} ${LIBCFLAGS} \
@@ -213,7 +220,7 @@ OBSDFLAGS=
 	    ${VARIANTCFLAGS} ${OBSDFLAGS} ${LIBCFLAGS} \
 	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 -obsd.c.do:
-	${CC} -g -DDEBUG \
+	${CC} -DDEBUG \
 	    ${PREOBSDFLAGS} ${PRECFLAGS} ${PRECFLAGS-${.IMPSRC:T}} \
 	    ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
 	    ${VARIANTCFLAGS} ${OBSDFLAGS} ${LIBCFLAGS} \
@@ -242,11 +249,13 @@ UUIDFLAGS= -include uuid-config.h
 	    ${VARIANTCFLAGS} ${UUIDFLAGS} ${LIBCFLAGS} \
 	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 -uuid.c.do:
-	${CC} -g -DDEBUG \
+	${CC} -DDEBUG \
 	    ${PREUUIDFLAGS} ${PRECFLAGS} ${PRECFLAGS-${.IMPSRC:T}} \
 	    ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
 	    ${VARIANTCFLAGS} ${UUIDFLAGS} ${LIBCFLAGS} \
 	    -c ${.IMPSRC} -o ${.TARGET}
+.3-uuid.in.3:
+	sed -f ${SRCROOT}/uuid/uuidman.sed ${.IMPSRC} > ${.TARGET}
 
 #### Standard C Rules #################################################
 # If you change any of these standard rule, make corresponding changes
@@ -271,7 +280,7 @@ UUIDFLAGS= -include uuid-config.h
 	    ${VARIANTCFLAGS} ${LIBCFLAGS} \
 	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 .c.do User.cUser.do Server.cServer.do:
-	${CC} -g -DDEBUG \
+	${CC} -DDEBUG \
 	    ${PRECFLAGS} ${PRECFLAGS-${.IMPSRC:T}} \
 	    ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
 	    ${VARIANTCFLAGS} ${LIBCFLAGS} \
@@ -294,38 +303,38 @@ UUIDFLAGS= -include uuid-config.h
 	    ${CFLAGS:M-[BIDFU]*} ${CFLAGS-${.IMPSRC:T}:M-[BIDFU]*} ${AINC} \
 	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 .s.do .S.do:
-	${CC} -g -x assembler-with-cpp -DDEBUG \
+	${CC} -x assembler-with-cpp -DDEBUG \
 	    ${PRECFLAGS:M-[BIDFU]*} ${PRECFLAGS-${.IMPSRC:T}:M-[BIDFU]*} \
 	    ${CFLAGS:M-[BIDFU]*} ${CFLAGS-${.IMPSRC:T}:M-[BIDFU]*} ${AINC} \
 	    -c ${.IMPSRC} -o ${.TARGET}
 
 #### mig Rules ########################################################
 .defs.h .defsUser.c .defsServer.c:
-	mig -arch ${MACHINE_ARCH} -cc ${CC} -user ${.PREFIX}User.c -server ${.PREFIX}Server.c -header ${.PREFIX}.h ${.IMPSRC}
+	mig -arch ${CCARCH} -cc ${CC} -user ${.PREFIX}User.c -server ${.PREFIX}Server.c -header ${.PREFIX}.h ${.IMPSRC}
 
 gen_mig_defs: ${SRVMIGHDRS} ${MIGHDRS}
 gen_md_mig_defs: ${MD_MIGHDRS}
 
 #### Library Rules ####################################################
-lib${LIB}_static.a:: ${VARIANTCOMBOS} ${OBJS} ${STATICOBJS} 
+lib${LIB}_static.a:: ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h ${VARIANTCOMBOS} ${OBJS} ${STATICOBJS} 
 	@${ECHO} building static ${LIB} library
 	@rm -f lib${LIB}_static.a
 	@${AR} cq lib${LIB}_static.a `lorder ${OBJS} ${STATICOBJS} ${VARIANTOBJS} | tsort -q` ${ARADD}
 	${RANLIB} lib${LIB}_static.a
 
-lib${LIB}_profile.a:: ${VARIANTCOMBOS:S/$/_P/g} ${POBJS} ${POBJS2}
+lib${LIB}_profile.a:: ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h ${VARIANTCOMBOS:S/$/_P/g} ${POBJS} ${POBJS2}
 	@${ECHO} building profiled ${LIB} library
 	@rm -f lib${LIB}_profile.a
 	@${AR} cq lib${LIB}_profile.a `lorder ${POBJS} ${VARIANTPOBJS} | tsort -q` ${ARADD}
 	${RANLIB} lib${LIB}_profile.a
 
-lib${LIB}_debug.a:: ${VARIANTCOMBOS:S/$/_D/g} ${DOBJS} ${DOBJS2}
+lib${LIB}_debug.a:: ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h ${VARIANTCOMBOS:S/$/_D/g} ${DOBJS} ${DOBJS2}
 	@${ECHO} building debug ${LIB} library
 	@rm -f lib${LIB}_debug.a
 	@${AR} cq lib${LIB}_debug.a `lorder ${DOBJS} ${VARIANTDOBJS} | tsort -q` ${ARADD}
 	${RANLIB} lib${LIB}_debug.a
 
-lib${LIB}.a:: ${VARIANTCOMBOS:S/$/_S/g} ${SOBJS} ${SOBJS2}
+lib${LIB}.a:: ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h ${VARIANTCOMBOS:S/$/_S/g} ${SOBJS} ${SOBJS2}
 	@${ECHO} building standard ${LIB} library
 	@rm -f lib${LIB}.a
 	@${AR} cq lib${LIB}.a `lorder ${SOBJS} ${VARIANTSOBJS} | tsort -q` ${ARADD}
@@ -343,12 +352,16 @@ INSTALLMODE != test `id -u` -eq 0 && echo 444 || echo 644
 
 installhdrs-md: gen_md_mig_defs
 
-installhdrs: gen_mig_defs
+installhdrs: modifyhdrs
+
+copyhdrs: gen_mig_defs
 	mkdir -p ${INCDIR}/arpa
 	mkdir -p ${INCDIR}/libkern
 	mkdir -p ${INCDIR}/machine
 	mkdir -p ${INCDIR}/malloc
+.ifdef OBJC_INSTHDRS
 	mkdir -p ${INCDIR}/objc
+.endif
 	mkdir -p ${INCDIR}/protocols
 	mkdir -p ${INCDIR}/secure
 	mkdir -p ${INCDIR}/sys
@@ -358,7 +371,9 @@ installhdrs: gen_mig_defs
 	${INSTALL} -c -m ${INSTALLMODE} ${LIBKERN_INSTHDRS} ${INCDIR}/libkern
 	${INSTALL} -c -m ${INSTALLMODE} ${MACHINE_INSTHDRS} ${INCDIR}/machine
 	${INSTALL} -c -m ${INSTALLMODE} ${MALLOC_INSTHDRS} ${INCDIR}/malloc
+.ifdef OBJC_INSTHDRS
 	${INSTALL} -c -m ${INSTALLMODE} ${OBJC_INSTHDRS} ${INCDIR}/objc
+.endif
 	${INSTALL} -c -m ${INSTALLMODE} ${PROTO_INSTHDRS} ${INCDIR}/protocols
 	${INSTALL} -c -m ${INSTALLMODE} ${SECURE_INSTHDRS} ${INCDIR}/secure
 	${INSTALL} -c -m ${INSTALLMODE} ${SYS_INSTHDRS} ${INCDIR}/sys
@@ -378,14 +393,22 @@ installhdrs: gen_mig_defs
 	${INSTALL} -c -m ${INSTALLMODE} ${SYS_INSTHDRS} ${PRIVHDRS}/sys
 	${INSTALL} -c -m ${INSTALLMODE} ${PRIVUUID_INSTHDRS} ${PRIVHDRS}/uuid
 	${INSTALL} -c -m ${INSTALLMODE} ${PRIVUUID_INSTHDRS} ${PRIVKERNELHDRS}/uuid
-.for _h in ${STRIP_HDRS}
-	chmod u+w ${INCDIR}/${_h}
-	ed - ${INCDIR}/${_h} < ${.CURDIR}/strip-header.ed
-	chmod u-w ${INCDIR}/${_h}
-.endfor
-	${INSTALL} -c -m 644 /usr/include/AvailabilityMacros.h ${OBJROOT}/available.h
-	ex - ${OBJROOT}/available.h < ${.CURDIR}/available.ex
-	${INSTALL} -c -m ${INSTALLMODE} ${OBJROOT}/available.h ${INCDIR}
+
+modifyhdrs: copyhdrs
+	@for i in `find '${DESTDIR}' -name \*.h -print0 | xargs -0 grep -l '^//Begin-Libc'`; do \
+	    chmod u+w $$i && \
+	    echo ed - $$i \< ${.CURDIR}/strip-header.ed && \
+	    ed - $$i < ${.CURDIR}/strip-header.ed && \
+	    chmod u-w $$i || exit 1; \
+	done
+	@for i in `find '${DESTDIR}' -name \*.h -print0 | xargs -0 fgrep -l UNIFDEF`; do \
+	    chmod u+w $$i && \
+	    cp $$i $$i.orig && \
+	    echo unifdef ${UNIFDEFARGS} $$i.orig \> $$i && \
+	    { unifdef ${UNIFDEFARGS} $$i.orig > $$i || [ $$? -ne 2 ]; } && \
+	    rm -f $$i.orig && \
+	    chmod u-w $$i || exit 1; \
+	done
 
 install_lib${LIB}_static.a:
 	${INSTALL} -c -m ${INSTALLMODE} lib${LIB}_static.a ${DESTDIR}/usr/local/lib/system/
@@ -396,7 +419,7 @@ install_lib${LIB}_debug.a:
 install_lib${LIB}.a:
 	${INSTALL} -c -m ${INSTALLMODE} lib${LIB}.a ${DESTDIR}/usr/local/lib/system/
 
-autopatchman: ${AUTOPATCHMAN}
+autopatch: ${AUTOPATCHHDRS} ${AUTOPATCHSRCS} ${AUTOPATCHMAN}
 
 copyfiles:
 .if !empty $(COPYFILES)

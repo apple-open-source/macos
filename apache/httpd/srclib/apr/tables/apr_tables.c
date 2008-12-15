@@ -38,7 +38,7 @@
 #include <strings.h>
 #endif
 
-#if APR_POOL_DEBUG && APR_HAVE_STDIO_H
+#if (APR_POOL_DEBUG || defined(MAKE_TABLE_PROFILE)) && APR_HAVE_STDIO_H
 #include <stdio.h>
 #endif
 
@@ -88,6 +88,11 @@ APR_DECLARE(apr_array_header_t *) apr_array_make(apr_pool_t *p,
     res = (apr_array_header_t *) apr_palloc(p, sizeof(apr_array_header_t));
     make_array_core(res, p, nelts, elt_size, 1);
     return res;
+}
+
+APR_DECLARE(void) apr_array_clear(apr_array_header_t *arr)
+{
+    arr->nelts = 0;
 }
 
 APR_DECLARE(void *) apr_array_pop(apr_array_header_t *arr)
@@ -357,13 +362,19 @@ struct apr_table_t {
  * and table_elts() in alloc.h
  */
 #ifdef MAKE_TABLE_PROFILE
-static apr_table_entry_t *table_push(apr_table_t *t)
+static apr_table_entry_t *do_table_push(const char *func, apr_table_t *t)
 {
     if (t->a.nelts == t->a.nalloc) {
-        return NULL;
+        fprintf(stderr, "%s: table created by %p hit limit of %u\n",
+                func ? func : "table_push", t->creator, t->a.nalloc);
     }
     return (apr_table_entry_t *) apr_array_push_noclear(&t->a);
 }
+#if defined(__GNUC__) && __GNUC__ >= 2
+#define table_push(t) do_table_push(__FUNCTION__, t)
+#else
+#define table_push(t) do_table_push(NULL, t)
+#endif
 #else /* MAKE_TABLE_PROFILE */
 #define table_push(t)	((apr_table_entry_t *) apr_array_push_noclear(&(t)->a))
 #endif /* MAKE_TABLE_PROFILE */
@@ -409,6 +420,20 @@ APR_DECLARE(apr_table_t *) apr_table_copy(apr_pool_t *p, const apr_table_t *t)
     memcpy(new->index_first, t->index_first, sizeof(int) * TABLE_HASH_SIZE);
     memcpy(new->index_last, t->index_last, sizeof(int) * TABLE_HASH_SIZE);
     new->index_initialized = t->index_initialized;
+    return new;
+}
+
+APR_DECLARE(apr_table_t *) apr_table_clone(apr_pool_t *p, const apr_table_t *t)
+{
+    const apr_array_header_t *array = apr_table_elts(t);
+    apr_table_entry_t *elts = (apr_table_entry_t *) array->elts;
+    apr_table_t *new = apr_table_make(p, array->nelts);
+    int i;
+
+    for (i = 0; i < array->nelts; i++) {
+        apr_table_add(new, elts[i].key, elts[i].val);
+    }
+
     return new;
 }
 

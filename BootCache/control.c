@@ -156,28 +156,38 @@ start_cache(const char *pfname)
 	nentries = 0;
 	pc = NULL;
 
-	/*
-	 * If we have a playlist, open it and prepare to load it.
-	 */
 	error = 0;
-	if (pfname != NULL) {
-		error = BC_read_playlist(pfname, &pc, &nentries);
-	} else if (!access(BC_BOOT_PLAYLIST, R_OK)) {
+	if (pfname == NULL) {
 		/*
 		 * This is the "smart" startup mode, without a playlist
 		 * specified.
 		 */
-		error = BC_read_playlist(BC_BOOT_PLAYLIST, &pc, &nentries);
-	}
+		if (!access(BC_BOOT_PLAYLIST, R_OK)) {
+			pfname = BC_BOOT_PLAYLIST;
+		}
+	} 
 
 	/*
-	 * If the playlist is missing or invalid, ignore it (we'll
+	 * If we have a playlist, open it and prepare to load it.
+	 */
+	error = BC_read_playlist(pfname, &pc, &nentries);
+
+	/*
+	 * If the playlist is missing or invalid, ignore it. We'll
 	 * overwrite it later.
 	 */
 	if ((error != 0) && (error != EINVAL) && (error != ENOENT)) {
-		warnx("could not read playlist %s : %s", pfname, strerror(error));
+		warnx("could not read playlist %s: %s", pfname, strerror(error));
 		return(error);
 	}
+
+	/*
+	 * Remove the consumed playlist: it'll be replaced once BootCache 
+	 * completes successfully.
+	 */
+	error = unlink(pfname);
+	if (error)
+		warnx("could not unlink playlist %s: %s", pfname, strerror(error));
 
 	error = BC_start(pc, nentries);
 	if (error != 0)

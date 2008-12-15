@@ -212,8 +212,7 @@ void)
 	 * above calls so the dynamic libraries will be added after the
 	 * executable.
 	 */
-	if(_dyld_present())
-	    _dyld_moninit(monaddition);
+	_dyld_moninit(monaddition);
 #endif
 }
 
@@ -445,7 +444,7 @@ const char *filename)
 	write(fd, &magic, sizeof(uint32_t));
 
 #if defined(__DYNAMIC__)
-        if(_dyld_present()){
+        {
 	    image_count = _dyld_image_count();
 	    if(image_count > 1){
 #ifdef DYLD_DEBUG

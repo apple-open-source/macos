@@ -46,8 +46,10 @@
 .In sys/mount.h
 .Ft int
 .Fn getmntinfo "struct statfs **mntbufp" "int flags"
+#ifdef UNIFDEF_LEGACY_64_APIS
 .Ft int
 .Fn getmntinfo64 "struct statfs64 **mntbufp" "int flags"
+#endif /* UNIFDEF_LEGACY_64_APIS */
 .Sh DESCRIPTION
 The
 .Fn getmntinfo
@@ -56,12 +58,14 @@ returns an array of
 .Ft statfs
 structures describing each currently mounted file system (see
 .Xr statfs 2 ) .
+#ifdef UNIFDEF_LEGACY_64_APIS
 Likewise, the
 .Fn getmntinfo64
 function
 returns an array of
 .Ft statfs64
 structures describing each currently mounted file system.
+#endif /* UNIFDEF_LEGACY_64_APIS */
 .Pp
 The
 .Fn getmntinfo
@@ -69,6 +73,7 @@ function
 passes its
 .Fa flags
 argument transparently to
+#ifdef UNIFDEF_LEGACY_64_APIS
 .Xr getfsstat 2 ,
 while the
 .Fn getmntinfo64
@@ -77,12 +82,19 @@ passes its
 .Fa flags
 argument transparently to
 .Fn getfsstat64 .
+#else /* !UNIFDEF_LEGACY_64_APIS */
+.Xr getfsstat 2 .
+#endif /* UNIFDEF_LEGACY_64_APIS */
 .Sh RETURN VALUES
 On successful completion,
 .Fn getmntinfo
+#ifdef UNIFDEF_LEGACY_64_APIS
 and
 .Fn getmntinfo64
 return a count of the number of elements in the array.
+#else /* !UNIFDEF_LEGACY_64_APIS */
+returns a count of the number of elements in the array.
+#endif /* UNIFDEF_LEGACY_64_APIS */
 The pointer to the array is stored into
 .Fa mntbufp .
 .Pp
@@ -93,15 +105,21 @@ Although the pointer
 .Fa mntbufp
 will be unmodified, any information previously returned by
 .Fn getmntinfo
+#ifdef UNIFDEF_LEGACY_64_APIS
 or
 .Fn getmntinfo64
+#endif /* UNIFDEF_LEGACY_64_APIS */
 will be lost.
 .Sh ERRORS
 The
 .Fn getmntinfo
+#ifdef UNIFDEF_LEGACY_64_APIS
 and
 .Fn getmntinfo64
 functions
+#else /* !UNIFDEF_LEGACY_64_APIS */
+function
+#endif /* UNIFDEF_LEGACY_64_APIS */
 may fail and set errno for any of the errors specified for the library
 routines
 .Xr getfsstat 2
@@ -120,21 +138,29 @@ function first appeared in
 .Sh BUGS
 The
 .Fn getmntinfo
+#ifdef UNIFDEF_LEGACY_64_APIS
 and
 .Fn getmntinfo64
 functions write the array of structures to an internal static object
+#else /* !UNIFDEF_LEGACY_64_APIS */
+function write the array of structures to an internal static object
+#endif /* UNIFDEF_LEGACY_64_APIS */
 and returns
 a pointer to that object.
 Subsequent calls to
 .Fn getmntinfo
+#ifdef UNIFDEF_LEGACY_64_APIS
 and
 .Fn getmntinfo64
+#endif /* UNIFDEF_LEGACY_64_APIS */
 will modify the same object.
 .Pp
 The memory allocated by
 .Fn getmntinfo
+#ifdef UNIFDEF_LEGACY_64_APIS
 and
 .Fn getmntinfo64
+#endif /* UNIFDEF_LEGACY_64_APIS */
 cannot be
 .Xr free 3 Ns 'd
 by the application.

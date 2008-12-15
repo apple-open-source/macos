@@ -1062,7 +1062,7 @@ void RFCleanupReaders(int shouldExit)
 
 int RFStartSerialReaders(const char *readerconf)
 {
-	return 0;
+	return DBUpdateReaders(readerconf);
 }
 
 void RFReCheckReaderConf(void)
@@ -1225,7 +1225,7 @@ static int ReaderCheckForClone(PREADER_CONTEXT ctx, LPCSTR lpcReader,
 		ctx->pdwMutex = (sReadersContexts[parentNode])->pdwMutex;
 		SYS_MutexUnLock(sReadersContextsLock);
 
-		if (ReaderDriverIsThreadSafe(sReadersContexts[parentNode], 0))
+		if (0 && ReaderDriverIsThreadSafe(sReadersContexts[parentNode], 0))
 		{
 			ctx->mMutex = 0;
 			ctx->pdwMutex = NULL;

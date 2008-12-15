@@ -41,7 +41,7 @@
 				<key>IOCFPlugInTypes</key>
 				<dict>
 					<key>9dc7b780-9ec0-11d4-a54f-000a27052861</key>
-					<string>IOUSBFamily.kext/Contents/PlugIns/IOUSBLib.bundle</string>
+					<string>IOUSBLIB_PATH</string>
 				</dict>
 				<key>IOUserClientClass</key>
 				<string>IOUSBDeviceUserClientV2</string>
@@ -68,7 +68,7 @@
 				<key>IOCFPlugInTypes</key>
 				<dict>
 					<key>2d9786c6-9ef3-11d4-ad51-000a27052861</key>
-					<string>IOUSBFamily.kext/Contents/PlugIns/IOUSBLib.bundle</string>
+					<string>IOUSBLIB_PATH</string>
 				</dict>
 				<key>IOUserClientClass</key>
 				<string>IOUSBInterfaceUserClientV2</string>

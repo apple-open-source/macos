@@ -384,9 +384,12 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
+			inputPaths = (
+				"Info-IOFireWireAVC.plist",
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n\nif [ $FIRELOG ]; then\n\techo \"$PROJECT_DIR/$INFOPLIST_FILE\"\n\techo \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n\n\tgrep -v \"FIRELOG_COMMENT\" \"$PROJECT_DIR/$INFOPLIST_FILE\" > \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\nfi";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -581,7 +584,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 2.2.1;
+				MODULE_VERSION = 2.2.3;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -618,7 +621,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 2.2.1;
+				MODULE_VERSION = 2.2.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -643,6 +646,7 @@
 					ppc,
 					i386,
 				);
+				FIRELOG = 1;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
 				HEADER_SEARCH_PATHS = "";
@@ -653,7 +657,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 2.2.1;
+				MODULE_VERSION = 2.2.3;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-DFIRELOG=1";
 				OTHER_LDFLAGS = "";
@@ -688,7 +692,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 2.2.1;
+				MODULE_VERSION = 2.2.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -781,24 +785,28 @@
 		30EC569A0895F6B80057E458 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Development;
 		};
 		30EC569B0895F6B80057E458 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Deployment;
 		};
 		30EC569C0895F6B80057E458 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = FireLog;
 		};
 		30EC569D0895F6B80057E458 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 			};
 			name = Default;
 		};

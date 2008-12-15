@@ -142,8 +142,8 @@ IOReturn AppleSmartBatteryManager::performExternalTransaction(
     IOByteCount inSize,
     IOByteCount *outSize)    
 {
-    int                     i;
-    int                     retryAttempts = 0;
+    uint16_t                i;
+    uint16_t                retryAttempts = 0;
     IOSMBusTransaction      newTransaction;
     IOReturn                transactionSuccess;
     EXSMBUSInputStruct      *inSMBus = (EXSMBUSInputStruct *)in;
@@ -217,9 +217,13 @@ IOReturn AppleSmartBatteryManager::performExternalTransaction(
         }
     
     
-        if ( (inSMBus->flags & kEXFlagRetry) 
-              && (retryAttempts > 0))
+        if (inSMBus->flags & kEXFlagRetry) 
         {
+            if (retryAttempts >= kMaxRetries) {
+                // Don't read off the end of the table...
+                retryAttempts = kMaxRetries - 1;
+            }
+    
             // If this is a retry-on-failure, spin for a few microseconds
             IODelay( retryDelaysTable[retryAttempts] );
         }
@@ -580,7 +584,6 @@ void AppleSmartBatteryManager::gatedSendCommand(
                       this, &AppleSmartBatteryManager::transactionCompletion),
                     (OSObject *)this);
                     
-exit:
     return;
 }
 
@@ -641,7 +644,7 @@ bool AppleSmartBatteryManager::transactionCompletion(
     return false;
 }
 
-void BattLog(char *fmt, ...)
+void BattLog(const char *fmt, ...)
 {
 #if 0
     va_list     listp;

@@ -1,5 +1,5 @@
---- utmpx.h.orig	2006-10-01 22:22:21.000000000 -0700
-+++ utmpx.h	2006-10-02 02:08:04.000000000 -0700
+--- utmpx.h.orig	2008-07-17 11:34:24.000000000 -0700
++++ utmpx.h	2008-07-17 11:57:27.000000000 -0700
 @@ -1,3 +1,25 @@
 +/*
 + * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
@@ -73,7 +73,7 @@
  #define EMPTY		0
  #define RUN_LVL		1
  #define BOOT_TIME	2
-@@ -70,74 +96,85 @@
+@@ -70,74 +96,87 @@
  #define USER_PROCESS	7
  #define DEAD_PROCESS	8
  
@@ -171,9 +171,11 @@
 +	getlastlogx(uid_t, struct lastlogx *);
 +struct lastlogx *
 +	getlastlogxbyname(const char*, struct lastlogx *);
++#ifdef UNIFDEF_LEGACY_UTMP_APIS
 +struct utmp;	/* forward reference */
 +void	getutmp(const struct utmpx *, struct utmp *);
 +void	getutmpx(const struct utmp *, struct utmpx *);
++#endif /* UNIFDEF_LEGACY_UTMP_APIS */
 +#endif /* !_POSIX_C_SOURCE || _DARWIN_C_SOURCE */
 +
 +struct utmpx *

@@ -41,6 +41,7 @@
     BusProbeClass *     _lastInterfaceClassInfo;
     UInt8               _lastInterfaceSubclass;
     int                 _currentInterfaceNumber;
+	uint32_t			_portInfo;
 }
 
 - (OutlineViewNode *)rootNode;
@@ -56,6 +57,8 @@
 - (void)setSpeed:(UInt8)speed;
 - (USBDeviceAddress)address;
 - (void)setAddress:(USBDeviceAddress)address;
+- (uint32_t)portInfo;
+- (void)setPortInfo:(uint32_t)portInfo;
 - (UInt32)locationID;
 - (void)setLocationID:(UInt32)locationID;
 - (UInt32)vendorID;
@@ -73,6 +76,7 @@
 - (UInt16)usbRelease;
 - (void)setUSBRelease:(UInt16)usbRelease;
 
+- (NSString *)descriptionForName:(NSString*)name;
 - (NSString *)description;
 
 @end

@@ -85,7 +85,8 @@ static void got_code_from_term __ARGS((char_u *code, int len));
 static void check_for_codes_from_term __ARGS((void));
 #endif
 #if defined(FEAT_GUI) \
-    || (defined(FEAT_MOUSE) && (!defined(UNIX) || defined(FEAT_MOUSE_XTERM)))
+    || (defined(FEAT_MOUSE) && (!defined(UNIX) || defined(FEAT_MOUSE_XTERM) \
+		|| defined(FEAT_MOUSE_GPM) || defined(FEAT_SYSMOUSE)))
 static int get_bytes_from_buf __ARGS((char_u *, char_u *, int));
 #endif
 static void del_termcode_idx __ARGS((int idx));
@@ -1446,10 +1447,10 @@ static struct builtin_term builtin_termcaps[] =
  */
 char_u *(term_strings[(int)KS_LAST + 1]);
 
-static int	need_gather = FALSE;		/* need to fill termleader[] */
-static char_u	termleader[256 + 1];		/* for check_termcode() */
+static int	need_gather = FALSE;	    /* need to fill termleader[] */
+static char_u	termleader[256 + 1];	    /* for check_termcode() */
 #ifdef FEAT_TERMRESPONSE
-static int	check_for_codes = FALSE;	/* check for key code reponse */
+static int	check_for_codes = FALSE;    /* check for key code response */
 #endif
 
     static struct builtin_term *
@@ -1923,7 +1924,7 @@ set_termname(term)
 #    endif
 	    clip_init(FALSE);
 #   endif
-	if (term_is_xterm)
+	if (use_xterm_like_mouse(term))
 	{
 	    if (use_xterm_mouse())
 		p = NULL;	/* keep existing value, might be "xterm2" */
@@ -2067,9 +2068,7 @@ set_termname(term)
 static int has_mouse_termcode = 0;
 # endif
 
-# if (!defined(UNIX) || defined(FEAT_MOUSE_XTERM) || defined(FEAT_MOUSE_NET) \
-	|| defined(FEAT_MOUSE_DEC)) || defined(FEAT_MOUSE_JSB) \
-	|| defined(FEAT_MOUSE_PTERM) || defined(PROTO)
+# if (!defined(UNIX) || defined(FEAT_MOUSE_TTY)) || defined(PROTO)
     void
 set_mouse_termcode(n, s)
     int		n;	/* KS_MOUSE, KS_NETTERM_MOUSE or KS_DEC_MOUSE */
@@ -2107,9 +2106,7 @@ set_mouse_termcode(n, s)
 # endif
 
 # if ((defined(UNIX) || defined(VMS) || defined(OS2)) \
-	&& (defined(FEAT_MOUSE_XTERM) || defined(FEAT_MOUSE_DEC) \
-	    || defined(FEAT_MOUSE_GPM) || defined(FEAT_MOUSE_PTERM))) \
-	    || defined(PROTO)
+	&& defined(FEAT_MOUSE_TTY)) || defined(PROTO)
     void
 del_mouse_termcode(n)
     int		n;	/* KS_MOUSE, KS_NETTERM_MOUSE or KS_DEC_MOUSE */
@@ -2951,7 +2948,8 @@ get_long_from_buf(buf, val)
 #endif
 
 #if defined(FEAT_GUI) \
-    || (defined(FEAT_MOUSE) && (!defined(UNIX) || defined(FEAT_MOUSE_XTERM)))
+    || (defined(FEAT_MOUSE) && (!defined(UNIX) || defined(FEAT_MOUSE_XTERM) \
+		|| defined(FEAT_MOUSE_GPM) || defined(FEAT_SYSMOUSE)))
 /*
  * Read the next num_bytes bytes from buf, and store them in bytes.  Assume
  * that buf has been through inchar().	Returns the actual number of bytes used
@@ -2981,7 +2979,8 @@ get_bytes_from_buf(buf, bytes, num_bytes)
 	    ++len;	/* skip KE_FILLER */
 	    /* else it should be KS_SPECIAL, and c already equals K_SPECIAL */
 	}
-	else if (c == CSI && buf[len] == KS_EXTRA && buf[len + 1] == (int)KE_CSI)
+	else if (c == CSI && buf[len] == KS_EXTRA
+					       && buf[len + 1] == (int)KE_CSI)
 	    /* CSI is stored as CSI KS_SPECIAL KE_CSI to avoid confusion with
 	     * the start of a special key, see add_to_input_buf_csi(). */
 	    len += 2;
@@ -3137,25 +3136,32 @@ set_shellsize(width, height, mustset)
 	    screenalloc(FALSE);
 	    repeat_message();
 	}
-	else if (State & CMDLINE)
-	{
-	    update_screen(NOT_VALID);
-	    redrawcmdline();
-	}
 	else
 	{
-	    update_topline();
-#if defined(FEAT_INS_EXPAND)
-	    if (pum_visible())
+#ifdef FEAT_SCROLLBIND
+	    if (curwin->w_p_scb)
+		do_check_scrollbind(TRUE);
+#endif
+	    if (State & CMDLINE)
 	    {
-		redraw_later(NOT_VALID);
-		ins_compl_show_pum(); /* This includes the redraw. */
+		update_screen(NOT_VALID);
+		redrawcmdline();
 	    }
 	    else
+	    {
+		update_topline();
+#if defined(FEAT_INS_EXPAND)
+		if (pum_visible())
+		{
+		    redraw_later(NOT_VALID);
+		    ins_compl_show_pum(); /* This includes the redraw. */
+		}
+		else
 #endif
-		update_screen(NOT_VALID);
-	    if (redrawing())
-		setcursor();
+		    update_screen(NOT_VALID);
+		if (redrawing())
+		    setcursor();
+	    }
 	}
 	cursor_on();	    /* redrawing may have switched it off */
     }
@@ -3190,11 +3196,17 @@ settmode(tmode)
 	if (tmode != TMODE_COOK || cur_tmode != TMODE_COOK)
 	{
 #ifdef FEAT_TERMRESPONSE
-	    /* May need to check for T_CRV response and termcodes, it doesn't
-	     * work in Cooked mode, an external program may get them. */
-	    if (tmode != TMODE_RAW && crv_status == CRV_SENT)
-		(void)vpeekc_nomap();
-	    check_for_codes_from_term();
+# ifdef FEAT_GUI
+	    if (!gui.in_use && !gui.starting)
+# endif
+	    {
+		/* May need to check for T_CRV response and termcodes, it
+		 * doesn't work in Cooked mode, an external program may get
+		 * them. */
+		if (tmode != TMODE_RAW && crv_status == CRV_SENT)
+		    (void)vpeekc_nomap();
+		check_for_codes_from_term();
+	    }
 #endif
 #ifdef FEAT_MOUSE_TTY
 	    if (tmode != TMODE_RAW)
@@ -3226,10 +3238,16 @@ starttermcap()
 	termcap_active = TRUE;
 	screen_start();			/* don't know where cursor is now */
 #ifdef FEAT_TERMRESPONSE
-	may_req_termresponse();
-	/* Immediately check for a response.  If t_Co changes, we don't want
-	 * to redraw with wrong colors first. */
-	check_for_codes_from_term();
+# ifdef FEAT_GUI
+	if (!gui.in_use && !gui.starting)
+# endif
+	{
+	    may_req_termresponse();
+	    /* Immediately check for a response.  If t_Co changes, we don't
+	     * want to redraw with wrong colors first. */
+	    if (crv_status != CRV_GET)
+		check_for_codes_from_term();
+	}
 #endif
     }
 }
@@ -3242,12 +3260,17 @@ stoptermcap()
     if (termcap_active)
     {
 #ifdef FEAT_TERMRESPONSE
-	/* May need to check for T_CRV response. */
-	if (crv_status == CRV_SENT)
-	    (void)vpeekc_nomap();
-	/* Check for termcodes first, otherwise an external program may get
-	 * them. */
-	check_for_codes_from_term();
+# ifdef FEAT_GUI
+	if (!gui.in_use && !gui.starting)
+# endif
+	{
+	    /* May need to check for T_CRV response. */
+	    if (crv_status == CRV_SENT)
+		(void)vpeekc_nomap();
+	    /* Check for termcodes first, otherwise an external program may
+	     * get them. */
+	    check_for_codes_from_term();
+	}
 #endif
 	out_str(T_KE);			/* stop "keypad transmit" mode */
 	out_flush();
@@ -3265,7 +3288,7 @@ stoptermcap()
  * Only do this after switching to raw mode, otherwise the result will be
  * echoed.
  * Only do this after startup has finished, to avoid that the response comes
- * while excuting "-c !cmd" or even after "-c quit".
+ * while executing "-c !cmd" or even after "-c quit".
  * Only do this after termcap mode has been started, otherwise the codes for
  * the cursor keys may be wrong.
  * Only do this when 'esckeys' is on, otherwise the response causes trouble in
@@ -3575,7 +3598,7 @@ add_termcode(name, string, flags)
     /* Change leading <Esc>[ to CSI, change <Esc>O to <M-O>. */
     if (flags != 0 && flags != ATC_FROM_TERM && term_7to8bit(string) != 0)
     {
-	mch_memmove(s, s + 1, STRLEN(s));
+	STRMOVE(s, s + 1);
 	s[0] = term_7to8bit(string);
     }
     len = (int)STRLEN(s);
@@ -3760,8 +3783,7 @@ switch_to_8bit()
 	    c = term_7to8bit(termcodes[i].code);
 	    if (c != 0)
 	    {
-		mch_memmove(termcodes[i].code + 1, termcodes[i].code + 2,
-					       STRLEN(termcodes[i].code + 1));
+		STRMOVE(termcodes[i].code + 1, termcodes[i].code + 2);
 		termcodes[i].code[0] = c;
 	    }
 	}
@@ -3830,7 +3852,8 @@ check_termcode(max_offset, buf, buflen)
     int		i, j;
     int		idx = 0;
 #ifdef FEAT_MOUSE
-# if !defined(UNIX) || defined(FEAT_MOUSE_XTERM) || defined(FEAT_GUI)
+# if !defined(UNIX) || defined(FEAT_MOUSE_XTERM) || defined(FEAT_GUI) \
+    || defined(FEAT_MOUSE_GPM) || defined(FEAT_SYSMOUSE)
     char_u	bytes[6];
     int		num_bytes;
 # endif
@@ -4042,15 +4065,17 @@ check_termcode(max_offset, buf, buflen)
 	{
 	    /* Check for xterm version string: "<Esc>[>{x};{vers};{y}c".  Also
 	     * eat other possible responses to t_RV, rxvt returns
-	     * "<Esc>[?1;2c".  Also accept CSI instead of <Esc>[. */
+	     * "<Esc>[?1;2c".  Also accept CSI instead of <Esc>[.
+	     * mrxvt has been reported to have "+" in the version. Assume
+	     * the escape sequence ends with a letter or one of "{|}~". */
 	    if (*T_CRV != NUL && ((tp[0] == ESC && tp[1] == '[' && len >= 3)
 					       || (tp[0] == CSI && len >= 2)))
 	    {
 		j = 0;
 		extra = 0;
-		for (i = 2 + (tp[0] != CSI);
-			i < len && (VIM_ISDIGIT(tp[i])
-			    || tp[i] == ';' || tp[i] == '.'); ++i)
+		for (i = 2 + (tp[0] != CSI); i < len
+				&& !(tp[i] >= '{' && tp[i] <= '~')
+				&& !ASCII_ISALPHA(tp[i]); ++i)
 		    if (tp[i] == ';' && ++j == 1)
 			extra = atoi((char *)tp + i + 1);
 		if (i == len)
@@ -4171,7 +4196,8 @@ check_termcode(max_offset, buf, buflen)
 	{
 	    is_click = is_drag = FALSE;
 
-# if !defined(UNIX) || defined(FEAT_MOUSE_XTERM) || defined(FEAT_GUI)
+# if !defined(UNIX) || defined(FEAT_MOUSE_XTERM) || defined(FEAT_GUI) \
+	    || defined(FEAT_MOUSE_GPM) || defined(FEAT_SYSMOUSE)
 	    if (key_name[0] == (int)KS_MOUSE)
 	    {
 		/*
@@ -4762,7 +4788,7 @@ check_termcode(max_offset, buf, buflen)
 	 * four bytes which are to be taken as a pointer to the vimmenu_T
 	 * structure.
 	 *
-	 * A tab line event is encodded as K_SPECIAL KS_TABLINE nr, where "nr"
+	 * A tab line event is encoded as K_SPECIAL KS_TABLINE nr, where "nr"
 	 * is one byte with the tab index.
 	 *
 	 * A scrollbar event is K_SPECIAL, KS_VER_SCROLLBAR, KE_FILLER followed
@@ -4783,6 +4809,14 @@ check_termcode(max_offset, buf, buflen)
 		return -1;
 	    current_menu = (vimmenu_T *)val;
 	    slen += num_bytes;
+
+	    /* The menu may have been deleted right after it was used, check
+	     * for that. */
+	    if (check_menu_pointer(root_menu, current_menu) == FAIL)
+	    {
+		key_name[0] = KS_EXTRA;
+		key_name[1] = (int)KE_IGNORE;
+	    }
 	}
 # endif
 # ifdef FEAT_GUI_TABLINE
@@ -4793,6 +4827,8 @@ check_termcode(max_offset, buf, buflen)
 	    if (num_bytes == -1)
 		return -1;
 	    current_tab = (int)bytes[0];
+	    if (current_tab == 255)	/* -1 in a byte gives 255 */
+		current_tab = -1;
 	    slen += num_bytes;
 	}
 	else if (key_name[0] == (int)KS_TABMENU)

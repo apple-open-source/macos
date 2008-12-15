@@ -94,8 +94,6 @@ AuthMethodMap gAuthMethodTable[] =
 	{ kDSStdAuthDIGEST_MD5, kAuthDIGEST_MD5 },
 	{ kDSStdAuth2WayRandom, kAuth2WayRandom },
 	{ kDSStdAuth2WayRandomChangePasswd, kAuth2WayRandomChangePass },
-	{ kDSStdAuthSMB_NT_Key, kAuthSMB_NT_Key },
-	{ kDSStdAuthSMB_LM_Key, kAuthSMB_LM_Key },
 	{ kDSStdAuthNewUserWithPolicy, kAuthNewUserWithPolicy },
 	{ kDSStdAuthSetShadowHashWindows, kAuthSetShadowHashWindows },
 	{ kDSStdAuthSetShadowHashSecure, kAuthSetShadowHashSecure },
@@ -107,6 +105,7 @@ AuthMethodMap gAuthMethodTable[] =
 	{ "dsAuthMethodStandard:dsAuthNodePPS", kAuthPPS },
 	{ kDSStdAuthNodeNativeRetainCredential, kAuthNativeRetainCredential },
 	{ kDSStdAuthSetCertificateHashAsRoot, kAuthSetCertificateHashAsRoot },
+	{ kDSStdAuthSASLProxy, kAuthSASLProxy },
 	{ NULL, 0 }
 };
 

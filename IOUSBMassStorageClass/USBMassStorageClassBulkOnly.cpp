@@ -437,10 +437,11 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 			}
 			
 			// If there is to be no data transfer then we are done and can return to the caller.
-			if ( GetDataTransferDirection( boRequestBlock->request ) == kSCSIDataTransfer_NoDataTransfer )
+			if ( ( GetDataTransferDirection( boRequestBlock->request ) == kSCSIDataTransfer_NoDataTransfer ) || 
+                 ( GetRequestedDataTransferCount( boRequestBlock->request ) == 0 ) )
 			{
 				
-				// Bulk transfer is done, get the Command Status Wrapper from the device.
+				// No data to transfer, get the Command Status Wrapper from the device.
 				status = BulkOnlyReceiveCSWPacket( boRequestBlock, kBulkOnlyStatusReceived );
 				if ( status == kIOReturnSuccess )
 				{
@@ -713,7 +714,27 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion(
 				// An error occurred trying to get the first CSW, we should check and clear the stall,
 				// and then try the CSW again
 				status = BulkOnlyReceiveCSWPacket( boRequestBlock, kBulkOnlyStatusReceived2ndTime );
-				if ( status == kIOReturnSuccess )
+				if ( status != kIOReturnSuccess )
+				{
+                
+                    // The device is so far gone that we couldn't even retry the CSW. Reset time.
+                    if ( fUseUSBResetNotBOReset )
+                    {
+                    
+                        // By passing this to Finish device recovery we ensure that the driver is still active,
+                        // and that the device is still connected to the Mac.
+                        FinishDeviceRecovery ( kIOReturnError );
+                        status = kIOReturnSuccess;
+                        
+                    }
+                    else
+                    {
+                        status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
+                    }
+                
+                }
+				
+                if ( status == kIOReturnSuccess )
 				{
 					commandInProgress = true;
 				}

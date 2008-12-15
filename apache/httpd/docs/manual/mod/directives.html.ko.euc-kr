@@ -23,7 +23,8 @@
 <a href="../es/mod/directives.html" hreflang="es" rel="alternate" title="Espa&#241;ol">&nbsp;es&nbsp;</a> |
 <a href="../ja/mod/directives.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/directives.html" title="Korean">&nbsp;ko&nbsp;</a> |
-<a href="../ru/mod/directives.html" hreflang="ru" rel="alternate" title="Russian">&nbsp;ru&nbsp;</a></p>
+<a href="../ru/mod/directives.html" hreflang="ru" rel="alternate" title="Russian">&nbsp;ru&nbsp;</a> |
+<a href="../tr/mod/directives.html" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a></p>
 </div>
 
     <p>
@@ -292,6 +293,7 @@
 <li><a href="mod_proxy.html#proxymatch">&lt;ProxyMatch&gt;</a></li>
 <li><a href="mod_proxy.html#proxymaxforwards">ProxyMaxForwards</a></li>
 <li><a href="mod_proxy.html#proxypass">ProxyPass</a></li>
+<li><a href="mod_proxy.html#proxypassinterpolateenv">ProxyPassInterpolateEnv</a></li>
 <li><a href="mod_proxy.html#proxypassmatch">ProxyPassMatch</a></li>
 <li><a href="mod_proxy.html#proxypassreverse">ProxyPassReverse</a></li>
 <li><a href="mod_proxy.html#proxypassreversecookiedomain">ProxyPassReverseCookieDomain</a></li>
@@ -430,8 +432,9 @@
 <a href="../es/mod/directives.html" hreflang="es" rel="alternate" title="Espa&#241;ol">&nbsp;es&nbsp;</a> |
 <a href="../ja/mod/directives.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/directives.html" title="Korean">&nbsp;ko&nbsp;</a> |
-<a href="../ru/mod/directives.html" hreflang="ru" rel="alternate" title="Russian">&nbsp;ru&nbsp;</a></p>
+<a href="../ru/mod/directives.html" hreflang="ru" rel="alternate" title="Russian">&nbsp;ru&nbsp;</a> |
+<a href="../tr/mod/directives.html" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div>
 </body></html>

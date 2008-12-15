@@ -38,6 +38,26 @@
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOKitKeys.h>
 
+
+//--------------------------------------------------------------------------------------------------
+//	Defines
+//--------------------------------------------------------------------------------------------------
+
+// Masks for GetDeviceInformation response. GetDeviceInformation returns a UInt32. 
+enum
+{
+	kUSBDeviceInfoIsCaptiveMask             =  	( 1 << kUSBInformationDeviceIsCaptiveBit ),
+	kUSBDeviceInfoIsAttachedToRootHubMask   =  	( 1 << kUSBInformationDeviceIsAttachedToRootHubBit ),
+	kUSBDeviceInfoIsInternalMask            =  	( 1 << kUSBInformationDeviceIsInternalBit ),
+	kUSBDeviceInfoIsConnectedMask           =  	( 1 << kUSBInformationDeviceIsConnectedBit ),
+	kUSBDeviceInfoIsEnabledMask             =  	( 1 << kUSBInformationDeviceIsEnabledBit ),
+	kUSBDeviceInfoIsSuspendedMask           =  	( 1 << kUSBInformationDeviceIsSuspendedBit ),
+	kUSBDeviceInfoIsInResetMask             =  	( 1 << kUSBInformationDeviceIsInResetBit ),
+	kUSBDeviceInfoOvercurrentMask          	= 	( 1 << kUSBInformationDeviceOvercurrentBit ),
+	kUSBDeviceInfoIsePortIsInTestModeMask   = 	( 1 << kUSBInformationDevicePortIsInTestModeBit )
+};
+
+
 //-----------------------------------------------------------------------------
 //	Macros
 //-----------------------------------------------------------------------------
@@ -350,41 +370,73 @@ IOUSBMassStorageClass::start( IOService * provider )
 	{
 		characterDict = OSDictionary::withCapacity ( 1 );
 	}
-	
 	else
 	{
 		characterDict->retain ( );
 	}
-	
-	obj = getProperty ( kIOPropertyPhysicalInterconnectTypeKey );
-	if ( obj != NULL )
-	{
-		characterDict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, obj );
-	}
-	
-	obj = getProperty ( kIOPropertyPhysicalInterconnectLocationKey );
-	if ( obj != NULL )
-	{
-		characterDict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, obj );
-	}
-	
-	obj = getProperty ( kIOPropertyReadTimeOutDurationKey );	
-	if ( obj != NULL );
-	{
-		characterDict->setObject ( kIOPropertyReadTimeOutDurationKey, obj );
-	} 
-	
-	obj = getProperty ( kIOPropertyWriteTimeOutDurationKey );	
-	if ( obj != NULL );
-	{
-		characterDict->setObject ( kIOPropertyWriteTimeOutDurationKey, obj );
-	}
-	
-	setProperty ( kIOPropertyProtocolCharacteristicsKey, characterDict );
-	
-	characterDict->release ( );
+    
+    if ( characterDict != NULL )
+    {
+        
+        obj = getProperty ( kIOPropertyPhysicalInterconnectTypeKey );
+        if ( obj != NULL )
+        {
+            characterDict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, obj );
+        }
+        
+        obj = getProperty ( kIOPropertyPhysicalInterconnectLocationKey );
+        if ( obj != NULL )
+        {
+            characterDict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, obj );
+        }
+            
+        // Check to see if this device is internal or not. The results of this check if successful 
+        // will override location data provided in IOKit personalities. 
+        if ( IsPhysicalInterconnectLocationInternal ( ) )
+        {
+        
+            OSString *      internalString = NULL;
+            
+            
+            // As this shall be a rarity, log it. Internal devices should only be configured at 
+            // boot time so USB Logger isn't an option.
+            if ( USB_MASS_STORAGE_DEBUG == 1 ) 
+            {
+                IOLog ( "%s[%p]: Configuring INTERNAL USB storage device", getName(), this );
+            }
+            
+            internalString = OSString::withCString ( kIOPropertyInternalKey );
+            if ( internalString != NULL )
+            {
+                
+                characterDict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, internalString );
+                internalString->release ( );
+                internalString = NULL;
+                
+            }
+
+        }
+        
+        obj = getProperty ( kIOPropertyReadTimeOutDurationKey );	
+        if ( obj != NULL );
+        {
+            characterDict->setObject ( kIOPropertyReadTimeOutDurationKey, obj );
+        } 
+        
+        obj = getProperty ( kIOPropertyWriteTimeOutDurationKey );	
+        if ( obj != NULL );
+        {
+            characterDict->setObject ( kIOPropertyWriteTimeOutDurationKey, obj );
+        }
+
+        setProperty ( kIOPropertyProtocolCharacteristicsKey, characterDict );
+        characterDict->release ( );
+        characterDict = NULL;
+        
+    }
     
    	STATUS_LOG(( 6, "%s[%p]: successfully configured", getName(), this));
+
 
 #if defined (__i386__) 
 	{
@@ -407,6 +459,9 @@ IOUSBMassStorageClass::start( IOService * provider )
 	}
 #endif
 
+
+
+
 	// Device configured. We're attached.
 	fDeviceAttached = true;
 
@@ -424,18 +479,21 @@ abortStart:
 	{
 		fCBIMemoryDescriptor->complete();
 		fCBIMemoryDescriptor->release();
+        fCBIMemoryDescriptor = NULL;
 	}
 	
 	if ( fBulkOnlyCBWMemoryDescriptor != NULL )
 	{
 		fBulkOnlyCBWMemoryDescriptor->complete();
 		fBulkOnlyCBWMemoryDescriptor->release();
+        fBulkOnlyCBWMemoryDescriptor = NULL;
 	}
 	
 	if ( fBulkOnlyCSWMemoryDescriptor != NULL )
 	{
 		fBulkOnlyCSWMemoryDescriptor->complete();
 		fBulkOnlyCSWMemoryDescriptor->release();
+        fBulkOnlyCSWMemoryDescriptor = NULL;
 	}
 	
 	// Call the stop method to clean up any allocated resources.
@@ -484,28 +542,29 @@ IOUSBMassStorageClass::free ( void )
 		// to dereference it unless reserved is non-NULL.
 		if ( fClients != NULL )
 		{
-			
 			fClients->release();
 			fClients = NULL;
-			
 		}
 		
 		if ( fCBIMemoryDescriptor != NULL )
 		{
 			fCBIMemoryDescriptor->complete();
 			fCBIMemoryDescriptor->release();
+            fCBIMemoryDescriptor = NULL;
 		}
 		
 		if ( fBulkOnlyCBWMemoryDescriptor != NULL )
 		{
 			fBulkOnlyCBWMemoryDescriptor->complete();
 			fBulkOnlyCBWMemoryDescriptor->release();
+            fBulkOnlyCBWMemoryDescriptor = NULL;
 		}
 		
 		if ( fBulkOnlyCSWMemoryDescriptor != NULL )
 		{
 			fBulkOnlyCSWMemoryDescriptor->complete();
 			fBulkOnlyCSWMemoryDescriptor->release();
+            fBulkOnlyCSWMemoryDescriptor = NULL;
 		}
 		
 		IOFree ( reserved, sizeof ( ExpansionData ) );
@@ -713,9 +772,6 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
 					else if ( ( status == kIOReturnNotResponding ) && ( triedReset == false ) )
 					{
 						// The device isn't responding. Let us reset the device, and try again.
-						
-						// We need to retain ourselves so we stick around after the bus reset.
-						retain();
 				
 						// The endpoint status could not be retrieved meaning that the device has
 						// stopped responding. Or this could be a device we know needs a reset.
@@ -724,11 +780,8 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
 						STATUS_LOG(( 4, "%s[%p]: BeginProvidedServices: device not responding, reseting.", getName(), this ));
 						
 						// Reset the device on its own thread so we don't deadlock.
-						fResetInProgress = true;
-						
-						IOCreateThread( IOUSBMassStorageClass::sResetDevice, this );
-						fCommandGate->runAction ( ( IOCommandGate::Action ) &IOUSBMassStorageClass::sWaitForReset );
-						
+						ResetDeviceNow ( true );
+
 						triedReset = true;
 					}
 					else
@@ -1729,9 +1782,11 @@ IOUSBMassStorageClass::sResetDevice( void * refcon )
 	if ( ( driver->fTerminating == true ) ||
 		 ( driver->isInactive( ) == true ) )
 	{
+    
 		STATUS_LOG(( 2, "%s[%p]: sResetDevice - We are being terminated (ii) !", driver->getName(), driver ));
 
 		goto ErrorExit;
+        
 	}
 
 	// Once the device has been reset, send notification to the client so that the
@@ -1908,6 +1963,8 @@ IOUSBMassStorageClass::FinishDeviceRecovery( IOReturn status )
     {
         
         // We're being terminated. Abort the outstanding command so the system can clean up.
+		fDeviceAttached = false;
+		
         goto ErrorExit;
         
     }
@@ -1920,7 +1977,6 @@ IOUSBMassStorageClass::FinishDeviceRecovery( IOReturn status )
 		
 		STATUS_LOG(( 4, "%s[%p]: FinishDeviceRecovery reseting device on separate thread.", getName(), this ));
 		
-		fWaitingForReconfigurationMessage = true;
 		ResetDeviceNow( false );
 
 	}
@@ -2028,7 +2084,15 @@ IOUSBMassStorageClass::ResetDeviceNow( bool waitForReset )
 		
 		// Reset the device on its own thread so we don't deadlock.
 		fResetInProgress = true;
-		
+        fWaitingForReconfigurationMessage = false;
+        
+        // If we aren't going to block on the reset thread, we need to wait for the 
+        // reconfiguration message. 
+        if ( waitForReset == false ) 
+        {
+            fWaitingForReconfigurationMessage = true;
+        }
+        
 		IOCreateThread( IOUSBMassStorageClass::sResetDevice, this );
 		
 		if ( waitForReset == true )
@@ -2074,6 +2138,47 @@ Exit:
 	release();
 	
 	STATUS_LOG(( 4, "%s[%p]: AbortCurrentSCSITask Exiting", getName(), this ));
+	
+}
+
+
+//-----------------------------------------------------------------------------
+//	- IsPhysicalInterconnectLocationInternal                        [PROTECTED]
+//-----------------------------------------------------------------------------
+
+bool				
+IOUSBMassStorageClass::IsPhysicalInterconnectLocationInternal ( void )
+{
+
+	IOReturn				status				= kIOReturnError;
+	IOUSBInterface *		usbInterface		= NULL;
+	IOUSBDevice *			usbDevice			= NULL;
+	UInt32					deviceInformation	= 0;
+	bool                    internal            = false;
+    
+	
+	// We acquire our references individually to avoid panics. 
+	
+	// Get a reference to our USB interface.
+	usbInterface = GetInterfaceReference();
+	require ( ( usbInterface != NULL ), ErrorExit );
+	
+	// Get a reference to our USB device. 
+	usbDevice = usbInterface->GetDevice();
+	require ( ( usbDevice != NULL ), ErrorExit );
+	
+	status = usbDevice->GetDeviceInformation ( &deviceInformation );
+	require_success ( status, ErrorExit );
+	
+	if ( deviceInformation & ( 1 << kUSBDeviceInfoIsInternalMask ) )
+	{
+		internal = true;
+	}	
+	
+	
+ErrorExit:
+
+	return status;
 	
 }
 

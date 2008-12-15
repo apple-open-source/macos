@@ -1,7 +1,7 @@
 " These commands create the option window.
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2006 Apr 24
+" Last Change:	2008 May 12
 
 " If there already is an option window, jump to that one.
 if bufwinnr("option-window") > 0
@@ -147,7 +147,7 @@ endwhile
 
 " Open the window
 new option-window
-setlocal ts=15 tw=0
+setlocal ts=15 tw=0 noro
 
 " Insert help and a "set" command for each option.
 call append(0, '" Each "set" line shows the current value of an option (on the left).')
@@ -350,6 +350,10 @@ call append("$", "lines\tnumber of lines in the display")
 call append("$", " \tset lines=" . &lines)
 call append("$", "lazyredraw\tdon't redraw while executing macros")
 call <SID>BinOptionG("lz", &lz)
+if has("reltime")
+  call append("$", "redrawtime\ttimeout for 'hlsearch' and :match highlighting in msec")
+  call append("$", " \tset rdt=" . &rdt)
+endif
 call append("$", "writedelay\tdelay in msec for each char written to the display")
 call append("$", "\t(for debugging)")
 call append("$", " \tset wd=" . &wd)
@@ -608,7 +612,7 @@ if has("gui")
       call append("$", " \tset bexpr=" . &bexpr)
     endif
   endif
-  if exists("&macatsui")
+  if exists("+macatsui")
     call append("$", "macatsui\tuse ATSUI text drawing; disable to avoid display problems")
     call <SID>OptionG("macatsui", &macatsui)
   endif
@@ -1212,8 +1216,14 @@ call append("$", "gdefault\tuse the 'g' flag for \":substitute\"")
 call <SID>BinOptionG("gd", &gd)
 call append("$", "edcompatible\t'g' and 'c' flags of \":substitute\" toggle")
 call <SID>BinOptionG("ed", &ed)
+if exists("+opendevice")
+  call append("$", "opendevice\tallow reading/writing devices")
+  call <SID>BinOptionG("odev", &odev)
+endif
+if exists("+maxfuncdepth")
   call append("$", "maxfuncdepth\tmaximum depth of function calls")
   call append("$", " \tset mfd=" . &mfd)
+endif
 if has("mksession")
   call append("$", "sessionoptions\tlist of words that specifies what to put in a session file")
   call <SID>OptionG("ssop", &ssop)

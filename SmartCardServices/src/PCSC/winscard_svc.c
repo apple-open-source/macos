@@ -684,11 +684,15 @@ LONG MSGFunctionDemarshall(psharedSegmentMsg msgStruct, DWORD dwContextIndex, ui
 				/* one block only */
 				size_t dataSize = cteStr->pdwBytesReturned;
 				memcpy(cteStr->data, pbRecvBuffer, dataSize);
+				dataSize = dataSize + sizeof(*cteStr) - sizeof(cteStr->data);
 
 				sharedSegmentMsg tmpMsgStruct = *msgStruct;
+				dataSize = SHMCalculateMessageSize(dataSize);
+				tmpMsgStruct.msgSize = dataSize;
 				SHSharedSegmentMsgToNetworkOrder(&tmpMsgStruct);
+				cteStr = ((control_struct_extended *) tmpMsgStruct.data);
 				htonlControlStructExtended(cteStr);
-				rv = SHMMessageSend(&tmpMsgStruct, SHMCalculateMessageSize(dataSize),
+				rv = SHMMessageSend(&tmpMsgStruct, dataSize,
 					psContext[dwContextIndex].dwClientID,
 					SHMCommunicationTimeout());
 				if (rv)

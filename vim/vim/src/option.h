@@ -150,7 +150,7 @@
 #define CPO_CW		'w'	/* "cw" only changes one blank */
 #define CPO_FWRITE	'W'	/* "w!" doesn't overwrite readonly files */
 #define CPO_ESC		'x'
-#define CPO_REPLCNT	'X'	/* "R" with a count only delets chars once */
+#define CPO_REPLCNT	'X'	/* "R" with a count only deletes chars once */
 #define CPO_YANK	'y'
 #define CPO_KEEPRO	'Z'	/* don't reset 'readonly' on ":w!" */
 #define CPO_DOLLAR	'$'
@@ -620,6 +620,9 @@ EXTERN int	p_more;		/* 'more' */
 #ifdef FEAT_MZSCHEME
 EXTERN long	p_mzq;		/* 'mzquantum */
 #endif
+#if defined(MSDOS) || defined(MSWIN) || defined(OS2)
+EXTERN int	p_odev;		/* 'opendevice' */
+#endif
 EXTERN char_u	*p_opfunc;	/* 'operatorfunc' */
 EXTERN char_u	*p_para;	/* 'paragraphs' */
 EXTERN int	p_paste;	/* 'paste' */
@@ -631,6 +634,9 @@ EXTERN char_u	*p_pm;		/* 'patchmode' */
 EXTERN char_u	*p_path;	/* 'path' */
 #ifdef FEAT_SEARCHPATH
 EXTERN char_u	*p_cdpath;	/* 'cdpath' */
+#endif
+#ifdef FEAT_RELTIME
+EXTERN long	p_rdt;		/* 'redrawtime' */
 #endif
 EXTERN int	p_remap;	/* 'remap' */
 EXTERN long	p_report;	/* 'report' */
@@ -738,6 +744,14 @@ EXTERN int	p_sol;		/* 'startofline' */
 EXTERN char_u	*p_su;		/* 'suffixes' */
 EXTERN char_u	*p_sws;		/* 'swapsync' */
 EXTERN char_u	*p_swb;		/* 'switchbuf' */
+EXTERN unsigned	swb_flags;
+#ifdef IN_OPTION_C
+static char *(p_swb_values[]) = {"useopen", "usetab", "split", "newtab", NULL};
+#endif
+#define SWB_USEOPEN		0x001
+#define SWB_USETAB		0x002
+#define SWB_SPLIT		0x004
+#define SWB_NEWTAB		0x008
 EXTERN int	p_tbs;		/* 'tagbsearch' */
 EXTERN long	p_tl;		/* 'taglength' */
 EXTERN int	p_tr;		/* 'tagrelative' */

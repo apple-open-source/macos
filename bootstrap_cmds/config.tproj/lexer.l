@@ -29,7 +29,7 @@
  */
 
 #include <ctype.h>
-#include "y.tab.h"
+#include "parser.h"
 #include "config.h"
 
 #define YY_NO_UNPUT	/* suppress yyunput generation */

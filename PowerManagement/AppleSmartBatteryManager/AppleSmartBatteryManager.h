@@ -30,7 +30,7 @@
 #include "AppleSmartBatteryManagerUserClient.h"
 
 
-void BattLog(char *fmt, ...);
+void BattLog(const char *fmt, ...);
 
 class AppleSmartBattery;
 class AppleSmartBatteryManagerUserClient;

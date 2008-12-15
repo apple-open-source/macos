@@ -108,10 +108,10 @@ static int headerlen;
 static struct dinode *get_inode(fd,super,ino)
 	int fd;
 	struct fs *super;
-	ino_t ino;
+	u_int32_t ino;
 {
 	static struct dinode *ip;
-	static ino_t last;
+	static u_int32_t last;
 	
 	if (fd < 0) {		/* flush cache */
 		if (ip) {
@@ -328,7 +328,7 @@ static void uses(uid,blks,act)
 struct fsizes {
 	struct fsizes *fsz_next;
 	daddr_t fsz_first, fsz_last;
-	ino_t fsz_count[FSZCNT];
+	u_int32_t fsz_count[FSZCNT];
 	daddr_t fsz_sz[FSZCNT];
 } *fsizes;
 
@@ -350,7 +350,7 @@ static void dofsizes(fd,super,name)
 	struct fs *super;
 	char *name;
 {
-	ino_t inode, maxino;
+	u_int32_t inode, maxino;
 	struct dinode *ip;
 	daddr_t sz, ksz;
 	struct fsizes *fp, **fsp;
@@ -428,7 +428,7 @@ static void douser(fd,super,name)
 	struct fs *super;
 	char *name;
 {
-	ino_t inode, maxino;
+	u_int32_t inode, maxino;
 	struct user *usr, *usrs;
 	struct dinode *ip;
 	register int n;
@@ -474,8 +474,8 @@ static void donames(fd,super,name)
 	char *name;
 {
 	int c;
-	ino_t inode, inode1;
-	ino_t maxino;
+	u_int32_t inode, inode1;
+	u_int32_t maxino;
 	struct dinode *ip;
 	
 	maxino = super->fs_ncg * super->fs_ipg - 1;

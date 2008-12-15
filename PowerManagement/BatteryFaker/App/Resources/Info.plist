@@ -15,13 +15,13 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleShortVersionString</key>
-	<string>143.1.0</string>
+	<string>158.2.0</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>143.1.0</string>
+	<string>158.2.0</string>
 	<key>NSMainNibFile</key>
 	<string>TwoBatteryUI</string>
 	<key>NSPrincipalClass</key>

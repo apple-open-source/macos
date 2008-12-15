@@ -142,7 +142,8 @@ $(ConfigStamp):
 ifneq ($(GnuNoConfigure),YES)
 	@echo "Configuring $(Project)..."
 	$(_v) $(MKDIR) $(BuildDirectory)
-	$(_v) cd $(BuildDirectory) && $(Environment) $(Configure) $(Configure_Flags)
+# Disable LD_TRACE_FILE during configure
+	$(_v) cd $(BuildDirectory) && $(Environment) LD_TRACE_FILE=/dev/null $(Configure) $(Configure_Flags)
 endif
 	$(_v) touch $@
 

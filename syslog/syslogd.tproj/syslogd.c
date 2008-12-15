@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,11 +49,8 @@
 #define SERVER_STATUS_ON_DEMAND 2
 
 #define DEFAULT_MARK_SEC 0
-#define DEFAULT_SWEEP_SEC 3600
-#define DEFAULT_FIRST_SWEEP_SEC 300
 #define DEFAULT_UTMP_TTL_SEC 31622400
 #define DEFAULT_FS_TTL_SEC 31622400
-#define DEFAULT_TTL_SEC 86400
 #define DEFAULT_BSD_MAX_DUP_SEC 30
 #define BILLION 1000000000
 
@@ -65,46 +62,18 @@
 #define forever for(;;)
 
 static int reset = 0;
-static double mach_time_factor = 1.0;
-
-static TAILQ_HEAD(ml, module_list) Moduleq;
-
-/* global */
-int asl_log_filter = ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE);
-int archive_enable = 0;
-int restart = 0;
-int debug = 0;
-mach_port_t server_port = MACH_PORT_NULL;
-launch_data_t launch_dict;
-const char *debug_file = NULL;
+static uint64_t time_start = 0;
+static uint64_t mark_last = 0;
+static uint64_t mark_time = 0;
+static uint64_t time_last = 0;
 
 extern int __notify_78945668_info__;
 extern int _malloc_no_asl_log;
 
-/* monitor the database */
-uint64_t db_max_size = 25600000;
-uint64_t db_curr_size = 0;
-uint64_t db_shrink_size;
-uint64_t db_curr_empty = 0;
-uint64_t db_max_empty;
+static TAILQ_HEAD(ml, module_list) Moduleq;
 
-/* kernel log fd */
-extern int kfd;
-
-/* timers */
-uint64_t time_last = 0;
-uint64_t time_start = 0;
-uint64_t mark_last = 0;
-uint64_t mark_time = 0;
-uint64_t sweep_last = 0;
-uint64_t sweep_time = DEFAULT_SWEEP_SEC;
-uint64_t first_sweep_delay = DEFAULT_FIRST_SWEEP_SEC;
-uint64_t bsd_flush_time = 0;
-uint64_t bsd_max_dup_time = DEFAULT_BSD_MAX_DUP_SEC;
-
-time_t utmp_ttl = DEFAULT_UTMP_TTL_SEC;
-time_t fs_ttl = DEFAULT_FS_TTL_SEC;
-time_t ttl = DEFAULT_TTL_SEC;
+/* global */
+struct global_s global;
 
 /* Static Modules */
 int asl_in_init();
@@ -132,6 +101,11 @@ int bsd_out_reset();
 int bsd_out_close();
 static int activate_bsd_out = 1;
 
+int remote_init();
+int remote_reset();
+int remote_close();
+static int activate_remote = 0;
+
 int udp_in_init();
 int udp_in_reset();
 int udp_in_close();
@@ -140,7 +114,7 @@ static int activate_udp_in = 1;
 extern void database_server();
 extern void db_worker();
 extern void launchd_drain();
-extern void bsd_flush_duplicates();
+extern void bsd_flush_duplicates(time_t now);
 
 /*
  * Module approach: only one type of module.  This module may implement
@@ -253,6 +227,25 @@ static_modules()
 		tmp->init = bsd_out_init;
 		tmp->reset = bsd_out_reset;
 		tmp->close = bsd_out_close;
+		TAILQ_INSERT_TAIL(&Moduleq, tmp, entries);
+	}
+
+	if (activate_remote != 0)
+	{
+		tmp = calloc(1, sizeof(struct module_list));
+		if (tmp == NULL) return 1;
+
+		tmp->name = strdup("remote");
+		if (tmp->name == NULL)
+		{
+			free(tmp);
+			return 1;
+		}
+
+		tmp->module = NULL;
+		tmp->init = remote_init;
+		tmp->reset = remote_reset;
+		tmp->close = remote_close;
 		TAILQ_INSERT_TAIL(&Moduleq, tmp, entries);
 	}
 
@@ -399,15 +392,10 @@ send_reset(void)
 static void
 timed_events(struct timeval **run)
 {
-	uint64_t nanonow, now, delta, t;
+	uint64_t now, delta, t;
 	static struct timeval next;
-	double d;
 
-	nanonow = mach_absolute_time();
-	d = nanonow;
-	d = d * mach_time_factor;
-	nanonow = d;
-	now = nanonow / 1000000000;
+	now = time(NULL);
 
 	*run = NULL;
 	next.tv_sec = 0;
@@ -419,9 +407,6 @@ timed_events(struct timeval **run)
 		time_start = now;
 		time_last = now;
 		mark_last = now;
-
-		/* fake sweep_last so that we plan to run first_sweep_delay seconds after startup */
-		sweep_last = (now - sweep_time) + first_sweep_delay;
 	}
 
 	/*
@@ -443,57 +428,32 @@ timed_events(struct timeval **run)
 		 * Reset "last" times to current time.
 		 */
 		time_last = now;
-		sweep_last = now;
 		mark_last = now;
-	}
-
-	/*
-	 * Run database archiver.
-	 */
-	if (sweep_time > 0)
-	{
-		delta = now - sweep_last;
-		if (delta >= sweep_time)
-		{
-			db_archive(time(NULL) - ttl, db_shrink_size);
-			sweep_last = now;
-			t = sweep_time;
-		}
-		else
-		{
-			t = sweep_time - delta;
-		}
-
-		if (next.tv_sec == 0) next.tv_sec = t;
-		else if (t < next.tv_sec) next.tv_sec = t;
-	}
-
-	/*
-	 * Shrink the database if it's too large.
-	 */
-	if (db_curr_size > db_max_size)
-	{
-		db_archive(time(NULL) - ttl, db_shrink_size);
-	}
-
-	/*
-	 * Compact the database if there are too many empty slots.
-	 */
-	if (db_curr_empty > db_max_empty)
-	{
-		db_compact();
 	}
 
 	/*
 	 * Tickle bsd_out module to flush duplicates.
 	 */
-	if (bsd_flush_time > 0)
+	if (global.bsd_flush_time > 0)
 	{
-		bsd_flush_duplicates();
-		if (bsd_flush_time > 0)
+		bsd_flush_duplicates(now);
+		if (global.bsd_flush_time > 0)
 		{
-			if (next.tv_sec == 0) next.tv_sec = bsd_flush_time;
-			else if (bsd_flush_time < next.tv_sec) next.tv_sec = bsd_flush_time;
+			if (next.tv_sec == 0) next.tv_sec = global.bsd_flush_time;
+			else if (global.bsd_flush_time < next.tv_sec) next.tv_sec = global.bsd_flush_time;
+		}
+	}
+
+	/*
+	 * Tickle asl_store
+	 */
+	if (global.asl_store_ping_time > 0)
+	{
+		db_ping_store(now);
+		if (global.asl_store_ping_time > 0)
+		{
+			if (next.tv_sec == 0) next.tv_sec = global.asl_store_ping_time;
+			else if (global.asl_store_ping_time < next.tv_sec) next.tv_sec = global.asl_store_ping_time;
 		}
 	}
 
@@ -533,16 +493,16 @@ init_config()
 	kern_return_t status;
 
 	tmp = launch_data_new_string(LAUNCH_KEY_CHECKIN);
-	launch_dict = launch_msg(tmp);
+	global.launch_dict = launch_msg(tmp);
 	launch_data_free(tmp);
 
-	if (launch_dict == NULL)
+	if (global.launch_dict == NULL)
 	{
 		fprintf(stderr, "%d launchd checkin failed\n", getpid());
 		exit(1);
 	}
 
-	tmp = launch_data_dict_lookup(launch_dict, LAUNCH_JOBKEY_MACHSERVICES);
+	tmp = launch_data_dict_lookup(global.launch_dict, LAUNCH_JOBKEY_MACHSERVICES);
 	if (tmp == NULL)
 	{
 		fprintf(stderr, "%d launchd lookup of LAUNCH_JOBKEY_MACHSERVICES failed\n", getpid());
@@ -556,9 +516,9 @@ init_config()
 		exit(1);
 	}
 
-	server_port = launch_data_get_machport(pdict);
+	global.server_port = launch_data_get_machport(pdict);
 
-	status = mach_port_insert_right(mach_task_self(), server_port, server_port, MACH_MSG_TYPE_MAKE_SEND);
+	status = mach_port_insert_right(mach_task_self(), global.server_port, global.server_port, MACH_MSG_TYPE_MAKE_SEND);
 	if (status != KERN_SUCCESS) fprintf(stderr, "Warning! Can't make send right for server_port: %x\n", status);
 }
 
@@ -573,39 +533,107 @@ main(int argc, const char *argv[])
 	pthread_attr_t attr;
 	pthread_t t;
 	int nctoken;
-	mach_timebase_info_data_t info;
-	double mtn, mtd;
 	char tstr[32];
 	time_t now;
 
+	memset(&global, 0, sizeof(struct global_s));
+
+	global.asl_log_filter = ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE);
+	global.db_file_max = 16384000;
+	global.db_memory_max = 8192;
+	global.db_mini_max = 256;
+	global.bsd_max_dup_time = DEFAULT_BSD_MAX_DUP_SEC;
+	global.utmp_ttl = DEFAULT_UTMP_TTL_SEC;
+	global.fs_ttl = DEFAULT_FS_TTL_SEC;
+	global.kfd = -1;
+
+#ifdef CONFIG_MAC
+	global.dbtype = DB_TYPE_FILE;
+	global.db_file_max = 25600000;
+	global.asl_store_ping_time = 150;
+#endif
+	
+#ifdef CONFIG_APPLETV
+	global.dbtype = DB_TYPE_FILE;
+	global.db_file_max = 10240000;
+#endif
+
+#ifdef CONFIG_IPHONE
+	global.dbtype = DB_TYPE_MINI;
+	activate_remote = 1;
+	activate_bsd_out = 0;
+#endif
+	
 	mp = _PATH_MODULE_LIB;
 	daemonize = 0;
 	__notify_78945668_info__ = -1;
-	_malloc_no_asl_log = 1; /* prevent malloc from calling ASL on error */
-	kfd = -1;
 	zto.tv_sec = 0;
 	zto.tv_usec = 0;
 	FD_ZERO(&kern);
-	debug_file = NULL;
 
-	memset(&info, 0, sizeof(mach_timebase_info_data_t));
-	mach_timebase_info(&info);
+	/* prevent malloc from calling ASL on error */
+	_malloc_no_asl_log = 1;
 
-	mtn = info.numer;
-	mtd = info.denom;
-	mach_time_factor = mtn / mtd;
+	/* first pass sets up default configurations */
+	for (i = 1; i < argc; i++)
+	{
+		if (streq(argv[i], "-config"))
+		{
+			if (((i + 1) < argc) && (argv[i+1][0] != '-'))
+			{
+				i++;
+				if (streq(argv[i], "mac"))
+				{
+					global.dbtype = DB_TYPE_FILE;
+					global.db_file_max = 25600000;
+				}
+				else if (streq(argv[i], "appletv"))
+				{
+					global.dbtype = DB_TYPE_FILE;
+					global.db_file_max = 10240000;
+				}
+				else if (streq(argv[i], "iphone"))
+				{
+					global.dbtype = DB_TYPE_MINI;
+					activate_remote = 1;
+				}
+			}
+		}
+	}
 
 	for (i = 1; i < argc; i++)
 	{
 		if (streq(argv[i], "-d"))
 		{
-			debug = 1;
-			if (((i+1) < argc) && (argv[i+1][0] != '-')) debug_file = argv[++i];
+			global.debug = 1;
+			if (((i+1) < argc) && (argv[i+1][0] != '-')) global.debug_file = argv[++i];
 			memset(tstr, 0, sizeof(tstr));
 			now = time(NULL);
 			ctime_r(&now, tstr);
 			tstr[19] = '\0';
 			asldebug("%s syslogd[%d]: Start\n", tstr, getpid());
+		}
+		else if (streq(argv[i], "-db"))
+		{
+			if (((i + 1) < argc) && (argv[i+1][0] != '-'))
+			{
+				i++;
+				if (streq(argv[i], "file"))
+				{
+					global.dbtype |= DB_TYPE_FILE;
+					if (((i + 1) < argc) && (argv[i+1][0] != '-')) global.db_file_max = atol(argv[++i]);
+				}
+				else if (streq(argv[i], "memory"))
+				{
+					global.dbtype |= DB_TYPE_MEMORY;
+					if (((i + 1) < argc) && (argv[i+1][0] != '-')) global.db_memory_max = atol(argv[++i]);
+				}
+				else if (streq(argv[i], "mini"))
+				{
+					global.dbtype |= DB_TYPE_MINI;
+					if (((i + 1) < argc) && (argv[i+1][0] != '-')) global.db_mini_max = atol(argv[++i]);
+				}
+			}
 		}
 		else if (streq(argv[i], "-D"))
 		{
@@ -617,11 +645,11 @@ main(int argc, const char *argv[])
 		}
 		else if (streq(argv[i], "-utmp_ttl"))
 		{
-			if ((i + 1) < argc) utmp_ttl = atol(argv[++i]);
+			if ((i + 1) < argc) global.utmp_ttl = atol(argv[++i]);
 		}
 		else if (streq(argv[i], "-fs_ttl"))
 		{
-			if ((i + 1) < argc) fs_ttl = atol(argv[++i]);
+			if ((i + 1) < argc) global.fs_ttl = atol(argv[++i]);
 		}
 		else if (streq(argv[i], "-l"))
 		{
@@ -632,28 +660,12 @@ main(int argc, const char *argv[])
 			if ((i + 1) < argc)
 			{
 				i++;
-				if ((argv[i][0] >= '0') && (argv[i][0] <= '7') && (argv[i][1] == '\0')) asl_log_filter = ASL_FILTER_MASK_UPTO(atoi(argv[i]));
+				if ((argv[i][0] >= '0') && (argv[i][0] <= '7') && (argv[i][1] == '\0')) global.asl_log_filter = ASL_FILTER_MASK_UPTO(atoi(argv[i]));
 			}
-		}
-		else if (streq(argv[i], "-a"))
-		{
-			archive_enable = 1;
-		}
-		else if (streq(argv[i], "-sweep"))
-		{
-			if ((i + 1) < argc) sweep_time = atoll(argv[++i]);
 		}
 		else if (streq(argv[i], "-dup_delay"))
 		{
-			if ((i + 1) < argc) bsd_max_dup_time = atoll(argv[++i]);
-		}
-		else if (streq(argv[i], "-ttl"))
-		{
-			if ((i + 1) < argc) ttl = atol(argv[++i]);
-		}
-		else if (streq(argv[i], "-db_max"))
-		{
-			if ((i + 1) < argc) db_max_size = atoll(argv[++i]);
+			if ((i + 1) < argc) global.bsd_max_dup_time = atoll(argv[++i]);
 		}
 		else if (streq(argv[i], "-asl_in"))
 		{
@@ -675,21 +687,24 @@ main(int argc, const char *argv[])
 		{
 			if ((i + 1) < argc) activate_bsd_out = atoi(argv[++i]);
 		}
+		else if (streq(argv[i], "-remote"))
+		{
+			if ((i + 1) < argc) activate_remote = atoi(argv[++i]);
+		}
 		else if (streq(argv[i], "-udp_in"))
 		{
 			if ((i + 1) < argc) activate_udp_in = atoi(argv[++i]);
 		}
 	}
 
-	db_max_empty = db_max_size / 8;
-	db_shrink_size = db_max_size - (db_max_size / 8);
+	if (global.dbtype == 0) global.dbtype = DB_TYPE_FILE;
 
 	TAILQ_INIT(&Moduleq);
 	static_modules();
 	load_modules(mp);
 	aslevent_init();
 
-	if (debug == 0)
+	if (global.debug == 0)
 	{
 		if (daemonize != 0)
 		{
@@ -738,9 +753,9 @@ main(int argc, const char *argv[])
 	/*
 	 * drain /dev/klog first
 	 */
-	if (kfd >= 0)
+	if (global.kfd >= 0)
 	{
-		max = kfd + 1;
+		max = global.kfd + 1;
 		while (select(max, &kern, NULL, NULL, &zto) > 0)
 		{
 			aslevent_handleevent(&kern, &wr, &ex);
@@ -763,10 +778,10 @@ main(int argc, const char *argv[])
 		max = aslevent_fdsets(&rd, &wr, &ex) + 1;
 
 		status = select(max, &rd, &wr, &ex, runloop_timer);
-		if ((kfd >= 0) && FD_ISSET(kfd, &rd))
+		if ((global.kfd >= 0) && FD_ISSET(global.kfd, &rd))
 		{
 			/*  drain /dev/klog */
-			max = kfd + 1;
+			max = global.kfd + 1;
 
 			while (select(max, &kern, NULL, NULL, &zto) > 0)
 			{

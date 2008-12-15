@@ -299,6 +299,25 @@ public:
 
     virtual IOReturn synchronizeCache(IOService * client);
 
+    /*!
+     * @function discard
+     * @discussion
+     * Delete unused data from the storage object at the specified byte offset,
+     * synchronously.
+     * @param client
+     * Client requesting the operation.
+     * @param byteStart
+     * Starting byte offset for the operation.
+     * @param byteCount
+     * Size of the operation.
+     * @result
+     * Returns the status of the operation.
+     */
+
+    virtual IOReturn discard(IOService * client,
+                             UInt64      byteStart,
+                             UInt64      byteCount);
+
     /*
      * Obtain this object's provider.  We override the superclass's method
      * to return a more specific subclass of OSObject -- an IOMedia.  This

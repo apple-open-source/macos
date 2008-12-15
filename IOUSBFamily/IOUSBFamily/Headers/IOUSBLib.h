@@ -321,7 +321,7 @@ __BEGIN_DECLS
 
 // 396104F7-943D-4893-90F1-69BD6CF5C2EB
 /*!
-@defined kIOUSBDeviceInterfaceID300
+ @defined kIOUSBDeviceInterfaceID300
  @discussion This UUID constant is used to obtain a device interface corresponding to 
  an IOUSBDevice user client in the kernel. The type of this device interface is 
  IOUSBDeviceInterface300. This device interface is obtained after the device interface for 
@@ -329,9 +329,9 @@ __BEGIN_DECLS
  
  <b>Note:</b> The IOUSBDeviceInterface300 is returned only by version 3.0.0 or above of the 
  IOUSBFamily. This version of IOUSBFamily shipped with Mac OS X version 10.5. If your software 
-    is running on an earlier version of Mac OS X you will need to use UUID kIOUSBDeviceInterfaceID, 
-    kIOUSBDeviceInterfaceID182, kIOUSBDeviceInterfaceID187, kIOUSBDeviceInterfaceID197, or kIOUSBDeviceInterfaceID245 
-	and you will not have access to some functions.
+ is running on an earlier version of Mac OS X you will need to use UUID kIOUSBDeviceInterfaceID, 
+ kIOUSBDeviceInterfaceID182, kIOUSBDeviceInterfaceID187, kIOUSBDeviceInterfaceID197, or kIOUSBDeviceInterfaceID245 
+ and you will not have access to some functions.
  
  Example:
  <pre>
@@ -342,15 +342,49 @@ __BEGIN_DECLS
  IOReturn                    err;
  
  err = (*iodev)->QueryInterface(iodev,
-                                CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID300),
-                                (LPVoid)&dev);
+ CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID300),
+ (LPVoid)&dev);
  @/textblock
  </pre>
  */
 
 #define kIOUSBDeviceInterfaceID300 CFUUIDGetConstantUUIDWithBytes(NULL, \
-   0x39, 0x61, 0x04, 0xF7, 0x94, 0x3D, 0x48, 0x93, 			\
-   0x90, 0xF1, 0x69, 0xBD, 0x6C, 0xF5, 0xC2, 0xEB)
+0x39, 0x61, 0x04, 0xF7, 0x94, 0x3D, 0x48, 0x93, 			\
+0x90, 0xF1, 0x69, 0xBD, 0x6C, 0xF5, 0xC2, 0xEB)
+
+
+// 01A2D0E9-42F6-4A87-8B8B-77057C8CE0CE
+/*!
+ @defined kIOUSBDeviceInterfaceID320
+ @discussion This UUID constant is used to obtain a device interface corresponding to 
+ an IOUSBDevice user client in the kernel. The type of this device interface is 
+ IOUSBDeviceInterface320. This device interface is obtained after the device interface for 
+ the service itself has been obtained.
+ 
+ <b>Note:</b> The IOUSBDeviceInterface320 is returned only by version 3.2.0 or above of the 
+ IOUSBFamily. This version of IOUSBFamily shipped with Mac OS X version 10.5.4 If your software 
+ is running on an earlier version of Mac OS X you will need to use UUID kIOUSBDeviceInterfaceID, 
+ kIOUSBDeviceInterfaceID182, kIOUSBDeviceInterfaceID187, kIOUSBDeviceInterfaceID197, kIOUSBDeviceInterfaceID245, 
+ or kIOUSBDeviceInterfaceID300  and you will not have access to some functions.
+ 
+ Example:
+ <pre>
+ @textblock
+ IOCFPluginInterface		**iodev; 	// obtained earlier
+ 
+ IOUSBDeviceInterface300	**dev;		// fetching this now
+ IOReturn                    err;
+ 
+ err = (*iodev)->QueryInterface(iodev,
+ CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID300),
+ (LPVoid)&dev);
+ @/textblock
+ </pre>
+ */
+
+#define kIOUSBDeviceInterfaceID320 CFUUIDGetConstantUUIDWithBytes(kCFAllocatorSystemDefault,	\
+0x01, 0xA2, 0xD0, 0xE9, 0x42, 0xF6, 0x4A, 0x87,													\
+0x8B, 0x8B, 0x77, 0x05, 0x7C, 0x8C, 0xE0, 0xCE)
 
 
 // 4923AC4C-4896-11D5-9208-000A27801E86
@@ -1284,14 +1318,14 @@ typedef struct IOUSBDeviceStruct245 {
 
 
 
-	/*!
-	@interface IOUSBDeviceInterface300
-	@abstract   The object you use to access USB devices from user space, returned by the IOUSBFamily version 3.0.0 and above.
-	@discussion The functions listed here include all of the functions defined for the IOUSBDeviceInterface,
-	IOUSBDeviceInterface182, IOUSBDeviceInterface187, IOUSBDeviceInterface197, IOUSBDeviceInterface245, 
-	and some new functions that are available on Mac OS X version 10.5 and later.
-	@super IOUSBDeviceInterface245
-	*/
+/*!
+ @interface IOUSBDeviceInterface300
+ @abstract   The object you use to access USB devices from user space, returned by the IOUSBFamily version 3.0.0 and above.
+ @discussion The functions listed here include all of the functions defined for the IOUSBDeviceInterface,
+ IOUSBDeviceInterface182, IOUSBDeviceInterface187, IOUSBDeviceInterface197, IOUSBDeviceInterface245, 
+ and some new functions that are available on Mac OS X version 10.5 and later.
+ @super IOUSBDeviceInterface245
+ */
 
 
 typedef struct IOUSBDeviceStruct300 {
@@ -1332,20 +1366,120 @@ typedef struct IOUSBDeviceStruct300 {
     IOReturn (*USBDeviceReEnumerate)(void *self, UInt32 options);
     IOReturn (*GetBusMicroFrameNumber)(void *self, UInt64 *microFrame, AbsoluteTime *atTime);
     IOReturn (*GetIOUSBLibVersion)(void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
-
+	
     /*!
-    @function GetBusFrameNumberWithTime
-    @abstract   Gets a recent frame number of the bus to which the device is attached, along with a system time corresponding to the start of that frame
-    @discussion The device does not have to be open to use this function.
-    @availability This function is only available with IOUSBDeviceInterface300 and above.
-    @param      self Pointer to the IOUSBDeviceInterface.
-    @param      frame Pointer to UInt64 to hold the frame number.
-    @param      atTime Pointer to a returned AbsoluteTime, which is the system time ("wall time") as close as possible to the beginning of that USB frame. The jitter on this value may be as much as 200 microseconds.
-	@result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or kIOReturnUnsupported is the bus doesn't support this function.
-	*/
-
+	 @function GetBusFrameNumberWithTime
+	 @abstract   Gets a recent frame number of the bus to which the device is attached, along with a system time corresponding to the start of that frame
+	 @discussion The device does not have to be open to use this function.
+	 @availability This function is only available with IOUSBDeviceInterface300 and above.
+	 @param      self Pointer to the IOUSBDeviceInterface.
+	 @param      frame Pointer to UInt64 to hold the frame number.
+	 @param      atTime Pointer to a returned AbsoluteTime, which is the system time ("wall time") as close as possible to the beginning of that USB frame. The jitter on this value may be as much as 200 microseconds.
+	 @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or kIOReturnUnsupported is the bus doesn't support this function.
+	 */
+	
     IOReturn (*GetBusFrameNumberWithTime)(void *self, UInt64 *frame, AbsoluteTime *atTime);
 } IOUSBDeviceInterface300;
+
+/*!
+ @interface IOUSBDeviceInterface320
+ @abstract   The object you use to access USB devices from user space, returned by the IOUSBFamily version 3.2.0 and above.
+ @discussion The functions listed here include all of the functions defined for the IOUSBDeviceInterface,
+ IOUSBDeviceInterface182, IOUSBDeviceInterface187, IOUSBDeviceInterface197, IOUSBDeviceInterface245, or IOUSBDeviceInterface300
+ and some new functions that are available on Mac OS X version 10.5.4 and later.
+ @super IOUSBDeviceInterface300
+ */
+
+
+typedef struct IOUSBDeviceStruct320 {
+    IUNKNOWN_C_GUTS;
+    IOReturn (*CreateDeviceAsyncEventSource)(void *self, CFRunLoopSourceRef *source);
+    CFRunLoopSourceRef (*GetDeviceAsyncEventSource)(void *self);
+    IOReturn (*CreateDeviceAsyncPort)(void *self, mach_port_t *port);
+    mach_port_t (*GetDeviceAsyncPort)(void *self);
+    IOReturn (*USBDeviceOpen)(void *self);
+    IOReturn (*USBDeviceClose)(void *self);
+    IOReturn (*GetDeviceClass)(void *self, UInt8 *devClass);
+    IOReturn (*GetDeviceSubClass)(void *self, UInt8 *devSubClass);
+    IOReturn (*GetDeviceProtocol)(void *self, UInt8 *devProtocol);
+    IOReturn (*GetDeviceVendor)(void *self, UInt16 *devVendor);
+    IOReturn (*GetDeviceProduct)(void *self, UInt16 *devProduct);
+    IOReturn (*GetDeviceReleaseNumber)(void *self, UInt16 *devRelNum);
+    IOReturn (*GetDeviceAddress)(void *self, USBDeviceAddress *addr);
+    IOReturn (*GetDeviceBusPowerAvailable)(void *self, UInt32 *powerAvailable);
+    IOReturn (*GetDeviceSpeed)(void *self, UInt8 *devSpeed);
+    IOReturn (*GetNumberOfConfigurations)(void *self, UInt8 *numConfig);
+    IOReturn (*GetLocationID)(void *self, UInt32 *locationID);
+    IOReturn (*GetConfigurationDescriptorPtr)(void *self, UInt8 configIndex, IOUSBConfigurationDescriptorPtr *desc);
+    IOReturn (*GetConfiguration)(void *self, UInt8 *configNum);
+    IOReturn (*SetConfiguration)(void *self, UInt8 configNum);
+    IOReturn (*GetBusFrameNumber)(void *self, UInt64 *frame, AbsoluteTime *atTime);
+    IOReturn (*ResetDevice)(void *self);
+    IOReturn (*DeviceRequest)(void *self, IOUSBDevRequest *req);
+    IOReturn (*DeviceRequestAsync)(void *self, IOUSBDevRequest *req, IOAsyncCallback1 callback, void *refCon);
+    IOReturn (*CreateInterfaceIterator)(void *self, IOUSBFindInterfaceRequest *req, io_iterator_t *iter);
+    IOReturn (*USBDeviceOpenSeize)(void *self);
+    IOReturn (*DeviceRequestTO)(void *self, IOUSBDevRequestTO *req);
+    IOReturn (*DeviceRequestAsyncTO)(void *self, IOUSBDevRequestTO *req, IOAsyncCallback1 callback, void *refCon);
+    IOReturn (*USBDeviceSuspend)(void *self, Boolean suspend);
+    IOReturn (*USBDeviceAbortPipeZero)(void *self);
+    IOReturn (*USBGetManufacturerStringIndex)(void *self, UInt8 *msi);
+    IOReturn (*USBGetProductStringIndex)(void *self, UInt8 *psi);
+    IOReturn (*USBGetSerialNumberStringIndex)(void *self, UInt8 *snsi);
+    IOReturn (*USBDeviceReEnumerate)(void *self, UInt32 options);
+    IOReturn (*GetBusMicroFrameNumber)(void *self, UInt64 *microFrame, AbsoluteTime *atTime);
+    IOReturn (*GetIOUSBLibVersion)(void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
+    IOReturn (*GetBusFrameNumberWithTime)(void *self, UInt64 *frame, AbsoluteTime *atTime);
+	
+    /*!
+	 @function GetUSBDeviceInformation
+	 @abstract 	Returns status information about the USB device, such as whether the device is captive or whether it is in the suspended state.
+	 @discussion The device does not have to be open to use this function.
+	 @availability This function is only available with IOUSBDeviceInterface320 and above.
+	 @param      self Pointer to the IOUSBDeviceInterface.
+	 @param requestedPower 	The desired amount of power that the client wishes to reserve
+	 @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or kIOReturnUnsupported is the bus doesn't support this function.
+	 */
+    IOReturn (*GetUSBDeviceInformation)(void *self, UInt32 *info);
+
+	/*!
+	 @function RequestExtraPower
+	 @abstract				Clients can use this API to reserve extra power for use by this device while the machine is asleep or while it is awake.  Units are milliAmps (mA).
+	 @discussion			The device has to be open to use this function.
+	 @availability			This function is only available with IOUSBDeviceInterface320 and above.
+	 @param self			Pointer to the IOUSBDeviceInterface.
+	 @param type			Indicates whether the power is to be used during wake or sleep (One of kUSBPowerDuringSleep or kUSBPowerDuringWake)
+	 @param requestedPower 	Amount of power desired, in mA
+	 @param powerAvailable 	Amount of power that was reserved, in mA
+	 @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or kIOReturnUnsupported is the bus doesn't support this function.
+	 */
+	IOReturn (*RequestExtraPower)(void *self, UInt32 type, UInt32 requestedPower, UInt32 *powerAvailable);
+
+	/*!
+	 @function ReturnExtraPower
+	 @abstract				Clients can use this API to tell the system that they will not use power that was previously reserved by using the RequestExtraPower API.
+	 @discussion			The device has to be open to use this function.
+	 @availability			This function is only available with IOUSBDeviceInterface320 and above.
+	 @param      self		Pointer to the IOUSBDeviceInterface.
+	 @param type			Indicates whether the power is to be used during wake or sleep (One of kUSBPowerDuringSleep or kUSBPowerDuringWake)
+	 @param powerReturned 	Amount of power to be returned, in mA.
+	 @result				If the returnedPower was not previously allocated, an error will be returned.  This will include the case for power that was requested for sleep but was returned for wake. Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
+	 */
+	IOReturn (*ReturnExtraPower)(void *self, UInt32 type, UInt32 powerReturned);
+	
+	/*!
+	 @function GetExtraPowerAllocated
+	 @abstract				Clients can use this API to ask how much extra power has already been reserved by this device.  Units are milliAmps (mA).
+	 @discussion			The device has to be open to use this function.
+	 @availability			This function is only available with IOUSBDeviceInterface320 and above.
+	 @param      self		Pointer to the IOUSBDeviceInterface.
+	 @param type			Indicates whether the allocated power was to be used during wake or sleep (One of kUSBPowerDuringSleep or kUSBPowerDuringWake)
+	 @param powerAllocated 	Amount of power to be returned, in mA.
+	 @result				Value returned can be 0 if no power has been allocated. Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService.
+	 */
+	IOReturn (*GetExtraPowerAllocated)(void *self, UInt32 type, UInt32 *powerAllocated);
+	
+} IOUSBDeviceInterface320;
 
 
 

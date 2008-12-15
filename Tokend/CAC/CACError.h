@@ -44,6 +44,7 @@ class CACError : public Tokend::SCardError
 {
 protected:
     CACError(uint16_t sw);
+	virtual ~CACError() throw ();
 public:
 	OSStatus osStatus() const;
 	virtual const char *what () const throw ();

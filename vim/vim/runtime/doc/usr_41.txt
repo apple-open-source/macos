@@ -1,4 +1,4 @@
-*usr_41.txt*	For Vim version 7.0.  Last change: 2006 Apr 30
+*usr_41.txt*	For Vim version 7.2.  Last change: 2008 Jun 21
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -579,9 +579,12 @@ the function name to jump to detailed help on it.
 String manipulation:
 	nr2char()		get a character by its ASCII value
 	char2nr()		get ASCII value of a character
-	str2nr()		convert a string to a number
+	str2nr()		convert a string to a Number
+	str2float()		convert a string to a Float
 	printf()		format a string according to % items
 	escape()		escape characters in a string with a '\'
+	shellescape()		escape a string for use with a shell command
+	fnameescape()		escape a file name for use with a Vim command
 	tr()			translate characters from one set to another
 	strtrans()		translate a string to make it printable
 	tolower()		turn a string to lowercase
@@ -646,6 +649,20 @@ Dictionary manipulation:
 	min()			minimum value in a Dictionary
 	count()			count number of times a value appears
 
+Floating point computation:
+	float2nr()		convert Float to Number
+	abs()			absolute value (also works for Number)
+	round()			round off
+	ceil()			round up
+	floor()			round down
+	trunc()			remove value after decimal point
+	log10()			logarithm to base 10
+	pow()			value of x to the exponent y
+	sqrt()			square root
+	sin()			sine
+	cos()			cosine
+	atan()			arc tangent
+
 Variables:
 	type()			type of a variable
 	islocked()		check if a variable is locked
@@ -703,6 +720,7 @@ System functions and manipulation of files:
 	isdirectory()		check if a directory exists
 	getfsize()		get the size of a file
 	getcwd()		get the current working directory
+	haslocaldir()		check if current window used |:lcd|
 	tempname()		get the name of a temporary file
 	mkdir()			create a new directory
 	delete()		delete a file
@@ -762,13 +780,22 @@ Folding:
 	foldtextresult()	get the text displayed for a closed fold
 
 Syntax and highlighting:
+	clearmatches()		clear all matches defined by |matchadd()| and
+				the |:match| commands
+	getmatches()		get all matches defined by |matchadd()| and
+				the |:match| commands
 	hlexists()		check if a highlight group exists
 	hlID()			get ID of a highlight group
 	synID()			get syntax ID at a specific position
 	synIDattr()		get a specific attribute of a syntax ID
 	synIDtrans()		get translated syntax ID
 	diff_hlID()		get highlight ID for diff mode at a position
+	matchadd()		define a pattern to highlight (a "match")
 	matcharg()		get info about |:match| arguments
+	matchdelete()		delete a match defined by |matchadd()| or a
+				|:match| command
+	setmatches()		restore a list of matches saved by
+				|getmatches()|
 
 Spelling:
 	spellbadword()		locate badly spelled word at or after cursor
@@ -787,6 +814,7 @@ Interactive:
 	confirm()		let the user make a choice
 	getchar()		get a character from the user
 	getcharmod()		get modifiers for the last typed character
+	feedkeys()		put characters in the typeahead queue
 	input()			get a line from the user
 	inputlist()		let the user pick an entry from a list
 	inputsecret()		get a line from the user without showing it
@@ -828,6 +856,7 @@ Various:
 	cscope_connection()	check if a cscope connection exists
 	did_filetype()		check if a FileType autocommand was used
 	eventhandler()		check if invoked by an event handler
+	getpid()		get process ID of Vim
 
 	libcall()		call a function in an external library
 	libcallnr()		idem, returning a number
@@ -877,8 +906,8 @@ are local unless prefixed by something like "g:", "a:", or "s:".
 
 	Note:
 	To access a global variable from inside a function you must prepend
-	"g:" to it.  Thus "g:count" inside a function is used for the global
-	variable "count", and "count" is another variable, local to the
+	"g:" to it.  Thus "g:today" inside a function is used for the global
+	variable "today", and "today" is another variable, local to the
 	function.
 
 You now use the ":return" statement to return the smallest number to the user.
@@ -937,13 +966,13 @@ These will have the line numbers from the range the function was called with.
 Example: >
 
 	:function Count_words() range
-	:  let n = a:firstline
-	:  let count = 0
-	:  while n <= a:lastline
-	:    let count = count + Wordcount(getline(n))
-	:    let n = n + 1
+	:  let lnum = a:firstline
+	:  let n = 0
+	:  while lnum <= a:lastline
+	:    let n = n + len(split(getline(lnum)))
+	:    let lnum = lnum + 1
 	:  endwhile
-	:  echo "found " . count . " words"
+	:  echo "found " . n . " words"
 	:endfunction
 
 You can call this function with: >
@@ -1195,7 +1224,7 @@ over them: >
 	one ~
 	two ~
 
-The will notice the keys are not ordered.  You can sort the list to get a
+You will notice the keys are not ordered.  You can sort the list to get a
 specific order: >
 
 	:for key in sort(keys(uk2nl))
@@ -1481,7 +1510,9 @@ commands (there are a few more commands with this restriction).  For the
 	:execute cmd			|" do it
 
 With the '|' character the command is separated from the next one.  And that
-next command is only a comment.
+next command is only a comment.  For the last command you need to do two
+things: |:execute| and use '|': >
+	:exe '!ls *.c'			|" list C files
 
 Notice that there is no white space before the '|' in the abbreviation and
 mapping.  For these commands, any character until the end-of-line or '|' is
@@ -1490,8 +1521,18 @@ trailing whitespace is included: >
 
 	:map <F4> o#include  
 
-To avoid these problems, you can set the 'list' option when editing vimrc
+To spot these problems, you can set the 'list' option when editing vimrc
 files.
+
+For Unix there is one special way to comment a line, that allows making a Vim
+script executable: >
+	#!/usr/bin/env vim -S
+	echo "this is a Vim script"
+	quit
+
+The "#" command by itself lists a line with the line number.  Adding an
+exclamation mark changes it into doing nothing, so that you can add the shell
+command to execute the rest of the file. |:#!| |-S|
 
 
 PITFALLS
@@ -2216,7 +2257,7 @@ that could be ~/.vim/after/compiler.
 *41.14*	Writing a plugin that loads quickly	*write-plugin-quickload*
 
 A plugin may grow and become quite long.  The startup delay may become
-noticeable, while you hardly every use the plugin.  Then it's time for a
+noticeable, while you hardly ever use the plugin.  Then it's time for a
 quickload plugin.
 
 The basic idea is that the plugin is loaded twice.  The first time user

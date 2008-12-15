@@ -1,15 +1,12 @@
 #	from @(#)Makefile.inc	8.3 (Berkeley) 2/4/95
 # $FreeBSD: src/lib/libc/stdlib/Makefile.inc,v 1.45 2003/04/05 07:33:46 tjr Exp $
 
-.ifnmake autopatch
 # machine-dependent stdlib sources
-.if exists(${.CURDIR}/${MACHINE_ARCH}/stdlib/Makefile.inc)
-.include "${.CURDIR}/${MACHINE_ARCH}/stdlib/Makefile.inc"
-.endif
-.endif # !autopatch
+.sinclude "${.CURDIR}/${MACHINE_ARCH}/stdlib/Makefile.inc"
 
 # machine-independent stdlib sources
 .PATH: ${.CURDIR}/stdlib
+CWD := ${.CURDIR}/stdlib
 
 MISRCS+=a64l.c grantpt.c l64a.c
 
@@ -19,11 +16,15 @@ FBSDMISRCS=_Exit_.c abort.c abs.c atexit.c atof.c atoi.c atol.c atoll.c \
 	hcreate.c heapsort.c imaxabs.c imaxdiv.c insque.c labs.c \
 	ldiv.c llabs.c lldiv.c lsearch.c merge.c putenv.c qsort.c qsort_r.c \
 	radixsort.c rand.c random.c reallocf.c realpath.c remque.c setenv.c \
-	strfmon.c strhash.c strtoimax.c strtol.c strtoll.c strtoq.c strtoul.c \
+	strhash.c strtoimax.c strtol.c strtoll.c strtoq.c strtoul.c \
 	strtoull.c strtoumax.c strtouq.c system.c tdelete.c tfind.c tsearch.c \
 	twalk.c
 FBSDHDRS= atexit.h
 .include "Makefile.fbsd_end"
+
+.include "Makefile.nbsd_begin"
+NBSDMISRCS = strfmon.c
+.include "Makefile.nbsd_end"
 
 # 4302056: compile qsort.c and bsearch.c with -fexceptions
 .for _src in qsort-fbsd.c bsearch-fbsd.c
@@ -57,8 +58,12 @@ FBSDMAN3= abort.3 abs.3 alloca.3 atexit.3 atof.3 atoi.3 atol.3 bsearch.3 \
 	div.3 exit.3 getenv.3 getopt.3 getopt_long.3 getsubopt.3 \
 	hcreate.3 imaxabs.3 imaxdiv.3 insque.3 labs.3 ldiv.3 llabs.3 lldiv.3 \
 	lsearch.3 memory.3 qsort.3 radixsort.3 rand.3 random.3 realpath.3 \
-	strfmon.3 strtod.3 strtol.3 strtoul.3 system.3 tsearch.3
+	strtod.3 strtol.3 strtoul.3 system.3 tsearch.3
 .include "Makefile.fbsd_end"
+
+.include "Makefile.nbsd_begin"
+NBSDMAN3= strfmon.3
+.include "Makefile.nbsd_end"
 
 .include "Makefile.obsd_begin"
 OBSDMAN3= ecvt.3

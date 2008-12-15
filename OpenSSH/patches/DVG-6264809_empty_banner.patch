@@ -1,0 +1,15 @@
+diff -uNr ../openssh-5.1p1.orig/sshconnect2.c ./sshconnect2.c
+--- ../openssh-5.1p1.orig/sshconnect2.c	2008-07-17 02:15:43.000000000 -0700
++++ ./sshconnect2.c	2008-09-30 12:42:10.000000000 -0700
+@@ -386,8 +386,9 @@
+ 	if (options.log_level >= SYSLOG_LEVEL_INFO) {
+ 		if (len > 65536)
+ 			len = 65536;
+-		msg = xmalloc(len * 4); /* max expansion from strnvis() */
+-		strnvis(msg, raw, len * 4, VIS_SAFE|VIS_OCTAL);
++		msg = xmalloc(len * 4 + 1); /* max expansion from strnvis() */
++		strnvis(msg, raw, len * 4 + 1, VIS_SAFE|VIS_OCTAL);
++		msg[len*4] = '\0';
+ 		fprintf(stderr, "%s", msg);
+ 		xfree(msg);
+ 	}

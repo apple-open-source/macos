@@ -36,49 +36,8 @@
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/usb/IOUSBLog.h>
 
-//#include "IOUSBUserClient.h"
-
-#define DEBUGGING_LEVEL 0
-
-#if DEBUGGING_LEVEL > 0
-#define USBExpertStatusLevel(a, b, c, d) if (IOUSBController::_log) IOUSBController::_log->AddStatusLevel((UInt32)a, (UInt32)b, (char*)c, (UInt32)d)
-#else
-#define USBExpertStatusLevel(a, b, c, d)
-#endif
-
 #define super	IOService
 
-#if 0
-static const 
-IOUSBDescriptorHeader *NextDescriptor(const void *desc)
-{
-    const UInt8 *next = (const UInt8 *)desc;
-    UInt8 length = next[0];
-    next = &next[length];
-    return((const IOUSBDescriptorHeader *)next);
-}
-
-
-
-const IOUSBDescriptorHeader*
-IOUSBNub::FindNextDescriptor(const void *cur, UInt8 descType)
-{
-    const IOUSBDescriptorHeader *hdr;
-    hdr = (const IOUSBDescriptorHeader *)cur;
-    do {
-	hdr = NextDescriptor(hdr);
-        if(hdr->length == 0)
-            break;
-        if(descType == 0)
-            return hdr;	// type 0 is wildcard.
-        else if(hdr->descriptorType == descType)
-            return hdr;
-    }
-    while(true);
-
-    return NULL;	// Fell off end of list
-}
-#endif
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 OSDefineMetaClass( IOUSBNub, IOService )
@@ -211,6 +170,54 @@ IOUSBNub::joinPMtree ( IOService * driver )
 		USBLog(1, "%s[%p]::joinPMtree - no hub policy maker - calling through to super::joinPMtree", getName(), this);
 		super::joinPMtree(driver);
 	}
+	
 }
+
+
+const char * 
+IOUSBNub::stringFromReturn( IOReturn rtn )
+{
+	static const IONamedValue USBReturn_values[] = { 
+		{kIOUSBUnknownPipeErr,								"Pipe is invalid"														},
+		{kIOUSBTooManyPipesErr,								"Device specified too many endpoints"									},
+		{kIOUSBNoAsyncPortErr,								"Async Port has not been specified"        								},
+		{kIOUSBNotEnoughPipesErr,							"Desired pipe was not found"        									},
+		{kIOUSBNotEnoughPowerErr,							"There is not enough power for the device"        						},
+		{kIOUSBEndpointNotFound,							"Endpoint does not exist"												},
+		{kIOUSBConfigNotFound,								"Configuration does not exist"											},
+		{kIOUSBTransactionTimeout,							"Rrequest did not finish"												},
+		{kIOUSBTransactionReturned,							"Request has been returned to the caller"								},
+		{kIOUSBPipeStalled,									"Request returned a STALL"												},
+		{kIOUSBInterfaceNotFound,							"Requested interface was not found"       								},
+		{kIOUSBLowLatencyBufferNotPreviouslyAllocated,		"The buffer was not pre-allocated"										},
+		{kIOUSBLowLatencyFrameListNotPreviouslyAllocated,	"The frame list was not pre-allocated"									},
+		{kIOUSBHighSpeedSplitError,							"High Speed hub returned a split transaction error"						},
+		{kIOUSBSyncRequestOnWLThread,						"Synchronous request was issued while holding from within the workloop"	},
+		{kIOUSBHighSpeedSplitError,							"High Speed hub returned a split transaction error"						},
+		{kIOUSBLinkErr,										"USB controller error"       											},
+		{kIOUSBNotSent1Err,									"The isoch transfer did not occur, scheduled too late"					},
+		{kIOUSBNotSent2Err,									"The isoch transfer did not occur, scheduled too late"					},
+		{kIOUSBBufferUnderrunErr,							"Buffer Underrun (Host hardware failure on data out, PCI busy?"			},
+		{kIOUSBBufferOverrunErr,							"Buffer Overrun (Host hardware failure on data out, PCI busy?"			},
+		{kIOUSBReserved2Err,								"Reserved error #1"														},
+		{kIOUSBReserved1Err,								"Reserved error #2"        												},
+		{kIOUSBWrongPIDErr,									"Pipe stall, Bad or wrong PID"        									},
+		{kIOUSBPIDCheckErr	,								"Pipe stall, PID CRC error"        										},
+		{kIOUSBDataToggleErr,								"Pipe stall, Bad data toggle"       									},
+		{kIOUSBBitstufErr,									"Pipe stall, bitstuffing"												},
+		{kIOUSBCRCErr,										"Pipe stall, bad CRC"        											},
+		{kIOUSBDeviceNotHighSpeed,							"Device is not a high speed device"        								},
+		{0,													NULL																	}
+	};
+	
+	
+	const char *	returnName = super::stringFromReturn(rtn);
+	
+	if ( returnName =="" )
+		returnName = IOFindNameForValue(rtn, USBReturn_values);
+	
+	return returnName;
+}
+
 
 

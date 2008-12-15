@@ -1,4 +1,4 @@
-.\" Copyright (c) 2005-2007 Apple Inc.
+.\" Copyright (c) 2005-2008 Apple Inc.
 .\" All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -141,7 +141,7 @@
 .Fc
 .Ft void
 .Fo aslresponse_free
-.Fa "aslresponse a"
+.Fa "aslresponse r"
 .Fc
 .Ft aslmsg
 .Fo aslresponse_next
@@ -160,11 +160,226 @@ Messages received by the server are saved in a data store
 (subject to input filtering constraints).
 This API permits clients to create queries
 and search the message data store for matching messages.
+.Pp
+An introduction to the concepts underlying this interface follows the interface summary below.
+.Ss INTERFACE SUMMARY
+.Fo asl_open
+.Fa ident
+.Fa facility
+.Fa opts
+.Fc
+creates and returns a client handle, or NULL if an error occurs in the library.
+Messages sent using this handle will default to having the string
+.Ar ident
+as the value assocated with the ASL_KEY_SENDER key, and the value
+.Ar facility
+assocated with the ASL_KEY_FACILITY key.
+Several options are available, as described in the
+.Sx CLIENT HANDLES
+section.
+.Pp
+Multi-threaded applications should create one client handle for each thread that logs messages.
+A client may use NULL as a client handle, in which case a default handle managed by the library will be used.
+A NULL handle may be used safely by multiple threads, but the threads will contend for a single internal lock when
+sending log messages using a NULL handle.
+.Pp
+.Fo asl_close
+.Fa asl
+.Fc
+closes the client handle
+.Ar asl
+and releases its associated resources.
+.Pp
+.Fo asl_add_log_file
+.Fa asl
+.Fa fd  
+.Fc
+adds the file descriptor
+.Ar fd
+to the a set of file descriptors associated with the client handle
+.Ar asl .
+Each log message sent by that client handle is also written to these file descriptors.
+Returns 0 on success, non-zero on failure.
+.Pp
+.Fo asl_remove_log_file
+.Fa asl
+.Fa fd  
+.Fc
+removes a file descriptor from the set of file descriptors associated with a client handle.
+Returns 0 on success, non-zero on failure.
+.Pp
+.Fo asl_new
+.Fa type
+.Fc
+allocates and returns an aslmsg structure, or NULL in the case of a failure in the library.
+The
+.Ar type
+argument must be ASL_TYPE_MSG or ASL_TYPE_QUERY.
+.Pp
+.Fo asl_free
+.Fa msg
+.Fc
+frees an aslmsg and releases resources associated with the structure.
+.Pp
+.Fo asl_set
+.Fa msg
+.Fa key
+.Fa value
+.Fc
+creates a new key and value in an aslmsg structure, or replaces the value of an existing key.
+Returns 0 on success, non-zero on failure.
+.Pp
+.Fo asl_set_query
+.Fa msg
+.Fa key
+.Fa op
+.Fa value
+.Fc
+is used to construct searches.
+It is similar to
+.Fn asl_set ,
+except that it takes an additional
+.Ar op
+(operation) argument.
+Creates a new (key, op, value) triple in an aslmsg structure,
+or replaces the value and operation for an existing key.
+See the
+.Sx SEARCHING
+section for more information.
+Returns 0 on success, non-zero on failure.
+.Pp
+.Fo asl_unset
+.Fa msg
+.Fa key
+.Fc
+removes a key and its associated value from an aslmsg structure.
+Returns 0 on success, non-zero on failure.
+.Pp
+.Fo asl_key
+.Fa msg
+.Fa n
+.Fc
+returns the nth key in an aslmsg (beginning at zero),
+allowing an application to iterate through the keys.
+Returns NULL if
+.Ar n
+indexes beyond the number of keys in
+.Ar msg .
+.Pp
+.Fo asl_get
+.Fa msg
+.Fa key
+.Fc
+returns the value associated with
+.Ar key
+in the aslmsg
+.Ar msg .
+Returns NULL if
+.Ar msg
+does not contain
+. Ar key .
+.Pp
+.Fo asl_set_filter
+.Fa asl
+.Fa f
+.Fc
+sets a filter for messages being sent to the server.
+The filter is a bitmask representing priority levels.
+Only messages having a priority level with a corresponding bit set in the filter mask are sent to the
+.Nm syslogd
+server.
+The filter does not control writes to additional files associated with the client handle using
+.Fn asl_add_log_file .
+Returns the previous filter value.
+.Pp
+.Fo asl_log
+.Fa asl
+.Fa msg
+.Fa level
+.Fa format
+.Fa args...
+.Fc
+sends a log to the server (subject to filtering, see 
+.Fn asl_set_filter
+above) and to any file descriptors associated with the client handle
+.Ar asl .
+The 
+.Ar msg
+argument may contain any keys and values, which will be formatted as part of the log message.
+The value for ASL_KEY_LEVEL is supplied by the
+.Ar level
+argument. 
+The value for ASL_KEY_MESSAGE is computed from 
+.Ar format
+and the associated arguments
+.Ar args... .
+Normal 
+.Fn printf
+style argument processing is applied to the format and the arguments.
+The format may also contain
+.Dq %m
+which will be substituted with the string value corresponding to the current
+.Em errno .
+.Pp
+.Fo asl_vlog
+.Fa asl
+.Fa msg
+.Fa level
+.Fa format
+.Fa ap
+.Fc
+is similar to
+.Fn asl_log
+except that it takes a va_list argument.
+.Pp
+.Fo asl_send
+.Fa asl
+.Fa msg
+.Fc
+is similar to
+.Fn asl_log ,
+exceopt the value for ASL_KEY_MESSAGE is taken from
+.Ar msg
+rather than being constructed using a
+.Fn printf
+style syntax.
+.Pp
+.Fo asl_search
+.Fa asl
+.Fa msg
+.Fc
+searches for messages that match the keys and values in
+.Ar msg ,
+subject to matching operations associated with those keys and values.
+The 
+.Ar msg
+argument should be constructed using
+.Fn asl_set_query .
+See the
+.Sx SEARCHING
+section for details on constructing queries.
+Returns an aslresponse structure that contains matching log messages.
+NULL is returned in case of error or if there are no matching messages in the ASL database.
+.Pp
+.Fo aslresponse_next
+.Fa r
+.Fc
+iterates over an aslresponse structure returned by
+.Fn asl_search .
+Each call returns the next aslmsg in the response.
+Returns NULL when there are no further messages.
+.Pp
+.Fo aslresponse_free
+.Fa r
+.Fc
+frees the aslresponse structure
+.Ar r
+and all of its associated resources.
 .Ss MESSAGES
 At the core of this API is the aslmsg structure.
 Although the structure is opaque and may not be directly manipulated,
 it contains a list of key/value pairs.
-All keys and values are NULL-terminated C language character strings.
+All keys and values are NUL-character terminated C language strings.
 UTF-8 encoding may be used for non-ASCII characters.
 .Pp
 Message structures are generally used to send log messages,
@@ -176,7 +391,7 @@ Another message type, ASL_TYPE_QUERY,
 is used to create queries when searching the data store.
 Query type messages and searching are described in detail in the
 .Sx SEARCHING
-section below.
+section.
 For the remainder of this section,
 the messages described will be of the ASL_TYPE_MSG variety.
 .Pp
@@ -269,10 +484,15 @@ In this example, the aslclient argument is NULL.
 This is sufficient for a single-threaded application,
 or for an application which only sends log messages from a single thread.
 When logging from multiple threads,
-each thread must open a separate client handle using
+each thread
+.Em should
+open a separate client handle using
 .Nm asl_open .
 The client handle may then be closed when it is no longer required using
 .Nm asl_close .
+Multiple threads may log messages safely using a NULL aslclient argument,
+but the library will use an internal lock, so that in fact only one thread
+will log at a time.
 .Pp
 When an application requires additional keys and values
 to be associated with each log message,
@@ -399,6 +619,17 @@ connects to the server immediately
 disables remote-control filter adjustment
 .El
 .Pp
+ASL_OPT_NO_DELAY makes the client library connect to the
+.Nm syslogd
+server at the time that
+.Nm asl_open
+is called, rather than waiting for the first message to be sent.
+Opening the connection is quite fast, but some applications may want to avoid any unnecessary delays when calling 
+.Nm asl_log ,
+.Nm asl_vlog ,
+or 
+.Nm asl_send .
+.Pp
 See the FILTERING section below, and the
 .Xr syslog 1
 for additional details on filter controls.
@@ -422,9 +653,16 @@ Messages sent to stderr or other files are printed in the "standard" message for
 also used as a default format by the
 .Xr syslog 1
 command line utility.
-The 
-.Xr strvis 3
-encoding with the VIS_CSTYLE, VIS_TAB, and VIS_NL options is used to print the message.
+Non-ASCII characters in a message are encoded using the
+.Dq safe
+encoding style used by
+.Xr syslog 1
+with the 
+.Fl E Ar safe
+option.
+Backspace characters are printed as ^H.
+Carriage returns are mapped to newlines.
+A tab character is appended after newlines so that message text is indented.
 .Pp
 File descriptors may be removed from the list of outputs associated
 with a client handle with
@@ -434,24 +672,6 @@ The file is not closed as a result.
 .Pp
 The ASL_OPT_STDERR option may not be unset
 after a client handle has been opened.
-.Pp
-In the present release of Mac OS X, a
-.Dq raw
-format is used to format messages
-that are sent to file descriptors
-that have been added to a client handle.
-Each message is preceded by a 10-character field containing a message length.
-The message length is padded with leading white space.
-The length gives the string length of the remainder of the output string.
-Following the length is a space character, and then the message.
-The message is encoded as a set of key/value pairs
-enclosed in square brackets,
-which are themselves separated by a space character.
-The key is separated from the value by space character.
-Embedded closing square brackets are escaped by a backslash.
-Embedded space characters in keys are escaped by a backslash;
-Embedded newlines are summarily turned into semicolons.
-The output is terminated by a trailing newline and a NUL character.
 .Ss SEARCHING
 The 
 .Nm syslogd

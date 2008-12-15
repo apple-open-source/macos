@@ -22,7 +22,7 @@
 !define HAVE_NLS
 
 !define VER_MAJOR 7
-!define VER_MINOR 0
+!define VER_MINOR 2
 
 # ----------- No configurable settings below this line -----------
 
@@ -139,7 +139,7 @@ FunctionEnd
 Function .onInstSuccess
   WriteUninstaller vim${VER_MAJOR}${VER_MINOR}\uninstall-gui.exe
   MessageBox MB_YESNO|MB_ICONQUESTION \
-	"The installation process has been successfull. Happy Vimming! \
+	"The installation process has been successful. Happy Vimming! \
 	$\n$\n Do you want to see the README file now?" IDNO NoReadme
       Exec '$0\gvim.exe -R "$0\README.txt"'
   NoReadme:
@@ -391,6 +391,7 @@ Section Uninstall
 	ClearErrors
 	# Remove everything but *.dll files.  Avoids that
 	# a lot remains when gvimext.dll cannot be deleted.
+	RMDir /r $0\autoload
 	RMDir /r $0\colors
 	RMDir /r $0\compiler
 	RMDir /r $0\doc
@@ -398,6 +399,7 @@ Section Uninstall
 	RMDir /r $0\indent
 	RMDir /r $0\macros
 	RMDir /r $0\plugin
+	RMDir /r $0\spell
 	RMDir /r $0\syntax
 	RMDir /r $0\tools
 	RMDir /r $0\tutor

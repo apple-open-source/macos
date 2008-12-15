@@ -154,7 +154,7 @@
     }
 }
 
-- (id)outlineView:(NSOutlineView *)ov child:(int)index ofItem:(id)item
+- (id)outlineView:(NSOutlineView *)ov child:(NSInteger)index ofItem:(id)item
 {
     if (ov == IORegOutputOV) {
         if (item == nil) {
@@ -176,7 +176,7 @@
     return [item isExpandable];
 }
 
-- (int)outlineView:(NSOutlineView *)ov numberOfChildrenOfItem:(id)item
+- (NSInteger)outlineView:(NSOutlineView *)ov numberOfChildrenOfItem:(id)item
 {
     if (ov == IORegOutputOV) {
         if (item == nil) {

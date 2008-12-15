@@ -193,16 +193,22 @@ static void DoMSSClamp(struct tcphdr *tc)
 
     while (optionEnd > option)
     {
+        /* Bounds checking to avoid infinite loops */
+        if (option[0] == TCPOPT_EOL)
+            break;
+        
+        if (option[0] == TCPOPT_NOP) {
+            ++option;
+            continue;
+        } else {
+            if (optionEnd - option < 2)
+                break;
+            if (option[1] < 2 || option + option[1] >= optionEnd)
+                break;
+    	}
+
         switch (option[0])
         {
-            case TCPOPT_EOL:
-                option = optionEnd;
-                break;
-
-            case TCPOPT_NOP:
-                ++option;
-                break;
-
             case TCPOPT_MAXSEG:
                 if (option[1] == 4)
                 {
@@ -212,10 +218,11 @@ static void DoMSSClamp(struct tcphdr *tc)
                     if (packetAliasMSS < mssVal)
                     {
                         int accumulate = mssVal;
-		 	int accnetorder = 0 ;
+                        int accnetorder = 0 ;
+                        
                         accumulate -= packetAliasMSS;
                         *mssPtr = htons(packetAliasMSS);
-		 	accnetorder = htons(accumulate);
+                        accnetorder = htons(accumulate);
                         ADJUST_CHECKSUM(accnetorder, tc->th_sum);
                     }
 

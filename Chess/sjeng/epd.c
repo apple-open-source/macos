@@ -224,7 +224,7 @@ void run_epd_testsuite(void)
   char tempbuff[2000];
   float elapsed; 
   int nps;
-  long thinktime;
+  int32_t thinktime;
 	move_s comp_move;
   int tested, found;
 	
@@ -237,7 +237,7 @@ void run_epd_testsuite(void)
   rinput(testname, STR_BUFF, stdin);
   printf("\nTime per move (s): ");
   rinput(readbuff, STR_BUFF, stdin);
-  thinktime = atol(readbuff);
+  thinktime = atoi(readbuff);
   printf("\n");
 
   thinktime *= 100;
@@ -264,7 +264,7 @@ void run_epd_testsuite(void)
     //  cpu_end = clock();
      // rdelay(2);
      
-     elapsed = (cpu_end-cpu_start)/(double) CLOCKS_PER_SEC;
+     elapsed = (cpu_end-cpu_start)/(float) CLOCKS_PER_SEC;
      printf("Time: %f\n", elapsed);
       
      if (interrupt()) rinput(tempbuff, STR_BUFF, stdin);
@@ -276,7 +276,7 @@ void run_epd_testsuite(void)
        cpu_end = clock();
       
 
-      printf ("\nNodes: %ld (%0.2f%% qnodes)\n", nodes,
+      printf ("\nNodes: %d (%0.2f%% qnodes)\n", nodes,
 	      (float) ((float) qnodes / (float) nodes * 100.0));
       
       elapsed = (cpu_end-cpu_start)/(float) CLOCKS_PER_SEC;
@@ -285,26 +285,26 @@ void run_epd_testsuite(void)
       if (!elapsed)
 	printf ("NPS: N/A\n");
       else
-	printf ("NPS: %ld\n", (long int) nps);
+	printf ("NPS: %d\n", (int32_t) nps);
       
-      printf("ECacheProbes : %ld   ECacheHits : %ld   HitRate : %f%%\n", 
+      printf("ECacheProbes : %d   ECacheHits : %d   HitRate : %f%%\n", 
 	     ECacheProbes, ECacheHits, 
 	     ((float)ECacheHits/((float)ECacheProbes+1)) * 100);
       
-      printf("TTStores : %ld TTProbes : %ld   TTHits : %ld   HitRate : %f%%\n", 
+      printf("TTStores : %d TTProbes : %d   TTHits : %d   HitRate : %f%%\n", 
 	     TTStores, TTProbes, TTHits, 
 	     ((float)TTHits/((float)TTProbes+1)) * 100);
       
       printf("NTries : %d  NCuts : %d  CutRate : %f%%  TExt: %d\n", 
 	     NTries, NCuts, (((float)NCuts*100)/((float)NTries+1)), TExt);
       
-      printf("Check extensions: %ld  Razor drops : %ld  Razor Material : %ld\n", ext_check, razor_drop, razor_material);
+      printf("Check extensions: %d  Razor drops : %d  Razor Material : %d\n", ext_check, razor_drop, razor_material);
       printf("EGTB Hits: %d  EGTB Probes: %d  Efficiency: %3.1f%%\n", EGTBHits, EGTBProbes,
              (((float)EGTBHits*100)/(float)(EGTBProbes+1)));		 
       
       printf("Move ordering : %f%%\n", (((float)FHF*100)/(float)FH+1));
       
-      printf("Material score: %d   Eval : %ld\n", Material, eval());
+      printf("Material score: %d   Eval : %d\n", Material, eval());
       printf("\n");
      
       if (!forcedwin)

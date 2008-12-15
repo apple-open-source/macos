@@ -79,6 +79,7 @@
 #include <openssl/bn.h>
 #include <openssl/rsa.h>
 #include <openssl/rand.h>
+#include <pthread.h>
 
 #ifndef RSA_NULL
 
@@ -222,10 +223,10 @@ static int RSA_eay_private_encrypt(int flen, unsigned char *from,
 
 	if (BN_bin2bn(buf,num,&f) == NULL) goto err;
 
-	if ((rsa->flags & RSA_FLAG_BLINDING) && (rsa->blinding == NULL))
+	if ((rsa->flags & RSA_FLAG_BLINDING) && (RSA_get_thread_blinding_ptr(rsa) == NULL))
 		RSA_blinding_on(rsa,ctx);
 	if (rsa->flags & RSA_FLAG_BLINDING)
-		if (!BN_BLINDING_convert(&f,rsa->blinding,ctx)) goto err;
+		if (!BN_BLINDING_convert(&f,RSA_get_thread_blinding_ptr(rsa),ctx)) goto err;
 
 	if ( (rsa->flags & RSA_FLAG_EXT_PKEY) ||
 		((rsa->p != NULL) &&
@@ -240,7 +241,7 @@ static int RSA_eay_private_encrypt(int flen, unsigned char *from,
 		}
 
 	if (rsa->flags & RSA_FLAG_BLINDING)
-		if (!BN_BLINDING_invert(&ret,rsa->blinding,ctx)) goto err;
+		if (!BN_BLINDING_invert(&ret,RSA_get_thread_blinding_ptr(rsa),ctx)) goto err;
 
 	/* put in leading 0 bytes if the number is less than the
 	 * length of the modulus */
@@ -295,10 +296,10 @@ static int RSA_eay_private_decrypt(int flen, unsigned char *from,
 	/* make data into a big number */
 	if (BN_bin2bn(from,(int)flen,&f) == NULL) goto err;
 
-	if ((rsa->flags & RSA_FLAG_BLINDING) && (rsa->blinding == NULL))
+	if ((rsa->flags & RSA_FLAG_BLINDING) && (RSA_get_thread_blinding_ptr(rsa) == NULL))
 		RSA_blinding_on(rsa,ctx);
 	if (rsa->flags & RSA_FLAG_BLINDING)
-		if (!BN_BLINDING_convert(&f,rsa->blinding,ctx)) goto err;
+		if (!BN_BLINDING_convert(&f,RSA_get_thread_blinding_ptr(rsa),ctx)) goto err;
 
 	/* do the decrypt */
 	if ( (rsa->flags & RSA_FLAG_EXT_PKEY) ||
@@ -315,7 +316,7 @@ static int RSA_eay_private_decrypt(int flen, unsigned char *from,
 		}
 
 	if (rsa->flags & RSA_FLAG_BLINDING)
-		if (!BN_BLINDING_invert(&ret,rsa->blinding,ctx)) goto err;
+		if (!BN_BLINDING_invert(&ret,RSA_get_thread_blinding_ptr(rsa),ctx)) goto err;
 
 	p=buf;
 	j=BN_bn2bin(&ret,p); /* j is only used with no-padding mode */

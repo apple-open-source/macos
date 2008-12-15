@@ -368,12 +368,12 @@ void initialize_eval(void)
     }
 }
 
-long int eval (void) {
+int32_t eval (void) {
 
   /* return a score for the current middlegame position: */
 
   int i, a, j; 
-  long int score = 0;
+  int32_t score = 0;
   int in_cache;
   int safety, badsquares; 
   int norm_white_hand_eval, norm_black_hand_eval;

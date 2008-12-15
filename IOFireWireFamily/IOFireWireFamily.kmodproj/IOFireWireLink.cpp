@@ -154,16 +154,6 @@ UInt32 * IOFireWireLink::getPingTimes ()
 	return NULL ;
 }
 
-bool IOFireWireLink::getPingTransmits ()
-{
-	return false ;
-}
-
-void IOFireWireLink::setPingTransmits ( bool ping )
-{
-	// nothing to do
-}
-
 IOReturn IOFireWireLink::handleAsyncCompletion( IOFWCommand *cmd, IOReturn status )
 {
 	// nothing to do

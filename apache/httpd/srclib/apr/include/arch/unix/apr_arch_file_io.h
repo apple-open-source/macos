@@ -86,7 +86,9 @@
 #endif
 /* End System headers */
 
-#define APR_FILE_BUFSIZE 4096
+#define APR_FILE_DEFAULT_BUFSIZE 4096
+/* For backwards-compat */
+#define APR_FILE_BUFSIZE  APR_FILE_DEFAULT_BUFSIZE
 
 struct apr_file_t {
     apr_pool_t *pool;
@@ -105,7 +107,8 @@ struct apr_file_t {
 #endif
     /* Stuff for buffered mode */
     char *buffer;
-    int bufpos;               /* Read/Write position in buffer */
+    apr_size_t bufpos;        /* Read/Write position in buffer */
+    apr_size_t bufsize;       /* The size of the buffer */
     unsigned long dataRead;   /* amount of valid data read into buffer */
     int direction;            /* buffer being used for 0 = read, 1 = write */
     apr_off_t filePtr;        /* position in file of handle */
@@ -139,11 +142,21 @@ typedef struct stat64 struct_stat;
 typedef struct stat struct_stat;
 #endif
 
+/* readdir64_r is only used in specific cases: */
+#if APR_HAS_THREADS && defined(_POSIX_THREAD_SAFE_FUNCTIONS) \
+    && !defined(READDIR_IS_THREAD_SAFE) && defined(HAVE_READDIR64_R)
+#define APR_USE_READDIR64_R
+#endif
+
 struct apr_dir_t {
     apr_pool_t *pool;
     char *dirname;
     DIR *dirstruct;
+#ifdef APR_USE_READDIR64_R
+    struct dirent64 *entry;
+#else
     struct dirent *entry;
+#endif
 };
 
 apr_status_t apr_unix_file_cleanup(void *);

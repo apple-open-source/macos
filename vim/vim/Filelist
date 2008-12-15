@@ -137,6 +137,7 @@ SRC_UNIX =	\
 		pixmaps/gen-inline-pixbufs.sh \
 		pixmaps/stock_icons.h \
 		src/INSTALL \
+		src/INSTALLx.txt \
 		src/Makefile \
 		src/auto/configure \
 		src/config.aap.in \
@@ -193,6 +194,7 @@ SRC_UNIX =	\
 		src/vim_icon.xbm \
 		src/vim_mask.xbm \
 		src/vimtutor \
+		src/gvimtutor \
 		src/which.sh \
 		src/workshop.c \
 		src/workshop.h \
@@ -249,6 +251,7 @@ SRC_DOS =	\
 		src/Make_w16.mak \
 		src/bigvim.bat \
 		src/msvcsetup.bat \
+		src/msvc2008.bat \
 		src/dimm.idl \
 		src/dlldata.c \
 		src/dosinst.c \
@@ -282,6 +285,7 @@ SRC_DOS =	\
 		src/proto/os_win32.pro \
 		src/proto/os_mswin.pro \
 		src/testdir/Make_dos.mak \
+		src/testdir/Make_ming.mak \
 		src/testdir/dos.vim \
 		src/uninstal.c \
 		src/vim.def \
@@ -513,6 +517,7 @@ RT_SCRIPTS =	\
 		runtime/indent/*.vim \
 		runtime/indent/README.txt \
 		runtime/ftplugin/*.vim \
+		runtime/ftplugin/logtalk.dict \
 		runtime/ftplugin/README.txt \
 		runtime/plugin/*.vim \
 		runtime/plugin/README.txt \
@@ -568,7 +573,8 @@ RT_AMI =	\
 		libs/arp.library \
 		runtime/doc.info \
 		runtime/doc/*.info \
-		runtime/icons \
+		runtime/icons/README.txt \
+		runtime/icons/*.info \
 		runtime/icons.info \
 		runtime/macros.info \
 		runtime/macros/*.info \
@@ -644,7 +650,8 @@ EXTRA =		\
 		$(SRC_EXTRA) \
 		README_extra.txt \
 		src/VisVim/VisVim.dll \
-		farsi \
+		farsi/README.txt \
+		farsi/fonts/*/far-* \
 		runtime/vimlogo.xpm \
 		src/swis.s \
 		src/tee/Makefile* \
@@ -668,14 +675,9 @@ LANG_GEN = \
 		runtime/keymap/*.vim \
 		runtime/tutor/README.*.txt \
 		runtime/tutor/Makefile \
+		runtime/tutor/tutor.utf-8 \
 		runtime/tutor/tutor.?? \
-		runtime/tutor/tutor.gr.* \
-		runtime/tutor/tutor.ja.* \
-		runtime/tutor/tutor.ko.* \
-		runtime/tutor/tutor.pl.* \
-		runtime/tutor/tutor.ru.* \
-		runtime/tutor/tutor.sk.* \
-		runtime/tutor/tutor.zh.* \
+		runtime/tutor/tutor.??.* \
 		runtime/spell/README.txt \
 		runtime/spell/??/*.diff \
 		runtime/spell/??/main.aap \

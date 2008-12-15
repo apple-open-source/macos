@@ -1,0 +1,73 @@
+echo ""
+echo "*************************************************************************"
+
+echo "Testing incorrect command line options, should generate only Usage"
+
+echo "*************************************************************************"
+echo ""
+
+echo "./USB\ Prober.app/Contents/MacOS/USB\ Prober --vend"
+
+./USB\ Prober.app/Contents/MacOS/USB\ Prober --vend
+
+date
+
+echo "./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --help"
+
+./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --help
+
+date
+
+echo "./USB\ Prober.app/Contents/MacOS/USB\ Prober --help --vendor"
+
+./USB\ Prober.app/Contents/MacOS/USB\ Prober --help --vendor
+
+date
+
+echo "./USB\ Prober.app/Contents/MacOS/USB\ Prober --cen --help"
+
+./USB\ Prober.app/Contents/MacOS/USB\ Prober --cen --help
+
+echo ""
+echo "*************************************************************************"
+
+echo "Testing correct command line options should not generate Usage"
+
+echo "*************************************************************************"
+echo ""
+
+date 
+
+echo "./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe"
+
+./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe
+
+date
+
+echo "./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --vendorID"
+
+./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --vendorID
+
+date
+
+echo "./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --productID"
+
+./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --productID
+
+date
+
+echo "./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --deviceClass"
+
+./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --deviceClass
+
+date
+
+echo "./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --deviceSubClass"
+
+./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --deviceSubClass
+
+date
+
+echo "./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --deviceProtocol"
+
+./USB\ Prober.app/Contents/MacOS/USB\ Prober --busprobe --deviceProtocol

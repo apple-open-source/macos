@@ -1,20 +1,26 @@
-" Vim filetype plugin file (GUI menu and folding)
+" Vim filetype plugin file (GUI menu, folding and completion)
 " Language:	Debian Changelog
-" Maintainer:	Michael Piefel <piefel@informatik.hu-berlin.de>
-"		Stefano Zacchiroli <zack@debian.org>
-" Last Change:	$LastChangedDate: 2006-04-28 12:15:12 -0400 (ven, 28 apr 2006) $
+" Maintainer:	Debian Vim Maintainers <pkg-vim-maintainers@lists.alioth.debian.org>
+" Former Maintainers:	Michael Piefel <piefel@informatik.hu-berlin.de>
+"			Stefano Zacchiroli <zack@debian.org>
+" Last Change:	2008-03-08
 " License:	GNU GPL, version 2.0 or later
-" URL:		http://svn.debian.org/wsvn/pkg-vim/trunk/runtime/ftplugin/debchangelog.vim?op=file&rev=0&sc=0
+" URL:		http://git.debian.org/?p=pkg-vim/vim.git;a=blob_plain;f=runtime/ftplugin/debchangelog.vim;hb=debian
+
+" Bug completion requires apt-listbugs installed for Debian packages or
+" python-launchpad-bugs installed for Ubuntu packages
 
 if exists("b:did_ftplugin")
   finish
 endif
-let b:did_ftplugin = 1
+let b:did_ftplugin=1
 
 " {{{1 Local settings (do on every load)
-setlocal foldmethod=expr
-setlocal foldexpr=GetDebChangelogFold(v:lnum)
-setlocal foldtext=DebChangelogFoldText()
+if exists("g:debchangelog_fold_enable")
+  setlocal foldmethod=expr
+  setlocal foldexpr=DebGetChangelogFold(v:lnum)
+  setlocal foldtext=DebChangelogFoldText()
+endif
 
 " Debian changelogs are not supposed to have any other text width,
 " so the user cannot override this setting
@@ -107,14 +113,15 @@ function NewVersion()
     call append(2, "")
     call append(3, " -- ")
     call append(4, "")
-    call Distribution("unstable")
     call Urgency("low")
-    normal 1G
+    normal 1G0
     call search(")")
     normal h
     normal 
     call setline(1, substitute(getline(1), '-\$\$', '-', ''))
-    normal zo
+    if exists("g:debchangelog_fold_enable")
+        foldopen
+    endif
     call AddEntry()
 endfunction
 
@@ -227,26 +234,43 @@ augroup END
 " }}}
 " {{{1 folding
 
-" look for an author name searching backward from a given line number
-function! s:getAuthor(lnum)
-  let line = getline(a:lnum)
-  let backsteps = 0
-  while line !~ '^ --'
-    let backsteps += 1
-    let line = getline(a:lnum - backsteps)
+" look for an author name in the [zonestart zoneend] lines searching backward
+function! s:getAuthor(zonestart, zoneend)
+  let linepos = a:zoneend
+  while linepos >= a:zonestart
+    let line = getline(linepos)
+    if line =~ '^ --'
+      return substitute(line, '^ --\s*\([^<]\+\)\s*.*', '\1', '')
+    endif
+    let linepos -= 1
   endwhile
-  let author = substitute(line, '^ --\s*\([^<]\+\)\s*.*', '\1', '')
-  return author
+  return '[unknown]'
+endfunction
+
+" Look for a package source name searching backward from the givenline and
+" returns it. Return the empty string if the package name can't be found
+function! DebGetPkgSrcName(lineno)
+  let lineidx = a:lineno
+  let pkgname = ''
+  while lineidx > 0
+    let curline = getline(lineidx)
+    if curline =~ '^\S'
+      let pkgname = matchlist(curline, '^\(\S\+\).*$')[1]
+      break
+    endif
+    let lineidx = lineidx - 1
+  endwhile
+  return pkgname
 endfunction
 
 function! DebChangelogFoldText()
   if v:folddashes == '-'  " changelog entry fold
-    return foldtext() . ' -- ' . s:getAuthor(v:foldend) . ' '
+    return foldtext() . ' -- ' . s:getAuthor(v:foldstart, v:foldend) . ' '
   endif
   return foldtext()
 endfunction
 
-function! GetDebChangelogFold(lnum)
+function! DebGetChangelogFold(lnum)
   let line = getline(a:lnum)
   if line =~ '^\w\+'
     return '>1' " beginning of a changelog entry
@@ -259,6 +283,91 @@ function! GetDebChangelogFold(lnum)
   endif
   return '='
 endfunction
+
+if exists("g:debchangelog_fold_enable")
+  silent! foldopen!   " unfold the entry the cursor is on (usually the first one)
+endif
+
+" }}}
+
+" {{{1 omnicompletion for Closes: #
+
+if !exists('g:debchangelog_listbugs_severities')
+  let g:debchangelog_listbugs_severities = 'critical,grave,serious,important,normal,minor,wishlist'
+endif
+
+fun! DebCompleteBugs(findstart, base)
+  if a:findstart
+    let line = getline('.')
+
+    " try to detect whether this is closes: or lp:
+    let g:debchangelog_complete_mode = 'debbugs'
+    let try_colidx = col('.') - 1
+    let colidx = -1 " default to no-completion-possible
+
+    while try_colidx > 0 && line[try_colidx - 1] =~ '\s\|\d\|#\|,\|:'
+      let try_colidx = try_colidx - 1
+      if line[try_colidx] == '#' && colidx == -1
+        " found hash, where we complete from:
+        let colidx = try_colidx
+      elseif line[try_colidx] == ':'
+        if try_colidx > 1 && strpart(line, try_colidx - 2, 3) =~ '\clp:'
+          let g:debchangelog_complete_mode = 'lp'
+        endif
+        break
+      endif
+    endwhile
+    return colidx
+  else " return matches:
+    let bug_lines = []
+    if g:debchangelog_complete_mode == 'lp'
+      if ! has('python')
+        echoerr 'vim must be built with Python support to use LP bug completion'
+        return
+      endif
+      let pkgsrc = DebGetPkgSrcName(line('.'))
+      python << EOF
+import vim
+try:
+    from launchpadbugs import connector
+    buglist = connector.ConnectBugList()
+    bl = list(buglist('https://bugs.launchpad.net/ubuntu/+source/%s' % vim.eval('pkgsrc')))
+    bl.sort(None, int)
+    liststr = '['
+    for bug in bl:
+        liststr += "'#%d - %s'," % (int(bug), bug.summary.replace('\'', '\'\''))
+    liststr += ']'
+    vim.command('silent let bug_lines = %s' % liststr)
+except ImportError:
+    vim.command('echoerr \'python-launchpad-bugs needs to be installed to use Launchpad bug completion\'')
+EOF
+    else
+      if ! filereadable('/usr/sbin/apt-listbugs')
+        echoerr 'apt-listbugs not found, you should install it to use Closes bug completion'
+        return
+      endif
+      let pkgsrc = DebGetPkgSrcName(line('.'))
+      let listbugs_output = system('/usr/sbin/apt-listbugs -s ' . g:debchangelog_listbugs_severities . ' list ' . pkgsrc . ' | grep "^ #" 2> /dev/null')
+      let bug_lines = split(listbugs_output, '\n')
+    endif
+    let completions = []
+    for line in bug_lines
+      let parts = matchlist(line, '^\s*\(#\S\+\)\s*-\s*\(.*\)$')
+      " filter only those which match a:base:
+      if parts[1] !~ "^" . a:base
+        continue
+      endif
+      let completion = {}
+      let completion['word'] = parts[1]
+      let completion['menu'] = parts[2]
+      let completion['info'] = parts[0]
+      let completions += [completion]
+    endfor
+    return completions
+  endif
+endfun
+
+setlocal omnifunc=DebCompleteBugs
 
 " }}}
 

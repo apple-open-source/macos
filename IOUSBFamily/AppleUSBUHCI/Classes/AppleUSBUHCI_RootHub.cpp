@@ -44,8 +44,7 @@ __attribute__((format(printf, 1, 2)));
 
 
 enum {
-    kAppleVendorID      = 0x05AC,	/* Assigned by USB-if*/
-    kPrdRootHubApple	= 0x8005,	/* Apple ASIC root hub*/
+    kPrdRootHubApple	= 0x8005,		/* Apple ASIC root hub*/
 	kUHCIRootHubPollingInterval = 32	// Polling interval in ms
 };
 
@@ -89,8 +88,10 @@ AppleUSBUHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
 IOReturn
 AppleUSBUHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
 {
-    IOUSBHubDescriptor hubDesc;
-    
+    IOUSBHubDescriptor	hubDesc;
+	UInt32				appleCaptive = 0;
+	OSNumber *			appleCaptiveProperty = NULL;
+   
     if (!desc) 
         return(kIOReturnNoMemory); 
     
@@ -104,11 +105,15 @@ AppleUSBUHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
     // XXX for now do not support overcurrent, although PIIX chips do support it
     hubDesc.characteristics = HostToUSBWord(kNoPowerSwitchingBit | kNoOverCurrentBit);
     
-    // All ports are removable;
-    // no ports are switchable, but the USB 1.1 spec says
-    // that the switchable bits should all be set to 1.
     assert(kUHCI_NUM_PORTS < 8);
-    hubDesc.removablePortFlags[0] = 0;
+
+	// Set removable port flags -- we might have an AAPL property that tells us which ports
+	// are captive.  If we don't then we'll assume that all ports are removable
+	appleCaptiveProperty = OSDynamicCast(OSNumber, _device->getProperty(kAppleInternalUSBDevice));
+	if (appleCaptiveProperty)
+		appleCaptive = appleCaptiveProperty->unsigned32BitValue();
+	
+    hubDesc.removablePortFlags[0] = (UInt8) appleCaptive;
     hubDesc.removablePortFlags[1] = 0xFF;
 
     // Adjust descriptor length to account for unused bytes
@@ -118,7 +123,7 @@ AppleUSBUHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
     
     bcopy(&hubDesc, desc, hubDesc.length);
     
-    return(kIOReturnSuccess); 
+    return kIOReturnSuccess; 
 }
 
 
@@ -351,16 +356,6 @@ AppleUSBUHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
                                                                        
     _lastPortStatus[port] = r_status;
     
-	// if the port is in the process of resuming, we turn off the suspend status bit, but we don't show it as changing yet..
-	if (r_status & kHubPortSuspend)
-	{
-		if (_rhPortBeingResumed[port])
-		{
-			r_status &= ~kHubPortSuspend;
-			USBLog(5, "%s[%p]::GetRootHubPortStatus for port (%d) - since we are resuming, turn off the suspend bit", getName(), this, (int)port+1);
-			status->statusFlags = HostToUSBWord(r_status);
-		}
-	}
     return kIOReturnSuccess;
 }
 
@@ -709,7 +704,7 @@ AppleUSBUHCI::RHAreAllPortsDisconnectedOrSuspended( void )
 	{
 		if ( _controlBulkTransactionsOut != 0 )
 		{
-            USBLog(2, "AppleUSBUHCI[%p]::RHAreAllPortsDisconnectedOrSuspended  everything disconnected, but %ld control/bulk transactions are pending. ", this, _controlBulkTransactionsOut);
+            USBLog(2, "AppleUSBUHCI[%p]::RHAreAllPortsDisconnectedOrSuspended  everything disconnected, but %d control/bulk transactions are pending. ", this, (uint32_t)_controlBulkTransactionsOut);
 			result = false;
 		}
 	}
@@ -1062,7 +1057,7 @@ AppleUSBUHCI::RHResumePortTimerEntry(OSObject *target, thread_call_param_t port)
 	if (!me)
 		return;
 
-	me->RHResumePortTimer((UInt32)port);
+	me->RHResumePortTimer((uintptr_t)port);
 }
 
 
@@ -1088,7 +1083,7 @@ IOReturn
 AppleUSBUHCI::RHResumePortCompletionEntry(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
     AppleUSBUHCI				*me = OSDynamicCast(AppleUSBUHCI, target);
-    UInt32						port = (UInt32)param1;
+    UInt32						port = (uintptr_t)param1;
 	
 	if (!me)
 		return kIOReturnInternalError;

@@ -129,29 +129,16 @@ APU_DECLARE(char *) apr_uri_unparse(apr_pool_t *p,
                  uptr->port == 0 ||
                  uptr->port == apr_uri_port_of_scheme(uptr->scheme));
 
-            if (uptr->scheme) {
-                ret = apr_pstrcat(p,
-                              uptr->scheme, "://", ret,
-                              lbrk, uptr->hostname, rbrk,
-                              is_default_port ? "" : ":",
-                              is_default_port ? "" : uptr->port_str,
-                              NULL);
-            }
-            else {
-                /* A violation of RFC2396, but it is clear from section 3.2
-                 * that the : belongs above to the scheme, while // belongs
-                 * to the authority, so include the authority prefix while
-                 * omitting the "scheme:" that the user neglected to pass us.
-                 */
-                ret = apr_pstrcat(p,
-                              "//", ret, lbrk, uptr->hostname, rbrk,
-                              is_default_port ? "" : ":",
-                              is_default_port ? "" : uptr->port_str,
-                              NULL);
-            }
+            ret = apr_pstrcat(p, "//", ret, lbrk, uptr->hostname, rbrk,
+                        is_default_port ? "" : ":",
+                        is_default_port ? "" : uptr->port_str,
+                        NULL);
         }
+	if (uptr->scheme) {
+	    ret = apr_pstrcat(p, uptr->scheme, ":", ret, NULL);
+	}
     }
-
+    
     /* Should we suppress all path info? */
     if (!(flags & APR_URI_UNP_OMITPATHINFO)) {
         /* Append path, query and fragment strings: */
@@ -324,12 +311,17 @@ deal_with_path:
     while ((uri_delims[*(unsigned char *)s] & NOTEND_SCHEME) == 0) {
         ++s;
     }
-    /* scheme must be non-empty and followed by :// */
-    if (s == uri || s[0] != ':' || s[1] != '/' || s[2] != '/') {
+    /* scheme must be non-empty and followed by : */
+    if (s == uri || s[0] != ':') {
         goto deal_with_path;        /* backwards predicted taken! */
     }
 
     uptr->scheme = apr_pstrmemdup(p, uri, s - uri);
+    if (s[1] != '/' || s[2] != '/') {
+        uri = s + 1;
+        goto deal_with_path;
+    }
+
     s += 3;
 
 deal_with_authority:

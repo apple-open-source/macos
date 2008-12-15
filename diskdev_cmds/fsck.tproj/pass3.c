@@ -67,7 +67,7 @@ void
 pass3()
 {
 	register struct inoinfo **inpp, *inp;
-	ino_t orphan;
+	u_int32_t orphan;
 	int loopcnt;
 
 	for (inpp = &inpsort[inplast - 1]; inpp >= inpsort; inpp--) {

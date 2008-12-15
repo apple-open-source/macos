@@ -1,6 +1,7 @@
---- src/ex_docmd.c.orig	2005-05-18 17:41:04.000000000 -0700
-+++ src/ex_docmd.c	2005-05-18 17:17:29.000000000 -0700
-@@ -628,6 +628,7 @@ do_exmode(improved)
+diff -r -u -N --exclude='*.orig' vim72.orig/src/ex_docmd.c vim72/src/ex_docmd.c
+--- vim72.orig/src/ex_docmd.c	2008-07-26 04:51:05.000000000 -0700
++++ vim72/src/ex_docmd.c	2008-08-19 01:06:04.000000000 -0700
+@@ -625,6 +625,7 @@
      MSG(_("Entering Ex mode.  Type \"visual\" to go to Normal mode."));
      while (exmode_active)
      {
@@ -8,7 +9,7 @@
  #ifdef FEAT_EX_EXTRA
  	/* Check for a ":normal" command and no more characters left. */
  	if (ex_normal_busy > 0 && typebuf.tb_len == 0)
-@@ -658,7 +659,7 @@ do_exmode(improved)
+@@ -655,7 +656,7 @@
  	if ((prev_line != curwin->w_cursor.lnum
  		    || changedtick != curbuf->b_changedtick) && !ex_no_reprint)
  	{
@@ -17,7 +18,7 @@
  		EMSG(_(e_emptybuf));
  	    else
  	    {
-@@ -671,8 +672,13 @@ do_exmode(improved)
+@@ -668,8 +669,13 @@
  			msg_row--;
  		}
  		msg_col = 0;
@@ -33,7 +34,7 @@
  	    }
  	}
  	else if (ex_pressedreturn && !ex_no_reprint)	/* must be at EOF */
-@@ -7843,7 +7849,15 @@ ex_pwd(eap)
+@@ -7929,7 +7935,15 @@
  ex_equal(eap)
      exarg_T	*eap;
  {

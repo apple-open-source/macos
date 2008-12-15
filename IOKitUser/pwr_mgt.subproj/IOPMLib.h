@@ -44,7 +44,8 @@ extern "C" {
     @param master_device_port  Just pass in MACH_PORT_NULL for master device port.
     @result Returns a io_connect_t handle on the root domain. Must be released with IOServiceClose() when done.
  */
-io_connect_t IOPMFindPowerManagement( mach_port_t master_device_port );
+io_connect_t IOPMFindPowerManagement( mach_port_t master_device_port )
+                            AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
     
 /*! @function IOPMSetAggressiveness
     @abstract Sets one of the aggressiveness factors in IOKit Power Management.
@@ -53,8 +54,9 @@ io_connect_t IOPMFindPowerManagement( mach_port_t master_device_port );
     @param type New value of the aggressiveness factor.
     @result Returns kIOReturnSuccess or an error condition if request failed.
 */
-IOReturn IOPMSetAggressiveness (io_connect_t fb, unsigned long type, unsigned long aggressiveness );
-
+IOReturn IOPMSetAggressiveness (io_connect_t fb, unsigned long type, unsigned long aggressiveness )
+                            AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
+                            
 /*! @function IOPMGetAggressiveness
     @abstract Retrieves the current value of one of the aggressiveness factors in IOKit Power Management.
     @param fb  Representation of the Root Power Domain from IOPMFindPowerManagement.
@@ -62,14 +64,14 @@ IOReturn IOPMSetAggressiveness (io_connect_t fb, unsigned long type, unsigned lo
     @param type Points to where to store the retrieved value of the aggressiveness factor.
     @result Returns kIOReturnSuccess or an error condition if request failed.
  */
-IOReturn IOPMGetAggressiveness ( io_connect_t fb, unsigned long type, unsigned long * aggressiveness );
-
+IOReturn IOPMGetAggressiveness ( io_connect_t fb, unsigned long type, unsigned long * aggressiveness )
+                            AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*! @function IOPMSleepEnabled
     @abstract Tells whether the system supports full sleep, or just doze
     @result Returns true if the system supports sleep, false if some hardware prevents full sleep.
  */
-boolean_t IOPMSleepEnabled ( void );
+boolean_t IOPMSleepEnabled ( void ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*! @function IOPMSleepSystem
     @abstract Request that the system initiate sleep.
@@ -77,7 +79,7 @@ boolean_t IOPMSleepEnabled ( void );
     @param fb  Port used to communicate to the kernel,  from IOPMFindPowerManagement.
     @result Returns kIOReturnSuccess or an error condition if request failed.
  */
-IOReturn IOPMSleepSystem ( io_connect_t fb );
+IOReturn IOPMSleepSystem ( io_connect_t fb ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*! @function IOPMCopyBatteryInfo
     @abstract Request raw battery data from the system. 
@@ -86,7 +88,8 @@ IOReturn IOPMSleepSystem ( io_connect_t fb );
     @param info A CFArray of CFDictionaries containing raw battery data. 
     @result Returns kIOReturnSuccess or an error condition if request failed.
  */
-IOReturn IOPMCopyBatteryInfo( mach_port_t masterPort, CFArrayRef * info );
+IOReturn IOPMCopyBatteryInfo( mach_port_t masterPort, CFArrayRef * info )
+                            AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 
 
@@ -109,7 +112,8 @@ io_connect_t IORegisterApp( void * refcon,
                             io_service_t theDriver,
                             IONotificationPortRef * thePortRef,
                             IOServiceInterestCallback callback,
-                            io_object_t * notifier );
+                            io_object_t * notifier )
+                            AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*! @function IORegisterForSystemPower
     @abstract Connects the caller to the Root Power Domain  IOService for the purpose of receiving Sleep, Wake, ShutDown, PowerUp notifications for the System.
@@ -122,21 +126,23 @@ io_connect_t IORegisterApp( void * refcon,
 io_connect_t IORegisterForSystemPower ( void * refcon,
                                         IONotificationPortRef * thePortRef,
                                         IOServiceInterestCallback callback,
-                                        io_object_t * notifier );
+                                        io_object_t * notifier )
+                                        AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;                                        
 /* @function IODeregisterApp
     @abstract Disconnects the caller from an IOService after receiving power state change notifications from the IOService. (Caller must also release IORegisterApp's return io_connect_t and returned IONotificationPortRef for complete clean-up).
     @param notifier  An object from IORegisterApp.
     @result Returns kIOReturnSuccess or an error condition if request failed.
  */
-IOReturn IODeregisterApp ( io_object_t * notifier );
+IOReturn IODeregisterApp ( io_object_t * notifier ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*! @function IODeregisterForSystemPower.
     @abstract Disconnects the caller from the Root Power Domain IOService after receiving system power state change notifications. (Caller must also release IORegisterForSystemPower's return io_connect_t and returned IONotificationPortRef for complete clean-up).
     @param notifier  An object from IORegisterForSystemPower.
     @result Returns kIOReturnSuccess or an error condition if request failed.
 */
-IOReturn IODeregisterForSystemPower ( io_object_t * notifier );
-
+IOReturn IODeregisterForSystemPower ( io_object_t * notifier )
+                            AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
+                            
 /*! @function IOAllowPowerChange
     @abstract The caller acknowledges notification of a power state change on a device it has registered for notifications for via IORegisterForSystemPower or IORegisterApp.
     @discussion Must be used when handling kIOMessageCanSystemSleep and kIOMessageSystemWillSleep messages from IOPMrootDomain system power.
@@ -144,7 +150,8 @@ IOReturn IODeregisterForSystemPower ( io_object_t * notifier );
     @param notificationID A copy of the notification ID which came as part of the power state change notification being acknowledged.
     @result Returns kIOReturnSuccess or an error condition if request failed.
 */
-IOReturn IOAllowPowerChange ( io_connect_t kernelPort, long notificationID );
+IOReturn IOAllowPowerChange ( io_connect_t kernelPort, long notificationID )
+                            AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*! @function IOCancelPowerChange
     @abstract The caller negatively acknowledges notification of a power state change on a device it is interested in.  This prevents the state change.
@@ -153,9 +160,8 @@ IOReturn IOAllowPowerChange ( io_connect_t kernelPort, long notificationID );
     @param notificationID A copy of the notification ID which came as part of the power state change notification being acknowledged.
     @result Returns kIOReturnSuccess or an error condition if request failed.
  */
-IOReturn IOCancelPowerChange ( io_connect_t kernelPort, long notificationID );
-
-
+IOReturn IOCancelPowerChange ( io_connect_t kernelPort, long notificationID )
+                            AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*!
     @functiongroup Scheduled Events
@@ -263,11 +269,21 @@ enum {
     */
 #define kIOPMAssertionLevelKey      CFSTR("AssertLevel")
 
+    /*
+ @constant kIOPMAssertionNameKey
+ @abstract The CFDictionary key for assertion name in dictionaries returned by IOPMCopyAssertionsByProcess.
+ @discussion Name is specified by the assertion creator, and reflects the calling process and 
+    the activity being handled by the assertion.
+    */
+ #define kIOPMAssertionNameKey      CFSTR("AssertName")
+
 
     /*!
 @function IOPMAssertionCreate
 @abstract Dynamically requests a system behavior from the power management system.
-@discussion No special privileges necessary to make this call - any process may
+@discussion IOPMAssertionCreate is deprecated in favor of IOPMAssertionCreateWithName. Please
+        use the named portion of this API instead for greater accountability.
+        No special privileges necessary to make this call - any process may
         activate a power assertion.
 @param AssertionType The CFString assertion type to request from the PM system.
 @param AssertionLevel Pass kIOPMAssertionLevelOn or kIOPMAssertionLevelOff.
@@ -277,7 +293,31 @@ enum {
      */
 IOReturn IOPMAssertionCreate(CFStringRef        AssertionType, 
                            IOPMAssertionLevel   AssertionLevel,
-                           IOPMAssertionID      *AssertionID);                           
+                           IOPMAssertionID      *AssertionID)
+                           AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+//                           DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+    /*!
+@function IOPMAssertionCreateWithName
+@abstract Dynamically requests a system behavior from the power management system.
+@discussion No special privileges necessary to make this call - any process may
+        activate a power assertion. Caller must specify an AssertionName - NULL is not
+        a valid input.
+@param AssertionType The CFString assertion type to request from the PM system.
+@param AssertionLevel Pass kIOPMAssertionLevelOn or kIOPMAssertionLevelOff.
+@param AssertionName A string that describes the name of the caller and the activity being
+        handled by this assertion (e.g. "Mail Compacting Mailboxes"). Name may be no longer 
+        than 128 characters.
+@param AssertionID On success, a unique id will be returned in this parameter.
+@result Returns kIOReturnSuccess on success, any other return indicates
+        PM could not successfully activate the specified assertion.
+     */
+IOReturn IOPMAssertionCreateWithName(
+                        CFStringRef          AssertionType, 
+                        IOPMAssertionLevel   AssertionLevel,
+                        CFStringRef          AssertionName,
+                        IOPMAssertionID      *AssertionID)
+                        AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;                           
                            
     /*!
 @function IOPMAssertionRelease
@@ -286,7 +326,8 @@ IOReturn IOPMAssertionCreate(CFStringRef        AssertionType,
 @param AssertionID The assertion_id, returned from IOPMAssertionCreate, to cancel.
 @result Returns kIOReturnSuccess on success
      */
-IOReturn IOPMAssertionRelease(IOPMAssertionID AssertionID);
+IOReturn IOPMAssertionRelease(IOPMAssertionID AssertionID)
+                           AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
     /*!
 @function IOPMCopyAssertionsByProcess
@@ -301,7 +342,8 @@ IOReturn IOPMAssertionRelease(IOPMAssertionID AssertionID);
         Caller must CFRelease() this dictionary when done.
 @result Returns kIOReturnSuccess on success.
      */
-IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *AssertionsByPID);
+IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *AssertionsByPID)
+                            AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
     /*!
 @function IOPMCopyAssertionsStatus
@@ -314,7 +356,8 @@ IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *AssertionsByPID);
        represents the aggregate level for that assertion.  Caller must CFRelease() this dictionary when done.
 @result Returns kIOReturnSuccess on success.
      */
-IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *AssertionsStatus);
+IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *AssertionsStatus)
+                            AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 
 #ifdef __cplusplus

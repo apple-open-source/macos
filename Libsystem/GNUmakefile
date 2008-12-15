@@ -5,10 +5,24 @@
 # end.  This is because the comm page symbols are added as a special segment,
 # which the linker will not thin, so we have to build thin and combine.
 ##---------------------------------------------------------------------
-PROJECT = Libsystem
+Project = Libsystem
+VersionLetter = B
+
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
+
+ifeq ($(Version),0)
+ifdef RC_ProjectSourceVersion
+Version = $(RC_ProjectSourceVersion)
+endif
+endif
 
 no_target:
 	@$(MAKE) -f Makefile
+
+ifndef RC_TARGET_CONFIG
+export RC_TARGET_CONFIG = MacOSX
+endif
+include Platforms/$(RC_TARGET_CONFIG)/Makefile.inc
 
 ##---------------------------------------------------------------------
 # For each arch, we setup the independent OBJROOT and DSTROOT, and adjust
@@ -16,58 +30,74 @@ no_target:
 # time (for the non-dylib files), and then call lipo to create fat files
 # for the three dylibs.
 ##---------------------------------------------------------------------
-ALLARCHS = hppa i386 m68k ppc ppc64 sparc x86_64
 NARCHS = $(words $(RC_ARCHS))
 USRLIB = /usr/lib
 ifdef ALTUSRLOCALLIBSYSTEM
 LIBSYS = $(ALTUSRLOCALLIBSYSTEM)
 else
-LIBSYS = $(NEXT_ROOT)/usr/local/lib/system
+LIBSYS = $(SDKROOT)/usr/local/lib/system
 endif
+FORMS = dynamic
+SUFFIX = ''
+ifdef FEATURE_DEBUG_DYLIB
+FORMS += debug
+SUFFIX += _debug
+endif
+ifdef FEATURE_PROFILE_DYLIB
+FORMS += profile
+SUFFIX += _profile
+endif
+BSD_LIBS = c info m pthread dbm poll dl rpcsvc proc
+FPATH = /System/Library/Frameworks/System.framework
 
-install: fake $(DSTROOT)/usr/local/lib/system/libc.a $(RC_ARCHS)
-ifneq "$(NARCHS)" "1"
-	rsync -aH $(OBJROOT)/$(word 1,$(RC_ARCHS))/dstroot/ $(DSTROOT)
-	rsync -aH $(OBJROOT)/$(word 1,$(RC_ARCHS))/symroot/ $(SYMROOT)
+build:: fake libSystem
 	@set -x && \
-	for i in libSystem.B.dylib libSystem.B_debug.dylib libSystem.B_profile.dylib; do \
-	    rm -f $(DSTROOT)$(USRLIB)/$$i && \
-	    lipo -create -o $(DSTROOT)$(USRLIB)/$$i $(foreach ARCH,$(RC_ARCHS),$(OBJROOT)/$(ARCH)/dstroot$(USRLIB)/$$i) && \
-	    rm -f $(SYMROOT)/$$i && \
-	    lipo -create -o $(SYMROOT)/$$i $(foreach ARCH,$(RC_ARCHS),$(OBJROOT)/$(ARCH)/symroot/$$i) || exit 1; \
+	cd $(DSTROOT)/usr/lib && \
+	for i in $(BSD_LIBS); do \
+	    ln -sf libSystem.dylib lib$$i.dylib || exit 1; \
 	done
-endif
+	find $(DSTROOT) -type l ! -perm 755 | xargs chmod -hv 755
+	install -d $(DSTROOT)$(FPATH)/Versions/$(VersionLetter)/Resources
 	@set -x && \
-	for i in libSystem.B.dylib libSystem.B_debug.dylib libSystem.B_profile.dylib; do \
-	    dsymutil $(SYMROOT)/$$i || exit 1; \
-	done
+	cd $(DSTROOT)$(FPATH) && \
+	ln -sf Versions/Current/PrivateHeaders && \
+	ln -sf Versions/Current/Resources && \
+	for S in $(SUFFIX); do \
+	    ln -sf Versions/Current/System$$S || exit 1; \
+	done && \
+	cd Versions && \
+	ln -sf $(VersionLetter) Current && \
+	cd $(VersionLetter) && \
+	for S in $(SUFFIX); do \
+	    ln -sf ../../../../../../usr/lib/libSystem.$(VersionLetter)$$S.dylib System$$S || exit 1; \
+	done && \
+	cp -f $(SRCROOT)/Info.plist Resources
 
 # 4993197: force dependency generation for libsyscall.a
 fake:
 	@set -x && \
 	cd $(OBJROOT) && \
 	echo 'main() { __getpid(); return 0; }' > fake.c && \
-	cc -c fake.c && \
-	ld -r -o fake fake.o -lsyscall -L$(LIBSYS)
+	cc -c $(RC_CFLAGS) fake.c && \
+	ld -r -o fake $(foreach ARCH,$(RC_ARCHS),-arch $(ARCH)) fake.o -lsyscall -L$(LIBSYS)
 
-$(DSTROOT)/usr/local/lib/system/libc.a:
-	bsdmake -C libsys install
+libc:
+	mkdir -p '$(OBJROOT)/libc'
+	bsdmake -C libsys install \
+	DSTROOT='$(DSTROOT)' \
+	OBJROOT='$(OBJROOT)/libc' \
+	SRCROOT='$(SRCROOT)' \
+	SYMROOT='$(SYMROOT)'
 
-$(ALLARCHS):
-ifneq "$(NARCHS)" "1"
-	mkdir -p $(OBJROOT)/$@/objroot $(OBJROOT)/$@/dstroot $(OBJROOT)/$@/symroot
-	$(MAKE) -f Makefile install \
-	    OBJROOT='$(OBJROOT)/$@/objroot' \
-	    TOPOBJROOT='$(OBJROOT)' \
-	    DSTROOT='$(OBJROOT)/$@/dstroot' \
-	    SYMROOT='$(OBJROOT)/$@/symroot' \
-	    DESTDIR='$(DSTROOT)' \
-	    RC_CFLAGS='-arch $@ $(RC_NONARCH_CFLAGS)' \
-	    RC_ARCHS='$@' \
-	    RC_$@=YES $(foreach ARCH,$(filter-out $@,$(ALLARCHS)),RC_$(ARCH)=)
-else # NARCHS == 1
-	$(MAKE) -f Makefile install TOPOBJROOT='$(OBJROOT)' DESTDIR='$(DSTROOT)'
-endif # NARCHS != 1
-
-.DEFAULT:
-	@$(MAKE) -f Makefile $@
+libSystem: libc
+	mkdir -p '$(OBJROOT)/libSystem'
+	bsdmake install \
+	FEATURE_LIBMATHCOMMON=$(FEATURE_LIBMATHCOMMON) \
+	FEATURE_ORDER_FILE=$(FEATURE_ORDER_FILE) \
+	FORMS='$(FORMS)' \
+	Version=$(Version) \
+	VersionLetter=$(VersionLetter) \
+	DSTROOT='$(DSTROOT)' \
+	OBJROOT='$(OBJROOT)/libSystem' \
+	SRCROOT='$(SRCROOT)' \
+	SYMROOT='$(SYMROOT)'

@@ -61,6 +61,14 @@ typedef struct  {
     int     haltpercent[2];
 } threshold_struct;
 
+// Externally defined UPS SPI
+#ifndef _IOKIT_PM_IOUPSPRIVATE_H_
+Boolean IOUPSMIGServerIsRunning(mach_port_t * bootstrap_port_ref, mach_port_t * upsd_port_ref);
+IOReturn IOUPSSendCommand(mach_port_t connect, int upsID, CFDictionaryRef command);
+IOReturn IOUPSGetEvent(mach_port_t connect, int upsID, CFDictionaryRef *event);
+IOReturn IOUPSGetCapabilities(mach_port_t connect, int upsID, CFSetRef *capabilities);
+#endif
+
 // Globals
 static const int                _delayedRemovePowerMinutes = 3;
 static const int                _delayBeforeStartupMinutes = 4;
@@ -320,7 +328,7 @@ _doPowerEmergencyShutdown(CFNumberRef ups_id)
     pid_t           shutdown_pid;
     CFNumberRef     auto_restart;
     IOReturn        error;
-    bool            upsRestart;
+    bool            upsRestart = false;
     int             restart_setting;
     
     if(_alreadyShuttingDown) return;
@@ -489,7 +497,7 @@ static bool
 _weManageUPSPower(void)
 {
     static CFStringRef                  ups_claimed = NULL;
-    static SCDynamicStoreRef            ds_ref = NULL;
+    SCDynamicStoreRef                   ds_ref = NULL;
     CFTypeRef		                    temp;
     bool                                ret_val = true;
 
@@ -497,9 +505,7 @@ _weManageUPSPower(void)
         ups_claimed = SCDynamicStoreKeyCreate(kCFAllocatorDefault, CFSTR("%@%@"), kSCDynamicStoreDomainState, CFSTR(kIOPSUPSManagementClaimed));
     }
     
-    if(!ds_ref) {
-        ds_ref = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("PM configd plugin"), NULL, NULL);
-    }
+    ds_ref = _getSharedPMDynamicStore();
 
     // Check for existence of "UPS Management claimed" key in SCDynamicStore
     if( ups_claimed && ds_ref &&

@@ -29,8 +29,6 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 
-#include <UserNotification/KUNCUserNotifications.h>
-
 #include <IOKit/usb/IOUSBLog.h>
 
 #include <IOKit/usb/IOUSBInterface.h>
@@ -56,8 +54,8 @@ So high byte can be 03 or 06 ----  low byte can be 01, 02, 03, 04, 05
 Currently we are working on a new mask with the new descriptors. The
 firmwarestatus will be higher than 05.
 */
-      {0x046a, 0x003, 0x0301, 0x0305, kErrataCaptiveOKBit}, // Cherry 4 port KB
-      {0x046a, 0x003, 0x0601, 0x0605, kErrataCaptiveOKBit}  // Cherry 4 port KB
+      {0x046a, 0x0003, 0x0301, 0x0305, kErrataCaptiveOKBit}, // Cherry 4 port KB
+      {0x046a, 0x0003, 0x0601, 0x0605, kErrataCaptiveOKBit}  // Cherry 4 port KB
 };
 
 // from the EHCI driver
@@ -86,7 +84,7 @@ enum
 
 };
 
-#pragma mark ееееееее IOService Methods еееееееее
+#pragma mark ееееееее IOService Methods ееееееее
 bool 
 AppleUSBHub::init( OSDictionary * propTable )
 {
@@ -141,9 +139,10 @@ AppleUSBHub::ConfigureHubDriver(void)
     OSDictionary			*providerDict;
     OSNumber				*errataProperty;
     OSNumber				*locationIDProperty;
+	OSBoolean				*boolProperty = NULL;
 	
     _inStartMethod = true;
-	USBLog(5, "AppleUSBHub[%p]::ConfigureHubDriver - calling RaisePowerState and IncrementOutstandingIO", this);
+	USBLog(6, "AppleUSBHub[%p]::ConfigureHubDriver - calling RaisePowerState and IncrementOutstandingIO", this);
 	RaisePowerState();
     IncrementOutstandingIO();								// make sure we don't close until start is done
 	
@@ -206,10 +205,18 @@ AppleUSBHub::ConfigureHubDriver(void)
         _startupDelay = errataProperty->unsigned32BitValue();
         IOSleep( _startupDelay );
     }
+
+    boolProperty = (OSBoolean *)_device->getProperty("kIgnoreDisconnectOnWakeup");
+    if ( boolProperty )
+    {
+        _ignoreDisconnectOnWakeup = boolProperty->isTrue();
+		USBLog(5, "AppleUSBHub[%p]::start - found kIgnoreDisconnectOnWakeup (%d)", this, _ignoreDisconnectOnWakeup);
+    }
     
     // Get the other errata that are not personality based
     //
     _errataBits = GetHubErrataBits();
+	setProperty("Errata", _errataBits, 32);
     
     // Go ahead and configure the hub
     //
@@ -240,10 +247,10 @@ AppleUSBHub::ConfigureHubDriver(void)
         {
             _locationID = locationIDProperty->unsigned32BitValue();
         }
-        USBLog(1, "AppleUSBHub[%p]::start -  USB Generic Hub @ %d (0x%lx)", this, _address, _locationID);
+        USBLog(1, "AppleUSBHub[%p]::start -  USB Generic Hub @ %d (0x%x)", this, _address, (uint32_t)_locationID);
  		_inStartMethod = false;
 		
-		USBLog(5, "AppleUSBHub[%p]::start - device name %s - done", this, _device->getName());
+		USBLog(6, "AppleUSBHub[%p]::start - device name %s - done - calling DecrementOutstandingIO and LowerPowerState", this, _device->getName());
         DecrementOutstandingIO();
 		LowerPowerState();
 		return true;
@@ -286,6 +293,7 @@ ErrorExit:
     }
 	
     _inStartMethod = false;
+	USBLog(6, "AppleUSBHub[%p]::start - device name %s - done (with err) - calling DecrementOutstandingIO and LowerPowerState", this, _device->getName());
     DecrementOutstandingIO();
 	LowerPowerState();
     return false;
@@ -363,7 +371,7 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
     IOUSBHubPortReEnumerateParam *	params ;
     IOUSBHubPortClearTTParam *      ttParams;
     
-	USBLog(3, "AppleUSBHub[%p]::message(%s) - isInactive(%s) _myPowerState(%d) _powerStateChangingTo(%d)", this, HubMessageToString(type), isInactive() ? "true" : "false", (int)_myPowerState, (int)_powerStateChangingTo);
+	USBLog(3, "AppleUSBHub[%p]::message(%p)(%s) - isInactive(%s) _myPowerState(%d) _powerStateChangingTo(%d)", this, (void*)type, HubMessageToString(type), isInactive() ? "true" : "false", (int)_myPowerState, (int)_powerStateChangingTo);
 	
     switch ( type )
     {
@@ -384,7 +392,7 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
 			// error from the call, then that means that our hub is not 100% so the device is probably not connected.  Otherwise
 			// check the kHubPortConnection bit to see whether there is a device connected to the port or not
 			//
-			USBLog(5, "AppleUSBHub[%p]::message(kIOUSBMessageHubIsDeviceConnected) - calling IncrementOutstandingIO", this);
+			USBLog(6, "AppleUSBHub[%p]::message(kIOUSBMessageHubIsDeviceConnected) - calling IncrementOutstandingIO", this);
 			IncrementOutstandingIO();
 			err = GetPortStatus(&status, * (UInt32 *) argument );
 			if ( err != kIOReturnSuccess )
@@ -393,13 +401,19 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
 			}
 			else
 			{
-				USBLog(5,"AppleUSBHub[%p]::kIOUSBMessageHubIsDeviceConnected - port %ld - status(%8x)/change(%8x)", this, * (UInt32 *) argument, status.statusFlags, status.changeFlags);
-				if ( (status.statusFlags & kHubPortConnection) && !(status.changeFlags & kHubPortConnection) )
+				USBLog(5,"AppleUSBHub[%p]::kIOUSBMessageHubIsDeviceConnected - port %d - status(%8x)/change(%8x), _ignoreDisconnectOnWakeup = %d", this, * (uint32_t *) argument, status.statusFlags, status.changeFlags, _ignoreDisconnectOnWakeup);
+				if ( (status.statusFlags & kHubPortConnection) && (_ignoreDisconnectOnWakeup || !(status.changeFlags & kHubPortConnection)) )
+				{
+					if ( _ignoreDisconnectOnWakeup )
+					{
+						USBLog(6, "AppleUSBHub[%p]::message(kIOUSBMessageHubIsDeviceConnected) - _ignoreDisconnectOnWakeup is true", this);
+					}
 					err = kIOReturnSuccess;
+				}
 				else
 					err = kIOReturnNoDevice;
 			}
-			USBLog(5, "AppleUSBHub[%p]::message(kIOUSBMessageHubIsDeviceConnected) - calling DecrementOutstandingIO", this);
+			USBLog(6, "AppleUSBHub[%p]::message(kIOUSBMessageHubIsDeviceConnected) - calling DecrementOutstandingIO", this);
 			DecrementOutstandingIO();
 			break;
 		
@@ -440,7 +454,7 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
 			if (!_inStartMethod)
 			{
 				_inStartMethod = true;
-				USBLog(5, "AppleUSBHub[%p]::message(kIOUSBMessagePortHasBeenReset) - calling RaisePowerState and IncrementOutstandingIO", this);
+				USBLog(6, "AppleUSBHub[%p]::message(kIOUSBMessagePortHasBeenReset) - calling RaisePowerState and IncrementOutstandingIO", this);
 				RaisePowerState();
 				IncrementOutstandingIO();		// make sure we don't close until start is done
 				USBLog(3, "AppleUSBHub[%p]  Received kIOUSBMessagePortHasBeenReset -- reconfiguring hub", this);
@@ -462,6 +476,13 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
 					_hubInterface = NULL;
 				}
 				
+				// release our existing buffers, if any
+				if (_buffer) 
+				{
+					_buffer->release();
+					_buffer = NULL;
+				}
+				
 				// Reconfigure our Hub. 
 				err = ConfigureHub();
 				if ( err ) 
@@ -470,11 +491,11 @@ AppleUSBHub::message( UInt32 type, IOService * provider,  void * argument )
 				}
 				else
 				{
-					USBLog(1, "[%p] (Reset) USB Generic Hub @ %d (0x%lx)", this, _address, _locationID);
+					USBLog(1, "[%p] (Reset) USB Generic Hub @ %d (0x%x)", this, _address, (uint32_t)_locationID);
 				}
 				
 				_inStartMethod = false;
-				USBLog(5, "AppleUSBHub[%p]::message(kIOUSBMessagePortHasBeenReset) - calling DecrementOutstandingIO", this);
+				USBLog(6, "AppleUSBHub[%p]::message(kIOUSBMessagePortHasBeenReset) - calling DecrementOutstandingIO", this);
 				DecrementOutstandingIO();
 				LowerPowerState();
 				
@@ -684,8 +705,24 @@ AppleUSBHub::terminateClient( IOService * client, IOOptionBits options )
 IOReturn
 AppleUSBHub::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long stateNumber, IOService* whatDevice)
 {
+	IOReturn	ret;
+	
 	USBLog(5, "AppleUSBHub[%p]::powerStateWillChangeTo - from State(%d) to state(%d) _needInterruptRead (%s) _outstandingIO(%d) isInactive(%s)", this, (int)_myPowerState, (int)stateNumber, _needInterruptRead ? "true" : "false", (int)_outstandingIO, isInactive() ? "true" : "false");
-	return super::powerStateWillChangeTo( capabilities, stateNumber, whatDevice);
+	ret = super::powerStateWillChangeTo( capabilities, stateNumber, whatDevice);
+	
+	// if we are going to off, restart, or sleep, we need to wait for any status change threads to complete (up to 30 seconds)
+	if (_powerStateChangingTo < kIOUSBHubPowerStateLowPower)
+	{
+		int		retries = 300;
+		
+		while (retries-- && (IsPortInitThreadActiveForAnyPort() || IsStatusChangedThreadActiveForAnyPort()))
+		{
+			USBLog(1, "AppleUSBHub[%p]::powerStateWillChangeTo - an init thread or status changed thread is still active for some port - waiting 100ms (retries=%d)", this, retries);
+			IOSleep(100);
+		}
+	}
+	
+	return ret;
 }
 
 
@@ -698,7 +735,10 @@ AppleUSBHub::setPowerState ( unsigned long powerStateOrdinal, IOService* whatDev
 	// however, the superclass implementation will short-circuit that call if we are being terminated, so now we do it just before
 	// the superclass::setPowerState. this makes it work much better when a hub in low power mode gets disconnected
 	if (_myPowerState != powerStateOrdinal)
+	{
+		USBLog(6, "AppleUSBHub[%p]::setPowerState - calling IncrementOutstandingIO", this);
 		IncrementOutstandingIO();				// this will be decremented in powerStateDidChangeTo
+	}
 	
 	return super::setPowerState(powerStateOrdinal, whatDevice);
 }
@@ -718,7 +758,7 @@ AppleUSBHub::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned long 
 	// one of our children might need an interrupt read to occur, which won't occur until this Decrement occurs
 	if (oldState != stateNumber)
 	{
-		USBLog(5, "AppleUSBHub[%p]::powerStateDidChangeTo - calling DecrementOutstandingIO", this);
+		USBLog(6, "AppleUSBHub[%p]::powerStateDidChangeTo - calling DecrementOutstandingIO", this);
 		DecrementOutstandingIO();				// this is from the increment in setPowerState
 	}
 		
@@ -764,7 +804,7 @@ AppleUSBHub::powerChangeDone ( unsigned long fromState)
 
 
 
-#pragma mark ееееееее Configuration еееееееее
+#pragma mark ееееееее Configuration ееееееее
 IOReturn
 AppleUSBHub::ConfigureHub()
 {
@@ -979,6 +1019,9 @@ AppleUSBHub::ConfigureHub()
 			setProperty("High Speed", (unsigned long long)_hubDescriptor.numPorts, 8);	// 8 bits
     }
     
+	// Set the "wakeup time"
+	clock_get_uptime(&_wakeupTime);
+	
 	// Set the UserClient for all hubs, hs and full speed
 	setProperty("IOUserClientClass", "AppleUSBHSHubUserClient");
 
@@ -1052,19 +1095,19 @@ AppleUSBHub::CheckPortPowerRequirements(void)
 {
     IOReturn	err = kIOReturnSuccess;
     /* Note hub current in units of 1mA, everything else in units of 2mA */
-    UInt32	hubPower = _hubDescriptor.hubCurrent/2;
-    UInt32	busPower = _device->GetBusPowerAvailable();
-    UInt32	powerAvailForPorts = 0;
-    UInt32	powerNeededForPorts = 0;
-    bool	startExternal;
-
+    UInt32		hubPower = _hubDescriptor.hubCurrent/2;
+    UInt32		busPower = _device->GetBusPowerAvailable();
+    UInt32		powerAvailForPorts = 0;
+    UInt32		powerNeededForPorts = 0;
+    bool		startExternal;
+	OSNumber *	hubWakePowerReserved;
     do
     {
         if (hubPower > busPower)
         {
             // Don't put up an alert here.  The Adaptec 2.0 Hub claims that it needs 250mA. We will catch this later
             //
-            USBLog(3, "AppleUSBHub [%p] Hub claims to need more power (%ld > %ld) than available", this, hubPower, busPower);
+            USBLog(3, "AppleUSBHub [%p] Hub claims to need more power (%d > %d) than available", this, (uint32_t)hubPower, (uint32_t)busPower);
             _busPowerGood = false;
             _powerForCaptive = 0;
         }
@@ -1119,9 +1162,17 @@ AppleUSBHub::CheckPortPowerRequirements(void)
                 USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements - Hub attached - Self/Bus powered, power supply good", this);
 				if (!_isRootHub && !_dontAllowSleepPower)
 				{
-					USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements -  setting Extra Power in sleep to %d", this, (int)(_hubDescriptor.numPorts * kUSB500mAAvailable * 2));
-					// self powered hubs can provide extra power in sleep - 500 ma per port
-					_device->setProperty(kAppleExtraPowerInSleep, _hubDescriptor.numPorts * kUSB500mAAvailable * 2, 32);
+					OSObject *	anObj = _device->getProperty(kAppleCurrentInSleep);
+					if ( anObj == NULL )
+					{
+						USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements -  setting Extra Power in sleep to %d", this, (int)(_hubDescriptor.numPorts * kUSB500mAAvailable * 2));
+						// self powered hubs can provide extra power in sleep - 500 ma per port
+						_device->setProperty(kAppleCurrentInSleep, _hubDescriptor.numPorts * kUSB500mAAvailable * 2, 32);
+					}
+					else
+					{
+						USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements -  device already had a kAppleCurrentInSleep property", this);
+					}
 				}
 			}
             else
@@ -1137,14 +1188,22 @@ AppleUSBHub::CheckPortPowerRequirements(void)
                 if(_selfPowerGood)
                 {
                     USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements -  Hub attached - Self powered, power supply good", this);
-
+					
 					if (!_isRootHub && !_dontAllowSleepPower)
 					{
-						USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements -  setting Extra Power in sleep to %d", this, (int)_hubDescriptor.numPorts * kUSB500mAAvailable * 2);
-						// self powered hubs can provide extra power in sleep - 500 ma per port
-						_device->setProperty(kAppleExtraPowerInSleep, _hubDescriptor.numPorts * kUSB500mAAvailable * 2, 32);
+						OSObject *	anObj = _device->getProperty(kAppleCurrentInSleep);
+						if ( anObj == NULL )
+						{
+							USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements -  setting Extra Power in sleep to %d", this, (int)_hubDescriptor.numPorts * kUSB500mAAvailable * 2);
+							// self powered hubs can provide extra power in sleep - 500 ma per port
+							_device->setProperty(kAppleCurrentInSleep, _hubDescriptor.numPorts * kUSB500mAAvailable * 2, 32);
+						}
+						else
+						{
+							USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements -  device already had a kAppleCurrentInSleep property", this);
+						}
 					}
-              }
+				}
                 else
                 {
                     USBLog(3,"AppleUSBHub[%p] Hub attached - Self powered, no external power", this);
@@ -1154,12 +1213,12 @@ AppleUSBHub::CheckPortPowerRequirements(void)
             {
                 USBLog(3,"AppleUSBHub[%p] Hub attached - Bus powered", this);
             }
-
+			
         }
 #if defined (__i386__)
 		if (_isRootHub && (_device->GetHubCharacteristics() & kIOUSBHubDeviceCanSleep))
 		{
-			_device->setProperty(kAppleExtraPowerInSleep, _hubDescriptor.numPorts * kUSB500mAAvailable * 2, 32);
+			_device->setProperty(kAppleCurrentInSleep, _hubDescriptor.numPorts * kUSB500mAAvailable * 2, 32);
 		}
 #endif
         startExternal = (_busPowerGood || _selfPowerGood);
@@ -1175,6 +1234,19 @@ AppleUSBHub::CheckPortPowerRequirements(void)
                 break;	/* Now what ?? */
             }
         }
+		
+		hubWakePowerReserved = OSDynamicCast(OSNumber, _device->getProperty("HubWakePowerReserved"));
+		if ( hubWakePowerReserved && _selfPowerGood )
+		{
+			UInt32	wakePowerReserved = hubWakePowerReserved->unsigned32BitValue();
+			
+			USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements -  returning %ld power because we actually have a self-powered hub", this, wakePowerReserved);
+			_device->IOUSBDevice::ReturnExtraPower(kUSBPowerDuringWake, wakePowerReserved);
+			wakePowerReserved = 0;
+			_device->setProperty("HubWakePowerReserved", wakePowerReserved, 32);
+		}
+		
+		
     } while (false);
 
     return err;
@@ -1185,17 +1257,18 @@ AppleUSBHub::CheckPortPowerRequirements(void)
 IOReturn 
 AppleUSBHub::AllocatePortMemory(void)
 {
-    AppleUSBHubPort 	*port;
-    UInt32		power;
-    UInt32 		portMask = 2;
-    UInt32 		portByte = 0;
-    UInt32		currentPort;
-    bool		captive;
+    AppleUSBHubPort			*port;
+    UInt32					power;
+    UInt32					portMask = 2;
+    UInt32					portByte = 0;
+    UInt32					currentPort;
+    bool					captive;
+    AppleUSBHubPort 	 	**cachedPorts;
 
 
-    _ports = (AppleUSBHubPort **) IOMalloc(sizeof(AppleUSBHubPort *) * _hubDescriptor.numPorts);
+    cachedPorts = (AppleUSBHubPort **) IOMalloc(sizeof(AppleUSBHubPort *) * _hubDescriptor.numPorts);
 
-    if (!_ports)
+    if (!cachedPorts)
         return kIOReturnNoMemory;
 
     for (currentPort = 1; currentPort <= _hubDescriptor.numPorts; currentPort++)
@@ -1216,10 +1289,10 @@ AppleUSBHub::AllocatePortMemory(void)
         if (port->init(self, currentPort, power, captive) != kIOReturnSuccess)
         {
             port->release();
-            _ports[currentPort-1] = NULL;
+            cachedPorts[currentPort-1] = NULL;
         }
         else
-            _ports[currentPort-1] = port;
+            cachedPorts[currentPort-1] = port;
 
         portMask <<= 1;
         if(portMask > 0x80)
@@ -1229,6 +1302,7 @@ AppleUSBHub::AllocatePortMemory(void)
         }
     }
     
+    _ports = cachedPorts;
     return kIOReturnSuccess;
 }
 
@@ -1244,9 +1318,18 @@ AppleUSBHub::HubPowerChange(unsigned long powerStateOrdinal)
 	
 	USBLog(5, "AppleUSBHub[%p]::HubPowerChange - powerStateOrdinal(%d) _needInterruptRead(%s) isInactive(%s)", this, (int)powerStateOrdinal, _needInterruptRead ? "true" : "false", isInactive() ? "true" : "false");
 	
+	if ( (_myPowerState == kIOUSBHubPowerStateSleep) && ( powerStateOrdinal > kIOUSBHubPowerStateSleep) )
+	{
+		USBLog(6, "AppleUSBHub[%p]::HubPowerChange - We are waking up _myPowerState(%d), powerStateOrdinal(%d)", this, (int)_myPowerState, (int)powerStateOrdinal);
+		
+		// Set the "wakeup time"
+		clock_get_uptime(&_wakeupTime);
+	}
+	
 	switch (powerStateOrdinal)
 	{
 		case kIOUSBHubPowerStateOn:
+	
 			if (_portSuspended && _device)
 			{
 				USBLog(5, "AppleUSBHub[%p]::HubPowerChange - hub going to ON - my port is suspended, waking up onThread(%s)", this, _workLoop->onThread() ? "true" : "false");
@@ -1303,12 +1386,35 @@ AppleUSBHub::HubPowerChange(unsigned long powerStateOrdinal)
 			{
 				if (_portSuspended)
 				{
-					USBLog(1, "AppleUSBHub[%p]::HubPowerChange ((hub @ 0x%lx) - hub going to doze - my port is suspended! UNEXPECTED", this, _locationID);
+					USBLog(1, "AppleUSBHub[%p]::HubPowerChange ((hub @ 0x%x) - hub going to doze - my port is suspended! UNEXPECTED", this, (uint32_t)_locationID);
 					break;
 				}
 				if (!HubAreAllPortsDisconnectedOrSuspended())
 				{
-					USBLog(1, "AppleUSBHub[%p]::HubPowerChange (hub @ 0x%lx) - hub going to doze - some port is not suspended! UNEXPECTED", this, _locationID);
+					UInt32					portIndex, portNum;
+					IOUSBHubPortStatus		portStatus;
+					bool					realError = false;
+
+					for (portIndex = 0; portIndex < _hubDescriptor.numPorts; portIndex++)
+					{
+						IOReturn				kr;
+						
+						portNum = portIndex + 1;
+						kr = GetPortStatus(&portStatus, portNum);
+						if ( kr == kIOReturnSuccess )
+						{
+							if ( (portStatus.changeFlags == 0) && (portStatus.statusFlags & kHubPortConnection) && (portStatus.statusFlags & kHubPortEnabled) && !(portStatus.statusFlags & kHubPortSuspend))
+							{
+								USBLog(1, "AppleUSBHub[%p](0x%x)::HubPowerChange - port %d (status: 0x%x change: 0x%x) connected, enabled and not suspended - UNEXPECTED", this, (uint32_t)_locationID, (uint32_t)portNum, portStatus.statusFlags, portStatus.changeFlags);
+								realError = true;
+								break;
+							}
+						}
+					}
+					if (!realError)
+					{
+						USBLog(5, "AppleUSBHub[%p]::HubPowerChange (hub @ 0x%x) - hub going to doze - some port has a recent status change - we will pick it up later", this, (uint32_t)_locationID);
+					}
 				}
 				else
 				{
@@ -1430,7 +1536,12 @@ AppleUSBHub::HubPowerChange(unsigned long powerStateOrdinal)
 	{
 		USBLog(5, "AppleUSBHub[%p]::HubPowerChange - with outstanding resumes - spawning thread and returning kIOPMWillAckLater", this);
 		_needToAckSetPowerState = true;
-		thread_call_enter(_waitForPortResumesThread);
+		IncrementOutstandingIO();
+		if (thread_call_enter(_waitForPortResumesThread) == TRUE)
+		{
+			USBLog(1,"AppleUSBHub[%p]::HubPowerChange - _waitForPortResumesThread already queued", this);
+			DecrementOutstandingIO();
+		}
 		ret = kIOPMWillAckLater;
 	}
 	return ret;
@@ -1478,24 +1589,37 @@ AppleUSBHub::HubAreAllPortsDisconnectedOrSuspended()
 		}
 		if ((port->_initThreadActive) || (port->_statusChangedThreadActive))
 		{
-			USBLog(3, "AppleUSBHub[%p]::HubAreAllPortsDisconnectedOrSuspended - port %ld still initing or status changing", this, portNum);
+			USBLog(3, "AppleUSBHub[%p]::HubAreAllPortsDisconnectedOrSuspended - port %d still initing or status changing", this, (uint32_t)portNum);
 			returnValue = false;
 			break;
 		}
 		kr = GetPortStatus( &portStatus, portNum);
 		if ( kr == kIOReturnSuccess )
 		{
-			USBLog(4, "AppleUSBHub[%p]::HubAreAllPortsDisconnectedOrSuspended - _ports(%p) port(%d) status(%p) change(%p) portDevice(%p)", this, _ports, (int)portNum, (void*)portStatus.statusFlags, (void*)portStatus.changeFlags, port->_portDevice);
+			USBLog(4, "AppleUSBHub[%p]::HubAreAllPortsDisconnectedOrSuspended - _ports(%p) port(%d) status(%p) change(%p) portDevice(%p)", this, _ports, (uint32_t)portNum, (void*)portStatus.statusFlags, (void*)portStatus.changeFlags, port->_portDevice);
+			// do we need to check and re-enable port power? - not quite sure..
+			if ((portStatus.statusFlags & kHubPortPower) == 0)
+			{
+				USBLog(1, "AppleUSBHub[%p](0x%x)::HubAreAllPortsDisconnectedOrSuspended - port %d is not powered on! portPMState=%d", this, (uint32_t)_locationID, (uint32_t)portNum, port->_portPMState);
+				port->start();
+				port->_portPMState = usbHPPMS_active;
+			}
 			if ( (portStatus.statusFlags & kHubPortConnection) && !(portStatus.statusFlags & kHubPortSuspend) || (portStatus.changeFlags))
 			{
-				USBLog(7, "AppleUSBHub[%p](0x%lx)::HubAreAllPortsDisconnectedOrSuspended - port %ld enabled and not suspended or there is a change", this, _locationID, portNum);
+				USBLog(7, "AppleUSBHub[%p](0x%x)::HubAreAllPortsDisconnectedOrSuspended - port %d enabled and not suspended or there is a change", this, (uint32_t)_locationID, (uint32_t)portNum);
+				returnValue = false;
+				break;
+			}
+			if (portStatus.statusFlags & kHubPortOverCurrent)
+			{
+				USBLog(5, "AppleUSBHub[%p](0x%x)::HubAreAllPortsDisconnectedOrSuspended - port %d as an active overcurrent condition. returning FALSE", this, (uint32_t)_locationID, (uint32_t)portNum);
 				returnValue = false;
 				break;
 			}
 		}
 		else
 		{
-			USBLog(1,"AppleUSBHub[%p](0x%lx)::HubAreAllPortsDisconnectedOrSuspended  GetPortStatus for port %ld returned 0x%x", this, _locationID, portNum, kr);
+			USBLog(1,"AppleUSBHub[%p](0x%x)::HubAreAllPortsDisconnectedOrSuspended  GetPortStatus for port %d returned 0x%x", this, (uint32_t)_locationID, (uint32_t)portNum, kr);
 			returnValue = false;
 			break;
 		}
@@ -1503,7 +1627,7 @@ AppleUSBHub::HubAreAllPortsDisconnectedOrSuspended()
 	
 Exit:
 
-	USBLog(7, "AppleUSBHub[%p](0x%lx)::HubAreAllPortsDisconnectedOrSuspended - returning (%s)", this, _locationID, returnValue ? "true" : "false");
+	USBLog(7, "AppleUSBHub[%p](0x%x)::HubAreAllPortsDisconnectedOrSuspended - returning (%s)", this, (uint32_t)_locationID, returnValue ? "true" : "false");
 	return returnValue;
 }
 
@@ -1534,21 +1658,59 @@ AppleUSBHub::IsPortInitThreadActiveForAnyPort()
 		
 		if ( port->_initThreadActive)
 		{
-			
-			USBLog(4, "AppleUSBHub[%p]::IsPortInitThreadActiveForAnyPort - port(%d) had the devZero lock or initThreadActive(%d)", this, (int)currentPort, port->_initThreadActive);
+			USBLog(4, "AppleUSBHub[%p]::IsPortInitThreadActiveForAnyPort - port(%d) had the  initThreadActive(%d)", this, (int)currentPort, port->_initThreadActive);
 			returnValue = true;
 			break;
 		}
 	}		
 	
-	USBLog(6, "AppleUSBHub[%p](0x%lx)::IsPortInitThreadActiveForAnyPort - %s", this, _locationID, returnValue ? "true" : "false");
+	USBLog(6, "AppleUSBHub[%p](0x%x)::IsStatusChangedThreadActiveForAnyPort - %s", this, (uint32_t)_locationID, returnValue ? "true" : "false");
 
 	return returnValue;
 }
 
 
 
-#pragma mark ееееееее Ports еееееееее
+bool	
+AppleUSBHub::IsStatusChangedThreadActiveForAnyPort()
+{
+    UInt32					currentPort;
+    IOUSBHubPortStatus		portStatus;
+	IOReturn				kr;
+    AppleUSBHubPort			*port;
+	bool					returnValue = false;
+    
+	if (!_ports)
+	{
+		USBLog(3, "AppleUSBHub[%p]::IsStatusChangedThreadActiveForAnyPort - no _ports - returning false", this);
+		return false;
+	}
+	
+	for (currentPort = 1; currentPort <= _hubDescriptor.numPorts; currentPort++)
+	{
+        port = _ports ? _ports[currentPort-1] : NULL;
+		if (!port)
+		{
+			USBLog(3, "AppleUSBHub[%p]::IsStatusChangedThreadActiveForAnyPort - no port object[index: %d]", this, (int)currentPort-1);
+			continue;
+		}
+		
+		if ( port->_statusChangedThreadActive)
+		{
+			USBLog(4, "AppleUSBHub[%p]::IsStatusChangedThreadActiveForAnyPort - port(%d) had the _statusChangedThreadActive(%d)", this, (int)currentPort, port->_statusChangedThreadActive);
+			returnValue = true;
+			break;
+		}
+	}		
+	
+	USBLog(6, "AppleUSBHub[%p](0x%x)::IsStatusChangedThreadActiveForAnyPort - %s", this, (uint32_t)_locationID, returnValue ? "true" : "false");
+
+	return returnValue;
+}
+
+
+
+#pragma mark ееееееее Ports ееееееее
 IOReturn 
 AppleUSBHub::StartPorts(void)
 {
@@ -1557,6 +1719,8 @@ AppleUSBHub::StartPorts(void)
 	IOReturn				err;
 	bool					resumedOneAlready = false;
 	bool					workToDo = true;				// don't stop until we have done all we can
+	bool					needsPowerSequencingDelay = false;
+	
 
     USBLog(5, "AppleUSBHub[%p]::StartPorts - _bus[%p] starting (%d) ports isInactive(%s)", this, _bus, _hubDescriptor.numPorts, isInactive() ? "true" : "false");
 
@@ -1572,6 +1736,12 @@ AppleUSBHub::StartPorts(void)
 		return kIOReturnSuccess;
 	}
 	
+	// Radar 5713215
+	// if this hub needs a little extra delay sequencing, check for that here
+	OSBoolean * boolObj = OSDynamicCast( OSBoolean, _device->getProperty("kHubPowerSequencingDelay") );
+	needsPowerSequencingDelay = ( boolObj && boolObj->isTrue() );
+		
+	
     for (portIndex = 0; portIndex < _hubDescriptor.numPorts; portIndex++)
     {
 		portNum = portIndex+1;
@@ -1582,6 +1752,14 @@ AppleUSBHub::StartPorts(void)
 			port->retain();
 			if (port->_portPMState == usbHPPMS_uninitialized)
 			{
+				// Radar 5713215
+				// if this hub needs a little extra delay sequencing, then let's just delay before starting each port
+				if (needsPowerSequencingDelay)
+				{
+					USBLog(5, "AppleUSBHub[%p]::StartPorts - _bus[%p] port (%d) power sequence delay for %d ms", this, _bus, portNum, _hubDescriptor.powerOnToGood *2);
+					IOSleep(_hubDescriptor.powerOnToGood*2);    // let's use the POTGT to tell us how long to delay
+				}
+
 				USBLog(5, "AppleUSBHub[%p]::StartPorts - _bus[%p] port (%d) uninitialized - calling port->start", this, _bus, portNum);
 				port->start();
 				port->_portPMState = usbHPPMS_active;
@@ -1601,7 +1779,7 @@ AppleUSBHub::StartPorts(void)
 				{
 					// this happens because we cannot talk to the hub to get the status for the port - usually we (the hub) are no longer on the bus
 					// we need to go ahead and re-enable the endpoints before we finish and go to the ON state
-					USBLog((err == kIOReturnNoDevice) ? 5 : 1, "AppleUSBHub[%p]::StartPorts - err (%p) from GetPortStatus for port (%d) isInactive(%s) - reeabling endpoints anyway", this, (void*)err, portNum, isInactive() ? "true" : "false");
+					USBLog((err == kIOReturnNoDevice) ? 5 : 1, "AppleUSBHub[%p]::StartPorts - err (%p) from GetPortStatus for port (%d) isInactive(%s) - reneabling endpoints anyway", this, (void*)err, portNum, isInactive() ? "true" : "false");
 					enableEndpoints = true;
 				}
 				else if ((portStatus.changeFlags & kHubPortSuspend) || (portStatus.changeFlags & kHubPortConnection))
@@ -1616,14 +1794,16 @@ AppleUSBHub::StartPorts(void)
 					enableEndpoints = true;
 					
 				}
+				else if (!(portStatus.statusFlags & kHubPortSuspend))
+				{
+					// this can happen on OHCI controllers if the device issues a remote wakeup on the way to forced sleep and the HC completes the resume itself
+					USBLog(3, "AppleUSBHub[%p]::StartPorts - port %d marked as suspended, but the suspend status bit is not set status[%p] change[%p] _portDevice name[%s]", this, (int)portNum, (void*)portStatus.statusFlags, (void*)portStatus.changeFlags, port->_portDevice ? port->_portDevice->getName() : "no device");
+					
+					enableEndpoints = true;		// this will cause the the port to be marked active as well
+				}
 				else
 				{
 					USBLog(5, "AppleUSBHub[%p]::StartPorts - port[%p] number (%d) suspended by PM statusFlags[%p] - calling SuspendPort(false)", this, port, portNum, (void*)portStatus.statusFlags);
-					if (!(portStatus.statusFlags & kHubPortSuspend))
-					{
-						// I don't think this will ever happen, but it needs to be a USBError for now until I make sure of it
-						USBLog(1, "AppleUSBHub[%p]::StartPorts - port %d marked as suspended, but the suspend status bit is not set status[%p] change[%p] _portDevice name[%s]", this, (int)portNum, (void*)portStatus.statusFlags, (void*)portStatus.changeFlags, port->_portDevice ? port->_portDevice->getName() : "no device");
-					}
 					if (!resumedOneAlready)
 					{
 						err = port->SuspendPort(false, false);
@@ -1646,6 +1826,7 @@ AppleUSBHub::StartPorts(void)
 					{
 						// these will be decremented when the resume notification comes in in WaitForPortResumes
 						// we need these even for ports which we didn't actually resume yet. The will get resumed in WaitForPortResumes (one at a time)
+						USBLog(6, "AppleUSBHub[%p]::StartPorts - calling IncrementOutstandingIO and IncrementOutstandingResumes", this);
 						IncrementOutstandingIO();
 						IncrementOutstandingResumes();
 					}
@@ -1781,12 +1962,6 @@ AppleUSBHub::StopPorts(void)
         }
         IOFree(cachedPorts, sizeof(AppleUSBHubPort *) * _hubDescriptor.numPorts);
     }
-
-	if (_extraPower && _parentHubDevice)
-	{
-		USBLog(2, "AppleUSBHub[%p]::StopPorts - releasing (%d) extra power", this, (int)_extraPower);
-		_parentHubDevice->ReturnExtraPower(_extraPower);
-	}
 	
     return kIOReturnSuccess;
 }
@@ -1797,7 +1972,7 @@ AppleUSBHub::HubStatusChanged(void)
 {
     IOReturn	err = kIOReturnSuccess;
 
-	USBLog(6,"+AppleUSBHub[%p]::HubStatusChanged ", this);
+	USBLog(6,"+AppleUSBHub[%p]::HubStatusChanged - calling IncrementOutstandingIO", this);
 	IncrementOutstandingIO();
     do
     {
@@ -1834,13 +2009,17 @@ AppleUSBHub::HubStatusChanged(void)
 
         if (_hubStatus.changeFlags & kHubOverCurrentIndicatorChange)
         {
-            USBLog(3, "AppleUSBHub[%p]: Hub OverCurrent Indicator Change detected", this);
-            if ((err =
-                 ClearHubFeature(kUSBHubOverCurrentChangeFeature)))
+			// According to 11.24.2.6 of the USB spec, only hubs with ganged overcurrent detection
+			// will enable this bit.   So, let's tell the user what is happening.
+			_device->DisplayUserNotification(kUSBGangOverCurrentNotificationType);
+			
+            USBLog(3, "AppleUSBHub[%p]: Hub OverCurrent detected", this);
+            if ((err = ClearHubFeature(kUSBHubOverCurrentChangeFeature)))
             {
-                FatalError(err, "clear hub over current feature");
+                FatalError(err, "clear hub over-current feature");
                 break;
             }
+			IOSleep(3000);				// wait 3 seconds for the overcurrent to disappear
             if ((err = GetHubStatus(&_hubStatus)))
             {
                 FatalError(err, "get status (second in hub status change)");
@@ -1880,6 +2059,7 @@ AppleUSBHub::HubStatusChanged(void)
         
     }
 
+	USBLog(6,"-AppleUSBHub[%p]::HubStatusChanged calling DecrementOutstandingIO", this);
 	DecrementOutstandingIO();
 	USBLog(6,"-AppleUSBHub[%p]::HubStatusChanged returning %s", this, err == kIOReturnSuccess ? "true" : "false");
 	return (err == kIOReturnSuccess);
@@ -2189,7 +2369,7 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
 	if (err == kIOReturnSuccess)
 	{
 		SInt32			retries = 200;
-		USBLog(5,"AppleUSBHub[%p]::DoPortAction - calling RaisePowerState", this);
+		USBLog(6,"AppleUSBHub[%p]::DoPortAction - calling RaisePowerState", this);
 		RaisePowerState();
 		
 		// if we are not in the On state, or we are in the process of swithing to LowPower, the we need to get to the On state..
@@ -2210,7 +2390,7 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
 		else if ( _portSuspended && _device )
 		{
 			// If we are suspended, we need to first wake up
-			USBLog(5,"AppleUSBHub[%p]::DoPortAction(%s) for port (%ld), unsuspending port", this, HubMessageToString(type), portNumber);
+			USBLog(5,"AppleUSBHub[%p]::DoPortAction(%s) for port (%d), unsuspending port", this, HubMessageToString(type), (uint32_t)portNumber);
 			err = _device->SuspendDevice(false);
 			if ( err == kIOReturnSuccess )
 			{
@@ -2254,7 +2434,7 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
 		return err;
 	}
 			
-	USBLog(5,"+AppleUSBHub[%p]::DoPortAction(%s) for port (%ld), options (0x%lx) _myPowerState(%d), getting _doPortActionLock", this, HubMessageToString(type), portNumber, options, (int)_myPowerState);
+	USBLog(5,"+AppleUSBHub[%p]::DoPortAction(%s) for port (%d), options (0x%x) _myPowerState(%d), getting _doPortActionLock", this, HubMessageToString(type), (uint32_t)portNumber, (uint32_t)options, (uint32_t)_myPowerState);
 	IOLockLock(_doPortActionLock);
 	
 	// no longer do this as it affects the interrupt read pipe for all ports
@@ -2266,7 +2446,7 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
     {
 		// Keep a reference while we work with the port
 		port->retain();		
-		USBLog(5,"AppleUSBHub[%p]::DoPortAction(%s) for port (%ld), options (0x%lx) _portPMState (%d)", this, HubMessageToString(type), portNumber, options, port->_portPMState);
+		USBLog(5,"AppleUSBHub[%p]::DoPortAction(%s) for port (%d), options (0x%x) _portPMState (%d)", this, HubMessageToString(type), (uint32_t)portNumber, (uint32_t)options, port->_portPMState);
 		
         switch ( type )
         {
@@ -2345,7 +2525,7 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
                 break;
 			
 			case kIOUSBMessageHubSetPortRecoveryTime:
-				USBLog(5, "AppleUSBHub[%p]::DoPortAction - port %ld, setting _portResumeRecoveryTime to %ld", this, portNumber, options);
+				USBLog(5, "AppleUSBHub[%p]::DoPortAction - port %d, setting _portResumeRecoveryTime to %d", this, (uint32_t)portNumber, (uint32_t)options);
 				err = port->_portResumeRecoveryTime = options;
                 break;
 				
@@ -2365,7 +2545,7 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
 	IOLockUnlock(_doPortActionLock);
 	DecrementOutstandingIO();
 	
-	USBLog(5,"AppleUSBHub[%p]::DoPortAction - calling LowerPowerState", this);
+	USBLog(6,"AppleUSBHub[%p]::DoPortAction - calling LowerPowerState", this);
 	LowerPowerState();
 
 	// since a port action could have caused all the ports to now be suspended, spawn a thread to see
@@ -2384,7 +2564,7 @@ AppleUSBHub::DoPortAction(UInt32 type, UInt32 portNumber, UInt32 options )
 		}
 	}
 
-	USBLog(5,"-AppleUSBHub[%p]::DoPortAction(%s) for port (%ld), returning 0x%x", this, HubMessageToString(type), portNumber, err);
+	USBLog(5,"-AppleUSBHub[%p]::DoPortAction(%s) for port (%d), returning 0x%x", this, HubMessageToString(type), (uint32_t)portNumber, err);
 	
     return err;
 }
@@ -2397,8 +2577,9 @@ AppleUSBHub::InterruptReadHandlerEntry(OSObject *target, void *param, IOReturn s
     if (!me)
         return;
     
-	USBLog(5, "AppleUSBHub[%p]::InterruptReadHandlerEntry", me);
+	USBLog(7, "AppleUSBHub[%p]::InterruptReadHandlerEntry", me);
     me->InterruptReadHandler(status, bufferSizeRemaining);
+	USBLog(6, "AppleUSBHub[%p]::InterruptReadHandlerEntry - calling DecrementOutstandingIO", me);
     me->DecrementOutstandingIO();
 }
 
@@ -2410,6 +2591,7 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
     bool			queueAnother = TRUE;
     IOReturn		err = kIOReturnSuccess;
 
+	_interruptReadPending = false;
 	switch (status)
 	{
 		case kIOReturnOverrun:
@@ -2432,7 +2614,7 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
 					IncrementOutstandingIO();
 					if ( thread_call_enter(_clearFeatureEndpointHaltThread) == TRUE )
 					{
-						USBLog(3, "AppleUSBHub[%p]::InterruptReadHandler _clearFeatureEndpointHaltThread already queued", this);
+						USBLog(3, "AppleUSBHub[%p]::InterruptReadHandler _clearFeatureEndpointHaltThread already queued - calling DecrementOutstandingIO", this);
 						DecrementOutstandingIO();
 					}
 				}
@@ -2453,10 +2635,13 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
 				//
 				if ( !_hubIsDead  && (_ports != NULL))
 				{
+					USBLog(6, "AppleUSBHub[%p]::InterruptReadHandler - calling IncrementOutstandingIO", this);
 					IncrementOutstandingIO();
+					USBLog(6, "AppleUSBHub[%p]::InterruptReadHandler - calling EnsureUsability", this);
+					EnsureUsability();										// JRH: 06-05-2008 - rdar://5946536 make sure we are usable when we get a status change the DecrementOutstandingIO will undo this
 					if ( thread_call_enter(_workThread) == TRUE )
 					{
-						USBLog(3, "AppleUSBHub[%p]::InterruptReadHandler _workThread already queued", this);
+						USBLog(3, "AppleUSBHub[%p]::InterruptReadHandler _workThread already queued - calling DecrementOutstandingIO", this);
 						DecrementOutstandingIO();
 					}
 				}
@@ -2543,7 +2728,7 @@ AppleUSBHub::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
 						IncrementOutstandingIO();
 						if ( thread_call_enter(_clearFeatureEndpointHaltThread) == TRUE )
 						{
-							USBLog(3, "AppleUSBHub[%p]::InterruptReadHandler _clearFeatureEndpointHaltThread already queued", this);
+							USBLog(3, "AppleUSBHub[%p]::InterruptReadHandler _clearFeatureEndpointHaltThread already queued - calling DecrementOutstandingIO", this);
 							DecrementOutstandingIO();
 						}
 					}
@@ -2640,7 +2825,7 @@ AppleUSBHub::ResetPortZero()
                     // first detected the lock, then is time to release the devZero lock
                     if ( ((_timeoutFlag & (1 << (currentPort-1))) != 0) && (_portTimeStamp[currentPort-1] == port->GetPortTimeStamp()) )
                     {
-                        USBLog(1, "AppleUSBHub[%p]::ResetPortZero: - port %ld - Releasing devZero lock", this, currentPort);
+                        USBLog(1, "AppleUSBHub[%p]::ResetPortZero: - port %d - Releasing devZero lock", this, (uint32_t)currentPort);
                         _timeoutFlag &= ~( 1<<(currentPort-1));
                         port->ReleaseDevZeroLock();
                     }
@@ -2665,6 +2850,7 @@ AppleUSBHub::ProcessStatusChangedEntry(OSObject *target)
         return;
         
     me->ProcessStatusChanged();
+	USBLog(6, "AppleUSBHub[%p]::ProcessStatusChangedEntry - calling DecrementOutstandingIO", me);
     me->DecrementOutstandingIO();
 }
 
@@ -2716,7 +2902,7 @@ AppleUSBHub::ProcessStatusChanged()
 					return;
 				}
 
-                USBLog(5,"AppleUSBHub[%p]::ProcessStatusChanged - calling IncrementOutstandingIO", this);
+                USBLog(6,"AppleUSBHub[%p]::ProcessStatusChanged - calling IncrementOutstandingIO", this);
 				IncrementOutstandingIO();				// once for the master count of this loop
                 USBLog(5,"AppleUSBHub[%p]::ProcessStatusChanged found (0x%8.8x) in statusChangedBitmap", this, statusChangedBitmapPtr[0]);
                 for (portIndex = 0; portIndex < _hubDescriptor.numPorts; portIndex++)
@@ -2729,7 +2915,7 @@ AppleUSBHub::ProcessStatusChanged()
 						{
 							SInt32			retries = 200;
 
-							USBLog(5,"AppleUSBHub[%p]::ProcessStatusChanged port number %d, calling IncrementOutstandingIO and port->StatusChanged", this, portNum);
+							USBLog(6,"AppleUSBHub[%p]::ProcessStatusChanged port number %d, calling IncrementOutstandingIO and port->StatusChanged", this, portNum);
 							// note that the StatusChanged call below will happen on another thread
 							// which means that we will end up Rearming the interrupt read before it is actually done
 							IncrementOutstandingIO();					// once for each port which changes
@@ -2759,7 +2945,7 @@ AppleUSBHub::ProcessStatusChanged()
                         portByte++;
                     }
                 }
-                USBLog(5,"AppleUSBHub[%p]::ProcessStatusChanged - calling DecrementOutstandingIO", this);
+                USBLog(6,"AppleUSBHub[%p]::ProcessStatusChanged - calling DecrementOutstandingIO", this);
                 DecrementOutstandingIO();					// this is the master - will rearm the read if necessary
             }
 			else
@@ -2777,7 +2963,7 @@ AppleUSBHub::RearmInterruptRead()
     IOReturn		err = kIOReturnSuccess;
     IOUSBCompletion	comp;
 
-	USBLog(5,"+AppleUSBHub[%p]::RearmInterruptRead", this);
+	USBLog(6,"+AppleUSBHub[%p]::RearmInterruptRead", this);
 	
 	// only read if we are in ON state
 	if (_myPowerState < kIOUSBHubPowerStateOn)
@@ -2787,7 +2973,7 @@ AppleUSBHub::RearmInterruptRead()
 		return err;
 	}	
 	
-	USBLog(5,"+AppleUSBHub[%p]::RearmInterruptRead - calling IncrementOutstandingIO", this);
+	USBLog(6,"+AppleUSBHub[%p]::RearmInterruptRead - calling IncrementOutstandingIO", this);
     IncrementOutstandingIO();			// make sure we don't get closed before the callback
 
 	if (!_ports)
@@ -2806,13 +2992,15 @@ AppleUSBHub::RearmInterruptRead()
     comp.parameter = NULL;
     _buffer->setLength(_readBytes);
 
+	_interruptReadPending = true;
     if ((err = _interruptPipe->Read(_buffer, &comp)))
     {
-        USBLog(1,"AppleUSBHub[%p]::RearmInterruptRead error %x reading interrupt pipe", this, err);
+        USBLog(1,"AppleUSBHub[%p]::RearmInterruptRead error %x reading interrupt pipe - calling DecrementOutstandingIO", this, err);
+		_interruptReadPending = false;
         DecrementOutstandingIO();
     }
     
-	USBLog(5,"-AppleUSBHub[%p]::RearmInterruptRead", this);
+	USBLog(6,"-AppleUSBHub[%p]::RearmInterruptRead", this);
     return err;
 }
 
@@ -2841,8 +3029,8 @@ AppleUSBHub::PrintHubDescriptor(IOUSBHubDescriptor *desc)
     IOLog(")\n");
     IOLog("\tpowerOnToGood = %d ms\n", desc->powerOnToGood * 2);
     IOLog("\thubCurrent = %d\n", desc->hubCurrent);
-    IOLog("\tremovablePortFlags = %lx %lx\n", (UInt32)&desc->removablePortFlags[1], (UInt32)&desc->removablePortFlags[0]);
-    IOLog("\tpwrCtlPortFlags    = %lx %lx\n", (UInt32)&desc->pwrCtlPortFlags[1], (UInt32)&desc->removablePortFlags[0]);
+    IOLog("\tremovablePortFlags = %p %p\n", &desc->removablePortFlags[1], &desc->removablePortFlags[0]);
+    IOLog("\tpwrCtlPortFlags    = %p %p\n", &desc->pwrCtlPortFlags[1], &desc->removablePortFlags[0]);
 }
 
 
@@ -2929,7 +3117,7 @@ AppleUSBHub::TimeoutOccurred(OSObject *owner, IOTimerEventSource *sender)
                         me->IncrementOutstandingIO();
                         if ( thread_call_enter(me->_resetPortZeroThread) == TRUE )
 						{
-							USBLog(3, "AppleUSBHub[%p]::TimeoutOccurred _resetPortZeroThread already queued", me);
+							USBLog(3, "AppleUSBHub[%p]::TimeoutOccurred _resetPortZeroThread already queued - calling DecrementOutstandingIO", me);
 							me->DecrementOutstandingIO();
 						}
 					}
@@ -2982,7 +3170,7 @@ AppleUSBHub::CallCheckForDeadHub(void)
     IncrementOutstandingIO();
     if ( thread_call_enter(_hubDeadCheckThread) == TRUE )
 	{
-		USBLog(3, "AppleUSBHub[%p]::CallCheckForDeadHub _hubDeadCheckThread already queued", this);
+		USBLog(3, "AppleUSBHub[%p]::CallCheckForDeadHub _hubDeadCheckThread already queued - calling DecrementOutstandingIO", this);
 		DecrementOutstandingIO();
 	}
 }
@@ -3010,6 +3198,7 @@ AppleUSBHub::CheckForDeadHubEntry(OSObject *target)
         return;
      
     me->CheckForDeadHub();
+	USBLog(6, "AppleUSBHub[%p]::CheckForDeadHubEntry - calling DecrementOutstandingIO", me);
     me->DecrementOutstandingIO();
 }
 
@@ -3041,7 +3230,7 @@ AppleUSBHub::CheckForDeadHub()
             }
 			else
 			{
-				USBLog(3, "AppleUSBHub[%p]::CheckForDeadHub - Still connected but retry count (%ld) not reached, clearing stall and retrying", this, _retryCount);
+				USBLog(3, "AppleUSBHub[%p]::CheckForDeadHub - Still connected but retry count (%d) not reached, clearing stall and retrying", this, (uint32_t)_retryCount);
 				
 				// First, clear the halted bit in the controller and the device and re-arm the interrupt
 				//
@@ -3088,6 +3277,7 @@ AppleUSBHub::ClearFeatureEndpointHaltEntry(OSObject *target)
         return;
 
     me->ClearFeatureEndpointHalt();
+	USBLog(6, "AppleUSBHub[%p]::ClearFeatureEndpointHaltEntry - calling DecrementOutstandingIO", me);
     me->DecrementOutstandingIO();
 }
 
@@ -3123,7 +3313,7 @@ AppleUSBHub::ClearFeatureEndpointHalt( )
         
         if ( status != kIOReturnSuccess )
         {
-            USBLog(3, "AppleUSBHub[%p]::ClearFeatureEndpointHalt -  DeviceRequest returned: 0x%x, retries = %ld", this, status, retries);
+            USBLog(3, "AppleUSBHub[%p]::ClearFeatureEndpointHalt -  DeviceRequest returned: 0x%x, retries = %d", this, status, (uint32_t)retries);
             IOSleep(100);
         }
         else
@@ -3208,6 +3398,7 @@ AppleUSBHub::WaitForPortResumesEntry(OSObject *target)
         return;
 	
     me->WaitForPortResumes();
+	me->DecrementOutstandingIO();
 }
 
 
@@ -3264,7 +3455,16 @@ AppleUSBHub::WaitForPortResumes( )
 							dealWithPort[portIndex] = true;
 							USBLog(3, "AppleUSBHub[%p]::WaitForPortResumes - port[%p], which is number[%d] has the suspend change bit set- good - statusFlags[%p] and changeFlags[%p]", this, port, portNum, (void*)portStatus.statusFlags, (void*)portStatus.changeFlags);
 							port->_portPMState = usbHPPMS_active;
-							port->_resumePending = false;
+							if (port->_resumePending)
+							{
+								port->_resumePending = false;
+								if (port->_lowerPowerStateOnResume)
+								{
+									port->_lowerPowerStateOnResume = false;
+									USBLog(5, "AppleUSBHub[%p]::WaitForPortResumes - calling LowerPowerState after clearing _lowerPowerStateOnResume for port %p", this, port);
+									LowerPowerState();
+								}
+							}
 						}
 						else
 						{
@@ -3372,8 +3572,9 @@ AppleUSBHub::WaitForPortResumes( )
 			}
 			// these are to counteract the Increments in StartPorts
 			// note that this needs to be done AFTER we re-enable the Address endpoints
-			DecrementOutstandingIO();
+			USBLog(6, "AppleUSBHub[%p]::WaitForPortResumes - calling DecrementOutstandingIO", this);
 			DecrementOutstandingResumes();
+			DecrementOutstandingIO();
 		}
 	}
 }
@@ -3445,8 +3646,93 @@ AppleUSBHub::IsHSRootHub()
 }
 
 
+IOReturn
+AppleUSBHub::GetPortInformation(UInt32 portNum, UInt32 *info)
+{
+    AppleUSBHubPort	*	port;
+	UInt32				portIndex = portNum -1;
+	IOUSBHubPortStatus	portStatus;
+	UInt32				information = 0;
+	IOReturn			kr = kIOReturnSuccess;
+	
+	USBLog(5, "AppleUSBHub[%p]::GetPortInformation  for port[%d]", this, (uint32_t)portNum);
+	
+	// If we are the root hub, set the bit
+	if ( _isRootHub )
+		information |= ( 1 << kUSBInformationDeviceIsAttachedToRootHubBit);
+	
+	// Check to see if we are captive
+    if ( _ports)
+    {
+		port = _ports ? _ports[portIndex] : NULL;
+		if (port)
+		{
+			if ( port->IsCaptive() )
+				information |= (1 << kUSBInformationDeviceIsCaptiveBit);
+		}
+		
+		// Do a GetPortStatus to get the rest of the information
+		portStatus.statusFlags = 0;
+		portStatus.changeFlags = 0;
+		kr = GetPortStatus(&portStatus, portNum);
+		if (kr != kIOReturnSuccess)
+		{
+			USBLog(3, "AppleUSBHub[%p]::GetPortInformation -  error 0x%x getting port status for port %d", this, kr, (uint32_t)portNum);
+		}
+		else
+		{
+			USBLog(6, "AppleUSBHub[%p]::GetPortInformation - got statusFlags(%p) changeFlags(%p)", this, (void*)portStatus.statusFlags, (void*)portStatus.changeFlags);
+			
+			if ( (portStatus.statusFlags & kHubPortConnection) && !(portStatus.changeFlags & kHubPortConnection) )
+				information |= ( 1 << kUSBInformationDeviceIsConnectedBit);
+			
+			if (portStatus.statusFlags & kHubPortEnabled) 
+				information |= ( 1 << kUSBInformationDeviceIsEnabledBit);
+			
+			if (portStatus.statusFlags & kHubPortSuspend) 
+				information |= ( 1 << kUSBInformationDeviceIsSuspendedBit);
+			
+			if (portStatus.statusFlags & kHubPortOverCurrent) 
+				information |= ( 1 << kUSBInformationDeviceOvercurrentBit);
+			
+			if (portStatus.statusFlags & kHubPortBeingReset) 
+				information |= ( 1 << kUSBInformationDeviceIsInResetBit);
+			
+			if (portStatus.statusFlags & kHubPortTestMode) 
+				information |= ( 1 << kUSBInformationDevicePortIsInTestModeBit);
+			
+		}
+    }
+	
+	*info = information;
+	return kr;
+}
 
-#pragma mark ееееееее Bookkeeping еееееееее
+IOReturn
+AppleUSBHub::ResetPort(UInt32 portNum)
+{
+	USBLog(5, "AppleUSBHub[%p]::ResetPort  for port[%d]", this, (uint32_t)portNum);
+	
+	return kIOReturnUnsupported;
+}
+
+IOReturn
+AppleUSBHub::SuspendPort(UInt32 portNum, bool suspend)
+{
+	USBLog(5, "AppleUSBHub[%p]::SuspendPort  %s for port[%d]", this, suspend ? "SUSPEND" : "RESUME", (uint32_t)portNum);
+	
+	return kIOReturnUnsupported;
+}
+
+IOReturn
+AppleUSBHub::ReEnumeratePort(UInt32 portNum, UInt32 options)
+{
+	USBLog(5, "AppleUSBHub[%p]::ReEnumeratePort  for port[%d], options %d", this, (uint32_t)portNum, (uint32_t) options);
+	
+	return kIOReturnUnsupported;
+}
+
+#pragma mark ееееееее Bookkeeping ееееееее
 void
 AppleUSBHub::DecrementOutstandingIO(void)
 {
@@ -3458,13 +3744,13 @@ AppleUSBHub::DecrementOutstandingIO(void)
 	localSerial = gSerial++;
     if (!_gate)
     {
-		USBLog(5, "+AppleUSBHub[%p]::DecrementOutstandingIO(%d) isInactive = %d, outstandingIO = %ld, _needInterruptRead: %d - no gate", this, localSerial, isInactive(), _outstandingIO, _needInterruptRead);
+		USBLog(6, "+AppleUSBHub[%p]::DecrementOutstandingIO(%d) isInactive(%d), outstandingIO(%d), _needInterruptRead(%d) - no gate", this, localSerial, isInactive(), (uint32_t)_outstandingIO, _needInterruptRead);
 		outstandingIO = --_outstandingIO;
     }
 	else
 	{
 		err = _gate->runAction(ChangeOutstandingIO, (void*)-1, &outstandingIO);
-		USBLog(5, "AppleUSBHub[%p]::DecrementOutstandingIO(%d) isInactive(%s), gated call returned err (%p) count (%d), _needInterruptRead(%d)", this, localSerial, isInactive() ? "true" : "false", (void*)err, (int)outstandingIO, _needInterruptRead);
+		USBLog(6, "AppleUSBHub[%p]::DecrementOutstandingIO(%d) isInactive(%s), _interruptReadPending(%s), gated call returned err (%p) count (%d), _needInterruptRead(%d)", this, localSerial, isInactive() ? "true" : "false", _interruptReadPending ? "true" : "false", (void*)err, (int)outstandingIO, _needInterruptRead);
 	}
 
 	if ( IsPortInitThreadActiveForAnyPort() )
@@ -3479,53 +3765,50 @@ AppleUSBHub::DecrementOutstandingIO(void)
 			RearmInterruptRead();
 		}
 	}
-	else if (!outstandingIO)
+	else if (_needToClose)
 	{
-		if (_needToClose)
+		if (!outstandingIO && (_myPowerState == kIOUSBHubPowerStateOn) && (IOLockTryLock(_doPortActionLock)))
 		{
-			if ((_myPowerState == kIOUSBHubPowerStateOn) && (IOLockTryLock(_doPortActionLock)))
-			{
-				_needToClose = false;						// so that we don't do this twice..
-				USBLog(3, "AppleUSBHub[%p]::DecrementOutstandingIO(%d) isInactive(%s) outstandingIO(%d) _powerStateChangingTo(%d) - closing device", this, localSerial, isInactive() ? "true" : "false", (int)outstandingIO, (int)_powerStateChangingTo);
-				// Stop/close all ports, deallocate our ports
-				//
-				StopPorts();
-				IOLockUnlock(_doPortActionLock);
-				_device->close(this);
-			}
-			else
-			{
-				USBLog(3, "AppleUSBHub[%p]::DecrementOutstandingIO(%d) _needToClose(true) but waiting for _myPowerState == kIOUSBHubPowerStateOn(%d) or for the _doPortActionLock", this, localSerial, (int)_myPowerState);
-			}
+			_needToClose = false;						// so that we don't do this twice..
+			USBLog(3, "AppleUSBHub[%p]::DecrementOutstandingIO(%d) isInactive(%s) outstandingIO(%d) _powerStateChangingTo(%d) - closing device", this, localSerial, isInactive() ? "true" : "false", (int)outstandingIO, (int)_powerStateChangingTo);
+			// Stop/close all ports, deallocate our ports
+			//
+			StopPorts();
+			IOLockUnlock(_doPortActionLock);
+			_device->close(this);
 		}
-		else 
+		else
 		{
-			if ( (_myPowerState == kIOUSBHubPowerStateOn) && !_hubIsDead && !isInactive())
+			USBLog(3, "AppleUSBHub[%p]::DecrementOutstandingIO(%d) _needToClose(true) but waiting for outstandingIO OR _myPowerState == kIOUSBHubPowerStateOn(%d) OR for the _doPortActionLock", this, localSerial, (int)_myPowerState);
+		}
+	}
+	else if ((outstandingIO == 0) || ((outstandingIO == 1) && _interruptReadPending))
+	{
+		if ( (_myPowerState == kIOUSBHubPowerStateOn) && !_hubIsDead && !isInactive())
+		{
+			// even though i may lower my power state below, it may not actually get lowered until our children are all at a lower state
+			// so go ahead and schedule another interrupt read
+			if (_needInterruptRead)
 			{
-				// even though i may lower my power state below, it may not actually get lowered until our children are all at a lower state
-				// so go ahead and schedule another interrupt read
-				if (_needInterruptRead)
+				USBLog(3, "AppleUSBHub[%p]::DecrementOutstandingIO(%d), outstandingIO(%d), _interruptReadPending(%s) - rearming read", this, localSerial, (uint32_t)outstandingIO, _interruptReadPending ? "true" : "false");
+				_needInterruptRead = false;
+				RearmInterruptRead();
+			}
+			if (!_checkPortsThreadActive && (_powerStateChangingTo == kIOUSBHubPowerStateStable))
+			{
+				_abandonCheckPorts = false;
+				_checkPortsThreadActive = true;
+				retain();
+				USBLog(5,"AppleUSBHub[%p]::DecrementOutstandingIO(%d) - spawning _checkForActivePortsThread", this, localSerial);
+				if ( thread_call_enter(_checkForActivePortsThread) == TRUE )
 				{
-					USBLog(3, "AppleUSBHub[%p]::DecrementOutstandingIO(%d), outstandingIO = %ld - rearming read", this, localSerial, outstandingIO);
-					_needInterruptRead = false;
-					RearmInterruptRead();
-				}
-				if (!_checkPortsThreadActive)
-				{
-					_abandonCheckPorts = false;
-					_checkPortsThreadActive = true;
-					retain();
-					USBLog(5,"AppleUSBHub[%p]::DecrementOutstandingIO(%d) - spawning _checkForActivePortsThread", this, localSerial);
-					if ( thread_call_enter(_checkForActivePortsThread) == TRUE )
-					{
-						USBLog(1,"AppleUSBHub[%p]::DecrementOutstandingIO -  _checkForActivePortsThread already queued", this);
-						release();
-					}
+					USBLog(1,"AppleUSBHub[%p]::DecrementOutstandingIO -  _checkForActivePortsThread already queued", this);
+					release();
 				}
 			}
 		}
 	}
-	USBLog(5, "-AppleUSBHub[%p]::DecrementOutstandingIO(%d)", this, localSerial);
+	USBLog(6, "-AppleUSBHub[%p]::DecrementOutstandingIO(%d)", this, localSerial);
 }
 
 
@@ -3535,7 +3818,7 @@ AppleUSBHub::IncrementOutstandingIO(void)
 {
     if (!_gate)
     {
-		USBLog(5, "AppleUSBHub[%p]::IncrementOutstandingIO isInactive = %d, outstandingIO = %ld - no gate", this, isInactive(), _outstandingIO);
+		USBLog(6, "AppleUSBHub[%p]::IncrementOutstandingIO isInactive = %d, outstandingIO = %d - no gate", this, isInactive(), (uint32_t)_outstandingIO);
 		_outstandingIO++;
 		return;
     }
@@ -3548,7 +3831,7 @@ IOReturn
 AppleUSBHub::ChangeOutstandingIO(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
     AppleUSBHub		*me = OSDynamicCast(AppleUSBHub, target);
-    UInt32			direction = (UInt32)param1;
+    UInt32			direction = (uintptr_t)param1;
 	UInt32			*retCount = (UInt32*)param2;
 	IOReturn		ret = kIOReturnSuccess;
     
@@ -3561,12 +3844,12 @@ AppleUSBHub::ChangeOutstandingIO(OSObject *target, void *param1, void *param2, v
     {
 		case 1:
 			me->_outstandingIO++;
-			USBLog(5, "AppleUSBHub[%p]::ChangeOutstandingIO(+) now (%d)", me, (int)me->_outstandingIO);
+			USBLog(6, "AppleUSBHub[%p]::ChangeOutstandingIO(+) now (%d)", me, (int)me->_outstandingIO);
 			break;
 			
 		case -1:
 			--me->_outstandingIO;
-			USBLog(5, "AppleUSBHub[%p]::ChangeOutstandingIO(-) now (%d)", me, (int)me->_outstandingIO);
+			USBLog(6, "AppleUSBHub[%p]::ChangeOutstandingIO(-) now (%d)", me, (int)me->_outstandingIO);
 			break;
 			
 		default:
@@ -3593,20 +3876,20 @@ AppleUSBHub::LowerPowerState(void)
 	localSerial = gSerial++;
     if (!_gate)
     {
-		USBLog(5, "+AppleUSBHub[%p]::LowerPowerState(%d) isInactive = %d, _raisedPowerStateCount = %ld - no gate", this, localSerial, isInactive(), _raisedPowerStateCount);
+		USBLog(6, "+AppleUSBHub[%p]::LowerPowerState(%d) isInactive = %d, _raisedPowerStateCount = %d - no gate", this, localSerial, isInactive(), (uint32_t)_raisedPowerStateCount);
 		raisedPowerStateCount = --_raisedPowerStateCount;
     }
 	else
 	{
 		err = _gate->runAction(ChangeRaisedPowerState, (void*)-1, &raisedPowerStateCount);
-		USBLog(5, "AppleUSBHub[%p]::LowerPowerState(%d) isInactive(%s), gated call returned err (%p) count (%d)", this, localSerial, isInactive() ? "true" : "false", (void*)err, (int)raisedPowerStateCount);
+		USBLog(6, "AppleUSBHub[%p]::LowerPowerState(%d) isInactive(%s), gated call returned err (%p) count (%d)", this, localSerial, isInactive() ? "true" : "false", (void*)err, (uint32_t)raisedPowerStateCount);
 	}
 
 	if (!raisedPowerStateCount)
 	{
 		changePowerStateTo(kIOUSBHubPowerStateLowPower);
 	}	
-	USBLog(5, "-AppleUSBHub[%p]::LowerPowerState(%d)", this, localSerial);
+	USBLog(6, "-AppleUSBHub[%p]::LowerPowerState(%d)", this, localSerial);
 }
 
 
@@ -3619,13 +3902,13 @@ AppleUSBHub::RaisePowerState(void)
 
     if (!_gate)
     {
-		USBLog(5, "AppleUSBHub[%p]::RaisePowerState isInactive = %d, outstandingIO = %ld - no gate", this, isInactive(), _outstandingIO);
+		USBLog(6, "AppleUSBHub[%p]::RaisePowerState isInactive = %d, outstandingIO = %d - no gate", this, isInactive(), (uint32_t)_outstandingIO);
 		raisedPowerStateCount = _raisedPowerStateCount++;
     }
 	else
 	{
 		err = _gate->runAction(ChangeRaisedPowerState, (void*)1, &raisedPowerStateCount);
-		USBLog(5, "AppleUSBHub[%p]::RaisePowerState isInactive(%s), gated call returned err (%p) count (%d)", this, isInactive() ? "true" : "false", (void*)err, (int)raisedPowerStateCount);
+		USBLog(6, "AppleUSBHub[%p]::RaisePowerState isInactive(%s), gated call returned err (%p) count (%d)", this, isInactive() ? "true" : "false", (void*)err, (uint32_t)raisedPowerStateCount);
 	}
 	if (raisedPowerStateCount == 1)				// only need to do this once
 	{
@@ -3639,7 +3922,7 @@ IOReturn
 AppleUSBHub::ChangeRaisedPowerState(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
     AppleUSBHub		*me = OSDynamicCast(AppleUSBHub, target);
-    UInt32			direction = (UInt32)param1;
+    UInt32			direction = (uintptr_t)param1;
 	UInt32			*retCount = (UInt32*)param2;
 	IOReturn		ret = kIOReturnSuccess;
     
@@ -3684,7 +3967,7 @@ AppleUSBHub::DecrementOutstandingResumes(void)
 	localSerial = gSerial++;
     if (!_gate)
     {
-		USBLog(5, "AppleUSBHub[%p]::+DecrementOutstandingResumes(%d) isInactive = %d, outstandingIO = %ld, _needInterruptRead: %d - no gate", this, localSerial, isInactive(), _outstandingIO, _needInterruptRead);
+		USBLog(5, "AppleUSBHub[%p]::+DecrementOutstandingResumes(%d) isInactive = %d, outstandingIO = %d, _needInterruptRead: %d - no gate", this, localSerial, isInactive(), (uint32_t)_outstandingIO, _needInterruptRead);
 		outstandingResumes = --_outstandingResumes;
     }
 	else
@@ -3714,7 +3997,7 @@ AppleUSBHub::IncrementOutstandingResumes(void)
 {
     if (!_gate)
     {
-		USBLog(5, "AppleUSBHub[%p]::IncrementOutstandingResumes isInactive = %d, outstandingIO = %ld - no gate", this, isInactive(), _outstandingResumes);
+		USBLog(5, "AppleUSBHub[%p]::IncrementOutstandingResumes isInactive = %d, outstandingIO = %d - no gate", this, isInactive(), (uint32_t)_outstandingResumes);
 		_outstandingResumes++;
 		return;
     }
@@ -3727,7 +4010,7 @@ IOReturn
 AppleUSBHub::ChangeOutstandingResumes(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
     AppleUSBHub		*me = OSDynamicCast(AppleUSBHub, target);
-    UInt32			direction = (UInt32)param1;
+    UInt32			direction = (uintptr_t)param1;
 	UInt32			*retCount = (UInt32*)param2;
 	IOReturn		ret = kIOReturnSuccess;
     
@@ -3761,7 +4044,7 @@ AppleUSBHub::ChangeOutstandingResumes(OSObject *target, void *param1, void *para
 
 
 
-#pragma mark ееееееее User Client еееееееее
+#pragma mark ееееееее User Client ееееееее
 IOReturn
 AppleUSBHub::EnterTestMode()
 {
@@ -3837,11 +4120,11 @@ AppleUSBHub::PutPortIntoTestMode(UInt32 port, UInt32 mode)
 
     if (_isRootHub)
     {
-		USBLog(1, "AppleUSBHub[%p]::PutPortIntoTestMode - putting root hub port %ld into mode %lx", this, port, mode);    
+		USBLog(1, "AppleUSBHub[%p]::PutPortIntoTestMode - putting root hub port %d into mode %x", this, (uint32_t)port, (uint32_t)mode);    
 		return _bus->SetTestMode(mode, port);
     }
     
-    USBLog(1, "AppleUSBHub[%p]::PutPortIntoTestMode - putting external hub port %ld into mode %lx", this, port, mode);    
+    USBLog(1, "AppleUSBHub[%p]::PutPortIntoTestMode - putting external hub port %d into mode %x", this, (uint32_t)port, (uint32_t)mode);    
     return SetPortFeature(kUSBHubPortTestFeature, (mode << 8) + port);
 }
 
@@ -3854,7 +4137,7 @@ AppleUSBHub::SetIndicatorForPort(UInt16 port, UInt16 selector)
 	IOReturn		kr = kIOReturnUnsupported;
     IOUSBDevRequest	request;
 	
-    USBLog(5, "AppleUSBHub[%p](0x%lx)::SetIndicatorForPort port %d, selector %d", this, _locationID, port, selector);
+    USBLog(5, "AppleUSBHub[%p](0x%x)::SetIndicatorForPort port %d, selector %d", this, (uint32_t)_locationID, port, selector);
 	
 	return SetPortFeature(kUSBHubPortIndicatorFeature, (selector << 8) + port);
 }
@@ -3872,18 +4155,18 @@ AppleUSBHub::GetPortIndicatorControl(UInt16 port, UInt32 *defaultColors)
 	kr = GetPortStatus(&portStatus, port);
     if ( kIOReturnSuccess != kr )
     {
-        USBLog(1, "AppleUSBHub[%p](0x%lx)::GetPortIndicatorControl  GetPortStatus to port %d got error (0x%x) from DoDeviceRequest", this, _locationID, port, kr);
+        USBLog(1, "AppleUSBHub[%p](0x%x)::GetPortIndicatorControl  GetPortStatus to port %d got error (0x%x) from DoDeviceRequest", this, (uint32_t)_locationID, port, kr);
     }
 	else
 	{
 		if ( portStatus.statusFlags & kHubPortIndicator )
 		{
-			USBLog(6, "AppleUSBHub[%p](0x%lx)::GetPortIndicatorControl - port %d indicators are under software control", this, _locationID, port);
+			USBLog(6, "AppleUSBHub[%p](0x%x)::GetPortIndicatorControl - port %d indicators are under software control", this, (uint32_t)_locationID, port);
 			*defaultColors = 1;
 		}
 		else
 		{
-			USBLog(6, "AppleUSBHub[%p](0x%lx)::GetPortIndicatorControl - port %d indicators display default colors", this, _locationID, port);
+			USBLog(6, "AppleUSBHub[%p](0x%x)::GetPortIndicatorControl - port %d indicators display default colors", this, (uint32_t)_locationID, port);
 			*defaultColors = 0;
 		}
 	}
@@ -3900,14 +4183,14 @@ AppleUSBHub::SetIndicatorsToAutomatic()
 {
 	IOReturn		kr = kIOReturnUnsupported;
 	
-    USBLog(5, "AppleUSBHub[%p](0x%lx)::SetIndicatorsToAutomatic", this, _locationID);
+    USBLog(5, "AppleUSBHub[%p](0x%x)::SetIndicatorsToAutomatic", this, (uint32_t)_locationID);
 	
 	for (int currentPort = 1; currentPort <= _hubDescriptor.numPorts; currentPort++)
 	{
 		kr = SetIndicatorForPort(currentPort, kHubPortIndicatorAutomatic);
 		if ( kIOReturnSuccess != kr )
 		{
-			USBLog(1, "AppleUSBHub[%p](0x%lx)::SetIndicatorForPort to port %d got error (0x%x)", this, _locationID, currentPort, kr);
+			USBLog(1, "AppleUSBHub[%p](0x%x)::SetIndicatorForPort to port %d got error (0x%x)", this, (uint32_t)_locationID, currentPort, kr);
 		}
 	}
 	
@@ -3927,23 +4210,23 @@ AppleUSBHub::GetPortPower(UInt16 port, UInt32 *on)
 	kr = GetPortStatus(&portStatus, port);
     if ( kIOReturnSuccess != kr )
     {
-        USBLog(1, "AppleUSBHub[%p](0x%lx)::GetPortPower  GetPortStatus to port %d got error (0x%x) from DoDeviceRequest", this, _locationID, port, kr);
+        USBLog(1, "AppleUSBHub[%p](0x%x)::GetPortPower  GetPortStatus to port %d got error (0x%x) from DoDeviceRequest", this, (uint32_t)_locationID, port, kr);
     }
 	else
 	{
 		if ( portStatus.statusFlags & kHubPortPower )
 		{
-			USBLog(6, "AppleUSBHub[%p](0x%lx)::GetPortIndicatorControl - port %d is NOT in the Powered-off state", this, _locationID, port);
+			USBLog(6, "AppleUSBHub[%p](0x%x)::GetPortIndicatorControl - port %d is NOT in the Powered-off state", this, (uint32_t)_locationID, port);
 			*on = 1;
 		}
 		else
 		{
-			USBLog(6, "AppleUSBHub[%p](0x%lx)::GetPortIndicatorControl - port %d is in the Powered-off state", this, _locationID, port);
+			USBLog(6, "AppleUSBHub[%p](0x%x)::GetPortIndicatorControl - port %d is in the Powered-off state", this, (uint32_t)_locationID, port);
 			*on = 0;
 		}
 	}
 	
-    USBLog(5, "AppleUSBHub[%p](0x%lx)::GetPortPower port %d returning on = %ld", this, _locationID, port, *on);
+    USBLog(5, "AppleUSBHub[%p](0x%x)::GetPortPower port %d returning on = %d", this, (uint32_t)_locationID, (uint32_t)port, (uint32_t)*on);
 	
 	return kr;
 }
@@ -3957,7 +4240,7 @@ AppleUSBHub::SetPortPower(UInt16 port, UInt32 on)
 {
 	IOReturn		kr = kIOReturnUnsupported;
 	
-    USBLog(5, "AppleUSBHub[%p](0x%lx)::SetPortPower to %s, for port %d", this, _locationID, on ? "ON" : "OFF", port);
+    USBLog(5, "AppleUSBHub[%p](0x%x)::SetPortPower to %s, for port %d", this, (uint32_t)_locationID, on ? "ON" : "OFF", port);
 	
 	if ( on == 1 )
 		return SetPortFeature(kUSBHubPortPowerFeature, port);
@@ -3976,34 +4259,47 @@ AppleUSBHub::HubMessageToString(UInt32 message)
 {
 	switch (message)
 	{
-		case kIOUSBMessageHubIsDeviceConnected:
-			return "kIOUSBMessageHubIsDeviceConnected";
-		case kIOUSBMessageHubSuspendPort:
-			return "kIOUSBMessageHubSuspendPort";
-		case kIOUSBMessageHubResumePort:
-			return "kIOUSBMessageHubResumePort";
-		case kIOUSBMessageHubResetPort:
+		case kIOUSBMessageHubResetPort:									// 0xe00004001
 			return "kIOUSBMessageHubResetPort";
-		case kIOUSBMessageHubPortClearTT:
-			return "kIOUSBMessageHubPortClearTT";
-		case kIOUSBMessageHubSetPortRecoveryTime:
-			return "kIOUSBMessageHubSetPortRecoveryTime";
-		case kIOUSBMessageHubReEnumeratePort:
+		case kIOUSBMessageHubSuspendPort:								// 0xe00004002
+			return "kIOUSBMessageHubSuspendPort";
+		case kIOUSBMessageHubResumePort:								// 0xe00004003
+			return "kIOUSBMessageHubResumePort";
+		case kIOUSBMessageHubIsDeviceConnected:							// 0xe00004004
+			return "kIOUSBMessageHubIsDeviceConnected";
+		case kIOUSBMessageHubIsPortEnabled:								// 0xe00004005
+			return "kIOUSBMessageHubIsPortEnabled";
+		case kIOUSBMessageHubReEnumeratePort:							// 0xe00004006
 			return "kIOUSBMessageHubReEnumeratePort";
+		case kIOUSBMessagePortHasBeenReset:								// 0xe0000400a
+			return "kIOUSBMessagePortHasBeenReset";
+		case kIOUSBMessagePortHasBeenResumed:							// 0xe0000400b
+			return "kIOUSBMessagePortHasBeenResumed";			
+		case kIOUSBMessageHubPortClearTT:								// 0xe0000400c
+			return "kIOUSBMessageHubPortClearTT";
+		case kIOUSBMessagePortHasBeenSuspended:							// 0xe0000400d
+			return "kIOUSBMessagePortHasBeenSuspended";
+		case kIOUSBMessageFromThirdParty:								// 0xe0000400e
+			return "kIOUSBMessageFromThirdParty";
+		case kIOUSBMessagePortWasNotSuspended:							// 0xe0000400f
+			return "kIOUSBMessagePortWasNotSuspended";
+		case kIOUSBMessageExpressCardCantWake:							// 0xe00004010
+			return "kIOUSBMessageExpressCardCantWake";
+		case kIOUSBMessageCompositeDriverReconfigured:					// 0xe00004011
+			return "kIOUSBMessageCompositeDriverReconfigured";
+		case kIOUSBMessageHubSetPortRecoveryTime:						// 0xe00004012
+			return "kIOUSBMessageHubSetPortRecoveryTime";
+		case kIOUSBMessageOvercurrentCondition:							// 0xe00004013
+			return "kIOUSBMessageOvercurrentCondition";
+		case kIOUSBMessageNotEnoughPower:								// 0xe00004014
+			return "kIOUSBMessageNotEnoughPower";
+			
 		case kIOMessageServiceIsTerminated: 	
 			return "kIOMessageServiceIsTerminated";
-		case kIOUSBMessagePortHasBeenReset:
-			return "kIOUSBMessagePortHasBeenReset";
-		case kIOUSBMessagePortHasBeenResumed:
-			return "kIOUSBMessagePortHasBeenResumed";
-		case kIOUSBMessagePortWasNotSuspended:
-			return "kIOUSBMessagePortWasNotSuspended";
 		case kIOMessageServiceIsRequestingClose:
 			return "kIOMessageServiceIsRequestingClose";
 		case kIOMessageServiceIsAttemptingOpen:
 			return "kIOMessageServiceIsAttemptingOpen";
-		case kIOUSBMessagePortHasBeenSuspended:
-			return "kIOUSBMessagePortHasBeenSuspended";
 		default:
 			return "UNKNOWN";
 	}
@@ -4021,6 +4317,7 @@ AppleUSBHub::EnsureUsabilityEntry(OSObject *target)
 	
 	USBLog(7, "AppleUSBHub[%p]::EnsureUsabilityEntry - calling in", me);
 	me->EnsureUsability();
+	me->DecrementOutstandingIO();
 	USBLog(7, "AppleUSBHub[%p]::EnsureUsabilityEntry - done", me);
 }
 
@@ -4040,7 +4337,12 @@ AppleUSBHub::EnsureUsability(void)
 	if (_workLoop->inGate())
 	{
 		USBLog(7, "AppleUSBHub[%p]::EnsureUsability - called inGate - spawning thread instead", this);
-		thread_call_enter(_ensureUsabilityThread);
+		IncrementOutstandingIO();
+		if (thread_call_enter(_ensureUsabilityThread) == true)
+		{
+			// we must already be queued so just decrement
+			DecrementOutstandingIO();
+		}
 		return kIOReturnSuccess;
 	}
 	

@@ -39,10 +39,10 @@ namespace SecurityServer {
 typedef RefPointer<EventListener> EventPointer;
 typedef std::list<EventPointer> EventListenerList;
 
-static char* GetNotificationName ()
+static const char* GetNotificationName ()
 {
 	// the name we give the client depends on the value of the environment variable "SECURITYSERVER"
-	char* name = getenv (SECURITYSERVER_BOOTSTRAP_ENV);
+	const char* name = getenv (SECURITYSERVER_BOOTSTRAP_ENV);
 	if (name == NULL)
 	{
 		name = SECURITY_MESSAGES_NAME;
@@ -106,11 +106,6 @@ NotificationPort::~NotificationPort ()
 
 
 
-const int
-	kDomainOffset = 0,
-	kEventTypeOffset = kDomainOffset + sizeof (SegmentOffsetType),
-	kHeaderLength = kEventTypeOffset + sizeof (SegmentOffsetType);
-
 void NotificationPort::receive (const MachPlusPlus::Message &msg)
 {
 	// we got a message, which means that securityd is telling us to pick up messages
@@ -121,10 +116,12 @@ void NotificationPort::receive (const MachPlusPlus::Message &msg)
 	// extract all messages from the buffer, and route them on their way...
 	while (mClient->ReadMessage (buffer, length, ur))
 	{
+		u_int32_t* ptr = (u_int32_t*) buffer;
+		
 		// we have a message, do the semantics...
-		SecurityServer::NotificationDomain domain = (SecurityServer::NotificationDomain) OSSwapBigToHostInt32 (*(u_int32_t*) (buffer + kDomainOffset));
-		SecurityServer::NotificationEvent event = (SecurityServer::NotificationEvent) OSSwapBigToHostInt32 (*(u_int32_t*) (buffer + kEventTypeOffset));
-		CssmData data (buffer + kHeaderLength, length - kHeaderLength);
+		SecurityServer::NotificationDomain domain = (SecurityServer::NotificationDomain) OSSwapBigToHostInt32 (*ptr++);
+		SecurityServer::NotificationEvent event = (SecurityServer::NotificationEvent) OSSwapBigToHostInt32 (*ptr++);
+		CssmData data ((u_int8_t*) ptr, buffer + length - (u_int8_t*) ptr);
 
 		EventListenerList tempList;
 		

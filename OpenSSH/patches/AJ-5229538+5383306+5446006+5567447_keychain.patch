@@ -501,7 +501,7 @@ diff -uNr ../openssh-4.7p1.orig/authfd.h ./authfd.h
 diff -uNr ../openssh-4.7p1.orig/keychain.c ./keychain.c
 --- ../openssh-4.7p1.orig/keychain.c	1969-12-31 16:00:00.000000000 -0800
 +++ ./keychain.c	2008-01-14 15:37:23.000000000 -0800
-@@ -0,0 +1,666 @@
+@@ -0,0 +1,670 @@
 +/*
 + * Copyright (c) 2007 Apple Inc. All rights reserved.
 + *
@@ -547,7 +547,11 @@ diff -uNr ../openssh-4.7p1.orig/keychain.c ./keychain.c
 +
 +#include <CoreFoundation/CoreFoundation.h>
 +#include <Security/Security.h>
-+#include <Security/SecPassword.h>
++
++/* Our Security/SecPassword.h is not yet API, so I will define the constants that I am using here. */
++kSecPasswordGet     = 1<<0;  // Get password from keychain or user
++kSecPasswordSet     = 1<<1;  // Set password (passed in if kSecPasswordGet not set, otherwise from user)
++kSecPasswordFail    = 1<<2;  // Wrong password (ignore item in keychain and flag error)
 +
 +#endif
 +

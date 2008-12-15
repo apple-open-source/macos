@@ -35,7 +35,7 @@ typedef UInt16 SMBWord;
 typedef UInt32 SMBDWord;
 typedef UInt64 SMBQWord;
 
-#pragma pack(1)             // enable 8-bit struct packing
+#pragma pack(push, 1)             // enable 8-bit struct packing
 
 struct DMIEntryPoint {
     SMBByte    anchor[5];
@@ -326,7 +326,11 @@ SMBMemoryDeviceTypes[] =
     "RDRAM",        /* 11h  RDRAM */
     "DDR SDRAM",    /* 12h  DDR */
     "DDR2 SDRAM",   /* 13h  DDR2 */
-    "DDR2 FB-DIMM"  /* 14h  DDR2 FB-DIMM */
+    "DDR2 FB-DIMM", /* 14h  DDR2 FB-DIMM */
+    "RAM",			/* 15h  unused */
+    "RAM",			/* 16h  unused */
+    "RAM",			/* 17h  unused */
+    "DDR3",			/* 18h  DDR3, chosen in [5776134] */
 };
 
 static const int
@@ -393,6 +397,6 @@ struct PIRTable {
 };
 #endif /* SUPPORT_LEGACY_BIOS_PIRQ */
 
-#pragma options align=reset // reset to default struct packing
+#pragma pack(pop) // reset to default struct packing
 
 #endif /* !_APPLESMBIOS_SMBIOS_H */

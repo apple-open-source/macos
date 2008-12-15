@@ -434,22 +434,23 @@ int msdosfs_update_fsinfo(struct msdosfsmount *pmp, int waitfor, vfs_context_t c
      * If we don't have an FSInfo sector, or if there has been no change
      * to the FAT since the last FSInfo update, then there's nothing to do.
      */
-    if (pmp->pm_fsinfo == 0 || !(pmp->pm_fat_flags & FSINFO_DIRTY))
+    if (pmp->pm_fsinfo_size == 0 || !(pmp->pm_fat_flags & FSINFO_DIRTY))
 	return 0;
 
-    error = buf_meta_bread(pmp->pm_devvp, pmp->pm_fsinfo, pmp->pm_BlockSize,
+    error = buf_meta_bread(pmp->pm_devvp, pmp->pm_fsinfo_sector, pmp->pm_fsinfo_size,
 		vfs_context_ucred(context), &bp);
     if (error)
     {
 	/*
 	 * Turn off FSInfo update for the future.
 	 */
-	pmp->pm_fsinfo = 0;
+	printf("msdosfs_update_fsinfo: error %d reading FSInfo\n", error);
+	pmp->pm_fsinfo_size = 0;
 	buf_brelse(bp);
     }
     else
     {
-	fp = (struct fsinfo *) buf_dataptr(bp);
+	fp = (struct fsinfo *) (buf_dataptr(bp) + pmp->pm_fsinfo_offset);
 	
 	putulong(fp->fsinfree, pmp->pm_freeclustercount);
 	/* If we ever start using pmp->pm_nxtfree, then we should update it on disk: */

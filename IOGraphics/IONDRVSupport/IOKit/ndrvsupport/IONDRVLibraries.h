@@ -626,7 +626,9 @@ struct HardwareCursorInfoRec {
   UInt32              cursorWidth;
   CTabPtr	      colorMap;               /* nil or big enough for hardware's max colors*/
   Ptr                 hardwareCursor;
-  UInt32              reserved[6];            /* Test tool should check for 0s*/
+  UInt16              cursorHotSpotX;
+  UInt16              cursorHotSpotY;
+  UInt32              reserved[5];            /* Test tool should check for 0s*/
 };
 typedef struct HardwareCursorInfoRec    HardwareCursorInfoRec;
 #else

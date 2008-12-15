@@ -1,14 +1,14 @@
-.ifnmake autopatch
 .include "${.CURDIR}/include/arpa/Makefile.inc"
 .include "${.CURDIR}/include/libkern/Makefile.inc"
 .include "${.CURDIR}/include/protocols/Makefile.inc"
 .include "${.CURDIR}/include/machine/Makefile.inc"
 .include "${.CURDIR}/include/malloc/Makefile.inc"
+.ifdef FEATURE_LEGACY_NXZONE_APIS
 .include "${.CURDIR}/include/objc/Makefile.inc"
+.endif
 .include "${.CURDIR}/include/secure/Makefile.inc"
 .include "${.CURDIR}/include/sys/Makefile.inc"
 .include "${.CURDIR}/include/xlocale/Makefile.inc"
-.endif # !autopatch
 
 INC_INSTHDRS += NSSystemDirectories.h \
 		_locale.h \
@@ -62,7 +62,6 @@ INC_INSTHDRS += NSSystemDirectories.h \
 		ranlib.h \
 		readpassphrase.h \
 		regex.h \
-		rune.h \
 		runetype.h \
 		search.h \
 		semaphore.h \
@@ -94,7 +93,6 @@ INC_INSTHDRS += NSSystemDirectories.h \
 		unistd.h \
 		util.h \
 		utime.h \
-		utmp.h \
 		utmpx.h \
 		varargs.h \
 		vis.h \
@@ -103,14 +101,21 @@ INC_INSTHDRS += NSSystemDirectories.h \
 		wordexp.h \
 		xlocale.h
 
+.ifdef FEATURE_LEGACY_RUNE_APIS
+INC_INSTHDRS += rune.h
+.endif
+
+.ifdef FEATURE_LEGACY_UTMP_APIS
+INC_INSTHDRS += utmp.h
+.endif
+
 .PATH: ${.CURDIR}/include
+CWD := ${.CURDIR}/include
+
 MAN3 += sysexits.3
 
 INC_INSTHDRS := ${INC_INSTHDRS:S/^/${.CURDIR}\/include\//}
 INSTHDRS += ${INC_INSTHDRS}
-
-STRIP_HDRS += ctype.h dirent.h fnmatch.h fts.h ftw.h glob.h regex.h \
-	signal.h stdio.h stdlib.h string.h time.h unistd.h wchar.h xlocale.h
 
 .include "Makefile.nbsd_begin"
 NBSDHDRS = utmpx.h

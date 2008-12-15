@@ -1321,6 +1321,24 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        case DKIOCGETPHYSICALBLOCKSIZE:                          // (uint32_t *)
+        {
+            //
+            // This ioctl returns the preferred block size of the device.
+            //
+
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOPropertyPhysicalBlockSizeKey,
+                                 /* plane */ gIOServicePlane ) );
+            if ( number )
+                *(uint32_t *)data = number->unsigned32BitValue();
+            else
+                *(uint32_t *)data = minor->media->getPreferredBlockSize();
+
+        } break;
+
         case DKIOCISFORMATTED:                                   // (uint32_t *)
         {
             //
@@ -1623,6 +1641,29 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        case DKIOCDISCARD:                                     // (dk_discard_t)
+        {
+            //
+            // This ioctl asks that the media object delete unused data.
+            //
+
+            dk_discard_t * request;
+            IOReturn       status;
+
+            request = (dk_discard_t *) data;
+
+            if ( DKIOC_IS_RESERVED(data, 0xFFFF0000) )  { error = EINVAL;  break; }
+
+            // Delete unused data from the media.
+
+            status = minor->media->discard( /* client    */ minor->client,
+                                            /* byteStart */ request->offset,
+                                            /* byteCount */ request->length );
+
+            error = minor->media->errnoFromReturn(status);
+
+        } break;
+
         case DKIOCGETBSDUNIT:                                    // (uint32_t *)
         {
             //
@@ -1709,7 +1750,17 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
             if ( dictionary )
             {
-                OSBoolean * boolean = OSDynamicCast( 
+                OSBoolean * boolean;
+
+                boolean = OSDynamicCast( 
+                         /* class  */ OSBoolean,
+                         /* object */ dictionary->getObject(
+                                 /* key   */ kIOStorageFeatureDiscard ) );
+
+                if ( boolean == kOSBooleanTrue )
+                    *(uint32_t *)data |= DK_FEATURE_DISCARD;
+
+                boolean = OSDynamicCast( 
                          /* class  */ OSBoolean,
                          /* object */ dictionary->getObject(
                                  /* key   */ kIOStorageFeatureForceUnitAccess ) );

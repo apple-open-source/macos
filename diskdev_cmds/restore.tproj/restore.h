@@ -70,7 +70,7 @@ extern int	yflag;		/* always try to recover from tape errors */
  */
 extern char	*dumpmap; 	/* map of inodes on this dump tape */
 extern char	*usedinomap; 	/* map of inodes that are in use on this fs */
-extern ino_t	maxino;		/* highest numbered inode in this file system */
+extern u_int32_t	maxino;		/* highest numbered inode in this file system */
 extern long	dumpnum;	/* location of the dump on this tape */
 extern long	volno;		/* current volume being read */
 extern long	ntrec;		/* number of TP_BSIZE records per tape block */
@@ -89,7 +89,7 @@ struct entry {
 	u_char	e_namlen;		/* length of this name */
 	char	e_type;			/* type of this entry, see below */
 	short	e_flags;		/* status flags, see below */
-	ino_t	e_ino;			/* inode number in previous file sys */
+	u_int32_t	e_ino;			/* inode number in previous file sys */
 	long	e_index;		/* unique index (for dumpped table) */
 	struct	entry *e_parent;	/* pointer to parent directory (..) */
 	struct	entry *e_sibling;	/* next element in this directory (.) */
@@ -121,7 +121,7 @@ struct entry {
  */
 struct context {
 	char	*name;		/* name of file */
-	ino_t	ino;		/* inumber of file */
+	u_int32_t	ino;		/* inumber of file */
 	struct	dinode *dip;	/* pointer to inode */
 	char	action;		/* action being taken on this file */
 }; 

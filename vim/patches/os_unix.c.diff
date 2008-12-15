@@ -1,6 +1,7 @@
---- src/os_unix.c.orig	2005-03-27 04:04:06.000000000 -0800
-+++ src/os_unix.c	2005-05-12 11:33:45.000000000 -0700
-@@ -291,6 +291,32 @@
+diff -r -u -N --exclude='*.orig' vim72.orig/src/os_unix.c vim72/src/os_unix.c
+--- vim72.orig/src/os_unix.c	2008-08-06 04:01:40.000000000 -0700
++++ vim72/src/os_unix.c	2008-08-19 01:06:07.000000000 -0700
+@@ -315,6 +315,32 @@
      {-1,	    "Unknown!", FALSE}
  };
  
@@ -33,19 +34,7 @@
      void
  mch_write(s, len)
      char_u	*s;
-@@ -721,11 +747,6 @@
-     if (signal_stack != NULL)
-     {
- # ifdef HAVE_SIGALTSTACK
--#  ifdef __APPLE__
--	/* missing prototype.  Adding it to osdef?.h.in doesn't work, because
--	 * "struct sigaltstack" needs to be declared. */
--	extern int sigaltstack __ARGS((const struct sigaltstack *ss, struct sigaltstack *oss));
--#  endif
- 
- #  ifdef HAVE_SS_BASE
- 	sigstk.ss_base = signal_stack;
-@@ -3361,6 +3382,10 @@
+@@ -3555,6 +3581,10 @@
      if (columns <= 0 || rows <= 0)
  	return FAIL;
  

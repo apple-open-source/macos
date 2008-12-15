@@ -72,12 +72,12 @@
 
 static ufs_daddr_t badblk;
 static ufs_daddr_t dupblk;
-static void checkinode __P((ino_t inumber, struct inodesc *));
+static void checkinode __P((u_int32_t inumber, struct inodesc *));
 
 void
 pass1()
 {
-	ino_t inumber;
+	u_int32_t inumber;
 	int c, i, cgd;
 	struct inodesc idesc;
 
@@ -121,7 +121,7 @@ pass1()
 
 static void
 checkinode(inumber, idesc)
-	ino_t inumber;
+	u_int32_t inumber;
 	register struct inodesc *idesc;
 {
 	register struct dinode *dp;

@@ -92,8 +92,8 @@ $(APR_WORK)\build\NWGNUversion.inc : $(APR_WORK)\include\apr_version.h $(APR_WOR
 ifneq "$(strip $(VERSION_STR))" ""
 VERSION_INC = $(APR_WORK)\build\NWGNUversion.inc
 else
-VERSION		= 1,2,0
-VERSION_STR	= 1.2.0
+VERSION		= 1,0,0
+VERSION_STR	= 1.0.0
 endif
 
 ifeq "$(words $(strip $(TARGET_nlm)))" "1"

@@ -17,7 +17,7 @@ CFLAGS=-O0 $(RC_CFLAGS)
 #
 
 PROJECT_NAME=clamav
-OS_VER=0.93.3
+OS_VER=0.94
 CLAMAV_TAR_GZ=clamav-$(OS_VER).tar.gz
 
 CLAMAV_BUILD_DIR=/clamav/clamav-$(OS_VER)

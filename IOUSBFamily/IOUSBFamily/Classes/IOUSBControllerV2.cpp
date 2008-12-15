@@ -335,6 +335,8 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
     clearCommand->SetCompletionTimeout(0);
     clearCommand->SetStage(0);
 	clearCommand->SetBufferUSBCommand(NULL);
+	clearCommand->SetMultiTransferTransaction(false);
+	clearCommand->SetFinalTransferInTransaction(false);
 
 	memDesc->prepare();
 	clearCommand->SetRequestMemoryDescriptor(memDesc);
@@ -377,8 +379,8 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
 							  void *arg2, void *arg3)
 {
     IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
-    UInt8 address = (UInt8)(UInt32)arg0;
-    UInt8 speed = (UInt8)(UInt32)arg1;
+    UInt8 address = (UInt8)(uintptr_t)arg0;
+    UInt8 speed = (UInt8)(uintptr_t)arg1;
     Endpoint *endpoint = (Endpoint *)arg2;
     IOReturn err;
 	
@@ -543,16 +545,16 @@ IOReturn
 IOUSBControllerV2::DOHSHubMaintenance(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
     IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
-    USBDeviceAddress highSpeedHub = (USBDeviceAddress)(UInt32)arg0;
-    UInt32 command = (UInt32)arg1;
-    UInt32 flags = (UInt32)arg2;
+    USBDeviceAddress highSpeedHub = (USBDeviceAddress)(uintptr_t)arg0;
+    UInt32 command = (uintptr_t)arg1;
+    UInt32 flags = (uintptr_t)arg2;
     UInt8 multi;
 	
-    USBLog(5,"%s[%p]::DOHSHubMaintenance, command: %ld, flags: %ld", me->getName(), me, command, flags);
+    USBLog(5,"%s[%p]::DOHSHubMaintenance, command: %d, flags: %d", me->getName(), me, (uint32_t)command, (uint32_t)flags);
 	
     multi = ((flags & kUSBHSHubFlagsMultiTT) != 0);
     me->_v2ExpansionData->_multiTT[highSpeedHub] = multi;
-    USBLog(3,"%s[%p]::DOHSHubMaintenance hub at %d is multiTT:%d", me->getName(), me, highSpeedHub, me->_v2ExpansionData->_multiTT[highSpeedHub]);
+    USBLog(3,"%s[%p]::DOHSHubMaintenance hub at %d is multiTT:%d", me->getName(), me, highSpeedHub, (uint32_t)me->_v2ExpansionData->_multiTT[highSpeedHub]);
 	
     return me->UIMHubMaintenance(highSpeedHub, 0, command, flags);
 }
@@ -563,10 +565,10 @@ IOReturn
 IOUSBControllerV2::DOSetTestMode(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3)
 {
     IOUSBControllerV2 *me = (IOUSBControllerV2 *)owner;
-    UInt32 mode = (UInt32)arg0;
-    UInt32 port = (UInt32)arg1;
+    UInt32 mode = (uintptr_t)arg0;
+    UInt32 port = (uintptr_t)arg1;
 	
-    USBLog(5,"%s[%p]::DOSetTestMode, mode: %ld, port: %ld", me->getName(), me, mode, port);
+    USBLog(5,"%s[%p]::DOSetTestMode, mode: %d, port: %d", me->getName(), me, (uint32_t)mode, (uint32_t)port);
 	
     return me->UIMSetTestMode(mode, port);
 }
@@ -635,18 +637,18 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
 	IODMACommand			*dmaCommand = NULL;
     int						i;
 	
-    USBLog(7, "%s[%p]::ReadV2 - reqCount = %ld", getName(), this, reqCount);
+    USBLog(7, "%s[%p]::ReadV2 - reqCount = %d", getName(), this, (uint32_t)reqCount);
 	
     // Validate its a inny pipe and that there is a buffer
     if ((endpoint->direction != kUSBIn) || !buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(5, "%s[%p]::ReadV2 - direction is not kUSBIn (%d), No Buffer, or buffer length < reqCount (%ld < %ld). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  buffer->getLength(), reqCount, kIOReturnBadArgument);
+        USBLog(5, "%s[%p]::ReadV2 - direction is not kUSBIn (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
         return kIOReturnBadArgument;
     }
 	
     if ((endpoint->transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
-        USBLog(5, "%s[%p]::ReadV2 - Pipe is NOT kUSBBulk (%d) AND specified a timeout (%ld, %ld).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->transferType, noDataTimeout, completionTimeout, kIOReturnBadArgument);
+        USBLog(5, "%s[%p]::ReadV2 - Pipe is NOT kUSBBulk (%d) AND specified a timeout (%d, %d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->transferType, (uint32_t)noDataTimeout, (uint32_t)completionTimeout, kIOReturnBadArgument);
         return kIOReturnBadArgument;							// timeouts only on bulk pipes
     }
 	
@@ -721,7 +723,7 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
 	
 	// Set up a flag indicating that we have a synchronous request in this command
 	//
-    if (  (UInt32) completion->action == (UInt32) &IOUSBSyncCompletion )
+    if (  (uintptr_t) completion->action == (uintptr_t) &IOUSBSyncCompletion )
 		command->SetIsSyncTransfer(true);
 	else
 		command->SetIsSyncTransfer(false);
@@ -738,7 +740,9 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
     command->SetClientCompletion(theCompletion);
     command->SetNoDataTimeout(noDataTimeout);
     command->SetCompletionTimeout(completionTimeout);
-    for (i=0; i < 10; i++)
+ 	command->SetMultiTransferTransaction(false);
+	command->SetFinalTransferInTransaction(false);
+	for (i=0; i < 10; i++)
         command->SetUIMScratch(i, 0);
 	
     nullCompletion.target = (void *) NULL;
@@ -1087,26 +1091,26 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
 				
 			if (pEP->accumulatedStatus == kIOUSBBufferUnderrunErr)
 			{
-				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - kIOReturnBufferUnderrunErr (PCI issue perhaps)  Bus: %lx, Address: %d, Endpoint: %d", this, _busNumber, pEP->functionAddress,  pEP->endpointNumber);
+				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - kIOReturnBufferUnderrunErr (PCI issue perhaps)  Bus: %x, Address: %d, Endpoint: %d", this, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
 			}
 			if (pEP->accumulatedStatus == kIOUSBBufferOverrunErr)
 			{
-				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - kIOReturnBufferOverrunErr (PCI issue perhaps)  Bus: %lx, Address: %d, Endpoint: %d", this, _busNumber, pEP->functionAddress,  pEP->endpointNumber);
+				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - kIOReturnBufferOverrunErr (PCI issue perhaps)  Bus: %x, Address: %d, Endpoint: %d", this, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
 			}
 			if ((pEP->accumulatedStatus == kIOReturnOverrun) && (pEP->direction == kUSBIn))
 			{
-				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - kIOReturnOverrun on IN - device babbling?  Bus: %lx, Address: %d, Endpoint: %d", this, _busNumber, pEP->functionAddress,  pEP->endpointNumber);
+				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - kIOReturnOverrun on IN - device babbling?  Bus: %x, Address: %d, Endpoint: %d", this, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
 			}
 
-			USBLog(7, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue- TD (%p) calling handler[%p](target: %p, comp.param: %p, status: %p, pFrames: %p)  Bus: %lx, Address: %d, Endpoint: %d", this, pTD,
-																pHandler, pTD->_completion.target, pTD->_completion.parameter, (void*)pEP->accumulatedStatus, pFrames, _busNumber, pEP->functionAddress,  pEP->endpointNumber);
+			USBLog(7, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue- TD (%p) calling handler[%p](target: %p, comp.param: %p, status: %p (%s), pFrames: %p)  Bus: %x, Address: %d, Endpoint: %d", this, pTD,
+																pHandler, pTD->_completion.target, pTD->_completion.parameter, (void*)pEP->accumulatedStatus, USBStringFromReturn(pEP->accumulatedStatus), pFrames, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
 			
 			(*pHandler) (pTD->_completion.target,  pTD->_completion.parameter, pEP->accumulatedStatus, pFrames);
 			
 			_activeIsochTransfers--;
 			if ( _activeIsochTransfers < 0 )
 			{
-				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - _activeIsochTransfers went negative (%d).  We lost one somewhere  Bus: %lx, Address: %d, Endpoint: %d", this, (int)_activeIsochTransfers, _busNumber, pEP->functionAddress,  pEP->endpointNumber);
+				USBLog(1, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - _activeIsochTransfers went negative (%d).  We lost one somewhere  Bus: %x, Address: %d, Endpoint: %d", this, (uint32_t)_activeIsochTransfers, (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
 			}
 			else if (!_activeIsochTransfers)
 				requireMaxBusStall(0);										// remove maximum stall restraint on the PCI bus
@@ -1118,7 +1122,7 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
 			{
 				if (pEP->accumulatedStatus != kIOReturnSuccess && (pEP->accumulatedStatus != kIOReturnUnderrun) )
 				{
-					USBLog(6, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - resetting status from 0x%x  Bus: %lx, Address: %d, Endpoint: %d", this, pEP->accumulatedStatus, _busNumber, pEP->functionAddress,  pEP->endpointNumber);
+					USBLog(6, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue - resetting status from 0x%x (%s)  Bus: %x, Address: %d, Endpoint: %d", this,  pEP->accumulatedStatus, USBStringFromReturn(pEP->accumulatedStatus), (uint32_t)_busNumber, pEP->functionAddress,  pEP->endpointNumber);
 				}
 				pEP->accumulatedStatus = kIOReturnSuccess;
 			}

@@ -48,6 +48,7 @@
 class IOUSBController;
 class IOUSBControllerV2;
 class IOUSBInterface;
+class IOUSBHubPolicyMaker;
 /*!
     @class IOUSBDevice
     @abstract The IOService object representing a device on the USB bus.
@@ -107,7 +108,13 @@ protected:
 		IOReturn				_resetError;
 		IOReturn				_suspendError;
         thread_call_t			_doMessageClientsThread;
-    };
+		IOUSBHubPolicyMaker *	_hubPolicyMaker;
+		UInt32					_sleepPowerAllocated;				// how much sleep power we already gave to our client
+		UInt32					_wakePowerAllocated;				// how much extra power during wake did we already give our client
+		UInt32					_devicePortInfo;
+		bool					_deviceIsInternal;					// Will be set if all our upstream hubs are captive (internal to the computer)
+		bool					_deviceIsInternalIsValid;			// true if we have already determined whether the device is internal
+    };	
     ExpansionData * _expansionData;
 
     const IOUSBConfigurationDescriptor *FindConfig(UInt8 configValue, UInt8 *configIndex=0);
@@ -402,12 +409,64 @@ public:
     virtual IOUSBPipe*	MakePipe(const IOUSBEndpointDescriptor *ep, IOUSBInterface *interface);
     
 	
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  6);
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  7);
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  8);
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  9);
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  10);
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  11);
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  6);
+	/*!
+	 @function SetHubParent
+	 @abstract Used by the hub driver to give the nub a pointer to its HubPolicyMaker object
+	 @param hubPolicyMaker	The object representing the Hub driver
+	 */
+    virtual void	SetHubParent(IOUSBHubPolicyMaker *hubParent);
+    
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  7);
+	/*!
+	 @function GetHubParent
+	 @abstract Used by the hub driver to give the nub a pointer to its HubPolicyMaker object
+	 @param hubPolicyMaker	The object representing the Hub driver
+	 */
+    virtual IOUSBHubPolicyMaker*	GetHubParent();
+    
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  8);
+    /*!
+	 @function 	GetDeviceInformation
+	 @abstract 	Returns status information about the USB device, such as whether the device is captive or whether it is in the suspended state.
+	 @param requestedPower 	The desired amount of power that the client wishes to reserve
+	 @result 		Actual power that was reserved
+	 
+		*/
+	virtual IOReturn	GetDeviceInformation(UInt32 *info);
+    
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  9);
+    /*!
+	 @function				RequestExtraPower
+	 @abstract				Clients can use this API to reserve extra power for use by this device while the machine is asleep or while it is awake.  Units are milliAmps (mA).
+	 @param type			Indicates whether the power is to be used during wake or sleep (One of kUSBPowerDuringSleep or kUSBPowerDuringWake)
+	 @param requestedPower 	Amount of power desired, in mA
+	 @result				Amount of power actually reserved, in mA.  It can be less than the requested or zero.
+	 
+	 */
+	virtual UInt32	RequestExtraPower(UInt32 type, UInt32 requestedPower);
+    
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  10);
+    /*!
+	 @function				ReturnExtraPower
+	 @abstract				Clients can use this API to tell the system that they will not use power that was previously reserved by using the RequestExtraPower API.
+	 @param type			Indicates whether the power is to be used during wake or sleep (One of kUSBPowerDuringSleep or kUSBPowerDuringWake)
+	 @param returnedPower 	Amount of power that is no longer needed, in mA
+	 @result				If the returnedPower was not previously allocated, an error will be returned.  This will include the case for power that was requested for sleep but was returned for wake.
+	 
+	 */
+	virtual IOReturn		ReturnExtraPower(UInt32 type, UInt32 returnedPower);
+    
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  11);
+    /*!
+	 @function				GetExtraPowerAllocated
+	 @abstract				Clients can use this API to ask how much extra power has already been reserved by this device.  Units are milliAmps (mA).
+	 @param type			Indicates whether the allocated power was to be used during wake or sleep (One of kUSBPowerDuringSleep or kUSBPowerDuringWake)
+	 @result				Amount of power allocated, in mA.  .
+	 
+	 */
+	virtual UInt32	GetExtraPowerAllocated(UInt32 type);
+    
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  12);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  13);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  14);

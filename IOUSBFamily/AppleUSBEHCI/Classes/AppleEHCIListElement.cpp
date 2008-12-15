@@ -277,8 +277,8 @@ AppleEHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 			{
 				pLLFrames[_frameIndex + j].frActCount = OSSwapInt16(pLLFrames[_frameIndex + j].frActCount);
 				pLLFrames[_frameIndex + j].frReqCount = OSSwapInt16(pLLFrames[_frameIndex + j].frReqCount);
-				pLLFrames[_frameIndex + j].frTimeStamp.lo = OSSwapInt32(timeStamp.lo);
-				pLLFrames[_frameIndex + j].frTimeStamp.hi = OSSwapInt32(timeStamp.hi);;
+				AbsoluteTime_to_scalar(&pLLFrames[_frameIndex + j].frTimeStamp) 
+				= OSSwapInt64(AbsoluteTime_to_scalar(&timeStamp));
 				pLLFrames[_frameIndex + j].frStatus = OSSwapInt32(frStatus);
 			}
 			else
@@ -465,8 +465,8 @@ AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 		{
 			pLLFrames[_frameIndex].frActCount = OSSwapInt16(frActualCount);
 			pLLFrames[_frameIndex].frReqCount = OSSwapInt16(pLLFrames[_frameIndex].frReqCount);
-			pLLFrames[_frameIndex].frTimeStamp.lo = OSSwapInt32(timeStamp.lo);
-			pLLFrames[_frameIndex].frTimeStamp.hi = OSSwapInt32(timeStamp.hi);;
+			AbsoluteTime_to_scalar(&pLLFrames[_frameIndex].frTimeStamp) 
+			= OSSwapInt64(AbsoluteTime_to_scalar(&timeStamp));
 			pLLFrames[_frameIndex].frStatus = OSSwapInt32(frStatus);
 		}
 		else

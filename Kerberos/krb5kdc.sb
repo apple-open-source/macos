@@ -37,6 +37,7 @@
                   (regex "^/System/Library/Keychains/")
                   (regex "^/System/Library/KerberosPlugins/")
                   (regex "^/System/Library/PrivateFrameworks/")
+		  (regex "^/usr/lib/lib.*\.dylib$")
                   (regex "^/System/Library/Security(/|$)")
                   (regex "/Library/Keychains/login\\.keychain$")
                   (regex "/Library/Preferences/com\\.apple\\.security\\.revocation\\.plist$"))

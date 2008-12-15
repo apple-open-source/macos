@@ -1,6 +1,7 @@
---- src/ex_cmds2.c.orig	2005-05-13 17:36:28.000000000 -0700
-+++ src/ex_cmds2.c	2005-05-13 16:55:34.000000000 -0700
-@@ -2815,6 +2815,20 @@
+diff -r -u -N --exclude='*.orig' vim72.orig/src/ex_cmds2.c vim72/src/ex_cmds2.c
+--- vim72.orig/src/ex_cmds2.c	2008-07-13 09:18:22.000000000 -0700
++++ vim72/src/ex_cmds2.c	2008-08-19 01:06:04.000000000 -0700
+@@ -2897,6 +2897,20 @@
      apply_autocmds(EVENT_SOURCEPRE, fname_exp, fname_exp, FALSE, curbuf);
  #endif
  
@@ -21,5 +22,3 @@
  #if defined(WIN32) && defined(FEAT_CSCOPE)
      cookie.fp = fopen_noinh_readbin((char *)fname_exp);
  #else
-
- 

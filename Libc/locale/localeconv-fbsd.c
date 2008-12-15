@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/localeconv.c,v 1.13 2003/06/26 10:46:16 
 #include "lmonetary.h"
 #include "lnumeric.h"
 
+#ifdef __APPLE_PR3417676_HACK__
 /*------------------------------------------------------------------------
  * PR-3417676: We need to provide a way to force "C" locale style number
  * formatting independent of the locale setting.  We provide private
@@ -100,6 +101,7 @@ __setonlyClocaleconv(int val)
     _onlyClocaleconv = val;
     return prev;
 }
+#endif /* __APPLE_PR3417676_HACK__ */
 
 /* 
  * The localeconv() function constructs a struct lconv from the current
@@ -190,11 +192,13 @@ localeconv_l(locale_t loc)
 struct lconv *
 localeconv()
 {
+#ifdef __APPLE_PR3417676_HACK__
     /*--------------------------------------------------------------------
      * If _onlyClocaleconv is non-zero, just return __lconv, which is a "C"
      * struct lconv *.  Otherwise, do the normal thing.
      *--------------------------------------------------------------------*/
     if (_onlyClocaleconv)
 	return &_C_lconv;
+#endif /* __APPLE_PR3417676_HACK__ */
     return localeconv_l(__current_locale());
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,14 +42,10 @@
 static int sock = -1;
 static asl_msg_t *query = NULL;
 
-extern int asl_log_filter;
-
 #define MATCH_EOF -1
 #define MATCH_NULL 0
 #define MATCH_TRUE 1
 #define MATCH_FALSE 2
-
-extern int prune;
 
 extern void db_enqueue(asl_msg_t *m);
 
@@ -163,7 +159,7 @@ asl_in_acceptmsg(int fd)
 int
 aslmod_sendmsg(asl_msg_t *msg, const char *outid)
 {
-	const char *vlevel, *facility, *ignore;
+	const char *vlevel, *facility, *sender, *ignore;
 	uint32_t lmask;
 	uint64_t v64;
 	int status, x, level, log_me;
@@ -181,7 +177,7 @@ aslmod_sendmsg(asl_msg_t *msg, const char *outid)
 			status = notify_check(filter_token, &x);
 			if (status == NOTIFY_STATUS_OK)
 			{
-				v64 = asl_log_filter;
+				v64 = global.asl_log_filter;
 				status = notify_set_state(filter_token, v64);
 			}
 			if (status != NOTIFY_STATUS_OK)
@@ -200,20 +196,23 @@ aslmod_sendmsg(asl_msg_t *msg, const char *outid)
 		{
 			v64 = 0;
 			status = notify_get_state(filter_token, &v64);
-			if ((status == NOTIFY_STATUS_OK) && (v64 != 0)) asl_log_filter = v64;
+			if ((status == NOTIFY_STATUS_OK) && (v64 != 0)) global.asl_log_filter = v64;
 		}
 	}
 
-	log_me = 0;
 	facility = asl_get(msg, ASL_KEY_FACILITY);
+	sender = asl_get(msg, ASL_KEY_SENDER);
+
+	log_me = 0;
 	if ((facility != NULL) && (!strcmp(facility, "kern"))) log_me = 1;
+	else if ((sender != NULL) && (!strcmp(sender, "launchd"))) log_me = 1;
 	else
 	{
 		vlevel = asl_get(msg, ASL_KEY_LEVEL);
 		level = 7;
 		if (vlevel != NULL) level = atoi(vlevel);
 		lmask = ASL_FILTER_MASK(level);
-		if ((lmask & asl_log_filter) != 0) log_me = 1;
+		if ((lmask & global.asl_log_filter) != 0) log_me = 1;
 	}
 
 	if (log_me == 1)
@@ -236,13 +235,13 @@ asl_in_init(void)
 
 	asldebug("%s: init\n", MY_ID);
 	if (sock >= 0) return sock;
-	if (launch_dict == NULL)
+	if (global.launch_dict == NULL)
 	{
 		asldebug("%s: laucnchd dict is NULL\n", MY_ID);
 		return -1;
 	}
 
-	sockets_dict = launch_data_dict_lookup(launch_dict, LAUNCH_JOBKEY_SOCKETS);
+	sockets_dict = launch_data_dict_lookup(global.launch_dict, LAUNCH_JOBKEY_SOCKETS);
 	if (sockets_dict == NULL)
 	{
 		asldebug("%s: laucnchd lookup of LAUNCH_JOBKEY_SOCKETS failed\n", MY_ID);
@@ -282,7 +281,7 @@ asl_in_init(void)
 
 	if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &rbufsize, len) < 0)
 	{
-		asldebug("%s: couldn't set receive buffer size for %s: %s\n", MY_ID, sock, _PATH_ASL_IN, strerror(errno));
+		asldebug("%s: couldn't set receive buffer size for %d (%s): %s\n", MY_ID, sock, _PATH_ASL_IN, strerror(errno));
 		close(sock);
 		sock = -1;
 		return -1;
@@ -316,7 +315,7 @@ asl_in_close(void)
 
 	if (filter_token >= 0) notify_cancel(filter_token);
 	filter_token = -1;
-	asl_log_filter = 0;
+	global.asl_log_filter = 0;
 
 	asl_free(query);
 	close(sock);

@@ -1255,7 +1255,7 @@ LONG SCardStatus(SCARDHANDLE hCard, LPSTR mszReaderNames,
 	LPDWORD pcchReaderLen, LPDWORD pdwState,
 	LPDWORD pdwProtocol, LPBYTE pbAtr, LPDWORD pcbAtrLen)
 {
-	DWORD dwReaderLen, dwAtrLen;
+	DWORD dwReaderLen, atrOutputBufferSize;
 	LONG rv;
 	int i;
 	status_struct scStatusStruct;
@@ -1274,7 +1274,7 @@ LONG SCardStatus(SCARDHANDLE hCard, LPSTR mszReaderNames,
 
 	/* length passed from caller */
 	dwReaderLen = *pcchReaderLen;
-	dwAtrLen = *pcbAtrLen;
+	atrOutputBufferSize = *pcbAtrLen;
 
 	/* default output values */
 	if (pdwState)
@@ -1382,11 +1382,11 @@ LONG SCardStatus(SCARDHANDLE hCard, LPSTR mszReaderNames,
 
 	if (pbAtr)
 	{
-		if (*pcbAtrLen > dwAtrLen)
+		if (*pcbAtrLen > atrOutputBufferSize)
 			rv = SCARD_E_INSUFFICIENT_BUFFER;
 
 		memcpy(pbAtr, SharedReaderState_CardAtr(readerStates[i]),
-			min(*pcbAtrLen, dwAtrLen));
+			min(*pcbAtrLen, atrOutputBufferSize));
 	}
 
 	SYS_MutexUnLock(psContextMap[dwContextIndex].mMutex);
@@ -2122,14 +2122,13 @@ int32_t SCardControl132(SCARDHANDLE hCard, DWORD dwControlCode, LPCVOID pbSendBu
 		 * Read a message from the server
 		 */
 		/* read the first block */
-		rv = SHMMessageReceive(buffer, sizeof(sharedSegmentMsg), psContextMap[dwContextIndex].dwClientID, PCSCLITE_CLIENT_ATTEMPTS);
+		rv = SHMClientReadMessage(pmsgStruct, psContextMap[dwContextIndex].dwClientID, 0, PCSCLITE_CLIENT_ATTEMPTS);
 		if (rv == -1)
 		{
 			SYS_MutexUnLock(psContextMap[dwContextIndex].mMutex);
 			return SCARD_F_COMM_ERROR;
 		}
 
-		SHSharedSegmentMsgToHostOrder(pmsgStruct);
 		/* we receive a sharedSegmentMsg and not a control_struct_extended */
 		scControlStructExtended = (control_struct_extended *)&(pmsgStruct -> data);
 		ntohlControlStructExtended(scControlStructExtended);
@@ -2619,7 +2618,7 @@ LONG SCardTransmit(SCARDHANDLE hCard, LPCSCARD_IO_REQUEST pioSendPci,
 		/*
 		 * Read a message from the server
 		 */
-		rv = SHMClientReadMessage(pmsgStruct, psContextMap[dwContextIndex].dwClientID, 0, PCSCLITE_CLIENT_ATTEMPTS);
+		rv = SHMClientReadMessage((psharedSegmentMsg)buffer, psContextMap[dwContextIndex].dwClientID, 0, PCSCLITE_CLIENT_ATTEMPTS);
 		if (rv == -1)
 		{
 			SYS_MutexUnLock(psContextMap[dwContextIndex].mMutex);
@@ -3094,14 +3093,15 @@ static LONG SCardGetContextIndiceTH(SCARDCONTEXT hContext)
 {
 	int i;
 
+	if (hContext == 0)
+		return -1;
+		
 	/*
-	 * Find this context and return it's spot in the array
+	 * Find this context and return its spot in the array
 	 */
 	for (i = 0; i < PCSCLITE_MAX_APPLICATION_CONTEXTS; i++)
-	{
-		if ((hContext == psContextMap[i].hContext) && (hContext != 0))
+		if (hContext == psContextMap[i].hContext)
 			return i;
-	}
 
 	return -1;
 }

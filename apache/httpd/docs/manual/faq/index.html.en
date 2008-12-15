@@ -18,7 +18,8 @@
 <div id="path">
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.2</a></div><div id="page-content"><div id="preamble"><h1>Frequently Asked Questions</h1>
 <div class="toplang">
-<p><span>Available Languages: </span><a href="../en/faq/" title="English">&nbsp;en&nbsp;</a></p>
+<p><span>Available Languages: </span><a href="../en/faq/" title="English">&nbsp;en&nbsp;</a> |
+<a href="../tr/faq/" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 
     <p>This document is not a traditional FAQ, but rather a quick
@@ -43,13 +44,19 @@
 
       <dl>
       <dt>Check the ErrorLog!</dt>
-      <dd>Apache tries to be helpful when it encounters a problem. In many
+      <dd><p>Apache tries to be helpful when it encounters a problem. In many
       cases, it will provide some details by writing one or more messages to the
       server error log. Sometimes this is enough for you to diagnose and fix
       the problem yourself (such as file permissions or the like). The default
       location of the error log is
       <code>/usr/local/apache2/logs/error_log</code>, but see the <code class="directive"><a href="../mod/core.html#errorlog">ErrorLog</a></code> directive in your config files for the
-      location on your server.</dd>
+      location on your server.</p>
+
+      <p>If you end up in any of the support forums this is quite likely to be the
+      first place they will ask you retrieve information from.  Please ensure you
+      know where to find your errorlog.  If you are unsure, the wiki page
+      <a href="http://wiki.apache.org/httpd/DistrosDefaultLayout"> here</a> can
+      give you some ideas where to look.</p></dd>
 
       <dt>Consult the wiki</dt>
       <dd>The <a href="http://wiki.apache.org/httpd/">Apache HTTP
@@ -99,8 +106,9 @@
       a number of companies.</p>
     </div></div>
 <div class="bottomlang">
-<p><span>Available Languages: </span><a href="../en/faq/" title="English">&nbsp;en&nbsp;</a></p>
+<p><span>Available Languages: </span><a href="../en/faq/" title="English">&nbsp;en&nbsp;</a> |
+<a href="../tr/faq/" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

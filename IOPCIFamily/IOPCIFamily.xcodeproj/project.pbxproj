@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		A6F210B90A7801AB00875EC6 /* AppleSamplePCI */ = {
+		A613B2A50D46AA65007BA726 /* AppleSamplePCI */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = A6F210BC0A7801EC00875EC6 /* Build configuration list for PBXAggregateTarget "AppleSamplePCI" */;
+			buildConfigurationList = A613B2A70D46AA65007BA726 /* Build configuration list for PBXAggregateTarget "AppleSamplePCI" */;
 			buildPhases = (
-				A6F2EDAF0A781FEC00688783 /* ShellScript */,
+				A613B2A60D46AA65007BA726 /* ShellScript */,
 			);
 			dependencies = (
 			);
@@ -21,138 +21,39 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		03DB1087033AA50A03CA2A5F /* IOAGPDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */; };
-		03DB1088033AA50A03CA2A5F /* IOPCIBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */; };
-		03DB1089033AA50A03CA2A5F /* IOPCIDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
-		03DB108A033AA52803CA2A5F /* IOAGPDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */; };
-		03DB108B033AA52803CA2A5F /* IOPCIBridge.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */; };
-		03DB108C033AA52803CA2A5F /* IOPCIDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
-		1590524809368A190010639A /* IOPCIConfigurator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1590524609368A190010639A /* IOPCIConfigurator.cpp */; };
-		4094C51D00CEE7A80ACA2928 /* IOPCIBridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */; };
-		4094C51E00CEE7A80ACA2928 /* IOPCIDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */; };
-		4094C51F00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */; };
-		4094C52000CEE7A80ACA2928 /* IOPCIDevicePPC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51C00CEE7A80ACA2928 /* IOPCIDevicePPC.cpp */; };
-		A6DD8EF00937A0EC000A918D /* IOPCIConfigurator.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
-		A6DD8EF10937A0EC000A918D /* IOPCIPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
-		A6DD8EF20937A0EC000A918D /* IOPCIConfigurator.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
-		A6DD8EF30937A0EC000A918D /* IOPCIPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
-		A6DD8EF70937A109000A918D /* IOPCIConfigurator.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
-		A6DD8EF80937A109000A918D /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
+		A613B27C0D46AA65007BA726 /* IOPCIConfigurator.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
+		A613B27D0D46AA65007BA726 /* IOPCIPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
+		A613B2800D46AA65007BA726 /* IOPCIBridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */; };
+		A613B2810D46AA65007BA726 /* IOPCIDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */; };
+		A613B2820D46AA65007BA726 /* IOPCIDeviceI386.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */; };
+		A613B2830D46AA65007BA726 /* IOPCIDevicePPC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51C00CEE7A80ACA2928 /* IOPCIDevicePPC.cpp */; };
+		A613B2840D46AA65007BA726 /* IOPCIConfigurator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1590524609368A190010639A /* IOPCIConfigurator.cpp */; };
+		A613B2900D46AA65007BA726 /* IOAGPDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */; };
+		A613B2910D46AA65007BA726 /* IOPCIBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */; };
+		A613B2920D46AA65007BA726 /* IOPCIDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
+		A613B2930D46AA65007BA726 /* IOPCIConfigurator.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
+		A613B2940D46AA65007BA726 /* IOPCIPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
+		A613B2990D46AA65007BA726 /* IOAGPDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */; };
+		A613B29A0D46AA65007BA726 /* IOPCIBridge.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */; };
+		A613B29B0D46AA65007BA726 /* IOPCIDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
+		A613B29D0D46AA65007BA726 /* IOPCIConfigurator.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
+		A613B29E0D46AA65007BA726 /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBundleTarget section */
-		089C1673FE841209C02AAC07 /* IOPCIFamily */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = 1590524E09368A190010639A /* Build configuration list for PBXBundleTarget "IOPCIFamily" */;
-			buildPhases = (
-				06AA1267FFB2110C11CA28AA /* ShellScript */,
-				089C1674FE841209C02AAC07 /* Headers */,
-				089C1675FE841209C02AAC07 /* Resources */,
-				089C1676FE841209C02AAC07 /* Sources */,
-				089C1677FE841209C02AAC07 /* Frameworks */,
-				089C1679FE841209C02AAC07 /* Rez */,
-				06AA1264FFB2107B11CA28AA /* ShellScript */,
-			);
-			dependencies = (
-				0358F57C0340F5D603CA2A5F /* PBXTargetDependency */,
-				A6F210E90A78039100875EC6 /* PBXTargetDependency */,
-			);
-			name = IOPCIFamily;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-			productName = IOPCIFamily;
-			productReference = 0B81C263FFB7832611CA28AA /* IOPCIFamily.kext */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>IOPCIFamily</string>
-	<key>CFBundleGetInfoString</key>
-	<string>2.4.1, Copyright Apple Computer, Inc. 2000-2004</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.IOPCIFamily</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>I/O Kit PCI Family</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>2.4.1</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>2.4.1</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>IOPCI2PCIBridge-Name</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOPCIFamily</string>
-			<key>IOClass</key>
-			<string>IOPCI2PCIBridge</string>
-			<key>IONameMatch</key>
-			<string>pci-bridge</string>
-			<key>IOProviderClass</key>
-			<string>IOPCIDevice</string>
-		</dict>
-		<key>IOPCI2PCIBridge-PCI</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOPCIFamily</string>
-			<key>IOClass</key>
-			<string>IOPCI2PCIBridge</string>
-			<key>IOPCIMatch</key>
-			<string>0x00261011</string>
-			<key>IOProviderClass</key>
-			<string>IOPCIDevice</string>
-		</dict>
-		<key>IOPCI2PCIBridge-i386</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOPCIFamily</string>
-			<key>IOClass</key>
-			<string>IOPCI2PCIBridge</string>
-			<key>IOPCIClassMatch</key>
-			<string>0x06040000&amp;0xffff0000</string>
-			<key>IOProviderClass</key>
-			<string>IOPCIDevice</string>
-		</dict>
-	</dict>
-	<key>NSHumanReadableCopyright</key>
-	<string>Copyright Apple Computer, Inc. 2000-2004</string>
-	<key>OSBundleCompatibleVersion</key>
-	<string>1.0.0b1</string>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.kpi.unsupported</key>
-		<string>8.0</string>
-		<key>com.apple.kpi.iokit</key>
-		<string>8.0</string>
-		<key>com.apple.kpi.libkern</key>
-		<string>8.0</string>
-		<key>com.apple.kpi.mach</key>
-		<string>8.0</string>
-	</dict>
-	<key>OSBundleRequired</key>
-	<string>Root</string>
-</dict>
-</plist>
-";
-		};
-/* End PBXBundleTarget section */
-
 /* Begin PBXContainerItemProxy section */
-		1590524109368A010010639A /* PBXContainerItemProxy */ = {
+		A613B2AB0D46AA65007BA726 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 03DB107E033AA49603CA2A5F;
-			remoteInfo = "IOPCIFamily Headers";
+			remoteGlobalIDString = A613B28E0D46AA65007BA726;
+			remoteInfo = "IOPCIFamily Headers (Upgraded)";
+		};
+		A613B2AD0D46AA65007BA726 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A613B2A50D46AA65007BA726;
+			remoteInfo = "AppleSamplePCI (Copied)";
 		};
 		A6F210D30A78022400875EC6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -161,52 +62,46 @@
 			remoteGlobalIDString = 0B81C263FFB7832611CA28AA;
 			remoteInfo = AppleSamplePCI;
 		};
-		A6F210E80A78039100875EC6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A6F210B90A7801AB00875EC6;
-			remoteInfo = AppleSamplePCI;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		03DB1081033AA4BB03CA2A5F /* CopyFiles */ = {
+		A613B2980D46AA65007BA726 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/pci";
 			dstSubfolderSpec = 0;
 			files = (
-				03DB108A033AA52803CA2A5F /* IOAGPDevice.h in CopyFiles */,
-				03DB108B033AA52803CA2A5F /* IOPCIBridge.h in CopyFiles */,
-				03DB108C033AA52803CA2A5F /* IOPCIDevice.h in CopyFiles */,
+				A613B2990D46AA65007BA726 /* IOAGPDevice.h in CopyFiles */,
+				A613B29A0D46AA65007BA726 /* IOPCIBridge.h in CopyFiles */,
+				A613B29B0D46AA65007BA726 /* IOPCIDevice.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		159053150936A1080010639A /* CopyFiles */ = {
+		A613B29C0D46AA65007BA726 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/pci";
 			dstSubfolderSpec = 0;
 			files = (
-				A6DD8EF70937A109000A918D /* IOPCIConfigurator.h in CopyFiles */,
-				A6DD8EF80937A109000A918D /* IOPCIPrivate.h in CopyFiles */,
+				A613B29D0D46AA65007BA726 /* IOPCIConfigurator.h in CopyFiles */,
+				A613B29E0D46AA65007BA726 /* IOPCIPrivate.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		03DB107F033AA49603CA2A5F /* IOPCIFamily Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = "IOPCIFamily Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
 		03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAGPDevice.h; sourceTree = "<group>"; };
 		03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPCIBridge.h; sourceTree = "<group>"; };
 		03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPCIDevice.h; sourceTree = "<group>"; };
-		0B81C263FFB7832611CA28AA /* IOPCIFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = IOPCIFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		1590524609368A190010639A /* IOPCIConfigurator.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIConfigurator.cpp; sourceTree = "<group>"; };
 		4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIBridge.cpp; sourceTree = "<group>"; };
 		4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDevice.cpp; sourceTree = "<group>"; };
 		4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDeviceI386.cpp; sourceTree = "<group>"; };
 		4094C51C00CEE7A80ACA2928 /* IOPCIDevicePPC.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDevicePPC.cpp; sourceTree = "<group>"; };
+		A613B28C0D46AA65007BA726 /* Info-IOPCIFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOPCIFamily.plist"; sourceTree = "<group>"; };
+		A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOPCIFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		A613B2A30D46AA65007BA726 /* IOPCIFamily Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IOPCIFamily Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCIConfigurator.h; path = IOKit/pci/IOPCIConfigurator.h; sourceTree = SOURCE_ROOT; };
 		A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCIPrivate.h; path = IOKit/pci/IOPCIPrivate.h; sourceTree = SOURCE_ROOT; };
 		A6F210C10A78022400875EC6 /* AppleSamplePCI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleSamplePCI.cpp; sourceTree = "<group>"; };
@@ -218,14 +113,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		03DB107C033AA49603CA2A5F /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		089C1677FE841209C02AAC07 /* Frameworks */ = {
+		A613B2850D46AA65007BA726 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -261,6 +149,7 @@
 				A6F210C00A78022400875EC6 /* AppleSamplePCI */,
 				247142CAFF3F8F9811CA285C /* Source */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
+				A613B28C0D46AA65007BA726 /* Info-IOPCIFamily.plist */,
 			);
 			name = IOPCIFamily;
 			sourceTree = "<group>";
@@ -268,8 +157,8 @@
 		19C28FB6FE9D52B211CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0B81C263FFB7832611CA28AA /* IOPCIFamily.kext */,
-				03DB107F033AA49603CA2A5F /* IOPCIFamily Headers */,
+				A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */,
+				A613B2A30D46AA65007BA726 /* IOPCIFamily Headers */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -311,33 +200,79 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		03DB107A033AA49603CA2A5F /* Headers */ = {
+		A613B27B0D46AA65007BA726 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				03DB1087033AA50A03CA2A5F /* IOAGPDevice.h in Headers */,
-				03DB1088033AA50A03CA2A5F /* IOPCIBridge.h in Headers */,
-				03DB1089033AA50A03CA2A5F /* IOPCIDevice.h in Headers */,
-				A6DD8EF20937A0EC000A918D /* IOPCIConfigurator.h in Headers */,
-				A6DD8EF30937A0EC000A918D /* IOPCIPrivate.h in Headers */,
+				A613B27C0D46AA65007BA726 /* IOPCIConfigurator.h in Headers */,
+				A613B27D0D46AA65007BA726 /* IOPCIPrivate.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		089C1674FE841209C02AAC07 /* Headers */ = {
+		A613B28F0D46AA65007BA726 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A6DD8EF00937A0EC000A918D /* IOPCIConfigurator.h in Headers */,
-				A6DD8EF10937A0EC000A918D /* IOPCIPrivate.h in Headers */,
+				A613B2900D46AA65007BA726 /* IOAGPDevice.h in Headers */,
+				A613B2910D46AA65007BA726 /* IOPCIBridge.h in Headers */,
+				A613B2920D46AA65007BA726 /* IOPCIDevice.h in Headers */,
+				A613B2930D46AA65007BA726 /* IOPCIConfigurator.h in Headers */,
+				A613B2940D46AA65007BA726 /* IOPCIPrivate.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
+/* Begin PBXNativeTarget section */
+		A613B2750D46AA65007BA726 /* IOPCIFamily */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A613B2880D46AA65007BA726 /* Build configuration list for PBXNativeTarget "IOPCIFamily" */;
+			buildPhases = (
+				A613B27A0D46AA65007BA726 /* ShellScript */,
+				A613B27B0D46AA65007BA726 /* Headers */,
+				A613B27E0D46AA65007BA726 /* Resources */,
+				A613B27F0D46AA65007BA726 /* Sources */,
+				A613B2850D46AA65007BA726 /* Frameworks */,
+				A613B2860D46AA65007BA726 /* Rez */,
+				A613B2870D46AA65007BA726 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A613B2AC0D46AA65007BA726 /* PBXTargetDependency */,
+				A613B2AE0D46AA65007BA726 /* PBXTargetDependency */,
+			);
+			name = IOPCIFamily;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOPCIFamily;
+			productReference = A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit.shallow";
+		};
+		A613B28E0D46AA65007BA726 /* IOPCIFamily Headers */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A613B29F0D46AA65007BA726 /* Build configuration list for PBXNativeTarget "IOPCIFamily Headers" */;
+			buildPhases = (
+				A613B28F0D46AA65007BA726 /* Headers */,
+				A613B2980D46AA65007BA726 /* CopyFiles */,
+				A613B29C0D46AA65007BA726 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "IOPCIFamily Headers";
+			productInstallPath = /usr/local/bin;
+			productName = "IOPCIFamily Headers";
+			productReference = A613B2A30D46AA65007BA726 /* IOPCIFamily Headers */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 1590525209368A190010639A /* Build configuration list for PBXProject "IOPCIFamily" */;
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 0;
 			mainGroup = 089C166AFE841209C02AAC07 /* IOPCIFamily */;
 			projectDirPath = "";
@@ -347,10 +282,11 @@
 					ProjectRef = A6F210C30A78022400875EC6 /* AppleSamplePCI.xcodeproj */;
 				},
 			);
+			projectRoot = "";
 			targets = (
-				089C1673FE841209C02AAC07 /* IOPCIFamily */,
-				03DB107E033AA49603CA2A5F /* IOPCIFamily Headers */,
-				A6F210B90A7801AB00875EC6 /* AppleSamplePCI */,
+				A613B2750D46AA65007BA726 /* IOPCIFamily */,
+				A613B28E0D46AA65007BA726 /* IOPCIFamily Headers */,
+				A613B2A50D46AA65007BA726 /* AppleSamplePCI */,
 			);
 		};
 /* End PBXProject section */
@@ -366,7 +302,7 @@
 /* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
-		089C1675FE841209C02AAC07 /* Resources */ = {
+		A613B27E0D46AA65007BA726 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -376,14 +312,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
-		03DB107D033AA49603CA2A5F /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		089C1679FE841209C02AAC07 /* Rez */ = {
+		A613B2860D46AA65007BA726 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -393,16 +322,7 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		06AA1264FFB2107B11CA28AA /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		06AA1267FFB2110C11CA28AA /* ShellScript */ = {
+		A613B27A0D46AA65007BA726 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -411,7 +331,16 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
-		A6F2EDAF0A781FEC00688783 /* ShellScript */ = {
+		A613B2870D46AA65007BA726 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A613B2A60D46AA65007BA726 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 12;
 			files = (
@@ -427,223 +356,34 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		03DB107B033AA49603CA2A5F /* Sources */ = {
+		A613B27F0D46AA65007BA726 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		089C1676FE841209C02AAC07 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				4094C51D00CEE7A80ACA2928 /* IOPCIBridge.cpp in Sources */,
-				4094C51E00CEE7A80ACA2928 /* IOPCIDevice.cpp in Sources */,
-				4094C51F00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp in Sources */,
-				4094C52000CEE7A80ACA2928 /* IOPCIDevicePPC.cpp in Sources */,
-				1590524809368A190010639A /* IOPCIConfigurator.cpp in Sources */,
+				A613B2800D46AA65007BA726 /* IOPCIBridge.cpp in Sources */,
+				A613B2810D46AA65007BA726 /* IOPCIDevice.cpp in Sources */,
+				A613B2820D46AA65007BA726 /* IOPCIDeviceI386.cpp in Sources */,
+				A613B2830D46AA65007BA726 /* IOPCIDevicePPC.cpp in Sources */,
+				A613B2840D46AA65007BA726 /* IOPCIConfigurator.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		0358F57C0340F5D603CA2A5F /* PBXTargetDependency */ = {
+		A613B2AC0D46AA65007BA726 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 03DB107E033AA49603CA2A5F /* IOPCIFamily Headers */;
-			targetProxy = 1590524109368A010010639A /* PBXContainerItemProxy */;
+			target = A613B28E0D46AA65007BA726 /* IOPCIFamily Headers */;
+			targetProxy = A613B2AB0D46AA65007BA726 /* PBXContainerItemProxy */;
 		};
-		A6F210E90A78039100875EC6 /* PBXTargetDependency */ = {
+		A613B2AE0D46AA65007BA726 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A6F210B90A7801AB00875EC6 /* AppleSamplePCI */;
-			targetProxy = A6F210E80A78039100875EC6 /* PBXContainerItemProxy */;
+			target = A613B2A50D46AA65007BA726 /* AppleSamplePCI */;
+			targetProxy = A613B2AD0D46AA65007BA726 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
-/* Begin PBXToolTarget section */
-		03DB107E033AA49603CA2A5F /* IOPCIFamily Headers */ = {
-			isa = PBXToolTarget;
-			buildConfigurationList = 1590524A09368A190010639A /* Build configuration list for PBXToolTarget "IOPCIFamily Headers" */;
-			buildPhases = (
-				03DB107A033AA49603CA2A5F /* Headers */,
-				03DB107B033AA49603CA2A5F /* Sources */,
-				03DB107C033AA49603CA2A5F /* Frameworks */,
-				03DB107D033AA49603CA2A5F /* Rez */,
-				03DB1081033AA4BB03CA2A5F /* CopyFiles */,
-				159053150936A1080010639A /* CopyFiles */,
-			);
-			dependencies = (
-			);
-			name = "IOPCIFamily Headers";
-			productInstallPath = /usr/local/bin;
-			productName = "IOPCIFamily Headers";
-			productReference = 03DB107F033AA49603CA2A5F /* IOPCIFamily Headers */;
-		};
-/* End PBXToolTarget section */
-
 /* Begin XCBuildConfiguration section */
-		1590524B09368A190010639A /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALLHDRS_COPY_PHASE = YES;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOPCIFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		1590524C09368A190010639A /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALLHDRS_COPY_PHASE = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOPCIFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		1590524D09368A190010639A /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALLHDRS_COPY_PHASE = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOPCIFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		1590524F09368A190010639A /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_STYLE = SHALLOW;
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOPCIFamily;
-				MODULE_VERSION = 2.4.1;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOPCIFamily;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		1590525009368A190010639A /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_STYLE = SHALLOW;
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOPCIFamily;
-				MODULE_VERSION = 2.4.1;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOPCIFamily;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		1590525109368A190010639A /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_STYLE = SHALLOW;
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOPCIFamily;
-				MODULE_VERSION = 2.4.1;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOPCIFamily;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
-			name = Default;
-		};
 		1590525309368A190010639A /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -662,7 +402,169 @@
 			};
 			name = Default;
 		};
-		A6F210BD0A7801EC00875EC6 /* Development */ = {
+		A613B2890D46AA65007BA726 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
+				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOPCIFamily;
+				MODULE_VERSION = 2.4.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPCIFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A613B28A0D46AA65007BA726 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
+				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOPCIFamily;
+				MODULE_VERSION = 2.4.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPCIFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A613B28B0D46AA65007BA726 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
+				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOPCIFamily;
+				MODULE_VERSION = 2.4.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOPCIFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		A613B2A00D46AA65007BA726 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALLHDRS_COPY_PHASE = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IOPCIFamily Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A613B2A10D46AA65007BA726 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IOPCIFamily Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A613B2A20D46AA65007BA726 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IOPCIFamily Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A613B2A80D46AA65007BA726 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
@@ -673,7 +575,7 @@
 			};
 			name = Development;
 		};
-		A6F210BE0A7801EC00875EC6 /* Deployment */ = {
+		A613B2A90D46AA65007BA726 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
@@ -684,7 +586,7 @@
 			};
 			name = Deployment;
 		};
-		A6F210BF0A7801EC00875EC6 /* Default */ = {
+		A613B2AA0D46AA65007BA726 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = AppleSamplePCI;
@@ -694,26 +596,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1590524A09368A190010639A /* Build configuration list for PBXToolTarget "IOPCIFamily Headers" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				1590524B09368A190010639A /* Development */,
-				1590524C09368A190010639A /* Deployment */,
-				1590524D09368A190010639A /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		1590524E09368A190010639A /* Build configuration list for PBXBundleTarget "IOPCIFamily" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				1590524F09368A190010639A /* Development */,
-				1590525009368A190010639A /* Deployment */,
-				1590525109368A190010639A /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
 		1590525209368A190010639A /* Build configuration list for PBXProject "IOPCIFamily" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -724,12 +606,32 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
-		A6F210BC0A7801EC00875EC6 /* Build configuration list for PBXAggregateTarget "AppleSamplePCI" */ = {
+		A613B2880D46AA65007BA726 /* Build configuration list for PBXNativeTarget "IOPCIFamily" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A6F210BD0A7801EC00875EC6 /* Development */,
-				A6F210BE0A7801EC00875EC6 /* Deployment */,
-				A6F210BF0A7801EC00875EC6 /* Default */,
+				A613B2890D46AA65007BA726 /* Development */,
+				A613B28A0D46AA65007BA726 /* Deployment */,
+				A613B28B0D46AA65007BA726 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A613B29F0D46AA65007BA726 /* Build configuration list for PBXNativeTarget "IOPCIFamily Headers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A613B2A00D46AA65007BA726 /* Development */,
+				A613B2A10D46AA65007BA726 /* Deployment */,
+				A613B2A20D46AA65007BA726 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A613B2A70D46AA65007BA726 /* Build configuration list for PBXAggregateTarget "AppleSamplePCI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A613B2A80D46AA65007BA726 /* Development */,
+				A613B2A90D46AA65007BA726 /* Deployment */,
+				A613B2AA0D46AA65007BA726 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

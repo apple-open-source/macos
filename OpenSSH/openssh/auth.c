@@ -46,11 +46,6 @@
 #ifdef HAVE_LIBGEN_H
 #include <libgen.h>
 #endif
-
-#ifdef __APPLE_SACL__
-#include <membershipPriv.h>
-#endif
-
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -75,6 +70,12 @@
 #include "ssh-gss.h"
 #endif
 #include "monitor_wrap.h"
+
+#ifdef __APPLE_SACL__
+/* Our membershipPriv.h is not yet API, so I will define the prototypes that I need here. */
+int mbr_user_name_to_uuid(const char *name, uuid_t uu);
+int mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember);
+#endif
 
 /* import */
 extern ServerOptions options;

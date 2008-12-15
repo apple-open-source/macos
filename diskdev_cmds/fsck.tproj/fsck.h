@@ -138,8 +138,8 @@ enum fixstate {DONTKNOW, NOFIX, FIX, IGNORE};
 struct inodesc {
 	enum fixstate id_fix;	/* policy on fixing errors */
 	int (*id_func)();	/* function to be applied to blocks of inode */
-	ino_t id_number;	/* inode number described */
-	ino_t id_parent;	/* for DATA nodes, their parent */
+	u_int32_t id_number;	/* inode number described */
+	u_int32_t id_parent;	/* for DATA nodes, their parent */
 	ufs_daddr_t id_blkno;	/* current block number being examined */
 	int id_numfrags;	/* number of frags contained in block */
 	quad_t id_filesize;	/* for DATA nodes, the size of the directory */
@@ -186,7 +186,7 @@ extern struct dups *muldup;		/* end of unique duplicate dup block numbers */
  */
 struct zlncnt {
 	struct zlncnt *next;
-	ino_t zlncnt;
+	u_int32_t zlncnt;
 };
 extern struct zlncnt *zlnhead;		/* head of zero link count list */
 
@@ -195,9 +195,9 @@ extern struct zlncnt *zlnhead;		/* head of zero link count list */
  */
 struct inoinfo {
 	struct	inoinfo *i_nexthash;	/* next entry in hash chain */
-	ino_t	i_number;		/* inode number of this entry */
-	ino_t	i_parent;		/* inode number of parent */
-	ino_t	i_dotdot;		/* inode number of `..' */
+	u_int32_t	i_number;		/* inode number of this entry */
+	u_int32_t	i_parent;		/* inode number of parent */
+	u_int32_t	i_dotdot;		/* inode number of `..' */
 	size_t	i_isize;		/* size of inode */
 	u_int	i_numblks;		/* size of block array in bytes */
 	ufs_daddr_t i_blks[1];		/* actually longer */
@@ -229,13 +229,13 @@ extern int	fswritefd;		/* file descriptor for writing file system */
 
 extern ufs_daddr_t maxfsblock;		/* number of blocks in the file system */
 extern char	*blockmap;		/* ptr to primary blk allocation map */
-extern ino_t	maxino;			/* number of inodes in file system */
-extern ino_t	lastino;		/* last inode in use */
+extern u_int32_t	maxino;			/* number of inodes in file system */
+extern u_int32_t	lastino;		/* last inode in use */
 extern char	*statemap;		/* ptr to inode state table */
 extern u_char	*typemap;		/* ptr to inode type table */
 extern short	*lncntp;		/* ptr to link count table */
 
-extern ino_t	lfdir;			/* lost & found directory inode number */
+extern u_int32_t	lfdir;			/* lost & found directory inode number */
 extern char	*lfname;		/* lost & found directory name */
 extern int	lfmode;			/* lost & found directory creation mode */
 
@@ -267,17 +267,17 @@ struct fstab;
 
 void		adjust __P((struct inodesc *, int lcnt));
 ufs_daddr_t	allocblk __P((long frags));
-ino_t		allocdir __P((ino_t parent, ino_t request, int mode));
-ino_t		allocino __P((ino_t request, int type));
-void		blkerror __P((ino_t ino, char *type, ufs_daddr_t blk));
+u_int32_t		allocdir __P((u_int32_t parent, u_int32_t request, int mode));
+u_int32_t		allocino __P((u_int32_t request, int type));
+void		blkerror __P((u_int32_t ino, char *type, ufs_daddr_t blk));
 char	       *blockcheck __P((char *name));
 int		bread __P((int fd, char *buf, ufs_daddr_t blk, long size));
 void		bufinit __P((void));
 void		bwrite __P((int fd, char *buf, ufs_daddr_t blk, long size));
-void		cacheino __P((struct dinode *dp, ino_t inumber));
+void		cacheino __P((struct dinode *dp, u_int32_t inumber));
 void		catch __P((int));
 void		catchquit __P((int));
-int		changeino __P((ino_t dir, char *name, ino_t newnum));
+int		changeino __P((u_int32_t dir, char *name, u_int32_t newnum));
 int		checkfstab __P((int preen, int maxrun,
 			int (*docheck)(struct fstab *),
 			int (*chkit)(char *, char *, char *, int)));
@@ -285,31 +285,31 @@ int		chkrange __P((ufs_daddr_t blk, int cnt));
 void		ckfini __P((int markclean));
 int		ckinode __P((struct dinode *dp, struct inodesc *));
 void		clri __P((struct inodesc *, char *type, int flag));
-void		direrror __P((ino_t ino, char *errmesg));
+void		direrror __P((u_int32_t ino, char *errmesg));
 int		dirscan __P((struct inodesc *));
 int		dofix __P((struct inodesc *, char *msg));
 extern void		ffs_clrblock __P((struct fs *, u_char *, ufs_daddr_t));
 extern void		ffs_fragacct __P((struct fs *, int, int32_t [], int));
 extern int		ffs_isblock __P((struct fs *, u_char *, ufs_daddr_t));
 extern void		ffs_setblock __P((struct fs *, u_char *, ufs_daddr_t));
-extern void		fileerror __P((ino_t cwd, ino_t ino, char *errmesg));
+extern void		fileerror __P((u_int32_t cwd, u_int32_t ino, char *errmesg));
 extern int		findino __P((struct inodesc *));
 int		findname __P((struct inodesc *));
 void		flush __P((int fd, struct bufarea *bp));
 void		freeblk __P((ufs_daddr_t blkno, long frags));
-void		freeino __P((ino_t ino));
+void		freeino __P((u_int32_t ino));
 void		freeinodebuf __P((void));
 int		ftypeok __P((struct dinode *dp));
 void		getblk __P((struct bufarea *bp, ufs_daddr_t blk, long size));
 struct bufarea *getdatablk __P((ufs_daddr_t blkno, long size));
-struct inoinfo *getinoinfo __P((ino_t inumber));
-struct dinode  *getnextinode __P((ino_t inumber));
-void		getpathname __P((char *namebuf, ino_t curdir, ino_t ino));
-struct dinode  *ginode __P((ino_t inumber));
+struct inoinfo *getinoinfo __P((u_int32_t inumber));
+struct dinode  *getnextinode __P((u_int32_t inumber));
+void		getpathname __P((char *namebuf, u_int32_t curdir, u_int32_t ino));
+struct dinode  *ginode __P((u_int32_t inumber));
 void		inocleanup __P((void));
 void		inodirty __P((void));
-int		linkup __P((ino_t orphan, ino_t parentdir));
-int		makeentry __P((ino_t parent, ino_t ino, char *name));
+int		linkup __P((u_int32_t orphan, u_int32_t parentdir));
+int		makeentry __P((u_int32_t parent, u_int32_t ino, char *name));
 void		panic __P((const char *fmt, ...));
 void		pass1 __P((void));
 void		pass1b __P((void));
@@ -320,7 +320,7 @@ void		pass4 __P((void));
 int		pass4check __P((struct inodesc *));
 void		pass5 __P((void));
 void		pfatal __P((const char *fmt, ...));
-void		pinode __P((ino_t ino));
+void		pinode __P((u_int32_t ino));
 void		propagate __P((void));
 void		pwarn __P((const char *fmt, ...));
 int		reply __P((char *question));

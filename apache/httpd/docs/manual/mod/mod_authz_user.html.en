@@ -36,7 +36,7 @@
     authenticated users can be allowed or denied access to portions
     of the web site. <code class="module"><a href="../mod/mod_authz_user.html">mod_authz_user</a></code> grants
     access if the authenticated user is listed in a <code>Require user</code>
-    directive. Alternatively <code>require valid-user</code> can be used to
+    directive. Alternatively <code>Require valid-user</code> can be used to
     grant access to all successfully authenticated users.</p>
 </div>
 <div id="quickview"><h3 class="directives">Directives</h3>
@@ -79,6 +79,6 @@ modules</td></tr>
 <a href="../ja/mod/mod_authz_user.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_authz_user.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

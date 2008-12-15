@@ -150,6 +150,27 @@
 #define		kDSStdAuthSetCertificateHashAsRoot				"dsAuthMethodStandard:dsAuthSetCertificateHashAsRoot"
 
 /*!
+ * @defined kDSStdAuthSASLProxy
+ * @discussion Allow a DS client to proxy a generic SASL negotiation through DS.
+ *     The buffer is packed as follows:
+ *
+ *     4 byte length of user name,
+ *     user name in UTF8 encoding,
+ *     4 byte length of SASL mechanism,
+ *     SASL mechanism in UTF8 encoding,
+ *     4 byte length of data from sasl_client_start() or sasl_client_step()
+ *     data from sasl_client_start() or sasl_client_step()
+ *
+ *     The step buffer contains the reply from the OD node formatted:
+ *	   4 byte length of sasl_server_xxx() data
+ *	   sasl_server_xxx() data
+ *
+ *     For session security, it is essential that a new nodeRef is acquired for
+ *     each user.
+ */
+#define		kDSStdAuthSASLProxy								"dsAuthMethodStandard:dsAuthSASLProxy"
+
+/*!
  * @defined kDSValueAuthAuthorityKerberosv5Cert
  * @discussion Standard auth authority value for Kerberos v5 authentication.
  */

@@ -1,4 +1,4 @@
-*usr_25.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
+*usr_25.txt*	For Vim version 7.2.  Last change: 2007 May 11
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -119,10 +119,10 @@ whole file by typing this: >
 
 "gg" to move to the first line, "gqG" to format until the last line.
    Warning: If your paragraphs are not properly separated, they will be joined
-together.  A common mistake is to have a line with a space or Tab.  That's a
+together.  A common mistake is to have a line with a space or tab.  That's a
 blank line, but not an empty line.
 
-Vim is able format more than just plain text.  See |fo-table| for how to
+Vim is able to format more than just plain text.  See |fo-table| for how to
 change this.  See the 'joinspaces' option to change the number of spaces used
 after a full stop.
    It is possible to use an external program for formatting.  This is useful
@@ -247,7 +247,7 @@ When used on the second line of the example text, this is what you get:
 TABSTOP
 
 If you want to make indents a multiple of 4, you set 'shiftwidth' to 4.  But
-when pressing a Tab you still get 8 spaces worth of indent.  To change this,
+when pressing a <Tab> you still get 8 spaces worth of indent.  To change this,
 set the 'softtabstop' option: >
 
 	:set softtabstop=4

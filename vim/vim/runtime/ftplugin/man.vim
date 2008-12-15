@@ -1,7 +1,7 @@
 " Vim filetype plugin file
 " Language:	man
 " Maintainer:	Nam SungHyun <namsh@kldp.org>
-" Last Change:	2006 Mar 28
+" Last Change:	2007 Nov 30
 
 " To make the ":Man" command available before editing a manual page, source
 " this script from your startup vimrc file.
@@ -41,13 +41,16 @@ if !exists("s:man_tag_depth")
 
 let s:man_tag_depth = 0
 
-if !has("win32") && $OSTYPE !~ 'cygwin\|linux' && system('uname -s') =~ "SunOS" && system('uname -r') =~ "^5"
-  let s:man_sect_arg = "-s"
-  let s:man_find_arg = "-l"
-else
-  let s:man_sect_arg = ""
-  let s:man_find_arg = "-w"
-endif
+let s:man_sect_arg = ""
+let s:man_find_arg = "-w"
+try
+  if !has("win32") && $OSTYPE !~ 'cygwin\|linux' && system('uname -s') =~ "SunOS" && system('uname -r') =~ "^5"
+    let s:man_sect_arg = "-s"
+    let s:man_find_arg = "-l"
+  endif
+catch /E145:/
+  " Ignore the error in restricted mode
+endtry
 
 func <SID>PreGetPage(cnt)
   if a:cnt == 0
@@ -119,9 +122,7 @@ func <SID>GetPage(...)
   if &filetype != "man"
     let thiswin = winnr()
     exe "norm! \<C-W>b"
-    if winnr() == 1
-      new
-    else
+    if winnr() > 1
       exe "norm! " . thiswin . "\<C-W>w"
       while 1
 	if &filetype == "man"
@@ -129,10 +130,13 @@ func <SID>GetPage(...)
 	endif
 	exe "norm! \<C-W>w"
 	if thiswin == winnr()
-	  new
 	  break
 	endif
       endwhile
+    endif
+    if &filetype != "man"
+      new
+      setl nonu fdc=0
     endif
   endif
   silent exec "edit $HOME/".page.".".sect."~"

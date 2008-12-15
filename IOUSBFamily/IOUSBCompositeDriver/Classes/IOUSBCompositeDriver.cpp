@@ -212,6 +212,7 @@ IOUSBCompositeDriver::ConfigureDevice()
     UInt8                                   numberOfConfigs = 0;
 	OSBoolean *								suspendPropertyRef;
 	OSBoolean *								expressCardCantWakeRef;
+	OSBoolean *								lowPowerNotificationDisplayed;
     
    // Find if we have a Preferred Configuration
     //
@@ -273,8 +274,9 @@ IOUSBCompositeDriver::ConfigureDevice()
             }
             else
             {
-                USBLog(5,"%s[%p](%s) ConfigureDevice Config %d with MaxPower %d cannot be used (available: %ld, previous %d)", getName(), this, fDevice->getName(), i, cdTemp->MaxPower, fDevice->GetBusPowerAvailable(), maxPower );
-            }
+                USBLog(5,"%s[%p](%s) ConfigureDevice Config %d with MaxPower %d cannot be used (available: %d, previous %d)", getName(), this, fDevice->getName(), i, cdTemp->MaxPower, (uint32_t)fDevice->GetBusPowerAvailable(), maxPower );
+				fDevice->setProperty("Failed Requested Power", cdTemp->MaxPower, 32);
+          }
         }
         
 		if ( !cd )
@@ -282,7 +284,13 @@ IOUSBCompositeDriver::ConfigureDevice()
 			USBError(1,"USB Low Power Notice:  The device \"%s\" cannot be used because there is not enough power to configure it",fDevice->getName());
             USBLog(3, "%s[%p](%s) ConfigureDevice failed to find configuration by power", getName(), this, fDevice->getName() );
             err = kIOUSBNotEnoughPowerErr;
-        	fDevice->DisplayUserNotification(kUSBNotEnoughPowerNotificationType);
+			lowPowerNotificationDisplayed = OSDynamicCast( OSBoolean, fDevice->getProperty("Low Power Displayed") );
+			if ( !lowPowerNotificationDisplayed or (lowPowerNotificationDisplayed && lowPowerNotificationDisplayed->isFalse()) )
+			{
+				bool	display = true;
+				fDevice->DisplayUserNotification(kUSBNotEnoughPowerNotificationType);
+				fDevice->setProperty("Low Power Displayed", display);
+			}
             goto ErrorExit;
 			
 		}
@@ -555,7 +563,7 @@ IOUSBCompositeDriver::CompositeDriverInterestHandler(  void * target, void * ref
             // kIOServiceSeize, we now that someone really tried to open it.  In the kernel, we will also get a message() call with a kIIOServiceRequestingClose
             // message, so we deal with closing the driver in that message.  
             //
-            USBLog(5, "CompositeDriverInterestHandler received kIOMessageServiceIsAttemptingOpen with argument: %d", (int) messageArgument );
+            USBLog(5, "CompositeDriverInterestHandler received kIOMessageServiceIsAttemptingOpen with argument: %p", messageArgument );
             break;
             
         case kIOMessageServiceWasClosed:
@@ -568,7 +576,7 @@ IOUSBCompositeDriver::CompositeDriverInterestHandler(  void * target, void * ref
             break;
             
         default:
-            USBLog(5, "CompositeDriverInterestHandler message unknown: 0x%lx", messageType);
+            USBLog(5, "CompositeDriverInterestHandler message unknown: 0x%x", (uint32_t)messageType);
     }
     
     return kIOReturnSuccess;

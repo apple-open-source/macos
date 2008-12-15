@@ -1,9 +1,10 @@
---- src/buffer.c.orig	2007-03-21 15:45:52.000000000 -0700
-+++ src/buffer.c	2007-03-21 17:50:54.000000000 -0700
-@@ -368,6 +368,36 @@
+--- src/buffer.c.orig	2004-12-21 07:09:24.000000000 -0800
++++ src/buffer.c	2008-03-03 19:49:46.000000000 -0800
+@@ -368,6 +368,41 @@
    return result;
  }
  
++#if HAVE_QUARANTINE
 +void
 +init_qtn(const char *file_name)
 +{
@@ -33,11 +34,15 @@
 +		archive_qtn_file = NULL;
 +	}
 +}
++#else
++void init_qtn(const char *file_name) {}
++void finish_qtn(void) {}
++#endif
 +
  /* Open an archive file.  The argument specifies whether we are
     reading or writing, or both.  */
  void
-@@ -508,6 +538,7 @@
+@@ -508,6 +543,7 @@
    sys_detect_dev_null_output ();
    sys_save_archive_dev_ino ();
    SET_BINARY_MODE (archive);
@@ -45,7 +50,7 @@
  
    switch (wanted_access)
      {
-@@ -1093,6 +1124,8 @@
+@@ -1093,6 +1129,8 @@
    if (real_s_name)
      free (real_s_name);
    free (record_buffer);
@@ -54,31 +59,39 @@
  }
  
  /* Called to initialize the global volume number.  */
---- src/common.h.orig	2007-03-21 15:44:30.000000000 -0700
-+++ src/common.h	2007-03-21 15:59:30.000000000 -0700
-@@ -20,6 +20,8 @@
+--- src/common.h.orig	2004-12-21 06:31:58.000000000 -0800
++++ src/common.h	2008-03-03 18:42:03.000000000 -0800
+@@ -20,6 +20,13 @@
  /* Declare the GNU tar archive format.  */
  #include "tar.h"
  
++#include <TargetConditionals.h>
++#define HAVE_QUARANTINE (!TARGET_OS_EMBEDDED)
++
++#if HAVE_QUARANTINE
 +#include <quarantine.h>
++#endif
 +
  /* The checksum field is filled with this while the checksum is computed.  */
  #define CHKBLANKS	"        "	/* 8 blanks, no null */
  
-@@ -283,6 +285,7 @@
+@@ -283,6 +290,9 @@
  
  /* File descriptor for archive file.  */
  GLOBAL int archive;
++#if HAVE_QUARANTINE
 +GLOBAL qtn_file_t archive_qtn_file;
++#endif
  
  /* Nonzero when outputting to /dev/null.  */
  GLOBAL bool dev_null_output;
 --- src/extract.c.orig	2004-12-21 01:55:12.000000000 -0800
-+++ src/extract.c	2007-06-28 14:56:41.000000000 -0700
-@@ -360,6 +360,46 @@
++++ src/extract.c	2008-03-03 19:51:38.000000000 -0800
+@@ -360,6 +360,51 @@
  	  quotearg_colon (dir)));
  }
  
++#if HAVE_QUARANTINE
 +void
 +apply_qtn(int fd)
 +{
@@ -118,11 +131,15 @@
 +		}
 +	}
 +}
++#else
++void apply_qtn(int fd) {}
++void apply_qtn_to_path(char *path) {}
++#endif
 +
  /* After a file/link/symlink/directory creation has failed, see if
     it's because some required directory was not present, and if so,
     create all required directories.  Return non-zero if a directory
-@@ -400,6 +440,8 @@
+@@ -400,6 +445,8 @@
  
        if (status == 0)
  	{
@@ -131,8 +148,8 @@
  	  /* Create a struct delayed_set_stat even if
  	     invert_permissions is zero, because
  	     repair_delayed_set_stat may need to update the struct.  */
-@@ -739,6 +781,8 @@
- 	}
+@@ -739,6 +786,8 @@
+ #endif /* __APPLE__ */
  
      extract_file:
 +      apply_qtn(fd);
@@ -140,9 +157,9 @@
        if (current_stat_info.is_sparse)
  	{
  	  sparse_extract_file (fd, &current_stat_info, &size);
-@@ -1088,11 +1132,14 @@
+@@ -1088,11 +1137,14 @@
+     directory_exists:
        if (status == 0
- 	  || old_files_option == DEFAULT_OLD_FILES
  	  || old_files_option == OVERWRITE_OLD_FILES)
 +      {
 +	apply_qtn_to_path(file_name);
@@ -155,3 +172,15 @@
        break;
  
      case GNUTYPE_VOLHDR:
+--- src/list.c.orig	2008-07-11 19:37:25.000000000 -0700
++++ src/list.c	2008-07-11 19:39:27.000000000 -0700
+@@ -227,6 +227,9 @@
+ 	    } else
+ 	      unlink(cle->tmp);
+ 
++	  /* 5781559: Make sure EAs don't destroy overriding quarantine information. */
++	  apply_qtn_to_path(cle->dst);
++
+ 	  free(cle->tmp);
+ 	  free(cle->dst);
+ 	  free(cle->src);

@@ -136,39 +136,18 @@ const IORegistryPlane * IOFireWireBus::gIOFireWirePlane = NULL;
 
 #if __ppc__
 
-// FireWire bus has two power states, off and on
-#define number_of_power_states 2
-
 enum
 {
     kFWPMSleepState = 0,
     kFWPMWakeState = 1
 };
 
-// Note: This defines two states. off and on.
-static IOPMPowerState ourPowerStates[number_of_power_states] = 
-{
-	{1,0,0,0,0,0,0,0,0,0,0,0},
-	{1,IOPMDeviceUsable,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0}
-};
-
 #else
-
-// FireWire bus has two power states, off and on
-#define number_of_power_states 3
 
 enum
 {
     kFWPMSleepState = 0,
     kFWPMWakeState = 2
-};
-
-// Note: This defines two states. off and on.
-static IOPMPowerState ourPowerStates[number_of_power_states] = 
-{
-	{1,0,0,0,0,0,0,0,0,0,0,0},
-	{1,kIOPMDoze,kIOPMDoze,kIOPMDoze,0,0,0,0,0,0,0,0},
-	{1,IOPMDeviceUsable,IOPMPowerOn,IOPMPowerOn,0,0,0,0,0,0,0,0}
 };
 
 #endif
@@ -599,18 +578,11 @@ bool IOFireWireController::init( IOFireWireLink *fwim )
 
 	if( success )
 	{	
-		fLocalAsyncStreamReceivers = OSSet::withCapacity(5);
+		fLocalAsyncStreamReceivers = OSSet::withCapacity(2);
 		if( fLocalAsyncStreamReceivers == NULL )
 			success = false;
 	}
 	
-	if( success )
-	{	
-		fAsyncStreamReceiverIterator = OSCollectionIterator::withCollection(fLocalAsyncStreamReceivers);
-		if( fAsyncStreamReceiverIterator == NULL )
-			success = false;
-	}
-		
 	if( success )
 	{	
 		fAllocatedChannels = OSSet::withCapacity(1);	// DV channel.
@@ -798,12 +770,6 @@ void IOFireWireController::free()
 	}
 
 	
-	if( fAsyncStreamReceiverIterator != NULL)
-	{
-		fAsyncStreamReceiverIterator->release();
-		fAsyncStreamReceiverIterator = NULL;
-	}
-
 	if( fLocalAsyncStreamReceivers != NULL )
 	{
 		fLocalAsyncStreamReceivers->release();
@@ -937,7 +903,12 @@ bool IOFireWireController::start( IOService * provider )
     // register ourselves with superclass policy-maker
     PMinit();
     provider->joinPMtree(this);
-    registerPowerDriver(this, ourPowerStates, number_of_power_states);
+	
+	// get power state table from FWIM
+	unsigned long num_power_states = 0;
+	IOPMPowerState * power_state_table = fFWIM->getPowerStateTable( &num_power_states );
+	
+    registerPowerDriver( this, power_state_table, num_power_states );
 	
     // No idle sleep
     changePowerStateTo( kFWPMWakeState );
@@ -1052,8 +1023,8 @@ IOReturn IOFireWireController::poweredStart( void )
 
 	fIRM = IOFireWireIRM::create(this);
 	FWPANICASSERT( fIRM != NULL );
-    
-	fWorkLoop->enableAllInterrupts();	// Enable the interrupt delivery.
+    	
+	fFWIM->enableAllInterrupts();
 	
     registerService();			// Enable matching with this object
 
@@ -1969,9 +1940,9 @@ for(i=0; i<numOwnIDs; i++)
         processBusReset();
     }
 	
-	// we should now be in the kWaitingSelfIDs state
-
 	suspendBus();
+
+	// we should now be in the kWaitingSelfIDs state
 	
 	if( fBusState != kWaitingSelfIDs )
 	{
@@ -2376,8 +2347,8 @@ void IOFireWireController::startBusScan()
         irmAllocationfound->handleBusReset(fBusGeneration);
     }
 	
-	fNumROMReads = fRootNodeID+1;
-	for(i=0; i<=fRootNodeID; i++) {
+    fNumROMReads = fRootNodeID+1;
+    for(i=0; i<=fRootNodeID; i++) {
         UInt16 nodeID;
         UInt32 id;
         id = OSSwapBigToHostInt32(*fNodeIDs[i]);
@@ -2385,11 +2356,11 @@ void IOFireWireController::startBusScan()
         nodeID = (id & kFWSelfIDPhyID) >> kFWSelfIDPhyIDPhase;
         nodeID |= kFWLocalBusAddress>>kCSRNodeIDPhase;
         if(nodeID == fLocalNodeID)
- {
+		{
 			fNumROMReads--;
 			continue;	// Skip ourself!
 		}
-		
+
 		// ??? maybe we should add an fwdebug bit to be strict on scanning only nodes with link bit?
 	
         // Read ROM header if link is active (MacOS8 turns link on, why?)
@@ -2642,6 +2613,7 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
                                                         &readROMGlue, scan, true);
             scan->fCmd->setMaxSpeed( kFWSpeed100MBit );
 			scan->fCmd->setRetries( kFWCmdDefaultRetries );
+			scan->fCmd->setPingTime( true );	// ping time second quad
 			scan->fCmd->submit();
             done = false;
 		}
@@ -2656,6 +2628,7 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
                                                         &readROMGlue, scan, true);
             scan->fCmd->setMaxSpeed( kFWSpeed100MBit );
 			scan->fCmd->setRetries(kFWCmdDefaultRetries);
+			scan->fCmd->setPingTime( false );	// only ping time on the second quad
 			scan->fCmd->submit();
             done = false;
         }
@@ -3046,9 +3019,6 @@ void IOFireWireController::finishedBusScan()
   			}
   		}
   	}
-	
-	// tell FWIM to stop timing transmits
-	fFWIM->setPingTransmits( false );
 			    
     // Now do simple bus manager stuff, if there isn't a better candidate.
     // This might cause us to issue a bus reset...
@@ -3555,7 +3525,7 @@ void IOFireWireController::buildTopology(bool doFWPlane)
 					// our parent is the hub
 					parent_level->node->setProperty( "Built-in Hub", true );
 				}
-  			
+				
 				if( (node != NULL) && (parent_level->node != NULL) )
 				{
 					node->attachToParent( parent_level->node, gIOFireWirePlane );
@@ -5146,13 +5116,19 @@ IOFireWireController::getAsyncStreamReceiver( UInt32 channel )
 {
     closeGate();
     
-	IOFWAsyncStreamReceiver * found;
-    fAsyncStreamReceiverIterator->reset();
-    while( (found = (IOFWAsyncStreamReceiver *) fAsyncStreamReceiverIterator->getNextObject())) {
-        if(found->listens(channel))
-            break;
-    }
-    
+	IOFWAsyncStreamReceiver * found = NULL;
+	OSIterator *iterator = OSCollectionIterator::withCollection(fLocalAsyncStreamReceivers);
+	if( iterator != NULL )
+	{
+		found = NULL;
+		while( (found = OSDynamicCast(IOFWAsyncStreamReceiver, iterator->getNextObject())) ) 
+		{
+			if( found and found->listens(channel) )
+				break;
+		}
+		iterator->release();
+	}
+	
 	openGate();
     
 	return found;
@@ -5179,11 +5155,18 @@ IOFireWireController::activateAsyncStreamReceivers( )
 {
     closeGate();
     
-	IOFWAsyncStreamReceiver * found;
-    fAsyncStreamReceiverIterator->reset();
-    while( (found = (IOFWAsyncStreamReceiver *) fAsyncStreamReceiverIterator->getNextObject())) 
-        found->activate( getBroadcastSpeed() );
-    
+	OSIterator *iterator = OSCollectionIterator::withCollection(fLocalAsyncStreamReceivers);
+	if( iterator != NULL )
+	{
+		IOFWAsyncStreamReceiver * found = NULL;
+		while( (found = OSDynamicCast(IOFWAsyncStreamReceiver, iterator->getNextObject())) ) 
+		{
+			if( found )
+				found->activate( getBroadcastSpeed() );
+		}
+		iterator->release();
+	}
+	
 	openGate();
 }
 
@@ -5195,11 +5178,18 @@ IOFireWireController::deactivateAsyncStreamReceivers( )
 {
     closeGate();
     
-	IOFWAsyncStreamReceiver * found;
-    fAsyncStreamReceiverIterator->reset();
-    while( (found = (IOFWAsyncStreamReceiver *) fAsyncStreamReceiverIterator->getNextObject())) 
-        found->deactivate();
-    
+	OSIterator *iterator = OSCollectionIterator::withCollection(fLocalAsyncStreamReceivers);
+	if( iterator != NULL )
+	{
+		IOFWAsyncStreamReceiver * found = NULL;
+		while( (found =  OSDynamicCast(IOFWAsyncStreamReceiver, iterator->getNextObject())) ) 
+		{
+			if( found )
+				found->deactivate();
+		}
+		iterator->release();
+	}
+	
 	openGate();
 }
 
@@ -5211,10 +5201,17 @@ IOFireWireController::freeAllAsyncStreamReceiver()
 {
     closeGate();
     
-	IOFWAsyncStreamReceiver * found;
-    fAsyncStreamReceiverIterator->reset();
-    while( (found = (IOFWAsyncStreamReceiver *) fAsyncStreamReceiverIterator->getNextObject())) 
-		fLocalAsyncStreamReceivers->removeObject(found);
+	OSIterator *iterator = OSCollectionIterator::withCollection(fLocalAsyncStreamReceivers);
+	if( iterator != NULL )
+	{
+		IOFWAsyncStreamReceiver * found = NULL;
+		while( (found = OSDynamicCast(IOFWAsyncStreamReceiver, iterator->getNextObject())) ) 
+		{
+			if( found )
+				removeAsyncStreamReceiver( found );
+		}
+		iterator->release();
+	}
 	
 	openGate();
 }

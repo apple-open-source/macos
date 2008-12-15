@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IONetworkingFamily</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Version 1.6.1, Copyright 2000-2008 Apple, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IONetworkingFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>I/O Kit Networking Family</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.6.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.6.1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IONetworkStack</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IONetworkingFamily</string>
+			<key>IOClass</key>
+			<string>IONetworkStack</string>
+			<key>IOMatchCategory</key>
+			<string>IONetworkStack</string>
+			<key>IOProviderClass</key>
+			<string>IOResources</string>
+			<key>IOResourceMatch</key>
+			<string>IOBSD</string>
+		</dict>
+		<key>Kernel Debugging Driver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IONetworkingFamily</string>
+			<key>IOClass</key>
+			<string>IOKDP</string>
+			<key>IOMatchCategory</key>
+			<string>IOKDP</string>
+			<key>IOProviderClass</key>
+			<string>IOKernelDebugger</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>8.0.0b2</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Network-Root</string>
+</dict>
+</plist>

@@ -173,7 +173,10 @@ respect to case</td></tr>
 
       <li><code>Request_URI</code> - the resource requested on the HTTP
        request line -- generally the portion of the URL
-      following the scheme and host portion without the query string</li>
+      following the scheme and host portion without the query string. See
+      the <code class="directive"><a href="../mod/mod_rewrite.html#rewritecond">RewriteCond</a></code>
+      directive of <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> for extra information on
+      how to match your query string.</li>
     </ul>
 </li>
 
@@ -219,7 +222,7 @@ of</p>
    SetEnvIf Request_URI "\.jpg$" object_is_image=jpg<br />
    SetEnvIf Request_URI "\.xbm$" object_is_image=xbm<br />
         :<br />
-   SetEnvIf Referer www\.mydomain\.com intra_site_referral<br />
+   SetEnvIf Referer www\.mydomain\.example\.com intra_site_referral<br />
         :<br />
    SetEnvIf object_is_image xbm XBIT_PROCESSING=1<br />
         :<br />
@@ -230,7 +233,7 @@ of</p>
     <code>object_is_image</code> if the request was for an image
     file, and the fourth sets <code>intra_site_referral</code> if
     the referring page was somewhere on the
-    <code>www.mydomain.com</code> Web site.</p>
+    <code>www.mydomain.example.com</code> Web site.</p>
 
     <p>The last example will set environment variable
     <code>HAVE_TS</code> if the request contains any headers that
@@ -280,6 +283,6 @@ without respect to case</td></tr>
 <a href="../ja/mod/mod_setenvif.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_setenvif.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

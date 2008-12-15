@@ -174,7 +174,10 @@ EXTERN int	msg_nowait INIT(= FALSE);   /* don't wait for this msg */
 EXTERN int	emsg_off INIT(= 0);	    /* don't display errors for now,
 					       unless 'debug' is set. */
 EXTERN int	info_message INIT(= FALSE); /* printing informative message */
+EXTERN int      msg_hist_off INIT(= FALSE); /* don't add messages to history */
 #ifdef FEAT_EVAL
+EXTERN int	need_clr_eos INIT(= FALSE); /* need to clear text before
+					       displaying a message. */
 EXTERN int	emsg_skip INIT(= 0);	    /* don't display errors for
 					       expression that is skipped */
 EXTERN int	emsg_severe INIT(= FALSE);   /* use message of next of several
@@ -270,7 +273,7 @@ EXTERN int trylevel INIT(= 0);
 /*
  * When "force_abort" is TRUE, always skip commands after an error message,
  * even after the outermost ":endif", ":endwhile" or ":endfor" or for a
- * function whithout the "abort" flag.  It is set to TRUE when "trylevel" is
+ * function without the "abort" flag.  It is set to TRUE when "trylevel" is
  * non-zero (and ":silent!" was not used) or an exception is being thrown at
  * the time an error is detected.  It is set to FALSE when "trylevel" gets
  * zero again and there was no error or interrupt or throw.
@@ -278,14 +281,14 @@ EXTERN int trylevel INIT(= 0);
 EXTERN int force_abort INIT(= FALSE);
 
 /*
- * "msg_list" points to a variable in the stack of do_cmdline() which keeps the
- * list of arguments of several emsg() calls, one of which is to be converted to
- * an error exception immediately after the failing command returns.  The
- * message to be used for the exception value is pointed to by the "throw_msg"
- * field of the first element in the list.  It is usually the same as the "msg"
- * field of that element, but can be identical to the "msg" field of a later
- * list element, when the "emsg_severe" flag was set when the emsg() call was
- * made.
+ * "msg_list" points to a variable in the stack of do_cmdline() which keeps
+ * the list of arguments of several emsg() calls, one of which is to be
+ * converted to an error exception immediately after the failing command
+ * returns.  The message to be used for the exception value is pointed to by
+ * the "throw_msg" field of the first element in the list.  It is usually the
+ * same as the "msg" field of that element, but can be identical to the "msg"
+ * field of a later list element, when the "emsg_severe" flag was set when the
+ * emsg() call was made.
  */
 EXTERN struct msglist **msg_list INIT(= NULL);
 
@@ -308,9 +311,20 @@ EXTERN except_T *caught_stack INIT(= NULL);
 #endif
 
 #ifdef FEAT_EVAL
-EXTERN scid_T	current_SID INIT(= 0);	    /* ID of script being sourced or
-					       was sourced to define the
-					       current function. */
+/*
+ * Garbage collection can only take place when we are sure there are no Lists
+ * or Dictionaries being used internally.  This is flagged with
+ * "may_garbage_collect" when we are at the toplevel.
+ * "want_garbage_collect" is set by the garbagecollect() function, which means
+ * we do garbage collection before waiting for a char at the toplevel.
+ * "garbage_collect_at_exit" indicates garbagecollect(1) was called.
+ */
+EXTERN int	may_garbage_collect INIT(= FALSE);
+EXTERN int	want_garbage_collect INIT(= FALSE);
+EXTERN int	garbage_collect_at_exit INIT(= FALSE);
+
+/* ID of script being sourced or was sourced to define the current function. */
+EXTERN scid_T	current_SID INIT(= 0);
 #endif
 
 #if defined(FEAT_EVAL) || defined(FEAT_SYN_HL)
@@ -362,7 +376,6 @@ EXTERN int	cterm_normal_bg_color INIT(= 0);
 EXTERN int	autocmd_busy INIT(= FALSE);	/* Is apply_autocmds() busy? */
 EXTERN int	autocmd_no_enter INIT(= FALSE); /* *Enter autocmds disabled */
 EXTERN int	autocmd_no_leave INIT(= FALSE); /* *Leave autocmds disabled */
-EXTERN int	autocmd_block INIT(= 0);	/* block all autocmds */
 EXTERN int	modified_was_set;		/* did ":set modified" */
 EXTERN int	did_filetype INIT(= FALSE);	/* FileType event found */
 EXTERN int	keep_filetype INIT(= FALSE);	/* value for did_filetype when
@@ -554,6 +567,10 @@ EXTERN int	    redraw_tabline INIT(= FALSE);  /* need to redraw tabline */
 EXTERN buf_T	*firstbuf INIT(= NULL);	/* first buffer */
 EXTERN buf_T	*lastbuf INIT(= NULL);	/* last buffer */
 EXTERN buf_T	*curbuf INIT(= NULL);	/* currently active buffer */
+
+/* Flag that is set when switching off 'swapfile'.  It means that all blocks
+ * are to be loaded into memory.  Shouldn't be global... */
+EXTERN int	mf_dont_release INIT(= FALSE);	/* don't release blocks */
 
 /*
  * List of files being edited (global argument list).  curwin->w_alist points
@@ -797,7 +814,7 @@ EXTERN int (*mb_char2len) __ARGS((int c)) INIT(= latin_char2len);
 EXTERN int (*mb_char2bytes) __ARGS((int c, char_u *buf)) INIT(= latin_char2bytes);
 EXTERN int (*mb_ptr2cells) __ARGS((char_u *p)) INIT(= latin_ptr2cells);
 EXTERN int (*mb_char2cells) __ARGS((int c)) INIT(= latin_char2cells);
-EXTERN int (*mb_off2cells) __ARGS((unsigned off)) INIT(= latin_off2cells);
+EXTERN int (*mb_off2cells) __ARGS((unsigned off, unsigned max_off)) INIT(= latin_off2cells);
 EXTERN int (*mb_ptr2char) __ARGS((char_u *p)) INIT(= latin_ptr2char);
 EXTERN int (*mb_head_off) __ARGS((char_u *base, char_u *p)) INIT(= latin_head_off);
 
@@ -859,6 +876,7 @@ EXTERN int	State INIT(= NORMAL);	/* This is the current state of the
 					 * command interpreter. */
 
 EXTERN int	finish_op INIT(= FALSE);/* TRUE while an operator is pending */
+EXTERN int	opcount INIT(= 0);	/* count for pending operator */
 
 /*
  * ex mode (Q) state
@@ -872,7 +890,7 @@ EXTERN int Exec_reg INIT(= FALSE);	/* TRUE when executing a register */
 EXTERN int no_mapping INIT(= FALSE);	/* currently no mapping allowed */
 EXTERN int no_zero_mapping INIT(= 0);	/* mapping zero not allowed */
 EXTERN int allow_keys INIT(= FALSE);	/* allow key codes when no_mapping
-					     * is set */
+					 * is set */
 EXTERN int no_u_sync INIT(= 0);		/* Don't call u_sync() */
 
 EXTERN int restart_edit INIT(= 0);	/* call edit when next cmd finished */
@@ -944,8 +962,11 @@ EXTERN typebuf_T typebuf		/* typeahead buffer */
 #endif
 		    ;
 #ifdef FEAT_EX_EXTRA
-EXTERN int	ex_normal_busy INIT(= 0); /* recursivenes of ex_normal() */
+EXTERN int	ex_normal_busy INIT(= 0); /* recursiveness of ex_normal() */
 EXTERN int	ex_normal_lock INIT(= 0); /* forbid use of ex_normal() */
+#endif
+#ifdef FEAT_EVAL
+EXTERN int	ignore_script INIT(= FALSE);  /* ignore script input */
 #endif
 EXTERN int	stop_insert_mode;	/* for ":stopinsert" and 'insertmode' */
 
@@ -980,7 +1001,7 @@ EXTERN int	term_console INIT(= FALSE); /* set to TRUE when console used */
 #endif
 EXTERN int	termcap_active INIT(= FALSE);	/* set by starttermcap() */
 EXTERN int	cur_tmode INIT(= TMODE_COOK);	/* input terminal mode */
-EXTERN int	bangredo INIT(= FALSE);	    /* set to TRUE whith ! command */
+EXTERN int	bangredo INIT(= FALSE);	    /* set to TRUE with ! command */
 EXTERN int	searchcmdlen;		    /* length of previous search cmd */
 #ifdef FEAT_SYN_HL
 EXTERN int	reg_do_extmatch INIT(= 0);  /* Used when compiling regexp:
@@ -1010,6 +1031,7 @@ EXTERN char_u	*new_last_cmdline INIT(= NULL);	/* new value for last_cmdline */
 #endif
 #ifdef FEAT_AUTOCMD
 EXTERN char_u	*autocmd_fname INIT(= NULL); /* fname for <afile> on cmdline */
+EXTERN int	autocmd_fname_full;	     /* autocmd_fname is full path */
 EXTERN int	autocmd_bufnr INIT(= 0);     /* fnum for <abuf> on cmdline */
 EXTERN char_u	*autocmd_match INIT(= NULL); /* name for <amatch> on cmdline */
 EXTERN int	did_cursorhold INIT(= FALSE); /* set when CursorHold t'gerd */
@@ -1027,6 +1049,7 @@ EXTERN linenr_T	write_no_eol_lnum INIT(= 0); /* non-zero lnum when last line
 #ifdef FEAT_WINDOWS
 EXTERN int	postponed_split INIT(= 0);  /* for CTRL-W CTRL-] command */
 EXTERN int	postponed_split_flags INIT(= 0);  /* args for win_split() */
+EXTERN int	postponed_split_tab INIT(= 0);  /* cmdmod.tab */
 # ifdef FEAT_QUICKFIX
 EXTERN int	g_do_tagpreview INIT(= 0);  /* for tag preview commands:
 					       height of preview window */
@@ -1093,6 +1116,7 @@ extern char_u *all_cflags;
 extern char_u *all_lflags;
 # ifdef VMS
 extern char_u *compiler_version;
+extern char_u *compiled_arch;
 # endif
 extern char_u *compiled_user;
 extern char_u *compiled_sys;
@@ -1161,7 +1185,7 @@ EXTERN int      stl_syntax INIT(= 0);
 EXTERN int	no_hlsearch INIT(= FALSE);
 #endif
 
-#ifdef FEAT_BEVAL
+#if defined(FEAT_BEVAL) && !defined(NO_X11_INCLUDES)
 EXTERN BalloonEval	*balloonEval INIT(= NULL);
 # if defined(FEAT_NETBEANS_INTG) || defined(FEAT_SUN_WORKSHOP)
 EXTERN int bevalServers INIT(= 0);
@@ -1247,6 +1271,14 @@ EXTERN guint32	gtk_socket_id INIT(= 0);
 EXTERN int	echo_wid_arg INIT(= FALSE);	/* --echo-wid argument */
 #endif
 
+#ifdef FEAT_GUI_W32
+/*
+ * The value of the --windowid argument.
+ * For embedding gvim inside another application.
+ */
+EXTERN long_u	win_socket_id INIT(= 0);
+#endif
+
 #if defined(FEAT_CLIENTSERVER) || defined(FEAT_EVAL)
 EXTERN int	typebuf_was_filled INIT(= FALSE); /* received text from client
 						     or from feedkeys() */
@@ -1299,8 +1331,8 @@ EXTERN linenr_T		spell_redraw_lnum INIT(= 0);
 #endif
 
 #ifdef ALT_X_INPUT
-/* we need to be able to go into the displatch loop while processing a command
- * recevied via alternate input. However, we don't want to process another
+/* we need to be able to go into the dispatch loop while processing a command
+ * received via alternate input. However, we don't want to process another
  * command until the first is completed.
  */
 EXTERN int	suppress_alternate_input INIT(= FALSE);
@@ -1450,7 +1482,7 @@ EXTERN char_u e_re_corr[]	INIT(= N_("E44: Corrupted regexp program"));
 EXTERN char_u e_readonly[]	INIT(= N_("E45: 'readonly' option is set (add ! to override)"));
 #ifdef FEAT_EVAL
 EXTERN char_u e_readonlyvar[]	INIT(= N_("E46: Cannot change read-only variable \"%s\""));
-EXTERN char_u e_readonlysbx[]	INIT(= N_("E46: Cannot set variable in the sandbox: \"%s\""));
+EXTERN char_u e_readonlysbx[]	INIT(= N_("E794: Cannot set variable in the sandbox: \"%s\""));
 #endif
 #ifdef FEAT_QUICKFIX
 EXTERN char_u e_readerrf[]	INIT(= N_("E47: Error while reading errorfile"));

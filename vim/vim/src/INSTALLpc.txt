@@ -27,7 +27,9 @@ Contents:
 8. Windows 3.1
 9. MS-DOS
 
-The currently preferred method is using the free Visual C++ Toolkit 2003.
+The currently preferred method is using the free Visual C++ Toolkit 2008
+|msvc-2008-express|.  If you need the executable to run on Windows 98 or ME,
+use the 2003 one |msvc-2003-toolkit|.
 
 
 1. Microsoft Visual C++
@@ -36,7 +38,7 @@ The currently preferred method is using the free Visual C++ Toolkit 2003.
 Visual Studio
 -------------
 
-Building with Visual Studio (VS 98, VS .NET, VS .NET 2003, and VS .NET 2005)
+Building with Visual Studio (VS 98, VS .NET, VS .NET 2003, VS 2005, and VS 2008)
 is straightforward. (These instructions should also work for VS 4 and VS 5.)
 
 To build Vim from the command line with MSVC, use Make_mvc.mak.
@@ -71,20 +73,24 @@ These files have been supplied by George V. Reilly, Ben Singer, Ken Scott and
 Ron Aaron; they have been tested.
 
 
-Visual C++ Toolkit 2003
+Visual C++ Toolkit 2003				*msvc-2003-toolkit*
 -----------------------
 
-You can download the Microsoft Visual C++ Toolkit 2003 from
+You could download the Microsoft Visual C++ Toolkit 2003 from
     http://msdn.microsoft.com/visualc/vctoolkit2003/
+Unfortunately this URL is no longer valid.  Inofficial downloads appear to be
+available from links mentioned on these pages (use at your own risk):
+   http://www.filewatcher.com/m/VCToolkitSetup.exe.32952488.0.0.html
+   http://feargame.net/wiki/index.php?title=Building_Source_with_the_VC2003_Toolkit
+
 This contains the command-line tools (compiler, linker, CRT headers,
 and libraries) for Visual Studio .NET 2003, but not the Visual Studio IDE.
 To compile and debug Vim with the VC2003 Toolkit, you will also need
 |ms-platform-sdk|, |dotnet-1.1-redist|, |dotnet-1.1-sdk|,
 and |windbg-download|.
 
-It's easier to download Visual C++ 2005 Express Edition, |msvc-2005-express|.
-The advantage of the VC 2003 Toolkit is that it will be freely available
-long after VC 2005 Express Edition stops being free in November 2006.
+It's easier to download Visual C++ 2008 Express Edition, |msvc-2008-express|,
+which is freely available in perpetuity.
 
 The free Code::Blocks IDE works with the VC2003 Toolkit, as described at
     http://wiki.codeblocks.org/index.php?title=Integrating_Microsoft_Visual_Toolkit_2003_with_Code::Blocks_IDE
@@ -140,7 +146,7 @@ to debug Vim itself. An earlier version of the Debugging Tools
 is also available through the Platform SDK, |ms-platform-sdk|.
 
 
-Visual C++ 2005 Express Edition
+Visual C++ 2005 Express Edition       *msvc-2005-express*
 -------------------------------
 
 Visual C++ 2005 Express Edition can be downloaded for free from:
@@ -150,6 +156,17 @@ This includes the IDE and the debugger. You will also need
 
 Instructions for integrating the Platform SDK into VC Express:
     http://msdn.microsoft.com/vstudio/express/visualc/usingpsdk/default.aspx
+
+
+Visual C++ 2008 Express Edition       *msvc-2008-express*
+-------------------------------
+
+Visual C++ 2008 Express Edition can be downloaded for free from:
+    http://www.microsoft.com/express/vc/Default.aspx
+This includes the IDE and the debugger.
+
+To set the environment execute the msvc2008.bat script.  You can then build
+Vim with Make_mvc.mak.
 
 
 2. MinGW
@@ -243,8 +260,9 @@ If you like, you can compile the 'mingw' Win32 version from the comfort of
 your Linux (or other unix) box.  To do this, you need to follow a few steps:
     1) Install the mingw32 cross-compiler. See
 	http://www.libsdl.org/extras/win32/cross/README.txt
-    2) get the *unix* version of the vim sources
-    3) in 'Make_ming.mak', set 'CROSS' to '1' instead of '0'.
+    2) Get and unpack both the Unix sources and the extra archive
+    3) in 'Make_ming.mak', set 'CROSS' to 'yes' instead of 'no'.
+       Make further changes to 'Make_ming.mak' as you wish.
     4) make -f Make_ming.mak gvim.exe
 
 Now you have created the Windows binary from your Linux box!  Have fun...

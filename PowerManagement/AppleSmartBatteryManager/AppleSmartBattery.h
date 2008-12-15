@@ -64,8 +64,8 @@ protected:
     bool                        fPermanentFailure;
     bool                        fFullyDischarged;
     bool                        fFullyCharged;
-    bool                        fBatteryPresent;
-    bool                        fACConnected;
+    int                         fBatteryPresent;
+    int                         fACConnected;
     int                         fAvgCurrent;
     OSArray                     *fCellVoltages;
 
@@ -154,6 +154,8 @@ protected:
     bool    transactionCompletion(void *ref, IOSMBusTransaction *transaction);
 
     IOReturn readWordAsync(uint8_t address, uint8_t cmd);
+
+    IOReturn writeWordAsync(uint8_t address, uint8_t cmd, uint16_t writeWord);
 
     IOReturn readBlockAsync(uint8_t address, uint8_t cmd);
 };

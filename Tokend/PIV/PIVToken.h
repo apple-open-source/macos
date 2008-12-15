@@ -37,6 +37,8 @@
 
 #include <security_utilities/pcsc++.h>
 
+#include "byte_string.h"
+
 #pragma mark ---------- PIV defines ----------
 
 #define CLA_STANDARD				0x00
@@ -153,30 +155,30 @@ public:
 	
 	// These methods are convenient for Java card, but would be replace by calls
 	// to the PKCS#11 library for a for a PKCS#11 based tokend
+
+	/* NOTE: Using pointers for applet selection rather than byte_strings to permit simple selection detection */
 	void select(const unsigned char *applet, size_t appletLength);
 	void selectDefault();
-	uint32_t exchangeAPDU(const unsigned char *apdu, size_t apduLength,
-                          unsigned char *result, size_t &resultLength);
+	uint32_t exchangeAPDU(const byte_string& apdu,
+                          byte_string &result);
+	uint32_t exchangeChainedAPDU(unsigned char cla, unsigned char ins,
+	                             unsigned char p1, unsigned char p2,
+	                             const byte_string &data,
+	                             byte_string &result);
 
-	uint32_t getData(unsigned char *result, size_t &resultLength);
+	uint32_t getData(byte_string &result);
 
-	static uint32_t parseBERLength(const unsigned char *&pber, uint32_t &lenlen);
-	void getDataCore(const unsigned char *oid, size_t oidlen, const char *description, bool isCertificate,
-		bool allowCaching, CssmData &data);
+	void getDataCore(const byte_string &oid, const char *description, bool isCertificate,
+		bool allowCaching, byte_string &data);
 	std::string authCertCommonName();
 
 protected:
 	void populate();
 
-	void processCertificateRecord(const unsigned char *&pber, uint32_t berLen, const unsigned char *oid, const char *description, CssmData &data);
-	void dumpDataRecord(const unsigned char *pReturnedData, size_t returnedDataLength, const unsigned char *oid,
-		const char *extraSuffix = NULL);
-	static int compressionType(const unsigned char *pdata, size_t len);
-	static int uncompressGzip(unsigned char *uncompressedData, size_t* uncompressedDataLength,
-		unsigned char *compressedData, size_t compressedDataLength);
-	
-	unsigned char *mReturnedData;
-	unsigned char *mUncompressedData;
+	void processCertificateRecord(byte_string &data, const byte_string &oid, const char *description);
+	void dumpDataRecord(const byte_string &data, const byte_string &oid, const char *extraSuffix = NULL);
+	static int compressionType(const byte_string &data);
+	static int uncompressData(byte_string &uncompressedData, const byte_string &compressedData, int compressionType);
 	
 	enum			//arbitrary values
 	{
@@ -186,8 +188,10 @@ protected:
 		kCompressionUnknown = 9
 	};
 	
-	PIVCCC *mCardCapabilitiesContainer;
-
+	size_t transmit(const byte_string &apdu, byte_string &result) {
+		return transmit(apdu.begin(), apdu.end(), result);
+	}
+	size_t transmit(const byte_string::const_iterator &apduBegin, const byte_string::const_iterator &apduEnd, byte_string &result);
 public:
 	const unsigned char *mCurrentApplet;
 	uint32_t mPinStatus;

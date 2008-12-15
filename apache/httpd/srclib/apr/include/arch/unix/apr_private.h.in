@@ -7,6 +7,14 @@
 /* Define as function used for conversion of strings to apr_off_t */
 #undef APR_OFF_T_STRFN
 
+/* Define to one of `_getb67', `GETB67', `getb67' for Cray-2 and Cray-YMP
+   systems. This function is required for `alloca.c' support on those systems.
+   */
+#undef CRAY_STACKSEG_END
+
+/* Define to 1 if using `alloca.c'. */
+#undef C_ALLOCA
+
 /* Define to path of random device */
 #undef DEV_RANDOM
 
@@ -46,14 +54,18 @@
 /* Define if gethostbyname_r has the hostent_data for the third argument */
 #undef GETHOSTBYNAME_R_HOSTENT_DATA
 
-/* Define to 1 if you have the `alloca' function. */
+/* Define to 1 if you have `alloca', as a function or macro. */
 #undef HAVE_ALLOCA
 
-/* Define to 1 if you have the <alloca.h> header file. */
+/* Define to 1 if you have <alloca.h> and it should be used (not on Ultrix).
+   */
 #undef HAVE_ALLOCA_H
 
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
+
+/* Define if compiler provides atomic builtins */
+#undef HAVE_ATOMIC_BUILTINS
 
 /* Define if BONE_VERSION is defined in sys/socket.h */
 #undef HAVE_BONE_VERSION
@@ -191,14 +203,32 @@
 /* Define to 1 if you have the <langinfo.h> header file. */
 #undef HAVE_LANGINFO_H
 
+/* Enable if this library is available */
+#undef HAVE_LIBADVAPI32
+
 /* Define to 1 if you have the `bsd' library (-lbsd). */
 #undef HAVE_LIBBSD
+
+/* Enable if this library is available */
+#undef HAVE_LIBKERNEL32
+
+/* Define to 1 if you have the `msvcrt' library (-lmsvcrt). */
+#undef HAVE_LIBMSVCRT
+
+/* Enable if this library is available */
+#undef HAVE_LIBRPCRT4
 
 /* Define to 1 if you have the `sendfile' library (-lsendfile). */
 #undef HAVE_LIBSENDFILE
 
+/* Enable if this library is available */
+#undef HAVE_LIBSHELL32
+
 /* Define to 1 if you have the `truerand' library (-ltruerand). */
 #undef HAVE_LIBTRUERAND
+
+/* Enable if this library is available */
+#undef HAVE_LIBWS2_32
 
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
@@ -314,11 +344,23 @@
 /* Define to 1 if you have the `pthread_rwlock_init' function. */
 #undef HAVE_PTHREAD_RWLOCK_INIT
 
+/* Define to 1 if you have the `pthread_yield' function. */
+#undef HAVE_PTHREAD_YIELD
+
 /* Define to 1 if you have the `putenv' function. */
 #undef HAVE_PUTENV
 
 /* Define to 1 if you have the <pwd.h> header file. */
 #undef HAVE_PWD_H
+
+/* Define to 1 if you have the `readdir64_r' function. */
+#undef HAVE_READDIR64_R
+
+/* Define to 1 if you have the <sched.h> header file. */
+#undef HAVE_SCHED_H
+
+/* Define to 1 if you have the `sched_yield' function. */
+#undef HAVE_SCHED_YIELD
 
 /* Define to 1 if you have the <semaphore.h> header file. */
 #undef HAVE_SEMAPHORE_H
@@ -623,8 +665,17 @@
 /* Define to 1 if you have the `waitpid' function. */
 #undef HAVE_WAITPID
 
+/* Define to 1 if you have the <windows.h> header file. */
+#undef HAVE_WINDOWS_H
+
+/* Define to 1 if you have the <winsock2.h> header file. */
+#undef HAVE_WINSOCK2_H
+
 /* Define to 1 if you have the `writev' function. */
 #undef HAVE_WRITEV
+
+/* Define for z/OS pthread API nuances */
+#undef HAVE_ZOS_PTHREADS
 
 /* Define if EAI_ error codes from getaddrinfo are negative */
 #undef NEGATIVE_EAI
@@ -646,6 +697,9 @@
 
 /* Define if POSIX semaphores affect threads within the process */
 #undef POSIXSEM_IS_GLOBAL
+
+/* Define on PowerPC 405 where errata 77 applies */
+#undef PPC405_ERRATA
 
 /* Define if pthread_attr_getdetachstate() has one arg */
 #undef PTHREAD_ATTR_GETDETACHSTATE_TAKES_ONE_ARG
@@ -689,8 +743,19 @@
 /* The size of ssize_t */
 #undef SIZEOF_SSIZE_T
 
+/* The size of struct iovec */
+#undef SIZEOF_STRUCT_IOVEC
+
 /* The size of `void*', as computed by sizeof. */
 #undef SIZEOF_VOIDP
+
+/* If using the C implementation of alloca, define if you know the
+   direction of stack growth for your system; otherwise it will be
+   automatically deduced at runtime.
+	STACK_DIRECTION > 0 => grows toward higher addresses
+	STACK_DIRECTION < 0 => grows toward lower addresses
+	STACK_DIRECTION = 0 => direction of growth unknown */
+#undef STACK_DIRECTION
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
@@ -701,6 +766,9 @@
 /* Define if SysV semaphores affect threads within the process */
 #undef SYSVSEM_IS_GLOBAL
 
+/* Define if use of generic atomics is requested */
+#undef USE_ATOMICS_GENERIC
+
 /* Define if BeOS Semaphores will be used */
 #undef USE_BEOSSEM
 
@@ -709,9 +777,6 @@
 
 /* Define if 4.2BSD-style flock() will be used */
 #undef USE_FLOCK_SERIALIZE
-
-/* Define if use of generic atomics is requested */
-#undef USE_GENERIC_ATOMICS
 
 /* Define if BeOS areas will be used */
 #undef USE_SHMEM_BEOS
@@ -743,21 +808,24 @@
 /* Define if SysV IPC shmget() will be used */
 #undef USE_SHMEM_SHMGET_ANON
 
+/* Define if Windows shared memory will be used */
+#undef USE_SHMEM_WIN32
+
+/* Define if Windows CreateFileMapping() will be used */
+#undef USE_SHMEM_WIN32_ANON
+
 /* Define if SysV IPC semget() will be used */
 #undef USE_SYSVSEM_SERIALIZE
 
 /* Define if apr_wait_for_io_or_timeout() uses poll(2) */
 #undef WAITIO_USES_POLL
 
-/* Define to 1 if your processor stores words with the most significant byte
-   first (like Motorola and SPARC, unlike Intel and VAX). */
-#undef WORDS_BIGENDIAN
-
-/* Define to 1 if on AIX 3.
-   System headers sometimes define this.
-   We just want to avoid a redefinition error message.  */
-#ifndef _ALL_SOURCE
-# undef _ALL_SOURCE
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel and VAX). */
+#if defined __BIG_ENDIAN__
+# define WORDS_BIGENDIAN 1
+#elif ! defined __LITTLE_ENDIAN__
+# undef WORDS_BIGENDIAN
 #endif
 
 /* Define to 1 if on MINIX. */
@@ -769,6 +837,28 @@
 
 /* Define to 1 if you need to in order for `stat' and other things to work. */
 #undef _POSIX_SOURCE
+
+/* Enable extensions on AIX 3, Interix.  */
+#ifndef _ALL_SOURCE
+# undef _ALL_SOURCE
+#endif
+/* Enable GNU extensions on systems that have them.  */
+#ifndef _GNU_SOURCE
+# undef _GNU_SOURCE
+#endif
+/* Enable threading extensions on Solaris.  */
+#ifndef _POSIX_PTHREAD_SEMANTICS
+# undef _POSIX_PTHREAD_SEMANTICS
+#endif
+/* Enable extensions on HP NonStop.  */
+#ifndef _TANDEM_SOURCE
+# undef _TANDEM_SOURCE
+#endif
+/* Enable general extensions on Solaris.  */
+#ifndef __EXTENSIONS__
+# undef __EXTENSIONS__
+#endif
+
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const

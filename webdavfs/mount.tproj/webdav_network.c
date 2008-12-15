@@ -3987,6 +3987,7 @@ void network_seqwrite_manager(struct stream_put_ctx *ctx)
 	CFStreamError streamError;
 	CFIndex bytesWritten, len;
 	struct seqwrite_mgr_req *curr_req = NULL;
+	CFStringRef msgPortNameString = NULL;
 
 	localPort = NULL;
 	runLoopSource = NULL;
@@ -3999,7 +4000,27 @@ void network_seqwrite_manager(struct stream_put_ctx *ctx)
 	// *************************************
 	// *** Schedule CFMessagePort Source ***
 	// *************************************
-	localPort = CFMessagePortCreateLocal(kCFAllocatorDefault, CFSTR(WRITE_MGR_MSG_PORT_NAME),
+
+	// generate a unique msg port name
+	char msgPortName[WRITE_MGR_MSG_PORT_NAME_BUFSIZE];
+	sprintf(msgPortName, WRITE_MGR_MSG_PORT_NAME_TEMPLATE, WRITE_MGR_MSG_PORT_NAME_BASE_STRING, getpid(), (void*)ctx);
+	msgPortNameString = CFStringCreateWithBytes(kCFAllocatorDefault,
+												(uint8_t*)msgPortName,
+												strlen(msgPortName),
+												kCFStringEncodingASCII, false);
+
+	if (msgPortNameString == NULL) {
+		syslog(LOG_ERR, "%s: No mem for msgPortNameString\n", __FUNCTION__);
+		pthread_mutex_lock(&ctx->ctx_lock);
+		ctx->finalStatusValid = true;
+		ctx->finalStatus = EIO;
+		ctx->mgr_status = WR_MGR_DONE;
+		pthread_cond_signal(&ctx->ctx_condvar);  // signal setup thread
+		pthread_mutex_unlock(&ctx->ctx_lock);
+		goto out1;
+	}
+	
+	localPort = CFMessagePortCreateLocal(kCFAllocatorDefault, msgPortNameString,
 										managerMessagePortCallback, NULL, NULL);
 		
 	if (localPort == NULL) {
@@ -4017,7 +4038,7 @@ void network_seqwrite_manager(struct stream_put_ctx *ctx)
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
 	
 	// Init a remote port so other threads can send to our Message Port
-	ctx->mgrPort = CFMessagePortCreateRemote(kCFAllocatorDefault, CFSTR(WRITE_MGR_MSG_PORT_NAME));
+	ctx->mgrPort = CFMessagePortCreateRemote(kCFAllocatorDefault, msgPortNameString);
 		
 	if (ctx->mgrPort == NULL) {
 		syslog(LOG_ERR, "%s: CFMessagePortCreateRemote failed\n", __FUNCTION__);
@@ -4029,6 +4050,10 @@ void network_seqwrite_manager(struct stream_put_ctx *ctx)
 		pthread_mutex_unlock(&ctx->ctx_lock);
 		goto out1;
 	}
+
+	// Done with msgPortNameString
+	CFRelease(msgPortNameString);
+	msgPortNameString = NULL;
 
 	// Setup our client context
 	CFStreamClientContext mgrContext = {0, ctx, NULL, NULL, NULL};
@@ -4237,9 +4262,11 @@ out1:
 		CFRelease(localPort);
 	}
 	if (ctx->mgrPort != NULL)
-		CFMessagePortInvalidate(localPort);
+		CFMessagePortInvalidate(ctx->mgrPort);
 	if (runLoopSource != NULL)
 		CFRelease(runLoopSource);
+	if (msgPortNameString != NULL)
+		CFRelease(msgPortNameString);
 	return;
 }
 

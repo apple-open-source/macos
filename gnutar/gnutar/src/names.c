@@ -958,14 +958,26 @@ hash_string_compare (void const *name1, void const *name2)
   return strcmp (name1, name2) == 0;
 }
 
-/* Return zero if TABLE contains a copy of STRING; otherwise, insert a
-   copy of STRING to TABLE and return 1.  */
+/* Return zero if TABLE contains a LEN-character long prefix of STRING,
+   otherwise, insert a newly allocated copy of this prefix to TABLE and
+   return 1.  If RETURN_PREFIX is not NULL, point it to the allocated
+   copy. */
 static bool
-hash_string_insert (Hash_table **table, char const *string)
+hash_string_insert_prefix (Hash_table **table, char const *string, size_t len,
+                          const char **return_prefix)
 {
   Hash_table *t = *table;
-  char *s = xstrdup (string);
+  char *s;
   char *e;
+
+  if (len)
+    {
+      s = xmalloc (len + 1);
+      memcpy (s, string, len);
+      s[len] = 0;
+    }
+  else
+    s = xstrdup (string);
 
   if (! ((t
 	  || (*table = t = hash_initialize (0, 0, hash_string_hasher,
@@ -974,12 +986,24 @@ hash_string_insert (Hash_table **table, char const *string)
     xalloc_die ();
 
   if (e == s)
-    return 1;
+    {
+      if (return_prefix)
+       *return_prefix = s;
+      return 1;
+    }
   else
     {
       free (s);
       return 0;
     }
+}
+
+/* Return zero if TABLE contains a copy of STRING; otherwise, insert a
+   copy of STRING to TABLE and return 1.  */
+bool
+hash_string_insert (Hash_table **table, char const *string)
+{
+  return hash_string_insert_prefix (table, string, 0, NULL);
 }
 
 /* Return 1 if TABLE contains STRING.  */
@@ -1082,11 +1106,9 @@ safer_name_suffix (char const *file_name, bool link_target)
 
       if (prefix_len)
 	{
-	  char *prefix = alloca (prefix_len + 1);
-	  memcpy (prefix, file_name, prefix_len);
-	  prefix[prefix_len] = '\0';
-
-	  if (hash_string_insert (&prefix_table[link_target], prefix))
+         const char *prefix;
+         if (hash_string_insert_prefix (&prefix_table[link_target], file_name,
+                                        prefix_len, &prefix))
 	    {
 	      static char const *const diagnostic[] =
 	      {

@@ -22,7 +22,8 @@ dnl library. It provides a standardized mechanism for using APR. It supports
 dnl embedding APR into the application source, or locating an installed
 dnl copy of APR.
 dnl
-dnl APR_FIND_APR(srcdir, builddir, implicit-install-check, acceptable-majors)
+dnl APR_FIND_APR(srcdir, builddir, implicit-install-check, acceptable-majors,
+dnl              detailed-check)
 dnl
 dnl   where srcdir is the location of the bundled APR source directory, or
 dnl   empty if source is not bundled.
@@ -38,6 +39,14 @@ dnl   version numbers. Often only a single major version will be acceptable.
 dnl   If multiple versions are specified, and --with-apr=PREFIX or the
 dnl   implicit installed search are used, then the first (leftmost) version
 dnl   in the list that is found will be used.  Currently defaults to [0 1].
+dnl
+dnl   where detailed-check is an M4 macro which sets the apr_acceptable to
+dnl   either "yes" or "no". The macro will be invoked for each installed
+dnl   copy of APR found, with the apr_config variable set appropriately.
+dnl   Only installed copies of APR which are considered acceptable by
+dnl   this macro will be considered found. If no installed copies are
+dnl   considered acceptable by this macro, apr_found will be set to either
+dnl   either "no" or "reconfig".
 dnl
 dnl Sets the following variables on exit:
 dnl
@@ -89,8 +98,8 @@ AC_DEFUN([APR_FIND_APR], [
 
   AC_MSG_CHECKING(for APR)
   AC_ARG_WITH(apr,
-  [  --with-apr=PATH         prefix for installed APR, path to APR build tree,
-                          or the full path to apr-config],
+  [  --with-apr=PATH         prefix for installed APR or the full path to 
+                             apr-config],
   [
     if test "$withval" = "no" || test "$withval" = "yes"; then
       AC_MSG_ERROR([--with-apr requires a directory or file to be provided])
@@ -101,16 +110,28 @@ AC_DEFUN([APR_FIND_APR], [
       for lookdir in "$withval/bin" "$withval"
       do
         if $TEST_X "$lookdir/$apr_temp_apr_config_file"; then
-          apr_found="yes"
           apr_config="$lookdir/$apr_temp_apr_config_file"
+          ifelse([$5], [], [], [
+          apr_acceptable="yes"
+          $5
+          if test "$apr_acceptable" != "yes"; then
+            AC_MSG_WARN([Found APR in $apr_config, but we think it is considered unacceptable])
+            continue
+          fi])
+          apr_found="yes"
           break 2
         fi
       done
     done
 
     if test "$apr_found" != "yes" && $TEST_X "$withval" && $withval --help > /dev/null 2>&1 ; then
-      apr_found="yes"
       apr_config="$withval"
+      ifelse([$5], [], [apr_found="yes"], [
+          apr_acceptable="yes"
+          $5
+          if test "$apr_acceptable" = "yes"; then
+                apr_found="yes"
+          fi])
     fi
 
     dnl if --with-apr is used, it is a fatal error for its argument
@@ -124,15 +145,29 @@ AC_DEFUN([APR_FIND_APR], [
       for apr_temp_apr_config_file in $apr_temp_acceptable_apr_config
       do
         if $apr_temp_apr_config_file --help > /dev/null 2>&1 ; then
-          apr_found="yes"
           apr_config="$apr_temp_apr_config_file"
+          ifelse([$5], [], [], [
+          apr_acceptable="yes"
+          $5
+          if test "$apr_acceptable" != "yes"; then
+            AC_MSG_WARN([skipped APR at $apr_config, version not acceptable])
+            continue
+          fi])
+          apr_found="yes"
           break
         else
           dnl look in some standard places
           for lookdir in /usr /usr/local /usr/local/apr /opt/apr; do
             if $TEST_X "$lookdir/bin/$apr_temp_apr_config_file"; then
-              apr_found="yes"
               apr_config="$lookdir/bin/$apr_temp_apr_config_file"
+              ifelse([$5], [], [], [
+              apr_acceptable="yes"
+              $5
+              if test "$apr_acceptable" != "yes"; then
+                AC_MSG_WARN([skipped APR at $apr_config, version not acceptable])
+                continue
+              fi])
+              apr_found="yes"
               break 2
             fi
           done

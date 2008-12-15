@@ -1,6 +1,6 @@
---- _hdtoa.c.orig	2006-08-14 16:12:46.000000000 -0700
-+++ _hdtoa.c	2006-08-14 23:02:39.000000000 -0700
-@@ -55,7 +55,7 @@
+--- _hdtoa.c.orig	2008-03-15 10:50:51.000000000 -0700
++++ _hdtoa.c	2008-03-27 00:55:34.000000000 -0700
+@@ -55,7 +55,7 @@ roundup(char *s0, int ndigits)
  			*s = 1;
  			return (1);
  		}
@@ -9,7 +9,15 @@
  	}
  	++*s;
  	return (0);
-@@ -223,12 +223,17 @@
+@@ -210,6 +210,7 @@ __hdtoa(double d, const char *xdigs, int
+ 	return (s0);
+ }
+ 
++#ifndef LDBL_COMPAT
+ #if (LDBL_MANT_DIG > DBL_MANT_DIG)
+ 
+ /*
+@@ -223,12 +224,17 @@ __hldtoa(long double e, const char *xdig
  	union IEEEl2bits u;
  	char *s, *s0;
  	int bufsize;
@@ -27,7 +35,7 @@
  		*decpt = u.bits.exp - LDBL_ADJ;
  		break;
  	case FP_ZERO:
-@@ -270,6 +275,19 @@
+@@ -270,6 +276,19 @@ __hldtoa(long double e, const char *xdig
  	 */
  	for (s = s0 + bufsize - 1; s > s0 + sigfigs - 1; s--)
  		*s = 0;
@@ -47,7 +55,7 @@
  	for (; s > s0 + sigfigs - (LDBL_MANL_SIZE / 4) - 1 && s > s0; s--) {
  		*s = u.bits.manl & 0xf;
  		u.bits.manl >>= 4;
-@@ -278,6 +296,7 @@
+@@ -278,6 +297,7 @@ __hldtoa(long double e, const char *xdig
  		*s = u.bits.manh & 0xf;
  		u.bits.manh >>= 4;
  	}
@@ -55,7 +63,7 @@
  
  	/*
  	 * At this point, we have snarfed all the bits in the
-@@ -285,7 +304,11 @@
+@@ -285,7 +305,11 @@ __hldtoa(long double e, const char *xdig
  	 * (partial) nibble, which is dealt with by the next
  	 * statement.  We also tack on the implicit normalization bit.
  	 */
@@ -67,3 +75,8 @@
  
  	/* If ndigits < 0, we are expected to auto-size the precision. */
  	if (ndigits < 0) {
+@@ -317,3 +341,4 @@ __hldtoa(long double e, const char *xdig
+ }
+ 
+ #endif	/* (LDBL_MANT_DIG == DBL_MANT_DIG) */
++#endif  /* !LDBL_COMPAT */

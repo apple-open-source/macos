@@ -18,6 +18,10 @@
 
 #if defined(POLL_USES_POLL) || defined(POLLSET_USES_POLL)
 
+#ifdef HAVE_ALLOCA_H
+#include <alloca.h>
+#endif
+
 static apr_int16_t get_event(apr_int16_t event)
 {
     apr_int16_t rv = 0;
@@ -264,6 +268,35 @@ APR_DECLARE(apr_status_t) apr_pollset_poll(apr_pollset_t *pollset,
     if (descriptors)
         *descriptors = pollset->result_set;
     return APR_SUCCESS;
+}
+
+APR_DECLARE(apr_status_t) apr_pollcb_create(apr_pollcb_t **pollcb,
+                                            apr_uint32_t size,
+                                            apr_pool_t *p,
+                                            apr_uint32_t flags)
+{
+    return APR_ENOTIMPL;
+}
+
+APR_DECLARE(apr_status_t) apr_pollcb_add(apr_pollcb_t *pollcb,
+                                         apr_pollfd_t *descriptor)
+{
+    return APR_ENOTIMPL;
+}
+
+APR_DECLARE(apr_status_t) apr_pollcb_remove(apr_pollcb_t *pollcb,
+                                            apr_pollfd_t *descriptor)
+{
+    return APR_ENOTIMPL;
+}
+
+
+APR_DECLARE(apr_status_t) apr_pollcb_poll(apr_pollcb_t *pollcb,
+                                          apr_interval_time_t timeout,
+                                          apr_pollcb_cb_t func,
+                                          void *baton)
+{
+    return APR_ENOTIMPL;
 }
 
 #endif /* POLLSET_USES_POLL */

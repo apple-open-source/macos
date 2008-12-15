@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2008 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,11 @@
 #define ASL_TIME_FMT_UTC "utc"
 #define ASL_TIME_FMT_LCL "lcl"
 
+#define ASL_ENCODE_NONE 0
+#define ASL_ENCODE_SAFE 1
+#define ASL_ENCODE_VIS  2
+#define ASL_ENCODE_ASL  3
+
 #define ASL_KEY_REF_PID  "RefPID"
 #define ASL_KEY_REF_PROC "RefProc"
 
@@ -66,6 +71,7 @@ typedef struct __aslclient
 	int *fd_list;
 	char **fd_mfmt;
 	char **fd_tfmt;
+	uint32_t *fd_encoding;
 	uint32_t reserved1;
 	void *reserved2;
 } asl_client_t;
@@ -89,9 +95,9 @@ typedef struct __aslresponse
 
 __BEGIN_DECLS
 
-int asl_add_output(aslclient asl, int fd, const char *msg_fmt, const char *time_fmt);
+int asl_add_output(aslclient asl, int fd, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding);
 int asl_remove_output(aslclient asl, int fd);
-char *asl_format_message(aslmsg msg, const char *msg_fmt, const char *time_fmt, uint32_t *outlen);
+char *asl_format_message(aslmsg msg, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding, uint32_t *outlen);
 
 __END_DECLS
 

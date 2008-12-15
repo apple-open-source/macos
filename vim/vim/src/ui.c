@@ -166,10 +166,17 @@ ui_inchar(buf, maxlen, wtime, tb_change_cnt)
     }
 #endif
 
-    /* When doing a blocking wait there is no need for CTRL-C to interrupt
-     * something, don't let it set got_int when it was mapped. */
-    if (mapped_ctrl_c && (wtime == -1 || wtime > 100L))
-	ctrl_c_interrupts = FALSE;
+    /* If we are going to wait for some time or block... */
+    if (wtime == -1 || wtime > 100L)
+    {
+	/* ... allow signals to kill us. */
+	(void)vim_handle_signal(SIGNAL_UNBLOCK);
+
+	/* ... there is no need for CTRL-C to interrupt something, don't let
+	 * it set got_int when it was mapped. */
+	if (mapped_ctrl_c)
+	    ctrl_c_interrupts = FALSE;
+    }
 
 #ifdef FEAT_GUI
     if (gui.in_use)
@@ -183,15 +190,13 @@ ui_inchar(buf, maxlen, wtime, tb_change_cnt)
     else
 # endif
     {
-	if (wtime == -1 || wtime > 100L)
-	    /* allow signals to kill us */
-	    (void)vim_handle_signal(SIGNAL_UNBLOCK);
 	retval = mch_inchar(buf, maxlen, wtime, tb_change_cnt);
-	if (wtime == -1 || wtime > 100L)
-	    /* block SIGHUP et al. */
-	    (void)vim_handle_signal(SIGNAL_BLOCK);
     }
 #endif
+
+    if (wtime == -1 || wtime > 100L)
+	/* block SIGHUP et al. */
+	(void)vim_handle_signal(SIGNAL_BLOCK);
 
     ctrl_c_interrupts = TRUE;
 
@@ -1137,7 +1142,6 @@ clip_copy_modeless_selection(both)
     int		len;
 #ifdef FEAT_MBYTE
     char_u	*p;
-    int		i;
 #endif
     int		row1 = clip_star.start.lnum;
     int		col1 = clip_star.start.col;
@@ -1218,6 +1222,8 @@ clip_copy_modeless_selection(both)
 #ifdef FEAT_MBYTE
 	    if (enc_dbcs != 0)
 	    {
+		int	i;
+
 		p = ScreenLines + LineOffset[row];
 		for (i = start_col; i < end_col; ++i)
 		    if (enc_dbcs == DBCS_JPNU && p[i] == 0x8e)
@@ -1594,11 +1600,10 @@ set_input_buf(p)
 }
 #endif
 
-#if defined(FEAT_GUI) || defined(FEAT_MOUSE_GPM) \
+#if defined(FEAT_GUI) \
+	|| defined(FEAT_MOUSE_GPM) || defined(FEAT_SYSMOUSE) \
 	|| defined(FEAT_XCLIPBOARD) || defined(VMS) \
 	|| defined(FEAT_SNIFF) || defined(FEAT_CLIENTSERVER) \
-	|| (defined(FEAT_GUI) && (!defined(USE_ON_FLY_SCROLL) \
-		|| defined(FEAT_MENU))) \
 	|| defined(PROTO)
 /*
  * Add the given bytes to the input buffer
@@ -1624,7 +1629,9 @@ add_to_input_buf(s, len)
 }
 #endif
 
-#if (defined(FEAT_XIM) && defined(FEAT_GUI_GTK)) \
+#if ((defined(FEAT_XIM) || defined(FEAT_DND)) && defined(FEAT_GUI_GTK)) \
+	|| defined(FEAT_GUI_MSWIN) \
+	|| defined(FEAT_GUI_MAC) \
 	|| (defined(FEAT_MBYTE) && defined(FEAT_MBYTE_IME)) \
 	|| (defined(FEAT_GUI) && (!defined(USE_ON_FLY_SCROLL) \
 		|| defined(FEAT_MENU))) \
@@ -1904,7 +1911,7 @@ ui_cursor_shape()
 #endif
 
 #if defined(FEAT_CLIPBOARD) || defined(FEAT_GUI) || defined(FEAT_RIGHTLEFT) \
-	|| defined(PROTO)
+	|| defined(FEAT_MBYTE) || defined(PROTO)
 /*
  * Check bounds for column number
  */
@@ -2013,7 +2020,7 @@ clip_x11_request_selection_cb(w, success, sel_atom, type, value, length,
 
     if (value == NULL || *length == 0)
     {
-	clip_free_selection(cbd);	/* ???  [what's the query?] */
+	clip_free_selection(cbd);	/* nothing received, clear register */
 	*(int *)success = FALSE;
 	return;
     }
@@ -2069,7 +2076,7 @@ clip_x11_request_selection_cb(w, success, sel_atom, type, value, length,
 	text_prop.value = (unsigned char *)value;
 	text_prop.encoding = *type;
 	text_prop.format = *format;
-	text_prop.nitems = STRLEN(value);
+	text_prop.nitems = len;
 	status = XmbTextPropertyToTextList(X_DISPLAY, &text_prop,
 							 &text_list, &n_text);
 	if (status != Success || n_text < 1)
@@ -2103,6 +2110,8 @@ clip_x11_request_selection(myShell, dpy, cbd)
     int		i;
     int		nbytes = 0;
     char_u	*buffer;
+    time_t	start_time;
+    int		timed_out = FALSE;
 
     for (i =
 #ifdef FEAT_MBYTE
@@ -2122,6 +2131,7 @@ clip_x11_request_selection(myShell, dpy, cbd)
 	    case 3:  type = text_atom;		break;
 	    default: type = XA_STRING;
 	}
+	success = MAYBE;
 	XtGetSelectionValue(myShell, cbd->sel_atom, type,
 	    clip_x11_request_selection_cb, (XtPointer)&success, CurrentTime);
 
@@ -2134,27 +2144,48 @@ clip_x11_request_selection(myShell, dpy, cbd)
 	 * characters, then they will appear before the one that requested the
 	 * paste!  Don't worry, we will catch up with any other events later.
 	 */
-	for (;;)
+	start_time = time(NULL);
+	while (success == MAYBE)
 	{
-	    if (XCheckTypedEvent(dpy, SelectionNotify, &event))
-		break;
-	    if (XCheckTypedEvent(dpy, SelectionRequest, &event))
-		/* We may get a SelectionRequest here and if we don't handle
-		 * it we hang.  KDE klipper does this, for example. */
+	    if (XCheckTypedEvent(dpy, SelectionNotify, &event)
+		    || XCheckTypedEvent(dpy, SelectionRequest, &event)
+		    || XCheckTypedEvent(dpy, PropertyNotify, &event))
+	    {
+		/* This is where clip_x11_request_selection_cb() should be
+		 * called.  It may actually happen a bit later, so we loop
+		 * until "success" changes.
+		 * We may get a SelectionRequest here and if we don't handle
+		 * it we hang.  KDE klipper does this, for example.
+		 * We need to handle a PropertyNotify for large selections. */
 		XtDispatchEvent(&event);
+		continue;
+	    }
+
+	    /* Time out after 2 to 3 seconds to avoid that we hang when the
+	     * other process doesn't respond.  Note that the SelectionNotify
+	     * event may still come later when the selection owner comes back
+	     * to life and the text gets inserted unexpectedly.  Don't know
+	     * why that happens or how to avoid that :-(. */
+	    if (time(NULL) > start_time + 2)
+	    {
+		timed_out = TRUE;
+		break;
+	    }
 
 	    /* Do we need this?  Probably not. */
 	    XSync(dpy, False);
 
-	    /* Bernhard Walle solved a slow paste response in an X terminal by
-	     * adding: usleep(10000); here. */
+	    /* Wait for 1 msec to avoid that we eat up all CPU time. */
+	    ui_delay(1L, TRUE);
 	}
 
-	/* this is where clip_x11_request_selection_cb() is actually called */
-	XtDispatchEvent(&event);
-
-	if (success)
+	if (success == TRUE)
 	    return;
+
+	/* don't do a retry with another type after timing out, otherwise we
+	 * hang for 15 seconds. */
+	if (timed_out)
+	    break;
     }
 
     /* Final fallback position - use the X CUT_BUFFER0 store */
@@ -2349,7 +2380,7 @@ clip_x11_set_selection(cbd)
 
 /*
  * Move the cursor to the specified row and column on the screen.
- * Change current window if neccesary.	Returns an integer with the
+ * Change current window if necessary.	Returns an integer with the
  * CURSOR_MOVED bit set if the cursor has moved or unset otherwise.
  *
  * The MOUSE_FOLD_CLOSE bit is set when clicked on the '-' in a fold column.
@@ -2416,7 +2447,7 @@ jump_to_mouse(flags, inclusive, which_button)
 	    && prev_col == mouse_col)
     {
 retnomove:
-	/* before moving the cursor for a left click wich is NOT in a status
+	/* before moving the cursor for a left click which is NOT in a status
 	 * line, stop Visual mode */
 	if (on_status_line)
 	    return IN_STATUS_LINE;
@@ -2728,7 +2759,7 @@ retnomove:
 	    /* When dragging the mouse, while the text has been scrolled up as
 	     * far as it goes, moving the mouse in the top line should scroll
 	     * the text down (done later when recomputing w_topline). */
-	    if (mouse_dragging
+	    if (mouse_dragging > 0
 		    && curwin->w_cursor.lnum
 				       == curwin->w_buffer->b_ml.ml_line_count
 		    && curwin->w_cursor.lnum == curwin->w_topline)

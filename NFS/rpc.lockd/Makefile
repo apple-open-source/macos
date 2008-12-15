@@ -10,11 +10,12 @@ SRCROOT ?= .
 OBJROOT ?= .
 SYMROOT ?= .
 DSTROOT ?= .
+SDKROOT ?= /
 
 WARNFLAGS = -Wall -Wextra -Wshadow -Wmissing-prototypes \
 	 -Wmissing-declarations -Wno-discard-qual
 
-Extra_CC_Flags = $(WARNFLAGS)  -I $(SRCROOT) -I $(OBJROOT)
+Extra_CC_Flags = $(WARNFLAGS)  -I $(SRCROOT) -I $(OBJROOT) -isysroot $(SDKROOT)
 Extra_LD_Flags = -lutil -dead_strip
 
 DST_DIR = $(DSTROOT)/usr/sbin

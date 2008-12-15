@@ -48,7 +48,7 @@ protected:
 	CssmData mValue;
 
 	CssmData CloneData (const CssmData &value);
-
+	
 public:
 	NameValuePair (uint32 name, const CssmData &value);
 	NameValuePair (const CssmData &data);
@@ -71,6 +71,8 @@ protected:
 	NameValuePairVector mVector;
 	
 	int FindPositionByName (uint32 name) const;
+	
+	void MakeFromData(const CssmData &data);
 
 public:
 	NameValueDictionary ();

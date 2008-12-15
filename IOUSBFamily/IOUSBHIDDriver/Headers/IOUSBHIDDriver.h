@@ -207,9 +207,7 @@ public:
     virtual IOReturn 	setReport( IOMemoryDescriptor * report,
                                 IOHIDReportType      reportType,
                                 IOOptionBits         options = 0 );
-	
-	virtual OSNumber * newReportIntervalNumber() const;
-			
+
     // HID driver methods
     //
     virtual OSString * 	newIndexedString(UInt8 index) const;

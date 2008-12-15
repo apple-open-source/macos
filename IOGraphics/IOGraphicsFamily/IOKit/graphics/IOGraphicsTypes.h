@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV	13
+#define IOGRAPHICSTYPES_REV	14
 
 typedef SInt32	IOIndex;
 typedef UInt32	IOSelect;
@@ -42,9 +42,9 @@ typedef UInt32	IODisplayProductID;
 typedef SInt32	IODisplayModeID;
 enum {
     // This is the ID given to a programmable timing used at boot time
-    kIODisplayModeIDBootProgrammable = (long)0xFFFFFFFB,
+    kIODisplayModeIDBootProgrammable = (IODisplayModeID)0xFFFFFFFB,
     // Lowest (unsigned) DisplayModeID reserved by Apple
-    kIODisplayModeIDReservedBase  = (long)0x80000000
+    kIODisplayModeIDReservedBase  = (IODisplayModeID)0x80000000
 };
 
 enum {
@@ -107,8 +107,8 @@ enum {
  */
 
 struct IOPixelInformation {
-    IOByteCount			bytesPerRow;
-    IOByteCount			bytesPerPlane;
+    UInt32			bytesPerRow;
+    UInt32			bytesPerPlane;
     UInt32			bitsPerPixel;
     UInt32			pixelType;
     UInt32			componentCount;
@@ -177,6 +177,7 @@ enum {
     kDisplayModeDefaultFlag		= 0x00000004
 };
 
+#ifndef KERNEL
 // Framebuffer info - obsolete
 
 struct IOFramebufferInformation {
@@ -191,6 +192,7 @@ struct IOFramebufferInformation {
     UInt32			reserved[ 4 ];
 };
 typedef struct IOFramebufferInformation IOFramebufferInformation;
+#endif
 
 // flags
 enum {
@@ -238,6 +240,7 @@ enum {
 //// Controller attributes
 
 enum {
+    kIOPowerStateAttribute		= 'pwrs',
     kIOPowerAttribute			= 'powr',
     kIOHardwareCursorAttribute		= 'crsr',
 
@@ -409,11 +412,13 @@ enum {
 };
 
 
+#pragma pack(push, 4)
 struct IOFBDisplayModeDescription {
     IODisplayModeInformation	info;
     IOTimingInformation 	timingInfo;
 };
 typedef struct IOFBDisplayModeDescription IOFBDisplayModeDescription;
+#pragma pack(pop)
 
 /*!
  * @struct IODisplayTimingRange
@@ -677,6 +682,7 @@ enum {
     kConnectionSupportsLLDDCSense	= 'lddc',
     kConnectionSupportsHLDDCSense	= 'hddc',
     kConnectionEnable			= 'enab',
+    kConnectionCheckEnable		= 'cena',
     kConnectionProbe			= 'prob',
     kConnectionChanged			= 'chng',
     kConnectionPower			= 'powr',
@@ -684,7 +690,13 @@ enum {
     kConnectionDisplayParameterCount	= 'pcnt',
     kConnectionDisplayParameters	= 'parm',
     kConnectionOverscan			= 'oscn',
-    kConnectionVideoBest		= 'vbst'
+    kConnectionVideoBest		= 'vbst',
+
+    kConnectionRedGammaScale		= 'rgsc',
+    kConnectionGreenGammaScale		= 'ggsc',
+    kConnectionBlueGammaScale		= 'bgsc',
+
+    kConnectionHandleDisplayPortEvent	= 'dpir',
 };
 
 // kConnectionFlags values
@@ -705,7 +717,20 @@ enum {
     kIOSyncOnRed			= 0x00000020
 };
 
+// kConnectionHandleDisplayPortEvent values
+enum {
+	kIODPEventStart				= 1,
+	kIODPEventIdle				= 2,
 
+	kIODPEventForceRetrain			= 3,
+
+	kIODPEventRemoteControlCommandPending	= 256,
+	kIODPEventAutomatedTestRequest		= 257,
+	kIODPEventContentProtection		= 258,
+	kIODPEventMCCS				= 259,
+	kIODPEventSinkSpecific		        = 260
+};
+	
 #define IO_DISPLAY_CAN_FILL		0x00000040
 #define IO_DISPLAY_CAN_BLIT		0x00000020
 
@@ -833,7 +858,11 @@ enum {
     // Demand to remove framebuffer (Hardware not available on dependent change -- but must not buserror)
     kIOFBOfflineInterruptType		= 'remv',
     // Notice that hardware is available (after being removed)
-    kIOFBOnlineInterruptType		= 'add '
+    kIOFBOnlineInterruptType		= 'add ',
+    // DisplayPort short pulse
+    kIOFBDisplayPortInterruptType			= 'dpir',
+    // DisplayPort link event
+    kIOFBDisplayPortLinkChangeInterruptType	= 'dplk'
 };
 
 // IOAppleTimingID's
@@ -928,7 +957,7 @@ enum {
 #define kIOFBGammaWidthKey		"IOFBGammaWidth"
 #define kIOFBGammaCountKey		"IOFBGammaCount"
 #define kIOFBCLUTDeferKey		"IOFBCLUTDefer"
-
+	
 // exists on the hibernate progress display device
 #ifndef kIOHibernatePreviewActiveKey
 #define kIOHibernatePreviewActiveKey	"IOHibernatePreviewActive"
@@ -1066,8 +1095,13 @@ enum {
 #define kIODisplayOverscanKey		"oscn"
 #define kIODisplayVideoBestKey		"vbst"
 
+#define kIODisplayRedGammaScaleKey	"rgsc"
+#define kIODisplayGreenGammaScaleKey	"ggsc"
+#define kIODisplayBlueGammaScaleKey	"bgsc"
+
 #define kIODisplayParametersCommitKey	"commit"
 #define kIODisplayParametersDefaultKey	"defaults"
+#define kIODisplayParametersFlushKey	"flush"
 
 #ifdef __cplusplus
 }

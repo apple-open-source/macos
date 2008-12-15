@@ -91,6 +91,8 @@ protected:
     static void nvLocation( IORegistryEntry * entry,
 			    UInt8 * busNum, UInt8 * deviceNum, UInt8 * functionNum );
     static SInt32 compareAddressCell( UInt32 cellCount, UInt32 cleft[], UInt32 cright[] );
+	void checkTerminateChildren(IOService * bridgeDevice, bool eject);
+    IOReturn setDeviceASPMBits(IOPCIDevice * device, IOOptionBits state);
 
     IORangeAllocator *	bridgeMemoryRanges;
     IORangeAllocator *	bridgeIORanges;
@@ -230,8 +232,11 @@ protected:
     virtual UInt32 extendedFindPCICapability( IOPCIAddressSpace space,
 					      UInt32 capabilityID, IOByteCount * offset = 0 );
 
+    OSMetaClassDeclareReservedUsed(IOPCIBridge, 2);
+    virtual IOReturn setDeviceASPMState(IOPCIDevice * device,
+				IOService * client, IOOptionBits state);
+
     // Unused Padding
-    OSMetaClassDeclareReservedUnused(IOPCIBridge,  2);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  3);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  4);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  5);
@@ -350,6 +355,9 @@ public:
     virtual UInt8 configRead8( IOPCIAddressSpace space, UInt8 offset );
     virtual void configWrite8( IOPCIAddressSpace space,
 					UInt8 offset, UInt8 data );
+
+    virtual IOReturn setDeviceASPMState(IOPCIDevice * device,
+				IOService * client, IOOptionBits state);
 
     // Unused Padding
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  0);

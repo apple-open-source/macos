@@ -43,6 +43,8 @@ CFErrorRef SetXGridPrincipal(CFStringRef inPrincipal);
 CFErrorRef SetSMBPrincipal(CFStringRef inPrincipal, CFStringRef inAdminName, const char *inPassword);
 CFErrorRef SetFTPPrincipal(CFStringRef inPrincipal);
 CFErrorRef SetVNCPrincipal(CFStringRef inPrincipal);
+CFErrorRef SetPCastPrincipal(CFStringRef inPrincipal);
+CFErrorRef SetFCSvrPrincipal(CFStringRef inPrincipal);
 
 __END_DECLS
 

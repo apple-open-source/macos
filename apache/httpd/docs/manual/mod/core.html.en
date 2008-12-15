@@ -23,7 +23,8 @@
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../de/mod/core.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="../en/mod/core.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
+<a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
+<a href="../tr/mod/core.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Core Apache HTTP Server features that are always
 available</td></tr>
@@ -604,7 +605,7 @@ headers</td></tr>
 </table>
     <p>This directive enables the generation of
     <code>Content-MD5</code> headers as defined in RFC1864
-    respectively RFC2068.</p>
+    respectively RFC2616.</p>
 
     <p>MD5 is an algorithm for computing a "message digest"
     (sometimes called "fingerprint") of arbitrary-length data, with
@@ -877,8 +878,8 @@ from the web</td></tr>
 
 <h3>See also</h3>
 <ul>
-<li><a href="../urlmapping.html">Mapping URLs to Filesystem
-Location</a></li>
+<li><a href="../urlmapping.html#documentroot">Mapping URLs to Filesystem
+Locations</a></li>
 </ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1421,13 +1422,28 @@ if a test is true at startup</td></tr>
     multiple-parameter tests. Example:</p>
 
     <div class="example"><p><code>
-      httpd -DReverseProxy ...<br />
+      httpd -DReverseProxy -DUseCache -DMemCache ...<br />
       <br />
       # httpd.conf<br />
       &lt;IfDefine ReverseProxy&gt;<br />
       <span class="indent">
-        LoadModule rewrite_module modules/mod_rewrite.so<br />
-        LoadModule proxy_module   modules/libproxy.so<br />
+        LoadModule proxy_module   modules/mod_proxy.so<br />
+        LoadModule proxy_http_module   modules/mod_proxy_http.so<br />
+        &lt;IfDefine UseCache&gt;<br />
+        <span class="indent">
+          LoadModule cache_module   modules/mod_cache.so<br />
+          &lt;IfDefine MemCache&gt;<br />
+          <span class="indent">
+            LoadModule mem_cache_module   modules/mod_mem_cache.so<br />
+          </span>
+          &lt;/IfDefine&gt;<br />
+          &lt;IfDefine !MemCache&gt;<br />
+          <span class="indent">
+            LoadModule disk_cache_module   modules/mod_disk_cache.so<br />
+          </span>
+          &lt;/IfDefine&gt;
+        </span>
+        &lt;/IfDefine&gt;
       </span>
       &lt;/IfDefine&gt;
     </code></p></div>
@@ -1526,18 +1542,6 @@ the server configuration files</td></tr>
       Include conf/vhosts/*.conf
     </code></p></div>
 
-    <p>Running <code>apachectl configtest</code> will give you a list
-    of the files that are being processed during the configuration
-    check:</p>
-
-    <div class="example"><p><code>
-      root@host# apachectl configtest<br />
-      Processing config file: /usr/local/apache2/conf/ssl.conf<br />
-      Processing config file: /usr/local/apache2/conf/vhosts/vhost1.conf<br />
-      Processing config file: /usr/local/apache2/conf/vhosts/vhost2.conf<br />
-      Syntax OK
-    </code></p></div>
-
 <h3>See also</h3>
 <ul>
 <li><code class="program"><a href="../programs/apachectl.html">apachectl</a></code></li>
@@ -1573,6 +1577,10 @@ the server configuration files</td></tr>
     encoding will be used in order to send content of unknown
     length over persistent connections.</p>
 
+    <p>When a client uses a Keep-Alive connection it will be counted
+    as a single "request" for the MaxRequestsPerChild directive, regardless
+    of how many requests are sent using the connection.</p>
+
 <h3>See also</h3>
 <ul>
 <li><code class="directive"><a href="#maxkeepaliverequests">MaxKeepAliveRequests</a></code></li>
@@ -1598,6 +1606,10 @@ requests on a persistent connection</td></tr>
     may cause performance problems in heavily loaded servers. The
     higher the timeout, the more server processes will be kept
     occupied waiting on connections with idle clients.</p>
+    
+    <p>In a name-based virtual host context, the value of the first
+    defined virtual host (the default host) in a set of <code class="directive"><a href="#namevirtualhost">NameVirtualHost</a></code> will be used.
+    The other values will be ignored.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1808,8 +1820,8 @@ will be accepted from the client</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Limits the size of the HTTP request header allowed from the
 client</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>LimitRequestFieldsize <var>bytes</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>LimitRequestFieldsize 8190</code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>LimitRequestFieldSize <var>bytes</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>LimitRequestFieldSize 8190</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
@@ -1964,7 +1976,7 @@ URLs</td></tr>
     functionality is especially useful when combined with the
     <code class="directive"><a href="#sethandler">SetHandler</a></code>
     directive. For example, to enable status requests, but allow them
-    only from browsers at <code>foo.com</code>, you might use:</p>
+    only from browsers at <code>example.com</code>, you might use:</p>
 
     <div class="example"><p><code>
       &lt;Location /status&gt;<br />
@@ -1972,7 +1984,7 @@ URLs</td></tr>
         SetHandler server-status<br />
         Order Deny,Allow<br />
         Deny from all<br />
-        Allow from .foo.com<br />
+        Allow from .example.com<br />
       </span>
       &lt;/Location&gt;
     </code></p></div>
@@ -3336,11 +3348,11 @@ hostname or IP address</td></tr>
     <div class="example"><h3>Example</h3><p><code>
       &lt;VirtualHost 10.1.2.3&gt;<br />
       <span class="indent">
-        ServerAdmin webmaster@host.foo.com<br />
-        DocumentRoot /www/docs/host.foo.com<br />
-        ServerName host.foo.com<br />
-        ErrorLog logs/host.foo.com-error_log<br />
-        TransferLog logs/host.foo.com-access_log<br />
+        ServerAdmin webmaster@host.example.com<br />
+        DocumentRoot /www/docs/host.example.com<br />
+        ServerName host.example.com<br />
+        ErrorLog logs/host.example.com-error_log<br />
+        TransferLog logs/host.example.com-access_log<br />
       </span>
       &lt;/VirtualHost&gt;
     </code></p></div>
@@ -3424,8 +3436,9 @@ hostname or IP address</td></tr>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../de/mod/core.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="../en/mod/core.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
+<a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
+<a href="../tr/mod/core.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

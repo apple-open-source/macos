@@ -38,6 +38,10 @@ CACError::CACError(uint16_t sw) : SCardError(sw)
 	IFDEBUG(debugDiagnose(this));
 }
 
+CACError::~CACError() throw ()
+{
+}
+
 const char *CACError::what() const throw ()
 { return "CAC error"; }
 

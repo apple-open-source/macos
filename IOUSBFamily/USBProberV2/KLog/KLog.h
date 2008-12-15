@@ -41,6 +41,11 @@ extern "C" {
 
 #define kLogKextName 	"com_apple_iokit_KLog"
 
+struct klog64_timeval{
+	uint64_t	tv_sec;
+	uint64_t	tv_usec;
+};
+
 //================================================================================================
 //   Configuration constants
 //================================================================================================
@@ -71,7 +76,7 @@ class com_apple_iokit_KLog : public IOService
     UInt8 							mClientCount;
     UInt16							mMsgSize;
     bool 							mErrFlag;
-    struct timeval *				mTimeVal;
+    struct klog64_timeval *			mTimeVal;
     IOLock *						mLogLock;
     
 public:

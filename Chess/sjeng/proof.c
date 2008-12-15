@@ -44,7 +44,7 @@
 int nodecount;
 int nodecount2;
 int pn2;
-long frees;
+int32_t frees;
 int iters;
 int forwards;
 int maxply;
@@ -681,8 +681,8 @@ void set_proof_and_disproof_numbers (node_t * node)
 	    {
 	      if ((Variant != Suicide) && (Variant != Losers))
 		{
-		  node->proof = 1 + floor(ply / 50);
-		  node->disproof = l + floor(ply  / 50);
+		  node->proof = 1 + floorf(ply / 50);
+		  node->disproof = l + floorf(ply  / 50);
 		}
 	      else
 		{
@@ -692,19 +692,19 @@ void set_proof_and_disproof_numbers (node_t * node)
 			 so breathen the tree */
 		      if (phase == Endgame)
 		      {
-			node->proof = 1 + floor(ply / 30);
-			node->disproof = l + floor(ply / 30);
+			node->proof = 1 + floorf(ply / 30);
+			node->disproof = l + floorf(ply / 30);
 		      }
 		      else
 		      {
-			node->proof = 1 + floor(ply / 80);
-			node->disproof = l + floor(ply / 80);
+			node->proof = 1 + floorf(ply / 80);
+			node->disproof = l + floorf(ply / 80);
 		      }
 		    }
 		  else
 		    {
-		      node->proof = 1 + floor(ply / 150);
-		      node->disproof = l + floor(ply / 150);
+		      node->proof = 1 + floorf(ply / 150);
+		      node->disproof = l + floorf(ply / 150);
 		    }
 		}
 	    }
@@ -712,8 +712,8 @@ void set_proof_and_disproof_numbers (node_t * node)
 	    {
 	      if ((Variant != Suicide) && (Variant != Losers))
 		{
-		  node->proof = l + floor(ply / 50);
-		  node->disproof = 1 + floor(ply / 50);
+		  node->proof = l + floorf(ply / 50);
+		  node->disproof = 1 + floorf(ply / 50);
 		}
 	      else
 		{
@@ -721,20 +721,20 @@ void set_proof_and_disproof_numbers (node_t * node)
 		    {
 		      if (phase == Endgame)
 		      {
-			  node->proof = l + floor(ply/30);
-			  node->disproof = 1 + floor(ply/30);
+			  node->proof = l + floorf(ply/30);
+			  node->disproof = 1 + floorf(ply/30);
 			
 		      }
 		      else
 		      {
-			  node->proof = l + floor(ply/80);
-			  node->disproof = 1 + floor(ply/80);
+			  node->proof = l + floorf(ply/80);
+			  node->disproof = 1 + floorf(ply/80);
 		      }
 		    }
 		  else
 		    {
-		      node->proof = l + floor(ply / 150);
-		      node->disproof = 1 + floor(ply / 150);
+		      node->proof = l + floorf(ply / 150);
+		      node->disproof = 1 + floorf(ply / 150);
 		    }
 		}
 	    }
@@ -828,7 +828,7 @@ void develop_node (node_t * node)
 #ifdef PN2
   if (pn2)
 #endif
-    node->children = (node_t **) Xmalloc (num_moves * sizeof (node_t **));
+	  node->children = (node_t **) Xmalloc ((int32_t)(num_moves * sizeof (node_t **)));
 #ifdef PN2
   else
     newchildren = (node_t **) malloc (num_moves * sizeof (node_t **));
@@ -848,7 +848,7 @@ void develop_node (node_t * node)
 #ifdef PN2
 	  if (pn2)
 #endif
-	    newnode = (node_t *) Xmalloc (sizeof (node_t));
+		  newnode = (node_t *) Xmalloc ((int32_t)sizeof (node_t));
 #ifdef PN2
 	  else
 	    newnode = (node_t *) malloc (sizeof (node_t));

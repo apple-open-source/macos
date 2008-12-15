@@ -10,6 +10,10 @@ CFLAGS		= -Os -g3 -no-cpp-precomp -Wall $(RC_CFLAGS)
 LIB_LDFLAGS	= -framework CoreFoundation -framework IOKit
 BIN_LDFLAGS	= -lpanel -lncurses -lutil
 LDFLAGS		= $(LIB_LDFLAGS) $(BIN_LDFLAGS)
+ifneq ($(SDKROOT),)
+CFLAGS		+= -isysroot $(SDKROOT)
+LDFLAGS		+= -Wl,-syslibroot,$(SDKROOT)
+endif
 INSTALL		= install -c
 LN		= ln
 STRIP		= strip

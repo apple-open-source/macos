@@ -9,6 +9,7 @@
 .Sh SYNOPSIS
 .Nm latency
 .Op Fl rt
+.Op Fl h
 .Op Fl c Ar code_file
 .Op Fl l Ar log_file
 .Op Fl st Ar threshold
@@ -58,6 +59,9 @@ This option allows you to specify an alternate booted kernel.
 .It Fl rt
 Sets the real-time scheduling policy.
 Default policy is timeshare.
+.\" ==========
+.It Fl h
+Display high resolution interrupt latencies and write them to latencies.csv (truncate existing file) upon exit.
 .\" ==========
 .It Fl s Ar sleep_in_usecs
 Sets the timer, taking an argument expressed in microseconds.

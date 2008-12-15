@@ -3,15 +3,15 @@
 	<key>OpenSourceProject</key>
 	<string>php</string>
 	<key>OpenSourceVersion</key>
-	<string>4.4.8</string>
+	<string>4.4.9</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.php.net/</string>
 	<key>OpenSourceURL</key>
-	<string>http://us2.php.net/distributions/php-4.4.8.tar.bz2</string>
+	<string>http://us2.php.net/distributions/php-4.4.9.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>fca6259fd3e8e3a7a37343e9a81651f5b6d4835c</string>
+	<string>ab3d2205d756ddf93452b57bd6ce6a2014b1c374</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-02-05</string>
+	<string>2008-09-09</string>
 	<key>OpenSourceModifications</key>
 	<array/>
 	<key>OpenSourceLicense</key>

@@ -118,6 +118,10 @@
 		52B260CB0BC5A864007E00F1 /* PIVCCC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 529D9A7B0B867FA900DBFA4B /* PIVCCC.cpp */; };
 		52B260CD0BC5A864007E00F1 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CBF5CBE0704E76200EEADC2 /* libz.dylib */; };
 		52B260CE0BC5A864007E00F1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA8C4D606D6D19400F1BCC8 /* CoreFoundation.framework */; };
+		52E66B970E92E78700CDE046 /* Padding.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52E66B8F0E92E78700CDE046 /* Padding.cpp */; };
+		52E66B980E92E78700CDE046 /* SecureBufferAllocator.inc in Sources */ = {isa = PBXBuildFile; fileRef = 52E66B930E92E78700CDE046 /* SecureBufferAllocator.inc */; };
+		52E66B990E92E78700CDE046 /* TLV.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52E66B940E92E78700CDE046 /* TLV.cpp */; };
+		52E66B9A0E92E78700CDE046 /* TLV.inc in Sources */ = {isa = PBXBuildFile; fileRef = 52E66B960E92E78700CDE046 /* TLV.inc */; };
 		C29914660C441EBB009571C2 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52CA8342067E8175005A1EBA /* PCSC.framework */; };
 		C29914670C441EBB009571C2 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52CA8343067E8175005A1EBA /* Security.framework */; };
 /* End PBXBuildFile section */
@@ -331,6 +335,15 @@
 		52CA8343067E8175005A1EBA /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Security.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		52DE698106E93B870024EA03 /* PKCS11Object.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PKCS11Object.h; sourceTree = "<group>"; };
 		52DE698206E93B870024EA03 /* PKCS11Object.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PKCS11Object.cpp; sourceTree = "<group>"; };
+		52E66B8E0E92E78700CDE046 /* byte_string.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = byte_string.h; path = PIV/byte_string.h; sourceTree = "<group>"; };
+		52E66B8F0E92E78700CDE046 /* Padding.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Padding.cpp; path = PIV/Padding.cpp; sourceTree = "<group>"; };
+		52E66B900E92E78700CDE046 /* Padding.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Padding.h; path = PIV/Padding.h; sourceTree = "<group>"; };
+		52E66B910E92E78700CDE046 /* PIVUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PIVUtilities.h; path = PIV/PIVUtilities.h; sourceTree = "<group>"; };
+		52E66B920E92E78700CDE046 /* SecureBufferAllocator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecureBufferAllocator.h; path = PIV/SecureBufferAllocator.h; sourceTree = "<group>"; };
+		52E66B930E92E78700CDE046 /* SecureBufferAllocator.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; name = SecureBufferAllocator.inc; path = PIV/SecureBufferAllocator.inc; sourceTree = "<group>"; };
+		52E66B940E92E78700CDE046 /* TLV.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = TLV.cpp; path = PIV/TLV.cpp; sourceTree = "<group>"; };
+		52E66B950E92E78700CDE046 /* TLV.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TLV.h; path = PIV/TLV.h; sourceTree = "<group>"; };
+		52E66B960E92E78700CDE046 /* TLV.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; name = TLV.inc; path = PIV/TLV.inc; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -595,6 +608,15 @@
 		5280675F0B78E86F00D02C3A /* PIV */ = {
 			isa = PBXGroup;
 			children = (
+				52E66B8E0E92E78700CDE046 /* byte_string.h */,
+				52E66B8F0E92E78700CDE046 /* Padding.cpp */,
+				52E66B900E92E78700CDE046 /* Padding.h */,
+				52E66B910E92E78700CDE046 /* PIVUtilities.h */,
+				52E66B920E92E78700CDE046 /* SecureBufferAllocator.h */,
+				52E66B930E92E78700CDE046 /* SecureBufferAllocator.inc */,
+				52E66B940E92E78700CDE046 /* TLV.cpp */,
+				52E66B950E92E78700CDE046 /* TLV.h */,
+				52E66B960E92E78700CDE046 /* TLV.inc */,
 				528067800B78E98600D02C3A /* mds */,
 				529D9A7B0B867FA900DBFA4B /* PIVCCC.cpp */,
 				529D9A7C0B867FA900DBFA4B /* PIVCCC.h */,
@@ -954,6 +976,10 @@
 				52B260C90BC5A864007E00F1 /* PIVSchema.cpp in Sources */,
 				52B260CA0BC5A864007E00F1 /* PIVToken.cpp in Sources */,
 				52B260CB0BC5A864007E00F1 /* PIVCCC.cpp in Sources */,
+				52E66B970E92E78700CDE046 /* Padding.cpp in Sources */,
+				52E66B980E92E78700CDE046 /* SecureBufferAllocator.inc in Sources */,
+				52E66B990E92E78700CDE046 /* TLV.cpp in Sources */,
+				52E66B9A0E92E78700CDE046 /* TLV.inc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1055,7 +1081,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 35209;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1105,7 +1131,7 @@
 					nopic,
 				);
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 35209;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/local/SecurityPieces/Frameworks,
@@ -1186,7 +1212,7 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 35209;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1252,7 +1278,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 35209;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1296,7 +1322,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 35209;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1362,7 +1388,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 35209;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1406,7 +1432,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 35209;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1472,7 +1498,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 35209;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1516,7 +1542,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 35209;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1582,7 +1608,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 32432;
+				CURRENT_PROJECT_VERSION = 35209;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",

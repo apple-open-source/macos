@@ -556,27 +556,30 @@ label:
 		case 'Z':
 			{
 			const char *cp;
-			char *zonestr;
+			size_t tzlen, len;
 
 			for (cp = buf; *cp && isupper((unsigned char)*cp); ++cp) {/*empty*/}
-			if (cp - buf) {
-				zonestr = alloca(cp - buf + 1);
-				strncpy(zonestr, buf, cp - buf);
-				zonestr[cp - buf] = '\0';
-				tzset();
-				if (0 == strcmp(zonestr, "GMT")) {
-				    *convp = CONVERT_GMT;
-				} else if (0 == strcmp(zonestr, tzname[0])) {
-				    tm->tm_isdst = 0;
-				} else if (0 == strcmp(zonestr, tzname[1])) {
-				    tm->tm_isdst = 1;
-				} else {
-				    return 0;
-				}
-				buf += cp - buf;
+			len = cp - buf;
+			if (len == 3 && strncmp(buf, "GMT", 3) == 0) {
+				*convp = CONVERT_GMT;
+				buf += len;
+				break;
 			}
+			tzset();
+			tzlen = strlen(tzname[0]);
+			if (len == tzlen && strncmp(buf, tzname[0], tzlen) == 0) {
+				tm->tm_isdst = 0;
+				buf += len;
+				break;
 			}
-			break;
+			tzlen = strlen(tzname[1]);
+			if (len == tzlen && strncmp(buf, tzname[1], tzlen) == 0) {
+				tm->tm_isdst = 1;
+				buf += len;
+				break;
+			}
+			return 0;
+			}
 
 		case 'z':
 			{

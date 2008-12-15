@@ -1,0 +1,66 @@
+#!/bin/bash
+#
+
+# set -x
+
+DEFAULT_SECCERTDIR=`pwd`
+DEFAULT_SECURITYTESTS_DIR=/Volumes/xenos/dev/tla-LeopardSU/SecurityTests
+
+#This is usually the security_certificates directory in the checked out branch
+
+if [ -z ${SECCERTDIR} ] ; then
+        SECCERTDIR=${DEFAULT_SECCERTDIR}
+fi
+
+if [ -z ${LOCAL_BUILD_DIR} ] ; then
+	/bin/echo "{LOCAL_BUILD_DIR} not set"
+	exit 2
+fi
+
+#
+#Look for the directory with the sources for SecurityTests
+#This will often be different from the directory for the current branch
+# if that has been checked out sparsely
+#
+
+if [ -z ${SECTESTSDIR} ] ; then
+        SECTESTSDIR=${DEFAULT_SECURITYTESTS_DIR}
+fi
+
+#Make sure we are in a proper security_certificates directory
+
+if [ ! -d "${SECCERTDIR}/roots" ] ; then
+        /bin/echo "${SECCERTDIR}/roots not found, bailing" 1>&2
+        exit 2
+fi
+
+#
+# Check for tools
+#
+
+if [ ! -f "${LOCAL_BUILD_DIR}/vfyCertChain" ]; then
+	/bin/echo "Cant find ${LOCAL_BUILD_DIR}/vfyCertChain"
+        /bin/echo "Making cspxutils and clxutils" 1>&2
+        (cd "${SECTESTSDIR}/cspxutils"; make all)
+fi
+
+# Test that the anchors are OK
+
+(cd roots; "${SECTESTSDIR}"/clxutils/anchorTest/anchorSourceTest .)
+
+# Build a new SystemRootCertificates.keychain and
+# SystemTrustSettings.plist in place on your branch
+
+/bin/echo "Building a new SystemRootCertificates.keychain and SystemTrustSettings.plist"
+(cd "${SECCERTDIR}"; ./buildRootKeychain)
+
+if [ ! -d "/System/Library/Keychains/saved" ] ; then
+	sudo mkdir /System/Library/Keychains/saved
+	sudo cp /System/Library/Keychains/System* /System/Library/Keychains/saved/
+	sudo cp $SECCERTDIR/BuiltKeychains/SystemRootCertificates.keychain $SECCERTDIR/BuiltKeychains/SystemTrustSettings.plist /System/Library/Keychains/
+fi
+
+"${LOCAL_BUILD_DIR}"/anchorTest t
+
+/bin/echo "------- Done ------"
+

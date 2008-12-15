@@ -69,6 +69,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <notify.h>
 #include <asl.h>
@@ -146,6 +147,7 @@ vsyslog(int pri, const char *fmt, va_list ap)
 {
 	int status, i, saved_errno, filter, rc_filter;
 	time_t tick;
+	struct timeval tval;
 	pid_t pid;
 	uint32_t elen, count;
 	char *p, *str, *expanded, *err_str, hname[MAXHOSTNAMELEN+1];
@@ -212,16 +214,41 @@ vsyslog(int pri, const char *fmt, va_list ap)
 	if (str != NULL) asl_set(msg, ASL_KEY_FACILITY, str);
 
 	str = NULL;
-	tick = time(NULL);
-	asprintf(&str, "%lu", tick);
-	if (str != NULL)
-	{
-		asl_set(msg, ASL_KEY_TIME, str);
-		free(str);
-	}
+	memset(&tval, 0, sizeof(struct timeval));
 
-	str = NULL;
+	status = gettimeofday(&tval, NULL);
+	if (status == 0)
+	{
+		str = NULL;
+		asprintf(&str, "%lu", tval.tv_sec);
+		if (str != NULL)
+		{
+			asl_set(msg, ASL_KEY_TIME, str);
+			free(str);
+		}
+
+		str = NULL;
+		asprintf(&str, "%lu", tval.tv_usec * 1000);
+		if (str != NULL)
+		{
+			asl_set(msg, ASL_KEY_TIME_NSEC, str);
+			free(str);
+		}
+	}
+	else
+	{
+		tick = time(NULL);
+		str = NULL;
+		asprintf(&str, "%lu", tick);
+		if (str != NULL)
+		{
+			asl_set(msg, ASL_KEY_TIME, str);
+			free(str);
+		}
+	}
+	
 	pid = getpid();
+	str = NULL;
 	asprintf(&str, "%u", pid);
 	if (str != NULL)
 	{
@@ -336,7 +363,7 @@ vsyslog(int pri, const char *fmt, va_list ap)
 	}
 
 	/* Get connected, output the message to the local logger. */
-	str = asl_format_message(msg, ASL_MSG_FMT_RAW, ASL_TIME_FMT_SEC, &count);
+	str = asl_format_message(msg, ASL_MSG_FMT_RAW, ASL_TIME_FMT_SEC, ASL_ENCODE_ASL, &count);
 	if (str != NULL)
 	{
 		p = NULL;
@@ -374,7 +401,7 @@ vsyslog(int pri, const char *fmt, va_list ap)
 	{
 		count = 0;
 
-		p = asl_format_message(msg, ASL_MSG_FMT_STD, ASL_TIME_FMT_LCL, &count);
+		p = asl_format_message(msg, ASL_MSG_FMT_STD, ASL_TIME_FMT_LCL, ASL_ENCODE_SAFE, &count);
 		if (p != NULL)
 		{
 			struct iovec iov;

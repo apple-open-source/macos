@@ -105,6 +105,8 @@
 
 #define MSDOSFS_DFLTBSIZE       4096
 
+#define rounddown(x,y)	(((x)/(y))*(y))
+
 extern u_int16_t dos2unicode[32];
 
 extern long msdos_secondsWest;	/* In msdosfs_conv.c */
@@ -281,11 +283,12 @@ mountmsdosfs(devvp, mp, context)
 	struct byte_bpb33 *b33;
 	struct byte_bpb50 *b50;
 	struct byte_bpb710 *b710;
-	u_int8_t SecPerClust;
 	u_long fat_sectors;
 	u_long clusters;
+	uint32_t fsinfo = 0;
 	int	ronly, error;
 	struct vfsstatfs *vfsstatfs;
+	u_int8_t SecPerClust;
 	
 	/*
 	 * Disallow multiple mounts of the same device.
@@ -375,6 +378,11 @@ mountmsdosfs(devvp, mp, context)
 	}
 	pmp->pm_BlocksPerSec = pmp->pm_BytesPerSec / pmp->pm_BlockSize;
 
+	/* Get the device's physical sector size */
+	error = VNOP_IOCTL(devvp, DKIOCGETPHYSICALBLOCKSIZE, (caddr_t) &pmp->pm_PhysBlockSize, 0, context);
+	if (error)
+		pmp->pm_PhysBlockSize = pmp->pm_BlockSize;
+	
 	if (pmp->pm_Sectors == 0) {
 		pmp->pm_HugeSectors = getulong(b50->bpbHugeSectors);
 	} else {
@@ -420,7 +428,7 @@ mountmsdosfs(devvp, mp, context)
 		pmp->pm_rootdirblk = getulong(b710->bpbRootClust);
 		pmp->pm_firstcluster = pmp->pm_ResSectors
 			+ (pmp->pm_FATs * fat_sectors);
-		pmp->pm_fsinfo = getushort(b710->bpbFSInfo);
+		fsinfo = getushort(b710->bpbFSInfo);
 	} else {
                 /*
                  * Compute the root directory and first cluster as sectors
@@ -509,6 +517,35 @@ mountmsdosfs(devvp, mp, context)
 		goto error_exit;
 	}
 
+	/*
+	 * Compute an "optimal" I/O size based on the largest I/O that both
+	 * UBC and the device can handle.
+	 */
+	{
+		u_int32_t	temp_size;
+		struct vfsioattr ioattr;
+
+		pmp->pm_iosize = ubc_upl_maxbufsize();
+		vfs_ioattr(mp, &ioattr);
+		if (ioattr.io_maxreadcnt < pmp->pm_iosize)
+			pmp->pm_iosize = ioattr.io_maxreadcnt;
+		if (ioattr.io_maxwritecnt < pmp->pm_iosize)
+			pmp->pm_iosize = ioattr.io_maxwritecnt;
+		temp_size = ioattr.io_segreadcnt * ioattr.io_maxsegreadsize;
+		if (temp_size < pmp->pm_iosize)
+			pmp->pm_iosize = temp_size;
+		temp_size = ioattr.io_segwritecnt * ioattr.io_maxsegwritesize;
+		if (temp_size < pmp->pm_iosize)
+			pmp->pm_iosize = temp_size;
+		
+		/*
+		 * If the device returned bogus values, like zeroes, pin the optimal
+		 * size to the cluster size.
+		 */
+		if (pmp->pm_iosize < pmp->pm_bpcluster)
+			pmp->pm_iosize = pmp->pm_bpcluster;
+	}
+	
 	/* Copy volume label from boot sector into mount point */
 	{
 		struct extboot *extboot;
@@ -555,25 +592,48 @@ mountmsdosfs(devvp, mp, context)
 	/*
 	 * Check FSInfo.
 	 */
-	if (pmp->pm_fsinfo) {
+	if (fsinfo) {
 		struct fsinfo *fp;
-
+		u_int32_t log_per_phys;
+		
+		/* Convert FSInfo logical sector number to device block number */
+		fsinfo *= pmp->pm_BytesPerSec / pmp->pm_BlockSize;
+		
+		/*
+		 * %%% We want to read/write an entire physical sector when we access
+		 * %%% the FSInfo sector.  So precompute the starting logical sector
+		 * %%% number, size of the physical sector, and offset of FSInfo from
+		 * %%% the start of the physical sector.
+		 */
+		log_per_phys = pmp->pm_PhysBlockSize / pmp->pm_BlockSize;
+		if ((rounddown(fsinfo,log_per_phys) + log_per_phys) <= pmp->pm_ResSectors) {
+			pmp->pm_fsinfo_sector = rounddown(fsinfo,log_per_phys);
+			pmp->pm_fsinfo_size = pmp->pm_PhysBlockSize;
+			pmp->pm_fsinfo_offset = (fsinfo % log_per_phys) * pmp->pm_BlockSize;
+		} else {
+			pmp->pm_fsinfo_sector = fsinfo;
+			pmp->pm_fsinfo_size = pmp->pm_BlockSize;
+			pmp->pm_fsinfo_offset = 0;
+		}
+		
 		/*
 		 * The FSInfo sector occupies pm_BytesPerSec bytes on disk,
 		 * but only 512 of those have meaningful contents.  There's no point
 		 * in reading all pm_BytesPerSec bytes if the device block size is
 		 * smaller.  So just use the device block size here.
 		 */
-		error = buf_meta_bread(devvp, pmp->pm_fsinfo, pmp->pm_BlockSize, vfs_context_ucred(context), &bp);
+		error = buf_meta_bread(devvp, pmp->pm_fsinfo_sector, pmp->pm_fsinfo_size, vfs_context_ucred(context), &bp);
 		if (error)
 			goto error_exit;
-		fp = (struct fsinfo *)buf_dataptr(bp);
+		fp = (struct fsinfo *)(buf_dataptr(bp) + pmp->pm_fsinfo_offset);
 		if (!bcmp(fp->fsisig1, "RRaA", 4)
 		    && !bcmp(fp->fsisig2, "rrAa", 4)
-		    && !bcmp(fp->fsisig3, "\0\0\125\252", 4))
+		    && !bcmp(fp->fsisig3, "\0\0\125\252", 4)) {
 			pmp->pm_nxtfree = getulong(fp->fsinxtfree);
-		else
-			pmp->pm_fsinfo = 0;
+		} else {
+			printf("mountmsdosfs: FSInfo has bad signature\n");
+			pmp->pm_fsinfo_size = 0;
+		}
 		buf_brelse(bp);
 		bp = NULL;
 	}
@@ -632,7 +692,7 @@ mountmsdosfs(devvp, mp, context)
 	 */
 	vfsstatfs = vfs_statfs(mp);
 	vfsstatfs->f_bsize = pmp->pm_bpcluster;
-	vfsstatfs->f_iosize = pmp->pm_bpcluster;
+	vfsstatfs->f_iosize = pmp->pm_iosize;
 	/* Clusters are numbered from 2..pm_maxcluster, so pm_maxcluster - 2 + 1 of them */
 	vfsstatfs->f_blocks = pmp->pm_maxcluster - 1;
 	vfsstatfs->f_fsid.val[0] = (long)dev;
@@ -830,7 +890,7 @@ msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context)
 	/* FAT doesn't track the object counts */
 	
 	VFSATTR_RETURN(attr, f_bsize,  pmp->pm_bpcluster);
-	VFSATTR_RETURN(attr, f_iosize, ubc_upl_maxbufsize());
+	VFSATTR_RETURN(attr, f_iosize, pmp->pm_iosize);
 	/* Clusters are numbered from 2..pm_maxcluster, so pm_maxcluster - 2 + 1 of them */
 	VFSATTR_RETURN(attr, f_blocks, pmp->pm_maxcluster - 1);
 	VFSATTR_RETURN(attr, f_bfree,  pmp->pm_freeclustercount);

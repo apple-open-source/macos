@@ -1,0 +1,91 @@
+Patch from Sergey Poznyakoff <gray@mirddin.farlep.net> for cpio
+based on patch:
+2007-08-15  Dmitry V. Levin <ldv@owl.openwall.com>
+
+        Do not use alloca to avoid stack overflow with untrusted input.
+
+        * lib/paxnames.c (hash_string_insert_direct): New function.
+        (hash_string_insert): Use it.
+        (hash_string_insert_data): New function.
+        (safer_name_suffix): Use it instead of hash_string_insert()
+        and alloca().
+
+Index: src/names.c
+===================================================================
+--- src/names.c.orig
++++ src/names.c
+@@ -958,15 +958,27 @@ hash_string_compare (void const *name1, 
+   return strcmp (name1, name2) == 0;
+ }
+ 
+-/* Return zero if TABLE contains a copy of STRING; otherwise, insert a
+-   copy of STRING to TABLE and return 1.  */
++/* Return zero if TABLE contains a LEN-character long prefix of STRING,
++   otherwise, insert a newly allocated copy of this prefix to TABLE and
++   return 1.  If RETURN_PREFIX is not NULL, point it to the allocated
++   copy. */
+ static bool
+-hash_string_insert (Hash_table **table, char const *string)
++hash_string_insert_prefix (Hash_table **table, char const *string, size_t len,
++                          const char **return_prefix)
+ {
+   Hash_table *t = *table;
+-  char *s = xstrdup (string);
++  char *s;
+   char *e;
+ 
++  if (len)
++    {
++      s = xmalloc (len + 1);
++      memcpy (s, string, len);
++      s[len] = 0;
++    }
++  else
++    s = xstrdup (string);
++
+   if (! ((t
+ 	  || (*table = t = hash_initialize (0, 0, hash_string_hasher,
+ 					    hash_string_compare, 0)))
+@@ -974,7 +986,11 @@ hash_string_insert (Hash_table **table, 
+     xalloc_die ();
+ 
+   if (e == s)
+-    return 1;
++    {
++      if (return_prefix)
++       *return_prefix = s;
++      return 1;
++    }
+   else
+     {
+       free (s);
+@@ -982,6 +998,14 @@ hash_string_insert (Hash_table **table, 
+     }
+ }
+ 
++/* Return zero if TABLE contains a copy of STRING; otherwise, insert a
++   copy of STRING to TABLE and return 1.  */
++bool
++hash_string_insert (Hash_table **table, char const *string)
++{
++  return hash_string_insert_prefix (table, string, 0, NULL);
++}
++
+ /* Return 1 if TABLE contains STRING.  */
+ static bool
+ hash_string_lookup (Hash_table const *table, char const *string)
+@@ -1082,11 +1106,9 @@ safer_name_suffix (char const *file_name
+ 
+       if (prefix_len)
+ 	{
+-	  char *prefix = alloca (prefix_len + 1);
+-	  memcpy (prefix, file_name, prefix_len);
+-	  prefix[prefix_len] = '\0';
+-
+-	  if (hash_string_insert (&prefix_table[link_target], prefix))
++         const char *prefix;
++         if (hash_string_insert_prefix (&prefix_table[link_target], file_name,
++                                        prefix_len, &prefix))
+ 	    {
+ 	      static char const *const diagnostic[] =
+ 	      {

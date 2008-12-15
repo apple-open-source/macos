@@ -1,0 +1,353 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C1DE8AD50DD62D5A00FE277E /* i82557.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A81C76C0097A0B111CA2928 /* i82557.h */; };
+		C1DE8AD60DD62D5A00FE277E /* i82557eeprom.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A81C76E0097A0B111CA2928 /* i82557eeprom.h */; };
+		C1DE8AD70DD62D5A00FE277E /* i82557HW.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A81C76F0097A0B111CA2928 /* i82557HW.h */; };
+		C1DE8AD80DD62D5A00FE277E /* i82557Inline.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A81C7700097A0B111CA2928 /* i82557Inline.h */; };
+		C1DE8AD90DD62D5A00FE277E /* i82557PHY.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A81C7720097A0B111CA2928 /* i82557PHY.h */; };
+		C1DE8ADD0DD62D5A00FE277E /* i82557.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3A81C76B0097A0B111CA2928 /* i82557.cpp */; };
+		C1DE8ADE0DD62D5A00FE277E /* i82557eeprom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3A81C76D0097A0B111CA2928 /* i82557eeprom.cpp */; };
+		C1DE8ADF0DD62D5A00FE277E /* i82557PHY.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3A81C7710097A0B111CA2928 /* i82557PHY.cpp */; };
+		C1DE8AE00DD62D5A00FE277E /* i82557Private.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3A81C7730097A0B111CA2928 /* i82557Private.cpp */; };
+		C1DE8AE10DD62D5A00FE277E /* i82557PM.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B913377B01AAD9B708CA29FD /* i82557PM.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		3A81C76B0097A0B111CA2928 /* i82557.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = i82557.cpp; sourceTree = "<group>"; };
+		3A81C76C0097A0B111CA2928 /* i82557.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = i82557.h; sourceTree = "<group>"; };
+		3A81C76D0097A0B111CA2928 /* i82557eeprom.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = i82557eeprom.cpp; sourceTree = "<group>"; };
+		3A81C76E0097A0B111CA2928 /* i82557eeprom.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = i82557eeprom.h; sourceTree = "<group>"; };
+		3A81C76F0097A0B111CA2928 /* i82557HW.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = i82557HW.h; sourceTree = "<group>"; };
+		3A81C7700097A0B111CA2928 /* i82557Inline.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = i82557Inline.h; sourceTree = "<group>"; };
+		3A81C7710097A0B111CA2928 /* i82557PHY.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = i82557PHY.cpp; sourceTree = "<group>"; };
+		3A81C7720097A0B111CA2928 /* i82557PHY.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = i82557PHY.h; sourceTree = "<group>"; };
+		3A81C7730097A0B111CA2928 /* i82557Private.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = i82557Private.cpp; sourceTree = "<group>"; };
+		B913377B01AAD9B708CA29FD /* i82557PM.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = i82557PM.cpp; sourceTree = "<group>"; };
+		C1DE8AE90DD62D5A00FE277E /* Info-AppleIntel8255x.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleIntel8255x.plist"; sourceTree = "<group>"; };
+		C1DE8AEA0DD62D5A00FE277E /* AppleIntel8255x.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleIntel8255x.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C1DE8AE20DD62D5A00FE277E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		089C166AFE841209C02AAC07 /* AppleIntel8255x */ = {
+			isa = PBXGroup;
+			children = (
+				247142CAFF3F8F9811CA285C /* Source */,
+				089C167CFE841241C02AAC07 /* Resources */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+				C1DE8AE90DD62D5A00FE277E /* Info-AppleIntel8255x.plist */,
+			);
+			name = AppleIntel8255x;
+			sourceTree = "<group>";
+		};
+		089C167CFE841241C02AAC07 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C1DE8AEA0DD62D5A00FE277E /* AppleIntel8255x.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		247142CAFF3F8F9811CA285C /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				3A81C76B0097A0B111CA2928 /* i82557.cpp */,
+				3A81C76C0097A0B111CA2928 /* i82557.h */,
+				3A81C76D0097A0B111CA2928 /* i82557eeprom.cpp */,
+				3A81C76E0097A0B111CA2928 /* i82557eeprom.h */,
+				3A81C76F0097A0B111CA2928 /* i82557HW.h */,
+				3A81C7700097A0B111CA2928 /* i82557Inline.h */,
+				3A81C7710097A0B111CA2928 /* i82557PHY.cpp */,
+				3A81C7720097A0B111CA2928 /* i82557PHY.h */,
+				3A81C7730097A0B111CA2928 /* i82557Private.cpp */,
+				B913377B01AAD9B708CA29FD /* i82557PM.cpp */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		C1DE8AD40DD62D5A00FE277E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1DE8AD50DD62D5A00FE277E /* i82557.h in Headers */,
+				C1DE8AD60DD62D5A00FE277E /* i82557eeprom.h in Headers */,
+				C1DE8AD70DD62D5A00FE277E /* i82557HW.h in Headers */,
+				C1DE8AD80DD62D5A00FE277E /* i82557Inline.h in Headers */,
+				C1DE8AD90DD62D5A00FE277E /* i82557PHY.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		C1DE8AD20DD62D5A00FE277E /* AppleIntel8255x */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C1DE8AE50DD62D5A00FE277E /* Build configuration list for PBXNativeTarget "AppleIntel8255x" */;
+			buildPhases = (
+				C1DE8AD30DD62D5A00FE277E /* ShellScript */,
+				C1DE8AD40DD62D5A00FE277E /* Headers */,
+				C1DE8ADA0DD62D5A00FE277E /* Resources */,
+				C1DE8ADC0DD62D5A00FE277E /* Sources */,
+				C1DE8AE20DD62D5A00FE277E /* Frameworks */,
+				C1DE8AE30DD62D5A00FE277E /* Rez */,
+				C1DE8AE40DD62D5A00FE277E /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleIntel8255x;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
+			productName = AppleIntel8255x;
+			productReference = C1DE8AEA0DD62D5A00FE277E /* AppleIntel8255x.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+			};
+			buildConfigurationList = C138BA930DD62D280044A880 /* Build configuration list for PBXProject "AppleIntel8255x" */;
+			compatibilityVersion = "Xcode 3.1";
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* AppleIntel8255x */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C1DE8AD20DD62D5A00FE277E /* AppleIntel8255x */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C1DE8ADA0DD62D5A00FE277E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		C1DE8AE30DD62D5A00FE277E /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C1DE8AD30DD62D5A00FE277E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		C1DE8AE40DD62D5A00FE277E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C1DE8ADC0DD62D5A00FE277E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1DE8ADD0DD62D5A00FE277E /* i82557.cpp in Sources */,
+				C1DE8ADE0DD62D5A00FE277E /* i82557eeprom.cpp in Sources */,
+				C1DE8ADF0DD62D5A00FE277E /* i82557PHY.cpp in Sources */,
+				C1DE8AE00DD62D5A00FE277E /* i82557Private.cpp in Sources */,
+				C1DE8AE10DD62D5A00FE277E /* i82557PM.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C129532B0DD62EF2001DFC33 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = "Deployment-Embedded";
+		};
+		C129532C0DD62EF2001DFC33 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleIntel8255x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/PlugIns";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleIntel8255x;
+				MODULE_VERSION = 1.4;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleIntel8255x;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = i386;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = "Deployment-Embedded";
+		};
+		C138BA8D0DD62D280044A880 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		C138BA8E0DD62D280044A880 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		C1DE8AE60DD62D5A00FE277E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				I386 = YES;
+				INFOPLIST_FILE = "Info-AppleIntel8255x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleIntel8255x;
+				MODULE_VERSION = 1.4;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PPC = YES;
+				PRODUCT_NAME = AppleIntel8255x;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C1DE8AE70DD62D5A00FE277E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				I386 = YES;
+				INFOPLIST_FILE = "Info-AppleIntel8255x.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IONetworkingFamily.kext/Contents/PlugIns";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleIntel8255x;
+				MODULE_VERSION = 1.4;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PPC = YES;
+				PRODUCT_NAME = AppleIntel8255x;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C138BA930DD62D280044A880 /* Build configuration list for PBXProject "AppleIntel8255x" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C138BA8D0DD62D280044A880 /* Development */,
+				C138BA8E0DD62D280044A880 /* Deployment */,
+				C129532B0DD62EF2001DFC33 /* Deployment-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		C1DE8AE50DD62D5A00FE277E /* Build configuration list for PBXNativeTarget "AppleIntel8255x" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C1DE8AE60DD62D5A00FE277E /* Development */,
+				C1DE8AE70DD62D5A00FE277E /* Deployment */,
+				C129532C0DD62EF2001DFC33 /* Deployment-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

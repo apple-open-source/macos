@@ -75,7 +75,7 @@ IOUSBControllerIsochListElement::print(int level)
     USBLog(level, "IOUSBControllerIsochListElement::print - completion[%p, %p, %p]", _completion.action, _completion.target, _completion.parameter);
     USBLog(level, "IOUSBControllerIsochListElement::print - _lowLatency[%s]", _lowLatency ? "true" : "false");
     USBLog(level, "IOUSBControllerIsochListElement::print - frameNumber[%Ld]", _frameNumber);
-    USBLog(level, "IOUSBControllerIsochListElement::print - frameIndex[%ld]", _frameIndex);
+    USBLog(level, "IOUSBControllerIsochListElement::print - frameIndex[%d]", (uint32_t)_frameIndex);
 }
 
 

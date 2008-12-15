@@ -265,7 +265,7 @@ typedef struct
 } visualinfo_T;
 
 /*
- * stuctures used for undo
+ * structures used for undo
  */
 
 typedef struct u_entry u_entry_T;
@@ -278,6 +278,9 @@ struct u_entry
     linenr_T	ue_lcount;	/* linecount when u_save called */
     char_u	**ue_array;	/* array of lines in undo block */
     long	ue_size;	/* number of lines in ue_array */
+#ifdef U_DEBUG
+    int		ue_magic;	/* magic number to check allocation */
+#endif
 };
 
 struct u_header
@@ -300,6 +303,9 @@ struct u_header
     visualinfo_T uh_visual;	/* Visual areas before undo/after redo */
 #endif
     time_t	uh_time;	/* timestamp when the change was made */
+#ifdef U_DEBUG
+    int		uh_magic;	/* magic number to check allocation */
+#endif
 };
 
 /* values for uh_flags */
@@ -307,7 +313,7 @@ struct u_header
 #define UH_EMPTYBUF 0x02	/* buffer was empty */
 
 /*
- * stuctures used in undo.c
+ * structures used in undo.c
  */
 #if SIZEOF_INT > 2
 # define ALIGN_LONG	/* longword alignment and use filler byte */
@@ -999,6 +1005,7 @@ typedef long	varnumber_T;
 #else
 typedef int	varnumber_T;
 #endif
+typedef double	float_T;
 
 typedef struct listvar_S list_T;
 typedef struct dictvar_S dict_T;
@@ -1013,6 +1020,9 @@ typedef struct
     union
     {
 	varnumber_T	v_number;	/* number value */
+#ifdef FEAT_FLOAT
+	float_T		v_float;	/* floating number value */
+#endif
 	char_u		*v_string;	/* string value (can be NULL!) */
 	list_T		*v_list;	/* list value (can be NULL!) */
 	dict_T		*v_dict;	/* dict value (can be NULL!) */
@@ -1026,6 +1036,7 @@ typedef struct
 #define VAR_FUNC    3	/* "v_string" is function name */
 #define VAR_LIST    4	/* "v_list" is used */
 #define VAR_DICT    5	/* "v_dict" is used */
+#define VAR_FLOAT   6	/* "v_float" is used */
 
 /* Values for "v_lock". */
 #define VAR_LOCKED  1	/* locked with lock(), can use unlock() */
@@ -1453,6 +1464,7 @@ struct file_buffer
 #ifdef FEAT_MBYTE
     char_u	*b_start_fenc;	/* 'fileencoding' when edit started or NULL */
     int		b_bad_char;	/* "++bad=" argument when edit started or 0 */
+    int		b_start_bomb;	/* 'bomb' when it was read */
 #endif
 
 #ifdef FEAT_EVAL
@@ -1692,6 +1704,44 @@ struct frame_S
 #define FR_LEAF	0	/* frame is a leaf */
 #define FR_ROW	1	/* frame with a row of windows */
 #define FR_COL	2	/* frame with a column of windows */
+
+/*
+ * Struct used for highlighting 'hlsearch' matches, matches defined by
+ * ":match" and matches defined by match functions.
+ * For 'hlsearch' there is one pattern for all windows.  For ":match" and the
+ * match functions there is a different pattern for each window.
+ */
+typedef struct
+{
+    regmmatch_T	rm;	/* points to the regexp program; contains last found
+			   match (may continue in next line) */
+    buf_T	*buf;	/* the buffer to search for a match */
+    linenr_T	lnum;	/* the line to search for a match */
+    int		attr;	/* attributes to be used for a match */
+    int		attr_cur; /* attributes currently active in win_line() */
+    linenr_T	first_lnum;	/* first lnum to search for multi-line pat */
+    colnr_T	startcol; /* in win_line() points to char where HL starts */
+    colnr_T	endcol;	 /* in win_line() points to char where HL ends */
+#ifdef FEAT_RELTIME
+    proftime_T	tm;	/* for a time limit */
+#endif
+} match_T;
+
+/*
+ * matchitem_T provides a linked list for storing match items for ":match" and
+ * the match functions.
+ */
+typedef struct matchitem matchitem_T;
+struct matchitem
+{
+    matchitem_T	*next;
+    int		id;	    /* match ID */
+    int		priority;   /* match priority */
+    char_u	*pattern;   /* pattern to highlight */
+    int		hlg_id;	    /* highlight group ID */
+    regmmatch_T	match;	    /* regexp program for pattern */
+    match_T	hl;	    /* struct for doing the actual highlighting */
+};
 
 /*
  * Structure which contains all information that belongs to a window
@@ -1934,9 +1984,8 @@ struct window_S
 #endif
 
 #ifdef FEAT_SEARCH_EXTRA
-    regmmatch_T	w_match[3];	    /* regexp programs for ":match" */
-    char_u	*(w_match_pat[3]);  /* patterns for ":match" */
-    int		w_match_id[3];	    /* highlight IDs for ":match" */
+    matchitem_T	*w_match_head;		/* head of match list */
+    int		w_next_match_id;	/* next match ID */
 #endif
 
     /*
@@ -1946,7 +1995,7 @@ struct window_S
      * entry 2: newest
      */
     taggy_T	w_tagstack[TAGSTACKSIZE];	/* the tag stack */
-    int		w_tagstackidx;		/* idx just below activ entry */
+    int		w_tagstackidx;		/* idx just below active entry */
     int		w_tagstacklen;		/* number of tags on stack */
 
     /*
@@ -2027,6 +2076,10 @@ typedef struct oparg_S
 #endif
     colnr_T	start_vcol;	/* start col for block mode operator */
     colnr_T	end_vcol;	/* end col for block mode operator */
+#ifdef FEAT_AUTOCMD
+    long	prev_opcount;	/* ca.opcount saved for K_CURSORHOLD */
+    long	prev_count0;	/* ca.count0 saved for K_CURSORHOLD */
+#endif
 } oparg_T;
 
 /*
@@ -2213,18 +2266,20 @@ typedef int vimmenu_T;
 
 /*
  * Struct to save values in before executing autocommands for a buffer that is
- * not the current buffer.
+ * not the current buffer.  Without FEAT_AUTOCMD only "curbuf" is remembered.
  */
 typedef struct
 {
     buf_T	*save_buf;	/* saved curbuf */
+#ifdef FEAT_AUTOCMD
     buf_T	*new_curbuf;	/* buffer to be used */
     win_T	*save_curwin;	/* saved curwin, NULL if it didn't change */
     win_T	*new_curwin;	/* new curwin if save_curwin != NULL */
     pos_T	save_cursor;	/* saved cursor pos of save_curwin */
     linenr_T	save_topline;	/* saved topline of save_curwin */
-#ifdef FEAT_DIFF
+# ifdef FEAT_DIFF
     int		save_topfill;	/* saved topfill of save_curwin */
+# endif
 #endif
 } aco_save_T;
 

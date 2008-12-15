@@ -1,0 +1,112 @@
+.include "Platforms/${RC_TARGET_CONFIG}/Makefile.inc"
+
+${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h:
+	mkdir -p ${.TARGET:H}
+	echo creating ${.TARGET}
+	@echo '#ifndef _LIBC_FEATURES_H_' > ${.TARGET}
+	@echo '#define _LIBC_FEATURES_H_' >> ${.TARGET}
+	@echo >> ${.TARGET}
+.ifdef FEATURE_LEGACY_RUNE_APIS
+	@echo '#define LEGACY_RUNE_APIS 1' >> ${.TARGET}
+.else
+	@echo '/* #undef LEGACY_RUNE_APIS */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_LEGACY_UTMP_APIS
+	@echo '#define LEGACY_UTMP_APIS 1' >> ${.TARGET}
+.else
+	@echo '/* #undef LEGACY_UTMP_APIS */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_MOVE_LOCALTIME
+	@echo '#define UNIFDEF_MOVE_LOCALTIME 1' >> ${.TARGET}
+.else
+	@echo '/* #undef UNIFDEF_MOVE_LOCALTIME */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_ONLY_LONG_DOUBLE_IS_DOUBLE
+	@echo '#if !__DARWIN_LONG_DOUBLE_IS_DOUBLE' >> ${.TARGET}
+	@echo '#  error Feature mismatch: __DARWIN_LONG_DOUBLE_IS_DOUBLE == 0' >> ${.TARGET}
+	@echo '#endif /* !__DARWIN_LONG_DOUBLE_IS_DOUBLE */' >> ${.TARGET}
+	@echo '#define LDBL_COMPAT 1' >> ${.TARGET}
+.else
+	@echo '#if __DARWIN_LONG_DOUBLE_IS_DOUBLE' >> ${.TARGET}
+	@echo '#  if !defined(LDBL_COMPAT)' >> ${.TARGET}
+	@echo '#    error Feature mismatch: __DARWIN_LONG_DOUBLE_IS_DOUBLE == 1' >> ${.TARGET}
+	@echo '#  endif /* !LDBL_COMPAT */' >> ${.TARGET}
+	@echo '#elif defined(LDBL_COMPAT)' >> ${.TARGET}
+	@echo '#  error Feature mismatch: __DARWIN_LONG_DOUBLE_IS_DOUBLE == 0' >> ${.TARGET}
+	@echo '#endif /* LDBL_COMPAT */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_ONLY_1050_VARIANTS
+	@echo '#if !__DARWIN_ONLY_VERS_1050' >> ${.TARGET}
+	@echo '#  error Feature mismatch: __DARWIN_ONLY_VERS_1050 == 0' >> ${.TARGET}
+	@echo '#endif /* !__DARWIN_ONLY_VERS_1050 */' >> ${.TARGET}
+.else
+	@echo '#if __DARWIN_ONLY_VERS_1050' >> ${.TARGET}
+	@echo '#  error Feature mismatch: __DARWIN_ONLY_VERS_1050 == 1' >> ${.TARGET}
+	@echo '#endif /* __DARWIN_ONLY_VERS_1050 */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_ONLY_UNIX_CONFORMANCE
+	@echo '#if !__DARWIN_ONLY_UNIX_CONFORMANCE' >> ${.TARGET}
+	@echo '#  error Feature mismatch: __DARWIN_ONLY_UNIX_CONFORMANCE == 0' >> ${.TARGET}
+	@echo '#endif /* !__DARWIN_ONLY_UNIX_CONFORMANCE */' >> ${.TARGET}
+.else
+	@echo '#if __DARWIN_ONLY_UNIX_CONFORMANCE' >> ${.TARGET}
+	@echo '#  error Feature mismatch: __DARWIN_ONLY_UNIX_CONFORMANCE == 1' >> ${.TARGET}
+	@echo '#endif /* __DARWIN_ONLY_UNIX_CONFORMANCE */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_ONLY_64_BIT_INO_T
+	@echo '#if !__DARWIN_ONLY_64_BIT_INO_T' >> ${.TARGET}
+	@echo '#  error Feature mismatch: __DARWIN_ONLY_64_BIT_INO_T == 0' >> ${.TARGET}
+	@echo '#endif /* !__DARWIN_ONLY_64_BIT_INO_T */' >> ${.TARGET}
+.else
+	@echo '#if __DARWIN_ONLY_64_BIT_INO_T' >> ${.TARGET}
+	@echo '#  error Feature mismatch: __DARWIN_ONLY_64_BIT_INO_T == 1' >> ${.TARGET}
+	@echo '#endif /* __DARWIN_ONLY_64_BIT_INO_T */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_PATCH_3375657
+	@echo '#define __APPLE_PR3375657_HACK__ 1' >> ${.TARGET}
+.else
+	@echo '/* #undef __APPLE_PR3375657_HACK__ */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_PATCH_3417676
+	@echo '#define __APPLE_PR3417676_HACK__ 1' >> ${.TARGET}
+.else
+	@echo '/* #undef __APPLE_PR3417676_HACK__ */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_PATCH_5243343
+	@echo '#define PR_5243343 1' >> ${.TARGET}
+.else
+	@echo '/* #undef PR_5243343 */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_PLOCKSTAT
+	@echo '#define PLOCKSTAT 1' >> ${.TARGET}
+.else
+	@echo '/* #undef PLOCKSTAT */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_TIMEZONE_CHANGE_NOTIFICATION
+	@echo '#define NOTIFY_TZ 1' >> ${.TARGET}
+.else
+	@echo '/* #undef NOTIFY_TZ */' >> ${.TARGET}
+.endif
+	@echo >> ${.TARGET}
+	@echo '#endif /* _LIBC_FEATURES_H_ */' >> ${.TARGET}
+
+.ifdef FEATURE_LEGACY_64_APIS
+UNIFDEFARGS += -DUNIFDEF_LEGACY_64_APIS
+.else
+UNIFDEFARGS += -UUNIFDEF_LEGACY_64_APIS
+.endif
+.ifdef FEATURE_LEGACY_RUNE_APIS
+UNIFDEFARGS += -DUNIFDEF_LEGACY_RUNE_APIS
+.else
+UNIFDEFARGS += -UUNIFDEF_LEGACY_RUNE_APIS
+.endif
+.ifdef FEATURE_LEGACY_UTMP_APIS
+UNIFDEFARGS += -DUNIFDEF_LEGACY_UTMP_APIS
+.else
+UNIFDEFARGS += -UUNIFDEF_LEGACY_UTMP_APIS
+.endif
+.ifdef FEATURE_MOVE_LOCALTIME
+UNIFDEFARGS += -DUNIFDEF_MOVE_LOCALTIME
+.else
+UNIFDEFARGS += -UUNIFDEF_MOVE_LOCALTIME
+.endif

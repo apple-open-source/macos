@@ -211,6 +211,10 @@ SOURCE=.\testmd5.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\testmemcache.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\testpass.c
 # End Source File
 # Begin Source File

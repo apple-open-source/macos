@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,21 +20,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2001 Apple Computer, Inc.  All rights reserved. 
- *
  * ATATimerEventSource.cpp
  *
  *	implements a timer event source that can be checked from behind the 
  *  workloop for a timeout event.
  */
  
- /*
- * Revision History
- *
- * 
- *
- */ 
-
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
@@ -144,6 +135,10 @@ void ATATimerEventSource::disable()
 IOReturn ATATimerEventSource::wakeAtTime(UnsignedWide inAbstime)
 {
 	hasExpired = kTimedOutFalse;
-
-    return super::wakeAtTime( inAbstime );
+#if ABSOLUTETIME_SCALAR_TYPE
+	UInt64	abstime = (UInt64)inAbstime.hi << 32 | (UInt64)inAbstime.lo;
+    return super::wakeAtTime( abstime );
+#else
+	return super::wakeAtTime(inAbstime);
+#endif	/* ABSOLUTETIME_SCALAR_TYPE */
 }

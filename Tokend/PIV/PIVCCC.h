@@ -32,34 +32,36 @@
 #include "PIVDefines.h"
 #include <security_cdsa_utilities/cssmdata.h>
 #include <string>
+#include "byte_string.h"
+#include "PIVError.h"
 
 class PIVCCC
 {
 public:
-    PIVCCC();
+	PIVCCC(const byte_string &data) throw(PIVError);
     virtual ~PIVCCC();
-
-	virtual void set(const CssmData &data);
-	virtual void parse();
 
 	const unsigned char *identifier() const { return mIdentifier; }
 	std::string hexidentifier() const;
 	
 protected:
 
-	static const unsigned int maxCCCLength = 300;		// SP800-73-1 says 266, but make a bit larger
-	unsigned char *mData;
-	
 	// Reference: SP 800-73-1 Appendix A
 	CssmData mIdentifier;				// 0xF0	Card Identifier
+	// byte_string to contain the identifier
+	byte_string mIdentifier_content;
+
+#if 0
 	unsigned char ccversion;			// Capability Container version number
 	unsigned char cgversion;
 	unsigned char mAppCardURL[128];		// 0xF3	Applications CardURL
 	bool pkcs15;						// 0xF4	PKCS#15
 	unsigned char datamodelnumber;		// 0xF5	Registered Data Model number
 	unsigned char mACLRuleTable[17];	// 0xF6	Access Control Rule Table 
+#endif
 
 private:
+	void parse(const byte_string &data) throw(PIVError);
 };
 
 #endif /* !_PIVCCC_H_ */

@@ -144,6 +144,7 @@ private:
 	UInt32					linkStatusPrev;
 	UInt16					phyStatusPrev;
     OSDictionary			*mediumDict;
+	bool					fClientStarting;
 
 protected:
     IOFireWireNub			*fDevice;
@@ -387,6 +388,8 @@ public:
         @result void.
 	*/
 	void makeEthernetAddress(CSRNodeUniqueID *fwuid, UInt8 *bufAddr, UInt32 vendorID);
+	
+	bool clientStarting();
 };
 
 class recursiveScopeLock

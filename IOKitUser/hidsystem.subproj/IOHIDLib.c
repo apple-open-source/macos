@@ -36,15 +36,17 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
 
-kern_return_t
-IOFramebufferServerStart( void );
+#if !TARGET_OS_EMBEDDED
+kern_return_t IOFramebufferServerStart( void );
+#endif
 
 kern_return_t
 IOHIDCreateSharedMemory( io_connect_t connect,
 	unsigned int version )
 {
+#if !TARGET_OS_EMBEDDED
     IOFramebufferServerStart();
-
+#endif
     uint64_t inData = version;
     return IOConnectCallMethod( connect, 0,		// Index
 			   &inData, 1, NULL, 0,		// Input

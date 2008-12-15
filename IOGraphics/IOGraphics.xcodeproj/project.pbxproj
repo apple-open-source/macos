@@ -1,0 +1,1238 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		A68335660D450E6600307FE3 /* IOGraphics */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = A683356F0D450E6600307FE3 /* Build configuration list for PBXAggregateTarget "IOGraphics" */;
+			buildPhases = (
+			);
+			dependencies = (
+				A68335F80D450E6600307FE3 /* PBXTargetDependency */,
+				A68335FA0D450E6600307FE3 /* PBXTargetDependency */,
+				A68335FC0D450E6600307FE3 /* PBXTargetDependency */,
+				A68335FE0D450E6600307FE3 /* PBXTargetDependency */,
+			);
+			name = IOGraphics;
+			productName = IOGraphics;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		A68335760D450E6600307FE3 /* IOBootFramebuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 015488E600BB00FE11CA2A5F /* IOBootFramebuffer.h */; };
+		A68335770D450E6600307FE3 /* IOCursorBlits.h in Headers */ = {isa = PBXBuildFile; fileRef = 015488E700BB00FE11CA2A5F /* IOCursorBlits.h */; };
+		A68335780D450E6600307FE3 /* IODisplayWrangler.h in Headers */ = {isa = PBXBuildFile; fileRef = 015488EA00BB00FE11CA2A5F /* IODisplayWrangler.h */; };
+		A68335790D450E6600307FE3 /* IOFramebufferReallyPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 015488EC00BB00FE11CA2A5F /* IOFramebufferReallyPrivate.h */; };
+		A683357A0D450E6600307FE3 /* IOFramebufferUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 015488EE00BB00FE11CA2A5F /* IOFramebufferUserClient.h */; };
+		A683357B0D450E6600307FE3 /* IOAccelClientConnect.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154891800BB054811CA2A5F /* IOAccelClientConnect.h */; };
+		A683357C0D450E6600307FE3 /* IOAccelerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154891900BB054811CA2A5F /* IOAccelerator.h */; };
+		A683357D0D450E6600307FE3 /* IOAccelSurfaceConnect.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154891A00BB054811CA2A5F /* IOAccelSurfaceConnect.h */; };
+		A683357E0D450E6600307FE3 /* IOAccelTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154891B00BB054811CA2A5F /* IOAccelTypes.h */; };
+		A683357F0D450E6600307FE3 /* IODisplay.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154891C00BB054811CA2A5F /* IODisplay.h */; };
+		A68335800D450E6600307FE3 /* IOFramebuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154891D00BB054811CA2A5F /* IOFramebuffer.h */; };
+		A68335810D450E6600307FE3 /* IOFramebufferPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154891E00BB054811CA2A5F /* IOFramebufferPrivate.h */; };
+		A68335820D450E6600307FE3 /* IOFramebufferShared.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154891F00BB054811CA2A5F /* IOFramebufferShared.h */; };
+		A68335830D450E6600307FE3 /* IOGraphicsDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154892000BB054811CA2A5F /* IOGraphicsDevice.h */; };
+		A68335840D450E6600307FE3 /* IOGraphicsEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154892100BB054811CA2A5F /* IOGraphicsEngine.h */; };
+		A68335850D450E6600307FE3 /* IOGraphicsTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 0154892200BB054811CA2A5F /* IOGraphicsTypes.h */; };
+		A68335860D450E6600307FE3 /* IOGraphicsInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 16E5BDFC00BEE42611CA2A5F /* IOGraphicsInterface.h */; };
+		A68335870D450E6600307FE3 /* IOGraphicsInterfaceTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 16E5BDFD00BEE42611CA2A5F /* IOGraphicsInterfaceTypes.h */; };
+		A68335890D450E6600307FE3 /* IOAccelerator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015488E300BB00FE11CA2A5F /* IOAccelerator.cpp */; };
+		A683358A0D450E6600307FE3 /* IOBacklightDisplay.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015488E400BB00FE11CA2A5F /* IOBacklightDisplay.cpp */; };
+		A683358B0D450E6600307FE3 /* IOBootFramebuffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015488E500BB00FE11CA2A5F /* IOBootFramebuffer.cpp */; };
+		A683358C0D450E6600307FE3 /* IODisplay.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015488E800BB00FE11CA2A5F /* IODisplay.cpp */; };
+		A683358D0D450E6600307FE3 /* IODisplayWrangler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015488E900BB00FE11CA2A5F /* IODisplayWrangler.cpp */; };
+		A683358E0D450E6600307FE3 /* IOFramebuffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015488EB00BB00FE11CA2A5F /* IOFramebuffer.cpp */; };
+		A683358F0D450E6600307FE3 /* IOFramebufferUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015488ED00BB00FE11CA2A5F /* IOFramebufferUserClient.cpp */; };
+		A68335900D450E6600307FE3 /* IOGraphicsDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 015488EF00BB00FE11CA2A5F /* IOGraphicsDevice.cpp */; };
+		A68335910D450E6600307FE3 /* IOI2CInterface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 03F3AC4601BD482403CA2A5F /* IOI2CInterface.cpp */; };
+		A683359E0D450E6600307FE3 /* IOMacOSTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4E700BB072011CA2A5F /* IOMacOSTypes.h */; };
+		A683359F0D450E6600307FE3 /* IOMacOSVideo.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4E800BB072011CA2A5F /* IOMacOSVideo.h */; };
+		A68335A00D450E6600307FE3 /* IONDRVFramebuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4E900BB072011CA2A5F /* IONDRVFramebuffer.h */; };
+		A68335A10D450E6600307FE3 /* IONDRVSupport.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4EA00BB072011CA2A5F /* IONDRVSupport.h */; };
+		A68335A20D450E6600307FE3 /* IONDRV.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4ED00BB072011CA2A5F /* IONDRV.h */; };
+		A68335A30D450E6600307FE3 /* IOPEFInternals.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4F100BB072011CA2A5F /* IOPEFInternals.h */; };
+		A68335A40D450E6600307FE3 /* IOPEFLibraries.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4F200BB072011CA2A5F /* IOPEFLibraries.h */; };
+		A68335A50D450E6600307FE3 /* IOPEFLoader.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4F400BB072011CA2A5F /* IOPEFLoader.h */; };
+		A68335A70D450E6600307FE3 /* IONDRV.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 221BC4EC00BB072011CA2A5F /* IONDRV.cpp */; };
+		A68335A80D450E6600307FE3 /* IONDRVFramebuffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 221BC4EE00BB072011CA2A5F /* IONDRVFramebuffer.cpp */; };
+		A68335A90D450E6600307FE3 /* IONDRVLibraries.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 221BC4EF00BB072011CA2A5F /* IONDRVLibraries.cpp */; };
+		A68335AA0D450E6600307FE3 /* IOPEFInternals.c in Sources */ = {isa = PBXBuildFile; fileRef = 221BC4F000BB072011CA2A5F /* IOPEFInternals.c */; };
+		A68335AB0D450E6600307FE3 /* IOPEFLoader.c in Sources */ = {isa = PBXBuildFile; fileRef = 221BC4F300BB072011CA2A5F /* IOPEFLoader.c */; };
+		A68335B70D450E6600307FE3 /* IOGraphicsTypesPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0347EDA701BC52A103CA2A5F /* IOGraphicsTypesPrivate.h */; };
+		A68335B80D450E6600307FE3 /* IOI2CInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 03E63E0301BD474F03CA2A5F /* IOI2CInterface.h */; };
+		A68335B90D450E6600307FE3 /* IOI2CInterfacePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 03E63E0401BD474F03CA2A5F /* IOI2CInterfacePrivate.h */; };
+		A68335BE0D450E6600307FE3 /* IOAccelClientConnect.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891800BB054811CA2A5F /* IOAccelClientConnect.h */; };
+		A68335BF0D450E6600307FE3 /* IOAccelerator.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891900BB054811CA2A5F /* IOAccelerator.h */; };
+		A68335C00D450E6600307FE3 /* IOAccelSurfaceConnect.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891A00BB054811CA2A5F /* IOAccelSurfaceConnect.h */; };
+		A68335C10D450E6600307FE3 /* IOAccelTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891B00BB054811CA2A5F /* IOAccelTypes.h */; };
+		A68335C20D450E6600307FE3 /* IODisplay.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891C00BB054811CA2A5F /* IODisplay.h */; };
+		A68335C30D450E6600307FE3 /* IOFramebuffer.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891D00BB054811CA2A5F /* IOFramebuffer.h */; };
+		A68335C40D450E6600307FE3 /* IOFramebufferShared.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891F00BB054811CA2A5F /* IOFramebufferShared.h */; };
+		A68335C50D450E6600307FE3 /* IOGraphicsDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154892000BB054811CA2A5F /* IOGraphicsDevice.h */; };
+		A68335C60D450E6600307FE3 /* IOGraphicsEngine.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154892100BB054811CA2A5F /* IOGraphicsEngine.h */; };
+		A68335C70D450E6600307FE3 /* IOGraphicsTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154892200BB054811CA2A5F /* IOGraphicsTypes.h */; };
+		A68335C80D450E6600307FE3 /* IOGraphicsInterfaceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 16E5BDFD00BEE42611CA2A5F /* IOGraphicsInterfaceTypes.h */; };
+		A68335CA0D450E6600307FE3 /* IOAccelClientConnect.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891800BB054811CA2A5F /* IOAccelClientConnect.h */; };
+		A68335CB0D450E6600307FE3 /* IOAccelSurfaceConnect.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891A00BB054811CA2A5F /* IOAccelSurfaceConnect.h */; };
+		A68335CC0D450E6600307FE3 /* IOAccelTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891B00BB054811CA2A5F /* IOAccelTypes.h */; };
+		A68335CD0D450E6600307FE3 /* IOFramebufferShared.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154891F00BB054811CA2A5F /* IOFramebufferShared.h */; };
+		A68335CE0D450E6600307FE3 /* IOGraphicsEngine.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154892100BB054811CA2A5F /* IOGraphicsEngine.h */; };
+		A68335CF0D450E6600307FE3 /* IOGraphicsTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0154892200BB054811CA2A5F /* IOGraphicsTypes.h */; };
+		A68335D00D450E6600307FE3 /* IOGraphicsInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 16E5BDFC00BEE42611CA2A5F /* IOGraphicsInterface.h */; };
+		A68335D10D450E6600307FE3 /* IOGraphicsInterfaceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 16E5BDFD00BEE42611CA2A5F /* IOGraphicsInterfaceTypes.h */; };
+		A68335D30D450E6600307FE3 /* IOI2CInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03E63E0301BD474F03CA2A5F /* IOI2CInterface.h */; };
+		A68335D50D450E6600307FE3 /* IOI2CInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03E63E0301BD474F03CA2A5F /* IOI2CInterface.h */; };
+		A68335D70D450E6600307FE3 /* IOGraphicsTypesPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0347EDA701BC52A103CA2A5F /* IOGraphicsTypesPrivate.h */; };
+		A68335D90D450E6600307FE3 /* IOGraphicsTypesPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0347EDA701BC52A103CA2A5F /* IOGraphicsTypesPrivate.h */; };
+		A68335DB0D450E6600307FE3 /* IOI2CInterfacePrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03E63E0401BD474F03CA2A5F /* IOI2CInterfacePrivate.h */; };
+		A68335DD0D450E6600307FE3 /* IOI2CInterfacePrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03E63E0401BD474F03CA2A5F /* IOI2CInterfacePrivate.h */; };
+		A68335EA0D450E6600307FE3 /* IOMacOSTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 221BC4E700BB072011CA2A5F /* IOMacOSTypes.h */; };
+		A68335EB0D450E6600307FE3 /* IOMacOSVideo.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 221BC4E800BB072011CA2A5F /* IOMacOSVideo.h */; };
+		A68335EC0D450E6600307FE3 /* IONDRVFramebuffer.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 221BC4E900BB072011CA2A5F /* IONDRVFramebuffer.h */; };
+		A68335ED0D450E6600307FE3 /* IONDRVSupport.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 221BC4EA00BB072011CA2A5F /* IONDRVSupport.h */; };
+		A68335EF0D450E6600307FE3 /* IOMacOSTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 221BC4E700BB072011CA2A5F /* IOMacOSTypes.h */; };
+		A68335F00D450E6600307FE3 /* IOMacOSVideo.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 221BC4E800BB072011CA2A5F /* IOMacOSVideo.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A68335F70D450E6600307FE3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 015488CC00BAFF6C11CA2A5F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A68335730D450E6600307FE3;
+			remoteInfo = "IOGraphicsFamily (Upgraded)";
+		};
+		A68335F90D450E6600307FE3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 015488CC00BAFF6C11CA2A5F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A683359B0D450E6600307FE3;
+			remoteInfo = "IONDRVSupport (Upgraded)";
+		};
+		A68335FB0D450E6600307FE3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 015488CC00BAFF6C11CA2A5F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A68335B50D450E6600307FE3;
+			remoteInfo = "IOGraphics Headers (Upgraded)";
+		};
+		A68335FD0D450E6600307FE3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 015488CC00BAFF6C11CA2A5F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A68335E40D450E6600307FE3;
+			remoteInfo = "IONDRVSupport Headers (Upgraded)";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A68335BD0D450E6600307FE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/graphics";
+			dstSubfolderSpec = 0;
+			files = (
+				A68335BE0D450E6600307FE3 /* IOAccelClientConnect.h in CopyFiles */,
+				A68335BF0D450E6600307FE3 /* IOAccelerator.h in CopyFiles */,
+				A68335C00D450E6600307FE3 /* IOAccelSurfaceConnect.h in CopyFiles */,
+				A68335C10D450E6600307FE3 /* IOAccelTypes.h in CopyFiles */,
+				A68335C20D450E6600307FE3 /* IODisplay.h in CopyFiles */,
+				A68335C30D450E6600307FE3 /* IOFramebuffer.h in CopyFiles */,
+				A68335C40D450E6600307FE3 /* IOFramebufferShared.h in CopyFiles */,
+				A68335C50D450E6600307FE3 /* IOGraphicsDevice.h in CopyFiles */,
+				A68335C60D450E6600307FE3 /* IOGraphicsEngine.h in CopyFiles */,
+				A68335C70D450E6600307FE3 /* IOGraphicsTypes.h in CopyFiles */,
+				A68335C80D450E6600307FE3 /* IOGraphicsInterfaceTypes.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A68335C90D450E6600307FE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/graphics";
+			dstSubfolderSpec = 0;
+			files = (
+				A68335CA0D450E6600307FE3 /* IOAccelClientConnect.h in CopyFiles */,
+				A68335CB0D450E6600307FE3 /* IOAccelSurfaceConnect.h in CopyFiles */,
+				A68335CC0D450E6600307FE3 /* IOAccelTypes.h in CopyFiles */,
+				A68335CD0D450E6600307FE3 /* IOFramebufferShared.h in CopyFiles */,
+				A68335CE0D450E6600307FE3 /* IOGraphicsEngine.h in CopyFiles */,
+				A68335CF0D450E6600307FE3 /* IOGraphicsTypes.h in CopyFiles */,
+				A68335D00D450E6600307FE3 /* IOGraphicsInterface.h in CopyFiles */,
+				A68335D10D450E6600307FE3 /* IOGraphicsInterfaceTypes.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A68335D20D450E6600307FE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/i2c";
+			dstSubfolderSpec = 0;
+			files = (
+				A68335D30D450E6600307FE3 /* IOI2CInterface.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A68335D40D450E6600307FE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/i2c";
+			dstSubfolderSpec = 0;
+			files = (
+				A68335D50D450E6600307FE3 /* IOI2CInterface.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A68335D60D450E6600307FE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/graphics";
+			dstSubfolderSpec = 0;
+			files = (
+				A68335D70D450E6600307FE3 /* IOGraphicsTypesPrivate.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A68335D80D450E6600307FE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/graphics";
+			dstSubfolderSpec = 0;
+			files = (
+				A68335D90D450E6600307FE3 /* IOGraphicsTypesPrivate.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A68335DA0D450E6600307FE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/i2c";
+			dstSubfolderSpec = 0;
+			files = (
+				A68335DB0D450E6600307FE3 /* IOI2CInterfacePrivate.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A68335DC0D450E6600307FE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/i2c";
+			dstSubfolderSpec = 0;
+			files = (
+				A68335DD0D450E6600307FE3 /* IOI2CInterfacePrivate.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A68335E90D450E6600307FE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/ndrvsupport";
+			dstSubfolderSpec = 0;
+			files = (
+				A68335EA0D450E6600307FE3 /* IOMacOSTypes.h in CopyFiles */,
+				A68335EB0D450E6600307FE3 /* IOMacOSVideo.h in CopyFiles */,
+				A68335EC0D450E6600307FE3 /* IONDRVFramebuffer.h in CopyFiles */,
+				A68335ED0D450E6600307FE3 /* IONDRVSupport.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A68335EE0D450E6600307FE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/ndrvsupport";
+			dstSubfolderSpec = 0;
+			files = (
+				A68335EF0D450E6600307FE3 /* IOMacOSTypes.h in CopyFiles */,
+				A68335F00D450E6600307FE3 /* IOMacOSVideo.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		015488E300BB00FE11CA2A5F /* IOAccelerator.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOAccelerator.cpp; sourceTree = "<group>"; };
+		015488E400BB00FE11CA2A5F /* IOBacklightDisplay.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOBacklightDisplay.cpp; sourceTree = "<group>"; };
+		015488E500BB00FE11CA2A5F /* IOBootFramebuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOBootFramebuffer.cpp; sourceTree = "<group>"; };
+		015488E600BB00FE11CA2A5F /* IOBootFramebuffer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOBootFramebuffer.h; sourceTree = "<group>"; };
+		015488E700BB00FE11CA2A5F /* IOCursorBlits.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOCursorBlits.h; sourceTree = "<group>"; };
+		015488E800BB00FE11CA2A5F /* IODisplay.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IODisplay.cpp; sourceTree = "<group>"; };
+		015488E900BB00FE11CA2A5F /* IODisplayWrangler.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IODisplayWrangler.cpp; sourceTree = "<group>"; };
+		015488EA00BB00FE11CA2A5F /* IODisplayWrangler.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IODisplayWrangler.h; sourceTree = "<group>"; };
+		015488EB00BB00FE11CA2A5F /* IOFramebuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFramebuffer.cpp; sourceTree = "<group>"; };
+		015488EC00BB00FE11CA2A5F /* IOFramebufferReallyPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFramebufferReallyPrivate.h; sourceTree = "<group>"; };
+		015488ED00BB00FE11CA2A5F /* IOFramebufferUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFramebufferUserClient.cpp; sourceTree = "<group>"; };
+		015488EE00BB00FE11CA2A5F /* IOFramebufferUserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFramebufferUserClient.h; sourceTree = "<group>"; };
+		015488EF00BB00FE11CA2A5F /* IOGraphicsDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOGraphicsDevice.cpp; sourceTree = "<group>"; };
+		0154891800BB054811CA2A5F /* IOAccelClientConnect.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAccelClientConnect.h; sourceTree = "<group>"; };
+		0154891900BB054811CA2A5F /* IOAccelerator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAccelerator.h; sourceTree = "<group>"; };
+		0154891A00BB054811CA2A5F /* IOAccelSurfaceConnect.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAccelSurfaceConnect.h; sourceTree = "<group>"; };
+		0154891B00BB054811CA2A5F /* IOAccelTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOAccelTypes.h; sourceTree = "<group>"; };
+		0154891C00BB054811CA2A5F /* IODisplay.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IODisplay.h; sourceTree = "<group>"; };
+		0154891D00BB054811CA2A5F /* IOFramebuffer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFramebuffer.h; sourceTree = "<group>"; };
+		0154891E00BB054811CA2A5F /* IOFramebufferPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFramebufferPrivate.h; sourceTree = "<group>"; };
+		0154891F00BB054811CA2A5F /* IOFramebufferShared.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFramebufferShared.h; sourceTree = "<group>"; };
+		0154892000BB054811CA2A5F /* IOGraphicsDevice.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGraphicsDevice.h; sourceTree = "<group>"; };
+		0154892100BB054811CA2A5F /* IOGraphicsEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGraphicsEngine.h; sourceTree = "<group>"; };
+		0154892200BB054811CA2A5F /* IOGraphicsTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGraphicsTypes.h; sourceTree = "<group>"; };
+		0347EDA701BC52A103CA2A5F /* IOGraphicsTypesPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGraphicsTypesPrivate.h; sourceTree = "<group>"; };
+		03E63E0301BD474F03CA2A5F /* IOI2CInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CInterface.h; sourceTree = "<group>"; };
+		03E63E0401BD474F03CA2A5F /* IOI2CInterfacePrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CInterfacePrivate.h; sourceTree = "<group>"; };
+		03F3AC4601BD482403CA2A5F /* IOI2CInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CInterface.cpp; sourceTree = "<group>"; };
+		03F3AC4701BD482403CA2A5F /* IONDRVI2CInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = file; path = IONDRVI2CInterface.cpp; sourceTree = "<group>"; };
+		03F3AC4801BD482403CA2A5F /* IONDRVI2CInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = file; path = IONDRVI2CInterface.h; sourceTree = "<group>"; };
+		16E5BDFC00BEE42611CA2A5F /* IOGraphicsInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGraphicsInterface.h; sourceTree = "<group>"; };
+		16E5BDFD00BEE42611CA2A5F /* IOGraphicsInterfaceTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGraphicsInterfaceTypes.h; sourceTree = "<group>"; };
+		221BC4E700BB072011CA2A5F /* IOMacOSTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOMacOSTypes.h; sourceTree = "<group>"; };
+		221BC4E800BB072011CA2A5F /* IOMacOSVideo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOMacOSVideo.h; sourceTree = "<group>"; };
+		221BC4E900BB072011CA2A5F /* IONDRVFramebuffer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONDRVFramebuffer.h; sourceTree = "<group>"; };
+		221BC4EA00BB072011CA2A5F /* IONDRVSupport.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONDRVSupport.h; sourceTree = "<group>"; };
+		221BC4EC00BB072011CA2A5F /* IONDRV.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRV.cpp; sourceTree = "<group>"; };
+		221BC4ED00BB072011CA2A5F /* IONDRV.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONDRV.h; sourceTree = "<group>"; };
+		221BC4EE00BB072011CA2A5F /* IONDRVFramebuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVFramebuffer.cpp; sourceTree = "<group>"; };
+		221BC4EF00BB072011CA2A5F /* IONDRVLibraries.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVLibraries.cpp; sourceTree = "<group>"; };
+		221BC4F000BB072011CA2A5F /* IOPEFInternals.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOPEFInternals.c; sourceTree = "<group>"; };
+		221BC4F100BB072011CA2A5F /* IOPEFInternals.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPEFInternals.h; sourceTree = "<group>"; };
+		221BC4F200BB072011CA2A5F /* IOPEFLibraries.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPEFLibraries.h; sourceTree = "<group>"; };
+		221BC4F300BB072011CA2A5F /* IOPEFLoader.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOPEFLoader.c; sourceTree = "<group>"; };
+		221BC4F400BB072011CA2A5F /* IOPEFLoader.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPEFLoader.h; sourceTree = "<group>"; };
+		A68335990D450E6600307FE3 /* Info-IOGraphicsFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOGraphicsFamily.plist"; sourceTree = "<group>"; };
+		A683359A0D450E6600307FE3 /* IOGraphicsFamily.kext */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.kernel-extension"; path = IOGraphicsFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		A68335B30D450E6600307FE3 /* Info-IONDRVSupport.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IONDRVSupport.plist"; sourceTree = "<group>"; };
+		A68335B40D450E6600307FE3 /* IONDRVSupport.kext */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.kernel-extension"; path = IONDRVSupport.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		A68335E20D450E6600307FE3 /* Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Headers; sourceTree = BUILT_PRODUCTS_DIR; };
+		A68335F50D450E6600307FE3 /* IONDRVSupport Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IONDRVSupport Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A68335930D450E6600307FE3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A68335AD0D450E6600307FE3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		015488CD00BAFF6C11CA2A5F = {
+			isa = PBXGroup;
+			children = (
+				015488CF00BB000A11CA2A5F /* Products */,
+				015488E200BB00FE11CA2A5F /* IOGraphicsFamily */,
+				221BC4E400BB072011CA2A5F /* IONDRVSupport */,
+				A68335990D450E6600307FE3 /* Info-IOGraphicsFamily.plist */,
+				A68335B30D450E6600307FE3 /* Info-IONDRVSupport.plist */,
+			);
+			sourceTree = "<group>";
+		};
+		015488CF00BB000A11CA2A5F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A683359A0D450E6600307FE3 /* IOGraphicsFamily.kext */,
+				A68335B40D450E6600307FE3 /* IONDRVSupport.kext */,
+				A68335E20D450E6600307FE3 /* Headers */,
+				A68335F50D450E6600307FE3 /* IONDRVSupport Headers */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		015488E200BB00FE11CA2A5F /* IOGraphicsFamily */ = {
+			isa = PBXGroup;
+			children = (
+				0154891600BB054811CA2A5F /* IOKit */,
+				015488E300BB00FE11CA2A5F /* IOAccelerator.cpp */,
+				015488E400BB00FE11CA2A5F /* IOBacklightDisplay.cpp */,
+				015488E500BB00FE11CA2A5F /* IOBootFramebuffer.cpp */,
+				015488E600BB00FE11CA2A5F /* IOBootFramebuffer.h */,
+				015488E700BB00FE11CA2A5F /* IOCursorBlits.h */,
+				015488E800BB00FE11CA2A5F /* IODisplay.cpp */,
+				015488E900BB00FE11CA2A5F /* IODisplayWrangler.cpp */,
+				015488EA00BB00FE11CA2A5F /* IODisplayWrangler.h */,
+				015488EB00BB00FE11CA2A5F /* IOFramebuffer.cpp */,
+				015488EC00BB00FE11CA2A5F /* IOFramebufferReallyPrivate.h */,
+				015488ED00BB00FE11CA2A5F /* IOFramebufferUserClient.cpp */,
+				015488EE00BB00FE11CA2A5F /* IOFramebufferUserClient.h */,
+				015488EF00BB00FE11CA2A5F /* IOGraphicsDevice.cpp */,
+				03F3AC4601BD482403CA2A5F /* IOI2CInterface.cpp */,
+			);
+			path = IOGraphicsFamily;
+			sourceTree = "<group>";
+		};
+		0154891600BB054811CA2A5F /* IOKit */ = {
+			isa = PBXGroup;
+			children = (
+				0154891700BB054811CA2A5F /* graphics */,
+				03E63E0201BD474F03CA2A5F /* i2c */,
+			);
+			path = IOKit;
+			sourceTree = "<group>";
+		};
+		0154891700BB054811CA2A5F /* graphics */ = {
+			isa = PBXGroup;
+			children = (
+				0154891800BB054811CA2A5F /* IOAccelClientConnect.h */,
+				0154891900BB054811CA2A5F /* IOAccelerator.h */,
+				0154891A00BB054811CA2A5F /* IOAccelSurfaceConnect.h */,
+				0154891B00BB054811CA2A5F /* IOAccelTypes.h */,
+				0154891C00BB054811CA2A5F /* IODisplay.h */,
+				0154891D00BB054811CA2A5F /* IOFramebuffer.h */,
+				0154891E00BB054811CA2A5F /* IOFramebufferPrivate.h */,
+				0154891F00BB054811CA2A5F /* IOFramebufferShared.h */,
+				0154892000BB054811CA2A5F /* IOGraphicsDevice.h */,
+				0154892100BB054811CA2A5F /* IOGraphicsEngine.h */,
+				0154892200BB054811CA2A5F /* IOGraphicsTypes.h */,
+				16E5BDFC00BEE42611CA2A5F /* IOGraphicsInterface.h */,
+				16E5BDFD00BEE42611CA2A5F /* IOGraphicsInterfaceTypes.h */,
+				0347EDA701BC52A103CA2A5F /* IOGraphicsTypesPrivate.h */,
+			);
+			path = graphics;
+			sourceTree = "<group>";
+		};
+		03E63E0201BD474F03CA2A5F /* i2c */ = {
+			isa = PBXGroup;
+			children = (
+				03E63E0301BD474F03CA2A5F /* IOI2CInterface.h */,
+				03E63E0401BD474F03CA2A5F /* IOI2CInterfacePrivate.h */,
+			);
+			path = i2c;
+			sourceTree = "<group>";
+		};
+		221BC4E400BB072011CA2A5F /* IONDRVSupport */ = {
+			isa = PBXGroup;
+			children = (
+				221BC4E500BB072011CA2A5F /* IOKit */,
+				221BC4EC00BB072011CA2A5F /* IONDRV.cpp */,
+				221BC4ED00BB072011CA2A5F /* IONDRV.h */,
+				221BC4EE00BB072011CA2A5F /* IONDRVFramebuffer.cpp */,
+				221BC4EF00BB072011CA2A5F /* IONDRVLibraries.cpp */,
+				221BC4F000BB072011CA2A5F /* IOPEFInternals.c */,
+				221BC4F100BB072011CA2A5F /* IOPEFInternals.h */,
+				221BC4F200BB072011CA2A5F /* IOPEFLibraries.h */,
+				221BC4F300BB072011CA2A5F /* IOPEFLoader.c */,
+				221BC4F400BB072011CA2A5F /* IOPEFLoader.h */,
+				03F3AC4701BD482403CA2A5F /* IONDRVI2CInterface.cpp */,
+				03F3AC4801BD482403CA2A5F /* IONDRVI2CInterface.h */,
+			);
+			path = IONDRVSupport;
+			sourceTree = "<group>";
+		};
+		221BC4E500BB072011CA2A5F /* IOKit */ = {
+			isa = PBXGroup;
+			children = (
+				221BC4E600BB072011CA2A5F /* ndrvsupport */,
+			);
+			path = IOKit;
+			sourceTree = "<group>";
+		};
+		221BC4E600BB072011CA2A5F /* ndrvsupport */ = {
+			isa = PBXGroup;
+			children = (
+				221BC4E700BB072011CA2A5F /* IOMacOSTypes.h */,
+				221BC4E800BB072011CA2A5F /* IOMacOSVideo.h */,
+				221BC4E900BB072011CA2A5F /* IONDRVFramebuffer.h */,
+				221BC4EA00BB072011CA2A5F /* IONDRVSupport.h */,
+			);
+			path = ndrvsupport;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		A68335750D450E6600307FE3 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A68335760D450E6600307FE3 /* IOBootFramebuffer.h in Headers */,
+				A68335770D450E6600307FE3 /* IOCursorBlits.h in Headers */,
+				A68335780D450E6600307FE3 /* IODisplayWrangler.h in Headers */,
+				A68335790D450E6600307FE3 /* IOFramebufferReallyPrivate.h in Headers */,
+				A683357A0D450E6600307FE3 /* IOFramebufferUserClient.h in Headers */,
+				A683357B0D450E6600307FE3 /* IOAccelClientConnect.h in Headers */,
+				A683357C0D450E6600307FE3 /* IOAccelerator.h in Headers */,
+				A683357D0D450E6600307FE3 /* IOAccelSurfaceConnect.h in Headers */,
+				A683357E0D450E6600307FE3 /* IOAccelTypes.h in Headers */,
+				A683357F0D450E6600307FE3 /* IODisplay.h in Headers */,
+				A68335800D450E6600307FE3 /* IOFramebuffer.h in Headers */,
+				A68335810D450E6600307FE3 /* IOFramebufferPrivate.h in Headers */,
+				A68335820D450E6600307FE3 /* IOFramebufferShared.h in Headers */,
+				A68335830D450E6600307FE3 /* IOGraphicsDevice.h in Headers */,
+				A68335840D450E6600307FE3 /* IOGraphicsEngine.h in Headers */,
+				A68335850D450E6600307FE3 /* IOGraphicsTypes.h in Headers */,
+				A68335860D450E6600307FE3 /* IOGraphicsInterface.h in Headers */,
+				A68335870D450E6600307FE3 /* IOGraphicsInterfaceTypes.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A683359D0D450E6600307FE3 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A683359E0D450E6600307FE3 /* IOMacOSTypes.h in Headers */,
+				A683359F0D450E6600307FE3 /* IOMacOSVideo.h in Headers */,
+				A68335A00D450E6600307FE3 /* IONDRVFramebuffer.h in Headers */,
+				A68335A10D450E6600307FE3 /* IONDRVSupport.h in Headers */,
+				A68335A20D450E6600307FE3 /* IONDRV.h in Headers */,
+				A68335A30D450E6600307FE3 /* IOPEFInternals.h in Headers */,
+				A68335A40D450E6600307FE3 /* IOPEFLibraries.h in Headers */,
+				A68335A50D450E6600307FE3 /* IOPEFLoader.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A68335B60D450E6600307FE3 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A68335B70D450E6600307FE3 /* IOGraphicsTypesPrivate.h in Headers */,
+				A68335B80D450E6600307FE3 /* IOI2CInterface.h in Headers */,
+				A68335B90D450E6600307FE3 /* IOI2CInterfacePrivate.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A68335E50D450E6600307FE3 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		A68335730D450E6600307FE3 /* IOGraphicsFamily */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A68335950D450E6600307FE3 /* Build configuration list for PBXNativeTarget "IOGraphicsFamily" */;
+			buildPhases = (
+				A68335740D450E6600307FE3 /* ShellScript */,
+				A68335750D450E6600307FE3 /* Headers */,
+				A68335880D450E6600307FE3 /* Sources */,
+				A68335920D450E6600307FE3 /* Resources */,
+				A68335930D450E6600307FE3 /* Frameworks */,
+				A68335940D450E6600307FE3 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOGraphicsFamily;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IOGraphicsFamily;
+			productReference = A683359A0D450E6600307FE3 /* IOGraphicsFamily.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit.shallow";
+		};
+		A683359B0D450E6600307FE3 /* IONDRVSupport */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A68335AF0D450E6600307FE3 /* Build configuration list for PBXNativeTarget "IONDRVSupport" */;
+			buildPhases = (
+				A683359C0D450E6600307FE3 /* ShellScript */,
+				A683359D0D450E6600307FE3 /* Headers */,
+				A68335A60D450E6600307FE3 /* Sources */,
+				A68335AC0D450E6600307FE3 /* Resources */,
+				A68335AD0D450E6600307FE3 /* Frameworks */,
+				A68335AE0D450E6600307FE3 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IONDRVSupport;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = IONDRVSupport;
+			productReference = A68335B40D450E6600307FE3 /* IONDRVSupport.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit.shallow";
+		};
+		A68335B50D450E6600307FE3 /* IOGraphics Headers */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A68335DE0D450E6600307FE3 /* Build configuration list for PBXNativeTarget "IOGraphics Headers" */;
+			buildPhases = (
+				A68335B60D450E6600307FE3 /* Headers */,
+				A68335BD0D450E6600307FE3 /* CopyFiles */,
+				A68335C90D450E6600307FE3 /* CopyFiles */,
+				A68335D20D450E6600307FE3 /* CopyFiles */,
+				A68335D40D450E6600307FE3 /* CopyFiles */,
+				A68335D60D450E6600307FE3 /* CopyFiles */,
+				A68335D80D450E6600307FE3 /* CopyFiles */,
+				A68335DA0D450E6600307FE3 /* CopyFiles */,
+				A68335DC0D450E6600307FE3 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "IOGraphics Headers";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+			productName = Headers;
+			productReference = A68335E20D450E6600307FE3 /* Headers */;
+			productType = "com.apple.product-type.tool";
+		};
+		A68335E40D450E6600307FE3 /* IONDRVSupport Headers */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A68335F10D450E6600307FE3 /* Build configuration list for PBXNativeTarget "IONDRVSupport Headers" */;
+			buildPhases = (
+				A68335E50D450E6600307FE3 /* Headers */,
+				A68335E90D450E6600307FE3 /* CopyFiles */,
+				A68335EE0D450E6600307FE3 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "IONDRVSupport Headers";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+			productName = "IONDRVSupport Headers";
+			productReference = A68335F50D450E6600307FE3 /* IONDRVSupport Headers */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		015488CC00BAFF6C11CA2A5F /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A683355B0D450E1000307FE3 /* Build configuration list for PBXProject "IOGraphics" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 015488CD00BAFF6C11CA2A5F;
+			productRefGroup = 015488CF00BB000A11CA2A5F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A68335660D450E6600307FE3 /* IOGraphics */,
+				A68335730D450E6600307FE3 /* IOGraphicsFamily */,
+				A683359B0D450E6600307FE3 /* IONDRVSupport */,
+				A68335B50D450E6600307FE3 /* IOGraphics Headers */,
+				A68335E40D450E6600307FE3 /* IONDRVSupport Headers */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A68335920D450E6600307FE3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A68335AC0D450E6600307FE3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A68335740D450E6600307FE3 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A68335940D450E6600307FE3 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A683359C0D450E6600307FE3 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		A68335AE0D450E6600307FE3 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A68335880D450E6600307FE3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A68335890D450E6600307FE3 /* IOAccelerator.cpp in Sources */,
+				A683358A0D450E6600307FE3 /* IOBacklightDisplay.cpp in Sources */,
+				A683358B0D450E6600307FE3 /* IOBootFramebuffer.cpp in Sources */,
+				A683358C0D450E6600307FE3 /* IODisplay.cpp in Sources */,
+				A683358D0D450E6600307FE3 /* IODisplayWrangler.cpp in Sources */,
+				A683358E0D450E6600307FE3 /* IOFramebuffer.cpp in Sources */,
+				A683358F0D450E6600307FE3 /* IOFramebufferUserClient.cpp in Sources */,
+				A68335900D450E6600307FE3 /* IOGraphicsDevice.cpp in Sources */,
+				A68335910D450E6600307FE3 /* IOI2CInterface.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A68335A60D450E6600307FE3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A68335A70D450E6600307FE3 /* IONDRV.cpp in Sources */,
+				A68335A80D450E6600307FE3 /* IONDRVFramebuffer.cpp in Sources */,
+				A68335A90D450E6600307FE3 /* IONDRVLibraries.cpp in Sources */,
+				A68335AA0D450E6600307FE3 /* IOPEFInternals.c in Sources */,
+				A68335AB0D450E6600307FE3 /* IOPEFLoader.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A68335F80D450E6600307FE3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A68335730D450E6600307FE3 /* IOGraphicsFamily */;
+			targetProxy = A68335F70D450E6600307FE3 /* PBXContainerItemProxy */;
+		};
+		A68335FA0D450E6600307FE3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A683359B0D450E6600307FE3 /* IONDRVSupport */;
+			targetProxy = A68335F90D450E6600307FE3 /* PBXContainerItemProxy */;
+		};
+		A68335FC0D450E6600307FE3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A68335B50D450E6600307FE3 /* IOGraphics Headers */;
+			targetProxy = A68335FB0D450E6600307FE3 /* PBXContainerItemProxy */;
+		};
+		A68335FE0D450E6600307FE3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A68335E40D450E6600307FE3 /* IONDRVSupport Headers */;
+			targetProxy = A68335FD0D450E6600307FE3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A68335490D450E1000307FE3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		A683354A0D450E1000307FE3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		A683354B0D450E1000307FE3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+		A68335700D450E6600307FE3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOGraphics;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A68335710D450E6600307FE3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOGraphics;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A68335720D450E6600307FE3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOGraphics;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A68335960D450E6600307FE3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)",
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders",
+				);
+				INFOPLIST_FILE = "Info-IOGraphicsFamily.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
+				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOGraphicsFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A68335970D450E6600307FE3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)",
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders",
+				);
+				INFOPLIST_FILE = "Info-IOGraphicsFamily.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
+				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/PrivateHeaders/graphics";
+				PRODUCT_NAME = IOGraphicsFamily;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/Headers/graphics";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A68335980D450E6600307FE3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)",
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/PrivateHeaders",
+				);
+				INFOPLIST_FILE = "Info-IOGraphicsFamily.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
+				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOGraphicsFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		A68335B00D450E6600307FE3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_EFFECTIVE_CPLUSPLUS_VIOLATIONS = NO;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/IONDRVSupport",
+				);
+				INFOPLIST_FILE = "Info-IONDRVSupport.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IONDRVSupport;
+				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IONDRVSupport;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A68335B10D450E6600307FE3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/IONDRVSupport",
+				);
+				INFOPLIST_FILE = "Info-IONDRVSupport.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IONDRVSupport;
+				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IONDRVSupport;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A68335B20D450E6600307FE3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_STYLE = SHALLOW;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/IOGraphicsFamily",
+					"$(SRCROOT)/IONDRVSupport",
+				);
+				INFOPLIST_FILE = "Info-IONDRVSupport.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IONDRVSupport;
+				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IONDRVSupport;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		A68335DF0D450E6600307FE3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Headers;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A68335E00D450E6600307FE3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Headers;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A68335E10D450E6600307FE3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Headers;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		A68335F20D450E6600307FE3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IONDRVSupport Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A68335F30D450E6600307FE3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IONDRVSupport Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A68335F40D450E6600307FE3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "IONDRVSupport Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A683355B0D450E1000307FE3 /* Build configuration list for PBXProject "IOGraphics" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A68335490D450E1000307FE3 /* Development */,
+				A683354A0D450E1000307FE3 /* Deployment */,
+				A683354B0D450E1000307FE3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A683356F0D450E6600307FE3 /* Build configuration list for PBXAggregateTarget "IOGraphics" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A68335700D450E6600307FE3 /* Development */,
+				A68335710D450E6600307FE3 /* Deployment */,
+				A68335720D450E6600307FE3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A68335950D450E6600307FE3 /* Build configuration list for PBXNativeTarget "IOGraphicsFamily" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A68335960D450E6600307FE3 /* Development */,
+				A68335970D450E6600307FE3 /* Deployment */,
+				A68335980D450E6600307FE3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A68335AF0D450E6600307FE3 /* Build configuration list for PBXNativeTarget "IONDRVSupport" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A68335B00D450E6600307FE3 /* Development */,
+				A68335B10D450E6600307FE3 /* Deployment */,
+				A68335B20D450E6600307FE3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A68335DE0D450E6600307FE3 /* Build configuration list for PBXNativeTarget "IOGraphics Headers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A68335DF0D450E6600307FE3 /* Development */,
+				A68335E00D450E6600307FE3 /* Deployment */,
+				A68335E10D450E6600307FE3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A68335F10D450E6600307FE3 /* Build configuration list for PBXNativeTarget "IONDRVSupport Headers" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A68335F20D450E6600307FE3 /* Development */,
+				A68335F30D450E6600307FE3 /* Deployment */,
+				A68335F40D450E6600307FE3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 015488CC00BAFF6C11CA2A5F /* Project object */;
+}

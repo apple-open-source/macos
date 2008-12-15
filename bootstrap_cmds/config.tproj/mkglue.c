@@ -57,7 +57,7 @@ static char sccsid[] = "@(#)mkglue.c	5.6 (Berkeley) 6/18/88";
 #include <stdio.h>
 #include <string.h>
 #include "config.h"
-#include "y.tab.h"
+#include "parser.h"
 #include <ctype.h>
 
 void dump_mb_handler(FILE *fp, struct idlst *vec, int number);

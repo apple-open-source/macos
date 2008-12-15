@@ -50,7 +50,9 @@
 
 /* Sensible wrappers over the byte-swapping routines */
 #include "hfs_endian.h"
+#if !TARGET_OS_EMBEDDED
 #include "optical.h"
+#endif
 
 #include <mntopts.h>
 
@@ -490,6 +492,7 @@ main(argc, argv)
 
 #endif
 
+#if !TARGET_OS_EMBEDDED
 	/*
 	* We shouldn't really be calling up to other layers, but
 	* an exception was made in this case to fix the situation
@@ -499,6 +502,7 @@ main(argc, argv)
     	if ((_optical_is_writable(dev) & _OPTICAL_WRITABLE_PACKET)) {
 		mntflags |= MNT_RDONLY;
     	}
+#endif
 
 	if ((mntflags & MNT_RDONLY) == 0) {
 		/*

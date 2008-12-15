@@ -77,8 +77,8 @@ apr_status_t apr_dir_open(apr_dir_t **new, const char *dirname,
      * one-byte array.  Note: gcc evaluates this at compile time.
      */
     apr_size_t dirent_size = 
-        (sizeof((*new)->entry->d_name) > 1 ? 
-         sizeof(struct dirent) : sizeof (struct dirent) + 255);
+        sizeof(*(*new)->entry) +
+        (sizeof((*new)->entry->d_name) > 1 ? 0 : 255);
     DIR *dir = opendir(dirname);
 
     if (!dir) {
@@ -139,15 +139,34 @@ apr_status_t apr_dir_read(apr_finfo_t *finfo, apr_int32_t wanted,
 #endif
 #if APR_HAS_THREADS && defined(_POSIX_THREAD_SAFE_FUNCTIONS) \
                     && !defined(READDIR_IS_THREAD_SAFE)
+#ifdef APR_USE_READDIR64_R
+    struct dirent64 *retent;
+
+    /* If LFS is enabled and readdir64_r is available, readdir64_r is
+     * used in preference to readdir_r.  This allows directories to be
+     * read which contain a (64-bit) inode number which doesn't fit
+     * into the 32-bit apr_ino_t, iff the caller doesn't actually care
+     * about the inode number (i.e. wanted & APR_FINFO_INODE == 0).
+     * (such inodes may be seen in some wonky NFS environments)
+     *
+     * Similarly, if the d_off field cannot be reprented in a 32-bit
+     * offset, the libc readdir_r() would barf; using readdir64_r
+     * bypasses that case entirely since APR does not care about
+     * d_off. */
+
+    ret = readdir64_r(thedir->dirstruct, thedir->entry, &retent);
+#else
+
     struct dirent *retent;
 
     ret = readdir_r(thedir->dirstruct, thedir->entry, &retent);
+#endif
 
-    /* Avoid the Linux problem where at end-of-directory thedir->entry
-     * is set to NULL, but ret = APR_SUCCESS.
-     */
-    if(!ret && thedir->entry != retent)
+    /* POSIX treats "end of directory" as a non-error case, so ret
+     * will be zero and retent will be set to NULL in that case. */
+    if (!ret && retent == NULL) {
         ret = APR_ENOENT;
+    }
 
     /* Solaris is a bit strange, if there are no more entries in the
      * directory, it returns EINVAL.  Since this is against POSIX, we
@@ -157,7 +176,7 @@ apr_status_t apr_dir_read(apr_finfo_t *finfo, apr_int32_t wanted,
      * that problem.
      */
     if (ret == EINVAL) {
-        ret = ENOENT;
+        ret = APR_ENOENT;
     }
 #else
     /* We're about to call a non-thread-safe readdir() that may
@@ -191,21 +210,38 @@ apr_status_t apr_dir_read(apr_finfo_t *finfo, apr_int32_t wanted,
 #endif
 #ifdef DIRENT_INODE
     if (thedir->entry->DIRENT_INODE && thedir->entry->DIRENT_INODE != -1) {
+#ifdef APR_USE_READDIR64_R
+        /* If readdir64_r is used, check for the overflow case of trying
+         * to fit a 64-bit integer into a 32-bit integer. */
+        if (sizeof(apr_ino_t) >= sizeof(retent->DIRENT_INODE)
+            || (apr_ino_t)retent->DIRENT_INODE == retent->DIRENT_INODE) {
+            wanted &= ~APR_FINFO_INODE;
+        } else {
+            /* Prevent the fallback code below from filling in the
+             * inode if the stat call fails. */
+            retent->DIRENT_INODE = 0;
+        }
+#else
         wanted &= ~APR_FINFO_INODE;
+#endif /* APR_USE_READDIR64_R */
     }
-#endif
+#endif /* DIRENT_INODE */
 
     wanted &= ~APR_FINFO_NAME;
 
     if (wanted)
     {
         char fspec[APR_PATH_MAX];
-        int off;
-        apr_cpystrn(fspec, thedir->dirname, sizeof(fspec));
-        off = strlen(fspec);
-        if ((fspec[off - 1] != '/') && (off + 1 < sizeof(fspec)))
-            fspec[off++] = '/';
-        apr_cpystrn(fspec + off, thedir->entry->d_name, sizeof(fspec) - off);
+        char *end;
+
+        end = apr_cpystrn(fspec, thedir->dirname, sizeof fspec);
+
+        if (end > fspec && end[-1] != '/' && (end < fspec + APR_PATH_MAX))
+            *end++ = '/';
+
+        apr_cpystrn(end, thedir->entry->d_name, 
+                    sizeof fspec - (end - fspec));
+
         ret = apr_stat(finfo, fspec, APR_FINFO_LINK | wanted, thedir->pool);
         /* We passed a stack name that will disappear */
         finfo->fname = NULL;

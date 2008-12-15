@@ -24,16 +24,18 @@
 #ifndef PROTOS_H
 #define PROTOS_H
 
-long int allocate_time (void);
+#include <stdint.h>
+
+int32_t allocate_time (void);
 bool check_legal (move_s moves[], int m, int incheck);
 void comp_to_coord (move_s move, char str[]);
 void display_board (FILE *stream, int color);
-long int end_eval (void);
-long int seval(void);
-long int std_eval (void);
-long int suicide_eval (void);
-long int losers_eval (void);
-long int eval (void);
+int32_t end_eval (void);
+int32_t seval(void);
+int32_t std_eval (void);
+int32_t suicide_eval (void);
+int32_t losers_eval (void);
+int32_t eval (void);
 void gen (move_s moves[]);
 void ics_game_end (void);
 bool in_check (void);
@@ -44,18 +46,18 @@ bool is_attacked (int square, int color);
 bool nk_attacked (int square, int color);
 bool is_move (char str[]);
 void make (move_s moves[], int i);
-void order_moves (move_s moves[], long int move_ordering[], long int see_values[], int num_moves, int best);
-long int mid_eval (void);
-long int opn_eval (void);
-long int suicide_mid_eval(void);
+void order_moves (move_s moves[], int32_t move_ordering[], int32_t see_values[], int num_moves, int best);
+int32_t mid_eval (void);
+int32_t opn_eval (void);
+int32_t suicide_mid_eval(void);
 void check_phase(void);
 void perft (int depth);
 void speed_test(void);
 void perft_debug (void);
-void post_thinking (long int score);
-void post_fl_thinking (long int score, move_s *failmove);
-void post_fh_thinking (long int score, move_s *failmove);
-void post_fail_thinking(long int score, move_s *failmove);
+void post_thinking (int32_t score);
+void post_fl_thinking (int32_t score, move_s *failmove);
+void post_fh_thinking (int32_t score, move_s *failmove);
+void post_fail_thinking(int32_t score, move_s *failmove);
 void print_move (move_s moves[], int m, FILE *stream);
 void push_pawn (int target, bool is_ep); 
 void push_king_castle (int target, int castle_type);
@@ -67,15 +69,15 @@ void try_drop (int ptype);
 		
 
 void push_slidE (int target);
-long int qsearch (int alpha, int beta, int depth);
+int32_t qsearch (int alpha, int beta, int depth);
 void rdelay (int time_in_s);
-long int rdifftime (rtime_t end, rtime_t start);
-bool remove_one (int *marker, long int move_ordering[], int num_moves);
+int32_t rdifftime (rtime_t end, rtime_t start);
+bool remove_one (int *marker, int32_t move_ordering[], int num_moves);
 void reset_piece_square (void);
 void check_piece_square (void);
 void rinput (char str[], int n, FILE *stream);
 rtime_t rtime (void);
-long int search (int alpha, int beta, int depth, int is_null);
+int32_t search (int alpha, int beta, int depth, int is_null);
 move_s search_root (int alpha, int beta, int depth);
 void start_up (void);
 move_s think (void);
@@ -104,8 +106,8 @@ void initialize_zobrist(void);
 void initialize_hash(void);
 void initialize_eval(void);
 
-void checkECache(long int *score, int *in_cache);
-void storeECache(long int score);
+void checkECache(int32_t *score, int *in_cache);
+void storeECache(int32_t score);
 
 int init_book(void);
 move_s choose_book_move(void);
@@ -158,8 +160,8 @@ void free_ecache(void);
 void read_rcfile(void);
 
 void book_learning(int result);
-void seedMT(unsigned long seed);
-unsigned long randomMT(void);
+void seedMT(uint32_t seed);
+uint32_t randomMT(void);
 
 void setup_epd_line(char* inbuff);
 

@@ -240,10 +240,6 @@ extern Char *MALLOC ANSI((size_t));
 
 #else /* ifndef Bad_float_h */
 #include "float.h"
-/* force the correct definition of FLT_ROUNDS */
-extern int __fegetfltrounds( void );
-#undef FLT_ROUNDS
-#define FLT_ROUNDS (__fegetfltrounds ())
 #endif /* Bad_float_h */
 
 #ifdef IEEE_Arith

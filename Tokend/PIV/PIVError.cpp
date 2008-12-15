@@ -51,6 +51,10 @@ PIVError::PIVError(uint16_t sw) : SCardError(sw)
 	IFDEBUG(debugDiagnose(this));
 }
 
+PIVError::~PIVError() throw ()
+{
+}
+
 const char *PIVError::what() const throw ()
 { return "PIV error"; }
 

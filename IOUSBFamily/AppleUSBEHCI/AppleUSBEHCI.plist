@@ -42,7 +42,7 @@
 		<key>AppleUSBEHCI_OMI</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
-			<string>com.apple.kernel.iokit</string>
+			<string>com.apple.kpi.iokit</string>
 			<key>IOClass</key>
 			<string>IOService</string>
 			<key>IOMatchCategory</key>

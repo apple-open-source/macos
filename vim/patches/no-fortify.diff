@@ -1,0 +1,12 @@
+diff -r -u -N --exclude='*.orig' vim72.orig/src/Makefile vim72/src/Makefile
+--- vim72.orig/src/Makefile	2008-08-09 07:50:04.000000000 -0700
++++ vim72/src/Makefile	2008-08-19 01:06:06.000000000 -0700
+@@ -1290,7 +1290,7 @@
+ .SUFFIXES:
+ .SUFFIXES: .c .o .pro
+ 
+-PRE_DEFS = -Iproto $(DEFS) $(GUI_DEFS) $(GUI_IPATH) $(CPPFLAGS) $(EXTRA_IPATHS)
++PRE_DEFS = -D_FORTIFY_SOURCE=0 -Iproto $(DEFS) $(GUI_DEFS) $(GUI_IPATH) $(CPPFLAGS) $(EXTRA_IPATHS)
+ POST_DEFS = $(X_CFLAGS) $(MZSCHEME_CFLAGS) $(PERL_CFLAGS) $(PYTHON_CFLAGS) $(TCL_CFLAGS) $(RUBY_CFLAGS) $(EXTRA_DEFS)
+ 
+ ALL_CFLAGS = $(PRE_DEFS) $(CFLAGS) $(PROFILE_CFLAGS) $(POST_DEFS)

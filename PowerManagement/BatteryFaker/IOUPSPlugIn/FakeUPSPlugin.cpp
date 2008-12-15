@@ -99,6 +99,7 @@ exit:
  ******************************************************************************/
 void initMigServer(void)
 {
+#if 0
     kern_return_t           kern_result = 0;
     CFMachPortRef           cf_mach_port = 0;
     CFRunLoopSourceRef      cfmp_rls = 0;
@@ -117,28 +118,37 @@ void initMigServer(void)
     }
     CFRunLoopAddSource(CFRunLoopGetCurrent(), cfmp_rls, kCFRunLoopDefaultMode);
 
-    kern_result = bootstrap_register(
+    kern_result = bootstrap_create_service(
                         bootstrap_port, 
                         kUPSBootstrapServerName, 
-                        our_port);
+                        &our_port);
+    if (BOOTSTRAP_SUCCESS != kern_result) {
+        goto bail;
+    }
+
+    kern_result = bootstrap_check_in(
+                        bootstrap_port,
+                        kUPSBootstrapServerName, 
+                        &our_port);
+    if (BOOTSTRAP_SUCCESS != kern_result) {
+        goto bail;
+    }
 
     switch (kern_result) {
-      case BOOTSTRAP_SUCCESS:
-        syslog(kSysLogLevel, "success registering with bootstrap server\n");
-        break;
       case BOOTSTRAP_NOT_PRIVILEGED:
-        syslog(kSysLogLevel, "pmconfigd exit: BOOTSTRAP_NOT_PRIVILIGED");
+        syslog(kSysLogLevel, "UPSFaker exit: BOOTSTRAP_NOT_PRIVILIGED");
         break;
       case BOOTSTRAP_SERVICE_ACTIVE:
-        syslog(kSysLogLevel, "pmconfigd exit: BOOTSTRAP_SERVICE_ACTIVE");
+        syslog(kSysLogLevel, "UPSFaker exit: BOOTSTRAP_SERVICE_ACTIVE");
         break;
       default:
-        syslog(kSysLogLevel, "pmconfigd exit: undefined mig error");
+        syslog(kSysLogLevel, "UPSFaker exit: undefined mig error 0x%08x", kern_result);
         break;
     }
 
 bail:
     if(cfmp_rls) CFRelease(cfmp_rls);
+#endif
     return;
 }
 

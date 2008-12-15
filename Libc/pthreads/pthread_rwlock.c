@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,7 +58,16 @@
 #include "pthread_internals.h"
 extern int __unix_conforming;
 
+#ifdef PLOCKSTAT
 #include "plockstat.h"
+#else /* !PLOCKSTAT */
+#define PLOCKSTAT_RW_ERROR(x, y, z)
+#define PLOCKSTAT_RW_BLOCK(x, y)
+#define PLOCKSTAT_RW_BLOCKED(x, y, z)
+#define PLOCKSTAT_RW_ACQUIRE(x, y)    
+#define PLOCKSTAT_RW_RELEASE(x, y)
+#endif /* PLOCKSTAT */
+
 #define READ_LOCK_PLOCKSTAT  0
 #define WRITE_LOCK_PLOCKSTAT 1
 

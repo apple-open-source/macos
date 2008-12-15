@@ -37,7 +37,7 @@
     Version:    Technology: PowerSurge 1.0.2.
                 Package:    Universal Interfaces 2.1.2 on ETO #20
  
-    Copyright:  © 1984-1995 by Apple Computer, Inc.
+    Copyright:  ï¿½ 1984-1995 by Apple Computer, Inc.
                 All rights reserved.
  
     Bugs?:      If you find a problem with this file, use the Apple Bug Reporter
@@ -58,7 +58,9 @@
 extern "C" {
 #endif
 
+#ifndef __LP64__
 #pragma options align=mac68k
+#endif
 
 #ifndef NULL
 #if !defined(__cplusplus) && (defined(__SC__) || defined(THINK_C))
@@ -209,7 +211,7 @@ typedef unsigned char Str31[32];
 /*
 From:
 	File:		DriverFamilyMatching.i <18>
-	Copyright:	© 1995-1996 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1995-1996 by Apple Computer, Inc., all rights reserved.
 */
 
 //##############################################
@@ -338,7 +340,9 @@ typedef struct DriverDescription	DriverDescription;
 typedef DriverDescription *			DriverDescriptionPtr;
 
 
+#ifndef __LP64__
 #pragma options align=reset
+#endif
 
 #ifdef __cplusplus
 }
@@ -352,7 +356,9 @@ typedef DriverDescription *			DriverDescriptionPtr;
 extern "C" {
 #endif
 
+#ifndef __LP64__
 #pragma options align=mac68k
+#endif
 
 struct RGBColor {
  unsigned short red;                /*magnitude of red component*/
@@ -383,7 +389,9 @@ struct GammaTbl {
 typedef struct GammaTbl     GammaTbl;
 typedef GammaTbl            *GammaTblPtr;
 
+#ifndef __LP64__
 #pragma options align=reset
+#endif
 
 #ifdef __cplusplus
 }

@@ -109,12 +109,12 @@ void CACToken::select(const unsigned char *applet)
 
 	// For CAC all applet selectors have the same size.
 	size_t applet_length = sizeof(kSelectCACAppletPKIID);
-	unsigned char result[2];
+	unsigned char result[MAX_BUFFER_SIZE];
 	size_t resultLength = sizeof(result);
 
 	transmit(applet, applet_length, result, resultLength);
 	// If the select command failed this isn't a cac card, so we are done.
-	if (resultLength != 2 || result[0] != 0x61 /* || result[1] != 0x0D */)
+	if (resultLength < 2 || result[resultLength - 2] != 0x90 && result[resultLength - 2] != 0x61 /* || result[resultLength - 1] != 0x0D */)
 		PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
 
 	if (isInTransaction())
@@ -453,18 +453,11 @@ uint32 CACToken::probe(SecTokendProbeFlags flags,
 			size_t resultLength = sizeof(result);
 			uint32_t cacreturn = getData(result, resultLength);
 
-			if (cacreturn != SCARD_SUCCESS || resultLength != 0x2F)
-			{
-				// This looks like is a CAC card, but somehow we can't get a
-				// TokendUid for it.  So perhaps it's a non Java CAC card.
-				score = 100;
-			}
-			else
-			{
+			/* Score of 200 to ensure that CAC "wins" for Hybrid CAC/PIV cards */
 				score = 200;				
 				// Now stick in the bytes returned by getData into the
 				// tokenUid.
-				for (uint32_t ix = 0x00; ix < 0x0A; ++ix)
+			if(resultLength > 20)
 				{
 					sprintf(tokenUid,
 						"CAC-%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X",
@@ -472,11 +465,21 @@ uint32 CACToken::probe(SecTokendProbeFlags flags,
 						result[20], result[15], result[16], result[17],
 						result[18]);
 				}
+			else
+			{
+				/* Cannot generated a tokenUid given the returned data.
+				 * Generate time-based tokenUid to permit basic caching */
+				unsigned char buffer[80];
+				time_t now;
+				struct tm* timestruct = localtime(&now);
+				/* Print out the # of seconds since EPOCH UTF */
+				strftime(reinterpret_cast<char *>(buffer), 80, "%s", timestruct);
+				snprintf(tokenUid, TOKEND_MAX_UID, "CAC-%s", buffer);
+			}
 				Tokend::ISO7816Token::name(tokenUid);
 				secdebug("probe", "recognized %s", tokenUid);
 			}
 		}
-	}
 	catch (...)
 	{
 		doDisconnect = true;

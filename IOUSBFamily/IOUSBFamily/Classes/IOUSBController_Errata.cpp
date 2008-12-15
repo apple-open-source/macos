@@ -78,7 +78,27 @@ static ErrataListEntry  errataList[] = {
 	{0x8086, 0x2834, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH8 UHCI #4
 	{0x8086, 0x2835, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH8 UHCI #5
 	{0x8086, 0x2836, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },			// ICH8 EHCI #1
-	{0x8086, 0x283a, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce }				// ICH8 EHCI #2
+	{0x8086, 0x283a, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },			// ICH8 EHCI #2
+
+	{0x8086, 0x8114, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // Poulsbo UHCI #1
+	{0x8086, 0x8115, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // Poulsbo UHCI #2
+	{0x8086, 0x8116, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // Poulsbo UHCI #3
+	{0x8086, 0x8117, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce }	,			// Pouslbo EHCI #2
+
+	{0x10de, 0x0aa6, 0x00, 0xff, kErrataMCP79SplitIsoch | kErrataMissingPortChangeInt | kErrataMCP79IgnoreDisconnect | kErrataUse32bitEHCI },			// MCP79 EHCI #1
+	{0x10de, 0x0aa9, 0x00, 0xff, kErrataMCP79SplitIsoch | kErrataMissingPortChangeInt | kErrataMCP79IgnoreDisconnect | kErrataUse32bitEHCI},			// MCP79 EHCI #2
+	{0x10de, 0x0aa5, 0x00, 0xff, kErrataOHCINoGlobalSuspendOnSleep | kErrataMCP79IgnoreDisconnect },														// MCP79 OHCI #1
+	{0x10de, 0x0aa7, 0x00, 0xff, kErrataOHCINoGlobalSuspendOnSleep | kErrataMCP79IgnoreDisconnect },														// MCP79 OHCI #2
+
+	{0x8086, 0x3a34, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH10 UHCI #1
+	{0x8086, 0x3a35, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH10 UHCI #2
+	{0x8086, 0x3a36, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH10 UHCI #3
+	{0x8086, 0x3a37, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH10 UHCI #4
+	{0x8086, 0x3a38, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH10 UHCI #5
+	{0x8086, 0x3a39, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable },   // ICH10 UHCI #6
+	{0x8086, 0x3a3a, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },			// ICH10 EHCI #1
+	{0x8086, 0x3a3c, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce }				// ICH10 EHCI #2
+
 };
 
 #define errataListLength (sizeof(errataList)/sizeof(ErrataListEntry))

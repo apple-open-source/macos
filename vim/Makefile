@@ -22,17 +22,21 @@ RC_Install_Prefix = $(Install_Prefix)
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 7.0
+AEP_Version    = 7.2
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_Extras_Filename   = $(AEP_ProjVers)-extra.tar.gz
-AEP_ExtractDir = vim70
+AEP_ExtractDir = vim72
 AEP_Patches    = build.diff xattr.diff ex_cmds.c.diff ex_cmds2.c.diff \
 	ex_docmd.c.diff fileio.c.diff globals.h.diff main.c.diff \
 	move.c.diff normal.c.diff option.c.diff option.h.diff \
 	os_unix.c.diff undo.c.diff memline.c.diff \
 	ex_cmds.c.diff2 edit.c.diff normal.c.diff2 normal.c.diff3 \
-	ops.c.diff CVE-2007-2438.diff
+	ops.c.diff no-fortify.diff xxd.c.diff
+VIM_Patches	= 7.2.001 7.2.002 7.2.003 7.2.004 7.2.005 7.2.006 \
+	7.2.007 7.2.008 7.2.009 7.2.010 7.2.011 7.2.012 7.2.013 \
+	7.2.014 7.2.015 7.2.016 7.2.017 7.2.018 7.2.019 7.2.020 \
+	7.2.021 7.2.022
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -48,7 +52,10 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(AEP_Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+		(cd $(SRCROOT)/$(Project) && patch -p1 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
+	done
+	for patchfile in $(VIM_Patches); do \
+		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
 	done
 	rm $(SRCROOT)/vim/src/os_beos.rsrc
 endif

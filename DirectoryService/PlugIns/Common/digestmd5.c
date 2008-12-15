@@ -106,9 +106,11 @@ DigestCalcOldResponse(
     
     /* calculate H(A2) */
     CC_MD5_Init(&Md5Ctx);
-    
+	if ( pszMethod && pszMethod[0] == 0 )
+		pszMethod = NULL;
+	
     if (pszMethod != NULL) {
-	CC_MD5_Update(&Md5Ctx, pszMethod, strlen((char *) pszMethod));
+		CC_MD5_Update(&Md5Ctx, pszMethod, strlen((char *) pszMethod));
     }
     CC_MD5_Update(&Md5Ctx, (unsigned char *) COLON, 1);
     
@@ -148,6 +150,9 @@ DigestCalcResponse(
     HASHHEX         HA2Hex;
     char ncvalue[10];
     
+	if ( pszMethod && pszMethod[0] == 0 )
+		pszMethod = strdup("AUTHENTICATE");
+
     /* calculate H(A2) */
     CC_MD5_Init(&Md5Ctx);
     
@@ -1290,7 +1295,7 @@ digest_server_parse(
 			}
 		}
 		free( outCopy );
-				
+		
 		if (result != 0)
 			return result;
 	}
@@ -1476,9 +1481,27 @@ digest_server_parse(
 			}
 			
 			/* check which layer/cipher to use */
-			#if 0
 			if ((!strcasecmp(outContext->qop, "auth-conf")) && (outContext->cipher != NULL))
 			{
+				/* auth-conf and md5-sess go together but the algorithm is not included in the client's */
+				/* response when using SASL in accordance with RFC 2831 */
+				/* 
+					RFC 2831                 Digest SASL Mechanism                  May 2000
+
+				   Also, in the HTTP usage of Digest, several directives in the
+				   "digest-challenge" sent by the server have to be returned by the
+				   client in the "digest-response". These are:
+
+					opaque
+					algorithm
+
+				   These directives are not needed when Digest is used as a SASL
+				   mechanism (i.e., MUST NOT be sent, and MUST be ignored if received).
+				*/
+				
+				outContext->global->algorithm = kDigestAlgorithmMD5_sess;
+				
+				#if 0
 				/* see what cipher was requested */
 				struct digest_cipher *cptr;
 				
@@ -1496,8 +1519,8 @@ digest_server_parse(
 					}
 					cptr++;
 				}
+				#endif
 			}
-			#endif
 			
 			/* Verifing that all parameters were defined */
 			if ((outContext->username == NULL) ||

@@ -110,6 +110,7 @@ struct proxy_remote {
 };
 
 #define PROXYPASS_NOCANON 0x01
+#define PROXYPASS_INTERPOLATE 0x02
 struct proxy_alias {
     const char  *real;
     const char  *fake;
@@ -213,14 +214,24 @@ typedef struct {
     const apr_strmatch_pattern* cookie_path_str;
     const apr_strmatch_pattern* cookie_domain_str;
     const char *ftp_directory_charset;
+    int interpolate_env;
 } proxy_dir_conf;
+
+/* if we interpolate env vars per-request, we'll need a per-request
+ * copy of the reverse proxy config
+ */
+typedef struct {
+    apr_array_header_t *raliases;
+    apr_array_header_t* cookie_paths;
+    apr_array_header_t* cookie_domains;
+} proxy_req_conf;
 
 typedef struct {
     conn_rec     *connection;
     const char   *hostname;
     apr_port_t   port;
     int          is_ssl;
-    apr_pool_t   *pool;     /* Subpool used for creating socket */
+    apr_pool_t   *pool;     /* Subpool for hostname and addr data */
     apr_socket_t *sock;     /* Connection socket */
     apr_sockaddr_t *addr;   /* Preparsed remote address info */
     apr_uint32_t flags;     /* Conection flags */
@@ -231,6 +242,11 @@ typedef struct {
 #if APR_HAS_THREADS
     int          inreslist; /* connection in apr_reslist? */
 #endif
+    apr_pool_t   *scpool;   /* Subpool used for socket and connection data */
+    request_rec  *r;        /* Request record of the frontend request
+                             * which the backend currently answers. */
+    int          need_flush;/* Flag to decide whether we need to flush the
+                             * filter chain or not */
 } proxy_conn_rec;
 
 typedef struct {
@@ -337,6 +353,8 @@ struct proxy_worker {
     apr_interval_time_t ping_timeout;
     char ping_timeout_set;
     char            retry_set;
+    char            disablereuse;
+    char            disablereuse_set;
 };
 
 /*
@@ -473,6 +491,8 @@ PROXY_DECLARE(apr_status_t) ap_proxy_string_read(conn_rec *c, apr_bucket_brigade
 PROXY_DECLARE(void) ap_proxy_table_unmerge(apr_pool_t *p, apr_table_t *t, char *key);
 /* DEPRECATED (will be replaced with ap_proxy_connect_backend */
 PROXY_DECLARE(int) ap_proxy_connect_to_backend(apr_socket_t **, const char *, apr_sockaddr_t *, const char *, proxy_server_conf *, server_rec *, apr_pool_t *);
+PROXY_DECLARE(apr_status_t) ap_proxy_ssl_connection_cleanup(proxy_conn_rec *conn,
+                                                            request_rec *r);
 PROXY_DECLARE(int) ap_proxy_ssl_enable(conn_rec *c);
 PROXY_DECLARE(int) ap_proxy_ssl_disable(conn_rec *c);
 PROXY_DECLARE(int) ap_proxy_conn_is_https(conn_rec *c);

@@ -44,7 +44,7 @@ protected:
     };
 
     static IOCFPlugInInterface			sIOCFPlugInInterfaceV1;
-    static IOUSBDeviceInterface300  	sUSBDeviceInterfaceV300;
+    static IOUSBDeviceInterface320  	sUSBDeviceInterfaceV320;
 
     struct InterfaceMap					fUSBDevice;
     io_service_t						fService;
@@ -118,6 +118,11 @@ public:
     virtual IOReturn				GetIOUSBLibVersion(NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
     // ----- new with 3.0.0
     virtual IOReturn				GetBusFrameNumberWithTime(UInt64 *frame, AbsoluteTime *atTime);
+    // ----- new with 3.2.0
+    virtual IOReturn				GetUSBDeviceInformation(UInt32	*info);
+	virtual	IOReturn				RequestExtraPower(UInt32 type, UInt32 requestedPower, UInt32 *powerAvailable);
+	virtual IOReturn				ReturnExtraPower(UInt32 type, UInt32 powerReturned);
+	virtual IOReturn				GetExtraPowerAllocated(UInt32 type, UInt32 *powerAllocated);
 /*
  * Routing gumf for CFPlugIn interfaces
  */
@@ -173,6 +178,11 @@ protected:
     static IOReturn				deviceGetIOUSBLibVersion( void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion);
     // -----added in 3.0.0
     static IOReturn				deviceGetBusFrameNumberWithTime(void *self, UInt64 *frame, AbsoluteTime *atTime);
+    // -----added in 3.2.0
+    static IOReturn				deviceGetUSBDeviceInformation(void *self, UInt32	*info);
+    static IOReturn				deviceRequestExtraPower(void *self, UInt32 type, UInt32 requestedPower, UInt32 *powerAvailable);
+    static IOReturn				deviceReturnExtraPower(void *self, UInt32 type, UInt32 powerReturned);
+	static IOReturn				deviceGetExtraPowerAllocated(void *self, UInt32 type, UInt32 *powerAllocated);
 };
 
 #endif /* !_IOKIT_IOUSBDeviceClass_H */

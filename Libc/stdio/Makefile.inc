@@ -3,6 +3,7 @@
 
 # stdio sources
 .PATH: ${.CURDIR}/stdio
+CWD := ${.CURDIR}/stdio
 
 .include "Makefile.fbsd_begin"
 FBSDMISRCS= _flock_stub.c asprintf.c clrerr.c fclose.c fdopen.c feof.c ferror.c \

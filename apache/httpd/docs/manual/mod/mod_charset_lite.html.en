@@ -166,6 +166,14 @@
       explicitly configured using the <code class="directive"><a href="../mod/mod_mime.html#addoutputfilter">AddOutputFilter</a></code> directive, <code>NoImplicitAdd</code>
       should be specified so that <code class="module"><a href="../mod/mod_charset_lite.html">mod_charset_lite</a></code>
       doesn't add its filter.</dd>
+
+      <dt><code>TranslateAllMimeTypes | NoTranslateAllMimeTypes</code></dt>
+      <dd>Normally, <code class="module"><a href="../mod/mod_charset_lite.html">mod_charset_lite</a></code> will only perform
+      translation on a small subset of possible mimetypes.  When the
+      <code>TranslateAllMimeTypes</code> keyword is specified for a given
+      configuration section, translation is performed without regard for
+      mimetype.</dd>
+
     </dl>
 
 </div>
@@ -205,6 +213,6 @@
 <p><span>Available Languages: </span><a href="../en/mod/mod_charset_lite.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../ko/mod/mod_charset_lite.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

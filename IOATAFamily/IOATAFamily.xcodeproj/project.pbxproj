@@ -7,132 +7,62 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		01640CD0FFDF22697F000001 /* ATADeviceNub.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2AFFDDABCE7F000001 /* ATADeviceNub.h */; settings = {ATTRIBUTES = (); }; };
-		01640CD1FFDF242C7F000001 /* ATADeviceNub.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2AFFDDABCE7F000001 /* ATADeviceNub.h */; };
-		0176C371002B79CE11CE156E /* ATATimerEventSource.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0176C36F002B79CE11CE156E /* ATATimerEventSource.h */; };
-		0176C372002B79CE11CE156E /* ATATimerEventSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0176C370002B79CE11CE156E /* ATATimerEventSource.cpp */; };
-		0176C373002BAC1E11CE156E /* ATATimerEventSource.h in Headers */ = {isa = PBXBuildFile; fileRef = 0176C36F002B79CE11CE156E /* ATATimerEventSource.h */; };
-		019C1A3AFFDDABCE7F000001 /* IOATABusCommand.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2BFFDDABCE7F000001 /* IOATABusCommand.h */; settings = {ATTRIBUTES = (); }; };
-		019C1A3BFFDDABCE7F000001 /* IOATABusInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2CFFDDABCE7F000001 /* IOATABusInfo.h */; settings = {ATTRIBUTES = (); }; };
-		019C1A3CFFDDABCE7F000001 /* IOATACommand.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2DFFDDABCE7F000001 /* IOATACommand.h */; settings = {ATTRIBUTES = (); }; };
-		019C1A3DFFDDABCE7F000001 /* IOATAController.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2EFFDDABCE7F000001 /* IOATAController.h */; settings = {ATTRIBUTES = (); }; };
-		019C1A3EFFDDABCE7F000001 /* IOATADevConfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2FFFDDABCE7F000001 /* IOATADevConfig.h */; settings = {ATTRIBUTES = (); }; };
-		019C1A3FFFDDABCE7F000001 /* IOATADevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A30FFDDABCE7F000001 /* IOATADevice.h */; settings = {ATTRIBUTES = (); }; };
-		019C1A40FFDDABCE7F000001 /* IOATATypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A31FFDDABCE7F000001 /* IOATATypes.h */; settings = {ATTRIBUTES = (); }; };
-		019C1A41FFDDABCE7F000001 /* IOPCIATA.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A28FFDDABCE7F000001 /* IOPCIATA.h */; settings = {ATTRIBUTES = (); }; };
-		019C1A42FFDDABCE7F000001 /* MacIOATA.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A29FFDDABCE7F000001 /* MacIOATA.h */; settings = {ATTRIBUTES = (); }; };
-		019C1A43FFDDABCE7F000001 /* ATADeviceNub.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A32FFDDABCE7F000001 /* ATADeviceNub.cpp */; settings = {ATTRIBUTES = (); }; };
-		019C1A44FFDDABCE7F000001 /* IOATABusCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A33FFDDABCE7F000001 /* IOATABusCommand.cpp */; settings = {ATTRIBUTES = (); }; };
-		019C1A45FFDDABCE7F000001 /* IOATABusInfo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A34FFDDABCE7F000001 /* IOATABusInfo.cpp */; settings = {ATTRIBUTES = (); }; };
-		019C1A46FFDDABCE7F000001 /* IOATACommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A35FFDDABCE7F000001 /* IOATACommand.cpp */; settings = {ATTRIBUTES = (); }; };
-		019C1A47FFDDABCE7F000001 /* IOATAController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A36FFDDABCE7F000001 /* IOATAController.cpp */; settings = {ATTRIBUTES = (); }; };
-		019C1A48FFDDABCE7F000001 /* IOATADevConfig.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A37FFDDABCE7F000001 /* IOATADevConfig.cpp */; settings = {ATTRIBUTES = (); }; };
-		019C1A49FFDDABCE7F000001 /* IOATADevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A38FFDDABCE7F000001 /* IOATADevice.cpp */; settings = {ATTRIBUTES = (); }; };
-		019C1A4AFFDDABCE7F000001 /* IOPCIATA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A26FFDDABCE7F000001 /* IOPCIATA.cpp */; settings = {ATTRIBUTES = (); }; };
-		019C1A4BFFDDABCE7F000001 /* MacIOATA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A27FFDDABCE7F000001 /* MacIOATA.cpp */; settings = {ATTRIBUTES = (); }; };
-		019C1A4DFFDDADA47F000001 /* IOPCIATA.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A28FFDDABCE7F000001 /* IOPCIATA.h */; };
-		019C1A4EFFDDADA47F000001 /* MacIOATA.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A29FFDDABCE7F000001 /* MacIOATA.h */; };
-		019C1A4FFFDDADA47F000001 /* IOATABusCommand.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2BFFDDABCE7F000001 /* IOATABusCommand.h */; };
-		019C1A50FFDDADA47F000001 /* IOATABusInfo.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2CFFDDABCE7F000001 /* IOATABusInfo.h */; };
-		019C1A51FFDDADA47F000001 /* IOATACommand.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2DFFDDABCE7F000001 /* IOATACommand.h */; };
-		019C1A52FFDDADA47F000001 /* IOATAController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2EFFDDABCE7F000001 /* IOATAController.h */; };
-		019C1A53FFDDADA47F000001 /* IOATADevConfig.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2FFFDDABCE7F000001 /* IOATADevConfig.h */; };
-		019C1A54FFDDADA47F000001 /* IOATADevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A30FFDDABCE7F000001 /* IOATADevice.h */; };
-		019C1A55FFDDADA47F000001 /* IOATATypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A31FFDDABCE7F000001 /* IOATATypes.h */; };
-		089C1680FE841241C02AAC07 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
-		B91829CE0197498808CA29FD /* IOATARegI386.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B91829CD0197498808CA29FD /* IOATARegI386.cpp */; };
-		B9D54E11019702DB08CA29FD /* IOATARegI386.h in Headers */ = {isa = PBXBuildFile; fileRef = B9D54E10019702DB08CA29FD /* IOATARegI386.h */; };
-		B9D54E1201970D7508CA29FD /* IOATARegI386.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B9D54E10019702DB08CA29FD /* IOATARegI386.h */; };
+		52C1FF890DAD2D87006889B7 /* IOATABusCommand.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2BFFDDABCE7F000001 /* IOATABusCommand.h */; settings = {ATTRIBUTES = (); }; };
+		52C1FF8A0DAD2D87006889B7 /* IOATABusInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2CFFDDABCE7F000001 /* IOATABusInfo.h */; settings = {ATTRIBUTES = (); }; };
+		52C1FF8B0DAD2D87006889B7 /* IOATACommand.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2DFFDDABCE7F000001 /* IOATACommand.h */; settings = {ATTRIBUTES = (); }; };
+		52C1FF8C0DAD2D87006889B7 /* IOATAController.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2EFFDDABCE7F000001 /* IOATAController.h */; settings = {ATTRIBUTES = (); }; };
+		52C1FF8D0DAD2D87006889B7 /* IOATADevConfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2FFFDDABCE7F000001 /* IOATADevConfig.h */; settings = {ATTRIBUTES = (); }; };
+		52C1FF8E0DAD2D87006889B7 /* IOATADevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A30FFDDABCE7F000001 /* IOATADevice.h */; settings = {ATTRIBUTES = (); }; };
+		52C1FF8F0DAD2D87006889B7 /* IOATATypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A31FFDDABCE7F000001 /* IOATATypes.h */; settings = {ATTRIBUTES = (); }; };
+		52C1FF900DAD2D87006889B7 /* IOPCIATA.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A28FFDDABCE7F000001 /* IOPCIATA.h */; settings = {ATTRIBUTES = (); }; };
+		52C1FF910DAD2D87006889B7 /* MacIOATA.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A29FFDDABCE7F000001 /* MacIOATA.h */; settings = {ATTRIBUTES = (); }; };
+		52C1FF920DAD2D87006889B7 /* ATATimerEventSource.h in Headers */ = {isa = PBXBuildFile; fileRef = 0176C36F002B79CE11CE156E /* ATATimerEventSource.h */; };
+		52C1FF930DAD2D87006889B7 /* ATADeviceNub.h in Headers */ = {isa = PBXBuildFile; fileRef = 019C1A2AFFDDABCE7F000001 /* ATADeviceNub.h */; settings = {ATTRIBUTES = (); }; };
+		52C1FF940DAD2D87006889B7 /* IOATARegI386.h in Headers */ = {isa = PBXBuildFile; fileRef = B9D54E10019702DB08CA29FD /* IOATARegI386.h */; };
+		52C1FF960DAD2D87006889B7 /* IOPCIATA.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A28FFDDABCE7F000001 /* IOPCIATA.h */; };
+		52C1FF970DAD2D87006889B7 /* MacIOATA.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A29FFDDABCE7F000001 /* MacIOATA.h */; };
+		52C1FF980DAD2D87006889B7 /* IOATABusCommand.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2BFFDDABCE7F000001 /* IOATABusCommand.h */; };
+		52C1FF990DAD2D87006889B7 /* IOATABusInfo.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2CFFDDABCE7F000001 /* IOATABusInfo.h */; };
+		52C1FF9A0DAD2D87006889B7 /* IOATACommand.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2DFFDDABCE7F000001 /* IOATACommand.h */; };
+		52C1FF9B0DAD2D87006889B7 /* IOATAController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2EFFDDABCE7F000001 /* IOATAController.h */; };
+		52C1FF9C0DAD2D87006889B7 /* IOATADevConfig.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2FFFDDABCE7F000001 /* IOATADevConfig.h */; };
+		52C1FF9D0DAD2D87006889B7 /* IOATADevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A30FFDDABCE7F000001 /* IOATADevice.h */; };
+		52C1FF9E0DAD2D87006889B7 /* IOATATypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A31FFDDABCE7F000001 /* IOATATypes.h */; };
+		52C1FF9F0DAD2D87006889B7 /* ATADeviceNub.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 019C1A2AFFDDABCE7F000001 /* ATADeviceNub.h */; };
+		52C1FFA00DAD2D87006889B7 /* ATATimerEventSource.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0176C36F002B79CE11CE156E /* ATATimerEventSource.h */; };
+		52C1FFA10DAD2D87006889B7 /* IOATARegI386.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B9D54E10019702DB08CA29FD /* IOATARegI386.h */; };
+		52C1FFA50DAD2D87006889B7 /* ATADeviceNub.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A32FFDDABCE7F000001 /* ATADeviceNub.cpp */; settings = {ATTRIBUTES = (); }; };
+		52C1FFA60DAD2D87006889B7 /* IOATABusCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A33FFDDABCE7F000001 /* IOATABusCommand.cpp */; settings = {ATTRIBUTES = (); }; };
+		52C1FFA70DAD2D87006889B7 /* IOATABusInfo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A34FFDDABCE7F000001 /* IOATABusInfo.cpp */; settings = {ATTRIBUTES = (); }; };
+		52C1FFA80DAD2D87006889B7 /* IOATACommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A35FFDDABCE7F000001 /* IOATACommand.cpp */; settings = {ATTRIBUTES = (); }; };
+		52C1FFA90DAD2D87006889B7 /* IOATAController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A36FFDDABCE7F000001 /* IOATAController.cpp */; settings = {ATTRIBUTES = (); }; };
+		52C1FFAA0DAD2D87006889B7 /* IOATADevConfig.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A37FFDDABCE7F000001 /* IOATADevConfig.cpp */; settings = {ATTRIBUTES = (); }; };
+		52C1FFAB0DAD2D87006889B7 /* IOATADevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A38FFDDABCE7F000001 /* IOATADevice.cpp */; settings = {ATTRIBUTES = (); }; };
+		52C1FFAC0DAD2D87006889B7 /* IOPCIATA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A26FFDDABCE7F000001 /* IOPCIATA.cpp */; settings = {ATTRIBUTES = (); }; };
+		52C1FFAD0DAD2D87006889B7 /* MacIOATA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 019C1A27FFDDABCE7F000001 /* MacIOATA.cpp */; settings = {ATTRIBUTES = (); }; };
+		52C1FFAE0DAD2D87006889B7 /* ATATimerEventSource.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0176C370002B79CE11CE156E /* ATATimerEventSource.cpp */; };
+		52C1FFAF0DAD2D87006889B7 /* IOATARegI386.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B91829CD0197498808CA29FD /* IOATARegI386.cpp */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBundleTarget section */
-		089C1673FE841209C02AAC07 /* IOATAFamily */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = A5EDE05909660D8400EFBE07 /* Build configuration list for PBXBundleTarget "IOATAFamily" */;
-			buildPhases = (
-				06AA1267FFB2110C11CA28AA /* ShellScript */,
-				089C1674FE841209C02AAC07 /* Headers */,
-				019C1A4CFFDDADA47F000001 /* CopyFiles */,
-				089C1675FE841209C02AAC07 /* Resources */,
-				089C1676FE841209C02AAC07 /* Sources */,
-				089C1677FE841209C02AAC07 /* Frameworks */,
-				089C1679FE841209C02AAC07 /* Rez */,
-				06AA1264FFB2107B11CA28AA /* ShellScript */,
-			);
-			dependencies = (
-			);
-			name = IOATAFamily;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-			productName = IOATAFamily;
-			productReference = 0B81C263FFB7832611CA28AA /* IOATAFamily.kext */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>IOATAFamily</string>
-	<key>CFBundleGetInfoString</key>
-	<string>ATA Controller Family</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.IOATAFamily</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>IOATAFamily</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.7.3f1</string>
-	<key>IOKitPersonalities</key>
-	<dict/>
-	<key>OSBundleCompatibleVersion</key>
-	<string>1.0b1</string>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.kpi.bsd</key>
-		<string>8.0.0</string>
-		<key>com.apple.kpi.iokit</key>
-		<string>8.0.0</string>
-		<key>com.apple.kpi.libkern</key>
-		<string>8.0.0</string>
-		<key>com.apple.kpi.mach</key>
-		<string>8.0.0</string>
-	</dict>
-	<key>OSBundleRequired</key>
-	<string>Local-Root</string>
-</dict>
-</plist>
-";
-		};
-/* End PBXBundleTarget section */
-
 /* Begin PBXCopyFilesBuildPhase section */
-		019C1A4CFFDDADA47F000001 /* CopyFiles */ = {
+		52C1FF950DAD2D87006889B7 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/ata";
 			dstSubfolderSpec = 0;
 			files = (
-				019C1A4DFFDDADA47F000001 /* IOPCIATA.h in CopyFiles */,
-				019C1A4EFFDDADA47F000001 /* MacIOATA.h in CopyFiles */,
-				019C1A4FFFDDADA47F000001 /* IOATABusCommand.h in CopyFiles */,
-				019C1A50FFDDADA47F000001 /* IOATABusInfo.h in CopyFiles */,
-				019C1A51FFDDADA47F000001 /* IOATACommand.h in CopyFiles */,
-				019C1A52FFDDADA47F000001 /* IOATAController.h in CopyFiles */,
-				019C1A53FFDDADA47F000001 /* IOATADevConfig.h in CopyFiles */,
-				019C1A54FFDDADA47F000001 /* IOATADevice.h in CopyFiles */,
-				019C1A55FFDDADA47F000001 /* IOATATypes.h in CopyFiles */,
-				01640CD1FFDF242C7F000001 /* ATADeviceNub.h in CopyFiles */,
-				0176C371002B79CE11CE156E /* ATATimerEventSource.h in CopyFiles */,
-				B9D54E1201970D7508CA29FD /* IOATARegI386.h in CopyFiles */,
+				52C1FF960DAD2D87006889B7 /* IOPCIATA.h in CopyFiles */,
+				52C1FF970DAD2D87006889B7 /* MacIOATA.h in CopyFiles */,
+				52C1FF980DAD2D87006889B7 /* IOATABusCommand.h in CopyFiles */,
+				52C1FF990DAD2D87006889B7 /* IOATABusInfo.h in CopyFiles */,
+				52C1FF9A0DAD2D87006889B7 /* IOATACommand.h in CopyFiles */,
+				52C1FF9B0DAD2D87006889B7 /* IOATAController.h in CopyFiles */,
+				52C1FF9C0DAD2D87006889B7 /* IOATADevConfig.h in CopyFiles */,
+				52C1FF9D0DAD2D87006889B7 /* IOATADevice.h in CopyFiles */,
+				52C1FF9E0DAD2D87006889B7 /* IOATATypes.h in CopyFiles */,
+				52C1FF9F0DAD2D87006889B7 /* ATADeviceNub.h in CopyFiles */,
+				52C1FFA00DAD2D87006889B7 /* ATATimerEventSource.h in CopyFiles */,
+				52C1FFA10DAD2D87006889B7 /* IOATARegI386.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -160,14 +90,14 @@
 		019C1A36FFDDABCE7F000001 /* IOATAController.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATAController.cpp; sourceTree = SOURCE_ROOT; };
 		019C1A37FFDDABCE7F000001 /* IOATADevConfig.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATADevConfig.cpp; sourceTree = SOURCE_ROOT; };
 		019C1A38FFDDABCE7F000001 /* IOATADevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATADevice.cpp; sourceTree = SOURCE_ROOT; };
-		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		0B81C263FFB7832611CA28AA /* IOATAFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = IOATAFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		52C1FFB70DAD2D87006889B7 /* Info-IOATAFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOATAFamily.plist"; sourceTree = "<group>"; };
+		52C1FFB80DAD2D87006889B7 /* IOATAFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOATAFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		B91829CD0197498808CA29FD /* IOATARegI386.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOATARegI386.cpp; sourceTree = "<group>"; };
 		B9D54E10019702DB08CA29FD /* IOATARegI386.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOATARegI386.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		089C1677FE841209C02AAC07 /* Frameworks */ = {
+		52C1FFB00DAD2D87006889B7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -193,24 +123,16 @@
 			children = (
 				019C1A25FFDDABCE7F000001 /* Drivers */,
 				247142CAFF3F8F9811CA285C /* Family */,
-				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
+				52C1FFB70DAD2D87006889B7 /* Info-IOATAFamily.plist */,
 			);
 			name = IOATAFamily;
-			sourceTree = "<group>";
-		};
-		089C167CFE841241C02AAC07 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				089C167DFE841241C02AAC07 /* InfoPlist.strings */,
-			);
-			name = Resources;
 			sourceTree = "<group>";
 		};
 		19C28FB6FE9D52B211CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0B81C263FFB7832611CA28AA /* IOATAFamily.kext */,
+				52C1FFB80DAD2D87006889B7 /* IOATAFamily.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -244,26 +166,52 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		089C1674FE841209C02AAC07 /* Headers */ = {
+		52C1FF880DAD2D87006889B7 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				019C1A3AFFDDABCE7F000001 /* IOATABusCommand.h in Headers */,
-				019C1A3BFFDDABCE7F000001 /* IOATABusInfo.h in Headers */,
-				019C1A3CFFDDABCE7F000001 /* IOATACommand.h in Headers */,
-				019C1A3DFFDDABCE7F000001 /* IOATAController.h in Headers */,
-				019C1A3EFFDDABCE7F000001 /* IOATADevConfig.h in Headers */,
-				019C1A3FFFDDABCE7F000001 /* IOATADevice.h in Headers */,
-				019C1A40FFDDABCE7F000001 /* IOATATypes.h in Headers */,
-				019C1A41FFDDABCE7F000001 /* IOPCIATA.h in Headers */,
-				019C1A42FFDDABCE7F000001 /* MacIOATA.h in Headers */,
-				0176C373002BAC1E11CE156E /* ATATimerEventSource.h in Headers */,
-				01640CD0FFDF22697F000001 /* ATADeviceNub.h in Headers */,
-				B9D54E11019702DB08CA29FD /* IOATARegI386.h in Headers */,
+				52C1FF890DAD2D87006889B7 /* IOATABusCommand.h in Headers */,
+				52C1FF8A0DAD2D87006889B7 /* IOATABusInfo.h in Headers */,
+				52C1FF8B0DAD2D87006889B7 /* IOATACommand.h in Headers */,
+				52C1FF8C0DAD2D87006889B7 /* IOATAController.h in Headers */,
+				52C1FF8D0DAD2D87006889B7 /* IOATADevConfig.h in Headers */,
+				52C1FF8E0DAD2D87006889B7 /* IOATADevice.h in Headers */,
+				52C1FF8F0DAD2D87006889B7 /* IOATATypes.h in Headers */,
+				52C1FF900DAD2D87006889B7 /* IOPCIATA.h in Headers */,
+				52C1FF910DAD2D87006889B7 /* MacIOATA.h in Headers */,
+				52C1FF920DAD2D87006889B7 /* ATATimerEventSource.h in Headers */,
+				52C1FF930DAD2D87006889B7 /* ATADeviceNub.h in Headers */,
+				52C1FF940DAD2D87006889B7 /* IOATARegI386.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		52C1FF860DAD2D87006889B7 /* IOATAFamily */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 52C1FFB30DAD2D87006889B7 /* Build configuration list for PBXNativeTarget "IOATAFamily" */;
+			buildPhases = (
+				52C1FF870DAD2D87006889B7 /* ShellScript */,
+				52C1FF880DAD2D87006889B7 /* Headers */,
+				52C1FF950DAD2D87006889B7 /* CopyFiles */,
+				52C1FFA20DAD2D87006889B7 /* Resources */,
+				52C1FFA40DAD2D87006889B7 /* Sources */,
+				52C1FFB00DAD2D87006889B7 /* Frameworks */,
+				52C1FFB10DAD2D87006889B7 /* Rez */,
+				52C1FFB20DAD2D87006889B7 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOATAFamily;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOATAFamily;
+			productReference = 52C1FFB80DAD2D87006889B7 /* IOATAFamily.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
@@ -275,24 +223,23 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				089C1673FE841209C02AAC07 /* IOATAFamily */,
+				52C1FF860DAD2D87006889B7 /* IOATAFamily */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		089C1675FE841209C02AAC07 /* Resources */ = {
+		52C1FFA20DAD2D87006889B7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				089C1680FE841241C02AAC07 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
-		089C1679FE841209C02AAC07 /* Rez */ = {
+		52C1FFB10DAD2D87006889B7 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -302,16 +249,7 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		06AA1264FFB2107B11CA28AA /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		06AA1267FFB2110C11CA28AA /* ShellScript */ = {
+		52C1FF870DAD2D87006889B7 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 12;
 			files = (
@@ -320,64 +258,64 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
+		52C1FFB20DAD2D87006889B7 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		089C1676FE841209C02AAC07 /* Sources */ = {
+		52C1FFA40DAD2D87006889B7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				019C1A43FFDDABCE7F000001 /* ATADeviceNub.cpp in Sources */,
-				019C1A44FFDDABCE7F000001 /* IOATABusCommand.cpp in Sources */,
-				019C1A45FFDDABCE7F000001 /* IOATABusInfo.cpp in Sources */,
-				019C1A46FFDDABCE7F000001 /* IOATACommand.cpp in Sources */,
-				019C1A47FFDDABCE7F000001 /* IOATAController.cpp in Sources */,
-				019C1A48FFDDABCE7F000001 /* IOATADevConfig.cpp in Sources */,
-				019C1A49FFDDABCE7F000001 /* IOATADevice.cpp in Sources */,
-				019C1A4AFFDDABCE7F000001 /* IOPCIATA.cpp in Sources */,
-				019C1A4BFFDDABCE7F000001 /* MacIOATA.cpp in Sources */,
-				0176C372002B79CE11CE156E /* ATATimerEventSource.cpp in Sources */,
-				B91829CE0197498808CA29FD /* IOATARegI386.cpp in Sources */,
+				52C1FFA50DAD2D87006889B7 /* ATADeviceNub.cpp in Sources */,
+				52C1FFA60DAD2D87006889B7 /* IOATABusCommand.cpp in Sources */,
+				52C1FFA70DAD2D87006889B7 /* IOATABusInfo.cpp in Sources */,
+				52C1FFA80DAD2D87006889B7 /* IOATACommand.cpp in Sources */,
+				52C1FFA90DAD2D87006889B7 /* IOATAController.cpp in Sources */,
+				52C1FFAA0DAD2D87006889B7 /* IOATADevConfig.cpp in Sources */,
+				52C1FFAB0DAD2D87006889B7 /* IOATADevice.cpp in Sources */,
+				52C1FFAC0DAD2D87006889B7 /* IOPCIATA.cpp in Sources */,
+				52C1FFAD0DAD2D87006889B7 /* MacIOATA.cpp in Sources */,
+				52C1FFAE0DAD2D87006889B7 /* ATATimerEventSource.cpp in Sources */,
+				52C1FFAF0DAD2D87006889B7 /* IOATARegI386.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXVariantGroup section */
-		089C167DFE841241C02AAC07 /* InfoPlist.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				089C167EFE841241C02AAC07 /* English */,
-			);
-			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
-/* End PBXVariantGroup section */
-
 /* Begin XCBuildConfiguration section */
-		A5EDE05A09660D8400EFBE07 /* Development */ = {
+		52C1FFB40DAD2D87006889B7 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOATAFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 1.7.3f1;
-				OPTIMIZATION_CFLAGS = "-O0";
+				MODULE_VERSION = 2.0.0;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -388,25 +326,28 @@
 			};
 			name = Development;
 		};
-		A5EDE05B09660D8400EFBE07 /* Deployment */ = {
+		52C1FFB50DAD2D87006889B7 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOATAFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 1.6.0f2;
+				MODULE_VERSION = 2.0.0;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -417,23 +358,26 @@
 			};
 			name = Deployment;
 		};
-		A5EDE05C09660D8400EFBE07 /* Default */ = {
+		52C1FFB60DAD2D87006889B7 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOATAFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 1.6.0f2;
+				MODULE_VERSION = 2.0.0;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc i386";
+				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -446,30 +390,33 @@
 		A5EDE05E09660D8400EFBE07 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
 			};
 			name = Development;
 		};
 		A5EDE05F09660D8400EFBE07 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
 			};
 			name = Deployment;
 		};
 		A5EDE06009660D8400EFBE07 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
 			};
 			name = Default;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A5EDE05909660D8400EFBE07 /* Build configuration list for PBXBundleTarget "IOATAFamily" */ = {
+		52C1FFB30DAD2D87006889B7 /* Build configuration list for PBXNativeTarget "IOATAFamily" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A5EDE05A09660D8400EFBE07 /* Development */,
-				A5EDE05B09660D8400EFBE07 /* Deployment */,
-				A5EDE05C09660D8400EFBE07 /* Default */,
+				52C1FFB40DAD2D87006889B7 /* Development */,
+				52C1FFB50DAD2D87006889B7 /* Deployment */,
+				52C1FFB60DAD2D87006889B7 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

@@ -22,6 +22,7 @@
  */
 
 #include "vim.h"
+
 #ifdef FEAT_GUI_GNOME
 /* Gnome redefines _() and N_().  Grrr... */
 # ifdef _
@@ -35,6 +36,9 @@
 # endif
 # ifdef bindtextdomain
 #  undef bindtextdomain
+# endif
+# ifdef bind_textdomain_codeset
+#  undef bind_textdomain_codeset
 # endif
 # if defined(FEAT_GETTEXT) && !defined(ENABLE_NLS)
 #  define ENABLE_NLS	/* so the texts in the dialog boxes are translated */
@@ -810,9 +814,14 @@ focus_in_event(GtkWidget *widget, GdkEventFocus *event, gpointer data)
     if (blink_state == BLINK_NONE)
 	gui_mch_start_blink();
 
-    /* make sure keyboard input goes to the draw area (if this is focus for a window) */
+    /* make sure keyboard input goes to the draw area (if this is focus for a
+     * window) */
     if (widget != gui.drawarea)
 	gtk_widget_grab_focus(gui.drawarea);
+
+    /* make sure the input buffer is read */
+    if (gtk_main_level() > 0)
+	gtk_main_quit();
 
     return TRUE;
 }
@@ -825,6 +834,10 @@ focus_out_event(GtkWidget *widget, GdkEventFocus *event, gpointer data)
 
     if (blink_state != BLINK_NONE)
 	gui_mch_stop_blink();
+
+    /* make sure the input buffer is read */
+    if (gtk_main_level() > 0)
+	gtk_main_quit();
 
     return TRUE;
 }
@@ -1566,7 +1579,7 @@ selection_get_cb(GtkWidget	    *widget,
 gui_mch_init_check(void)
 {
 #ifndef HAVE_GTK2
-    /* This is needed to make the locale handling consistant between the GUI
+    /* This is needed to make the locale handling consistent between the GUI
      * and the rest of VIM. */
     gtk_set_locale();
 #endif
@@ -1580,7 +1593,7 @@ gui_mch_init_check(void)
     if (!gtk_init_check(&gui_argc, &gui_argv))
     {
 	gui.dying = TRUE;
-	EMSG(_(e_opendisp));
+	EMSG(_((char *)e_opendisp));
 	return FAIL;
     }
 
@@ -1638,7 +1651,7 @@ process_motion_notify(int x, int y, GdkModifierType state)
     /* translate modifier coding between the main engine and GTK */
     vim_modifiers = modifiers_gdk2mouse(state);
 
-    /* inform the editor engine about the occurence of this event */
+    /* inform the editor engine about the occurrence of this event */
     gui_send_mouse_event(button, x, y, FALSE, vim_modifiers);
 
     if (gtk_main_level() > 0)
@@ -2185,8 +2198,10 @@ write_session_file(char_u *filename)
     escaped_filename = vim_strsave_escaped(filename, escape_chars);
     if (escaped_filename == NULL)
 	return FALSE;
-    mksession_cmdline = g_strconcat("mksession ", (char *)escaped_filename, NULL);
+    mksession_cmdline = g_strconcat("mksession ", (char *)escaped_filename,
+									NULL);
     vim_free(escaped_filename);
+
     /*
      * Use a reasonable hardcoded set of 'sessionoptions' flags to avoid
      * unpredictable effects when the session is saved automatically.  Also,
@@ -2196,7 +2211,7 @@ write_session_file(char_u *filename)
      */
     save_ssop_flags = ssop_flags;
     ssop_flags = (SSOP_BLANK|SSOP_CURDIR|SSOP_FOLDS|SSOP_GLOBALS
-		  |SSOP_HELP|SSOP_OPTIONS|SSOP_WINSIZE);
+		  |SSOP_HELP|SSOP_OPTIONS|SSOP_WINSIZE|SSOP_TABPAGES);
 
     do_cmdline_cmd((char_u *)"let Save_VV_this_session = v:this_session");
     failed = (do_cmdline_cmd((char_u *)mksession_cmdline) == FAIL);
@@ -2331,9 +2346,9 @@ sm_client_die(GnomeClient *client, gpointer data)
     /* Don't write messages to the GUI anymore */
     full_screen = FALSE;
 
-    vim_strncpy(IObuff,
+    vim_strncpy(IObuff, (char_u *)
 		    _("Vim: Received \"die\" request from session manager\n"),
-	    IOSIZE - 1);
+		    IOSIZE - 1);
     preserve_exit();
 }
 
@@ -2604,7 +2619,7 @@ mainwin_realize(GtkWidget *widget, gpointer data)
 	int	    number_sizes;
 	/*
 	 * Adjust the icon to the preferences of the actual window manager.
-	 * This is once again a workaround for a defficiency in GTK+ 1.2.
+	 * This is once again a workaround for a deficiency in GTK+ 1.2.
 	 */
 	xdisplay = GDK_WINDOW_XDISPLAY(gui.mainwin->window);
 	root_window = XRootWindow(xdisplay, DefaultScreen(xdisplay));
@@ -2707,7 +2722,7 @@ mainwin_screen_changed_cb(GtkWidget  *widget,
 	return;
 
     /*
-     * Recreate the invisble mouse cursor.
+     * Recreate the invisible mouse cursor.
      */
     if (gui.blank_pointer != NULL)
 	gdk_cursor_unref(gui.blank_pointer);
@@ -2971,7 +2986,7 @@ update_window_manager_hints(int force_width, int force_height)
 # endif
 
     /* GtkSockets use GtkPlug's [gui,mainwin] min-size hints to determine
-     * their actual widget size.  When we set our size ourselve (e.g.,
+     * their actual widget size.  When we set our size ourselves (e.g.,
      * 'set columns=' or init. -geom) we briefly set the min. to the size
      * we wish to be instead of the legitimate minimum so that we actually
      * resize correctly.
@@ -3152,7 +3167,7 @@ add_tabline_menu_item(GtkWidget *menu, char_u *text, int resp)
     gtk_container_add(GTK_CONTAINER(menu), item);
     gtk_signal_connect(GTK_OBJECT(item), "activate",
 	    GTK_SIGNAL_FUNC(tabline_menu_handler),
-	    (gpointer)resp);
+	    (gpointer)(long)resp);
 }
 
 /*
@@ -3209,8 +3224,9 @@ on_tabline_menu(GtkWidget *widget, GdkEvent *event)
 	{
 	    if (clicked_page == 0)
 	    {
-		/* Click after all tabs moves to next tab page. */
-		if (send_tabline_event(0) && gtk_main_level() > 0)
+		/* Click after all tabs moves to next tab page.  When "x" is
+		 * small guess it's the left button. */
+		if (send_tabline_event(x < 50 ? -1 : 0) && gtk_main_level() > 0)
 		    gtk_main_quit();
 	    }
 #ifndef HAVE_GTK2
@@ -3233,12 +3249,12 @@ on_tabline_menu(GtkWidget *widget, GdkEvent *event)
 on_select_tab(
 	GtkNotebook	*notebook,
 	GtkNotebookPage *page,
-	gint		index,
+	gint		idx,
 	gpointer	data)
 {
     if (!ignore_tabline_evt)
     {
-	if (send_tabline_event(index + 1) && gtk_main_level() > 0)
+	if (send_tabline_event(idx + 1) && gtk_main_level() > 0)
 	    gtk_main_quit();
     }
 }
@@ -3339,7 +3355,8 @@ gui_mch_update_tabline(void)
 	}
 
 	event_box = gtk_notebook_get_tab_label(GTK_NOTEBOOK(gui.tabline), page);
-	gtk_object_set_user_data(GTK_OBJECT(event_box), (gpointer)tab_num);
+	gtk_object_set_user_data(GTK_OBJECT(event_box),
+						     (gpointer)(long)tab_num);
 	label = GTK_BIN(event_box)->child;
 	get_tabline_label(tp, FALSE);
 	labeltext = CONVERT_TO_UTF8(NameBuff);
@@ -3696,7 +3713,7 @@ gui_mch_init(void)
 	gtk_widget_show(label);
 	event_box = gtk_event_box_new();
 	gtk_widget_show(event_box);
-	gtk_object_set_user_data(GTK_OBJECT(event_box), (gpointer)1);
+	gtk_object_set_user_data(GTK_OBJECT(event_box), (gpointer)1L);
 	gtk_misc_set_padding(GTK_MISC(label), 2, 2);
 	gtk_container_add(GTK_CONTAINER(event_box), label);
 	gtk_notebook_set_tab_label(GTK_NOTEBOOK(gui.tabline), page, event_box);
@@ -3956,11 +3973,11 @@ mainwin_destroy_cb(GtkObject *object, gpointer data)
  * hints (and thus the required size from -geom), but that after that we
  * put the hints back to normal (the actual minimum size) so we may
  * subsequently be resized smaller.  GtkSocket (the parent end) uses the
- * plug's window 'min hints to set *it's* minum size, but that's also the
+ * plug's window 'min hints to set *it's* minimum size, but that's also the
  * only way we have of making ourselves bigger (by set lines/columns).
  * Thus set hints at start-up to ensure correct init. size, then a
  * second after the final attempt to reset the real minimum hinst (done by
- * scrollbar init.), actually do the sttandard hinst and stop the timer.
+ * scrollbar init.), actually do the standard hinst and stop the timer.
  * We'll not let the default hints be set while this timer's active.
  */
 /*ARGSUSED*/
@@ -4029,6 +4046,8 @@ gui_mch_open(void)
 	unsigned int	w, h;
 	int		x = 0;
 	int		y = 0;
+	guint		pixel_width;
+	guint		pixel_height;
 
 	mask = XParseGeometry((char *)gui.geom, &x, &y, &w, &h);
 
@@ -4040,12 +4059,31 @@ gui_mch_open(void)
 		p_window = h - 1;
 	    Rows = h;
 	}
+
+	pixel_width = (guint)(gui_get_base_width() + Columns * gui.char_width);
+	pixel_height = (guint)(gui_get_base_height() + Rows * gui.char_height);
+
+#ifdef HAVE_GTK2
+	pixel_width  += get_menu_tool_width();
+	pixel_height += get_menu_tool_height();
+#endif
+
 	if (mask & (XValue | YValue))
+	{
+	    int w, h;
+	    gui_mch_get_screen_dimensions(&w, &h);
+	    h += p_ghr + get_menu_tool_height();
+	    w += get_menu_tool_width();
+	    if (mask & XNegative)
+		x += w - pixel_width;
+	    if (mask & YNegative)
+		y += h - pixel_height;
 #ifdef HAVE_GTK2
 	    gtk_window_move(GTK_WINDOW(gui.mainwin), x, y);
 #else
 	    gtk_widget_set_uposition(gui.mainwin, x, y);
 #endif
+	}
 	vim_free(gui.geom);
 	gui.geom = NULL;
 
@@ -4056,14 +4094,6 @@ gui_mch_open(void)
 	 */
 	if (gtk_socket_id != 0  &&  (mask & WidthValue || mask & HeightValue))
 	{
-	    guint pixel_width = (guint)(gui_get_base_width() + Columns * gui.char_width);
-	    guint pixel_height = (guint)(gui_get_base_height() + Rows * gui.char_height);
-
-#ifdef HAVE_GTK2
-	    pixel_width  += get_menu_tool_width();
-	    pixel_height += get_menu_tool_height();
-#endif
-
 	    update_window_manager_hints(pixel_width, pixel_height);
 	    init_window_hints_state = 1;
 	    g_timeout_add(1000, check_startup_plug_hints, NULL);
@@ -5215,7 +5245,7 @@ gui_mch_get_font(char_u *name, int report_error)
     if (font == NULL)
     {
 	if (report_error)
-	    EMSG2(_(e_font), name);
+	    EMSG2(_((char *)e_font), name);
 	return NULL;
     }
 
@@ -5303,13 +5333,13 @@ gui_mch_get_fontname(GuiFont font, char_u *name)
 # ifdef HAVE_GTK2
     if (font != NOFONT)
     {
-	char	*name = pango_font_description_to_string(font);
+	char	*pangoname = pango_font_description_to_string(font);
 
-	if (name != NULL)
+	if (pangoname != NULL)
 	{
-	    char_u	*s = vim_strsave((char_u *)name);
+	    char_u	*s = vim_strsave((char_u *)pangoname);
 
-	    g_free(name);
+	    g_free(pangoname);
 	    return s;
 	}
     }
@@ -5430,7 +5460,7 @@ gui_mch_get_color(char_u *name)
 	/*
 	 * Since we have already called gtk_set_locale here the bugger
 	 * XParseColor will accept only explicit color names in the language
-	 * of the current locale.  However this will interferre with:
+	 * of the current locale.  However this will interfere with:
 	 * 1. Vim's global startup files
 	 * 2. Explicit color names in .vimrc
 	 *
@@ -6241,24 +6271,20 @@ gui_mch_invert_rectangle(int r, int c, int nr, int nc)
 {
     GdkGCValues values;
     GdkGC *invert_gc;
-    GdkColor foreground;
-    GdkColor background;
 
     if (gui.drawarea->window == NULL)
 	return;
 
-    foreground.pixel = gui.norm_pixel ^ gui.back_pixel;
-    background.pixel = gui.norm_pixel ^ gui.back_pixel;
-
-    values.foreground = foreground;
-    values.background = background;
+    values.foreground.pixel = gui.norm_pixel ^ gui.back_pixel;
+    values.background.pixel = gui.norm_pixel ^ gui.back_pixel;
     values.function = GDK_XOR;
     invert_gc = gdk_gc_new_with_values(gui.drawarea->window,
 				       &values,
 				       GDK_GC_FOREGROUND |
 				       GDK_GC_BACKGROUND |
 				       GDK_GC_FUNCTION);
-    gdk_gc_set_exposures(invert_gc, gui.visibility != GDK_VISIBILITY_UNOBSCURED);
+    gdk_gc_set_exposures(invert_gc, gui.visibility !=
+						   GDK_VISIBILITY_UNOBSCURED);
     gdk_draw_rectangle(gui.drawarea->window, invert_gc,
 		       TRUE,
 		       FILL_X(c), FILL_Y(r),
@@ -6363,7 +6389,7 @@ input_timer_cb(gpointer data)
 {
     int *timed_out = (int *) data;
 
-    /* Just inform the caller about the occurence of it */
+    /* Just inform the caller about the occurrence of it */
     *timed_out = TRUE;
 
     if (gtk_main_level() > 0)
@@ -6451,6 +6477,11 @@ gui_mch_wait_for_chars(long wtime)
 		gui_mch_stop_blink();
 	    focus = gui.in_focus;
 	}
+
+#if defined(FEAT_NETBEANS_INTG)
+	/* Process the queued netbeans messages. */
+	netbeans_parse_messages();
+#endif
 
 	/*
 	 * Loop in GTK+ processing  until a timeout or input occurs.
@@ -6636,6 +6667,7 @@ clip_mch_request_selection(VimClipboard *cbd)
     unsigned	i;
     int		nbytes;
     char_u	*buffer;
+    time_t	start;
 
     for (i = 0; i < N_SELECTION_TARGETS; ++i)
     {
@@ -6646,7 +6678,11 @@ clip_mch_request_selection(VimClipboard *cbd)
 			      cbd->gtk_sel_atom, target,
 			      (guint32)GDK_CURRENT_TIME);
 
-	while (received_selection == RS_NONE)
+	/* Hack: Wait up to three seconds for the selection.  A hang was
+	 * noticed here when using the netrw plugin combined with ":gui"
+	 * during the FocusGained event. */
+	start = time(NULL);
+	while (received_selection == RS_NONE && time(NULL) < start + 3)
 	    gtk_main();	/* wait for selection_received_cb */
 
 	if (received_selection != RS_FAIL)

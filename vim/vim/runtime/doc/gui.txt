@@ -1,4 +1,4 @@
-*gui.txt*       For Vim version 7.0.  Last change: 2006 May 04
+*gui.txt*       For Vim version 7.2.  Last change: 2008 Jun 14
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -325,16 +325,22 @@ A different kind of selection is used when:
 - at the |hit-enter| prompt
 - whenever the current mode is not in the 'mouse' option
 - when holding the CTRL and SHIFT keys in the GUI
+
 Since Vim continues like the selection isn't there, and there is no mode
 associated with the selection, this is called modeless selection.  Any text in
 the Vim window can be selected.  Select the text by pressing the left mouse
 button at the start, drag to the end and release.  To extend the selection,
 use the right mouse button when 'mousemodel' is "extend", or the left mouse
 button with the shift key pressed when 'mousemodel' is "popup".
-The middle mouse button pastes the text.
 The selection is removed when the selected text is scrolled or changed.
+
 On the command line CTRL-Y can be used to copy the selection into the
-clipboard.  To do this from Insert mode, use CTRL-O : CTRL-Y <CR>.
+clipboard.  To do this from Insert mode, use CTRL-O : CTRL-Y <CR>.  When
+'guioptions' contains a or A (default on X11), the selection is automatically
+copied to the "* register.
+
+The middle mouse button can then paste the text.  On non-X11 systems, you can
+use CTRL-R +.
 
 
 3.4 Using Mouse on Status Lines				*gui-mouse-status*
@@ -510,7 +516,7 @@ floating menus that do not appear on the main menu bar.
 				*:ime* *:imenu* *:inoreme* *:inoremenu*
 				*:cme* *:cmenu* *:cnoreme* *:cnoremenu*
 				*E330* *E327* *E331* *E336* *E333*
-				*E328* *E329* *E337*
+				*E328* *E329* *E337* *E792*
 To create a new menu item, use the ":menu" commands.  They are mostly like
 the ":map" set of commands but the first argument is a menu item name, given
 as a path of menus and submenus with a '.' between them, e.g.: >
@@ -532,7 +538,7 @@ Special characters in a menu name:
 	<Tab>	Separates the menu name from right-aligned text.  This can be
 		used to show the equivalent typed command.  The text "<Tab>"
 		can be used here for convenience.  If you are using a real
-		Tab, don't forget to put a backslash before it!
+		tab, don't forget to put a backslash before it!
 Example: >
 
    :amenu &File.&Open<Tab>:e  :browse e<CR>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,9 +55,6 @@
 static asl_msg_t *query = NULL;
 static int reset = 0;
 
-extern uint64_t bsd_flush_time;
-extern uint64_t bsd_max_dup_time;
-
 struct config_rule
 {
 	uint32_t count;
@@ -76,7 +73,7 @@ struct config_rule
 
 static TAILQ_HEAD(cr, config_rule) bsd_out_rule;
 
-extern uint32_t string_hash(const char *s, uint32_t inlen);
+extern uint32_t asl_core_string_hash(const char *s, uint32_t inlen);
 
 int bsd_out_close();
 static int _parse_config_file(const char *);
@@ -699,12 +696,12 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 
 	/* check if message is a duplicate of the last message, and inside the dup time window */
 	is_dup = 0;
-	if ((bsd_max_dup_time > 0) && (*out != NULL) && (r->last_msg != NULL))
+	if ((global.bsd_max_dup_time > 0) && (*out != NULL) && (r->last_msg != NULL))
 	{
-		msg_hash = string_hash(*out + 16, strlen(*out + 16));
+		msg_hash = asl_core_string_hash(*out + 16, strlen(*out + 16));
 		if ((r->last_hash == msg_hash) && (!strcmp(r->last_msg, *out + 16)))
 		{
-			if ((now - r->last_time) < bsd_max_dup_time) is_dup = 1;
+			if ((now - r->last_time) < global.bsd_max_dup_time) is_dup = 1;
 		}
 	}
 
@@ -880,7 +877,7 @@ bsd_out_sendmsg(asl_msg_t *msg, const char *outid)
 	fwd = NULL;
 
 	tick = time(NULL);
-	bsd_flush_time = 0;
+	global.bsd_flush_time = 0;
 
 	for (r = bsd_out_rule.tqh_first; r != NULL; r = r->entries.tqe_next)
 	{
@@ -888,11 +885,11 @@ bsd_out_sendmsg(asl_msg_t *msg, const char *outid)
 		if ((r->type == DST_TYPE_FILE) && (r->last_count > 0))
 		{
 			delta = tick - r->last_time;
-			if (delta < bsd_max_dup_time)
+			if (delta < global.bsd_max_dup_time)
 			{
-				delta = bsd_max_dup_time - delta;
-				if (bsd_flush_time == 0) bsd_flush_time = delta;
-				else if (delta < bsd_flush_time) bsd_flush_time = delta;
+				delta = global.bsd_max_dup_time - delta;
+				if (global.bsd_flush_time == 0) global.bsd_flush_time = delta;
+				else if (delta < global.bsd_flush_time) global.bsd_flush_time = delta;
 			}
 		}
 	}
@@ -904,14 +901,12 @@ bsd_out_sendmsg(asl_msg_t *msg, const char *outid)
 }
 
 void
-bsd_flush_duplicates()
+bsd_flush_duplicates(time_t now)
 {
 	struct config_rule *r;
-	time_t tick;
 	uint64_t delta;
 
-	tick = time(NULL);
-	bsd_flush_time = 0;
+	global.bsd_flush_time = 0;
 
 	for (r = bsd_out_rule.tqh_first; r != NULL; r = r->entries.tqe_next)
 	{
@@ -919,12 +914,12 @@ bsd_flush_duplicates()
 
 		if (r->last_count > 0)
 		{
-			delta = tick - r->last_time;
-			if (delta < bsd_max_dup_time)
+			delta = now - r->last_time;
+			if (delta < global.bsd_max_dup_time)
 			{
-				delta = bsd_max_dup_time - delta;
-				if (bsd_flush_time == 0) bsd_flush_time = delta;
-				else if (delta < bsd_flush_time) bsd_flush_time = delta;
+				delta = global.bsd_max_dup_time - delta;
+				if (global.bsd_flush_time == 0) global.bsd_flush_time = delta;
+				else if (delta < global.bsd_flush_time) global.bsd_flush_time = delta;
 			}
 			else
 			{

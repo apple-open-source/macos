@@ -74,7 +74,7 @@
 /* Define if struct sigcontext is present */
 #define HAVE_SIGCONTEXT
 
-/* Define if toupper/tolower only work on lower/upercase characters */
+/* Define if toupper/tolower only work on lower/uppercase characters */
 /* #define BROKEN_TOUPPER */
 
 /* Define if tgetstr() has a second argument that is (char *) */
@@ -114,6 +114,8 @@
 #define HAVE_PUTENV
 #define HAVE_SETENV
 #define HAVE_SETJMP_H
+#define HAVE_MATH_H
+#define HAVE_FLOAT_FUNCS
 
 #undef	HAVE_DIRENT_H
 #undef	HAVE_SYS_NDIR_H

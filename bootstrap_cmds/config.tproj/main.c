@@ -60,7 +60,7 @@ static char sccsid[] = "@(#)main.c	5.9 (Berkeley) 6/18/88";
 
 #include <stdio.h>
 #include <ctype.h>
-#include "y.tab.h"
+#include "parser.h"
 #include "config.h"
 
 /*

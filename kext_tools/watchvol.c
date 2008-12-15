@@ -92,8 +92,11 @@
 
 #include <bless.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <TargetConditionals.h>
+#if !TARGET_OS_EMBEDDED
 #include <DiskArbitration/DiskArbitration.h>
 #include <DiskArbitration/DiskArbitrationPrivate.h>
+#endif
 #include <IOKit/kext/kextmanager_types.h>
 
 // notifyd SPI
@@ -135,9 +138,11 @@ struct watchedVol {
 
 // module-wide data
 static DASessionRef sDASession = NULL;                  // learn about volumes
+#if !TARGET_OS_EMBEDDED
 static DAApprovalSessionRef sDAApproval = NULL;         // retain volumes
 static CFMachPortRef sFsysChangedPort = NULL;           // let us know
 static CFRunLoopSourceRef sFsysChangedSource = NULL;    // on the runloop
+#endif
 static CFMutableDictionaryRef sFsysWatchDict = NULL;    // disk ids -> wstruct*s
 static CFMutableDictionaryRef sReplyPorts = NULL;       // cfports -> replyPorts
 static CFMachPortRef sRebootLock = NULL;                // if locked for reboot
@@ -147,20 +152,26 @@ static CFMachPortRef sRebootWaiter = NULL;              // only need one
 // function declarations (kextd_watch_volumes, _stop in watchvol.h)
 
 // ctor/dtors
+#if !TARGET_OS_EMBEDDED
 static struct watchedVol* create_watchedVol(DADiskRef disk);
 static void destroy_watchedVol(struct watchedVol *watched);
+#endif
 static CFMachPortRef createWatchedPort(mach_port_t mport, void *ctx);
 
 // volume state
+#if !TARGET_OS_EMBEDDED
 static void vol_appeared(DADiskRef disk, void *ctx);
 static void vol_changed(DADiskRef, CFArrayRef keys, void* ctx);
 static void vol_disappeared(DADiskRef, void* ctx);
 static DADissenterRef is_dadisk_busy(DADiskRef, void *ctx);
+#endif
 static Boolean check_vol_busy(struct watchedVol *watched);
 
 // notification processing delay scheme
+#if !TARGET_OS_EMBEDDED
 static void fsys_changed(CFMachPortRef p, void *msg, CFIndex size, void *info);
 static void check_now(CFRunLoopTimerRef timer, void *ctx);    // notify timer cb
+#endif
 
 // check and act
 static Boolean check_rebuild(struct watchedVol*);   // true if launched
@@ -213,6 +224,7 @@ static void debug_chld(int signum) __attribute__((unused))
 int kextd_watch_volumes(int sourcePriority)
 {
     int rval = ELAST + 1;
+#if !TARGET_OS_EMBEDDED
     char *errmsg;
     CFRunLoopRef rl;
 
@@ -293,6 +305,7 @@ finish:
         kextd_stop_volwatch();
     }
 
+#endif
     return rval;
 }
 /******************************************************************************
@@ -314,19 +327,23 @@ int kextd_giveup_volwatch()
     return rval;
 }
 
+
 /******************************************************************************
  * kextd_stop_volwatch unregisters from everything and cleans up
  * - called from watch_volumes to handle partial cleanup
  *****************************************************************************/
 // to help clear out sFsysWatch
+#if !TARGET_OS_EMBEDDED
 static void free_dict_item(const void* key, const void *val, void *c)
 {
     destroy_watchedVol((struct watchedVol*)val);
 }
+#endif
 
 // public entry point to this module
 void kextd_stop_volwatch()
 {
+#if !TARGET_OS_EMBEDDED
     CFRunLoopRef rl;
 
     // runloop cleanup
@@ -358,10 +375,10 @@ void kextd_stop_volwatch()
         CFDictionaryApplyFunction(sFsysWatchDict, free_dict_item, NULL);
         CFRELEASE(sFsysWatchDict);
     }
-
-    return;
+#endif
 }
 
+#if !TARGET_OS_EMBEDDED
 /******************************************************************************
 * destroy_watchedVol unregisters any notification tokens and frees
 * pieces created in create_watchedVol
@@ -387,7 +404,9 @@ static void destroy_watchedVol(struct watchedVol *watched)
     if (watched->caches)    destroyCaches(watched->caches);
     free(watched);
 }
+#endif
 
+#if !TARGET_OS_EMBEDDED
 /******************************************************************************
 * create_watchedVol calls readCaches and creates watch-specific necessities
 ******************************************************************************/
@@ -438,7 +457,7 @@ finish:
     
     return rval;
 }
-
+#endif
 
 // helper: caller must remove port from other structures (e.g. waiters queue)
 static int cleanupPort(CFMachPortRef *port)
@@ -532,6 +551,7 @@ static void handleWatchedHandoff(struct watchedVol *watched)
  * - initiates an initial volume check
  *****************************************************************************/
 // set up notifications for a single path
+#if !TARGET_OS_EMBEDDED
 static int watch_path(char *path, mach_port_t port, struct watchedVol* watched)
 {
     int rval = ELAST + 1;   // cheesy
@@ -559,11 +579,13 @@ finish:
 
     return rval;
 }
+#endif
 
 #define makerootpath(caches, dst, path) do { \
         if (strlcpy(dst, caches->root, PATH_MAX) >= PATH_MAX)   goto finish; \
         if (strlcat(dst, path, PATH_MAX) >= PATH_MAX)           goto finish; \
     } while(0)
+#if !TARGET_OS_EMBEDDED
 static void vol_appeared(DADiskRef disk, void *launchCtx)
 {
     int result = 0; // for now, ignore inability to get basic data (4528851)
@@ -662,9 +684,8 @@ finish:
             destroy_watchedVol(watched);
         }
     }
-
-    return;
 }
+#endif
 
 /******************************************************************************
  * vol_changed updates our structures if the mountpoint changed
@@ -673,6 +694,7 @@ finish:
  *   _appeared and _disappeared are smart enough, but debugging is a pain
  *   when vol_disappeared gets called on a volume mount!
  *****************************************************************************/
+#if !TARGET_OS_EMBEDDED
 static void vol_changed(DADiskRef disk, CFArrayRef keys, void* ctx)
 {
     CFIndex i = CFArrayGetCount(keys);
@@ -704,11 +726,13 @@ static void vol_changed(DADiskRef disk, CFArrayRef keys, void* ctx)
 finish:
     if (ddesc)  CFRelease(ddesc);
 }
+#endif
 
 /******************************************************************************
  * vol_disappeared removes entries from the relevant structures
  * - handles forced removal by invalidating the lock
  *****************************************************************************/
+#if !TARGET_OS_EMBEDDED
 static void vol_disappeared(DADiskRef disk, void* ctx)
 {
     // we used to report errors, but we got weird requests (4528851)
@@ -752,15 +776,15 @@ static void vol_disappeared(DADiskRef disk, void* ctx)
 
 finish:
     if (ddesc)  CFRelease(ddesc);
-
-    return;
 }
+#endif
 
 /******************************************************************************
  * is_dadisk_busy lets diskarb know if we'd rather nothing changed
  * note: dissenter callback is called when root initiates an unmount,
  * but the result is ignored.
  *****************************************************************************/
+#if !TARGET_OS_EMBEDDED
 static DADissenterRef is_dadisk_busy(DADiskRef disk, void *ctx)
 {
     int result = 0;     // ignore weird requests for now (4528851)
@@ -795,6 +819,7 @@ finish:
 
     return rval;    // caller releases dissenter if non-null
 }
+#endif
 
 /******************************************************************************
  * check_vol_busy
@@ -817,6 +842,7 @@ static Boolean check_vol_busy(struct watchedVol *watched)
  * fsys_changed gets the mach messages from notifyd
  * - schedule a timer (urgency detected elsewhere calls direct, canceling timer)
  *****************************************************************************/
+#if !TARGET_OS_EMBEDDED
 static void fsys_changed(CFMachPortRef p, void *m, CFIndex size, void *info)
 {
     int result = -1;
@@ -862,7 +888,9 @@ finish:
 
     return;
 }
+#endif
 
+#if !TARGET_OS_EMBEDDED
 /******************************************************************************
  * check_now, called after the timer expires, calls check_rebuild() 
  * It does not look at errcount because if something changed, we're willing
@@ -881,6 +909,7 @@ void check_now(CFRunLoopTimerRef timer, void *info)
         kextd_log("%p's timer fired when it should have been invalid", watched);
     }
 }
+#endif
 
 /******************************************************************************
  * returns the result of fork/exec (negative on error; pid on success)
@@ -1433,8 +1462,9 @@ finish:
  *****************************************************************************/
 static Boolean reconsiderVolume(mountpoint_t volToCheck)
 {
-    int result = 0;
     Boolean rval = false;
+#if !TARGET_OS_EMBEDDED
+    int result = 0;
     DADiskRef disk = NULL;
     CFDictionaryRef dadesc = NULL;
     CFUUIDRef volUUID;
@@ -1463,6 +1493,7 @@ finish:
         kextd_error_log("error reconsidering volume %s", volToCheck);
     }
 
+#endif
     return rval;
 }
 
@@ -1515,6 +1546,7 @@ finish:
  *****************************************************************************/
 static void toggleOwners(mountpoint_t mount, Boolean enableOwners)
 {
+#if !TARGET_OS_EMBEDDED
     int result = ELAST + 1;
     DASessionRef session = NULL;
     CFStringRef toggleMode = CFSTR("toggleOwnersMode");
@@ -1554,6 +1586,7 @@ finish:
         kextd_log("WARNING: couldn't %s owners for %s", 
             enableOwners ? "enable":"disable", mount);
     }
+#endif
 }
 
 /*******************************************************************************

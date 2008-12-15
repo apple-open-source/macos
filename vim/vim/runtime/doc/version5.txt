@@ -1,4 +1,4 @@
-*version5.txt*  For Vim version 7.0.  Last change: 2006 Apr 24
+*version5.txt*  For Vim version 7.2.  Last change: 2008 Jun 28
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -319,10 +319,10 @@ in $HOME.  See |_vimrc|.
 Tags file format changed				*tags-file-changed*
 ------------------------
 
-Only Tabs are allowed to separate fields in a tags file.  This allows for
+Only tabs are allowed to separate fields in a tags file.  This allows for
 spaces in a file name and is still Vi compatible.  In previous versions of
 Vim, any white space was allowed to separate the fields.  If you have a file
-which doesn't use a single Tab between fields, edit the tags file and execute
+which doesn't use a single tab between fields, edit the tags file and execute
 this command: >
 	:%s/\(\S*\)\s\+\(\S*\)\s\+\(.*\)/\1\t\2\t\3/
 
@@ -1865,7 +1865,7 @@ For ":syntax keyword" the "transparent" option did work, although not
 mentioned in the help.  But synID() returned wrong name.
 
 "gqG" in a file with one-word-per-line (e.g. a dictionary) was very slow and
-not interruptable.
+not interruptible.
 
 "gq" operator inserted screen lines in the wrong situation.  Now screen
 lines are inserted or deleted when this speeds up displaying.
@@ -1992,7 +1992,7 @@ because the compare with other tags was wrong.  E.g., when "mnuFileSave" was
 already there, "mnuFile" would be skipped. (Negri)
 
 When scrolling up/down, a syntax item with "keepend" didn't work properly.
-Now the flags are also stored for the syntax state a the start of each line.
+Now the flags are also stored for the syntax state at the start of each line.
 
 When 'ic' was changed while 'hlsearch' is on, there was no redraw to show the
 effect.
@@ -2870,7 +2870,7 @@ backspace key.  "\<Del>" produces 0x7f.
 
 The shell syntax didn't contain a "syn sync maxlines" setting.  In a long file
 without recognizable items, syncing took so long it looked like Vim hangs.
-Added a maxlines setting, and made syncing interruptable.
+Added a maxlines setting, and made syncing interruptible.
 
 The "gs" command didn't flush output before waiting.
 
@@ -3067,7 +3067,7 @@ character in the line, instead of just after it.
 
 5.2.7: Win32 GUI: scrollbar was one pixel too big.
 
-5.2.8: Completion of "PopUp" menu showed the derivates "PopUpc", "PopUPi",
+5.2.8: Completion of "PopUp" menu showed the derivatives "PopUpc", "PopUPi",
 etc.  ":menu" also showed these.
 
 5.2.9: When using two input() functions on a row, the prompt would not be
@@ -7578,7 +7578,7 @@ Fixed compiling under NeXT. (Jeroen C.M. Goudswaard)
 
 optwin.vim gave an error when used in Vi compatible mode ('cpo' contains 'C').
 
-Tcl interpreter: "buffer" command didn't check for presense of an argument.
+Tcl interpreter: "buffer" command didn't check for presence of an argument.
 (Dave Bodenstab)
 
 dosinst.c: Added checks for too long file name.

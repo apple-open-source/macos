@@ -1,0 +1,26 @@
+--- inet_net.3.orig	2008-09-01 23:06:53.000000000 -0700
++++ inet_net.3	2008-09-01 23:14:39.000000000 -0700
+@@ -42,9 +42,6 @@
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+-.In sys/types.h
+-.In sys/socket.h
+-.In netinet/in.h
+ .In arpa/inet.h
+ .Ft char *
+ .Fn inet_net_ntop "int af" "const void *src" "int bits" "char *dst" "size_t size"
+@@ -151,6 +148,13 @@
+ .\" .Sh NETWORK NUMBERS (IP VERSION 6)
+ .\" XXX - document this!
+ .\"
++.Sh LEGACY SYNOPSIS
++.Fd #include <sys/types.h>
++.Fd #include <sys/socket.h>
++.Fd #include <netinet/in.h>
++.Fd #include <arpa/inet.h>
++.Pp
++These include files were necessary for all functions.
+ .Sh SEE ALSO
+ .Xr byteorder 3 ,
+ .Xr inet 3 ,

@@ -459,7 +459,7 @@ public:
 
 	bool addNDPOptions(mbuf_t m);
 
-    void updateNDPCache(mbuf_t m);
+    bool updateNDPCache(mbuf_t m);
 
 	void updateNDPCache(void *buf, UInt16 *len);
 
@@ -558,10 +558,10 @@ public:
 		@param srcbufLen - source buffer length.
 		@result bool - true if success else false.
 	*/
-	bool bufferToMbuf(mbuf_t	m, 
-					  UInt32	offset, 
-					  UInt8		*srcbuf, 
-					  UInt32	srcbufLen);
+	bool bufferToMbuf(mbuf_t		m, 
+					  UInt32		offset, 
+					  vm_address_t	*srcbuf, 
+					  UInt32		srcbufLen);
 									
 	/*!
 		@function mbufTobuffer
@@ -574,11 +574,11 @@ public:
         @result NULL if copied else should be invoked again till 
 					the residual is copied into the buffer.
 	*/
-	mbuf_t mbufTobuffer(const mbuf_t src, 
-						UInt32 *offset, 
-						UInt8  *dstbuf, 
-						UInt32 dstbufLen, 
-						UInt32 length);
+	mbuf_t mbufTobuffer(const mbuf_t	src, 
+						UInt32			*offset, 
+						vm_address_t	*dstbuf, 
+						UInt32			dstbufLen, 
+						UInt32			length);
 						
 	void moveMbufWithOffset(SInt32 tempOffset, mbuf_t *srcm, vm_address_t *src, SInt32 *srcLen);	
 

@@ -106,6 +106,7 @@ enum {
 	kAuthPPS					= 1249,
 	kAuthNativeRetainCredential	= 1250,
 	kAuthSetCertificateHashAsRoot = 1251,
+	kAuthSASLProxy				= 1252,
 	
     kAuthGetPolicy				= 1278,
     kAuthSetPolicy				= 1279,

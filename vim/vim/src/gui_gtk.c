@@ -53,6 +53,9 @@
 # ifdef bindtextdomain
 #  undef bindtextdomain
 # endif
+# ifdef bind_textdomain_codeset
+#  undef bind_textdomain_codeset
+# endif
 # if defined(FEAT_GETTEXT) && !defined(ENABLE_NLS)
 #  define ENABLE_NLS	/* so the texts in the dialog boxes are translated */
 # endif
@@ -449,8 +452,8 @@ menu_item_new(vimmenu_T *menu, GtkWidget *parent_widget)
  *
  * gtk_menu_item_new_with_label(menu->dname);
  *
- * This is neccessary, since there is no other way in GTK+ 1 to get the
- * not automatically parsed accellerator stuff right.
+ * This is necessary, since there is no other way in GTK+ 1 to get the
+ * not automatically parsed accelerator stuff right.
  */
     static void
 menu_item_new(vimmenu_T *menu, GtkWidget *parent_widget)
@@ -828,7 +831,7 @@ gui_mch_set_text_area_pos(int x, int y, int w, int h)
 
 #if defined(FEAT_MENU) || defined(PROTO)
 /*
- * Enable or disable accelators for the toplevel menus.
+ * Enable or disable accelerators for the toplevel menus.
  */
     void
 gui_gtk_set_mnemonics(int enable)
@@ -957,15 +960,15 @@ toolbar_remove_item_by_text(GtkToolbar *tb, const char *text)
 get_menu_position(vimmenu_T *menu)
 {
     vimmenu_T	*node;
-    int		index = 0;
+    int		idx = 0;
 
     for (node = menu->parent->children; node != menu; node = node->next)
     {
 	g_return_val_if_fail(node != NULL, -1);
-	++index;
+	++idx;
     }
 
-    return index;
+    return idx;
 }
 #endif /* FEAT_TOOLBAR && HAVE_GTK2 */
 
@@ -1192,7 +1195,10 @@ gui_mch_destroy_scrollbar(scrollbar_T *sb)
  * Implementation of the file selector related stuff
  */
 #if defined(HAVE_GTK2) && GTK_CHECK_VERSION(2,4,0)
-# define USE_FILE_CHOOSER
+/* This has been disabled, because the GTK library rewrites
+ * ~/.recently-used.xbel every time the main loop is quit.  For Vim that means
+ * on just about any event. */
+/* # define USE_FILE_CHOOSER */
 #endif
 
 #ifndef USE_FILE_CHOOSER
@@ -1269,24 +1275,18 @@ gui_mch_browse(int saving,
     GtkWidget		*fc;
 #endif
     char_u		dirbuf[MAXPATHL];
-    char_u		*p;
 
 # ifdef HAVE_GTK2
     title = CONVERT_TO_UTF8(title);
 # endif
 
-    /* Concatenate "initdir" and "dflt". */
+    /* GTK has a bug, it only works with an absolute path. */
     if (initdir == NULL || *initdir == NUL)
 	mch_dirname(dirbuf, MAXPATHL);
-    else if (STRLEN(initdir) + 2 < MAXPATHL)
-	STRCPY(dirbuf, initdir);
-    else
+    else if (vim_FullName(initdir, dirbuf, MAXPATHL - 2, FALSE) == FAIL)
 	dirbuf[0] = NUL;
     /* Always need a trailing slash for a directory. */
     add_pathsep(dirbuf);
-    if (dflt != NULL && *dflt != NUL
-			      && STRLEN(dirbuf) + 2 + STRLEN(dflt) < MAXPATHL)
-	STRCAT(dirbuf, dflt);
 
     /* If our pointer is currently hidden, then we should show it. */
     gui_mch_mousehide(FALSE);
@@ -1298,8 +1298,8 @@ gui_mch_browse(int saving,
 	    GTK_WINDOW(gui.mainwin),
 	    saving ? GTK_FILE_CHOOSER_ACTION_SAVE
 					   : GTK_FILE_CHOOSER_ACTION_OPEN,
-	    saving ? GTK_STOCK_SAVE : GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
 	    GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+	    saving ? GTK_STOCK_SAVE : GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
 	    NULL);
     gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(fc),
 						       (const gchar *)dirbuf);
@@ -1341,6 +1341,11 @@ gui_mch_browse(int saving,
     else
 	gtk_window_set_title(GTK_WINDOW(gui.filedlg), (const gchar *)title);
 
+    /* Concatenate "initdir" and "dflt". */
+    if (dflt != NULL && *dflt != NUL
+			      && STRLEN(dirbuf) + 2 + STRLEN(dflt) < MAXPATHL)
+	STRCAT(dirbuf, dflt);
+
     gtk_file_selection_set_filename(GTK_FILE_SELECTION(gui.filedlg),
 						      (const gchar *)dirbuf);
 # ifndef HAVE_GTK2
@@ -1360,11 +1365,7 @@ gui_mch_browse(int saving,
 	return NULL;
 
     /* shorten the file name if possible */
-    mch_dirname(dirbuf, MAXPATHL);
-    p = shorten_fname(gui.browse_fname, dirbuf);
-    if (p == NULL)
-	p = gui.browse_fname;
-    return vim_strsave(p);
+    return vim_strsave(shorten_fname1(gui.browse_fname));
 }
 
 #if defined(HAVE_GTK2) || defined(PROTO)
@@ -1424,11 +1425,7 @@ gui_mch_browsedir(
 	return NULL;
 
     /* shorten the file name if possible */
-    mch_dirname(dirbuf, MAXPATHL);
-    p = shorten_fname(dirname, dirbuf);
-    if (p == NULL || *p == NUL)
-	p = dirname;
-    p = vim_strsave(p);
+    p = vim_strsave(shorten_fname1(dirname));
     g_free(dirname);
     return p;
 
@@ -1516,7 +1513,7 @@ gui_gnome_dialog( int	type,
 	for (next = p; *next; ++next)
 	{
 	    if (*next == DLG_HOTKEY_CHAR)
-		mch_memmove(next, next + 1, STRLEN(next));
+		STRMOVE(next, next + 1);
 	    if (*next == DLG_BUTTON_SEP)
 	    {
 		*next++ = NUL;
@@ -1627,11 +1624,14 @@ dlg_button_clicked(GtkWidget * widget, ButtonData *data)
  */
 /*ARGSUSED*/
     static int
-dlg_key_press_event(GtkWidget * widget, GdkEventKey * event, CancelData *data)
+dlg_key_press_event(GtkWidget *widget, GdkEventKey *event, CancelData *data)
 {
-    /* Ignore hitting Enter when there is no default button. */
-    if (data->ignore_enter && event->keyval == GDK_Return)
+    /* Ignore hitting Enter (or Space) when there is no default button. */
+    if (data->ignore_enter && (event->keyval == GDK_Return
+						     || event->keyval == ' '))
 	return TRUE;
+    else    /* A different key was pressed, return to normal behavior */
+	data->ignore_enter = FALSE;
 
     if (event->keyval != GDK_Escape && event->keyval != GDK_Return)
 	return FALSE;
@@ -2127,7 +2127,7 @@ dialog_add_buttons(GtkDialog *dialog, char_u *button_string)
     char    **ync;  /* "yes no cancel" */
     char    **buttons;
     int	    n_buttons = 0;
-    int	    index;
+    int	    idx;
 
     button_string = vim_strsave(button_string); /* must be writable */
     if (button_string == NULL)
@@ -2161,12 +2161,12 @@ dialog_add_buttons(GtkDialog *dialog, char_u *button_string)
      * Well, apparently somebody changed his mind: with GTK 2.2.4 it works the
      * other way around...
      */
-    for (index = 1; index <= n_buttons; ++index)
+    for (idx = 1; idx <= n_buttons; ++idx)
     {
 	char	*label;
 	char_u	*label8;
 
-	label = buttons[index - 1];
+	label = buttons[idx - 1];
 	/*
 	 * Perform some guesswork to find appropriate stock items for the
 	 * buttons.  We have to compare with a sample of the translated
@@ -2188,7 +2188,7 @@ dialog_add_buttons(GtkDialog *dialog, char_u *button_string)
 	    else if (button_equal(label, "Cancel")) label = GTK_STOCK_CANCEL;
 	}
 	label8 = CONVERT_TO_UTF8((char_u *)label);
-	gtk_dialog_add_button(dialog, (const gchar *)label8, index);
+	gtk_dialog_add_button(dialog, (const gchar *)label8, idx);
 	CONVERT_TO_UTF8_FREE(label8);
     }
 
@@ -2220,6 +2220,13 @@ typedef struct _DialogInfo
 dialog_key_press_event_cb(GtkWidget *widget, GdkEventKey *event, gpointer data)
 {
     DialogInfo *di = (DialogInfo *)data;
+
+    /* Ignore hitting Enter (or Space) when there is no default button. */
+    if (di->ignore_enter && (event->keyval == GDK_Return
+						     || event->keyval == ' '))
+	return TRUE;
+    else    /* A different key was pressed, return to normal behavior */
+	di->ignore_enter = FALSE;
 
     /* Close the dialog when hitting "Esc". */
     if (event->keyval == GDK_Escape)
@@ -2493,7 +2500,7 @@ find_key_press_event(
 	return TRUE;
 #endif
 
-    /* It would be delightfull if it where possible to do search history
+    /* It would be delightful if it where possible to do search history
      * operations on the K_UP and K_DOWN keys here.
      */
 

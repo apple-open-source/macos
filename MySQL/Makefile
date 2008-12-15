@@ -16,7 +16,7 @@ include $(MAKEFILEPATH)/pb_makefiles/platform.make
 include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
 PROJECT_NAME	  = MySQL
-MYSQL_VERSION	  = mysql-5.0.45
+MYSQL_VERSION	  = mysql-5.0.67
 BUILD_DIR         = /usr
 MYSQL_BUILD_DIR   = build
 MYSQL_SRC_DIR     = $(MYSQL_BUILD_DIR)/src
@@ -166,6 +166,7 @@ mysqlmanager
 USRMYSQLTEST_FILES_TO_RENAME = \
 install_test_db \
 mtr \
+mysql-stress-test.pl \
 mysql-test-run \
 mysql-test-run-shell \
 mysql-test-run.pl
@@ -203,6 +204,7 @@ mysql_zap.1 \
 mysqlaccess.1 \
 mysqladmin.1 \
 mysqlbinlog.1 \
+mysqlbug.1 \
 mysqlcheck.1 \
 mysqlmanager-pwgen.1 \
 mysqlmanagerc.1 \
@@ -225,7 +227,8 @@ mysqld.8 \
 mysqlmanager.8
 
 USRSHAREMYSQL_FILES_TO_RENAME = \
-mysql.server
+mysql.server \
+mysqld_multi.server
 
 USRBIN_FILES_TO_LIPO = \
 comp_err \
@@ -700,9 +703,10 @@ install-finish:
 	@$(ECHO) "# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = ="
 	@$(ECHO) "#"
 	@$(ECHO) "### The latest information about MySQL is available"
-	@$(ECHO) "### on the web at http://www.mysql.com."
+	@$(ECHO) "### on the web at http://www.mysql.org."
 	@$(ECHO) "###"
-	@$(ECHO) "### Use MySQL Manager app to initialize MySQL database."
+	@$(ECHO) "### Use Server Admin or /usr/sbin/serveradmin to start MySQL. The "
+	@$(ECHO) "### MySQL database will be automatically initialized at service start."
 	@$(ECHO) "#"
 	@$(ECHO) "# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = ="
 	@$(ECHO) "#"

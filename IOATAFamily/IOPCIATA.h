@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -101,9 +101,9 @@ protected:
 	// the physical region descriptor used for the dma engine.
 	struct PRD
 	{
-		UInt8	*bufferPtr;  // address
-		UInt16	byteCount;   // 16 bit byte count where 0x0000 = 64K
-		UInt16	flags;    // 0 in flags means contine, 0x80 means stop
+		UInt32	bufferPtr;		// address
+		UInt16	byteCount;		// 16 bit byte count where 0x0000 = 64K
+		UInt16	flags;			// 0 in flags means contine, 0x80 means stop
 	};	
 
 
@@ -161,7 +161,7 @@ protected:
 	virtual void free();
 protected:
 /*! @struct ExpansionData
-    @discussion This structure will be used to expand the capablilties of the IOWorkLoop in the future.
+    @discussion This structure will be used to expand the capablilties of the IOPCIATA class in the future.
     */    
     struct ExpansionData { };
 

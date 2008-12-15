@@ -140,6 +140,7 @@ Boolean SetupMIGServer()
     CFRunLoopSourceContext 	sourceContext;
     unsigned int 		sourcePriority 	= 1;
     CFMachPortRef 		upsdMachPort 	= NULL;  // must release
+    mach_port_t         ups_port = MACH_PORT_NULL;
 
     /*if (IOUPSMIGServerIsRunning(&bootstrap_port, NULL)) {
         result = false;
@@ -179,26 +180,16 @@ Boolean SetupMIGServer()
     CFRunLoopAddSource(gMainRunLoop, gClientRequestRunLoopSource,
         kCFRunLoopDefaultMode);
 
-    kern_result = bootstrap_register(bootstrap_port,
-        kIOUPSPlugInServerName, CFMachPortGetPort(upsdMachPort));
+    ups_port = CFMachPortGetPort(upsdMachPort);
 
-    switch (kern_result) {
-      case BOOTSTRAP_SUCCESS:
-        /* service not currently registered, "a good thing" (tm) */
-        break;
-
-      case BOOTSTRAP_NOT_PRIVILEGED:
-        syslog(LOG_INFO, "upsd exit: BOOTSTRAP_NOT_PRIVILIGED");
-
-        exit(EX_OSERR);
-
-      case BOOTSTRAP_SERVICE_ACTIVE:
-        syslog(LOG_INFO, "upsd exit: BOOTSTRAP_SERVICE_ACTIVE");
-        exit(EX_OSERR);
-
-      default:
-        syslog(LOG_INFO, "upsd exit: undefined mig error");
-        exit(EX_OSERR);
+    kern_result = bootstrap_register(
+                        bootstrap_port,
+                        kIOUPSPlugInServerName, 
+                        ups_port);
+    if (BOOTSTRAP_SUCCESS == kern_result) {
+        syslog(LOG_ERR, "ioupsd: bootstrap_register \"%s\" error = %d\n",
+                        kIOUPSPlugInServerName, kern_result);
+        goto finish;
     }
 
 finish:
@@ -308,7 +299,7 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
     IOReturn                kr;
     SInt32                  score;
         
-    while ( upsDevice = IOIteratorNext(iterator) )
+    while ( (upsDevice = IOIteratorNext(iterator)) )
     {        
         // Create the CF plugin for this device
         kr = IOCreatePlugInInterfaceForService(upsDevice, kIOUPSPlugInTypeID, 
@@ -517,7 +508,7 @@ void ProcessUPSEvent(UPSDataRef upsDataRef, CFDictionaryRef event)
     if ( !upsDataRef || !event)
         return;
       
-    if ( count = CFDictionaryGetCount(event) )
+    if ( (count = CFDictionaryGetCount(event)) )
     {	
         CFTypeRef * keys	= (CFTypeRef *) malloc(sizeof(CFTypeRef) * count);
         CFTypeRef * values	= (CFTypeRef *) malloc(sizeof(CFTypeRef) * count);

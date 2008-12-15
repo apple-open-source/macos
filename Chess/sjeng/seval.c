@@ -284,19 +284,19 @@ static int white_saccers(int square)
 
 }
 
-long int suicide_eval (void) {
+int32_t suicide_eval (void) {
 
   /* select the appropriate eval() routine: */
   return (suicide_mid_eval ());
 }
 
-long int suicide_mid_eval (void) {
+int32_t suicide_mid_eval (void) {
 
   /* return a score for the current middlegame position: */
 
   int srank, pawn_file, pawns[2][11], white_back_pawn[11], black_back_pawn[11];
   int isolated, backwards, i, a, j;
-  long int score = 0;
+  int32_t score = 0;
   int in_cache;
   int wb = 0, bb = 0, wbc, bbc;
   int wk = 0, bk = 0, wr = 0, br = 0;

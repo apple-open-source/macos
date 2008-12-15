@@ -476,11 +476,16 @@ void AppleUSBCDCACMControl::stop(IOService *provider)
     
     fStopping = true;
     
-    releaseResources();
+	if (!fTerminate)				// If we're terminated this has already been done
+	{
+		releaseResources();
+	}
 	
 	PMstop();
                     
     super::stop(provider);
+	
+	XTRACE(this, 0, 0, "stop - Exit");
 
 }/* end stop */
 
@@ -1172,28 +1177,31 @@ void AppleUSBCDCACMControl::resetDevice(void)
         }
     }
 	
-		// Enumeration takes precedent
-	
-	if (reenum)
-    {
-		fDataDriver->fTerminate = true;				// Warn the data driver early
-        XTRACE(this, 0, 0, "resetDevice - Device is being re-enumerated");
-        rtn = fControlInterface->GetDevice()->ReEnumerateDevice(0);
-		if (rtn != kIOReturnSuccess)
+	if ((fControlInterface) && (fDataDriver))			// Make sure the interface and data driver are still around
+	{
+		if (reenum)										// Enumeration takes precedent
 		{
-			XTRACE(this, 0, rtn, "resetDevice - ReEnumerateDevice failed");
-		}
-    } else {
-		if (reset)
-		{
-			XTRACE(this, 0, 0, "resetDevice - Device is being reset");
-			rtn = fControlInterface->GetDevice()->ResetDevice();
+			fDataDriver->fTerminate = true;				// Warn the data driver early
+			XTRACE(this, 0, 0, "resetDevice - Device is being re-enumerated");
+			rtn = fControlInterface->GetDevice()->ReEnumerateDevice(0);
 			if (rtn != kIOReturnSuccess)
 			{
-				XTRACE(this, 0, rtn, "resetDevice - ResetDevice failed");
+				XTRACE(this, 0, rtn, "resetDevice - ReEnumerateDevice failed");
+			}
+		} else {
+			if (reset)
+			{
+				XTRACE(this, 0, 0, "resetDevice - Device is being reset");
+				rtn = fControlInterface->GetDevice()->ResetDevice();
+				if (rtn != kIOReturnSuccess)
+				{
+					XTRACE(this, 0, rtn, "resetDevice - ResetDevice failed");
+				}
 			}
 		}
-    }
+	} else {
+		XTRACE(this, fControlInterface, fDataDriver, "resetDevice - Control interface or Data driver has gone");
+	}
     
 }/* end resetDevice */
 

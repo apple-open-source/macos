@@ -102,7 +102,7 @@ static void Encode(unsigned char *output, const apr_uint32_t *input,
 static void Decode(apr_uint32_t *output, const unsigned char *input,
                    unsigned int len);
 
-static unsigned char PADDING[64] =
+static const unsigned char PADDING[64] =
 {
     0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -112,6 +112,8 @@ static unsigned char PADDING[64] =
 #if APR_CHARSET_EBCDIC
 static apr_xlate_t *xlate_ebcdic_to_ascii; /* used in apr_md5_encode() */
 #endif
+#define DO_XLATE 0
+#define SKIP_XLATE 1
 
 /* F, G, H and I are basic MD5 functions.
  */
@@ -195,11 +197,12 @@ APU_DECLARE(apr_status_t) apr_md5_set_xlate(apr_md5_ctx_t *context,
  * operation, processing another message block, and updating the
  * context.
  */
-APU_DECLARE(apr_status_t) apr_md5_update(apr_md5_ctx_t *context,
-                                         const void *_input,
-                                         apr_size_t inputLen)
+static apr_status_t md5_update_buffer(apr_md5_ctx_t *context,
+                                      const void *vinput,
+                                      apr_size_t inputLen,
+                                      int xlate_buffer)
 {
-    const unsigned char *input = _input;
+    const unsigned char *input = vinput;
     unsigned int i, idx, partLen;
 #if APR_HAS_XLATE
     apr_size_t inbytes_left, outbytes_left;
@@ -234,7 +237,7 @@ APU_DECLARE(apr_status_t) apr_md5_update(apr_md5_ctx_t *context,
     memcpy(&context->buffer[idx], &input[i], inputLen - i);
 #else /*APR_HAS_XLATE*/
     if (inputLen >= partLen) {
-        if (context->xlate) {
+        if (context->xlate && (xlate_buffer == DO_XLATE)) {
             inbytes_left = outbytes_left = partLen;
             apr_xlate_conv_buffer(context->xlate, (const char *)input, 
                                   &inbytes_left,
@@ -247,7 +250,7 @@ APU_DECLARE(apr_status_t) apr_md5_update(apr_md5_ctx_t *context,
         MD5Transform(context->state, context->buffer);
 
         for (i = partLen; i + 63 < inputLen; i += 64) {
-            if (context->xlate) {
+            if (context->xlate && (xlate_buffer == DO_XLATE)) {
                 unsigned char inp_tmp[64];
                 inbytes_left = outbytes_left = 64;
                 apr_xlate_conv_buffer(context->xlate, (const char *)&input[i], 
@@ -266,7 +269,7 @@ APU_DECLARE(apr_status_t) apr_md5_update(apr_md5_ctx_t *context,
         i = 0;
 
     /* Buffer remaining input */
-    if (context->xlate) {
+    if (context->xlate && (xlate_buffer == DO_XLATE)) {
         inbytes_left = outbytes_left = inputLen - i;
         apr_xlate_conv_buffer(context->xlate, (const char *)&input[i], 
                               &inbytes_left, (char *)&context->buffer[idx], 
@@ -277,6 +280,16 @@ APU_DECLARE(apr_status_t) apr_md5_update(apr_md5_ctx_t *context,
     }
 #endif /*APR_HAS_XLATE*/
     return APR_SUCCESS;
+}
+
+/* MD5 block update operation. API with the default setting 
+ * for EBCDIC translations
+ */  
+APU_DECLARE(apr_status_t) apr_md5_update(apr_md5_ctx_t *context,
+                                         const void *input,
+                                         apr_size_t inputLen)
+{
+    return md5_update_buffer(context, input, inputLen, DO_XLATE);
 }
 
 /* MD5 finalization. Ends an MD5 message-digest operation, writing the
@@ -553,13 +566,16 @@ APU_DECLARE(apr_status_t) apr_md5_encode(const char *pw, const char *salt,
      * Then just as many characters of the MD5(pw, salt, pw)
      */
     apr_md5_init(&ctx1);
+#if APR_CHARSET_EBCDIC
+    apr_md5_set_xlate(&ctx1, xlate_ebcdic_to_ascii);
+#endif
     apr_md5_update(&ctx1, pw, strlen(pw));
     apr_md5_update(&ctx1, sp, sl);
     apr_md5_update(&ctx1, pw, strlen(pw));
     apr_md5_final(final, &ctx1);
     for (pl = strlen(pw); pl > 0; pl -= APR_MD5_DIGESTSIZE) {
-        apr_md5_update(&ctx, final, 
-                      (pl > APR_MD5_DIGESTSIZE) ? APR_MD5_DIGESTSIZE : pl);
+        md5_update_buffer(&ctx, final,
+                      (pl > APR_MD5_DIGESTSIZE) ? APR_MD5_DIGESTSIZE : pl, SKIP_XLATE);
     }
 
     /*
@@ -572,7 +588,7 @@ APU_DECLARE(apr_status_t) apr_md5_encode(const char *pw, const char *salt,
      */
     for (i = strlen(pw); i != 0; i >>= 1) {
         if (i & 1) {
-            apr_md5_update(&ctx, final, 1);
+            md5_update_buffer(&ctx, final, 1, SKIP_XLATE);
         }
         else {
             apr_md5_update(&ctx, pw, 1);
@@ -596,11 +612,18 @@ APU_DECLARE(apr_status_t) apr_md5_encode(const char *pw, const char *salt,
      */
     for (i = 0; i < 1000; i++) {
         apr_md5_init(&ctx1);
+         /*
+          * apr_md5_final clears out ctx1.xlate at the end of each loop,
+          * so need to to set it each time through
+          */
+#if APR_CHARSET_EBCDIC
+        apr_md5_set_xlate(&ctx1, xlate_ebcdic_to_ascii);
+#endif
         if (i & 1) {
             apr_md5_update(&ctx1, pw, strlen(pw));
         }
         else {
-            apr_md5_update(&ctx1, final, APR_MD5_DIGESTSIZE);
+            md5_update_buffer(&ctx1, final, APR_MD5_DIGESTSIZE, SKIP_XLATE);
         }
         if (i % 3) {
             apr_md5_update(&ctx1, sp, sl);
@@ -611,7 +634,7 @@ APU_DECLARE(apr_status_t) apr_md5_encode(const char *pw, const char *salt,
         }
 
         if (i & 1) {
-            apr_md5_update(&ctx1, final, APR_MD5_DIGESTSIZE);
+            md5_update_buffer(&ctx1, final, APR_MD5_DIGESTSIZE, SKIP_XLATE);
         }
         else {
             apr_md5_update(&ctx1, pw, strlen(pw));

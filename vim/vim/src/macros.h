@@ -54,10 +54,12 @@
 
 /*
  * toupper() and tolower() that use the current locale.
- * On some systems toupper()/tolower() only work on lower/uppercase characters
+ * On some systems toupper()/tolower() only work on lower/uppercase
+ * characters, first use islower() or isupper() then.
  * Careful: Only call TOUPPER_LOC() and TOLOWER_LOC() with a character in the
  * range 0 - 255.  toupper()/tolower() on some systems can't handle others.
- * Note: for UTF-8 use utf_toupper() and utf_tolower().
+ * Note: It is often better to use MB_TOLOWER() and MB_TOUPPER(), because many
+ * toupper() and tolower() implementations only work for ASCII.
  */
 #ifdef MSWIN
 #  define TOUPPER_LOC(c)	toupper_tab[(c) & 255]
@@ -188,7 +190,7 @@
 /*
  * It is possible to force some record format with:
  * #  define mch_open(n, m, p) open(vms_fixfilename(n), (m), (p)), "rat=cr", "rfm=stmlf", "mrs=0")
- * but it is not recomended, because it can destroy indexes etc.
+ * but it is not recommended, because it can destroy indexes etc.
  */
 #  define mch_open(n, m, p)	open(vms_fixfilename(n), (m), (p))
 # else
@@ -275,4 +277,10 @@
 # define MB_COPY_CHAR(f, t)	*t++ = *f++
 # define MB_CHARLEN(p)		STRLEN(p)
 # define PTR2CHAR(p)		((int)*(p))
+#endif
+
+#ifdef FEAT_AUTOCHDIR
+# define DO_AUTOCHDIR if (p_acd) do_autochdir();
+#else
+# define DO_AUTOCHDIR
 #endif

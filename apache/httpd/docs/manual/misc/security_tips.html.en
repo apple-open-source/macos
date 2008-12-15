@@ -317,7 +317,7 @@
     the second example will list the ten last denied clients, for example:</p>
     
     <div class="example"><p><code>
-      [Thu Jul 11 17:18:39 2002] [error] [client foo.bar.com] client denied 
+      [Thu Jul 11 17:18:39 2002] [error] [client foo.example.com] client denied 
       by server configuration: /usr/local/apache/htdocs/.htpasswd
     </code></p></div>
     
@@ -326,7 +326,7 @@
     would have seen something similar to:</p>
     
     <div class="example"><p><code>
-      foo.bar.com - - [12/Jul/2002:01:59:13 +0200] "GET /.htpasswd HTTP/1.1"
+      foo.example.com - - [12/Jul/2002:01:59:13 +0200] "GET /.htpasswd HTTP/1.1"
     </code></p></div>
     
     <p>in your <a href="../logs.html#accesslog">Access Log</a>. This means 
@@ -345,6 +345,6 @@
 <p><span>Available Languages: </span><a href="../en/misc/security_tips.html" title="English">&nbsp;en&nbsp;</a> |
 <a href="../ko/misc/security_tips.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2007 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

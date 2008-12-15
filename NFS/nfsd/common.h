@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -82,4 +82,5 @@ extern volatile int gothup, gotterm;
 extern char exportsfilepath[MAXPATHLEN];
 extern int checkexports;
 extern int mountudpport, mounttcpport;
+extern time_t recheckexports;
 

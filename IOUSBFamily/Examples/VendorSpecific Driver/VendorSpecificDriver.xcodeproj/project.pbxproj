@@ -12,7 +12,7 @@
 
 /* Begin PBXFileReference section */
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		EE19EF4007B2D66E0083E1AA /* VendorSpecificDriver.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = VendorSpecificDriver.plist; sourceTree = "<group>"; };
+		EE19EF4007B2D66E0083E1AA /* VendorSpecificDriver.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = VendorSpecificDriver.plist; sourceTree = "<group>"; };
 		EE19EF4107B2D66E0083E1AA /* VendorSpecificDriver.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VendorSpecificDriver.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -87,7 +87,6 @@
 			mainGroup = 089C166AFE841209C02AAC07 /* NanosMouse */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				EE19EF3907B2D66E0083E1AA /* VendorSpecificDriver */,
 			);
@@ -163,6 +162,7 @@
 				MODULE_NAME = com.MySoftwareCompany.iokit.VendorSpecificDriver;
 				MODULE_VERSION = 1.0.0;
 				PRODUCT_NAME = VendorSpecificDriver;
+				SDKROOT = "";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
 			};
@@ -184,6 +184,7 @@
 				MODULE_NAME = com.MySoftwareCompany.iokit.VendorSpecificDriver;
 				MODULE_VERSION = 1.0.0;
 				PRODUCT_NAME = VendorSpecificDriver;
+				SDKROOT = "";
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;

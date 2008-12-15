@@ -1,9 +1,15 @@
 " Vim script to download a missing spell file
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2006 Feb 01
+" Last Change:	2008 Jun 27
 
 if !exists('g:spellfile_URL')
-  let g:spellfile_URL = 'ftp://ftp.vim.org/pub/vim/unstable/runtime/spell'
+  " Prefer using http:// when netrw should be able to use it, since
+  " more firewalls let this through.
+  if executable("curl") || executable("wget") || executable("fetch")
+    let g:spellfile_URL = 'http://ftp.vim.org/pub/vim/runtime/spell'
+  else
+    let g:spellfile_URL = 'ftp://ftp.vim.org/pub/vim/runtime/spell'
+  endif
 endif
 let s:spellfile_URL = ''    " Start with nothing so that s:donedict is reset.
 
@@ -58,19 +64,40 @@ function! spellfile#LoadFile(lang)
     let fname = a:lang . '.' . enc . '.spl'
 
     " Split the window, read the file into a new buffer.
+    " Remember the buffer number, we check it below.
     new
+    let newbufnr = winbufnr(0)
     setlocal bin
     echo 'Downloading ' . fname . '...'
-    exe 'Nread ' g:spellfile_URL . '/' . fname
+    call spellfile#Nread(fname)
     if getline(2) !~ 'VIMspell'
       " Didn't work, perhaps there is an ASCII one.
-      g/^/d
+      " Careful: Nread() may have opened a new window for the error message,
+      " we need to go back to our own buffer and window.
+      if newbufnr != winbufnr(0)
+	let winnr = bufwinnr(newbufnr)
+	if winnr == -1
+	  " Our buffer has vanished!?  Open a new window.
+	  echomsg "download buffer disappeared, opening a new one"
+	  new
+	  setlocal bin
+	else
+	  exe winnr . "wincmd w"
+	endif
+      endif
+      if newbufnr == winbufnr(0)
+	" We are back the old buffer, remove any (half-finished) download.
+        g/^/d
+      else
+	let newbufnr = winbufnr(0)
+      endif
+
       let fname = a:lang . '.ascii.spl'
       echo 'Could not find it, trying ' . fname . '...'
-      exe 'Nread ' g:spellfile_URL . '/' . fname
+      call spellfile#Nread(fname)
       if getline(2) !~ 'VIMspell'
 	echo 'Sorry, downloading failed'
-	bwipe!
+	exe newbufnr . "bwipe!"
 	return
       endif
     endif
@@ -85,7 +112,12 @@ function! spellfile#LoadFile(lang)
     endfor
     let dirchoice = confirm(msg, dirchoices) - 2
     if dirchoice >= 0
-      exe "write " . escape(dirlist[dirchoice], ' ') . '/' . fname
+      if exists('*fnameescape')
+	let dirname = fnameescape(dirlist[dirchoice])
+      else
+	let dirname = escape(dirlist[dirchoice], ' ')
+      endif
+      exe "write " . dirname . '/' . fname
 
       " Also download the .sug file, if the user wants to.
       let msg = "Do you want me to try getting the .sug file?\n"
@@ -95,17 +127,53 @@ function! spellfile#LoadFile(lang)
 	g/^/d
 	let fname = substitute(fname, '\.spl$', '.sug', '')
 	echo 'Downloading ' . fname . '...'
-	exe 'Nread ' g:spellfile_URL . '/' . fname
-	if getline(2) !~ 'VIMsug'
-	  echo 'Sorry, downloading failed'
-	else
+	call spellfile#Nread(fname)
+	if getline(2) =~ 'VIMsug'
 	  1d
-	  exe "write " . escape(dirlist[dirchoice], ' ') . '/' . fname
+	  exe "write " . dirname . '/' . fname
+	  set nomod
+	else
+	  echo 'Sorry, downloading failed'
+	  " Go back to our own buffer/window, Nread() may have taken us to
+	  " another window.
+	  if newbufnr != winbufnr(0)
+	    let winnr = bufwinnr(newbufnr)
+	    if winnr != -1
+	      exe winnr . "wincmd w"
+	    endif
+	  endif
+	  if newbufnr == winbufnr(0)
+	    set nomod
+	  endif
 	endif
-	set nomod
       endif
     endif
 
-    bwipe
+    " Wipe out the buffer we used.
+    exe newbufnr . "bwipe"
+  endif
+endfunc
+
+" Read "fname" from the server.
+function! spellfile#Nread(fname)
+  " We do our own error handling, don't want a window for it.
+  if exists("g:netrw_use_errorwindow")
+    let save_ew = g:netrw_use_errorwindow
+  endif
+  let g:netrw_use_errorwindow=0
+
+  if g:spellfile_URL =~ '^ftp://'
+    " for an ftp server use a default login and password to avoid a prompt
+    let machine = substitute(g:spellfile_URL, 'ftp://\([^/]*\).*', '\1', '')
+    let dir = substitute(g:spellfile_URL, 'ftp://[^/]*/\(.*\)', '\1', '')
+    exe 'Nread "' . machine . ' anonymous vim7user ' . dir . '/' . a:fname . '"'
+  else
+    exe 'Nread ' g:spellfile_URL . '/' . a:fname
+  endif
+
+  if exists("save_ew")
+    let g:netrw_use_errorwindow = save_ew
+  else
+    unlet g:netrw_use_errorwindow
   endif
 endfunc

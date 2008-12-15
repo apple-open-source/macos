@@ -144,6 +144,13 @@ enum {
     kBReadCellVoltage1Cmd             = 0x3f      // READ WORD
 };
 
+/*  Smart Battery Extended Registers                    */
+/*  bq20z90-V110 + bq29330 Chipset Technical Reference Manual    */
+/*  TI Literature SLUU264                               */
+enum {
+    kBExtendedPFStatusCmd             = 0x53
+};
+
 /*  Battery Mode Bits                                   */
 /*  Smart Battery Data Specification - rev 1.1          */
 /*  Section 5.1.4 page 15                               */

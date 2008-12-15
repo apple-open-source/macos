@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2006, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -101,7 +101,7 @@ union u_spcl {
 		long	c_volume;	    /* dump volume number */
 #endif /* __LP64__ */
 		daddr_t	c_tapea;	    /* logical block of this record */
-		ino_t	c_inumber;	    /* number of inode */
+		unsigned int c_inumber;     /* number of inode */
 #ifdef __LP64__
 		int	c_magic;	    /* magic number (see above) */
 		int	c_checksum;	    /* record checksum */

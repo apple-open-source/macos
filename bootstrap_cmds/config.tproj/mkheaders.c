@@ -60,7 +60,7 @@ static char sccsid[] = "@(#)mkheaders.c	5.5 (Berkeley) 6/18/88";
 #include <unistd.h>	/* unlink */
 #include <ctype.h>
 #include "config.h"
-#include "y.tab.h"
+#include "parser.h"
 
 static void	do_count(const char *dev, const char *hname, int search);
 static void	do_header(const char *dev, const char *hname, int count);

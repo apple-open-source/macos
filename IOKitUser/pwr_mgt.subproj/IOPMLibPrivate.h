@@ -98,23 +98,88 @@ __BEGIN_DECLS
 // is asserted. For embedded use only.
 #define kIOPMAssertionTypeEnableIdleSleep           CFSTR("EnableIdleSleep")
 
+
+/*
+ * Private Assertion Dictionary Keys
+ */
+
+/*! @constant kIOPMAssertionCreateDateKey
+ *  @abstarct Records the time at which the assertion was created.
+ */
+#define kIOPMAssertionCreateDateKey                 CFSTR("AssertStartWhen")
+
+/*! @constant kIOPMAssertionReleaseDateKey
+ *  @abstract Records the time that the assertion was released.
+ *  @discussion The catch is that we only record the release time for assertions that have
+ *  already timed out. In the normal create/release lifecycle of an assertion, we won't record
+ *  the release time because we'll destroy the assertion object upon its release.
+ */
+#define kIOPMAssertionReleaseDateKey                CFSTR("AssertReleaseWhen")
+
+/*! @constant kIOPMAssertionTimedOutDateKey
+ *  @abstract Records the time that an assertion timed out.
+ *  @discussion An assertion times out when its specified timeout interval has elapsed.
+    This value only exists once the assertion has timedout. The presence of this 
+    key/value pair in a dictionary indicates the assertion has timed-out.
+ */
+#define kIOPMAssertionTimedOutDateKey               CFSTR("AssertTimedOutWhen")
+
+/*! @constant kIOPMAssertionTimeOutIntervalKey
+ *  @abstract The owner-specified timeout for this assertion.
+ */
+#define kIOPMAssertionTimeOutIntervalKey            CFSTR("AssertTimeOutInterval")
+
+/*! @constant kIOPMAssertionPIDKey
+ *  @abstract The owning process's PID.
+ */
+#define kIOPMAssertionPIDKey                        CFSTR("AssertPID")
+
+/*
+ * Assertion notify(3) string
+ * Fires when an assertion times out
+ * Call IOPMCopyTimedOutAssertions() for more details
+ */
+#define kIOPMAssertionTimedOutNotifyString          "com.apple.system.powermanagement.assertions.timeout"
+
+/*
+ * Assertion notify(3) string
+ * Fires when global assertion state changes
+ */
+#define kIOPMAssertionsChangedNotifyString          "com.apple.system.powermanagement.assertions"
+
+/*! @function IOPMAssertionSetTimeout
+ *  @abstract Set a timeout for the given assertion.
+ *  @discussion When the timeout fires, the assertion will be logged and a general notification
+ *  will be delivered to all interested processes. The notification will not identify the
+ *  timed-out assertion. The assertion will remain valid & in effect until it's released (if ever).
+ *  Timeouts are bad! Timeouts are a hardcore last chance for debugging hard to find assertion
+ *  leaks. They are not meant to fire under any normal circumstances.
+ */
+IOReturn IOPMAssertionSetTimeout(IOPMAssertionID whichAssertion, CFTimeInterval timeoutInterval);
+
+/*! @function IOPMCopyTimedOutAssertions
+ *  @abstract Returns a CFArray of assertions (as CFDictionary's) that have timed out.
+ *  @discussion Only the 5 most recent assertions are recorded.
+ */
+IOReturn IOPMCopyTimedOutAssertions(CFArrayRef *timedOutAssertions);
+
+CFStringRef IOPMAssertionCreateTimeOutKey(void);
+CFStringRef IOPMAssertionCreatePIDMappingKey(void);
+CFStringRef IOPMAssertionCreateAggregateAssertionKey(void);
+
+/*
+ * Deprecated assertion constants
+ */
 #if TARGET_OS_EMBEDDED
     // RY: Look's like some embedded clients are still dependent on the following
-
-    // Disables system idle sleep 
     #define kIOPMPreventIdleSleepAssertion          kIOPMAssertionTypeNoIdleSleep
-
-    // Enables system idle sleep 
     #define kIOPMEnableIdleSleepAssertion           kIOPMAssertionTypeEnableIdleSleep
-    
     enum {
         kIOPMAssertionDisable   = kIOPMAssertionLevelOff,
         kIOPMAssertionEnable    = kIOPMAssertionLevelOn,
         kIOPMAssertionIDInvalid = kIOPMNullAssertionID
      };
-
     #define kIOPMAssertionValueKey                  kIOPMAssertionLevelKey
-    
 #endif /* TARGET_OS_EMBEDDED */
 
 /**************************************************
@@ -160,6 +225,8 @@ __BEGIN_DECLS
 #define kIOPMMobileMotionModuleKey                      "Mobile Motion Module"
 // units - CFNumber 0/1
 #define kIOPMTTYSPreventSleepKey                        "TTYSPreventSleep"
+// units - CFNumber 0/1
+#define kIOPMGPUSwitchKey                               "GPUSwitch"
 
 typedef void (*IOPMPrefsCallbackType)(void *context);
 

@@ -55,10 +55,11 @@ int main(int argc, char **argv)
 	int i, p, iReader;
 	int iList[16];
 
-	// int t = 0;
+	int t = 0;
 
 	printf("\nMUSCLE PC/SC Lite Test Program\n\n");
 
+doInit:
 	printf("Testing SCardEstablishContext    : ");
 	rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &hContext);
 
@@ -122,12 +123,19 @@ int main(int argc, char **argv)
 
 		do
 		{
+			/* scanf doesn't provide a friendly way to 'throw away' the garbage input
+			 * so we grab a line and then try to parse it */
+			size_t iScanLength;
+			char *sLine;
 			printf("Enter the reader number          : ");
-			scanf("%d", &iReader);
-			printf("\n");
-
-			if (iReader > p || iReader <= 0)
-			{
+			sLine = fgetln(stdin, &iScanLength);
+			if(sLine == NULL) /* EOF */
+				return 0;
+			/* Null terminate by replacing \n w/ \0*/
+			sLine[iScanLength - 1] = '\0';
+			iReader = atoi(sLine);
+			/* Since 0 is invalid input, no need to test errno */
+			if(iReader > p || iReader <= 0) {
 				printf("Invalid Value - try again\n");
 			}
 		}
@@ -169,8 +177,8 @@ int main(int argc, char **argv)
 
 	printf("Testing SCardStatus              : ");
 
-	dwReaderLen = 50;
-	pcReaders = (char *) malloc(sizeof(char) * 50);
+	dwReaderLen = MAX_READERNAME;
+	pcReaders = (char *) malloc(sizeof(char) * MAX_READERNAME);
 	dwAtrLen = MAX_ATR_SIZE;
 	
 	rv = SCardStatus(hCard, pcReaders, &dwReaderLen, &dwState, &dwProt,
@@ -179,9 +187,9 @@ int main(int argc, char **argv)
 	printf("%s\n", pcsc_stringify_error(rv));
 
 	printf("Current Reader Name              : %s\n", pcReaders);
-	printf("Current Reader State             : %x\n", dwState);
-	printf("Current Reader Protocol          : %x\n", dwProt - 1);
-	printf("Current Reader ATR Size          : %x\n", dwAtrLen);
+	printf("Current Reader State             : 0x%X\n", dwState);
+	printf("Current Reader Protocol          : 0x%X\n", dwProt - 1);
+	printf("Current Reader ATR Size          : %d (0x%x)\n", dwAtrLen, dwAtrLen);
 	printf("Current Reader ATR Value         : ");
 
 	for (i = 0; i < dwAtrLen; i++)
@@ -215,6 +223,10 @@ int main(int argc, char **argv)
 	if (rv != SCARD_S_SUCCESS)
 	{
 		return -1;
+	}
+	if(t == 0) {
+		t = 1;
+		goto doInit;
 	}
 
 	printf("\n");

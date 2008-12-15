@@ -38,6 +38,10 @@ BELPICError::BELPICError(uint16_t sw) : SCardError(sw)
 	IFDEBUG(debugDiagnose(this));
 }
 
+BELPICError::~BELPICError() throw ()
+{
+}
+
 const char *BELPICError::what() const throw ()
 { return "BELPIC error"; }
 

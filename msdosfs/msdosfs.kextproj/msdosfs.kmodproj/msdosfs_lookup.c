@@ -990,7 +990,7 @@ uniqdosname(
 					return 0;
 				return error;
 			}
-                	error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
+			error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
 			if (error) {
 				buf_brelse(bp);
 				return error;
@@ -1110,7 +1110,7 @@ findslots(
 				break;
 			return (error);
 		}
-				error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
+		error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
 		if (error) {
 			buf_brelse(bp);
 			return (error);

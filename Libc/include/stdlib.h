@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2002 - 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,7 +58,7 @@
 #ifndef _STDLIB_H_
 #define _STDLIB_H_
 
-#include <available.h>
+#include <Availability.h>
 
 #include <_types.h>
 #if !defined(_ANSI_SOURCE)
@@ -336,7 +336,7 @@ int	 cgetset(const char *);
 int	 cgetstr(char *, const char *, char **);
 int	 cgetustr(char *, const char *, char **);
 
-int	 daemon(int, int) __DARWIN_1050(daemon) __AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5;
+int	 daemon(int, int) __DARWIN_1050(daemon) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_5,__IPHONE_2_0,__IPHONE_2_0);
 char	*devname(dev_t, mode_t);
 char	*devname_r(dev_t, mode_t, char *buf, int len);
 char	*getbsize(int *, long *);

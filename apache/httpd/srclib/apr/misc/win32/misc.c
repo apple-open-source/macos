@@ -16,10 +16,10 @@
 
 #include "apr_private.h"
 #include "apr_arch_misc.h"
-#include "crtdbg.h"
 #include "apr_arch_file_io.h"
 #include "assert.h"
 #include "apr_lib.h"
+#include "tchar.h"
 
 APR_DECLARE_DATA apr_oslevel_e apr_os_level = APR_WIN_UNK;
 
@@ -34,13 +34,17 @@ apr_status_t apr_get_oslevel(apr_oslevel_e *level)
         if (oslev.dwPlatformId == VER_PLATFORM_WIN32_NT) 
         {
             static unsigned int servpack = 0;
-            char *pservpack;
+            TCHAR *pservpack;
             if (pservpack = oslev.szCSDVersion) {
                 while (*pservpack && !apr_isdigit(*pservpack)) {
                     pservpack++;
                 }
                 if (*pservpack)
+#ifdef _UNICODE
+                    servpack = _wtoi(pservpack);
+#else
                     servpack = atoi(pservpack);
+#endif
             }
 
             if (oslev.dwMajorVersion < 3) {
@@ -81,7 +85,7 @@ apr_status_t apr_get_oslevel(apr_oslevel_e *level)
                         apr_os_level = APR_WIN_2000_SP2;
                 }
                 else if (oslev.dwMinorVersion == 2) {
-                    apr_os_level = APR_WIN_2003;                    
+                    apr_os_level = APR_WIN_2003;
                 }
                 else {
                     if (servpack < 1)
@@ -92,28 +96,31 @@ apr_status_t apr_get_oslevel(apr_oslevel_e *level)
                         apr_os_level = APR_WIN_XP_SP2;
                 }
             }
+            else if (oslev.dwMajorVersion == 6) {
+                apr_os_level = APR_WIN_VISTA;
+            }
             else {
                 apr_os_level = APR_WIN_XP;
             }
         }
 #ifndef WINNT
         else if (oslev.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
-            char *prevision;
+            TCHAR *prevision;
             if (prevision = oslev.szCSDVersion) {
                 while (*prevision && !apr_isupper(*prevision)) {
                      prevision++;
                 }
             }
-            else prevision = "";
+            else prevision = _T("");
 
             if (oslev.dwMinorVersion < 10) {
-                if (*prevision < 'C')
+                if (*prevision < _T('C'))
                     apr_os_level = APR_WIN_95;
                 else
                     apr_os_level = APR_WIN_95_OSR2;
             }
             else if (oslev.dwMinorVersion < 90) {
-                if (*prevision < 'A')
+                if (*prevision < _T('A'))
                     apr_os_level = APR_WIN_98;
                 else
                     apr_os_level = APR_WIN_98_SE;
@@ -161,14 +168,23 @@ static HMODULE lateDllHandle[DLL_defined] = {
 FARPROC apr_load_dll_func(apr_dlltoken_e fnLib, char* fnName, int ordinal)
 {
     if (!lateDllHandle[fnLib]) { 
-        lateDllHandle[fnLib] = LoadLibrary(lateDllName[fnLib]);
+        lateDllHandle[fnLib] = LoadLibraryA(lateDllName[fnLib]);
         if (!lateDllHandle[fnLib])
             return NULL;
     }
+#if defined(_WIN32_WCE)
     if (ordinal)
-        return GetProcAddress(lateDllHandle[fnLib], (char *) ordinal);
+        return GetProcAddressA(lateDllHandle[fnLib], (const char *)
+                                                     (apr_ssize_t)ordinal);
+    else
+        return GetProcAddressA(lateDllHandle[fnLib], fnName);
+#else
+    if (ordinal)
+        return GetProcAddress(lateDllHandle[fnLib], (const char *)
+                                                    (apr_ssize_t)ordinal);
     else
         return GetProcAddress(lateDllHandle[fnLib], fnName);
+#endif
 }
 
 /* Declared in include/arch/win32/apr_dbg_win32_handles.h
@@ -196,18 +212,18 @@ APR_DECLARE_NONSTD(HANDLE) apr_dbg_log(char* fn, HANDLE ha, char* fl, int ln,
         (TlsSetValue)(tlsid, sbuf);
         sbuf[1023] = '\0';
         if (!fh) {
-            (GetModuleFileName)(NULL, sbuf, 250);
+            (GetModuleFileNameA)(NULL, sbuf, 250);
             sprintf(strchr(sbuf, '\0'), ".%d",
                     (GetCurrentProcessId)());
-            fh = (CreateFile)(sbuf, GENERIC_WRITE, 0, NULL, 
+            fh = (CreateFileA)(sbuf, GENERIC_WRITE, 0, NULL, 
                             CREATE_ALWAYS, 0, NULL);
             (InitializeCriticalSection)(&cs);
         }
     }
 
     if (!nh) {
-        (sprintf)(sbuf, "%08x %08x %08x %s() %s:%d\n",
-                  (DWORD)ha, seq, GetCurrentThreadId(), fn, fl, ln);
+        (sprintf)(sbuf, "%p %08x %08x %s() %s:%d\n",
+                  ha, seq, GetCurrentThreadId(), fn, fl, ln);
         (EnterCriticalSection)(&cs);
         (WriteFile)(fh, sbuf, (DWORD)strlen(sbuf), &wrote, NULL);
         (LeaveCriticalSection)(&cs);
@@ -220,21 +236,21 @@ APR_DECLARE_NONSTD(HANDLE) apr_dbg_log(char* fn, HANDLE ha, char* fl, int ln,
             HANDLE *hv = va_arg(a, HANDLE*);
             char *dsc = va_arg(a, char*);
             if (strcmp(dsc, "Signaled") == 0) {
-                if ((DWORD)ha >= STATUS_WAIT_0 
-                       && (DWORD)ha < STATUS_ABANDONED_WAIT_0) {
-                    hv += (DWORD)ha;
+                if ((apr_ssize_t)ha >= STATUS_WAIT_0 
+                       && (apr_ssize_t)ha < STATUS_ABANDONED_WAIT_0) {
+                    hv += (apr_ssize_t)ha;
                 }
-                else if ((DWORD)ha >= STATUS_ABANDONED_WAIT_0
-                            && (DWORD)ha < STATUS_USER_APC) {
-                    hv += (DWORD)ha - STATUS_ABANDONED_WAIT_0;
+                else if ((apr_ssize_t)ha >= STATUS_ABANDONED_WAIT_0
+                            && (apr_ssize_t)ha < STATUS_USER_APC) {
+                    hv += (apr_ssize_t)ha - STATUS_ABANDONED_WAIT_0;
                     dsc = "Abandoned";
                 }
-                else if ((DWORD)ha == WAIT_TIMEOUT) {
+                else if ((apr_ssize_t)ha == WAIT_TIMEOUT) {
                     dsc = "Timed Out";
                 }
             }
-            (sprintf)(sbuf, "%08x %08x %08x %s(%s) %s:%d\n",
-                      (DWORD*)*hv, seq, GetCurrentThreadId(), 
+            (sprintf)(sbuf, "%p %08x %08x %s(%s) %s:%d\n",
+                      *hv, seq, GetCurrentThreadId(), 
                       fn, dsc, fl, ln);
             (WriteFile)(fh, sbuf, (DWORD)strlen(sbuf), &wrote, NULL);
         } while (--nh);

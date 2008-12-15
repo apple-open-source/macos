@@ -1,4 +1,4 @@
-*windows.txt*   For Vim version 7.0.  Last change: 2006 Apr 24
+*windows.txt*   For Vim version 7.2.  Last change: 2008 Aug 09
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -132,7 +132,8 @@ CTRL-W CTRL-S						*CTRL-W_CTRL-S*
 		the same file.  Make new window N high (default is to use half
 		the height of the current window).  Reduces the current window
 		height to create room (and others, if the 'equalalways' option
-		is set and 'eadirection' isn't "hor").
+		is set, 'eadirection' isn't "hor", and one of them is higher
+		than the current or the new window).
 		Note: CTRL-S does not work on all terminals and might block
 		further input, use CTRL-Q to get going again.
 		Also see |++opt| and |+cmd|.
@@ -140,9 +141,13 @@ CTRL-W CTRL-S						*CTRL-W_CTRL-S*
 CTRL-W CTRL-V						*CTRL-W_CTRL-V*
 CTRL-W v						*CTRL-W_v*
 :[N]vs[plit] [++opt] [+cmd] [file]			*:vs* *:vsplit*
-		Like |:split|, but split vertically.  If 'equalalways' is set
-		and 'eadirection' isn't "ver" the windows will be spread out
-		horizontally, unless a width was specified.
+		Like |:split|, but split vertically.  The windows will be
+		spread out horizontally if
+		1. a width was not specified,
+		2. 'equalalways' is set,
+		3. 'eadirection' isn't "ver", and
+		4. one of the other windows is wider than the current or new
+		   window.
 		Note: In other places CTRL-Q does the same as CTRL-V, but here
 		it doesn't!
 
@@ -185,8 +190,8 @@ CTRL-W CTRL_N						*CTRL-W_CTRL-N*
 		Same as ":split", but set 'readonly' option for this buffer.
 
 :[N]sf[ind] [++opt] [+cmd] {file}		*:sf* *:sfind* *splitfind*
-		Same as ":split", but search for {file} in 'path'.  Doesn't
-		split if {file} is not found.
+		Same as ":split", but search for {file} in 'path' like in
+		|:find|.  Doesn't split if {file} is not found.
 
 CTRL-W CTRL-^					*CTRL-W_CTRL-^* *CTRL-W_^*
 CTRL-W ^	Does ":split #", split window in two and edit alternate file.
@@ -200,6 +205,7 @@ window will appear.
 :vert[ical] {cmd}
 		Execute {cmd}.  If it contains a command that splits a window,
 		it will be split vertically.
+		Doesn't work for |:execute| and |:normal|.
 
 :lefta[bove] {cmd}				*:lefta* *:leftabove*
 :abo[veleft] {cmd}				*:abo* *:aboveleft*
@@ -207,6 +213,7 @@ window will appear.
 		it will be opened left (vertical split) or above (horizontal
 		split) the current window.  Overrules 'splitbelow' and
 		'splitright'.
+		Doesn't work for |:execute| and |:normal|.
 
 :rightb[elow] {cmd}				*:rightb* *:rightbelow*
 :bel[owright] {cmd}				*:bel* *:belowright*
@@ -214,6 +221,7 @@ window will appear.
 		it will be opened right (vertical split) or below (horizontal
 		split) the current window.  Overrules 'splitbelow' and
 		'splitright'.
+		Doesn't work for |:execute| and |:normal|.
 
 						*:topleft* *E442*
 :to[pleft] {cmd}
@@ -221,6 +229,7 @@ window will appear.
 		it will appear at the top and occupy the full width of the Vim
 		window.  When the split is vertical the window appears at the
 		far left and occupies the full height of the Vim window.
+		Doesn't work for |:execute| and |:normal|.
 
 						*:botright*
 :bo[tright] {cmd}
@@ -228,6 +237,7 @@ window will appear.
 		it will appear at the bottom and occupy the full width of the
 		Vim window.  When the split is vertical the window appears at
 		the far right and occupies the full height of the Vim window.
+		Doesn't work for |:execute| and |:normal|.
 
 These command modifiers can be combined to make a vertically split window
 occupy the full height.  Example: >
@@ -447,6 +457,8 @@ CTRL-W T	Move the current window to a new tab page.  This fails if
 						*CTRL-W_=*
 CTRL-W =	Make all windows (almost) equally high and wide, but use
 		'winheight' and 'winwidth' for the current window.
+		Windows with 'winfixheight' set keep their height and windows
+		with 'winfixwidth' set keep their width.
 
 :res[ize] -N					*:res* *:resize* *CTRL-W_-*
 CTRL-W -	Decrease current window height by N (default 1).
@@ -615,7 +627,7 @@ can also get to them with the buffer list commands, like ":bnext".
 		not split.  Also see |++opt| and |+cmd|.
 
 						*:dr* *:drop*
-:dr[op] {file} ..
+:dr[op] [++opt] [+cmd] {file} ..
 		Edit the first {file} in a window.
 		- If the file is already open in a window change to that
 		  window.
@@ -627,6 +639,7 @@ can also get to them with the buffer list commands, like ":bnext".
 		program that wants Vim to edit another file, e.g., a debugger.
 		When using the |:tab| modifier each argument is opened in a
 		tab page.  The last window is used if it's empty.
+		Also see |++opt| and |+cmd|.
 		{only available when compiled with the +gui feature}
 
 ==============================================================================
@@ -1021,8 +1034,8 @@ list of buffers. |unlisted-buffer|
 		[!].  This will also edit a buffer that is not in the buffer
 		list, without setting the 'buflisted' flag.
 
-:[N]b[uffer][!] {filename}
-		Edit buffer for {filename} from the buffer list.  See
+:[N]b[uffer][!] {bufname}
+		Edit buffer for {bufname} from the buffer list.  See
 		|:buffer-!| for [!].  This will also edit a buffer that is not
 		in the buffer list, without setting the 'buflisted' flag.
 
@@ -1033,8 +1046,8 @@ list of buffers. |unlisted-buffer|
 		also edit a buffer that is not in the buffer list, without
 		setting the 'buflisted' flag.
 
-:[N]sb[uffer] {filename}
-		Split window and edit buffer for {filename} from the buffer
+:[N]sb[uffer] {bufname}
+		Split window and edit buffer for {bufname} from the buffer
 		list.  This will also edit a buffer that is not in the buffer
 		list, without setting the 'buflisted' flag.
 		Note: If what you want to do is split the buffer, make a copy
@@ -1118,7 +1131,7 @@ list of buffers. |unlisted-buffer|
 		of windows opened ('winwidth' if |:vertical| was prepended).
 		Buf/Win Enter/Leave autocommands are not executed for the new
 		windows here, that's only done when they are really entered.
-		When the |:tab| modifier is used new windows are opended in a
+		When the |:tab| modifier is used new windows are opened in a
 		new tab, up to 'tabpagemax'.
 
 Note: All the commands above that start editing another buffer, keep the

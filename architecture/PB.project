@@ -13,7 +13,7 @@
             zs85C30.h
         ); 
         OTHER_SOURCES = (Makefile); 
-        SUBPROJECTS = (m68k, i386, hppa, sparc, ppc); 
+        SUBPROJECTS = (m68k, i386, hppa, sparc, ppc, arm); 
     }; 
     GENERATEMAIN = YES; 
     LANGUAGE = English; 

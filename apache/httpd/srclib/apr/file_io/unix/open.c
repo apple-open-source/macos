@@ -47,7 +47,7 @@ static apr_status_t file_cleanup(apr_file_t *file)
     }
 #ifndef WAITIO_USES_POLL
     if (file->pollset != NULL) {
-        int pollset_rv = apr_pollset_destroy(file->pollset);
+        apr_status_t pollset_rv = apr_pollset_destroy(file->pollset);
         /* If the file close failed, return its error value,
          * not apr_pollset_destroy()'s.
          */
@@ -165,7 +165,8 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new,
     (*new)->buffered = (flag & APR_BUFFERED) > 0;
 
     if ((*new)->buffered) {
-        (*new)->buffer = apr_palloc(pool, APR_FILE_BUFSIZE);
+        (*new)->buffer = apr_palloc(pool, APR_FILE_DEFAULT_BUFSIZE);
+        (*new)->bufsize = APR_FILE_DEFAULT_BUFSIZE;
 #if APR_HAS_THREADS
         if ((*new)->flags & APR_XTHREAD) {
             (*new)->thlock = thlock;
@@ -254,7 +255,8 @@ APR_DECLARE(apr_status_t) apr_os_file_put(apr_file_t **file,
 #endif
 
     if ((*file)->buffered) {
-        (*file)->buffer = apr_palloc(pool, APR_FILE_BUFSIZE);
+        (*file)->buffer = apr_palloc(pool, APR_FILE_DEFAULT_BUFSIZE);
+        (*file)->bufsize = APR_FILE_DEFAULT_BUFSIZE;
 #if APR_HAS_THREADS
         if ((*file)->flags & APR_XTHREAD) {
             apr_status_t rv;
@@ -277,28 +279,49 @@ APR_DECLARE(apr_status_t) apr_file_eof(apr_file_t *fptr)
     return APR_SUCCESS;
 }   
 
-APR_DECLARE(apr_status_t) apr_file_open_stderr(apr_file_t **thefile, 
-                                               apr_pool_t *pool)
+APR_DECLARE(apr_status_t) apr_file_open_flags_stderr(apr_file_t **thefile, 
+                                                     apr_int32_t flags,
+                                                     apr_pool_t *pool)
 {
     int fd = STDERR_FILENO;
 
-    return apr_os_file_put(thefile, &fd, 0, pool);
+    return apr_os_file_put(thefile, &fd, flags | APR_WRITE, pool);
+}
+
+APR_DECLARE(apr_status_t) apr_file_open_flags_stdout(apr_file_t **thefile, 
+                                                     apr_int32_t flags,
+                                                     apr_pool_t *pool)
+{
+    int fd = STDOUT_FILENO;
+
+    return apr_os_file_put(thefile, &fd, flags | APR_WRITE, pool);
+}
+
+APR_DECLARE(apr_status_t) apr_file_open_flags_stdin(apr_file_t **thefile, 
+                                                    apr_int32_t flags,
+                                                    apr_pool_t *pool)
+{
+    int fd = STDIN_FILENO;
+
+    return apr_os_file_put(thefile, &fd, flags | APR_READ, pool);
+}
+
+APR_DECLARE(apr_status_t) apr_file_open_stderr(apr_file_t **thefile, 
+                                               apr_pool_t *pool)
+{
+    return apr_file_open_flags_stderr(thefile, 0, pool);
 }
 
 APR_DECLARE(apr_status_t) apr_file_open_stdout(apr_file_t **thefile, 
                                                apr_pool_t *pool)
 {
-    int fd = STDOUT_FILENO;
-
-    return apr_os_file_put(thefile, &fd, 0, pool);
+    return apr_file_open_flags_stdout(thefile, 0, pool);
 }
 
 APR_DECLARE(apr_status_t) apr_file_open_stdin(apr_file_t **thefile, 
                                               apr_pool_t *pool)
 {
-    int fd = STDIN_FILENO;
-
-    return apr_os_file_put(thefile, &fd, 0, pool);
+    return apr_file_open_flags_stdin(thefile, 0, pool);
 }
 
 APR_IMPLEMENT_INHERIT_SET(file, flags, pool, apr_unix_file_cleanup)

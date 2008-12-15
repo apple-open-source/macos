@@ -1,4 +1,4 @@
-*motion.txt*    For Vim version 7.0.  Last change: 2006 Apr 30
+*motion.txt*    For Vim version 7.2.  Last change: 2008 Aug 03
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -169,15 +169,15 @@ l		or					*l*
 
 							*0*
 0			To the first character of the line.  |exclusive|
-			motion.  When moving up or down, stay in same screen
-			column (if possible).
+			motion.
 
 							*<Home>* *<kHome>*
 <Home>			To the first character of the line.  |exclusive|
-			motion.  When moving up or down, stay in same text
-			column (if possible).  Works like "1|", which differs
-			from "0" when the line starts with a <Tab>.  {not in
-			Vi}
+			motion.  When moving up or down next, stay in same
+			TEXT column (if possible).  Most other commands stay
+			in the same SCREEN column.  <Home> works like "1|",
+			which differs from "0" when the line starts with a
+			<Tab>.  {not in Vi}
 
 							*^*
 ^			To the first non-blank character of the line.
@@ -366,9 +366,11 @@ W			[count] WORDS forward.  |exclusive| motion.
 
 							*e*
 e			Forward to the end of word [count] |inclusive|.
+			Does not stop in an empty line.
 
 							*E*
 E			Forward to the end of WORD [count] |inclusive|.
+			Does not stop in an empty line.
 
 <S-Left>	or					*<S-Left>* *b*
 b			[count] words backward.  |exclusive| motion.
@@ -465,9 +467,9 @@ The definition of a sentence cannot be changed.
 							*paragraph*
 A paragraph begins after each empty line, and also at each of a set of
 paragraph macros, specified by the pairs of characters in the 'paragraphs'
-option.  The default is "IPLPPPQPP LIpplpipbp", which corresponds to the
-macros ".IP", ".LP", etc.  (These are nroff macros, so the dot must be in the
-first column).  A section boundary is also a paragraph boundary.
+option.  The default is "IPLPPPQPP TPHPLIPpLpItpplpipbp", which corresponds to
+the macros ".IP", ".LP", etc.  (These are nroff macros, so the dot must be in
+the first column).  A section boundary is also a paragraph boundary.
 Note that a blank line (only containing white space) is NOT a paragraph
 boundary.
 Also note that this does not include a '{' or '}' in the first column.  When
@@ -752,11 +754,11 @@ m[  or  m]		Set the |'[| or |']| mark.  Useful when an operator is
 			be omitted.
 
 						*'* *'a* *`* *`a*
-'{a-z}  `{a-z}		Jump to the mark {a-z}.
+'{a-z}  `{a-z}		Jump to the mark {a-z} in the current buffer.
 
 						*'A* *'0* *`A* *`0*
-'{A-Z0-9}  `{A-Z0-9}	To the mark {A-Z0-9} in the correct file (not a motion
-			command when in another file).  {not in Vi}
+'{A-Z0-9}  `{A-Z0-9}	To the mark {A-Z0-9} in the file where it was set (not
+			a motion command when in another file).  {not in Vi}
 
 						*g'* *g'a* *g`* *g`a*
 g'{mark}  g`{mark}
@@ -809,10 +811,6 @@ Lowercase marks 'a to 'z are remembered as long as the file remains in the
 buffer list.  If you remove the file from the buffer list, all its marks are
 lost.  If you delete a line that contains a mark, that mark is erased.
 
-To delete a mark: Create a new line, position the mark there, delete the line.
-E.g.: "o<Esc>mxdd".  This does change the file though.  Using "u" won't work,
-it also restores marks.
-
 Lowercase marks can be used in combination with operators.  For example: "d't"
 deletes the lines from the cursor position to mark 't'.  Hint: Use mark 't' for
 Top, 'b' for Bottom, etc..  Lowercase marks are restored when using undo and
@@ -853,16 +851,16 @@ when using blockwise Visual mode.  These commands do not work when no change
 was made yet in the current file.
 
 							*'<* *`<*
-'<  `<			To the first character of the last selected Visual
-			area in the current buffer.  For block mode it may
-			also be the last character in the first line (to be
-			able to define the block).  {not in Vi}.
+'<  `<			To the first line or character of the last selected
+			Visual area in the current buffer.  For block mode it
+			may also be the last character in the first line (to
+			be able to define the block).  {not in Vi}.
 
 							*'>* *`>*
-'>  `>			To the last character of the last selected Visual
-			area in the current buffer.  For block mode it may
-			also be the first character of the last line (to be
-			able to define the block).  Note that 'selection'
+'>  `>			To the last line or character of the last selected
+			Visual area in the current buffer.  For block mode it
+			may also be the first character of the last line (to
+			be able to define the block).  Note that 'selection'
 			applies, the position may be just after the Visual
 			area.  {not in Vi}.
 
@@ -1173,13 +1171,15 @@ remembered.
 					cursor is on the # or no ([{
 					following)
 			For other items the matchit plugin can be used, see
-			|matchit-install|.
+			|matchit-install|.  This plugin also helps to skip
+			matches in comments.
 
 			When 'cpoptions' contains "M" |cpo-M| backslashes
 			before parens and braces are ignored.  Without "M" the
 			number of backslashes matters: an even number doesn't
 			match with an odd number.  Thus in "( \) )" and "\( (
 			\)" the first and last parenthesis match.
+
 			When the '%' character is not present in 'cpoptions'
 			|cpo-%|, parens and braces inside double quotes are
 			ignored, unless the number of parens/braces in a line
@@ -1188,8 +1188,13 @@ remembered.
 			are also ignored (parens and braces inside single
 			quotes).  Note that this works fine for C, but not for
 			Perl, where single quotes are used for strings.
-			No count is allowed ({count}% jumps to a line {count}
-			percentage down the file |N%|).  Using '%' on
+
+			Nothing special is done for matches in comments.  You
+			can either use the matchit plugin |matchit-install| or
+			put quotes around matches.
+
+			No count is allowed, {count}% jumps to a line {count}
+			percentage down the file |N%|.  Using '%' on
 			#if/#else/#endif makes the movement linewise.
 
 						*[(*

@@ -461,6 +461,7 @@ msdosfs_getattr(ap)
 	VATTR_RETURN(vap, va_total_alloc, (dep->de_FileSize + pmp->pm_crbomask) & ~pmp->pm_crbomask);
 	VATTR_RETURN(vap, va_data_size, dep->de_FileSize);
 	VATTR_RETURN(vap, va_data_alloc, vap->va_total_alloc);
+	VATTR_RETURN(vap, va_iosize, pmp->pm_iosize);
 	VATTR_RETURN(vap, va_uid, 99);
 	VATTR_RETURN(vap, va_gid, 99);
 	VATTR_RETURN(vap, va_mode, ALLPERMS & pmp->pm_mask);

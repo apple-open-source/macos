@@ -38,7 +38,11 @@ static char	tzfilehid[] = "@(#)tzfile.h	7.14";
 #endif /* !defined TZDIR */
 
 #ifndef TZDEFAULT
+#ifdef UNIFDEF_MOVE_LOCALTIME
+#define TZDEFAULT	"/var/db/timezone/localtime"
+#else /* !UNIFDEF_MOVE_LOCALTIME */
 #define TZDEFAULT	"/etc/localtime"
+#endif /* UNIFDEF_MOVE_LOCALTIME */
 #endif /* !defined TZDEFAULT */
 
 #ifndef TZDEFRULES

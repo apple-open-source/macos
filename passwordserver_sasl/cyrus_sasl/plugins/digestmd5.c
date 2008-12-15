@@ -230,6 +230,7 @@ typedef struct context {
     /* only used by the client */
     char ** realms;
     int realm_cnt;
+	char *digest_uri;			/* hack to use AD digest */
 
     char *response_value;
     
@@ -340,6 +341,15 @@ DigestCalcResponse(const sasl_utils_t * utils,
     /* calculate H(A2) */
     utils->MD5Init(&Md5Ctx);
     
+	#if DEBUG
+	utils->seterror(utils->conn,0, "xxx pszNonce %s", pszNonce?pszNonce:"NULL");
+	utils->seterror(utils->conn,0, "xxx pszNonceCount %d", pszNonceCount?pszNonceCount:0);
+	utils->seterror(utils->conn,0, "xxx pszCNonce %s", pszCNonce?pszCNonce:"NULL");
+	utils->seterror(utils->conn,0, "xxx pszQop %s", pszQop?pszQop:"NULL");
+	utils->seterror(utils->conn,0, "xxx pszDigestUri %s", pszDigestUri?pszDigestUri:"NULL");
+	utils->seterror(utils->conn,0, "xxx method %s", pszMethod?pszMethod:"NULL");
+	#endif
+	
     if (pszMethod != NULL) {
 	utils->MD5Update(&Md5Ctx, pszMethod, strlen((char *) pszMethod));
     }
@@ -1545,7 +1555,8 @@ static void digestmd5_common_mech_dispose(void *conn_context,
 
     if (text->nonce) utils->free(text->nonce);
     if (text->cnonce) utils->free(text->cnonce);
-
+	if (text->digest_uri) utils->free(text->digest_uri);
+	
     if (text->cipher_free) text->cipher_free(text);
     
     /* free the stuff in the context */
@@ -2954,22 +2965,29 @@ static int make_client_response(context_t *text,
 	oparams->mech_ssf = 0;
     }
 
-    digesturi = params->utils->malloc(strlen(params->service) + 1 +
-				      strlen(params->serverFQDN) + 1 +
-				      1);
-    if (digesturi == NULL) {
-	result = SASL_NOMEM;
-	goto FreeAllocatedMem;
-    };
-    
-    /* allocated exactly this. safe */
-    strcpy((char *) digesturi, params->service);
-    strcat((char *) digesturi, "/");
-    strcat((char *) digesturi, params->serverFQDN);
-    /*
-     * strcat (digesturi, "/"); strcat (digesturi, params->serverFQDN);
-     */
-
+	if ( text->digest_uri == NULL )
+	{
+		/* normal case */
+		digesturi = params->utils->malloc(strlen(params->service) + 1 +
+						  strlen(params->serverFQDN) + 1 +
+						  1);
+		if (digesturi == NULL) {
+		result = SASL_NOMEM;
+		goto FreeAllocatedMem;
+		};
+		
+		/* allocated exactly this. safe */
+		strcpy((char *) digesturi, params->service);
+		strcat((char *) digesturi, "/");
+		strcat((char *) digesturi, params->serverFQDN);
+	}
+	else
+	{
+		/* AD hack case - allow digest-uri to be server-provided. */
+		/* AD only accepts "ldap/specific-tree.ad.example.com" */
+		_plug_strdup(params->utils, text->digest_uri, (char **)&digesturi, NULL);
+	}
+	
     /* response */
     response =
 	calculate_response(text,
@@ -2988,7 +3006,8 @@ static int make_client_response(context_t *text,
     
 	/* Apple: do not keep calling realloc. Let us try to get close to the right size. */
     //resplen = strlen(oparams->authid) + strlen("username") + 5;
-	resplen = strlen(oparams->authid) + strlen("username=''authzid=''nonce=''cnonce=''nc=''qop=''cipher=''charset=''digest-uri=''response=''")*2 + 5;
+	resplen = strlen(oparams->authid) +
+			  strlen("username=''authzid=''nonce=''cnonce=''nc=''qop=''cipher=''charset=''digest-uri=''response=''")*2 + 5;
 	
     result =_plug_buf_alloc(params->utils, (unsigned char **)&(text->out_buf),
 			    &(text->out_buf_len),
@@ -3381,7 +3400,12 @@ SKIP_SPACES_IN_CIPHER:
 		    result = SASL_FAIL;
 		    goto FreeAllocatedMem;
 		}
-	} else {
+	}
+	else if (strcasecmp(name,"digest-uri")==0) {
+		_plug_strdup(params->utils, value, (char **) &text->digest_uri,
+			 NULL);
+	}
+	else {
 	    params->utils->log(params->utils->conn, SASL_LOG_DEBUG,
 			       "DIGEST-MD5 unrecognized pair %s/%s: ignoring",
 			       name, value);

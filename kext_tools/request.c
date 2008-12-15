@@ -21,7 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <CoreFoundation/CoreFoundation.h>
+#include <TargetConfig.h>
+#if TARGET_HAVE_EMBEDDED_SECURITY
+typedef void * AuthorizationRef;
+typedef void * AuthorizationExternalForm;
+#else
 #include <Security/Authorization.h>
+#endif
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitServer.h>
 #include <libc.h>

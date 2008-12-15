@@ -1,4 +1,4 @@
-*develop.txt*   For Vim version 7.0.  Last change: 2006 Mar 09
+*develop.txt*   For Vim version 7.2.  Last change: 2007 May 11
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -187,7 +187,7 @@ strcpy()	STRCPY()	Includes cast to (char *), for char_u * args
 strchr()	vim_strchr()	Accepts special characters
 strrchr()	vim_strrchr()	Accepts special characters
 isspace()	vim_isspace()	Can handle characters > 128
-iswhite()	vim_iswhite()	Only TRUE for Tab and space
+iswhite()	vim_iswhite()	Only TRUE for tab and space
 memcpy()	mch_memmove()	Handles overlapped copies
 bcopy()		mch_memmove()	Handles overlapped copies
 memset()	vim_memset()	Uniform for all systems
@@ -224,7 +224,7 @@ __.*		POSIX, system
 _[A-Z].*	POSIX, system
 E[A-Z0-9]*	POSIX, errno.h
 
-*_t		POSIX, for typedefs.  Use *_T instead.
+.*_t		POSIX, for typedefs.  Use .*_T instead.
 
 wait		don't use as argument to a function, conflicts with types.h
 index		shadows global declaration
@@ -437,7 +437,7 @@ the best method is.  Alternatives:
    seconds for English, which can be acceptable for interactive use.  But for
    some languages it takes more than ten seconds (e.g., German, Catalan),
    which is unacceptable slow.  For batch processing (automatic corrections)
-   it's to slow for all languages.
+   it's too slow for all languages.
 2. Use a trie for the soundfolded words, so that searching can be done just
    like how it works without soundfolding.  This requires remembering a list
    of good words for each soundfolded word.  This makes finding matches very
@@ -471,7 +471,7 @@ initialized from words listed in COMMON items in the affix file, so that it
 also works when starting a new file.
 
 This isn't ideal, because the longer Vim is running the higher the counts
-become.  But in practice it is a noticable improvement over not using the word
+become.  But in practice it is a noticeable improvement over not using the word
 count.
 
 ==============================================================================

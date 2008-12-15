@@ -1,11 +1,11 @@
---- atexit.c.orig	2006-04-09 01:23:25.000000000 -0700
-+++ atexit.c	2006-04-09 01:44:07.000000000 -0700
+--- atexit.c.orig	2008-02-01 22:43:20.000000000 -0800
++++ atexit.c	2008-02-01 22:47:49.000000000 -0800
 @@ -45,6 +45,9 @@
  #include <stdlib.h>
  #include <unistd.h>
  #include <pthread.h>
 +#if defined(__DYNAMIC__)
-+#include <mach-o/dyld.h>
++#include <dlfcn.h>
 +#endif /* defined(__DYNAMIC__) */
  #include "atexit.h"
  #include "un-namespace.h"
@@ -26,19 +26,28 @@
  	_MUTEX_UNLOCK(&atexit_mutex);
  	return 0;
  }
-@@ -125,7 +130,11 @@
+@@ -120,12 +125,20 @@
+ atexit(void (*func)(void))
+ {
+ 	struct atexit_fn fn;
++	struct dl_info info;
+ 	int error;
+ 
  	fn.fn_type = ATEXIT_FN_STD;
  	fn.fn_ptr.std_func = func;;
  	fn.fn_arg = NULL;
 +#if defined(__DYNAMIC__)
-+	fn.fn_dso = (void *)_dyld_get_image_header_containing_address((unsigned long) func);
++	if ( dladdr(func, &info) )
++		fn.fn_dso = info.dli_fbase;
++	else 
++		fn.fn_dso = NULL;
 +#else /* ! defined(__DYNAMIC__) */
  	fn.fn_dso = NULL;
 +#endif /* defined(__DYNAMIC__) */
  
   	error = atexit_register(&fn);	
  	return (error);
-@@ -156,13 +165,14 @@
+@@ -156,13 +169,14 @@
   * handlers are called.
   */
  void
@@ -54,7 +63,7 @@
  	for (p = __atexit; p; p = p->next) {
  		for (n = p->ind; --n >= 0;) {
  			if (p->fns[n].fn_type == ATEXIT_FN_EMPTY)
-@@ -175,6 +185,7 @@
+@@ -175,6 +189,7 @@
  			  has already been called.
  			*/
  			p->fns[n].fn_type = ATEXIT_FN_EMPTY;
@@ -62,7 +71,7 @@
  		        _MUTEX_UNLOCK(&atexit_mutex);
  		
  			/* Call the function of correct type. */
-@@ -183,6 +194,8 @@
+@@ -183,6 +198,8 @@
  			else if (fn.fn_type == ATEXIT_FN_STD)
  				fn.fn_ptr.std_func();
  			_MUTEX_LOCK(&atexit_mutex);

@@ -43,8 +43,11 @@
 
 #include <Kernel/IOKit/IOKitKeysPrivate.h>
 #include <Kernel/libsa/mkext.h>
+#include <TargetConditionals.h>
+#if !TARGET_OS_EMBEDDED
 #include <DiskArbitration/DiskArbitration.h>        // for UUID fetching
 #include <DiskArbitration/DiskArbitrationPrivate.h> // path -> DADisk
+#endif
 #include <IOKit/kext/fat_util.h>
 #include <IOKit/kext/macho_util.h>
 #include <IOKit/kext/kernel_check.h>
@@ -357,7 +360,11 @@ struct bootCaches* readCaches(DADiskRef dadisk)
     // kexd's vol_appeared filters volumes w/o mount points
     errmsg = "error copying disk description";
     do {
+#if TARGET_OS_EMBEDDED
+	    goto finish;
+#else
         if (!(ddesc = DADiskCopyDescription(dadisk)))         goto finish;
+#endif
         if((volURL=CFDictionaryGetValue(ddesc,kDADiskDescriptionVolumePathKey)))
             break;
         else
@@ -771,7 +778,9 @@ DADiskRef createDiskForMount(DASessionRef session, const char *mount)
     if (session) {
 	dasession = session;
     } else {
+#if !TARGET_OS_EMBEDDED
 	dasession = DASessionCreate(nil);
+#endif
 	if (!dasession)     goto finish;
     }
 
@@ -779,7 +788,9 @@ DADiskRef createDiskForMount(DASessionRef session, const char *mount)
             strlen(mount), 1 /*isDirectory*/);
     if (!volURL)        goto finish;
 
+#if !TARGET_OS_EMBEDDED
     rval = DADiskCreateFromVolumePath(nil, dasession, volURL);
+#endif
 
 finish:
     if (volURL)	    CFRelease(volURL);

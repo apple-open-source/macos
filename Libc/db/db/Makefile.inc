@@ -2,6 +2,7 @@
 # $FreeBSD: src/lib/libc/db/db/Makefile.inc,v 1.4 2002/11/18 09:50:54 ru Exp $
 
 .PATH: ${.CURDIR}/db/db
+CWD := ${.CURDIR}/db/db
 
 .include "Makefile.fbsd_begin"
 FBSDMISRCS= db.c

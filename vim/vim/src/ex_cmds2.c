@@ -11,16 +11,11 @@
  * ex_cmds2.c: some more functions for command line commands
  */
 
-#if defined(WIN32) && defined(FEAT_CSCOPE)
-# include "vimio.h"
+#if defined(MSDOS) || defined(WIN16) || defined(WIN32) || defined(_WIN64)
+# include "vimio.h"	/* for mch_open(), must be before vim.h */
 #endif
 
 #include "vim.h"
-
-#if defined(WIN32) && defined(FEAT_CSCOPE)
-# include <fcntl.h>
-#endif
-
 #include "version.h"
 
 static void	cmd_source __ARGS((char_u *fname, exarg_T *eap));
@@ -43,8 +38,8 @@ typedef struct scriptitem_S
     int		sn_pr_nest;	/* nesting for sn_pr_child */
     /* profiling the script as a whole */
     int		sn_pr_count;	/* nr of times sourced */
-    proftime_T	sn_pr_total;	/* time spend in script + children */
-    proftime_T	sn_pr_self;	/* time spend in script itself */
+    proftime_T	sn_pr_total;	/* time spent in script + children */
+    proftime_T	sn_pr_self;	/* time spent in script itself */
     proftime_T	sn_pr_start;	/* time at script start */
     proftime_T	sn_pr_children; /* time in children after script start */
     /* profiling the script per line */
@@ -65,8 +60,8 @@ static garray_T script_items = {0, 0, sizeof(scriptitem_T), 4, NULL};
 typedef struct sn_prl_S
 {
     int		snp_count;	/* nr of times line was executed */
-    proftime_T	sn_prl_total;	/* time spend in a line + children */
-    proftime_T	sn_prl_self;	/* time spend in a line itself */
+    proftime_T	sn_prl_total;	/* time spent in a line + children */
+    proftime_T	sn_prl_self;	/* time spent in a line itself */
 } sn_prl_T;
 
 #  define PRL_ITEM(si, idx)	(((sn_prl_T *)(si)->sn_prl_ga.ga_data)[(idx)])
@@ -93,6 +88,8 @@ do_debug(cmd)
     int		save_emsg_silent = emsg_silent;
     int		save_redir_off = redir_off;
     tasave_T	typeaheadbuf;
+    int		typeahead_saved = FALSE;
+    int		save_ignore_script = 0;
 # ifdef FEAT_EX_EXTRA
     int		save_ex_normal_busy;
 # endif
@@ -159,18 +156,26 @@ do_debug(cmd)
 	 * This makes sure we get input from the user here and don't interfere
 	 * with the commands being executed.  Reset "ex_normal_busy" to avoid
 	 * the side effects of using ":normal". Save the stuff buffer and make
-	 * it empty. */
+	 * it empty. Set ignore_script to avoid reading from script input. */
 # ifdef FEAT_EX_EXTRA
 	save_ex_normal_busy = ex_normal_busy;
 	ex_normal_busy = 0;
 # endif
 	if (!debug_greedy)
+	{
 	    save_typeahead(&typeaheadbuf);
+	    typeahead_saved = TRUE;
+	    save_ignore_script = ignore_script;
+	    ignore_script = TRUE;
+	}
 
 	cmdline = getcmdline_prompt('>', NULL, 0, EXPAND_NOTHING, NULL);
 
-	if (!debug_greedy)
+	if (typeahead_saved)
+	{
 	    restore_typeahead(&typeaheadbuf);
+	    ignore_script = save_ignore_script;
+	}
 # ifdef FEAT_EX_EXTRA
 	ex_normal_busy = save_ex_normal_busy;
 # endif
@@ -885,19 +890,61 @@ profile_msg(tm)
     sprintf(buf, "%10.6lf", (double)tm->QuadPart / (double)fr.QuadPart);
 # else
     sprintf(buf, "%3ld.%06ld", (long)tm->tv_sec, (long)tm->tv_usec);
-#endif
+# endif
     return buf;
 }
 
-# endif  /* FEAT_PROFILE || FEAT_RELTIME */
-
-# if defined(FEAT_PROFILE) || defined(PROTO)
 /*
- * Functions for profiling.
+ * Put the time "msec" past now in "tm".
  */
-static void script_do_profile __ARGS((scriptitem_T *si));
-static void script_dump_profile __ARGS((FILE *fd));
-static proftime_T prof_wait_time;
+    void
+profile_setlimit(msec, tm)
+    long	msec;
+    proftime_T	*tm;
+{
+    if (msec <= 0)   /* no limit */
+	profile_zero(tm);
+    else
+    {
+# ifdef WIN3264
+	LARGE_INTEGER   fr;
+
+	QueryPerformanceCounter(tm);
+	QueryPerformanceFrequency(&fr);
+	tm->QuadPart += (LONGLONG)((double)msec / 1000.0 * (double)fr.QuadPart);
+# else
+	long	    usec;
+
+	gettimeofday(tm, NULL);
+	usec = (long)tm->tv_usec + (long)msec * 1000;
+	tm->tv_usec = usec % 1000000L;
+	tm->tv_sec += usec / 1000000L;
+# endif
+    }
+}
+
+/*
+ * Return TRUE if the current time is past "tm".
+ */
+    int
+profile_passed_limit(tm)
+    proftime_T	*tm;
+{
+    proftime_T	now;
+
+# ifdef WIN3264
+    if (tm->QuadPart == 0)  /* timer was not set */
+	return FALSE;
+    QueryPerformanceCounter(&now);
+    return (now.QuadPart > tm->QuadPart);
+# else
+    if (tm->tv_sec == 0)    /* timer was not set */
+	return FALSE;
+    gettimeofday(&now, NULL);
+    return (now.tv_sec > tm->tv_sec
+	    || (now.tv_sec == tm->tv_sec && now.tv_usec > tm->tv_usec));
+# endif
+}
 
 /*
  * Set the time in "tm" to zero.
@@ -913,6 +960,16 @@ profile_zero(tm)
     tm->tv_sec = 0;
 # endif
 }
+
+# endif  /* FEAT_PROFILE || FEAT_RELTIME */
+
+# if defined(FEAT_PROFILE) || defined(PROTO)
+/*
+ * Functions for profiling.
+ */
+static void script_do_profile __ARGS((scriptitem_T *si));
+static void script_dump_profile __ARGS((FILE *fd));
+static proftime_T prof_wait_time;
 
 /*
  * Add the time "tm2" to "tm".
@@ -1242,14 +1299,22 @@ autowrite(buf, forceit)
     buf_T	*buf;
     int		forceit;
 {
+    int		r;
+
     if (!(p_aw || p_awa) || !p_write
 #ifdef FEAT_QUICKFIX
-	/* never autowrite a "nofile" or "nowrite" buffer */
-	|| bt_dontwrite(buf)
+	    /* never autowrite a "nofile" or "nowrite" buffer */
+	    || bt_dontwrite(buf)
 #endif
-	|| (!forceit && buf->b_p_ro) || buf->b_ffname == NULL)
+	    || (!forceit && buf->b_p_ro) || buf->b_ffname == NULL)
 	return FAIL;
-    return buf_write_all(buf, forceit);
+    r = buf_write_all(buf, forceit);
+
+    /* Writing may succeed but the buffer still changed, e.g., when there is a
+     * conversion error.  We do want to return FAIL then. */
+    if (buf_valid(buf) && bufIsChanged(buf))
+	r = FAIL;
+    return r;
 }
 
 /*
@@ -1472,6 +1537,8 @@ check_changed_any(hidden)
 	if (buf == NULL)    /* No buffers changed */
 	    return FALSE;
 
+	/* Try auto-writing the buffer.  If this fails but the buffer no
+	 * longer exists it's not changed, that's OK. */
 	if (check_changed(buf, p_awa, TRUE, FALSE, TRUE) && buf_valid(buf))
 	    break;	    /* didn't save - still changes */
     }
@@ -2277,6 +2344,8 @@ ex_listdo(eap)
 		if (!win_valid(wp))
 		    break;
 		win_goto(wp);
+		if (curwin != wp)
+		    break;  /* something must be wrong */
 		wp = curwin->w_next;
 	    }
 	    else if (eap->cmdidx == CMD_tabdo)
@@ -2811,6 +2880,20 @@ do_source(fname, check_other, is_vimrc)
     }
 
 #ifdef FEAT_AUTOCMD
+    /* Apply SourceCmd autocommands, they should get the file and source it. */
+    if (has_autocmd(EVENT_SOURCECMD, fname_exp, NULL)
+	    && apply_autocmds(EVENT_SOURCECMD, fname_exp, fname_exp,
+							       FALSE, curbuf))
+    {
+# ifdef FEAT_EVAL
+	retval = aborting() ? FAIL : OK;
+# else
+	retval = OK;
+# endif
+	goto theend;
+    }
+
+    /* Apply SourcePre autocommands, they may get the file. */
     apply_autocmds(EVENT_SOURCEPRE, fname_exp, fname_exp, FALSE, curbuf);
 #endif
 
@@ -3076,8 +3159,8 @@ do_source(fname, check_other, is_vimrc)
 	verbose_leave();
     }
 #ifdef STARTUPTIME
-    vim_snprintf(IObuff, IOSIZE, "sourcing %s", fname);
-    time_msg(IObuff, &tv_start);
+    vim_snprintf((char *)IObuff, IOSIZE, "sourcing %s", fname);
+    time_msg((char *)IObuff, &tv_start);
     time_pop(&tv_rel);
 #endif
 
@@ -3505,7 +3588,7 @@ script_line_start()
     si = &SCRIPT_ITEM(current_SID);
     if (si->sn_prof_on && sourcing_lnum >= 1)
     {
-	/* Grow the array before starting the timer, so that the time spend
+	/* Grow the array before starting the timer, so that the time spent
 	 * here isn't counted. */
 	ga_grow(&si->sn_prl_ga, (int)(sourcing_lnum - si->sn_prl_ga.ga_len));
 	si->sn_prl_idx = sourcing_lnum - 1;
@@ -3662,13 +3745,13 @@ do_finish(eap, reanimate)
  * Return FALSE when not sourcing a file.
  */
     int
-source_finished(getline, cookie)
-    char_u	*(*getline) __ARGS((int, void *, int));
+source_finished(fgetline, cookie)
+    char_u	*(*fgetline) __ARGS((int, void *, int));
     void	*cookie;
 {
-    return (getline_equal(getline, cookie, getsourceline)
+    return (getline_equal(fgetline, cookie, getsourceline)
 	    && ((struct source_cookie *)getline_cookie(
-						 getline, cookie))->finished);
+						fgetline, cookie))->finished);
 }
 #endif
 
@@ -3950,7 +4033,13 @@ ex_language(eap)
 	    loc = "";
 	else
 #endif
+	{
 	    loc = setlocale(what, (char *)name);
+#if defined(FEAT_FLOAT) && defined(LC_NUMERIC)
+	    /* Make sure strtod() uses a decimal point, not a comma. */
+	    setlocale(LC_NUMERIC, "C");
+#endif
+	}
 	if (loc == NULL)
 	    EMSG2(_("E197: Cannot set language to \"%s\""), name);
 	else
@@ -3962,7 +4051,7 @@ ex_language(eap)
 
 	    ++_nl_msg_cat_cntr;
 #endif
-	    /* Reset $LC_ALL, otherwise it would overrule everyting. */
+	    /* Reset $LC_ALL, otherwise it would overrule everything. */
 	    vim_setenv((char_u *)"LC_ALL", (char_u *)"");
 
 	    if (what != LC_TIME)

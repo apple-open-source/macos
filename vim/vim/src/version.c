@@ -217,6 +217,11 @@ static char *(features[]) =
 #else
 	"-find_in_path",
 #endif
+#ifdef FEAT_FLOAT
+	"+float",
+#else
+	"-float",
+#endif
 #ifdef FEAT_FOLDING
 	"+folding",
 #else
@@ -344,6 +349,11 @@ static char *(features[]) =
 	"+mouse_netterm",
 # else
 	"-mouse_netterm",
+# endif
+# ifdef FEAT_SYSMOUSE
+	"+mouse_sysmouse",
+# else
+	"-mouse_sysmouse",
 # endif
 # ifdef FEAT_MOUSE_XTERM
 	"+mouse_xterm",
@@ -667,7 +677,49 @@ static char *(features[]) =
 static int included_patches[] =
 {   /* Add new patch number below this line */
 /**/
-    234,
+    22,
+/**/
+    21,
+/**/
+    20,
+/**/
+    19,
+/**/
+    18,
+/**/
+    17,
+/**/
+    16,
+/**/
+    15,
+/**/
+    14,
+/**/
+    13,
+/**/
+    12,
+/**/
+    11,
+/**/
+    10,
+/**/
+    9,
+/**/
+    8,
+/**/
+    7,
+/**/
+    6,
+/**/
+    5,
+/**/
+    4,
+/**/
+    3,
+/**/
+    2,
+/**/
+    1,
 /**/
     0
 };
@@ -731,9 +783,13 @@ list_version()
 # ifdef FEAT_GUI_W32
 #  if defined(_MSC_VER) && (_MSC_VER <= 1010)
     /* Only MS VC 4.1 and earlier can do Win32s */
-    MSG_PUTS(_("\nMS-Windows 16/32 bit GUI version"));
+    MSG_PUTS(_("\nMS-Windows 16/32-bit GUI version"));
 #  else
-    MSG_PUTS(_("\nMS-Windows 32 bit GUI version"));
+#   ifdef _WIN64
+    MSG_PUTS(_("\nMS-Windows 64-bit GUI version"));
+#   else
+    MSG_PUTS(_("\nMS-Windows 32-bit GUI version"));
+#   endif
 #  endif
     if (gui_is_win32s())
 	MSG_PUTS(_(" in Win32s mode"));
@@ -741,17 +797,21 @@ list_version()
     MSG_PUTS(_(" with OLE support"));
 # endif
 # else
-    MSG_PUTS(_("\nMS-Windows 32 bit console version"));
+#  ifdef _WIN64
+    MSG_PUTS(_("\nMS-Windows 64-bit console version"));
+#  else
+    MSG_PUTS(_("\nMS-Windows 32-bit console version"));
+#  endif
 # endif
 #endif
 #ifdef WIN16
-    MSG_PUTS(_("\nMS-Windows 16 bit version"));
+    MSG_PUTS(_("\nMS-Windows 16-bit version"));
 #endif
 #ifdef MSDOS
 # ifdef DJGPP
-    MSG_PUTS(_("\n32 bit MS-DOS version"));
+    MSG_PUTS(_("\n32-bit MS-DOS version"));
 # else
-    MSG_PUTS(_("\n16 bit MS-DOS version"));
+    MSG_PUTS(_("\n16-bit MS-DOS version"));
 # endif
 #endif
 #ifdef MACOS
@@ -770,7 +830,15 @@ list_version()
     MSG_PUTS(_("\nRISC OS version"));
 #endif
 #ifdef VMS
-    MSG_PUTS("\nOpenVMS version");
+    MSG_PUTS(_("\nOpenVMS version"));
+# ifdef HAVE_PATHDEF
+    if (*compiled_arch != NUL)
+    {
+	MSG_PUTS(" - ");
+	MSG_PUTS(compiled_arch);
+    }
+# endif
+
 #endif
 
     /* Print the list of patch numbers if there is at least one. */
@@ -1167,9 +1235,9 @@ do_intro_line(row, mesg, add_version, attr)
 
     if (*mesg == ' ')
     {
-	vim_strncpy(modby, _("Modified by "), MODBY_LEN - 1);
+	vim_strncpy(modby, (char_u *)_("Modified by "), MODBY_LEN - 1);
 	l = STRLEN(modby);
-	vim_strncpy(modby + l, MODIFIED_BY, MODBY_LEN - l - 1);
+	vim_strncpy(modby + l, (char_u *)MODIFIED_BY, MODBY_LEN - l - 1);
 	mesg = modby;
     }
 #endif

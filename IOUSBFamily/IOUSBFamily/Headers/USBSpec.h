@@ -209,12 +209,13 @@ enum {
 enum {
     kUSBCompositeClass          	= 0,
     kUSBCommClass               	= 2,		// Deprecated
-    kUSBCommunicationClass		= 2,	
+    kUSBCommunicationClass			= 2,	
     kUSBHubClass                	= 9,
     kUSBDataClass               	= 10,
-    kUSBDiagnosticClass			= 220,
+	kUSBPersonalHealthcareClass		= 15,
+    kUSBDiagnosticClass				= 220,
     kUSBWirelessControllerClass 	= 224,
-    kUSBMiscellaneousClass		= 239,
+    kUSBMiscellaneousClass			= 239,
     kUSBApplicationSpecificClass 	= 254,
     kUSBVendorSpecificClass     	= 255
 };
@@ -224,30 +225,32 @@ enum {
  @discussion Constants for Interface classes (bInterfaceClass).
  */
 enum {
-    kUSBAudioClass             			= 1,		// Deprecated
-    kUSBAudioInterfaceClass			= 1,
+    kUSBAudioClass							= 1,		// Deprecated
+    kUSBAudioInterfaceClass					= 1,
 
     kUSBCommunicationControlInterfaceClass	= 2,
     kUSBCommunicationDataInterfaceClass		= 10,
 
-    kUSBHIDClass                		= 3,
-    kUSBHIDInterfaceClass			= 3,
+    kUSBHIDClass							= 3,
+    kUSBHIDInterfaceClass					= 3,
 
-    kUSBPhysicalInterfaceClass			= 5,
+    kUSBPhysicalInterfaceClass				= 5,
 
-    kUSBImageInterfaceClass			= 6,
+    kUSBImageInterfaceClass					= 6,
 
-    kUSBPrintingClass           		= 7,		// Deprecated
-    kUSBPrintingInterfaceClass			= 7,
+    kUSBPrintingClass						= 7,		// Deprecated
+    kUSBPrintingInterfaceClass				= 7,
 
-    kUSBMassStorageClass        		= 8,		// Deprecated
-    kUSBMassStorageInterfaceClass		= 8,
+    kUSBMassStorageClass					= 8,		// Deprecated
+    kUSBMassStorageInterfaceClass			= 8,
 
-    kUSBChipSmartCardInterfaceClass		= 11,
+    kUSBChipSmartCardInterfaceClass			= 11,
     
-    kUSBContentSecurityInterfaceClass 		= 12,
+    kUSBContentSecurityInterfaceClass 		= 13,
     
-    kUSBVideoInterfaceClass			= 14,
+    kUSBVideoInterfaceClass					= 14,
+	
+	kUSBPersonalHealthcareInterfaceClass	= 15,
     
     kUSBDiagnosticDeviceInterfaceClass 		= 220,
 
@@ -410,6 +413,14 @@ enum {
 #define kUSBInterfaceStringIndex    "iInterface"
 #define kUSBConfigurationValue      "bConfigurationValue"
 
+    /*!
+    @enum Apple USB Vendor ID
+    @discussion Apple's vendor ID, assigned by the USB-IF
+*/
+enum {
+	kAppleVendorID      = 0x05AC
+};
+	
 #ifdef __cplusplus
 }       
 #endif

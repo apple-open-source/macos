@@ -2,8 +2,8 @@
 " Language:	automake Makefile.am
 " Maintainer:   Debian VIM Maintainers <pkg-vim-maintainers@lists.alioth.debian.org>
 " Former Maintainer:	John Williams <jrw@pobox.com>
-" Last Change:	$LastChangedDate: 2006-04-16 22:06:40 -0400 (dom, 16 apr 2006) $
-" URL: http://svn.debian.org/wsvn/pkg-vim/trunk/runtime/syntax/automake.vim?op=file&rev=0&sc=0
+" Last Change:	2007-10-14
+" URL: http://git.debian.org/?p=pkg-vim/vim.git;a=blob_plain;f=runtime/syntax/automake.vim;hb=debian
 "
 " XXX This file is in need of a new maintainer, Debian VIM Maintainers maintain
 "     it only because patches have been submitted for it by Debian users and the

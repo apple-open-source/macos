@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2008 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,7 @@
  *	IOATAController.cpp
  *
  */
-
+ 
 
 #include <IOKit/assert.h>
 #include <IOKit/IOCommandGate.h>
@@ -1828,7 +1828,7 @@ IOATAController::writePacket( void )
 	UInt32 packetSize = _currentCommand->getPacketSize();
 	UInt16* packetData = _currentCommand->getPacketData();
 
-	// First check if this ATAPI command requires a command packet…
+	// First check if this ATAPI command requires a command packet.
 	if ( packetSize == 0)						
 	{
 		return kATANoErr;

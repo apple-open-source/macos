@@ -197,9 +197,9 @@ bool AppleAPIC::start( IOService * provider )
         goto fail;
     }
 
-    IOLog("IOAPIC: Version 0x%02lx Vectors %ld:%ld\n",
-          GET_FIELD( indexRead( kIndexVER ), kVERVersion ),
-          _vectorBase, _vectorBase + _vectorCount - 1);
+    IOLog("IOAPIC: Version 0x%02x Vectors %d:%d\n",
+          (uint32_t) GET_FIELD( indexRead( kIndexVER ), kVERVersion ),
+          (uint32_t) _vectorBase, (uint32_t) (_vectorBase + _vectorCount - 1));
 
     getPlatform()->registerInterruptController( (OSSymbol *) sym, this );
     sym->release();
@@ -277,13 +277,13 @@ void AppleAPIC::dumpRegisters( void )
 {
     for ( int i = 0x0; i < 0x10; i++ )
     {
-        kprintf("IOAPIC-%ld: reg %02x = %08lx\n", _vectorBase, i,
-                indexRead(i));
+        kprintf("IOAPIC-%d: reg %02x = %08x\n", (uint32_t) _vectorBase, i,
+                (uint32_t) indexRead(i));
     }
     for ( int i = 0x10; i < 0x40; i+=2 )
     {
-        kprintf("IOAPIC-%ld: reg %02x = %08lx %08lx\n", _vectorBase, i,
-                indexRead(i + 1), indexRead(i));
+        kprintf("IOAPIC-%d: reg %02x = %08x %08x\n", (uint32_t) _vectorBase, i,
+                (uint32_t) indexRead(i + 1), (uint32_t) indexRead(i));
     }
 }
 
@@ -316,7 +316,7 @@ void AppleAPIC::resetVectorTable( void )
 
 //---------------------------------------------------------------------------
 
-void AppleAPIC::writeVectorEntry( long vectorNumber )
+void AppleAPIC::writeVectorEntry( IOInterruptVectorNumber vectorNumber )
 {
     IOInterruptState state;
 
@@ -338,7 +338,7 @@ void AppleAPIC::writeVectorEntry( long vectorNumber )
 
 //---------------------------------------------------------------------------
 
-void AppleAPIC::writeVectorEntry( long vectorNumber, VectorEntry entry )
+void AppleAPIC::writeVectorEntry( IOInterruptVectorNumber vectorNumber, VectorEntry entry )
 {
     IOInterruptState state;
 
@@ -415,7 +415,7 @@ IOReturn AppleAPIC::registerInterrupt( IOService *        nub,
 
 //---------------------------------------------------------------------------
 
-void AppleAPIC::initVector( long vectorNumber, IOInterruptVector * vector )
+void AppleAPIC::initVector( IOInterruptVectorNumber vectorNumber, IOInterruptVector * vector )
 {
     IOInterruptSource * interruptSources;
     UInt32              vectorFlags;
@@ -461,7 +461,7 @@ void AppleAPIC::initVector( long vectorNumber, IOInterruptVector * vector )
 
 //---------------------------------------------------------------------------
 
-bool AppleAPIC::vectorCanBeShared( long vectorNumber,
+bool AppleAPIC::vectorCanBeShared( IOInterruptVectorNumber vectorNumber,
                                    IOInterruptVector * vector)
 {
     APIC_LOG("IOAPIC-%ld: %s( %ld )\n", _vectorBase, __FUNCTION__, vectorNumber);
@@ -489,7 +489,7 @@ IOInterruptAction AppleAPIC::getInterruptHandlerAddress( void )
 
 //---------------------------------------------------------------------------
 
-void AppleAPIC::disableVectorHard( long vectorNumber,
+void AppleAPIC::disableVectorHard( IOInterruptVectorNumber vectorNumber,
                                    IOInterruptVector * vector )
 {
     APIC_LOG("IOAPIC-%ld: %s %ld\n", _vectorBase, __FUNCTION__, vectorNumber);
@@ -498,7 +498,7 @@ void AppleAPIC::disableVectorHard( long vectorNumber,
 
 //---------------------------------------------------------------------------
 
-void AppleAPIC::enableVector( long vectorNumber,
+void AppleAPIC::enableVector( IOInterruptVectorNumber vectorNumber,
                               IOInterruptVector * vector )
 {
     APIC_LOG("IOAPIC-%ld: %s %ld\n", _vectorBase, __FUNCTION__, vectorNumber);
@@ -513,8 +513,8 @@ IOReturn AppleAPIC::handleInterrupt( void *      savedState,
                                      IOService * nub,
                                      int         source )
 {
-    IOInterruptVector * vector;
-    long                vectorNumber;
+    IOInterruptVector *     vector;
+    IOInterruptVectorNumber vectorNumber;
 
     // Convert the system interrupt to a vector table entry offset.
 
@@ -608,8 +608,8 @@ IOReturn AppleAPIC::setVectorPhysicalDestination( UInt32 vectorNumber,
 {
 	VectorEntry * entry;
 
-    kprintf("IOAPIC-%ld: %s( %ld, %ld )\n", _vectorBase, __FUNCTION__,
-		vectorNumber, apicID);
+    kprintf("IOAPIC-%d: %s( %d, %d )\n", (uint32_t) _vectorBase, __FUNCTION__,
+		(uint32_t) vectorNumber, (uint32_t) apicID);
 
 	if (vectorNumber >= (UInt32)_vectorCount)
 		return kIOReturnBadArgument;
@@ -648,7 +648,7 @@ IOReturn AppleAPIC::callPlatformFunction( const OSSymbol * function,
 		// param1 - vector number
 		// param2 - APIC ID
 		
-		return setVectorPhysicalDestination( (UInt32) param1, (UInt32) param2 );
+		return setVectorPhysicalDestination( (uintptr_t) param1, (uintptr_t) param2 );
 	}
 
     return super::callPlatformFunction( function, waitForFunction,

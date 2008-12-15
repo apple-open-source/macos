@@ -618,7 +618,6 @@ static int create_process(apr_pool_t *p, HANDLE *child_proc, HANDLE *child_exit_
     /* These NEVER change for the lifetime of this parent
      */
     static char **args = NULL;
-    static char **env = NULL;
     static char pidbuf[28];
 
     apr_status_t rv;
@@ -630,11 +629,13 @@ static int create_process(apr_pool_t *p, HANDLE *child_proc, HANDLE *child_exit_
     HANDLE waitlist[2];  /* see waitlist_e */
     char *cmd;
     char *cwd;
+    char **env;
+    int envc;
 
     apr_pool_create_ex(&ptemp, p, NULL, NULL);
 
     /* Build the command line. Should look something like this:
-     * C:/apache/bin/apache.exe -f ap_server_confname
+     * C:/apache/bin/httpd.exe -f ap_server_confname
      * First, get the path to the executable...
      */
     apr_procattr_create(&attr, ptemp);
@@ -680,7 +681,8 @@ static int create_process(apr_pool_t *p, HANDLE *child_proc, HANDLE *child_exit_
     }
 
     /* httpd-2.0/2.2 specific to work around apr_proc_create bugs */
-    if (((rv = apr_file_open_stdout(&child_out, p))
+    /* set "NUL" as sysout for the child */
+    if (((rv = apr_file_open(&child_out, "NUL", APR_WRITE | APR_READ, APR_OS_DEFAULT,p)) 
             != APR_SUCCESS) ||
         ((rv = apr_procattr_child_out_set(attr, child_out, NULL))
             != APR_SUCCESS)) {
@@ -714,21 +716,15 @@ static int create_process(apr_pool_t *p, HANDLE *child_proc, HANDLE *child_exit_
         return -1;
     }
 
-    if (!env)
-    {
-        /* Build the env array, only once since it won't change
-         * for the lifetime of this parent process.
-         */
-        int envc;
-        for (envc = 0; _environ[envc]; ++envc) {
-            ;
-        }
-        env = malloc((envc + 2) * sizeof (char*));
-        memcpy(env, _environ, envc * sizeof (char*));
-        apr_snprintf(pidbuf, sizeof(pidbuf), "AP_PARENT_PID=%i", parent_pid);
-        env[envc] = pidbuf;
-        env[envc + 1] = NULL;
+    /* Build the env array */
+    for (envc = 0; _environ[envc]; ++envc) {
+        ;
     }
+    env = apr_palloc(ptemp, (envc + 2) * sizeof (char*));  
+    memcpy(env, _environ, envc * sizeof (char*));
+    apr_snprintf(pidbuf, sizeof(pidbuf), "AP_PARENT_PID=%i", parent_pid);
+    env[envc] = pidbuf;
+    env[envc + 1] = NULL;
 
     rv = apr_proc_create(&new_child, cmd, args, env, attr, ptemp);
     if (rv != APR_SUCCESS) {
@@ -740,7 +736,7 @@ static int create_process(apr_pool_t *p, HANDLE *child_proc, HANDLE *child_exit_
         CloseHandle(new_child.hproc);
         return -1;
     }
-
+    apr_file_close(child_out);
     ap_log_error(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, ap_server_conf,
                  "Parent: Created child process %d", new_child.pid);
 
@@ -1435,26 +1431,6 @@ static int winnt_pre_config(apr_pool_t *pconf_, apr_pool_t *plog, apr_pool_t *pt
                      service_name);
         exit(APEXIT_INIT);
     }
-    else if (!one_process && !ap_my_generation) {
-        /* Open a null handle to soak stdout in this process.
-         * We need to emulate apr_proc_detach, unix performs this
-         * same check in the pre_config hook (although it is
-         * arguably premature).  Services already fixed this.
-         */
-        apr_file_t *nullfile;
-        apr_status_t rv;
-        apr_pool_t *pproc = apr_pool_parent_get(pconf);
-
-        if ((rv = apr_file_open(&nullfile, "NUL",
-                                APR_READ | APR_WRITE, APR_OS_DEFAULT,
-                                pproc)) == APR_SUCCESS) {
-            apr_file_t *nullstdout;
-            if (apr_file_open_stdout(&nullstdout, pproc)
-                    == APR_SUCCESS)
-                apr_file_dup2(nullstdout, nullfile, pproc);
-            apr_file_close(nullfile);
-        }
-    }
 
     /* Win9x: disable AcceptEx */
     if (osver.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS) {
@@ -1594,10 +1570,6 @@ static int winnt_post_config(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *pt
                     }
                 }
             }
-            else /* ! -k runservice */
-            {
-                mpm_start_console_handler();
-            }
 
             /* Create the start mutex, as an unnamed object for security.
              * Ths start mutex is used during a restart to prevent more than
@@ -1613,6 +1585,12 @@ static int winnt_post_config(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *pt
                 return HTTP_INTERNAL_SERVER_ERROR;
             }
         }
+        /* Always reset our console handler to be the first, even on a restart
+        *  because some modules (e.g. mod_perl) might have set a console 
+        *  handler to terminate the process.
+        */
+        if (strcasecmp(signal_arg, "runservice"))
+            mpm_start_console_handler();
     }
     else /* parent_pid != my_pid */
     {

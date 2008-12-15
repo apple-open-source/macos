@@ -106,6 +106,11 @@ int      my_policy;
 int      my_pri = -1;
 int      num_of_usecs_to_sleep = 1000;
 
+#define N_HIGH_RES_BINS 500
+int      use_high_res_bins = false;
+int      i_high_res_bins[N_HIGH_RES_BINS];
+int      i_highest_latency = 0;
+
 char *kernelpath = (char *)0;
 char *code_file = (char *)0;
 
@@ -425,6 +430,21 @@ set_init_logging()
 	        quit("trace facility failure, KERN_KDSETUP\n");
 }
 
+void
+write_high_res_latencies()
+{
+    int i;
+    FILE *f;
+    if(use_high_res_bins)
+    {
+        f = fopen("latencies.csv","w");
+        for(i=0;i<N_HIGH_RES_BINS;i++)
+        {
+            fprintf(f,"%d,%d\n", i, i_high_res_bins[i]);
+        }
+        fclose(f);
+    }
+}
 
 void sigwinch()
 {
@@ -434,6 +454,8 @@ void sigwinch()
 void sigintr()
 {
         void screen_update();
+
+        write_high_res_latencies();
 
         set_enable(0);
 	set_pidexclude(getpid(), 0);
@@ -447,6 +469,8 @@ void sigintr()
 
 void leave()    /* exit under normal conditions -- signal handler */
 {
+        write_high_res_latencies();
+
         set_enable(0);
 	set_pidexclude(getpid(), 0);
 	endwin();
@@ -496,7 +520,41 @@ screen_update(FILE *fp)
 	else
 	        printw(tbuf);
 
+	if (use_high_res_bins) {
+		sprintf(tbuf, "INTERRUPTS(HIGH RESOLUTION)\n");
 
+		if (fp)
+			fprintf(fp, "%s", tbuf);
+		else
+			printw(tbuf);
+	}
+    if(use_high_res_bins)
+    {
+        for(i=0;i<N_HIGH_RES_BINS;i++) {
+            if(i && !(i%10)) {
+                sprintf(tbuf,"\n");
+                if (fp)
+                    fprintf(fp, "%s", tbuf);
+                else
+                    printw(tbuf);
+            }
+#define INDEX(i) ((i%10)*50 + (i/10))
+            if(INDEX(i) <= i_highest_latency)
+                sprintf(tbuf,"[%3d]: %6d ", INDEX(i), i_high_res_bins[INDEX(i)]);
+            else
+                tbuf[0] = '\0';
+
+            if (fp)
+                fprintf(fp, "%s", tbuf);
+            else
+                printw(tbuf);
+        }
+        sprintf(tbuf,"\n\n");
+        if (fp)
+            fprintf(fp, "%s", tbuf);
+        else
+            printw(tbuf);
+    }
 
 	sprintf(tbuf, "                     SCHEDULER     INTERRUPTS\n");
 
@@ -662,7 +720,7 @@ int
 exit_usage()
 {
 
-        fprintf(stderr, "Usage: latency [-rt] [-c codefile] [-l logfile] [-st threshold]\n");
+        fprintf(stderr, "Usage: latency [-rt] [-h] [-c codefile] [-l logfile] [-st threshold]\n");
 
 #if defined (__i386__)
 	fprintf(stderr, "               [-it threshold] [-s sleep_in_usecs] [-n kernel]\n\n");	
@@ -673,6 +731,7 @@ exit_usage()
 
 
 	fprintf(stderr, "  -rt   Set realtime scheduling policy.  Default is timeshare.\n");
+	fprintf(stderr, "  -h    Display high resolution interrupt latencies and write them to latencies.csv (truncate existing file) upon exit.\n");
 	fprintf(stderr, "  -c    specify name of codes file\n");
 	fprintf(stderr, "  -l    specify name of file to log trace entries to when threshold is exceeded\n");
 	fprintf(stderr, "  -st   set scheduler latency threshold in microseconds... if latency exceeds this, then log trace\n");
@@ -784,6 +843,8 @@ char *argv[];
 			  kernelpath = argv[1];
 			else
 			  exit_usage();
+		} else if (strcmp(argv[1], "-h") == 0) {
+            use_high_res_bins = true;
 		} else
 		        exit_usage();
 
@@ -2048,6 +2109,12 @@ double handle_decrementer(kd_buf *kd)
 	else 
 	        i_too_slow++;
 
+    if(use_high_res_bins && elapsed_usecs < N_HIGH_RES_BINS) {
+        if(elapsed_usecs > i_highest_latency)
+            i_highest_latency = elapsed_usecs;
+        i_high_res_bins[elapsed_usecs]++;
+    }
+
 	if (i_thresh_hold && elapsed_usecs > i_thresh_hold)
 	        i_exceeded_threshold++;
 	if (elapsed_usecs > i_max_latency)
@@ -2064,7 +2131,7 @@ double handle_decrementer(kd_buf *kd)
 void init_code_file()
 {
         FILE *fp;
-	int   i, n, cnt, code;
+	int   i, n, code;
 	char name[128];
 
 	if ((fp = fopen(code_file, "r")) == (FILE *)0) {
@@ -2072,16 +2139,15 @@ void init_code_file()
 		        fprintf(log_fp, "open of %s failed\n", code_file);
 	        return;
 	}
-	n = fscanf(fp, "%d\n", &cnt);
-
-	if (n != 1) {
-	        if (log_fp)
-		        fprintf(log_fp, "bad format found in %s\n", code_file);
-	        return;
-	}
 	for (i = 0; i < MAX_ENTRIES; i++) {
 	        n = fscanf(fp, "%x%127s\n", &code, name);
 
+		if (n == 1 && i == 0) {
+			/*
+			 * old code file format, just skip
+			 */
+			continue;
+		}
 		if (n != 2)
 		        break;
 

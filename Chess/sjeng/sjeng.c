@@ -40,13 +40,13 @@ int board[144], moved[144], ep_square, white_to_move, comp_color, wking_loc,
   bking_loc, white_castled, black_castled, result, ply, pv_length[PV_BUFF],
   pieces[62], squares[144], num_pieces, i_depth, fifty, piece_count;
 
-long int nodes, raw_nodes, qnodes,  killer_scores[PV_BUFF],
+int32_t nodes, raw_nodes, qnodes,  killer_scores[PV_BUFF],
   killer_scores2[PV_BUFF], killer_scores3[PV_BUFF], moves_to_tc, min_per_game,
   sec_per_game, inc, time_left, opp_time, time_cushion, time_for_move, cur_score;
 
-unsigned long history_h[144][144];
+uint32_t history_h[144][144];
 
-unsigned long hash_history[600];
+uint32_t hash_history[600];
 int move_number;
 
 bool captures, searching_pv, post, time_exit, time_failure;
@@ -71,8 +71,8 @@ rtime_t start_time;
 int is_promoted[62];
 
 int NTries, NCuts, TExt;
-unsigned long PVS, FULL, PVSF;
-unsigned long ext_check;
+uint32_t PVS, FULL, PVSF;
+uint32_t ext_check;
 
 bool is_pondering, allow_pondering, is_analyzing;
 
@@ -84,7 +84,7 @@ bool have_partner;
 bool must_sit;
 bool go_fast;
 
-long fixed_time;
+int32_t fixed_time;
 
 FILE *lrn_standard;
 FILE *lrn_zh;
@@ -297,7 +297,7 @@ int main (int argc, char *argv[]) {
 	    
 	    book_ply++;
 	    
-	    printf ("\nNodes: %ld (%0.2f%% qnodes)\n", nodes,
+	    printf ("\nNodes: %d (%0.2f%% qnodes)\n", nodes,
 		    (float) ((float) qnodes / (float) nodes * 100.0));
 	    
 	    elapsed = (cpu_end-cpu_start)/(double) CLOCKS_PER_SEC;
@@ -306,20 +306,20 @@ int main (int argc, char *argv[]) {
 	    if (!elapsed)
 	      printf ("NPS: N/A\n");
 	    else
-	      printf ("NPS: %ld\n", (long int) nps);
+	      printf ("NPS: %d\n", (int32_t) nps);
 	    
-	    printf("ECacheProbes : %ld   ECacheHits : %ld   HitRate : %f%%\n", 
+	    printf("ECacheProbes : %d   ECacheHits : %d   HitRate : %f%%\n", 
 		   ECacheProbes, ECacheHits, 
 		   ((float)ECacheHits/((float)ECacheProbes+1)) * 100);
 	    
-	    printf("TTStores : %ld TTProbes : %ld   TTHits : %ld   HitRate : %f%%\n", 
+	    printf("TTStores : %d TTProbes : %d   TTHits : %d   HitRate : %f%%\n", 
 		   TTStores, TTProbes, TTHits, 
 		   ((float)TTHits/((float)TTProbes+1)) * 100);
 	    
 	    printf("NTries : %d  NCuts : %d  CutRate : %f%%  TExt: %d\n", 
 		   NTries, NCuts, (((float)NCuts*100)/((float)NTries+1)), TExt);
 	    
-	    printf("Check extensions: %ld  Razor drops : %ld  Razor Material : %ld\n", ext_check, razor_drop, razor_material);
+	    printf("Check extensions: %d  Razor drops : %d  Razor Material : %d\n", ext_check, razor_drop, razor_material);
 
             printf("EGTB Hits: %d  EGTB Probes: %d  Efficiency: %3.1f%%\n", EGTBHits, EGTBProbes,
 		(((float)EGTBHits*100)/(float)(EGTBProbes+1)));
@@ -508,7 +508,7 @@ int main (int argc, char *argv[]) {
 	raw_nodes = 0;
 	xstart_time = rtime();
 	perft (depth);
-	printf ("Raw nodes for depth %d: %ld\n", depth, raw_nodes);
+	printf ("Raw nodes for depth %d: %d\n", depth, raw_nodes);
 	printf("Time : %.2f\n", (float)rdifftime(rtime(), xstart_time)/100.);
       }
 	  else if (!strcmp (input, "confirm_moves")) {
@@ -581,7 +581,7 @@ int main (int argc, char *argv[]) {
 	BegForPartner();
       }
       else if (!strcmp (input, "nodes")) {
-	printf ("Number of nodes: %ld (%0.2f%% qnodes)\n", nodes,
+	printf ("Number of nodes: %d (%0.2f%% qnodes)\n", nodes,
 		(float) ((float) qnodes / (float) nodes * 100.0));
       }
       else if (!strcmp (input, "nps")) {
@@ -590,7 +590,7 @@ int main (int argc, char *argv[]) {
 	if (!elapsed)
 	  printf ("NPS: N/A\n");
 	else
-	  printf ("NPS: %ld\n", (long int) nps);
+	  printf ("NPS: %d\n", (int32_t) nps);
       }
       else if (!strcmp (input, "post")) {
 	toggle_bool (&post);
@@ -640,16 +640,16 @@ int main (int argc, char *argv[]) {
 	force_mode = FALSE;
       }
       else if (!strncmp (input, "time", 4)) {
-	sscanf (input+5, "%ld", &time_left);
+	sscanf (input+5, "%d", &time_left);
       }
       else if (!strncmp (input, "otim", 4)) {
-	sscanf (input+5, "%ld", &opp_time);
+	sscanf (input+5, "%d", &opp_time);
       }
       else if (!strncmp (input, "level", 5)) {
          if (strstr(input+6, ":"))
 	 {
 	   /* time command with seconds */
-	   sscanf (input+6, "%ld %ld:%ld %ld", &moves_to_tc, &min_per_game, 
+	   sscanf (input+6, "%d %d:%d %d", &moves_to_tc, &min_per_game, 
 		   &sec_per_game, &inc);
 	   time_left = (min_per_game*6000) + (sec_per_game * 100);
 	   opp_time = time_left;
@@ -657,7 +657,7 @@ int main (int argc, char *argv[]) {
 	 else
 	   {
 	     /* extract the time controls: */
-	     sscanf (input+6, "%ld %ld %ld", &moves_to_tc, &min_per_game, &inc);
+	     sscanf (input+6, "%d %d %d", &moves_to_tc, &min_per_game, &inc);
 	     time_left = min_per_game*6000;
 	     opp_time = time_left;
 	   }
@@ -789,7 +789,7 @@ int main (int argc, char *argv[]) {
 	run_epd_testsuite();
       }
       else if (!strncmp (input, "st", 2)) {
-	sscanf(input+3, "%ld", &fixed_time);
+	sscanf(input+3, "%d", &fixed_time);
 	fixed_time = fixed_time * 100;
       }
       else if (!strncmp (input, "book", 4)) {
@@ -825,7 +825,7 @@ int main (int argc, char *argv[]) {
 	printf("\nMax time to search (s): ");
 	start_time = rtime();
 	rinput(readbuff, STR_BUFF, stdin);
-	pn_time = atol(readbuff) * 100;
+	pn_time = atoi(readbuff) * 100;
 	printf("\n");
 	proofnumbersearch();      
        }

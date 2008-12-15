@@ -56,6 +56,12 @@ enum {
     kQuickPollInterval = 1
 };
 
+// This bit lets us distinguish between reads & writes in the transactionCompletion switch statement
+#define kWriteIndicatorBit                  0x8000
+
+// Argument to transactionCompletion indicating we should start/re-start polling
+#define kTransactionRestart                 0xFFFFFFFF
+
 #define kErrorRetryAttemptsExceeded         "Read Retry Attempts Exceeded"
 #define kErrorOverallTimeoutExpired         "Overall Read Timeout Expired"
 #define kErrorZeroCapacity                  "Capacity Read Zero"
@@ -123,6 +129,8 @@ static const OSSymbol *_CellVoltageSym =
                         OSSymbol::withCString("CellVoltage");
 static const OSSymbol *_ManufacturerDataSym = 
                         OSSymbol::withCString("ManufacturerData");
+static const OSSymbol *_PFStatusSym =
+                        OSSymbol::withCString("PermanentFailureStatus");
 
 /* _SerialNumberSym represents the manufacturer's 16-bit serial number in
     numeric format. 
@@ -140,7 +148,6 @@ static const OSSymbol *_SoftwareSerialSym =
 /* _ChargeStatusSym tracks any irregular charging patterns in the battery
     that might cause it to stop charging mid-charge.
  */
-
 // TODO: Delete these local definitions sync'd with OS (rdar://5608255)
 #ifndef kIOPMPSBatteryChargeStatusKey
     #define kIOPMPSBatteryChargeStatusKey               "ChargeStatus"
@@ -158,7 +165,9 @@ static const OSSymbol *_ChargeStatusTooCold =
 static const OSSymbol *_ChargeStatusGradient =                        
                         OSSymbol::withCString(kIOPMBatteryChargeStatusGradient);
 
+
 #define super IOPMPowerSource
+
 OSDefineMetaClassAndStructors(AppleSmartBattery,IOPMPowerSource)
 
 /******************************************************************************
@@ -233,18 +242,18 @@ bool AppleSmartBattery::start(IOService *provider)
         fPollingOverridden = false;
     }
     
-    fPollingNow = false;
-    fCancelPolling = false;
-    fRetryAttempts = 0;
-    fPermanentFailure = false;
-    fFullyDischarged = false;
-    fFullyCharged = false;
-    fBatteryPresent = false;
-    fACConnected = false;
-    fAvgCurrent = 0;
-    fInflowDisabled = false;
-    fRebootPolling = false;
-    fCellVoltages = NULL;
+    fPollingNow             = false;
+    fCancelPolling          = false;
+    fRetryAttempts          = 0;
+    fPermanentFailure       = false;
+    fFullyDischarged        = false;
+    fFullyCharged           = false;
+    fBatteryPresent         = -1;
+    fACConnected            = -1;
+    fAvgCurrent             = 0;
+    fInflowDisabled         = false;
+    fRebootPolling          = false;
+    fCellVoltages           = NULL;
 
     fIncompleteReadRetries = kIncompleteReadRetryMax;
     
@@ -364,13 +373,14 @@ bool AppleSmartBattery::pollBatteryState(int path)
 
     if( !fPollingNow )
     {
-        /* Start the battery polling state machine in the 0 start state */    
-        return transactionCompletion((void *)0, NULL);
+        /* Start the battery polling state machine (resetting it if it's already in progress) */    
+        return transactionCompletion((void *)kTransactionRestart, NULL);
     } else {
         /* Outstanding transaction in process; flag it to restart polling from
            scratch when this flag is noticed. 
          */
         fRebootPolling = true;
+        return true;
     }
 }
 
@@ -578,14 +588,15 @@ bool AppleSmartBattery::transactionCompletion(
     void *ref, 
     IOSMBusTransaction *transaction)
 {
-    int         next_state = (int)ref;
+    int         next_state = (uintptr_t)ref;
     int16_t     my_signed_16;
     uint16_t    my_unsigned_16;
     uint32_t    delay_for = 0;
-    IOSMBusStatus transaction_status;
+    IOSMBusStatus transaction_status = kIOSMBusStatusPECError;
     bool        transaction_needs_retry = false;
     char        recv_str[kIOSMBusMaxDataCount+1];
-    OSNumber    *cell_volt_num;
+    OSNumber    *cell_volt_num = NULL;
+    OSNumber    *pfstatus_num = NULL;
 
     /* If a user client has exclusive access to the SMBus, 
      * we'll exit immediately.
@@ -619,7 +630,7 @@ bool AppleSmartBattery::transactionCompletion(
     {
         // NULL argument for transaction means we should start
         // the state machine from scratch. Zero is the start state.
-        next_state = 0;
+        next_state = kTransactionRestart;
         fRebootPolling = false;
     } else {
         transaction_status = transaction->status;
@@ -755,7 +766,7 @@ bool AppleSmartBattery::transactionCompletion(
      
     switch(next_state)
     {
-        case 0:
+        case kTransactionRestart:
             
             /* Cancel polling timer in case this round of reads was initiated
                by an alarm. We re-set the 30 second poll later. */
@@ -985,14 +996,39 @@ bool AppleSmartBattery::transactionCompletion(
                 return true;
             }
 
+            writeWordAsync(kSMBusBatteryAddr, kBManufacturerAccessCmd, kBExtendedPFStatusCmd);
 
-            /*
-             *
-             * TODO - check battery charge prevention bits defined by Karen
-             *         here!
-             *
-             */
+            break;
 
+/************ write battery permanent failure status register ****************/
+
+        case (kWriteIndicatorBit | kBManufacturerAccessCmd):
+            if (kIOSMBusStatusOK == transaction_status) 
+            {
+            // We successfully wrote 0x53 to register 0x0; meaning we can now
+            // read from register 0x0 to get out the permanent failure status.
+                readWordAsync(kSMBusBatteryAddr, kBManufacturerAccessCmd);            
+            }
+
+            break;
+
+/************ Finish read battery permanent failure status register ****************/
+
+        case kBManufacturerAccessCmd:
+
+            my_unsigned_16 = ((uint16_t)transaction->receiveData[1] << 8)
+                                | (uint16_t)transaction->receiveData[0];
+
+            if (kIOSMBusStatusOK == transaction_status) {
+                pfstatus_num = OSNumber::withNumber((unsigned long long)my_unsigned_16, (int)32);
+            } else {
+                pfstatus_num = OSNumber::withNumber((unsigned long long)0, (int)32);
+            }
+            if (pfstatus_num)
+            {
+                setPSProperty(_PFStatusSym, pfstatus_num);
+                pfstatus_num->release();
+            }
 
             // The battery read state machine may fork at this stage.
             if(kNewBatteryPath == fMachinePath) {
@@ -1218,7 +1254,7 @@ bool AppleSmartBattery::transactionCompletion(
                     }
                 }
             } else {
-                fFullChargeCapacity == 0;
+                fFullChargeCapacity = 0;
                 setMaxCapacity(0);
             }
 
@@ -1539,12 +1575,12 @@ void AppleSmartBattery::clearBatteryState(bool do_update)
     // Only clear out battery state; don't clear manager state like AC Power.
     // We just zero out the int and bool values, but remove the OSType values.
 
-    fRetryAttempts = 0;
-    fFullyDischarged = false;
-    fFullyCharged = false;
-    fBatteryPresent = false;
-    fACConnected = false;
-    fAvgCurrent = 0;
+    fRetryAttempts          = 0;
+    fFullyDischarged        = false;
+    fFullyCharged           = false;
+    fBatteryPresent         = false;
+    fACConnected            = -1;
+    fAvgCurrent             = 0;
     
     setBatteryInstalled(false);
     setIsCharging(false);
@@ -1856,6 +1892,33 @@ IOReturn AppleSmartBattery::readWordAsync(
                     (void *)cmd);
 
     return ret;
+}
+
+IOReturn AppleSmartBattery::writeWordAsync(
+    uint8_t address, 
+    uint8_t cmd, 
+    uint16_t writeWord)
+{
+    IOReturn                ret = kIOReturnError;
+    bzero(&fTransaction, sizeof(IOSMBusTransaction));
+
+    // All transactions are performed async
+    fTransaction.protocol      = kIOSMBusProtocolWriteWord;
+    fTransaction.address       = address;
+    fTransaction.command       = cmd;
+    fTransaction.sendData[0]   = writeWord & 0xFF;
+    fTransaction.sendData[1]   = (writeWord >> 8) & 0xFF;
+    fTransaction.sendDataCount = 2;
+
+    ret = fProvider->performTransaction(
+                    &fTransaction,
+                    OSMemberFunctionCast( IOSMBusTransactionCompletion,
+                      this, &AppleSmartBattery::transactionCompletion),
+                    (OSObject *)this,
+                    (void *)((uint32_t)cmd | kWriteIndicatorBit));
+
+    return ret;
+
 }
 
 IOReturn AppleSmartBattery::readBlockAsync(

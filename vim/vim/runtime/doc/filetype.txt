@@ -1,4 +1,4 @@
-*filetype.txt*  For Vim version 7.0.  Last change: 2006 Apr 28
+*filetype.txt*  For Vim version 7.2.  Last change: 2008 Jul 15
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -43,6 +43,8 @@ Detail: The ":filetype on" command will load one of these files:
 	BufNewFile and BufRead events.  If the file type is not found by the
 	name, the file $VIMRUNTIME/scripts.vim is used to detect it from the
 	contents of the file.
+	When the GUI is running or will start soon, the menu.vim script is
+	also sourced.  See |'go-M'| about avoiding that.
 
 To add your own file types, see |new-filetype| below.  To search for help on a
 filetype prepend "ft-" and optionally append "-syntax", "-indent" or
@@ -53,7 +55,7 @@ filetype prepend "ft-" and optionally append "-syntax", "-indent" or
 
 If the file type is not detected automatically, or it finds the wrong type,
 you can either set the 'filetype' option manually, or add a modeline to your
-file.  Example, for in an IDL file use the command: >
+file.  Example, for an IDL file use the command: >
 	:set filetype=idl
 
 or add this |modeline| to the file:
@@ -120,7 +122,7 @@ The file types are also used for syntax highlighting.  If the ":syntax on"
 command is used, the file type detection is installed too.  There is no need
 to do ":filetype on" after ":syntax on".
 
-To disable one of the file types, add a line in the your filetype file, see
+To disable one of the file types, add a line in your filetype file, see
 |remove-filetype|.
 
 							*filetype-detect*
@@ -282,8 +284,8 @@ match in angle brackets in place of a pattern, like this: >
 
 This will match:
 
-- Any file whose name ends in `.html'
-- Any file whose type is `&faf' or 'HTML', where the meaning of these types
+- Any file whose name ends in ".html"
+- Any file whose type is "&faf" or "HTML", where the meaning of these types
   depends on which version of Vim you are using.
   Unknown types are considered NOT to match.
 
@@ -292,7 +294,7 @@ must both match): >
 
 	:au BufRead <&fff>diff*
 
-This will match files of type `&fff' whose names start with `diff'.
+This will match files of type "&fff" whose names start with "diff".
 
 Note that osfiletype checking is skipped if Vim is compiled without the
 |+osfiletype| feature.
@@ -304,24 +306,28 @@ all loaded.  For example, if this command: >
 
 	set runtimepath
 
-produces this output: >
+produces this output:
 
-	runtimepath=/etc/vim,~/.vim,/usr/local/share/vim/vim60
+	runtimepath=/etc/vim,~/.vim,/usr/local/share/vim/vim60 ~
 
-then Vim will load all plugins in these directories: >
+then Vim will load all plugins in these directories and below:
 
-	/etc/vim/plugin/
-	~/.vim/plugin/
-	/usr/local/share/vim/vim60/plugin/
+	/etc/vim/plugin/  ~
+	~/.vim/plugin/  ~
+	/usr/local/share/vim/vim60/plugin/  ~
 
 Note that the last one is the value of $VIMRUNTIME which has been expanded.
 
 What if it looks like your plugin is not being loaded?  You can find out what
 happens when Vim starts up by using the |-V| argument: >
-	vim -V1
+
+	vim -V2
+
 You will see a lot of messages, in between them is a remark about loading the
-plugins.  It starts with: >
-	Searching for "plugin/*.vim" in
+plugins.  It starts with:
+
+	Searching for "plugin/**/*.vim" in ~
+
 There you can see where Vim looks for your plugin scripts.
 
 ==============================================================================
@@ -417,7 +423,8 @@ Global mappings:
 			same as the local <Leader>o described above.
 
 Variables:
-g:changelog_timeformat	The date (and time) format used in ChangeLog entries.
+g:changelog_timeformat  Deprecated; use g:changelog_dateformat instead.
+g:changelog_dateformat	The date (and time) format used in ChangeLog entries.
 			The format accepted is the same as for the
 			|strftime()| function.
 			The default is "%Y-%m-%d" which is the standard format
@@ -467,6 +474,37 @@ g:changelog_date_entry_search
 				|2003-01-14  Full Name  <user@host>
 <			and some similar formats.
 
+g:changelog_date_end_entry_search
+			The search pattern to use when searching for the end
+			of a date-entry.
+			The same tokens that can be used for
+			g:changelog_new_date_format can be used here as well.
+			The default is '^\s*$' which finds lines that contain
+			only whitespace or are completely empty.
+
+b:changelog_name					*b:changelog_name*
+			Name of the ChangeLog file to look for.
+			The default is 'ChangeLog'.
+
+b:changelog_path
+			Path of the ChangeLog to use for the current buffer.
+			The default is empty, thus looking for a file named
+			|b:changelog_name| in the same directory as the
+			current buffer.  If not found, the parent directory of
+			the current buffer is searched.  This continues
+			recursively until a file is found or there are no more
+			parent directories to search.
+
+b:changelog_entry_prefix
+			Name of a function to call to generate a prefix to a
+			new entry.  This function takes no arguments and
+			should return a string containing the prefix.
+			Returning an empty prefix is fine.
+			The default generates the shortest path between the
+			ChangeLog's pathname and the current buffers pathname.
+			In the future, it will also be possible to use other
+			variable contexts for this variable, for example, g:.
+
 The Changelog entries are inserted where they add the least amount of text.
 After figuring out the current date and user, the file is searched for an
 entry beginning with the current date and user and if found adds another item
@@ -485,6 +523,13 @@ Options:
 		lines.  You can format comments with |gq|.
 For further discussion of fortran_have_tabs and the method used for the
 detection of source format see |ft-fortran-syntax|.
+
+
+GIT COMMIT                                              *ft-gitcommit-plugin*
+
+One command, :DiffGitCached, is provided to show a diff of the current commit
+in the preview window.  It is equivalent to calling "git diff --cached" plus
+any arguments given to the command.
 
 
 MAIL							*ft-mail-plugin*
@@ -531,6 +576,20 @@ CTRL-]		Jump to the manual page for the word under the cursor.
 CTRL-T		Jump back to the previous manual page.
 
 
+PDF							*ft-pdf-plugin*
+
+Two maps, <C-]> and <C-T>, are provided to simulate a tag stack for navigating
+the PDF.  The following are treated as tags:
+
+- The byte offset after "startxref" to the xref table
+- The byte offset after the /Prev key in the trailer to an earlier xref table
+- A line of the form "0123456789 00000 n" in the xref table
+- An object reference like "1 0 R" anywhere in the PDF
+
+These maps can be disabled with >
+	:let g:no_pdf_maps = 1
+<
+
 RPM SPEC						*ft-spec-plugin*
 
 Since the text for this plugin is rather long it has been put in a separate
@@ -540,7 +599,7 @@ file: |pi_spec.txt|.
 SQL							*ft-sql*
 
 Since the text for this plugin is rather long it has been put in a separate
-file: |sql.txt|.
+file: |ft_sql.txt|.
 
 
 TEX							*ft-tex-plugin*

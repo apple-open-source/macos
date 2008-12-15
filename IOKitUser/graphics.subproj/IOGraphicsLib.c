@@ -653,13 +653,21 @@ IOFBSetAttributeForFramebuffer( io_connect_t connect, io_connect_t otherConnect,
             return( err );
     }
 
+    if (kIOMirrorAttribute == attribute)
+    {
+	DEBG(connectRef, "set mirror %ld\n", value);
+    }
+
     uint64_t inData[] = { attribute, value };
     err = IOConnectCallMethod(connect, 19,		// Index
 		inData, arrayCnt(inData), NULL,    0,	// Input
 		NULL,   NULL,             NULL, NULL);	// Output
 
     if (kIOMirrorAttribute == attribute)
+    {
+	DEBG(connectRef, "did set mirror(%x)\n", err);
 	IOFBResetTransform(connectRef);
+    }
 
     return( err );
 }
@@ -1432,7 +1440,7 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
 	    if ((kDisplayModeTelevisionFlag | kDisplayModeInterlacedFlag) & installedFlags)
 		connectRef->suppressRefresh = false;
 	    else if(info->info.refreshRate
-	     && ((info->info.refreshRate < 0x3b8000) || (info->info.refreshRate > 0x3c8000)))
+	     && ((info->info.refreshRate < 0x398000) || (info->info.refreshRate > 0x3e8000)))
 		connectRef->suppressRefresh = false;
 	}
     }
@@ -1492,6 +1500,8 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
 		if( 0 == mode)
 		    continue;
 		info = &modeInfo[i];
+		if (!(kIODetailedTimingValid & info->timingInfo.flags))
+		    continue;
 		installedFlags = driverFlags[i];
 
 		*desc = *info;
@@ -1876,6 +1886,15 @@ IOFBProcessConnectChange( IOFBConnectRef connectRef )
     previousProduct = connectRef->displayProduct;
     previousVendor  = connectRef->displayVendor;
 
+#if RLOG
+    if (gAllConnects)
+    {
+	gAllConnects->time0 = mach_absolute_time();
+	if (gAllConnects->next)
+	    gAllConnects->next->time0 = gAllConnects->time0;
+    }
+#endif
+
     IOFBUpdateConnectState( connectRef );
 
     IOFBRebuild( connectRef, true );
@@ -1912,11 +1931,7 @@ IOFBProcessConnectChange( IOFBConnectRef connectRef )
 	}
     }
 
-    DEBG(connectRef, "setMode %lx, %ld \n", mode, depth);
     err = IOFBSetDisplayModeAndDepth( connectRef->connect, mode, depth );
-
-    connectRef->clientCallbacks->ConnectionChange(connectRef->clientCallbackRef, (void *) NULL);
-
 }
 
 static void
@@ -1947,6 +1962,13 @@ IOFBInterestCallback( void * refcon, io_service_t service __unused,
 	    next = next->nextDependent;
 
 	} while( next && (next != connectRef) );
+
+	next = connectRef;
+	do {
+	    next->clientCallbacks->ConnectionChange(next->clientCallbackRef, (void *) NULL);
+	    next = next->nextDependent;
+	} while( next && (next != connectRef) );
+
         break;
 
       case kIOMessageServicePropertyChange:
@@ -3127,9 +3149,15 @@ IOFramebufferServerOpen( mach_port_t connect )
 
 #if RLOG
 	if (gAllConnects)
+	{
 	    connectRef->logfile = gAllConnects->logfile;
+	    connectRef->time0   = gAllConnects->time0;
+	}
 	else
+	{
 	    connectRef->logfile = fopen(kIOGraphicsLogfilePath, "w" /*"r+"*/);
+	    connectRef->time0   = mach_absolute_time();
+	}
 	DEBG(connectRef, "\n" );
 #endif
     
@@ -3376,11 +3404,14 @@ IOFBSetDisplayModeAndDepth( io_connect_t connect,
     if( !connectRef)
         return( kIOReturnBadArgument );
 
+    DEBG(connectRef, "setMode %lx, %ld \n", displayMode, depth);
+
     uint64_t inData[] = { displayMode, depth };
     err = IOConnectCallMethod(connect, 4,		// Index
 	    inData, arrayCnt(inData), NULL,    0,	// Input
 	    NULL,   NULL,             NULL, NULL);	// Output
                     
+    DEBG(connectRef, "did setMode(%x)\n", err);
 
     if (kIOReturnSuccess == err)
     {

@@ -10,7 +10,8 @@ SERVERDEFS = notify_ipc.defs
 MANPAGES = notifyd.8
 LAUNCHD_PLISTS = com.apple.notifyd.plist
 
-Extra_CC_Flags = -I.
+Extra_CC_Flags = -Wall -mdynamic-no-pic -I.
+Extra_LD_Flags = -dead_strip
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 

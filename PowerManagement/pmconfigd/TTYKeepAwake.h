@@ -21,8 +21,10 @@
 #ifndef _TTYKeepAwake_h_
 #define _TTYKeepAwake_h_
 
+#if !TARGET_OS_EMBEDDED
 __private_extern__ void TTYKeepAwake_prime( void );
 __private_extern__ void TTYKeepAwakePrefsHaveChanged( void );
 __private_extern__ bool TTYKeepAwakeSleepWakeNotification ( natural_t messageType );
+#endif
 
 #endif

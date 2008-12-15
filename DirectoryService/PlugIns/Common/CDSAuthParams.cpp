@@ -475,6 +475,33 @@ CDSAuthParams::LoadParamsForAuthMethod(
 				return( eDSInvalidBuffFormat );
 			break;
 		
+		case kAuthSASLProxy:
+			siResult = (tDirStatus)Get2FromBuffer( inAuthData, &dataList, &pUserName, &nativeAttrType, &itemCount );
+			if ( siResult != eDSNoErr )
+				return( siResult );
+			if ( itemCount == 3 )
+			{
+				tDataNodePtr dataNodePtr = NULL;
+				
+				siResult = dsDataListGetNodePriv( dataList, 3, &dataNodePtr );
+				if ( siResult != eDSNoErr )
+					return( siResult );
+				if ( dataNodePtr == NULL )
+					return( (tDirStatus)eDSInvalidBuffFormat );
+				
+				pCramResponse = (unsigned char *) calloc( dataNodePtr->fBufferLength + 1, 1 );
+				if ( pCramResponse == NULL )
+					throw( (tDirStatus)eMemoryError );
+				
+				cramResponseLen = dataNodePtr->fBufferLength;
+				memcpy( pCramResponse, ((tDataBufferPriv*)dataNodePtr)->fBufferData, cramResponseLen );
+			}
+			else
+			{
+				return( eDSInvalidBuffFormat );
+			}
+			break;
+		
 		default:
 			break;
 	}

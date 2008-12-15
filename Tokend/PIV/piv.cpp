@@ -49,5 +49,12 @@ int main(int argc, const char *argv[])
 	secdelay("/tmp/delay/PIV");
 
 	token = new PIVToken();
-	return SecTokendMain(argc, argv, token->callbacks(), token->support());
+	try {
+		int ret = SecTokendMain(argc, argv, token->callbacks(), token->support());
+		delete token;
+		return ret;
+	} catch(...) {
+		delete token;
+		return -1;
+}
 }

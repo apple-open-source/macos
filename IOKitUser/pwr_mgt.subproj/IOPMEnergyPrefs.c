@@ -80,6 +80,7 @@
 #define kACReduceBrightness             0
 #define kACDisplaySleepUsesDim          1
 #define kACMobileMotionModule           1
+#define kACGPUSavings                   0
 
 /*
  *      Battery
@@ -98,6 +99,7 @@
 #define kBatteryReduceBrightness        1
 #define kBatteryDisplaySleepUsesDim     1
 #define kBatteryMobileMotionModule      1
+#define kBatteryGPUSavings              1
 
 /*
  *      UPS
@@ -116,6 +118,7 @@
 #define kUPSReduceBrightness             kACReduceBrightness
 #define kUPSDisplaySleepUsesDim          kACDisplaySleepUsesDim
 #define kUPSMobileMotionModule           kACMobileMotionModule
+#define kUPSGPUSavings                   kACGPUSavings
 
 /*
  * Settings with same default value across all power sources
@@ -145,6 +148,7 @@ static char *energy_features_array[kIOPMNumPMFeatures] = {
     kIOPMMobileMotionModuleKey,
     kIOHibernateModeKey,
     kIOPMTTYSPreventSleepKey
+    kIOPMGPUSwitchKey
 };
 
 static const unsigned int battery_defaults_array[] = {
@@ -163,7 +167,8 @@ static const unsigned int battery_defaults_array[] = {
     kBatteryDisplaySleepUsesDim,
     kBatteryMobileMotionModule,
     kIOHibernateModeOn | kIOHibernateModeSleep,  /* safe sleep mode */
-    kTTYSPreventSleepDefault
+    kTTYSPreventSleepDefault,
+    kBatteryGPUSavings
 };
 
 static const unsigned int ac_defaults_array[] = {
@@ -182,7 +187,8 @@ static const unsigned int ac_defaults_array[] = {
     kACDisplaySleepUsesDim,
     kACMobileMotionModule,
     kIOHibernateModeOn | kIOHibernateModeSleep,  /* safe sleep mode */
-    kTTYSPreventSleepDefault
+    kTTYSPreventSleepDefault,
+    kACGPUSavings
 };
 
 static const unsigned int ups_defaults_array[] = {
@@ -201,7 +207,8 @@ static const unsigned int ups_defaults_array[] = {
     kUPSDisplaySleepUsesDim,
     kUPSMobileMotionModule,
     kIOHibernateModeOn | kIOHibernateModeSleep,  /* safe sleep mode */
-    kTTYSPreventSleepDefault
+    kTTYSPreventSleepDefault,
+    kUPSGPUSavings
 };
 
 #define kIOPMPrefsPath              CFSTR("com.apple.PowerManagement.xml")
@@ -256,6 +263,7 @@ typedef struct {
     unsigned int        fWakeOnACChange;
     unsigned int        fDisplaySleepUsesDimming;
     unsigned int        fMobileMotionModule;
+    unsigned int        fGPU;
 } IOPMAggressivenessFactors;
 
 
@@ -1418,7 +1426,7 @@ static int sendEnergySettingsToKernel(
     IOReturn                        ret;
     CFNumberRef                     number1;
     CFNumberRef                     number0;
-    CFNumberRef                     tmp_num;
+    CFNumberRef                     num;
     int                             type;
     uint32_t                        i;
     
@@ -1527,7 +1535,20 @@ static int sendEnergySettingsToKernel(
                                     CFSTR(kIOPMSettingMobileMotionModuleKey), 
                                     (p->fMobileMotionModule?number1:number0));            
     }
-
+    
+    /*
+     * GPU
+     */
+    if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMGPUSwitchKey), providing_power))
+    {
+        num = CFNumberCreate(0, kCFNumberIntType, &p->fGPU);
+        if (num) {
+            ret = IORegistryEntrySetCFProperty(PMRootDomain, 
+                                        CFSTR(kIOPMGPUSwitchKey),
+                                        num);            
+            CFRelease(num);
+        }
+    }
 
     CFDictionaryRef dict = NULL;
     if((dict = CFDictionaryGetValue(System, prof)) )
@@ -1643,6 +1664,9 @@ static int getAggressivenessFactorsFromProfile(
     getAggressivenessValue(p, CFSTR(kIOPMMobileMotionModuleKey),
                            kCFNumberSInt32Type, &agg->fMobileMotionModule);    
 
+    // GPU
+    getAggressivenessValue(p, CFSTR(kIOPMGPUSwitchKey),
+                           kCFNumberSInt32Type, &agg->fGPU);
     return 0;
 }
 
@@ -1920,7 +1944,7 @@ exit:
 
 CFDictionaryRef IOPMCopySystemPowerSettings(void)
 {
-    CFMutableDictionaryRef                  systemPowerDictionary = NULL;
+    CFDictionaryRef                         systemPowerDictionary = NULL;
     CFDictionaryRef                         tmp_dict = NULL;
     SCPreferencesRef                        energyPrefs = NULL;
 

@@ -58,7 +58,7 @@ APR_DECLARE(apr_status_t) apr_file_read(apr_file_t *thefile, void *buf, apr_size
             if (thefile->bufpos >= thefile->dataRead) {
                 ULONG bytesread;
                 rc = DosRead(thefile->filedes, thefile->buffer,
-                             APR_FILE_BUFSIZE, &bytesread);
+                             thefile->bufsize, &bytesread);
 
                 if (bytesread == 0) {
                     if (rc == 0)
@@ -149,10 +149,11 @@ APR_DECLARE(apr_status_t) apr_file_write(apr_file_t *thefile, const void *buf, a
         }
 
         while (rc == 0 && size > 0) {
-            if (thefile->bufpos == APR_FILE_BUFSIZE)   // write buffer is full
+            if (thefile->bufpos == thefile->bufsize)   // write buffer is full
+                /* XXX bug; - rc is double-transformed os->apr below */
                 rc = apr_file_flush(thefile);
 
-            blocksize = size > APR_FILE_BUFSIZE - thefile->bufpos ? APR_FILE_BUFSIZE - thefile->bufpos : size;
+            blocksize = size > thefile->bufsize - thefile->bufpos ? thefile->bufsize - thefile->bufpos : size;
             memcpy(thefile->buffer + thefile->bufpos, pos, blocksize);
             thefile->bufpos += blocksize;
             pos += blocksize;
@@ -197,6 +198,14 @@ APR_DECLARE(apr_status_t) apr_file_write(apr_file_t *thefile, const void *buf, a
 APR_DECLARE(apr_status_t) apr_file_writev(apr_file_t *thefile, const struct iovec *vec, apr_size_t nvec, apr_size_t *nbytes)
 {
     int bytes;
+
+    if (thefile->buffered) {
+        apr_status_t rv = apr_file_flush(thefile);
+        if (rv != APR_SUCCESS) {
+            return rv;
+        }
+    }
+
     if ((bytes = writev(thefile->filedes, vec, nvec)) < 0) {
         *nbytes = 0;
         return errno;

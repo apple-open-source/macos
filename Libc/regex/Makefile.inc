@@ -3,6 +3,7 @@
 
 # regex sources
 .PATH: ${.CURDIR}/regex
+CWD := ${.CURDIR}/regex
 
 .include "Makefile.fbsd_begin"
 FBSDMISRCS= regcomp.c regerror.c regexec.c regfree.c

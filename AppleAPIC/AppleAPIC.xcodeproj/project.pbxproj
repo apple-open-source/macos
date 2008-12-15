@@ -7,98 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1A224C40FF42367911CA2CB7 /* AppleAPIC.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* AppleAPIC.h */; };
-		1A224C41FF42367911CA2CB7 /* AppleAPIC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A224C3FFF42367911CA2CB7 /* AppleAPIC.cpp */; settings = {ATTRIBUTES = (); }; };
-		420AF4D804A89117007E66F2 /* PICShared.h in Headers */ = {isa = PBXBuildFile; fileRef = 420AF4D704A89117007E66F2 /* PICShared.h */; };
-		420AF4DB04A8A32E007E66F2 /* Apple8259PIC.h in Headers */ = {isa = PBXBuildFile; fileRef = 420AF4D904A8A32E007E66F2 /* Apple8259PIC.h */; };
+		A6B29F2C0D4980BB001D2E80 /* AppleAPIC.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* AppleAPIC.h */; };
+		A6B29F2D0D4980BB001D2E80 /* PICShared.h in Headers */ = {isa = PBXBuildFile; fileRef = 420AF4D704A89117007E66F2 /* PICShared.h */; };
+		A6B29F2E0D4980BB001D2E80 /* Apple8259PIC.h in Headers */ = {isa = PBXBuildFile; fileRef = 420AF4D904A8A32E007E66F2 /* Apple8259PIC.h */; };
+		A6B29F310D4980BB001D2E80 /* AppleAPIC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A224C3FFF42367911CA2CB7 /* AppleAPIC.cpp */; settings = {ATTRIBUTES = (); }; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBundleTarget section */
-		089C1673FE841209C02AAC07 /* AppleAPIC */ = {
-			isa = PBXBundleTarget;
-			buildConfigurationList = A69550710A06D9A400FD6906 /* Build configuration list for PBXBundleTarget "AppleAPIC" */;
-			buildPhases = (
-				06AA1267FFB2110C11CA28AA /* ShellScript */,
-				089C1674FE841209C02AAC07 /* Headers */,
-				089C1675FE841209C02AAC07 /* Resources */,
-				089C1676FE841209C02AAC07 /* Sources */,
-				089C1677FE841209C02AAC07 /* Frameworks */,
-				089C1679FE841209C02AAC07 /* Rez */,
-				06AA1264FFB2107B11CA28AA /* ShellScript */,
-			);
-			dependencies = (
-			);
-			name = AppleAPIC;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-			productName = AppleAPIC;
-			productReference = 0B81C263FFB7832611CA28AA /* AppleAPIC.kext */;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>AppleAPIC</string>
-	<key>CFBundleGetInfoString</key>
-	<string>1.2.0, Copyright Apple Computer, Inc. 2003-2005</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.AppleAPIC</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>I/O APIC Interrupt Controller Driver</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>io-apic</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleAPIC</string>
-			<key>IOClass</key>
-			<string>AppleAPICInterruptController</string>
-			<key>IONameMatch</key>
-			<string>io-apic</string>
-			<key>IOProviderClass</key>
-			<string>IOPlatformDevice</string>
-		</dict>
-	</dict>
-	<key>NSHumanReadableCopyright</key>
-	<string>Copyright Apple Computer, Inc. 2003-2005</string>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
-	</dict>
-	<key>OSBundleRequired</key>
-	<string>Root</string>
-</dict>
-</plist>
-";
-		};
-/* End PBXBundleTarget section */
-
 /* Begin PBXFileReference section */
-		0B81C263FFB7832611CA28AA /* AppleAPIC.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = AppleAPIC.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A224C3EFF42367911CA2CB7 /* AppleAPIC.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleAPIC.h; sourceTree = "<group>"; };
 		1A224C3FFF42367911CA2CB7 /* AppleAPIC.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleAPIC.cpp; sourceTree = "<group>"; };
 		420AF4D704A89117007E66F2 /* PICShared.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PICShared.h; sourceTree = "<group>"; };
 		420AF4D904A8A32E007E66F2 /* Apple8259PIC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Apple8259PIC.h; sourceTree = "<group>"; };
+		A6B29F390D4980BB001D2E80 /* Info-AppleAPIC.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-AppleAPIC.plist"; sourceTree = "<group>"; };
+		A6B29F3A0D4980BB001D2E80 /* AppleAPIC.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleAPIC.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		089C1677FE841209C02AAC07 /* Frameworks */ = {
+		A6B29F320D4980BB001D2E80 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -114,6 +39,7 @@
 				247142CAFF3F8F9811CA285C /* Source */,
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
+				A6B29F390D4980BB001D2E80 /* Info-AppleAPIC.plist */,
 			);
 			name = AppleAPIC;
 			sourceTree = "<group>";
@@ -128,7 +54,7 @@
 		19C28FB6FE9D52B211CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0B81C263FFB7832611CA28AA /* AppleAPIC.kext */,
+				A6B29F3A0D4980BB001D2E80 /* AppleAPIC.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -147,33 +73,60 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		089C1674FE841209C02AAC07 /* Headers */ = {
+		A6B29F2B0D4980BB001D2E80 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1A224C40FF42367911CA2CB7 /* AppleAPIC.h in Headers */,
-				420AF4D804A89117007E66F2 /* PICShared.h in Headers */,
-				420AF4DB04A8A32E007E66F2 /* Apple8259PIC.h in Headers */,
+				A6B29F2C0D4980BB001D2E80 /* AppleAPIC.h in Headers */,
+				A6B29F2D0D4980BB001D2E80 /* PICShared.h in Headers */,
+				A6B29F2E0D4980BB001D2E80 /* Apple8259PIC.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
+/* Begin PBXNativeTarget section */
+		A6B29F290D4980BB001D2E80 /* AppleAPIC */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A6B29F350D4980BB001D2E80 /* Build configuration list for PBXNativeTarget "AppleAPIC" */;
+			buildPhases = (
+				A6B29F2A0D4980BB001D2E80 /* ShellScript */,
+				A6B29F2B0D4980BB001D2E80 /* Headers */,
+				A6B29F2F0D4980BB001D2E80 /* Resources */,
+				A6B29F300D4980BB001D2E80 /* Sources */,
+				A6B29F320D4980BB001D2E80 /* Frameworks */,
+				A6B29F330D4980BB001D2E80 /* Rez */,
+				A6B29F340D4980BB001D2E80 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleAPIC;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleAPIC;
+			productReference = A6B29F3A0D4980BB001D2E80 /* AppleAPIC.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
+
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = A69550750A06D9A400FD6906 /* Build configuration list for PBXProject "AppleAPIC" */;
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleAPIC */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
-				089C1673FE841209C02AAC07 /* AppleAPIC */,
+				A6B29F290D4980BB001D2E80 /* AppleAPIC */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		089C1675FE841209C02AAC07 /* Resources */ = {
+		A6B29F2F0D4980BB001D2E80 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -183,7 +136,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
-		089C1679FE841209C02AAC07 /* Rez */ = {
+		A6B29F330D4980BB001D2E80 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -193,16 +146,7 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		06AA1264FFB2107B11CA28AA /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		06AA1267FFB2110C11CA28AA /* ShellScript */ = {
+		A6B29F2A0D4980BB001D2E80 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -211,108 +155,29 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
+		A6B29F340D4980BB001D2E80 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		089C1676FE841209C02AAC07 /* Sources */ = {
+		A6B29F300D4980BB001D2E80 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1A224C41FF42367911CA2CB7 /* AppleAPIC.cpp in Sources */,
+				A6B29F310D4980BB001D2E80 /* AppleAPIC.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A69550720A06D9A400FD6906 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleAPIC;
-				MODULE_VERSION = 1.2.0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleAPIC;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = i386;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		A69550730A06D9A400FD6906 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleAPIC;
-				MODULE_VERSION = 1.2.0;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleAPIC;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = i386;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		A69550740A06D9A400FD6906 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleAPIC;
-				MODULE_VERSION = 1.2.0;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleAPIC;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = i386;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
-			name = Default;
-		};
 		A69550760A06D9A400FD6906 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -331,25 +196,118 @@
 			};
 			name = Default;
 		};
+		A6B29F360D4980BB001D2E80 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleAPIC.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleAPIC;
+				MODULE_VERSION = 1.4;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleAPIC;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		A6B29F370D4980BB001D2E80 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleAPIC.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleAPIC;
+				MODULE_VERSION = 1.4;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleAPIC;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		A6B29F380D4980BB001D2E80 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-AppleAPIC.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleAPIC;
+				MODULE_VERSION = 1.4;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleAPIC;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A69550710A06D9A400FD6906 /* Build configuration list for PBXBundleTarget "AppleAPIC" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A69550720A06D9A400FD6906 /* Development */,
-				A69550730A06D9A400FD6906 /* Deployment */,
-				A69550740A06D9A400FD6906 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
 		A69550750A06D9A400FD6906 /* Build configuration list for PBXProject "AppleAPIC" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A69550760A06D9A400FD6906 /* Development */,
 				A69550770A06D9A400FD6906 /* Deployment */,
 				A69550780A06D9A400FD6906 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		A6B29F350D4980BB001D2E80 /* Build configuration list for PBXNativeTarget "AppleAPIC" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A6B29F360D4980BB001D2E80 /* Development */,
+				A6B29F370D4980BB001D2E80 /* Deployment */,
+				A6B29F380D4980BB001D2E80 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

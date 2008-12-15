@@ -54,7 +54,9 @@ __RCSID("$NetBSD: utmpx.c,v 1.21 2003/09/06 16:42:10 wiz Exp $");
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef LEGACY_UTMP_APIS
 #include <utmp.h>
+#endif /* LEGACY_UTMP_APIS */
 #include <utmpx.h>
 #include <utmpx-darwin.h>
 #include <errno.h>
@@ -410,7 +412,7 @@ utmpxname(const char *fname)
 	return 1;
 }
 
-
+#ifdef LEGACY_UTMP_APIS
 void
 getutmp(const struct utmpx *ux, struct utmp *u)
 {
@@ -438,3 +440,4 @@ getutmpx(const struct utmp *u, struct utmpx *ux)
 	ux->ut_pid = getpid();
 	ux->ut_type = USER_PROCESS;
 }
+#endif /* LEGACY_UTMP_APIS */

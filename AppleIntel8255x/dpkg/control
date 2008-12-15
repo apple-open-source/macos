@@ -1,4 +1,0 @@
-Package: appleintel8255x
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Description: Intel 8255x Ethernet driver
-Build-Depends: cctools, libsystem, gcc, zsh, files, file-cmds, text-cmds, system-cmds, shell-cmds, jam, xnu, ionetworkingfamily, grep

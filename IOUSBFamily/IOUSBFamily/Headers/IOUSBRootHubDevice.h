@@ -38,7 +38,8 @@ private:
 	virtual bool			InitializeCharacteristics(void);					// used at start
 	
     struct ExpansionData 
-	{ 
+	{
+		IOService *		_IOResourcesEntry;
 	};
     ExpansionData *_expansionData;
 
@@ -61,6 +62,10 @@ public:
 	virtual bool			IsRootHub(void);
 	virtual UInt32			RequestExtraPower(UInt32 requestedPower);
 	virtual void			ReturnExtraPower(UInt32 returnedPower);
+
+	// 
+	virtual UInt32			RequestSleepPower(UInt32 requestedPower);
+	virtual void			ReturnSleepPower(UInt32 returnedPower);
 	
 	// a non static but non-virtual function
 	IOReturn DeviceRequestWorker(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion);
@@ -69,10 +74,18 @@ public:
     virtual IOReturn DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *completion = 0);
     virtual IOReturn DeviceRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion *completion = 0);
 
-    OSMetaClassDeclareReservedUnused(IOUSBRootHubDevice,  0);
-    OSMetaClassDeclareReservedUnused(IOUSBRootHubDevice,  1);
-    OSMetaClassDeclareReservedUnused(IOUSBRootHubDevice,  2);
-    OSMetaClassDeclareReservedUnused(IOUSBRootHubDevice,  3);
+    OSMetaClassDeclareReservedUsed(IOUSBRootHubDevice,  0);
+	virtual IOReturn		GetDeviceInformation(UInt32 *info);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBRootHubDevice,  1);
+	virtual void			InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCurrent);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBRootHubDevice,  2);
+	virtual void			SetSleepCurrent(UInt32 sleepCurrent);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBRootHubDevice,  3);
+	virtual UInt32			GetSleepCurrent();
+
     OSMetaClassDeclareReservedUnused(IOUSBRootHubDevice,  4);
 };
 

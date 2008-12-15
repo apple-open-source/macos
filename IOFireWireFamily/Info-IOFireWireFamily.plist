@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireFamily version 3.4.4, Copyright 2008 Apple Computer, Inc.</string>
+	<string>IOFireWireFamily version 3.4.6, Copyright 2008 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.4.4</string>
+	<string>3.4.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.4.4</string>
+	<string>3.4.6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireUserClient</key>

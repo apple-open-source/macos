@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IONDRVSupport</string>
+	<key>CFBundleGetInfoString</key>
+	<string>1.7.1, Copyright Apple Computer, Inc. 2000-2008</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IONDRVSupport</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>I/O Kit NDRV Support</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.7.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.7.1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IONDRVSupport</string>
+			<key>IOClass</key>
+			<string>IONDRVFramebuffer</string>
+			<key>IOMatchCategory</key>
+			<string>IOFramebuffer</string>
+			<key>IONameMatch</key>
+			<string>display</string>
+			<key>IOProbeScore</key>
+			<integer>20000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
+		<key>2</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IONDRVSupport</string>
+			<key>IOClass</key>
+			<string>IONDRVFramebuffer</string>
+			<key>IOMatchCategory</key>
+			<string>IOFramebuffer</string>
+			<key>IONameMatch</key>
+			<string>display</string>
+			<key>IOProbeScore</key>
+			<integer>20000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+		<key>3</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IONDRVSupport</string>
+			<key>IOClass</key>
+			<string>IONDRVFramebuffer</string>
+			<key>IOMatchCategory</key>
+			<string>IOFramebuffer</string>
+			<key>IOPCIClassMatch</key>
+			<string>0x03000000&amp;0xff000000</string>
+			<key>IOProbeScore</key>
+			<integer>0</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOGraphicsFamily</key>
+		<string>1.1</string>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.1</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>8.0.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>

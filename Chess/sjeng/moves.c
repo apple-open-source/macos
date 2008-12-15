@@ -25,8 +25,8 @@
 #include "extvars.h"
 #include "protos.h"
 
-unsigned long total_moves;
-unsigned long total_movegens;
+uint32_t total_moves;
+uint32_t total_movegens;
 
 int numb_moves;
 static move_s *genfor;

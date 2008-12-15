@@ -33,7 +33,8 @@ OUTDIR=LibR
 OUTDIR=Release
 !ENDIF
 
-!IF [$(COMSPEC) /c cl /nologo /? | find "x64" >NUL ] == 0
+!IF [$(COMSPEC) /c cl /nologo /? \
+	| $(SystemRoot)\System32\find.exe "x64" >NUL ] == 0
 OUTDIR=x64\$(OUTDIR)
 !ENDIF
 !ENDIF
@@ -61,7 +62,9 @@ STDTEST_PORTABLE = \
 	$(OUTDIR)\testmutexscope.exe
 
 OTHER_PROGRAMS = \
-	$(OUTDIR)\sendfile.exe
+	$(OUTDIR)\echod.exe \
+	$(OUTDIR)\sendfile.exe \
+	$(OUTDIR)\sockperf.exe
 
 TESTALL_COMPONENTS = \
 	$(OUTDIR)\mod_test.dll \
@@ -95,7 +98,7 @@ ALL_TESTS = $(INTDIR)\testutil.obj $(INTDIR)\testtime.obj \
 	$(INTDIR)\testsock.obj $(INTDIR)\testglobalmutex.obj \
 	$(INTDIR)\teststrnatcmp.obj $(INTDIR)\testfilecopy.obj \
 	$(INTDIR)\testtemp.obj $(INTDIR)\testlfs.obj \
-	$(INTDIR)\testrand2.obj
+	$(INTDIR)\testcond.obj
 
 CLEAN_DATA = testfile.tmp lfstests\large.bin \
 	data\testputs.txt data\testbigfprintf.dat \
@@ -107,7 +110,8 @@ CLEAN_BUILDDIRS = Debug Release LibD LibR 9x x64
 
 TEST_SUBDIRS = internal
 
-PROGRAMS = $(TESTALL_COMPONENTS) $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE) $(OTHER_PROGRAMS)
+PROGRAMS = $(TESTALL_COMPONENTS) $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE) \
+	$(OTHER_PROGRAMS)
 
 TARGETS = $(PROGRAMS)
 
@@ -172,7 +176,17 @@ $(OUTDIR)\testmutexscope.exe: $(INTDIR)\testmutexscope.obj $(LOCAL_LIB)
 
 # OTHER_PROGRAMS;
 
+$(OUTDIR)\echod.exe: $(INTDIR)\echod.obj $(LOCAL_LIB)
+	$(LD) $(LDFLAGS) /out:"$@" $** $(LD_LIBS)
+	@if exist "$@.manifest" \
+	    mt.exe -manifest "$@.manifest" -outputresource:$@;1
+
 $(OUTDIR)\sendfile.exe: $(INTDIR)\sendfile.obj $(LOCAL_LIB)
+	$(LD) $(LDFLAGS) /out:"$@" $** $(LD_LIBS)
+	@if exist "$@.manifest" \
+	    mt.exe -manifest "$@.manifest" -outputresource:$@;1
+
+$(OUTDIR)\sockperf.exe: $(INTDIR)\sockperf.obj $(LOCAL_LIB)
 	$(LD) $(LDFLAGS) /out:"$@" $** $(LD_LIBS)
 	@if exist "$@.manifest" \
 	    mt.exe -manifest "$@.manifest" -outputresource:$@;1
@@ -242,7 +256,9 @@ cleanall:
 	    %COMSPEC% /c "cd %%d & $(MAKE) -f Makefile.win cleanall" \
 
 
+!IF "$(MODEL)" != "static"
 PATH=$(OUTDIR);..\$(OUTDIR);$(PATH)
+!ENDIF
 
 check: $(TESTALL_COMPONENTS) $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE)
 	@for %p in ($(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE)) do @( \

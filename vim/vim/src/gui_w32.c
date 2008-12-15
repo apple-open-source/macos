@@ -23,6 +23,8 @@
  * e.g., replace LONG with LONG_PTR, etc.
  */
 
+#include "vim.h"
+
 /*
  * These are new in Windows ME/XP, only defined in recent compilers.
  */
@@ -182,8 +184,8 @@
 # define BEVAL_TEXT_LEN	    MAXPATHL
 
 #if _MSC_VER < 1300
-/* Work around old versions of basetsd.h which wrongly declare
- * UINT_PTR as unsigned long */
+/* Work around old versions of basetsd.h which wrongly declares
+ * UINT_PTR as unsigned long. */
 # define UINT_PTR UINT
 #endif
 
@@ -248,6 +250,35 @@ typedef HRESULT (WINAPI* DLLGETVERSIONPROC)(DLLVERSIONINFO *);
 #endif
 
 #endif /* defined(FEAT_BEVAL) */
+
+#if defined(FEAT_TOOLBAR) || defined(FEAT_GUI_TABLINE)
+/* Older MSVC compilers don't have LPNMTTDISPINFO[AW] thus we need to define
+ * it here if LPNMTTDISPINFO isn't defined.
+ * MingW doesn't define LPNMTTDISPINFO but typedefs it.  Thus we need to check
+ * _MSC_VER. */
+# if !defined(LPNMTTDISPINFO) && defined(_MSC_VER)
+typedef struct tagNMTTDISPINFOA {
+    NMHDR	hdr;
+    LPSTR	lpszText;
+    char	szText[80];
+    HINSTANCE	hinst;
+    UINT	uFlags;
+    LPARAM	lParam;
+} NMTTDISPINFOA, *LPNMTTDISPINFOA;
+#  define LPNMTTDISPINFO LPNMTTDISPINFOA
+
+#  ifdef FEAT_MBYTE
+typedef struct tagNMTTDISPINFOW {
+    NMHDR	hdr;
+    LPWSTR	lpszText;
+    WCHAR	szText[80];
+    HINSTANCE	hinst;
+    UINT	uFlags;
+    LPARAM	lParam;
+} NMTTDISPINFOW, *LPNMTTDISPINFOW;
+#  endif
+# endif
+#endif
 
 #ifndef TTN_GETDISPINFOW
 # define TTN_GETDISPINFOW	(TTN_FIRST - 10)
@@ -889,117 +920,100 @@ _WndProc(
 # ifdef FEAT_MBYTE
 	    case TTN_GETDISPINFOW:
 # endif
-	    case TTN_NEEDTEXT:
-# ifdef FEAT_GUI_TABLINE
-		if (gui_mch_showing_tabline()
-			&& ((LPNMHDR)lParam)->hwndFrom ==
-					       TabCtrl_GetToolTips(s_tabhwnd))
+	    case TTN_GETDISPINFO:
 		{
-		    LPNMTTDISPINFO	lpdi;
-		    POINT		pt;
-		    static char		*tt_text = NULL;
-		    static int		tt_text_len = 0;
+		    LPNMHDR		hdr = (LPNMHDR)lParam;
+		    char_u		*str = NULL;
+		    static void		*tt_text = NULL;
 
-		    /*
-		     * Mouse is over the GUI tabline. Display the tooltip
-		     * for the tab under the cursor
-		     */
-		    lpdi = (LPNMTTDISPINFO)lParam;
-		    lpdi->hinst = NULL;
-		    lpdi->szText[0] = '\0';
+		    vim_free(tt_text);
+		    tt_text = NULL;
 
-		    /*
-		     * Get the cursor position within the tab control
-		     */
-		    GetCursorPos(&pt);
-		    if (ScreenToClient(s_tabhwnd, &pt) != 0)
+# ifdef FEAT_GUI_TABLINE
+		    if (gui_mch_showing_tabline()
+			   && hdr->hwndFrom == TabCtrl_GetToolTips(s_tabhwnd))
 		    {
-			TCHITTESTINFO htinfo;
-			int idx;
-
+			POINT		pt;
 			/*
-			 * Get the tab under the cursor
+			 * Mouse is over the GUI tabline. Display the
+			 * tooltip for the tab under the cursor
+			 *
+			 * Get the cursor position within the tab control
 			 */
-			htinfo.pt.x = pt.x;
-			htinfo.pt.y = pt.y;
-			idx = TabCtrl_HitTest(s_tabhwnd, &htinfo);
-			if (idx != -1)
+			GetCursorPos(&pt);
+			if (ScreenToClient(s_tabhwnd, &pt) != 0)
 			{
-			    tabpage_T *tp;
+			    TCHITTESTINFO htinfo;
+			    int idx;
 
-			    tp = find_tabpage(idx + 1);
-			    if (tp != NULL)
+			    /*
+			     * Get the tab under the cursor
+			     */
+			    htinfo.pt.x = pt.x;
+			    htinfo.pt.y = pt.y;
+			    idx = TabCtrl_HitTest(s_tabhwnd, &htinfo);
+			    if (idx != -1)
 			    {
-#  ifdef FEAT_MBYTE
-				WCHAR	*wstr = NULL;
-#  endif
-				get_tabline_label(tp, TRUE);
-#  ifdef FEAT_MBYTE
-				if (enc_codepage >= 0
-					     && (int)GetACP() != enc_codepage)
-				{
-				    wstr = enc_to_ucs2(NameBuff, NULL);
-				    if (wstr != NULL)
-				    {
-					int wlen;
+				tabpage_T *tp;
 
-					wlen = ((int)wcslen(wstr) + 1)
-							      * sizeof(WCHAR);
-					if (tt_text_len < wlen)
-					{
-					    tt_text = vim_realloc(tt_text,
-									wlen);
-					    if (tt_text != NULL)
-						tt_text_len = wlen;
-					}
-					if (tt_text != NULL)
-					    wcscpy((WCHAR *)tt_text, wstr);
-					lpdi->lpszText = tt_text;
-					vim_free(wstr);
-				    }
-				}
-				if (wstr == NULL)
-#  endif
+				tp = find_tabpage(idx + 1);
+				if (tp != NULL)
 				{
-				    int len;
-
-				    len = (int)STRLEN(NameBuff) + 1;
-				    if (tt_text_len < len)
-				    {
-					tt_text = vim_realloc(tt_text, len);
-					if (tt_text != NULL)
-					    tt_text_len = len;
-				    }
-				    if (tt_text != NULL)
-					STRCPY(tt_text, NameBuff);
-				    lpdi->lpszText = tt_text;
+				    get_tabline_label(tp, TRUE);
+				    str = NameBuff;
 				}
 			    }
 			}
 		    }
-		}
-		else
 # endif
-		{
 # ifdef FEAT_TOOLBAR
-		    LPTOOLTIPTEXT	lpttt;
-		    UINT		idButton;
-		    int			idx;
-		    vimmenu_T		*pMenu;
-
-		    lpttt = (LPTOOLTIPTEXT)lParam;
-		    idButton = (UINT) lpttt->hdr.idFrom;
-		    pMenu = gui_mswin_find_menu(root_menu, idButton);
-		    if (pMenu)
+#  ifdef FEAT_GUI_TABLINE
+		    else
+#  endif
 		    {
-			idx = MENU_INDEX_TIP;
-			if (pMenu->strings[idx])
-			{
-			    lpttt->hinst = NULL;  /* string, not resource */
-			    lpttt->lpszText = pMenu->strings[idx];
-			}
+			UINT		idButton;
+			vimmenu_T	*pMenu;
+
+			idButton = (UINT) hdr->idFrom;
+			pMenu = gui_mswin_find_menu(root_menu, idButton);
+			if (pMenu)
+			    str = pMenu->strings[MENU_INDEX_TIP];
 		    }
 # endif
+		    if (str != NULL)
+		    {
+# ifdef FEAT_MBYTE
+			if (hdr->code == TTN_GETDISPINFOW)
+			{
+			    LPNMTTDISPINFOW	lpdi = (LPNMTTDISPINFOW)lParam;
+
+			    /* Set the maximum width, this also enables using
+			     * \n for line break. */
+			    SendMessage(lpdi->hdr.hwndFrom, TTM_SETMAXTIPWIDTH,
+								      0, 500);
+
+			    tt_text = enc_to_ucs2(str, NULL);
+			    lpdi->lpszText = tt_text;
+			    /* can't show tooltip if failed */
+			}
+			else
+# endif
+			{
+			    LPNMTTDISPINFO	lpdi = (LPNMTTDISPINFO)lParam;
+
+			    /* Set the maximum width, this also enables using
+			     * \n for line break. */
+			    SendMessage(lpdi->hdr.hwndFrom, TTM_SETMAXTIPWIDTH,
+								      0, 500);
+
+			    if (STRLEN(str) < sizeof(lpdi->szText)
+				    || ((tt_text = vim_strsave(str)) == NULL))
+				vim_strncpy(lpdi->szText, str,
+						sizeof(lpdi->szText) - 1);
+			    else
+				lpdi->lpszText = tt_text;
+			}
+		    }
 		}
 		break;
 # ifdef FEAT_GUI_TABLINE
@@ -1049,7 +1063,9 @@ _WndProc(
 	    if (pMenu != NULL && pMenu->strings[MENU_INDEX_TIP] != 0
 		    && GetMenuState(s_menuBar, pMenu->id, MF_BYCOMMAND) != -1)
 	    {
+		++msg_hist_off;
 		msg(pMenu->strings[MENU_INDEX_TIP]);
+		--msg_hist_off;
 		setcursor();
 		out_flush();
 		did_menu_tip = TRUE;
@@ -1167,8 +1183,13 @@ gui_mch_set_parent(char *title)
     static void
 ole_error(char *arg)
 {
-    EMSG2(_("E243: Argument not supported: \"-%s\"; Use the OLE version."),
-									 arg);
+    char buf[IOSIZE];
+
+    /* Can't use EMSG() here, we have not finished initialisation yet. */
+    vim_snprintf(buf, IOSIZE,
+	    _("E243: Argument not supported: \"-%s\"; Use the OLE version."),
+	    arg);
+    mch_errmsg(buf);
 }
 #endif
 
@@ -1423,16 +1444,29 @@ gui_mch_init(void)
 	}
     }
     else
-	/* Open toplevel window. */
+    {
+	/* If the provided windowid is not valid reset it to zero, so that it
+	 * is ignored and we open our own window. */
+	if (IsWindow((HWND)win_socket_id) <= 0)
+	    win_socket_id = 0;
+
+	/* Create a window.  If win_socket_id is not zero without border and
+	 * titlebar, it will be reparented below. */
 	s_hwnd = CreateWindow(
-	    szVimWndClass, "Vim MSWindows GUI",
-	    WS_OVERLAPPEDWINDOW,
-	    gui_win_x == -1 ? CW_USEDEFAULT : gui_win_x,
-	    gui_win_y == -1 ? CW_USEDEFAULT : gui_win_y,
-	    100,				/* Any value will do */
-	    100,				/* Any value will do */
-	    NULL, NULL,
-	    s_hinst, NULL);
+		szVimWndClass, "Vim MSWindows GUI",
+		win_socket_id == 0 ? WS_OVERLAPPEDWINDOW : WS_POPUP,
+		gui_win_x == -1 ? CW_USEDEFAULT : gui_win_x,
+		gui_win_y == -1 ? CW_USEDEFAULT : gui_win_y,
+		100,				/* Any value will do */
+		100,				/* Any value will do */
+		NULL, NULL,
+		s_hinst, NULL);
+	if (s_hwnd != NULL && win_socket_id != 0)
+	{
+	    SetParent(s_hwnd, (HWND)win_socket_id);
+	    ShowWindow(s_hwnd, SW_SHOWMAXIMIZED);
+	}
+    }
 
     if (s_hwnd == NULL)
 	return FAIL;
@@ -2885,6 +2919,10 @@ dialog_callback(
 	(void)SetFocus(hwnd);
 	if (dialog_default_button > IDCANCEL)
 	    (void)SetFocus(GetDlgItem(hwnd, dialog_default_button));
+	else
+	    /* We don't have a default, set focus on another element of the
+	     * dialog window, probably the icon */
+	    (void)SetFocus(GetDlgItem(hwnd, DLG_NONBUTTON_CONTROL));
 	return FALSE;
     }
 
@@ -3191,8 +3229,9 @@ gui_mch_dialog(
 
     /*
      * Check button names.  A long one will make the dialog wider.
+     * When called early (-register error message) p_go isn't initialized.
      */
-    vertical = (vim_strchr(p_go, GO_VERTICAL) != NULL);
+    vertical = (p_go != NULL && vim_strchr(p_go, GO_VERTICAL) != NULL);
     if (!vertical)
     {
 	// Place buttons horizontally if they fit.
@@ -3326,7 +3365,7 @@ gui_mch_dialog(
 	 * he/she can use arrow keys.
 	 *
 	 * new NOTE: BS_DEFPUSHBUTTON is required to be able to select the
-	 * right buttun when hitting <Enter>.  E.g., for the ":confirm quit"
+	 * right button when hitting <Enter>.  E.g., for the ":confirm quit"
 	 * dialog.  Also needed for when the textfield is the default control.
 	 * It appears to work now (perhaps not on Win95?).
 	 */
@@ -4048,7 +4087,7 @@ initialise_toolbar(void)
 		    s_hwnd,
 		    WS_CHILD | TBSTYLE_TOOLTIPS | TBSTYLE_FLAT,
 		    4000,		//any old big number
-		    31,			//number of images in inital bitmap
+		    31,			//number of images in initial bitmap
 		    s_hinst,
 		    IDR_TOOLBAR1,	// id of initial bitmap
 		    NULL,
@@ -4408,7 +4447,7 @@ gui_mch_destroy_sign(sign)
  * async request to debugger
  * 4) gui_mch_post_balloon (invoked from netbeans.c) creates tooltip control
  * and performs some actions to show it ASAP
- * 5) WM_NOTOFY:TTN_POP destroys created tooltip
+ * 5) WM_NOTIFY:TTN_POP destroys created tooltip
  */
 
 /*
@@ -4536,11 +4575,15 @@ make_tooltip(beval, text, pt)
     SendMessage(beval->balloon, TTM_ADDTOOL, 0, (LPARAM)pti);
     /* Make tooltip appear sooner */
     SendMessage(beval->balloon, TTM_SETDELAYTIME, TTDT_INITIAL, 10);
+    /* I've performed some tests and it seems the longest possible life time
+     * of tooltip is 30 seconds */
+    SendMessage(beval->balloon, TTM_SETDELAYTIME, TTDT_AUTOPOP, 30000);
     /*
      * HACK: force tooltip to appear, because it'll not appear until
      * first mouse move. D*mn M$
+     * Amazingly moving (2, 2) and then (-1, -1) the mouse doesn't move.
      */
-    mouse_event(MOUSEEVENTF_MOVE, 1, 1, 0, 0);
+    mouse_event(MOUSEEVENTF_MOVE, 2, 2, 0, 0);
     mouse_event(MOUSEEVENTF_MOVE, (DWORD)-1, (DWORD)-1, 0, 0);
     vim_free(pti);
 }
@@ -4705,12 +4748,12 @@ Handle_WM_Notify(hwnd, pnmh)
 	    cur_beval->showState = ShS_NEUTRAL;
 	    break;
 	case TTN_GETDISPINFO:
-	{
-	    /* if you get there then we have new common controls */
-	    NMTTDISPINFO_NEW *info = (NMTTDISPINFO_NEW *)pnmh;
-	    info->lpszText = (LPSTR)info->lParam;
-	    info->uFlags |= TTF_DI_SETITEM;
-	}
+	    {
+		/* if you get there then we have new common controls */
+		NMTTDISPINFO_NEW *info = (NMTTDISPINFO_NEW *)pnmh;
+		info->lpszText = (LPSTR)info->lParam;
+		info->uFlags |= TTF_DI_SETITEM;
+	    }
 	    break;
 	}
     }

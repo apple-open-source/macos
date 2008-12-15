@@ -60,6 +60,7 @@ bool IOFireWireIP::start(IOService *provider)
 		fIPoFWDiagnostics.fMaxPktSize = 0;
 		netifEnabled = false;
 		busifEnabled = false;
+		fClientStarting = false;
 		fIPoFWDiagnostics.fDoFastRetry = false;
 
 		fDevice = OSDynamicCast(IOFireWireNub, provider);
@@ -734,6 +735,22 @@ UInt8	IOFireWireIP::getMaxARDMARec(UInt32 size)
 	return maxRecLog;
 }
 
+bool IOFireWireIP::clientStarting()
+{	
+    IORecursiveLockLock(ipLock);
+
+	bool status = fClientStarting;
+		
+	if ( fClientStarting == false )
+	{
+		fClientStarting = true;
+	}
+	
+    IORecursiveLockUnlock(ipLock);
+
+	return status;
+}
+
 void IOFireWireIP::registerFWIPPrivateHandlers(IOFireWireIPPrivateHandlers *privateSelf)
 {
 	if(busifEnabled)
@@ -763,6 +780,7 @@ void IOFireWireIP::deRegisterFWIPPrivateHandlers()
 	fPrivateInterface	= NULL;
 	fOutAction			= NULL;
 	fUpdateARPCache		= NULL;
+	fClientStarting		= false;
 
     IORecursiveLockUnlock(ipLock);
 }

@@ -33,7 +33,7 @@
 /*
  *      from nameser.h	8.1 (Berkeley) 6/2/93
  *	From: Id: nameser_compat.h,v 8.9 1998/03/20 23:25:10 halley Exp
- * $FreeBSD: src/include/arpa/nameser_compat.h,v 1.1.2.1 1999/08/29 14:39:01 peter Exp $
+ * $FreeBSD: src/include/arpa/nameser_compat.h,v 1.4 2002/05/28 04:32:25 mike Exp $
  */
 
 #ifndef _ARPA_NAMESER_COMPAT_
@@ -51,7 +51,7 @@
 	 * which will force your compiles to bomb until you fix
 	 * the above macros.
 	 */
-  error "Undefined or invalid BYTE_ORDER";
+#error "Undefined or invalid BYTE_ORDER";
 #endif
 
 /*
@@ -173,6 +173,7 @@ typedef struct {
 #define	T_SRV		ns_t_srv
 #define T_ATMA		ns_t_atma
 #define T_NAPTR		ns_t_naptr
+#define T_OPT		ns_t_opt
 #define	T_IXFR		ns_t_ixfr
 #define T_AXFR		ns_t_axfr
 #define T_MAILB		ns_t_mailb

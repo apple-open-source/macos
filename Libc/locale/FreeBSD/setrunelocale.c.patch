@@ -1,5 +1,5 @@
---- setrunelocale.c.orig	2007-02-13 00:16:13.000000000 -0800
-+++ setrunelocale.c	2007-02-13 00:22:39.000000000 -0800
+--- setrunelocale.c.orig	2008-04-28 16:25:31.000000000 -0700
++++ setrunelocale.c	2008-04-28 17:02:02.000000000 -0700
 @@ -37,6 +37,8 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/setrunelocale.c,v 1.44 2004/10/18 02:06:18 ache Exp $");
@@ -9,7 +9,7 @@
  #include <runetype.h>
  #include <errno.h>
  #include <limits.h>
-@@ -49,67 +51,67 @@
+@@ -49,67 +51,69 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
  #include "mblocal.h"
  #include "setlocale.h"
  
@@ -38,9 +38,11 @@
 +extern void spin_lock(int *);
 +extern void spin_unlock(int *);
 +
++#ifdef LEGACY_RUNE_APIS
 +/* depreciated interfaces */
 +rune_t	sgetrune(const char *, size_t, char const **);
 +int	sputrune(rune_t, char *, size_t, char **);
++#endif /* LEGACY_RUNE_APIS */
  
 -static int
 -__setrunelocale(const char *encoding)
@@ -118,7 +120,7 @@
  
  	/*
  	 * Slurp the locale file into the cache.
-@@ -124,63 +126,74 @@
+@@ -124,63 +128,81 @@ __setrunelocale(const char *encoding)
  	if ((fp = fopen(name, "r")) == NULL)
  		return (errno == 0 ? ENOENT : errno);
  
@@ -135,8 +137,6 @@
 -	__mbsnrtowcs = __mbsnrtowcs_std;
 -	__wcrtomb = NULL;
 -	__wcsnrtombs = __wcsnrtombs_std;
--	rl->__sputrune = NULL;
--	rl->__sgetrune = NULL;
 +	xrl->__mbrtowc = NULL;
 +	xrl->__mbsinit = NULL;
 +	xrl->__mbsnrtowcs = __mbsnrtowcs_std;
@@ -145,9 +145,14 @@
 +
 +	rl = &xrl->_CurrentRuneLocale;
 +
++#ifdef LEGACY_RUNE_APIS
 +	/* provide backwards compatibility (depreciated interface) */
 +	rl->__sputrune = sputrune;
 +	rl->__sgetrune = sgetrune;
++#else /* LEGACY_RUNE_APIS */
+ 	rl->__sputrune = NULL;
+ 	rl->__sgetrune = NULL;
++#endif /* LEGACY_RUNE_APIS */
 +
  	if (strcmp(rl->__encoding, "NONE") == 0)
 -		ret = _none_init(rl);
@@ -210,12 +215,14 @@
  	return (ret);
  }
  
++#ifdef LEGACY_RUNE_APIS
  int
 -__wrap_setrunelocale(const char *locale)
 +setrunelocale(const char *encoding)
 +{
 +	return __setrunelocale(encoding, &__global_locale);
 +}
++#endif /* LEGACY_RUNE_APIS */
 +
 +__private_extern__ int
 +__wrap_setrunelocale(const char *locale, locale_t loc)

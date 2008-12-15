@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2008 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -338,7 +338,7 @@ struct xucred def_anon = {		/* default map credential: "nobody" */
 };
 
 LIST_HEAD(,errlist) xerrs;		/* list of export errors */
-int export_errors;
+int export_errors, hostnamecount, hostnamegoodcount;
 SVCXPRT *udptransp, *tcptransp;
 int mounttcpsock, mountudpsock;
 
@@ -360,6 +360,10 @@ int mounttcpsock, mountudpsock;
 #define	OP_DEL		0x80000000	/* tag export for potential deletion */
 #define	OP_EXOPTMASK	0x100009C3	/* export options mask */
 #define	OP_EXOPTS(X)	((X) & OP_EXOPTMASK)
+
+#define RECHECKEXPORTS_TIMEOUT			600
+#define RECHECKEXPORTS_DELAYED_STARTUP_TIMEOUT	120
+#define RECHECKEXPORTS_DELAYED_STARTUP_INTERVAL	5
 
 /*
  * Mountd server for NFS mount protocol as described in:
@@ -408,8 +412,9 @@ mountd(void)
 	struct sockaddr_in inetaddr;
 	socklen_t socklen;
 	struct nfs_export_args nxa;
-	int error, on;
+	int error, on, init_retry;
 	pthread_t thd;
+	time_t init_start;
 
 	/* global initialization */
 	mountd_init();
@@ -430,8 +435,38 @@ mountd(void)
 		log(LOG_ERR, "Can't delete all exports: %s (%d)", strerror(errno), errno);
 
 	/* set up the export and mount lists */
-	DEBUG(1, "Getting export list.");
-	get_exportlist();
+
+	/*
+	 * Note that the recheckexports functionality will allow us to retry exports for
+	 * a while if we have problems resolving any host names.  However, these problems
+	 * may not affect all exports (e.g. default exports) and that could result in some
+	 * hosts getting the wrong access until their export options are set up properly.
+	 * Since this could result in some hosts receiving errors or erroneous processing,
+	 * we check if the first get_exportlist() check resulted in any successful host
+	 * name lookups.  If there were names and none of them were looked up successfully,
+	 * then we'll delay startup for a *short* while in an attempt to avoid any problems
+	 * if the problem clears up shortly.
+	 */
+	init_start = time(NULL);
+	init_retry = 0;
+	while (1) {
+		DEBUG(1, "Getting export list.");
+		get_exportlist();
+		if (!hostnamecount || hostnamegoodcount) {
+			if (init_retry)
+				log(LOG_WARNING, "host name resolution seems to be working now... continuing initialization");
+			break;
+		}
+		if (!init_retry) {
+			log(LOG_WARNING, "host name resolution seems to be having problems... delaying initialization");
+			init_retry = 1;
+		} else if (time(NULL) > (init_start + RECHECKEXPORTS_DELAYED_STARTUP_TIMEOUT)) {
+			log(LOG_WARNING, "giving up on host name resolution... continuing initialization");
+			break;
+		}
+		sleep(RECHECKEXPORTS_DELAYED_STARTUP_INTERVAL);
+	}
+
 	DEBUG(1, "Getting mount list.");
 	get_mountlist();
 	DEBUG(1, "Here we go.");
@@ -1716,6 +1751,7 @@ get_exportlist(void)
 	}
 	xpaths_complete = 1;
 
+	hostnamecount = hostnamegoodcount = 0;
 	export_errors = 0;
 	linenum = 0;
 
@@ -2477,6 +2513,34 @@ exports_read:
 
 	if (!checkexports)
 		uuidlist_save();
+
+	/*
+	 * If we appear to be having problems resolving host names on startup,
+	 * then we'll want to automatically recheck exports for a while.
+	 *
+	 * First time through, we make sure to set recheckexports.
+	 * If we have problems then set the recheck timer - otherwise disable it.
+	 * On subsequent export checks, turn off the recheck timer once we no
+	 * longer need it or the timer expires.
+	 */
+	if (!checkexports && (recheckexports == 0)) {	/* first time through... */
+		/* did we have any host names and were any of them problematic? */
+		if (hostnamegoodcount != hostnamecount) {
+			log(LOG_WARNING, "There seem to be problems resolving host names...");
+			log(LOG_WARNING, "...will periodically recheck exports for a while.");
+			recheckexports = time(NULL) + RECHECKEXPORTS_TIMEOUT; /* set the recheck timer */
+		} else {
+			recheckexports = -1; /* turn it off */
+		}
+	} else if (recheckexports > 0) {
+		/* if we don't need to recheck any more, turn it off */
+		if (hostnamegoodcount == hostnamecount) {
+			recheckexports = -1;
+		} else if (recheckexports < time(NULL)) {
+			log(LOG_WARNING, "Giving up on automatic rechecking of exports.");
+			recheckexports = -1;
+		}
+	}
 
 	unlock_exports();
 
@@ -3719,11 +3783,13 @@ get_host_addresses(char *cp, struct grouplist *grp)
 	if ((hp = gethostbyname(cp)) == NULL) {
 		if (!isdigit(*cp)) {
 			log(LOG_ERR, "Gethostbyname failed for %s", cp);
+			hostnamecount++;
 			return (1);
 		}
 		saddr = inet_addr(cp);
 		if (saddr == -1) {
 			log(LOG_ERR, "Inet_addr failed for %s", cp);
+			hostnamecount++;
 			return (1);
 		}
 		if ((hp = gethostbyaddr((caddr_t)&saddr, sizeof (saddr),
@@ -3736,6 +3802,9 @@ get_host_addresses(char *cp, struct grouplist *grp)
 			aptr[0] = (char *)&saddr;
 			aptr[1] = (char *)NULL;
 		}
+	} else {
+		hostnamecount++;
+		hostnamegoodcount++;
 	}
 	nhp = malloc(sizeof(struct hostent));
 	if (nhp == NULL)

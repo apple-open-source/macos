@@ -80,7 +80,7 @@ static void	report_pending __ARGS((int action, int pending, void *value));
 static int cause_abort = FALSE;
 
 /*
- * Return TRUE when immdediately aborting on error, or when an interrupt
+ * Return TRUE when immediately aborting on error, or when an interrupt
  * occurred or an exception was thrown but not caught.  Use for ":{range}call"
  * to check whether an aborted function that does not handle a range itself
  * should be called again for the next line in the range.  Also used for
@@ -340,7 +340,7 @@ do_errthrow(cstack, cmdname)
 
     /* If no exception is to be thrown or the conversion should be done after
      * returning to a previous invocation of do_one_cmd(), do nothing. */
-    if (*msg_list == NULL)
+    if (msg_list == NULL || *msg_list == NULL)
 	return;
 
     if (throw_exception(*msg_list, ET_ERROR, cmdname) == FAIL)
@@ -1551,7 +1551,7 @@ ex_catch(eap)
 		}
 		save_cpo  = p_cpo;
 		p_cpo = (char_u *)"";
-		regmatch.regprog = vim_regcomp(pat, TRUE);
+		regmatch.regprog = vim_regcomp(pat, RE_MAGIC + RE_STRING);
 		regmatch.rm_ic = FALSE;
 		if (end != NULL)
 		    *end = save_char;
@@ -2026,8 +2026,11 @@ leave_cleanup(csp)
 
 	/* If an error was about to be converted to an exception when
 	 * enter_cleanup() was called, free the message list. */
-	free_msglist(*msg_list);
-	*msg_list = NULL;
+	if (msg_list != NULL)
+	{
+	    free_msglist(*msg_list);
+	    *msg_list = NULL;
+	}
     }
 
     /*
@@ -2188,9 +2191,9 @@ cleanup_conditionals(cstack, searched_cond, inclusive)
 	    break;
 
 	/*
-	 * When leaving a try conditinal that reset "emsg_silent" on its entry
-	 * after saving the original value, restore that value here and free the
-	 * memory used to store it.
+	 * When leaving a try conditional that reset "emsg_silent" on its
+	 * entry after saving the original value, restore that value here and
+	 * free the memory used to store it.
 	 */
 	if ((cstack->cs_flags[idx] & CSF_TRY)
 		&& (cstack->cs_flags[idx] & CSF_SILENT))
@@ -2266,9 +2269,18 @@ ex_endfunction(eap)
 has_loop_cmd(p)
     char_u	*p;
 {
-    p = skipwhite(p);
-    while (*p == ':')
-	p = skipwhite(p + 1);
+    int		len;
+
+    /* skip modifiers, white space and ':' */
+    for (;;)
+    {
+	while (*p == ' ' || *p == '\t' || *p == ':')
+	    ++p;
+	len = modifier_len(p);
+	if (len == 0)
+	    break;
+	p += len;
+    }
     if ((p[0] == 'w' && p[1] == 'h')
 	    || (p[0] == 'f' && p[1] == 'o' && p[2] == 'r'))
 	return TRUE;

@@ -232,6 +232,7 @@ AC_DEFUN([APU_TRY_BERKELEY_DB],
     LIBS="$LIBS -l$apu_try_berkeley_db_libname"
     AC_TRY_RUN(
       [
+#include <stdlib.h>
 #include <stdio.h>
 #include <$apu_try_berkeley_db_header>
 main ()
@@ -569,7 +570,7 @@ AC_DEFUN([APU_CHECK_DB], [
     fi
     ;;
   db45)
-    APU_CHECK_DB44("$check_places")
+    APU_CHECK_DB45("$check_places")
     if test "$apu_db_version" != "4"; then
       AC_MSG_ERROR(Berkeley db4 not found)
     fi
@@ -649,10 +650,9 @@ AC_DEFUN([APU_CHECK_DBM], [
   apu_db_header=db.h                # default so apu_select_dbm.h is syntactically correct
   apu_db_version=0
 
-  AC_ARG_WITH(dbm, [
-    --with-dbm=DBM          choose the DBM type to use.
-      DBM={sdbm,gdbm,ndbm,db,db1,db185,db2,db3,db4,db41,db42,db43,db44,db45,db46}
-  ], [
+  AC_ARG_WITH(dbm, [APR_HELP_STRING([--with-dbm=DBM], [choose the DBM type to use.
+      DBM={sdbm,gdbm,ndbm,db,db1,db185,db2,db3,db4,db41,db42,db43,db44,db45,db46}])],
+  [
     if test "$withval" = "yes"; then
       AC_MSG_ERROR([--with-dbm needs to specify a DBM type to use.
         One of: sdbm, gdbm, ndbm, db, db1, db185, db2, db3, db4, db41, db42, db43, db44, db45, db46])
@@ -663,17 +663,18 @@ AC_DEFUN([APU_CHECK_DBM], [
   ])
 
   dnl We don't pull in GDBM unless the user asks for it, since it's GPL
-  AC_ARG_WITH([gdbm], [
-    --with-gdbm=DIR          specify GDBM location
-  ], [
+  AC_ARG_WITH([gdbm], [APR_HELP_STRING([--with-gdbm=DIR], [enable GDBM support])],
+  [
     apu_have_gdbm=0
     if test "$withval" = "yes"; then
       AC_CHECK_HEADER(gdbm.h, AC_CHECK_LIB(gdbm, gdbm_open, [apu_have_gdbm=1]))
     elif test "$withval" = "no"; then
       apu_have_gdbm=0
     else
-      CPPFLAGS="-I$withval/include"
-      LIBS="-L$withval/lib "
+      saved_cppflags="$CPPFLAGS"
+      saved_ldflags="$LDFLAGS"
+      CPPFLAGS="$CPPFLAGS -I$withval/include"
+      LDFLAGS="$LDFLAGS -L$withval/lib "
 
       AC_MSG_CHECKING(checking for gdbm in $withval)
       AC_CHECK_HEADER(gdbm.h, AC_CHECK_LIB(gdbm, gdbm_open, [apu_have_gdbm=1]))
@@ -681,17 +682,18 @@ AC_DEFUN([APU_CHECK_DBM], [
         APR_ADDTO(APRUTIL_LDFLAGS, [-L$withval/lib])
         APR_ADDTO(APRUTIL_INCLUDES, [-I$withval/include])
       fi
+      CPPFLAGS="$saved_cppflags"
+      LDFLAGS="$saved_ldflags"
     fi
   ])
 
-  AC_ARG_WITH([ndbm], [
-    --with-ndbm=PATH 
-      Find the NDBM header and library in \`PATH/include' and 
-      \`PATH/lib'.  If PATH is of the form \`HEADER:LIB', then search 
+  AC_ARG_WITH([ndbm], [APR_HELP_STRING([--with-ndbm=PATH], [
+      Find the NDBM header and library in `PATH/include' and 
+      `PATH/lib'.  If PATH is of the form `HEADER:LIB', then search 
       for header files in HEADER, and the library in LIB.  If you omit
-      the \`=PATH' part completely, the configure script will search
-      for NDBM in a number of standard places.
-  ], [
+      the `=PATH' part completely, the configure script will search
+      for NDBM in a number of standard places.])],
+  [
     apu_have_ndbm=0
     if test "$withval" = "yes"; then
       AC_MSG_CHECKING(checking for ndbm in the usual places)
@@ -758,14 +760,13 @@ AC_DEFUN([APU_CHECK_DBM], [
   dnl Note that we only do this if the user requested it, since the Sleepycat
   dnl license is viral and requires distribution of source along with programs
   dnl that use it.
-  AC_ARG_WITH([berkeley-db], [
-    --with-berkeley-db=PATH
-      Find the Berkeley DB header and library in \`PATH/include' and
-      \`PATH/lib'.  If PATH is of the form \`HEADER:LIB', then search
+  AC_ARG_WITH([berkeley-db], [APR_HELP_STRING([--with-berkeley-db=PATH],
+      [Find the Berkeley DB header and library in `PATH/include' and
+      `PATH/lib'.  If PATH is of the form `HEADER:LIB', then search
       for header files in HEADER, and the library in LIB.  If you omit
-      the \`=PATH' part completely, the configure script will search
-      for Berkeley DB in a number of standard places.
-  ], [
+      the `=PATH' part completely, the configure script will search
+      for Berkeley DB in a number of standard places.])],
+  [
     if test "$withval" = "yes"; then
       apu_want_db=1
       user_places=""

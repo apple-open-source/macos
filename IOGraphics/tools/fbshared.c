@@ -5,7 +5,6 @@ cc -g -o /tmp/fbshared fbshared.c -framework ApplicationServices -framework IOKi
 #include <CoreFoundation/CoreFoundation.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include <IOKit/graphics/IOGraphicsLib.h>
-#include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 #include <IOKit/graphics/IOFramebufferShared.h>
 #include <stdlib.h>
 #include <stdio.h>

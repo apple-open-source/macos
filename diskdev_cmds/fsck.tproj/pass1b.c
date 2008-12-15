@@ -74,7 +74,7 @@ pass1b()
 	register int c, i;
 	register struct dinode *dp;
 	struct inodesc idesc;
-	ino_t inumber;
+	u_int32_t inumber;
 
 	memset(&idesc, 0, sizeof(struct inodesc));
 	idesc.id_type = ADDR;

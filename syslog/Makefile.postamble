@@ -1,2 +1,0 @@
-after_install:
-	$(RM) -rf $(DSTROOT)/usr/lib

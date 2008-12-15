@@ -1,14 +1,11 @@
 #	@(#)Makefile.inc	8.1 (Berkeley) 6/4/93
 # $FreeBSD: src/lib/libc/string/Makefile.inc,v 1.32 2002/11/18 09:50:56 ru Exp $
 
-.ifnmake autopatch
 # machine-dependent string sources
-.if exists(${.CURDIR}/${MACHINE_ARCH}/string/Makefile.inc)
-.include "${.CURDIR}/${MACHINE_ARCH}/string/Makefile.inc"
-.endif
-.endif # !autopatch
+.sinclude "${.CURDIR}/${MACHINE_ARCH}/string/Makefile.inc"
 
 .PATH: ${.CURDIR}/string
+CWD := ${.CURDIR}/string
 
 CFLAGS+= -I${.CURDIR}/locale
 

@@ -1,9 +1,9 @@
 " Vim syntax file
 " Language:    R Help File
 " Maintainer:  Johannes Ranke <jranke@uni-bremen.de>
-" Last Change: 2006 Apr 24
-" Version:     0.7
-" SVN:		   $Id: rhelp.vim,v 1.4 2006/04/24 19:33:52 vimboss Exp $
+" Last Change: 2008 Apr 10
+" Version:     0.7.1
+" SVN:		   $Id: rhelp.vim 81 2008-04-10 08:30:11Z ranke $
 " Remarks:     - Now includes R syntax highlighting in the appropriate
 "                sections if an r.vim file is in the same directory or in the
 "                default debian location.
@@ -107,6 +107,7 @@ syn match rhelpSection		"\\tabular{[lcr]*}"
 syn match rhelpSection		"\\dontrun\>"
 syn match rhelpSection		"\\dontshow\>"
 syn match rhelpSection		"\\testonly\>"
+syn match rhelpSection		"\\donttest\>"
 
 " Freely named Sections {{{1
 syn region rhelpFreesec matchgroup=Delimiter start="\\section{" matchgroup=Delimiter transparent end=/}/ 

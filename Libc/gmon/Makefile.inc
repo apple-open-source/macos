@@ -12,11 +12,19 @@ MAN3 += moncontrol.3
 MLINKS += moncontrol.3 monstartup.3
 .endif
 
+GFLAGS = -O -pipe -Wmost -g -fno-common
+.if $(MACHINE_ARCH) != arm
+GFLAGS += -force_cpusubtype_ALL
+.endif
+.ifdef SDKROOT
+GFLAGS += -isysroot '${SDKROOT}'
+.endif # SDKROOT
+
 # mcount cannot be compiled with profiling
 gmon.po: 
-	${CC} -O -pipe -arch ${MACHINE_ARCH} -Wmost -g -fno-common \
-		-no-cpp-precomp -force_cpusubtype_ALL \
+	${CC} -arch ${CCARCH} ${GFLAGS} \
 		-I${.CURDIR}/include \
+		-I${SYMROOT}/include \
 		-I${INCLUDEDIR} \
 		-I${INCLUDEDIR}/objc \
 		${PRIVINC} \

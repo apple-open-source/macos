@@ -43,7 +43,7 @@ void Learn(int score, int best, int depth)
   LearnType draft;
   FILE **lrnfile;
 
-  printf("Learning score: %d  best: %d  depth:%d  hash: %lX\n", score, best, depth, hash);
+  printf("Learning score: %d  best: %d  depth:%d  hash: %X\n", score, best, depth, hash);
   
   if (Variant == Normal)
     {

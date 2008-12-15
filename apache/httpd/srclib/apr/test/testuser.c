@@ -100,7 +100,7 @@ static void groupname(abts_case *tc, void *data)
                        apr_gid_compare(gid, retreived_gid));
 }
 
-#ifndef WIN32
+#ifdef APR_UID_GID_NUMERIC
 
 static void fail_userinfo(abts_case *tc, void *data)
 {
@@ -146,11 +146,6 @@ static void fail_userinfo(abts_case *tc, void *data)
                 rv != APR_SUCCESS || tmp != NULL);
 }
 
-#else
-static void fail_userinfo(abts_case *tc, void *data)
-{
-    ABTS_NOT_IMPL(tc, "Users are not opaque integers on this platform");
-}
 #endif
 
 #else
@@ -170,7 +165,9 @@ abts_suite *testuser(abts_suite *suite)
     abts_run_test(suite, uid_current, NULL);
     abts_run_test(suite, username, NULL);
     abts_run_test(suite, groupname, NULL);
+#ifdef APR_UID_GID_NUMERIC
     abts_run_test(suite, fail_userinfo, NULL);
+#endif
 #endif
 
     return suite;

@@ -57,6 +57,7 @@ const OSSymbol * gIODisplayParametersTheatreModeWindowKey;
 
 const OSSymbol * gIODisplayParametersCommitKey;
 const OSSymbol * gIODisplayParametersDefaultKey;
+const OSSymbol * gIODisplayParametersFlushKey;
 
 static const OSSymbol * gIODisplayFastBootEDIDKey;
 static IODTPlatformExpert * gIODisplayFastBootPlatform;
@@ -137,6 +138,8 @@ void IODisplay::initialize( void )
                                         kIODisplayParametersCommitKey );
     gIODisplayParametersDefaultKey = OSSymbol::withCStringNoCopy(
                                          kIODisplayParametersDefaultKey );
+    gIODisplayParametersFlushKey = OSSymbol::withCStringNoCopy(
+                                         kIODisplayParametersFlushKey );
 
     gIODisplayParametersTheatreModeKey = OSSymbol::withCStringNoCopy(
                                             kIODisplayTheatreModeKey);
@@ -195,7 +198,7 @@ void IODisplayUpdateNVRAM( IOService * entry, OSData * property )
 bool IODisplay::start( IOService * provider )
 {
     IOFramebuffer *	framebuffer;
-    UInt32		connectFlags;
+    uintptr_t		connectFlags;
     OSData *		edidData;
     EDID *		edid;
     UInt32		vendor = 0;
@@ -289,18 +292,33 @@ bool IODisplay::start( IOService * provider )
     int pathLen = kMaxKeyLen - kMaxKeyVendorProduct;
     char * prefsKey = IONew(char, kMaxKeyLen);
 
-    if (prefsKey && getPath(prefsKey, &pathLen, gIOServicePlane))
-    {
-        sprintf(prefsKey + pathLen, "-%lx-%lx", vendor, product);
-        const OSSymbol * sym = OSSymbol::withCString(prefsKey);
-        if (sym)
-        {
-            setProperty(kIODisplayPrefKeyKey, (OSObject *) sym);
-            sym->release();
-        }
-    }
     if (prefsKey)
+    {
+	bool ok = false;
+	OSObject * obj;
+	OSData * data;
+	if (obj = copyProperty("AAPL,display-alias", gIOServicePlane))
+	{
+	    ok = (data = OSDynamicCast(OSData, obj));
+	    if (ok)
+		pathLen = sprintf(prefsKey, "Alias:%d/%s",
+				((uint32_t *) data->getBytesNoCopy())[0], getName());
+	    obj->release();
+	}
+	if (!ok)
+	    ok = getPath(prefsKey, &pathLen, gIOServicePlane);
+	if (ok)
+	{
+	    sprintf(prefsKey + pathLen, "-%lx-%lx", vendor, product);
+	    const OSSymbol * sym = OSSymbol::withCString(prefsKey);
+	    if (sym)
+	    {
+		setProperty(kIODisplayPrefKeyKey, (OSObject *) sym);
+		sym->release();
+	    }
+	}
         IODelete(prefsKey, char, kMaxKeyLen);
+    }
 
     OSNumber * num;
     if ((num = OSDynamicCast(OSNumber, framebuffer->getProperty(kIOFBTransformKey))))
@@ -727,6 +745,9 @@ IOReturn IODisplay::setProperties( OSObject * properties )
         doIntegerSet( OSDynamicCast( OSDictionary, displayParams->getObject(gIODisplayParametersCommitKey)),
                       gIODisplayParametersCommitKey, 0 );
 
+    doIntegerSet( OSDynamicCast( OSDictionary, displayParams->getObject(gIODisplayParametersFlushKey)),
+		  gIODisplayParametersFlushKey, 0 );
+
     displayParams->release();
 
     return (allOK ? err : kIOReturnError);
@@ -995,6 +1016,9 @@ void IODisplay::makeDisplayUsable( void )
 
 IOReturn IODisplay::setPowerState( unsigned long powerState, IOService * whatDevice )
 {
+    if (isInactive())
+        return (kIOReturnSuccess);
+
     if (initialized && (powerState < kIODisplayNumPowerStates)
             && (powerState != fDisplayPMVars->currentState))
     {

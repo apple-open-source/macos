@@ -349,6 +349,20 @@ static void string_strfsize(abts_case *tc, void *data)
     }
 }
 
+static void string_cpystrn(abts_case *tc, void *data)
+{
+    char buf[6], *ret;
+    
+    buf[5] = 'Z';
+
+    ret = apr_cpystrn(buf, "123456", 5);
+
+    ABTS_STR_EQUAL(tc, "1234", buf);
+    ABTS_PTR_EQUAL(tc, buf + 4, ret);
+    ABTS_TRUE(tc, *ret == '\0');
+    ABTS_TRUE(tc, ret[1] == 'Z');
+}
+
 static void snprintf_overflow(abts_case *tc, void *data)
 {
     char buf[4];
@@ -363,7 +377,7 @@ static void snprintf_overflow(abts_case *tc, void *data)
     rv = apr_snprintf(buf, 2, "%s", "abcd");
     ABTS_INT_EQUAL(tc, 1, rv);
 
-    ABTS_STR_EQUAL(tc, buf, "a");
+    ABTS_STR_EQUAL(tc, "a", buf);
 
     /* Check the buffer really hasn't been overflowed. */
     ABTS_TRUE(tc, buf[2] == '4' && buf[3] == '2');
@@ -384,6 +398,7 @@ abts_suite *teststr(abts_suite *suite)
     abts_run_test(suite, string_strtoff, NULL);
     abts_run_test(suite, overflow_strfsize, NULL);
     abts_run_test(suite, string_strfsize, NULL);
+    abts_run_test(suite, string_cpystrn, NULL);
     abts_run_test(suite, snprintf_overflow, NULL);
 
     return suite;

@@ -1,8 +1,9 @@
 " Vim tutor support file
 " Author: Eduardo F. Amatria <eferna1@platea.pntic.mec.es>
-" Last Change:	2006 Mar 18
+" Maintainer: Bram Moolenaar
+" Last Change:	2008 Jul 21
 
-" This small source file is used for detecting if a translation of the
+" This Vim script is used for detecting if a translation of the
 " tutor file exist, i.e., a tutor.xx file, where xx is the language.
 " If the translation does not exist, or no extension is given,
 " it defaults to the english version.
@@ -35,6 +36,8 @@ else
       let s:ext = ".pl"
     elseif s:lang =~ "Slovak"
       let s:ext = ".sk"
+    elseif s:lang =~ "Czech"
+      let s:ext = ".cs"
     elseif s:lang =~ "Dutch"
       let s:ext = ".nl"
     else
@@ -43,23 +46,28 @@ else
   endif
 endif
 
+" Somehow ".ge" (Germany) is sometimes used for ".de" (Deutsch).
+if s:ext =~? '\.ge'
+  let s:ext = ".de"
+endif
+
+if s:ext =~? '\.en'
+  let s:ext = ""
+endif
+
 " The japanese tutor is available in two encodings, guess which one to use
 " The "sjis" one is actually "cp932", it doesn't matter for this text.
 if s:ext =~? '\.ja'
   if &enc =~ "euc"
     let s:ext = ".ja.euc"
-  elseif &enc =~ "utf-8$"
-    let s:ext = ".ja.utf-8"
-  else
+  elseif &enc != "utf-8"
     let s:ext = ".ja.sjis"
   endif
 endif
 
 " The korean tutor is available in two encodings, guess which one to use
 if s:ext =~? '\.ko'
-  if &enc =~ "utf-8$"
-    let s:ext = ".ko.utf-8"
-  else
+  if &enc != "utf-8"
     let s:ext = ".ko.euc"
   endif
 endif
@@ -70,7 +78,7 @@ endif
 if s:ext =~? '\.zh'
   if &enc =~ 'big5\|cp950'
     let s:ext = ".zh.big5"
-  else
+  elseif &enc != 'utf-8'
     let s:ext = ".zh.euc"
   endif
 endif
@@ -79,44 +87,81 @@ endif
 if s:ext =~? '\.pl'
   if &enc =~ 1250
     let s:ext = ".pl.cp1250"
-  elseif &enc =~ "utf-8$"
-    let s:ext = ".pl.utf-8"
   endif
 endif
 
 " The Turkish tutor is available in two encodings, guess which one to use
 if s:ext =~? '\.tr'
-  if &enc == "utf-8"
-    let s:ext = ".tr.utf-8"
-  elseif &enc == "iso-8859-9"
+  if &enc == "iso-8859-9"
     let s:ext = ".tr.iso9"
   endif
 endif
 
-" The Greek tutor is available in two encodings, guess which one to use
-if s:ext =~? '\.gr' && &enc =~ 737
-  let s:ext = ".gr.cp737"
+" The Greek tutor is available in three encodings, guess what to use.
+" We used ".gr" (Greece) instead of ".el" (Greek); accept both.
+if s:ext =~? '\.gr\|\.el'
+  if &enc == "iso-8859-7"
+    let s:ext = ".el"
+  elseif &enc == "utf-8"
+    let s:ext = ".el.utf-8"
+  elseif &enc =~ 737
+    let s:ext = ".el.cp737"
+  endif
 endif
 
-" The Slovak tutor is available in two encodings, guess which one to use
-if s:ext =~? '\.sk' && &enc =~ 1250
-  let s:ext = ".sk.cp1250"
+" The Slovak tutor is available in three encodings, guess which one to use
+if s:ext =~? '\.sk'
+  if &enc =~ 1250
+    let s:ext = ".sk.cp1250"
+  endif
 endif
 
-" The Russian tutor is available in two encodings, guess which one to use.
-" This segment is from the above lines and modified by
-" Alexey I. Froloff <raorn@altlinux.org> for Russian vim tutorial
-if s:ext =~? '\.ru' && &enc =~ 1251
-  let s:ext = ".ru.cp1251"
+" The Czech tutor is available in three encodings, guess which one to use
+if s:ext =~? '\.cs'
+  if &enc =~ 1250
+    let s:ext = ".cs.cp1250"
+  endif
 endif
 
-" Somehow ".ge" (Germany) is sometimes used for ".de" (Deutsch).
-if s:ext =~? '\.ge'
-  let s:ext = ".de"
+" The Russian tutor is available in three encodings, guess which one to use.
+if s:ext =~? '\.ru'
+  if &enc =~ '1251'
+    let s:ext = '.ru.cp1251'
+  elseif &enc =~ 'koi8'
+    let s:ext = '.ru'
+  endif
 endif
 
-if s:ext =~? '\.en'
-  let s:ext = ""
+" The Hungarian tutor is available in three encodings, guess which one to use.
+if s:ext =~? '\.hu'
+  if &enc =~ 1250
+    let s:ext = ".hu.cp1250"
+  elseif &enc =~ 'iso-8859-2'
+    let s:ext = '.hu'
+  endif
+endif
+
+" The Croatian tutor is available in three encodings, guess which one to use.
+if s:ext =~? '\.hr'
+  if &enc =~ 1250
+    let s:ext = ".hr.cp1250"
+  elseif &enc =~ 'iso-8859-2'
+    let s:ext = '.hr'
+  endif
+endif
+
+" Esperanto is only available in utf-8
+if s:ext =~? '\.eo'
+  let s:ext = ".eo.utf-8"
+endif
+" Vietnamese is only available in utf-8
+if s:ext =~? '\.vi'
+  let s:ext = ".vi.utf-8"
+endif
+
+" If 'encoding' is utf-8 s:ext must end in utf-8.
+if &enc == 'utf-8' && s:ext !~ '\.utf-8'
+  let s:ext .= '.utf-8'
 endif
 
 " 2. Build the name of the file:

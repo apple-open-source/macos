@@ -295,7 +295,7 @@ IOReturn FindInterfaces(IOUSBDeviceInterface245 **dev)
         
         printf("Interface has %d endpoints.\n", intfNumEndpoints);
 
-        for (pipeRef = 1; pipeRef < intfNumEndpoints; pipeRef++)
+        for (pipeRef = 1; pipeRef <= intfNumEndpoints; pipeRef++)
         {
             IOReturn	kr2;
             UInt8	direction;

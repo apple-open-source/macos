@@ -30,6 +30,8 @@
 - init {
     if (self = [super init]) {
         _devicesArray = [[NSMutableArray alloc] init];
+		// always override this default unless Nano changes it
+        [[NSUserDefaults standardUserDefaults] setBool:NO forKey:@"BusProbeSuspended"];
         _busProber = [[BusProber alloc] initWithListener:self devicesArray:_devicesArray];
     }
     return self;
@@ -43,14 +45,22 @@
 }
 
 - (void)awakeFromNib {
-    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeDontAutoRefresh"] == YES) {
+    if ( [[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeAutoRefresh"] == NO) {
         [RefreshCheckBox setState:NSOffState];
 //enable/disable button        [RefreshButton setEnabled:YES];
     } else {
         [RefreshCheckBox setState:NSOnState];
 //enable/disable button        [RefreshButton setEnabled:NO];
     }
-    
+
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeSuspended"] == YES) {
+        [SuspendCheckBox setState:NSOnState];
+//enable/disable button        [RefreshButton setEnabled:YES];
+    } else {
+        [SuspendCheckBox setState:NSOffState];
+//enable/disable button        [RefreshButton setEnabled:NO];
+    }
+    	
     [BusProbeOutputOV setTarget:BusProbeOutputOV];
     [BusProbeOutputOV setDoubleAction:@selector(itemDoubleClicked)];
     
@@ -62,6 +72,16 @@
     [_busProber refreshData:YES];
 }
 
+- (void)generateStringFromDevices:(NSMutableString *)finalString
+{
+	NSEnumerator *devicesEnumerator = [_devicesArray objectEnumerator];
+	BusProbeDevice *thisDevice;
+	
+	while (thisDevice = [devicesEnumerator nextObject]) {
+		[finalString appendFormat:@"%@",thisDevice];
+	}
+}
+
 - (IBAction)SaveOutput:(id)sender
 {
     NSSavePanel *sp = [NSSavePanel savePanel];
@@ -71,12 +91,8 @@
     result = [sp runModalForDirectory:NSHomeDirectory() file:@"USB Bus Probe"];
     if (result == NSOKButton) {
         NSMutableString *finalString = [[NSMutableString alloc] init];
-        NSEnumerator *devicesEnumerator = [_devicesArray objectEnumerator];
-        BusProbeDevice *thisDevice;
-        
-        while (thisDevice = [devicesEnumerator nextObject]) {
-            [finalString appendFormat:@"%@",thisDevice];
-        }
+		
+		[self generateStringFromDevices:finalString];
         
         if (![finalString writeToFile:[sp filename] atomically:YES encoding:NSUTF8StringEncoding error:NULL])
             NSBeep();
@@ -90,13 +106,142 @@
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     
     if ([sender state] == NSOffState) {
-        [defaults setBool:YES forKey:@"BusProbeDontAutoRefresh"];
+        [defaults setBool:NO forKey:@"BusProbeAutoRefresh"];
 //enable/disable button        [RefreshButton setEnabled:YES];
     } else {
-        [defaults setBool:NO forKey:@"BusProbeDontAutoRefresh"];
+        [defaults setBool:YES forKey:@"BusProbeAutoRefresh"];
 //enable/disable button        [RefreshButton setEnabled:NO];
         [self Refresh:self];
     }
+}
+
+- (IBAction)ToggleProbeSuspended:(id)sender
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    
+    if ([sender state] == NSOffState) {
+        [defaults setBool:NO forKey:@"BusProbeSuspended"];
+    } else {
+        [defaults setBool:YES forKey:@"BusProbeSuspended"];
+    }
+	[self Refresh:self];
+}
+
+- (void)dumpToTerminal:(NSArray*)args:(bool)showHelp
+{
+	NSMutableString *finalString = [[NSMutableString alloc] init];
+		
+	if( [args count] == 2 && !showHelp )
+	{
+		[self generateStringFromDevices:finalString];
+	}
+	else
+	{
+		NSEnumerator *enm = [args objectEnumerator];
+		BusProbeDevice *filterDevice = [[BusProbeDevice alloc] init];
+		BusProbeClass  *filterDeviceClassInfo = [[BusProbeClass alloc] init];
+
+		[filterDevice setDeviceClassInfo:filterDeviceClassInfo];
+
+		id word;	bool unKnownFilter = false; bool busProbe = false;
+		
+        NSMutableString *usage = [[NSMutableString alloc] init];
+
+		[usage appendFormat:@"Usage: USB Prober --busprobe [--vendorID --productID --deviceClass --deviceSubClass --deviceProtocol]"];
+		
+		while (word = [enm nextObject]) 
+		{
+			if ( [word caseInsensitiveCompare:[NSString stringWithUTF8String:"--vendorID"]] == NSOrderedSame )
+			{
+				[filterDevice setVendorID:true];
+			}
+			else if ( [word caseInsensitiveCompare:[NSString stringWithUTF8String:"--productID"]] == NSOrderedSame )
+			{
+				[filterDevice setProductID:true];
+			}
+			else if ( [word caseInsensitiveCompare:[NSString stringWithUTF8String:"--deviceClass"]] == NSOrderedSame )
+			{
+				[filterDeviceClassInfo setClassNum:true];
+			}
+			else if ( [word caseInsensitiveCompare:[NSString stringWithUTF8String:"--deviceSubClass"]] == NSOrderedSame )
+			{
+				[filterDeviceClassInfo setSubclassNum:true];
+			}
+			else if ( [word caseInsensitiveCompare:[NSString stringWithUTF8String:"--deviceProtocol"]] == NSOrderedSame )
+			{
+				[filterDeviceClassInfo setProtocolNum:true];
+			}
+			else if ( [word caseInsensitiveCompare:[NSString stringWithUTF8String:"--busprobe"]] == NSOrderedSame )
+			{
+				busProbe = true;
+			}
+			else if ( [word rangeOfString:[[NSProcessInfo processInfo] processName]].length > 0 )
+			{
+				// do nothing here
+			}
+			else if ( [word caseInsensitiveCompare:[NSString stringWithUTF8String:"--help"]] == NSOrderedSame )
+			{
+				showHelp = true;
+				word = nil;
+				break;
+			}
+			else
+			{
+				unKnownFilter = true;
+				showHelp = true;
+				break;
+			}
+		}
+		
+		if( !unKnownFilter && !showHelp && busProbe)
+		{
+			[self applyFilter :filterDevice :finalString];
+		}
+		else
+		{
+			if ( word )
+			{
+				[finalString appendFormat:@"illegal option : "];
+				[finalString appendFormat:@"%@ \n",word];
+			}
+			[finalString appendFormat:@"%@", usage];
+		}
+	}
+	
+	NSLog(@"%@\n", finalString);
+	
+	[finalString release];
+}
+
+- (void)applyFilter:(BusProbeDevice*)filterDevice:(NSMutableString *)finalString
+{
+	NSEnumerator *devicesEnumerator = [_devicesArray objectEnumerator];
+	BusProbeDevice *thisDevice;
+	
+	[finalString appendString:@"\n"];
+	while ( thisDevice = [devicesEnumerator nextObject] ) 
+	{
+		[finalString appendFormat:@"%@ %@\n",[thisDevice deviceName],[thisDevice deviceDescription]];
+		if ( ( [filterDevice productID] == true ) || ( [filterDevice vendorID] == true ) )
+		{
+			[finalString appendFormat:@"%@",[thisDevice descriptionForName:@"Device VendorID/ProductID:"]];
+		}
+		
+		if ( [[filterDevice deviceClassInfo] classNum] == true )
+		{
+			[finalString appendFormat:@"%@",[thisDevice descriptionForName:@"Device Class:"]];
+		}
+		
+		if ( [[filterDevice deviceClassInfo] subclassNum] == true )
+		{
+			[finalString appendFormat:@"%@",[thisDevice descriptionForName:@"Device Subclass:"]];
+		}
+		
+		if ( [[filterDevice deviceClassInfo] protocolNum] == true )
+		{
+			[finalString appendFormat:@"%@",[thisDevice descriptionForName:@"Device Protocol:"]];
+		}
+	}
 }
 
 - (void)busProberInformationDidChange:(BusProber *)aProber {
@@ -114,7 +259,7 @@
     }
 }
 
-- (id)outlineView:(NSOutlineView *)ov child:(int)index ofItem:(id)item
+- (id)outlineView:(NSOutlineView *)ov child:(NSInteger)index ofItem:(id)item
 {
     if (item == nil) {
         return [_devicesArray objectAtIndex:index];
@@ -132,7 +277,7 @@
     return [item isExpandable];
 }
 
-- (int)outlineView:(NSOutlineView *)ov numberOfChildrenOfItem:(id)item
+- (NSInteger)outlineView:(NSOutlineView *)ov numberOfChildrenOfItem:(id)item
 {
     if (item == nil) {
         return [_devicesArray count];

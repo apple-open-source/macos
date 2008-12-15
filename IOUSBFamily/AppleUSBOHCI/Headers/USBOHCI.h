@@ -480,26 +480,26 @@ enum {
 struct OHCIEndpointDescriptorShared
 {
     UInt32				flags;			// 0x00 control
-    IOPhysicalAddress			tdQueueTailPtr;		// 0x04 pointer to last TD (physical address)
-    IOPhysicalAddress			tdQueueHeadPtr;		// 0x08 pointer to first TD (physical)
-    IOPhysicalAddress			nextED;			// 0x0c Pointer to next ED (physical)
+    USBPhysicalAddress32			tdQueueTailPtr;		// 0x04 pointer to last TD (physical address)
+    USBPhysicalAddress32			tdQueueHeadPtr;		// 0x08 pointer to first TD (physical)
+    USBPhysicalAddress32			nextED;			// 0x0c Pointer to next ED (physical)
 };								// 0x10 length of structure
 
 struct OHCIGeneralTransferDescriptorShared
 {
     volatile UInt32			ohciFlags;		// 0x00 Data controlling transfer.
-    volatile IOPhysicalAddress		currentBufferPtr;	// 0x04 Current buffer pointer (physical)
-    volatile IOPhysicalAddress		nextTD;			// 0x08 Pointer to next transfer descriptor
-    IOPhysicalAddress			bufferEnd;		// 0x0c Pointer to end of buffer (physical)
+    volatile USBPhysicalAddress32		currentBufferPtr;	// 0x04 Current buffer pointer (physical)
+    volatile USBPhysicalAddress32		nextTD;			// 0x08 Pointer to next transfer descriptor
+    USBPhysicalAddress32			bufferEnd;		// 0x0c Pointer to end of buffer (physical)
 };								// 0x10 total length
 
 
 struct OHCIIsochTransferDescriptorShared
 {
     UInt32				flags;		// 0x00 Condition code/FrameCount/DelayInterrrupt/StartingFrame.
-    IOPhysicalAddress			bufferPage0;	// 0x04 Buffer Page 0 (physical)
-    IOPhysicalAddress			nextTD;		// 0x08 Pointer to next transfer descriptor (physical)
-    IOPhysicalAddress			bufferEnd;	// 0x0c Pointer to end of buffer (physical)
+    USBPhysicalAddress32			bufferPage0;	// 0x04 Buffer Page 0 (physical)
+    USBPhysicalAddress32			nextTD;		// 0x08 Pointer to next transfer descriptor (physical)
+    USBPhysicalAddress32			bufferEnd;	// 0x0c Pointer to end of buffer (physical)
     UInt16				offset[8];	// 0x10
 };							// 0x20 total length
 
@@ -508,3 +508,4 @@ struct OHCIIsochTransferDescriptorShared
 
 #define	kOHCIStructureAllocationPhysicalMask	0x00000000FFFFF000ULL			// for use with inTaskWithPhysicalMask (below 4GB and 4K aligned)
 
+#endif

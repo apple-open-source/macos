@@ -283,10 +283,27 @@ IOUSBHIDDriver::start(IOService *provider)
     OSNumber *					inputReportSize = NULL;
 	OSNumber *					numberObj = NULL;
     OSObject *					propertyObj = NULL;
+	OSBoolean *					sixAxisProperty = NULL;
     
     USBLog(7, "IOUSBHIDDriver(%s)[%p]::start", getName(), this);
     IncrementOutstandingIO();			// make sure that once we open we don't close until start is finished
 
+    // Get our locationID as an unsigned 32 bit number
+	if ( provider )
+	{
+		propertyObj = provider->copyProperty(kUSBDevicePropertyLocationID);
+		locationIDProperty = OSDynamicCast( OSNumber, propertyObj);
+		if ( locationIDProperty )
+		{
+			_locationID = locationIDProperty->unsigned32BitValue();
+		}
+		if (propertyObj)
+		{
+			propertyObj->release();
+			propertyObj = NULL;
+		}
+	}
+		
 	// this will call handleStart, which is implemented below, and sets up _device and _interface
     if (!super::start(provider))
     {
@@ -394,6 +411,41 @@ IOUSBHIDDriver::start(IOService *provider)
             SetIdleMillisecs(24);
         }
     }
+	
+	//  Look to see if we have a property to kick the device into operational mode
+	propertyObj = provider->copyProperty("SIXAXIS compatibility");
+	sixAxisProperty = OSDynamicCast( OSBoolean, propertyObj);
+	if ( sixAxisProperty )
+	{
+		if ( sixAxisProperty->isTrue() )
+		{
+			IOUSBDevRequest requestPB;
+			UInt8 buffer[18];
+			
+			USBLog(3, "IOUSBHIDDriver(%s)[%p]::start  SIXAXIS compatibility", getName(), this);
+			
+			requestPB.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBClass, kUSBInterface);
+			requestPB.bRequest = kHIDRqGetReport;
+			requestPB.wValue = (3 << 8) | 0xf2;
+			requestPB.wIndex = _interface->GetInterfaceNumber();
+			requestPB.wLength = sizeof(buffer);
+			requestPB.pData = &buffer;
+			requestPB.wLenDone = 0;
+			
+			err = _device->DeviceRequest(&requestPB);
+			if ( err != kIOReturnSuccess )
+			{
+				USBLog(3, "IOUSBHIDDriver(%s)[%p]::start  getReport for SIXAXIS compatibility request failed; err = 0x%x)", getName(), this, err);
+			}
+		}
+	}
+	
+	if (propertyObj)
+	{
+		propertyObj->release();
+		propertyObj = NULL;
+	}
+	
 
     // Set the device into Report Protocol if it's a bootInterface subClass interface
     //
@@ -414,19 +466,6 @@ IOUSBHIDDriver::start(IOService *provider)
     }
     
     
-    // Get our locationID as an unsigned 32 bit number so we can
-	propertyObj = provider->copyProperty(kUSBDevicePropertyLocationID);
-	locationIDProperty = OSDynamicCast( OSNumber, propertyObj);
-    if ( locationIDProperty )
-    {
-        _locationID = locationIDProperty->unsigned32BitValue();
-    }
-	if (propertyObj)
-	{
-		propertyObj->release();
-		propertyObj = NULL;
-	}
-	
 	_INTERFACE_NUMBER = _interface->GetInterfaceNumber();
 	
 	// Check to see if we have a logging property
@@ -437,7 +476,7 @@ IOUSBHIDDriver::start(IOService *provider)
     {
 		_HID_LOGGING_LEVEL = numberObj->unsigned32BitValue();
 		_LOG_HID_REPORTS = true;
-		USBLog(5, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%lx)::start  HID Report Logging at level %d", this, _INTERFACE_NUMBER, _device->getName(), _locationID, _HID_LOGGING_LEVEL);
+		USBLog(5, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%x)::start  HID Report Logging at level %d", this, _INTERFACE_NUMBER, _device->getName(), (uint32_t)_locationID, _HID_LOGGING_LEVEL);
     }
 	else
 	{
@@ -460,7 +499,7 @@ IOUSBHIDDriver::start(IOService *provider)
         goto ErrorExit;
     }
 
-    USBLog(1, "[%p] USB HID Interface #%d of device %s @ %d (0x%lx)",this, _interface->GetInterfaceNumber(), _device->getName(), _device->GetAddress(), _locationID );
+    USBLog(1, "[%p] USB HID Interface #%d of device %s @ %d (0x%x)",this, _interface->GetInterfaceNumber(), _device->getName(), _device->GetAddress(), (uint32_t)_locationID );
 
     // Now that we have succesfully added our gate to the workloop, set our member variables
     //
@@ -479,7 +518,7 @@ IOUSBHIDDriver::start(IOService *provider)
 
 ErrorExit:
 
-    USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - aborting startup", getName(), this);
+    USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - @ 0x%x aborting startup", getName(), this, (uint32_t)_locationID);
 
     if ( commandGate != NULL )
     {
@@ -538,7 +577,7 @@ IOUSBHIDDriver::message( UInt32 type, IOService * provider,  void * argument )
     {
         case kIOUSBMessagePortHasBeenReset:
             
-            USBLog(3, "IOUSBHIDDriver(%s)[%p]: received kIOUSBMessagePortHasBeenReset, rearming interrupt read", getName(), this);
+            USBLog(3, "IOUSBHIDDriver(%s)[%p]: received kIOUSBMessagePortHasBeenReset, checking idle and rearming interrupt read", getName(), this);
             
             _retryCount = kHIDDriverRetryCount;
             ABORTEXPECTED = FALSE;
@@ -576,7 +615,6 @@ IOUSBHIDDriver::message( UInt32 type, IOService * provider,  void * argument )
 			}
 				
 			// Finally, rearm our read
-			USBLog(5, "IOUSBHIDDriver(%s)[%p]::message(porthasbeenreset)  calling RearmInterruptRead()", getName(), this);
 			err = RearmInterruptRead();
 			break;
 			
@@ -589,12 +627,11 @@ IOUSBHIDDriver::message( UInt32 type, IOService * provider,  void * argument )
         case kIOUSBMessagePortHasBeenResumed:
 		case kIOUSBMessagePortWasNotSuspended:
 			
-            USBLog(3, "IOUSBHIDDriver(%s)[%p]: received message %s (0x%lx), rearming interrupt read", getName(), this, type == kIOUSBMessagePortHasBeenResumed ? "kIOUSBMessagePortHasBeenResumed": "kIOUSBMessagePortWasNotSuspended", type);
+            USBLog(3, "IOUSBHIDDriver(%s)[%p]: received message %s (0x%x), rearming interrupt read", getName(), this, type == kIOUSBMessagePortHasBeenResumed ? "kIOUSBMessagePortHasBeenResumed": "kIOUSBMessagePortWasNotSuspended", (uint32_t)type);
             
 			_PORT_SUSPENDED = FALSE;
             ABORTEXPECTED = FALSE;
 			
-			USBLog(5, "IOUSBHIDDriver(%s)[%p]::message(kIOUSBMessagePortHasBeenResumed)  calling RearmInterruptRead()", getName(), this);
             err = RearmInterruptRead();
 			
 			// Re-enable the timer
@@ -663,7 +700,7 @@ IOUSBHIDDriver::didTerminate( IOService * provider, IOOptionBits options, bool *
     // in which case we can just close our provider and IOKit will take care of the rest. Otherwise, we need to
     // hold on to the device and IOKit will terminate us when we close it later
     //
-    USBLog(3, "IOUSBHIDDriver(%s)[%p]::didTerminate isInactive = %d, outstandingIO = %ld", getName(), this, isInactive(), _outstandingIO);
+    USBLog(3, "IOUSBHIDDriver(%s)[%p]::didTerminate isInactive = %d, outstandingIO = %d", getName(), this, isInactive(), (uint32_t)_outstandingIO);
 
     PMstop();								// disconnect from the IOPower tree
 	
@@ -691,7 +728,7 @@ IOUSBHIDDriver::maxCapabilityForDomainState ( IOPMPowerFlags domainState )
 	unsigned long ret = super::maxCapabilityForDomainState(domainState);
 	if (isInactive())
 	{
-		USBLog(1, "IOUSBHIDDriver[%p]::maxCapabilityForDomainState - while inactive - ignoring", this);
+		USBLog(2, "IOUSBHIDDriver[%p]::maxCapabilityForDomainState - while inactive - ignoring", this);
 		return ret;
 	}
 
@@ -1002,7 +1039,7 @@ IOUSBHIDDriver::getReport(	IOMemoryDescriptor * report,
 
 	if ( _LOG_HID_REPORTS )
 	{
-		USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%lx)::getReport(%d, type = %s) returned success:", this, _INTERFACE_NUMBER, _device->getName(), _locationID, reportID, 
+		USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%x)::getReport(%d, type = %s) returned success:", this, _INTERFACE_NUMBER, _device->getName(), (uint32_t)_locationID, reportID, 
 			   usbReportType == 1 ? "input" : (usbReportType == 2 ? "output" : (usbReportType == 3 ? "feature" : "unknown")) );
 		LogMemReport(_HID_LOGGING_LEVEL, report, report->getLength());
 	}
@@ -1042,7 +1079,7 @@ IOUSBHIDDriver::setReport( IOMemoryDescriptor * 	report,
     {
 		if ( _LOG_HID_REPORTS )
 		{
-            USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%lx)::setReport sending out interrupt out pipe buffer (%p,%ld):", this, _INTERFACE_NUMBER, _device->getName(), _locationID, report, report->getLength() );
+            USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%x)::setReport sending out interrupt out pipe buffer (%p,%d):", this, _INTERFACE_NUMBER, _device->getName(), (uint32_t)_locationID, report, (uint32_t)report->getLength() );
             LogMemReport(_HID_LOGGING_LEVEL, report, report->getLength());
         }
 
@@ -1063,7 +1100,7 @@ IOUSBHIDDriver::setReport( IOMemoryDescriptor * 	report,
     //
 	if ( _LOG_HID_REPORTS )
 	{
-        USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%lx)::SetReport sending out control pipe:", this, _INTERFACE_NUMBER, _device->getName(), _locationID);
+        USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%x)::SetReport sending out control pipe:", this, _INTERFACE_NUMBER, _device->getName(), (uint32_t)_locationID);
         LogMemReport(_HID_LOGGING_LEVEL,  report, report->getLength());
 	}
 	
@@ -1083,7 +1120,7 @@ IOUSBHIDDriver::setReport( IOMemoryDescriptor * 	report,
 	}
         
     DecrementOutstandingIO();
-    USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%lx)::setReport returning", this, _INTERFACE_NUMBER, _device->getName(), _locationID);
+    USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver[%p](Intfce: %d of device %s @ 0x%x)::setReport returning", this, _INTERFACE_NUMBER, _device->getName(), (uint32_t)_locationID);
     
 	return ret;
 }
@@ -1396,7 +1433,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
     // USBLog(5,"IOUSBHIDDriver(%s)[%p]::InterruptReadHandler:  time.hi 0x%x time.lo 0x%x", getName(), this, timeStamp.hi, timeStamp.lo);
     // kprintf("IOUSBHIDDriver(%s)[%p]::InterruptReadHandler:  time.hi 0x%x time.lo 0x%x\n", getName(), this, timeStamp.hi, timeStamp.lo);
 
-	USBLog(7, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  bufferSizeRemaining: %ld, error 0x%x", getName(), this, bufferSizeRemaining, status);
+	USBLog(7, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  bufferSizeRemaining: %d, error 0x%x", getName(), this, (uint32_t)bufferSizeRemaining, status);
 	
 	// Initialize so that we don't queue a clearFeatureEndpointHalt
 	_NEED_TO_CLEARPIPESTALL = false;
@@ -1434,7 +1471,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 				// If thread_call_enter() returns TRUE, then a call is already
 				// pending, and we need to drop our outstandingIO count.
 				IncrementOutstandingIO();
-				if ( thread_call_enter1(_HANDLE_REPORT_THREAD, (thread_call_param_t) &timeStamp) == TRUE)
+				if ( thread_call_enter1(_HANDLE_REPORT_THREAD, (thread_call_param_t) &_INTERRUPT_TIMESTAMP) == TRUE)
 				{
 					USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _HANDLE_REPORT_THREAD was already queued!", getName(), this);
 					DecrementOutstandingIO();
@@ -1443,13 +1480,13 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 			}
 			else
 			{
-				USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  Not calling handleReport thread because we have reached the maximum (%ld) of queued reports pending", getName(), this, _QUEUED_REPORTS);
+				USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  Not calling handleReport thread because we have reached the maximum (%d) of queued reports pending", getName(), this, (uint32_t)_QUEUED_REPORTS);
 			}
             break;
 			
         case kIOReturnNotResponding:
 		case kIOUSBHighSpeedSplitError:
-            USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler kIOReturnNotResponding or kIOUSBHighSpeedSplitError error", getName(), this);
+            USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler 0x%x (%s)", getName(), this, status, USBStringFromReturn(status));
             // If our device has been disconnected or we're already processing a
             // terminate message, just go ahead and close the device (i.e. don't
             // queue another read.  Otherwise, go check to see if the device is
@@ -1697,7 +1734,7 @@ IOUSBHIDDriver::ClearFeatureEndpointHalt( )
         
         if ( status != kIOReturnSuccess )
         {
-            USBLog(3, "IOUSBHIDDriver(%s)[%p]::ClearFeatureEndpointHalt -  DeviceRequest returned: 0x%x, retries = %ld", getName(), this, status, retries);
+            USBLog(3, "IOUSBHIDDriver(%s)[%p]::ClearFeatureEndpointHalt -  DeviceRequest returned: 0x%x, retries = %d", getName(), this, status, (uint32_t)retries);
             IOSleep(100);
         }
         else
@@ -1740,11 +1777,11 @@ IOUSBHIDDriver::HandleReport(AbsoluteTime timeStamp)
     
 	if ( _LOG_HID_REPORTS )
 	{
-		USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver(%s)[%p](Intfce: %d of device %s @ 0x%lx) Interrupt IN report came in:", getName(), this, _INTERFACE_NUMBER, _device->getName(), _locationID );
+		USBLog(_HID_LOGGING_LEVEL, "IOUSBHIDDriver(%s)[%p](Intfce: %d of device %s @ 0x%x) Interrupt IN report came in:", getName(), this, _INTERFACE_NUMBER, _device->getName(), (uint32_t)_locationID );
 		LogMemReport(_HID_LOGGING_LEVEL, _buffer, _buffer->getLength() );
 	}
 
-	//status = handleReportWithTime(timeStamp, _buffer);
+	//status = handleReportWithTime(_INTERRUPT_TIMESTAMP, _buffer);
 	_QUEUED_REPORTS++;
 	status = handleReport(_buffer);
 	if ( status != kIOReturnSuccess)
@@ -2197,7 +2234,7 @@ IOUSBHIDDriver::SuspendPort(bool suspendPort, UInt32 timeoutInMS )
 	if ( isInactive() )
 		return kIOReturnNotPermitted;
 	
-	USBLog(5, "IOUSBHIDDriver(%s)[%p]::SuspendPort (%s), timeout: %ld, _outstandingIO = %ld", getName(), this, suspendPort ? "suspend": "resume", timeoutInMS, _outstandingIO );
+	USBLog(5, "IOUSBHIDDriver(%s)[%p]::SuspendPort (%s), timeout: %d, _outstandingIO = %d", getName(), this, suspendPort ? "suspend": "resume", (uint32_t)timeoutInMS, (uint32_t)_outstandingIO );
 	
 	// If the timeout is non-zero, that means that we are being told to enable the suspend port after the tiemout period of inactivity, not
 	// immediately
@@ -2411,7 +2448,7 @@ IOReturn
 IOUSBHIDDriver::ChangeOutstandingIO(OSObject *target, void *param1, void *param2, void *param3, void *param4)
 {
     IOUSBHIDDriver *me = OSDynamicCast(IOUSBHIDDriver, target);
-    UInt32	direction = (UInt32)param1;
+    UInt32	direction = (uintptr_t)param1;
     
     if (!me)
     {
@@ -2427,7 +2464,7 @@ IOUSBHIDDriver::ChangeOutstandingIO(OSObject *target, void *param1, void *param2
 		case -1:
 			if (!--me->_outstandingIO && me->_needToClose)
 			{
-				USBLog(3, "IOUSBHIDDriver(%s)[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %ld - closing device", me->getName(), me, me->isInactive(), me->_outstandingIO);
+				USBLog(3, "IOUSBHIDDriver(%s)[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %d - closing device", me->getName(), me, me->isInactive(), (uint32_t)me->_outstandingIO);
 				if (me->_interruptPipe)
 				{
 					me->_interruptPipe->release();
@@ -2457,7 +2494,7 @@ IOUSBHIDDriver::DecrementOutstandingIO(void)
     {
 		if (!--_outstandingIO && _needToClose)
 		{
-			USBLog(3, "IOUSBHIDDriver(%s)[%p]::DecrementOutstandingIO isInactive = %d, outstandingIO = %ld - closing device", getName(), this, isInactive(), _outstandingIO);
+			USBLog(3, "IOUSBHIDDriver(%s)[%p]::DecrementOutstandingIO isInactive = %d, outstandingIO = %d - closing device", getName(), this, isInactive(), (uint32_t)_outstandingIO);
 			if (_interruptPipe)
 			{
 				_interruptPipe->release();
@@ -2595,7 +2632,7 @@ IOUSBHIDDriver::RearmInterruptRead()
 	
 	if (!gotPend)
 	{
-		USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - already had outstanding read pending - just ignoring", getName(), this);
+		USBLog(2, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - already had outstanding read pending - just ignoring", getName(), this);
 		return kIOReturnSuccess;
 	}
 
@@ -2628,7 +2665,7 @@ IOUSBHIDDriver::RearmInterruptRead()
 		// If we get an error, let's clear the pipe and try again
 		if ( (err != kIOReturnSuccess) && (_interruptPipe != NULL))
 		{
-			USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  immediate error 0x%x queueing read, clearing stall and trying again(%ld)", getName(), this, err, retries);
+			USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  immediate error 0x%x queueing read, clearing stall and trying again(%d)", getName(), this, err, (uint32_t)retries);
 			_interruptPipe->ClearPipeStall(false);			
 		}
     }

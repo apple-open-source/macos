@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2005, 2007, 2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,7 +72,7 @@
  */
 
 #include <_types.h>
-#include <available.h>
+#include <Availability.h>
 
 #ifndef _TIME_T
 #define _TIME_T
@@ -92,13 +92,13 @@ struct lastlog {
 	time_t	ll_time;
 	char	ll_line[UT_LINESIZE];
 	char	ll_host[UT_HOSTSIZE];
-}					__DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+}					__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
 
 struct utmp {
 	char	ut_line[UT_LINESIZE];
 	char	ut_name[UT_NAMESIZE];
 	char	ut_host[UT_HOSTSIZE];
 	long	ut_time;
-}					__DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+}					__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_5,__IPHONE_NA,__IPHONE_NA);
 
 #endif /* !_UTMP_H_ */

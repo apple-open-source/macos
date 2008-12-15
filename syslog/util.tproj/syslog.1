@@ -1,30 +1,23 @@
-.\" Copyright (c) 2004 Apple Computer
-.\" All rights reserved.
+.\"Copyright (c) 2004-2008 Apple Inc. All rights reserved.
 .\"
-.\" Redistribution and use in source and binary forms, with or without
-.\" modification, are permitted provided that the following conditions
-.\" are met:
-.\" 1. Redistributions of source code must retain the above copyright
-.\"    notice, this list of conditions and the following disclaimer.
-.\" 2. Redistributions in binary form must reproduce the above copyright
-.\"    notice, this list of conditions and the following disclaimer in the
-.\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of Apple Computer nor the names of its contributors
-.\"    may be used to endorse or promote products derived from this software
-.\"    without specific prior written permission.
+.\"@APPLE_LICENSE_HEADER_START@
 .\"
-.\" THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER AND CONTRIBUTORS ``AS IS'' AND
-.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-.\" SUCH DAMAGE.
+.\"This file contains Original Code and/or Modifications of Original Code
+.\"as defined in and that are subject to the Apple Public Source License
+.\"Version 2.0 (the 'License'). You may not use this file except in
+.\"compliance with the License. Please obtain a copy of the License at
+.\"http://www.opensource.apple.com/apsl/ and read it before using this
+.\"file.
 .\"
+.\"The Original Code and all software distributed under the License are
+.\"distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\"EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\"INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\"FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+.\"Please see the License for the specific language governing rights and
+.\"limitations under the License.
+.\"
+.\"@APPLE_LICENSE_HEADER_END@
 .\"
 .Dd October 18, 2004
 .Dt SYSLOG 1
@@ -54,27 +47,26 @@ key val
 .Fl C
 .D1 ""
 .Nm
-.Op Fl db Op Ar file ...
+.Op Fl f Ar file ...
+.Op Fl d Ar dir ...
 .Op Fl w Op Ar n
 .Op Fl F Ar format
 .Op Fl T Ar format
+.Op Fl E Ar format
 .Ar expression
 .D1 ""
 .Nm
-.Op Fl db Op Ar file ...
-.Fl x Ar expression
-.D1 ""
-.Nm
-.Op Fl db Op Ar file ...
-.Fl p Ar expression
+.Op Fl f Ar file ...
+.Op Fl d Ar dir ...
+.Fl x Ar file Ar expression
 .D1 ""
 .Nm
 .Fl c Ar process Op filter
 .Sh DESCRIPTION
 .Nm
-is a command-line utility for a variety of tasks relating to the Apple System Log facility.
+is a command-line utility for a variety of tasks relating to the Apple System Log (ASL) facility.
 It provides mechanisms for sending and viewing log messages,
-pruning the contents of the log message databases,
+copying log messages to ASL format data store files,
 and for controlling the flow of log messages from client processes.
 .Pp
 When invoked with the
@@ -98,6 +90,10 @@ If the
 option is used, then it must be followed by a list of keys and values.
 A structured message will be sent to the server with the keys and values given as arguments.
 If a key or a value has embedded white space, it must be enclosed in quotes.
+.Pp
+Note that the text of the log message should be supplied as a value following the
+.Dq Message
+key.
 .Pp
 If the 
 .Fl k
@@ -139,6 +135,10 @@ is an alias for
 If the
 .Fl l
 option is omitted, the log level defaults to 7 (Debug).
+Note that the log message server
+.Nm syslogd
+filters messages based on log level.
+The default filter for the ASL database excludes Debug and Info level messages.
 .Pp
 .Nm
 only requires one or two leading characters for a level specification.
@@ -164,15 +164,17 @@ e.g.
 .Pp
 .Dl cat /var/log/system.log
 .Pp
-Another module saves messages in an active database, 
-and may also be configured to keep archive databases.
+Another module saves messages in a data store (/var/log/asl).
 .Pp
 If invoked with no arguments,
 .Nm
-sends a query to
-.Nm syslogd
-to fetch all messages from the active database.
-The messages are then printed to standard output, subject to formatting options and character encoding as described below.
+fetchs all messages from the active data store.
+Messages are then printed to standard output,
+subject to formatting options and character encoding as described below.
+Some log messages are read-access controlled,
+so only messages that are readable by the user running
+.Nm
+will be fetched and printed.
 .Pp
 If invoked with the
 .Fl C
@@ -187,28 +189,42 @@ option is actually an alias for the expression:
 .Pp
 See the EXPRESSIONS section below for more details.
 .Pp
-If the system is running in single-user mode,
-.Nm
-will open the ASL active database file (/var/log/asl.db) directly, rather than queying
-.Nm syslogd
-for messages. 
-The database file is opened in read-only mode, and read access permissions are required.
-Specifying the 
-.Fl db
-option with no argument also forces raw database access. 
-.Pp
-Archive log databases may be read by providing one or more database names as arguments to the
-.Fl db
+Individual ASL data store files may be read by providing one or more file names as arguments to the
+.Fl f
 option.
-Each database is read in sequence.
-As a special case, the name
-.Dq -
-may be used in place of a database file name.
-In this case,
+This may be useful when searching archived files, files on alternate disk volumes,
+or files created as export files with the
+.Fl x
+option.
+.Pp
+The
+.Fl d
+option may be followed by a list of directory paths.
 .Nm
-will connect to
-.Nm syslogd 
-and query for the contents of the active database.
+will read or search all ASL data store files in those directories.
+Any files that are not readable will be skipped.
+Specifying
+.Fl d
+with the name
+.Dq archive
+will open all readable files in the default ASL archive directory /var/log/asl.archive.
+Specifying
+.Fl d
+with the name
+.Dq store
+will open all readable files in the ASL store directory /var/log/asl.
+.Pp
+Legacy ASL database files that were written by
+.Nm syslogd
+on Mac OS X 10.5 (Leopard) may also be read using the
+.Fl f
+option.
+However only one such legacy database may be read or searched at a time.
+Note that a legacy database may be read and copied into a new ASL data store format file using a combination of
+.Fl f
+and
+.Fl x
+options.
 .Pp
 The
 .Fl w
@@ -218,7 +234,7 @@ to wait for new messages.
 By default, 
 .Nm
 prints the last 10 messages,
-then waits for new messages to be added to the database.
+then waits for new messages to be added to the data store.
 A number following the
 .Fl w
 option specifies the number of messages to print and overrides the default value of 10.
@@ -232,16 +248,13 @@ This usage is similar to watching a log file using, e.g.
 .Pp
 The
 .Fl w
-option can only be used for a single database, and when printing messages to standard output.
+option can only be used when reading the system's ASL data store or when reading a single data store file,
+and when printing messages to standard output.
 .Pp
 If the 
-.Fl x Ar database
-option is specified, messages are copied to the named
-.Ar database 
-file rather than being printed.
-The 
-.Ar database
-file will be created if it does not exist.
+.Fl x Ar file
+option is specified, messages are copied to the named file rather than being printed.
+The file will be created if it does not exist.
 .Pp
 When called without the
 .Fl x
@@ -252,7 +265,10 @@ except that the message priority level is printed between angle-brackets.
 The output format may by changed by specifying the
 .Fl F Ar format
 option.
-Non-printable and control characters are encoded in the output, as described below.
+Non-printable and control characters are encoded by default.
+Text encoding may be controlled using the
+.Fl E
+option (see below).
 The value of
 .Ar format 
 may be one of the following:
@@ -329,25 +345,25 @@ The
 option is a short form for 
 .Fl T Ar utc . 
 .Pp
-Control characters and non-printable characters are encoded in the output stream.
-In some cases this may make messages slightly less natural in appearance.
-However, the encoding is designed to preserve all the information in the log message,
+By default, control characters and non-printable characters are encoded in the output stream.
+In some cases this may make messages less natural in appearance.
+The encoding is designed to preserve all the information in the log message,
 and to prevent malicious users from spoofing or obsucring information in log messages.
 .Pp
-Output in the
+Text in the
 .Dq std ,
 .Dq bsd ,
 and
 .Dq raw
 formats is encoded as it is by the
-.Xr vis
+.Nm vis
 utility with the
 .Fl c
 option.
 Newlines and tabs are also encoded as "\\n" and "\\t" respectively.
 In 
 .Dq raw
-format, space chanacters embedded in log message keys are encoded as "\\s"
+format, space characters embedded in log message keys are encoded as "\\s"
 and embedded brackets are escaped to print as "\\[" and "\\]".
 .Pp
 XML format output requires that keys are valid UTF8 strings.
@@ -361,9 +377,42 @@ where NN is the character's hexidecimal value.
 .Pp
 Values that do not contain legal UTF8 are encoded in base-64 and printed as data objects.
 .Pp
+The 
+.Fl E Ar format
+option may be used to explicity control the text encoding.
+The value of
+.Ar format 
+may be one of the following:
+.Pp
+.Bl -tag -width "safe"
+.It vis
+The default encoding described above.
+.It safe
+Encodes backspace characters as ^H.
+Carriage returns are mapped to newlines.
+A tab character is appended after newlines so that message text is indented.
+.It none
+No encoding is used.
+.El
+.Pp
+The intent of the
+.Dq safe
+encoding is to prevent obvious message spoofing or damage.
+The appearance of messages printed will depend on terminal settings and UTF-8 string handling.
+It is possible that messages printed using the
+.Dq safe
+or
+.Dq none
+options may be garbled or subject to manipulation through the use of control characters and control sequences
+embedded in user-supplied message text.
+The default
+.Dq vis
+encoding should be used to view messages if there is any suspicion
+that message text may have been used to manipulate the printed representation.
+.Pp
 If no further command line options are specified,
 .Nm
-displays all messages, or copies all messages to a database file.
+displays all messages, or copies all messages to a data store file.
 However, an expression may be specified using the
 .Fl k
 and
@@ -372,12 +421,17 @@ options.
 .Ss EXPRESSIONS
 Expressions specify matching criteria.
 They may be used to search for messages of interest.
-Expressions are also required when pruning the system log file with the
-.Fl p
-option.
 .Pp
-A simple expression is a list of one or more key/value pairs.
-A match is made when a message has the given value for the specified key.
+A simple expression
+has the form:
+.Pp
+.Dl -k key [[op] val]
+.Pp
+The
+.Fl k
+option may be followed by one, two, or three arguments. 
+A single argument causes a match to occur if a message has the specified key, regardless of value.
+If two arguments are specified, a match occurs when a message has exactly the specified value for a given key.
 For example, to find all messages sent by the portmap process:
 .Pp
 .Dl syslog -k Sender portmap
@@ -390,11 +444,6 @@ option is treated as an alias for the expression:
 .Pp
 This provides a quick way to search for console messages.
 .Pp
-The
-.Fl k
-option may be followed by one, two, or three arguments. 
-A single argument causes a match to occur if a message has the specified key, regardless of value.
-If a pair of arguments is specified, a match occurs when a message has exactly the specified value for a given key.
 If three arguments are given, they are of the form
 .Fl k Ar key operation value .
 .Nm
@@ -433,14 +482,24 @@ suffix
 numeric comparison
 .El
 .Pp
-An simple expression matches a message if all of the key-value operations match.
+More complex search expressions may be built by combining two or more simple expressions. 
+A complex expression that has more than one 
+.Dq -k key [[op] val]
+term matches a message if all of the key-value operations match.
 Logically, the result is an AND of all of key-value operations.
+For example:
+.Pp
+.Dl syslog -k Sender portmap -k Time ge -2h
+.Pp
+finds all messages sent by portmap in the last 2 hours
+(-2h means "two hours ago").
+.Pp
 The 
 .Fl o
-option separates simple expressions and provides an OR operation.
-If two or more simple expressions are given, separated by
+option may be used to build even more complex searches by providing an OR operation.
+If two or more sub-expressions are given, separated by
 .Fl o
-options, then a match occurs is a message matches any of the simple expressions.
+options, then a match occurs is a message matches any of the sub-expressions.
 For example, to find all messages which have either a 
 .Dq Sender
 value of
@@ -467,43 +526,6 @@ or
 to specify seconds, minutes, hours, days, or weeks respectively.
 Upper case may be used equivalently.
 A week is taken to be 7 complete days (i.e. 604800 seconds).
-.Ss PRUNING
-The Apple System Log facility saves received messages, subject to filtering criteria described in the 
-FILTERING CONTROLS section below.  
-The 
-.Nm syslogd
-daemon deletes messages after given time-to-live values to prevent the database from growing too large.
-When messages expire, they are either removed entirely, or copied to an archive database.
-See the 
-.Xr syslogd 8
-manual for more details on archiving messages.
-.Pp
-Messages may be removed from either the active database or from an archive database by using the
-.Fl p
-option of 
-.Nm syslog .
-The 
-.Fl p 
-option must be followed by an expression (see above).
-Messages that match the expression are deleted.
-.Pp
-If the 
-.Fl db
-option is not specified
-.Nm
-sends a request to 
-.Nm syslogd
-to perform the requested pruning operation.
-If
-.Fl db
-is given without a database file name,
-.Nm
-prunes the active database file.
-This may only be done if the
-.Nm syslogd
-server is not running.
-If one or more database file names are given, those databases are pruned subject to the specified expression.
-Read and write access to the database files are required.
 .Ss FILTERING CONTROLS
 Clients of the Apple System Log facility using either the
 .Xr asl 3

@@ -42,12 +42,14 @@
 #include "IOUPSPrivate.h"
 #include "IOUPSPlugIn.h"
 
+// mig generated header
+#include "ioupspluginmig.h"
+
 Boolean IOUPSMIGServerIsRunning(mach_port_t * bootstrap_port_ref, mach_port_t * upsd_port_ref)
 {
-    boolean_t active = FALSE;
-    Boolean result = false;
-    kern_return_t kern_result = KERN_SUCCESS;
-    mach_port_t   bootstrap_port;
+    mach_port_t     active = MACH_PORT_NULL;
+    kern_return_t   kern_result = KERN_SUCCESS;
+    mach_port_t     bootstrap_port;
 
     if (bootstrap_port_ref && (*bootstrap_port_ref != MACH_PORT_NULL)) {
         bootstrap_port = *bootstrap_port_ref;
@@ -55,7 +57,7 @@ Boolean IOUPSMIGServerIsRunning(mach_port_t * bootstrap_port_ref, mach_port_t * 
         /* Get the bootstrap server port */
         kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
         if (kern_result != KERN_SUCCESS) {
-            return FALSE;
+            return false;
         }
         if (bootstrap_port_ref) {
             *bootstrap_port_ref = bootstrap_port;
@@ -63,31 +65,19 @@ Boolean IOUPSMIGServerIsRunning(mach_port_t * bootstrap_port_ref, mach_port_t * 
     }
 
     /* Check "upsd" server status */
-    kern_result = bootstrap_status(bootstrap_port, kIOUPSPlugInServerName, &active);
-    switch (kern_result) {
-      case BOOTSTRAP_SUCCESS:
-        if (active) {
-            result = true;
+    kern_result = bootstrap_look_up(
+                        bootstrap_port, 
+                        kIOUPSPlugInServerName, 
+                        &active);
 
-            if (upsd_port_ref)
-            {
-                bootstrap_look_up(bootstrap_port, kIOUPSPlugInServerName, upsd_port_ref);
-            }
-            goto finish;
-        }
-        break;
-
-      case BOOTSTRAP_UNKNOWN_SERVICE:
-        result = false;
-        goto finish;
-        break;
-
-      default:
-        return FALSE;
+    if (BOOTSTRAP_SUCCESS == kern_result) {
+        return true;
+    } else {
+        // For any result other than SUCCESS, we presume the server is
+        // not running. We expect the most common failure result to be:
+        // kern_result == BOOTSTRAP_UNKNOWN_SERVICE
+        return false;
     }
-
-finish:
-    return result;
 }
 
 IOReturn IOUPSSendCommand(mach_port_t connect, int upsID, CFDictionaryRef command)
@@ -103,7 +93,9 @@ IOReturn IOUPSSendCommand(mach_port_t connect, int upsID, CFDictionaryRef comman
     if (!serializedData)
         return kIOReturnError;
         
-    ret = io_ups_send_command(connect, upsID, CFDataGetBytePtr(serializedData), CFDataGetLength(serializedData));
+    ret = io_ups_send_command(connect, upsID, 
+                (vm_offset_t)CFDataGetBytePtr(serializedData), 
+                (mach_msg_type_number_t) CFDataGetLength(serializedData));
         
     CFRelease( serializedData );
 
@@ -119,7 +111,9 @@ IOReturn IOUPSGetEvent(mach_port_t connect, int upsID, CFDictionaryRef *event)
     if (!connect || !event)
         return kIOReturnBadArgument;
 
-    ret = io_ups_get_event(connect, upsID, &buffer, &bufferSize);
+    ret = io_ups_get_event(connect, upsID, 
+                (vm_offset_t *)&buffer, 
+                (mach_msg_type_number_t *)&bufferSize);
     
     if ( ret != kIOReturnSuccess )
         return ret;
@@ -140,7 +134,9 @@ IOReturn IOUPSGetCapabilities(mach_port_t connect, int upsID, CFSetRef *capabili
     if (!connect || !capabilities)
         return kIOReturnBadArgument;
 
-    ret = io_ups_get_capabilities(connect, upsID, &buffer, &bufferSize);
+    ret = io_ups_get_capabilities(connect, upsID, 
+                (vm_offset_t *)&buffer, 
+                (mach_msg_type_number_t *)&bufferSize);
     
     if ( ret != kIOReturnSuccess )
         return ret;

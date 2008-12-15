@@ -12,10 +12,13 @@
 
 FBSDSECTIONS= 1 2 3 4 5 6 7 8 9
 
+# This .for statement forces evaluation of ${_cwd}
+.for _cwd in ${CWD}
+
 .for _src in ${FBSDSRCS}
 .ifmake autopatch
-${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHCUR
-AUTOPATCHSRCS+= ${_src:R}-fbsd.${_src:E}
+${_cwd}/${_src:R}-fbsd.${_src:E}: ${_cwd}/FreeBSD/${_src} _AUTOPATCH
+AUTOPATCHSRCS+= ${_cwd}/${_src:R}-fbsd.${_src:E}
 .else # !autopatch
 SRCS+= ${_src}
 .endif # autopatch
@@ -23,8 +26,8 @@ SRCS+= ${_src}
 
 .for _src in ${FBSDMDSRCS}
 .ifmake autopatch
-${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHCUR
-AUTOPATCHSRCS+= ${_src:R}-fbsd.${_src:E}
+${_cwd}/${_src:R}-fbsd.${_src:E}: ${_cwd}/FreeBSD/${_src} _AUTOPATCH
+AUTOPATCHSRCS+= ${_cwd}/${_src:R}-fbsd.${_src:E}
 .else # !autopatch
 MDSRCS+= ${_src}
 .endif # autopatch
@@ -32,8 +35,8 @@ MDSRCS+= ${_src}
 
 .for _src in ${FBSDMISRCS}
 .ifmake autopatch
-${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHCUR
-AUTOPATCHSRCS+= ${_src:R}-fbsd.${_src:E}
+${_cwd}/${_src:R}-fbsd.${_src:E}: ${_cwd}/FreeBSD/${_src} _AUTOPATCH
+AUTOPATCHSRCS+= ${_cwd}/${_src:R}-fbsd.${_src:E}
 .else # !autopatch
 MISRCS+= ${_src}
 .endif # autopatch
@@ -43,25 +46,27 @@ MISRCS+= ${_src}
 # in base variant (only in other variants)
 .ifmake autopatch
 .for _src in ${FBSDPATCHSRCS}
-${_src:R}-fbsd.${_src:E}: FreeBSD/${_src} _AUTOPATCHCUR
-AUTOPATCHSRCS+= ${_src:R}-fbsd.${_src:E}
+${_cwd}/${_src:R}-fbsd.${_src:E}: ${_cwd}/FreeBSD/${_src} _AUTOPATCH
+AUTOPATCHSRCS+= ${_cwd}/${_src:R}-fbsd.${_src:E}
 .endfor
 .endif # autopatch
 
 .ifmake autopatch
 .for _src in ${FBSDHDRS}
-${_src}: FreeBSD/${_src} _AUTOPATCHCUR
-AUTOPATCHHDRS+= ${_src}
+${_cwd}/${_src}: ${_cwd}/FreeBSD/${_src} _AUTOPATCH
+AUTOPATCHHDRS+= ${_cwd}/${_src}
 .endfor
 .endif # autopatch
 
 .for _sect in ${FBSDSECTIONS}
 .for _src in ${FBSDMAN${_sect}}
 .ifmake autopatch
-${_src}: FreeBSD/${_src} _AUTOPATCH
-AUTOPATCHMAN+= ${_src}
+${_cwd}/${_src}: ${_cwd}/FreeBSD/${_src} _AUTOPATCH
+AUTOPATCHMAN+= ${_cwd}/${_src}
 .else # !autopatch
 MAN${_sect}+= ${_src}
 .endif # autopatch
 .endfor
 .endfor
+
+.endfor # _cwd

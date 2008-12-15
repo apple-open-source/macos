@@ -16,7 +16,7 @@
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; lineEnding = 0; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1A224C3EFF42367911CA2CB7 /* USBCDCEthernet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = USBCDCEthernet.h; sourceTree = "<group>"; };
 		1A224C3FFF42367911CA2CB7 /* USBCDCEthernet.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = USBCDCEthernet.cpp; sourceTree = "<group>"; };
-		3EC7EEE308D730E2004D38EB /* USBCDCEthernet.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = USBCDCEthernet.plist; sourceTree = "<group>"; };
+		3EC7EEE308D730E2004D38EB /* USBCDCEthernet.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = USBCDCEthernet.plist; sourceTree = "<group>"; };
 		3EC7EEE408D730E2004D38EB /* USBCDCEthernet.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = USBCDCEthernet.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		F59C308D02C2AF4001000102 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
@@ -116,7 +116,6 @@
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleUSBCDCEthernet */;
 			projectDirPath = "";
 			projectRoot = "";
-			shouldCheckCompatibility = 1;
 			targets = (
 				3EC7EED508D730E2004D38EB /* USBCDCEthernet */,
 			);
@@ -204,6 +203,7 @@
 				MODULE_NAME = com.apple.driver.dts.USBCDCEthernet;
 				MODULE_VERSION = 1.0.1d2;
 				PRODUCT_NAME = USBCDCEthernet;
+				SDKROOT = "";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
 			};
@@ -226,6 +226,7 @@
 				MODULE_NAME = com.apple.driver.dts.USBCDCEthernet;
 				MODULE_VERSION = 1.0.1d2;
 				PRODUCT_NAME = USBCDCEthernet;
+				SDKROOT = "";
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;

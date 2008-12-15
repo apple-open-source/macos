@@ -153,7 +153,7 @@ eapolClientAdd(const char * if_name)
 	return (NULL);
     }
     bzero(client, sizeof(*client));
-    strcpy(client->if_name, if_name);
+    strlcpy(client->if_name, if_name, sizeof(client->if_name));
     client->pid = -1;
     LIST_INSERT_HEAD(S_clientHead_p, client, link);
     return (client);

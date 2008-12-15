@@ -28,6 +28,9 @@
 */
 /*
 	$Log: IOFireWireUserClient.cpp,v $
+	Revision 1.148.2.1  2008/04/02 01:37:22  collin
+	fix snowleopard build failure
+	
 	Revision 1.148  2007/06/21 04:08:44  collin
 	*** empty log message ***
 	
@@ -344,7 +347,6 @@ bool IOFireWireUserClient::initWithTask(
     bool res = IOUserClient::initWithTask( owningTask, securityToken, type, properties );
 	
 	fTask = owningTask;
-	mappings = 0;
 	
     return res;
 }

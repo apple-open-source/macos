@@ -54,7 +54,6 @@ extern "C" {
 
 
 enum {
-	kAppleVendorID		= 0x05AC,	/* Assigned by USB-if*/
 	kPrdRootHubApple	= 0x8005,	/* Apple ASIC root hub*/
 	kOHCIRootHubPollingInterval = 32	// Polling interval in ms
 };
@@ -69,14 +68,14 @@ IOReturn AppleUSBOHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
     {
         sizeof(IOUSBDeviceDescriptor),			// UInt8 length;
         kUSBDeviceDesc,							// UInt8 descType;
-        USB_CONSTANT16(kUSBRel10),				// UInt16 usbRel;
+        HostToUSBWord(kUSBRel20),				// UInt16 usbRel;
         kUSBHubClass,							// UInt8 class;
         kUSBHubSubClass,						// UInt8 subClass;
         0,										// UInt8 protocol;
         8,										// UInt8 maxPacketSize;
-        USB_CONSTANT16(kAppleVendorID),			// UInt16 vendor:  Use the Apple Vendor ID from USB-IF
-        USB_CONSTANT16(kPrdRootHubApple),		// UInt16 product:  All our root hubs are the same
-        USB_CONSTANT16(0x0190),					// UInt16 bcdDevice
+        HostToUSBWord(kAppleVendorID),			// UInt16 vendor:  Use the Apple Vendor ID from USB-IF
+        HostToUSBWord(kPrdRootHubApple),		// UInt16 product:  All our root hubs are the same
+        HostToUSBWord(0x0190),					// UInt16 bcdDevice
         2,										// UInt8 manuIdx;
         1,										// UInt8 prodIdx;
         0,										// UInt8 serialIdx;
@@ -86,6 +85,12 @@ IOReturn AppleUSBOHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
     if (!desc)
         return(kIOReturnNoMemory);
 
+	// If we have an NVDA errata to ignore disconnects, then set the bcdDevice to 0x0279
+	if (_errataBits & kErrataMCP79IgnoreDisconnect)
+	{
+		newDesc.bcdDevice = HostToUSBWord(0x0279);
+	}
+
     bcopy(&newDesc, desc, newDesc.bLength);
 
     return(kIOReturnSuccess);
@@ -93,11 +98,13 @@ IOReturn AppleUSBOHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
 
 IOReturn AppleUSBOHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
 {
-    IOUSBHubDescriptor hubDesc;
-    UInt8 pps, nps, cd, ppoc, noc;
-    UInt32 descriptorA, descriptorB, data;
-    UInt8 *dstP;
-    unsigned int i, numBytes;
+    IOUSBHubDescriptor	hubDesc;
+    UInt8				pps, nps, cd, ppoc, noc;
+    UInt32				descriptorA, descriptorB, data;
+    UInt8 *				dstP;
+    unsigned int		i, numBytes;
+    UInt32				appleCaptive = 0;
+	OSNumber *			appleCaptiveProperty = NULL;
 
     descriptorA = USBToHostLong(_pOHCIRegisters->hcRhDescriptorA);
     descriptorB = USBToHostLong(_pOHCIRegisters->hcRhDescriptorB);
@@ -132,12 +139,18 @@ IOReturn AppleUSBOHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
     numBytes = (hubDesc.numPorts + 1) / 8 + 1;
     dstP = (UInt8 *)&hubDesc.removablePortFlags[0];
         
-    // bitmap of removable port flags
-    data = (descriptorB & kOHCIHcRhDescriptorB_DR) >> kOHCIHcRhDescriptorB_DRPhase;
-    for (i=0; i<numBytes; i++) 
+    // bitmap of removable port flags.  If we have the apple property, use it,
+	// otherwise use the OHCI register
+	appleCaptiveProperty = OSDynamicCast(OSNumber, _device->getProperty(kAppleInternalUSBDevice));
+	if (appleCaptiveProperty)
+		appleCaptive = appleCaptiveProperty->unsigned32BitValue();
+	else
+		appleCaptive = (UInt32) (descriptorB & kOHCIHcRhDescriptorB_DR) >> kOHCIHcRhDescriptorB_DRPhase;
+	
+    for (i = 0; i < numBytes; i++) 
 	{
-        *dstP++ = (UInt8)data;
-        data >>= 8;
+        *dstP++ = (UInt8) (appleCaptive & 0xFF);
+        appleCaptive >>= 8;
     }
         
     // bitmap of power control flags
@@ -270,8 +283,9 @@ AppleUSBOHCI::ClearRootHubFeature(UInt16 wValue)
             break;
 
         case kUSBHubOverCurrentChangeFeature :
-            USBLog(3, "AppleUSBOHCI[%p]::ClearRootHubFeature - unimplemented Clear Overcurrent Change Feature", this);
-            // OHCIRootHubOCChange(false);  // not implemented yet
+            USBLog(3, "AppleUSBOHCI[%p]::ClearRootHubFeature - writing to clear the OCIC bit", this);
+			_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC);			// clear the OC indicator change
+			IOSync();		
             break;
 
         default:
@@ -422,11 +436,13 @@ AppleUSBOHCI::OHCIRootHubPower(bool on)
     USBLog(2,"AppleUSBOHCI[%p]::OHCIRootHubPower (%s)", this, on ? "true" : "false");
     if(on)
     {
-		_pOHCIRegisters->hcRhStatus |= HostToUSBLong(kOHCIHcRhStatus_LPSC);			// turn on global power
+		// when writing, LPSC is the SetGlobalPower bit
+		_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_LPSC);			// turn on global power
     }
     else
     {
-		_pOHCIRegisters->hcRhStatus |= HostToUSBLong(kOHCIHcRhStatus_LPS);			// turn off global power
+		// when writing, LPS is the ClearGlobalPower bit
+		_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_LPS);			// turn off global power
     }
     IOSync();
     return;

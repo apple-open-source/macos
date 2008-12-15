@@ -29,7 +29,7 @@
 
 __BEGIN_DECLS
 
-#if __i386__
+#if defined(__i386__) || defined(__x86_64__)
 
 #include <i386/cpuid.h>
 #include <i386/cpu_number.h>
@@ -587,7 +587,6 @@ void CLASS::matchDTEntry( IORegistryEntry * dtEntry, void * _context )
     pci_dev_t             bridge = context->bridge;
     pci_dev_t             match = 0;
     const OSSymbol *      location;	
-    IOService *           service;
 
     assert(bridge);
     assert(dtEntry);
@@ -611,7 +610,7 @@ void CLASS::matchDTEntry( IORegistryEntry * dtEntry, void * _context )
         }
     }
 
-    if ((service = OSDynamicCast(IOService, dtEntry)) && service->isInactive())
+    if (dtEntry->inPlane(gIOServicePlane))
 	match = 0;
 
     if (match)
@@ -623,8 +622,8 @@ void CLASS::matchDTEntry( IORegistryEntry * dtEntry, void * _context )
     }
     else
     {
-	DLOGC(context->me, "NOT FOUND: PCI device for DT entry [%s] %lu:%lu\n", 
-		dtEntry->getName(), deviceNum, functionNum);
+	DLOGC(context->me, "NOT FOUND: PCI device for DT entry [%s] %u:%u\n", 
+		dtEntry->getName(), (uint32_t) deviceNum, (uint32_t) functionNum);
     }
 
     if (location)
@@ -670,8 +669,8 @@ void CLASS::matchACPIEntry( IORegistryEntry * dtEntry, void * _context )
     }
     else
     {
-	DLOGC(context->me, "NOT FOUND: PCI device for ACPI entry [%s] %lu:%lu\n",
-		dtEntry->getName(), deviceNum, functionNum);
+	DLOGC(context->me, "NOT FOUND: PCI device for ACPI entry [%s] %u:%u\n",
+		dtEntry->getName(), (uint32_t) deviceNum, (uint32_t) functionNum);
     }
 }
 
@@ -1036,9 +1035,9 @@ void CLASS::pciBridgeCheckConfiguration( pci_dev_t bridge )
             memcpy(&bridge->ranges[BRIDGE_RANGE_NUM(i)],
                    &newRanges[i], sizeof(IOPCIRange));
 
-            DLOG("  %s: new range size %llx align %llx flags %lx\n",
+            DLOG("  %s: new range size %llx align %llx flags %x\n",
                  gPCIResourceTypeName[i],
-                 newRanges[i].size, newRanges[i].alignment, newRanges[i].flags);
+                 newRanges[i].size, newRanges[i].alignment, (uint32_t) newRanges[i].flags);
         }
 
 	bridge->deviceState = kPCIDeviceStateResourceWait;
@@ -1600,7 +1599,7 @@ void CLASS::pciDeviceApplyConfiguration( pci_dev_t device )
                kIOPCICommandBusMaster | kIOPCICommandMemWrInvalidate);
     pciRestoreAccess(device, reg16);
 
-    DLOG("  Device Command = %08lx\n",
+    DLOG("  Device Command = %08x\n", (uint32_t) 
          configRead32(device->space, kIOPCIConfigCommand));
 }
 
@@ -1728,9 +1727,9 @@ void CLASS::pciBridgeApplyConfiguration( pci_dev_t bridge )
 	configWrite32(bridge->space, kPCI2PCIPrefetchUpperBase,  0);
 	configWrite32(bridge->space, kPCI2PCIPrefetchUpperLimit, 0);
 
-	DLOG("  MEM: base/limit   = %08lx\n",
+	DLOG("  MEM: base/limit   = %08x\n", (uint32_t) 
 	     configRead32(bridge->space, kPCI2PCIMemoryRange));
-	DLOG("  PFM: base/limit   = %08lx\n",
+	DLOG("  PFM: base/limit   = %08x\n", (uint32_t) 
 	     configRead32(bridge->space, kPCI2PCIPrefetchMemoryRange));
 	DLOG("  I/O: base/limit   = %04x\n",
 	     configRead16(bridge->space, kPCI2PCIIORange));
@@ -1771,7 +1770,7 @@ void CLASS::pciBridgeApplyConfiguration( pci_dev_t bridge )
 
 	pciRestoreAccess(bridge, reg16);
 
-	DLOG("  Bridge Command    = %08lx\n",
+	DLOG("  Bridge Command    = %08x\n", (uint32_t) 
 	     configRead32(bridge->space, kIOPCIConfigCommand));
     }
 }
@@ -1798,7 +1797,7 @@ void CLASS::pciBridgeProbeChild( pci_dev_t bridge, IOPCIAddressSpace space )
     child->classCode = configRead32(space, kIOPCIConfigRevisionID) >> 8;
     child->space = space;
 
-    DLOG("Probing type %u device class-code %06lx at %u:%u:%u [cpu %x]\n",
+    DLOG("Probing type %u device class-code %06x at %u:%u:%u [cpu %x]\n",
          child->headerType, child->classCode,
          PCI_ADDRESS_TUPLE(child),
          cpu_number());

@@ -144,7 +144,7 @@ static void rebuild_tearoff(vimmenu_T *menu);
 static HBITMAP	s_htearbitmap;	    /* bitmap used to indicate tearoff */
 #endif
 
-/* Flag that is set while processing a message that must not be interupted by
+/* Flag that is set while processing a message that must not be interrupted by
  * processing another message. */
 static int		s_busy_processing = FALSE;
 
@@ -290,6 +290,11 @@ static struct
 
 /* Local variables */
 static int		s_button_pending = -1;
+
+/* s_getting_focus is set when we got focus but didn't see mouse-up event yet,
+ * so don't reset s_button_pending. */
+static int		s_getting_focus = FALSE;
+
 static int		s_x_pending;
 static int		s_y_pending;
 static UINT		s_kFlags_pending;
@@ -486,10 +491,11 @@ _OnDeadChar(
 
 /*
  * Convert Unicode character "ch" to bytes in "string[slen]".
+ * When "had_alt" is TRUE the ALT key was included in "ch".
  * Return the length.
  */
     static int
-char_to_string(int ch, char_u *string, int slen)
+char_to_string(int ch, char_u *string, int slen, int had_alt)
 {
     int		len;
     int		i;
@@ -522,8 +528,22 @@ char_to_string(int ch, char_u *string, int slen)
 	 * "enc_codepage" is non-zero use the standard Win32 function,
 	 * otherwise use our own conversion function (e.g., for UTF-8). */
 	if (enc_codepage > 0)
+	{
 	    len = WideCharToMultiByte(enc_codepage, 0, wstring, len,
 						       string, slen, 0, NULL);
+	    /* If we had included the ALT key into the character but now the
+	     * upper bit is no longer set, that probably means the conversion
+	     * failed.  Convert the original character and set the upper bit
+	     * afterwards. */
+	    if (had_alt && len == 1 && ch >= 0x80 && string[0] < 0x80)
+	    {
+		wstring[0] = ch & 0x7f;
+		len = WideCharToMultiByte(enc_codepage, 0, wstring, len,
+						       string, slen, 0, NULL);
+		if (len == 1) /* safety check */
+		    string[0] |= 0x80;
+	    }
+	}
 	else
 	{
 	    len = 1;
@@ -573,7 +593,7 @@ _OnChar(
     char_u	string[40];
     int		len = 0;
 
-    len = char_to_string(ch, string, 40);
+    len = char_to_string(ch, string, 40, FALSE);
     if (len == 1 && string[0] == Ctrl_C && ctrl_c_interrupts)
     {
 	trash_input_buf();
@@ -640,7 +660,7 @@ _OnSysChar(
     {
 	/* Although the documentation isn't clear about it, we assume "ch" is
 	 * a Unicode character. */
-	len += char_to_string(ch, string + len, 40 - len);
+	len += char_to_string(ch, string + len, 40 - len, TRUE);
     }
 
     add_to_input_buf(string, len);
@@ -655,6 +675,8 @@ _OnMouseEvent(
     UINT keyFlags)
 {
     int vim_modifiers = 0x0;
+
+    s_getting_focus = FALSE;
 
     if (keyFlags & MK_SHIFT)
 	vim_modifiers |= MOUSE_SHIFT;
@@ -777,6 +799,7 @@ _OnMouseMoveOrRelease(
 {
     int button;
 
+    s_getting_focus = FALSE;
     if (s_button_pending > -1)
     {
 	/* Delayed action for mouse down event */
@@ -1664,7 +1687,11 @@ process_message(void)
 	/* request is handled in normal.c */
     }
     if (msg.message == WM_USER)
+    {
+	MyTranslateMessage(&msg);
+	DispatchMessage(&msg);
 	return;
+    }
 #endif
 
 #ifdef MSWIN_FIND_REPLACE
@@ -1771,7 +1798,7 @@ process_message(void)
 		    int	len;
 
 		    /* Handle "key" as a Unicode character. */
-		    len = char_to_string(key, string, 40);
+		    len = char_to_string(key, string, 40, FALSE);
 		    add_to_input_buf(string, len);
 		}
 		break;
@@ -1932,8 +1959,10 @@ gui_mch_wait_for_chars(int wtime)
 	    allow_scrollbar = FALSE;
 
 	    /* Clear pending mouse button, the release event may have been
-	     * taken by the dialog window. */
-	    s_button_pending = -1;
+	     * taken by the dialog window.  But don't do this when getting
+	     * focus, we need the mouse-up event then. */
+	    if (!s_getting_focus)
+		s_button_pending = -1;
 
 	    return OK;
 	}
@@ -2190,7 +2219,18 @@ gui_mch_show_toolbar(int showit)
 	return;
 
     if (showit)
+    {
+# ifdef FEAT_MBYTE
+#  ifndef TB_SETUNICODEFORMAT
+    /* For older compilers.  We assume this never changes. */
+#   define TB_SETUNICODEFORMAT 0x2005
+#  endif
+	/* Enable/disable unicode support */
+	int uu = (enc_codepage >= 0 && (int)GetACP() != enc_codepage);
+	SendMessage(s_toolbarhwnd, TB_SETUNICODEFORMAT, (WPARAM)uu, (LPARAM)0);
+# endif
 	ShowWindow(s_toolbarhwnd, SW_SHOW);
+    }
     else
 	ShowWindow(s_toolbarhwnd, SW_HIDE);
 }
@@ -2202,10 +2242,54 @@ gui_mch_show_toolbar(int showit)
 
 #if defined(FEAT_GUI_TABLINE) || defined(PROTO)
     static void
+add_tabline_popup_menu_entry(HMENU pmenu, UINT item_id, char_u *item_text)
+{
+#ifdef FEAT_MBYTE
+    WCHAR	*wn = NULL;
+    int		n;
+
+    if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+    {
+	/* 'encoding' differs from active codepage: convert menu name
+	 * and use wide function */
+	wn = enc_to_ucs2(item_text, NULL);
+	if (wn != NULL)
+	{
+	    MENUITEMINFOW	infow;
+
+	    infow.cbSize = sizeof(infow);
+	    infow.fMask = MIIM_TYPE | MIIM_ID;
+	    infow.wID = item_id;
+	    infow.fType = MFT_STRING;
+	    infow.dwTypeData = wn;
+	    infow.cch = (UINT)wcslen(wn);
+	    n = InsertMenuItemW(pmenu, item_id, FALSE, &infow);
+	    vim_free(wn);
+	    if (n == 0 && GetLastError() == ERROR_CALL_NOT_IMPLEMENTED)
+		/* Failed, try using non-wide function. */
+		wn = NULL;
+	}
+    }
+
+    if (wn == NULL)
+#endif
+    {
+	MENUITEMINFO	info;
+
+	info.cbSize = sizeof(info);
+	info.fMask = MIIM_TYPE | MIIM_ID;
+	info.wID = item_id;
+	info.fType = MFT_STRING;
+	info.dwTypeData = item_text;
+	info.cch = (UINT)STRLEN(item_text);
+	InsertMenuItem(pmenu, item_id, FALSE, &info);
+    }
+}
+
+    static void
 show_tabline_popup_menu(void)
 {
     HMENU	    tab_pmenu;
-    MENUITEMINFO    minfo;
     long	    rval;
     POINT	    pt;
 
@@ -2221,21 +2305,10 @@ show_tabline_popup_menu(void)
     if (tab_pmenu == NULL)
 	return;
 
-    minfo.cbSize = sizeof(MENUITEMINFO);
-    minfo.fMask = MIIM_TYPE|MIIM_ID;
-    minfo.fType = MFT_STRING;
-
-    minfo.dwTypeData = _("Close tab");
-    minfo.wID = TABLINE_MENU_CLOSE;
-    InsertMenuItem(tab_pmenu, TABLINE_MENU_CLOSE, FALSE, &minfo);
-
-    minfo.dwTypeData = _("New tab");
-    minfo.wID = TABLINE_MENU_NEW;
-    InsertMenuItem(tab_pmenu, TABLINE_MENU_NEW, FALSE, &minfo);
-
-    minfo.dwTypeData = _("Open tab...");
-    minfo.wID = TABLINE_MENU_OPEN;
-    InsertMenuItem(tab_pmenu, TABLINE_MENU_OPEN, FALSE, &minfo);
+    add_tabline_popup_menu_entry(tab_pmenu, TABLINE_MENU_CLOSE, _("Close tab"));
+    add_tabline_popup_menu_entry(tab_pmenu, TABLINE_MENU_NEW, _("New tab"));
+    add_tabline_popup_menu_entry(tab_pmenu, TABLINE_MENU_OPEN,
+				 _("Open tab..."));
 
     GetCursorPos(&pt);
     rval = TrackPopupMenuEx(tab_pmenu, TPM_RETURNCMD, pt.x, pt.y, s_tabhwnd,
@@ -2357,8 +2430,7 @@ gui_mch_update_tabline(void)
 		tiw.mask = TCIF_TEXT;
 		tiw.iImage = -1;
 		tiw.pszText = wstr;
-		SendMessage(s_tabhwnd, TCM_INSERTITEMW, (WPARAM)nr,
-								(LPARAM)&tiw);
+		SendMessage(s_tabhwnd, TCM_SETITEMW, (WPARAM)nr, (LPARAM)&tiw);
 		vim_free(wstr);
 	    }
 	}
@@ -2440,6 +2512,30 @@ initialise_findrep(char_u *initial_string)
 }
 #endif
 
+    static void
+set_window_title(HWND hwnd, char *title)
+{
+#ifdef FEAT_MBYTE
+    if (title != NULL && enc_codepage >= 0 && enc_codepage != (int)GetACP())
+    {
+	WCHAR	*wbuf;
+	int	n;
+
+	/* Convert the title from 'encoding' to ucs2. */
+	wbuf = (WCHAR *)enc_to_ucs2((char_u *)title, NULL);
+	if (wbuf != NULL)
+	{
+	    n = SetWindowTextW(hwnd, wbuf);
+	    vim_free(wbuf);
+	    if (n != 0 || GetLastError() != ERROR_CALL_NOT_IMPLEMENTED)
+		return;
+	    /* Retry with non-wide function (for Windows 98). */
+	}
+    }
+#endif
+    (void)SetWindowText(hwnd, (LPCSTR)title);
+}
+
     void
 gui_mch_find_dialog(exarg_T *eap)
 {
@@ -2455,8 +2551,8 @@ gui_mch_find_dialog(exarg_T *eap)
 	    s_findrep_hwnd = FindText((LPFINDREPLACE) &s_findrep_struct);
 	}
 
-	(void)SetWindowText(s_findrep_hwnd,
-		       (LPCSTR)_("Find string (use '\\\\' to find  a '\\')"));
+	set_window_title(s_findrep_hwnd,
+			       _("Find string (use '\\\\' to find  a '\\')"));
 	(void)SetFocus(s_findrep_hwnd);
 
 	s_findrep_is_find = TRUE;
@@ -2480,8 +2576,8 @@ gui_mch_replace_dialog(exarg_T *eap)
 	    s_findrep_hwnd = ReplaceText((LPFINDREPLACE) &s_findrep_struct);
 	}
 
-	(void)SetWindowText(s_findrep_hwnd,
-		    (LPCSTR)_("Find & Replace (use '\\\\' to find  a '\\')"));
+	set_window_title(s_findrep_hwnd,
+			    _("Find & Replace (use '\\\\' to find  a '\\')"));
 	(void)SetFocus(s_findrep_hwnd);
 
 	s_findrep_is_find = FALSE;
@@ -2616,6 +2712,7 @@ _OnSetFocus(
     HWND hwndOldFocus)
 {
     gui_focus_change(TRUE);
+    s_getting_focus = TRUE;
     (void)MyWindowProc(hwnd, WM_SETFOCUS, (WPARAM)hwndOldFocus, 0);
 }
 
@@ -2625,6 +2722,7 @@ _OnKillFocus(
     HWND hwndNewFocus)
 {
     gui_focus_change(FALSE);
+    s_getting_focus = FALSE;
     (void)MyWindowProc(hwnd, WM_KILLFOCUS, (WPARAM)hwndNewFocus, 0);
 }
 
@@ -2961,13 +3059,25 @@ gui_mch_init_font(char_u *font_name, int fontset)
     return OK;
 }
 
+#ifndef WPF_RESTORETOMAXIMIZED
+# define WPF_RESTORETOMAXIMIZED 2   /* just in case someone doesn't have it */
+#endif
+
 /*
  * Return TRUE if the GUI window is maximized, filling the whole screen.
  */
     int
 gui_mch_maximized()
 {
-    return IsZoomed(s_hwnd);
+    WINDOWPLACEMENT wp;
+
+    wp.length = sizeof(WINDOWPLACEMENT);
+    if (GetWindowPlacement(s_hwnd, &wp))
+	return wp.showCmd == SW_SHOWMAXIMIZED
+	    || (wp.showCmd == SW_SHOWMINIMIZED
+		    && wp.flags == WPF_RESTORETOMAXIMIZED);
+
+    return 0;
 }
 
 /*
@@ -3000,25 +3110,7 @@ gui_mch_settitle(
     char_u  *title,
     char_u  *icon)
 {
-#ifdef FEAT_MBYTE
-    if (title != NULL && enc_codepage >= 0 && enc_codepage != (int)GetACP())
-    {
-	WCHAR	*wbuf;
-	int	n;
-
-	/* Convert the title from 'encoding' to ucs2. */
-	wbuf = (WCHAR *)enc_to_ucs2(title, NULL);
-	if (wbuf != NULL)
-	{
-	    n = SetWindowTextW(s_hwnd, wbuf);
-	    vim_free(wbuf);
-	    if (n != 0 || GetLastError() != ERROR_CALL_NOT_IMPLEMENTED)
-		return;
-	    /* Retry with non-wide function (for Windows 98). */
-	}
-    }
-#endif
-    SetWindowText(s_hwnd, (LPCSTR)(title == NULL ? "VIM" : (char *)title));
+    set_window_title(s_hwnd, (title == NULL ? "VIM" : (char *)title));
 }
 
 #ifdef FEAT_MOUSESHAPE
@@ -3062,12 +3154,12 @@ mch_set_mouse_shape(int shape)
 	    idc = MAKEINTRESOURCE(IDC_ARROW);
 	else
 	    idc = mshape_idcs[shape];
-#ifdef _WIN64
-	SetClassLongPtr(s_textArea, GCLP_HCURSOR, (LONG_PTR)LoadCursor(NULL, idc));
+#ifdef SetClassLongPtr
+	SetClassLongPtr(s_textArea, GCLP_HCURSOR, (__int3264)(LONG_PTR)LoadCursor(NULL, idc));
 #else
 # ifdef WIN32
-	SetClassLong(s_textArea, GCL_HCURSOR, (LONG)LoadCursor(NULL, idc));
-# else
+	SetClassLong(s_textArea, GCL_HCURSOR, (long_u)LoadCursor(NULL, idc));
+# else /* Win16 */
 	SetClassWord(s_textArea, GCW_HCURSOR, (WORD)LoadCursor(NULL, idc));
 # endif
 #endif
@@ -3236,11 +3328,7 @@ gui_mch_browseW(
     SetFocus(s_hwnd);
 
     /* Shorten the file name if possible */
-    mch_dirname(IObuff, IOSIZE);
-    p = shorten_fname((char_u *)fileBuf, IObuff);
-    if (p == NULL)
-	p = (char_u *)fileBuf;
-    return vim_strsave(p);
+    return vim_strsave(shorten_fname1((char_u *)fileBuf));
 }
 # endif /* FEAT_MBYTE */
 
@@ -3385,11 +3473,7 @@ gui_mch_browse(
     SetFocus(s_hwnd);
 
     /* Shorten the file name if possible */
-    mch_dirname(IObuff, IOSIZE);
-    p = shorten_fname((char_u *)fileBuf, IObuff);
-    if (p == NULL)
-	p = (char_u *)fileBuf;
-    return vim_strsave(p);
+    return vim_strsave(shorten_fname1((char_u *)fileBuf));
 }
 #endif /* FEAT_BROWSE */
 

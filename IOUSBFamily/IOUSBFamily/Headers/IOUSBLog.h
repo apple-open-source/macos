@@ -35,7 +35,7 @@
 // USB Specific defines
 #define USBLog( LEVEL, ARGS...)		KernelDebugLogTag( LEVEL, 'USBF', ## ARGS )
 #define USBError( LEVEL, ARGS...)	KernelDebugLogInternal( ( LEVEL ), 'USBF', ## ARGS )
-
+#define USBStringFromReturn( IORETURN)	(IOUSBController::_log)->stringFromReturn( IORETURN )
 
 
 // Possible Debug levels. If DEBUG_LEVEL is set to DEBUG_LEVEL_PRODUCTION, all debug logs will be 
@@ -189,7 +189,7 @@ public:
     
     virtual bool 			init(OSDictionary *dictionary = 0);
     virtual void 			free(void);
-    
+   
     virtual IOService *			probe(IOService *provider, SInt32 *score);
     virtual bool 			start(IOService *provider);
     virtual void 			stop(IOService *provider);
@@ -214,12 +214,13 @@ class IOUSBLog : public IOService
 private:
 public:
     virtual bool	init( OSDictionary * dictionary = 0 );
-    static IOUSBLog	*usblog();
+  	virtual const char *			stringFromReturn( IOReturn rtn );
+	static IOUSBLog	*usblog();
     virtual void 	AddStatusLevel (UInt32 level, UInt32 ref, char *status, UInt32 value);
     virtual void	AddStatus(char *message);
     virtual void	AddStatus(UInt32 level, char *message);
     virtual void 	USBLogPrintf(UInt32 level, char *format,...);
-
+	virtual char *	strstr(const char *in, const char *str);
 };
 
 

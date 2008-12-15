@@ -125,7 +125,7 @@ static char *apr_error_string(apr_status_t statcode)
     case APR_EABOVEROOT:
         return "The given path was above the root path";
     case APR_EBADPATH:
-        return "The given path misformatted or contained invalid characters";
+        return "The given path is misformatted or contained invalid characters";
     case APR_EPATHWILD:
         return "The given path contained wildcard characters";
     case APR_EPROC_UNKNOWN:
@@ -247,14 +247,34 @@ static char *apr_os_strerror(char *buf, apr_size_t bufsize, apr_status_t errcode
     apr_size_t len=0, i;
 
 #ifndef NETWARE
-    len = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM 
+#ifndef _WIN32_WCE
+    len = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM 
                       | FORMAT_MESSAGE_IGNORE_INSERTS,
                         NULL,
                         errcode,
                         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* Default language */
-                        (LPTSTR) buf,
+                        buf,
                         (DWORD)bufsize,
                         NULL);
+#else /* _WIN32_WCE speaks unicode */
+     LPTSTR msg = (LPTSTR) buf;
+     len = FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM 
+                       | FORMAT_MESSAGE_IGNORE_INSERTS,
+                         NULL,
+                         errcode,
+                         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), /* Default language */
+                         msg,
+                         (DWORD) (bufsize/sizeof(TCHAR)),
+                         NULL);
+     /* in-place convert to US-ASCII, substituting '?' for non ASCII   */
+     for(i = 0; i <= len; i++) {
+        if (msg[i] < 0x80 && msg[i] >= 0) {
+            buf[i] = (char) msg[i];
+        } else {
+            buf[i] = '?';
+        }
+    }
+#endif
 #endif
 
     if (!len) {

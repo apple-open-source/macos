@@ -21,8 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifdef __APPLE_PR3375657_HACK__
-
 /*
  * When mutexes or spinlocks were added for thread safety, the system would
  * hang during the boot process, just after changing to the blue background.
@@ -407,5 +405,3 @@ _shm_match(const char *name)
 	return dosearch(name, shm_hack_names);
 #endif /* SHM_DEBUG_FILE */
 }
-
-#endif /* __APPLE_PR3375657_HACK__ */

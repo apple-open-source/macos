@@ -26,6 +26,7 @@
 #include <sys/systm.h>
 
 #include <IOKit/usb/IOUSBLog.h>
+#include <IOKit/usb/USB.h>
 
 #ifdef	__cplusplus
 	extern "C" {
@@ -120,7 +121,7 @@ void	KernelDebugLogInternal( UInt32 inLevel,  UInt32 inTag, char const *inFormat
 {	
     AbsoluteTime	currentTime;
     UInt64		elapsedTime;
-    UInt32		secs, milliSecs;
+    uint32_t		secs, milliSecs;
     
     if( inLevel > gKernelDebugLevel )
     {
@@ -149,7 +150,7 @@ void	KernelDebugLogInternal( UInt32 inLevel,  UInt32 inTag, char const *inFormat
             secs = elapsedTime / 1000;
             milliSecs = elapsedTime % 1000;
 
-            IOLog("%c%c%c%c:\t%ld.%3.3ld\t",(char)(inTag>>24), (char)(inTag>>16), (char)(inTag>>8), (char)inTag, secs, milliSecs);
+            IOLog("%c%c%c%c:\t%d.%3.3d\t",(char)(inTag>>24), (char)(inTag>>16), (char)(inTag>>8), (uint32_t)inTag, secs, milliSecs);
 
             va_start( ap, inFormatString );
             _doprnt( inFormatString, &ap, conslog_putc, 16 );
@@ -367,4 +368,75 @@ void	IOUSBLog::AddStatus(UInt32 level, char *message)
 {
     
 }
+
+char *
+IOUSBLog::strstr(const char *in, const char *str)
+{
+    char c;
+    size_t len;
+	
+    c = *str++;
+    if (!c)
+        return (char *) in;	// Trivial empty string case
+	
+    len = strlen(str);
+    do {
+        char sc;
+		
+        do {
+            sc = *in++;
+            if (!sc)
+                return (char *) 0;
+        } while (sc != c);
+    } while (strncmp(in, str, len) != 0);
+	
+    return (char *) (in - 1);
+}
+
+const char * 
+IOUSBLog::stringFromReturn( IOReturn rtn )
+{
+	static const IONamedValue USBReturn_values[] = { 
+		{kIOUSBUnknownPipeErr,								"Pipe is invalid"														},
+		{kIOUSBTooManyPipesErr,								"Device specified too many endpoints"									},
+		{kIOUSBNoAsyncPortErr,								"Async Port has not been specified"        								},
+		{kIOUSBNotEnoughPipesErr,							"Desired pipe was not found"        									},
+		{kIOUSBNotEnoughPowerErr,							"There is not enough power for the device"        						},
+		{kIOUSBEndpointNotFound,							"Endpoint does not exist"												},
+		{kIOUSBConfigNotFound,								"Configuration does not exist"											},
+		{kIOUSBTransactionTimeout,							"Rrequest did not finish"												},
+		{kIOUSBTransactionReturned,							"Request has been returned to the caller"								},
+		{kIOUSBPipeStalled,									"Request returned a STALL"												},
+		{kIOUSBInterfaceNotFound,							"Requested interface was not found"       								},
+		{kIOUSBLowLatencyBufferNotPreviouslyAllocated,		"The buffer was not pre-allocated"										},
+		{kIOUSBLowLatencyFrameListNotPreviouslyAllocated,	"The frame list was not pre-allocated"									},
+		{kIOUSBHighSpeedSplitError,							"High Speed hub returned a split transaction error"						},
+		{kIOUSBSyncRequestOnWLThread,						"Synchronous request was issued while holding from within the workloop"	},
+		{kIOUSBHighSpeedSplitError,							"High Speed hub returned a split transaction error"						},
+		{kIOUSBLinkErr,										"USB controller error"       											},
+		{kIOUSBNotSent1Err,									"The isoch transfer did not occur, scheduled too late"					},
+		{kIOUSBNotSent2Err,									"The isoch transfer did not occur, scheduled too late"					},
+		{kIOUSBBufferUnderrunErr,							"Buffer Underrun (Host hardware failure on data out, PCI busy?"			},
+		{kIOUSBBufferOverrunErr,							"Buffer Overrun (Host hardware failure on data out, PCI busy?"			},
+		{kIOUSBReserved2Err,								"Reserved error #1"														},
+		{kIOUSBReserved1Err,								"Reserved error #2"        												},
+		{kIOUSBWrongPIDErr,									"Pipe stall, Bad or wrong PID"        									},
+		{kIOUSBPIDCheckErr	,								"Pipe stall, PID CRC error"        										},
+		{kIOUSBDataToggleErr,								"Pipe stall, Bad data toggle"       									},
+		{kIOUSBBitstufErr,									"Pipe stall, bitstuffing"												},
+		{kIOUSBCRCErr,										"Pipe stall, bad CRC"        											},
+		{kIOUSBDeviceNotHighSpeed,							"Device is not a high speed device"        								},
+		{0,													NULL																	}
+	};
+	
+	
+	const char *	returnName = IOFindNameForValue(rtn, USBReturn_values);
+	
+	if ( strstr(returnName, "UNDEFINED") != NULL)
+		returnName = super::stringFromReturn(rtn);
+	
+	return returnName;
+}
+
+
 

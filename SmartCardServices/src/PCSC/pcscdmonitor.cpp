@@ -458,26 +458,28 @@ void PCSCDMonitor::addDevice(const IOKit::Device &dev)
 			secdebug("scsel", "  Device address:  0x%08X [service: 0x%04X]", address, service);
 			setDeviceProperties(dev, *newDevice);
 			if (drivers.find(*newDevice))
+			{
 				secdebug("driver", "  found matching driver for %s: %s", newDevice->name().c_str(), newDevice->path().c_str());
+				setDebugPropertiesForDevice(dev, newDevice);
+				insert(make_pair(address, newDevice));
+				if (mAddDeviceCallback)
+				{
+					// kPCSCLITE_HP_BASE_PORT
+					uint32_t rx = (*mAddDeviceCallback)(newDevice->name().c_str(), address, newDevice->path().c_str(), newDevice->name().c_str());
+					secdebug("pcsc", "  AddDeviceCallback returned %d", rx);
+					if (rx != SCARD_S_SUCCESS && rx != SCARD_E_DUPLICATE_READER)
+					{
+						DeviceMap::iterator it = mDevices.find(address);
+						if (it != mDevices.end())		// found it
+							remove(it);					// remove from reader map
+						return;
+					}
+				}
+				PCSCDMonitor::postNotification(SecurityServer::kNotificationPCSCStateChange);
+				secdebug("pcsc", "     added to device map, address:  0x%08X, service: 0x%04X, [class @:%p]", address, service, newDevice.get());
+			}
 			else
 				secdebug("driver", "  no matching driver found for %s: %s", newDevice->name().c_str(), newDevice->path().c_str());
-			setDebugPropertiesForDevice(dev, newDevice);
-			insert(make_pair(address, newDevice));
-			if (mAddDeviceCallback)
-			{
-				// kPCSCLITE_HP_BASE_PORT
-				uint32_t rx = (*mAddDeviceCallback)(newDevice->name().c_str(), address, newDevice->path().c_str(), newDevice->name().c_str());
-				secdebug("pcsc", "  AddDeviceCallback returned %d", rx);
-				if (rx != SCARD_S_SUCCESS && rx != SCARD_E_DUPLICATE_READER)
-				{
-					DeviceMap::iterator it = mDevices.find(address);
-					if (it != mDevices.end())		// found it
-						remove(it);					// remove from reader map
-					return;
-				}
-			}
-	PCSCDMonitor::postNotification(SecurityServer::kNotificationPCSCStateChange);
-			secdebug("pcsc", "     added to device map, address:  0x%08X, service: 0x%04X, [class @:%p]", address, service, newDevice.get());
 		}
 		else
 			secdebug("pcsc", "  device added notice, but failed to find address for service: 0x%04X", service);

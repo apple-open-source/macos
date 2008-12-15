@@ -1,6 +1,6 @@
---- localeconv.c.orig	2004-11-25 11:38:18.000000000 -0800
-+++ localeconv.c	2005-02-17 23:35:43.000000000 -0800
-@@ -38,11 +38,69 @@
+--- localeconv.c.orig	2008-03-15 10:50:38.000000000 -0700
++++ localeconv.c	2008-03-26 16:49:24.000000000 -0700
+@@ -38,11 +38,71 @@ static char sccsid[] = "@(#)localeconv.c
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/localeconv.c,v 1.13 2003/06/26 10:46:16 phantom Exp $");
  
@@ -12,6 +12,7 @@
  #include "lmonetary.h"
  #include "lnumeric.h"
  
++#ifdef __APPLE_PR3417676_HACK__
 +/*------------------------------------------------------------------------
 + * PR-3417676: We need to provide a way to force "C" locale style number
 + * formatting independent of the locale setting.  We provide private
@@ -66,11 +67,12 @@
 +    _onlyClocaleconv = val;
 +    return prev;
 +}
++#endif /* __APPLE_PR3417676_HACK__ */
 +
  /* 
   * The localeconv() function constructs a struct lconv from the current
   * monetary and numeric locales.
-@@ -52,25 +110,37 @@
+@@ -52,25 +112,37 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
   * lconv structure are computed only when the monetary or numeric 
   * locale has been changed.
   */
@@ -116,7 +118,7 @@
  	M_ASSIGN_STR(int_curr_symbol);
  	M_ASSIGN_STR(currency_symbol);
  	M_ASSIGN_STR(mon_decimal_point);
-@@ -92,21 +162,39 @@
+@@ -92,21 +164,41 @@ localeconv()
  	M_ASSIGN_CHAR(int_n_sep_by_space);
  	M_ASSIGN_CHAR(int_p_sign_posn);
  	M_ASSIGN_CHAR(int_n_sign_posn);
@@ -154,11 +156,13 @@
 +struct lconv *
 +localeconv()
 +{
++#ifdef __APPLE_PR3417676_HACK__
 +    /*--------------------------------------------------------------------
 +     * If _onlyClocaleconv is non-zero, just return __lconv, which is a "C"
 +     * struct lconv *.  Otherwise, do the normal thing.
 +     *--------------------------------------------------------------------*/
 +    if (_onlyClocaleconv)
 +	return &_C_lconv;
++#endif /* __APPLE_PR3417676_HACK__ */
 +    return localeconv_l(__current_locale());
  }

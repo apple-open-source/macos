@@ -240,7 +240,7 @@ AppleUSBOHCIgtdMemoryBlock::NewMemoryBlock(void)
 			}
 			me->_sharedPhysical = segments.fIOVMAddr;
 			block0 = (UInt32*) me->_sharedLogical;
-			*block0++ = (UInt32)me;
+			*block0++ = (uintptr_t)me;
 			*block0 =     kAppleUSBOHCIMemBlockGTD;
 		}
 		else
@@ -429,7 +429,7 @@ AppleUSBOHCIitdMemoryBlock::NewMemoryBlock(void)
 			}
 			me->_sharedPhysical = segments.fIOVMAddr;
 			block0 = (UInt32*) me->_sharedLogical;
-			*block0++ = (UInt32)me;
+			*block0++ = (uintptr_t)me;
 			*block0 =     kAppleUSBOHCIMemBlockITD;
 		}
 		else

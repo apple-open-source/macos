@@ -466,6 +466,7 @@ smb_gss_reset(struct smb_gss *gp)
 	/* Need to look at this one closer */
 	if (gp->gss_skey)
 		free(gp->gss_skey, M_TEMP);
+	gp->gss_skey = NULL;
 	gp->gss_skeylen = 0;
 	gp->gss_ctx = 0;
 	gp->gss_verif = 0;

@@ -1,0 +1,14 @@
+--- tzfile.h.orig	2008-03-15 10:50:45.000000000 -0700
++++ tzfile.h	2008-03-29 11:45:13.000000000 -0700
+@@ -38,7 +38,11 @@
+ #endif /* !defined TZDIR */
+ 
+ #ifndef TZDEFAULT
++#ifdef UNIFDEF_MOVE_LOCALTIME
++#define TZDEFAULT	"/var/db/timezone/localtime"
++#else /* !UNIFDEF_MOVE_LOCALTIME */
+ #define TZDEFAULT	"/etc/localtime"
++#endif /* UNIFDEF_MOVE_LOCALTIME */
+ #endif /* !defined TZDEFAULT */
+ 
+ #ifndef TZDEFRULES

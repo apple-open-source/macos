@@ -329,7 +329,14 @@ OSMetaClassDefineReservedUsed(IOStorage, 1);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOStorage, 2);
+IOReturn IOStorage::discard(IOService * client,
+                            UInt64      byteStart,
+                            UInt64      byteCount)
+{
+    return kIOReturnUnsupported;
+}
+
+OSMetaClassDefineReservedUsed(IOStorage, 2);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

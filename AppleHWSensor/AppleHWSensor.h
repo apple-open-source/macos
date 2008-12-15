@@ -24,6 +24,9 @@
  *
  */
 //		$Log: AppleHWSensor.h,v $
+//		Revision 1.14  2008/04/18 23:25:31  raddog
+//		<rdar://problem/5828356> AppleHWSensor - control code needs to deal with endian issues
+//		
 //		Revision 1.13  2007/03/16 21:40:09  raddog
 //		[5056773]IOHWMonitor::updateValue() may call callPlatformFunction with NULL key
 //		
@@ -74,7 +77,7 @@
 // #define APPLEHWSENSOR_DEBUG 1
 
 #ifdef APPLEHWSENSOR_DEBUG
-#define DLOG(fmt, args...)  IOLog(fmt, ## args)
+#define DLOG(fmt, args...)  kprintf(fmt, ## args)
 #else
 #define DLOG(fmt, args...)
 #endif

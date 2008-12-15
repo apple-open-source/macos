@@ -655,7 +655,7 @@ chg_l_to_X_orX_ ()
 }
 
 /*
-** Change the charcter left to the cursor to a X or _X type
+** Change the character left to the cursor to a X or _X type
 */
 
     static void
@@ -724,7 +724,7 @@ chg_l_toXor_X ()
 }
 
 /*
-** Change the charcter right to the cursor to a _X or _X_ type
+** Change the character right to the cursor to a _X or _X_ type
 */
 
     static void
@@ -1939,7 +1939,9 @@ lrFswap(cmdbuf, len)
 }
 
 /*
- * Reverse the characters in the search path and substitute section accordingly
+ * Reverse the characters in the search path and substitute section
+ * accordingly.
+ * TODO: handle different separator characters.  Use skip_regexp().
  */
     char_u *
 lrF_sub(ibuf)

@@ -56,6 +56,7 @@
 #define kIOUSBMassStorageMaxLogicalUnitNumber	"Max Logical Unit Number"
 #define kIOPropertyIOUnitKey                    "IOUnit"
 
+
 #pragma mark -
 #pragma mark CBI Protocol Strutures
 // Structure for the global PB's
@@ -444,6 +445,8 @@ protected:
 
     void                ResetDeviceNow( bool waitForReset );
 	void                AbortCurrentSCSITask( void );
+	
+	bool			IsPhysicalInterconnectLocationInternal ( void );
 	 
 	// Space reserved for future expansion.
     OSMetaClassDeclareReservedUnused( IOUSBMassStorageClass, 3 );

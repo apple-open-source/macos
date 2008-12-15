@@ -1,11 +1,10 @@
 #	Makefile.inc,v 1.2 1994/09/13 21:26:01 wollman Exp
 # $FreeBSD: src/lib/libc/stdtime/Makefile.inc,v 1.14 2002/11/18 09:50:56 ru Exp $
 
-.PATH:	${.CURDIR}/stdtime
+.PATH: ${.CURDIR}/stdtime
+CWD := ${.CURDIR}/stdtime
 
 CFLAGS += -I${.CURDIR}/stdtime
-
-CFLAGS-localtime-fbsd.c += -DNOTIFY_TZ
 
 LEGACYSRCS += localtime.c strftime.c strptime.c
 

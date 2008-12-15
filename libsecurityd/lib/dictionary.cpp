@@ -24,8 +24,24 @@
 
 #include "dictionary.h"
 #include <ctype.h>
+#include <syslog.h>
 
 namespace Security {
+
+static uint32_t GetUInt32(unsigned char*& finger)
+{
+	uint32 result = 0;
+	unsigned i;
+	
+	for (i = 0; i < sizeof(uint32); ++i)
+	{
+		result = (result << 8) | *finger++;
+	}
+	
+	return result;
+}
+
+
 
 CssmData NameValuePair::CloneData (const CssmData &value)
 {
@@ -53,20 +69,8 @@ NameValuePair::NameValuePair (const CssmData &data)
 {
 	// the first four bytes are the name
 	unsigned char* finger = (unsigned char*) data.data ();
-	mName = 0;
-	
-	unsigned int i;
-	for (i = 0; i < sizeof (uint32); ++i)
-	{
-		mName = (mName << 8) | *finger++;
-	}
-	
-	// the next four bytes are the length
-	uint32 length = 0;
-	for (i = 0; i < sizeof (uint32); ++i)
-	{
-		length = (length << 8) | *finger++;
-	}
+	mName = GetUInt32(finger);
+	uint32 length = GetUInt32(finger);
 	
 	// what's left is the data
 	mValue = CloneData (CssmData (finger, length));
@@ -136,11 +140,14 @@ NameValueDictionary::~NameValueDictionary ()
 
 
 
-NameValueDictionary::NameValueDictionary (const CssmData &data)
+// To work around 5964438, move code out of the constructor
+void NameValueDictionary::MakeFromData(const CssmData &data)
 {
 	// reconstruct a name value dictionary from a series of exported NameValuePair blobs
 	unsigned char* finger = (unsigned char*) data.data ();
 	unsigned char* target = finger + data.length ();
+
+	bool done = false;
 
 	do
 	{
@@ -159,11 +166,45 @@ NameValueDictionary::NameValueDictionary (const CssmData &data)
 		
 		// add the length of the "header"
 		length += 2 * sizeof (uint32);
+		
+		// do some sanity checking on the data.
+		uint32 itemLength = 0;
+		unsigned char* fingerX = finger;
+		
+		// extract the name in a printable format
+		char nameBuff[5];
+		char* nameFinger = nameBuff;
+		
+		// work around a bug with invalid lengths coming from securityd
+		if (fingerX + sizeof(uint32) < target)
+		{
+			*nameFinger++ = (char) *fingerX++;
+			*nameFinger++ = (char) *fingerX++;
+			*nameFinger++ = (char) *fingerX++;
+			*nameFinger++ = (char) *fingerX++;
+			*nameFinger++ = 0;
+			
+			itemLength = GetUInt32(fingerX);
+			
+			if (fingerX + itemLength > target) // this is the bug
+			{
+				done = true;
+			}
+		}
+		
+		// This shouldn't crash any more...
 		Insert (new NameValuePair (CssmData (finger, length)));
 		
 		// skip to the next data
 		finger += length;
-	} while (finger < target);
+	} while (!done && finger < target);
+}
+
+
+
+NameValueDictionary::NameValueDictionary (const CssmData &data)
+{
+	MakeFromData(data);
 }
 	
 
@@ -287,13 +328,23 @@ void NameValueDictionary::MakeNameValueDictionaryFromDLDbIdentifier (const DLDbI
 
 
 
-DLDbIdentifier NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary (const NameValueDictionary &nvd)
+static void CheckNullPointer(const void* p)
 {
-	CSSM_SUBSERVICE_UID* uid = (CSSM_SUBSERVICE_UID*) nvd.FindByName (SSUID_KEY)->Value ().data ();
-	if (uid == NULL)
+	if (p == NULL)
 	{
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 	}
+}
+
+
+
+DLDbIdentifier NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary (const NameValueDictionary &nvd)
+{
+	const NameValuePair* nvp = nvd.FindByName (SSUID_KEY);
+	CheckNullPointer(nvp);
+	
+	CSSM_SUBSERVICE_UID* uid = (CSSM_SUBSERVICE_UID*) nvp->Value().data ();
+	CheckNullPointer(uid);
 	
 	CSSM_SUBSERVICE_UID baseID = *uid;
 	
@@ -302,9 +353,12 @@ DLDbIdentifier NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary (c
 	baseID.SubserviceId = n2h (baseID.SubserviceId);
 	baseID.SubserviceType = n2h (baseID.SubserviceType);
 	
-	char* name = (char*) nvd.FindByName (DB_NAME)->Value ().data ();
+	nvp = nvd.FindByName (DB_NAME);
+	CheckNullPointer(nvp);
 	
-	const NameValuePair* nvp = nvd.FindByName (DB_LOCATION);
+	char* name = (char*) nvp->Value ().data ();
+	
+	nvp = nvd.FindByName (DB_LOCATION);
 	CSSM_NET_ADDRESS* address = nvp ? (CSSM_NET_ADDRESS*) nvp->Value ().data () : NULL;
 	
 	return DLDbIdentifier (baseID, name, address);

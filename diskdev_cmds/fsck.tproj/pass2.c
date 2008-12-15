@@ -191,7 +191,7 @@ pass2()
 		    statemap[inp->i_number] == DSTATE)
 			statemap[inp->i_number] = DFOUND;
 		if (inp->i_dotdot == inp->i_parent ||
-		    inp->i_dotdot == (ino_t)-1)
+		    inp->i_dotdot == (u_int32_t)-1)
 			continue;
 		if (inp->i_dotdot == 0) {
 			inp->i_dotdot = inp->i_parent;
@@ -344,11 +344,11 @@ chk1:
 		fileerror(inp->i_parent, idesc->id_number, "MISSING '..'");
 		pfatal("CANNOT FIX, SECOND ENTRY IN DIRECTORY CONTAINS %s\n",
 			dirp->d_name);
-		inp->i_dotdot = (ino_t)-1;
+		inp->i_dotdot = (u_int32_t)-1;
 	} else if (dirp->d_reclen < entrysize) {
 		fileerror(inp->i_parent, idesc->id_number, "MISSING '..'");
 		pfatal("CANNOT FIX, INSUFFICIENT SPACE TO ADD '..'\n");
-		inp->i_dotdot = (ino_t)-1;
+		inp->i_dotdot = (u_int32_t)-1;
 	} else if (inp->i_parent != 0) {
 		/*
 		 * We know the parent, so fix now.

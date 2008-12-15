@@ -30,31 +30,19 @@
 #include "PIVToken.h"
 #include "PIVError.h"
 
-PIVCCC::PIVCCC() : mData(NULL)
+#include "TLV.h"
+
+PIVCCC::PIVCCC(const byte_string &data) throw(PIVError)
 {
+	/* Upon construction, parse the input data */
+	parse(data);
 }
 
 PIVCCC::~PIVCCC()
 {
-	delete mData;
-	delete mIdentifier.Data;
 }
 
-void PIVCCC::set(const CssmData &data)
-{
-	const unsigned int maxCCCLength = 300;		// SP800-73-1 says 266, but make a bit larger
-	if (!mData)
-		mData = new unsigned char [maxCCCLength];
-	if (!mData)
-		return;
-	if (0 < data.Length && data.Length < maxCCCLength)
-	{
-		memcpy(mData, data.Data, data.Length);
-		parse();
-	}
-}
-
-void PIVCCC::parse()
+void PIVCCC::parse(const byte_string &data) throw(PIVError)
 {
 	/*
 		Sample CCC block
@@ -63,29 +51,32 @@ void PIVCCC::parse()
 		83 58 F1 01 21 F2 01 21 F3 00 F4 01 00 F5 01 10 F6 11 00 00 00 00 00 
 		00 00 00 00 00 00 00 00 00 00 00 00 F7 00 FA 00 FB 00 FC 00 FD 00 FE 00 90 00
 	*/
-	const unsigned char *pd = mData;
-	uint32_t lenlen = 0;
-	if (*pd == PIV_GETDATA_RESPONSE_TAG)
-		pd++;
-	uint32_t overallLength = PIVToken::parseBERLength(pd, lenlen);
-	if (overallLength > maxCCCLength)
+	// Parse the CCC as a TLV
+	TLV_ref tlv;
+	try {
+		tlv = TLV::parse(data);
+	} catch (std::runtime_error &e) {
+		PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
+	}
+	// Check that the return-data tag is correct
+	if(tlv->getTag().size() != 1 || tlv->getTag()[0] != PIV_GETDATA_RESPONSE_TAG)
 		PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
 
-	for (int remaining=overallLength-1;remaining>0;)
-	{
-		uint32_t datalen = 0;
-		uint8_t tag = *pd++;
-		remaining--;
+	// Iterate over the TLV's contained values to check for desired/invalid values
+	TLVList list = tlv->getInnerValues();
+	for(TLVList::const_iterator iter = list.begin(); iter != list.end(); ++iter) {
+		// No known CCC tags of > 1 byte
+		if((*iter)->getTag().size() != 1)
+			PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
+		uint8_t tag = (*iter)->getTag()[0];
 		switch (tag)
 		{
 		case PIV_CCC_TAG_CARD_IDENTIFIER:			// 0xF0
-			datalen = PIVToken::parseBERLength(pd, lenlen);
-			if (!mIdentifier.Data)
-				mIdentifier.Data = new unsigned char[PIV_CCC_SZ_CARD_IDENTIFIER];
-			memcpy(mIdentifier.Data, pd, datalen);
-			mIdentifier.Length = datalen;
+			// Store the card identifier value persistently
+			mIdentifier_content = (*iter)->getValue();
+			mIdentifier.Data = &mIdentifier_content[0];
+			mIdentifier.Length = mIdentifier_content.size();
 			break;
-
 		case PIV_CCC_TAG_CARD_CONTAINER_VERS:		// 0xF1
 		case PIV_CCC_TAG_CARD_GRAMMAR_VERS:			// 0xF2
 		case PIV_CCC_TAG_APPS_URL:					// 0xF3
@@ -102,14 +93,13 @@ void PIVCCC::parse()
 		case PIV_CCC_TAG_ERROR_DETECTION:			// 0xFE
 		case 0:
 		case 0xFF:
-			datalen = PIVToken::parseBERLength(pd, lenlen);
+			// Permit these values, but throw them away
 			break;
 		default:
+			// Unknown data is an error condition
 			PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
 			break;
 		}
-		remaining -= (datalen + lenlen);
-		pd += datalen;
 	}
 }
 

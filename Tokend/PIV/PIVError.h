@@ -53,6 +53,7 @@ class PIVError : public Tokend::SCardError
 {
 protected:
     PIVError(uint16_t sw);
+	virtual ~PIVError() throw ();
 public:
 	OSStatus osStatus() const;
 	virtual const char *what () const throw ();

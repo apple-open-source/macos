@@ -59,11 +59,11 @@
 	
     UInt16					i, j;
     UInt8					*p;
-    UInt32					*t;
+    uint32_t					*t;
     char					*s = NULL;
     IOUSBVCInterfaceDescriptor *                desc = (IOUSBVCInterfaceDescriptor *) descriptor;
     UInt64					uuidLO;
-    UInt32                                      data1;
+    uint32_t                                      data1;
     UInt16                                      data2, data3;
     char					str[256];
 	
@@ -219,7 +219,7 @@
 				
                 sprintf((char *)buf, "%u", Swap16(&pVideoControlHeader->wTotalLength) );
 				
-                sprintf((char *)buf, "%lu", Swap32(&pVideoControlHeader->dwClockFrequency) );
+                sprintf((char *)buf, "%u", Swap32(&pVideoControlHeader->dwClockFrequency) );
                 [thisDevice addProperty:"Device Clock Frequency (Hz):" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
                 sprintf((char *)buf, "%u", pVideoControlHeader->bInCollection );
@@ -325,7 +325,7 @@
 							{
 								if ( i == 0 ) 	sprintf((char *)buf, "Scanning Mode");
 								else if ( i == 1 ) 	sprintf((char *)buf, "Iris (Relative)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Iris (Relative)");
+								else if ( i == 2 ) 	sprintf((char *)buf, "Reserved");
 								if ( strcmp(buf,"") )
 									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
 							}
@@ -334,7 +334,7 @@
 							{
 								if ( i == 0 ) 	sprintf((char *)buf, "Auto Exposure Mode");
 								else if ( i == 1 ) 	sprintf((char *)buf, "Zoom (Absolute)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Tilt (Relative)");
+								else if ( i == 2 ) 	sprintf((char *)buf, "Focus, Auto");
 								if ( strcmp(buf,"") )
 									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
 							}
@@ -343,7 +343,7 @@
 							{
 								if ( i == 0 ) 	sprintf((char *)buf, "Auto Exposure Priority");
 								else if ( i == 1 ) 	sprintf((char *)buf, "Zoom (Relative)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Focus, Auto");
+								else if ( i == 2 ) 	sprintf((char *)buf, "Privacy");
 								if ( strcmp(buf,"") )
 									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
 							}
@@ -352,7 +352,7 @@
 							{
 								if ( i == 0 ) 	sprintf((char *)buf, "Exposure Time (Absolute)");
 								else if ( i == 1 ) 	sprintf((char *)buf, "Pan (Absolute)");
-								else if ( i == 2 ) 	sprintf((char *)buf, "Unknown");
+								else if ( i == 2 ) 	sprintf((char *)buf, "Reserved");
 								if ( strcmp(buf,"") )
 									[thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+2];
 							}
@@ -601,14 +601,14 @@
                 sprintf((char *)buf, 	"%u", pExtensionUnitDesc->bUnitID );
                 [thisDevice addProperty:"Unit ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				data1 = USBToHostLong(* (UInt32 *) &pExtensionUnitDesc->guidFormat[0]);
+				data1 = USBToHostLong(* (uint32_t *) &pExtensionUnitDesc->guidFormat[0]);
 				data2 = USBToHostWord(* (UInt16 *) &pExtensionUnitDesc->guidFormat[4]);
 				data3 = USBToHostWord(* (UInt16 *) &pExtensionUnitDesc->guidFormat[6]);
 				uuidLO = NXSwapBigLongLongToHost(* (UInt64 *) &pExtensionUnitDesc->guidFormat[8]);
 				
 				
-				sprintf((char *)buf, 	"%8.8lx-%4.4x-%4.4x-%4.4lx-%12.12qx", data1, data2, data3, 
-						(UInt32) ( (uuidLO & 0xffff000000000000ULL)>>48), (uuidLO & 0x0000FFFFFFFFFFFFULL) );
+				sprintf((char *)buf, 	"%8.8x-%4.4x-%4.4x-%4.4x-%12.12qx", data1, data2, data3, 
+						(uint32_t) ( (uuidLO & 0xffff000000000000ULL)>>48), (uuidLO & 0x0000FFFFFFFFFFFFULL) );
                 [thisDevice addProperty:"Vendor UUID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
                 sprintf((char *)buf, 	"%u", pExtensionUnitDesc->bNumControls );
@@ -908,28 +908,28 @@
 				sprintf((char *)buf, "0x%x (%u)", Swap16(&pMJPEGFrameDesc->wHeight), pMJPEGFrameDesc->wHeight);
 				[thisDevice addProperty:"wHeight:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				sprintf((char *)buf, "0x%lx (%lu)", Swap32(&pMJPEGFrameDesc->dwMinBitRate), pMJPEGFrameDesc->dwMinBitRate);
+				sprintf((char *)buf, "0x%x (%u)", Swap32(&pMJPEGFrameDesc->dwMinBitRate), pMJPEGFrameDesc->dwMinBitRate);
 				[thisDevice addProperty:"dwMinBitRate (bps):" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				sprintf((char *)buf, "0x%lx (%lu)", Swap32(&pMJPEGFrameDesc->dwMaxBitRate), pMJPEGFrameDesc->dwMaxBitRate);
+				sprintf((char *)buf, "0x%x (%u)", Swap32(&pMJPEGFrameDesc->dwMaxBitRate), pMJPEGFrameDesc->dwMaxBitRate);
 				[thisDevice addProperty:"dwMaxBitRate (bps):" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				sprintf((char *)buf, "0x%lx (%lu)", Swap32(&pMJPEGFrameDesc->dwMaxVideoFrameBufferSize), pMJPEGFrameDesc->dwMaxVideoFrameBufferSize);
+				sprintf((char *)buf, "0x%x (%u)", Swap32(&pMJPEGFrameDesc->dwMaxVideoFrameBufferSize), pMJPEGFrameDesc->dwMaxVideoFrameBufferSize);
 				[thisDevice addProperty:"dwMaxVideoFrameBufferSize (bytes):" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				sprintf((char *)buf, "0x%lx (%8.3f ms)", Swap32(&pMJPEGFrameDesc->dwDefaultFrameInterval), (double) ( pMJPEGFrameDesc->dwDefaultFrameInterval / 10000) );
+				sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pMJPEGFrameDesc->dwDefaultFrameInterval), (double) ( pMJPEGFrameDesc->dwDefaultFrameInterval / 10000) );
 				[thisDevice addProperty:"dwDefaultFrameInterval:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				if (pMJPEGFrameDesc->bFrameIntervalType == 0)
 				{
 					[thisDevice addProperty:"bFrameIntervalType:" withValue:"Continuous" atDepth:INTERFACE_LEVEL+1];
 					
-					sprintf((char *)buf, "0x%lx (%8.3f ms)", Swap32(&pMJPEGFrameDesc->dwMinFrameInterval), (double) ( pMJPEGFrameDesc->dwMinFrameInterval / 10000) );
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pMJPEGFrameDesc->dwMinFrameInterval), (double) ( pMJPEGFrameDesc->dwMinFrameInterval / 10000) );
 					[thisDevice addProperty:"dwMinFrameInterval:" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
-					sprintf((char *)buf, "0x%lx (%8.3f ms)", Swap32(&pMJPEGFrameDesc->dwMaxFrameInterval), (double) ( pMJPEGFrameDesc->dwMaxFrameInterval / 10000) );
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pMJPEGFrameDesc->dwMaxFrameInterval), (double) ( pMJPEGFrameDesc->dwMaxFrameInterval / 10000) );
 					[thisDevice addProperty:"dwMaxFrameInterval:" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
-					sprintf((char *)buf, "0x%lx (%8.3f ms)", Swap32(&pMJPEGFrameDesc->dwFrameIntervalStep), (double) ( pMJPEGFrameDesc->dwFrameIntervalStep / 10000) );
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pMJPEGFrameDesc->dwFrameIntervalStep), (double) ( pMJPEGFrameDesc->dwFrameIntervalStep / 10000) );
 					[thisDevice addProperty:"dwFrameIntervalStep:" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
 				}
@@ -943,7 +943,7 @@
 						for (i = 0, t = &pMJPEGDiscreteFrameDesc->dwFrameInterval[0]; i < pMJPEGDiscreteFrameDesc->bFrameIntervalType; i++, t++ )
 						{
 							UInt32 interval = *t;
-							sprintf((char *)buf, "0x%lx (%8.3f ms)", Swap32(&interval), (double) (interval / 10000));
+							sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&interval), (double) (interval / 10000));
 							sprintf((char *)buf2, "dwFrameInterval[%u] (100 ns)", i+1 );
 							[thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+2];
 						}
@@ -1011,14 +1011,14 @@
 				
 				// Decode the GUID per section 2.9 of the FAQ
 				//
-				data1 = USBToHostLong(* (UInt32 *) &pUncompressedFormatDesc->guidFormat[0]);
+				data1 = USBToHostLong(* (uint32_t *) &pUncompressedFormatDesc->guidFormat[0]);
 				data2 = USBToHostWord(* (UInt16 *) &pUncompressedFormatDesc->guidFormat[4]);
 				data3 = USBToHostWord(* (UInt16 *) &pUncompressedFormatDesc->guidFormat[6]);
 				uuidLO = NXSwapBigLongLongToHost(* (UInt64 *) &pUncompressedFormatDesc->guidFormat[8]);
 				
 				
-				sprintf((char *)buf, 	"%8.8lx-%4.4x-%4.4x-%4.4lx-%12.12qx", data1, data2, data3, 
-						(UInt32) ( (uuidLO & 0xffff000000000000ULL)>>48), (uuidLO & 0x0000FFFFFFFFFFFFULL) );
+				sprintf((char *)buf, 	"%8.8x-%4.4x-%4.4x-%4.4x-%12.12qx", data1, data2, data3, 
+						(uint32_t) ( (uuidLO & 0xffff000000000000ULL)>>48), (uuidLO & 0x0000FFFFFFFFFFFFULL) );
 				[thisDevice addProperty:"Format GUID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				sprintf((char *)buf, "0x%x (%u)", pUncompressedFormatDesc->bBitsPerPixel,pUncompressedFormatDesc->bBitsPerPixel);
@@ -1099,29 +1099,29 @@
 				sprintf((char *)buf, "0x%x (%u)", Swap16(&pUncompressedFrameDesc->wHeight), pUncompressedFrameDesc->wHeight);
 				[thisDevice addProperty:"wHeight:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				sprintf((char *)buf, "0x%lx (%lu)", Swap32(&pUncompressedFrameDesc->dwMinBitRate), pUncompressedFrameDesc->dwMinBitRate);
+				sprintf((char *)buf, "0x%x (%u)", Swap32(&pUncompressedFrameDesc->dwMinBitRate), pUncompressedFrameDesc->dwMinBitRate);
 				[thisDevice addProperty:"dwMinBitRate (bps):" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				sprintf((char *)buf, "0x%lx (%lu)", Swap32(&pUncompressedFrameDesc->dwMaxBitRate), pUncompressedFrameDesc->dwMaxBitRate);
+				sprintf((char *)buf, "0x%x (%u)", Swap32(&pUncompressedFrameDesc->dwMaxBitRate), pUncompressedFrameDesc->dwMaxBitRate);
 				[thisDevice addProperty:"dwMaxBitRate (bps):" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				sprintf((char *)buf, "0x%lx (%lu)", Swap32(&pUncompressedFrameDesc->dwMaxVideoFrameBufferSize), pUncompressedFrameDesc->dwMaxVideoFrameBufferSize);
+				sprintf((char *)buf, "0x%x (%u)", Swap32(&pUncompressedFrameDesc->dwMaxVideoFrameBufferSize), pUncompressedFrameDesc->dwMaxVideoFrameBufferSize);
 				[thisDevice addProperty:"dwMaxVideoFrameBufferSize (bytes):" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-				sprintf((char *)buf, "0x%lx (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwDefaultFrameInterval), (double) (pUncompressedFrameDesc->dwDefaultFrameInterval / 10000));
+				sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwDefaultFrameInterval), (double) (pUncompressedFrameDesc->dwDefaultFrameInterval / 10000));
 				[thisDevice addProperty:"dwDefaultFrameInterval (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				if (pUncompressedFrameDesc->bFrameIntervalType == 0)
 				{
 					[thisDevice addProperty:"bFrameIntervalType:" withValue:"Continuous" atDepth:INTERFACE_LEVEL+1];
 					
-					sprintf((char *)buf, "0x%lx (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwMinFrameInterval), (double ) (pUncompressedFrameDesc->dwMinFrameInterval / 100000) );
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwMinFrameInterval), (double ) (pUncompressedFrameDesc->dwMinFrameInterval / 100000) );
 					[thisDevice addProperty:"dwMinFrameInterval (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
-					sprintf((char *)buf, "0x%lx (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwMaxFrameInterval),  (double ) (pUncompressedFrameDesc->dwMaxFrameInterval / 100000) );
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwMaxFrameInterval),  (double ) (pUncompressedFrameDesc->dwMaxFrameInterval / 100000) );
 					[thisDevice addProperty:"dwMaxFrameInterval (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
-					sprintf((char *)buf, "0x%lx (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwFrameIntervalStep),  (double ) (pUncompressedFrameDesc->dwFrameIntervalStep / 100000) );
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwFrameIntervalStep),  (double ) (pUncompressedFrameDesc->dwFrameIntervalStep / 100000) );
 					[thisDevice addProperty:"dwFrameIntervalStep (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
 				}
@@ -1137,7 +1137,7 @@
 						for (i = 0, t = &pUncompressedDiscreteFrameDesc->dwFrameInterval[0]; i < pUncompressedDiscreteFrameDesc->bFrameIntervalType; i++, t++ )
 						{
 							UInt32 interval = *t;
-							sprintf((char *)buf, "0x%lx (%8.3f ms)", Swap32(&interval), (double) (interval / 10000));
+							sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&interval), (double) (interval / 10000));
 							sprintf((char *)buf2, "dwFrameInterval[%u] (100 ns)", i+1 );
 							[thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+2];
 						}

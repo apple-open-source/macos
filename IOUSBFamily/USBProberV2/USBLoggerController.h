@@ -68,6 +68,7 @@
     NSTimer *           _refreshTimer;
     
     BOOL                _klogKextisPresent;
+    BOOL                _klogKextIsCorrectRevision;
 }
 
 - (void)setupRecentSearchesMenu;
@@ -81,7 +82,9 @@
 - (IBAction)FilterOutput:(id)sender;
 
 - (BOOL)isKlogKextPresent;
+- (BOOL)isKlogCorrectRevision;
 - (BOOL)installKLogKext;
+- (BOOL)removeAndinstallKLogKext;
 
 - (NSArray *)logEntries;
 - (NSArray *)displayedLogLines;

@@ -71,7 +71,7 @@
 #include "ufs_byte_order.h"
 #endif	/* REV_ENDIAN_FS */
 
-static ino_t startinum;
+static u_int32_t startinum;
 
 static int iblock __P((struct inodesc *, long ilevel, quad_t isize));
 
@@ -245,7 +245,7 @@ chkrange(blk, cnt)
  */
 struct dinode *
 ginode(inumber)
-	ino_t inumber;
+	u_int32_t inumber;
 {
 	ufs_daddr_t iblk;
 
@@ -270,13 +270,13 @@ ginode(inumber)
  * Special purpose version of ginode used to optimize first pass
  * over all the inodes in numerical order.
  */
-ino_t nextino, lastinum;
+u_int32_t nextino, lastinum;
 long readcnt, readpercg, fullcnt, inobufsize, partialcnt, partialsize;
 struct dinode *inodebuf;
 
 struct dinode *
 getnextinode(inumber)
-	ino_t inumber;
+	u_int32_t inumber;
 {
 	long size;
 	ufs_daddr_t dblk;
@@ -349,7 +349,7 @@ freeinodebuf()
 void
 cacheino(dp, inumber)
 	register struct dinode *dp;
-	ino_t inumber;
+	u_int32_t inumber;
 {
 	register struct inoinfo *inp;
 	struct inoinfo **inpp;
@@ -368,8 +368,8 @@ cacheino(dp, inumber)
 	if (inumber == ROOTINO)
 		inp->i_parent = ROOTINO;
 	else
-		inp->i_parent = (ino_t)0;
-	inp->i_dotdot = (ino_t)0;
+		inp->i_parent = (u_int32_t)0;
+	inp->i_dotdot = (u_int32_t)0;
 	inp->i_number = inumber;
 	inp->i_isize = dp->di_size;
 	inp->i_numblks = blks * sizeof(ufs_daddr_t);
@@ -392,7 +392,7 @@ cacheino(dp, inumber)
  */
 struct inoinfo *
 getinoinfo(inumber)
-	ino_t inumber;
+	u_int32_t inumber;
 {
 	register struct inoinfo *inp;
 
@@ -484,7 +484,7 @@ findino(idesc)
 
 void
 pinode(ino)
-	ino_t ino;
+	u_int32_t ino;
 {
 	register struct dinode *dp;
 	register char *p;
@@ -511,7 +511,7 @@ pinode(ino)
 
 void
 blkerror(ino, type, blk)
-	ino_t ino;
+	u_int32_t ino;
 	char *type;
 	ufs_daddr_t blk;
 {
@@ -541,12 +541,12 @@ blkerror(ino, type, blk)
 /*
  * allocate an unused inode
  */
-ino_t
+u_int32_t
 allocino(request, type)
-	ino_t request;
+	u_int32_t request;
 	int type;
 {
-	register ino_t ino;
+	register u_int32_t ino;
 	register struct dinode *dp;
 	time_t t;
 
@@ -598,7 +598,7 @@ allocino(request, type)
  */
 void
 freeino(ino)
-	ino_t ino;
+	u_int32_t ino;
 {
 	struct inodesc idesc;
 	struct dinode *dp;

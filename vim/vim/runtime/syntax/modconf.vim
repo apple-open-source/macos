@@ -1,13 +1,13 @@
 " Vim syntax file
 " Language:         modules.conf(5) configuration file
 " Maintainer:       Nikolai Weibull <now@bitwi.se>
-" Latest Revision:  2006-04-19
+" Latest Revision:  2007-10-25
 
 if exists("b:current_syntax")
   finish
 endif
 
-setlocal iskeyword=@,48-57,-
+setlocal iskeyword+=-
 
 let s:cpo_save = &cpo
 set cpo&vim
@@ -21,7 +21,7 @@ syn keyword modconfConditional  if else elseif endif
 
 syn keyword modconfPreProc      alias define include keep prune
                                 \ post-install post-remove pre-install
-                                \ pre-remove persistdir
+                                \ pre-remove persistdir blacklist
 
 syn keyword modconfKeyword      add above below install options probe probeall
                                 \ remove

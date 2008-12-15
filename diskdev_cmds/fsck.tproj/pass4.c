@@ -69,7 +69,7 @@
 void
 pass4()
 {
-	register ino_t inumber;
+	register u_int32_t inumber;
 	register struct zlncnt *zlnp;
 	struct dinode *dp;
 	struct inodesc idesc;

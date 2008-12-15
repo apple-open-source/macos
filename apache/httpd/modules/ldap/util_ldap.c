@@ -212,7 +212,9 @@ static int uldap_connection_init(request_rec *r,
     int rc = 0, ldap_option = 0;
     int version  = LDAP_VERSION3;
     apr_ldap_err_t *result = NULL;
+#ifdef LDAP_OPT_NETWORK_TIMEOUT
     struct timeval timeOut = {10,0};    /* 10 second connection timeout */
+#endif
     util_ldap_state_t *st =
         (util_ldap_state_t *)ap_get_module_config(r->server->module_config,
         &ldap_module);
@@ -923,12 +925,10 @@ static int uldap_cache_checkuserid(request_rec *r, util_ldap_connection_t *ldc,
                 /* ...and entry is valid */
                 *binddn = apr_pstrdup(r->pool, search_nodep->dn);
                 if (attrs) {
-                    int i = 0, k = 0;
-                    while (attrs[k++]);
-                    *retvals = apr_pcalloc(r->pool, sizeof(char *) * k);
-                    while (search_nodep->vals[i]) {
+                    int i;
+                    *retvals = apr_pcalloc(r->pool, sizeof(char *) * search_nodep->numvals);
+                    for (i = 0; i < search_nodep->numvals; i++) {
                         (*retvals)[i] = apr_pstrdup(r->pool, search_nodep->vals[i]);
-                        i++;
                     }
                 }
                 LDAP_CACHE_UNLOCK();
@@ -1172,12 +1172,10 @@ static int uldap_cache_getuserdn(request_rec *r, util_ldap_connection_t *ldc,
                 /* ...and entry is valid */
                 *binddn = apr_pstrdup(r->pool, search_nodep->dn);
                 if (attrs) {
-                    int i = 0, k = 0;
-                    while (attrs[k++]);
-                    *retvals = apr_pcalloc(r->pool, sizeof(char *) * k);
-                    while (search_nodep->vals[i]) {
+                    int i;
+                    *retvals = apr_pcalloc(r->pool, sizeof(char *) * search_nodep->numvals);
+                    for (i = 0; i < search_nodep->numvals; i++) {
                         (*retvals)[i] = apr_pstrdup(r->pool, search_nodep->vals[i]);
-                        i++;
                     }
                 }
                 LDAP_CACHE_UNLOCK();
@@ -1773,9 +1771,11 @@ static const char *util_ldap_set_connection_timeout(cmd_parms *cmd,
                                                     void *dummy,
                                                     const char *ttl)
 {
+#ifdef LDAP_OPT_NETWORK_TIMEOUT
     util_ldap_state_t *st =
         (util_ldap_state_t *)ap_get_module_config(cmd->server->module_config,
                                                   &ldap_module);
+#endif
     const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
 
     if (err != NULL) {
